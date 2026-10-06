@@ -168,7 +168,13 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 
 ### 3.5 帳號停用、刪除、憑證失效（D17）
 
-`SESSIONS_REVOKED { userIds }` 時（事件在租戶的脈絡裡發佈，帳號 id 是 `t:{tenantId}:{userId}`），這些人的 IdP session 一起銷毀。provider 的 `findAccount` 找不到可用的帳號時，
+`SESSIONS_REVOKED` 時，這些人的 IdP session，以及 **密碼步驟已完成、還沒 resume 的互動**（`result.login.accountId`）一起銷毀：
+
+- `userIds`：事件在租戶的脈絡裡發佈，帳號 id 是 `t:{tenantId}:{userId}`（停用、刪除、改密碼、重設密碼）。
+- `platformAdminIds`：平台管理者沒有租戶脈絡，帳號 id 是 `p:{adminId}`（停用、改密碼、重設密碼）。
+
+只銷毀 session 不夠：互動的密碼步驟與 resume 之間可以隔一段時間（互動 TTL 1 小時），握著 resume 網址的人在本人改密碼之後
+仍能換到授權碼；所以未完成的互動一起作廢。provider 的 `findAccount` 找不到可用的帳號時，
 清掉 session 上的帳號、改走登入互動（否則 provider 會在沒有帳號的情況下檢查同意而拋錯）。
 
 ## 4. 端點

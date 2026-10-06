@@ -35,7 +35,7 @@ const SUPERSEDED: RevokedReason = 'superseded';
 
 /**
  * 平台管理者的 refresh token（平台 DB）；查詢形狀與租戶的 `RefreshTokenRepository` 相同。
- * 停用、重設密碼時的撤銷在 `PlatformAdminRepository.updateAndEndSessions`（同一個交易裡改帳號欄位）。
+ * 停用、重設密碼時的撤銷在 `PlatformAdminRepository.revokeRefreshTokens`（由 service 與改帳號欄位放在同一個交易）。
  */
 @Injectable()
 export class PlatformRefreshTokenRepository {

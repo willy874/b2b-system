@@ -1,7 +1,9 @@
 import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { UserCacheService } from '@/core/cache';
+import { PLATFORM_DB, withTransaction } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { hashPassword, verifyPassword } from '@/modules/credential/password';
@@ -14,10 +16,14 @@ import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
  * 平台管理者從信中連結設定密碼（啟用、重設；同租戶的 `/auth/setup`、`/auth/reset-password`）。
  * token 無效、過期、用過一律 `AUTH_SETUP_TOKEN_INVALID`，不區分原因。
  * 另有已登入的管理者自己改名稱與密碼（apps/platform 的個人資料頁，同租戶的 `PATCH /auth/profile`、`/auth/change-password`）。
+ *
+ * 每個流程與租戶的 `AuthService` 相同：一個交易內依序「條件式消耗 token → 寫入 → 稽核」，
+ * 交易提交後才失效快取、發事件（CLAUDE.md 後端規則 6）。
  */
 @Injectable()
 export class PlatformAccountService {
   constructor(
+    @Inject(PLATFORM_DB) private readonly db: PlatformDatabase,
     private readonly repo: PlatformAdminRepository,
     private readonly tokens: PlatformAuthTokenRepository,
     private readonly audit: PlatformAuditService,
@@ -37,19 +43,29 @@ export class PlatformAccountService {
     if (!token || !admin || admin.status !== 'pending') {
       throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     }
-    await this.repo.update(admin.id, {
-      passwordHash: await hashPassword(password),
-      status: 'active',
+    // argon2 在交易外算：不佔著交易等雜湊
+    const passwordHash = await hashPassword(password);
+    await withTransaction(this.db, async (tx) => {
+      // 併發送出同一張 token：只有一個搶得到
+      if (!(await this.tokens.markUsed(token.id, tx))) {
+        throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+      }
+      const activated = await this.repo.update(admin.id, { passwordHash, status: 'active' }, tx, {
+        statusIn: ['pending'],
+      });
+      if (!activated) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+      await this.audit.record(
+        {
+          action: 'platformAdmin.activate',
+          resourceType: 'platformAdmin',
+          resourceId: admin.id,
+          actorId: admin.id,
+          actorEmail: admin.email,
+        },
+        tx,
+      );
     });
-    await this.tokens.markUsed(token.id);
     this.userCache.invalidate(admin.id);
-    await this.audit.record({
-      action: 'platformAdmin.activate',
-      resourceType: 'platformAdmin',
-      resourceId: admin.id,
-      actorId: admin.id,
-      actorEmail: admin.email,
-    });
     this.changed(admin.id);
     return { success: true };
   }
@@ -61,24 +77,38 @@ export class PlatformAccountService {
     if (!token || !admin || admin.status === 'inactive' || admin.status === 'pending') {
       throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     }
-    await this.repo.updateAndEndSessions(
-      admin.id,
-      {
-        passwordHash: await hashPassword(password),
-        failedLoginCount: 0,
-        lockedUntil: null,
-        status: 'active',
-      },
-      'password_reset',
-    );
-    await this.tokens.markUsed(token.id);
+    const passwordHash = await hashPassword(password);
+    await withTransaction(this.db, async (tx) => {
+      if (!(await this.tokens.markUsed(token.id, tx))) {
+        throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+      }
+      // 讀到之後才被停用（或刪除）的人不能被改回 active：狀態在寫入時再確認一次
+      // （`locked` 是舊版鎖定留下的值，平台 migration 0015 已改回 active）
+      const reset = await this.repo.update(
+        admin.id,
+        { passwordHash, failedLoginCount: 0, lockedUntil: null, status: 'active' },
+        tx,
+        { statusIn: ['active', 'locked'] },
+      );
+      if (!reset) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
+      await this.repo.incrementTokenVersion(admin.id, tx);
+      await this.repo.revokeRefreshTokens(admin.id, 'password_reset', tx);
+      await this.audit.record(
+        {
+          action: 'platformAdmin.passwordReset',
+          resourceType: 'platformAdmin',
+          resourceId: admin.id,
+          actorId: admin.id,
+          actorEmail: admin.email,
+        },
+        tx,
+      );
+    });
     this.userCache.invalidate(admin.id);
-    await this.audit.record({
-      action: 'platformAdmin.passwordReset',
-      resourceType: 'platformAdmin',
-      resourceId: admin.id,
-      actorId: admin.id,
-      actorEmail: admin.email,
+    // 其他裝置上的即時連線與 apps/platform 上的 IdP session 一起結束（docs/architecture/04-sso.md §3.5）
+    this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+      platformAdminIds: [admin.id],
+      reason: SessionRevokedReason.TOKEN_STALE,
     });
     return { success: true };
   }
@@ -88,16 +118,21 @@ export class PlatformAccountService {
     const admin = await this.repo.findById(adminId);
     if (!admin) throw new AppException('AUTH_TOKEN_INVALID');
     if (admin.displayName === displayName) return;
-    await this.repo.update(admin.id, { displayName });
-    this.userCache.invalidate(admin.id);
-    await this.audit.record({
-      action: 'platformAdmin.profileUpdate',
-      resourceType: 'platformAdmin',
-      resourceId: admin.id,
-      actorId: admin.id,
-      actorEmail: admin.email,
-      metadata: { displayName: { from: admin.displayName, to: displayName } },
+    await withTransaction(this.db, async (tx) => {
+      await this.repo.update(admin.id, { displayName }, tx);
+      await this.audit.record(
+        {
+          action: 'platformAdmin.profileUpdate',
+          resourceType: 'platformAdmin',
+          resourceId: admin.id,
+          actorId: admin.id,
+          actorEmail: admin.email,
+          metadata: { displayName: { from: admin.displayName, to: displayName } },
+        },
+        tx,
+      );
     });
+    this.userCache.invalidate(admin.id);
     this.changed(admin.id);
   }
 
@@ -127,20 +162,24 @@ export class PlatformAccountService {
     }
     if (currentPassword === newPassword) throw new AppException('AUTH_PASSWORD_WEAK');
 
-    await this.repo.updateAndEndSessions(
-      admin.id,
-      { passwordHash: await hashPassword(newPassword) },
-      'password_reset',
-    );
-    this.userCache.invalidate(admin.id);
-    await this.audit.record({
-      action: 'platformAdmin.passwordChange',
-      resourceType: 'platformAdmin',
-      resourceId: admin.id,
-      actorId: admin.id,
-      actorEmail: admin.email,
+    const passwordHash = await hashPassword(newPassword);
+    await withTransaction(this.db, async (tx) => {
+      await this.repo.update(admin.id, { passwordHash }, tx);
+      await this.repo.incrementTokenVersion(admin.id, tx);
+      await this.repo.revokeRefreshTokens(admin.id, 'password_reset', tx);
+      await this.audit.record(
+        {
+          action: 'platformAdmin.passwordChange',
+          resourceType: 'platformAdmin',
+          resourceId: admin.id,
+          actorId: admin.id,
+          actorEmail: admin.email,
+        },
+        tx,
+      );
     });
-    // 其他裝置上的即時連線一起斷掉（docs/architecture/backend/08-realtime.md §3.6）
+    this.userCache.invalidate(admin.id);
+    // 其他裝置上的即時連線與 IdP session 一起結束（docs/architecture/backend/08-realtime.md §3.6、04-sso.md §3.5）
     this.events.publish(DomainEvent.SESSIONS_REVOKED, {
       platformAdminIds: [admin.id],
       reason: SessionRevokedReason.TOKEN_STALE,

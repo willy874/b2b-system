@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 
-import { PLATFORM_DB, withTransaction } from '@/core/database';
+import { PLATFORM_DB } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx } from '@/core/database';
 import type { PlatformAdminRole, PlatformAdminRow } from '@/db/platform/schema';
 import { notDeleted, platformAdmins, platformRefreshTokens } from '@/db/platform/schema';
@@ -52,12 +52,11 @@ export class PlatformAdminRepository {
     return row;
   }
 
-  async create(input: {
-    email: string;
-    displayName: string;
-    role: PlatformAdminRole;
-  }): Promise<PlatformAdminRow> {
-    const [row] = await this.db
+  async create(
+    input: { email: string; displayName: string; role: PlatformAdminRole },
+    tx?: PlatformDbOrTx,
+  ): Promise<PlatformAdminRow> {
+    const [row] = await (tx ?? this.db)
       .insert(platformAdmins)
       .values({ ...input, status: 'pending' })
       .returning();
@@ -66,8 +65,10 @@ export class PlatformAdminRepository {
   }
 
   /**
-   * 登入失敗：原子遞增失敗次數，達到 `maxAttempts` 時鎖定（`status = locked`，平台管理介面以它顯示與解鎖）。
-   * 上一次鎖定已過期時從 1 重新計算；鎖定中不更新（回傳 undefined）。規則與租戶的 `UserRepository.recordFailedLogin` 相同。
+   * 登入失敗：原子遞增失敗次數，達到 `maxAttempts` 時鎖定。**只寫 `locked_until`、不改 `status`**：改了 status，
+   * 任何知道 email 的人錯 N 次就能把線上的平台管理者踢下線（docs/architecture/backend/04-auth.md §3.3）；
+   * 管理介面顯示的 `locked` 由 `locked_until` 推出。上一次鎖定已過期時從 1 重新計算；鎖定中不更新（回傳 undefined）。
+   * 規則與租戶的 `UserRepository.recordFailedLogin` 相同。
    */
   async recordFailedLogin(
     id: string,
@@ -82,7 +83,6 @@ export class PlatformAdminRepository {
       .set({
         failedLoginCount: sql`${nextCount}`,
         lockedUntil: sql`CASE WHEN ${reached} THEN now() + make_interval(secs => ${lockoutSeconds}::int) ELSE NULL END`,
-        status: sql`CASE WHEN ${reached} THEN 'locked'::platform_admin_status ELSE ${platformAdmins.status} END`,
         updatedAt: new Date(),
       })
       .where(
@@ -98,27 +98,28 @@ export class PlatformAdminRepository {
     return row;
   }
 
-  async update(id: string, patch: PlatformAdminPatch, tx?: PlatformDbOrTx): Promise<void> {
-    await (tx ?? this.db)
-      .update(platformAdmins)
-      .set({ ...patch, updatedAt: new Date() })
-      .where(eq(platformAdmins.id, id));
-  }
-
   /**
-   * 更新並結束這個人的所有 session（停用、重設密碼）：同一個交易裡改欄位、`token_version` + 1（既存的 access token 失效）、
-   * 撤銷 refresh token。
+   * 更新一位（未刪除的）平台管理者；`statusIn` 有值時只在目前的狀態是其中之一才更新（例：重設密碼不能把剛被停用的人改回 active）。
+   * 回傳有沒有更新到。結束 session（停用、重設密碼）由 service 在同一個交易裡再呼叫 `incrementTokenVersion`、`revokeRefreshTokens`。
    */
-  async updateAndEndSessions(
+  async update(
     id: string,
     patch: PlatformAdminPatch,
-    reason: RevokedReason,
-  ): Promise<void> {
-    await withTransaction(this.db, async (tx) => {
-      await this.update(id, patch, tx);
-      await this.incrementTokenVersion(id, tx);
-      await this.revokeRefreshTokens(id, reason, tx);
-    });
+    tx?: PlatformDbOrTx,
+    options: { statusIn?: readonly PlatformAdminRow['status'][] } = {},
+  ): Promise<boolean> {
+    const rows = await (tx ?? this.db)
+      .update(platformAdmins)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(
+        and(
+          eq(platformAdmins.id, id),
+          notDeleted(platformAdmins),
+          options.statusIn ? inArray(platformAdmins.status, [...options.statusIn]) : undefined,
+        ),
+      )
+      .returning({ id: platformAdmins.id });
+    return rows.length > 0;
   }
 
   /** 讓這個人所有既存的 access token 失效。 */
@@ -143,9 +144,17 @@ export class PlatformAdminRepository {
       );
   }
 
-  /** `active` 的 super-admin 人數（`exceptId` 不算在內）。 */
-  async countActiveSuperAdmins(exceptId?: string): Promise<number> {
-    const [row] = await this.db
+  /**
+   * 「最後一位 super-admin」檢查的鎖（交易層級的 advisory lock）：計數與寫入之間不能有別的交易插進來，
+   * 否則兩位 super-admin 同時互相降級會都成功（docs/architecture/backend/05-rbac.md §8.2；租戶端的 `lockSuperAdminGuard`）。
+   */
+  async lockSuperAdminGuard(tx: PlatformDbOrTx): Promise<void> {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('platform_super_admin_guard'))`);
+  }
+
+  /** `active` 的 super-admin 人數（`exceptId` 不算在內）。在 `lockSuperAdminGuard` 之後、同一個交易內呼叫。 */
+  async countActiveSuperAdmins(exceptId?: string, tx?: PlatformDbOrTx): Promise<number> {
+    const [row] = await (tx ?? this.db)
       .select({ total: sql<number>`count(*)::int` })
       .from(platformAdmins)
       .where(

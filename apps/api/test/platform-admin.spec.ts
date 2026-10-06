@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -18,6 +18,8 @@ import { platformAdmins, platformAuditLogs, tenants } from '@/db/platform/schema
 import type { PlatformAdminRole } from '@/db/platform/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
+import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
+import { PlatformAuthTokenRepository } from '@/modules/platform-admin/platform-auth-token.repository';
 
 import type { PlatformTestDatabase, TestDatabase } from './db';
 import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
@@ -294,7 +296,7 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     it('寄重設密碼連結 → 設定新密碼、解鎖，舊 token 失效', async () => {
       await platformDb
         .update(platformAdmins)
-        .set({ status: 'locked', lockedUntil: new Date(Date.now() + 60_000) })
+        .set({ failedLoginCount: 5, lockedUntil: new Date(Date.now() + 60_000) })
         .where(eq(platformAdmins.email, 'pa-new@example.com'));
       const before = await signPlatformToken('pa-new@example.com');
       const [target] = await platformDb
@@ -370,6 +372,193 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
         .set('authorization', `Bearer ${root}`)
         .send({ displayName: 'x' });
       expect(onTenant.status).toBeGreaterThanOrEqual(400);
+    });
+  });
+
+  describe('平台管理者的鎖定、最後一位 super-admin、帳號流程的交易（backend/04-auth.md §3.3、05-rbac.md §8.2）', () => {
+    /** 建立（或重設成 active、密碼 PASSWORD 的）平台管理者，回傳 id。 */
+    async function ensureAdmin(
+      email: string,
+      role: PlatformAdminRole = 'operator',
+    ): Promise<string> {
+      await upsertPlatformAdmin(platformDb, {
+        email,
+        displayName: email,
+        password: PASSWORD,
+        role,
+      });
+      const [row] = await platformDb
+        .select({ id: platformAdmins.id })
+        .from(platformAdmins)
+        .where(eq(platformAdmins.email, email));
+      return row!.id;
+    }
+
+    async function adminRow(id: string) {
+      const [row] = await platformDb.select().from(platformAdmins).where(eq(platformAdmins.id, id));
+      return row!;
+    }
+
+    const login = (email: string, password = PASSWORD) =>
+      app.get(PlatformAdminService).verifyCredentials({ email, password });
+    const tokens = () => app.get(PlatformAuthTokenRepository);
+    const resetPassword = (token: string, newPassword = 'Reset-Harbor-Lantern-28') =>
+      request(http)
+        .post('/platform/auth/reset-password')
+        .set('Host', AUTH_HOST)
+        .send({ token, newPassword });
+
+    it('登入失敗鎖定只寫 locked_until：線上的 session 不受影響；列表顯示 locked，改成 active 即解鎖', async () => {
+      const id = await ensureAdmin('pa-lock@example.com');
+      const token = await signPlatformToken('pa-lock@example.com');
+      const max = app.get(ConfigService<Env, true>).get('LOGIN_MAX_ATTEMPTS', { infer: true });
+      for (let attempt = 0; attempt < max; attempt += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
+        await expect(login('pa-lock@example.com', 'Wrong-Harbor-Lantern-1')).rejects.toMatchObject({
+          code: 'AUTH_INVALID_CREDENTIALS',
+        });
+      }
+      const locked = await adminRow(id);
+      expect(locked.status).toBe('active');
+      expect(locked.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+      // 任何知道 email 的人錯 N 次，不能把線上的平台管理者踢下線
+      await as(token, 'get', '/platform/auth/profile').expect(200);
+      await expect(login('pa-lock@example.com')).rejects.toMatchObject({
+        code: 'AUTH_INVALID_CREDENTIALS',
+      });
+      const listed = dataOf<{ items: Array<{ id: string; status: string }> }>(
+        await as(root, 'get', '/platform/admins').expect(200),
+      );
+      expect(listed.items.find((item) => item.id === id)?.status).toBe('locked');
+
+      await as(root, 'patch', `/platform/admins/${id}`).send({ status: 'active' }).expect(200);
+      expect(await adminRow(id)).toMatchObject({ lockedUntil: null, failedLoginCount: 0 });
+      await expect(login('pa-lock@example.com')).resolves.toMatchObject({ id });
+    });
+
+    it('兩位 super-admin 同時互相降級、停用：只有一個成功，結束後至少還有一位 active 的 super-admin', async () => {
+      const first = await ensureAdmin('pa-race-a@example.com', 'super-admin');
+      const second = await ensureAdmin('pa-race-b@example.com', 'super-admin');
+      // 其他 active 的 super-admin 暫時降級：平台上只剩這兩位
+      const others = await platformDb
+        .select({ id: platformAdmins.id })
+        .from(platformAdmins)
+        .where(
+          and(
+            eq(platformAdmins.role, 'super-admin'),
+            eq(platformAdmins.status, 'active'),
+            notInArray(platformAdmins.id, [first, second]),
+          ),
+        );
+      const otherIds = others.map((row) => row.id);
+      if (otherIds.length) {
+        await platformDb
+          .update(platformAdmins)
+          .set({ role: 'operator' })
+          .where(inArray(platformAdmins.id, otherIds));
+      }
+      try {
+        const [a, b] = await Promise.all([
+          signPlatformToken('pa-race-a@example.com'),
+          signPlatformToken('pa-race-b@example.com'),
+        ]);
+        const responses = await Promise.all([
+          as(a, 'patch', `/platform/admins/${second}`).send({ role: 'operator' }),
+          as(b, 'patch', `/platform/admins/${first}`).send({ status: 'inactive' }),
+        ]);
+        // 輸的那一個：鎖之後計數不到另一位（LAST_SUPER_ADMIN），或在檢查時自己已被降級、停用
+        expect(responses.map((response) => response.status).toSorted()).toEqual([200, 403]);
+        const remaining = await platformDb
+          .select({ id: platformAdmins.id })
+          .from(platformAdmins)
+          .where(
+            and(
+              eq(platformAdmins.role, 'super-admin'),
+              eq(platformAdmins.status, 'active'),
+              inArray(platformAdmins.id, [first, second]),
+            ),
+          );
+        expect(remaining.length).toBeGreaterThanOrEqual(1);
+      } finally {
+        if (otherIds.length) {
+          await platformDb
+            .update(platformAdmins)
+            .set({ role: 'super-admin' })
+            .where(inArray(platformAdmins.id, otherIds));
+        }
+        await platformDb
+          .update(platformAdmins)
+          .set({ status: 'inactive' })
+          .where(inArray(platformAdmins.id, [first, second]));
+      }
+    });
+
+    it('同一個重設連結併發送出兩次：恰好一個成功', async () => {
+      const id = await ensureAdmin('pa-double@example.com');
+      const { raw } = await tokens().issue(id, 'password_reset');
+      const responses = await Promise.all([
+        resetPassword(raw, 'First-Harbor-Lantern-28'),
+        resetPassword(raw, 'Second-Harbor-Lantern-29'),
+      ]);
+      expect(responses.map((response) => response.status).toSorted()).toEqual([200, 400]);
+      expect(errorCodeOf(responses.find((response) => response.status === 400)!)).toBe(
+        'AUTH_SETUP_TOKEN_INVALID',
+      );
+    });
+
+    it('同一個啟用連結併發送出兩次：恰好一個成功', async () => {
+      const id = await ensureAdmin('pa-double-setup@example.com');
+      await platformDb
+        .update(platformAdmins)
+        .set({ status: 'pending', passwordHash: null })
+        .where(eq(platformAdmins.id, id));
+      const { raw } = await tokens().issue(id, 'activation');
+      const responses = await Promise.all(
+        ['First-Harbor-Lantern-28', 'Second-Harbor-Lantern-29'].map((password) =>
+          request(http)
+            .post('/platform/auth/setup')
+            .set('Host', AUTH_HOST)
+            .send({ token: raw, password }),
+        ),
+      );
+      expect(responses.map((response) => response.status).toSorted()).toEqual([200, 400]);
+    });
+
+    it('停用與重設並行：結束後一定是 inactive（重設不能把剛停用的人改回 active）', async () => {
+      const id = await ensureAdmin('pa-race-reset@example.com');
+      const { raw } = await tokens().issue(id, 'password_reset');
+      await Promise.all([
+        as(root, 'patch', `/platform/admins/${id}`).send({ status: 'inactive' }),
+        resetPassword(raw),
+      ]);
+      expect((await adminRow(id)).status).toBe('inactive');
+    });
+
+    it('停用之後，先前寄出的重設連結不能再用，即使之後重新啟用', async () => {
+      const id = await ensureAdmin('pa-revoked-link@example.com');
+      const { raw } = await tokens().issue(id, 'password_reset');
+      for (const status of ['inactive', 'active'] as const) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序停用、啟用
+        await as(root, 'patch', `/platform/admins/${id}`).send({ status }).expect(200);
+      }
+      const response = await resetPassword(raw).expect(400);
+      expect(errorCodeOf(response)).toBe('AUTH_SETUP_TOKEN_INVALID');
+    });
+
+    it('稽核寫入失敗時，密碼與 token 都沒有改變（稽核在交易內）', async () => {
+      const id = await ensureAdmin('pa-audit-fail@example.com');
+      const { raw } = await tokens().issue(id, 'password_reset');
+      const record = vi
+        .spyOn(app.get(PlatformAuditService), 'record')
+        .mockRejectedValueOnce(new Error('稽核寫入失敗'));
+      try {
+        await resetPassword(raw).expect(500);
+      } finally {
+        record.mockRestore();
+      }
+      await expect(login('pa-audit-fail@example.com')).resolves.toMatchObject({ id });
+      // 交易回滾：token 沒被用掉，可以再試一次
+      await resetPassword(raw).expect(200);
     });
   });
 

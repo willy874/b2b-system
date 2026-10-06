@@ -293,8 +293,10 @@ RETURNING failed_login_count, locked_until;
 - **上次鎖定到期後從 1 重新計算**，到期後再錯一次不會立刻重鎖；鎖定中的錯誤密碼不計數、不延長鎖定。
 - 外部 IdP 登入不受鎖定影響（外部 IdP 已驗過本人）。
 - 舊版留下的 `status = 'locked'` 由 migration `0003` 改回 `active`（`locked_until` 保留）。
-- 平台管理者用同一套原子計數（`PlatformAdminRepository.recordFailedLogin`）與「先驗密碼再看狀態」；
-  平台管理介面以 `status = locked` 顯示與解鎖，所以平台管理者的鎖定仍會寫 `status`。
+- 平台管理者用同一套原子計數（`PlatformAdminRepository.recordFailedLogin`）與「先驗密碼再看狀態」，同樣 **只寫 `locked_until`、不改 `status`**：
+  平台管理者只有幾位、email 常猜得到，改 `status` 的話不需要任何帳號就能把所有平台管理者持續踢下線。
+  管理介面顯示的 `locked` 由 `locked_until` 推出（`displayStatusOf`），super-admin 把它改成 `active` 即解鎖（清掉計數與到期時間）。
+  舊版留下的 `status = 'locked'` 由平台 migration `0015` 改回 `active`。
 
 解鎖途徑：
 
