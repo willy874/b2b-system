@@ -198,7 +198,8 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 - `file_folders_not_own_parent`：`parent_id <> id`
 - `file_folders_parent_idx`：列出某一層的子資料夾、遞迴 CTE
 
-規則（`FileFolderService`）：
+規則（`FileFolderService`：列表、建立、上傳資料夾、改名、刪除；`FileFolderMoveService`：移動；`FileFolderRestoreService`：從回收桶還原。
+三者共用 `FileFolderRules`：樹鎖內的結構寫入、讀得到的檢查、深度上限、刪除子樹的附加條件）：
 
 | 規則 | 做法 |
 | --- | --- |
@@ -691,7 +692,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 ```
 controller   @RequireAnyPermission('file:access', 'file:<動作>')    ← 閘門
     │
-service      FileService / FileFolderService / FileFolderGrantService
+service      FileService / FileFolderService（＋ Move／Restore）/ FileFolderGrantService
     │  ctx = await access.contextFor(actor)                       ← 每個請求一次
     │  access.assertCan(ctx, action, location, resource?)          ← 不能就 404 / 403 ＋ authz.denied
     ▼

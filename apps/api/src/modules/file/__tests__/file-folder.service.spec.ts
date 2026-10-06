@@ -12,8 +12,11 @@ import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { TagService } from '@/modules/tag/tag.service';
 
 import type { FileAccessRequestService } from '../file-access-request.service';
+import { FileFolderMoveService } from '../file-folder-move.service';
+import { FileFolderRestoreService } from '../file-folder-restore.service';
 import { FileFolderTree } from '../file-folder-tree';
 import type { DeletionStamp, FileFolderRepository } from '../file-folder.repository';
+import { FileFolderRules } from '../file-folder.rules';
 import { FileFolderService } from '../file-folder.service';
 import type { GrantLevel } from '../file-grant.levels';
 import type { FileImageService } from '../file-image.service';
@@ -242,26 +245,46 @@ function setup(
   const systemFolders = {
     ensurePersonalFolders: vi.fn(async (_userIds: readonly string[]) => 0),
   };
-  const service = new FileFolderService(
-    db as unknown as Database,
+  const rules = new FileFolderRules(
     repo as unknown as FileFolderRepository,
-    audit as unknown as AuditService,
-    events as unknown as DomainEventBus,
     fixture.access,
-    requests as unknown as FileAccessRequestService,
     new FileFolderTree(
       db as unknown as Database,
       repo as unknown as FileFolderRepository,
       new BroadcastHub().instance(),
     ),
-    fileRepo as unknown as FileRepository,
-    objects as unknown as FileObjectsService,
-    images as unknown as FileImageService,
+    tags as unknown as TagService,
+    events as unknown as DomainEventBus,
+  );
+  const service = new FileFolderService(
+    db as unknown as Database,
+    repo as unknown as FileFolderRepository,
+    audit as unknown as AuditService,
+    fixture.access,
+    requests as unknown as FileAccessRequestService,
+    rules,
     tags as unknown as TagService,
     systemFolders as unknown as FileSystemFolderService,
   );
+  const mover = new FileFolderMoveService(
+    repo as unknown as FileFolderRepository,
+    audit as unknown as AuditService,
+    fixture.access,
+    rules,
+  );
+  const restorer = new FileFolderRestoreService(
+    repo as unknown as FileFolderRepository,
+    audit as unknown as AuditService,
+    fixture.access,
+    rules,
+    fileRepo as unknown as FileRepository,
+    objects as unknown as FileObjectsService,
+    images as unknown as FileImageService,
+  );
   return {
     service,
+    mover,
+    restorer,
     systemFolders,
     repo,
     fileRepo,
@@ -390,33 +413,33 @@ describe('FileFolderService.rename', () => {
   });
 });
 
-describe('FileFolderService.move', () => {
+describe('FileFolderMoveService.move', () => {
   it('移到自己或自己的子孫底下回 FILE_FOLDER_CYCLE，不做任何移動', async () => {
-    const { service, repo, idOf } = setup([
+    const { repo, idOf, mover } = setup([
       { name: 'a' },
       { name: 'b', parent: 'a' },
       { name: 'c', parent: 'b' },
     ]);
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('c') }, ALICE),
+      mover.move({ fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('c') }, ALICE),
       'FILE_FOLDER_CYCLE',
     );
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('a') }, ALICE),
+      mover.move({ fileIds: [], folderIds: [idOf('a')], targetFolderId: idOf('a') }, ALICE),
       'FILE_FOLDER_CYCLE',
     );
     expect(repo.move).not.toHaveBeenCalled();
   });
 
   it('移動後超過深度上限 → VALIDATION_FAILED（details.fields.targetFolderId），不做任何移動', async () => {
-    const { service, repo, idOf, folders } = setup([{ name: 'a' }, { name: 'b' }]);
+    const { service, mover, repo, idOf, folders } = setup([{ name: 'a' }, { name: 'b' }]);
     const half = Math.ceil(MAX_FOLDER_DEPTH / 2) + 1;
     const chain = (prefix: string) => Array.from({ length: half }, (_, i) => `${prefix}${i}`);
     await service.ensurePaths({ parentId: idOf('a'), paths: [chain('a')] }, ALICE);
     await service.ensurePaths({ parentId: idOf('b'), paths: [chain('b')] }, ALICE);
     const deepest = folders().find((row) => row.name === `a${half - 1}`);
 
-    const error = await service
+    const error = await mover
       .move({ fileIds: [], folderIds: [idOf('b')], targetFolderId: deepest?.id ?? null }, ALICE)
       .then(
         () => undefined,
@@ -431,44 +454,44 @@ describe('FileFolderService.move', () => {
   });
 
   it('移動後剛好在深度上限內可以移動', async () => {
-    const { service, idOf } = setup([{ name: 'a' }, { name: 'b' }]);
+    const { service, idOf, mover } = setup([{ name: 'a' }, { name: 'b' }]);
     // a 在第 1 層；b 的子樹高度 = MAX - 1 → 移進 a 之後最深剛好 MAX
     const chain = Array.from({ length: MAX_FOLDER_DEPTH - 2 }, (_, i) => `b${i}`);
     await service.ensurePaths({ parentId: idOf('b'), paths: [chain] }, ALICE);
     await expect(
-      service.move({ fileIds: [], folderIds: [idOf('b')], targetFolderId: idOf('a') }, ALICE),
+      mover.move({ fileIds: [], folderIds: [idOf('b')], targetFolderId: idOf('a') }, ALICE),
     ).resolves.toMatchObject({ movedFolders: 1 });
   });
 
   it('目的地已有同名、或一起移動的彼此同名，回 FILE_FOLDER_NAME_CONFLICT', async () => {
-    const { service, idOf } = setup([
+    const { idOf, mover } = setup([
       { name: 'dst' },
       { name: 'x', parent: 'dst' },
       { name: 'p' },
       { name: 'X', parent: 'p' },
     ]);
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [idOf('X')], targetFolderId: idOf('dst') }, ALICE),
+      mover.move({ fileIds: [], folderIds: [idOf('X')], targetFolderId: idOf('dst') }, ALICE),
       'FILE_FOLDER_NAME_CONFLICT',
     );
   });
 
   it('資料夾不存在回 FILE_FOLDER_NOT_FOUND', async () => {
-    const { service } = setup();
+    const { mover } = setup();
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [uuid()], targetFolderId: null }, ALICE),
+      mover.move({ fileIds: [], folderIds: [uuid()], targetFolderId: null }, ALICE),
       'FILE_FOLDER_NOT_FOUND',
     );
   });
 
   it('檔案與資料夾一起移動：回傳數量、寫一筆稽核、推播兩種來源', async () => {
-    const { service, repo, audit, events, idOf, folders } = setup([
+    const { repo, audit, events, idOf, folders, mover } = setup([
       { name: 'dst' },
       { name: 'a' },
       { name: 'b', parent: 'a' },
     ]);
     const fileIds = [uuid(), uuid()];
-    const result = await service.move(
+    const result = await mover.move(
       { fileIds, folderIds: [idOf('b')], targetFolderId: idOf('dst') },
       ALICE,
     );
@@ -486,8 +509,8 @@ describe('FileFolderService.move', () => {
   });
 
   it('本來就在目的地的資料夾不檢查也不移動', async () => {
-    const { service, repo, idOf } = setup([{ name: 'a' }]);
-    const result = await service.move(
+    const { repo, idOf, mover } = setup([{ name: 'a' }]);
+    const result = await mover.move(
       { fileIds: [], folderIds: [idOf('a')], targetFolderId: null },
       ALICE,
     );
@@ -616,13 +639,13 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
   });
 
   it('鎖住的資料夾：改名、刪除、當作目的地都回 AUTHZ_FORBIDDEN；不存在的回 FILE_FOLDER_NOT_FOUND', async () => {
-    const { service, idOf } = scoped([{ name: 'art' }, { name: 'secret' }], () => [
+    const { service, idOf, mover } = scoped([{ name: 'art' }, { name: 'secret' }], () => [
       { name: 'art', level: 'editor' },
     ]);
     await expectAppError(service.rename(idOf('secret'), { name: 'y' }, ALICE), 'AUTHZ_FORBIDDEN');
     await expectAppError(service.remove(idOf('secret'), ALICE), 'AUTHZ_FORBIDDEN');
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [], targetFolderId: idOf('secret') }, ALICE),
+      mover.move({ fileIds: [], folderIds: [], targetFolderId: idOf('secret') }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     await expectAppError(service.remove(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
@@ -681,7 +704,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
   });
 
   it('移動：目的地要能建立、每個項目要能改名；viewer 的目的地 → AUTHZ_FORBIDDEN', async () => {
-    const { service, idOf, repo } = scoped(
+    const { idOf, repo, mover } = scoped(
       [{ name: 'art' }, { name: 'mine', parent: 'art' }, { name: 'view' }],
       () => [
         { name: 'art', level: 'contributor' },
@@ -689,7 +712,7 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       ],
     );
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [idOf('mine')], targetFolderId: idOf('view') }, ALICE),
+      mover.move({ fileIds: [], folderIds: [idOf('mine')], targetFolderId: idOf('view') }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     expect(repo.move).not.toHaveBeenCalled();
@@ -715,7 +738,7 @@ function file(id: string): FileRow {
   return { id } as FileRow;
 }
 
-describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.1、docs/architecture/backend/14-revisions.md §9.2 D5）', () => {
+describe('FileFolderRestoreService.restore（docs/architecture/backend/13-trash.md §7.1、docs/architecture/backend/14-revisions.md §9.2 D5）', () => {
   it('刪除時資料夾與檔案帶同一個 deletion_id 與時間', async () => {
     const { service, repo, idOf } = setup([{ name: 'a' }, { name: 'b', parent: 'a' }]);
     await service.remove(idOf('a'), ALICE);
@@ -726,7 +749,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
   });
 
   it('只還原同一次刪除的子樹：之前個別刪掉的子資料夾維持刪除', async () => {
-    const { service, idOf, folders, audit } = setup([
+    const { service, idOf, folders, audit, restorer } = setup([
       { name: 'a' },
       { name: 'b', parent: 'a' },
       { name: 'c', parent: 'a' },
@@ -735,7 +758,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
     await service.remove(idOf('b'), ALICE);
     await service.remove(idOf('a'), ALICE);
 
-    const restored = await service.restore(idOf('a'), ALICE);
+    const restored = await restorer.restore(idOf('a'), ALICE);
     expect(restored).toMatchObject({ name: 'a', foldersRestored: 3, filesRestored: 0 });
     expect(
       folders()
@@ -749,7 +772,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
   });
 
   it('物件已不在的檔案維持刪除（filesSkipped），其他照常還原並修正縮圖／變體', async () => {
-    const { service, idOf, fileRepo, objects, images } = setup([{ name: 'a' }]);
+    const { service, idOf, fileRepo, objects, images, restorer } = setup([{ name: 'a' }]);
     await service.remove(idOf('a'), ALICE);
     fileRepo.findDeletedInBatch.mockResolvedValue([file('f1'), file('f2'), file('f3')]);
     objects.probe.mockResolvedValue(
@@ -760,7 +783,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
       ]),
     );
 
-    const restored = await service.restore(idOf('a'), ALICE);
+    const restored = await restorer.restore(idOf('a'), ALICE);
     expect(restored).toMatchObject({ filesRestored: 2, filesSkipped: 1 });
     expect(fileRepo.restore.mock.calls[0]?.[0]).toEqual(['f1', 'f2']);
     expect(fileRepo.clearThumbnail).toHaveBeenCalledWith(['f1'], 'tx');
@@ -769,9 +792,9 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
   });
 
   it('上層已刪除 → FILE_FOLDER_RESTORE_CONFLICT（parentDeleted）', async () => {
-    const { service, idOf } = setup([{ name: 'a' }, { name: 'b', parent: 'a' }]);
+    const { service, idOf, restorer } = setup([{ name: 'a' }, { name: 'b', parent: 'a' }]);
     await service.remove(idOf('a'), ALICE);
-    const error = await service.restore(idOf('b'), ALICE).catch((e: unknown) => e);
+    const error = await restorer.restore(idOf('b'), ALICE).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AppException);
     expect((error as AppException).code).toBe('FILE_FOLDER_RESTORE_CONFLICT');
     expect((error as AppException).details).toEqual({
@@ -782,23 +805,23 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
   });
 
   it('同一層已有同名的資料夾 → FILE_FOLDER_NAME_CONFLICT（帶 conflictingId）', async () => {
-    const { service, idOf } = setup([{ name: 'a' }]);
+    const { service, idOf, restorer } = setup([{ name: 'a' }]);
     const deleted = idOf('a');
     await service.remove(deleted, ALICE);
     const taken = await service.create({ name: 'A', parentId: null }, ALICE);
-    const error = await service.restore(deleted, ALICE).catch((e: unknown) => e);
+    const error = await restorer.restore(deleted, ALICE).catch((e: unknown) => e);
     expect((error as AppException).code).toBe('FILE_FOLDER_NAME_CONFLICT');
     expect((error as AppException).details).toMatchObject({ conflictingId: taken.id });
   });
 
   it('沒有被刪除 → FILE_FOLDER_NOT_DELETED；不存在 → FILE_FOLDER_NOT_FOUND', async () => {
-    const { service, idOf } = setup([{ name: 'a' }]);
-    await expectAppError(service.restore(idOf('a'), ALICE), 'FILE_FOLDER_NOT_DELETED');
-    await expectAppError(service.restore(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
+    const { idOf, restorer } = setup([{ name: 'a' }]);
+    await expectAppError(restorer.restore(idOf('a'), ALICE), 'FILE_FOLDER_NOT_DELETED');
+    await expectAppError(restorer.restore(uuid(), ALICE), 'FILE_FOLDER_NOT_FOUND');
   });
 
   it('系統資料夾只由系統刪除，不能還原 → FILE_FOLDER_SYSTEM_PROTECTED', async () => {
-    const { service, idOf, all, repo } = setup([{ name: 'personal' }]);
+    const { idOf, all, repo, restorer } = setup([{ name: 'personal' }]);
     const row = all.get(idOf('personal'));
     if (row) row.kind = 'personal';
     await repo.softDelete([idOf('personal')], {
@@ -806,7 +829,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
       deletionId: uuid(),
       deletedAt: new Date(),
     });
-    await expectAppError(service.restore(idOf('personal'), ALICE), 'FILE_FOLDER_SYSTEM_PROTECTED');
+    await expectAppError(restorer.restore(idOf('personal'), ALICE), 'FILE_FOLDER_SYSTEM_PROTECTED');
   });
 
   it('權限以還原後的結構照刪除的規則判斷：自己建立的可以還原；子樹有別人的東西 → AUTHZ_FORBIDDEN（not-owner）', async () => {
@@ -822,7 +845,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
     );
     holder.grants.push({ resourceId: env.idOf('art'), level: 'contributor' });
     await env.service.remove(env.idOf('mine'), ALICE);
-    await expect(env.service.restore(env.idOf('mine'), ALICE)).resolves.toMatchObject({
+    await expect(env.restorer.restore(env.idOf('mine'), ALICE)).resolves.toMatchObject({
       name: 'mine',
     });
 
@@ -832,7 +855,7 @@ describe('FileFolderService.restore（docs/architecture/backend/13-trash.md §7.
       deletionId: uuid(),
       deletedAt: new Date(),
     });
-    const error = await env.service.restore(env.idOf('mixed'), ALICE).catch((e: unknown) => e);
+    const error = await env.restorer.restore(env.idOf('mixed'), ALICE).catch((e: unknown) => e);
     expect((error as AppException).code).toBe('AUTHZ_FORBIDDEN');
     expect((error as AppException).details).toMatchObject({ reason: 'not-owner' });
   });
@@ -876,7 +899,7 @@ describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09
   });
 
   it('移動：看得到但不能改名的檔案（別人上傳、只有 viewer）→ AUTHZ_FORBIDDEN，不移動', async () => {
-    const { service, idOf, repo, denials } = scopedEnv(
+    const { idOf, repo, denials, mover } = scopedEnv(
       [{ name: 'src' }, { name: 'dst' }],
       [
         { name: 'src', level: 'viewer' },
@@ -887,7 +910,7 @@ describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09
       { id: 'file-1', folderId: idOf('src'), createdBy: BOB_ID },
     ]);
     await expectAppError(
-      service.move({ fileIds: ['file-1'], folderIds: [], targetFolderId: idOf('dst') }, ALICE),
+      mover.move({ fileIds: ['file-1'], folderIds: [], targetFolderId: idOf('dst') }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     expect(denials.recordSafely).toHaveBeenCalledWith(
@@ -899,19 +922,19 @@ describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09
   });
 
   it('移動：看不到的檔案（鎖住的資料夾裡）略過，不讓整批失敗', async () => {
-    const { service, idOf, repo } = scopedEnv(
+    const { idOf, repo, mover } = scopedEnv(
       [{ name: 'locked' }, { name: 'dst' }],
       [{ name: 'dst', level: 'contributor' }],
     );
     repo.findMovableFiles.mockResolvedValueOnce([
       { id: 'file-1', folderId: idOf('locked'), createdBy: BOB_ID },
     ]);
-    await service.move({ fileIds: ['file-1'], folderIds: [], targetFolderId: idOf('dst') }, ALICE);
+    await mover.move({ fileIds: ['file-1'], folderIds: [], targetFolderId: idOf('dst') }, ALICE);
     expect(repo.moveFiles).toHaveBeenCalledWith([], idOf('dst'), ALICE.id, 'tx');
   });
 
   it('移動：自己沒有改名權的資料夾（別人建立、只有 contributor）→ AUTHZ_FORBIDDEN', async () => {
-    const { service, idOf, repo } = scopedEnv(
+    const { idOf, repo, mover } = scopedEnv(
       [{ name: 'src' }, { name: 'theirs', parent: 'src', createdBy: BOB_ID }, { name: 'dst' }],
       [
         { name: 'src', level: 'contributor' },
@@ -919,28 +942,25 @@ describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09
       ],
     );
     await expectAppError(
-      service.move(
-        { fileIds: [], folderIds: [idOf('theirs')], targetFolderId: idOf('dst') },
-        ALICE,
-      ),
+      mover.move({ fileIds: [], folderIds: [idOf('theirs')], targetFolderId: idOf('dst') }, ALICE),
       'AUTHZ_FORBIDDEN',
     );
     expect(repo.move).not.toHaveBeenCalled();
   });
 
   it('移動系統資料夾 → FILE_FOLDER_SYSTEM_PROTECTED', async () => {
-    const { service, idOf, all } = setup([{ name: '私人' }]);
+    const { idOf, all, mover } = setup([{ name: '私人' }]);
     const row = all.get(idOf('私人'));
     if (row) row.kind = 'privateRoot';
     await expectAppError(
-      service.move({ fileIds: [], folderIds: [idOf('私人')], targetFolderId: null }, ALICE),
+      mover.move({ fileIds: [], folderIds: [idOf('私人')], targetFolderId: null }, ALICE),
       'FILE_FOLDER_SYSTEM_PROTECTED',
     );
   });
 
   it('沒有任何東西真的移動 → 不寫稽核、不推播', async () => {
-    const { service, idOf, audit, events } = setup([{ name: 'a' }]);
-    const result = await service.move(
+    const { idOf, audit, events, mover } = setup([{ name: 'a' }]);
+    const result = await mover.move(
       { fileIds: [], folderIds: [idOf('a')], targetFolderId: null },
       ALICE,
     );

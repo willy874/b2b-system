@@ -17,10 +17,13 @@ import { FileFolderAccessApprovalHandler } from './file-folder-access.approval';
 import { FileFolderGrantController } from './file-folder-grant.controller';
 import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderGrantService } from './file-folder-grant.service';
+import { FileFolderMoveService } from './file-folder-move.service';
+import { FileFolderRestoreService } from './file-folder-restore.service';
 import { FileFolderTrashHandler } from './file-folder-trash.handler';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderController } from './file-folder.controller';
 import { FileFolderRepository } from './file-folder.repository';
+import { FileFolderRules } from './file-folder.rules';
 import { FileFolderService } from './file-folder.service';
 import { FileImageService } from './file-image.service';
 import { FileMaintenanceService } from './file-maintenance.service';
@@ -61,6 +64,9 @@ import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
     FileMaintenanceService,
     FileRepository,
     FileFolderService,
+    FileFolderRules,
+    FileFolderMoveService,
+    FileFolderRestoreService,
     FileFolderRepository,
     FileFolderTree,
     FileObjectsService,

@@ -30,6 +30,7 @@ import type {
   EnsureFileFolderPathsDto,
   UpdateFileFolderDto,
 } from './dto/file-folder.dto';
+import { FileFolderRestoreService } from './file-folder-restore.service';
 import { FileFolderService } from './file-folder.service';
 
 /**
@@ -42,7 +43,10 @@ import { FileFolderService } from './file-folder.service';
 @Controller('file-folders')
 @RequireFeature('file')
 export class FileFolderController {
-  constructor(private readonly folderService: FileFolderService) {}
+  constructor(
+    private readonly folderService: FileFolderService,
+    private readonly folderRestoreService: FileFolderRestoreService,
+  ) {}
 
   @Get()
   @RequireAnyPermission(PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ)
@@ -109,6 +113,6 @@ export class FileFolderController {
   @ApiOperation({ summary: '還原刪除的資料夾（同一次刪除的子資料夾與檔案一併還原）' })
   @ApiZodResponse(200, RestoredFileFolderSchema)
   restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
-    return this.folderService.restore(id, actor);
+    return this.folderRestoreService.restore(id, actor);
   }
 }
