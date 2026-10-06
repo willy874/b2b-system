@@ -180,8 +180,6 @@ export class WebhookService {
       const row = await this.repo.create(
         {
           name: dto.name,
-          // 升版期間的舊程式碼還讀這一欄（docs/architecture/backend/17-webhook.md §10.2 D12 的雙寫）
-          url: urls[0],
           events: dto.events,
           secretEncrypted: this.transport.encryptSecret(secret),
           createdBy: actor.id,
@@ -218,7 +216,6 @@ export class WebhookService {
     const enabling = statusChange && dto.status === 'active';
     const values = {
       ...(dto.name !== undefined && { name: dto.name }),
-      ...(urls !== undefined && { url: urls[0] }),
       ...(dto.events !== undefined && { events: dto.events }),
       ...(enabling ? { status: 'active', disabledReason: null } : {}),
       ...(statusChange && dto.status === 'disabled'

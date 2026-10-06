@@ -48,12 +48,10 @@ function subscription(
   return {
     id: 'wh-1',
     name: 'CI',
-    url: 'https://hooks.example.com/b2b',
     events: ['user.created'],
     status: 'active',
     disabledReason: null,
     secretEncrypted: 'sealed',
-    consecutiveFailures: 0,
     lastDeliveryAt: null,
     version: 3,
     createdAt: new Date('2026-10-01T00:00:00Z'),
@@ -312,7 +310,7 @@ describe('WebhookService.update', () => {
   it('啟用：失敗次數歸零、清掉停用原因（D13）', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(
-      subscription({ status: 'disabled', disabledReason: 'failing', consecutiveFailures: 50 }),
+      subscription({ status: 'disabled', disabledReason: 'failing' }),
     );
     await inTenant(() => ctx.service.update('wh-1', { status: 'active', version: 3 }, ACTOR));
     expect(ctx.repo.update).toHaveBeenCalledWith(
@@ -424,14 +422,17 @@ describe('WebhookService：多個目標網址（docs/architecture/05-tenancy.md 
   const A = 'https://a.example.com/';
   const B = 'https://b.example.com/';
 
-  it('建立：寫入每個網址、訂閱的 url 雙寫第一個', async () => {
+  it('建立：寫入每個網址（訂閱本身沒有網址欄）', async () => {
     const ctx = setup();
     await inTenant(
       () => ctx.service.create({ name: 'CI', urls: [A, B], events: ['user.created'] }, ACTOR),
       undefined,
       { 'webhook.maxUrls': 5 },
     );
-    expect(ctx.repo.create).toHaveBeenCalledWith(expect.objectContaining({ url: A }), ctx.tx);
+    expect(ctx.repo.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({ url: expect.anything() }),
+      ctx.tx,
+    );
     expect(ctx.repo.replaceTargets).toHaveBeenCalledWith('wh-1', [A, B], ctx.tx);
   });
 
@@ -467,7 +468,7 @@ describe('WebhookService：多個目標網址（docs/architecture/05-tenancy.md 
     expect(ctx.repo.replaceTargets).toHaveBeenCalledWith('wh-1', [A], ctx.tx);
     expect(ctx.repo.update).toHaveBeenCalledWith(
       'wh-1',
-      expect.objectContaining({ url: A }),
+      expect.not.objectContaining({ url: expect.anything() }),
       3,
       ctx.tx,
     );

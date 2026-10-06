@@ -37,12 +37,10 @@ function subscription(
   return {
     id: 'wh-1',
     name: 'CI',
-    url: 'https://hooks.example.com/b2b',
     events: ['user.created'],
     status: 'active',
     disabledReason: null,
     secretEncrypted: 'sealed',
-    consecutiveFailures: 0,
     lastDeliveryAt: null,
     version: 1,
     createdAt: new Date(),
