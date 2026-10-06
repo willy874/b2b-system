@@ -47,6 +47,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 | 加成員（使用者或群組）到 G | `group:G#member` 往上閉包在租戶上的能力：G **與它所有上層群組** 持有的角色的權限鍵 | `PermissionService.assertCanGrant`，在交易內、成員的鎖之後 |
 | 讓 G 持有角色 r | r 在租戶上的能力 | `assertRolesAssignable`（同指派角色給使用者） |
 | 還原 G | 同加成員：G 的成員重新取得 G 與上層群組的角色 | 同加成員，另外檢查結構（§1.1） |
+| 還原使用者、把停用的使用者改回 active | 他直接所屬的群組（與上層群組）的角色重新生效 | 對他所屬的每個群組同加成員（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1） |
 
 - **D12：群組不能持有 super-admin**，super-admin 一律直接指派給使用者（`403 GROUP_SUPER_ADMIN_FORBIDDEN`，即使操作者是 super-admin）。
   所以「是不是 super-admin」（`hasRoleSlug`、`assertCanManage`、I8 的計數）仍只看直接持有的角色。

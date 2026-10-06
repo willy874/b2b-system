@@ -115,8 +115,10 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 2. 唯一值：email 或 username 已被 **未刪除** 的帳號使用 → `409 USER_EMAIL_DUPLICATE`／`USER_USERNAME_DUPLICATE`，
    `details: { field, value, conflictingUserId }`（D6）。email 不能改，管理者只能先處理佔用的帳號。
    檢查與寫入之間的競態由 partial unique index 擋下，照一般的唯一鍵衝突轉成同一個錯誤碼（不帶 `conflictingUserId`）。
-3. 反提權：刪除時保留的持有者邊中 **仍存在** 的角色會跟著生效，所以先以 `assertRolesAssignable` 檢查它們
-   （不能藉還原讓人取得自己給不了的角色，含 super-admin）。已刪除的角色的邊本來就被讀取忽略（D5「關聯略過」）。
+3. 反提權：刪除不動關係圖，保留的邊中 **仍存在** 的會跟著生效——他直接持有的角色，以及他直接所屬的群組
+   （群組、上層群組持有的角色經由閉包回來）。所以先以 `assertCanGrant` 檢查 `role:<r>#holder` 與 `group:<g>#member`，
+   與指派角色、加成員同一個規則（不能藉還原讓人取得自己給不了的角色，含 super-admin；[`05-rbac.md`](./05-rbac.md) §4.1）。
+   已刪除的角色與群組的邊本來就被讀取忽略（D5「關聯略過」）。
 4. 交易內：`UPDATE users SET deleted_at = NULL, updated_by = <actor> WHERE id = $id AND deleted_at IS NOT NULL`
    （並行的兩個還原只有一個命中，另一個 `409 USER_NOT_DELETED`）＋ 稽核 `user.restore`
    （`changes.after: { email, status }`、`metadata: { deletedAt, roles }`）。

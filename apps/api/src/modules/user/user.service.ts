@@ -13,6 +13,12 @@ import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { AuditMetadata, RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
+import {
+  GROUP_MEMBER_RELATION,
+  GROUP_OBJECT_TYPE,
+  ROLE_HOLDER_RELATION,
+  ROLE_OBJECT_TYPE,
+} from '@/db/schema';
 import { AnnouncementTriggerService } from '@/modules/announcement/announcement-trigger.service';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -201,6 +207,8 @@ export class UserService {
       }
       this.assertNotSelf(actor.id, id);
       await this.assertCanManage(actor, id);
+      // 停用後改回 active：他的角色與群組成員資格跟著重新生效，與還原同一個反提權（docs/architecture/backend/05-rbac.md §4.1）
+      if (dto.status === 'active') await this.assertCanRevive(actor, id);
     }
     if (dto.username && dto.username !== user.username) {
       await this.assertUsernameAvailable(dto.username);
@@ -310,7 +318,7 @@ export class UserService {
   /**
    * 還原刪除的使用者（docs/architecture/backend/14-revisions.md §9.2 D6）：清 `deleted_at`，`status` 維持刪除前的值；refresh token、外部身分連結、
    * 刪除時作廢的啟用／重設連結都不回復（要重新登入、重新連結；還沒啟用的人由「重設密碼」重寄啟用信）。
-   * 持有的角色中仍存在的那些隨著刪除時保留的邊自動生效，所以先以指派角色的反提權檢查它們；
+   * 持有的角色中仍存在的那些、所屬的群組（與群組帶來的角色）隨著刪除時保留的邊自動生效，所以先以指派角色與加成員的反提權檢查它們；
    * 個人資料夾由 `permissions.changed` 的訂閱者（檔案模組）補建。
    */
   async restore(id: string, actor: AuthUser): Promise<UserDto> {
@@ -321,12 +329,8 @@ export class UserService {
       );
     }
     await this.assertRestorable(user);
-    // 不能藉還原讓別人取得自己給不了的角色（含 super-admin；docs/architecture/backend/05-rbac.md §4.1）
-    const roles = await this.repo.listRoles(id);
-    await this.permissionService.assertRolesAssignable(
-      actor.id,
-      roles.map((role) => role.id),
-    );
+    // 不能藉還原讓別人取得自己給不了的角色（含 super-admin、經由群組持有的；docs/architecture/backend/05-rbac.md §4.1）
+    const roles = await this.assertCanRevive(actor, id);
 
     const restored = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.restore(id, actor.id, tx);
@@ -669,6 +673,30 @@ export class UserService {
     if (!(await this.repo.hasRoleSlug(targetId, SUPER_ADMIN_SLUG))) return;
     if (await this.repo.hasRoleSlug(actor.id, SUPER_ADMIN_SLUG)) return;
     throw new AppException('AUTHZ_ESCALATION', { role: SUPER_ADMIN_SLUG, target: targetId });
+  }
+
+  /**
+   * 讓一位使用者原本的權限重新生效（還原、停用後改回 active）之前的反提權：刪除與停用都不動關係圖，
+   * 他直接持有的角色與直接所屬的群組（引擎沿上層群組、群組持有的角色展開）會原樣回來，
+   * 等於重新指派那些角色、重新把他加進那些群組——帶來的租戶能力操作者都要有（docs/architecture/backend/05-rbac.md §4.1）。
+   * 回傳他直接持有的角色（稽核與推播用）。
+   */
+  private async assertCanRevive(actor: AuthUser, id: string): Promise<UserRoleSummary[]> {
+    const [roles, groupIds] = await Promise.all([
+      this.repo.listRoles(id),
+      this.repo.listGroupIds(id),
+    ]);
+    await this.permissionService.assertCanGrant(actor.id, [
+      ...roles.map((role) => ({
+        object: { type: ROLE_OBJECT_TYPE, id: role.id },
+        relation: ROLE_HOLDER_RELATION,
+      })),
+      ...groupIds.map((groupId) => ({
+        object: { type: GROUP_OBJECT_TYPE, id: groupId },
+        relation: GROUP_MEMBER_RELATION,
+      })),
+    ]);
+    return roles;
   }
 
   /**

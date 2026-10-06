@@ -182,6 +182,8 @@
 - `pending` 只能靠啟用信離開（收得到信才證明擁有這個 email，[`06-approval.md`](./06-approval.md) §5）：
   `pending` → `active` 回 `400 VALIDATION_FAILED`（`fields.status`）；`pending` → `inactive` 照常，但一併清掉註冊申請時存的密碼，
   之後改回 `active` 也只能經「重設密碼」設定密碼
+- `inactive` → `active`：他直接持有的角色與所屬的群組（含上層群組與群組持有的角色）跟著重新生效，
+  反提權與還原相同（§2.5；[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1），actor 給不了 → `403 AUTHZ_ESCALATION`
 - `actorId === :id` → `403 AUTHZ_SELF_MODIFY`
 
 ### 2.4 `PUT /users/:id/roles`
@@ -206,7 +208,7 @@
 ### 2.5 `POST /users/:id/restore`
 
 還原軟刪除的使用者（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D6；能刪就能復原，所以權限是 `user:delete`）。
-`status` 維持刪除前的值；refresh token、外部身分連結、啟用／重設連結不回復；持有的角色中仍存在的那些跟著生效。
+`status` 維持刪除前的值；refresh token、外部身分連結、啟用／重設連結不回復；持有的角色中仍存在的那些、所屬的群組（與群組帶來的角色）跟著生效。
 
 ```jsonc
 // 200 → { "data": { /* User */ } }
@@ -218,7 +220,7 @@
 | `404 USER_NOT_FOUND` | 不存在，或已被永久刪除 |
 | `409 USER_NOT_DELETED` | 沒有被刪除（或被別人搶先還原） |
 | `409 USER_EMAIL_DUPLICATE`／`USER_USERNAME_DUPLICATE` | email／username 已被未刪除的帳號使用；`details.conflictingUserId` |
-| `403 AUTHZ_ESCALATION` | 他持有的角色中有 actor 指派不了的（反提權，§5） |
+| `403 AUTHZ_ESCALATION` | 他持有的角色、或他所屬的群組帶來的角色中有 actor 給不了的（反提權，§5） |
 
 回收桶的列表是 `GET /trash?type=user`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §4。
 

@@ -273,8 +273,21 @@ export class PermissionService {
   ```
 
 - 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，審批核准時帶入的 `roleIds`，
-  以及還原（`POST /users/:id/restore` 檢查他仍存在的角色、`POST /roles/:id/restore` 檢查被還原的角色；[`13-trash.md`](./13-trash.md)）。
+  以及還原（`POST /roles/:id/restore` 檢查被還原的角色；[`13-trash.md`](./13-trash.md)）。
   新增任何會指派角色的端點都必須呼叫 `assertRolesAssignable()`，不可自行只比對權限鍵。
+
+**讓既有的邊重新生效也是授予**。刪除使用者、停用使用者都不動關係圖：他持有角色的邊、群組成員的邊都留著，
+只是暫時不起作用（刪除的人讀不到、停用的人登入不了）。所以下面兩個操作等於重新指派那些角色、重新把他加進那些群組，
+以 `assertCanGrant` 檢查他 **直接持有的角色**（`role:<r>#holder`）與 **直接所屬的群組**（`group:<g>#member`，引擎沿上層群組、
+群組持有的角色展開），actor 給不了 → `403 AUTHZ_ESCALATION`（`UserService.assertCanRevive`）：
+
+| 操作 | 為什麼要檢查 |
+| --- | --- |
+| 還原使用者（`POST /users/:id/restore`） | 還原後他以原本的密碼登入，取得所有角色與群組帶來的權限 |
+| 停用後改回 active（`PATCH /users/:id`，`inactive` → `active`） | 同上；停用時撤銷了 session，但沒有拿掉任何邊 |
+
+只檢查「直接」的兩種邊就夠：上層群組與群組持有的角色由 `grantedCapabilities` 的閉包涵蓋；已刪除的角色與群組不會跟著回來，不列入。
+停用、刪除、解鎖不檢查——前兩者是拿掉能力；解鎖的人本來就是 `active`（登入失敗的自動鎖定不改 `status`），沒有失去過角色。
 
 **反方向：被操作的人是 super-admin**（`UserService.assertCanManage`）。
 上面只檢查「新授予的」角色；持 `user:update`／`user:delete`／`user:assignRole` 的 admin 仍能停用、刪除 super-admin，

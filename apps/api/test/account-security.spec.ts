@@ -9,9 +9,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   auditLogs,
   authTokens,
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
   isRoleHolderTuple,
   relationTuples,
   roleHolderTuple,
+  rolePermissionTuple,
   roles,
   users,
 } from '@/db/schema';
@@ -90,6 +94,14 @@ function login(credentials: { email: string; password: string }) {
 async function tokenOf(credentials: { email: string; password: string }): Promise<string> {
   const response = await login(credentials).expect(200);
   return (response.body as { data: { accessToken: string } }).data.accessToken;
+}
+
+/** 管理者把停用的人改回 active。 */
+async function reactivate(token: string, id: string) {
+  return request(http)
+    .patch(`/users/${id}`)
+    .set('authorization', `Bearer ${token}`)
+    .send({ status: 'active', version: await userVersion(db, id) });
 }
 
 /** 啟用／重設信裡的 token（寄信工作在寄出當下才簽發；這裡直接簽一張）。 */
@@ -409,6 +421,67 @@ describe('帳號安全', () => {
         .from(auditLogs)
         .where(and(eq(auditLogs.resourceId, id), eq(auditLogs.action, 'user.activation_resent')));
       expect(log).toBeDefined();
+    });
+  });
+
+  describe('停用後改回 active 的反提權（docs/architecture/backend/05-rbac.md §4.1）', () => {
+    const OPERATOR = {
+      email: 'reactivate-operator@example.com',
+      password: 'OperatorPassword!2026',
+    };
+
+    beforeAll(async () => {
+      // 只能看與編輯使用者：沒有 admin 帶的其他權限
+      const [role] = await db
+        .insert(roles)
+        .values({ slug: 'reactivate-operator', name: 'reactivate-operator', isSystem: false })
+        .returning();
+      await db
+        .insert(relationTuples)
+        .values(['user:read', 'user:update'].map((key) => rolePermissionTuple(role!.id, key)));
+      const operator = await createUser(OPERATOR.email, OPERATOR.password);
+      await db.insert(relationTuples).values(roleHolderTuple(role!.id, operator));
+    });
+
+    it('直接持有 admin 的人：只有 user:update 的人改回 active → 403 AUTHZ_ESCALATION，仍是 inactive', async () => {
+      const id = await createUser('reactivate-direct@example.com', null, {
+        roleSlug: 'admin',
+        status: 'inactive',
+      });
+      const response = await reactivate(await tokenOf(OPERATOR), id);
+      expect(response.status).toBe(403);
+      expect(errorCode(response)).toBe('AUTHZ_ESCALATION');
+      expect((await userOf('reactivate-direct@example.com')).status).toBe('inactive');
+    });
+
+    it('只經由群組持有 admin 的人一樣擋下；持有 admin 的人可以改回 active', async () => {
+      const id = await createUser('reactivate-group@example.com', null, { status: 'inactive' });
+      const [group] = await db.insert(groups).values({ name: '重新啟用：Admins' }).returning();
+      await db
+        .insert(relationTuples)
+        .values([
+          groupRoleTuple(await roleIdOf('admin'), group!.id),
+          groupMemberTuple(group!.id, { type: 'user', id }),
+        ]);
+
+      const denied = await reactivate(await tokenOf(OPERATOR), id);
+      expect(denied.status).toBe(403);
+      expect(errorCode(denied)).toBe('AUTHZ_ESCALATION');
+      expect((await userOf('reactivate-group@example.com')).status).toBe('inactive');
+
+      expect((await reactivate(await tokenOf(ADMIN), id)).status).toBe(200);
+      expect((await userOf('reactivate-group@example.com')).status).toBe('active');
+    });
+
+    it('停用不檢查（拿掉能力不是提權）；沒有角色的人改回 active 不受影響', async () => {
+      const operator = await tokenOf(OPERATOR);
+      const id = await createUser('reactivate-plain@example.com', null);
+      await request(http)
+        .patch(`/users/${id}`)
+        .set('authorization', `Bearer ${operator}`)
+        .send({ status: 'inactive', version: await userVersion(db, id) })
+        .expect(200);
+      expect((await reactivate(operator, id)).status).toBe(200);
     });
   });
 
