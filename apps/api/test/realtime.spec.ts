@@ -24,6 +24,8 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import {
   groupMemberTuple,
@@ -36,9 +38,12 @@ import {
   users,
 } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { notification } from '@/modules/notification/notification.definition';
+import { NotificationService } from '@/modules/notification/notification.service';
 import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from '@/modules/realtime/realtime.constants';
 import { RealtimeGateway } from '@/modules/realtime/realtime.gateway';
 import { userRoom } from '@/modules/realtime/realtime.rooms';
+import { USER_ROLES_CHANGED_NOTIFICATION } from '@/modules/user/user.notifications';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -607,6 +612,42 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         { resource: 'userRole', kind: 'update' },
       ]);
       expect(rootRaw).toContainEqual(restoreEvent);
+    });
+
+    it('一批通知發給多人（一則事件）：每位收件人只收到自己的通知 id，收不到別人的（docs/architecture/backend/15-notification.md §12.2 D8）', async () => {
+      const alice = await createUser('batch-notify-alice@example.com');
+      const bob = await createUser('batch-notify-bob@example.com');
+      await bus.drain();
+      const aliceSocket = await connect(await tokenFor(alice));
+      const bobSocket = await connect(await tokenFor(bob));
+      const toAlice = collect(aliceSocket);
+      const toBob = collect(bobSocket);
+      const publish = vi.spyOn(bus, 'publish');
+
+      const written = await inTestTenant(app, () =>
+        withTransaction(app.get<Database>(TENANT_DB), (tx) =>
+          app.get(NotificationService).notify(
+            [alice, bob].map((recipientId) =>
+              notification(USER_ROLES_CHANGED_NOTIFICATION, {
+                recipientId,
+                actorId: null,
+                params: { added: ['A'], removed: [] },
+              }),
+            ),
+            tx,
+          ),
+        ),
+      );
+      await barrier([aliceSocket, bobSocket]);
+
+      expect(publish).toHaveBeenCalledTimes(1);
+      const [aliceNotification, bobNotification] = written;
+      expect(toAlice.flatMap((event) => event.changes)).toEqual([
+        { resource: 'notification', kind: 'create', id: aliceNotification },
+      ]);
+      expect(toBob.flatMap((event) => event.changes)).toEqual([
+        { resource: 'notification', kind: 'create', id: bobNotification },
+      ]);
     });
 
     it('x-client-id 格式不合 → 不帶 origin', async () => {

@@ -152,6 +152,58 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
     });
   });
 
+  it('resource.changed 的 perRecipient：每個人各一則、只到自己的 user room，只帶自己的變更（站內通知）', () => {
+    const { fire, emits } = setup();
+    fire(
+      DomainEvent.RESOURCE_CHANGED,
+      {
+        changes: [],
+        perRecipient: [
+          { userId: 'u1', changes: [{ resource: 'notification', kind: 'create', id: 'n1' }] },
+          { userId: 'u2', changes: [{ resource: 'notification', kind: 'create', id: 'n2' }] },
+          { userId: 'u3', changes: [] },
+        ],
+      },
+      { clientId: 'tab-1' },
+    );
+
+    expect(emits).toEqual([
+      {
+        rooms: 't:t1:user:u1',
+        event: 'resource.changed',
+        payload: {
+          changes: [{ resource: 'notification', kind: 'create', id: 'n1' }],
+          origin: 'tab-1',
+        },
+      },
+      {
+        rooms: 't:t1:user:u2',
+        event: 'resource.changed',
+        payload: {
+          changes: [{ resource: 'notification', kind: 'create', id: 'n2' }],
+          origin: 'tab-1',
+        },
+      },
+    ]);
+  });
+
+  it('resource.changed 同時有共用的變更與 perRecipient：兩者各自推，共用的照受眾表', () => {
+    const { fire, emits } = setup();
+    fire(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: 'announcement', kind: 'update', id: 'a1' }],
+      perRecipient: [
+        { userId: 'u1', changes: [{ resource: 'notification', kind: 'delete', id: 'n1' }] },
+      ],
+    });
+    expect(emits.map((emit) => emit.rooms)).toEqual([
+      't:t1:user:u1',
+      expect.arrayContaining(['t:t1:perm:announcement:read']),
+    ]);
+    expect(emits[1]?.payload).toEqual({
+      changes: [{ resource: 'announcement', kind: 'update', id: 'a1' }],
+    });
+  });
+
   it('resource.changed 沒有 clientId 時不帶 origin', () => {
     const { fire, emits } = setup();
     fire(DomainEvent.RESOURCE_CHANGED, { changes: [{ resource: 'role', kind: 'create' }] });

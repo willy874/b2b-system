@@ -123,7 +123,7 @@ await withTransaction(this.db, async (tx) => {
 | 截斷 | 超過 `MAX_NOTIFICATION_RECIPIENTS`（1000）時記 warn 並只寫前 1000 筆（D6）；業務照常成功 |
 | 政策 | 每一種類型呼叫 `NotificationPolicyService.filterRecipients(type, 'inApp', 收件人, tx)`：租戶關掉的整批不寫、收件人自己關掉（租戶允許時）的略過；沒有登記進事件目錄的類型拋 `Error`（[`16-notification-event.md`](./16-notification-event.md) §3.1） |
 | 寫入 | 一條 `INSERT … VALUES (…), (…)` 寫完 |
-| 推播 | 以 `afterCommit(tx, …)` 登記：**交易提交後** 對每位收件人各發一則 `resource.changed`（§7） |
+| 推播 | 以 `afterCommit(tx, …)` 登記：**交易提交後** 發一則 `resource.changed`，以 `perRecipient` 帶每位收件人自己的通知 id，listener 逐人推到各自的 user room（§7） |
 
 - `tx` 必須是 `withTransaction` 開的交易：要登記提交後的推播，其他交易（含 savepoint）呼叫 `afterCommit` 會拋錯。
 - 收件人由擁有者在寫入當下算好，是快照（D5）：之後權限變動 **不補發也不收回**；點進去照常經過頁面權限與 API 權限。
@@ -250,15 +250,17 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 
 | 時機 | payload | 受眾 |
 | --- | --- | --- |
-| 新通知（`notify()` 的交易提交後） | 每位收件人各一則：`{ resource: 'notification', kind: 'create', id: <他自己的通知 id> }`；一次超過 100 則時改推一筆不帶 id 的 | `affectedUserIds: [收件人]` |
+| 新通知（`notify()` 的交易提交後） | 每位收件人各收到一則：`{ resource: 'notification', kind: 'create', id: <他自己的通知 id> }`；一次超過 100 則時改推一筆不帶 id 的 | 收件人自己。一批只發 **一則** 領域事件，`perRecipient` 帶「收件人 → 他的通知 id」（[`08-realtime.md`](./08-realtime.md) §7.1） |
 | 標為已讀 | `{ resource: 'notification', kind: 'update', id }`（帶 `origin`，發起的分頁略過） | 自己（其他裝置與分頁的未讀數跟著更新） |
 | 全部已讀（有更新時） | `{ resource: 'notification', kind: 'update' }` | 自己 |
-| 撤回公告的發送（`removeBySource`，[`19-announcement.md`](./19-announcement.md) §3） | 每位收件人各一則 `{ resource: 'notification', kind: 'delete', id }`（超過 100 則改推不帶 id 的） | 收件人自己 |
+| 撤回公告的發送（`removeBySource`，[`19-announcement.md`](./19-announcement.md) §3） | 每位收件人各收到一則 `{ resource: 'notification', kind: 'delete', id }`（超過 100 則改推不帶 id 的） | 收件人自己；每刪一批發一則領域事件（`perRecipient`） |
 | 保留清理的刪除 | 不推：被刪的都是列表最後面的舊通知，下次重抓就不見了 | — |
 
 - 推播由 `afterCommit` 在交易提交時就發出，早於業務 service 在交易之後才發的 `permissions.changed` 與 `resource.changed`；
   兩者互不依賴（通知推到 user room，與 perm room 的同步無關）。
 - payload 只帶 id，前端收到後讓通知列表與未讀數的 query 失效，稽核列表不動（[`../frontend/15-notification.md`](../frontend/15-notification.md) §6）。
+- 一批（例：公告每 500 人一個交易）只發一則領域事件，不是每位收件人一則：每一則事件都要經平台 DB 轉送（[`08-realtime.md`](./08-realtime.md) §7.6），
+  每人一則時發給上萬人的公告會讓同一個租戶的其他推播排在後面幾秒到十幾秒。
 
 ---
 
@@ -307,7 +309,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 | 收件人（super-admin、依賴樹、排除沒有權限／停用／未啟用／刪除的人、已刪除的角色、過期的邊）；`notify` 與業務同一個交易（rollback 不留下）、略過自己；端點（只看自己的、新的在前、keyset 分頁不重複不漏且不受新通知影響、`unread` 篩選、未讀數、已讀保留原本的時間、別人的與不存在的 404、全部已讀、已讀不寫稽核、未登入 401）；三個寫入點（匿名註冊通知審核者且沒有結果通知、申請人有審核權限時不通知自己、駁回通知申請人、指派角色帶增減名稱、送同一組不通知）；保留清理依設定；外鍵（收件人刪除 CASCADE、觸發者 SET NULL） | `test/notifications.spec.ts` |
 | 推播只到收件人的 user room、payload 是通知 id、稽核的讀者收不到；指派角色時通知早於 `userRole` | `test/realtime.spec.ts` |
 | 受眾表：`notification` 只有 user room、不加 `auditLog:read` | `src/modules/realtime/__tests__/realtime.audience.spec.ts` |
-| `notify` 在交易提交後才推播、rollback 不推、每位收件人一則、全部略過時不寫、截斷與 warn、超過 100 則的推播、不是 `withTransaction` 的交易拋錯；游標錯誤、404、已讀的推播；清理的分批與設定、排程註冊 | `src/modules/notification/__tests__/notification.service.spec.ts` |
+| `notify` 在交易提交後才推播、rollback 不推、一批一則事件（500 人也是一則、每人只帶自己的 id）、全部略過時不寫、截斷與 warn、超過 100 則的推播、不是 `withTransaction` 的交易拋錯；游標錯誤、404、已讀的推播；清理的分批與設定、排程註冊 | `src/modules/notification/__tests__/notification.service.spec.ts` |
 | `defineNotification` 的名稱格式、`params` 的編譯期檢查、`prepareNotifications`（略過自己、去重、截斷、各種不合格式）、游標的編碼與解碼 | `src/modules/notification/__tests__/notification.batch.spec.ts` |
 | `findActiveUserIdsWithPermission` 的反向查詢帶的關係、以正向解析確認 | `src/modules/permission/__tests__/permission.service.spec.ts` |
 | 審批送出與審核時的通知（收件人、參數、連結、`resultLink`、匿名沒有結果通知、重複送出不通知） | `src/modules/approval/__tests__/approval.service.spec.ts` |

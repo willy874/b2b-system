@@ -59,7 +59,8 @@ import { UserModule } from './modules/user/user.module';
     AuthzModule,
     BroadcastModule,
     SettingsModule,
-    EventsModule,
+    // 寫入的推播轉送給內部 api；這個程序沒有推播，不收別人轉送來的
+    EventsModule.sendOnly(),
     JobsModule,
     StorageModule,
     // 寄信的工作在這裡只入列（平台管理者模組登記了寄信的 handler，PermissionsGuard 依賴那個模組）

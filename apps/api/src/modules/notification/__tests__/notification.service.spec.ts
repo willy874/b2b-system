@@ -137,7 +137,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
   });
 
   describe('notify（docs/architecture/backend/15-notification.md §12.2 D2、D6、D7、D8）', () => {
-    it('在呼叫端的交易內一次寫入；提交之後才推播，每位收件人一則、只帶自己的通知 id', async () => {
+    it('在呼叫端的交易內一次寫入；提交之後才推播，一批只發一則事件，每位收件人只帶自己的通知 id', async () => {
       const { db, tx } = fakeDb(order);
       const ids = await withTransaction(db, async (t) => {
         const written = await service.notify(
@@ -151,17 +151,40 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       expect(ids).toEqual(['n0', 'n1', 'n2']);
       expect(repo.insertMany).toHaveBeenCalledTimes(1);
       expect(repo.insertMany.mock.calls[0]?.[1]).toBe(tx);
-      expect(order).toEqual(['end of transaction body', 'commit', 'publish', 'publish']);
+      expect(order).toEqual(['end of transaction body', 'commit', 'publish']);
       expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-        changes: [
-          { resource: 'notification', kind: 'create', id: 'n0' },
-          { resource: 'notification', kind: 'create', id: 'n2' },
+        changes: [],
+        perRecipient: [
+          {
+            userId: recipient(1),
+            changes: [
+              { resource: 'notification', kind: 'create', id: 'n0' },
+              { resource: 'notification', kind: 'create', id: 'n2' },
+            ],
+          },
+          {
+            userId: recipient(2),
+            changes: [{ resource: 'notification', kind: 'create', id: 'n1' }],
+          },
         ],
-        affectedUserIds: [recipient(1)],
       });
-      expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-        changes: [{ resource: 'notification', kind: 'create', id: 'n1' }],
-        affectedUserIds: [recipient(2)],
+    });
+
+    it('一批 500 人只發 1 則事件，帶每個人自己的通知 id（docs/architecture/backend/08-realtime.md §7.1）', async () => {
+      const { db } = fakeDb(order);
+      const inputs = Array.from({ length: 500 }, (_, i) => input(recipient(i + 1)));
+      await withTransaction(db, (t) => service.notify(inputs, t));
+
+      expect(events.publish).toHaveBeenCalledTimes(1);
+      const [, payload] = events.publish.mock.calls[0] as unknown as [
+        string,
+        { changes: unknown[]; perRecipient: Array<{ userId: string; changes: unknown[] }> },
+      ];
+      expect(payload.changes).toEqual([]);
+      expect(payload.perRecipient).toHaveLength(500);
+      expect(payload.perRecipient[42]).toEqual({
+        userId: recipient(43),
+        changes: [{ resource: 'notification', kind: 'create', id: 'n42' }],
       });
     });
 
@@ -272,8 +295,10 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       const inputs = Array.from({ length: 101 }, (_, i) => input(recipient(1), `sample.t${i}`));
       await withTransaction(db, (t) => service.notify(inputs, t));
       expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-        changes: [{ resource: 'notification', kind: 'create' }],
-        affectedUserIds: [recipient(1)],
+        changes: [],
+        perRecipient: [
+          { userId: recipient(1), changes: [{ resource: 'notification', kind: 'create' }] },
+        ],
       });
     });
 
@@ -499,7 +524,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       expect(events.publish).not.toHaveBeenCalled();
     });
 
-    it('removeBySource：分批刪到少於一批為止，回傳總數；每批依收件人各推一則 delete', async () => {
+    it('removeBySource：分批刪到少於一批為止，回傳總數；每批推一則 delete，各收件人只帶自己的', async () => {
       const full = Array.from({ length: NOTIFICATION_CLEANUP_BATCH_SIZE }, (_, i) => ({
         id: `n${i}`,
         recipientId: recipient(1),
@@ -510,9 +535,15 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       await expect(service.removeBySource('s1')).resolves.toBe(NOTIFICATION_CLEANUP_BATCH_SIZE + 1);
       expect(repo.deleteBySource).toHaveBeenCalledTimes(2);
       expect(repo.deleteBySource).toHaveBeenCalledWith('s1', NOTIFICATION_CLEANUP_BATCH_SIZE);
-      expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-        changes: [{ resource: 'notification', kind: 'delete', id: 'last' }],
-        affectedUserIds: [recipient(2)],
+      expect(events.publish).toHaveBeenCalledTimes(2);
+      expect(events.publish).toHaveBeenLastCalledWith('resource.changed', {
+        changes: [],
+        perRecipient: [
+          {
+            userId: recipient(2),
+            changes: [{ resource: 'notification', kind: 'delete', id: 'last' }],
+          },
+        ],
       });
     });
 

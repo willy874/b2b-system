@@ -26,8 +26,11 @@ const PLATFORM_LANE = '-';
  */
 const PRIORITY_EVENTS: ReadonlySet<DomainEvent> = new Set([DomainEvent.SESSIONS_REVOKED]);
 
-/** 事件排進哪一條佇列：每個租戶一條，另加一條優先通道。 */
-function laneOf(type: DomainEvent): string {
+/**
+ * 事件排進哪一條佇列：每個租戶一條，另加一條優先通道。以發佈當下的租戶脈絡計算；
+ * `DomainEventRelay` 的送出佇列沿用同一個切法。
+ */
+export function laneOf(type: DomainEvent): string {
   const tenant = currentTenant()?.id ?? PLATFORM_LANE;
   return PRIORITY_EVENTS.has(type) ? `${tenant}:priority` : tenant;
 }

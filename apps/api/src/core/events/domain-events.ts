@@ -38,11 +38,23 @@ export const DomainEvent = {
 
 export type DomainEvent = (typeof DomainEvent)[keyof typeof DomainEvent];
 
+/** `resource.changed` 的 `perRecipient`：一位使用者與只推給他的變更。 */
+export interface RecipientChanges {
+  userId: string;
+  changes: ResourceChangeWire[];
+}
+
 export interface DomainEventPayloads {
   [DomainEvent.RESOURCE_CHANGED]: {
     changes: ResourceChangeWire[];
     /** 本人或角色持有者：除了 perm room 之外也要收到的人。 */
     affectedUserIds?: string[];
+    /**
+     * 只給個別使用者的變更（例：站內通知的 id 只推給收件人自己）：每個人各收一則只有他自己那幾筆的 `resource.changed`，
+     * 只送到他的 user room，不經 perm room、也不併進 `changes`。一批收件人只發一則事件，不必每人一則
+     * （docs/architecture/backend/08-realtime.md §7.1）。
+     */
+    perRecipient?: RecipientChanges[];
   };
   [DomainEvent.PERMISSIONS_CHANGED]: {
     /**

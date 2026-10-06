@@ -87,6 +87,14 @@ export class BroadcastService implements OnApplicationBootstrap, OnApplicationSh
       },
       onReconnect: subscriber.onReconnect && (() => subscriber.onReconnect?.()),
     });
+    return this.sender(name);
+  }
+
+  /**
+   * 只送、不收的 `channel()`：信封相同（其他程序的 `channel()` 收得到），但這個程序不 `LISTEN` 這個頻道。
+   * 給沒有人要處理收到的訊息的程序（例：對外 API 轉送領域事件，docs/architecture/backend/08-realtime.md §7.6）。
+   */
+  sender<T>(name: string): BroadcastPublisher<T> {
     return (message) =>
       this.publish(name, JSON.stringify({ o: this.instanceId, m: message } satisfies Envelope));
   }

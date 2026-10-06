@@ -92,9 +92,19 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
    * 否則客戶端驗證失敗會整則丟掉。
    */
   onResourceChanged(
-    { changes, affectedUserIds }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
+    {
+      changes,
+      affectedUserIds,
+      perRecipient = [],
+    }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
     meta: DomainEventMeta,
   ): void {
+    // 只給個別使用者的變更：各推一則到他自己的 user room（站內通知的 id 不給別人看到，§7.1）
+    for (const { userId, changes: own } of perRecipient) {
+      if (own.length) {
+        this.publisher.emit(userRoom(userId), ServerEvent.RESOURCE_CHANGED, payloadOf(own, meta));
+      }
+    }
     if (!changes.length) return;
 
     const rooms = resolveAudienceRooms(changes, affectedUserIds);

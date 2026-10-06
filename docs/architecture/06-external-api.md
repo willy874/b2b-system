@@ -22,6 +22,7 @@
 - **只認 API token**（D10）：不讀 cookie、不接受 JWT access token；內部 api 也一律拒絕 `b2bt_` 開頭的 token
   （`AccessTokenVerifier.verifyClaims`）。
 - **沒有** Socket.io、OIDC Provider、refresh cookie、CSRF；不 import `RealtimeModule`、`AuthModule`。
+  領域事件以 `EventsModule.sendOnly()` 組裝：自己的寫入照樣轉送給內部 api 推播，但不收內部 api 轉來的（沒有推播，[`backend/08-realtime.md`](backend/08-realtime.md) §7.6）。
 - **只入列、不執行背景工作**（D19）：`src/external-process-env.ts` 在任何模組讀設定之前把 `JOBS_WORKER_ENABLED` 設成 `false`。
 - **跨程序的一致性**：這個程序寫入的資料，快取失效與推播都經平台 DB 的廣播送到內部 api（[`01-system.md`](./01-system.md) §4.4）。
 
