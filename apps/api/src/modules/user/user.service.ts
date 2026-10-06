@@ -5,8 +5,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { AuthUser } from '@/common/types';
 import { parseSubjectKey } from '@/core/authz';
 import { UserCacheService } from '@/core/cache';
-import type { Database, DbOrTx, Transaction } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -117,6 +117,12 @@ function sameIds(roles: readonly Pick<UserRoleSummary, 'id'>[], ids: readonly st
   const expected = new Set(ids);
   return roles.length === expected.size && roles.every((role) => expected.has(role.id));
 }
+
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const USER_LOCK_CODES = {
+  notFound: 'USER_NOT_FOUND',
+  conflict: 'USER_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
 
 @Injectable()
 export class UserService {
@@ -229,7 +235,7 @@ export class UserService {
         { expectedVersion: version, bumpVersion: true },
       );
       // 讀到之後、寫入之前被別人改過（版本變了）或刪除
-      if (!next) throw await this.missedUpdate(id, tx);
+      if (!next) throw await missedUpdate(() => this.repo.findVersion(id, tx), USER_LOCK_CODES);
 
       if (deactivating) {
         // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
@@ -631,17 +637,6 @@ export class UserService {
   }
 
   // ── 業務規則 ─────────────────────────────────────────────
-
-  /**
-   * 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
-   * （docs/architecture/backend/14-revisions.md §9.2 D3）。在同一個交易內重讀，看得到搶先的那一筆已提交的版本。
-   */
-  private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
-    const current = await this.repo.findVersion(id, tx);
-    return current === undefined
-      ? new AppException('USER_NOT_FOUND')
-      : new AppException('USER_VERSION_CONFLICT', { current });
-  }
 
   private async getExisting(id: string): Promise<UserRow> {
     const user = await this.repo.findById(id);

@@ -81,6 +81,7 @@ function setup() {
     findById: vi.fn(async (): Promise<WebhookSubscriptionWithCreator | undefined> =>
       subscription(),
     ),
+    findVersion: vi.fn(async (): Promise<number | undefined> => 1),
     lockForCount: vi.fn(async () => undefined),
     countAll: vi.fn(async () => 0),
     distinctUrls: vi.fn(async (_tx: unknown, _exclude?: string): Promise<string[]> => []),
@@ -347,9 +348,7 @@ describe('WebhookService.update', () => {
   it('條件式 UPDATE 沒命中（讀到之後被改過）→ 以交易內重讀的版本回 409', async () => {
     const ctx = setup();
     ctx.repo.update.mockResolvedValue(undefined as never);
-    ctx.repo.findById
-      .mockResolvedValueOnce(subscription())
-      .mockResolvedValueOnce(subscription({ version: 4 }));
+    ctx.repo.findVersion.mockResolvedValueOnce(4);
     await expectCode(
       inTenant(() => ctx.service.update('wh-1', { name: 'x', version: 3 }, ACTOR)),
       'WEBHOOK_VERSION_CONFLICT',

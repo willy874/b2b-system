@@ -41,6 +41,7 @@ function setup() {
   const repo = {
     listByScope: vi.fn(async (): Promise<TagRow[]> => [tag('t1')]),
     findById: vi.fn(async (): Promise<TagRow | undefined> => tag('t1')),
+    findVersion: vi.fn(async (): Promise<number | undefined> => 1),
     findInScope: vi.fn(async (): Promise<TagRow[]> => []),
     countInScope: vi.fn(async () => 0),
     lockScope: vi.fn(async () => undefined),
@@ -317,9 +318,7 @@ describe('TagService 其他分支（docs/architecture/backend/18-tag.md §7.2 D3
   it('改名：條件式 UPDATE 沒命中、交易內重讀還在 → TAG_VERSION_CONFLICT 帶最新的 version，不寫稽核', async () => {
     const ctx = setup();
     ctx.repo.update.mockResolvedValue(undefined as never);
-    ctx.repo.findById
-      .mockResolvedValueOnce(tag('t1'))
-      .mockResolvedValueOnce(tag('t1', { version: 5 }));
+    ctx.repo.findVersion.mockResolvedValueOnce(5);
     await expectCode(
       inTenant(() => ctx.service.update('t1', { name: 'x', version: 1 }, ACTOR)),
       'TAG_VERSION_CONFLICT',
@@ -332,7 +331,7 @@ describe('TagService 其他分支（docs/architecture/backend/18-tag.md §7.2 D3
   it('改名：條件式 UPDATE 沒命中、交易內重讀已不在 → TAG_NOT_FOUND', async () => {
     const ctx = setup();
     ctx.repo.update.mockResolvedValue(undefined as never);
-    ctx.repo.findById.mockResolvedValueOnce(tag('t1')).mockResolvedValueOnce(undefined);
+    ctx.repo.findVersion.mockResolvedValueOnce(undefined);
     await expectCode(
       inTenant(() => ctx.service.update('t1', { name: 'x', version: 1 }, ACTOR)),
       'TAG_NOT_FOUND',

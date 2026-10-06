@@ -480,7 +480,7 @@ async login(...) {}
 ## 11. 樂觀鎖（`version`）
 
 「兩個人同時編輯同一筆，後送出的默默蓋掉先送出的」以 `version` 欄防止（[`backend/14-revisions.md`](14-revisions.md) §9.2 D3、D4）。
-目前套用在 `users`、`roles`、`files`（[`09-file.md`](./09-file.md) §6.2）。
+目前套用在 `users`（含服務帳號）、`roles`、`groups`、`files`（[`09-file.md`](./09-file.md) §6.2）、`announcements`、`webhook_subscriptions`、`tags`。
 
 | 項目 | 約定 |
 | ---- | ---- |
@@ -489,6 +489,7 @@ async login(...) {}
 | 寫入 | 讀到時先比對；寫入是條件式 `UPDATE … SET version = version + 1 WHERE id = $id AND version = $v AND deleted_at IS NULL`，比對與寫入在同一條語句 |
 | 衝突 | `409 <RESOURCE>_VERSION_CONFLICT`，`details: { current }`。「讀到時就不同」與「UPDATE 沒命中而列仍存在」**兩條路徑都帶** `current`：沒命中時在同一個交易內重讀一次 |
 | 已刪除 | UPDATE 沒命中而列已刪除 → 既有的 `404 <RESOURCE>_NOT_FOUND`，不是衝突 |
+| 沒命中的判斷 | 一律用 `core/database` 的 `missedUpdate(() => repo.findVersion(id, tx), { notFound, conflict })`：在 UPDATE 的同一個交易內重讀版本，決定回 404 還是 409。repository 的 `findVersion(id, tx)` 只讀 `version`，條件與 UPDATE 的「未刪除」一致 |
 | 批次、腳本 | 批次以列表那一列的 `version` 逐筆送出，衝突逐筆失敗（[`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13.6）。沒有「不帶就後寫者勝」的路徑；腳本要後寫者勝就先讀一次目前的版本再送出（[`backend/14-revisions.md`](14-revisions.md) §9.2 D4） |
 | 遞增時機 | **實體自己的可編輯欄位** 被寫入時遞增（包括不收 `version` 的端點，例如解鎖、個人資料）；關聯的寫入不遞增（見下表） |
 

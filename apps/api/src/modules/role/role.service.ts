@@ -4,8 +4,8 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { AuthUser, PermissionKey } from '@/common/types';
-import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -97,6 +97,12 @@ export interface RolePermissions {
   effective: EffectivePermission[];
   isSuperAdmin: boolean;
 }
+
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const ROLE_LOCK_CODES = {
+  notFound: 'ROLE_NOT_FOUND',
+  conflict: 'ROLE_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
 
 @Injectable()
 export class RoleService {
@@ -201,7 +207,7 @@ export class RoleService {
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
       // 讀到之後、寫入之前被別人改過（版本變了）或刪除
-      if (!updated) throw await this.missedUpdate(id, tx);
+      if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), ROLE_LOCK_CODES);
       // UPDATE 已經鎖住角色列：同一個角色的版本號依序產生
       await this.recordRevision(updated, actor.id, tx);
       await this.audit.record(
@@ -505,7 +511,7 @@ export class RoleService {
         dto.version,
         tx,
       );
-      if (!updated) throw await this.missedUpdate(id, tx);
+      if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), ROLE_LOCK_CODES);
       await this.repo.removePermissions(id, remove, tx);
       await this.repo.addPermissions(id, add, actor.id, tx);
       const after = await this.repo.listPermissionKeys(id, tx);
@@ -623,17 +629,6 @@ export class RoleService {
         conflictingRoleId: slugTaken.id,
       });
     }
-  }
-
-  /**
-   * 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409 並帶重讀的目前版本
-   * （docs/architecture/backend/14-revisions.md §9.2 D3）。
-   */
-  private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
-    const current = await this.repo.findVersion(id, tx);
-    return current === undefined
-      ? new AppException('ROLE_NOT_FOUND')
-      : new AppException('ROLE_VERSION_CONFLICT', { current });
   }
 
   private async getExisting(id: string) {
