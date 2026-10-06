@@ -21,7 +21,7 @@ import type { SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { containsPattern, TENANT_DB } from '@/core/database';
+import { anyUuid, containsPattern, TENANT_DB } from '@/core/database';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import {
@@ -138,7 +138,8 @@ export class FileRepository {
       return { items: [], total: after ? null : 0, lastCreatedAt: undefined };
     }
     const conditions: SQL[] = [notDeleted(files), eq(files.status, 'ready')];
-    if (scope) conditions.push(inArray(files.folderId, [...scope.folderIds]));
+    // 讀得到的資料夾可能有上萬個：一個陣列參數，不受參數個數上限影響（docs/architecture/backend/09-file.md §11）
+    if (scope) conditions.push(anyUuid(files.folderId, scope.folderIds));
     if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
     if (query.contentType) {
       conditions.push(

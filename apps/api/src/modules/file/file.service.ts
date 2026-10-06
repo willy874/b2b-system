@@ -563,7 +563,8 @@ export class FileService {
 
   /**
    * 列表的範圍：持有全域 `file:read` 不限；否則只有讀得到的資料夾，根目錄是空的（§5.2）。
-   * 指定了不存在的資料夾回 404、鎖住的回 403。
+   * 指定了不存在的資料夾回 404、鎖住的回 403；指定了讀得到的資料夾就只靠 `folder_id = $folderId`，
+   * 不再帶「所有讀得到的資料夾」的範圍（docs/architecture/backend/09-file.md §11）。
    */
   private async listScope(
     ctx: FileAccessContext,
@@ -572,6 +573,7 @@ export class FileService {
   ): Promise<{ folderIds: readonly string[] } | undefined> {
     if (folderId && folderId !== 'root') {
       await this.access.assertCan(ctx, actor, 'read', folderId);
+      return undefined;
     }
     const readable = ctx.readableFolderIds();
     return readable ? { folderIds: readable } : undefined;

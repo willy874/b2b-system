@@ -645,7 +645,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
-| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
+| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、讀得到 6.6 萬個資料夾（超過參數上限）時列表與資料夾清單照常回應、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、已用量的計數（登記、完成、放棄、刪除、還原、永久刪除之後都等於 `SUM(size)`，維護排程的對帳）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/s3-object-storage.spec.ts` | 每個租戶一個 bucket、`{tenantOrigin}`、錯誤分類；presigned PUT 簽了 `content-type`、`content-length`、`if-none-match`，分塊簽 `content-length` |
@@ -696,7 +696,8 @@ FileAccessService（modules/file）
 | 項目 | 做法 |
 | --- | --- |
 | 解析範圍 | 每個請求取一次整棵資料夾結構（四個欄位）與操作者的邊，在記憶體判斷（記憶化，同一個 `物件#關係` 只算一次）。結構以租戶為 key 快取在程序內（§11.1），邊每次查（只有操作者主體閉包裡的主體） |
-| 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
+| 列表過濾 | `GET /files` 不帶 `folderId`（或 `root`）且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY($1::uuid[])`，根目錄的檔案不列。指定了資料夾時先檢查讀得到（否則 404／403），之後只靠 `folder_id = $folderId`，不再帶整個範圍 |
+| 陣列參數 | 範圍（讀得到的資料夾）與批次讀取（整棵資料夾樹的標籤，`TagRepository.tagsOf`）以 **一個陣列參數** 傳遞（`core/database` 的 `anyUuid()`），不受 postgres.js 參數個數上限（65,534）影響，也不必逐一綁定。共用資料夾授權給所有人、`GET /file-folders` 連別人的個人資料夾也列出，數量會隨租戶成長；`inArray` 每個 id 一個參數，到上限就整個請求失敗 |
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
 | 授權寫入 | `relation_tuples` 的寫入與稽核在同一個交易，經 `FileFolderTree.write` 序列化；「一個對象在一個資料夾只有一個等級」由 `FileFolderGrantRepository.set` 先刪後插維持（不是 DB 唯一索引）。交易後推 `fileFolder update`；不呼叫 `permissionsChanged`（資料夾授權不在權限快取裡），`authz_revision` 仍 +1 |

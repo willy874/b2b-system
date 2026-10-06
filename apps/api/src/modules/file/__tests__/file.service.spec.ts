@@ -896,6 +896,27 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
     await expectAppError(service.list({ ...query, folderId: OTHER }, ALICE), 'AUTHZ_FORBIDDEN');
   });
 
+  it('列表指定了讀得到的資料夾：已經檢查過，不再帶「所有讀得到的資料夾」的範圍（docs/architecture/backend/09-file.md §11）', async () => {
+    const { service, repo } = setup({ access: contributor });
+    repo.list.mockResolvedValue({ items: [], total: 0, lastCreatedAt: undefined });
+    const query = {
+      offset: 0,
+      limit: 20,
+      sort: [{ sort: 'createdAt' as const, order: 'desc' as const }],
+    };
+    await service.list({ ...query, folderId: FOLDER }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ folderId: FOLDER }),
+      undefined,
+      undefined,
+    );
+    // 根目錄沒有資料夾可以檢查：仍以讀得到的資料夾為範圍（根目錄的檔案不列）
+    await service.list({ ...query, folderId: 'root' }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, {
+      folderIds: [FOLDER],
+    });
+  });
+
   it('看不到所在資料夾的 ready 檔案 → FILE_NOT_FOUND', async () => {
     const { service } = setup({
       access: contributor,

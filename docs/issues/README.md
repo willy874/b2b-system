@@ -50,7 +50,6 @@
 | 中 | 次要網域上的檔案上傳與預覽被 CSP 擋下 | [`secondary-domain-file-features-blocked-by-csp.md`](./secondary-domain-file-features-blocked-by-csp.md) | 2026-10-06（全面檢測：部署） |
 | 中 | 每筆租戶背景工作開始前都全表掃描 pgboss.job | [`job-active-ahead-full-scan.md`](./job-active-ahead-full-scan.md) | 2026-10-06（全面檢測：效能） |
 | 中 | outbox 最舊 100 列都未註冊時 relayOutbox 無窮迴圈 | [`outbox-relay-infinite-loop.md`](./outbox-relay-infinite-loop.md) | 2026-10-06（全面檢測：效能） |
-| 中 | 檔案與資料夾清單以全部資料夾 id 組 IN 清單，超過 65,534 個即失敗 | [`file-list-folder-in-list.md`](./file-list-folder-in-list.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次逐筆失效重抓且不處理 429，大批次可能用光限流額度 | [`batch-invalidation-and-rate-limit.md`](./batch-invalidation-and-rate-limit.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次進度計算為 O(n²)，大量上傳時每個快照都重算造成卡頓 | [`batch-progress-quadratic.md`](./batch-progress-quadratic.md) | 2026-10-06（全面檢測：效能） |
 | 中 | api-sdk 無法 tree-shake，兩個前端首屏帶著全部 zod schema | [`api-sdk-not-tree-shakable.md`](./api-sdk-not-tree-shakable.md) | 2026-10-06（全面檢測：效能） |
