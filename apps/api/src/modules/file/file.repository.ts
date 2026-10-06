@@ -27,6 +27,7 @@ import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import {
   fileFolders,
   files,
+  fileStorageUsage,
   hasAnyTag,
   isDeleted,
   notDeleted,
@@ -192,27 +193,45 @@ export class FileRepository {
     };
   }
 
-  /**
-   * 所有檔案（含上傳中與回收桶裡的）的大小合計，位元組（docs/architecture/05-tenancy.md §13.3 D8）。
-   * 給了 `tx` 時先取 advisory lock：同時登記的上傳排隊加總，不會一起超過容量。
-   */
+  // ── 已用量（docs/architecture/05-tenancy.md §13.3 D8、docs/architecture/backend/09-file.md §5.0） ──
+  // `file_storage_usage` 是 `files.size` 合計的計數（含上傳中與回收桶裡的）：登記（create）、完成（markReady 大小有差時）、
+  // 永久刪除（hardDelete）在同一個交易內增減；軟刪除與還原不動它。`file.maintenance` 每天以 SUM(size) 對帳。
+
+  /** 已用量，位元組：讀計數那一列，O(1)，不加總整張 `files`。 */
   async storageUsed(tx?: DbOrTx): Promise<number> {
-    const db = tx ?? this.db;
-    if (tx) await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('files:storage_quota'))`);
-    const [row] = await db
-      .select({ used: sql<string>`coalesce(sum(${files.size}), 0)::text` })
-      .from(files);
-    return Number(row?.used ?? 0);
+    const [row] = await (tx ?? this.db)
+      .select({ usedBytes: fileStorageUsage.usedBytes })
+      .from(fileStorageUsage)
+      .limit(1);
+    return row?.usedBytes ?? 0;
   }
 
-  async create(values: FileInsert, tx?: DbOrTx): Promise<FileRow> {
-    const db = tx ?? this.db;
-    const [row] = await db.insert(files).values(values).returning();
+  /**
+   * 在容量內登記一筆檔案（在呼叫端的交易內）：先以一條條件式 UPDATE 把 `size` 加進已用量
+   * （加上之後不超過 `quota` 才更新）再 INSERT。檢查與佔用是同一條語句，同時的登記以計數那一列的列鎖排隊。
+   * 超過容量回 undefined，什麼都不寫。
+   */
+  async create(values: FileInsert, quota: number, tx: DbOrTx): Promise<FileRow | undefined> {
+    const [reserved] = await tx
+      .update(fileStorageUsage)
+      .set({ usedBytes: sql`${fileStorageUsage.usedBytes} + ${values.size}` })
+      .where(
+        and(
+          eq(fileStorageUsage.id, true),
+          sql`${fileStorageUsage.usedBytes} + ${values.size} <= ${quota}`,
+        ),
+      )
+      .returning({ usedBytes: fileStorageUsage.usedBytes });
+    if (!reserved) return undefined;
+    const [row] = await tx.insert(files).values(values).returning();
     if (!row) throw new Error('建立檔案紀錄失敗');
     return row;
   }
 
-  /** 只有 `pending` 會被改成 `ready`；並行的第二次完成請求拿到 undefined。 */
+  /**
+   * 只有 `pending` 會被改成 `ready`；並行的第二次完成請求拿到 undefined。
+   * 實際大小與登記的不同時，已用量在同一個交易內補上差額（先鎖住這一列讀登記的大小，差額只補一次）。
+   */
   async markReady(
     id: string,
     values: {
@@ -223,14 +242,23 @@ export class FileRepository {
       variantStatus: FileVariantStatus;
       updatedBy: string;
     },
-    tx?: DbOrTx,
+    tx: DbOrTx,
   ): Promise<FileRow | undefined> {
-    const db = tx ?? this.db;
-    const [row] = await db
+    const pending = and(eq(files.id, id), eq(files.status, 'pending'), notDeleted(files));
+    const [registered] = await tx
+      .select({ size: files.size })
+      .from(files)
+      .where(pending)
+      .for('update');
+    if (!registered) return undefined;
+    const [row] = await tx
       .update(files)
       .set({ ...values, status: 'ready', uploadId: null })
-      .where(and(eq(files.id, id), eq(files.status, 'pending'), notDeleted(files)))
+      .where(pending)
       .returning();
+    if (row && row.size !== registered.size) {
+      await this.addStorageUsed(row.size - registered.size, tx);
+    }
     return row;
   }
 
@@ -539,12 +567,57 @@ export class FileRepository {
     const [row] = await tx
       .delete(files)
       .where(and(eq(files.id, id), isDeleted(files)))
-      .returning({ id: files.id });
+      .returning({ id: files.id, size: files.size });
     if (!row) return false;
+    // 永久刪除才釋出容量（軟刪除與還原不動已用量）
+    await this.addStorageUsed(-row.size, tx);
     await tx
       .delete(relationTuples)
       .where(and(eq(relationTuples.objectType, FILE_OBJECT_TYPE), eq(relationTuples.objectId, id)));
     return true;
+  }
+
+  /** 已用量加上 `delta`（可為負）。不低於 0：計數有偏差時等對帳修正，不讓永久刪除因此失敗。 */
+  private async addStorageUsed(delta: number, tx: DbOrTx): Promise<void> {
+    await tx
+      .update(fileStorageUsage)
+      .set({ usedBytes: sql`greatest(${fileStorageUsage.usedBytes} + ${delta}, 0)` })
+      .where(eq(fileStorageUsage.id, true));
+  }
+
+  /**
+   * 對帳的第一步：鎖住計數那一列（在呼叫端的交易內）。登記、完成、永久刪除都在自己的交易內更新它，
+   * 鎖住之後的新語句（`sumSizes`）看得到所有已提交的變更，還沒提交的會排在對帳之後才加減。
+   * 那一列不存在（例：被人為刪掉）回 undefined。
+   */
+  async lockStorageUsage(
+    tx: DbOrTx,
+  ): Promise<{ usedBytes: number; reconciledAt: Date | null } | undefined> {
+    const [row] = await tx
+      .select({
+        usedBytes: fileStorageUsage.usedBytes,
+        reconciledAt: fileStorageUsage.reconciledAt,
+      })
+      .from(fileStorageUsage)
+      .where(eq(fileStorageUsage.id, true))
+      .for('update');
+    return row;
+  }
+
+  /** 所有檔案（含上傳中與回收桶裡的）的大小合計，位元組。會掃過整張 `files`：只給每天的對帳用。 */
+  async sumSizes(tx: DbOrTx): Promise<number> {
+    const [row] = await tx
+      .select({ used: sql<string>`coalesce(sum(${files.size}), 0)::text` })
+      .from(files);
+    return Number(row?.used ?? 0);
+  }
+
+  /** 寫回對帳的結果；那一列不存在時補上。 */
+  async setStorageUsage(usedBytes: number, reconciledAt: Date, tx: DbOrTx): Promise<void> {
+    await tx
+      .insert(fileStorageUsage)
+      .values({ id: true, usedBytes, reconciledAt })
+      .onConflictDoUpdate({ target: fileStorageUsage.id, set: { usedBytes, reconciledAt } });
   }
 }
 

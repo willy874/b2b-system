@@ -215,7 +215,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
   │ POST /files {name, contentType, size, thumbnail?}
   │──────────────────────────────▶│ 檢查大小上限、容量（§5.0）、ensureBucket
   │                               │ 大於門檻 → CreateMultipartUpload（§5.2）
-  │                               │ 交易：advisory lock → 再檢查容量 → INSERT files (pending, storage_key=files/<id>)
+  │                               │ 交易：佔用容量（file_storage_usage 的條件式 UPDATE）→ INSERT files (pending, storage_key=files/<id>)
   │ 201 {file, upload | multipart, thumbnailUpload}
   │◀──────────────────────────────│
   │ PUT upload.url（帶 upload.headers）──────────────────────────────────▶│
@@ -262,15 +262,31 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 ### 5.0 檔案容量（[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D8）
 
 租戶的容量是 feature 參數 `file.storageQuotaMb`（預設 2048 MB，平台管理者設定；[`../05-tenancy.md`](../05-tenancy.md) §5.3）。
-用量是 `files.size` 的合計（`FileRepository.storageUsed()`）：**含** 上傳中的 `pending` 與回收桶裡的檔案，**不含** 縮圖與影像變體。
+用量是 `files.size` 的合計：**含** 上傳中的 `pending` 與回收桶裡的檔案，**不含** 縮圖與影像變體。
+它不是每次加總整張 `files`（含回收桶、不帶條件的 `SUM` 沒有索引可用，只能循序掃描），而是租戶 DB 裡 **單列的計數**
+`file_storage_usage`（`used_bytes`、`reconciled_at`；migration 0036 建立並以既有檔案的 `SUM(size)` 回填）：
 
-- `createUpload` 先不鎖地檢查一次（明顯超過時不必向物件儲存要 uploadId），登記 `pending` 的交易內以
-  `pg_advisory_xact_lock(hashtext('files:storage_quota'))` 序列化後再加總一次：同時登記的上傳不會一起超過容量。
-  加上這次的 `size` 會超過容量就回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）；
-  已經要到的分塊上傳盡力取消。
-- 調小到低於已用量時不刪任何檔案，只擋新的上傳；永久刪除（`trash.purge`、放棄上傳、維護排程清掉的殘留）才會釋出容量。
-- `GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（位元組）；檔案管理器的側欄顯示用量
-  （前端以另一個 query key `FILE_STORAGE_USAGE_QUERY_KEY` 讀同一支端點，檔案的增刪由依賴圖讓它重抓）。
+| 時機 | 計數 | 在哪裡 |
+| --- | --- | --- |
+| 登記上傳 | `+ size`：`UPDATE … SET used_bytes = used_bytes + $size WHERE used_bytes + $size <= $quota`，沒有更新到就是超過容量，不 INSERT | `FileRepository.create()`，與 INSERT 同一個交易 |
+| 完成上傳 | 實際大小與登記的不同時補差額（大小已簽進直傳網址，§5，正常不會有差） | `markReady()`，同一個交易 |
+| 永久刪除 | `- size`（不低於 0） | `hardDelete()`，`trash.purge` 的交易 |
+| 軟刪除、還原、放棄上傳、維護排程軟刪除逾時的上傳 | 不變（回收桶裡的也算；保留期限後由 `trash.purge` 永久刪除才釋出） | |
+| 每天一次 | 以 `SUM(size)` 對帳、修正偏差 | `file.maintenance`（§9 #5） |
+
+- `createUpload` 先不鎖地讀一次計數（O(1)；明顯超過時不必向物件儲存要 uploadId），登記 `pending` 的交易內再以上面那條
+  條件式 UPDATE 檢查並佔用：檢查與佔用是同一條語句，同時的登記以計數那一列的 **列鎖** 排隊（不再取 advisory lock、不加總），
+  不會一起超過容量。超過就回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）；
+  已經要到的分塊上傳盡力取消。`trash.purge` 的一批（100 列）持有那一列的鎖到提交，期間的登記稍候。
+- 調小到低於已用量時不刪任何檔案，只擋新的上傳；永久刪除（`trash.purge`）才會釋出容量——放棄的上傳、維護排程清掉的逾時上傳
+  都是軟刪除，同樣等保留期限後的永久刪除。
+- 計數只在這三個寫入點維護；直接改資料庫、migration 之後到新版上線之前舊版的登記會讓它偏。`file.maintenance` 每一輪檢查
+  `reconciled_at`，距上次超過一天（或從沒對帳過）才在交易內 **先鎖住計數那一列、再以新的語句** `SUM(size)`
+  （看得到所有已提交的變更，還沒提交的排在對帳之後才加減），寫回並記下時間；偏差記進報告的 `storageUsageDrift`。
+- `GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（位元組，讀計數）；檔案管理器的側欄顯示用量
+  （前端以另一個 query key `FILE_STORAGE_USAGE_QUERY_KEY` 讀同一支端點）。用量 **不** 隨每次 `file` 推播重抓——任何人的每一次檔案變動
+  都推給所有開著檔案管理的人，跟著重抓等於「推播數 × 分頁數」次請求；只在自己的上傳結束時重抓，別人造成的變化等 staleTime 過後、
+  切回分頁時重抓（前端專屬的資源 `fileStorageUsage`，[`../frontend/05-data-layer.md`](../frontend/05-data-layer.md) §6.2）。
 
 ### 5.1 瀏覽器縮圖
 
@@ -598,12 +614,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 2 | 沒有紀錄的分塊上傳 | `CreateMultipartUpload` 成功而 INSERT 失敗；放棄時 abort 失敗 | `ListMultipartUploads(files/)` 中 uploadId 不屬於任何未刪除紀錄 | AbortMultipartUpload |
 | 3 | 孤兒物件 | 放棄上傳、永久刪除之後的物件刪除失敗；紀錄已不存在 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到 **任何** 紀錄（含已軟刪除的） | 刪除 |
 | 4 | 卡住的影像變體 | 產生途中重啟、儲存服務暫時不可用；migration 補產生 | `variant_status='pending' AND uploaded_at < now - 5 分鐘` | 重新排入（§5.4） |
+| 5 | 已用量的計數偏差（§5.0） | 直接改資料庫；migration 0036 之後、新版上線之前舊版的登記 | `file_storage_usage.reconciled_at` 距今超過一天（或 null）時，鎖住計數那一列後 `SUM(size)` | 寫回 `SUM(size)` 與對帳時間；偏差記進 `storageUsageDrift`（null 是這一輪沒對帳） |
 
 - **已刪除紀錄的物件不是孤兒**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D11）：紀錄還在回收桶裡，保留期限內可以還原；
   物件由 `trash.purge` 在永久刪除之後刪（[`13-trash.md`](./13-trash.md) §7.3）。R4a 之前這一類是「查不到 **未刪除** 紀錄」，遞迴刪除資料夾的物件靠它清除。
 - **不誤判**：2、3 只看建立早於 `now - FILE_PENDING_TTL` 的東西——剛登記、INSERT 還沒提交的上傳不會被當成孤兒；
   不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
-- **偵測**：每一輪回傳 `FileMaintenanceReport`（四類各偵測到幾筆、處理失敗幾筆），有發現時記 info log；
+- **偵測**：每一輪回傳 `FileMaintenanceReport`（1–4 各偵測到幾筆、5 的偏差、處理失敗幾筆），有發現時記 info log；
   `FILE_MAINTENANCE_DRY_RUN=true` 時 **只偵測、不處理**，可以先觀察再開啟。
 - **冪等**：刪除不存在的東西視為成功、軟刪除以條件 UPDATE 決勝；工作中途中斷、被收回重試時重做也不會出錯。
   佇列同時段只放一筆（`exclusive`），上一輪沒結束時下一輪不會開始。處理失敗的項目下一輪會再偵測到；
@@ -630,13 +647,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
 | `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
-| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
+| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、已用量的計數（登記、完成、放棄、刪除、還原、永久刪除之後都等於 `SUM(size)`，維護排程的對帳）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/s3-object-storage.spec.ts` | 每個租戶一個 bucket、`{tenantOrigin}`、錯誤分類；presigned PUT 簽了 `content-type`、`content-length`、`if-none-match`，分塊簽 `content-length` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入（經暫存檔、dispose 後刪除）、位元組上限、libvips 資源上限 |
 | `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取、`auto` 背景轉出前先回主格式 |
-| `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
+| `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、已用量的對帳（一天一次、dry run 不修正、計數那一列不見時補上）、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
 | `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖、`complete` 回應遺失時查狀態；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套

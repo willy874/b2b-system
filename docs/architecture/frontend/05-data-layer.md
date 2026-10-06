@@ -338,6 +338,7 @@ mutation 成功
 | `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變），`notification` 除外（不寫稽核）          |
 | `approval`：`APPROVAL_LIST` ／ `APPROVAL_DETAIL`                                | 無（只有自己的寫入）                                                                  |
 | `file`：`FILE_LIST`、`FILE_INFINITE_LIST` ／ `FILE_DETAIL`                      | `fileFolder` 更新／刪除（全部列表）；檔案內容 `FILE_TEXT` 刻意不列——以 id 為 key、不可變。列表的 key 第二個元素是資料夾（`scopedCollection`）：推播帶 `refs.fileFolder` 時只重抓那個資料夾與不分資料夾的列表 |
+| `fileStorageUsage`：`FILE_STORAGE_USAGE`（前端專屬）                            | 無：刻意不跟著 `file` 失效（任何人的檔案變動都會推播，跟著重抓等於「推播數 × 分頁數」次 upload-policy）。只在自己的上傳結束時宣告；別人造成的變化等 staleTime 過後、切回分頁時重抓（[`../05-tenancy.md`](../05-tenancy.md) §13.3 D8） |
 | `permission`：`PERMISSION_LIST`                                                | 無（一個部署版本內不變）                                                              |
 | `notification`：`NOTIFICATION_LIST`、`NOTIFICATION_UNREAD_COUNT`                | 無（只有自己的已讀與伺服器推來的新通知；[`15-notification.md`](./15-notification.md) §6） |
 

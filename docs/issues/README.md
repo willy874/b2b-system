@@ -26,7 +26,6 @@
 | 高 | prod compose 缺 WEBHOOK_SECRET_KEY 無法啟動 | [`prod-compose-missing-webhook-secret-key.md`](./prod-compose-missing-webhook-secret-key.md) | 2026-10-06（全面檢測：部署） |
 | 高 | 一個租戶 migrate 失敗就讓 api 無法啟動 | [`tenant-migrate-failure-blocks-startup.md`](./tenant-migrate-failure-blocks-startup.md) | 2026-10-06（全面檢測：部署） |
 | 高 | 刪除預設租戶後每次部署 migrate 都失敗 | [`deleted-default-tenant-reregistered.md`](./deleted-default-tenant-reregistered.md) | 2026-10-06（全面檢測：部署） |
-| 高 | 檔案已用量每次全表加總，上傳登記與檔案變動推播都會觸發 | [`file-storage-usage-full-table-sum.md`](./file-storage-usage-full-table-sum.md) | 2026-10-06（全面檢測：效能） |
 | 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 恢復資料夾繼承沒有反提權，可流入高於自己能授予的等級 | [`folder-inheritance-restore-escalation.md`](./folder-inheritance-restore-escalation.md) | 2026-10-06（全面檢測：程式資安） |

@@ -177,7 +177,8 @@ export class FileService {
     }
     const ctx = await this.access.contextFor(actor);
     await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
-    // 先不鎖地檢查一次：明顯超過容量時不必向物件儲存要分塊上傳的 uploadId；登記時在交易內再確認一次
+    // 先不鎖地檢查一次（讀計數，O(1)）：明顯超過容量時不必向物件儲存要分塊上傳的 uploadId；
+    // 登記時在交易內以條件式 UPDATE 確認並佔用
     assertWithinQuota(await this.repo.storageUsed(), dto.size);
     await this.storage.ensureBucket();
 
@@ -190,8 +191,7 @@ export class FileService {
       : null;
     const row = await this.folders
       .insideFolder(dto.folderId, async (tx) => {
-        assertWithinQuota(await this.repo.storageUsed(tx), dto.size);
-        return this.repo.create(
+        const created = await this.repo.create(
           {
             id,
             name: dto.name,
@@ -204,8 +204,12 @@ export class FileService {
             createdBy: actor.id,
             updatedBy: actor.id,
           },
+          storageQuotaBytes(),
           tx,
         );
+        // 同時的登記先用掉了容量
+        if (!created) throw quotaExceeded(await this.repo.storageUsed(tx), dto.size);
+        return created;
       })
       .catch(async (error: unknown) => {
         // 登記失敗（容量、資料夾已刪除）：已要到的分塊上傳不會再被用到，盡力取消
@@ -698,8 +702,13 @@ function storageQuotaBytes(): number {
 
 /** 加上這次的大小會超過容量時拋 `FILE_STORAGE_QUOTA_EXCEEDED`。調小到低於已用量時只擋新的上傳。 */
 function assertWithinQuota(used: number, size: number): void {
-  const quota = storageQuotaBytes();
-  if (used + size > quota) {
-    throw new AppException('FILE_STORAGE_QUOTA_EXCEEDED', { quota, used, size });
-  }
+  if (used + size > storageQuotaBytes()) throw quotaExceeded(used, size);
+}
+
+function quotaExceeded(used: number, size: number): AppException {
+  return new AppException('FILE_STORAGE_QUOTA_EXCEEDED', {
+    quota: storageQuotaBytes(),
+    used,
+    size,
+  });
 }
