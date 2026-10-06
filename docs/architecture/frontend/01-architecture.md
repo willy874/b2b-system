@@ -82,14 +82,14 @@ export * from "@b2b-system/api-sdk";
 | `web-core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |
 | `web-core/client`     | `HttpContext` / `FetcherContext` / `defineFetcher` / 攔截器鏈       |
 | `web-core/components` | 機制性元件：`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，表頭放 `FilterBar` 與 `TableSettings` 兩個下拉面板） |
-| `core/components`（backstage） | 只有 backstage 用的：`ErrorPage`、`ApiToken`、`ExplainPath`、`Tag`、`VersionConflictAlert` |
+| `core/components`（backstage） | 只有 backstage 用的：`ErrorPage`、`ApiToken`、`ExplainPath`、`Tag`、`VersionConflictAlert`。barrel（`@/core/components`）給 feature 的頁面用；首屏的 `app/` 從元件的資料夾匯入（`@/core/components/ErrorPage`），否則整個 barrel 連同 `Table`、`Select` 會進 entry chunk（🔒 `app/__tests__/entry-imports.test.ts`） |
 | `web-core/errors`     | 錯誤碼常數、`AppError` 型別、`ERROR_MESSAGE_KEY`、`useErrorMessage()` |
 | `web-core/locales`    | i18n scope 註冊與 route loader、共用字串（`locales/resources`）       |
 | `web-core/notify`     | `useToast()`：發 `GlobalEvents.TOAST_SHOW` 到 eventBus，由 `web-core/shell` 的 `ToastHost` 渲染 |
 | `web-core/permission` | ★ 權限註冊表、hooks、`evaluateAccess`（機制）                        |
 | `core/permission`     | ★ 這個 app 的權限目錄（`PermissionKey`、`PermissionResource`），以 module augmentation 登記給 web-core；轉出 web-core 的權限機制，app 一律從 `@/core/permission` 匯入 |
 | `core/permission-graph`（backstage） | 權限依賴樹的閉包、前置路徑與版面（角色技能樹、權限目錄共用；與 `core/permission` 分開，才不會把樹狀圖套件帶進首屏） |
-| `web-core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁）、列表註冊表（可自訂欄位的表） |
+| `web-core/preference` | 偏好設定註冊表（讓 feature 往偏好頁掛分頁，分頁以 `lazy()` 登記）、列表註冊表（可自訂欄位的表）、偏好頁渲染分頁的 `PreferenceSections` |
 | `web-core/realtime`、`route-link`、`toolbar` | 推播（[11](./11-realtime.md)）、route id 註冊表（[15 §3](./15-notification.md)）、頂列工具註冊表（[02 §4.4](./02-plugin-system.md)） |
 | `web-core/router`     | `RootRoute`、`RouterProvider` 封裝                                  |
 | `web-core/store`      | 全域 store：`permission`、`layout`、`preference`（語系、時區、主題、頂列工具）、`tableColumnSettings` |

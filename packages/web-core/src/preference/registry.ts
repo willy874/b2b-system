@@ -7,6 +7,10 @@ export interface PreferenceSection {
   key: string;
   order: number;
   labelI18nKey: string;
+  /**
+   * 分頁的內容。以 `lazy()` 登記：只有偏好頁會渲染，本體不必進首屏；
+   * `PreferenceSections` 以 `<Suspense>` 包住每個分頁（docs/architecture/frontend/02-plugin-system.md §4.3）。
+   */
   Component: ComponentType;
   /** 分頁自己的語系包所在的 scope；偏好頁載入時一併下載（`preferenceLocaleLoader`）。 */
   localeScope?: string;

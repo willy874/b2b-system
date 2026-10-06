@@ -5,7 +5,8 @@ import { Outlet, useRouterState } from '@tanstack/react-router';
 import { Suspense } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-import { ForbiddenPage, NotFoundPage, UnexpectedErrorPage } from '@/core/components';
+// 不經 `@/core/components` 的 barrel（首屏；見 app/plugin.ts）
+import { ForbiddenPage, NotFoundPage, UnexpectedErrorPage } from '@/core/components/ErrorPage';
 import { useFeatureGate } from '@/core/feature';
 import { usePageAccess } from '@/core/permission';
 

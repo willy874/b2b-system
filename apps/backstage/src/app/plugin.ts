@@ -4,7 +4,9 @@ import { PageSkeleton } from '@b2b-system/web-core/components';
 import { parseSearch, stringifySearch } from '@b2b-system/web-core/router';
 import { createRouter } from '@tanstack/react-router';
 
-import { NotFoundPage, RouteErrorPage } from '@/core/components';
+// 不經 `@/core/components` 的 barrel：這裡在首屏，barrel 會把 ApiToken、Tag 等頁面才用的元件
+// （連同 Table、Select）一起帶進 entry chunk
+import { NotFoundPage, RouteErrorPage } from '@/core/components/ErrorPage';
 
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
 import { routeTree } from './routes';
