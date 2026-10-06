@@ -2,9 +2,10 @@ import { installFlowDom } from '@b2b-system/ui/testing';
 import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -156,6 +157,56 @@ describe('RoleDetailPermissionPage', () => {
     expect(await screen.findByTestId('toast')).toHaveAttribute('data-value', 'error');
     expect(screen.getByTestId('role-permission-dialog')).toBeInTheDocument();
     expect(node('user:update')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('勾選後資料被重抓（推播）：送出的增減仍對開始編輯時的權限計算，並提示已被他人修改', async () => {
+    const { queryClient } = renderRoute(routes, PATH, MANAGER);
+
+    await openTree();
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    fireEvent.click(node('user:update'));
+    expect(screen.queryByTestId('role-permission-stale')).not.toBeInTheDocument();
+
+    // 別人剛拿掉了 user:read：推播讓權限重抓
+    act(() =>
+      queryClient.setQueryData(getRolePermissionsQueryOptions(ROLE_ID).queryKey, {
+        permissions: [],
+        effective: [],
+        isSuperAdmin: false,
+      }),
+    );
+    expect(await screen.findByTestId('role-permission-stale')).toBeInTheDocument();
+    expect(screen.getByTestId('role-permission-summary')).toHaveTextContent(
+      '將新增 1 項、移除 0 項',
+    );
+
+    fireEvent.click(screen.getByTestId('role-permission-save'));
+    await waitFor(() => expect(grant).toHaveBeenCalledTimes(1));
+    // 只有自己勾的 user:update；別人剛拿掉的 user:read 不會被當成新增送回去
+    expect(grant.mock.calls[0]![0]).toMatchObject({
+      params: { roleId: ROLE_ID, body: { add: ['user:update'], remove: [] } },
+    });
+  });
+
+  it('草稿過期時可以丟棄，改用最新的權限', async () => {
+    const { queryClient } = renderRoute(routes, PATH, MANAGER);
+
+    await openTree();
+    await waitFor(() => expect(node('user:update')).toBeInTheDocument());
+    fireEvent.click(node('user:update'));
+    act(() =>
+      queryClient.setQueryData(getRolePermissionsQueryOptions(ROLE_ID).queryKey, {
+        permissions: [],
+        effective: [],
+        isSuperAdmin: false,
+      }),
+    );
+    fireEvent.click(await screen.findByTestId('role-permission-discard'));
+
+    expect(screen.queryByTestId('role-permission-stale')).not.toBeInTheDocument();
+    expect(node('user:update')).toHaveAttribute('aria-pressed', 'false');
+    expect(node('user:read')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('role-permission-save')).toBeDisabled();
   });
 
   it('有未儲存的勾選時按取消會先確認；選「繼續編輯」留在原處', async () => {

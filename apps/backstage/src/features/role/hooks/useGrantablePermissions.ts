@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getPermissionListQueryOptions } from '@/apis/permission/get-permission-list/query';
-import { usePermission } from '@/core/permission';
+import { isPermissionKey, usePermission } from '@/core/permission';
 import type { Permission } from '@/shared/api-sdk';
 
 /**
@@ -22,7 +22,8 @@ export function useGrantablePermissions() {
       items,
       grantable: items.filter((item) => mine.has(item.key)),
       blocked: items.filter((item) => !mine.has(item.key)),
-      isGrantable: (key: string) => mine.has(key as never),
+      // 技能樹的節點 id 是字串：先收窄成權限鍵（群組節點等非權限鍵一律不可授予）
+      isGrantable: (key: string) => isPermissionKey(key) && mine.has(key),
     };
   }, [data, isPending, mine]);
 }

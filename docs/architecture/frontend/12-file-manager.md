@@ -223,7 +223,7 @@ registerFilePreviewer({
 | 拖放時別人剛好改了結構 | 前端先依自己的資料夾清單擋下明顯的循環；後端在排隊的交易內再檢查一次（`FILE_FOLDER_CYCLE` / `NAME_CONFLICT`），失敗以 toast 顯示並重抓資料夾 |
 | 無限捲動途中有人新增或刪除 | keyset 游標：下一頁從「最後一筆之後」取，不重複、不漏；重新驗證時合併以 id 去重 |
 | 選取的檔案被別人刪除 | 選取以 id 記錄，並以目前載入的 id 過濾：資料更新後自動移出，批次操作不會送出看不到的項目 |
-| 兩個人同時改名 | 送出畫面上看到的 `version`；後到者收到 `FILE_VERSION_CONFLICT`，對話框保留輸入，詳情重抓後可以再送 |
+| 兩個人同時改名 | 送出 **開啟對話框時** 記下的 `version`（之後推播讓列表重抓也不換）；後到者收到 `FILE_VERSION_CONFLICT`，對話框保留輸入並以 `VersionConflictAlert` 提供「重新載入」，按下才換成最新的名稱與版本 |
 | 正在預覽的檔案被刪除 | 詳情 404 → LightBox 顯示「已刪除」並隱藏操作；自己刪除時關掉 LightBox |
 | 同一個檔案在批次刪除時已被刪除 | 單筆 API 回 `FILE_NOT_FOUND`，佇列記為失敗並一併移出選取（`isGoneError`） |
 | 上傳完成與取消同時發生 | 後端以 `WHERE status='pending'` 決勝（[backend 09 §5.3](../backend/09-file.md)），不會刪掉已完成的檔案 |

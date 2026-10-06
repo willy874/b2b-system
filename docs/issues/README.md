@@ -28,7 +28,6 @@
 | 高 | 一個租戶 migrate 失敗就讓 api 無法啟動 | [`tenant-migrate-failure-blocks-startup.md`](./tenant-migrate-failure-blocks-startup.md) | 2026-10-06（全面檢測：部署） |
 | 高 | 刪除預設租戶後每次部署 migrate 都失敗 | [`deleted-default-tenant-reregistered.md`](./deleted-default-tenant-reregistered.md) | 2026-10-06（全面檢測：部署） |
 | 高 | 檔案已用量每次全表加總，上傳登記與檔案變動推播都會觸發 | [`file-storage-usage-full-table-sum.md`](./file-storage-usage-full-table-sum.md) | 2026-10-06（全面檢測：效能） |
-| 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 恢復資料夾繼承沒有反提權，可流入高於自己能授予的等級 | [`folder-inheritance-restore-escalation.md`](./folder-inheritance-restore-escalation.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | /auth/sso/callback 可被跨站表單送出（登入 CSRF） | [`sso-callback-login-csrf.md`](./sso-callback-login-csrf.md) | 2026-10-06（全面檢測：程式資安） |
@@ -107,7 +106,6 @@
 | 低 | 兩個前端仍有大量複製的程式，且已開始分岔 | [`duplicated-code-between-apps.md`](./duplicated-code-between-apps.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 前端架構文件與實作不符（分層強制、匯出約定、不存在的項目） | [`frontend-docs-drift.md`](./frontend-docs-drift.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 前端的死碼與過時的註解 | [`frontend-dead-code-and-stale-comments.md`](./frontend-dead-code-and-stale-comments.md) | 2026-10-06（全面檢測：可讀性） |
-| 低 | 角色權限選取以 as never 繞過 PermissionKey 型別檢查 | [`permission-key-type-escapes.md`](./permission-key-type-escapes.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 超過 400 行的元件與超過 200 行的 page.tsx | [`oversized-frontend-components.md`](./oversized-frontend-components.md) | 2026-10-06（全面檢測：可讀性） |
 
 嚴重度：

@@ -15,5 +15,5 @@ declare module '@b2b-system/web-core/permission/register' {
 }
 
 export * from '@b2b-system/web-core/permission';
-export { ALL_PERMISSION_KEYS, PermissionKey } from './enums';
+export { ALL_PERMISSION_KEYS, isPermissionKey, PermissionKey } from './enums';
 export { PermissionResource } from './resources';

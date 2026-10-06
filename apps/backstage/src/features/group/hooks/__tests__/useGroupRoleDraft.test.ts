@@ -31,5 +31,28 @@ describe('useGroupRoleDraft（群組持有角色的選擇草稿）', () => {
     expect(result.current.selected.toSorted()).toEqual(['r1', 'r2']);
     act(() => result.current.discard());
     expect(result.current.selected.toSorted()).toEqual(['r1', 'r9']);
+    expect(result.current.isStale).toBe(false);
+  });
+
+  it('選擇之後伺服器的角色變了（推播）：差異只含自己的變更，並標為過期', () => {
+    const { result, rerender } = renderHook(({ current }) => useGroupRoleDraft(current), {
+      initialProps: { current: ['r1', 'r3'] },
+    });
+    act(() => result.current.select(['r1', 'r3', 'r2']));
+    expect(result.current.isStale).toBe(false);
+    // 別人同時加了 r9、拿掉了 r3
+    rerender({ current: ['r1', 'r9'] });
+    expect(result.current.diff).toEqual({ add: ['r2'], remove: [] });
+    expect(result.current.isStale).toBe(true);
+  });
+
+  it('連續修改時基準維持第一次修改前的角色', () => {
+    const { result, rerender } = renderHook(({ current }) => useGroupRoleDraft(current), {
+      initialProps: { current: ['r1'] },
+    });
+    act(() => result.current.select(['r1', 'r2']));
+    rerender({ current: ['r1', 'r9'] });
+    act(() => result.current.select(['r2']));
+    expect(result.current.diff).toEqual({ add: ['r2'], remove: ['r1'] });
   });
 });

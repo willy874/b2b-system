@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { AppPluginFactory } from '../../../app';
 import { getSessionStore, sessionStore } from '../../../auth';
 import {
   AbortReason,
@@ -31,7 +32,7 @@ function hangingFetch() {
 
 function install(backends: BackendOptions[]) {
   // plugin 不讀 context，給一個空物件即可
-  return httpContextPlugin(backends)({} as never);
+  return httpContextPlugin(backends)({} as unknown as Parameters<AppPluginFactory>[0]);
 }
 
 describe('httpContextPlugin（多後端，各自獨立的 session）', () => {

@@ -228,6 +228,8 @@
       "search": "Search tags",
       "hint": "Up to {{max}}. Tag names and colors are set in Tags.",
       "noTags": "There are no tags for this kind of item yet. Create some in Tags first.",
+      "stale": "Someone else just changed this item's tags; your selection is based on outdated data. Saving replaces them with your selection.",
+      "useLatest": "Use the latest tags",
       "success": "Tags updated"
     },
     "filter": "Tags",

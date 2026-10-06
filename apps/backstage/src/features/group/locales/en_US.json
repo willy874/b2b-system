@@ -43,7 +43,9 @@
     "role": {
       "save": "Save roles",
       "success": "Group roles updated",
-      "placeholder": "No roles"
+      "placeholder": "No roles",
+      "stale": "Someone else just changed this group's roles; your selection is based on outdated data. Saving only sends the changes you made.",
+      "discard": "Use the latest roles"
     },
     "member": {
       "typeLabel": "Member type",

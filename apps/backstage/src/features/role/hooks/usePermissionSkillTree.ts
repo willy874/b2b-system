@@ -1,6 +1,8 @@
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo, useState } from 'react';
 
+import { isPermissionKey } from '@/core/permission';
+import type { PermissionKey } from '@/core/permission';
 import {
   activeEdgeIds,
   layoutPermissionTree,
@@ -14,8 +16,8 @@ import { useGrantablePermissions } from './useGrantablePermissions';
 
 export interface PermissionSkillTreeOptions {
   /** 角色明確授予的鍵（草稿）。 */
-  explicit: ReadonlySet<string>;
-  onChange: (next: Set<string>) => void;
+  explicit: ReadonlySet<PermissionKey>;
+  onChange: (next: Set<PermissionKey>) => void;
   /** 整棵樹唯讀（沒有 `role:grantPermission`）。 */
   readOnly?: boolean;
   /** super-admin 角色：隱含全集、不能改。 */
@@ -94,7 +96,8 @@ export function usePermissionSkillTree({
   const apply = (key: string, result: ToggleResult) => {
     if (result.kind === 'changed') {
       setNotice(undefined);
-      onChange(result.next);
+      // 互鎖的純邏輯以字串運算（節點 id）：交回呼叫端前收窄成權限鍵
+      onChange(new Set([...result.next].filter(isPermissionKey)));
     } else {
       setNotice(
         result.kind === 'blocked'

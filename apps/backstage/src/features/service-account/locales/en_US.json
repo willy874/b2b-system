@@ -34,7 +34,9 @@
       "placeholder": "Select roles",
       "hint": "Its API tokens can do at most what these roles allow. You can only assign permissions you hold.",
       "save": "Save roles",
-      "success": "Roles updated"
+      "success": "Roles updated",
+      "stale": "Someone else just changed this service account's roles; your selection is based on outdated data. Switch to the latest roles before saving.",
+      "discard": "Use the latest roles"
     },
     "detail": {
       "title": "Service account",

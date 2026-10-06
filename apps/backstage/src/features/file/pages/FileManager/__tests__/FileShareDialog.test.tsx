@@ -2,6 +2,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PermissionKey } from '@/core/permission';
 import type { FileFolderGrantList } from '@/shared/api-sdk';
 
 import { FileShareDialog } from '../components/FileShareDialog';
@@ -219,7 +220,7 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
       });
       renderWithPermissions(
         <FileShareDialog folder={{ id: 'ui', name: 'ui' }} onClose={vi.fn()} />,
-        ['authz:explain'] as never,
+        [PermissionKey['authz:explain']],
       );
       const section = await screen.findByTestId('file-access-explain');
       fireEvent.click(within(section).getByTestId('file-access-explain-user'));

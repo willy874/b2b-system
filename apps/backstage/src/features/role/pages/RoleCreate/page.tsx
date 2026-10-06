@@ -11,6 +11,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { z } from 'zod';
 
+import type { PermissionKey } from '@/core/permission';
+
 import { PermissionSkillTree } from '../../components';
 import { useRoleCreateMutation } from '../../hooks/useRoleMutations';
 import { RoleCreateRoute, RoleListRoute } from '../../routes';
@@ -28,7 +30,7 @@ export default function RoleCreatePage() {
   const search = RoleCreateRoute.useSearch();
   const createRole = useRoleCreateMutation();
   const toMessage = useErrorMessage();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<PermissionKey>>(new Set());
   const [formError, setFormError] = useState<string>();
   const formId = useId();
   // 名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦
@@ -54,7 +56,7 @@ export default function RoleCreatePage() {
           params: {
             name: value.name,
             description: value.description || undefined,
-            permissionKeys: [...selected] as never,
+            permissionKeys: [...selected],
           },
         });
       } catch (error) {

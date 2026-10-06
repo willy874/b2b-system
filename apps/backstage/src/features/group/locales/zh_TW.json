@@ -43,7 +43,9 @@
     "role": {
       "save": "儲存角色",
       "success": "已更新群組的角色",
-      "placeholder": "不持有角色"
+      "placeholder": "不持有角色",
+      "stale": "其他人剛修改了這個群組的角色，你的選擇是以舊的資料為基礎；儲存時只會送出你這次的增減。",
+      "discard": "改用最新的角色"
     },
     "member": {
       "typeLabel": "成員種類",
