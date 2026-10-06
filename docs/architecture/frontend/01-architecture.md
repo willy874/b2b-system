@@ -81,7 +81,7 @@ export * from "@b2b-system/api-sdk";
 | `web-core/auth`       | `SessionStore`：token 生命週期、跨分頁單飛續期、終止判定；SSO 的瀏覽器端（`sso.ts`） |
 | `web-core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |
 | `web-core/client`     | `HttpContext` / `FetcherContext` / `defineFetcher` / 攔截器鏈       |
-| `web-core/components` | 機制性元件：錯誤頁（`ErrorPage`、403／404、router 的預設錯誤頁）、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，表頭放 `FilterBar` 與 `TableSettings` 兩個下拉面板） |
+| `web-core/components` | 機制性元件：錯誤頁（`ErrorPage`、403／404、router 的預設錯誤頁）、`AuthShell`（登入等不套外框的頁面）、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，表頭放 `FilterBar` 與 `TableSettings` 兩個下拉面板） |
 | `core/components`（backstage） | 只有 backstage 用的：`ApiToken`、`ExplainPath`、`Tag`、`VersionConflictAlert`。barrel（`@/core/components`）給 feature 的頁面用；首屏的 `app/` 要用時從元件的資料夾匯入（`@/core/components/<元件>`），否則整個 barrel 連同 `Table`、`Select` 會進 entry chunk（🔒 `app/__tests__/entry-imports.test.ts`） |
 | `web-core/errors`     | 錯誤碼常數、`AppError` 型別、`ERROR_MESSAGE_KEY`、`useErrorMessage()` |
 | `web-core/locales`    | i18n scope 註冊與 route loader、共用字串（`locales/resources`）       |
