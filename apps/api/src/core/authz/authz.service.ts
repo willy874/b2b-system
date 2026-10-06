@@ -163,6 +163,23 @@ export class AuthzService {
     return this.checker(checkerSubjects, tuples, providers, options.withDependencies);
   }
 
+  /**
+   * 一位使用者的主體閉包：本人、`user:*`，以及所屬的群組（含巢狀）、本人與群組持有的角色（`group:<g>#member`、`role:<r>#holder`）。
+   * 已刪除的角色與群組、過期的邊不算，與 `usersInSubjectSets` 是同一張圖的兩個方向。
+   * 用途：判斷「這一個人」在不在某些使用者集合裡，不必反向展開整個集合（公告的事件點，docs/architecture/backend/19-announcement.md §5.3）。
+   */
+  async subjectClosure(
+    userId: string,
+    options: { tx?: DbOrTx; now?: Date } = {},
+  ): Promise<SubjectKey[]> {
+    const closures = await this.repo.subjectClosures(
+      [userId],
+      options.now ?? new Date(),
+      options.tx,
+    );
+    return closures.get(userId) ?? [];
+  }
+
   /** 一位使用者的主體閉包，每個主體附上從本人走到它的鏈（說明用，`AuthzRepository.closurePaths`）。 */
   closurePaths(
     userId: string,

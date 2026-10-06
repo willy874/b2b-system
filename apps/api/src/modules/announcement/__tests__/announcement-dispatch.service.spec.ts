@@ -46,6 +46,10 @@ const DAILY_NINE: AnnouncementRecurringTrigger = {
 
 interface SetupOptions {
   locked?: AnnouncementRow | undefined;
+  /** 鎖住之前（不上鎖）讀到的公告；預設與 `locked` 相同。 */
+  current?: AnnouncementRow | undefined;
+  /** 事件點 `audience` 比對時，使用者在不在受眾裡（`includes`）。 */
+  included?: boolean;
   dispatch?: AnnouncementDispatchRow | undefined;
   recipients?: string[];
   dispatchCount?: number;
@@ -57,7 +61,9 @@ function setup(options: SetupOptions = {}) {
   const { db, tx } = fakeDatabase(log);
   const locked = 'locked' in options ? options.locked : announcement();
   const dispatch = 'dispatch' in options ? options.dispatch : dispatchRow();
+  const current = 'current' in options ? options.current : locked;
   const repo = {
+    findActive: vi.fn(async (_id: string): Promise<AnnouncementRow | undefined> => current),
     lockActive: vi.fn(
       async (_id: string, _tx: unknown): Promise<AnnouncementRow | undefined> => locked,
     ),
@@ -84,6 +90,10 @@ function setup(options: SetupOptions = {}) {
       userIds: options.recipients ?? ['user-1', 'user-2'],
       skipped: NO_SKIPPED,
     })),
+    includes: vi.fn(
+      async (_audience: AnnouncementAudienceValue, _userId: string, _tx?: unknown) =>
+        options.included ?? true,
+    ),
   };
   const notifications = {
     notify: vi.fn(async (input: NotificationInput | readonly NotificationInput[], _tx: unknown) => {
@@ -331,8 +341,19 @@ describe('AnnouncementDispatchService.runEvent（docs/architecture/backend/19-an
     ],
     ['改訂別的觸發點', eventAnnouncement('user.activated')],
     ['已刪除', undefined],
-  ])('%s → skipped stale', async (_label, locked) => {
+  ])('%s → skipped stale，不開交易', async (_label, locked) => {
     const ctx = setup({ locked });
+    const result = await inTenant(() => ctx.service.runEvent(job()));
+    expect(result).toEqual({ skipped: 'stale' });
+    expect(ctx.repo.insertDispatch).not.toHaveBeenCalled();
+    expect(ctx.db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('比對時還是排程中、鎖住時已暫停 → skipped stale（鎖住後重新確認狀態）', async () => {
+    const ctx = setup({
+      current: eventAnnouncement('group.memberAdded'),
+      locked: { ...eventAnnouncement('group.memberAdded'), status: 'paused' },
+    });
     const result = await inTenant(() => ctx.service.runEvent(job()));
     expect(result).toEqual({ skipped: 'stale' });
     expect(ctx.repo.insertDispatch).not.toHaveBeenCalled();
@@ -404,24 +425,62 @@ describe('AnnouncementDispatchService.runEvent（docs/architecture/backend/19-an
     expect(result).toEqual({ skipped: 'notInAudience' });
   });
 
-  it('audience：以發送當下解析的受眾比對使用者', async () => {
-    const ctx = setup({
-      locked: eventAnnouncement('user.activated'),
-      recipients: ['user-1', 'user-9'],
+  it('audience：只判斷這一個人（includes），不解析整個受眾；比對在鎖住公告之前', async () => {
+    const ctx = setup({ locked: eventAnnouncement('user.activated'), included: true });
+    const order: string[] = [];
+    ctx.audience.includes.mockImplementation(async () => {
+      order.push('includes');
+      return true;
+    });
+    ctx.repo.lockActive.mockImplementation(async () => {
+      order.push('lock');
+      return eventAnnouncement('user.activated');
     });
     const result = await inTenant(() =>
       ctx.service.runEvent(job({ event: 'user.activated', groupId: undefined })),
     );
-    expect(ctx.audience.resolve).toHaveBeenCalledWith(AUDIENCE);
     expect(result).toEqual({ dispatchId: 'disp-new' });
+    expect(ctx.audience.includes).toHaveBeenCalledExactlyOnceWith(AUDIENCE, 'user-9', undefined);
+    expect(ctx.audience.resolve).not.toHaveBeenCalled();
+    expect(order).toEqual(['includes', 'lock']);
   });
 
-  it('audience：使用者不在解析出的受眾裡 → skipped notInAudience', async () => {
-    const ctx = setup({ locked: eventAnnouncement('user.activated'), recipients: ['user-1'] });
+  it('audience：使用者不在受眾裡 → skipped notInAudience，不開交易、不鎖公告', async () => {
+    const ctx = setup({ locked: eventAnnouncement('user.activated'), included: false });
     const result = await inTenant(() =>
       ctx.service.runEvent(job({ event: 'user.activated', groupId: undefined })),
     );
     expect(result).toEqual({ skipped: 'notInAudience' });
+    expect(ctx.db.transaction).not.toHaveBeenCalled();
+    expect(ctx.repo.lockActive).not.toHaveBeenCalled();
+    expect(ctx.audience.resolve).not.toHaveBeenCalled();
+  });
+
+  it('audience：比對之後受眾被改了 → 鎖住後以新的受眾在同一個交易裡重新比對', async () => {
+    const edited = { all: false, userIds: [], groupIds: ['group-2'], roleIds: [] };
+    const ctx = setup({
+      current: eventAnnouncement('user.activated'),
+      locked: eventAnnouncement('user.activated', edited),
+    });
+    ctx.audience.includes.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const result = await inTenant(() =>
+      ctx.service.runEvent(job({ event: 'user.activated', groupId: undefined })),
+    );
+    expect(result).toEqual({ skipped: 'notInAudience' });
+    expect(ctx.audience.includes).toHaveBeenLastCalledWith(edited, 'user-9', ctx.tx);
+    expect(ctx.repo.insertDispatch).not.toHaveBeenCalled();
+  });
+
+  it('audience：鎖住時受眾沒變（來源順序不同也算同一份）→ 不再比對一次', async () => {
+    const ctx = setup({
+      current: eventAnnouncement('user.activated', { ...AUDIENCE, groupIds: ['g-a', 'g-b'] }),
+      locked: eventAnnouncement('user.activated', { ...AUDIENCE, groupIds: ['g-b', 'g-a'] }),
+    });
+    const result = await inTenant(() =>
+      ctx.service.runEvent(job({ event: 'user.activated', groupId: undefined })),
+    );
+    expect(result).toEqual({ dispatchId: 'disp-new' });
+    expect(ctx.audience.includes).toHaveBeenCalledOnce();
   });
 
   it.each(['group.memberAdded', 'user.roleAssigned', 'user.activated'])(
@@ -434,6 +493,7 @@ describe('AnnouncementDispatchService.runEvent（docs/architecture/backend/19-an
       );
       expect(result).toEqual({ dispatchId: 'disp-new' });
       expect(ctx.audience.resolve).not.toHaveBeenCalled();
+      expect(ctx.audience.includes).not.toHaveBeenCalled();
     },
   );
 });

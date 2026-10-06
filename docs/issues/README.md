@@ -49,7 +49,6 @@
 | 低 | 開發 compose 的 postgres、Mailpit 綁所有介面 | [`dev-compose-binds-all-interfaces.md`](./dev-compose-binds-all-interfaces.md) | 2026-10-06（全面檢測：部署） |
 | 低 | 沒有備份、還原程序與日誌輪替 | [`no-backup-or-log-rotation.md`](./no-backup-or-log-rotation.md) | 2026-10-06（全面檢測：部署） |
 | 低 | 站內通知每位收件人一個事件，逐一經 NOTIFY 轉送 | [`notification-event-per-recipient.md`](./notification-event-per-recipient.md) | 2026-10-06（全面檢測：效能） |
-| 低 | user.activated 事件點每個人都解析整個公告受眾 | [`announcement-activation-resolves-audience.md`](./announcement-activation-resolves-audience.md) | 2026-10-06（全面檢測：效能） |
 | 低 | 持有資料夾樹鎖的交易內另取連線查權限，池滿時卡到逾時 | [`permission-load-outside-tree-lock-tx.md`](./permission-load-outside-tree-lock-tx.md) | 2026-10-06（全面檢測：效能） |
 | 低 | usePermission 每次回傳新物件，權限相關的 memo 全部失效 | [`use-permission-unstable-reference.md`](./use-permission-unstable-reference.md) | 2026-10-06（全面檢測：效能） |
 | 低 | useTranslation 在任何語系包載入時都讓所有元件重繪 | [`use-translation-extra-rerenders.md`](./use-translation-extra-rerenders.md) | 2026-10-06（全面檢測：效能） |

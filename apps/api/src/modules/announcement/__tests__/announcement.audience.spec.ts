@@ -129,3 +129,72 @@ describe('AnnouncementAudienceResolver.resolve（docs/architecture/backend/19-an
     expect(result.userIds).toEqual([]);
   });
 });
+
+/** 主體閉包：使用者 → 他所屬的使用者集合（authz 回傳的就是這個形狀）。 */
+function withClosure(subjects: string[], loginable = true) {
+  const ctx = setup({ users: loginable ? ['u1'] : [] });
+  const subjectClosure = vi.fn(async (_userId: string, _options?: object) => [
+    'user:u1',
+    'user:*',
+    ...subjects,
+  ]);
+  Object.assign(ctx.authz, { subjectClosure });
+  return { ...ctx, subjectClosure };
+}
+
+describe('AnnouncementAudienceResolver.includes（事件點只判斷一個人，docs/architecture/backend/19-announcement.md §5.3）', () => {
+  it.each([
+    ['直接是受眾裡群組的成員', ['group:g1#member'], audience({ groupIds: ['g1'] }), true],
+    [
+      '巢狀群組：所屬的群組在受眾群組底下',
+      ['group:g-inner#member', 'group:g1#member'],
+      audience({ groupIds: ['g1'] }),
+      true,
+    ],
+    ['持有受眾裡的角色', ['role:r1#holder'], audience({ roleIds: ['r1'] }), true],
+    [
+      '經由群組持有受眾裡的角色',
+      ['group:g9#member', 'role:r1#holder'],
+      audience({ roleIds: ['r1'] }),
+      true,
+    ],
+    [
+      '只在別的群組與角色裡',
+      ['group:g9#member', 'role:r9#holder'],
+      audience({ groupIds: ['g1'], roleIds: ['r1'] }),
+      false,
+    ],
+    // 已刪除的群組、角色不會出現在閉包裡（authz 只走未刪除的），所以受眾指向它們時不算
+    ['受眾的群組已刪除（閉包裡沒有它）', [], audience({ groupIds: ['g-deleted'] }), false],
+    ['直接被指定', [], audience({ userIds: ['u1'] }), true],
+    ['全租戶', [], audience({ all: true }), true],
+  ])('%s → %s', async (_label, subjects, value, expected) => {
+    const { resolver } = withClosure(subjects);
+    await expect(resolver.includes(value, 'u1')).resolves.toBe(expected);
+  });
+
+  it('在受眾裡但不能登入（停用、已刪除、服務帳號）→ false', async () => {
+    const { resolver } = withClosure(['group:g1#member'], false);
+    await expect(resolver.includes(audience({ groupIds: ['g1'] }), 'u1')).resolves.toBe(false);
+  });
+
+  it('不展開整個受眾；沒有群組或角色時不查關係圖；不在受眾裡就不查帳號狀態', async () => {
+    const { resolver, authz, repo, subjectClosure } = withClosure([]);
+    await resolver.includes(audience({ userIds: ['u1'] }), 'u1');
+    expect(subjectClosure).not.toHaveBeenCalled();
+    expect(authz.usersInSubjectSets).not.toHaveBeenCalled();
+
+    await resolver.includes(audience({ groupIds: ['g1'] }), 'u1');
+    expect(subjectClosure).toHaveBeenCalledExactlyOnceWith('u1', { tx: undefined });
+    expect(repo.filterRecipients).toHaveBeenCalledTimes(1);
+    expect(authz.usersInSubjectSets).not.toHaveBeenCalled();
+  });
+
+  it('帶 tx 時兩個查詢都走同一個交易', async () => {
+    const { resolver, repo, subjectClosure } = withClosure(['group:g1#member']);
+    const tx = { name: 'tx' };
+    await resolver.includes(audience({ groupIds: ['g1'] }), 'u1', tx as never);
+    expect(subjectClosure).toHaveBeenCalledWith('u1', { tx });
+    expect(repo.filterRecipients).toHaveBeenCalledWith(['u1'], tx);
+  });
+});

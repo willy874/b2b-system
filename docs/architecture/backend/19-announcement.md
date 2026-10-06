@@ -105,6 +105,16 @@ modules/announcement/
 
 發送當下解析，是快照：之後才加入群組的人不會補收。寫入時 `notify()` 照常略過送出者自己，也照租戶的政策過濾。
 
+`AnnouncementAudienceResolver.includes(audience, userId)`：只判斷一個人在不在受眾裡（事件點的 `audience` 比對用，§5.3），
+結果與「`resolve()` 的收件人含不含他」相同，但不展開整個受眾：
+
+1. `all`，或直接被指定 → 在受眾裡（仍要可登入）。
+2. 否則取他的主體閉包 `AuthzService.subjectClosure(userId)`（所屬的群組含巢狀、本人與群組持有的角色；已刪除的群組與角色、
+   過期的邊不算——與 `usersInSubjectSets` 同一張圖的另一個方向），與受眾的 `group:<g>#member`、`role:<r>#holder` 取交集。
+3. 最後確認他可登入（與上面 `resolve()` 第 3 點相同的條件）。
+
+最多兩次查詢，與受眾大小無關（`test/announcements.spec.ts` 以真的關係圖比對兩者的結果一致）。
+
 ---
 
 ## 5. 排程與發送
@@ -158,7 +168,9 @@ modules/announcement/
    `announcement.eventDispatch`（交易內 outbox，`startAfter` = 現在＋`delayMinutes`）。沒有公告時成本是一次有索引的查詢。
    這些工作以一次 `JobQueue.enqueueMany` 寫進 outbox（一條多列 INSERT）：擁有者常在持有鎖的交易裡呼叫（例：群組的成員鎖），
    往返次數不隨「人數 × 公告數」成長（[`10-jobs.md`](./10-jobs.md) §4.1）。
-2. 工作執行時：公告仍是排程中、仍訂著這個觸發點、而且比對成立，才建立只發給那個人的發送紀錄（`trigger_subject_id`）並入列分批寫入；
+2. 工作執行時：公告仍是排程中、仍訂著這個觸發點、而且比對成立，才建立只發給那個人的發送紀錄（`trigger_subject_id`）並入列分批寫入。
+   比對在鎖住公告 **之前**：先不上鎖讀公告比對（`audience` 用 `includes`，§4），沒命中就不開交易；命中了才鎖住公告列、重新確認狀態，
+   受眾在這之間被改過才在同一個交易裡以新的受眾再比對一次。交易內不另外取連線；
    唯一索引讓同一則公告對同一個人只發一次（移出又加回、重複事件都不重發）。工作的 `output`：`{ dispatchId }` 或 `{ skipped: 'stale' | 'notInAudience' | 'alreadySent' | 'featureDisabled' | 'unknownEvent' }`。
 3. 事件點的公告送出後是 `scheduled`、`next_run_at` 為 null；暫停期間發生的事件不會補發（工作執行時看到不是排程中就略過）。每日維護不碰它。
 

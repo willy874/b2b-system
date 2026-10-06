@@ -462,11 +462,11 @@ export class AnnouncementRepository {
    * 可登入的使用者（未刪除、`active`、人）：與 `PermissionService.findActiveUserIdsWithPermission` 相同的條件。
    * 群組與角色展開後可能上萬人：分段查詢，避開 Postgres 單一語句 65535 個參數的上限。
    */
-  async filterRecipients(userIds: readonly string[]): Promise<string[]> {
+  async filterRecipients(userIds: readonly string[], tx?: DbOrTx): Promise<string[]> {
     const result: string[] = [];
     for (let start = 0; start < userIds.length; start += RECIPIENT_FILTER_CHUNK) {
       // oxlint-disable-next-line no-await-in-loop -- 分段查詢，避免一次佔用多條連線
-      const rows = await this.db
+      const rows = await (tx ?? this.db)
         .select({ id: users.id })
         .from(users)
         .where(

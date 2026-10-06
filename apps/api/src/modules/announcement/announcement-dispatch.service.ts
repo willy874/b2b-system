@@ -1,13 +1,17 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import type { Database } from '@/core/database';
+import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
-import type { AnnouncementAudienceValue, AnnouncementDispatchRow } from '@/db/schema';
+import type {
+  AnnouncementAudienceValue,
+  AnnouncementDispatchRow,
+  AnnouncementRow,
+} from '@/db/schema';
 import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 
@@ -202,6 +206,9 @@ export class AnnouncementDispatchService {
   /**
    * 事件點的發送（D12、D13）：公告仍是排程中、還訂著這個觸發點，而且事件的使用者在受眾裡（依觸發點的比對方式）時，
    * 建立只發給他的發送紀錄並入列分批寫入。同一則公告對同一個人只有一筆（唯一索引），事件重複發生不會重發。
+   *
+   * 比對在鎖住公告列 **之前**：先不上鎖讀公告比對（`audience` 要查關係圖），沒命中就不開交易；命中了才鎖住、
+   * 重新確認狀態後建立發送。鎖住時受眾已被改過才在交易裡重新比對（查詢走同一個交易，不另外取連線）。
    */
   async runEvent(
     data: AnnouncementEventDispatchJobData,
@@ -209,17 +216,20 @@ export class AnnouncementDispatchService {
     if (!isFeatureEnabled()) return { skipped: 'featureDisabled' };
     const definition = this.triggers.find(data.event);
     if (!definition) return { skipped: 'unknownEvent' };
+    const current = await this.repo.findActive(data.announcementId);
+    if (!isListening(current, data.event)) return { skipped: 'stale' };
+    if (!(await this.matches(definition.scope, current.audience, data))) {
+      return { skipped: 'notInAudience' };
+    }
     const dispatch = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.lockActive(data.announcementId, tx);
+      if (!isListening(row, data.event)) return 'stale' as const;
       if (
-        row?.status !== 'scheduled' ||
-        row.trigger.kind !== 'event' ||
-        row.trigger.event !== data.event
+        !sameAudience(row.audience, current.audience) &&
+        !(await this.matches(definition.scope, row.audience, data, tx))
       ) {
-        return 'stale' as const;
-      }
-      if (!(await this.matches(definition.scope, row.audience, data)))
         return 'notInAudience' as const;
+      }
       const created = await this.repo.insertDispatch(
         {
           announcementId: row.id,
@@ -241,11 +251,15 @@ export class AnnouncementDispatchService {
     return { dispatchId: dispatch.id };
   }
 
-  /** 事件的使用者在不在公告的受眾裡（D13、D14）。 */
+  /**
+   * 事件的使用者在不在公告的受眾裡（D13、D14）。`audience` 只判斷這一個人（`includes`），不解析整個受眾：
+   * N 人一起啟用時是 N 次固定成本的查詢，不是 N × 受眾人數。
+   */
   private async matches(
     scope: AnnouncementTriggerScope,
     audience: AnnouncementAudienceValue,
     data: AnnouncementEventDispatchJobData,
+    tx?: DbOrTx,
   ): Promise<boolean> {
     if (audience.all) return true;
     switch (scope) {
@@ -254,7 +268,7 @@ export class AnnouncementDispatchService {
       case 'role':
         return (data.roleIds ?? []).some((roleId) => audience.roleIds.includes(roleId));
       case 'audience':
-        return (await this.audience.resolve(audience)).userIds.includes(data.userId);
+        return this.audience.includes(audience, data.userId, tx);
     }
   }
 
@@ -360,4 +374,26 @@ export class AnnouncementDispatchService {
 /** 租戶停用了公告（docs/architecture/backend/19-announcement.md §9.2 D20）：已入列的工作略過，資料保留。 */
 function isFeatureEnabled(): boolean {
   return requireTenant().features.includes('announcement');
+}
+
+/** 公告仍是排程中、還訂著這個觸發點（事件點的工作在執行時才確認，D13）。 */
+function isListening(row: AnnouncementRow | undefined, event: string): row is AnnouncementRow {
+  return row?.status === 'scheduled' && row.trigger.kind === 'event' && row.trigger.event === event;
+}
+
+/** 兩份 id 清單是否相同（順序不算）。 */
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sorted = b.toSorted();
+  return a.toSorted().every((id, index) => sorted[index] === id);
+}
+
+/** 兩份受眾是否相同（來源的順序不算）。 */
+function sameAudience(a: AnnouncementAudienceValue, b: AnnouncementAudienceValue): boolean {
+  return (
+    a.all === b.all &&
+    sameIds(a.userIds, b.userIds) &&
+    sameIds(a.groupIds, b.groupIds) &&
+    sameIds(a.roleIds, b.roleIds)
+  );
 }
