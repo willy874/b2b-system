@@ -7,7 +7,7 @@ import { Tooltip } from '@b2b-system/ui/Tooltip';
 import { RichTable } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
@@ -48,12 +48,20 @@ export default function TagListPage() {
   );
   const scope: TagScope = scopes.includes(requested) ? requested : (scopes[0] ?? 'user');
 
+  const queryClient = useQueryClient();
   const tags = useQuery(getTagListQueryOptions(scope));
   const create = useTagCreateMutation();
   const update = useTagUpdateMutation();
   const remove = useTagDeleteMutation();
   const [editing, setEditing] = useState<Tag | 'new'>();
   const [pendingDelete, setPendingDelete] = useState<Tag>();
+
+  /** 版本衝突後重新載入：重抓列表，換成最新的那一筆（含 `version`）；已被刪除就關掉對話框。 */
+  const reloadEditing = async () => {
+    if (editing === undefined || editing === 'new') return;
+    const latest = await queryClient.fetchQuery({ ...getTagListQueryOptions(scope), staleTime: 0 });
+    setEditing(latest.items.find((item) => item.id === editing.id));
+  };
 
   const columns = useMemo<Array<TableColumnDef<Tag>>>(
     () => [
@@ -169,6 +177,7 @@ export default function TagListPage() {
                 params: { tagId: editing.id, body: { ...values, version: editing.version } },
               })
         }
+        onReload={reloadEditing}
       />
 
       <AlertDialog

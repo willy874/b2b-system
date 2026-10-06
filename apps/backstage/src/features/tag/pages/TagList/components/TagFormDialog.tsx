@@ -3,11 +3,11 @@ import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
-import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { isVersionConflict, useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useId, useState } from 'react';
 
-import { TagChips } from '@/core/components';
+import { TagChips, VersionConflictAlert } from '@/core/components';
 import type { Tag } from '@/shared/api-sdk';
 
 import { TAG_COLOR_LABEL_KEY, TAG_COLORS, TAG_NAME_MAX_LENGTH } from '../../../constants';
@@ -21,17 +21,27 @@ interface TagFormDialogProps {
   tag?: Tag;
   /** 送出；失敗丟錯（訊息顯示在對話框裡，含版本衝突）。 */
   onSubmit: (values: { name: string; color: TagColor }) => Promise<unknown>;
+  /**
+   * 版本衝突後的「重新載入」：呼叫端取得最新的那一筆並換掉 `tag`（含 `version`），表單以它重設。
+   * 失敗丟錯（訊息顯示在對話框裡）。
+   */
+  onReload: () => Promise<unknown>;
 }
 
-/** 建立或編輯標籤：名稱與顏色（Design Token 的名稱，docs/architecture/backend/18-tag.md §7.2 D3），右側即時預覽。 */
-export function TagFormDialog({ open, onOpenChange, tag, onSubmit }: TagFormDialogProps) {
+/**
+ * 建立或編輯標籤：名稱與顏色（Design Token 的名稱，docs/architecture/backend/18-tag.md §7.2 D3），右側即時預覽。
+ * 編輯時別人搶先改過（409 `TAG_VERSION_CONFLICT`）：以 `VersionConflictAlert` 說明並提供「重新載入」，
+ * 輸入留著讓使用者先記下自己的修改（docs/architecture/backend/03-api-conventions.md §11）。
+ */
+export function TagFormDialog({ open, onOpenChange, tag, onSubmit, onReload }: TagFormDialogProps) {
   const { t } = useTranslation();
   const toMessage = useErrorMessage();
   const formId = useId();
   const [name, setName] = useState('');
   const [color, setColor] = useState<TagColor>('neutral');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string>();
+  const [reloading, setReloading] = useState(false);
+  const [error, setError] = useState<unknown>();
 
   // 每次打開都從那個標籤（或空白）開始（render 期間調整 state，不經過 effect）
   const [openedFor, setOpenedFor] = useState<{ tag: Tag | undefined }>();
@@ -51,11 +61,24 @@ export function TagFormDialog({ open, onOpenChange, tag, onSubmit }: TagFormDial
       await onSubmit({ name: name.trim(), color });
       onOpenChange(false);
     } catch (caught) {
-      setError(toMessage(caught));
+      setError(caught);
     } finally {
       setSaving(false);
     }
   };
+
+  /** 放棄這次的修改：呼叫端換成最新的那一筆，上面以新的 `tag` 重設表單（含清掉錯誤）。 */
+  const reload = async () => {
+    setReloading(true);
+    try {
+      await onReload();
+    } catch (caught) {
+      setError(caught);
+    } finally {
+      setReloading(false);
+    }
+  };
+  const conflict = isVersionConflict(error);
 
   return (
     <Dialog
@@ -120,9 +143,16 @@ export function TagFormDialog({ open, onOpenChange, tag, onSubmit }: TagFormDial
             tags={[{ id: 'preview', name: name.trim() || t('tagAdmin.field.name'), color }]}
           />
         </div>
+        {conflict && (
+          <VersionConflictAlert
+            error={error}
+            onReload={() => void reload()}
+            reloading={reloading}
+          />
+        )}
         {/* role="alert"：送出失敗時報讀器會立即念出 */}
         <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
-          {error}
+          {error !== undefined && !conflict ? toMessage(error) : null}
         </p>
       </form>
     </Dialog>

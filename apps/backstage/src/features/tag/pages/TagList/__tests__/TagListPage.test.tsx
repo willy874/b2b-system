@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -101,5 +102,36 @@ describe('TagListPage（docs/architecture/backend/18-tag.md §7.2 D5）', () => 
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(deleteTag).toHaveBeenCalledTimes(1));
     expect(deleteTag.mock.calls[0]![0]).toMatchObject({ params: { tagId: 't1' } });
+  });
+
+  it('編輯遇到版本衝突：顯示 VersionConflictAlert；重新載入後以新的 version 儲存成功', async () => {
+    updateTag
+      .mockRejectedValueOnce(new AppError('TAG_VERSION_CONFLICT', 409, { current: 2 }))
+      .mockImplementation(async ({ params }) => ({ ...tag('t1', params.body.name), version: 3 }));
+    renderRoute(routes, '/tag', ADMIN);
+    await screen.findByText('合約', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('tag-edit-button'));
+    const dialog = await screen.findByTestId('tag-form-dialog');
+    fireEvent.change(within(dialog).getByTestId('tag-name-input'), { target: { value: '合約書' } });
+    fireEvent.click(within(dialog).getByTestId('tag-form-submit'));
+
+    expect(await within(dialog).findByTestId('version-conflict-alert')).toBeInTheDocument();
+    expect(within(dialog).getByTestId('tag-name-input')).toHaveValue('合約書');
+
+    // 別人把它改成了「合約範本」，版本號變成 2
+    fetchTags.mockResolvedValue({ items: [{ ...tag('t1', '合約範本'), version: 2 }] });
+    fireEvent.click(within(dialog).getByTestId('version-conflict-reload'));
+    await waitFor(() =>
+      expect(within(dialog).getByTestId('tag-name-input')).toHaveValue('合約範本'),
+    );
+    expect(within(dialog).queryByTestId('version-conflict-alert')).toBeNull();
+
+    fireEvent.change(within(dialog).getByTestId('tag-name-input'), { target: { value: '合約書' } });
+    fireEvent.click(within(dialog).getByTestId('tag-form-submit'));
+    await waitFor(() => expect(updateTag).toHaveBeenCalledTimes(2));
+    expect(updateTag.mock.calls[1]![0]).toMatchObject({
+      params: { tagId: 't1', body: { name: '合約書', version: 2 } },
+    });
+    await waitFor(() => expect(screen.queryByTestId('tag-form-dialog')).toBeNull());
   });
 });

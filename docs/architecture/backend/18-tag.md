@@ -92,7 +92,7 @@ PUT /tags/assignments/:resourceType/:resourceId
 
 | 位置 | 內容 |
 | --- | --- |
-| `features/tag`（`/tag`，Page Key `TAG`，`tag:create`／`update`／`delete` 任一） | 標籤管理：每個標籤組一個分頁（`?scope=`；`file` 組跟著 feature `file`），建立／編輯（名稱、顏色、預覽）、刪除 |
+| `features/tag`（`/tag`，Page Key `TAG`，`tag:create`／`update`／`delete` 任一） | 標籤管理：每個標籤組一個分頁（`?scope=`；`file` 組跟著 feature `file`），建立／編輯（名稱、顏色、預覽；編輯帶 `version`，衝突時以 `VersionConflictAlert` 提供「重新載入」，換成最新的那一筆後再存）、刪除 |
 | `core/components/Tag` | `TagChips`（`data-testid="tag-chip"`、`data-value=<id>`，可 `max` 收成 `+N`）、`TagAssignDialog`（多選、整批取代、錯誤顯示在對話框；只在開啟的那一刻以目前的標籤為起點，開啟中別人改了標籤只提示、不覆寫選擇） |
 | 檔案管理器 | 列表模式寬度 ≥ 1080 px 時多一欄標籤；LightBox 的資訊欄；選取列「標籤」（單選、能改名）；工具列的標籤篩選（`?tag=`，檔案由後端篩、資料夾在前端篩） |
 | 使用者 | 列表的標籤欄（可在偏好頁隱藏）與篩選面板的標籤（`?tagId=`）；詳情的標籤區塊（`user:update` 才能編輯） |
