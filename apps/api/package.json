@@ -10,6 +10,8 @@
     "start:external": "node dist/src/main.external.js",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "openapi:generate": "node -r @swc-node/register scripts/generate-openapi.ts",

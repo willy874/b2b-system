@@ -99,6 +99,7 @@ pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
 pnpm --filter @b2b-system/<app 或 package> test   # 只跑一個（例：web-core、ui、backstage）
+pnpm --filter @b2b-system/api test:unit   # api 只跑單元測試（不需要 Docker）；整合測試是 test:integration
 pnpm test:e2e       # Playwright（需要 api 與 backstage 已啟動）；會先 db:reset：要帶暫用 DB 的 PLATFORM_DATABASE_URL，或 E2E_RESET_CONFIRM=<平台 database 名稱>
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # 平台 DB ＋ 每個租戶的 DB（docs/architecture/backend/02-database.md §6.1）；seed:dev/e2e 只跑 SEED_TENANT（預設 default）

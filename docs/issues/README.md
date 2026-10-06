@@ -60,7 +60,6 @@
 | 低 | 服務帳號樂觀鎖未命中時回舊版本／409，判斷複製七份 | [`optimistic-lock-miss-path-duplicated.md`](./optimistic-lock-miss-path-duplicated.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 後端殘留：租戶 locked 分支、工具複本、沒人用的匯出 | [`backend-dead-code-and-duplicates.md`](./backend-dead-code-and-duplicates.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 七個後端檔案超過 600 行，UserService 職責過多 | [`oversized-backend-services.md`](./oversized-backend-services.md) | 2026-10-06（全面檢測：可讀性） |
-| 低 | api 單元與整合測試共用設定，跑單元測試也要起 container | [`api-vitest-unit-integration-split.md`](./api-vitest-unit-integration-split.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 兩個前端仍有大量複製的程式，且已開始分岔 | [`duplicated-code-between-apps.md`](./duplicated-code-between-apps.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 前端架構文件與實作不符（分層強制、匯出約定、不存在的項目） | [`frontend-docs-drift.md`](./frontend-docs-drift.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 前端的死碼與過時的註解 | [`frontend-dead-code-and-stale-comments.md`](./frontend-dead-code-and-stale-comments.md) | 2026-10-06（全面檢測：可讀性） |
