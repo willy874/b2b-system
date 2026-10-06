@@ -157,3 +157,98 @@ describe('FileAccessService.assertCan', () => {
     );
   });
 });
+
+describe('FileAccessContext 的其他判斷（docs/rbac/07-resource-grants.md §3.3、§12）', () => {
+  it('系統資料夾（共用、私人、個人）即使全域權限齊全也不能改名、刪除；一般資料夾可以', async () => {
+    const ctx = await createFileAccess({ nodes: () => NODES }).access.contextFor(ALICE);
+    for (const kind of ['shared', 'privateRoot', 'personal'] as const) {
+      const capabilities = ctx.folderCapabilities({ ...ART, kind });
+      expect([capabilities.canUpdate, capabilities.canDelete]).toEqual([false, false]);
+    }
+    const normal = ctx.folderCapabilities({ ...ART, kind: 'normal' });
+    expect([normal.canUpdate, normal.canDelete]).toEqual([true, true]);
+  });
+
+  it('系統資料夾仍可以讀、建立、管理授權（看等級）', async () => {
+    const ctx = await createFileAccess({ nodes: () => NODES }).access.contextFor(ALICE);
+    expect(ctx.folderCapabilities({ ...ART, kind: 'shared' })).toMatchObject({
+      canRead: true,
+      canCreate: true,
+      canShare: true,
+    });
+  });
+
+  it('中斷繼承的資料夾：上層的等級不流進來', async () => {
+    const broken: FolderNode = { ...UI, inheritGrants: false };
+    const ctx = await createFileAccess({
+      global: [],
+      grants: [{ resourceId: 'art', level: 'editor' }],
+      nodes: () => [ART, broken, SECRET],
+    }).access.contextFor(ALICE);
+    expect([ctx.can('read', 'art'), ctx.can('read', 'ui')]).toEqual([true, false]);
+  });
+
+  it('中斷繼承的資料夾：全域權限鍵仍然有效', async () => {
+    const broken: FolderNode = { ...UI, inheritGrants: false };
+    const ctx = await createFileAccess({
+      global: ['read'],
+      nodes: () => [ART, broken, SECRET],
+    }).access.contextFor(ALICE);
+    expect(ctx.can('read', 'ui')).toBe(true);
+  });
+
+  it('explain：能做時回傳一條路徑，不能做時回傳 null', async () => {
+    const ctx = await createFileAccess({
+      global: [],
+      grants: [{ resourceId: 'art', level: 'viewer' }],
+      nodes: () => NODES,
+    }).access.contextFor(ALICE);
+    expect(ctx.explain('read', 'ui')).not.toBeNull();
+    expect(ctx.explain('read', 'secret')).toBeNull();
+    expect(ctx.explain('create', 'ui')).toBeNull();
+  });
+
+  it('fileCapabilities：根目錄的檔案只看全域權限與擁有者規則', async () => {
+    const ctx = await createFileAccess({
+      global: ['read', 'create'],
+      nodes: () => NODES,
+    }).access.contextFor(ALICE);
+    expect(ctx.fileCapabilities({ folderId: null, createdBy: ALICE.id })).toEqual({
+      canUpdate: true,
+      canDelete: true,
+    });
+    expect(ctx.fileCapabilities({ folderId: null, createdBy: BOB })).toEqual({
+      canUpdate: false,
+      canDelete: false,
+    });
+  });
+});
+
+describe('FileAccessService.deny（docs/rbac/07-resource-grants.md §6.4）', () => {
+  it('回傳 AUTHZ_FORBIDDEN，details 與 authz.denied 的 metadata 帶 reason', async () => {
+    const { access, audit } = createFileAccess({ nodes: () => NODES });
+    const error = await access.deny(ALICE, 'delete', 'fileFolder', 'art', 'not-owner');
+    expect(error.code).toBe('AUTHZ_FORBIDDEN');
+    expect(error.details).toEqual({
+      action: 'delete',
+      resourceType: 'fileFolder',
+      resourceId: 'art',
+      reason: 'not-owner',
+    });
+    expect(audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        actorId: ALICE.id,
+        actorEmail: ALICE.email,
+        errorCode: 'AUTHZ_FORBIDDEN',
+        metadata: error.details,
+      }),
+    );
+  });
+
+  it('沒有 reason 時 details 不帶 reason 欄位', async () => {
+    const { access } = createFileAccess({ nodes: () => NODES });
+    const error = await access.deny(ALICE, 'read', 'file', 'f1');
+    expect(error.details).toEqual({ action: 'read', resourceType: 'file', resourceId: 'f1' });
+  });
+});

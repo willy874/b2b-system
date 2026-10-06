@@ -8,7 +8,6 @@ import type { Database } from '@/core/database';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantDirectory } from '@/core/tenant';
 
-import { toMailLocale } from '../mail-locale';
 import type { MailMessage, MailTransport } from '../mail-transport';
 import { MailService } from '../mail.service';
 
@@ -83,6 +82,20 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
     );
   });
 
+  it('沒有租戶時 accountLink() 不帶 tenant（平台管理者的帳號流程）', () => {
+    const { service } = setup();
+    expect(service.accountLink('/setup', { token: 'x' })).toBe(
+      'https://editor.example.com/setup?token=x',
+    );
+  });
+
+  it('accountLink() 沒有查詢字串時只帶租戶代碼', () => {
+    const { service } = setup();
+    expect(inTenant(() => service.accountLink('/reset'))).toBe(
+      'https://editor.example.com/reset?tenant=acme',
+    );
+  });
+
   it('沒有租戶時 link() 以 APP_PUBLIC_URL 開頭並編碼查詢字串', async () => {
     const { service } = setup();
     await expect(service.link('/auth/setup', { token: 'a+b/c=' })).resolves.toBe(
@@ -102,13 +115,5 @@ describe('MailService（docs/architecture/backend/11-mail.md §3）', () => {
     expect(sent[0]!.html).toContain('<p');
     expect(sent[0]!.text).toContain('你好');
     expect(sent[0]!.text).not.toContain('<p');
-  });
-});
-
-describe('toMailLocale', () => {
-  it('認得的語系原樣回傳，其他退回 zh-TW', () => {
-    expect(toMailLocale('en-US')).toBe('en-US');
-    expect(toMailLocale('ja-JP')).toBe('zh-TW');
-    expect(toMailLocale(null)).toBe('zh-TW');
   });
 });

@@ -453,3 +453,21 @@ describe('NotificationPolicyService.update（docs/architecture/backend/16-notifi
     expect(repo.upsert).not.toHaveBeenCalled();
   });
 });
+
+describe('NotificationPolicyService 快取的重新連線（docs/architecture/01-system.md §4.4）', () => {
+  it('監聽連線斷線重接 → 清掉所有租戶的快取（斷線期間可能漏掉失效訊息）', async () => {
+    const hub = new BroadcastHub();
+    const { service, repo, broadcast } = setup([], hub);
+    service.onModuleInit();
+    await broadcast.onApplicationBootstrap();
+    await inTenant([], () => service.isEnabled('sample.pending', 'inApp'));
+    await inTenant([], () => service.isEnabled('sample.pending', 'inApp'));
+    expect(repo.listAll).toHaveBeenCalledTimes(1);
+
+    hub.reconnect();
+    await flushBroadcast();
+
+    await inTenant([], () => service.isEnabled('sample.pending', 'inApp'));
+    expect(repo.listAll).toHaveBeenCalledTimes(2);
+  });
+});

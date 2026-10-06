@@ -16,6 +16,8 @@ import {
   MAX_NOTIFICATION_RECIPIENTS,
   NOTIFICATION_CLEANUP_BATCH_SIZE,
 } from '../notification.constants';
+import { decodeNotificationCursor, encodeNotificationCursor } from '../notification.cursor';
+import { defineNotification } from '../notification.definition';
 import type { NotificationInput } from '../notification.definition';
 import type { NotificationRepository } from '../notification.repository';
 import { NotificationService } from '../notification.service';
@@ -34,6 +36,22 @@ function recipient(i: number): string {
 
 function input(recipientId: string, type = 'sample.happened'): NotificationInput {
   return { type, recipientId, actorId: null, params: {}, link: null };
+}
+
+/** 列表的一列（自己的、未讀、系統觸發）。 */
+function ownRow(i: number, createdAt = NOW) {
+  return {
+    id: recipient(i),
+    recipientId: ME.id,
+    type: 'sample.happened',
+    params: {},
+    link: null,
+    actorId: null,
+    actor: null,
+    readAt: null,
+    createdAt,
+    sourceId: null,
+  };
 }
 
 /** 假的 db：`withTransaction` 以它開交易，提交後的 hook 照真的順序執行。 */
@@ -60,9 +78,17 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     markAllRead: ReturnType<typeof vi.fn>;
     deleteReadBefore: ReturnType<typeof vi.fn>;
     deleteBeyondPerRecipient: ReturnType<typeof vi.fn>;
+    listAll: ReturnType<typeof vi.fn>;
+    countUnread: ReturnType<typeof vi.fn>;
+    countBySources: ReturnType<typeof vi.fn>;
+    markSourceRead: ReturnType<typeof vi.fn>;
+    deleteBySource: ReturnType<typeof vi.fn>;
   };
   let events: { publish: ReturnType<typeof vi.fn> };
-  let policy: { filterRecipients: ReturnType<typeof vi.fn> };
+  let policy: {
+    filterRecipients: ReturnType<typeof vi.fn>;
+    isEnabled: ReturnType<typeof vi.fn>;
+  };
   /** 租戶關掉站內通知的類型。 */
   let disabled: Set<string>;
   /** 自己關掉的收件人。 */
@@ -82,6 +108,11 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       markAllRead: vi.fn(async () => 0),
       deleteReadBefore: vi.fn(async () => 0),
       deleteBeyondPerRecipient: vi.fn(async () => 0),
+      listAll: vi.fn(async () => ({ items: [], lastCreatedAt: undefined })),
+      countUnread: vi.fn(async () => 0),
+      countBySources: vi.fn(async () => []),
+      markSourceRead: vi.fn(async () => undefined),
+      deleteBySource: vi.fn(async () => []),
     };
     events = { publish: vi.fn(() => order.push('publish')) };
     disabled = new Set();
@@ -89,6 +120,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       filterRecipients: vi.fn(async (type: string, _channel: string, ids: string[]) =>
         disabled.has(type) ? [] : ids.filter((id) => !optedOut.has(id)),
       ),
+      isEnabled: vi.fn(async (type: string) => !disabled.has(type)),
     };
     optedOut = new Set();
     const settings = {
@@ -336,6 +368,176 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
         cron: '0 5 * * *',
       });
       expect(config.get).toHaveBeenCalledWith('NOTIFICATION_CLEANUP_CRON', { infer: true });
+    });
+  });
+
+  describe('分頁游標（docs/architecture/backend/15-notification.md §5）', () => {
+    it('沒給 unread 視為 false；游標解開後交給 repository', async () => {
+      const cursor = encodeNotificationCursor({ createdAt: NOW.toISOString(), id: recipient(1) });
+      await service.list({ limit: 20, cursor }, ME);
+      expect(repo.list).toHaveBeenCalledWith(ME.id, {
+        unread: false,
+        limit: 20,
+        after: { createdAt: NOW.toISOString(), id: recipient(1) },
+      });
+    });
+
+    it('不滿一頁 → nextCursor 是 null', async () => {
+      repo.list.mockResolvedValueOnce({ items: [ownRow(1)], lastCreatedAt: 'x' });
+      await expect(service.list({ limit: 2 }, ME)).resolves.toMatchObject({ nextCursor: null });
+    });
+
+    it('滿一頁 → nextCursor 指向最後一筆，時間用資料庫的微秒精度字串', async () => {
+      const exact = '2026-10-31T00:00:00.123456Z';
+      repo.list.mockResolvedValueOnce({ items: [ownRow(1), ownRow(2)], lastCreatedAt: exact });
+      const page = await service.list({ limit: 2 }, ME);
+      expect(decodeNotificationCursor(page.nextCursor ?? '')).toEqual({
+        createdAt: exact,
+        id: recipient(2),
+      });
+    });
+
+    it('滿一頁但沒有微秒字串 → 退回最後一筆的 createdAt', async () => {
+      repo.list.mockResolvedValueOnce({ items: [ownRow(1)], lastCreatedAt: undefined });
+      const page = await service.list({ limit: 1 }, ME);
+      expect(decodeNotificationCursor(page.nextCursor ?? '')).toEqual({
+        createdAt: NOW.toISOString(),
+        id: recipient(1),
+      });
+    });
+
+    it('listAll：篩選原樣交給 repository、帶收件人；游標格式不對 → VALIDATION_FAILED', async () => {
+      const from = new Date('2026-10-01T00:00:00.000Z');
+      repo.listAll.mockResolvedValueOnce({
+        items: [{ ...ownRow(1), recipient: { id: ME.id, name: '我' } }],
+        lastCreatedAt: undefined,
+      });
+      const page = await service.listAll({ limit: 1, type: 'sample.happened', from });
+      expect(repo.listAll).toHaveBeenCalledWith(
+        {
+          type: 'sample.happened',
+          recipientId: undefined,
+          actorId: undefined,
+          unread: false,
+          from,
+          to: undefined,
+        },
+        { limit: 1, after: undefined },
+      );
+      expect(page.items[0]).toMatchObject({
+        id: recipient(1),
+        recipient: { id: ME.id, name: '我' },
+      });
+      expect(page.nextCursor).not.toBeNull();
+      await expect(service.listAll({ limit: 1, cursor: 'garbage' })).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { field: 'cursor' },
+      });
+    });
+  });
+
+  describe('其他讀取與已讀（docs/architecture/backend/15-notification.md §12.2 D9）', () => {
+    it('unreadCount 只算自己的', async () => {
+      repo.countUnread.mockResolvedValueOnce(4);
+      await expect(service.unreadCount(ME)).resolves.toEqual({ count: 4 });
+      expect(repo.countUnread).toHaveBeenCalledWith(ME.id);
+    });
+
+    it('標為已讀之後讀回前被清理刪掉 → NOTIFICATION_NOT_FOUND，不推播', async () => {
+      repo.findOwn.mockResolvedValueOnce(undefined);
+      await expect(service.markRead(recipient(9), ME)).rejects.toMatchObject({
+        code: 'NOTIFICATION_NOT_FOUND',
+      });
+      expect(events.publish).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('事件管理的委派（docs/architecture/backend/16-notification-event.md §9.2 D6、D14）', () => {
+    const KIND = defineNotification('sample.happened', { category: 'sample', channels: ['email'] });
+
+    it('isChannelEnabled 以類型名稱問租戶政策', async () => {
+      disabled.add('sample.happened');
+      await expect(service.isChannelEnabled(KIND, 'email')).resolves.toBe(false);
+      expect(policy.isEnabled).toHaveBeenCalledWith('sample.happened', 'email', undefined);
+    });
+
+    it('filterRecipients 以類型名稱交給租戶政策（含個人設定）', async () => {
+      optedOut.add(recipient(2));
+      await expect(
+        service.filterRecipients(KIND, 'email', [recipient(1), recipient(2)]),
+      ).resolves.toEqual([recipient(1)]);
+    });
+  });
+
+  describe('來源（docs/architecture/backend/19-announcement.md §9.2 D4、D18）', () => {
+    it('statsBySources：沒有通知的來源回 0／0', async () => {
+      repo.countBySources.mockResolvedValueOnce([{ sourceId: 's1', total: 5, read: 2 }]);
+      const stats = await service.statsBySources(['s1', 's2']);
+      expect(Object.fromEntries(stats)).toEqual({
+        s1: { total: 5, read: 2 },
+        s2: { total: 0, read: 0 },
+      });
+    });
+
+    it('markSourceRead：沒有收到 → false，不推播', async () => {
+      await expect(service.markSourceRead('s1', ME.id)).resolves.toBe(false);
+      expect(events.publish).not.toHaveBeenCalled();
+    });
+
+    it('markSourceRead：原本未讀 → true，推給自己', async () => {
+      repo.markSourceRead.mockResolvedValueOnce({ id: recipient(1), wasUnread: true });
+      await expect(service.markSourceRead('s1', ME.id)).resolves.toBe(true);
+      expect(events.publish).toHaveBeenCalledWith('resource.changed', {
+        changes: [{ resource: 'notification', kind: 'update', id: recipient(1) }],
+        affectedUserIds: [ME.id],
+      });
+    });
+
+    it('markSourceRead：早就讀過 → true，不推播', async () => {
+      repo.markSourceRead.mockResolvedValueOnce({ id: recipient(1), wasUnread: false });
+      await expect(service.markSourceRead('s1', ME.id)).resolves.toBe(true);
+      expect(events.publish).not.toHaveBeenCalled();
+    });
+
+    it('removeBySource：分批刪到少於一批為止，回傳總數；每批依收件人各推一則 delete', async () => {
+      const full = Array.from({ length: NOTIFICATION_CLEANUP_BATCH_SIZE }, (_, i) => ({
+        id: `n${i}`,
+        recipientId: recipient(1),
+      }));
+      repo.deleteBySource
+        .mockResolvedValueOnce(full)
+        .mockResolvedValueOnce([{ id: 'last', recipientId: recipient(2) }]);
+      await expect(service.removeBySource('s1')).resolves.toBe(NOTIFICATION_CLEANUP_BATCH_SIZE + 1);
+      expect(repo.deleteBySource).toHaveBeenCalledTimes(2);
+      expect(repo.deleteBySource).toHaveBeenCalledWith('s1', NOTIFICATION_CLEANUP_BATCH_SIZE);
+      expect(events.publish).toHaveBeenCalledWith('resource.changed', {
+        changes: [{ resource: 'notification', kind: 'delete', id: 'last' }],
+        affectedUserIds: [recipient(2)],
+      });
+    });
+
+    it('removeBySource：沒有通知 → 0，不推播', async () => {
+      await expect(service.removeBySource('s1')).resolves.toBe(0);
+      expect(events.publish).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('NotificationCleanupJob.run（docs/architecture/backend/15-notification.md §12.2 D10）', () => {
+    it('執行時跑一輪保留清理並回傳報告（存成背景工作的 output）', async () => {
+      vi.useFakeTimers({ now: NOW });
+      try {
+        const job = new NotificationCleanupJob(
+          service,
+          { register: vi.fn() } as unknown as JobQueue,
+          { get: vi.fn() } as unknown as ConfigService<Env, true>,
+        );
+        await expect(job.run()).resolves.toMatchObject({
+          retentionDays: 30,
+          cutoff: new Date(NOW.getTime() - 30 * DAY_MS).toISOString(),
+        });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

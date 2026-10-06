@@ -1,14 +1,54 @@
 import type { ConfigService } from '@nestjs/config';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '../../config';
-import type { Database } from '../../database';
+import { withTransaction } from '../../database';
+import type { Database, Transaction } from '../../database';
 import { AppException } from '../../errors';
-import type { Tenancy, TenantDirectory, TenantRecord } from '../../tenant';
+import { runInTenantContext } from '../../tenant';
+import type { Tenancy, TenantContext, TenantDirectory, TenantRecord } from '../../tenant';
 import { JobQueue } from '../job-queue';
 import type { JobContext, JobEnvelope } from '../job-queue';
 import type { JobStore } from '../job-store';
 import { defineJob } from '../job-type';
+
+/**
+ * 假的 pg-boss：建構時不連線，記下每個呼叫。測的是 JobQueue 交給 pg-boss 的設定與資料，
+ * pg-boss 本身的重試、逾時、排程在 test/jobs.spec.ts 以真的 Postgres 驗證。
+ */
+const { FakeBoss } = vi.hoisted(() => {
+  class Boss {
+    static last: Boss | undefined;
+    readonly on = vi.fn();
+    readonly start = vi.fn(async () => {});
+    readonly stop = vi.fn(async (_options: object) => {});
+    readonly getQueue = vi.fn(async (_name: string): Promise<object | null> => null);
+    readonly createQueue = vi.fn(async (_name: string, _options: object) => {});
+    readonly updateQueue = vi.fn(async (_name: string, _options: object) => {});
+    readonly work = vi.fn(
+      async (_name: string, _options: object, _handler: WorkHandler) => 'worker-id',
+    );
+    readonly getSchedules = vi.fn(async (): Promise<Array<{ name: string }>> => []);
+    readonly schedule = vi.fn(
+      async (_name: string, _cron: string, _data: unknown, _options: object) => {},
+    );
+    readonly unschedule = vi.fn(async (_name: string) => {});
+    readonly send = vi.fn(
+      async (_name: string, _data: object, _options: object): Promise<string | null> => 'job-id',
+    );
+    readonly retry = vi.fn(async (_name: string, _id: string): Promise<object> => ({
+      affected: 1,
+    }));
+
+    constructor(readonly options: Record<string, unknown>) {
+      Boss.last = this;
+    }
+  }
+  type WorkHandler = (jobs: Array<Record<string, unknown>>) => Promise<unknown>;
+  return { FakeBoss: Boss };
+});
+
+vi.mock('pg-boss', () => ({ PgBoss: FakeBoss }));
 
 const TYPE = defineJob<{ id: string }>('test.work');
 const CONTEXT = { id: 'job-1', retryCount: 0, signal: new AbortController().signal } as JobContext;
@@ -73,6 +113,13 @@ describe('JobQueue：租戶不能進入時的工作（docs/architecture/05-tenan
     await expect(execute(ENVELOPE)).rejects.toMatchObject({ code: 'TENANT_UNAVAILABLE' });
   });
 
+  it('一般錯誤（不是 AppException）往外拋，交給 pg-boss 重試', async () => {
+    const { execute } = setup(async () => {
+      throw new Error('boom');
+    });
+    await expect(execute(ENVELOPE)).rejects.toThrow('boom');
+  });
+
   it('可以進入 → 在租戶裡執行 handler', async () => {
     const { execute, handler } = setup(async (_id, fn) => fn());
     await expect(execute(ENVELOPE)).resolves.toEqual({ done: true });
@@ -135,6 +182,17 @@ describe('JobQueue：租戶的同時執行上限（docs/architecture/05-tenancy.
     await expect(execute(ENVELOPE)).resolves.toEqual({ skipped: 'TENANT_NOT_FOUND' });
     expect(activeAhead).not.toHaveBeenCalled();
   });
+  it('exclusive 佇列已有一筆排隊而放不回去 → 以 skipped 結束並帶 conflict，不執行 handler', async () => {
+    const { execute, handler } = setup(runInside, {
+      tenant: { featureParams: { 'job.maxConcurrency': 1 } },
+      store: { activeAhead: vi.fn(async () => 1), requeue: vi.fn(async () => 'conflict' as const) },
+    });
+    await expect(execute(ENVELOPE)).resolves.toEqual({
+      skipped: 'TENANT_CONCURRENCY',
+      result: 'conflict',
+    });
+    expect(handler).not.toHaveBeenCalled();
+  });
 });
 
 describe('JobQueue：worker 的並行數（docs/architecture/backend/10-jobs.md §3）', () => {
@@ -155,5 +213,604 @@ describe('JobQueue：worker 的並行數（docs/architecture/backend/10-jobs.md 
       ['test.single', { batchSize: 1, localConcurrency: 1 }],
       ['test.mail', { batchSize: 1, localConcurrency: 5 }],
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 以公開 API（register / onApplicationBootstrap / enqueue / relayOutbox / retry）測 JobQueue
+// ---------------------------------------------------------------------------
+
+type FakeBossInstance = InstanceType<typeof FakeBoss>;
+
+const TENANT = {
+  id: 't1',
+  code: 'acme',
+  features: [],
+  flags: {},
+  featureParams: {},
+} as unknown as TenantContext;
+
+function inTenant<T>(fn: () => Promise<T>): Promise<T> {
+  return runInTenantContext(TENANT, fn);
+}
+
+interface OutboxRow {
+  id: string;
+  name: string;
+  data: Record<string, unknown>;
+  options: { throttle?: { key: string; seconds: number }; startAfter?: string };
+}
+
+/** 租戶 DB 的假物件：每個交易依序回傳一批 outbox 的列。 */
+function outboxDb(...batches: OutboxRow[][]) {
+  const remove = vi.fn((_table: unknown) => ({ where: vi.fn(async (_where: unknown) => {}) }));
+  const tx = {
+    select: () => ({
+      from: () => ({
+        orderBy: () => ({ limit: () => ({ for: async () => batches.shift() ?? [] }) }),
+      }),
+    }),
+    delete: remove,
+  };
+  const transaction = vi.fn(async (work: (t: unknown) => Promise<unknown>) => work(tx));
+  return { db: { transaction } as unknown as Database, remove, transaction };
+}
+
+interface HarnessOptions {
+  workerEnabled?: boolean;
+  sweepCron?: string;
+  tenantDb?: Database;
+  activeTenants?: Array<Pick<TenantRecord, 'id'>>;
+  forEachActive?: Tenancy['forEachActive'];
+}
+
+function createQueue(options: HarnessOptions = {}) {
+  const values: Record<string, unknown> = {
+    PLATFORM_DATABASE_URL: 'postgres://u:p@127.0.0.1:1/x',
+    JOBS_WORKER_ENABLED: options.workerEnabled ?? true,
+    JOBS_OUTBOX_SWEEP_CRON: options.sweepCron ?? '*/10 * * * *',
+  };
+  const config = { get: vi.fn((key: string) => values[key]) } as unknown as ConfigService<
+    Env,
+    true
+  >;
+  const tenancy = {
+    run: vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn()),
+    forEachActive: options.forEachActive ?? vi.fn(async () => []),
+  } as unknown as Tenancy;
+  const directory = {
+    findById: vi.fn(async () => undefined),
+    listActive: vi.fn(async () => options.activeTenants ?? []),
+  } as unknown as TenantDirectory;
+  const queue = new JobQueue(
+    config,
+    tenancy,
+    directory,
+    options.tenantDb ?? outboxDb().db,
+    {} as JobStore,
+  );
+  const boss = FakeBoss.last;
+  if (!boss) throw new Error('pg-boss 沒有被建立');
+  return { queue, boss };
+}
+
+function workerOf(boss: FakeBossInstance, name: string) {
+  const call = boss.work.mock.calls.find(([queueName]) => queueName === name);
+  if (!call) throw new Error(`${name} 沒有啟動 worker`);
+  return call[2];
+}
+
+const SIGNAL = new AbortController().signal;
+const job = (data: JobEnvelope | null) => ({ id: 'job-9', retryCount: 2, signal: SIGNAL, data });
+
+const PLATFORM_TYPE = defineJob<{ id: string }>('test.platform', { scope: 'platform' });
+const EXCLUSIVE_TYPE = defineJob<Record<string, never>>('test.exclusive', {
+  exclusive: true,
+  retryLimit: 3,
+  retryDelaySeconds: 300,
+  expireInSeconds: 60 * 60,
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('JobQueue：建構與註冊（docs/architecture/backend/10-jobs.md §2、§5）', () => {
+  it.each([
+    [true, true],
+    [false, false],
+  ])('JOBS_WORKER_ENABLED=%s → pg-boss 的排程與維護 = %s', (workerEnabled, expected) => {
+    const { boss } = createQueue({ workerEnabled });
+    expect(boss.options).toMatchObject({ schedule: expected, supervise: expected });
+  });
+
+  it('監聽 pg-boss 的 error 事件（沒監聽會讓程序崩潰）', () => {
+    const { boss } = createQueue();
+    expect(boss.on).toHaveBeenCalledWith('error', expect.any(Function));
+  });
+
+  it('內建的 jobs.outboxSweep 以 JOBS_OUTBOX_SWEEP_CRON 註冊成平台工作', () => {
+    const { queue } = createQueue({ sweepCron: '*/5 * * * *' });
+    expect(queue.definitions()).toContainEqual({
+      name: 'jobs.outboxSweep',
+      cron: '*/5 * * * *',
+      scope: 'platform',
+    });
+  });
+
+  it('cron 是空字串 → 視為不排程（cron 為 null）', () => {
+    const { queue } = createQueue({ sweepCron: '' });
+    expect(queue.definitions()).toContainEqual({
+      name: 'jobs.outboxSweep',
+      cron: null,
+      scope: 'platform',
+    });
+  });
+
+  it('同一種工作註冊兩次 → 拋錯', () => {
+    const { queue } = createQueue();
+    queue.register(TYPE, vi.fn());
+    expect(() => queue.register(TYPE, vi.fn())).toThrow(/已經註冊過/);
+  });
+
+  it('啟動之後才註冊 → 拋錯', async () => {
+    const { queue } = createQueue({ workerEnabled: false });
+    await queue.onApplicationBootstrap();
+    expect(() => queue.register(TYPE, vi.fn())).toThrow(/onModuleInit/);
+  });
+
+  it('names() 與 definitions() 依名稱排序', () => {
+    const { queue } = createQueue();
+    queue.register(defineJob('zeta.run'), vi.fn());
+    queue.register(defineJob('alpha.run'), vi.fn());
+    expect(queue.names()).toEqual(['alpha.run', 'jobs.outboxSweep', 'zeta.run']);
+    expect(queue.definitions().map((definition) => definition.name)).toEqual(queue.names());
+  });
+
+  it('isRegistered 只認得已註冊的工作', () => {
+    const { queue } = createQueue();
+    queue.register(TYPE, vi.fn());
+    expect(queue.isRegistered(TYPE.name)).toBe(true);
+    expect(queue.isRegistered('ghost.job')).toBe(false);
+  });
+});
+
+describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architecture/backend/10-jobs.md §3）', () => {
+  it('新佇列：重試次數、退避起點與上限、逾時交給 pg-boss，指數退避；exclusive → stately', async () => {
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    queue.register(EXCLUSIVE_TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.createQueue).toHaveBeenCalledWith('test.exclusive', {
+      retryLimit: 3,
+      retryDelay: 300,
+      retryBackoff: true,
+      retryDelayMax: 3600,
+      expireInSeconds: 3600,
+      policy: 'stately',
+    });
+  });
+
+  it('非 exclusive 的工作 → standard（每筆都執行）', async () => {
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    queue.register(TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.createQueue).toHaveBeenCalledWith(
+      'test.work',
+      expect.objectContaining({ policy: 'standard', expireInSeconds: 15 * 60 }),
+    );
+  });
+
+  it('佇列已存在 → 只更新可改的選項（policy 建立後不能改，不送 retryDelayMax）', async () => {
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    boss.getQueue.mockResolvedValue({ name: 'existing' });
+    queue.register(EXCLUSIVE_TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.createQueue).not.toHaveBeenCalled();
+    expect(boss.updateQueue).toHaveBeenCalledWith('test.exclusive', {
+      retryLimit: 3,
+      retryDelay: 300,
+      retryBackoff: true,
+      expireInSeconds: 3600,
+    });
+  });
+
+  it('JOBS_WORKER_ENABLED=false → 建立佇列（仍可入列），不啟動 worker、不同步排程', async () => {
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    queue.register(TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.createQueue).toHaveBeenCalledTimes(2);
+    expect(boss.work).not.toHaveBeenCalled();
+    expect(boss.getSchedules).not.toHaveBeenCalled();
+    expect(boss.schedule).not.toHaveBeenCalled();
+  });
+
+  it('JOBS_WORKER_ENABLED=true → 每種已註冊的工作各啟動一個 worker', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.work.mock.calls.map(([name]) => name).toSorted()).toEqual([
+      'jobs.outboxSweep',
+      'test.work',
+    ]);
+  });
+
+  it('有 cron 的工作以 UTC 排程', async () => {
+    const { queue, boss } = createQueue({ sweepCron: '' });
+    queue.register(EXCLUSIVE_TYPE, vi.fn(), { cron: '30 3 * * *' });
+    await queue.onApplicationBootstrap();
+    expect(boss.schedule).toHaveBeenCalledExactlyOnceWith('test.exclusive', '30 3 * * *', null, {
+      tz: 'UTC',
+    });
+  });
+
+  it('cron 改成空字串而之前有排程 → 移除排程（以程式碼為準）', async () => {
+    const { queue, boss } = createQueue({ sweepCron: '' });
+    boss.getSchedules.mockResolvedValue([{ name: 'jobs.outboxSweep' }]);
+    await queue.onApplicationBootstrap();
+    expect(boss.unschedule).toHaveBeenCalledExactlyOnceWith('jobs.outboxSweep');
+    expect(boss.schedule).not.toHaveBeenCalled();
+  });
+
+  it('沒有 cron 也沒有舊排程 → 不呼叫 unschedule', async () => {
+    const { queue, boss } = createQueue({ sweepCron: '' });
+    queue.register(TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.unschedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobQueue：關機（docs/architecture/backend/10-jobs.md §5）', () => {
+  it('沒啟動過 → 不呼叫 pg-boss 的 stop', async () => {
+    const { queue, boss } = createQueue();
+    await queue.onApplicationShutdown();
+    expect(boss.stop).not.toHaveBeenCalled();
+  });
+
+  it('啟動過 → graceful 停止，最多等 30 秒', async () => {
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    await queue.onApplicationBootstrap();
+    await queue.onApplicationShutdown();
+    expect(boss.stop).toHaveBeenCalledExactlyOnceWith({ graceful: true, timeout: 30_000 });
+  });
+
+  it('停止之後再呼叫一次不會重複 stop', async () => {
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    await queue.onApplicationBootstrap();
+    await queue.onApplicationShutdown();
+    await queue.onApplicationShutdown();
+    expect(boss.stop).toHaveBeenCalledOnce();
+  });
+});
+
+describe('JobQueue.enqueue（docs/architecture/backend/10-jobs.md §4）', () => {
+  it('沒註冊的工作 → 拋 Error，不送進佇列', async () => {
+    const { queue, boss } = createQueue();
+    await expect(inTenant(() => queue.enqueue(TYPE, { id: 'x' }))).rejects.toThrow(
+      /沒有註冊 handler/,
+    );
+    expect(boss.send).not.toHaveBeenCalled();
+  });
+
+  it('平台工作帶租戶的交易 → 拋錯', async () => {
+    const { queue } = createQueue();
+    queue.register(PLATFORM_TYPE, vi.fn());
+    await expect(
+      queue.enqueue(PLATFORM_TYPE, { id: 'x' }, { tx: {} as Transaction }),
+    ).rejects.toThrow(/不能在租戶的交易裡入列/);
+  });
+
+  it('平台工作 → 信封的 tenantId 為 null，不需要租戶脈絡', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(PLATFORM_TYPE, vi.fn());
+    await expect(queue.enqueue(PLATFORM_TYPE, { id: 'x' })).resolves.toBe('job-id');
+    expect(boss.send).toHaveBeenCalledWith(
+      'test.platform',
+      { tenantId: null, payload: { id: 'x' } },
+      {
+        id: undefined,
+        singletonKey: undefined,
+        singletonSeconds: undefined,
+        startAfter: undefined,
+      },
+    );
+  });
+
+  it('exclusive 的平台工作 → singletonKey 是 platform', async () => {
+    const { queue, boss } = createQueue();
+    const type = defineJob('test.platformOnce', { scope: 'platform', exclusive: true });
+    queue.register(type, vi.fn());
+    await queue.enqueue(type, {});
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({ singletonKey: 'platform' });
+  });
+
+  it('租戶工作沒有租戶脈絡 → TENANT_NOT_FOUND', async () => {
+    const { queue } = createQueue();
+    queue.register(TYPE, vi.fn());
+    await expect(queue.enqueue(TYPE, { id: 'x' })).rejects.toMatchObject({
+      code: 'TENANT_NOT_FOUND',
+    });
+  });
+
+  it('租戶工作 → 信封帶目前的租戶 id', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(TYPE, vi.fn());
+    await inTenant(() => queue.enqueue(TYPE, { id: 'x' }));
+    expect(boss.send.mock.calls[0]?.[1]).toEqual({ tenantId: 't1', payload: { id: 'x' } });
+  });
+
+  it('throttle → singletonKey 以租戶區分（<租戶>:<key>）並帶時間窗', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(TYPE, vi.fn());
+    await inTenant(() =>
+      queue.enqueue(TYPE, { id: 'x' }, { throttle: { key: 'reset:u-1', seconds: 60 } }),
+    );
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({
+      singletonKey: 't1:reset:u-1',
+      singletonSeconds: 60,
+    });
+  });
+
+  it('throttle 在時間窗內被擋下 → 回傳 null', async () => {
+    const { queue, boss } = createQueue();
+    boss.send.mockResolvedValueOnce(null);
+    queue.register(TYPE, vi.fn());
+    await expect(
+      inTenant(() => queue.enqueue(TYPE, { id: 'x' }, { throttle: { key: 'k', seconds: 60 } })),
+    ).resolves.toBeNull();
+  });
+
+  it('exclusive 的租戶工作 → singletonKey 是租戶 id（一個租戶不擋另一個租戶）', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(EXCLUSIVE_TYPE, vi.fn());
+    await inTenant(() => queue.enqueue(EXCLUSIVE_TYPE, {}));
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({ singletonKey: 't1' });
+  });
+
+  it('exclusive 又帶 throttle → 以 throttle 的 key 為準', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(EXCLUSIVE_TYPE, vi.fn());
+    await inTenant(() =>
+      queue.enqueue(EXCLUSIVE_TYPE, {}, { throttle: { key: 'k', seconds: 30 } }),
+    );
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({ singletonKey: 't1:k' });
+  });
+
+  it('startAfter 原樣交給 pg-boss（延後執行）', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(TYPE, vi.fn());
+    const startAfter = new Date('2026-11-01T00:00:00.000Z');
+    await inTenant(() => queue.enqueue(TYPE, { id: 'x' }, { startAfter }));
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({ startAfter });
+  });
+});
+
+/** 業務交易：insert 進 outbox 回傳 outbox-1。 */
+function businessDb() {
+  const values = vi.fn((_row: Record<string, unknown>) => ({
+    returning: async () => [{ id: 'outbox-1' }],
+  }));
+  const tx = { insert: vi.fn(() => ({ values })) };
+  const db = {
+    transaction: async (work: (t: unknown) => Promise<unknown>) => work(tx),
+  } as unknown as Database;
+  return { db, values };
+}
+
+describe('JobQueue.enqueue 帶 tx：outbox（docs/architecture/backend/10-jobs.md §4.1）', () => {
+  const ROW: OutboxRow = {
+    id: 'outbox-1',
+    name: 'test.work',
+    data: { id: 'x' },
+    options: { throttle: { key: 'k', seconds: 60 }, startAfter: '2026-11-01T00:00:00.000Z' },
+  };
+
+  it('交易內只寫 outbox（名稱、資料、選項）並回傳 outbox 的 id；提交前不送進佇列', async () => {
+    const { queue, boss } = createQueue({ tenantDb: outboxDb().db });
+    queue.register(TYPE, vi.fn());
+    const { db, values } = businessDb();
+    const startAfter = new Date('2026-11-01T00:00:00.000Z');
+
+    const id = await inTenant(() =>
+      withTransaction(db, async (tx) => {
+        const enqueued = await queue.enqueue(
+          TYPE,
+          { id: 'x' },
+          { tx, throttle: { key: 'k', seconds: 60 }, startAfter },
+        );
+        expect(boss.send).not.toHaveBeenCalled();
+        return enqueued;
+      }),
+    );
+    expect(id).toBe('outbox-1');
+    expect(values).toHaveBeenCalledWith({
+      name: 'test.work',
+      data: { id: 'x' },
+      options: { throttle: { key: 'k', seconds: 60 }, startAfter: '2026-11-01T00:00:00.000Z' },
+    });
+  });
+
+  it('提交後搬進佇列：以 outbox 的 id 當工作 id、帶租戶與選項，並刪除 outbox 的列', async () => {
+    const tenant = outboxDb([ROW]);
+    const { queue, boss } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    const { db } = businessDb();
+
+    await inTenant(() => withTransaction(db, (tx) => queue.enqueue(TYPE, { id: 'x' }, { tx })));
+    expect(boss.send).toHaveBeenCalledExactlyOnceWith(
+      'test.work',
+      { tenantId: 't1', payload: { id: 'x' } },
+      {
+        id: 'outbox-1',
+        singletonKey: 't1:k',
+        singletonSeconds: 60,
+        startAfter: new Date('2026-11-01T00:00:00.000Z'),
+      },
+    );
+    expect(tenant.remove).toHaveBeenCalledOnce();
+  });
+
+  it('提交後的搬移失敗 → 業務交易照常完成（等定期清掃補搬）', async () => {
+    const failing = {
+      transaction: vi.fn(async () => {
+        throw new Error('tenant db down');
+      }),
+    } as unknown as Database;
+    const { queue } = createQueue({ tenantDb: failing });
+    queue.register(TYPE, vi.fn());
+    const { db } = businessDb();
+
+    await expect(
+      inTenant(() => withTransaction(db, (tx) => queue.enqueue(TYPE, { id: 'x' }, { tx }))),
+    ).resolves.toBe('outbox-1');
+  });
+});
+
+const outboxRow = (id: string, name = 'test.work'): OutboxRow => ({
+  id,
+  name,
+  data: { id },
+  options: {},
+});
+
+describe('JobQueue.relayOutbox（docs/architecture/backend/10-jobs.md §4.1）', () => {
+  it('沒有租戶脈絡 → TENANT_NOT_FOUND', async () => {
+    const { queue } = createQueue();
+    await expect(queue.relayOutbox()).rejects.toMatchObject({ code: 'TENANT_NOT_FOUND' });
+  });
+
+  it('沒有註冊 handler 的列留在 outbox：不送、不刪', async () => {
+    const tenant = outboxDb([outboxRow('o-1', 'retired.job')]);
+    const { queue, boss } = createQueue({ tenantDb: tenant.db });
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(0);
+    expect(boss.send).not.toHaveBeenCalled();
+    expect(tenant.remove).not.toHaveBeenCalled();
+  });
+
+  it('同一批裡有註冊的照常送出，只算送出的筆數', async () => {
+    const tenant = outboxDb([outboxRow('o-1', 'retired.job'), outboxRow('o-2')]);
+    const { queue, boss } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(1);
+    expect(boss.send).toHaveBeenCalledExactlyOnceWith(
+      'test.work',
+      { tenantId: 't1', payload: { id: 'o-2' } },
+      expect.objectContaining({ id: 'o-2', startAfter: undefined }),
+    );
+    expect(tenant.remove).toHaveBeenCalledOnce();
+  });
+
+  it('一批 100 筆滿了就再開一個交易取下一批，直到不滿為止', async () => {
+    const full = Array.from({ length: 100 }, (_, index) => outboxRow(`o-${index}`));
+    const tenant = outboxDb(full, [outboxRow('o-last')]);
+    const { queue, boss } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(101);
+    expect(tenant.transaction).toHaveBeenCalledTimes(2);
+    expect(boss.send).toHaveBeenCalledTimes(101);
+  });
+
+  it('outbox 是空的 → 0，一個交易就結束', async () => {
+    const tenant = outboxDb([]);
+    const { queue } = createQueue({ tenantDb: tenant.db });
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(0);
+    expect(tenant.transaction).toHaveBeenCalledOnce();
+  });
+});
+
+describe('JobQueue.retry（docs/architecture/backend/10-jobs.md §6）', () => {
+  it.each([
+    [{ affected: 1 }, true],
+    [{ affected: 0 }, false],
+    [{}, false],
+  ])('pg-boss 回傳 %j → %s', async (response, expected) => {
+    const { queue, boss } = createQueue();
+    boss.retry.mockResolvedValueOnce(response);
+    await expect(queue.retry('test.work', 'job-1')).resolves.toBe(expected);
+    expect(boss.retry).toHaveBeenCalledWith('test.work', 'job-1');
+  });
+});
+
+describe('JobQueue：worker 執行工作（docs/architecture/backend/10-jobs.md §2、§3）', () => {
+  it('取到空的批次 → 不呼叫 handler', async () => {
+    const { queue, boss } = createQueue();
+    const handler = vi.fn();
+    queue.register(PLATFORM_TYPE, handler);
+    await queue.onApplicationBootstrap();
+    await expect(workerOf(boss, 'test.platform')([])).resolves.toBeUndefined();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('平台工作 → handler 拿到 payload 與 id／重試次數／signal，回傳值成為 output', async () => {
+    const { queue, boss } = createQueue();
+    const handler = vi.fn(async () => ({ processed: 3 }));
+    queue.register(PLATFORM_TYPE, handler);
+    await queue.onApplicationBootstrap();
+    await expect(
+      workerOf(boss, 'test.platform')([job({ tenantId: null, payload: { id: 'x' } })]),
+    ).resolves.toEqual({ processed: 3 });
+    expect(handler).toHaveBeenCalledWith(
+      { id: 'x' },
+      { id: 'job-9', retryCount: 2, signal: SIGNAL },
+    );
+  });
+
+  it('排程觸發的平台工作（沒有信封）→ handler 拿到空物件', async () => {
+    const { queue, boss } = createQueue();
+    const handler = vi.fn(async () => {});
+    queue.register(PLATFORM_TYPE, handler);
+    await queue.onApplicationBootstrap();
+    await workerOf(boss, 'test.platform')([job(null)]);
+    expect(handler).toHaveBeenCalledWith({}, expect.anything());
+  });
+
+  it('handler 拋錯 → 往外拋（pg-boss 記錄失敗並依 retryLimit 重試）', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(PLATFORM_TYPE, async () => {
+      throw new Error('smtp down');
+    });
+    await queue.onApplicationBootstrap();
+    await expect(
+      workerOf(boss, 'test.platform')([job({ tenantId: null, payload: { id: 'x' } })]),
+    ).rejects.toThrow('smtp down');
+  });
+
+  it('排程觸發的租戶工作（沒有租戶）→ 每個 active 租戶各入列一筆，不執行 handler', async () => {
+    const { queue, boss } = createQueue({ activeTenants: [{ id: 't1' }, { id: 't2' }] });
+    const handler = vi.fn();
+    queue.register(EXCLUSIVE_TYPE, handler, { cron: '0 * * * *' });
+    await queue.onApplicationBootstrap();
+
+    await expect(workerOf(boss, 'test.exclusive')([job(null)])).resolves.toEqual({ tenants: 2 });
+    expect(handler).not.toHaveBeenCalled();
+    expect(
+      boss.send.mock.calls.map(([name, envelope, options]) => [name, envelope, options]),
+    ).toEqual([
+      [
+        'test.exclusive',
+        { tenantId: 't1', payload: {} },
+        expect.objectContaining({ singletonKey: 't1' }),
+      ],
+      [
+        'test.exclusive',
+        { tenantId: 't2', payload: {} },
+        expect.objectContaining({ singletonKey: 't2' }),
+      ],
+    ]);
+  });
+
+  it('jobs.outboxSweep：走遍每個 active 租戶補搬，回傳搬移筆數與失敗的租戶', async () => {
+    const tenant = outboxDb([{ id: 'o-1', name: 'test.work', data: {}, options: {} }]);
+    const forEachActive = vi.fn(async (fn: (context: TenantContext) => Promise<void>) => {
+      await runInTenantContext(TENANT, () => fn(TENANT));
+      return ['broken'];
+    });
+    const { queue, boss } = createQueue({ tenantDb: tenant.db, forEachActive });
+    queue.register(TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+
+    await expect(workerOf(boss, 'jobs.outboxSweep')([job(null)])).resolves.toEqual({
+      moved: 1,
+      failedTenants: ['broken'],
+    });
   });
 });
