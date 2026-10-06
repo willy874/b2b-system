@@ -94,12 +94,13 @@ export class ApprovalModule {
 | `type` | `text` | `<模組>.<事件>`，與 `notifications.type` 相同 |
 | `channel` | `text` | `inApp` ｜ `email` |
 | `enabled` | `boolean NULL` | `null`：跟著事件的 `defaultEnabled`（這一列只覆寫了 `allow_user_override`） |
-| `allow_user_override` | `boolean`，預設 `true` | `false`：個人不能關（租戶要求每個人都收到） |
+| `allow_user_override` | `boolean`，預設 `true` | `false`：個人不能關（租戶要求每個人都收到）。事件的預設值是 `defineNotification` 的 `defaultAllowUserOverride`（多數 `true`，`announcement.published` 是 `false`） |
 | `updated_at` | `timestamptz` | trigger `set_updated_at` 維護 |
 | `updated_by` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | |
 
-PK `(type, channel)`。CHECK `notification_policies_has_override`：`enabled IS NOT NULL OR allow_user_override = false`
-——兩欄都是預設的列不該存在，回到預設時刪掉那一列。
+PK `(type, channel)`。兩欄都是 **該事件的** 預設值的列不該存在，回到預設時由 service 刪掉那一列。
+原本以 CHECK `enabled IS NOT NULL OR allow_user_override = false` 擋在 DB，但它寫死「預設允許個人調整」，
+擋下了預設不允許的事件改成允許（`enabled` 跟著預設）的合法覆寫；租戶 migration 0034 移除了它（預設值依事件而定，DB 無從得知）。
 
 ### 2.2 `notification_preferences`（個人）
 
@@ -245,7 +246,7 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: req
 
 | 對象 | 檔案 |
 | --- | --- |
-| 授權（401／403、`system:read` 只能讀）、列表與預設值、關閉寫入覆寫與稽核、還原預設刪列、404 的各種情況、400；關掉 `approval.pending` 後審核者收不到、打開後恢復且不補發；關掉 `approval.result` 的 email 後不入列結果信、站內通知照常；個人設定（401、讀自己的、自己關掉後收不到通知也不入列結果信而別人照常、不寫稽核、租戶不允許調整時 409 且之前關掉的人照樣收到、租戶關掉時不能打開）；CHECK 約束、使用者永久刪除時個人設定一起刪 | `test/notification-events.spec.ts` |
+| 授權（401／403、`system:read` 只能讀）、列表與預設值、關閉寫入覆寫與稽核、還原預設刪列、404 的各種情況、400；關掉 `approval.pending` 後審核者收不到、打開後恢復且不補發；關掉 `approval.result` 的 email 後不入列結果信、站內通知照常；個人設定（401、讀自己的、自己關掉後收不到通知也不入列結果信而別人照常、不寫稽核、租戶不允許調整時 409 且之前關掉的人照樣收到、租戶關掉時不能打開）；預設不允許個人調整的事件改成允許（存得進去、改回預設刪列）、使用者永久刪除時個人設定一起刪 | `test/notification-events.spec.ts` |
 | 目錄（重複登記、沒有登記）；`isEnabled`（預設、覆寫、管道各自獨立、`mandatory`、程式錯誤、快取與 `tx`、跨程序失效、租戶隔離）；`filterRecipients`（排除自己關掉的人、租戶關閉、不允許調整與 `mandatory`、空的收件人仍檢查登記）；`list`（生效值、`mandatory` 殘留的覆寫、只覆寫「允許個人調整」、feature 沒啟用不列出）；`update`（交易與稽核、只改其中一欄、與預設相同存 null、刪列、推播、略過沒有變化的、404、409） | `src/modules/notification/__tests__/notification-policy.service.spec.ts` |
 | 個人設定：`list`（跟著租戶、自己的覆寫、三種 lock 與被鎖住時覆寫不生效）；`update`（寫列與推播給自己、回到租戶的值刪列、略過、409 帶原因而還原可以、404） | `src/modules/notification/__tests__/notification-preference.service.spec.ts` |
 | `notify` 依租戶與個人設定略過（一種類型只查一次、只略過關掉的人）、全部關閉不寫不推、全部是自己仍檢查登記、沒有登記拋錯 | `src/modules/notification/__tests__/notification.service.spec.ts` |
@@ -389,7 +390,7 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: req
 | E1 | 交易內的查詢（D8） | `isEnabled(type, channel, tx)`：快取過期要重讀時沿用業務交易的連線 |
 | E2 | 草稿（D12） | 有覆寫而切回預設值時送 `enabled: null`（還原預設），不留一筆與預設相同的覆寫；一整頁一份草稿、一次儲存 |
 | E2 | 選單 | 「系統管理 › 事件通知」，排在系統設定之後（`menu-notification-event`） |
-| E3 | `notification_policies.enabled`（D15） | 改成可為 `null`（跟著 `defaultEnabled`）：只覆寫「允許個人調整」時不必把 `enabled` 寫死成當下的預設值；加 CHECK `enabled IS NOT NULL OR allow_user_override = false`，兩欄都是預設的列不存在 |
+| E3 | `notification_policies.enabled`（D15） | 改成可為 `null`（跟著 `defaultEnabled`）：只覆寫「允許個人調整」時不必把 `enabled` 寫死成當下的預設值；兩欄都是預設的列不存在（原本的 CHECK 已由 migration 0034 移除，見 §2.1） |
 | E3 | 租戶層的 `PATCH`（D9） | `changes` 的每筆帶 `enabled?`（`null` 還原）與 `allowUserOverride?`，至少一個；`enabled` 與預設相同時存成 `null`。稽核的值改成 `{ enabled, allowUserOverride }` |
 | E3 | 個人層的 API（D15） | `GET`／`PATCH /me/notification-preferences`；每個管道回 `lock`（`mandatory`／`tenantDisabled`／`tenantRequired`／`null`），被鎖住時改值回 `409 NOTIFICATION_PREFERENCE_LOCKED`，還原（`null`）不受限 |
 | E3 | 個人層的稽核與推播 | 不寫稽核（使用者自己的狀態，與已讀、個人資料相同）；推 `notificationPreference update` 只給本人 |
