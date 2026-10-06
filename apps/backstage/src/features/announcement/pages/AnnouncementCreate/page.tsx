@@ -31,7 +31,8 @@ export default function AnnouncementCreatePage() {
   useUnsavedChangesGuard(Boolean(draft.title || draft.body));
 
   const request = toRequest(draft);
-  const close = () => void navigate({ to: AnnouncementListRoute.to, search, ignoreBlocker: true });
+  // 取消、Esc、點遮罩都會被 guard 攔下；只有建立成功後的導覽（submit）帶 ignoreBlocker
+  const close = () => void navigate({ to: AnnouncementListRoute.to, search });
 
   const submit = async () => {
     if (!request) return;
@@ -59,7 +60,9 @@ export default function AnnouncementCreatePage() {
       data-testid="announcement-create-dialog"
       footer={
         <>
-          <Button onClick={close}>{t('common.cancel')}</Button>
+          <Button onClick={close} data-testid="announcement-create-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             type="submit"

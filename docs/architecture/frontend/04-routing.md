@@ -75,7 +75,10 @@ RootRoute  (web-core/router/root.ts)
 
 **未儲存提醒**：關閉路由對話框（點遮罩、Esc、取消、上一頁）都是導覽，所以表單在 dirty 時呼叫
 `useUnsavedChangesGuard(isDirty)`（`web-core/router`，TanStack Router 的 `useBlocker` ＋ `beforeunload`）即可攔下所有途徑。
-儲存成功後的關閉帶 `ignoreBlocker: true`；session 結束導向登入頁時也略過。
+**只有** 儲存成功（或建立、刪除成功）後的關閉帶 `ignoreBlocker: true`；session 結束導向登入頁時也略過。
+取消鈕、`Dialog` 的 `onOpenChange`（Esc、點遮罩）共用的 `close` 不能帶它，否則 guard 只攔得到上一頁與側邊選單——
+寫成 `close(options?: { ignoreBlocker?: boolean })`，成功的那一條路徑才傳 `{ ignoreBlocker: true }`。
+確認框的文案預設是 `common.unsaved.*`；情境不同時以第二個參數覆寫（例：Webhook 建立後的「簽章密鑰保存了嗎？」）。
 
 ### 2.2 `create/$roleId` 為何不掛在 `create` 之下
 

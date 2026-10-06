@@ -61,7 +61,6 @@
 | 中 | 推播超過 100 筆變更時前端整則丟棄（還原角色） | [`realtime-changes-exceed-event-limit.md`](./realtime-changes-exceed-event-limit.md) | 2026-10-06（全面檢測：架構） |
 | 中 | Service 層的四處權限拒絕不寫 authz.denied 稽核 | [`service-authz-denied-not-audited.md`](./service-authz-denied-not-audited.md) | 2026-10-06（全面檢測：架構） |
 | 中 | @Audit() 沒有對應的 interceptor，標上去不會寫稽核 | [`audit-decorator-without-interceptor.md`](./audit-decorator-without-interceptor.md) | 2026-10-06（全面檢測：架構） |
-| 中 | 建立 Webhook、建立與編輯公告時，取消或 Esc 不會觸發未儲存提醒 | [`route-dialogs-bypass-unsaved-guard.md`](./route-dialogs-bypass-unsaved-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 查詢失敗時多個頁面顯示成「沒有資料」、空白或一直轉圈 | [`query-errors-shown-as-empty.md`](./query-errors-shown-as-empty.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 一次性的 token／Webhook 密鑰可被 Esc 或點遮罩關掉 | [`one-time-secrets-dismissible.md`](./one-time-secrets-dismissible.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 非路由的表單對話框與頁內草稿沒有未儲存提醒 | [`stateful-dialogs-no-unsaved-guard.md`](./stateful-dialogs-no-unsaved-guard.md) | 2026-10-06（全面檢測：使用者體驗） |

@@ -23,7 +23,9 @@ export default function AnnouncementDetailPage() {
   const permission = useAnnouncementPermission();
   const announcement = useQuery(getAnnouncementDetailQueryOptions(announcementId));
 
-  const close = () => void navigate({ to: AnnouncementListRoute.to, search, ignoreBlocker: true });
+  // 關閉鈕、Esc、點遮罩都會被編輯中的 guard（AnnouncementSettingsSection）攔下；只有刪除後的關閉略過
+  const close = (options?: { ignoreBlocker?: boolean }) =>
+    void navigate({ to: AnnouncementListRoute.to, search, ...options });
 
   return (
     <Dialog
@@ -33,7 +35,7 @@ export default function AnnouncementDetailPage() {
       size="lg"
       data-testid="announcement-detail-dialog"
       footer={
-        <Button variant="primary" onClick={close}>
+        <Button variant="primary" onClick={() => close()}>
           {t('common.close')}
         </Button>
       }
@@ -44,7 +46,7 @@ export default function AnnouncementDetailPage() {
           error={announcement.error}
           onRetry={isNotFound(announcement.error) ? undefined : () => void announcement.refetch()}
           action={
-            <Button onClick={close} data-testid="announcement-detail-back">
+            <Button onClick={() => close()} data-testid="announcement-detail-back">
               {t('announcement.detail.backToList')}
             </Button>
           }
@@ -60,7 +62,7 @@ export default function AnnouncementDetailPage() {
             canUpdate={permission.canUpdate}
             canDelete={permission.canDelete}
             canPublish={permission.canPublish}
-            onDeleted={close}
+            onDeleted={() => close({ ignoreBlocker: true })}
           />
           <AnnouncementDispatchSection
             announcementId={announcementId}
