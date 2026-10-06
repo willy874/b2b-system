@@ -49,11 +49,6 @@ export function abortRequests(event: RequestAbortEvent): void {
   requestAbortBus.emit('abort', event);
 }
 
-/** signal 已中止時丟出它的 reason（`HttpContext` 放進去的一定是 `RequestAbortedError`）。 */
-export function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw toAbortedError(signal);
-}
-
 /** 讓不認識 signal 的非同步工作（續期、等待其他分頁）可以被中止；工作本身不會被取消。 */
 export function raceAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
   if (!signal) return promise;

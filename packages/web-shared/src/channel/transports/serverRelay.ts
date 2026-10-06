@@ -5,7 +5,7 @@ import type { ChannelTransportFactory } from './types';
 
 /**
  * 經由本專案後端中繼的連線：只描述頻道需要的部分，不認識底層是 Socket.io 還是別的。
- * 由 `core/realtime` 的 `RealtimeClient.relay` 提供。
+ * 由 `web-core/realtime` 的 `RealtimeClient.relay` 提供。
  */
 export interface ServerRelayLink {
   /** 目前連線中；斷線時送出的訊息直接丟棄。 */
@@ -22,7 +22,7 @@ export interface ServerRelayLink {
  *   過期的狀態不該在重連時覆蓋其他裝置較新的值。
  * - 不在伺服器白名單（`isRelayableChannel`）的頻道回 `undefined`：送出去也會被伺服器丟掉，
  *   而且 `session:*` 這類帶 token 的頻道不該依賴伺服器擋，本機就不讓它離開。
- * - 連線由 `core/realtime` 建立與關閉（含重連、續期）；頻道 `close()` 只取消訂閱。
+ * - 連線由 `web-core/realtime` 建立與關閉（含重連、續期）；頻道 `close()` 只取消訂閱。
  *
  * 既有的 `webSocketTransport` 是原生 WebSocket 的協定，與本專案後端不相容。
  */

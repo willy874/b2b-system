@@ -23,7 +23,7 @@ export function resolveTheme(preference: ThemePreference): ResolvedTheme {
   return globalThis.matchMedia?.(DARK_COLOR_SCHEME_QUERY).matches ? Themes.DARK : Themes.LIGHT;
 }
 
-/** 設定 `<html data-theme>`，`themes/tokens.css` 以它切換 alias 層。 */
+/** 設定 `<html data-theme>`，`packages/ui/src/styles/tokens.css` 以它切換 alias 層。 */
 export function applyTheme(preference: ThemePreference): void {
   document.documentElement.dataset.theme = resolveTheme(preference);
 }

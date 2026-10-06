@@ -60,7 +60,7 @@ function parseSortSearch(value: unknown): unknown {
 /**
  * 網址上的排序狀態：白名單欄位、同一欄位不重複。
  * 網址上是 `sort` token（見 `toSortToken`），進到元件的是 `SortEntry[]`；
- * 導覽時由 `core/router` 的 `stringifySearch` 轉回 token。
+ * 導覽時由 `web-core/router` 的 `stringifySearch` 轉回 token。
  * 空陣列＝使用者沒指定排序：不送 `sort`，由後端套用預設排序。
  * 使用者手改網址成不合法的值時退回空陣列，不變成錯誤頁（與其他 search 欄位的 `.catch()` 一致）。
  */

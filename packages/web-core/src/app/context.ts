@@ -31,19 +31,6 @@ export type AppDynamicPluginFactory = DynamicPluginFactory<
   AppContextEvents
 >;
 
-let current: AppContext | undefined;
-
 export function createAppContext(): AppContext {
-  current = createCoreContext<AppPluginProperties, AppContextState, AppContextEvents>();
-  return current;
-}
-
-/** 給 fetcher 等非 React 程式碼用。 */
-export function getAppContext(): AppContext {
-  if (!current) throw new Error('AppContext 尚未建立：請先呼叫 createAppContext()');
-  return current;
-}
-
-export function hasAppContext(): boolean {
-  return current !== undefined;
+  return createCoreContext<AppPluginProperties, AppContextState, AppContextEvents>();
 }

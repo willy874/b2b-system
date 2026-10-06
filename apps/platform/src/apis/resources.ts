@@ -2,7 +2,7 @@ import { createResourceGraph, queryClient } from '@b2b-system/web-core/cache';
 import type { ApplyInvalidationOptions, ResourceChange } from '@b2b-system/web-core/cache';
 
 /**
- * apps/platform 的資源依賴圖（機制見 `core/cache/resourceGraph.ts`，寫法同 apps/backstage 的 `apis/resources.ts`）。
+ * apps/platform 的資源依賴圖（機制見 `web-core/cache/resourceGraph.ts`，寫法同 apps/backstage 的 `apis/resources.ts`）。
  *
  * 寫入後不要手列 query key，改成宣告「後端改了什麼」：
  *

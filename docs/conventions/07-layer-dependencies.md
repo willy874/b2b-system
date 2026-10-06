@@ -33,21 +33,21 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | `packages/api-sdk`     | 無                                       | 任何 workspace package；手改 `src/generated/`                 | 👀   |
 | `packages/realtime`    | 無（只依賴 `zod`）                       | 任何 workspace package；DOM / Node 專屬 API                   | 👀   |
 | `packages/error-codes` | 無（零依賴）                             | 任何依賴；常數以外的程式碼                                    | 👀   |
-| `packages/web-shared`  | `realtime`                               | `ui`、`api-sdk`、`apps/*`                                     | 🔒 `package.json` |
-| `packages/ui`          | `web-shared`                             | `web-core`、`api-sdk`、`realtime`、`apps/*`；業務名詞         | 🔒 `package.json` |
-| `packages/web-core`    | `ui`、`web-shared`、`error-codes`、`realtime` | `api-sdk`（各 app 的端點不同）、`apps/*`；業務名詞            | 🔒 `package.json` |
+| `packages/web-shared`  | `realtime`                               | `ui`、`api-sdk`、`apps/*`                                     | 🔒 `package.json`、測試 |
+| `packages/ui`          | `web-shared`                             | `web-core`、`api-sdk`、`realtime`、`apps/*`；業務名詞         | 🔒 `package.json`、測試（業務名詞 👀） |
+| `packages/web-core`    | `ui`、`web-shared`、`error-codes`、`realtime` | `api-sdk`（各 app 的端點不同）、`apps/*`；業務名詞            | 🔒 `package.json`、測試（業務名詞 👀） |
 | `apps/backstage`       | `api-sdk`、`realtime`、`web-core`、`web-shared`、`ui` | `apps/*`（錯誤碼經由 `web-core/errors`）             | 🔒 `package.json` |
 | `apps/platform`        | `api-sdk`、`realtime`、`web-core`、`web-shared`、`ui` | `apps/*`（兩個前端共用的機制都在 `web-core`；[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D14） | 🔒 `package.json` |
 | `apps/api`             | `realtime`、`error-codes`                | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`web-shared`、`ui`、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 | `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
 
-- `apps/*` 之間 **永不互相 import**；packages 永不 import apps；下層 package 永不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）。
+- `apps/*` 之間 **永不互相 import**；packages 永不 import apps；下層 package 永不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）。🔒 測試（§4）
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
 - `apps/platform` 的資料夾層級與 §2 的 `apps/backstage` 相同，§2 的矩陣同樣適用。
 - `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@b2b-system/api-sdk`，其餘一律 `@/shared/api-sdk`。
   只轉出主入口（型別、URL builder、enum），不 import `@b2b-system/api-sdk/schemas`（zod schema 會整批進首屏；[`architecture/frontend/17-shared-packages.md`](../architecture/frontend/17-shared-packages.md) §1）。
-  `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`（`packages/web-shared` 內部直接 import `@b2b-system/realtime`）。
+  `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`（`packages/web-shared` 內部直接 import `@b2b-system/realtime`）。🔒 測試（§4；兩個 app 都適用）
 - `@sigrea/core` 只在 `packages/web-shared/src/store/` import，其餘一律 `@b2b-system/web-shared/store`（React 綁定 `@b2b-system/web-shared/hooks`）；
   `web-shared` 的 `store/` 與 `context/` 不 import React。🔒 oxlint `no-restricted-imports`
 - 前端共用的 packages 以子路徑匯入（`@b2b-system/web-shared/<module>`、`@b2b-system/ui/<Component>`、`@b2b-system/web-core/<module>`），不深入 `src/` 的內部檔案
@@ -93,7 +93,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | `web-core`        | ✅⁵                      | ✅         | ✅（同層）| ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
 | `core/`           | ✅                       | ✅         | ✅       | ✅   | ❌   | ❌      | ❌       | ❌  | ❌    |
 | `apis/`           | ✅                       | ❌         | ✅       | ✅   | ⚠️¹  | ❌      | ❌       | ❌  | ❌    |
-| `plugins/`        | ✅                       | ❌         | ✅       | ✅   | ❌   | ✅      | ❌       | ❌  | ❌    |
+| `plugins/`        | ✅                       | ⚠️⁶        | ✅       | ✅   | ❌   | ✅      | ⚠️⁶      | ⚠️⁷ | ❌    |
 | `features/<a>/`   | ✅                       | ✅         | ✅       | ✅   | ✅   | ❌      | ⚠️²      | ❌  | ❌    |
 | `app/`            | ✅                       | ✅         | ✅       | ✅   | ✅   | ❌      | ⚠️³      | ✅  | ❌    |
 | `main.tsx`        | ✅                       | ✅         | ✅       | ✅   | ✅   | ✅      | ⚠️³      | ✅  | ⚠️⁴   |
@@ -106,9 +106,15 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 3. 只能 import 對方的 `index.tsx`（`@/features/<name>`），不可深入內部檔案。
 4. 只能在 `import.meta.env.VITE_ENABLE_MOCK` 判斷下以動態 `import()` 載入。
 5. 只有 `@b2b-system/web-shared`；app 的 `shared/`（api-sdk、websocket-sdk、env）不在 package 裡，`ui`、`web-core` 碰不到（`web-core` 直接依賴 `@b2b-system/realtime`、`@b2b-system/error-codes`）。
+6. 只有 `plugins/features/`：它們往別的 feature 的頁面掛畫面（偏好頁的分頁，[`architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §4.3），
+   所以可以用 `ui`；擴充某個 feature 時只能 import 它的 `index.tsx`（同註 3，[`architecture/frontend/01-architecture.md`](../architecture/frontend/01-architecture.md) §1）。
+   `plugins/app/` 是基礎設施，兩者都不用。
+7. 只有 `plugins/app/i18n.ts` 以 `import()` 載入 `app/locales/*.json`：app 的全域語系包放在 `app/`，由 i18n plugin 交給 web-core（[`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) §2）。
 
 測試檔（`__tests__/`、`*.test.*`、`*.spec.*`）與 `src/test/` 不受矩陣限制（整合測試需要組裝多層），
 但正式程式碼不可 import 任何測試檔、`src/test/` 或 `@b2b-system/web-core/testing`。
+
+矩陣、上面的註與這一段都 🔒 由測試強制（§4）；`src/` 底下多了矩陣裡沒有的資料夾，測試也會失敗，要先決定它在矩陣的位置。
 
 ### 2.3 同層規則
 
@@ -116,7 +122,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | --------------- | ------------------------------------------------------------------------ |
 | `ui`            | 元件之間可以互相組合（`Dialog` 用 `Button`），但不可形成循環；package 內用相對路徑 |
 | `core/<module>/`、`web-core/<module>` | 經由該模組的 `index.ts`（`@b2b-system/web-core/<module>`）匯入，不深入內部檔案；package 內用相對路徑 |
-| `features/`     | 彼此隔離；拿掉任何一個 feature，其他 feature 仍能編譯                     |
+| `features/`     | 彼此隔離；拿掉任何一個 feature，其他 feature 仍能編譯（🔒 測試：不互相 import，相對路徑也算） |
 
 ---
 
@@ -178,18 +184,14 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 跨模組不 import repository / controller；葉節點（`permission`、`audit-log`、`platform-admin`、`platform-notification`、`credential`）只依賴彼此；
 模組之間以資料夾計不循環（`import/no-cycle` 只看檔案，抓不到「A 的 service → B、B 的純函式 → A」）；不用 `forwardRef`。
 
-**前端**（兩個 app 與 `packages/web-core`）目前由 `.oxlintrc.json` 的 `no-restricted-imports` 擋一部分，其餘用搜尋自查：
+**前端** 由 🔒 `packages/web-core/src/__tests__/layer-dependencies.test.ts` 強制（`pnpm test` 會跑，CI 也是）。
+它掃每個依賴 `@b2b-system/web-core` 的 app（加第三個前端時自動納入）與 `packages/{web-shared,ui,web-core}`：
 
-```bash
-# packages：下層依賴上層（packages 往上 import app 會直接解析失敗，不必搜）
-git grep -nE "from '@b2b-system/(ui|web-core)" -- packages/web-shared
-git grep -nE "from '@b2b-system/web-core" -- packages/ui
-# web-core：依賴 api-sdk（各 app 的端點不同）或 app 的 @/ 路徑
-git grep -nE "from '(@b2b-system/api-sdk|@/)" -- packages/web-core
-# app：core 依賴 features / app / apis
-git grep -nE "from '@/(features|app|apis|plugins)" -- apps/backstage/src/core apps/platform/src/core ':!*__tests__*'
-# backstage：feature import 其他 feature
-git grep -nE "from '@/features/" -- apps/backstage/src/features ':!*__tests__*'
-```
+- app：`src/` 底下只有矩陣裡的層；§2.2 的矩陣與註 1–7；正式程式碼不 import 測試；只有 `src/shared/api-sdk/`、`src/shared/websocket-sdk/`
+  import `@b2b-system/api-sdk`（只用主入口）與 `@b2b-system/realtime`（§1）；每個 `features/<name>/index.tsx` 都匯出 `Routes` 與 `<name>FeaturePlugin`
+  （[`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §2.1）。
+- packages：不 import app（`@/`、跳出 `src/` 的相對路徑）；只 import §1 表格允許的 workspace package。
 
-backstage 補上 `no-restricted-imports`（或比照 api 寫成測試）後，把對應列的強度改成 🔒。
+測試與 api 的版本一樣以正規表示式找 `import … from`、`export … from`、`import '…'` 與 `import('…')`（含 `import type`）；
+樣式（`.css`）不算依賴。`@sigrea/core` 與 web-shared 的 React 限制由 `.oxlintrc.json` 的 `no-restricted-imports` 擋（§1）。
+違規時測試列出 `檔案 → specifier`；修不了的既有違規要在本檔加「現況」一節並在測試裡列為例外，目前沒有。

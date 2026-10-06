@@ -52,7 +52,6 @@ features/role/
 │   └── useGrantablePermissions.ts   ← 反提權過濾
 │
 ├── enums/
-│   ├── events.ts              本 feature 的事件名稱
 │   └── role-action.ts         列表列可執行的動作
 │
 └── locales/
@@ -76,11 +75,20 @@ Routes.RoleDetailRoute.update({ component: Pages.AsyncRoleDetailPage });
 Routes.RoleDetailPermissionRoute.update({ component: Pages.AsyncRoleDetailPermissionPage });
 
 export { Routes };
+export { ROLE_CREATE_PAGE, ROLE_PAGE, registerRolePagePermissions } from "./permission";
 export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 ```
 
-**只能匯出這兩樣東西。** `app/routes.tsx` 用 `Routes`，`main.tsx` 用 plugin。
-其他 feature 想用的東西一律不從這裡出去（見 §4）。
+`index.tsx` 的讀者只有組裝層（`app/`、`main.tsx`）與測試，可以匯出的東西：
+
+| 匯出 | 誰用 | 必要 |
+| --- | --- | --- |
+| `Routes`、`<name>FeaturePlugin` | `app/routes.tsx` 組 route tree、`main.tsx`（或 `app/features.ts` 的可啟用 feature 目錄）安裝 plugin | 🔒 每個 feature 都要有（`layer-dependencies.test.ts`） |
+| 頁面鍵與註冊函式（`ROLE_PAGE`、`registerRolePagePermissions`） | 選單（`app/layouts/`）、完整性測試（`core/permission/__tests__/feature-registration.test.ts`） | 有頁面權限的 feature |
+| 可啟用 feature 的代碼（`FILE_FEATURE`） | `app/features.ts` 的目錄（[02 §9](./02-plugin-system.md)） | 可關閉的 feature |
+| app 組裝需要的 hook 與常數（auth 的 `useSyncPermissions`、`useLogoutMutation`，account 的 `useChangeLocale`） | `app/App.tsx`、`app/layouts/` | 視需要 |
+
+**其他 feature 一律不 import 這裡**（見 §4）；`app/`、`main.tsx` 也只從這裡匯入，不深入 feature 的內部檔案（🔒 同一支測試）。
 
 ### 2.2 `permission.ts`
 
@@ -117,10 +125,8 @@ router 建立前是 `undefined`，而 plugin 註冊發生在那之前）。
 
 ```ts
 import { createRoute } from "@tanstack/react-router";
-import { EventEmitter } from "@b2b-system/web-shared/EventEmitter";
 import { localeScopeLoader } from "@b2b-system/web-core/locales";
 import { RootRoute } from "@b2b-system/web-core/router";
-import { RoleEvents } from "../enums/events";
 import { ROLE_LOCALE_SCOPE } from "../locale";
 import { RoleSearchQuerySchema } from "./model";
 
@@ -130,9 +136,6 @@ export const RoleListRoute = createRoute({
   staticData: { titleKey: "menu.role" }, // 分頁標題「角色 · 產品名」（08-i18n.md §5）
   loader: localeScopeLoader(ROLE_LOCALE_SCOPE),
   validateSearch: RoleSearchQuerySchema,
-  context: () => ({
-    eventBus: new EventEmitter<{ [RoleEvents.ROLE_UPDATED]: () => void }>(),
-  }),
 });
 
 export const RoleCreateRoute = createRoute({

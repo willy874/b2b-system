@@ -21,7 +21,7 @@ import { AuditLogDetail } from './AuditLogDetail';
 /** 展開列的內容：明細在展開當下才向後端取（`AuditLogDetail`）。 */
 const renderDetail = (row: AuditLogRowVM) => <AuditLogDetail id={row.id} />;
 
-/** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
+/** 欄位順序與顯示存在這台裝置（`web-core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
 const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = {
   tableId: AUDIT_LOG_LIST_TABLE_ID,
   defaultHidden: AUDIT_LOG_LIST_DEFAULT_HIDDEN,

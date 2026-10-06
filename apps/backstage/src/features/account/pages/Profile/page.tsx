@@ -21,7 +21,7 @@ import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { ProfileApiTokenSection } from './components/ProfileApiTokenSection';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';
 
-/** 與後端的密碼規則一致（apps/api/src/modules/auth/password.ts）。 */
+/** 與後端的密碼規則一致（apps/api/src/modules/credential/password.ts 的 `PasswordSchema`）。 */
 const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 const PASSWORD_FIELDS = ['currentPassword', 'newPassword'] as const;

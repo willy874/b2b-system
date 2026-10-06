@@ -38,10 +38,6 @@ export function requirePagePermission(page: PageKey): PageRegistration {
   return registration;
 }
 
-export function getPagePermission(page: PageKey): PageRegistration | undefined {
-  return pagePermissionRegistry.get(page);
-}
-
 /**
  * miss 時回 undefined：路徑可能本來就不受管（/auth/*、devtools）。
  * 命中多筆時取 **最長** 的 base path：`/user/create` 有自己的規則時，

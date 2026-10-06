@@ -1,7 +1,7 @@
 // eslint-disable-next-line
 export type ListenerDict = Record<string, (...args: never[]) => void>;
 
-/** 極簡型別安全事件匯流排。plugin、route context 與 SessionStore 都用它。 */
+/** 極簡型別安全事件匯流排。plugin 的 eventBus、SessionStore 與請求的中止廣播都用它。 */
 export class EventEmitter<Events extends ListenerDict> {
   private readonly listeners = new Map<keyof Events, Set<(...args: never[]) => void>>();
 

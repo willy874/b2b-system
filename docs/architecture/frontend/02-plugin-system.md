@@ -81,7 +81,7 @@ export type AppPluginFactory = (
 ) => PluginResults<AppPluginProperties, AppPluginHooks>;
 
 export function createAppContext(): AppContext;
-export function getAppContext(): AppContext; // 給 fetcher 等非 React 程式碼用
+// 沒有模組層級的 getter：plugin 經由 ctx.getInstance()、React 經由 useAppContext()（web-core/app/react.tsx）取得
 ```
 
 ### 2.1 Declaration merging：plugin 如何擴充 context 型別
@@ -111,7 +111,7 @@ declare module '../../app/context' { // app 裡寫 '@b2b-system/web-core/app/con
 }
 ```
 
-從此 `getAppContext().addResourceBundle(...)` 在任何地方都有完整型別。
+從此 `ctx.getInstance().addResourceBundle(...)`（plugin）與 `useAppContext().addResourceBundle(...)`（React）都有完整型別。
 **`web-core/app/context.ts` 完全不需要知道有 i18n 這個東西。**
 app 擴充時指向定義的檔案 `@b2b-system/web-core/app/context`；指向 `@b2b-system/web-core/app`（index）不會合併到同一個介面。
 
@@ -127,7 +127,7 @@ createAppContext()
   │                          回傳 { name, attrs, onInit, onDestroy }
   │                          attrs 立刻合併到 context 上
   │                        ★ 需要「render 前必定完成」的註冊寫在這裡
-  │                          （頁面權限、偏好註冊、元件註冊）
+  │                          （頁面權限、偏好註冊、頂列工具、route id）
   ▼
 .use(pluginB())          ← 同上，依序
   │
@@ -191,7 +191,6 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 | `eventBusPlugin`    | `eventBus`                                    | 建立全域 `EventEmitter<GlobalEventMap>`（事件與 payload 定義在 `web-core/app/events.ts`） |
 | `i18nPlugin`        | `i18n`, `addResourceBundle`, `changeLanguage` | `i18next.init()`、載入 app 層語系包                                  |
 | `httpContextPlugin` | `sessionStore`（主後端）                      | 依傳入的後端清單，每個後端建立一個 `SessionStore` 與 `<後端>:base` / `<後端>:auth` 兩個 HttpContext（30 秒逾時）並掛上攔截器鏈；某個 session 結束只中止該後端的 `auth` 請求；主 session 結束時一併結束其他後端的 session（[05 §3.3、§3.5](./05-data-layer.md)） |
-| `componentPlugin`   | `componentRegistry`                           | 建立元件註冊表（讓 feature 覆寫核心元件）                            |
 
 ### 4.2 `web-core/plugins/fetcher/` — HTTP 攔截器
 
