@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { Field } from '../Field';
 import { DateRangePicker } from './index';
 
 /** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
@@ -104,5 +105,18 @@ describe('DateRangePicker', () => {
     await userEvent.click(screen.getByRole('button', { name: '期間' }));
     expect(await findDay('2026-09-12')).not.toHaveAttribute('aria-disabled');
     expect(getDay('2026-09-13')).toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+describe('DateRangePicker 放在 Field 裡（docs/architecture/frontend/07-ui-system.md §5）', () => {
+  it('沒有 aria-label 時名稱是 Field 的標籤加上目前的值，錯誤連到 aria-describedby', () => {
+    render(
+      <Field label="期間" error="請選擇期間">
+        <DateRangePicker value={{ from: null, to: null }} onValueChange={vi.fn()} />
+      </Field>,
+    );
+    const trigger = screen.getByRole('button', { name: /^期間/ });
+    expect(trigger).toHaveAccessibleDescription('請選擇期間');
+    expect(trigger).toHaveAttribute('data-invalid');
   });
 });

@@ -1,6 +1,7 @@
 import { cn } from '@b2b-system/web-shared/utils';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
+import { useFieldControl } from '../Field/fieldControl';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
 import { createSlots } from '../slots';
@@ -59,6 +60,11 @@ export function DatePicker({
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const [open, setOpen] = useState(false);
   const triggerSlot = slot('trigger', styles.trigger);
+  // 放在 Field 裡、沒有傳 aria-label 時：名稱是 Field 的標籤加上目前的值，說明與錯誤連到 aria-describedby
+  const field = useFieldControl();
+  const valueId = useId();
+  const labelledBy =
+    !rest['aria-label'] && field?.labelId ? `${field.labelId} ${valueId}` : undefined;
 
   return (
     <div className={cn(styles.root, className)}>
@@ -69,14 +75,17 @@ export function DatePicker({
         trigger={
           <button
             type="button"
+            id={field?.controlId}
             {...triggerSlot}
             disabled={disabled}
-            data-invalid={invalid || undefined}
-            aria-label={rest['aria-label'] ?? labels.open}
+            data-invalid={invalid || field?.invalid || undefined}
+            aria-label={labelledBy ? undefined : (rest['aria-label'] ?? labels.open)}
+            aria-labelledby={labelledBy}
+            aria-describedby={field?.describedBy}
             data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
             <Icon name="calendar" size={16} {...slot('icon')} />
-            <span {...slot('value', styles.value)} data-empty={!value || undefined}>
+            <span {...slot('value', styles.value)} id={valueId} data-empty={!value || undefined}>
               {value ?? placeholder}
             </span>
           </button>

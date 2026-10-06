@@ -19,6 +19,7 @@ import type {
 } from 'react';
 
 import { BoxEllipsis } from '../Ellipsis';
+import { useFieldControl } from '../Field/fieldControl';
 import { Icon } from '../Icon';
 import { useComponentLabels } from '../labels';
 import { createSlots } from '../slots';
@@ -129,6 +130,10 @@ interface SelectBaseProps<T extends string> extends SlotOverrides<SelectSlot> {
   itemSize?: number;
   className?: string;
   style?: CSSProperties;
+  /**
+   * 觸發鈕與列表的名稱。放在 `Field` 裡時可以不傳：沒有傳就以 `aria-labelledby` 指向 `Field` 的標籤，
+   * `Field` 的說明與錯誤也會連到 `aria-describedby`。
+   */
   'aria-label'?: string;
   'data-testid'?: string;
 }
@@ -354,6 +359,9 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
     () => createSlots({ classNames, styles: styleOverrides, testIds }),
     [classNames, styleOverrides, testIds],
   );
+  // 放在 Field 裡時：名稱、說明、錯誤狀態取自 Field（Popover.Trigger 登記不到 Base UI 的 Field）
+  const field = useFieldControl();
+  const labelledBy = ariaLabel ? undefined : field?.labelId;
   const baseId = useId();
   const listId = `${baseId}-list`;
   const optionId = useCallback((index: number) => `${baseId}-${index}`, [baseId]);
@@ -697,6 +705,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
     <BasePopover.Root open={open} onOpenChange={(next) => setOpen(next)}>
       <BasePopover.Trigger
         ref={ref}
+        id={field?.controlId}
         disabled={disabled}
         // 「只能選、不能打字」的 combobox 用 button 實作（WAI-ARIA APG 的 select-only combobox）
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
@@ -705,7 +714,9 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-label={ariaLabel}
-        aria-invalid={invalid || undefined}
+        aria-labelledby={labelledBy}
+        aria-describedby={field?.describedBy}
+        aria-invalid={invalid || field?.invalid || undefined}
         className={cn(styles.trigger, className)}
         style={style}
         data-testid={testId}
@@ -763,6 +774,7 @@ export function Select<T extends string = string>(props: SelectProps<T>) {
                 role={isTree ? 'tree' : 'listbox'}
                 tabIndex={-1}
                 aria-label={ariaLabel}
+                aria-labelledby={labelledBy}
                 aria-multiselectable={isMultiple || undefined}
                 // 有搜尋框時焦點在輸入框上，由它宣告 aria-activedescendant
                 aria-activedescendant={searchable ? undefined : activeId}

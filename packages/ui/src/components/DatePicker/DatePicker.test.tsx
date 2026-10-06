@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { Field } from '../Field';
 import { DatePicker } from './index';
 
 /** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
@@ -112,5 +113,38 @@ describe('DatePicker', () => {
     await userEvent.click(screen.getByRole('button', { name: '開始日期' }));
     expect(screen.queryByTestId('date-picker-calendar')).not.toBeInTheDocument();
     expect(screen.queryByTestId('date-picker-clear')).not.toBeInTheDocument();
+  });
+});
+
+describe('DatePicker 放在 Field 裡（docs/architecture/frontend/07-ui-system.md §5）', () => {
+  it('沒有 aria-label 時名稱是 Field 的標籤加上目前的值', () => {
+    render(
+      <Field label="到期日">
+        <DatePicker value="2026-10-07" onValueChange={vi.fn()} />
+      </Field>,
+    );
+    expect(screen.getByRole('button', { name: '到期日 2026-10-07' })).toBeInTheDocument();
+  });
+
+  it('Field 的錯誤以 aria-describedby 連到觸發鈕（button 不支援 aria-invalid，外觀用 data-invalid）', () => {
+    render(
+      <Field label="到期日" error="到期日不能早於今天">
+        <DatePicker value="2026-10-07" onValueChange={vi.fn()} />
+      </Field>,
+    );
+    const trigger = screen.getByRole('button', { name: '到期日 2026-10-07' });
+    expect(trigger).toHaveAccessibleDescription('到期日不能早於今天');
+    expect(trigger).toHaveAttribute('data-invalid');
+  });
+
+  it('點 Field 的標籤會聚焦到觸發鈕（不打開日曆）', async () => {
+    render(
+      <Field label="到期日">
+        <DatePicker value="2026-10-07" onValueChange={vi.fn()} />
+      </Field>,
+    );
+    await userEvent.click(screen.getByText('到期日'));
+    expect(screen.getByRole('button', { name: '到期日 2026-10-07' })).toHaveFocus();
+    expect(screen.queryByTestId('date-picker-calendar')).not.toBeInTheDocument();
   });
 });

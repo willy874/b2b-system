@@ -839,8 +839,8 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 | -------- | ------------------------------------------------------------------ |
 | 對比度   | 文字 ≥ 4.5:1，大字與圖示 ≥ 3:1；表單控制項的外框用 `--color-border-control`（≥ 3:1，WCAG 1.4.11），裝飾性分隔線才用 `--color-border`（`contrast.test.ts` 驗證） |
 | 焦點可見 | 每個互動元素有 `:focus-visible` 外框，`--ge-color-focus-ring` 2px  |
-| 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤                       |
-| 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素；`Input` 依 Field 的錯誤狀態補 `aria-invalid`；表單層級的錯誤區用 `role="alert"` |
+| 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤。Base UI 只認得向它登記 id 的控制項（`Input`、`NumberField`、`Checkbox`、`Switch`）；`Select`、`DatePicker`、`DateRangePicker` 的觸發鈕是 `Popover.Trigger`，登記不到，改讀 `Field` 的 `FieldControlContext`（`useFieldControl()`）：沒有 `aria-label` 時以 `aria-labelledby` 指向標籤（日期選擇器另外帶上目前的值）；觸發鈕帶 `controlId`，點標籤時 `Field` 以它聚焦觸發鈕（只聚焦、不打開下拉，同原生 `<select>`）。之後新增的自製控制項照同樣的方式接上 |
+| 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素；`Input` 依 Field 的錯誤狀態補 `aria-invalid`；自製控制項從 `FieldControlContext` 取得說明與錯誤的 id（`describedBy`）與 `invalid`（`Select` 標上 `aria-invalid`；日期選擇器的觸發鈕是 `button`，不支援 `aria-invalid`，只以 `data-invalid` 改變外觀）；表單層級的錯誤區用 `role="alert"` |
 | 必填     | `Field` 的 `required` 除了 aria-hidden 的星號，另有給報讀器的「必填」文字（`ComponentLabelsContext`） |
 | 圖示按鈕 | 必須有 `aria-label`                                                |
 | 停用說明 | 原生 `disabled` 的按鈕收不到 hover／focus，提示出不來。`Button` / `IconButton` 的 `focusableWhenDisabled` 改用 `aria-disabled`（仍可聚焦、hover，點擊與 Enter／Space 被擋下）；包在 `Tooltip` 裡的停用按鈕自動打開，「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1）；`loading` 一律隱含開啟（送出中焦點不被踢回 `<body>`）。日曆超出 min / max 的日子同樣用 `aria-disabled`（roving tabindex 要能把焦點移過去）。Base UI 的 `Checkbox` 沒有這個開關，停用理由改寫進常駐的 `description`。其他元素用原生 `disabled` 時提示不會顯示 |
