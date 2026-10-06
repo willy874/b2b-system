@@ -62,7 +62,10 @@ export class SsoInteractionController {
     const raw = req.originalUrl.includes('?')
       ? req.originalUrl.slice(req.originalUrl.indexOf('?') + 1)
       : '';
-    res.redirect(302, await this.external.callback(query, raw));
+    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+    const result = await this.external.callback(query, raw, cookies);
+    for (const cookie of result.clearCookies) res.clearCookie(cookie.name, { path: cookie.path });
+    res.redirect(302, result.location);
   }
 
   @Get(':uid')
@@ -122,13 +125,16 @@ export class SsoInteractionController {
   @ApiOperation({ summary: '以外部 IdP 登入：回傳要頂層跳轉的外部授權網址' })
   @ApiZodBody(StartExternalLoginSchema)
   @ApiZodResponse(200, SsoRedirectSchema)
-  startExternal(
+  async startExternal(
     @Param('uid', InteractionUidPipe) uid: string,
     @Body(new ZodValidationPipe(StartExternalLoginSchema)) dto: StartExternalLoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.external.start(req, res, uid, dto.providerId);
+    const { redirectTo, binding } = await this.external.start(req, res, uid, dto.providerId);
+    // 綁定 cookie：外部 IdP 跳回固定的 callback 時，必須是這個瀏覽器（docs/architecture/04-sso.md §3.3）
+    res.cookie(binding.name, binding.value, binding.options);
+    return { redirectTo };
   }
 
   @Get(':uid/external/complete')

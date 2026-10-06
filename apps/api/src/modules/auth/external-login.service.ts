@@ -12,6 +12,7 @@ import type { ErrorCode } from '@/core/errors';
 import { Tenancy } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { sha256 } from '@/modules/credential/token-hash';
 import { ExternalOidcClient } from '@/modules/identity-provider/external-oidc.client';
 import type { ExternalIdentity } from '@/modules/identity-provider/external-oidc.client';
 import {
@@ -31,6 +32,28 @@ import type { SsoDiscoveryDto, SsoRedirectDto } from './dto/auth.dto';
 
 /** 在外部 IdP 登入的時間上限：超過就要從頭來。 */
 const EXTERNAL_LOGIN_TTL_SECONDS = 10 * 60;
+
+/** 綁定 cookie 的名稱前綴；後面接 `state` 雜湊的前 16 碼，同一個瀏覽器同時開兩個外部登入也互不覆蓋。 */
+const BINDING_COOKIE_PREFIX = 'ext_login_';
+
+/** 要設定或清掉的 cookie（形狀相容 Express 的 `res.cookie`）。 */
+export interface ExternalLoginCookie {
+  name: string;
+  value: string;
+  options: {
+    httpOnly: true;
+    secure: boolean;
+    sameSite: 'lax';
+    path: string;
+    maxAge: number;
+  };
+}
+
+/** callback 的結果：瀏覽器要跳去哪裡，以及要清掉的綁定 cookie。 */
+export interface ExternalCallbackResult {
+  location: string;
+  clearCookies: Array<{ name: string; path: string }>;
+}
 
 function random(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
@@ -53,6 +76,7 @@ export class ExternalLoginService {
   private readonly platformAppUrl: string;
   /** 瀏覽器看到的 api 開頭（例：`https://auth.example.com/api`）。 */
   private readonly apiBase: string;
+  private readonly secureCookies: boolean;
 
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
@@ -67,6 +91,7 @@ export class ExternalLoginService {
     this.platformAppUrl = config.get('PLATFORM_APP_URL', { infer: true });
     const issuer = new URL(config.get('OIDC_ISSUER', { infer: true }));
     this.apiBase = `${issuer.origin}${issuer.pathname.replace(/\/oidc$/, '')}`;
+    this.secureCookies = config.get('NODE_ENV', { infer: true }) === 'production';
   }
 
   // ── 1. 網域導向與發起 ─────────────────────────────────────
@@ -85,12 +110,16 @@ export class ExternalLoginService {
       : { provider: null, ssoOnly: false };
   }
 
+  /**
+   * 回傳外部 IdP 的授權網址，以及要設在 **這個** 瀏覽器的綁定 cookie：`state` 不綁定瀏覽器的話，
+   * 發起者可以讓別人在外部 IdP 完成驗證，再拿那個人的身分完成自己的互動（登入 CSRF；RFC 9700 §4.7）。
+   */
   async start(
     req: IncomingMessage,
     res: ServerResponse,
     uid: string,
     providerId: string,
-  ): Promise<SsoRedirectDto> {
+  ): Promise<SsoRedirectDto & { binding: ExternalLoginCookie }> {
     const { tenant } = await this.assertInteraction(req, res, uid);
     if (!tenant) throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
     const login = await this.tenancy.run(tenant.id, () => this.providers.loginConfig(providerId));
@@ -111,31 +140,76 @@ export class ExternalLoginService {
       this.logger.warn({ err: error, providerId }, '外部 IdP discovery 失敗');
       throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
     }
+    const binding = random();
     await this.oidc.saveExternalLogin(
       state,
-      { interactionUid: uid, tenantId: tenant.id, providerId, codeVerifier, nonce },
+      {
+        interactionUid: uid,
+        tenantId: tenant.id,
+        providerId,
+        codeVerifier,
+        nonce,
+        bindingHash: sha256(binding),
+      },
       EXTERNAL_LOGIN_TTL_SECONDS,
     );
-    return { redirectTo };
+    return {
+      redirectTo,
+      binding: {
+        name: this.bindingCookieName(state),
+        value: binding,
+        options: {
+          httpOnly: true,
+          secure: this.secureCookies,
+          // 外部 IdP 跳回 callback 是跨站的頂層 GET：Lax 會帶上
+          sameSite: 'lax',
+          // 只送到固定的 callback（瀏覽器看到的路徑，含反向代理的前綴）
+          path: this.bindingCookiePath(),
+          maxAge: EXTERNAL_LOGIN_TTL_SECONDS * 1000,
+        },
+      },
+    };
+  }
+
+  private bindingCookieName(state: string): string {
+    return `${BINDING_COOKIE_PREFIX}${sha256(state).slice(0, 16)}`;
+  }
+
+  private bindingCookiePath(): string {
+    return new URL(this.providers.callbackUrl()).pathname;
   }
 
   // ── 2. 外部 IdP 回來 ──────────────────────────────────────
 
   /**
    * 回傳要讓瀏覽器跳轉的網址，不拋例外：成功 → 互動路徑底下的 complete；
-   * 失敗 → apps/platform 的互動頁並帶上錯誤碼（讓使用者改用別的方式登入）。
+   * 失敗 → apps/platform 的互動頁並帶上錯誤碼（讓使用者改用別的方式登入）。綁定 cookie 不論成敗都清掉。
    */
-  async callback(query: { state?: string; error?: string }, rawQuery: string): Promise<string> {
-    const pending = query.state ? await this.oidc.findExternalLogin(query.state) : undefined;
-    if (!query.state || !pending) return this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED');
+  async callback(
+    query: { state?: string; error?: string },
+    rawQuery: string,
+    cookies: Record<string, string | undefined> = {},
+  ): Promise<ExternalCallbackResult> {
+    const { state } = query;
+    if (!state)
+      return { location: this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED'), clearCookies: [] };
+    const name = this.bindingCookieName(state);
+    const clearCookies = [{ name, path: this.bindingCookiePath() }];
+    const pending = await this.oidc.findExternalLogin(state);
+    if (!pending)
+      return { location: this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED'), clearCookies };
     // 固定的 callback 不在任何租戶網域上：以登入狀態記下的租戶進入
     try {
-      return await this.tenancy.run(pending.tenantId, () =>
-        this.finishCallback(query, rawQuery, query.state!, pending),
+      const location = await this.tenancy.run(pending.tenantId, () =>
+        this.finishCallback(query, rawQuery, state, pending, cookies[name]),
       );
+      return { location, clearCookies };
     } catch (error) {
       if (!(error instanceof AppException)) throw error;
-      return this.errorPage(pending.interactionUid, 'AUTH_SSO_EXTERNAL_FAILED');
+      return {
+        location: this.errorPage(pending.interactionUid, 'AUTH_SSO_EXTERNAL_FAILED'),
+        clearCookies,
+      };
     }
   }
 
@@ -144,6 +218,7 @@ export class ExternalLoginService {
     rawQuery: string,
     state: string,
     pending: ExternalLoginState,
+    binding: string | undefined,
   ): Promise<string> {
     const fail = async (code: ErrorCode, reason: string, error?: unknown) => {
       await this.oidc.consumeExternalLogin(state);
@@ -158,6 +233,10 @@ export class ExternalLoginService {
       return this.errorPage(pending.interactionUid, code);
     };
 
+    // 跳回來的不是發起登入的瀏覽器：在兌換授權碼之前就拒絕，也不寫 accountId
+    if (!pending.bindingHash || !binding || sha256(binding) !== pending.bindingHash) {
+      return fail('AUTH_SSO_EXTERNAL_FAILED', 'browser_mismatch');
+    }
     // 使用者在外部 IdP 按了取消，或外部 IdP 拒絕
     if (query.error) return fail('AUTH_SSO_EXTERNAL_FAILED', `external_error:${query.error}`);
     const login = await this.providers.loginConfig(pending.providerId);
@@ -192,13 +271,16 @@ export class ExternalLoginService {
       actorEmail: user.email,
       metadata: { method: 'sso', providerId: login.provider.id },
     });
+    // 完成互動的 ticket 與 state 脫鉤：state 從一開始就在發起者手上，ticket 只交給通過綁定檢查的這個瀏覽器
+    const ticket = random();
     await this.oidc.saveExternalLogin(
-      state,
+      sha256(ticket),
       { ...pending, accountId: tenantAccountId(pending.tenantId, user.id) },
       EXTERNAL_LOGIN_TTL_SECONDS,
     );
-    const ticket = new URLSearchParams({ ticket: state });
-    return `${this.apiBase}/oidc-interaction/${pending.interactionUid}/external/complete?${ticket.toString()}`;
+    await this.oidc.consumeExternalLogin(state);
+    const complete = new URLSearchParams({ ticket });
+    return `${this.apiBase}/oidc-interaction/${pending.interactionUid}/external/complete?${complete.toString()}`;
   }
 
   // ── 3. 完成互動 ───────────────────────────────────────────
@@ -210,13 +292,14 @@ export class ExternalLoginService {
     uid: string,
     ticket: string,
   ): Promise<string> {
-    const pending = await this.oidc.findExternalLogin(ticket);
+    const key = sha256(ticket);
+    const pending = await this.oidc.findExternalLogin(key);
     if (!pending?.accountId || pending.interactionUid !== uid) {
       throw new AppException('AUTH_SSO_EXTERNAL_FAILED');
     }
     await this.assertInteraction(req, res, uid);
     // 沒搶到：同一張票被併發的請求用掉了
-    if (!(await this.oidc.consumeExternalLogin(ticket))) {
+    if (!(await this.oidc.consumeExternalLogin(key))) {
       throw new AppException('AUTH_SSO_EXTERNAL_FAILED');
     }
     return this.oidc.finishInteraction(req, res, {
