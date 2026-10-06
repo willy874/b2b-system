@@ -526,7 +526,8 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
     `AUTH_SSO_LINK_NOT_ALLOWED`（[`../04-sso.md`](../04-sso.md) §3.3）；修改連線的 issuer 或 client id 會刪除它所有的連結
   - production 下對外部 IdP 的每個請求（discovery、token、userinfo、JWKS）都先檢查目的地不是私有、loopback、link-local 位址，
     逾時 10 秒；discovery 快取以 secret 的雜湊為 key、有上限
-  - 日誌遮掉網址裡的 `code`、`state`、`ticket`、`code_verifier`、`id_token_hint`、`token`（`core/logger/redact.ts`）
+  - 請求日誌的網址、解析好的 `query` 與 Referer 都遮掉 `code`、`state`、`ticket`、`code_verifier`、`id_token_hint`、`token`
+    （`core/logger/redact.ts` 的 `SENSITIVE_QUERY_KEYS`，唯一的一份名單）
 
 ---
 
