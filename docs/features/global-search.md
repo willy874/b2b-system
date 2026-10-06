@@ -13,7 +13,7 @@
 
 現況：
 
-- **選單是靜態的**：`app/layouts/SidebarNav.tsx` 的 `TOP_ITEMS`／`MENU_GROUPS` 陣列直接列出每個 feature 的 page key、`menu.*` 文案與圖示，
+- **選單是靜態的**：`app/layouts/navigation.ts` 的 `NAV_TOP_ITEMS`／`NAV_GROUPS` 陣列直接列出每個 feature 的 page key、`menu.*` 文案與圖示，
   依 `usePageAccessChecker` 過濾。頁面權限註冊表（`registerPagePermission`）只有規則與 route，**沒有名稱與圖示**。
 - **沒有全域快捷鍵機制**：現有的 keydown 都是元件內的（檔案燈箱、檔案瀏覽器的全選、`Select`）。
 - **後端搜尋只有各列表的 `keyword`**：使用者、角色、檔案、審批、租戶都是 `ILIKE`（`core/database/like.ts` 負責跳脫）；
@@ -33,7 +33,7 @@
 
 ### 前端
 
-- **導覽註冊表**：把 `SidebarNav.tsx` 的靜態陣列改成 `registerNavItem({ pageKey, labelI18nKey, icon, group, order })`，
+- **導覽註冊表**：把 `navigation.ts` 的靜態陣列改成 `registerNavItem({ pageKey, labelI18nKey, icon, group, order })`，
   在各 feature 的 `plugin.ts` 同步階段註冊（和 `registerPagePermission`、`registerHeaderTool` 同一種做法）。側邊選單與命令面板都讀它。
 - **搜尋提供者**：`registerSearchProvider({ key, labelI18nKey, search: (q, signal) => Promise<Result[]> })`，
   各 feature 用自己的 `apis/` 實作。結果項目帶 route 物件，面板不 import feature。

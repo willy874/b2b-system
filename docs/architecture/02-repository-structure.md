@@ -78,8 +78,8 @@ apps/backstage/src/
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
 │   ├── sessionRedirect.ts   登出、session 結束後要去哪
 │   ├── layouts/
-│   │   ├── DashboardLayout.tsx   側邊選單 ＋ 頂部列 ＋ Outlet（頂列工具在 @b2b-system/web-core/layout）
-│   │   ├── SidebarNav.tsx、headerTools.ts
+│   │   ├── DashboardLayout.tsx   把品牌、選單、帳號選單交給 web-core 的 DashboardShell（側欄、頂列、主內容）
+│   │   ├── navigation.ts、headerTools.ts   側欄與帳號選單的資料、頂列的內建工具
 │   │   ├── LanguageMenu.tsx      把切換交給 web-core 的 LanguageMenu（同步到帳號）
 │   │   └── index.ts
 │   └── locales/{en_US,zh_TW}.json   這個 app 專屬的全域字串（共用的在 web-core）

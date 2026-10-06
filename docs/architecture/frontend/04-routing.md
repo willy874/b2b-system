@@ -366,16 +366,17 @@ feature。
 ## 9. 側邊選單如何依權限過濾
 
 ```tsx
-// app/layouts/SidebarNav.tsx
-const TOP_ITEMS: NavItem[] = [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }];
+// app/layouts/navigation.ts：選單資料（只有 app 認識所有 feature）
+const NAV_TOP_ITEMS: SideNavItem[] = [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }];
 
-const MENU_GROUPS: NavGroup[] = [
+const NAV_GROUPS: SideNavGroup[] = [
   { key: "feature", labelKey: "menu.group.feature", items: [/* 檔案 */] },
   { key: "people", labelKey: "menu.group.people", items: [/* 使用者、角色、權限目錄 */] },
   { key: "system", labelKey: "menu.group.system", items: [/* 稽核日誌、審批、背景工作、外部 IdP */] },
 ];
 
-function useMenuGroups(groups: NavGroup[]) {
+// web-core/layout/SideNav.tsx：渲染與權限過濾，兩個 app 共用（由 DashboardShell 掛上）
+function useMenuGroups(groups: SideNavGroup[]) {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   return useMemo(
     () =>

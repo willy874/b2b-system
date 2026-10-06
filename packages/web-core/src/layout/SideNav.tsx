@@ -1,96 +1,38 @@
 import { Icon } from '@b2b-system/ui/Icon';
-import { isMenuItemActive, useMenuItems } from '@b2b-system/web-core/layout';
-import type { MenuItem } from '@b2b-system/web-core/layout';
-import { useTranslation } from '@b2b-system/web-core/locales';
-import { cn } from '@b2b-system/web-shared/utils';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useId, useMemo, useState } from 'react';
 
-import { usePageAccessChecker } from '@/core/permission';
-import { AUDIT_LOG_PAGE } from '@/features/audit-log';
-import { FEATURE_FLAG_PAGE } from '@/features/feature-flag';
-import { HOME_PAGE } from '@/features/home';
-import { JOB_PAGE } from '@/features/job';
-import { PLATFORM_ADMIN_PAGE } from '@/features/platform-admin';
-import { TENANT_PAGE } from '@/features/tenant';
+import { useTranslation } from '../locales';
+import { usePageAccessChecker } from '../permission';
+import { isMenuItemActive, useMenuItems } from './menu';
+import type { MenuItem } from './menu';
 
-interface NavItem extends MenuItem {
+import styles from './SideNav.module.css';
+
+export interface SideNavItem extends MenuItem {
   /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
   testId: string;
 }
 
-interface NavGroup {
+export interface SideNavGroup {
   key: string;
   labelKey: string;
   /** 父選單（展開／收合按鈕）的 testid，同樣是完整字面量 */
   testId: string;
-  items: NavItem[];
+  items: SideNavItem[];
 }
 
-/** 首頁不屬於任何分類，固定列在最上方。 */
-const TOP_ITEMS: NavItem[] = [
-  { pageKey: HOME_PAGE, to: '/', labelKey: 'menu.home', testId: 'menu-home', icon: 'home' },
-];
-
-/**
- * `app/` 是唯一知道所有 feature 的地方，這是組裝層的本分。分類比照 backstage 的側欄：
- * 租戶（客戶與它們用得到的功能）、平台管理者、維運（稽核與背景工作）。
- */
-const MENU_GROUPS: NavGroup[] = [
-  {
-    key: 'tenant',
-    labelKey: 'menu.group.tenant',
-    testId: 'menu-group-tenant',
-    items: [
-      {
-        pageKey: TENANT_PAGE,
-        to: '/tenant',
-        labelKey: 'menu.tenant',
-        testId: 'menu-tenant',
-        icon: 'network',
-      },
-      {
-        pageKey: FEATURE_FLAG_PAGE,
-        to: '/feature-flag',
-        labelKey: 'menu.featureFlag',
-        testId: 'menu-feature-flag',
-        icon: 'pin',
-      },
-    ],
-  },
-  {
-    key: 'people',
-    labelKey: 'menu.group.people',
-    testId: 'menu-group-people',
-    items: [
-      {
-        pageKey: PLATFORM_ADMIN_PAGE,
-        to: '/admin',
-        labelKey: 'menu.platformAdmin',
-        testId: 'menu-platform-admin',
-        icon: 'users',
-      },
-    ],
-  },
-  {
-    key: 'system',
-    labelKey: 'menu.group.system',
-    testId: 'menu-group-system',
-    items: [
-      {
-        pageKey: AUDIT_LOG_PAGE,
-        to: '/audit-log',
-        labelKey: 'menu.auditLog',
-        testId: 'menu-audit-log',
-        icon: 'list',
-      },
-      { pageKey: JOB_PAGE, to: '/job', labelKey: 'menu.job', testId: 'menu-job', icon: 'monitor' },
-    ],
-  },
-];
+export interface SideNavProps {
+  /** 不屬於任何分類、固定列在最上方的項目（首頁）。 */
+  topItems: SideNavItem[];
+  /** 其餘頁面依分類列在父選單底下。選單資料由 app 的 `app/layouts/` 傳入（只有 app 認識所有 feature）。 */
+  groups: SideNavGroup[];
+  /** 收合成圖示欄 */
+  collapsed: boolean;
+}
 
 /** 分類裡一個能進的頁面都沒有時，連父選單一起隱藏。 */
-function useMenuGroups(groups: NavGroup[]): NavGroup[] {
+function useMenuGroups(groups: SideNavGroup[]): SideNavGroup[] {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   return useMemo(
     () =>
@@ -140,7 +82,7 @@ function NavLink({
   pathname,
   collapsed,
 }: {
-  item: NavItem;
+  item: SideNavItem;
   pathname: string;
   collapsed: boolean;
 }) {
@@ -148,10 +90,8 @@ function NavLink({
   return (
     <Link
       to={item.to}
-      className={cn(
-        'ga-shell__nav-item',
-        isMenuItemActive(item.to, pathname) && 'ga-shell__nav-item--active',
-      )}
+      className={styles.item}
+      data-active={isMenuItemActive(item.to, pathname) || undefined}
       data-testid={item.testId}
       title={collapsed ? t(item.labelKey) : undefined}
     >
@@ -161,23 +101,27 @@ function NavLink({
   );
 }
 
-export function SidebarNav({ collapsed }: { collapsed: boolean }) {
+/**
+ * 分組的側邊選單（docs/architecture/frontend/04-routing.md §9）：依頁面權限過濾，
+ * 父選單展開／收合；收合成圖示欄時子項全部列出、以分隔線標出分類邊界。
+ */
+export function SideNav({ topItems, groups, collapsed }: SideNavProps) {
   const { t } = useTranslation();
   const baseId = useId();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const topItems = useMenuItems(TOP_ITEMS);
-  const groups = useMenuGroups(MENU_GROUPS);
-  const activeKey = groups.find((group) =>
+  const visibleTopItems = useMenuItems(topItems);
+  const visibleGroups = useMenuGroups(groups);
+  const activeKey = visibleGroups.find((group) =>
     group.items.some((item) => isMenuItemActive(item.to, pathname)),
   )?.key;
   const { openKeys, toggle } = useOpenGroups(activeKey);
 
   return (
-    <nav className="ga-shell__nav">
-      {topItems.map((item) => (
+    <nav className={styles.nav}>
+      {visibleTopItems.map((item) => (
         <NavLink key={item.testId} item={item} pathname={pathname} collapsed={collapsed} />
       ))}
-      {groups.map((group) => {
+      {visibleGroups.map((group) => {
         const links = group.items.map((item) => (
           <NavLink key={item.testId} item={item} pathname={pathname} collapsed={collapsed} />
         ));
@@ -185,8 +129,8 @@ export function SidebarNav({ collapsed }: { collapsed: boolean }) {
         // 收合成圖示欄時放不下父選單，子項全部列出、以分隔線標出分類邊界
         if (collapsed) {
           return (
-            <div key={group.key} className="ga-shell__nav-group">
-              <hr className="ga-shell__nav-divider" />
+            <div key={group.key} className={styles.group}>
+              <hr className={styles.divider} />
               {links}
             </div>
           );
@@ -195,14 +139,12 @@ export function SidebarNav({ collapsed }: { collapsed: boolean }) {
         const open = openKeys.has(group.key);
         const listId = `${baseId}-${group.key}`;
         return (
-          <div key={group.key} className="ga-shell__nav-group">
+          <div key={group.key} className={styles.group}>
             <button
               type="button"
-              className={cn(
-                'ga-shell__nav-parent',
-                // 收起來時仍標出當前頁面在哪個分類裡
-                !open && group.key === activeKey && 'ga-shell__nav-parent--active',
-              )}
+              className={styles.parent}
+              // 收起來時仍標出當前頁面在哪個分類裡
+              data-active={(!open && group.key === activeKey) || undefined}
               aria-expanded={open}
               aria-controls={listId}
               onClick={() => toggle(group.key)}
@@ -212,11 +154,12 @@ export function SidebarNav({ collapsed }: { collapsed: boolean }) {
               <Icon
                 name="chevron-down"
                 size={14}
-                className={cn('ga-shell__nav-chevron', open && 'ga-shell__nav-chevron--open')}
+                className={styles.chevron}
+                data-open={open || undefined}
               />
             </button>
             {/* 收合時仍留在 DOM（hidden），權限過濾與展開狀態互不影響 */}
-            <div id={listId} className="ga-shell__nav-children" hidden={!open}>
+            <div id={listId} className={styles.children} hidden={!open}>
               {links}
             </div>
           </div>

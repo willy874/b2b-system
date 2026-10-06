@@ -30,7 +30,7 @@ pnpm --filter @b2b-system/platform build
 | `features/home` | `/`：目前登入的平台管理者、各狀態的租戶數 |
 | `features/account` | `/profile`、`/preference`：個人資料（改名、角色與權限、變更密碼）、偏好設定（只存在瀏覽器） |
 | `features/notification` | `/notification` 與頂列的鈴鐺：平台的站內通知（[`backend/15-notification.md`](../../docs/architecture/backend/15-notification.md) §6.2） |
-| `app/` | 自己寫的 App Shell：`App.tsx`（掛上 web-core 的 `SessionWatcher`：沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（把 web-core 的 403／404、router 預設錯誤頁接成 `compact` 版面；載入中的 spinner）、`layouts/`（與 backstage 相同結構的 `DashboardLayout`：分組側欄 `SidebarNav`、頂列工具 `headerTools.ts`） |
+| `app/` | 自己寫的 App Shell：`App.tsx`（掛上 web-core 的 `SessionWatcher`：沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（把 web-core 的 403／404、router 預設錯誤頁接成 `compact` 版面；載入中的 spinner）、`layouts/`（`DashboardLayout` 把品牌、選單與帳號選單交給 web-core 的 `DashboardShell`；選單資料在 `navigation.ts`、頂列工具在 `headerTools.ts`） |
 
 有即時推播（平台管理者的連線，[`backend/08-realtime.md`](../../docs/architecture/backend/08-realtime.md) §3.6）。
 沒有批次佇列的畫面、執行期啟用的 feature 與 MSW mock；需要時再從 backstage 帶過來（Storybook 在 `packages/ui`）。
@@ -57,7 +57,7 @@ package 的原始碼由這個 app 的 Vite 編譯，CSS Module 的 class 前綴�
 | --- | --- |
 | `core/permission/` | `enums.ts`、`resources.ts` 是 **平台** 的權限目錄（api-sdk 的 `PlatformPermissionKey`，[`docs/rbac/02-permission-catalog.md`](../../docs/rbac/02-permission-catalog.md) §8），`index.ts` 以 module augmentation 登記給 web-core；機制在 `@b2b-system/web-core/permission`。權限由 `GET /platform/auth/profile` 的 `permissions` 水合 |
 | `apis/auth/` | 與 backstage 同結構，端點不同：打 `/platform/auth/*`（平台管理者的 session）。帳號流程（`forgot-password`、`reset-password`、`setup`、`register`）與 `tenant.ts` 的 `X-Tenant` 只在這裡 |
-| `app/` | `App.tsx`、`Layout.tsx`、`ErrorPages.tsx`、`plugin.ts`、`sessionRedirect.ts`、`layouts/`（`DashboardLayout`、`SidebarNav`、`headerTools.ts` 的選單與品牌；`LanguageMenu.tsx` 只把切換交給 web-core 的 `LanguageMenu`，不同步到帳號）、`app/locales/*.json`（只有 app 專屬的區段與少數覆寫） |
+| `app/` | `App.tsx`、`Layout.tsx`、`ErrorPages.tsx`、`plugin.ts`、`sessionRedirect.ts`、`layouts/`（`DashboardLayout` 的品牌與帳號選單、`navigation.ts` 的選單、`headerTools.ts`；`LanguageMenu.tsx` 只把切換交給 web-core 的 `LanguageMenu`，不同步到帳號）、`app/locales/*.json`（只有 app 專屬的區段與少數覆寫） |
 | `plugins/app/` | 門面：轉出 web-core 的 plugin，`i18n.ts` 傳入自己的語系包 |
 | `features/` | `account`（打 `/platform/auth/*`，偏好不同步到帳號、沒有 API token 與權限來源）、`notification`（打 `/platform/notifications`，offset 分頁、不用虛擬捲動）、`login`（`sso.ts` 的 client id 與 backstage 不同）等，都是這個 app 的功能 |
 | `shared/` | `api-sdk`、`websocket-sdk` 的收斂點；`constants/env.ts`（含 `OIDC_ISSUER`） |

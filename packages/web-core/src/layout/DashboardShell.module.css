@@ -1,10 +1,10 @@
-/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 index.html）。 */
+/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 app 的 index.html）。 */
 @layer components {
   /*
    * 外殼固定為一個視窗高，側邊選單與主內容各自捲動：主內容往下捲時側邊選單留在原位。
    * 主內容是 flex 欄，頁面根元素給 `flex-1 min-h-0` 就能把剩餘高度交給表格（見 RichTable 的 fillHeight）。
    */
-  .ga-shell {
+  .shell {
     display: grid;
     grid-template-columns: 15rem 1fr;
     height: 100dvh;
@@ -15,16 +15,16 @@
    * 兩個捲動區都要是定位元素：否則內容裡的 absolute 元素（例如 sr-only）以視窗為包含區塊，
    * 跳出捲動區撐高整份文件，視窗本身又能捲動、側邊選單跟著被捲走。
    */
-  .ga-shell__sidebar,
-  .ga-shell__content {
+  .sidebar,
+  .content {
     position: relative;
   }
 
-  .ga-shell--collapsed {
+  .shell[data-collapsed] {
     grid-template-columns: 3.5rem 1fr;
   }
 
-  .ga-shell__sidebar {
+  .sidebar {
     display: flex;
     flex-direction: column;
     gap: var(--seed-space-4);
@@ -35,7 +35,7 @@
     background: var(--color-surface);
   }
 
-  .ga-shell__brand {
+  .brand {
     display: flex;
     align-items: center;
     gap: var(--seed-space-2);
@@ -43,14 +43,14 @@
     font-weight: 600;
   }
 
-  .ga-shell__brand-text {
+  .brandText {
     display: flex;
     flex-direction: column;
     min-width: 0;
     line-height: 1.2;
   }
 
-  .ga-shell__tenant {
+  .brandContext {
     overflow: hidden;
     color: var(--color-fg-muted);
     font-size: 0.75rem;
@@ -59,7 +59,7 @@
     white-space: nowrap;
   }
 
-  .ga-shell__user-name {
+  .userName {
     margin-inline-start: var(--seed-space-2);
     max-width: 12rem;
     overflow: hidden;
@@ -67,7 +67,7 @@
     white-space: nowrap;
   }
 
-  .ga-shell__scrim {
+  .scrim {
     position: fixed;
     inset: 0;
     z-index: var(--z-drawer-scrim);
@@ -76,7 +76,7 @@
     background: var(--color-backdrop);
   }
 
-  .ga-shell__brand-mark {
+  .brandMark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -88,112 +88,14 @@
     font-size: 0.75rem;
   }
 
-  .ga-shell__nav {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .ga-shell__nav-group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  /* 父選單：只負責展開／收合子選單，本身不是連結 */
-  .ga-shell__nav-parent {
-    display: flex;
-    align-items: center;
-    gap: var(--seed-space-2);
-    margin-top: var(--seed-space-2);
-    padding: var(--seed-space-2) var(--seed-space-3);
-    border: 0;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-fg-muted);
-    font: inherit;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: start;
-    cursor: pointer;
-  }
-
-  .ga-shell__nav-parent:hover {
-    background: var(--color-bg);
-    color: var(--color-fg);
-  }
-
-  .ga-shell__nav-parent:focus-visible {
-    outline: 2px solid var(--color-brand);
-    outline-offset: -2px;
-  }
-
-  /* 收起來的分類裡有當前頁面 */
-  .ga-shell__nav-parent--active {
-    color: var(--color-brand);
-  }
-
-  .ga-shell__nav-chevron {
-    transform: rotate(-90deg);
-    transition: transform 150ms ease;
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-  }
-
-  .ga-shell__nav-chevron--open {
-    transform: none;
-  }
-
-  .ga-shell__nav-children {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-inline-start: var(--seed-space-2);
-  }
-
-  /* display: flex 會蓋掉 hidden 屬性的 display: none */
-  .ga-shell__nav-children[hidden] {
-    display: none;
-  }
-
-  /* 收合成圖示欄時沒有父選單，改用分隔線標出分類邊界 */
-  .ga-shell__nav-divider {
-    margin: var(--seed-space-1) var(--seed-space-2);
-    border: 0;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .ga-shell__nav-item {
-    display: flex;
-    align-items: center;
-    gap: var(--seed-space-2);
-    padding: var(--seed-space-2) var(--seed-space-3);
-    border-radius: var(--radius-md);
-    color: var(--color-fg);
-    text-decoration: none;
-    font-size: 0.875rem;
-  }
-
-  .ga-shell__nav-item:hover {
-    background: var(--color-bg);
-  }
-
-  .ga-shell__nav-item--active {
-    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
-    color: var(--color-brand);
-    font-weight: 600;
-  }
-
-  .ga-shell__main {
+  .main {
     display: flex;
     flex-direction: column;
     min-width: 0;
     min-height: 0;
   }
 
-  .ga-shell__topbar {
+  .topbar {
     display: flex;
     align-items: center;
     gap: var(--seed-space-2);
@@ -204,7 +106,7 @@
     background: var(--color-surface);
   }
 
-  .ga-shell__content {
+  .content {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -215,15 +117,15 @@
 
   /*
    * 窄螢幕（手機直向）：側欄改成覆蓋式抽屜，預設收起，由頂列的選單鈕打開；主內容佔滿寬度、內距縮小
-   * 斷點與 DashboardLayout.tsx 的 NARROW_QUERY 一致。
+   * 斷點與 DashboardShell.tsx 的 NARROW_QUERY 一致。
    */
   @media (max-width: 767px) {
-    .ga-shell,
-    .ga-shell--collapsed {
+    .shell,
+    .shell[data-collapsed] {
       grid-template-columns: 1fr;
     }
 
-    .ga-shell__sidebar {
+    .sidebar {
       position: fixed;
       inset-block: 0;
       inset-inline-start: 0;
@@ -236,25 +138,25 @@
         visibility 200ms;
     }
 
-    .ga-shell--drawer-open .ga-shell__sidebar {
+    .shell[data-drawer-open] .sidebar {
       transform: none;
       visibility: visible;
     }
 
-    .ga-shell__topbar {
+    .topbar {
       padding-inline: var(--seed-space-2);
     }
 
-    .ga-shell__user-name {
+    .userName {
       display: none;
     }
 
-    .ga-shell__content {
+    .content {
       padding: var(--seed-space-3);
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .ga-shell__sidebar {
+      .sidebar {
         transition: none;
       }
     }
