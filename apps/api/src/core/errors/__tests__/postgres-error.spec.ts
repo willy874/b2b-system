@@ -75,6 +75,9 @@ describe('postgres-error：辨識 Postgres 的錯誤', () => {
     ['roles_slug_key', 'ROLE_NAME_DUPLICATE'],
     ['user_roles_pkey', 'CONFLICT'],
     [undefined, 'CONFLICT'],
+    ['', 'CONFLICT'],
+    ['toString', 'CONFLICT'],
+    ['constructor', 'CONFLICT'],
   ])('mapConstraintToCode：%s → %s', (constraint, expected) => {
     expect(mapConstraintToCode(constraint)).toBe(expected);
   });

@@ -36,17 +36,18 @@ export function raisedErrorCode(error: unknown): string | undefined {
   return matched?.[1];
 }
 
-const CONSTRAINT_TO_CODE: Record<string, string> = {
-  users_email_key: 'USER_EMAIL_DUPLICATE',
-  users_username_key: 'USER_USERNAME_DUPLICATE',
-  roles_name_key: 'ROLE_NAME_DUPLICATE',
-  roles_slug_key: 'ROLE_NAME_DUPLICATE',
-};
+/** 用 Map 而不是物件：約束名稱是外部輸入，`toString`、`constructor` 這類鍵不能查到原型上的值。 */
+const CONSTRAINT_TO_CODE = new Map<string, string>([
+  ['users_email_key', 'USER_EMAIL_DUPLICATE'],
+  ['users_username_key', 'USER_USERNAME_DUPLICATE'],
+  ['roles_name_key', 'ROLE_NAME_DUPLICATE'],
+  ['roles_slug_key', 'ROLE_NAME_DUPLICATE'],
+]);
 
 /**
  * 唯一鍵衝突 → 錯誤碼。沒有登記的約束回通用的 `CONFLICT`（409）而不是 500：
  * 衝突是請求與現有資料的問題，不是伺服器壞了。
  */
 export function mapConstraintToCode(constraint: string | undefined): string {
-  return (constraint && CONSTRAINT_TO_CODE[constraint]) ?? 'CONFLICT';
+  return (constraint && CONSTRAINT_TO_CODE.get(constraint)) || 'CONFLICT';
 }
