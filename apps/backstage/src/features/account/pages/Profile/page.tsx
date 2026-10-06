@@ -59,6 +59,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string>();
   const {
     errors: serverErrors,
+    codes: serverErrorCodes,
     report: reportServerError,
     clear: clearServerError,
     formRef: passwordFormRef,
@@ -188,6 +189,7 @@ export default function ProfilePage() {
           label={t('account.field.currentPassword')}
           required
           error={serverErrors.currentPassword}
+          errorCode={serverErrorCodes.currentPassword}
         >
           <Input
             type="password"
@@ -213,6 +215,7 @@ export default function ProfilePage() {
             serverErrors.newPassword ??
             (tooShort ? t('validation.tooShort', { min: PASSWORD_MIN_LENGTH }) : undefined)
           }
+          errorCode={serverErrorCodes.newPassword}
         >
           <Input
             type="password"

@@ -18,7 +18,6 @@
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
 | 中 | E2E 在 api 跑著時重灌資料庫：系統資料夾與個人資料夾不會建立，依賴它們的案例時過時不過 | [`e2e-reseed-skips-bootstrap-preparation.md`](./e2e-reseed-skips-bootstrap-preparation.md) | 2026-10-06（補 E2E） |
-| 低 | E2E 以錯誤訊息的文字斷言：表單欄位錯誤與登入錯誤沒有帶錯誤碼的 testid | [`e2e-field-error-text-assertions.md`](./e2e-field-error-text-assertions.md) | 2026-10-06（補 E2E） |
 
 嚴重度：
 

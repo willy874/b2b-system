@@ -4,6 +4,7 @@ import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
 import { apiLogin, apiRequest } from '../helpers/api';
 import { PLATFORM_URL, expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
+import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
@@ -76,7 +77,13 @@ test.describe('改密碼與忘記密碼', () => {
       .getByTestId('alert-dialog-confirm')
       .click();
 
-    await expect(page.getByTestId('profile-password-form')).toContainText(/密碼不正確|incorrect/i);
+    await expect(
+      getByTestIdAndValue(
+        page.getByTestId('profile-password-form'),
+        'field-error',
+        'AUTH_PASSWORD_MISMATCH',
+      ),
+    ).toBeVisible();
     await expect(page.getByTestId('profile-page')).toBeVisible();
     await snapshot(page, 'current-password-mismatch');
     expect(await loginStatus(ACCOUNTS.passwordTarget, E2E_PASSWORD)).toBe(200);

@@ -20,6 +20,11 @@ export interface FieldProps extends SlotOverrides<FieldSlot> {
   description?: ReactNode;
   /** 有值即視為錯誤狀態，訊息以 aria-describedby 連到輸入元素。 */
   error?: string;
+  /**
+   * 錯誤的代碼（例：後端的錯誤碼），放在錯誤訊息的 `data-value`：測試以它分辨是哪一種錯誤，不比對會隨語系變的文字。
+   * 錯誤訊息的 `data-testid` 預設 `field-error`（可由 `testIds.error` 覆寫）。
+   */
+  errorCode?: string;
   required?: boolean;
   className?: string;
   children: ReactNode;
@@ -31,6 +36,7 @@ export function Field({
   label,
   description,
   error,
+  errorCode,
   required,
   className,
   children,
@@ -74,12 +80,16 @@ export function Field({
       )}
       {/* 明確傳入的錯誤（例如 TanStack Form 的欄位驗證） */}
       {error && (
-        <BaseField.Error match {...slot('error', styles.error)}>
+        <BaseField.Error
+          match
+          {...slot('error', styles.error, { testId: 'field-error' })}
+          data-value={errorCode}
+        >
           {error}
         </BaseField.Error>
       )}
       {/* 沒有明確錯誤時，顯示 Form 從後端帶進來的欄位錯誤 */}
-      {!error && <BaseField.Error {...slot('error', styles.error)} />}
+      {!error && <BaseField.Error {...slot('error', styles.error, { testId: 'field-error' })} />}
     </BaseField.Root>
   );
 }

@@ -9,6 +9,8 @@ import { useErrorMessage } from './useErrorMessage';
 export interface ServerFieldErrors<TField extends string> {
   /** 每個欄位目前的後端錯誤（沒有就是 undefined）。 */
   errors: Partial<Record<TField, string>>;
+  /** 每個欄位目前的後端錯誤碼（傳給 `Field` 的 `errorCode`，測試以它斷言）。 */
+  codes: Partial<Record<TField, string>>;
   /**
    * 送出失敗時呼叫：能對應到欄位的錯誤（`VALIDATION_FAILED` 的 `details.fields`、`conflicts` 登記的衝突碼）
    * 放到欄位下方並聚焦第一個錯誤欄位，回傳 `true`；對應不到的回傳 `false`，由呼叫端顯示在表單層級。
@@ -31,7 +33,10 @@ export function useServerFieldErrors<TField extends string>(
 ): ServerFieldErrors<TField> {
   const { t } = useTranslation();
   const toMessage = useErrorMessage();
-  const [errors, setErrors] = useState<Partial<Record<TField, string>>>({});
+  const [state, setState] = useState<{
+    errors: Partial<Record<TField, string>>;
+    codes: Partial<Record<TField, string>>;
+  }>({ errors: {}, codes: {} });
   const [focusRequest, setFocusRequest] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -44,14 +49,20 @@ export function useServerFieldErrors<TField extends string>(
     (error: unknown) => {
       if (!(error instanceof AppError)) return false;
       const next: Partial<Record<TField, string>> = {};
+      const codes: Partial<Record<TField, string>> = {};
       const conflictField = conflicts[error.code as KnownErrorCode];
-      if (conflictField) next[conflictField] = toMessage(error);
+      if (conflictField) {
+        next[conflictField] = toMessage(error);
+        codes[conflictField] = error.code;
+      }
       for (const key of Object.keys(error.fieldErrors ?? {})) {
-        if ((fields as readonly string[]).includes(key))
+        if ((fields as readonly string[]).includes(key)) {
           next[key as TField] = t('validation.invalid');
+          codes[key as TField] = error.code;
+        }
       }
       if (Object.keys(next).length === 0) return false;
-      setErrors(next);
+      setState({ errors: next, codes });
       setFocusRequest((count) => count + 1);
       return true;
     },
@@ -59,15 +70,17 @@ export function useServerFieldErrors<TField extends string>(
   );
 
   const clear = useCallback((field: TField) => {
-    setErrors((previous) => {
-      if (!previous[field]) return previous;
-      const next = { ...previous };
-      delete next[field];
-      return next;
+    setState((previous) => {
+      if (!previous.errors[field]) return previous;
+      const errors = { ...previous.errors };
+      const codes = { ...previous.codes };
+      delete errors[field];
+      delete codes[field];
+      return { errors, codes };
     });
   }, []);
 
-  const reset = useCallback(() => setErrors({}), []);
+  const reset = useCallback(() => setState({ errors: {}, codes: {} }), []);
 
-  return { errors, report, clear, reset, formRef };
+  return { errors: state.errors, codes: state.codes, report, clear, reset, formRef };
 }
