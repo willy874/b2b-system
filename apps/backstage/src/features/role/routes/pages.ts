@@ -1,7 +1,6 @@
 import { queryClient } from '@b2b-system/web-core/cache';
 import { localeScopeLoader } from '@b2b-system/web-core/locales';
 import { RootRoute } from '@b2b-system/web-core/router';
-import { EventEmitter } from '@b2b-system/web-shared/EventEmitter';
 import { createRoute, redirect, stripSearchParams } from '@tanstack/react-router';
 
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
@@ -29,12 +28,6 @@ export const RoleCreateRoute = createRoute({
 export const RoleDetailRoute = createRoute({
   getParentRoute: () => RoleListRoute,
   path: '$roleId',
-  context: () => ({
-    eventBus: new EventEmitter<{
-      'role:updated': () => void;
-      'role:permissionsChanged': () => void;
-    }>(),
-  }),
 });
 
 export const RoleDetailPermissionRoute = createRoute({

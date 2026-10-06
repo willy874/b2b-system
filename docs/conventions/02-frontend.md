@@ -9,8 +9,8 @@
 
 | #   | 規則                                                                                   | 理由                                             | 強度      |
 | --- | -------------------------------------------------------------------------------------- | ------------------------------------------------ | --------- |
-| 1   | `core/` 與 `@b2b-system/web-core` 不 import `features/`；packages 不 import app，下層 package 不 import 上層（`web-shared` ← `ui` ← `web-core`） | 機制層要能被任何 feature 使用而不反向耦合        | 👀 Review |
-| 2   | Feature 之間只經由 route id（`RouteLink`）、`apis/`、或 eventBus 互動                  | 拿掉任何一個 feature，app 仍能啟動               | 👀 Review |
+| 1   | `core/` 與 `@b2b-system/web-core` 不 import `features/`；packages 不 import app，下層 package 不 import 上層（`web-shared` ← `ui` ← `web-core`） | 機制層要能被任何 feature 使用而不反向耦合        | 🔒 測試（`layer-dependencies.test.ts`） |
+| 2   | Feature 之間只經由 route id（`RouteLink`）、`apis/`、或 eventBus 互動                  | 拿掉任何一個 feature，app 仍能啟動               | 🔒 測試（`layer-dependencies.test.ts`：不互相 import，相對路徑也算） |
 | 3   | 頁面權限在 plugin 的 **同步** 階段註冊；語系包在 `onInit`（非同步）階段                 | 第一次 render 時 `requirePagePermission()` 不會 miss | 👀 Review |
 | 4   | 元件只透過 `apis/<domain>/<operation>/` 與後端對話，不直接 `fetch`                      | 攔截器（token、refresh、錯誤轉換）只在一處        | 👀 Review |
 | 5   | `@b2b-system/ui` 不出現業務名詞；業務元件放 `features/<name>/components/`               | 設計系統要能搬到下一個產品                        | 👀 Review |
@@ -18,11 +18,8 @@
 | 7   | Access token 只存在記憶體，不進 `localStorage` / `sessionStorage`                       | XSS 時不外洩長效憑證（[`backend/04-auth.md`](../architecture/backend/04-auth.md) §10） | 👀 Review |
 | 8   | 只有 `packages/web-core/src/realtime/socketIoTransport.ts` import `socket.io-client`；其他地方經由 `RealtimeTransport`、`useRealtimeEvent()`、`realtime.relay` | 換掉 Socket.io 只換一個檔案（[`architecture/frontend/11-realtime.md`](../architecture/frontend/11-realtime.md) §2） | 🔒 測試（`transport-boundary.test.ts`） |
 
-> 規則 1、2 在 [`architecture/frontend/01-architecture.md`](../architecture/frontend/01-architecture.md) §5
-> 規劃以 `no-restricted-imports` 強制，**目前 `.oxlintrc.json` 尚未設定**，先靠 review。
-> 補上後把標記改成 🔒。
->
-> 完整的依賴矩陣見 [`07-layer-dependencies.md`](./07-layer-dependencies.md)。
+> 規則 1、2 由 `packages/web-core/src/__tests__/layer-dependencies.test.ts` 強制（`pnpm test`），
+> 它同時檢查 [`07-layer-dependencies.md`](./07-layer-dependencies.md) §2.2 的完整矩陣與 `features/*/index.tsx` 的匯出（[07 §4](./07-layer-dependencies.md)）。
 >
 > `packages/ui/src/components/__tests__/design-system.test.ts` 另外守住：元件不匯出 Base UI 型別、
 > 元件的 CSS 不出現十六進位色碼；`features/` 不直接 import Base UI 由各 app 的 `app/__tests__/no-base-ui-in-features.test.ts` 守住。
@@ -33,7 +30,8 @@
 
 - 新增 feature 照 [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §5 的 SOP，
   檔案順序：`locale.ts` → `routes/` → `permission.ts` → `plugin.ts` → `hooks/` → `pages/` → `index.tsx`。
-- `index.tsx` 是 feature 對外唯一入口；其他 feature 不得深入 import 它的內部檔案。
+- `index.tsx` 是 feature 對外唯一入口：一定匯出 `Routes` 與 `<name>FeaturePlugin`，`app/`、`main.tsx` 只從這裡匯入；其他 feature 完全不 import 它（🔒 測試）。
+  可以匯出的東西見 [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §2.1。
 - 業務邏輯放哪裡：
 
 | 邏輯類型          | 位置                                      |

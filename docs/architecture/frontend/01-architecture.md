@@ -99,8 +99,8 @@ export * from "@b2b-system/api-sdk";
 | `web-core/testing`    | `renderWithPermissions`、`renderRoute`、`fakeBatchQueue`、`initTestI18n`（[10](./10-testing.md)） |
 | `core/feature`、`file`、`trash`（backstage） | 執行期啟用 feature（[02 §9](./02-plugin-system.md)）、檔案管理的擴充點、回收桶的類型註冊表 |
 
-**鐵則**：`core/` 與 `packages/web-core/src` 內任何檔案 `grep -r "features/"` 必須是零結果（web-core 另外不 import 任何 `@/` 路徑）。
-這條規則由一個 lint 規則與 CI 檢查強制。
+**鐵則**：`core/` 與 `packages/web-core/src` 內任何檔案都不 import `features/`（web-core 另外不 import 任何 `@/` 路徑）。
+這條規則由 🔒 `packages/web-core/src/__tests__/layer-dependencies.test.ts` 強制（§5）。
 
 ### 2.3 `@b2b-system/ui` — 設計系統
 
@@ -237,16 +237,18 @@ main.tsx
 
 ---
 
-## 5. Lint 強制的相依規則
+## 5. 測試強制的相依規則
 
-`.oxlintrc.json` 中以 `no-restricted-imports` 設定：
+🔒 `packages/web-core/src/__tests__/layer-dependencies.test.ts`（`pnpm test` 會跑，CI 也是）掃每個依賴 web-core 的 app 與三個前端 package，
+完整的矩陣與例外見 [`conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §2.2。重點：
 
 | 從                  | 不可 import                                              |
 | ------------------- | -------------------------------------------------------- |
-| `packages/web-shared`、`packages/ui`、`packages/web-core` | app 的任何程式碼（package 邊界）；下層不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）；`web-core` 不 import `@b2b-system/api-sdk` |
-| `src/core/**`       | `@/features/*`, `@/app/*`                                |
-| `src/features/a/**` | `@/features/b/*`                                         |
-| 任何地方            | `../../../*`（三層以上相對路徑）                         |
+| `packages/web-shared`、`packages/ui`、`packages/web-core` | app 的任何程式碼（`@/`、跳出 `src/` 的相對路徑）；下層不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）；`web-core` 不 import `@b2b-system/api-sdk` |
+| `src/core/**`       | `features/`、`apis/`、`plugins/`、`app/`                 |
+| `src/features/a/**` | `features/b/`，`@/` 與相對路徑都算                       |
+| `src/app/**`、`main.tsx`、`src/plugins/features/**` | feature 的內部檔案（只能 import `@/features/<name>`，即 `index.tsx`） |
+| 正式程式碼          | 測試檔、`src/test/`、`@b2b-system/web-core/testing`        |
 
-CI 另有一支腳本檢查 `features/*/index.tsx` 是否都匯出了 `Routes` 與
-`<name>FeaturePlugin`，避免漏接。
+同一支測試也檢查每個 `features/*/index.tsx` 都匯出 `Routes` 與 `<name>FeaturePlugin`（[`03-feature-anatomy.md`](./03-feature-anatomy.md) §2.1），避免漏接。
+`@sigrea/core` 與 web-shared 不依賴 React 的限制由 `.oxlintrc.json` 的 `no-restricted-imports` 擋。

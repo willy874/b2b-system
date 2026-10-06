@@ -7,7 +7,7 @@ import { ANNOUNCEMENT_LIST_QUERY_KEY } from '@/apis/announcement/get-announcemen
 import { MY_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-my-api-tokens/query';
 import { USER_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-user-api-tokens/query';
 /**
- * 本專案的資源依賴圖（機制見 `core/cache/resourceGraph.ts`）。
+ * 本專案的資源依賴圖（機制見 `web-core/cache/resourceGraph.ts`）。
  *
  * 寫入後不要手列 query key，改成宣告「後端改了什麼」：
  *
@@ -64,7 +64,6 @@ import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { PERMISSION_SOURCES_QUERY_KEY } from '@/apis/user/get-user-permission-sources/query';
-import { USER_ROLES_QUERY_KEY } from '@/apis/user/get-user-roles/query';
 import { WEBHOOK_DELIVERIES_QUERY_KEY } from '@/apis/webhook/get-webhook-deliveries/query';
 import { WEBHOOK_DETAIL_QUERY_KEY } from '@/apis/webhook/get-webhook-detail/query';
 import { WEBHOOK_LIST_QUERY_KEY } from '@/apis/webhook/get-webhook-list/query';
@@ -188,7 +187,7 @@ function selfHoldsRole(change: ResourceChangeEvent): boolean {
 const graph = createResourceGraph<Resource>({
   [Resource.USER]: {
     collection: [USER_LIST_QUERY_KEY],
-    entity: [USER_DETAIL_QUERY_KEY, USER_ROLES_QUERY_KEY],
+    entity: [USER_DETAIL_QUERY_KEY],
     derivesFrom: [
       // 使用者列表／詳情嵌入了角色摘要
       { from: Resource.USER_ROLE, id: 'self' },

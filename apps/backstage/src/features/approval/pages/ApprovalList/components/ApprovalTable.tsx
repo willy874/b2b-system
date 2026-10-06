@@ -28,7 +28,7 @@ import type { ApprovalRowVM } from '../adapter';
 import type { ApprovalFilterValues } from '../useApprovalFilters';
 import { ApprovalRowActions } from './ApprovalRowActions';
 
-/** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
+/** 欄位順序與顯示存在這台裝置（`web-core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
 const APPROVAL_TABLE_SETTINGS: TableSettingsConfig = { tableId: APPROVAL_LIST_TABLE_ID };
 
 interface ApprovalTableProps {

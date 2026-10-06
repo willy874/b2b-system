@@ -132,7 +132,7 @@ export function RichTable<TData extends RowData, TFilters extends Record<string,
     : selection.onRowSelectionChange;
 
   // 工具欄排在最前面，和一般欄位一起進欄位設定（預設值見 store 的 DEFAULT_PINNED_COLUMNS / DEFAULT_HIDDEN_COLUMNS）。
-  // 依賴放翻譯後的字串而不是 t（每次渲染都是新函式）：欄位定義一換，flexRender 會重新掛載勾選框
+  // 依賴放翻譯後的字串而不是 t：任何語系包載入完成時 t 都會換新（未必動到這幾個字），欄位定義一換，flexRender 會重新掛載勾選框
   const selectColumnLabel = t('common.selectColumn');
   const selectAllLabel = t('common.selectAll');
   const selectRowLabel = t('common.selectRow');

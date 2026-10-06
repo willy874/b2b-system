@@ -225,7 +225,7 @@ function Layout({ matchers }: LayoutProps) {
 ```
 pathname '/role/abc/permission'
   → resolvePageKey()：掃註冊表，找 base path 前綴命中的頁面 → ROLE_PAGE
-  → getPagePermission(ROLE_PAGE).rule → { access: ['role:read'], match: EVERY }
+  → requirePagePermission(ROLE_PAGE).rule → { access: ['role:read'], match: EVERY }
   → evaluateAccess(rule, canEvery, canSome)
   → { hydrated, page: ROLE_PAGE, gated: true, canAccess: boolean }
 ```
@@ -295,26 +295,22 @@ export const RoleListRoute = createRoute({
 
 ---
 
-## 6. Route context：feature 內的事件匯流排
+## 6. 父子路由之間的通訊：共用查詢快取
+
+詳情頁（父路由的元件，以 `Outlet` 掛子頁）與權限子頁（子路由的對話框，§2.1）沒有 props 關係。
+它們不另建事件匯流排，而是讀同一份 TanStack Query 快取：子頁寫入後宣告後端改了什麼，父頁的查詢由依賴圖失效、自己重抓。
 
 ```ts
-export const RoleDetailRoute = createRoute({
-  getParentRoute: () => RoleListRoute,
-  path: "$roleId",
-  context: () => ({
-    eventBus: new EventEmitter<{
-      [RoleEvents.ROLE_UPDATED]: () => void;
-      [RoleEvents.ROLE_PERMISSIONS_CHANGED]: () => void;
-    }>(),
-  }),
-});
+// features/role/hooks/useRoleMutations.ts — 權限子頁儲存成功
+invalidateResources([{ resource: Resource.ROLE_PERMISSION, kind: "update", id: roleId }]);
+
+// features/role/pages/RoleDetail/page.tsx — 詳情頁照常查詢，失效後自動重抓
+const rolePermissions = useQuery(getRolePermissionsQueryOptions(roleId));
 ```
 
-用途：詳情頁的工具列（父路由的元件）與權限子頁（子路由的元件）之間需要通訊，
-但它們沒有 props 關係。透過 route context 的 event bus，子頁完成操作後
-`emit`，工具列 `on` 之後重新整理，不需要把狀態提到共同祖先。
-
-**生命週期天然正確**：route 卸載，context 跟著消失，不會洩漏。
+- 子頁不知道父頁要刷新什麼，父頁也不知道子頁存在；要失效哪些 query 由依賴圖換算（[05 §6.2](./05-data-layer.md)）。
+- 其他分頁、其他裝置造成的變更走同一條路（跨分頁失效、推播；[05 §6.3](./05-data-layer.md)、[11](./11-realtime.md)），不必為同一頁內的通訊另寫一套。
+- 要傳的是畫面狀態而不是伺服器資料時，放進網址（§3）。TanStack Router 的 route `context` 目前沒有用到。
 
 ---
 

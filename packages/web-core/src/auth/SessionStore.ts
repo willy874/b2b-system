@@ -314,9 +314,5 @@ export function getSessionStore(name: string): SessionStore {
   return store;
 }
 
-export function getSessionStores(): SessionStore[] {
-  return Array.from(stores.values());
-}
-
 /** 主後端的 session：決定整個 app 的登入狀態。 */
 export const sessionStore = ensureSessionStore(MAIN_BACKEND);

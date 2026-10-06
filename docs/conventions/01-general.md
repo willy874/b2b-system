@@ -86,7 +86,7 @@ i18n key、className、`data-testid` 一律寫完整字面量，見 [`06-literal
 - 🔒 匯入順序由 `oxfmt` 的 `sortImports` 排序，不手動調整。
 - 🔒 `import/no-cycle`：不允許循環匯入。
 - 🔒 Node 內建模組加 `node:` 前綴（`unicorn/prefer-node-protocol`）。
-- 👀 跨資料夾一律用 `@/` alias；相對路徑只用在同一個 feature / module 內，且不超過兩層（`../../`）。
+- 👀 跨資料夾一律用 `@/` alias；相對路徑只用在同一個 feature / module 內（前端跨 feature 🔒 `layer-dependencies.test.ts`），且不超過兩層（`../../`）。
 
 分群順序（前端為例）：
 
@@ -94,9 +94,10 @@ i18n key、className、`data-testid` 一律寫完整字面量，見 [`06-literal
 // 1. 外部套件
 import { useQuery } from '@tanstack/react-query';
 // 2. workspace 套件
-import { RolesApi } from '@b2b-system/api-sdk';
 import { Button } from '@b2b-system/ui/Button';
-// 3. 專案內 alias（shared → core → apis）
+import { useToast } from '@b2b-system/web-core/notify';
+// 3. 專案內 alias（shared → core → apis；api-sdk 只經由 @/shared/api-sdk）
+import type { Role } from '@/shared/api-sdk';
 import { usePagePermission } from '@/core/permission'; // app 的門面（機制在 @b2b-system/web-core/permission）
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 // 4. 同 feature 內（相對路徑）
@@ -108,7 +109,10 @@ import { RoleFilter } from './components/RoleFilter';
 ## 5. 註解
 
 - 註解寫 **為什麼**，不寫程式碼已經說清楚的 **做什麼**。
-- 引用規格時寫出處：`（docs/architecture/backend/05-rbac.md §7）`。搬動文件時要一起改。
+- 引用規格時寫出處：`（docs/architecture/backend/05-rbac.md §7）`。搬動文件或程式時要一起改。
+  前端（兩個 app 與 `packages/{web-shared,ui,web-core}`）🔒 由 `packages/web-core/src/__tests__/comment-paths.test.ts` 檢查註解裡的路徑存在：
+  從 repo 根目錄寫起的 `apps/…`、`packages/…`、`docs/…`；反引號括住的 `core/…`、`app/…`、`apis/…`、`features/…` 等（app 的 `src/` 底下）
+  與 `web-core/…`、`ui/…`、`web-shared/…`（`packages/<名稱>/src/` 底下）。web-core 的檔案在 app 的註解裡寫 `web-core/…`，不寫 `core/…`。
 - 與文件不同的實作決定，在程式碼註解說明原因，並登記到根目錄 `CLAUDE.md`
   的「與文件不同的實作決定」表。
 - 公開 API（`core/`、`common/`、`packages/web-shared`、`packages/ui`、`packages/web-core` 匯出的東西）用 `/** */`，
