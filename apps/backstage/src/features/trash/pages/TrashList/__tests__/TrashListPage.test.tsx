@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -122,5 +123,17 @@ describe('回收桶頁（docs/architecture/frontend/13-trash.md）', () => {
     renderRoute(routes, '/trash?type=role', ['user:delete'] as PermissionKey[]);
     expect(await screen.findByText('Deleted Person')).toBeInTheDocument();
     expect(fetchTrash.mock.calls[0]![0].params.type).toBe('user');
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不顯示「回收桶是空的」；重試成功後列出', async () => {
+    fetchTrash.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, '/trash', ['user:read', 'user:delete'] as PermissionKey[]);
+
+    expect(await screen.findByTestId('trash-error')).toBeInTheDocument();
+    expect(screen.queryByText(trashZhTW.trash.empty)).not.toBeInTheDocument();
+
+    fetchTrash.mockResolvedValue({ items: [ITEM], pagination: { offset: 0, limit: 20, total: 1 } });
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findByText('Deleted Person')).toBeInTheDocument();
   });
 });

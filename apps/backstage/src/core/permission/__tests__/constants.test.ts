@@ -9,7 +9,7 @@ import {
   PermissionResource,
 } from '..';
 import type { PagePermissionRule } from '..';
-import { ALL_PERMISSION_KEYS, PermissionKey } from '../enums';
+import { ALL_PERMISSION_KEYS, isPermissionKey, PermissionKey } from '../enums';
 
 describe('權限的代數', () => {
   it('buildPermissionKey 組出 resource:action', () => {
@@ -65,5 +65,20 @@ describe('權限的代數', () => {
         () => true,
       ),
     ).toThrow(/Unsupported permission match/);
+  });
+});
+
+describe('isPermissionKey（字串收窄成權限鍵）', () => {
+  it.each(ALL_PERMISSION_KEYS)('目錄中的鍵 %s → true', (key) => {
+    expect(isPermissionKey(key)).toBe(true);
+  });
+
+  it.each([
+    ['任意字串', 'hello'],
+    ['資源名稱（技能樹的群組節點 id）', 'user'],
+    ['大小寫不同', 'User:Read'],
+    ['空字串', ''],
+  ])('%s → false', (_, value) => {
+    expect(isPermissionKey(value)).toBe(false);
   });
 });

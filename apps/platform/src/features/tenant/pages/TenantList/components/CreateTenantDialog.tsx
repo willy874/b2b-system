@@ -4,6 +4,7 @@ import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useState } from 'react';
 
 import { RESERVED_TENANT_CODES, TENANT_CODE_PATTERN } from '../../../constants';
@@ -72,6 +73,11 @@ export function CreateTenantDialog({
     adminEmail: !EMAIL_PATTERN.test(adminEmail.trim()),
   };
   const hasInvalid = Boolean(invalid.code) || invalid.name || invalid.adminEmail;
+  // 有輸入時 Esc、點遮罩、取消與換頁都先確認；建立成功由呼叫端關閉
+  const guard = useDialogUnsavedGuard(
+    open && Boolean(code || name || adminEmail || adminName),
+    onClose,
+  );
 
   const submit = async () => {
     setSubmitted(true);
@@ -96,12 +102,14 @@ export function CreateTenantDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={guard.onOpenChange}
       title={t('tenant.create.title')}
       data-testid="tenant-create-dialog"
       footer={
         <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="tenant-create-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             loading={create.isPending}

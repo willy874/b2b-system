@@ -43,6 +43,16 @@
       "title": "編輯平台管理者",
       "success": "已更新"
     },
+    "deactivate": {
+      "title": "停用平台管理者",
+      "confirm": "確定要停用「{{name}}」嗎？對方會立即被登出。",
+      "action": "停用"
+    },
+    "downgrade": {
+      "title": "降低角色",
+      "confirm": "「{{name}}」的角色會從「{{from}}」降為「{{to}}」，立即失去較高角色才有的權限。",
+      "action": "降低角色"
+    },
     "passwordLink": {
       "action": "寄送設定密碼連結",
       "title": "寄送設定密碼連結",

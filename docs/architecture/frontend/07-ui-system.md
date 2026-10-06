@@ -193,8 +193,15 @@ export function Dialog({
     <BaseDialog.Root
       open={open}
       defaultOpen={defaultOpen}
-      onOpenChange={onOpenChange}
-      dismissible={dismissible}
+      // Base UI 的 disablePointerDismissal 只擋點遮罩；Esc 要在 onOpenChange 依 reason 擋下
+      onOpenChange={(next, details) => {
+        if (!next && !dismissible && DISMISS_REASONS.has(details.reason)) {
+          details.cancel(); // 'escape-key'、'outside-press'、'close-watcher'
+          return;
+        }
+        onOpenChange?.(next);
+      }}
+      disablePointerDismissal={!dismissible}
     >
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className={styles.backdrop} />
@@ -225,6 +232,10 @@ export const DialogPrimitive = BaseDialog;
 
 **`dismissible` 的預設值是產品決定**：刪除確認對話框設 `false`，避免誤觸遮罩
 造成「以為取消了但其實什麼都沒發生」的困惑。
+
+`dismissible={false}` 同時擋 **點遮罩與 Esc**（對話框內的按鈕照常關閉）。只顯示一次的內容也用它：
+建立 API token、建立 Webhook 與輪替簽章密鑰之後，明文顯示中只剩「我已保存」能關閉，誤按 Esc 不會讓密鑰消失
+（[`06-external-api.md`](../06-external-api.md) §9.2 D7、[`backend/17-webhook.md`](../backend/17-webhook.md) §6）。
 
 ### 3.3 Base UI 的狀態屬性
 
@@ -478,6 +489,11 @@ const handleDelete = async (row: RoleRowVM) => {
   測試的 `AllProviders` 也已經掛好。
 - 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。
 - 需要在對話框裡放表單或其他內容時，仍用宣告式的 `AlertDialog`（`children`）或 `Dialog`。
+
+**什麼時候要確認**：點一下就生效、而且無法復原或會影響一群人的操作，一律先 `confirm({ tone: 'danger' })` 並在說明寫出影響：
+刪除、停用（對方會被登出）、駁回（申請人會收到結果）、移除群組成員（子群組的成員一起失去角色）、
+移除或降低資料夾授權（對象是角色、群組或所有人時說明是一群人）、降低平台管理者的角色。
+升級、新增這類放寬的操作不必確認。
 
 ### 3.12 JSON：`JsonViewer` / `JsonEditor`
 
@@ -926,8 +942,12 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 篩選 | `FilterBar` | 篩選圖示按鈕（`IconButton`，只有圖示，名稱走 `aria-label`）點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
 | 搜尋 | `search` | `search={{ value, onChange, placeholder }}`：表格上方常駐的搜尋框，停止輸入 300ms 或按 Enter 才送出 |
 | 篩選 Chip | `ActiveFilters` | 套用中的篩選（排序除外）以可移除的 Chip 列在表格上方；有篩選卻沒有結果時空狀態改成「沒有符合條件的結果」並提供「清除篩選」 |
-| 查詢失敗 | `error` ＋ `onRetry` | 沒有資料時以錯誤訊息＋重試取代表格（不會落到「沒有資料」）；有舊資料時保留表格並在上方提示 |
+| 查詢失敗 | `error` ＋ `onRetry` | 沒有資料時以錯誤訊息＋重試取代表格（不會落到「沒有資料」）；有舊資料時保留表格並在上方提示。**每個 `<RichTable` 都要傳 `error`**，由各 app 的 `app/__tests__/rich-table-error.test.ts` 掃描原始碼守住 |
 | 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `web-core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
+
+不經過 `RichTable` 的資料畫面（直接用 `Table`、卡片、設定表單、詳情對話框、頁面的一個區塊）同樣不能把查詢失敗畫成空狀態：
+沒有資料而且查詢失敗時，以 `QueryError`（`web-core/components`，本地化訊息＋重試）取代內容；詳情對話框查無資料（`isNotFound`）時不提供重試、改給「回到列表」。
+權限所依據的 profile 查詢失敗時，兩個 app 的 `Layout` 都顯示錯誤頁與重試，不停在載入中。
 
 表頭可以直接設定多欄排序：`sorting` 是 `TableSorting[]`（陣列順序即優先順序），每一欄循環
 **不排（`arrow-up-down`，淡化）→ 升冪（`arrow-up`）→ 降冪（`arrow-down`）→ 不排**。新排序的欄位加到最後，

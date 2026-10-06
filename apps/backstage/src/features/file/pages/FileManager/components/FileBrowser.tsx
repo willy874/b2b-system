@@ -2,6 +2,7 @@ import { Icon } from '@b2b-system/ui/Icon';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { useInfiniteScroll } from '@b2b-system/ui/VirtualList';
+import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { cn } from '@b2b-system/web-shared/utils';
@@ -68,6 +69,9 @@ interface FileBrowserProps {
   sort: SortEntry<FileSortField>;
   onSortChange: (sort: SortEntry<FileSortField>) => void;
   emptyContent: ReactNode;
+  /** 列表查詢失敗：沒有任何項目時以錯誤與重試取代 `emptyContent`（不顯示「這個資料夾是空的」）。 */
+  error?: unknown;
+  onRetry?: () => void;
 }
 
 /**
@@ -101,6 +105,8 @@ export function FileBrowser({
   sort,
   onSortChange,
   emptyContent,
+  error,
+  onRetry,
 }: FileBrowserProps) {
   const { t } = useTranslation();
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
@@ -450,7 +456,11 @@ export function FileBrowser({
         )}
         {showEmpty && (
           <div className="absolute inset-0 flex items-center justify-center p-6">
-            {emptyContent}
+            {error ? (
+              <QueryError error={error} onRetry={onRetry} data-testid="file-browser-error" />
+            ) : (
+              emptyContent
+            )}
           </div>
         )}
         {loadingMore && (

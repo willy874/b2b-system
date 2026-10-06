@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -79,11 +80,12 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
     parseSearch,
     stringifySearch,
   });
-  return render(
+  const result = render(
     <AllProviders>
       <RouterProvider router={router} />
     </AllProviders>,
   );
+  return { ...result, router };
 }
 
 function rowOf(type: string): HTMLElement {
@@ -185,5 +187,42 @@ describe('事件管理頁（docs/architecture/frontend/15-notification.md §9）
     expect(await screen.findByTestId('notification-event-page')).toBeInTheDocument();
     expect(screen.queryByTestId('notification-event-reset')).toBeNull();
     expect(screen.queryByTestId('notification-event-save')).toBeNull();
+  });
+
+  describe('未儲存提醒', () => {
+    it('切換開關還沒儲存就換頁：先確認；選「繼續編輯」後留在原處', async () => {
+      const { router } = renderPage(['system:read', 'system:update'] as PermissionKey[]);
+      await screen.findAllByTestId('notification-event-row');
+      fireEvent.click(
+        within(channelOf('approval.result', 'inApp')).getByTestId('notification-event-switch'),
+      );
+      await screen.findByTestId('notification-event-save');
+      router.history.push('/user');
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(router.state.location.pathname).toBe('/notification/events');
+      expect(screen.getByTestId('notification-event-save')).toBeInTheDocument();
+    });
+
+    it('沒有改動時換頁：不確認', async () => {
+      const { router } = renderPage(['system:read', 'system:update'] as PermissionKey[]);
+      await screen.findAllByTestId('notification-event-row');
+      router.history.push('/user');
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/user'));
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不是一片空白；重試成功後列出', async () => {
+    listEvents.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['system:read'] as PermissionKey[]);
+
+    expect(await screen.findByTestId('notification-event-error')).toBeInTheDocument();
+    listEvents.mockResolvedValue({ items: EVENTS });
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findAllByTestId('notification-event-row')).toHaveLength(2);
   });
 });

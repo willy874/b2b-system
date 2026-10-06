@@ -223,7 +223,7 @@ registerFilePreviewer({
 | 拖放時別人剛好改了結構 | 前端先依自己的資料夾清單擋下明顯的循環；後端在排隊的交易內再檢查一次（`FILE_FOLDER_CYCLE` / `NAME_CONFLICT`），失敗以 toast 顯示並重抓資料夾 |
 | 無限捲動途中有人新增或刪除 | keyset 游標：下一頁從「最後一筆之後」取，不重複、不漏；重新驗證時合併以 id 去重 |
 | 選取的檔案被別人刪除 | 選取以 id 記錄，並以目前載入的 id 過濾：資料更新後自動移出，批次操作不會送出看不到的項目 |
-| 兩個人同時改名 | 送出畫面上看到的 `version`；後到者收到 `FILE_VERSION_CONFLICT`，對話框保留輸入，詳情重抓後可以再送 |
+| 兩個人同時改名 | 送出 **開啟對話框時** 記下的 `version`（之後推播讓列表重抓也不換）；後到者收到 `FILE_VERSION_CONFLICT`，對話框保留輸入並以 `VersionConflictAlert` 提供「重新載入」，按下才換成最新的名稱與版本 |
 | 正在預覽的檔案被刪除 | 詳情 404 → LightBox 顯示「已刪除」並隱藏操作；自己刪除時關掉 LightBox |
 | 同一個檔案在批次刪除時已被刪除 | 單筆 API 回 `FILE_NOT_FOUND`，佇列記為失敗並一併移出選取（`isGoneError`） |
 | 上傳完成與取消同時發生 | 後端以 `WHERE status='pending'` 決勝（[backend 09 §5.3](../backend/09-file.md)），不會刪掉已完成的檔案 |
@@ -325,7 +325,7 @@ selectionCapabilities(items)                選取項目的能力取交集：can
   沒有指定資料夾時開在自己的個人資料夾（`personalFolderId`，只在進入頁面時導一次，之後點「所有檔案」仍回到根目錄）。
   系統資料夾的 `capabilities.canUpdate/canDelete` 恆為 false，選取列自然不顯示改名、移動、刪除。
 - **共用對話框（`FileShareDialog`）**：列出直接授權與繼承的授權（標出來源資料夾、不可在這裡改）；
-  新增對象（`GET /file-folders/:id/grant-subjects` 搜尋角色／使用者，或選「所有人」）、選等級、選過期時間；變更等級、移除；
+  新增對象（`GET /file-folders/:id/grant-subjects` 搜尋角色／使用者，或選「所有人」）、選等級、選過期時間；變更等級、移除（移除與降級先確認，對象是角色、群組或所有人時說明影響的是一群人；升級與已過期授權的改等級直接送出）；
   「不繼承上層的授權」開關（開啟時提示會複製目前繼承到的授權）；「存取申請」區塊列出待審的申請，可核准或駁回。等級選單只列出操作者授予得起的（反提權，後端仍會再擋）。
 - 授權變更之後後端推 `fileFolder update`：資料夾清單與檔案清單重抓，旗標自然更新；被移除授權的人正在看的資料夾
   從清單消失時，走既有的「網址上的資料夾不存在 → 回到根目錄」（`onMissingFolder`）。

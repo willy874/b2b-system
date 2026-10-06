@@ -302,7 +302,7 @@ describe('RealtimeCoordinator：轉發來源變更（§3.4、§4）', () => {
     forged.post('resource-changed', {
       term: term!,
       sequence: 1,
-      changes: [{ resource: 'unknown-resource' } as never],
+      changes: [{ resource: 'unknown-resource' } as unknown as ResourceChangeWire],
     });
     forged.close();
     vi.advanceTimersByTime(1);

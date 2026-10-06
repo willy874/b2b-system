@@ -41,13 +41,11 @@ export const RoleDetailPermissionRoute = createRoute({
   path: 'permission',
   // 業務規則（依賴資料狀態）走 beforeLoad；權限守衛走 Layout 層
   beforeLoad: async ({ params }) => {
-    const role = await queryClient.ensureQueryData(
-      getRoleDetailQueryOptions((params as { roleId: string }).roleId),
-    );
+    const role = await queryClient.ensureQueryData(getRoleDetailQueryOptions(params.roleId));
     if (role.slug === 'super-admin') {
       throw redirect({
         to: '/role/$roleId',
-        params: { roleId: (params as { roleId: string }).roleId },
+        params: { roleId: params.roleId },
         search: DEFAULT_ROLE_SEARCH,
         replace: true,
       });

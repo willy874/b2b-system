@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 恢復資料夾繼承沒有反提權，可流入高於自己能授予的等級 | [`folder-inheritance-restore-escalation.md`](./folder-inheritance-restore-escalation.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 請求日誌的 query 仍記下 code／state／ticket 原文 | [`request-log-query-not-redacted.md`](./request-log-query-not-redacted.md) | 2026-10-06（全面檢測：程式資安） |
@@ -41,20 +40,12 @@
 | 中 | 推播超過 100 筆變更時前端整則丟棄（還原角色） | [`realtime-changes-exceed-event-limit.md`](./realtime-changes-exceed-event-limit.md) | 2026-10-06（全面檢測：架構） |
 | 中 | Service 層的四處權限拒絕不寫 authz.denied 稽核 | [`service-authz-denied-not-audited.md`](./service-authz-denied-not-audited.md) | 2026-10-06（全面檢測：架構） |
 | 中 | @Audit() 沒有對應的 interceptor，標上去不會寫稽核 | [`audit-decorator-without-interceptor.md`](./audit-decorator-without-interceptor.md) | 2026-10-06（全面檢測：架構） |
-| 中 | 建立 Webhook、建立與編輯公告時，取消或 Esc 不會觸發未儲存提醒 | [`route-dialogs-bypass-unsaved-guard.md`](./route-dialogs-bypass-unsaved-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 查詢失敗時多個頁面顯示成「沒有資料」、空白或一直轉圈 | [`query-errors-shown-as-empty.md`](./query-errors-shown-as-empty.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 一次性的 token／Webhook 密鑰可被 Esc 或點遮罩關掉 | [`one-time-secrets-dismissible.md`](./one-time-secrets-dismissible.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 非路由的表單對話框與頁內草稿沒有未儲存提醒 | [`stateful-dialogs-no-unsaved-guard.md`](./stateful-dialogs-no-unsaved-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 放在 Field 裡的 Select 沒有連上欄位標籤與錯誤訊息 | [`select-not-linked-to-field-label.md`](./select-not-linked-to-field-label.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 登入頁等表單的送出錯誤沒有 role="alert"，報讀器不會念出 | [`form-errors-missing-alert-role.md`](./form-errors-missing-alert-role.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 帳號存的語系與時區沒被套用，偏好頁時區只有 4 個 | [`account-preferences-not-applied.md`](./account-preferences-not-applied.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 日期選擇器、TreeEditor、Spinner 的預設文案沒跟著語系 | [`ui-component-default-labels-not-localized.md`](./ui-component-default-labels-not-localized.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 系統角色看不到「管理權限」入口，且入口用錯權限判斷 | [`system-role-permission-entry-hidden.md`](./system-role-permission-entry-hidden.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 移除群組成員、資料夾授權、駁回審批、停用平台管理者沒有確認 | [`destructive-actions-without-confirm.md`](./destructive-actions-without-confirm.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 編輯標籤遇到版本衝突時沒有「重新載入」，重送一直 409 | [`tag-edit-conflict-no-reload.md`](./tag-edit-conflict-no-reload.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 警告色與成功色按鈕的白字對比不足，測試只要求 3:1 | [`button-color-contrast.md`](./button-color-contrast.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 平台 session 結束時被未儲存提醒擋下（改密碼必現） | [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 檔案管理器切換排列方式或他分頁改偏好時清空選取 | [`file-manager-selection-cleared-by-preference.md`](./file-manager-selection-cleared-by-preference.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |
@@ -81,7 +72,6 @@
 | 低 | 兩個前端仍有大量複製的程式，且已開始分岔 | [`duplicated-code-between-apps.md`](./duplicated-code-between-apps.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 前端架構文件與實作不符（分層強制、匯出約定、不存在的項目） | [`frontend-docs-drift.md`](./frontend-docs-drift.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 前端的死碼與過時的註解 | [`frontend-dead-code-and-stale-comments.md`](./frontend-dead-code-and-stale-comments.md) | 2026-10-06（全面檢測：可讀性） |
-| 低 | 角色權限選取以 as never 繞過 PermissionKey 型別檢查 | [`permission-key-type-escapes.md`](./permission-key-type-escapes.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 超過 400 行的元件與超過 200 行的 page.tsx | [`oversized-frontend-components.md`](./oversized-frontend-components.md) | 2026-10-06（全面檢測：可讀性） |
 
 嚴重度：

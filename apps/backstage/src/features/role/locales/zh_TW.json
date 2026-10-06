@@ -51,6 +51,7 @@
       "permissions": "已授予的權限",
       "holders": "持有此角色的使用者",
       "managePermission": "管理權限",
+      "viewPermission": "檢視權限",
       "allPermissions": "全部權限（隱含）",
       "backToList": "回到角色列表",
       "revisions": "版本紀錄",
@@ -63,6 +64,8 @@
       "description": "點一個權限就會授予它，它包含的前置權限自動點亮為「已包含」。要取消前置，先取消包含它的權限；你未持有的權限無法授予（反提權）。",
       "success": "角色權限已更新。",
       "summary": "將新增 {{add}} 項、移除 {{remove}} 項",
+      "stale": "其他人剛修改了這個角色的權限，你的勾選是以舊的資料為基礎；儲存時只會送出你這次的增減。",
+      "discard": "丟棄草稿",
       "skillTree": {
         "select": "選擇權限",
         "search": "搜尋權限名稱或權限鍵",

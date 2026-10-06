@@ -1,5 +1,5 @@
 import { renderRoute } from '@b2b-system/web-core/testing';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -23,7 +23,11 @@ vi.mock('@/apis/webhook/create-webhook/fetcher', () => ({
 }));
 
 const CREATOR = ['webhook:read', 'webhook:create'] as PermissionKey[];
-const routes = [Routes.WebhookListRoute.addChildren([Routes.WebhookCreateRoute])];
+// 「完成」導向的詳情：這裡只確認導覽，不渲染真的詳情頁
+Routes.WebhookDetailRoute.update({ component: () => <p data-testid="webhook-detail-stub" /> });
+const routes = [
+  Routes.WebhookListRoute.addChildren([Routes.WebhookCreateRoute, Routes.WebhookDetailRoute]),
+];
 
 beforeAll(() => initTestI18n(webhookZhTW));
 
@@ -37,6 +41,24 @@ beforeEach(() => {
   createWebhook.mockReset();
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
+
+async function typeName() {
+  const input = await screen.findByTestId('webhook-name-input', undefined, { timeout: 5000 });
+  fireEvent.change(input, { target: { value: 'CI' } });
+  return input;
+}
+
+async function create() {
+  createWebhook.mockResolvedValue({ secret: 'whsec_once', webhook: { id: 'w1', name: 'CI' } });
+  await typeName();
+  fireEvent.change(screen.getByTestId('webhook-url-input'), {
+    target: { value: 'https://hooks.example.com' },
+  });
+  fireEvent.click(screen.getByTestId('webhook-events-select'));
+  fireEvent.click(await screen.findByRole('option', { name: /使用者建立/ }));
+  fireEvent.click(screen.getByTestId('webhook-create-submit'));
+  await screen.findByTestId('webhook-secret-value');
+}
 
 describe('WebhookCreatePage（docs/architecture/backend/17-webhook.md §9.2 D14）', () => {
   it('還沒選事件時不能送出', async () => {
@@ -104,5 +126,61 @@ describe('WebhookCreatePage（docs/architecture/backend/17-webhook.md §9.2 D14�
   it('沒有 webhook:create → 看不到建立對話框', async () => {
     renderRoute(routes, '/webhook/create', ['webhook:read'] as PermissionKey[]);
     await waitFor(() => expect(screen.queryByTestId('webhook-create-dialog')).toBeNull());
+  });
+
+  describe('未儲存提醒（docs/architecture/frontend/04-routing.md §2.1）', () => {
+    it('填了一半按 Esc：先確認；選「繼續編輯」後對話框與輸入都還在', async () => {
+      renderRoute(routes, '/webhook/create', CREATOR);
+      const input = await typeName();
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(screen.getByTestId('webhook-create-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('webhook-name-input')).toHaveValue('CI');
+    });
+
+    it('填了一半按取消：先確認；選放棄才關閉', async () => {
+      renderRoute(routes, '/webhook/create', CREATOR);
+      await typeName();
+      fireEvent.click(screen.getByTestId('webhook-create-cancel'));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(screen.queryByTestId('webhook-create-dialog')).toBeNull());
+    });
+
+    it('建立成功後按 Esc：不關閉，密鑰仍在（docs/architecture/backend/17-webhook.md §9.2 D14）', async () => {
+      renderRoute(routes, '/webhook/create', CREATOR);
+      await create();
+      fireEvent.keyDown(screen.getByTestId('webhook-secret-value'), { key: 'Escape' });
+
+      expect(screen.getByTestId('webhook-secret-value')).toHaveTextContent('whsec_once');
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+
+    it('建立成功後以其他途徑離開（上一頁、側邊選單）：先確認，說明密鑰還沒保存', async () => {
+      const { router } = renderRoute(routes, '/webhook/create', CREATOR);
+      await create();
+      // 瀏覽器上一頁、側邊選單都是導覽
+      router.history.push('/webhook');
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      expect(confirm).toHaveTextContent('簽章密鑰保存了嗎？');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(screen.getByTestId('webhook-secret-value')).toHaveTextContent('whsec_once');
+    });
+
+    it('建立成功後按「我已保存密鑰」：不確認，直接到詳情', async () => {
+      const { router } = renderRoute(routes, '/webhook/create', CREATOR);
+      await create();
+      fireEvent.click(screen.getByTestId('webhook-create-done'));
+
+      expect(await screen.findByTestId('webhook-detail-stub')).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe('/webhook/w1');
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
   });
 });

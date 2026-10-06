@@ -36,7 +36,13 @@
       "title": "Create webhook",
       "description": "A signing secret is generated so the receiver can verify that requests come from here.",
       "createdTitle": "Webhook created",
-      "done": "I've saved the secret"
+      "done": "I've saved the secret",
+      "secretUnsaved": {
+        "title": "Have you saved the signing secret?",
+        "description": "The secret is shown only this once. After you leave you can't see it again; if you didn't save it you'll have to rotate it.",
+        "leave": "Leave anyway",
+        "stay": "Stay here"
+      }
     },
     "update": {
       "success": "Webhook updated"

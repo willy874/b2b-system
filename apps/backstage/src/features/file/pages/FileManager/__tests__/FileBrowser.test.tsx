@@ -73,6 +73,8 @@ function setup(
     viewMode?: FileViewMode;
     canUpload?: boolean;
     canMove?: boolean;
+    error?: unknown;
+    onRetry?: () => void;
   } = {},
 ) {
   const items = options.items ?? ITEMS;
@@ -127,6 +129,8 @@ function setup(
       }
       sort={{ sort: 'createdAt', order: 'desc' }}
       emptyContent={<p data-testid="empty">empty</p>}
+      error={options.error}
+      onRetry={options.onRetry}
       {...props}
     />
   );
@@ -305,5 +309,20 @@ describe('FileBrowser（主區塊）', () => {
     expect(locked).toHaveAttribute('data-locked', 'true');
     expect(open).not.toHaveAttribute('data-locked');
     expect(screen.getAllByTestId('file-folder-locked')).toHaveLength(1);
+  });
+
+  it('列表查詢失敗而且沒有項目：顯示錯誤與重試，不顯示空狀態（docs/architecture/frontend/07-ui-system.md §6.1）', () => {
+    const onRetry = vi.fn();
+    setup({ items: [], error: new Error('boom'), onRetry });
+    expect(screen.getByTestId('file-browser-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('empty')).toBeNull();
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('沒有錯誤而且沒有項目：顯示空狀態', () => {
+    setup({ items: [] });
+    expect(screen.getByTestId('empty')).toBeInTheDocument();
+    expect(screen.queryByTestId('file-browser-error')).toBeNull();
   });
 });

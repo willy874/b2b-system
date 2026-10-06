@@ -68,6 +68,20 @@ export function parseFileViewPreference(value: unknown): FileViewPreference {
   };
 }
 
+/**
+ * `parseFileViewPreference` 每次都建新的 `sort` 物件；排序的值沒變時沿用原本的物件。
+ * store 以 `Object.is` 比對欄位：換了參考，依賴 `sort` 的 memo 與 effect 都會以為排序變了，
+ * 例如只切換排列方式（卡片／列表）就清空選取（docs/architecture/frontend/12-file-manager.md §4）。
+ */
+function keepSortReference(
+  previous: FileViewPreference,
+  next: FileViewPreference,
+): FileViewPreference {
+  return previous.sort.sort === next.sort.sort && previous.sort.order === next.sort.order
+    ? { ...next, sort: previous.sort }
+    : next;
+}
+
 interface FileViewPreferenceStore extends FileViewPreference {
   update: (patch: Partial<FileViewPreference>) => void;
 }
@@ -77,21 +91,23 @@ export const useFileViewPreferenceStore = create<FileViewPreferenceStore>((set, 
   ...parseFileViewPreference(storage.get<unknown>(KEY, undefined)),
   update: (patch) => {
     const { update: _update, ...current } = get();
-    const next = parseFileViewPreference({ ...current, ...patch });
+    const next = keepSortReference(current, parseFileViewPreference({ ...current, ...patch }));
     storage.set(KEY, next);
     set(next);
   },
 }));
+
+/** 套用其他分頁（或 localStorage）的值：排序沒變時沿用原本的物件。 */
+function applyStoredPreference(value: unknown): void {
+  const { update: _update, ...current } = useFileViewPreferenceStore.getState();
+  useFileViewPreferenceStore.setState(keepSortReference(current, parseFileViewPreference(value)));
+}
 
 /**
  * 頁面掛載期間收其他分頁的變更；掛載時先重讀一次，補上沒在收訊期間錯過的寫入。
  * 回傳停止收訊的函式（給 `useEffect` 用）。
  */
 export function syncFileViewPreference(): () => void {
-  useFileViewPreferenceStore.setState(
-    parseFileViewPreference(storage.get<unknown>(KEY, undefined)),
-  );
-  return storage.subscribe(KEY, (value) => {
-    useFileViewPreferenceStore.setState(parseFileViewPreference(value));
-  });
+  applyStoredPreference(storage.get<unknown>(KEY, undefined));
+  return storage.subscribe(KEY, applyStoredPreference);
 }

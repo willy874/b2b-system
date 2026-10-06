@@ -170,6 +170,25 @@ describe('WebhookDetailPage（docs/architecture/backend/17-webhook.md §9 W2）'
     expect(await screen.findByTestId('webhook-secret-value')).toHaveTextContent('whsec_new');
   });
 
+  it('輪替後按 Esc：新的密鑰仍在畫面上；按「我已保存密鑰」才關閉（舊的已失效，只顯示這一次）', async () => {
+    const { router } = renderRoute(routes, '/webhook/w1', EDITOR);
+    fireEvent.click(
+      await screen.findByTestId('webhook-rotate-button', undefined, { timeout: 5000 }),
+    );
+    const confirm = await screen.findByTestId('webhook-rotate-confirm');
+    fireEvent.click(within(confirm).getByRole('button', { name: '輪替密鑰' }));
+    const secret = await screen.findByTestId('webhook-secret-value');
+
+    fireEvent.keyDown(secret, { key: 'Escape' });
+    expect(screen.getByTestId('webhook-secret-value')).toHaveTextContent('whsec_new');
+    // 外層的詳情對話框也沒有被關掉
+    expect(router.state.location.pathname).toBe('/webhook/w1');
+
+    fireEvent.click(screen.getByTestId('webhook-secret-done'));
+    await waitFor(() => expect(screen.queryByTestId('webhook-secret-value')).toBeNull());
+    expect(router.state.location.pathname).toBe('/webhook/w1');
+  });
+
   it('多個網址：列出每個網址與它的連續失敗次數，投遞紀錄可以依網址篩選（docs/architecture/backend/17-webhook.md §10.2 D15、D16）', async () => {
     fetchWebhook.mockResolvedValue({
       ...WEBHOOK,

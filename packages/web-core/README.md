@@ -36,11 +36,11 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `preference`、`toolbar` | 偏好頁分頁與可自訂欄位的表、頂列工具的註冊表 |
 | `route-link` | route id 的註冊表、`<RouteLink>`（渲染前檢查目標頁的權限）、`useRouteLinkAccess`、`useRouteLinkResolver` |
 | `realtime` | 推播的連線、協調者、`useRealtimeEvent()`；只有 `socketIoTransport.ts` import `socket.io-client` |
-| `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard` |
+| `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard`（路由）、`useDialogUnsavedGuard`（以 state 開關的對話框） |
 | `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost` |
 | `store` | 全域 store：`permission`、`layout`、`preference`（語系、時區、主題、頂列工具）、`tableColumnSettings` |
 | `theme` | `THEME_OPTIONS`、`resolveTheme()`／`applyTheme()` |
-| `testing` | `renderWithPermissions`／`AllProviders`、`renderRoute`、`fakeBatchQueue`、`initTestI18n` |
+| `testing` | `renderWithPermissions`／`AllProviders`、`renderRoute`（回傳 `router` 與 `queryClient`）、`renderInRouter`（單一元件放進只有 `/` 的路由）、`fakeBatchQueue`、`initTestI18n` |
 
 ## app 怎麼接上
 

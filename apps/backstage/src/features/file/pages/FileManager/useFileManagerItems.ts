@@ -36,9 +36,17 @@ export function useFileManagerItems({
   pageSize,
   onMissingFolder,
 }: UseFileManagerItemsOptions) {
+  // 依排序的值、不依物件參考：偏好更新時換了新的 sort 物件，不該讓頁面以為條件變了而清空選取
+  const { sort: sortField, order: sortOrder } = sort;
   const filters = useMemo(
-    () => ({ keyword, category, tagId: tag, folderId: folderId ?? 'root', sort: [sort] }),
-    [category, folderId, keyword, sort, tag],
+    () => ({
+      keyword,
+      category,
+      tagId: tag,
+      folderId: folderId ?? 'root',
+      sort: [{ sort: sortField, order: sortOrder }],
+    }),
+    [category, folderId, keyword, sortField, sortOrder, tag],
   );
   const folders = useFolderView({
     folderId,

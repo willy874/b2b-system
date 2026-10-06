@@ -30,6 +30,9 @@ const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = {
 interface AuditLogTableProps {
   items: AuditLogRowVM[];
   loading: boolean;
+  /** 查詢失敗：沒有資料時以錯誤與重試取代表格，不落到「沒有資料」。 */
+  error: unknown;
+  onRetry: () => void;
   /** 目前展開明細的那一列；明細顯示在該列正下方 */
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
@@ -40,6 +43,8 @@ interface AuditLogTableProps {
 export function AuditLogTable({
   items,
   loading,
+  error,
+  onRetry,
   expandedId,
   onToggleExpand,
   filters,
@@ -120,6 +125,8 @@ export function AuditLogTable({
       data={items}
       columns={columns}
       loading={loading}
+      error={error}
+      onRetry={onRetry}
       getRowId={(row) => row.id}
       filters={filters}
       settings={AUDIT_LOG_TABLE_SETTINGS}

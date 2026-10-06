@@ -30,7 +30,7 @@
 
   ```ts
   describe('useRolePermission（feature 的權限 facade）', () => {
-    it('canManagePermission 需要 role:update ＋ permission:read', () => { … });
+    it('canManagePermission 需要 role:read ＋ permission:read', () => { … });
   });
   ```
 

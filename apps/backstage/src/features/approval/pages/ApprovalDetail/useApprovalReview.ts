@@ -6,7 +6,7 @@ import {
   useRejectApprovalMutation,
 } from '../../hooks/useApprovalMutations';
 
-/** 審核表單的狀態：核准時指派的角色、審核意見、送出錯誤。 */
+/** 審核表單的狀態：核准時指派的角色、審核意見、送出錯誤。審核成功後呼叫 `onReviewed`（關閉要略過未儲存提醒）。 */
 export function useApprovalReview(approvalId: string, onReviewed: () => void) {
   const approve = useApproveApprovalMutation();
   const reject = useRejectApprovalMutation();
@@ -29,6 +29,8 @@ export function useApprovalReview(approvalId: string, onReviewed: () => void) {
   const trimmed = comment.trim() || undefined;
 
   return {
+    /** 輸入了審核意見或選了角色：關閉前要確認。 */
+    isDirty: trimmed !== undefined || roleIds.length > 0,
     roleIds,
     setRoleIds,
     comment,

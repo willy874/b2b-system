@@ -1,9 +1,12 @@
 import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PermissionKey } from '@/core/permission';
 import type { FileFolderGrantList } from '@/shared/api-sdk';
+import { initTestI18n } from '@/test/i18n';
 
+import fileZhTW from '../../../locales/zh_TW.json';
 import { FileShareDialog } from '../components/FileShareDialog';
 
 const { fetchGrants, fetchSubjects, setGrant, deleteGrant, setInheritance, fetchExplain } =
@@ -87,6 +90,24 @@ const rowOf = async (subjectId: string) =>
     (row) => row.getAttribute('data-value') === subjectId,
   );
 
+/** 移除與降級都要先確認：按確認框的「確認」。 */
+async function confirmIn(testId: string) {
+  fireEvent.click(within(await screen.findByTestId(testId)).getByTestId('alert-dialog-confirm'));
+}
+
+/** 打開等級下拉，選一個等級。 */
+async function pickLevel(row: HTMLElement, level: string) {
+  fireEvent.click(within(row).getByTestId('file-share-grant-level'));
+  await screen.findByRole('listbox');
+  const option = screen
+    .getAllByTestId('select-item')
+    .find((item) => item.getAttribute('data-value') === level);
+  if (!option) throw new Error(`找不到等級 ${level}`);
+  fireEvent.click(option);
+}
+
+beforeAll(() => initTestI18n(fileZhTW));
+
 beforeEach(() => {
   fetchGrants.mockReset();
   fetchSubjects.mockReset().mockResolvedValue({ items: [] });
@@ -110,11 +131,16 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
     expect(within(inherited as HTMLElement).queryByTestId('file-share-grant-remove')).toBeNull();
   });
 
-  it('移除送出資料夾、對象種類與 id', async () => {
+  it('移除：先確認，說明持有角色的所有人都受影響；確認後送出資料夾、對象種類與 id', async () => {
     fetchGrants.mockResolvedValue(grants());
     renderDialog();
     const direct = await rowOf(ART_TEAM);
     fireEvent.click(within(direct as HTMLElement).getByTestId('file-share-grant-remove'));
+    expect(await screen.findByTestId('file-share-remove-confirm')).toHaveTextContent(
+      '持有角色「美術組」的所有人',
+    );
+    expect(deleteGrant).not.toHaveBeenCalled();
+    await confirmIn('file-share-remove-confirm');
     await waitFor(() =>
       expect(deleteGrant.mock.calls[0]?.[0]).toEqual({
         params: { folderId: 'ui', subjectType: 'role', subjectId: ART_TEAM },
@@ -181,11 +207,55 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
     const row = await rowOf(everyone);
     expect(row).toHaveAttribute('data-subject-type', 'everyone');
     fireEvent.click(within(row as HTMLElement).getByTestId('file-share-grant-remove'));
+    expect(await screen.findByTestId('file-share-remove-confirm')).toHaveTextContent('所有人');
+    await confirmIn('file-share-remove-confirm');
     await waitFor(() =>
       expect(deleteGrant.mock.calls[0]?.[0]).toEqual({
         params: { folderId: 'ui', subjectType: 'everyone', subjectId: everyone },
       }),
     );
+  });
+
+  it('移除時按取消：不送出', async () => {
+    fetchGrants.mockResolvedValue(grants());
+    renderDialog();
+    const direct = await rowOf(ART_TEAM);
+    fireEvent.click(within(direct as HTMLElement).getByTestId('file-share-grant-remove'));
+    const confirm = await screen.findByTestId('file-share-remove-confirm');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('file-share-remove-confirm')).toBeNull());
+    expect(deleteGrant).not.toHaveBeenCalled();
+  });
+
+  it('降級：先確認；按取消不送出，按確認才送出', async () => {
+    fetchGrants.mockResolvedValue(grants());
+    renderDialog();
+    const direct = (await rowOf(ART_TEAM)) as HTMLElement;
+
+    await pickLevel(direct, 'viewer');
+    const confirm = await screen.findByTestId('file-share-downgrade-confirm');
+    expect(confirm).toHaveTextContent('從「編輯者」降為「檢視者」');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('file-share-downgrade-confirm')).toBeNull());
+    expect(setGrant).not.toHaveBeenCalled();
+
+    await pickLevel(direct, 'viewer');
+    await confirmIn('file-share-downgrade-confirm');
+    await waitFor(() => expect(setGrant).toHaveBeenCalledTimes(1));
+    expect(setGrant.mock.calls[0]?.[0]).toMatchObject({
+      params: {
+        folderId: 'ui',
+        body: { subjectType: 'role', subjectId: ART_TEAM, level: 'viewer' },
+      },
+    });
+  });
+
+  it('升級：不確認，直接送出', async () => {
+    fetchGrants.mockResolvedValue(grants());
+    renderDialog();
+    await pickLevel((await rowOf(ART_TEAM)) as HTMLElement, 'manager');
+    await waitFor(() => expect(setGrant).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('file-share-downgrade-confirm')).toBeNull();
   });
 
   describe('檢查存取（docs/rbac/01-domain-model.md §9 G4b）', () => {
@@ -219,7 +289,7 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
       });
       renderWithPermissions(
         <FileShareDialog folder={{ id: 'ui', name: 'ui' }} onClose={vi.fn()} />,
-        ['authz:explain'] as never,
+        [PermissionKey['authz:explain']],
       );
       const section = await screen.findByTestId('file-access-explain');
       fireEvent.click(within(section).getByTestId('file-access-explain-user'));

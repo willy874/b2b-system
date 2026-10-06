@@ -5,7 +5,10 @@
       "description": "Requests that take effect only after an administrator approves them. Approving acts on the requester's behalf, so it also requires the permission for that operation.",
       "searchPlaceholder": "Search requester"
     },
-    "detail": { "title": "Approval details" },
+    "detail": {
+      "title": "Approval details",
+      "backToList": "Back to approvals"
+    },
     "review": {
       "title": "Review",
       "roles": "Roles to assign on approval",
@@ -23,8 +26,14 @@
       "title": "Reject request",
       "confirm": "Reject the request from \"{{name}}\"?"
     },
-    "approve": { "action": "Approve", "success": "Approved." },
-    "reject": { "action": "Reject", "success": "Rejected." },
+    "approve": {
+      "action": "Approve",
+      "success": "Approved."
+    },
+    "reject": {
+      "action": "Reject",
+      "success": "Rejected."
+    },
     "batch": {
       "approve": {
         "action": "Approve",

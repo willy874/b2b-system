@@ -3,6 +3,7 @@ import type { LeaderElectionAdapters, LeaderMessages } from '@b2b-system/web-sha
 import { createFakeChannelHub } from '@b2b-system/web-shared/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AppPluginFactory } from '../../../app';
 import { sessionStore } from '../../../auth';
 import { MAIN_BACKEND } from '../../../client';
 import { getActiveRealtimeClient, isRealtimeAvailable } from '../../../realtime';
@@ -81,7 +82,7 @@ function install(onResourceChanged = vi.fn()) {
     createTransport: create,
     leaderAdapters: adapters,
     controlTransport: transport,
-  })({} as never);
+  })({} as unknown as Parameters<AppPluginFactory>[0]);
   return { plugin, connection, push, accept, onResourceChanged };
 }
 

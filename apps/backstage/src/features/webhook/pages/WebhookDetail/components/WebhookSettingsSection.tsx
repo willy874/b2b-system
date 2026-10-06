@@ -325,9 +325,11 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
         </dl>
       )}
 
+      {/* 新密鑰只出現這一次（舊的已經失效）：Esc、點遮罩不關閉，只能按「我已保存密鑰」 */}
       <Dialog
         open={Boolean(secret)}
         onOpenChange={(open) => !open && setSecret(undefined)}
+        dismissible={false}
         title={t('webhook.secret.rotatedTitle')}
         size="md"
         footer={
@@ -336,7 +338,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
             onClick={() => setSecret(undefined)}
             data-testid="webhook-secret-done"
           >
-            {t('common.close')}
+            {t('webhook.create.done')}
           </Button>
         }
         data-testid="webhook-secret-dialog"

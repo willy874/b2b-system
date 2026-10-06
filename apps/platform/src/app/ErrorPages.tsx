@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Spinner } from '@b2b-system/ui/Spinner';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useRouter } from '@tanstack/react-router';
 import type { ErrorComponentProps } from '@tanstack/react-router';
@@ -81,6 +82,36 @@ export function NotFoundPage() {
       description={t('error.page.notFound.description')}
       actions={<LeaveActions />}
       data-testid="not-found-page"
+    />
+  );
+}
+
+interface UnexpectedErrorPageProps {
+  /** 有值時顯示後端錯誤的本地化說明，否則用通用文案。 */
+  error?: unknown;
+  onRetry?: () => void;
+}
+
+/**
+ * 不是路由本身出錯、而是頁面需要的資料拿不到（例：權限所依據的 profile 查詢失敗）：說明原因並提供重試
+ * （與 apps/backstage 的 `UnexpectedErrorPage` 相同）。
+ */
+export function UnexpectedErrorPage({ error, onRetry }: UnexpectedErrorPageProps) {
+  const { t } = useTranslation();
+  const toMessage = useErrorMessage();
+  return (
+    <ErrorLayout
+      code="500"
+      title={t('error.page.unexpected.title')}
+      description={error === undefined ? t('error.page.unexpected.description') : toMessage(error)}
+      actions={
+        onRetry && (
+          <Button variant="primary" onClick={onRetry} data-testid="error-page-retry">
+            {t('common.retry')}
+          </Button>
+        )
+      }
+      data-testid="unexpected-error-page"
     />
   );
 }

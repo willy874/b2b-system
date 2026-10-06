@@ -217,7 +217,13 @@
     "created": {
       "title": "API token created",
       "warning": "Copy and store it now. This token is shown only once.",
-      "done": "I've saved it"
+      "done": "I've saved it",
+      "unsaved": {
+        "title": "Have you saved the token?",
+        "description": "The token is shown only this once. After you leave you can't see it again; if you didn't save it you'll have to revoke it and create another.",
+        "leave": "Leave anyway",
+        "stay": "Stay here"
+      }
     }
   },
   "tag": {
@@ -228,6 +234,8 @@
       "search": "Search tags",
       "hint": "Up to {{max}}. Tag names and colors are set in Tags.",
       "noTags": "There are no tags for this kind of item yet. Create some in Tags first.",
+      "stale": "Someone else just changed this item's tags; your selection is based on outdated data. Saving replaces them with your selection.",
+      "useLatest": "Use the latest tags",
       "success": "Tags updated"
     },
     "filter": "Tags",

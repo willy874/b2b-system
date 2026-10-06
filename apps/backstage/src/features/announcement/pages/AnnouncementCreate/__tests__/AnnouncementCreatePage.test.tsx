@@ -1,5 +1,5 @@
 import { renderRoute } from '@b2b-system/web-core/testing';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -56,6 +56,14 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
+async function typeTitle() {
+  const input = await screen.findByTestId('announcement-title-input', undefined, {
+    timeout: 5000,
+  });
+  fireEvent.change(input, { target: { value: '系統維護' } });
+  return input;
+}
+
 describe('AnnouncementCreatePage（docs/architecture/backend/19-announcement.md §9 A2）', () => {
   it('選全部 → 顯示預覽人數；填標題與內文後存成草稿（立即發送）', async () => {
     const { router } = renderRoute(routes, '/announcement/create', CREATOR);
@@ -87,5 +95,40 @@ describe('AnnouncementCreatePage（docs/architecture/backend/19-announcement.md 
       },
     });
     await waitFor(() => expect(router.state.location.pathname).toBe('/announcement/a9'));
+    // 建立成功後的導覽不經過未儲存提醒
+    expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+  });
+
+  describe('未儲存提醒（docs/architecture/frontend/04-routing.md §2.1）', () => {
+    it('輸入標題後按 Esc：先確認；選「繼續編輯」後對話框與輸入都還在', async () => {
+      renderRoute(routes, '/announcement/create', CREATOR);
+      const input = await typeTitle();
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(screen.getByTestId('announcement-create-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('announcement-title-input')).toHaveValue('系統維護');
+    });
+
+    it('輸入標題後按取消：先確認；選放棄才關閉', async () => {
+      const { router } = renderRoute(routes, '/announcement/create', CREATOR);
+      await typeTitle();
+      fireEvent.click(screen.getByTestId('announcement-create-cancel'));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
+    });
+
+    it('沒有輸入時按取消直接關閉', async () => {
+      const { router } = renderRoute(routes, '/announcement/create', CREATOR);
+      fireEvent.click(
+        await screen.findByTestId('announcement-create-cancel', undefined, { timeout: 5000 }),
+      );
+      await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
   });
 });

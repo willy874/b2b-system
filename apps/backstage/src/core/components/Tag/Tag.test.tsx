@@ -92,4 +92,49 @@ describe('TagAssignDialog', () => {
     );
     expect(screen.getByTestId('tag-assign-empty')).toBeInTheDocument();
   });
+
+  it('開啟中 value 變了（別人改了標籤）：不覆寫正在選的內容，改為提示；按「改用最新的標籤」才換', async () => {
+    const onSave = vi.fn(async () => undefined);
+    const props = {
+      open: true,
+      onOpenChange: vi.fn(),
+      title: '標籤',
+      options: [tag('a', '合約'), tag('b', '急件'), tag('c', '草稿')],
+      onSave,
+    };
+    const { rerender } = render(<TagAssignDialog {...props} value={[tag('a', '合約')]} />, {
+      wrapper: AllProviders,
+    });
+    fireEvent.click(screen.getByTestId('tag-assign-select'));
+    fireEvent.click(await screen.findByRole('option', { name: '急件' }));
+
+    // 推播讓資料重抓：別人加了「草稿」
+    rerender(<TagAssignDialog {...props} value={[tag('a', '合約'), tag('c', '草稿')]} />);
+    expect(screen.getByTestId('tag-assign-stale')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('tag-assign-save'));
+    await waitFor(() => expect(onSave).toHaveBeenLastCalledWith(['a', 'b']));
+
+    fireEvent.click(screen.getByTestId('tag-assign-use-latest'));
+    expect(screen.queryByTestId('tag-assign-stale')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('tag-assign-save'));
+    await waitFor(() => expect(onSave).toHaveBeenLastCalledWith(['a', 'c']));
+  });
+
+  it('關閉再打開：從當下貼著的標籤重新開始', async () => {
+    const onSave = vi.fn(async () => undefined);
+    const props = {
+      onOpenChange: vi.fn(),
+      title: '標籤',
+      options: [tag('a', '合約'), tag('b', '急件')],
+      onSave,
+    };
+    const { rerender } = render(<TagAssignDialog {...props} open value={[tag('a', '合約')]} />, {
+      wrapper: AllProviders,
+    });
+    rerender(<TagAssignDialog {...props} open={false} value={[tag('a', '合約')]} />);
+    rerender(<TagAssignDialog {...props} open value={[tag('b', '急件')]} />);
+    expect(screen.queryByTestId('tag-assign-stale')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('tag-assign-save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(['b']));
+  });
 });

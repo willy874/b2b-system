@@ -9,14 +9,17 @@ import { initTestI18n } from '@/test/i18n';
 import { registerAnnouncementPagePermissions, Routes } from '../../..';
 import zhTW from '../../../locales/zh_TW.json';
 
-const { fetchList, fetchDetail, fetchDispatches, publish, pause, revoke } = vi.hoisted(() => ({
-  fetchList: vi.fn(),
-  fetchDetail: vi.fn(),
-  fetchDispatches: vi.fn(),
-  publish: vi.fn(),
-  pause: vi.fn(),
-  revoke: vi.fn(),
-}));
+const { fetchList, fetchDetail, fetchDispatches, publish, pause, revoke, update, remove } =
+  vi.hoisted(() => ({
+    fetchList: vi.fn(),
+    fetchDetail: vi.fn(),
+    fetchDispatches: vi.fn(),
+    publish: vi.fn(),
+    pause: vi.fn(),
+    revoke: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+  }));
 vi.mock('@/apis/announcement/get-announcement-list/fetcher', () => ({
   fetchAnnouncementListQuery: fetchList,
 }));
@@ -34,6 +37,12 @@ vi.mock('@/apis/announcement/pause-announcement/fetcher', () => ({
 }));
 vi.mock('@/apis/announcement/revoke-announcement-dispatch/fetcher', () => ({
   fetchAnnouncementDispatchRevokeMutation: revoke,
+}));
+vi.mock('@/apis/announcement/update-announcement/fetcher', () => ({
+  fetchAnnouncementUpdateMutation: update,
+}));
+vi.mock('@/apis/announcement/delete-announcement/fetcher', () => ({
+  fetchAnnouncementDeleteMutation: remove,
 }));
 
 const DRAFT = {
@@ -102,12 +111,23 @@ beforeEach(() => {
   publish.mockReset().mockResolvedValue({ ...DRAFT, status: 'completed', version: 4 });
   pause.mockReset().mockResolvedValue({ ...SCHEDULED, status: 'paused', version: 4 });
   revoke.mockReset().mockResolvedValue({ ...DISPATCH, status: 'revoked' });
+  update.mockReset().mockResolvedValue({ ...DRAFT, title: '改過的標題', version: 4 });
+  remove.mockReset().mockResolvedValue(undefined);
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
 async function openDetail(permissions: PermissionKey[] | 'unhydrated') {
-  renderRoute(routes, '/announcement/a1', permissions);
-  return screen.findByTestId('announcement-settings-section', undefined, { timeout: 5000 });
+  const { router } = renderRoute(routes, '/announcement/a1', permissions);
+  await screen.findByTestId('announcement-settings-section', undefined, { timeout: 5000 });
+  return router;
+}
+
+async function startEditing() {
+  const router = await openDetail(PUBLISHER);
+  fireEvent.click(screen.getByTestId('announcement-edit'));
+  const input = await screen.findByTestId('announcement-title-input');
+  fireEvent.change(input, { target: { value: '改過的標題' } });
+  return { router, input };
 }
 
 describe('AnnouncementDetailPage（docs/architecture/backend/19-announcement.md §9 A2）', () => {
@@ -190,6 +210,49 @@ describe('AnnouncementDetailPage（docs/architecture/backend/19-announcement.md 
     await waitFor(() => expect(revoke).toHaveBeenCalledTimes(1));
     expect(revoke.mock.calls[0]![0]).toMatchObject({
       params: { announcementId: 'a1', dispatchId: 'd1' },
+    });
+  });
+
+  describe('未儲存提醒（docs/architecture/frontend/04-routing.md §2.1）', () => {
+    it('編輯中按 Esc：先確認；選「繼續編輯」後對話框與輸入都還在', async () => {
+      const { input } = await startEditing();
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(screen.getByTestId('announcement-detail-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('announcement-title-input')).toHaveValue('改過的標題');
+    });
+
+    it('編輯中按關閉：先確認；選放棄才關閉', async () => {
+      const { router } = await startEditing();
+      fireEvent.click(screen.getByRole('button', { name: '關閉' }));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
+    });
+
+    it('儲存成功後關閉：不確認', async () => {
+      const { router } = await startEditing();
+      fireEvent.click(screen.getByTestId('announcement-save'));
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId('announcement-save')).toBeNull());
+
+      fireEvent.click(screen.getByRole('button', { name: '關閉' }));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+
+    it('刪除後關閉：不確認', async () => {
+      const router = await openDetail(PUBLISHER);
+      fireEvent.click(screen.getByTestId('announcement-delete'));
+      const confirm = await screen.findByTestId('announcement-delete-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
     });
   });
 });
