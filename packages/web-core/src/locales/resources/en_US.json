@@ -196,6 +196,7 @@
     "IDENTITY_PROVIDER_NAME_DUPLICATE": "A connection with this name already exists.",
     "IDENTITY_PROVIDER_DOMAIN_TAKEN": "This domain already belongs to another connection.",
     "IDENTITY_PROVIDER_LIMIT_REACHED": "You've reached the identity provider limit ({{max}}). Delete unused connections first.",
+    "AUDIT_LOG_NOT_FOUND": "This audit log entry was not found. It may have passed the retention period.",
     "JOB_NOT_FOUND": "This job does not exist or has been cleaned up.",
     "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
     "FILE_NOT_FOUND": "This file does not exist or has been deleted.",

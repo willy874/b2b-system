@@ -240,6 +240,9 @@ GET /audit-logs?offset=0&limit=50
 **列表只回摘要**（不含 `changes` / `metadata`）。這兩個 jsonb 是一筆紀錄裡最大的部分，
 列表不讀它們就省下 detoast 與傳輸；展開明細時才打 `GET /audit-logs/:id` 取完整紀錄。
 
+`GET /audit-logs/:id` 的錯誤：`id` 不是正整數（含空字串）→ `400 VALIDATION_FAILED`（`fields.id`）；
+查無（含已過保留期被清除、超出 bigint 範圍）→ `404 AUDIT_LOG_NOT_FOUND`，與其他資源的 `<RESOURCE>_NOT_FOUND` 一致。
+
 ### 7.1 `action` 的前綴比對
 
 ```ts

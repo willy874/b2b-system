@@ -219,6 +219,9 @@ export const ErrorCode = {
   /** 連線數已達租戶的上限 `identityProvider.maxProviders`（`details.max`；docs/architecture/05-tenancy.md §13.3 D10）。 */
   IDENTITY_PROVIDER_LIMIT_REACHED: { status: 409 },
 
+  // ── 稽核日誌 ──
+  AUDIT_LOG_NOT_FOUND: { status: 404 },
+
   // ── 背景工作 ──
   JOB_NOT_FOUND: { status: 404 },
   JOB_NOT_RETRYABLE: { status: 409 },

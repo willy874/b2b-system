@@ -18,7 +18,6 @@
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
 | 中 | E2E 在 api 跑著時重灌資料庫：系統資料夾與個人資料夾不會建立，依賴它們的案例時過時不過 | [`e2e-reseed-skips-bootstrap-preparation.md`](./e2e-reseed-skips-bootstrap-preparation.md) | 2026-10-06（補 E2E） |
-| 中 | 稽核明細查無資料時回 400 `VALIDATION_FAILED`，其他資源都是 404 | [`audit-log-detail-not-found-status.md`](./audit-log-detail-not-found-status.md) | 2026-10-06（補稽核的單元測試） |
 | 低 | 改密碼後的登出原因可能被 `session.revoked` 推播搶先，登入頁顯示通用訊息而不是「密碼已變更」 | [`password-change-signout-reason-race.md`](./password-change-signout-reason-race.md) | 2026-10-06（補 E2E） |
 | 低 | E2E 以錯誤訊息的文字斷言：表單欄位錯誤與登入錯誤沒有帶錯誤碼的 testid | [`e2e-field-error-text-assertions.md`](./e2e-field-error-text-assertions.md) | 2026-10-06（補 E2E） |
 | 低 | Webhook 訂閱的 `url`、`consecutive_failures` 已由 `webhook_targets` 取代，下一次部署刪除 | [`webhook-legacy-columns.md`](./webhook-legacy-columns.md) | 2026-10-02（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §13） |
