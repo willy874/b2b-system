@@ -79,14 +79,18 @@ React 端以 `useStore(context.state, (s) => s.x)` 讀取。
 
 ### 2.1 `web-core/store/` 的清單
 
-| Store                 | 內容                             | 持久化                      |
-| --------------------- | -------------------------------- | --------------------------- |
-| `permission`          | `Set<PermissionKey>`、`hydrated` | ❌ 每次登入重新取得         |
-| `layout`              | 側邊選單開合、密度               | ✅ localStorage             |
-| `locale`              | 當前語系                         | ✅ localStorage ＋ 後端偏好 |
-| `timezone`            | 當前時區                         | ✅ localStorage ＋ 後端偏好 |
-| `tableColumnSettings` | 各表格的欄位顯示與順序（依 `tableId`） | ✅ localStorage ＋ 跨分頁頻道 |
-| `tableFilterSettings` | 各表格的預設篩選                 | ✅ localStorage             |
+| 檔案（hook）                                  | 內容                             | 持久化                      |
+| --------------------------------------------- | -------------------------------- | --------------------------- |
+| `permission`（`usePermissionStore`）          | `Set<PermissionKey>`、`hydrated` | ❌ 每次登入重新取得         |
+| `layout`（`useLayoutStore`）                  | 側邊選單開合                     | ✅ localStorage（不跨分頁同步） |
+| `preference`（`useLocaleStore`）              | 當前語系                         | ✅ localStorage ＋ 後端偏好 ＋ 跨分頁頻道 |
+| `preference`（`useTimezoneStore`）            | 當前時區                         | ✅ localStorage ＋ 後端偏好 ＋ 跨分頁頻道 |
+| `preference`（`useThemeStore`）               | 主題（淺色／深色／跟隨系統）     | ✅ localStorage ＋ 跨分頁頻道（只存本機，[07 §4.4](./07-ui-system.md)） |
+| `preference`（`useHeaderToolbarStore`）       | 頂列工具的順序與隱藏項           | ✅ localStorage ＋ 跨分頁頻道（只存本機，[02 §4.4](./02-plugin-system.md)） |
+| `tableColumnSettings`（`useTableColumnSettingsStore`） | 各表格的欄位顯示、順序、固定欄位、表頭固定（依 `tableId`）；釘選列只在本分頁的記憶體 | ✅ localStorage ＋ 跨分頁頻道 |
+
+feature 自己的 store 放在 feature 裡（例：`features/file/preference.ts` 的檔案管理器排列方式，§5 的 `store:file-view:storage`）。
+表格的篩選條件在網址上（[04 §3](./04-routing.md)），不另外存成預設值。
 
 ---
 
@@ -358,6 +362,7 @@ const stop = shareStore(
 | `realtime-control:<後端>`   | `resource-changed`、`resync`、`status`、`status-request` | 預設 | `createRealtimeControlChannel` → `web-core/realtime/RealtimeCoordinator`（[11 §3.4](./11-realtime.md)） | realtime plugin |
 | `store:preference:storage`  | `set`、`remove`（`DictStorageMessages`） | 預設 | `createPreferenceChannel` → `web-core/store/preference` 的 dictStorage | 寫入即送；i18n plugin 訂閱（`syncPreferencesAcrossTabs`，含語系、時區、主題）；主題由 theme plugin 訂閱 store 套用 |
 | `store:table-column-settings:storage` | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼） | `createTableColumnSettingsChannel` → `web-core/store/tableColumnSettings` 的 dictStorage | 寫入即送；表格掛載期間訂閱（`syncTableColumnSettings`） |
+| `store:file-view:storage`   | `set`、`remove`（`DictStorageMessages`） | 預設（不經伺服器中繼；只同步本機分頁） | `createFileViewPreferenceChannel` → backstage `features/file/preference.ts` 的 dictStorage | 寫入即送；檔案管理器頁掛載期間訂閱（`syncFileViewPreference`） |
 | `batch-queue`               | `snapshot`、`snapshot-request`、`host-closed` | 預設（BroadcastChannel，不經伺服器；項目名稱含 email） | `createBatchQueueChannel` → `web-core/batch` 的 `BatchQueueHost`（worker 內，送快照）與每個分頁的 `BatchQueueClient`（收快照、送 request） | batch-queue plugin 的 `start()` / `stop()`；指令與逐筆執行走 worker 的 port，不走頻道（[`frontend/07-ui-system.md`](07-ui-system.md) §13） |
 
 目前沒有 store 使用 `syncStore` / `shareStore`（偏好設定由 dictStorage 同步）；新增時把頻道補進上表。
