@@ -191,7 +191,7 @@ export class FileFolderGrantService {
     };
   }
 
-  /** 繼承到的授權（不含自己的），同一個對象取最高等級；自己已有同等或更高的不複製。 */
+  /** 繼承到的授權（不含自己的），同一個對象取最高等級；自己已有同等或更高的有效授權不複製。 */
   private async copyInherited(
     ctx: FileAccessContext,
     folderId: string,
@@ -205,12 +205,12 @@ export class FileFolderGrantService {
     const inherited = new Map<string, FolderGrant>();
     for (const row of rows) {
       const key = `${row.subjectType}:${row.subjectId}`;
+      // 已過期的不計入存取：上層的不必保留，自己的也不能擋下繼承來的有效授權
+      if (row.expiresAt && row.expiresAt.getTime() <= now) continue;
       if (row.folderId === folderId) {
         direct.set(key, row.level);
         continue;
       }
-      // 已過期的不計入存取，也就不必保留
-      if (row.expiresAt && row.expiresAt.getTime() <= now) continue;
       const previous = inherited.get(key);
       if (previous && maxLevel(previous.level, row.level) === previous.level) continue;
       inherited.set(key, row);

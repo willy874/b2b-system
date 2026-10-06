@@ -611,6 +611,23 @@ describe('FileFolderGrantService.setInheritance（docs/rbac/07-resource-grants.m
     expect(store.get(`${CHILD}|role|${ROLE_A}`)?.level).toBe('editor');
   });
 
+  it('自己的直接授權已過期：視為沒有，覆寫成繼承來的有效授權', async () => {
+    const { service, store } = setup({}, [
+      { folderId: PARENT, subjectType: 'role', subjectId: ROLE_A, level: 'editor' },
+      {
+        folderId: CHILD,
+        subjectType: 'role',
+        subjectId: ROLE_A,
+        level: 'manager',
+        expiresAt: PAST,
+      },
+    ]);
+    await service.setInheritance(CHILD, { inheritGrants: false }, ACTOR);
+    const copied = store.get(`${CHILD}|role|${ROLE_A}`);
+    expect(copied?.level).toBe('editor');
+    expect(copied?.expiresAt ?? null).toBeNull();
+  });
+
   it('上層鏈只走到第一個中斷繼承的資料夾（含）', async () => {
     const { service, store, nodes } = setup({}, [
       { folderId: ROOT, subjectType: 'role', subjectId: ROLE_A, level: 'viewer' },
