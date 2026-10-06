@@ -11,8 +11,10 @@ import type { ResourceChange } from '../cache';
  */
 export function createFakeBatchQueue(
   hostOptions: {
-    /** 佇列被限流後恢復用的計時器（`BatchQueueHostOptions.scheduleTimer`）；預設 `setTimeout`。 */
+    /** 佇列的計時器（限流後恢復、進度快照的節流；`BatchQueueHostOptions.scheduleTimer`）；預設 `setTimeout`。 */
     scheduleTimer?: ScheduleTimer;
+    /** 佇列的時鐘（`BatchQueueHostOptions.now`）；預設 `Date.now`。 */
+    now?: () => number;
   } = {},
 ) {
   const hub = createFakeChannelHub();
@@ -20,6 +22,7 @@ export function createFakeBatchQueue(
     hostId: 'host',
     channel: createBatchQueueChannel({ transport: hub.transport() }),
     scheduleTimer: hostOptions.scheduleTimer,
+    now: hostOptions.now,
   });
   const tabs: BatchQueueClient[] = [];
 

@@ -19,6 +19,13 @@ import type { BatchItemError, BatchItemProgress, BatchJob } from './types';
 /** 結束的工作保留幾筆給佇列面板；更舊的自動移除。 */
 const FINISHED_LIMIT = 30;
 
+/**
+ * 只有進度變化時，快照最多隔這麼久廣播一次（每秒約 4 次）。每個快照都是全部工作的完整複本，
+ * 上千筆的上傳每次複製、傳給每個分頁、在每個分頁重繪進度條；分頁端已對每一筆節流 200 ms，
+ * 並行 3 筆時仍有每秒 15 次（docs/architecture/frontend/07-ui-system.md §13.4）。狀態的變化（結果、取消…）照常立刻廣播。
+ */
+const PROGRESS_BROADCAST_INTERVAL_MS = 250;
+
 /** `watchClient(clientId, onGone)`：分頁消失（當掉、被系統回收，沒送出 bye）時呼叫 `onGone`。 */
 export type WatchClient = (clientId: string, onGone: () => void) => void;
 
@@ -114,6 +121,9 @@ export class BatchQueueHost {
   /** 暫停中的工作到時恢復的計時器（工作 id → 取消函式）。 */
   private readonly resumeTimers = new Map<string, () => void>();
   private version = 0;
+  private lastBroadcastAt = Number.NEGATIVE_INFINITY;
+  /** 排定中的進度快照（取消函式）；在它之前有任何廣播就取消（那份快照已經帶著最新的進度）。 */
+  private cancelProgressBroadcast: (() => void) | undefined;
 
   constructor(options: BatchQueueHostOptions = {}) {
     this.hostId = options.hostId ?? createInstanceId();
@@ -155,6 +165,8 @@ export class BatchQueueHost {
     for (const detach of this.detachers) detach();
     this.detachers.clear();
     this.clearResumeTimers();
+    this.cancelProgressBroadcast?.();
+    this.cancelProgressBroadcast = undefined;
     this.clients.clear();
     this.channel.close();
   }
@@ -184,8 +196,13 @@ export class BatchQueueHost {
       if (job?.status === 'cancelled' && this.inFlight(jobId) === 0) this.notifyFinished(job);
     }
     // 移除的進度要讓其他分頁知道；沒有分頁了（dedicated worker 隨分頁關閉）就不必，
-    // 否則這份快照會晚於 `host-closed` 抵達，讓其他分頁又把工作加回去
-    if (this.clients.size > 0) this.broadcast();
+    // 否則這份快照會晚於 `host-closed` 抵達，讓其他分頁又把工作加回去（排定中的進度快照也一樣）
+    if (this.clients.size > 0) {
+      this.broadcast();
+    } else {
+      this.cancelProgressBroadcast?.();
+      this.cancelProgressBroadcast = undefined;
+    }
     this.pump();
   }
 
@@ -377,7 +394,7 @@ export class BatchQueueHost {
     const job = this.findJob(jobId);
     if (!job || !isActive(job)) return;
     job.progress[itemId] = { loaded: progress.loaded, total: progress.total };
-    this.broadcast();
+    this.broadcastProgress();
   }
 
   private cancel(match: (job: BatchJob) => boolean): void {
@@ -463,9 +480,28 @@ export class BatchQueueHost {
     this.jobs = this.jobs.filter((job) => !drop.has(job));
   }
 
+  /** 只有進度變化：距上一次廣播滿 `PROGRESS_BROADCAST_INTERVAL_MS` 才廣播，否則排到那時再送最新的狀態。 */
+  private broadcastProgress(): void {
+    if (this.cancelProgressBroadcast) return;
+    const wait = this.lastBroadcastAt + PROGRESS_BROADCAST_INTERVAL_MS - this.now();
+    if (wait <= 0) {
+      this.broadcast();
+      return;
+    }
+    this.cancelProgressBroadcast = this.scheduleTimer(() => {
+      this.cancelProgressBroadcast = undefined;
+      this.broadcast();
+    }, wait);
+  }
+
   /** `bump`：狀態有變才遞增版本；回覆 snapshot-request 時沿用目前版本。 */
   private broadcast(bump = true): void {
-    if (bump) this.version += 1;
+    // 排定中的進度快照：這一份已經帶著最新的進度；它的狀態還沒送出過，版本要遞增
+    const pendingProgress = this.cancelProgressBroadcast !== undefined;
+    this.cancelProgressBroadcast?.();
+    this.cancelProgressBroadcast = undefined;
+    if (bump || pendingProgress) this.version += 1;
+    this.lastBroadcastAt = this.now();
     // 複製一份：同執行緒的傳輸層（inline 模式、測試）不經 structured clone，之後的修改不能影響已送出的快照
     this.channel.post('snapshot', {
       hostId: this.hostId,

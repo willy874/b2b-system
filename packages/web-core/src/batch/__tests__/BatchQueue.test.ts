@@ -6,6 +6,7 @@ import { createFakeBatchQueue } from '../../testing/fakeBatchQueue';
 import { jobProgressAmount, jobProgressRatio } from '../activeQueue';
 import { isGoneError, serializeBatchError, toBatchErrorInstance } from '../errors';
 import { registerBatchOperation, resetBatchOperations } from '../operations';
+import { tagMessage } from '../protocol';
 import type { BatchJob, BatchRunContext } from '../types';
 
 /** 可以從外面決定何時完成的 promise：用來驗證「一次只處理一筆」。 */
@@ -501,21 +502,30 @@ const deleted = (id: string) => ({ resource: 'user', kind: 'delete' as const, id
 const invalidatedIds = (sink: ReturnType<typeof vi.fn>) =>
   sink.mock.calls.flatMap(([changes]) => (changes as Array<{ id: string }>).map(({ id }) => id));
 
-/** 恢復的計時器由測試觸發：`fire()` 執行目前排著的那一個 */
+/** 佇列的計時器由測試觸發：`fire()` 執行最後排定、還沒執行也沒取消的那一個 */
 function manualTimer() {
-  const scheduled: Array<{ callback: () => void; delay: number; cancelled: boolean }> = [];
+  const scheduled: Array<{
+    callback: () => void;
+    delay: number;
+    cancelled: boolean;
+    fired: boolean;
+  }> = [];
   return {
     scheduled,
+    /** 還在等的計時器 */
+    pending: () => scheduled.filter((entry) => !entry.cancelled && !entry.fired),
     scheduleTimer: (callback: () => void, delay: number) => {
-      const entry = { callback, delay, cancelled: false };
+      const entry = { callback, delay, cancelled: false, fired: false };
       scheduled.push(entry);
       return () => {
         entry.cancelled = true;
       };
     },
     fire: () => {
-      const entry = scheduled.findLast((candidate) => !candidate.cancelled);
-      entry?.callback();
+      const entry = scheduled.findLast((candidate) => !candidate.cancelled && !candidate.fired);
+      if (!entry) return;
+      entry.fired = true;
+      entry.callback();
     },
   };
 }
@@ -669,27 +679,89 @@ describe('批次佇列：合併失效與限流（docs/architecture/frontend/07-u
       succeeded: ['1'],
       failures: [],
     });
-    expect(timer.scheduled.every(({ cancelled }) => cancelled)).toBe(true);
+    expect(timer.pending()).toEqual([]);
     expect(run).toHaveBeenCalledTimes(2);
   });
 });
 
-describe('jobProgressRatio', () => {
-  const job = (overrides: Partial<BatchJob>): BatchJob => ({
-    id: 'j',
-    operation: 'op',
-    scope: 's',
-    ownerId: 'o',
-    items: [],
-    status: 'running',
-    succeeded: [],
-    failures: [],
-    concurrency: 1,
-    progress: {},
-    createdAt: 0,
-    ...overrides,
-  });
+describe('批次佇列：進度快照的節流（docs/architecture/frontend/07-ui-system.md §13.4）', () => {
+  it('只有進度變化時快照最多每 250 ms 一次，之間的進度合併到下一份；結果照常立刻廣播', async () => {
+    queue.dispose();
+    const timer = manualTimer();
+    queue = createFakeBatchQueue({ scheduleTimer: timer.scheduleTimer, now: () => 1000 });
+    // 直接對佇列送協定訊息：分頁端另外有每一筆 200 ms 的節流，這裡只看佇列
+    const { port1, port2 } = new MessageChannel();
+    queue.host.connect(port2);
+    const executes: unknown[] = [];
+    port1.addEventListener('message', (event: MessageEvent<{ type: string }>) => {
+      if (event.data.type === 'execute') executes.push(event.data);
+    });
+    port1.start();
+    port1.postMessage(tagMessage({ type: 'hello', clientId: 'raw-tab' }));
+    port1.postMessage(
+      tagMessage({
+        type: 'enqueue',
+        jobId: 'job',
+        input: { operation: 'op', scope: 'list', items: items('1') },
+      }),
+    );
+    await waitFor(() => expect(executes).toHaveLength(1));
+    const snapshots = () =>
+      queue.hub
+        .sentOfType('snapshot')
+        .map((message) => (message as { payload: { jobs: BatchJob[] } }).payload.jobs);
+    const before = snapshots().length;
 
+    for (let loaded = 1; loaded <= 10; loaded += 1) {
+      port1.postMessage(
+        tagMessage({
+          type: 'progress',
+          jobId: 'job',
+          itemId: '1',
+          progress: { loaded, total: 10 },
+        }),
+      );
+    }
+    await waitFor(() => expect(queue.host.getJobs()[0]?.progress['1']?.loaded).toBe(10));
+    expect(snapshots()).toHaveLength(before);
+    expect(timer.pending()).toHaveLength(1);
+
+    timer.fire();
+    expect(snapshots()).toHaveLength(before + 1);
+    expect(snapshots().at(-1)?.[0]?.progress['1']).toEqual({ loaded: 10, total: 10 });
+
+    // 結果不等節流：立刻廣播（並取消排定中的進度快照）
+    port1.postMessage(
+      tagMessage({
+        type: 'progress',
+        jobId: 'job',
+        itemId: '1',
+        progress: { loaded: 10, total: 10 },
+      }),
+    );
+    port1.postMessage(tagMessage({ type: 'result', jobId: 'job', itemId: '1' }));
+    await waitFor(() => expect(snapshots().at(-1)?.[0]?.status).toBe('done'));
+    expect(timer.pending()).toEqual([]);
+    port1.close();
+  });
+});
+
+const job = (overrides: Partial<BatchJob>): BatchJob => ({
+  id: 'j',
+  operation: 'op',
+  scope: 's',
+  ownerId: 'o',
+  items: [],
+  status: 'running',
+  succeeded: [],
+  failures: [],
+  concurrency: 1,
+  progress: {},
+  createdAt: 0,
+  ...overrides,
+});
+
+describe('jobProgressRatio', () => {
   it('沒有份量：依筆數，處理中的依回報的比例計入', () => {
     expect(
       jobProgressRatio(
@@ -714,6 +786,47 @@ describe('jobProgressRatio', () => {
       }),
     );
     expect(amount).toEqual({ done: 505, total: 1000, weighted: true });
+  });
+
+  it('失敗的項目也算處理過（依它的份量）', () => {
+    const amount = jobProgressAmount(
+      job({
+        items: [
+          { id: 'a', label: 'a', weight: 30 },
+          { id: 'b', label: 'b', weight: 70 },
+        ],
+        failures: [{ id: 'b', label: 'b', error: { kind: 'network' } }],
+      }),
+    );
+    expect(amount).toEqual({ done: 70, total: 100, weighted: true });
+  });
+
+  it('★ 兩萬筆、九成已完成：一次計算在數十毫秒內（每個快照都會算，不能退回 O(n²)）', () => {
+    const count = 20_000;
+    const weightedItems = Array.from({ length: count }, (_, index) => ({
+      id: `item-${index}`,
+      label: `item-${index}`,
+      weight: 1000 + index,
+    }));
+    const settled = weightedItems.slice(0, count * 0.9).map((item) => item.id);
+    const big = job({
+      items: weightedItems,
+      succeeded: settled.slice(0, -100),
+      failures: settled.slice(-100).map((id) => ({ id, label: id, error: { kind: 'network' } })),
+      progress: { [`item-${count - 1}`]: { loaded: 1, total: 2 } },
+    });
+
+    const started = performance.now();
+    const amount = jobProgressAmount(big);
+    const elapsed = performance.now() - started;
+
+    // 舊的寫法（每個已完成的 id 線性找一次）在這個規模要數百毫秒
+    expect(elapsed).toBeLessThan(50);
+    expect(amount.total).toBe(weightedItems.reduce((sum, item) => sum + item.weight, 0));
+    expect(amount.done).toBe(
+      weightedItems.slice(0, count * 0.9).reduce((sum, item) => sum + item.weight, 0) +
+        (1000 + count - 1) / 2,
+    );
   });
 });
 
