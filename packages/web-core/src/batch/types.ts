@@ -3,6 +3,8 @@
  * 會在分頁、worker 之間以 structured clone 傳遞：只能放純資料（不可有函式、類別實例）。
  */
 
+import type { ResourceChange } from '../cache';
+
 /** 一筆要處理的項目：`label` 是結果清單上顯示的名稱（例：email）。 */
 export interface BatchJobItem {
   id: string;
@@ -71,6 +73,11 @@ export interface BatchJob {
   concurrency: number;
   /** 處理中的項目回報的進度（item id → 進度）；結果回來就移除。 */
   progress: Record<string, BatchItemProgress>;
+  /**
+   * 被限流（`429 RATE_LIMITED`）而暫停到這個時間（epoch 毫秒）：不送新的項目，時間到重送被擋的那一筆，
+   * 被擋的不記為失敗（docs/architecture/frontend/07-ui-system.md §13.4）。
+   */
+  pausedUntil?: number;
   createdAt: number;
   finishedAt?: number;
 }
@@ -95,6 +102,12 @@ export interface BatchRunContext {
   reportProgress: (progress: BatchItemProgress) => void;
   /** 這一筆送出時的樂觀鎖版本（`BatchJobItem.version`）；列表沒有提供時為 undefined。 */
   version?: number;
+  /**
+   * 宣告這一筆讓後端改了什麼（同單筆 mutation 在 `onSuccess` 呼叫的 `invalidateResources()`）。
+   * 不立刻失效：同一個分頁的變更合併，每秒最多套用一次、工作結束時套用剩下的，
+   * 大批次不會每完成一筆就重抓一次列表（docs/architecture/frontend/07-ui-system.md §13.4）。
+   */
+  invalidate: (changes: readonly ResourceChange[]) => void;
 }
 
 /**
@@ -113,7 +126,7 @@ export interface BatchOperation {
    * 不一定已經進過該 feature 的路由：顯示前由 `loadBatchOperationLocales()` 補載。
    */
   localeScope?: string;
-  /** 處理一筆：打單筆 API ＋ 失效快取；失敗直接拋出（不在這裡提示）。 */
+  /** 處理一筆：打單筆 API ＋ 以 `context.invalidate` 宣告變更；失敗直接拋出（不在這裡提示）。 */
   run: (itemId: string, context: BatchRunContext) => Promise<unknown>;
 }
 

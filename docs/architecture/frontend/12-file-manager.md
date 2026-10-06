@@ -387,6 +387,8 @@ selectionCapabilities(items)                選取項目的能力取交集：can
 
 - `web-core/batch`：`BatchJobInput.concurrency`、`BatchJobItem.weight`、`BatchJob.progress`、`BatchOperation.run(itemId, { signal, reportProgress })`；
   協定新增 `progress`（分頁 → 佇列）與 `abort`（佇列 → 分頁）；`jobProgressRatio()` / `jobProgressAmount()`。既有操作只多收一個參數，行為不變。
+- 2026-10-07：上傳的變更改以 `run` 的 `invalidate` 宣告並帶目的地資料夾（`refs.fileFolder`，根目錄是 `root`），由佇列合併後每秒最多失效一次；
+  被限流（`429`）的那一筆保留 `uploadSources` 裡的檔案，由佇列在時間到後重送（[`07-ui-system.md`](07-ui-system.md) §13.4）。
 - 後端：`files` 新增 `upload_id`、`has_thumbnail`、`version` 與排序／搜尋索引（`0007_file_manager.sql`，需要 `pg_trgm`）；
   端點 `GET /files/upload-policy`、`POST /files/:id/parts`、`DELETE /files/:id/upload`；`GET /files` 回 `FileListPage`（含 `nextCursor`）；
   錯誤碼 `FILE_UPLOAD_PART_INVALID`、`FILE_VERSION_CONFLICT`；環境變數 `FILE_MULTIPART_THRESHOLD`、`FILE_MULTIPART_PART_SIZE`。

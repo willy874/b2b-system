@@ -497,6 +497,183 @@ describe('批次佇列：分頁宣告能執行的操作（docs/architecture/fron
   });
 });
 
+const deleted = (id: string) => ({ resource: 'user', kind: 'delete' as const, id });
+const invalidatedIds = (sink: ReturnType<typeof vi.fn>) =>
+  sink.mock.calls.flatMap(([changes]) => (changes as Array<{ id: string }>).map(({ id }) => id));
+
+/** 恢復的計時器由測試觸發：`fire()` 執行目前排著的那一個 */
+function manualTimer() {
+  const scheduled: Array<{ callback: () => void; delay: number; cancelled: boolean }> = [];
+  return {
+    scheduled,
+    scheduleTimer: (callback: () => void, delay: number) => {
+      const entry = { callback, delay, cancelled: false };
+      scheduled.push(entry);
+      return () => {
+        entry.cancelled = true;
+      };
+    },
+    fire: () => {
+      const entry = scheduled.findLast((candidate) => !candidate.cancelled);
+      entry?.callback();
+    },
+  };
+}
+
+describe('批次佇列：合併失效與限流（docs/architecture/frontend/07-ui-system.md §13.4）', () => {
+  it('★ 連續 100 筆變更只失效有限次；工作結束時一定套用最後一筆', async () => {
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async (id, { invalidate }) => invalidate([deleted(id)]),
+    });
+    const sink = vi.fn();
+    // 間隔遠大於整批的時間：第一筆立刻套用，其餘等工作結束一次套用
+    const tab = queue.openTab('tab-a', { invalidate: sink, invalidateIntervalMs: 60_000 });
+    await tab.start();
+    const ids = Array.from({ length: 100 }, (_, index) => String(index + 1));
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items(...ids) });
+
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    await waitFor(() => expect(invalidatedIds(sink)).toContain('100'));
+    expect(sink).toHaveBeenCalledTimes(2);
+    expect(invalidatedIds(sink).toSorted()).toEqual(ids.toSorted());
+  });
+
+  it('工作還在進行：間隔滿了就套用期間累積的變更，不等到結束', async () => {
+    const third = deferred();
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async (id, { invalidate }) => {
+        if (id === '3') await third.promise;
+        invalidate([deleted(id)]);
+      },
+    });
+    const sink = vi.fn();
+    const tab = queue.openTab('tab-a', { invalidate: sink, invalidateIntervalMs: 20 });
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2', '3') });
+
+    await waitFor(() => expect(invalidatedIds(sink)).toEqual(['1', '2']));
+    expect(sink).toHaveBeenCalledTimes(2);
+    expect(tab.getJobs()[0]?.status).toBe('running');
+    third.resolve();
+    await waitFor(() => expect(invalidatedIds(sink)).toEqual(['1', '2', '3']));
+  });
+
+  it('reset（session 結束）丟掉還沒套用的變更', async () => {
+    const second = deferred();
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async (id, { invalidate }) => {
+        invalidate([deleted(id)]);
+        if (id === '2') await second.promise;
+      },
+    });
+    const sink = vi.fn();
+    const tab = queue.openTab('tab-a', { invalidate: sink, invalidateIntervalMs: 60_000 });
+    await tab.start();
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2') });
+    await waitFor(() => expect(invalidatedIds(sink)).toEqual(['1']));
+
+    tab.reset();
+    second.resolve();
+    await waitFor(() => expect(tab.getJobs()).toEqual([]));
+    expect(invalidatedIds(sink)).toEqual(['1']);
+  });
+
+  it('★ RATE_LIMITED：整個工作暫停 retryAfterSeconds，時間到重送同一筆，不記為失敗', async () => {
+    queue.dispose();
+    const timer = manualTimer();
+    queue = createFakeBatchQueue({ scheduleTimer: timer.scheduleTimer });
+    let limited = false;
+    const run = vi.fn(async (id: string) => {
+      if (id === '2' && !limited) {
+        limited = true;
+        throw new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 7 });
+      }
+    });
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2', '3') });
+
+    await waitFor(() => expect(tab.getJobs()[0]?.pausedUntil).toBeDefined());
+    expect(timer.scheduled.map(({ delay }) => delay)).toEqual([7000]);
+    expect(tab.getJobs()[0]).toMatchObject({ status: 'running', succeeded: ['1'], failures: [] });
+    expect(run.mock.calls.map(([id]) => id)).toEqual(['1', '2']);
+
+    timer.fire();
+
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    expect(run.mock.calls.map(([id]) => id)).toEqual(['1', '2', '2', '3']);
+    expect(tab.getJobs()[0]).toMatchObject({ succeeded: ['1', '2', '3'], failures: [] });
+    expect(tab.getJobs()[0]?.pausedUntil).toBeUndefined();
+  });
+
+  it('同一筆一直被限流：重送 5 次後照一般的失敗記錄，不無限等下去', async () => {
+    queue.dispose();
+    queue = createFakeBatchQueue({
+      scheduleTimer: (callback) => {
+        queueMicrotask(callback);
+        return () => undefined;
+      },
+    });
+    const run = vi.fn(async () => {
+      throw new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 1 });
+    });
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1') });
+
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    expect(run).toHaveBeenCalledTimes(6);
+    expect(tab.getJobs()[0]?.failures).toEqual([
+      expect.objectContaining({
+        id: '1',
+        error: expect.objectContaining({ code: 'RATE_LIMITED' }),
+      }),
+    ]);
+  });
+
+  it('暫停中取消：不再重送，被擋的那一筆不算失敗', async () => {
+    queue.dispose();
+    const timer = manualTimer();
+    queue = createFakeBatchQueue({ scheduleTimer: timer.scheduleTimer });
+    const run = vi.fn(async (id: string) => {
+      if (id === '2') throw new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 3 });
+    });
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+    const finished = vi.fn();
+    tab.events.on('finished', finished);
+    const jobId = tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2', '3') });
+    await waitFor(() => expect(tab.getJobs()[0]?.pausedUntil).toBeDefined());
+
+    tab.cancel(jobId);
+
+    await waitFor(() => expect(finished).toHaveBeenCalledTimes(1));
+    expect(finished.mock.calls[0]?.[0]).toMatchObject({
+      status: 'cancelled',
+      succeeded: ['1'],
+      failures: [],
+    });
+    expect(timer.scheduled.every(({ cancelled }) => cancelled)).toBe(true);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('jobProgressRatio', () => {
   const job = (overrides: Partial<BatchJob>): BatchJob => ({
     id: 'j',

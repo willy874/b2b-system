@@ -73,6 +73,10 @@ export function BatchJobProgress({
             {formatBytes(amount.done)} / {formatBytes(amount.total)}
           </span>
         )}
+        {active && job.pausedUntil !== undefined && (
+          // 被限流而暫停（docs/architecture/frontend/07-ui-system.md §13.4）：進度條停住時說明原因
+          <span data-testid="batch-progress-paused">{t('common.batch.progress.paused')}</span>
+        )}
         {failed > 0 && (
           <span className={styles.failed} data-testid="batch-progress-failed" data-value={failed}>
             {t('common.batch.progress.failed', { count: failed })}
