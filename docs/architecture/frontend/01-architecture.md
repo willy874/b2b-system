@@ -64,6 +64,8 @@ feature 的小外掛」，允許依賴那個 feature 的公開介面（見
 export * from "@b2b-system/api-sdk";
 ```
 
+只轉出主入口（型別、URL builder、enum）；zod schema 與 fetch client 在 `@b2b-system/api-sdk/schemas`，前端不用（[`17-shared-packages.md`](./17-shared-packages.md) §1）。
+
 好處：SDK 換產生器、改套件名、或需要對某個型別做本地修補時，只改這一個檔。
 
 ### 2.2 `core/` 與 `@b2b-system/web-core` — 機制層

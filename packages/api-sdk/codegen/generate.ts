@@ -13,8 +13,10 @@ import type { OpenApiDocument } from './spec';
 export const GENERATED_HEADER = '// 由 api-sdk codegen 產生，請勿手動編輯。';
 
 export interface GenerateOptions {
-  /** `runtime.ts` 的原始碼；原樣寫進輸出目錄 */
+  /** `runtime.ts`（`request()`、`configureSdk()`、`ApiError`）的原始碼；原樣寫進輸出目錄 */
   runtimeSource: string;
+  /** `url.ts`（`buildUrl()`、`serializeQuery()`，零依賴）的原始碼；原樣寫進輸出目錄 */
+  urlSource: string;
 }
 
 export interface GeneratedFile {
@@ -48,19 +50,31 @@ export function generate(input: unknown, options: GenerateOptions): GenerateResu
 
   const header = `${GENERATED_HEADER}\n// 來源：${document.info.title} ${document.info.version}（OpenAPI ${document.openapi}）\n`;
   const groups = groupByTag(operations);
+  const endpoints = [...groups].map(([tag, list]) =>
+    Object.assign({ tag }, emitEndpoints(list, tag, { typeName, schemaName })),
+  );
+  // 兩個入口（docs/architecture/backend/03-api-conventions.md §12.6）：
+  // - 主入口 `index.ts`：url、models、endpoints/*（型別與 URL builder）。執行期零 zod，前端只用這個。
+  // - `schemas/index.ts`（`@b2b-system/api-sdk/schemas`）：runtime、zod schema、fetch 函式。
   const files: GeneratedFile[] = [
+    { path: 'url.ts', content: `${GENERATED_HEADER}\n${options.urlSource}` },
     { path: 'runtime.ts', content: `${GENERATED_HEADER}\n${options.runtimeSource}` },
     { path: 'models.ts', content: `${header}\n${emitModels(components, { typeName })}` },
+    ...endpoints.map(({ tag, types }) => ({
+      path: `endpoints/${tag}.ts`,
+      content: `${header}\n${types}`,
+    })),
     {
-      path: 'schemas.ts',
+      path: 'schemas/components.ts',
       content: `${header}\n${emitSchemas(components, { typeName, schemaName })}`,
     },
-    ...[...groups].map(([tag, list]) => ({
-      path: `endpoints/${tag}.ts`,
-      content: `${header}\n${emitEndpoints(list, { typeName, schemaName })}`,
+    ...endpoints.map(({ tag, schemas }) => ({
+      path: `schemas/endpoints/${tag}.ts`,
+      content: `${header}\n${schemas}`,
     })),
+    { path: 'index.ts', content: `${header}\n${emitIndex(groups)}` },
+    { path: 'schemas/index.ts', content: `${header}\n${emitSchemasIndex(groups)}` },
   ];
-  files.push({ path: 'index.ts', content: `${header}\n${emitIndex(groups)}` });
 
   assertUniqueExports(files);
   return { files, warnings: [...new Set(nodeContext.warnings)] };
@@ -121,7 +135,7 @@ function emitModel({ typeName, node }: Component, ctx: TsEmitContext): string {
   return `${doc}export type ${typeName} = ${emitTsType(node, ctx)};\n`;
 }
 
-// ─── schemas.ts ─────────────────────────────────────────────────────────────
+// ─── schemas/components.ts ──────────────────────────────────────────────────
 
 /**
  * zod 常數必須先宣告再使用，所以依引用關係排序（DFS 後序）。
@@ -158,7 +172,7 @@ function emitSchemas(
 
   const typeNames = components.map((component) => component.typeName).toSorted();
   const imports = [`import { z } from 'zod';\n`];
-  if (typeNames.length) imports.push(`import type { ${typeNames.join(', ')} } from './models';\n`);
+  if (typeNames.length) imports.push(`import type { ${typeNames.join(', ')} } from '../models';\n`);
   return `${imports.join('')}\n${blocks.join('\n')}`;
 }
 
@@ -192,18 +206,30 @@ function reaches(from: string, target: string, byName: Map<string, Component>): 
   return false;
 }
 
-// ─── endpoints/<tag>.ts ─────────────────────────────────────────────────────
+// ─── endpoints/<tag>.ts ＋ schemas/endpoints/<tag>.ts ─────────────────────────
 
 interface EndpointContext {
   typeName: (name: string) => string;
   schemaName: (name: string) => string;
 }
 
-function emitEndpoints(operations: Operation[], ctx: EndpointContext): string {
+interface EndpointFiles {
+  /** `endpoints/<tag>.ts`：型別與 URL builder；執行期只 import `../url` */
+  types: string;
+  /** `schemas/endpoints/<tag>.ts`：`XxxSchemas`、`OperationDefinition`、fetch 函式 */
+  schemas: string;
+}
+
+interface OperationBlocks {
+  types: string;
+  schemas: string;
+  /** schemas 那一份要從 `endpoints/<tag>.ts` 以 `import type` 取用的型別 */
+  typeImports: string[];
+}
+
+function emitEndpoints(operations: Operation[], tag: string, ctx: EndpointContext): EndpointFiles {
   const usedTypes = new Set<string>();
   const usedSchemas = new Set<string>();
-  const runtimeValues = new Set(['request', 'buildUrl']);
-  const runtimeTypes = new Set(['OperationDefinition', 'OperationSchemas']);
   const tsContext: TsEmitContext = {
     typeName: (name) => {
       const type = ctx.typeName(name);
@@ -220,28 +246,46 @@ function emitEndpoints(operations: Operation[], ctx: EndpointContext): string {
     isLazy: () => false,
   };
 
-  const blocks = operations.map((operation) => {
-    const block = emitOperation(operation, tsContext, zodContext);
-    if (block.includes('ApiResponse<')) runtimeTypes.add('ApiResponse');
-    if (block.includes('RequestOptions')) runtimeTypes.add('RequestOptions');
-    return block;
-  });
-  const body = blocks.join('\n');
+  const blocks = operations.map((operation) => emitOperation(operation, tsContext, zodContext));
+  const typesBody = blocks.map((block) => block.types).join('\n');
+  const schemasBody = blocks.map((block) => block.schemas).join('\n');
 
-  const imports: string[] = [];
-  if (/\bz\./.test(body)) imports.push(`import { z } from 'zod';`);
-  imports.push(`import { ${[...runtimeValues].toSorted().join(', ')} } from '../runtime';`);
-  imports.push(`import type { ${[...runtimeTypes].toSorted().join(', ')} } from '../runtime';`);
+  const typeImports = [`import { buildUrl } from '../url';`];
+  if (typesBody.includes('ApiResponse<')) {
+    // 只取型別：`import type` 在編譯後消失，主入口的執行期不會載入 runtime.ts
+    typeImports.push(`import type { ApiResponse } from '../runtime';`);
+  }
   if (usedTypes.size)
-    imports.push(`import type { ${[...usedTypes].toSorted().join(', ')} } from '../models';`);
+    typeImports.push(`import type { ${[...usedTypes].toSorted().join(', ')} } from '../models';`);
+
+  const runtimeTypes = new Set(['OperationDefinition', 'OperationSchemas', 'RequestOptions']);
+  const schemaImports: string[] = [];
+  if (/\bz\./.test(schemasBody)) schemaImports.push(`import { z } from 'zod';`);
+  schemaImports.push(`import { request } from '../../runtime';`);
+  schemaImports.push(
+    `import type { ${[...runtimeTypes].toSorted().join(', ')} } from '../../runtime';`,
+  );
+  const endpointTypes = blocks.flatMap((block) => block.typeImports).toSorted();
+  schemaImports.push(`import type { ${endpointTypes.join(', ')} } from '../../endpoints/${tag}';`);
   if (usedSchemas.size)
-    imports.push(`import { ${[...usedSchemas].toSorted().join(', ')} } from '../schemas';`);
-  return `${imports.join('\n')}\n\n${body}`;
+    schemaImports.push(
+      `import { ${[...usedSchemas].toSorted().join(', ')} } from '../components';`,
+    );
+
+  return {
+    types: `${typeImports.join('\n')}\n\n${typesBody}`,
+    schemas: `${schemaImports.join('\n')}\n\n${schemasBody}`,
+  };
 }
 
-function emitOperation(operation: Operation, ts: TsEmitContext, zod: ZodEmitContext): string {
+function emitOperation(
+  operation: Operation,
+  ts: TsEmitContext,
+  zod: ZodEmitContext,
+): OperationBlocks {
   const prefix = operation.typePrefix;
-  const lines: string[] = [`// ${operation.method.toUpperCase()} ${operation.path}\n`];
+  const comment = `// ${operation.method.toUpperCase()} ${operation.path}\n`;
+  const lines: string[] = [comment];
   const inputFields: string[] = [];
   const schemaFields: string[] = [];
 
@@ -301,16 +345,6 @@ function emitOperation(operation: Operation, ts: TsEmitContext, zod: ZodEmitCont
     };\n`,
   );
 
-  const responseSchemas = operation.responses
-    .filter((response) => response.responseType === 'json' && response.node)
-    .map(
-      (response) => `${statusKey(response.status)}: ${emitZod(response.node as SchemaNode, zod)},`,
-    );
-  if (responseSchemas.length) schemaFields.push(`responses: {\n${responseSchemas.join('\n')}\n},`);
-  lines.push(
-    `export const ${prefix}Schemas = {\n${schemaFields.join('\n')}\n} satisfies OperationSchemas;\n`,
-  );
-
   // URL builder：(path?, query?)，沒有的參數就不出現在簽名裡
   const urlParams: string[] = [];
   const urlArgs: string[] = [];
@@ -330,6 +364,18 @@ function emitOperation(operation: Operation, ts: TsEmitContext, zod: ZodEmitCont
       `return buildUrl(${[pathLiteral, ...urlArgs].join(', ')});\n}\n`,
   );
 
+  // ─── schemas 那一份：zod、OperationDefinition、fetch 函式 ───
+  const schemaLines: string[] = [comment];
+  const responseSchemas = operation.responses
+    .filter((response) => response.responseType === 'json' && response.node)
+    .map(
+      (response) => `${statusKey(response.status)}: ${emitZod(response.node as SchemaNode, zod)},`,
+    );
+  if (responseSchemas.length) schemaFields.push(`responses: {\n${responseSchemas.join('\n')}\n},`);
+  schemaLines.push(
+    `export const ${prefix}Schemas = {\n${schemaFields.join('\n')}\n} satisfies OperationSchemas;\n`,
+  );
+
   const definitionName = `${operation.functionName}Operation`;
   const definition = [
     `id: ${JSON.stringify(operation.id)},`,
@@ -344,7 +390,9 @@ function emitOperation(operation: Operation, ts: TsEmitContext, zod: ZodEmitCont
     `responseTypes: { ${operation.responses.map((response) => `${statusKey(response.status)}: ${JSON.stringify(response.responseType)}`).join(', ')} },`,
     `schemas: ${prefix}Schemas,`,
   ];
-  lines.push(`const ${definitionName}: OperationDefinition = {\n${definition.join('\n')}\n};\n`);
+  schemaLines.push(
+    `const ${definitionName}: OperationDefinition = {\n${definition.join('\n')}\n};\n`,
+  );
 
   const doc = jsDoc({
     description:
@@ -356,11 +404,16 @@ function emitOperation(operation: Operation, ts: TsEmitContext, zod: ZodEmitCont
     : inputRequired
       ? `input: ${prefix}Input, `
       : `input: ${prefix}Input = {}, `;
-  lines.push(
+  schemaLines.push(
     `${doc}export function ${operation.functionName}(${inputParam}options?: RequestOptions): Promise<${prefix}Result> {\n` +
       `return request<${prefix}Result>(${definitionName}, ${hasInput ? 'input' : '{}'}, options);\n}\n`,
   );
-  return lines.join('\n');
+
+  return {
+    types: lines.join('\n'),
+    schemas: schemaLines.join('\n'),
+    typeImports: hasInput ? [`${prefix}Input`, `${prefix}Result`] : [`${prefix}Result`],
+  };
 }
 
 function paramsNode(params: Parameter[]): ObjectNode {
@@ -418,14 +471,22 @@ function statusType(status: string): string {
   return /^\d+$/.test(status) ? status : 'number';
 }
 
-// ─── index.ts ───────────────────────────────────────────────────────────────
+// ─── index.ts ＋ schemas/index.ts ───────────────────────────────────────────
 
+/** 主入口：執行期只有 URL builder 與 enum，不 import zod、`runtime.ts`、`schemas/`。 */
 function emitIndex(groups: Map<string, Operation[]>): string {
   const lines = [
-    "export * from './runtime';",
+    "export * from './url';",
+    "export type { ApiResponse } from './runtime';",
     "export * from './models';",
-    "export * from './schemas';",
   ];
+  for (const tag of groups.keys()) lines.push(`export * from './endpoints/${tag}';`);
+  return `${lines.join('\n')}\n`;
+}
+
+/** `@b2b-system/api-sdk/schemas`：zod schema 與用到它們的 fetch client。 */
+function emitSchemasIndex(groups: Map<string, Operation[]>): string {
+  const lines = ["export * from '../runtime';", "export * from './components';"];
   for (const tag of groups.keys()) lines.push(`export * from './endpoints/${tag}';`);
   return `${lines.join('\n')}\n`;
 }
@@ -434,7 +495,7 @@ function emitIndex(groups: Map<string, Operation[]>): string {
 function assertUniqueExports(files: GeneratedFile[]): void {
   const owners = new Map<string, string>();
   for (const file of files) {
-    if (file.path === 'index.ts') continue;
+    if (file.path === 'index.ts' || file.path === 'schemas/index.ts') continue;
     const names = new Set(
       [
         ...file.content.matchAll(

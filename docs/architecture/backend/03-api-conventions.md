@@ -402,7 +402,7 @@ export const PermissionKey = {
 pnpm sdk:generate
 # 讀進版控的 apps/api/openapi.json
 # → packages/api-sdk/codegen（自製產生器）
-# → packages/api-sdk/src/generated/（TS 型別 ＋ zod schema ＋ fetch 函式）
+# → packages/api-sdk/src/generated/（主入口：TS 型別 ＋ URL builder；/schemas：zod schema ＋ fetch 函式）
 ```
 
 CI 會檢查 `openapi.json` 與原始碼一致（重新產生後 `git diff` 必須為空），
@@ -568,14 +568,22 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
 
 `packages/api-sdk/codegen/` 是專案自己的產生器，取代原本的 orval。
 
-**產出**（`src/generated/`，整個目錄由產生器擁有）：
+**產出**（`src/generated/`，整個目錄由產生器擁有），分成兩個入口：
 
-| 檔案 | 內容 |
-| --- | --- |
-| `models.ts` | `components.schemas` 的 TS 型別；字串 enum 另外輸出同名 `as const` 物件（`PermissionKey` 靠它） |
-| `schemas.ts` | 同一批 component 的 zod schema（`UserSchema`…），以 `satisfies z.ZodType<User>` 和 `models.ts` 對齊 |
-| `endpoints/<tag>.ts` | 每個 operation 的 `XxxInput` / `XxxResponses` / `XxxResult` 型別、`XxxSchemas`（path / query / headers / body / responses 的 zod）、URL builder `getXxxUrl(path?, query?)`、以及 fetch 函式 `xxx(input, options)` |
-| `runtime.ts` | 由 `codegen/runtime.ts` 原樣複製：`request()`、`buildUrl()`、`ApiError`、`configureSdk()` |
+| 入口 | 檔案 | 內容 |
+| --- | --- | --- |
+| `@b2b-system/api-sdk`（`index.ts`） | `url.ts` | 由 `codegen/url.ts` 原樣複製：`buildUrl()`、`serializeQuery()`（零依賴） |
+| | `models.ts` | `components.schemas` 的 TS 型別；字串 enum 另外輸出同名 `as const` 物件（`PermissionKey` 靠它） |
+| | `endpoints/<tag>.ts` | 每個 operation 的 `XxxInput` / `XxxResponses` / `XxxResult` 型別與 URL builder `getXxxUrl(path?, query?)` |
+| `@b2b-system/api-sdk/schemas`（`schemas/index.ts`） | `runtime.ts` | 由 `codegen/runtime.ts` 原樣複製：`request()`、`ApiError`、`configureSdk()` |
+| | `schemas/components.ts` | 同一批 component 的 zod schema（`UserSchema`…），以 `satisfies z.ZodType<User>` 和 `models.ts` 對齊 |
+| | `schemas/endpoints/<tag>.ts` | 每個 operation 的 `XxxSchemas`（path / query / headers / body / responses 的 zod）、`OperationDefinition` 與 fetch 函式 `xxx(input, options)` |
+
+**主入口在執行期零 zod**：它只 import `url.ts`、`models.ts` 與 `endpoints/*`（`ApiResponse` 等型別以 `import type` 取用，編譯後消失）。
+zod schema 是模組頂層的函式呼叫，打包器無法證明它們沒有副作用，放在同一個入口就會整批進首屏、在載入時全部建構；
+前端只用 URL builder 與型別（請求走 `apis/` 的 fetcher），所以只轉出主入口（[`../frontend/17-shared-packages.md`](../frontend/17-shared-packages.md) §1）。
+`codegen/__tests__/generate.test.ts` 沿著主入口的執行期 import 檢查走到的檔案，進版控的 `src/generated` 也一併檢查。
+`package.json` 宣告 `"sideEffects": false`：產物沒有載入時就要執行的副作用。
 
 **為什麼換掉 orval**
 

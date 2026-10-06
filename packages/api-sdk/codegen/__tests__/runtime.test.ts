@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiError, buildUrl, request, serializeQuery } from '../runtime';
+import { ApiError, request } from '../runtime';
 import type { OperationDefinition } from '../runtime';
+import { buildUrl, serializeQuery } from '../url';
 
 describe('buildUrl', () => {
   it('path 參數會被 encode', () => {
