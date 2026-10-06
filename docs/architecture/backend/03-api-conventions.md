@@ -417,7 +417,7 @@ async login(...) {}
 | -------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
 | 一般端點，已登入                       | 每個使用者，所有端點合計                                 | `DEFAULT_RATE_LIMIT`（600）                        |
 | 一般端點，未登入（或 token 無效）      | 每個 IP，所有未登入請求合計                              | `ANONYMOUS_RATE_LIMIT`（3000）                     |
-| `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設、外部 IdP、租戶代碼查詢 | 每個「email ＋ IP」（body 有 `email` 時）＋ 每個 IP | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300） |
+| `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設（含 `GET /auth/setup/verify`）、外部 IdP、租戶代碼查詢、改密碼（`/auth/change-password`、`/platform/auth/change-password`） | 每個「email ＋ IP」（body 有 `email` 時；已登入、沒有 email 的改密碼以 **身分** 計、不分 IP）＋ 每個 IP | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300） |
 | `@RateLimit('authMail')`：忘記密碼、註冊 | 每個「email ＋ IP」＋ 每個 IP                            | 上一列的 1/3（至少 3）、1/10                       |
 | `@RateLimit('refresh')`：`/auth/refresh`、`/platform/auth/refresh` | 每個 refresh session（cookie 的雜湊）＋ 每個 IP | `REFRESH_RATE_LIMIT`（30）、`REFRESH_IP_RATE_LIMIT`（2000） |
 | `@SkipThrottle()`（影像 API）           | 不計                                                     | —                                                  |
@@ -425,6 +425,7 @@ async login(...) {}
 - **數值的估算**（1000 人在同一個出口 IP）：access token 5 分鐘 → 續期約 200 次/分（重啟後會集中，IP 桶留 10 倍）；
   早上登入尖峰約 100 次/分 → 登入 IP 桶 300；每人平均每 10 秒一個請求，推播後集體重抓 → 每人 600/分。
   帳號層級的暴力破解另有帳號鎖定（連續失敗 N 次）；「帳號 ＋ IP」桶讓攻擊者無法用大量請求鎖住整間公司的 IP。
+  改密碼要驗目前的密碼：拿到 access token 的人（例：XSS）能在那裡猜密碼，所以以身分限流，密碼不符也寫失敗的稽核。
 - IP 桶不會比帳號桶嚴格（`AUTH_IP_RATE_LIMIT` 小於 `AUTH_RATE_LIMIT` 時取後者），E2E 只要調高 `AUTH_RATE_LIMIT`。
 - 超過回 `429 RATE_LIMITED`，帶 `Retry-After` 標頭與 `details.retryAfterSeconds`（前端顯示「請在 N 秒後再試」）。
 - 計數在程序記憶體（`@nestjs/throttler` 的 storage）：單一執行個體的假設；多實例要換共享儲存（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。

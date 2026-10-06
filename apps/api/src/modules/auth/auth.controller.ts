@@ -122,6 +122,7 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(200)
   @Authenticated()
+  @RateLimit('auth')
   @ApiZodBody(ChangePasswordSchema)
   changePassword(
     @Body(new ZodValidationPipe(ChangePasswordSchema)) dto: ChangePasswordDto,
@@ -184,6 +185,7 @@ export class AuthController {
 
   @Get('setup/verify')
   @Public()
+  @RateLimit('auth')
   verifySetup(@Query(new ZodValidationPipe(VerifySetupSchema)) query: { token: string }) {
     return this.authService.verifySetupToken(query.token);
   }

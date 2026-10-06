@@ -70,7 +70,6 @@
 | 中 | 檔案管理器切換排列方式或他分頁改偏好時清空選取 | [`file-manager-selection-cleared-by-preference.md`](./file-manager-selection-cleared-by-preference.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | apps/platform 上的 X-Tenant 對所有路由生效 | [`platform-host-x-tenant-all-routes.md`](./platform-host-x-tenant-all-routes.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 游標日期或數值不合格式時回 500 而非 400 | [`cursor-invalid-date-returns-500.md`](./cursor-invalid-date-returns-500.md) | 2026-10-06（全面檢測：程式資安） |
-| 低 | 啟用連結檢查與改密碼端點缺少登入類限流 | [`auth-endpoints-missing-rate-limit.md`](./auth-endpoints-missing-rate-limit.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |

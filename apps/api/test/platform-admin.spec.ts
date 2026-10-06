@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ import { MailTransport } from '@/core/mail';
 import type { MailMessage, SentMail } from '@/core/mail';
 import { ObjectStorage } from '@/core/storage';
 import { TENANT_FEATURES, TenantDirectory } from '@/core/tenant';
-import { platformAdmins, tenants } from '@/db/platform/schema';
+import { platformAdmins, platformAuditLogs, tenants } from '@/db/platform/schema';
 import type { PlatformAdminRole } from '@/db/platform/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
@@ -315,6 +315,22 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
         .send({ currentPassword: 'not-the-password', newPassword: 'AnotherPlatform!2026' })
         .expect(400);
       expect(errorCodeOf(wrong)).toBe('AUTH_PASSWORD_MISMATCH');
+      // 猜目前密碼的嘗試留下失敗的稽核（限流另見 @RateLimit('auth')）
+      const [self] = await platformDb
+        .select({ id: platformAdmins.id })
+        .from(platformAdmins)
+        .where(eq(platformAdmins.email, 'pa-new@example.com'));
+      const failures = await platformDb
+        .select()
+        .from(platformAuditLogs)
+        .where(
+          and(
+            eq(platformAuditLogs.action, 'platformAdmin.passwordChange'),
+            eq(platformAuditLogs.resourceId, self!.id),
+            eq(platformAuditLogs.result, 'failure'),
+          ),
+        );
+      expect(failures.map((row) => row.errorCode)).toEqual(['AUTH_PASSWORD_MISMATCH']);
       const same = await as(own, 'post', '/platform/auth/change-password')
         .send({ currentPassword: 'NewPlatformPass!2026', newPassword: 'NewPlatformPass!2026' })
         .expect(400);

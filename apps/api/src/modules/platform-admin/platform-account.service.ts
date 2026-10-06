@@ -113,6 +113,16 @@ export class PlatformAccountService {
     const admin = await this.repo.findById(adminId);
     if (!admin?.passwordHash) throw new AppException('AUTH_PASSWORD_MISMATCH');
     if (!(await verifyPassword(admin.passwordHash, currentPassword))) {
+      // 同租戶的 AuthService.changePassword：猜目前密碼的嘗試要查得到
+      await this.audit.recordSafely({
+        action: 'platformAdmin.passwordChange',
+        resourceType: 'platformAdmin',
+        resourceId: admin.id,
+        result: 'failure',
+        actorId: admin.id,
+        actorEmail: admin.email,
+        errorCode: 'AUTH_PASSWORD_MISMATCH',
+      });
       throw new AppException('AUTH_PASSWORD_MISMATCH');
     }
     if (currentPassword === newPassword) throw new AppException('AUTH_PASSWORD_WEAK');

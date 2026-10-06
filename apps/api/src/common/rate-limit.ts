@@ -15,7 +15,7 @@ export const RATE_LIMIT_WINDOW_MS = 60_000;
 
 /**
  * 端點的限流類別；沒標的端點走一般規則（使用者或 IP）。
- * - `auth`：登入、SSO 回呼、帳號流程的 token 端點、租戶代碼查詢
+ * - `auth`：登入、SSO 回呼、帳號流程的 token 端點、租戶代碼查詢、已登入時驗證目前密碼的端點（改密碼）
  * - `authMail`：會寄信或進待審清單的端點（忘記密碼、註冊）
  * - `refresh`：以 refresh cookie 續期
  */
@@ -32,7 +32,7 @@ export interface RateLimitSettings {
   user: number;
   /** 未登入：每個 IP（所有端點合計）。 */
   anonymous: number;
-  /** `auth`：每個「帳號 ＋ IP」。 */
+  /** `auth`：每個「帳號 ＋ IP」；已登入的請求（沒有 email）改以身分計。 */
   authAccount: number;
   /** `auth`：每個 IP。 */
   authIp: number;
@@ -112,6 +112,9 @@ export function rateLimitBucketsOf(
       const buckets: RateLimitBucket[] = [{ name: `${policy}-ip`, key: ip, limit: ipLimit }];
       if (account) {
         buckets.push({ name: `${policy}-account`, key: `${account}|${ip}`, limit: accountLimit });
+      } else if (principal) {
+        // 已登入、body 沒有 email（改密碼）：以身分計，不分 IP——拿到 token 的人換 IP 也一樣受限
+        buckets.push({ name: `${policy}-principal`, key: principal, limit: accountLimit });
       }
       return buckets;
     }

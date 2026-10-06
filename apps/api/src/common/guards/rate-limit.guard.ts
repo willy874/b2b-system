@@ -97,8 +97,11 @@ export class RateLimitGuard implements CanActivate {
     const ip = normalizeIp(req.ip ?? req.socket.remoteAddress ?? 'unknown');
     switch (policy) {
       case 'auth':
-      case 'authMail':
-        return { ip, account: accountOf(req.body, currentTenant()?.id ?? 'platform') };
+      case 'authMail': {
+        const account = accountOf(req.body, currentTenant()?.id ?? 'platform');
+        // 已登入的帳號類端點（改密碼）沒有 email：以身分計（rate-limit.ts 的 rateLimitBucketsOf）
+        return { ip, account, principal: account ? undefined : await this.principalOf(req) };
+      }
       case 'refresh': {
         const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
         const raw = cookies?.[this.refreshCookieName];

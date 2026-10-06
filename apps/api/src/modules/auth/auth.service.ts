@@ -416,7 +416,19 @@ export class AuthService {
     if (!user?.passwordHash) throw new AppException('AUTH_PASSWORD_MISMATCH');
 
     const ok = await verifyPassword(user.passwordHash, dto.currentPassword);
-    if (!ok) throw new AppException('AUTH_PASSWORD_MISMATCH');
+    if (!ok) {
+      // 拿到 access token 的人（例：XSS）可以在這裡猜目前的密碼：失敗要查得到（限流見 @RateLimit('auth')）
+      await this.audit.recordSafely({
+        action: 'auth.password_change',
+        resourceType: 'auth',
+        resourceId: user.id,
+        result: 'failure',
+        actorId: user.id,
+        actorEmail: user.email,
+        errorCode: 'AUTH_PASSWORD_MISMATCH',
+      });
+      throw new AppException('AUTH_PASSWORD_MISMATCH');
+    }
     if (dto.currentPassword === dto.newPassword) throw new AppException('AUTH_PASSWORD_WEAK');
     await this.assertPasswordPolicy(dto.newPassword, 'newPassword', user.email);
 

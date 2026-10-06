@@ -146,6 +146,7 @@ export class PlatformAuthController {
   @Post('change-password')
   @HttpCode(200)
   @Authenticated()
+  @RateLimit('auth')
   @ApiOperation({ summary: '平台管理者以目前的密碼換新密碼（結束所有 session）' })
   @ApiZodBody(ChangePasswordSchema)
   changePassword(
