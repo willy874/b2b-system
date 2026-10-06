@@ -20,7 +20,11 @@ export interface PermissionFacade {
   canSome: (keys: readonly PermissionKey[]) => boolean;
 }
 
-/** 底層 hook。大多數情況應改用頁面級 hook 或 feature 的 facade。 */
+/**
+ * 底層 hook。大多數情況應改用頁面級 hook 或 feature 的 facade。
+ * 權限集合沒變時回傳同一個物件：`usePagePermission`、`usePageAccessChecker`、`usePageAccess` 與列表的 `rows`
+ * 都以它（或從它衍生的值）當 memo 的依賴。
+ */
 export function usePermission(): PermissionFacade {
   const hydrated = usePermissionStore((state) => state.hydrated);
   const permissions = usePermissionStore((state) => state.permissions);
@@ -37,7 +41,10 @@ export function usePermission(): PermissionFacade {
     [permissions],
   );
 
-  return { hydrated, permissions, can, canEvery, canSome };
+  return useMemo(
+    () => ({ hydrated, permissions, can, canEvery, canSome }),
+    [hydrated, permissions, can, canEvery, canSome],
+  );
 }
 
 export interface PagePermissionFacade {
@@ -72,23 +79,26 @@ export function usePagePermission(page: PageKey): PagePermissionFacade {
   return useMemo(() => ({ hydrated: facade.hydrated, ...derive(rule, facade) }), [facade, rule]);
 }
 
-/** 回傳穩定的 predicate，供選單 filter 這種不能呼叫 hook 的迴圈使用。 */
+/**
+ * 供選單 filter 這種不能呼叫 hook 的迴圈使用。`canAccessPage` 只在權限集合或頁面註冊表改變時換新，
+ * 可以放進 memo 與 effect 的依賴。
+ */
 export function usePageAccessChecker(): {
   hydrated: boolean;
   canAccessPage: (page: PageKey) => boolean;
 } {
-  const facade = usePermission();
+  const { hydrated, canEvery, canSome } = usePermission();
   const registrations = usePageRegistrations();
   // 未註冊的頁面（所屬 feature 沒有啟用）一律不可進入：選單項目因此自動隱藏
   const canAccessPage = useCallback(
     (page: PageKey) => {
       const registration = registrations.get(page);
       if (!registration) return false;
-      return evaluateAccess(registration.rule, facade.canEvery, facade.canSome);
+      return evaluateAccess(registration.rule, canEvery, canSome);
     },
-    [facade, registrations],
+    [canEvery, canSome, registrations],
   );
-  return { hydrated: facade.hydrated, canAccessPage };
+  return { hydrated, canAccessPage };
 }
 
 export interface PageAccessState {

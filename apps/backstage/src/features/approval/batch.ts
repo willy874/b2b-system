@@ -2,9 +2,9 @@ import { registerBatchOperation } from '@b2b-system/web-core/batch';
 
 import { getApproveApprovalMutationOptions } from '@/apis/approval/approve-approval/mutation';
 import { getRejectApprovalMutationOptions } from '@/apis/approval/reject-approval/mutation';
-import { invalidateResources, Resource } from '@/apis/resources';
+import { Resource } from '@/apis/resources';
 
-import { invalidateApprovalReviewed } from './hooks/useApprovalMutations';
+import { approvalReviewedChanges } from './hooks/useApprovalMutations';
 import { APPROVAL_LOCALE_SCOPE } from './locale';
 
 /** 審批列表的批次操作 id（`BatchAction.operation`）。 */
@@ -26,9 +26,9 @@ export function registerApprovalBatchOperations(): void {
     labelKey: 'approval.batch.approve.title',
     localeScope: APPROVAL_LOCALE_SCOPE,
     successKey: 'approval.batch.approve.success',
-    run: async (approvalId) => {
+    run: async (approvalId, { invalidate }) => {
       const approval = await approve({ params: { approvalId, body: { roleIds: [] } } });
-      invalidateApprovalReviewed(approval, []);
+      invalidate(approvalReviewedChanges(approval, []));
     },
   });
   registerBatchOperation({
@@ -36,9 +36,9 @@ export function registerApprovalBatchOperations(): void {
     labelKey: 'approval.batch.reject.title',
     localeScope: APPROVAL_LOCALE_SCOPE,
     successKey: 'approval.batch.reject.success',
-    run: async (approvalId) => {
+    run: async (approvalId, { invalidate }) => {
       const approval = await reject({ params: { approvalId, body: {} } });
-      invalidateResources([{ resource: Resource.APPROVAL, kind: 'update', id: approval.id }]);
+      invalidate([{ resource: Resource.APPROVAL, kind: 'update', id: approval.id }]);
     },
   });
 }

@@ -6,6 +6,7 @@ import {
   setActiveBatchQueue,
 } from '@b2b-system/web-core/batch';
 import type { BatchQueueConnection } from '@b2b-system/web-core/batch';
+import type { ResourceChange } from '@b2b-system/web-core/cache';
 import { CLIENT_ID } from '@b2b-system/web-core/realtime';
 
 export interface BatchQueuePluginOptions {
@@ -13,6 +14,11 @@ export interface BatchQueuePluginOptions {
   backend: string;
   /** 測試注入：預設 `connectBatchQueue()`（SharedWorker → dedicated worker → 主執行緒）。 */
   connect?: () => BatchQueueConnection;
+  /**
+   * 操作以 `BatchRunContext.invalidate` 宣告的變更，合併後交給它（`apis/resources.ts` 的 `invalidateResources`）。
+   * 由 `main.tsx` 注入：plugin 不能 import `apis/`。方法語法的理由見 `BatchQueueClientOptions.invalidate`。
+   */
+  invalidate?(changes: readonly ResourceChange[]): void;
 }
 
 /**
@@ -25,6 +31,7 @@ export interface BatchQueuePluginOptions {
  * | `pagehide` / `pageshow` | 分頁關閉或進 bfcache 時離開（執行中的項目交給其他分頁）；回來時重新加入 |
  * | session 結束            | 清空佇列（`reset`）：中止進行中的工作、移除所有工作（含已結束的），不彈出結果——之後的每一筆都只會得到 401，留著的結果清單是上一個人的操作紀錄 |
  * | 身分改變（續期、結束）  | 依目前身分過濾畫面上的工作（`principalChanged`）：同源的佇列是共用的，換人登入後看不到前一個人的工作 |
+ * | 每一筆處理完           | 操作宣告的變更合併後交給 `invalidate`：每秒最多一次、工作結束時套用剩下的（docs/architecture/frontend/07-ui-system.md §13.4） |
  * | `onDestroy`             | 離開並關閉頻道與 port                                         |
  *
  * 必須註冊在 `httpContextPlugin` 之後（要用它建立的 session），feature plugin 之前後都可以：
@@ -38,6 +45,7 @@ export function batchQueuePlugin(options: BatchQueuePluginOptions): AppPluginFac
       clientId: CLIENT_ID,
       ownsHost: connection.ownsHost,
       principal: () => getSessionStore(options.backend).getIdentity(),
+      invalidate: options.invalidate?.bind(options),
     });
     setActiveBatchQueue(client);
 

@@ -6,6 +6,7 @@ import { createFakeBatchQueue } from '../../testing/fakeBatchQueue';
 import { jobProgressAmount, jobProgressRatio } from '../activeQueue';
 import { isGoneError, serializeBatchError, toBatchErrorInstance } from '../errors';
 import { registerBatchOperation, resetBatchOperations } from '../operations';
+import { tagMessage } from '../protocol';
 import type { BatchJob, BatchRunContext } from '../types';
 
 /** 可以從外面決定何時完成的 promise：用來驗證「一次只處理一筆」。 */
@@ -497,22 +498,270 @@ describe('批次佇列：分頁宣告能執行的操作（docs/architecture/fron
   });
 });
 
-describe('jobProgressRatio', () => {
-  const job = (overrides: Partial<BatchJob>): BatchJob => ({
-    id: 'j',
-    operation: 'op',
-    scope: 's',
-    ownerId: 'o',
-    items: [],
-    status: 'running',
-    succeeded: [],
-    failures: [],
-    concurrency: 1,
-    progress: {},
-    createdAt: 0,
-    ...overrides,
+const deleted = (id: string) => ({ resource: 'user', kind: 'delete' as const, id });
+const invalidatedIds = (sink: ReturnType<typeof vi.fn>) =>
+  sink.mock.calls.flatMap(([changes]) => (changes as Array<{ id: string }>).map(({ id }) => id));
+
+/** 佇列的計時器由測試觸發：`fire()` 執行最後排定、還沒執行也沒取消的那一個 */
+function manualTimer() {
+  const scheduled: Array<{
+    callback: () => void;
+    delay: number;
+    cancelled: boolean;
+    fired: boolean;
+  }> = [];
+  return {
+    scheduled,
+    /** 還在等的計時器 */
+    pending: () => scheduled.filter((entry) => !entry.cancelled && !entry.fired),
+    scheduleTimer: (callback: () => void, delay: number) => {
+      const entry = { callback, delay, cancelled: false, fired: false };
+      scheduled.push(entry);
+      return () => {
+        entry.cancelled = true;
+      };
+    },
+    fire: () => {
+      const entry = scheduled.findLast((candidate) => !candidate.cancelled && !candidate.fired);
+      if (!entry) return;
+      entry.fired = true;
+      entry.callback();
+    },
+  };
+}
+
+describe('批次佇列：合併失效與限流（docs/architecture/frontend/07-ui-system.md §13.4）', () => {
+  it('★ 連續 100 筆變更只失效有限次；工作結束時一定套用最後一筆', async () => {
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async (id, { invalidate }) => invalidate([deleted(id)]),
+    });
+    const sink = vi.fn();
+    // 間隔遠大於整批的時間：第一筆立刻套用，其餘等工作結束一次套用
+    const tab = queue.openTab('tab-a', { invalidate: sink, invalidateIntervalMs: 60_000 });
+    await tab.start();
+    const ids = Array.from({ length: 100 }, (_, index) => String(index + 1));
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items(...ids) });
+
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    await waitFor(() => expect(invalidatedIds(sink)).toContain('100'));
+    expect(sink).toHaveBeenCalledTimes(2);
+    expect(invalidatedIds(sink).toSorted()).toEqual(ids.toSorted());
   });
 
+  it('工作還在進行：間隔滿了就套用期間累積的變更，不等到結束', async () => {
+    const third = deferred();
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async (id, { invalidate }) => {
+        if (id === '3') await third.promise;
+        invalidate([deleted(id)]);
+      },
+    });
+    const sink = vi.fn();
+    const tab = queue.openTab('tab-a', { invalidate: sink, invalidateIntervalMs: 20 });
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2', '3') });
+
+    await waitFor(() => expect(invalidatedIds(sink)).toEqual(['1', '2']));
+    expect(sink).toHaveBeenCalledTimes(2);
+    expect(tab.getJobs()[0]?.status).toBe('running');
+    third.resolve();
+    await waitFor(() => expect(invalidatedIds(sink)).toEqual(['1', '2', '3']));
+  });
+
+  it('reset（session 結束）丟掉還沒套用的變更', async () => {
+    const second = deferred();
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async (id, { invalidate }) => {
+        invalidate([deleted(id)]);
+        if (id === '2') await second.promise;
+      },
+    });
+    const sink = vi.fn();
+    const tab = queue.openTab('tab-a', { invalidate: sink, invalidateIntervalMs: 60_000 });
+    await tab.start();
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2') });
+    await waitFor(() => expect(invalidatedIds(sink)).toEqual(['1']));
+
+    tab.reset();
+    second.resolve();
+    await waitFor(() => expect(tab.getJobs()).toEqual([]));
+    expect(invalidatedIds(sink)).toEqual(['1']);
+  });
+
+  it('★ RATE_LIMITED：整個工作暫停 retryAfterSeconds，時間到重送同一筆，不記為失敗', async () => {
+    queue.dispose();
+    const timer = manualTimer();
+    queue = createFakeBatchQueue({ scheduleTimer: timer.scheduleTimer });
+    let limited = false;
+    const run = vi.fn(async (id: string) => {
+      if (id === '2' && !limited) {
+        limited = true;
+        throw new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 7 });
+      }
+    });
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2', '3') });
+
+    await waitFor(() => expect(tab.getJobs()[0]?.pausedUntil).toBeDefined());
+    expect(timer.scheduled.map(({ delay }) => delay)).toEqual([7000]);
+    expect(tab.getJobs()[0]).toMatchObject({ status: 'running', succeeded: ['1'], failures: [] });
+    expect(run.mock.calls.map(([id]) => id)).toEqual(['1', '2']);
+
+    timer.fire();
+
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    expect(run.mock.calls.map(([id]) => id)).toEqual(['1', '2', '2', '3']);
+    expect(tab.getJobs()[0]).toMatchObject({ succeeded: ['1', '2', '3'], failures: [] });
+    expect(tab.getJobs()[0]?.pausedUntil).toBeUndefined();
+  });
+
+  it('同一筆一直被限流：重送 5 次後照一般的失敗記錄，不無限等下去', async () => {
+    queue.dispose();
+    queue = createFakeBatchQueue({
+      scheduleTimer: (callback) => {
+        queueMicrotask(callback);
+        return () => undefined;
+      },
+    });
+    const run = vi.fn(async () => {
+      throw new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 1 });
+    });
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1') });
+
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('done'));
+    expect(run).toHaveBeenCalledTimes(6);
+    expect(tab.getJobs()[0]?.failures).toEqual([
+      expect.objectContaining({
+        id: '1',
+        error: expect.objectContaining({ code: 'RATE_LIMITED' }),
+      }),
+    ]);
+  });
+
+  it('暫停中取消：不再重送，被擋的那一筆不算失敗', async () => {
+    queue.dispose();
+    const timer = manualTimer();
+    queue = createFakeBatchQueue({ scheduleTimer: timer.scheduleTimer });
+    const run = vi.fn(async (id: string) => {
+      if (id === '2') throw new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 3 });
+    });
+    registerBatchOperation({ id: 'op', labelKey: 'x', successKey: 'y', run });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+    const finished = vi.fn();
+    tab.events.on('finished', finished);
+    const jobId = tab.enqueue({ operation: 'op', scope: 'list', items: items('1', '2', '3') });
+    await waitFor(() => expect(tab.getJobs()[0]?.pausedUntil).toBeDefined());
+
+    tab.cancel(jobId);
+
+    await waitFor(() => expect(finished).toHaveBeenCalledTimes(1));
+    expect(finished.mock.calls[0]?.[0]).toMatchObject({
+      status: 'cancelled',
+      succeeded: ['1'],
+      failures: [],
+    });
+    expect(timer.pending()).toEqual([]);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('批次佇列：進度快照的節流（docs/architecture/frontend/07-ui-system.md §13.4）', () => {
+  it('只有進度變化時快照最多每 250 ms 一次，之間的進度合併到下一份；結果照常立刻廣播', async () => {
+    queue.dispose();
+    const timer = manualTimer();
+    queue = createFakeBatchQueue({ scheduleTimer: timer.scheduleTimer, now: () => 1000 });
+    // 直接對佇列送協定訊息：分頁端另外有每一筆 200 ms 的節流，這裡只看佇列
+    const { port1, port2 } = new MessageChannel();
+    queue.host.connect(port2);
+    const executes: unknown[] = [];
+    port1.addEventListener('message', (event: MessageEvent<{ type: string }>) => {
+      if (event.data.type === 'execute') executes.push(event.data);
+    });
+    port1.start();
+    port1.postMessage(tagMessage({ type: 'hello', clientId: 'raw-tab' }));
+    port1.postMessage(
+      tagMessage({
+        type: 'enqueue',
+        jobId: 'job',
+        input: { operation: 'op', scope: 'list', items: items('1') },
+      }),
+    );
+    await waitFor(() => expect(executes).toHaveLength(1));
+    const snapshots = () =>
+      queue.hub
+        .sentOfType('snapshot')
+        .map((message) => (message as { payload: { jobs: BatchJob[] } }).payload.jobs);
+    const before = snapshots().length;
+
+    for (let loaded = 1; loaded <= 10; loaded += 1) {
+      port1.postMessage(
+        tagMessage({
+          type: 'progress',
+          jobId: 'job',
+          itemId: '1',
+          progress: { loaded, total: 10 },
+        }),
+      );
+    }
+    await waitFor(() => expect(queue.host.getJobs()[0]?.progress['1']?.loaded).toBe(10));
+    expect(snapshots()).toHaveLength(before);
+    expect(timer.pending()).toHaveLength(1);
+
+    timer.fire();
+    expect(snapshots()).toHaveLength(before + 1);
+    expect(snapshots().at(-1)?.[0]?.progress['1']).toEqual({ loaded: 10, total: 10 });
+
+    // 結果不等節流：立刻廣播（並取消排定中的進度快照）
+    port1.postMessage(
+      tagMessage({
+        type: 'progress',
+        jobId: 'job',
+        itemId: '1',
+        progress: { loaded: 10, total: 10 },
+      }),
+    );
+    port1.postMessage(tagMessage({ type: 'result', jobId: 'job', itemId: '1' }));
+    await waitFor(() => expect(snapshots().at(-1)?.[0]?.status).toBe('done'));
+    expect(timer.pending()).toEqual([]);
+    port1.close();
+  });
+});
+
+const job = (overrides: Partial<BatchJob>): BatchJob => ({
+  id: 'j',
+  operation: 'op',
+  scope: 's',
+  ownerId: 'o',
+  items: [],
+  status: 'running',
+  succeeded: [],
+  failures: [],
+  concurrency: 1,
+  progress: {},
+  createdAt: 0,
+  ...overrides,
+});
+
+describe('jobProgressRatio', () => {
   it('沒有份量：依筆數，處理中的依回報的比例計入', () => {
     expect(
       jobProgressRatio(
@@ -537,6 +786,47 @@ describe('jobProgressRatio', () => {
       }),
     );
     expect(amount).toEqual({ done: 505, total: 1000, weighted: true });
+  });
+
+  it('失敗的項目也算處理過（依它的份量）', () => {
+    const amount = jobProgressAmount(
+      job({
+        items: [
+          { id: 'a', label: 'a', weight: 30 },
+          { id: 'b', label: 'b', weight: 70 },
+        ],
+        failures: [{ id: 'b', label: 'b', error: { kind: 'network' } }],
+      }),
+    );
+    expect(amount).toEqual({ done: 70, total: 100, weighted: true });
+  });
+
+  it('★ 兩萬筆、九成已完成：一次計算在數十毫秒內（每個快照都會算，不能退回 O(n²)）', () => {
+    const count = 20_000;
+    const weightedItems = Array.from({ length: count }, (_, index) => ({
+      id: `item-${index}`,
+      label: `item-${index}`,
+      weight: 1000 + index,
+    }));
+    const settled = weightedItems.slice(0, count * 0.9).map((item) => item.id);
+    const big = job({
+      items: weightedItems,
+      succeeded: settled.slice(0, -100),
+      failures: settled.slice(-100).map((id) => ({ id, label: id, error: { kind: 'network' } })),
+      progress: { [`item-${count - 1}`]: { loaded: 1, total: 2 } },
+    });
+
+    const started = performance.now();
+    const amount = jobProgressAmount(big);
+    const elapsed = performance.now() - started;
+
+    // 舊的寫法（每個已完成的 id 線性找一次）在這個規模要數百毫秒
+    expect(elapsed).toBeLessThan(50);
+    expect(amount.total).toBe(weightedItems.reduce((sum, item) => sum + item.weight, 0));
+    expect(amount.done).toBe(
+      weightedItems.slice(0, count * 0.9).reduce((sum, item) => sum + item.weight, 0) +
+        (1000 + count - 1) / 2,
+    );
   });
 });
 

@@ -1,13 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, normalize, relative, resolve } from 'node:path';
 
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { generate } from '../generate';
 import { petStoreSpec } from './fixtures/pet-store';
 
-const runtimeSource = readFileSync(resolve(import.meta.dirname, '../runtime.ts'), 'utf8');
+const sources = {
+  runtimeSource: readFileSync(resolve(import.meta.dirname, '../runtime.ts'), 'utf8'),
+  urlSource: readFileSync(resolve(import.meta.dirname, '../url.ts'), 'utf8'),
+};
 /** 放在 package 內，產出的檔案才解析得到 `zod`；已列入 .gitignore */
 const outputDir = resolve(import.meta.dirname, '.output/pet-store');
 
@@ -16,9 +19,7 @@ type Sdk = Record<string, any>;
 let sdk: Sdk;
 
 function file(path: string): string {
-  const found = generate(petStoreSpec, { runtimeSource }).files.find(
-    (entry) => entry.path === path,
-  );
+  const found = generate(petStoreSpec, sources).files.find((entry) => entry.path === path);
   if (!found) throw new Error(`沒有產生 ${path}`);
   return found.content;
 }
@@ -32,12 +33,15 @@ function jsonResponse(status: number, body: unknown): Response {
 
 beforeAll(async () => {
   rmSync(outputDir, { recursive: true, force: true });
-  for (const entry of generate(petStoreSpec, { runtimeSource }).files) {
+  for (const entry of generate(petStoreSpec, sources).files) {
     const target = join(outputDir, entry.path);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, entry.content);
   }
-  sdk = (await import(join(outputDir, 'index.ts'))) as Sdk;
+  sdk = {
+    ...((await import(join(outputDir, 'index.ts'))) as Sdk),
+    ...((await import(join(outputDir, 'schemas/index.ts'))) as Sdk),
+  };
 });
 
 afterEach(() => {
@@ -47,15 +51,20 @@ afterEach(() => {
 
 describe('generate（檔案結構）', () => {
   it('依 tag 分檔，沒有 tag 的歸到 default', () => {
-    const paths = generate(petStoreSpec, { runtimeSource }).files.map((entry) => entry.path);
+    const paths = generate(petStoreSpec, sources).files.map((entry) => entry.path);
     expect(paths).toEqual([
+      'url.ts',
       'runtime.ts',
       'models.ts',
-      'schemas.ts',
       'endpoints/default.ts',
       'endpoints/pet-media.ts',
       'endpoints/pets.ts',
+      'schemas/components.ts',
+      'schemas/endpoints/default.ts',
+      'schemas/endpoints/pet-media.ts',
+      'schemas/endpoints/pets.ts',
       'index.ts',
+      'schemas/index.ts',
     ]);
   });
 
@@ -67,7 +76,7 @@ describe('generate（檔案結構）', () => {
   });
 
   it('循環引用的 schema 以 z.lazy 延後並標註型別；其餘用 satisfies 對齊 models', () => {
-    const schemas = file('schemas.ts');
+    const schemas = file('schemas/components.ts');
     expect(schemas).toContain('export const CategorySchema: z.ZodType<Category> = z.object({');
     expect(schemas).toContain('children: z.array(z.lazy(() => CategorySchema))');
     expect(schemas).toMatch(
@@ -80,7 +89,9 @@ describe('generate（檔案結構）', () => {
   });
 
   it('deprecated operation 帶 @deprecated', () => {
-    expect(file('endpoints/pets.ts')).toContain('/** @deprecated */\nexport function deletePet(');
+    expect(file('schemas/endpoints/pets.ts')).toContain(
+      '/** @deprecated */\nexport function deletePet(',
+    );
   });
 
   it('匯出名稱衝突時直接失敗', () => {
@@ -88,17 +99,88 @@ describe('generate（檔案結構）', () => {
       components: { schemas: Record<string, unknown> };
     };
     spec.components.schemas.GetPetResult = { type: 'string' };
-    expect(() => generate(spec, { runtimeSource })).toThrow(/GetPetResult/);
+    expect(() => generate(spec, sources)).toThrow(/GetPetResult/);
   });
 
   it('路徑用到未宣告的 path 參數時失敗', () => {
     const spec = structuredClone(petStoreSpec) as unknown as { paths: Record<string, unknown> };
     spec.paths['/owners/{ownerId}'] = { get: { operationId: 'getOwner', responses: {} } };
-    expect(() => generate(spec, { runtimeSource })).toThrow(/ownerId/);
+    expect(() => generate(spec, sources)).toThrow(/ownerId/);
   });
 
   it('拒絕 Swagger 2.0', () => {
-    expect(() => generate({ swagger: '2.0' }, { runtimeSource })).toThrow(/openapi/);
+    expect(() => generate({ swagger: '2.0' }, sources)).toThrow(/openapi/);
+  });
+});
+
+/** 執行期的 import／re-export 的 specifier；`import type`、`export type` 編譯後消失，不算。 */
+function runtimeSpecifiers(source: string): string[] {
+  return [...source.matchAll(/^(?:import|export)\s+(?!type\b)[^;]*?\bfrom\s+'([^']+)'/gm)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+/** 從入口沿著執行期的 import 走過的檔案（相對路徑）與外部套件。 */
+function runtimeGraph(read: (path: string) => string, entry: string) {
+  const files = new Set<string>();
+  const packages = new Set<string>();
+  const visit = (path: string): void => {
+    if (files.has(path)) return;
+    files.add(path);
+    for (const specifier of runtimeSpecifiers(read(path))) {
+      if (specifier.startsWith('.')) visit(normalize(join(dirname(path), `${specifier}.ts`)));
+      else packages.add(specifier);
+    }
+  };
+  visit(entry);
+  return { files: [...files].toSorted(), packages: [...packages].toSorted() };
+}
+
+/** 主入口在執行期只會走到 url、models 與 endpoints/*（型別與 URL builder） */
+const MAIN_ENTRY_FILE = /^(index|url|models|endpoints\/[\w-]+)\.ts$/;
+
+describe('主入口不帶 zod 與 fetch client（docs/architecture/backend/03-api-conventions.md §12.6）', () => {
+  it('index.ts 在執行期只走到 url、models、endpoints/*，不 import zod', () => {
+    const files = new Map(
+      generate(petStoreSpec, sources).files.map((entry) => [entry.path, entry.content]),
+    );
+    const graph = runtimeGraph((path) => files.get(path) ?? '', 'index.ts');
+    expect(graph.packages).toEqual([]);
+    expect(graph.files.filter((path) => !MAIN_ENTRY_FILE.test(path))).toEqual([]);
+    expect(graph.files).toContain('endpoints/pets.ts');
+  });
+
+  it('schemas/index.ts 帶 zod、runtime 與每個 tag 的 schema', () => {
+    const files = new Map(
+      generate(petStoreSpec, sources).files.map((entry) => [entry.path, entry.content]),
+    );
+    const graph = runtimeGraph((path) => files.get(path) ?? '', 'schemas/index.ts');
+    expect(graph.packages).toEqual(['zod']);
+    expect(graph.files).toEqual(
+      expect.arrayContaining(['runtime.ts', 'url.ts', 'schemas/components.ts']),
+    );
+  });
+
+  it('只載入主入口時有 URL builder 與 enum，沒有 schema 與 fetch 函式', async () => {
+    const main = (await import(join(outputDir, 'index.ts'))) as Sdk;
+    expect(main.getGetPetUrl({ petId: 7 })).toBe('/pets/7');
+    expect(main.PetStatus).toMatchObject({ available: 'available' });
+    for (const name of ['getPet', 'GetPetSchemas', 'PetSchema', 'request', 'configureSdk']) {
+      expect(main[name], name).toBeUndefined();
+    }
+  });
+
+  it('進版控的 src/generated 也符合（重新產生後才會通過）', () => {
+    const root = resolve(import.meta.dirname, '../../src/generated');
+    const listed = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const path = join(dir, name);
+        return statSync(path).isDirectory() ? listed(path) : [relative(root, path)];
+      });
+    const graph = runtimeGraph((path) => readFileSync(join(root, path), 'utf8'), 'index.ts');
+    expect(graph.packages).toEqual([]);
+    expect(graph.files.filter((path) => !MAIN_ENTRY_FILE.test(path))).toEqual([]);
+    expect(listed(root)).toContain('schemas/index.ts');
   });
 });
 

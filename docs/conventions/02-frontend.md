@@ -81,6 +81,7 @@
   [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §3.1。
 - 寫入後 **不手列 query key**：`onSuccess` 呼叫 `invalidateResources()` 宣告後端改了什麼，
   由 `apis/resources.ts` 的依賴圖換算。見 [`architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §6.2。
+  批次操作（`batch.ts`）不直接呼叫它，改用 `run` 第二個參數的 `invalidate()`，由佇列合併套用（[`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13.4）。
 
 ---
 

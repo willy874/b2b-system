@@ -1021,7 +1021,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
 | 機制 | `web-core/batch` | 佇列：`BatchQueueHost`（在 SharedWorker / dedicated worker 裡）、`BatchQueueClient`（每個分頁一個，由 `batchQueuePlugin` 建立）、`connectBatchQueue()`；操作註冊表 `registerBatchOperation`；UI：`BatchProgressBar`、`BatchQueueIndicator`（AppHeader）、`BatchQueueNotifier`（結束時彈出）、`BatchResultDialog` |
 | 列表 | `web-core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色）；這張表（`batch.scope`）的工作進行中時換成進度條 |
-| feature | `batch.ts` | 在 plugin 的同步階段註冊操作：每筆呼叫一次單筆 fetcher ＋ 失效快取（同單筆 mutation hook），**不發 toast**；失敗直接拋出 |
+| feature | `batch.ts` | 在 plugin 的同步階段註冊操作：每筆呼叫一次單筆 fetcher，以 `run` 第二個參數的 `invalidate` 宣告變更（同單筆 mutation hook 的 `invalidateResources`，由佇列合併套用，§13.4），**不發 toast**；失敗直接拋出 |
 | feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`operation` 引用註冊的操作 id |
 
 ```tsx
@@ -1031,9 +1031,9 @@ registerBatchOperation({
   labelKey: 'user.batch.delete.title',         // 佇列面板、進度條、結果對話框上的名稱
   localeScope: USER_LOCALE_SCOPE,              // 佇列 UI 在其他 feature 的頁面也會顯示：顯示前補載
   successKey: 'user.batch.delete.success',     // 全部成功時的 toast，參數 { count }
-  run: async (userId, { signal }) => {             // 第二個參數：取消時中止的 signal、reportProgress、version
+  run: async (userId, { signal, invalidate }) => { // 第二個參數：取消時中止的 signal、reportProgress、version、invalidate
     await deleteUser({ params: { userId }, signal });
-    invalidateResources([{ resource: Resource.USER, kind: 'delete', id: userId }]);
+    invalidate([{ resource: Resource.USER, kind: 'delete', id: userId }]); // 佇列合併後經依賴圖失效（§13.4）
   },
 });
 
@@ -1066,7 +1066,8 @@ const batchActions = useUserBatchActions();
 | 選到的列都不適用（`isEligible` 全為 false） | 按鈕停用，tooltip 顯示該動作的 `ineligibleReason`（省略時用通用文案） |
 | 部分列不適用 | 只送出適用的列；確認框自動補上「其中 N 筆不適用，將會略過」與「會在背景逐筆處理」 |
 | 確認後 | 工作進入全域佇列（前面有工作就排隊）；這張表的操作列換成進度條（`batch-progress-bar`；每個工作一個 `batch-progress`，`data-status` 是 `queued` / `running` / `done` / `cancelled`，已處理筆數在 `batch-progress-count` 的 `data-value`），可以取消 |
-| 每一筆 | 成功或失敗都即時反映在進度條（失敗筆數另外標示）；執行的分頁照單筆規則失效快取 |
+| 每一筆 | 成功或失敗都即時反映在進度條（失敗筆數另外標示）；宣告的變更在執行的分頁合併，每秒最多失效一次、工作結束時套用剩下的（§13.4） |
+| 被限流（`429 RATE_LIMITED`） | 整個工作暫停 `details.retryAfterSeconds`，時間到重送被擋的那一筆，不記為失敗；進度旁顯示「已達請求上限，稍後自動繼續」（`batch-progress-paused`）。同一筆連續被擋 5 次才記為失敗 |
 | 全部成功 | 成功的列移出選取；彈出成功 toast（操作的 `successKey`） |
 | 有失敗 | 彈出結果對話框（`batch-result-dialog`）逐筆列出名稱與原因（`batch-result-failure`，`data-value` 是 id）；失敗的列保留勾選，`*_NOT_FOUND`（已被別人刪除）一併移出 |
 | 取消 | 處理中的項目收到中止（操作有接 `signal` 時立即停止，被中止的不算失敗），剩下的不再送出；彈出資訊 toast（已完成幾筆），已完成的不會還原 |
@@ -1364,11 +1365,11 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 | D4 | HTTP 請求由誰送出 | **分頁**。佇列把「這一筆」交給一個分頁（`execute`），分頁以 `apis/` 的一般 fetcher 送出、回報結果。token、續期單飛、錯誤轉換都只在分頁的 `apis/` 一處；access token 不離開分頁的記憶體（[`backend/04-auth.md`](../backend/04-auth.md) §10） |
 | D5 | 由哪個分頁執行 | 優先發起的分頁；它關掉了（`bye`、或 Web Locks 偵測到分頁消失）就交給任一個還在的分頁——每個 feature 在 plugin 的同步階段註冊操作（`registerBatchOperation`），所有分頁都認得 |
 | D6 | 進度怎麼讓畫面知道 | 佇列經 **Channel `batch-queue`**（BroadcastChannel）廣播狀態快照；任何分頁（包括連到另一個 dedicated worker 的分頁）都看得到全部工作 |
-| D7 | 每筆結果 | 成功或失敗都回報給佇列並記進工作（失敗帶可序列化的錯誤碼）；進度條即時更新，執行的分頁照單筆 mutation 的規則失效快取 |
+| D7 | 每筆結果 | 成功或失敗都回報給佇列並記進工作（失敗帶可序列化的錯誤碼）；進度條即時更新。操作照單筆 mutation 的規則宣告變更（`context.invalidate`），執行的分頁合併後失效：每秒最多一次、工作結束時一定套用最後一次（§13.4） |
 | D8 | 結束時 | **不論成功或失敗都彈出結果**，只在一個分頁（發起的分頁；它關掉了才給其他分頁）：全部成功 → 成功 toast；有失敗 → 結果對話框逐筆列出原因；取消 → 資訊 toast |
 | D9 | 列表的 UI | 勾選後的操作列（`BatchActionBar`）不變；這張表送出的工作進行中時，**操作列換成進度條**（`BatchProgressBar`），在任何分頁打開這張表都看得到 |
 | D10 | 全域追蹤 | AppHeader 的佇列按鈕（徽章 = 進行中的工作數）隨時打開面板：所有工作的進度、取消、查看失敗、移除／清除已結束 |
-| D11 | 一次的上限 | 不設上限（沒有請求大小的限制了）；逐筆處理，量大只是時間長 |
+| D11 | 一次的上限 | 不設上限（沒有請求大小的限制了）；逐筆處理，量大只是時間長。碰到每人的限流（`429 RATE_LIMITED`）時工作暫停到伺服器說的時間再重送那一筆，不記為失敗（§13.4） |
 | D12 | session 結束 | **清空佇列**（`reset`）：中止進行中的工作、移除所有工作（含已結束的），不彈出結果——之後的每一筆都只會得到 401，留著的結果清單是上一個人的操作紀錄（項目名稱含 email、檔名）。上傳暫存一併清除；工作記下送出時的身分，分頁只顯示目前身分的工作 |
 
 **通道**
@@ -1390,7 +1391,24 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 
 ### 13.4 取捨
 
-- **比一次請求慢**：N 筆就是 N 個請求、依序等待。後台管理的批次量不大，換來的是進度可見與行為一致。
+- **比一次請求慢**：N 筆就是 N 個請求、依序等待。後台管理的批次量原本不大，換來的是進度可見與行為一致。
+- **批次量與限流**：上傳併入佇列後（[`12-file-manager.md`](12-file-manager.md) §14.2 D1）資料夾上傳沒有數量上限，一個工作可以有上千筆。
+  已登入的請求以「人」計、所有端點合計每分鐘 600 次（[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §8），
+  若每完成一筆就照單筆的規則失效，畫面上的列表、容量會跟著每筆重抓：小檔上傳每筆至少 4 個請求（登記、完成、列表、容量），
+  3 筆並行十幾秒就超過額度，之後每一筆都以 429 失敗。所以：
+  - 變更在執行的分頁 **合併失效**（`BatchQueueClient`）：距離上一次超過 1 秒就立刻套用，否則等到滿 1 秒再一次套用期間累積的；
+    累積變更的工作都結束時立刻套用。依賴圖會把重複的目標去重，一次套用只重抓一輪。上傳的變更帶目的地資料夾（`refs.fileFolder`），只重抓那個資料夾的列表。
+  - 重抓 **不取消進行中的請求**（`AppQueryClient.applyInvalidation` 的 `cancelRefetch: false`）：被取消的請求已經送出，伺服器照樣計數；
+    進行中的請求回來後再重抓一次，不論期間失效幾次（[`05-data-layer.md`](05-data-layer.md) §6.3）。
+  - 仍然碰到 429 時（例：同一個人在其他分頁也在大量操作），佇列 **暫停整個工作** 到 `details.retryAfterSeconds` 之後，重送被擋的那一筆，
+    不記為失敗；同一筆連續被擋 5 次才記為失敗，不無限等下去。暫停中取消，被擋的那一筆不算失敗。
+  - 代價：批次期間列表最多晚 1 秒反映；結果提示彈出時列表已經套用了最後一次。
+- **大批次的進度**：佇列的快照是所有工作的完整複本（上千筆的上傳一份就數百 KB），每個分頁收到都重新計算、重繪。
+  - 只有進度變化時，佇列的快照最多每 250 ms 廣播一次（每秒約 4 次），之間的進度合併到下一份；結果、取消等狀態變化照常立刻廣播。
+    分頁端另外對每一筆的進度節流 200 ms。
+  - 整體進度（`jobProgressAmount()`）先建 id → 份量的表再加總，O(項目數)；一萬筆約 1 ms（舊的寫法每個已完成的 id 線性找一次，約 230 ms）。
+  - 訂閱 `useBatchJobs()` 的元件要小：每個快照都讓它重繪。頁面層不要訂閱（例：檔案管理器的進度條是自己訂閱的 `FileBatchProgress`，
+    `useFileActions()` 只回傳操作），否則整頁跟著每個快照重繪。
 - **執行仍需要至少一個分頁開著**：所有分頁都關掉時 SharedWorker 會被瀏覽器結束，剩下的項目不會處理（沒有伺服器端排程）。
 - **執行中的分頁消失時，同一筆會交給其他分頁重送**：若前一次其實已經送達，重送會得到 `*_NOT_FOUND` 等錯誤；
   結果清單會列出來，選取也會把「已不存在」的列移出。

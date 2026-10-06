@@ -65,7 +65,8 @@
         "running": "Processing {{done}} / {{total}}",
         "done": "Done {{done}} / {{total}}",
         "cancelled": "Cancelled after {{done}} / {{total}}",
-        "failed": "{{count}} failed"
+        "failed": "{{count}} failed",
+        "paused": "Request limit reached. Resuming automatically shortly."
       },
       "queue": {
         "title": "Bulk action queue",

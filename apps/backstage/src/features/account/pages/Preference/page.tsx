@@ -4,7 +4,7 @@ import { useErrorToast } from '@b2b-system/web-core/errors';
 import { HeaderToolbarSettings } from '@b2b-system/web-core/layout';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useToast } from '@b2b-system/web-core/notify';
-import { usePreferenceLocales, usePreferenceSections } from '@b2b-system/web-core/preference';
+import { PreferenceSections, usePreferenceLocales } from '@b2b-system/web-core/preference';
 import { useLocaleStore, useThemeStore, useTimezoneStore } from '@b2b-system/web-core/store';
 import { THEME_OPTIONS } from '@b2b-system/web-core/theme';
 import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
@@ -39,8 +39,7 @@ export default function PreferencePage() {
     [timezone],
   );
 
-  // feature 或 plugins/features/* 註冊的分頁；偏好頁不需要認識它們
-  const sections = usePreferenceSections();
+  // feature 或 plugins/features/* 註冊的分頁由 <PreferenceSections /> 渲染；偏好頁不需要認識它們。
   // 晚一步安裝的 feature（docs/architecture/frontend/02-plugin-system.md §9）登記的分頁與列表：補載它們的語系包
   usePreferenceLocales();
 
@@ -115,12 +114,7 @@ export default function PreferencePage() {
         <HeaderToolbarSettings />
       </section>
 
-      {sections.map((section) => (
-        <section key={section.key} data-testid="preference-section" data-value={section.key}>
-          <h2 className="mb-2 text-base font-medium">{t(section.labelI18nKey)}</h2>
-          <section.Component />
-        </section>
-      ))}
+      <PreferenceSections />
     </div>
   );
 }

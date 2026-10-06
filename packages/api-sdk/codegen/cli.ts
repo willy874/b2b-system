@@ -35,7 +35,8 @@ function main(): void {
 
   const document: unknown = JSON.parse(readFileSync(input, 'utf8'));
   const runtimeSource = readFileSync(new URL('./runtime.ts', import.meta.url), 'utf8');
-  const { files, warnings } = generate(document, { runtimeSource });
+  const urlSource = readFileSync(new URL('./url.ts', import.meta.url), 'utf8');
+  const { files, warnings } = generate(document, { runtimeSource, urlSource });
 
   cleanOutput(output);
   for (const file of files) {

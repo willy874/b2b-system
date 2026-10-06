@@ -10,7 +10,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
-import { applyResourceChanges } from '@/apis/resources';
+import { applyResourceChanges, invalidateResources } from '@/apis/resources';
 import { App } from '@/app/App';
 import { featureActivationPlugin } from '@/app/features';
 import { appContextPlugin } from '@/app/plugin';
@@ -70,8 +70,9 @@ async function bootstrap(): Promise<void> {
         },
       ]),
     )
-    // 全域批次佇列：SharedWorker 排程、分頁以一般 API 逐筆執行；session 結束時取消（要用 httpContext 建立的 session）
-    .use(batchQueuePlugin({ backend: MAIN_BACKEND }));
+    // 全域批次佇列：SharedWorker 排程、分頁以一般 API 逐筆執行；session 結束時取消（要用 httpContext 建立的 session）。
+    // 每一筆宣告的變更由佇列合併後經依賴圖失效（plugin 不認識 apis/）
+    .use(batchQueuePlugin({ backend: MAIN_BACKEND, invalidate: invalidateResources }));
 
   // 即時推播：必須在 httpContext 之後（要用它建立的 session）；依賴圖換算在這裡注入（plugin 不認識 apis/）。
   // Mock 模式不註冊：MSW 不處理 Socket.io，行為等同推播停用（docs/architecture/frontend/11-realtime.md §9）

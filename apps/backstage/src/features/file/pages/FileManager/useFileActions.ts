@@ -1,4 +1,4 @@
-import { isBatchJobActive, useBatchJobs, useBatchQueue } from '@b2b-system/web-core/batch';
+import { useBatchQueue } from '@b2b-system/web-core/batch';
 import { useCallback, useState } from 'react';
 
 import { FILE_MANAGER_SCOPE, FileBatchOperation } from '../../batch';
@@ -17,6 +17,8 @@ const DOWNLOAD_INTERVAL_MS = 250;
  * - 多個項目送進全域批次佇列逐筆刪除，檔案與資料夾各一個工作（進度、取消、結果由佇列處理；
  *   docs/architecture/frontend/07-ui-system.md §13）
  * - 移動（拖放、移動對話框）一次送出，後端在同一個交易內處理
+ *
+ * 只回傳操作，不訂閱佇列的進度：頁面每次呼叫它，訂閱會讓整頁跟著每個快照重繪（進度條是 `FileBatchProgress`）。
  */
 export function useFileActions() {
   const queue = useBatchQueue();
@@ -25,10 +27,6 @@ export function useFileActions() {
   const move = useFileMoveMutation();
   const [pendingDelete, setPendingDelete] = useState<readonly BrowserItemVM[]>();
   const [pendingMove, setPendingMove] = useState<DraggedItems>();
-  const jobs = useBatchJobs();
-  const activeJobs = jobs.filter(
-    (job) => job.scope === FILE_MANAGER_SCOPE && isBatchJobActive(job),
-  );
 
   const confirmDelete = useCallback(async () => {
     const targets = pendingDelete ?? [];
@@ -94,8 +92,6 @@ export function useFileActions() {
   }, []);
 
   return {
-    activeJobs,
-    cancelJob: (jobId: string) => queue?.cancel(jobId),
     pendingDelete,
     requestDelete: setPendingDelete,
     cancelDelete: () => setPendingDelete(undefined),

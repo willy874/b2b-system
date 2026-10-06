@@ -199,7 +199,7 @@ import type {
   WebhookSecret,
   WebhookTarget,
   WebhookTestResult,
-} from './models';
+} from '../models';
 
 export const NotificationChannelSchema = z.enum([
   'inApp',

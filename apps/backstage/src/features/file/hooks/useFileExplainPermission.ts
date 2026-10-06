@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { PermissionKey, usePermission } from '@/core/permission';
 
 /**
@@ -6,5 +8,6 @@ import { PermissionKey, usePermission } from '@/core/permission';
  */
 export function useFileExplainPermission() {
   const { can, hydrated } = usePermission();
-  return { canExplain: hydrated && can(PermissionKey['authz:explain']) };
+  const canExplain = hydrated && can(PermissionKey['authz:explain']);
+  return useMemo(() => ({ canExplain }), [canExplain]);
 }
