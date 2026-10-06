@@ -1,3 +1,4 @@
+import { JobQueueSummary, JobTable } from '@b2b-system/web-core/job';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
@@ -6,14 +7,19 @@ import { getPlatformJobListQueryOptions } from '@/apis/platform-job/get-job-list
 import { getPlatformJobQueuesQueryOptions } from '@/apis/platform-job/get-job-queues/query';
 
 import { useJobPermission } from '../../hooks/useJobPermission';
+import { useRetryJobMutation } from '../../hooks/useRetryJobMutation';
 import { toJobQueueVM, toJobRowVM } from './adapter';
-import { JobQueueSummary } from './components/JobQueueSummary';
-import { JobTable } from './components/JobTable';
+import type { PlatformJobRowVM } from './adapter';
+import { JobDetail } from './components/JobDetail';
 import { useJobFilters } from './useJobFilters';
 import { useJobSearchFilter } from './useJobSearchFilter';
+import { useJobTenantColumn } from './useJobTenantColumn';
 
 /** 工作在背景持續變化：每 10 秒重新整理一次，不必手動重新載入。 */
 const REFRESH_INTERVAL_MS = 10_000;
+
+/** 展開列的內容：明細在展開當下才向後端取（`JobDetail`）。 */
+const renderDetail = (row: PlatformJobRowVM) => <JobDetail id={row.id} />;
 
 /**
  * 平台管理者的背景工作監控：所有租戶與平台層級的工作。
@@ -29,6 +35,9 @@ export default function JobListPage() {
     (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
     [],
   );
+  const { mutateAsync: retryJob } = useRetryJobMutation();
+  const onRetryJob = useCallback((id: string) => retryJob({ params: { id } }), [retryJob]);
+  const tenantColumn = useJobTenantColumn();
 
   const { data: queueData } = useQuery({
     ...getPlatformJobQueuesQueryOptions(),
@@ -74,6 +83,9 @@ export default function JobListPage() {
         onRetry={() => void refetch()}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
+        renderDetail={renderDetail}
+        onRetryJob={onRetryJob}
+        extraColumns={tenantColumn}
         filters={filters}
         pagination={{
           offset: search.offset,

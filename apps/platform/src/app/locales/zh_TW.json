@@ -132,5 +132,9 @@
   },
   "changePassword": {
     "hint": "變更密碼後，所有裝置都會被登出。"
+  },
+  "auditLog": {
+    "expand": "展開明細",
+    "collapse": "收合明細"
   }
 }

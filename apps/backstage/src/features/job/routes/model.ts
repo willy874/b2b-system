@@ -1,6 +1,5 @@
+import { JOB_STATES } from '@b2b-system/web-core/job';
 import { z } from 'zod';
-
-import { JOB_STATES } from '../constants';
 
 export const JobSearchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).catch(0),

@@ -132,5 +132,9 @@
   },
   "changePassword": {
     "hint": "After changing your password, every device will be signed out."
+  },
+  "auditLog": {
+    "expand": "Show details",
+    "collapse": "Hide details"
   }
 }

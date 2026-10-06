@@ -1,19 +1,9 @@
+import type { AuditLogRowVM } from '@b2b-system/web-core/audit-log';
+
 import type { AuditLog, AuditLogSummary } from '@/shared/api-sdk';
 
 /** 出現時需要特別標示的動作（refresh token 重用代表 token 可能外洩）。 */
 const HIGH_RISK_ACTIONS = new Set(['auth.refresh.reuse_detected']);
-
-export interface AuditLogRowVM {
-  id: string;
-  occurredAt: Date;
-  actorEmail: string;
-  action: string;
-  isHighRisk: boolean;
-  /** `resourceType · resourceName`；沒有名稱時只有類型 */
-  resourceLabel: string;
-  isSuccess: boolean;
-  errorCode: string | null;
-}
 
 /**
  * 變更前後（docs/architecture/backend/06-audit-log.md §5）。
@@ -41,6 +31,7 @@ export function toAuditLogRowVM(dto: AuditLogSummary): AuditLogRowVM {
     resourceLabel: dto.resourceName
       ? `${dto.resourceType} · ${dto.resourceName}`
       : dto.resourceType,
+    result: dto.result,
     isSuccess: dto.result === 'success',
     errorCode: dto.errorCode,
   };

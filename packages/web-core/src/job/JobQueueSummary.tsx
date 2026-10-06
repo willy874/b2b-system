@@ -1,17 +1,17 @@
 import { Chip } from '@b2b-system/ui/Chip';
-import { useTranslation } from '@b2b-system/web-core/locales';
 import { cn } from '@b2b-system/web-shared/utils';
 
-import type { JobQueueVM } from '../adapter';
+import { useTranslation } from '../locales';
+import type { JobQueueVM } from './types';
 
-interface JobQueueSummaryProps {
+export interface JobQueueSummaryProps {
   queues: JobQueueVM[];
   /** 目前篩選的工作種類；點同一張卡片取消篩選 */
   selectedName: string | undefined;
   onSelect: (name: string | undefined) => void;
 }
 
-/** 每種工作一張卡片：排程與各狀態的即時筆數。點卡片篩選下方的列表。 */
+/** 每種工作一張卡片：（範圍、）排程與各狀態的即時筆數。點卡片篩選下方的列表。 */
 export function JobQueueSummary({ queues, selectedName, onSelect }: JobQueueSummaryProps) {
   const { t } = useTranslation();
   return (
@@ -40,11 +40,19 @@ export function JobQueueSummary({ queues, selectedName, onSelect }: JobQueueSumm
                   {queue.labelKey ? t(queue.labelKey) : queue.name}
                 </span>
                 {queue.failedCount > 0 && (
-                  <Chip tone="danger">{t('job.queues.failed', { count: queue.failedCount })}</Chip>
+                  <Chip tone="danger" data-testid="job-queue-failed" data-value={queue.failedCount}>
+                    {t('job.queues.failed', { count: queue.failedCount })}
+                  </Chip>
                 )}
               </span>
               <code className="font-mono text-xs text-[var(--color-fg-muted)]">{queue.name}</code>
               <span className="text-xs text-[var(--color-fg-muted)]">
+                {queue.scopeLabelKey && (
+                  <>
+                    {t(queue.scopeLabelKey)}
+                    {' · '}
+                  </>
+                )}
                 {queue.cron ? t('job.queues.cron', { cron: queue.cron }) : t('job.queues.onDemand')}
               </span>
               <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs">

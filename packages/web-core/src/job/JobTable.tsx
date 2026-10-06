@@ -1,32 +1,36 @@
 import { Chip } from '@b2b-system/ui/Chip';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
-import { RichTable } from '@b2b-system/web-core/components';
-import type { FilterBarProps, RichTablePagination } from '@b2b-system/web-core/components';
-import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
-import type { JobRowVM } from '../adapter';
-import type { JobFilterValues } from '../useJobFilters';
-import { JobDetail } from './JobDetail';
+import { RichTable } from '../components';
+import type { FilterBarProps, RichTablePagination } from '../components';
+import { useTranslation } from '../locales';
 import { JobRowActions } from './JobRowActions';
+import type { JobRowVM } from './types';
 
-/** 展開列的內容：明細在展開當下才向後端取（`JobDetail`）。 */
-const renderDetail = (row: JobRowVM) => <JobDetail id={row.id} />;
-
-interface JobTableProps {
-  items: JobRowVM[];
+export interface JobTableProps<TRow extends JobRowVM, TFilters extends Record<string, unknown>> {
+  items: TRow[];
   loading: boolean;
   /** 查詢失敗：沒有資料時以錯誤與重試取代表格，不落到「沒有資料」。 */
   error: unknown;
+  /** 重新查詢列表 */
   onRetry: () => void;
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
-  filters: FilterBarProps<JobFilterValues>;
+  filters: FilterBarProps<TFilters>;
   pagination: RichTablePagination;
+  /** 展開列的內容：明細在展開當下才向 app 自己的端點取（app 的 `JobDetail`）。 */
+  renderDetail: (row: TRow) => ReactNode;
+  /** 重試一筆失敗的工作（app 的 retry mutation 的 `mutateAsync`）。 */
+  onRetryJob: (id: string) => Promise<unknown>;
+  /** 插在「工作」欄之後的欄位（例：apps/platform 的租戶欄）；要穩定的參照（`useMemo`）。 */
+  extraColumns?: Array<TableColumnDef<TRow>>;
 }
 
-export function JobTable({
+/** 背景工作的列表（兩個 app 共用）：建立時間、工作、狀態、重試次數、結束時間與列上的操作。 */
+export function JobTable<TRow extends JobRowVM, TFilters extends Record<string, unknown>>({
   items,
   loading,
   error,
@@ -35,10 +39,13 @@ export function JobTable({
   onToggleExpand,
   filters,
   pagination,
-}: JobTableProps) {
+  renderDetail,
+  onRetryJob,
+  extraColumns,
+}: JobTableProps<TRow, TFilters>) {
   const { t } = useTranslation();
 
-  const columns = useMemo<Array<TableColumnDef<JobRowVM>>>(
+  const columns = useMemo<Array<TableColumnDef<TRow>>>(
     () => [
       {
         id: 'createdAt',
@@ -59,13 +66,18 @@ export function JobTable({
           </span>
         ),
       },
+      ...(extraColumns ?? []),
       {
         id: 'state',
         header: t('job.field.state'),
         enableSorting: false,
         cell: ({ row }) => (
           <span className="flex flex-col items-start gap-1">
-            <Chip tone={row.original.stateTone} data-testid="job-state">
+            <Chip
+              tone={row.original.stateTone}
+              data-testid="job-state"
+              data-value={row.original.state}
+            >
               {t(row.original.stateLabelKey)}
             </Chip>
             {row.original.scheduledAt && (
@@ -98,11 +110,12 @@ export function JobTable({
             row={row.original}
             isExpanded={expandedId === row.original.id}
             onToggleExpand={onToggleExpand}
+            onRetry={onRetryJob}
           />
         ),
       },
     ],
-    [expandedId, onToggleExpand, t],
+    [expandedId, extraColumns, onRetryJob, onToggleExpand, t],
   );
 
   return (

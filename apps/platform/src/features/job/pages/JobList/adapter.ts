@@ -1,28 +1,9 @@
-import type { ChipTone } from '@b2b-system/ui/Chip';
+import { JOB_STATE_LABEL_KEY, JOB_STATE_TONE } from '@b2b-system/web-core/job';
+import type { JobDetailVM, JobQueueVM, JobRowVM, JobState } from '@b2b-system/web-core/job';
 
-import type { PlatformJobState } from '@/apis/platform-job/types';
 import type { PlatformJob, PlatformJobQueue, PlatformJobSummary } from '@/shared/api-sdk';
 
-import {
-  JOB_NAME_LABEL_KEY,
-  JOB_SCOPE_LABEL_KEY,
-  JOB_STATE_LABEL_KEY,
-  JOB_STATE_TONE,
-  PLATFORM_TENANT_FILTER,
-} from '../../constants';
-
-export interface JobQueueVM {
-  name: string;
-  /** 已知工作的顯示名稱；沒有就顯示 `name` 本身 */
-  labelKey: string | undefined;
-  scopeLabelKey: (typeof JOB_SCOPE_LABEL_KEY)[PlatformJobQueue['scope']];
-  cron: string | null;
-  readyCount: number;
-  deferredCount: number;
-  activeCount: number;
-  failedCount: number;
-  completedCount: number;
-}
+import { JOB_NAME_LABEL_KEY, JOB_SCOPE_LABEL_KEY, PLATFORM_TENANT_FILTER } from '../../constants';
 
 /**
  * 工作屬於誰：平台層級（`tenantId` 是 null），或某個租戶——
@@ -30,38 +11,16 @@ export interface JobQueueVM {
  */
 export type JobOwnerVM = { kind: 'platform' } | { kind: 'tenant'; label: string };
 
-export interface JobRowVM {
-  id: string;
-  name: string;
-  labelKey: string | undefined;
+/** 平台的列多了「工作屬於誰」（租戶欄）；其餘欄位與 backstage 相同（`@b2b-system/web-core/job`）。 */
+export interface PlatformJobRowVM extends JobRowVM {
   owner: JobOwnerVM;
   /** `data-value` 用：租戶代碼（或 id），平台層級是 `platform` */
   ownerValue: string;
-  state: PlatformJobState;
-  stateLabelKey: (typeof JOB_STATE_LABEL_KEY)[PlatformJobState];
-  stateTone: ChipTone;
-  /** 已重試次數 / 上限 */
-  retryCount: number;
-  retryLimit: number;
-  createdAt: Date;
-  /** 排定在未來才執行（延後入列、重試退避中） */
-  scheduledAt: Date | null;
-  completedAt: Date | null;
-  /** 只有 `failed` 且持有 `platformJob:retry` 才能重試 */
-  canRetry: boolean;
 }
 
-export interface JobDetailVM {
-  state: PlatformJobState;
-  /** 失敗時的錯誤訊息（`output.message`）；成功或沒有訊息時是 `null` */
-  errorMessage: string | null;
-  data: Record<string, unknown>;
-  output: Record<string, unknown> | null;
-}
-
-/** 已經結束、之後不會再變的狀態。 */
-export function isFinalJobState(state: PlatformJobState): boolean {
-  return state === 'completed' || state === 'cancelled' || state === 'failed';
+/** 明細多帶狀態：還沒結束的工作展開時要重取。 */
+export interface PlatformJobDetailVM extends JobDetailVM {
+  state: JobState;
 }
 
 export function toJobQueueVM(dto: PlatformJobQueue): JobQueueVM {
@@ -88,7 +47,7 @@ export function toJobRowVM(
   dto: PlatformJobSummary,
   capabilities: { canRetry: boolean },
   now: Date = new Date(),
-): JobRowVM {
+): PlatformJobRowVM {
   const startAfter = new Date(dto.startAfter);
   const isWaiting = dto.state === 'created' || dto.state === 'retry';
   const owner = toOwner(dto);
@@ -110,7 +69,7 @@ export function toJobRowVM(
   };
 }
 
-export function toJobDetailVM(dto: PlatformJob): JobDetailVM {
+export function toJobDetailVM(dto: PlatformJob): PlatformJobDetailVM {
   const message = dto.state === 'failed' ? dto.output?.message : undefined;
   return {
     state: dto.state,

@@ -3,32 +3,20 @@ import { Chip } from '@b2b-system/ui/Chip';
 import { Icon } from '@b2b-system/ui/Icon';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
-import { RichTable } from '@b2b-system/web-core/components';
-import type {
-  FilterBarProps,
-  RichTablePagination,
-  TableSettingsConfig,
-} from '@b2b-system/web-core/components';
-import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
-import { AUDIT_LOG_LIST_DEFAULT_HIDDEN, AUDIT_LOG_LIST_TABLE_ID } from '../../../preference';
-import type { AuditLogRowVM } from '../adapter';
-import type { AuditLogFilterValues } from '../useAuditLogFilters';
-import { AuditLogDetail } from './AuditLogDetail';
+import { RichTable } from '../components';
+import type { FilterBarProps, RichTablePagination, TableSettingsConfig } from '../components';
+import { useTranslation } from '../locales';
+import type { AuditLogRowVM } from './types';
 
-/** 展開列的內容：明細在展開當下才向後端取（`AuditLogDetail`）。 */
-const renderDetail = (row: AuditLogRowVM) => <AuditLogDetail id={row.id} />;
-
-/** 欄位順序與顯示存在這台裝置（`core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
-const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = {
-  tableId: AUDIT_LOG_LIST_TABLE_ID,
-  defaultHidden: AUDIT_LOG_LIST_DEFAULT_HIDDEN,
-};
-
-interface AuditLogTableProps {
-  items: AuditLogRowVM[];
+export interface AuditLogTableProps<
+  TRow extends AuditLogRowVM,
+  TFilters extends Record<string, unknown>,
+> {
+  items: TRow[];
   loading: boolean;
   /** 查詢失敗：沒有資料時以錯誤與重試取代表格，不落到「沒有資料」。 */
   error: unknown;
@@ -36,11 +24,22 @@ interface AuditLogTableProps {
   /** 目前展開明細的那一列；明細顯示在該列正下方 */
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
-  filters: FilterBarProps<AuditLogFilterValues>;
+  filters: FilterBarProps<TFilters>;
   pagination: RichTablePagination;
+  /** 欄位順序與顯示存在這台裝置；可設定的欄位登記在 app 的 `features/audit-log/preference.ts`。 */
+  settings: TableSettingsConfig;
+  /**
+   * 展開列的內容（app 的 `AuditLogDetail`）：backstage 展開時才取變更前後，
+   * apps/platform 直接顯示列表帶的 metadata。
+   */
+  renderDetail: (row: TRow) => ReactNode;
 }
 
-export function AuditLogTable({
+/** 稽核紀錄的列表（兩個 app 共用）：時間、操作者、動作、資源、結果與展開明細。 */
+export function AuditLogTable<
+  TRow extends AuditLogRowVM,
+  TFilters extends Record<string, unknown>,
+>({
   items,
   loading,
   error,
@@ -49,10 +48,12 @@ export function AuditLogTable({
   onToggleExpand,
   filters,
   pagination,
-}: AuditLogTableProps) {
+  settings,
+  renderDetail,
+}: AuditLogTableProps<TRow, TFilters>) {
   const { t } = useTranslation();
 
-  const columns = useMemo<Array<TableColumnDef<AuditLogRowVM>>>(
+  const columns = useMemo<Array<TableColumnDef<TRow>>>(
     () => [
       {
         id: 'occurredAt',
@@ -72,7 +73,13 @@ export function AuditLogTable({
         enableSorting: false,
         cell: ({ row }) => (
           <span className="flex items-center gap-2">
-            <code className="font-mono text-xs">{row.original.action}</code>
+            <code
+              className="font-mono text-xs"
+              data-testid="audit-log-action"
+              data-value={row.original.action}
+            >
+              {row.original.action}
+            </code>
             {row.original.isHighRisk && <Chip tone="danger">{t('auditLog.highRisk')}</Chip>}
           </span>
         ),
@@ -89,9 +96,13 @@ export function AuditLogTable({
         enableSorting: false,
         cell: ({ row }) =>
           row.original.isSuccess ? (
-            <Chip tone="success">{t('auditLog.result.success')}</Chip>
+            <Chip tone="success" data-testid="audit-log-result" data-value={row.original.result}>
+              {t('auditLog.result.success')}
+            </Chip>
           ) : (
-            <Chip tone="danger">{row.original.errorCode ?? t('auditLog.result.failure')}</Chip>
+            <Chip tone="danger" data-testid="audit-log-result" data-value={row.original.result}>
+              {row.original.errorCode ?? t('auditLog.result.failure')}
+            </Chip>
           ),
       },
       {
@@ -109,6 +120,7 @@ export function AuditLogTable({
                 aria-expanded={isExpanded}
                 onClick={() => onToggleExpand(row.original.id)}
                 data-testid="audit-log-expand"
+                data-value={row.original.id}
               >
                 <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={16} />
               </IconButton>
@@ -129,7 +141,7 @@ export function AuditLogTable({
       onRetry={onRetry}
       getRowId={(row) => row.id}
       filters={filters}
-      settings={AUDIT_LOG_TABLE_SETTINGS}
+      settings={settings}
       pagination={pagination}
       expandedRowIds={expandedId ? [expandedId] : undefined}
       renderExpandedRow={renderDetail}

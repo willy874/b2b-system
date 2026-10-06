@@ -358,5 +358,69 @@
     "currentPassword": "Current password",
     "newPassword": "New password",
     "confirmPassword": "Confirm new password"
+  },
+  "job": {
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "scheduledAt": "Scheduled for {{time}}",
+    "queues": {
+      "title": "Job types",
+      "cron": "Schedule: {{cron}} (UTC)",
+      "onDemand": "Queued by the application",
+      "ready_one": "Waiting {{count}}",
+      "ready_other": "Waiting {{count}}",
+      "deferred_one": "Scheduled {{count}}",
+      "deferred_other": "Scheduled {{count}}",
+      "active_one": "Running {{count}}",
+      "active_other": "Running {{count}}",
+      "completed_one": "Completed {{count}}",
+      "completed_other": "Completed {{count}}",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed"
+    },
+    "field": {
+      "createdAt": "Created",
+      "name": "Job",
+      "state": "State",
+      "retries": "Retries",
+      "completedAt": "Finished"
+    },
+    "state": {
+      "created": "Waiting",
+      "retry": "Waiting to retry",
+      "active": "Running",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
+    "retry": {
+      "action": "Retry",
+      "title": "Retry this job?",
+      "confirm": "\"{{name}}\" will be queued again and run by a worker.",
+      "success": "Queued again"
+    },
+    "detail": {
+      "title": "Job details",
+      "error": "Failure: {{message}}",
+      "data": "Job data",
+      "output": "Result",
+      "noOutput": "No result yet"
+    }
+  },
+  "auditLog": {
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "highRisk": "High risk",
+    "field": {
+      "occurredAt": "Time",
+      "actor": "Actor",
+      "action": "Action",
+      "resource": "Resource",
+      "result": "Result"
+    },
+    "result": {
+      "success": "Success",
+      "failure": "Failure"
+    }
   }
 }

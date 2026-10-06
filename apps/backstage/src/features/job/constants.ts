@@ -1,34 +1,4 @@
-import type { ChipTone } from '@b2b-system/ui/Chip';
-
-import type { JobState } from '@/apis/job/types';
-
-/** 與後端 `JOB_STATES`（apps/api/src/core/jobs/job-store.ts）一致。 */
-export const JOB_STATES = [
-  'created',
-  'retry',
-  'active',
-  'completed',
-  'cancelled',
-  'failed',
-] as const satisfies readonly JobState[];
-
-export const JOB_STATE_LABEL_KEY = {
-  created: 'job.state.created',
-  retry: 'job.state.retry',
-  active: 'job.state.active',
-  completed: 'job.state.completed',
-  cancelled: 'job.state.cancelled',
-  failed: 'job.state.failed',
-} as const satisfies Record<JobState, string>;
-
-export const JOB_STATE_TONE = {
-  created: 'neutral',
-  retry: 'warning',
-  active: 'brand',
-  completed: 'success',
-  cancelled: 'neutral',
-  failed: 'danger',
-} as const satisfies Record<JobState, ChipTone>;
+/* 狀態的清單、語系鍵與色調在 `@b2b-system/web-core/job`（兩個 app 共用）。 */
 
 /**
  * 已知工作的顯示名稱。後端新增工作而這裡還沒補時，畫面退回顯示工作名稱本身，

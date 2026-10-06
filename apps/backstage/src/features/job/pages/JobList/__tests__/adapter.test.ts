@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { JobState } from '@/apis/job/types';
 import type { Job, JobSummary } from '@/shared/api-sdk';
 
-import { isFinalJobState, toJobDetailVM, toJobQueueVM, toJobRowVM } from '../adapter';
+import { toJobDetailVM, toJobQueueVM, toJobRowVM } from '../adapter';
 
 const NOW = new Date('2026-09-29T12:00:00.000Z');
 
@@ -83,14 +82,5 @@ describe('toJobQueueVM', () => {
         completedCount: 5,
       }),
     ).toMatchObject({ labelKey: 'job.name.auditLogArchive', cron: '30 3 * * *', failedCount: 2 });
-  });
-});
-
-describe('isFinalJobState', () => {
-  it('完成、取消、失敗是結束狀態；等待、重試、執行中不是', () => {
-    const finals: JobState[] = ['completed', 'cancelled', 'failed'];
-    const pendings: JobState[] = ['created', 'retry', 'active'];
-    expect(finals.every(isFinalJobState)).toBe(true);
-    expect(pendings.some(isFinalJobState)).toBe(false);
   });
 });

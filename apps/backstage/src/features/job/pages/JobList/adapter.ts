@@ -1,51 +1,9 @@
-import type { ChipTone } from '@b2b-system/ui/Chip';
+import { JOB_STATE_LABEL_KEY, JOB_STATE_TONE } from '@b2b-system/web-core/job';
+import type { JobDetailVM, JobQueueVM, JobRowVM } from '@b2b-system/web-core/job';
 
-import type { JobState } from '@/apis/job/types';
 import type { Job, JobQueue, JobSummary } from '@/shared/api-sdk';
 
-import { JOB_NAME_LABEL_KEY, JOB_STATE_LABEL_KEY, JOB_STATE_TONE } from '../../constants';
-
-export interface JobQueueVM {
-  name: string;
-  /** 已知工作的顯示名稱；沒有就顯示 `name` 本身 */
-  labelKey: string | undefined;
-  cron: string | null;
-  readyCount: number;
-  deferredCount: number;
-  activeCount: number;
-  failedCount: number;
-  completedCount: number;
-}
-
-export interface JobRowVM {
-  id: string;
-  name: string;
-  labelKey: string | undefined;
-  state: JobState;
-  stateLabelKey: (typeof JOB_STATE_LABEL_KEY)[JobState];
-  stateTone: ChipTone;
-  /** 已重試次數 / 上限 */
-  retryCount: number;
-  retryLimit: number;
-  createdAt: Date;
-  /** 排定在未來才執行（延後入列、重試退避中） */
-  scheduledAt: Date | null;
-  completedAt: Date | null;
-  /** 只有 `failed` 且持有 `job:retry` 才能重試 */
-  canRetry: boolean;
-}
-
-export interface JobDetailVM {
-  /** 失敗時的錯誤訊息（`output.message`）；成功或沒有訊息時是 `null` */
-  errorMessage: string | null;
-  data: Record<string, unknown>;
-  output: Record<string, unknown> | null;
-}
-
-/** 已經結束、之後不會再變的狀態。 */
-export function isFinalJobState(state: JobState): boolean {
-  return state === 'completed' || state === 'cancelled' || state === 'failed';
-}
+import { JOB_NAME_LABEL_KEY } from '../../constants';
 
 export function toJobQueueVM(dto: JobQueue): JobQueueVM {
   return {

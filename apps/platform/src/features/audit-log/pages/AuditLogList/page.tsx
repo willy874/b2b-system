@@ -1,3 +1,5 @@
+import { AuditLogTable } from '@b2b-system/web-core/audit-log';
+import type { TableSettingsConfig } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
@@ -6,10 +8,21 @@ import { useCallback, useMemo, useState } from 'react';
 import { getPlatformAuditLogListQueryOptions } from '@/apis/platform-audit-log/get-audit-log-list/query';
 
 import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
+import { AUDIT_LOG_LIST_DEFAULT_HIDDEN, AUDIT_LOG_LIST_TABLE_ID } from '../../preference';
 import { toAuditLogRowVM } from './adapter';
-import { AuditLogTable } from './components/AuditLogTable';
+import type { PlatformAuditLogRowVM } from './adapter';
+import { AuditLogDetail } from './components/AuditLogDetail';
 import { useAuditLogFilters } from './useAuditLogFilters';
 import { useAuditLogSearchFilter } from './useAuditLogSearchFilter';
+
+/** 欄位順序與顯示存在這台裝置；可設定的欄位登記在 `preference.ts`。 */
+const AUDIT_LOG_TABLE_SETTINGS: TableSettingsConfig = {
+  tableId: AUDIT_LOG_LIST_TABLE_ID,
+  defaultHidden: AUDIT_LOG_LIST_DEFAULT_HIDDEN,
+};
+
+/** 展開列的內容：列表已帶 metadata，直接顯示。 */
+const renderDetail = (row: PlatformAuditLogRowVM) => <AuditLogDetail row={row} />;
 
 /**
  * 平台稽核：依時間新到舊，伺服器分頁；篩選條件與分頁放在網址上（routes/model.ts）。
@@ -60,6 +73,8 @@ export default function AuditLogListPage() {
         onRetry={() => void refetch()}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
+        settings={AUDIT_LOG_TABLE_SETTINGS}
+        renderDetail={renderDetail}
         filters={filters}
         pagination={{
           offset: search.offset,

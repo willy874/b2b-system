@@ -1,9 +1,9 @@
 import { useTranslation } from '@b2b-system/web-core/locales';
 
-import type { AuditLogRowVM } from '../adapter';
+import type { PlatformAuditLogRowVM } from '../adapter';
 
 /** 展開列的明細：錯誤碼與 metadata（縮排的 JSON，過長時在框內捲動）。列表已帶 metadata，不需要再向後端取。 */
-export function AuditLogDetail({ row }: { row: AuditLogRowVM }) {
+export function AuditLogDetail({ row }: { row: PlatformAuditLogRowVM }) {
   const { t } = useTranslation();
   return (
     <section className="flex flex-col gap-2" data-testid="audit-log-detail" data-value={row.id}>

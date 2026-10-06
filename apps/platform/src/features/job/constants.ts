@@ -1,38 +1,8 @@
-import type { ChipTone } from '@b2b-system/ui/Chip';
+/* 狀態的清單、語系鍵與色調在 `@b2b-system/web-core/job`（兩個 app 共用）；這裡只有平台才有的。 */
 
-import type { PlatformJobState } from '@/apis/platform-job/types';
 import type { PlatformJobQueue } from '@/shared/api-sdk';
 
 type JobScope = PlatformJobQueue['scope'];
-
-/** 與後端 `JOB_STATES`（apps/api/src/core/jobs/job-store.ts）一致。 */
-export const JOB_STATES = [
-  'created',
-  'retry',
-  'active',
-  'completed',
-  'cancelled',
-  'failed',
-] as const satisfies readonly PlatformJobState[];
-
-export const JOB_STATE_LABEL_KEY = {
-  created: 'job.state.created',
-  retry: 'job.state.retry',
-  active: 'job.state.active',
-  completed: 'job.state.completed',
-  cancelled: 'job.state.cancelled',
-  failed: 'job.state.failed',
-} as const satisfies Record<PlatformJobState, string>;
-
-/** 狀態以 Chip 的語意色調呈現（顏色由 design token 決定）。 */
-export const JOB_STATE_TONE = {
-  created: 'neutral',
-  retry: 'warning',
-  active: 'brand',
-  completed: 'success',
-  cancelled: 'neutral',
-  failed: 'danger',
-} as const satisfies Record<PlatformJobState, ChipTone>;
 
 export const JOB_SCOPE_LABEL_KEY = {
   tenant: 'job.scope.tenant',

@@ -2,9 +2,6 @@
   "auditLog": {
     "title": "Audit log",
     "description": "Every write operation and authorization decision. Append-only: never edited or deleted. Shows the last {{days}} days by default; a single query spans at most {{days}} days.",
-    "expand": "Expand",
-    "collapse": "Collapse",
-    "highRisk": "High risk",
     "filter": {
       "actionPlaceholder": "Action (prefix match supported, e.g. role.*)",
       "allResources": "All resources",
@@ -12,17 +9,6 @@
       "from": "From",
       "to": "To",
       "range": "Date range"
-    },
-    "field": {
-      "occurredAt": "Time",
-      "actor": "Actor",
-      "action": "Action",
-      "resource": "Resource",
-      "result": "Result"
-    },
-    "result": {
-      "success": "Success",
-      "failure": "Failure"
     },
     "resource": {
       "auth": "Auth",
