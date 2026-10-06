@@ -23,7 +23,8 @@ apps/<app>/src/test/
 
 packages/web-core/src/testing/       @b2b-system/web-core/testing（兩個 app 與 package 自己的測試共用）
 ├── renderWithPermissions.tsx        AllProviders、renderWithPermissions、renderUnhydrated、createTestQueryClient
-├── renderRoute.tsx                  以真的 router 渲染一段 route（含 loader 與權限守衛）
+├── renderRoute.tsx                  以真的 router 渲染一段 route（含 loader 與權限守衛）；回傳 router 與 queryClient（setQueryData 模擬推播）
+│                                    renderInRouter：單一元件放進只有 / 的路由（用到 useUnsavedChangesGuard 等需要 router 的 hook）
 ├── fakeBatchQueue.ts                同行程的批次佇列（不起 worker）
 └── i18n.ts                          initTestI18n（只載 web-core 的語系檔；app 的 test/i18n.ts 包它）
 ```
@@ -103,7 +104,7 @@ describe("useRolePermission", () => {
     registerRolePagePermissions();
   });
 
-  it("canManagePermission 需要 role:update 與 permission:read 兩者", () => {
+  it("canManagePermission 需要 role:read 與 permission:read 兩者", () => {
     const { result } = renderHookWithPermissions(
       () => useRolePermission(),
       [PermissionKey.RoleRead, PermissionKey.RoleUpdate], // 缺 permission:read

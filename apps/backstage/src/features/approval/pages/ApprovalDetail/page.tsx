@@ -1,7 +1,10 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { QueryError } from '@b2b-system/web-core/components';
+import { isNotFound } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
@@ -23,12 +26,15 @@ export default function ApprovalDetailPage() {
   const navigate = useNavigate();
   const { approvalId } = ApprovalDetailRoute.useParams();
   const search = ApprovalListRoute.useSearch();
-  const close = () => void navigate({ to: ApprovalListRoute.to, search });
+  const close = (options?: { ignoreBlocker?: boolean }) =>
+    void navigate({ to: ApprovalListRoute.to, search, ...options });
 
   const detail = useQuery(getApprovalDetailQueryOptions(approvalId));
   const approval = useMemo(() => detail.data && toApprovalDetailVM(detail.data), [detail.data]);
   const access = useApprovalReviewAccess(approval);
-  const review = useApprovalReview(approvalId, close);
+  // 審核成功後的關閉略過未儲存提醒；其他關閉途徑（關閉鈕、Esc、點遮罩、上一頁）在有輸入時先確認
+  const review = useApprovalReview(approvalId, () => close({ ignoreBlocker: true }));
+  useUnsavedChangesGuard(review.isDirty);
   const roles = useQuery({ ...getRoleOptionsQueryOptions(), enabled: access.canAssignRole });
 
   return (
@@ -41,12 +47,27 @@ export default function ApprovalDetailPage() {
       data-testid="approval-detail-dialog"
       footer={
         <>
-          <Button onClick={close}>{t('common.close')}</Button>
+          <Button onClick={() => close()} data-testid="approval-detail-close">
+            {t('common.close')}
+          </Button>
           <ApprovalReviewActions approval={approval} review={review} />
         </>
       }
     >
       {detail.isPending && <Skeleton height={200} />}
+      {/* 例：從通知點進一筆已不存在的審批：說明原因並提供返回，不留一個只有標題的空對話框 */}
+      {detail.isError && (
+        <QueryError
+          error={detail.error}
+          onRetry={isNotFound(detail.error) ? undefined : () => void detail.refetch()}
+          action={
+            <Button onClick={() => close()} data-testid="approval-detail-back">
+              {t('approval.detail.backToList')}
+            </Button>
+          }
+          data-testid="approval-detail-error"
+        />
+      )}
 
       {approval && (
         <div className="flex flex-col gap-5">

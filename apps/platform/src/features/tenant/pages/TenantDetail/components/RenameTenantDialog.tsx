@@ -4,6 +4,7 @@ import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useState } from 'react';
 
 import type { PlatformTenant } from '@/shared/api-sdk';
@@ -31,6 +32,9 @@ export function RenameTenantDialog({ open, tenant, onClose }: RenameTenantDialog
     }
   }
 
+  // 改了名稱時 Esc、點遮罩、取消與換頁都先確認；儲存成功直接關閉
+  const guard = useDialogUnsavedGuard(open && name !== tenant.name, onClose);
+
   const submit = async () => {
     if (!name.trim()) {
       setError(t('tenant.error.nameRequired'));
@@ -47,12 +51,14 @@ export function RenameTenantDialog({ open, tenant, onClose }: RenameTenantDialog
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={guard.onOpenChange}
       title={t('tenant.rename.title')}
       data-testid="tenant-rename-dialog"
       footer={
         <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="tenant-rename-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             loading={update.isPending}

@@ -51,6 +51,7 @@
       "permissions": "Granted permissions",
       "holders": "Users holding this role",
       "managePermission": "Manage permissions",
+      "viewPermission": "View permissions",
       "allPermissions": "All permissions (implicit)",
       "backToList": "Back to roles",
       "revisions": "Version history",
@@ -63,6 +64,8 @@
       "description": "Click a permission to grant it; the permissions it includes light up as \"included\". To remove a prerequisite, first remove the permissions that include it. You cannot grant permissions you do not hold.",
       "success": "Role permissions updated.",
       "summary": "{{add}} to add, {{remove}} to remove",
+      "stale": "Someone else just changed this role's permissions; your selection is based on outdated data. Saving only sends the changes you made.",
+      "discard": "Discard draft",
       "skillTree": {
         "select": "Select permissions",
         "search": "Search by name or key",

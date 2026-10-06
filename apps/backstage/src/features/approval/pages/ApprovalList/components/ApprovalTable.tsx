@@ -34,6 +34,9 @@ const APPROVAL_TABLE_SETTINGS: TableSettingsConfig = { tableId: APPROVAL_LIST_TA
 interface ApprovalTableProps {
   rows: ApprovalRowVM[];
   loading: boolean;
+  /** 查詢失敗：沒有資料時以錯誤與重試取代表格，不落到「沒有資料」。 */
+  error: unknown;
+  onRetry: () => void;
   search: ApprovalSearchQuery;
   /** 表頭點擊：回報點擊後完整的多欄排序。 */
   onSortingChange: (sort: Array<SortEntry<ApprovalSortField>>) => void;
@@ -46,6 +49,8 @@ interface ApprovalTableProps {
 export function ApprovalTable({
   rows,
   loading,
+  error,
+  onRetry,
   search,
   onSortingChange,
   onRowDoubleClick,
@@ -132,6 +137,8 @@ export function ApprovalTable({
       data={rows}
       columns={columns}
       loading={loading}
+      error={error}
+      onRetry={onRetry}
       getRowId={getRowId}
       filters={filters}
       batch={batch}

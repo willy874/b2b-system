@@ -488,6 +488,11 @@ async login(...) {}
 否則等於默默覆寫）。收到 `*_VERSION_CONFLICT`（`isVersionConflict(error)`）時 mutation hook 失效該資源、不彈 toast，
 表單以 `VersionConflictAlert`（`core/components`）說明並提供「重新載入」：重抓最新的內容與版本、放棄這次的修改。
 
+關聯的編輯（角色的權限鍵、群組與服務帳號的角色）同理：草稿在 **第一次修改時** 記下當時伺服器上的集合（`base`），
+送出的差異（`add`／`remove`）或 `expectedRoleIds` 都對它計算，不對重抓後的最新資料計算。伺服器的資料與 `base` 不同時，
+畫面提示「已被他人修改」並提供丟棄草稿、改用最新的資料（`useUserRoleSelection`、`useGroupRoleDraft` 的 `isStale`）。
+整批取代、沒有預期集合的標籤（`TagAssignDialog`）只在開啟的那一刻取值，開啟中資料變了只提示，不覆寫正在選的內容。
+
 ---
 
 ## 12. 設計決策：前端 SDK 由後端 OpenAPI 產生

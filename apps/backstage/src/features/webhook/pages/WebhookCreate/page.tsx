@@ -36,12 +36,21 @@ export default function WebhookCreatePage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [formError, setFormError] = useState<string>();
   const [created, setCreated] = useState<CreatedWebhook>();
-  // 密鑰顯示中也要擋：關掉就再也看不到
+  // 密鑰顯示中也要擋：關掉就再也看不到，所以確認框改說明密鑰還沒保存
   useUnsavedChangesGuard(
     Boolean(created) || Boolean(name) || cleanUrls(urls).length > 0 || selected.length > 0,
+    created
+      ? {
+          title: t('webhook.create.secretUnsaved.title'),
+          description: t('webhook.create.secretUnsaved.description'),
+          confirmLabel: t('webhook.create.secretUnsaved.leave'),
+          cancelLabel: t('webhook.create.secretUnsaved.stay'),
+        }
+      : undefined,
   );
 
-  const close = () => void navigate({ to: WebhookListRoute.to, search, ignoreBlocker: true });
+  // 取消、Esc、點遮罩都會被 guard 攔下；只有建立成功後按「完成」（openDetail）才略過
+  const close = () => void navigate({ to: WebhookListRoute.to, search });
   const openDetail = (id: string) =>
     void navigate({
       to: WebhookDetailRoute.to,
@@ -66,7 +75,9 @@ export default function WebhookCreatePage() {
   return (
     <Dialog
       open
-      onOpenChange={(open) => !open && (created ? openDetail(created.webhook.id) : close())}
+      onOpenChange={(open) => !open && close()}
+      // 密鑰只出現這一次：顯示中 Esc、點遮罩不關閉，只能按「我已保存密鑰」
+      dismissible={!created}
       title={created ? t('webhook.create.createdTitle') : t('webhook.create.title')}
       description={created ? undefined : t('webhook.create.description')}
       size="md"
@@ -82,7 +93,9 @@ export default function WebhookCreatePage() {
           </Button>
         ) : (
           <>
-            <Button onClick={close}>{t('common.cancel')}</Button>
+            <Button onClick={close} data-testid="webhook-create-cancel">
+              {t('common.cancel')}
+            </Button>
             <Button
               variant="primary"
               type="submit"

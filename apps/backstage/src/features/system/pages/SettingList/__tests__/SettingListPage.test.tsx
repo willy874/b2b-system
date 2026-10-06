@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -64,11 +65,17 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
     parseSearch,
     stringifySearch,
   });
-  return render(
+  const result = render(
     <AllProviders>
       <RouterProvider router={router} />
     </AllProviders>,
   );
+  return { ...result, router };
+}
+
+async function findFieldOf(key: string): Promise<HTMLElement> {
+  await screen.findAllByTestId('setting-field');
+  return fieldOf(key);
 }
 
 function fieldOf(key: string): HTMLElement {
@@ -122,5 +129,45 @@ describe('系統設定頁（docs/architecture/backend/12-settings.md）', () => 
     expect(await screen.findByTestId('setting-page')).toBeInTheDocument();
     expect(screen.queryByTestId('setting-reset')).toBeNull();
     expect(screen.queryByTestId('setting-save')).toBeNull();
+  });
+
+  describe('未儲存提醒', () => {
+    it('改了值還沒儲存就換頁：先確認；選「繼續編輯」後留在原處、草稿還在', async () => {
+      const { router } = renderPage(['system:read', 'system:update'] as PermissionKey[]);
+      fireEvent.click(
+        within(await findFieldOf('auth.registrationEnabled')).getByTestId('setting-switch'),
+      );
+      await screen.findByTestId('setting-save');
+      router.history.push('/user');
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(router.state.location.pathname).toBe('/system/settings');
+      expect(screen.getByTestId('setting-save')).toBeInTheDocument();
+    });
+
+    it('儲存之後換頁：不確認', async () => {
+      const { router } = renderPage(['system:read', 'system:update'] as PermissionKey[]);
+      fireEvent.click(
+        within(await findFieldOf('auth.registrationEnabled')).getByTestId('setting-switch'),
+      );
+      fireEvent.click(await screen.findByTestId('setting-save'));
+      await waitFor(() => expect(screen.queryByTestId('setting-save')).toBeNull());
+      router.history.push('/user');
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/user'));
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不是標題下方一片空白；重試成功後列出', async () => {
+    listSettings.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['system:read'] as PermissionKey[]);
+
+    expect(await screen.findByTestId('setting-error')).toBeInTheDocument();
+    listSettings.mockResolvedValue({ items: SETTINGS });
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findAllByTestId('setting-field')).toHaveLength(2);
   });
 });

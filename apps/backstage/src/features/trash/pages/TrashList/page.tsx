@@ -3,6 +3,7 @@ import { Pagination } from '@b2b-system/ui/Pagination';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
 import { Tabs } from '@b2b-system/ui/Tabs';
+import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -63,7 +64,7 @@ interface TrashTypeListProps {
 function TrashTypeList({ type, offset, limit, onPageChange }: TrashTypeListProps) {
   const { t } = useTranslation();
   const { RestoreAction } = type;
-  const { data, isPending } = useQuery(
+  const { data, isPending, error, refetch } = useQuery(
     getTrashListQueryOptions({ params: { type: type.type, offset, limit } }),
   );
   const rows = useMemo(() => (data?.items ?? []).map(toTrashRowVM), [data]);
@@ -99,6 +100,18 @@ function TrashTypeList({ type, offset, limit, onPageChange }: TrashTypeListProps
     ],
     [RestoreAction, t],
   );
+
+  // 查詢失敗而且沒有舊資料：顯示錯誤與重試，不落到「回收桶是空的」
+  if (error && !data) {
+    return (
+      <QueryError
+        className="mt-4"
+        error={error}
+        onRetry={() => void refetch()}
+        data-testid="trash-error"
+      />
+    );
+  }
 
   return (
     <div className="mt-4 flex flex-col gap-3">

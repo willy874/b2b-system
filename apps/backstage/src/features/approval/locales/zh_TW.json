@@ -5,7 +5,10 @@
       "description": "需要管理員核准才會生效的申請。核准等同代為執行該操作，因此也需要該操作本身的權限。",
       "searchPlaceholder": "搜尋申請人"
     },
-    "detail": { "title": "審批詳情" },
+    "detail": {
+      "title": "審批詳情",
+      "backToList": "回到審批列表"
+    },
     "review": {
       "title": "審核",
       "roles": "核准時一併指派的角色",
@@ -23,8 +26,14 @@
       "title": "駁回申請",
       "confirm": "確定駁回「{{name}}」的申請嗎？"
     },
-    "approve": { "action": "核准", "success": "已核准。" },
-    "reject": { "action": "駁回", "success": "已駁回。" },
+    "approve": {
+      "action": "核准",
+      "success": "已核准。"
+    },
+    "reject": {
+      "action": "駁回",
+      "success": "已駁回。"
+    },
     "batch": {
       "approve": {
         "action": "核准",

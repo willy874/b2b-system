@@ -1,6 +1,7 @@
 import { Themes } from '@b2b-system/web-shared/constants';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AppPluginFactory } from '../../../app';
 import { hydratePreferences, THEME_KEY, useThemeStore } from '../../../store';
 import { themePlugin } from '../theme';
 
@@ -31,7 +32,7 @@ function stubSystemScheme(initialDark: boolean) {
 
 async function install() {
   // plugin 不讀 context，給一個空物件即可
-  const plugin = themePlugin()({} as never);
+  const plugin = themePlugin()({} as unknown as Parameters<AppPluginFactory>[0]);
   await plugin.onInit?.();
   return plugin;
 }

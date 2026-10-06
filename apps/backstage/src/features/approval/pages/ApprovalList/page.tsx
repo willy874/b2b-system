@@ -24,7 +24,7 @@ export default function ApprovalListPage() {
   const permission = useApprovalPermission();
   const batchActions = useApprovalBatchActions();
 
-  const { data, isPending } = useQuery(
+  const { data, isPending, error, refetch } = useQuery(
     getApprovalListQueryOptions({
       params: {
         offset: search.offset,
@@ -69,6 +69,8 @@ export default function ApprovalListPage() {
       <ApprovalTable
         rows={rows}
         loading={isPending}
+        error={error}
+        onRetry={() => void refetch()}
         search={search}
         onSortingChange={setSort}
         onRowDoubleClick={(row) =>

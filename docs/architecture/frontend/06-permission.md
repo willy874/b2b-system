@@ -337,7 +337,7 @@ return <Outlet />;
 | 使用者列表            | `user:read`                      | 建立鈕 → `user:create`；編輯 → `user:update`；刪除 → `user:delete` ＋ 非自己；重設密碼 → `user:resetPassword`；解鎖 → `user:update` ＋ `status === 'locked'` |
 | 使用者詳情 · 角色分頁 | `user:read`                      | 編輯角色 → `user:assignRole` ＋ 非自己；可選角色清單受反提權過濾                                                                                             |
 | 角色列表              | `role:read`                      | 建立 → `role:create`；複製 → `role:create`；編輯 → `role:update` ＋ 非系統角色；刪除 → `role:delete` ＋ 非系統角色                                           |
-| 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 增減權限 → `role:grantPermission` ＋ 非 super-admin；以 **技能樹** 挑選（點上層自動點亮前置、有上層時不能取消前置；未持有的鍵停用，§8） |
+| 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 入口在角色詳情（系統角色也有，只有 super-admin 沒有）：有 `role:grantPermission` 時是「管理權限」，否則「檢視權限」、進去唯讀；增減權限 → `role:grantPermission` ＋ 非 super-admin；以 **技能樹** 挑選（點上層自動點亮前置、有上層時不能取消前置；未持有的鍵停用，§8） |
 | 權限目錄              | `permission:read`                | 全唯讀；一覽表與 **樹狀圖** 兩種檢視、共用篩選（關鍵字、資源、是否持有），檢視、篩選與選取的權限都放在網址（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9.4） |
 | 稽核日誌              | `auditLog:read`                  | 全唯讀                                                                                                                                                       |
 | 檔案管理器            | `file:access` 或 `file:read`     | 資料夾層級授權：按鈕看後端回傳的 `capabilities`，不看全域權限鍵（[`12-file-manager.md`](./12-file-manager.md) §13）                                           |

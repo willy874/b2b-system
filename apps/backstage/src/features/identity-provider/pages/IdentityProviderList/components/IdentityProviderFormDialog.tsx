@@ -7,6 +7,7 @@ import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useState } from 'react';
 
 import type { IdentityProvider, IdentityProviderDomain } from '@/shared/api-sdk';
@@ -40,6 +41,18 @@ function domainError(rows: DomainRow[], row: DomainRow): 'invalid' | 'duplicate'
   if (!DOMAIN_PATTERN.test(domain)) return 'invalid';
   const same = rows.filter((other) => other.domain.trim().toLowerCase() === domain);
   return same.length > 1 && same[0] !== row ? 'duplicate' : undefined;
+}
+
+function sameDomains(
+  rows: readonly DomainRow[],
+  saved: readonly IdentityProviderDomain[],
+): boolean {
+  return (
+    rows.length === saved.length &&
+    rows.every(
+      (row, index) => row.domain === saved[index]?.domain && row.ssoOnly === saved[index]?.ssoOnly,
+    )
+  );
 }
 
 interface IdentityProviderFormDialogProps {
@@ -100,6 +113,18 @@ export function IdentityProviderFormDialog({
     domains: domains.some((row) => domainError(domains, row)),
   };
   const hasInvalid = Object.values(invalid).some(Boolean);
+  // 欄位多、client secret 還要回 IdP 重新取得：有改動時 Esc、點遮罩、取消與換頁都先確認
+  const isDirty =
+    open &&
+    (name !== (provider?.name ?? '') ||
+      issuer !== (provider?.issuer ?? '') ||
+      clientId !== (provider?.clientId ?? '') ||
+      clientSecret !== '' ||
+      scopes !== (provider?.scopes ?? DEFAULT_SCOPES) ||
+      enabled !== (provider?.enabled ?? true) ||
+      unmatchedPolicy !== (provider?.unmatchedPolicy ?? 'reject') ||
+      !sameDomains(domains, provider?.domains ?? []));
+  const guard = useDialogUnsavedGuard(isDirty, onClose);
 
   const patchDomain = (key: number, patch: Partial<IdentityProviderDomain>) =>
     setDomains((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -142,12 +167,14 @@ export function IdentityProviderFormDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={guard.onOpenChange}
       title={provider ? t('identityProvider.edit.title') : t('identityProvider.create.title')}
       data-testid="identity-provider-form-dialog"
       footer={
         <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="identity-provider-form-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             loading={create.isPending || update.isPending}

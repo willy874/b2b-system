@@ -23,7 +23,7 @@ interface GroupRoleSectionProps {
 export function GroupRoleSection({ groupId, roles, roleOptions }: GroupRoleSectionProps) {
   const { t } = useTranslation();
   const current = (roles ?? []).map((role) => role.id);
-  const { selected, select, diff, isDirty, discard } = useGroupRoleDraft(current);
+  const { selected, select, diff, isDirty, isStale, discard } = useGroupRoleDraft(current);
   const updateRoles = useGroupRolesUpdateMutation();
   useUnsavedChangesGuard(isDirty);
 
@@ -53,6 +53,17 @@ export function GroupRoleSection({ groupId, roles, roleOptions }: GroupRoleSecti
             aria-label={t('group.detail.roles')}
             data-testid="group-role-select"
           />
+          {isStale && (
+            <div
+              className="flex items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]"
+              data-testid="group-role-stale"
+            >
+              <span>{t('group.role.stale')}</span>
+              <Button size="sm" onClick={discard} data-testid="group-role-discard-button">
+                {t('group.role.discard')}
+              </Button>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             {isDirty && (
               <Button size="sm" onClick={discard}>

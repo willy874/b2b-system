@@ -1,7 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { isAppError, useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { useSettingDraft } from '../../../hooks/useSettingDraft';
 import { useUpdateSettingsMutation } from '../../../hooks/useUpdateSettingsMutation';
@@ -14,10 +14,12 @@ const FIELD_PATH_PREFIX = 'values.';
 interface SettingCategoryFormProps {
   view: SettingCategoryView;
   canUpdate: boolean;
+  /** 草稿有沒有未儲存的修改：頁面彙整所有分類，任一分類 dirty 就攔下換頁。 */
+  onDirtyChange: (category: string, isDirty: boolean) => void;
 }
 
 /** 一個分類一張表單：只送出改過的 key，一次儲存。 */
-export function SettingCategoryForm({ view, canUpdate }: SettingCategoryFormProps) {
+export function SettingCategoryForm({ view, canUpdate, onDirtyChange }: SettingCategoryFormProps) {
   const { t } = useTranslation();
   const showError = useErrorToast();
   const update = useUpdateSettingsMutation();
@@ -25,6 +27,12 @@ export function SettingCategoryForm({ view, canUpdate }: SettingCategoryFormProp
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const headingId = useId();
   const hasErrors = Object.keys(draft.errors).length > 0;
+  const { category } = view;
+  useEffect(() => {
+    onDirtyChange(category, draft.isDirty);
+  }, [onDirtyChange, category, draft.isDirty]);
+  // 分類消失（卸載）時不留下 dirty 的紀錄
+  useEffect(() => () => onDirtyChange(category, false), [onDirtyChange, category]);
 
   const save = async () => {
     setServerErrors({});

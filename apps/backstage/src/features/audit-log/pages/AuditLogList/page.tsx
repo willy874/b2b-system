@@ -22,7 +22,7 @@ export default function AuditLogListPage() {
     [],
   );
 
-  const { data, isPending } = useQuery(
+  const { data, isPending, error, refetch } = useQuery(
     getAuditLogListQueryOptions({
       params: {
         offset: search.offset,
@@ -52,6 +52,8 @@ export default function AuditLogListPage() {
       <AuditLogTable
         items={rows}
         loading={isPending}
+        error={error}
+        onRetry={() => void refetch()}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
         filters={filters}

@@ -1,5 +1,7 @@
+import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +21,7 @@ interface UserGroupSectionProps {
  */
 export function UserGroupSection({ userId }: UserGroupSectionProps) {
   const { t } = useTranslation();
+  const toMessage = useErrorMessage();
   const groups = useQuery(
     getGroupListQueryOptions({
       params: {
@@ -58,6 +61,18 @@ export function UserGroupSection({ userId }: UserGroupSectionProps) {
               <span key={group.id}>{link}</span>
             );
           })
+        ) : groups.isError ? (
+          // 查詢失敗：顯示原因與重試，不顯示「無」（看起來像這個人不在任何群組）
+          <p
+            role="alert"
+            className="m-0 flex items-center gap-2 text-sm text-[var(--color-danger-text)]"
+            data-testid="user-group-error"
+          >
+            {toMessage(groups.error)}
+            <Button size="sm" onClick={() => void groups.refetch()} data-testid="user-group-retry">
+              {t('common.retry')}
+            </Button>
+          </p>
         ) : (
           <span className="text-sm text-[var(--color-fg-muted)]">
             {groups.isPending ? '…' : t('common.none')}

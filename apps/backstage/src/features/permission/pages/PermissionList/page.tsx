@@ -3,6 +3,7 @@ import { Icon } from '@b2b-system/ui/Icon';
 import type { IconName } from '@b2b-system/ui/Icon';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { Tabs, TabsPanel } from '@b2b-system/ui/Tabs';
+import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
@@ -32,7 +33,7 @@ const VIEW_ICON = { list: 'list', tree: 'network' } as const satisfies Record<
 export default function PermissionListPage() {
   const { t } = useTranslation();
   const { permissions: mine } = usePermission();
-  const { data, isPending } = useQuery(getPermissionListQueryOptions());
+  const { data, isPending, error, refetch } = useQuery(getPermissionListQueryOptions());
   const { search, setView, setFilters, resetFilters, selectKey, showInTree } =
     usePermissionSearch();
   const filters = { keyword: search.keyword, resource: search.resource, held: search.held };
@@ -65,6 +66,15 @@ export default function PermissionListPage() {
         data-testid="permission-view"
       >
         {isPending && <Skeleton height={200} />}
+        {/* 查詢失敗：說明並提供重試，不是分頁下方一片空白 */}
+        {error && !data && (
+          <QueryError
+            className="pt-4"
+            error={error}
+            onRetry={() => void refetch()}
+            data-testid="permission-list-error"
+          />
+        )}
         {data && visible && (
           <div className="flex flex-col gap-4 pt-4">
             <PermissionCatalogFilter

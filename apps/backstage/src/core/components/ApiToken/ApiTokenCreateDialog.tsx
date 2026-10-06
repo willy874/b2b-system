@@ -7,6 +7,7 @@ import type { SelectOption } from '@b2b-system/ui/Select';
 import { Text } from '@b2b-system/ui/Typography';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useId, useState } from 'react';
 
 import type { CreateApiTokenRequest, CreatedApiToken, PermissionKey } from '@/shared/api-sdk';
@@ -42,8 +43,9 @@ export function ApiTokenCreateDialog({
   const { t } = useTranslation();
   const toMessage = useErrorMessage();
   const formId = useId();
+  const defaultDays = String(Math.min(30, maxDays));
   const [name, setName] = useState('');
-  const [days, setDays] = useState(String(Math.min(30, maxDays)));
+  const [days, setDays] = useState(defaultDays);
   const [scopes, setScopes] = useState<string[]>([]);
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
@@ -55,7 +57,7 @@ export function ApiTokenCreateDialog({
 
   const reset = () => {
     setName('');
-    setDays(String(Math.min(30, maxDays)));
+    setDays(defaultDays);
     setScopes([]);
     setError(undefined);
     setCreated(undefined);
@@ -65,6 +67,22 @@ export function ApiTokenCreateDialog({
     if (!next) reset();
     onOpenChange(next);
   };
+
+  // 表單階段：有輸入時 Esc、點遮罩、取消與換頁都先確認。
+  // token 顯示中：Esc、點遮罩已經關不掉（dismissible），換頁也先確認，說明 token 還沒保存
+  const formDirty = name !== '' || scopes.length > 0 || days !== defaultDays;
+  const guard = useDialogUnsavedGuard(
+    open && (created !== undefined || formDirty),
+    () => changeOpen(false),
+    created
+      ? {
+          title: t('apiToken.created.unsaved.title'),
+          description: t('apiToken.created.unsaved.description'),
+          confirmLabel: t('apiToken.created.unsaved.leave'),
+          cancelLabel: t('apiToken.created.unsaved.stay'),
+        }
+      : undefined,
+  );
 
   const submit = async () => {
     setError(undefined);
@@ -91,7 +109,9 @@ export function ApiTokenCreateDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={changeOpen}
+      onOpenChange={guard.onOpenChange}
+      // 完整的 token 只出現這一次：顯示中 Esc、點遮罩不關閉，只能按「我已保存」
+      dismissible={!created}
       title={created ? t('apiToken.created.title') : t('apiToken.create.title')}
       description={created ? undefined : t('apiToken.create.description')}
       size="md"
@@ -103,7 +123,9 @@ export function ApiTokenCreateDialog({
           </Button>
         ) : (
           <>
-            <Button onClick={() => changeOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={guard.requestClose} data-testid="api-token-create-cancel">
+              {t('common.cancel')}
+            </Button>
             <Button
               variant="primary"
               type="submit"

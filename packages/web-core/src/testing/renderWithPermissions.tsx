@@ -23,9 +23,15 @@ export function createTestAppContext() {
   return createAppContext().use(eventBusPlugin());
 }
 
-export function AllProviders({ children }: { children: ReactNode }) {
+export interface AllProvidersProps {
+  children: ReactNode;
+  /** 測試要直接操作快取時傳入（例：以 `setQueryData` 模擬推播讓資料重抓）；不傳就建一個新的。 */
+  queryClient?: QueryClient;
+}
+
+export function AllProviders({ children, queryClient }: AllProvidersProps) {
   const [context] = useState(createTestAppContext);
-  const [client] = useState(createTestQueryClient);
+  const [client] = useState(() => queryClient ?? createTestQueryClient());
   return (
     <AppContextProvider context={context}>
       <QueryClientProvider client={client}>

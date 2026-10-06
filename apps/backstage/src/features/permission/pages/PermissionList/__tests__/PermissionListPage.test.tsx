@@ -1,4 +1,5 @@
 import { installFlowDom } from '@b2b-system/ui/testing';
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -217,5 +218,13 @@ describe('PermissionListPage', () => {
 
     expect(await screen.findByTestId('permission-filter-empty')).toBeDefined();
     expect(screen.queryByTestId('permission-group')).toBeNull();
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不是一片空白', async () => {
+    fetchPermissionList.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, '/permission', READER);
+
+    expect(await screen.findByTestId('permission-list-error')).toBeInTheDocument();
+    expect(screen.getByTestId('query-error-retry')).toBeInTheDocument();
   });
 });

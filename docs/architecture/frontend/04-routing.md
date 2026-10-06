@@ -75,7 +75,21 @@ RootRoute  (web-core/router/root.ts)
 
 **未儲存提醒**：關閉路由對話框（點遮罩、Esc、取消、上一頁）都是導覽，所以表單在 dirty 時呼叫
 `useUnsavedChangesGuard(isDirty)`（`web-core/router`，TanStack Router 的 `useBlocker` ＋ `beforeunload`）即可攔下所有途徑。
-儲存成功後的關閉帶 `ignoreBlocker: true`；session 結束導向登入頁時也略過。
+**只有** 儲存成功（或建立、刪除成功）後的關閉帶 `ignoreBlocker: true`；session 結束導向登入頁時也略過。
+取消鈕、`Dialog` 的 `onOpenChange`（Esc、點遮罩）共用的 `close` 不能帶它，否則 guard 只攔得到上一頁與側邊選單——
+寫成 `close(options?: { ignoreBlocker?: boolean })`，成功的那一條路徑才傳 `{ ignoreBlocker: true }`。
+確認框的文案預設是 `common.unsaved.*`；情境不同時以第二個參數覆寫（例：Webhook 建立後的「簽章密鑰保存了嗎？」）。
+
+不是路由的表單對話框（以 `useState` 開關：外部 IdP、標籤、建立 API token、平台的租戶與平台管理者…）關閉時不是導覽，
+blocker 攔不到。這類對話框用 `useDialogUnsavedGuard(isDirty, onClose)`（`web-core/router`）：
+
+- 回傳的 `onOpenChange` 給 `Dialog`、`requestClose` 給取消鈕；dirty 時先問同一個「要放棄變更嗎？」，選放棄才呼叫 `onClose`。
+- 內部同時呼叫 `useUnsavedChangesGuard(isDirty)`，對話框開著時的換頁與重新整理也攔。
+- `isDirty` 在對話框關著時要是 false（以 `open && …` 計算）；儲存成功後直接呼叫 `onClose`。
+  成功後還要導覽（例：建立租戶後進詳情）時，那次導覽帶 `ignoreBlocker: true`。
+
+頁內的草稿（系統設定、事件通知，有「捨棄／儲存」列）以草稿的 dirty 呼叫 `useUnsavedChangesGuard`；
+一頁有多份草稿時（系統設定的每個分類）由頁面彙整成一個布林，只掛一個 guard，避免換頁時每份草稿各問一次。
 
 ### 2.2 `create/$roleId` 為何不掛在 `create` 之下
 

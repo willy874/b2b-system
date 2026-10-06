@@ -186,6 +186,8 @@ export default function FileManagerPage() {
             canUploadInto={(target) => canCreateIn(folders.index, target)}
             sort={preference.sort}
             onSortChange={(sort) => preference.update({ sort })}
+            error={data.error}
+            onRetry={data.refetch}
             emptyContent={
               <FileEmptyState
                 hasFilters={hasFilters}

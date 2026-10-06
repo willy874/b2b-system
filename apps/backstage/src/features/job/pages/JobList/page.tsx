@@ -1,3 +1,4 @@
+import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
@@ -26,11 +27,12 @@ export default function JobListPage() {
     [],
   );
 
-  const { data: queueData } = useQuery({
+  const queueQuery = useQuery({
     ...getJobQueueListQueryOptions(),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
-  const { data, isPending } = useQuery({
+  const queueData = queueQuery.data;
+  const { data, isPending, error, refetch } = useQuery({
     ...getJobListQueryOptions({
       params: {
         offset: search.offset,
@@ -56,15 +58,26 @@ export default function JobListPage() {
         <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('job.description')}</p>
       </header>
 
-      <JobQueueSummary
-        queues={queues}
-        selectedName={search.name}
-        onSelect={(name) => setFilter({ name, state: search.state })}
-      />
+      {/* 佇列摘要失敗而且沒有舊資料：說明並提供重試，不是讓卡片默默消失 */}
+      {queueQuery.isError && !queueData ? (
+        <QueryError
+          error={queueQuery.error}
+          onRetry={() => void queueQuery.refetch()}
+          data-testid="job-queue-error"
+        />
+      ) : (
+        <JobQueueSummary
+          queues={queues}
+          selectedName={search.name}
+          onSelect={(name) => setFilter({ name, state: search.state })}
+        />
+      )}
 
       <JobTable
         items={rows}
         loading={isPending}
+        error={error}
+        onRetry={() => void refetch()}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
         filters={filters}

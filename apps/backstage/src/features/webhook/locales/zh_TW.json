@@ -36,7 +36,13 @@
       "title": "建立 Webhook",
       "description": "建立後會產生一組簽章密鑰，接收端用它驗證請求確實來自這裡。",
       "createdTitle": "Webhook 已建立",
-      "done": "我已保存密鑰"
+      "done": "我已保存密鑰",
+      "secretUnsaved": {
+        "title": "簽章密鑰保存了嗎？",
+        "description": "密鑰只會顯示這一次，離開後就再也看不到；忘了保存只能再輪替一次。",
+        "leave": "仍要離開",
+        "stay": "留在這裡"
+      }
     },
     "update": {
       "success": "已更新 Webhook"
