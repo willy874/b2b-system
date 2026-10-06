@@ -15,6 +15,8 @@ import type { GetFileImageDto } from './dto/get-file-image.dto';
 import { deriveImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
 import {
   fileChange,
+  IMAGE_CONVERSION_MAX_OUTPUT_SIZE,
+  IMAGE_CONVERSION_OVERSIZED_MEMORY,
   IMAGE_VARIANT_ANNOUNCE_WAIT_MS,
   IMAGE_VARIANT_CONCURRENCY,
   IMAGE_VARIANT_MAX_EDGE,
@@ -66,6 +68,8 @@ export class FileImageService {
   private readonly generating = new Map<string, Promise<void>>();
   /** 依請求轉出其他格式（物件 key → 工作）：同時多個請求只轉一次。 */
   private readonly converting = new Map<string, Promise<void>>();
+  /** 轉出後超過上限的格式（物件 key）：結果不會變，不再重新轉；只記最近的幾個。 */
+  private readonly oversized = new Set<string>();
 
   constructor(
     private readonly repo: FileRepository,
@@ -177,11 +181,14 @@ export class FileImageService {
         fallback !== undefined || !UNDISPLAYABLE_SOURCE_TYPES.has(file.contentType);
       if (query.format === 'auto' && canFallback && !(await this.storage.head(key))) {
         // 協商出來的格式還沒轉出：請求不等轉檔（AVIF 大圖要好幾秒、吃記憶體），
-        // 先轉址到主格式（原圖則原封不動），轉檔在背景做；轉址只快取一下，之後再來就拿到新格式
-        this.convertInBackground(file, variant, format, key);
+        // 先轉址到主格式（原圖則原封不動），轉檔在背景做；轉址只快取一下，之後再來就拿到新格式。
+        // 已知轉出來會超過上限的格式不再轉，一直用主格式
+        if (!this.oversized.has(key)) {
+          this.convertInBackground(file, variant, format, key);
+          maxAgeCap = PENDING_CONVERSION_MAX_AGE;
+        }
         format = fallback;
         key = fallback === undefined ? file.storageKey : variantKeyOf(id, variant, fallback);
-        maxAgeCap = PENDING_CONVERSION_MAX_AGE;
       } else {
         // 明確指定的格式（下載某種格式）照舊等它轉完
         await this.ensureConverted(file, variant, format, key);
@@ -297,13 +304,17 @@ export class FileImageService {
     });
   }
 
-  /** 其他格式第一次被要求時才轉出（從原圖轉，畫質比從主格式再轉一次好），之後直接用存下來的。 */
+  /**
+   * 其他格式第一次被要求時才轉出（從原圖轉，畫質比從主格式再轉一次好），之後直接用存下來的。
+   * 轉出來超過 `IMAGE_CONVERSION_MAX_OUTPUT_SIZE` 就不存，拋 `FILE_IMAGE_TOO_LARGE`。
+   */
   private async ensureConverted(
     file: FileRow,
     variant: ImageVariant,
     format: ImageFormat,
     key: string,
   ): Promise<void> {
+    if (this.oversized.has(key)) throw imageTooLarge();
     if (await this.storage.head(key)) return;
     let task = this.converting.get(key);
     if (!task) {
@@ -322,12 +333,29 @@ export class FileImageService {
         } finally {
           await decoded.dispose();
         }
+        if (rendered.data.length > IMAGE_CONVERSION_MAX_OUTPUT_SIZE) {
+          this.rememberOversized(key);
+          throw imageTooLarge();
+        }
         await this.storage.putObject(key, rendered.data, { contentType: rendered.contentType });
       }).finally(() => this.converting.delete(key));
       this.converting.set(key, task);
     }
     await task;
   }
+
+  private rememberOversized(key: string): void {
+    this.oversized.add(key);
+    if (this.oversized.size > IMAGE_CONVERSION_OVERSIZED_MEMORY) {
+      // Set 依加入順序走訪：忘掉最早記下的
+      const oldest = this.oversized.values().next().value;
+      if (oldest !== undefined) this.oversized.delete(oldest);
+    }
+  }
+}
+
+function imageTooLarge(): AppException {
+  return new AppException('FILE_IMAGE_TOO_LARGE', { maxSize: IMAGE_CONVERSION_MAX_OUTPUT_SIZE });
 }
 
 /**

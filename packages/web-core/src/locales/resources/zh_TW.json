@@ -210,6 +210,7 @@
     "FILE_UPLOAD_PART_INVALID": "上傳的分塊不正確，請重新上傳。",
     "FILE_VERSION_CONFLICT": "這個檔案已經被其他人修改，請重新整理後再試。",
     "FILE_IMAGE_URL_INVALID": "圖片網址已失效，請重新整理後再試。",
+    "FILE_IMAGE_TOO_LARGE": "這張圖片轉成這個格式會超過大小上限，請改用其他格式或下載原圖。",
     "FILE_FOLDER_NOT_FOUND": "資料夾不存在或已被刪除。",
     "FILE_FOLDER_NAME_CONFLICT": "這個位置已有同名的資料夾。",
     "FILE_FOLDER_CYCLE": "資料夾不能移到自己或自己的子資料夾裡。",

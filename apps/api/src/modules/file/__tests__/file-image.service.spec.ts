@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { PassThrough, Readable } from 'node:stream';
 
 import type { ConfigService } from '@nestjs/config';
@@ -14,6 +15,13 @@ import type { FileRow } from '@/db/schema';
 import { negotiateFormat, FileImageService } from '../file-image.service';
 import { IMAGE_VARIANT_ANNOUNCE_WAIT_MS, storageKeyOf, variantKeyOf } from '../file.constants';
 import type { FileRepository } from '../file.repository';
+
+/** 轉出上限調小：測試不必真的產生 128 MiB 的圖。其他測試的純色圖遠小於它。 */
+const { MAX_OUTPUT_SIZE } = vi.hoisted(() => ({ MAX_OUTPUT_SIZE: 64 * 1024 }));
+vi.mock('../file.constants', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../file.constants')>()),
+  IMAGE_CONVERSION_MAX_OUTPUT_SIZE: MAX_OUTPUT_SIZE,
+}));
 
 const FILE_ID = '33333333-3333-4333-8333-333333333333';
 const JWT_SECRET = 'x'.repeat(32);
@@ -120,6 +128,13 @@ async function png(width: number, height: number, alpha = false): Promise<Buffer
       background: alpha ? { r: 0, g: 0, b: 255, alpha: 0.5 } : '#0000ff',
     },
   })
+    .png()
+    .toBuffer();
+}
+
+/** 雜訊圖：壓不小，任何格式轉出來都約等於未壓縮的大小（`width × height × 3` 位元組）。 */
+async function noisePng(width: number, height: number): Promise<Buffer> {
+  return sharp(randomBytes(width * height * 3), { raw: { width, height, channels: 3 } })
     .png()
     .toBuffer();
 }
@@ -398,6 +413,57 @@ describe('FileImageService：影像 API', () => {
     };
     const result = await service.resolve(FILE_ID, 'original', query, 'image/webp,*/*');
     expect(result.url).toBe(`http://storage/${variantKeyOf(FILE_ID, 'original', 'webp')}`);
+  });
+
+  it('明確指定的格式轉出來超過上限 → FILE_IMAGE_TOO_LARGE、不寫入；之後不再重新轉', async () => {
+    const { service, storage } = setup(ready());
+    storage.objects.set(storageKeyOf(FILE_ID), {
+      data: await noisePng(400, 300),
+      contentType: 'image/png',
+    });
+    const query = {
+      ...queryOf(service.signedUrls(ready())?.originalUrl ?? ''),
+      format: 'png' as const,
+    };
+
+    const first = service.resolve(FILE_ID, 'original', query, undefined);
+    await expect(first).rejects.toMatchObject({
+      code: 'FILE_IMAGE_TOO_LARGE',
+      details: { maxSize: MAX_OUTPUT_SIZE },
+    });
+    expect(storage.putObject).not.toHaveBeenCalled();
+
+    expect(await codeOf(service.resolve(FILE_ID, 'original', query, undefined))).toBe(
+      'FILE_IMAGE_TOO_LARGE',
+    );
+    expect(storage.getObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('format=auto 協商出的格式超過上限：一直用原圖，背景不再重轉、轉址照一般時間快取', async () => {
+    const { service, storage } = setup(ready());
+    storage.objects.set(storageKeyOf(FILE_ID), {
+      data: await noisePng(400, 300),
+      contentType: 'image/png',
+    });
+    const query = {
+      ...queryOf(service.signedUrls(ready())?.originalUrl ?? ''),
+      format: 'auto' as const,
+    };
+    // Accept 沒有 image/png → 協商出 WebP
+    const accept = 'image/webp,*/*';
+    const original = `http://storage/${storageKeyOf(FILE_ID)}`;
+
+    const first = await service.resolve(FILE_ID, 'original', query, accept);
+    expect(first).toMatchObject({ url: original, maxAge: expect.any(Number) });
+    expect(first.maxAge).toBeLessThanOrEqual(30);
+    await service.whenIdle();
+    expect(storage.putObject).not.toHaveBeenCalled();
+
+    const second = await service.resolve(FILE_ID, 'original', query, accept);
+    expect(second.url).toBe(original);
+    expect(second.maxAge).toBeGreaterThan(30);
+    await service.whenIdle();
+    expect(storage.getObject).toHaveBeenCalledTimes(1);
   });
 
   it('原圖也能要求 progressive JPEG', async () => {
