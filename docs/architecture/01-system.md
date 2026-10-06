@@ -236,7 +236,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   （[`02-repository-structure.md`](./02-repository-structure.md) §5）。
 - **映像以 digest 釘住**（四個 Dockerfile、兩份 compose、`deploy/check-nginx.sh`）：同一個 commit 不論何時建置都拿到同一個基底。
   nginx 用仍在維護的 stable 分支並寫明版本。更新時以 `docker buildx imagetools inspect <映像>:<tag>` 取得新的 digest，
-  所有出現的地方一起改，再跑 `sh deploy/check-nginx.sh` 與整套建置。repo 沒有自動提更新的工具，要定期手動檢查。
+  所有出現的地方一起改（`.github/workflows/ci.yml` 的 action 也以 commit SHA 釘住），再跑 `sh deploy/check-nginx.sh` 與 `sh deploy/smoke-test.sh`。
+  repo 沒有自動提更新的工具（Renovate 等），要定期手動檢查。
 
 - **每個租戶一個網域**（[`05-tenancy.md`](./05-tenancy.md) §7）：backstage 的 nginx 是 `server_name _`，任何網域都由它服務，
   `Host` 原樣轉給 api 決定租戶；`*.<TENANT_BASE_DOMAIN>` 要有 wildcard DNS 與憑證。平台管理者在 apps/platform 建立租戶時，
@@ -264,7 +265,9 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`。
   映像是 `nginxinc/nginx-unprivileged`（uid 101、listen 8080），compose 以唯讀根目錄、`cap_drop: [ALL]` 執行。
   三個 nginx 都有 `/_nginx_health`（只接受容器內的連線），前端映像的 `HEALTHCHECK` 與 external-gateway 的 healthcheck 打它，
-  不依賴 api 的狀態。改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭、X-Forwarded-For、健康檢查）。
+  不依賴 api 的狀態。改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭、X-Forwarded-For、健康檢查）；
+  改 compose 或 Dockerfile 後跑 `sh deploy/smoke-test.sh`（以一次性的假金鑰建置並啟動整套，等每個服務 healthy、經三個 nginx 打到後端）。
+  兩者都在 CI 的 deploy job 裡（[`../conventions/05-git.md`](../conventions/05-git.md) §2.4）。
 - **`X-Forwarded-Host` 一律由 nginx 以 `Host` 覆寫**：api 信任這一跳帶來的 `X-Forwarded-Host`（`requestHost()`），不覆寫的話
   客戶端自帶的值會被拿來決定租戶。nginx 前面若還有 LB，LB 也要覆寫（或清掉）這個標頭。
 - TLS 由前面的 LB / ingress 終結；Socket.io 的 Origin 與連線同源（租戶自己的網域）一律允許，`PUBLIC_ORIGIN` 只是額外的白名單。
