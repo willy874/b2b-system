@@ -378,6 +378,8 @@ selectionCapabilities(items)                選取項目的能力取交集：can
 - **縮圖依賴上傳者的瀏覽器**：瀏覽器不支援的格式（HEIC 等）、其他管道寫入的檔案沒有縮圖，列表退回類型圖示。
   之後若需要，可以加一個伺服器端的補產生排程，不影響前端（後來由 [`backend/09-file.md`](../backend/09-file.md) §12 實現）。
 - **IndexedDB 不可用時不能跨分頁接手**：發起的分頁關掉後，接手的分頁拿不到檔案，該筆失敗並請使用者重傳（§8）。
+- **session 結束時清掉排隊中的檔案**：佇列同時被清空（[`frontend/07-ui-system.md`](07-ui-system.md) §13.2 D12），`uploadSources.clear()`
+  清掉本分頁的記憶體與 IndexedDB；上一個人沒傳完的檔案不留在這台瀏覽器上。
 - **分頁當掉時的殘留**：未完成的 multipart upload 與 `pending` 紀錄要靠排程清理（[backend 09 §9](../backend/09-file.md)）。
 - **下載網址的剩餘效期縮短為 TTL/2–TTL**：前端依 `urlExpiresAt` 在失效前重抓。
 

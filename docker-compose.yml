@@ -1,14 +1,16 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     container_name: b2b-system-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: b2bsystem
       POSTGRES_PASSWORD: b2bsystem
       POSTGRES_DB: b2b_system
+    # 只綁 loopback：帳密是公開的固定值（超級使用者），不能讓同一個網段的人連進來。
+    # 要從其他機器連時在本機另放 docker-compose.override.yml（不進版控）
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -23,9 +25,10 @@ services:
     image: axllent/mailpit:v1.27
     container_name: b2b-system-mailpit
     restart: unless-stopped
+    # 只綁 loopback：網頁沒有驗證，看得到所有啟用與重設密碼的連結
     ports:
-      - '1025:1025'
-      - '8025:8025'
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
 
 volumes:
   postgres-data:

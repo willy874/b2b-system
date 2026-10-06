@@ -4,6 +4,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { Authenticated, CurrentUser, JsonBodyOnly, Public } from '@/common/decorators';
+import { extractBearer } from '@/common/guards';
 import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
@@ -83,13 +84,19 @@ export class PlatformAuthController {
 
   @Post('logout')
   @HttpCode(200)
-  @Authenticated()
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    const result = await this.platformAuth.logout(this.readRefreshCookie(req), actor);
+  // 同 /auth/logout：bearer 可有可無，沒有時以 refresh cookie 登出（需 x-refresh-request: 1）
+  @Public()
+  @RateLimit('refresh')
+  @ApiOperation({
+    summary:
+      '平台管理者登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1）',
+  })
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const result = await this.platformAuth.logout({
+      refreshToken: this.readRefreshCookie(req),
+      accessToken: extractBearer(req.headers.authorization),
+      refreshRequested: req.header('x-refresh-request') === '1',
+    });
     res.clearCookie(this.cookieName, { path: this.cookiePath });
     return result;
   }

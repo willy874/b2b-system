@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
-import { AuthzService } from '@/core/authz';
+import { AuthzService, subjectKey } from '@/core/authz';
+import type { DbOrTx } from '@/core/database';
 import type { AnnouncementAudienceValue } from '@/db/schema';
 import {
   GROUP_MEMBER_RELATION,
@@ -60,6 +61,41 @@ export class AnnouncementAudienceResolver {
     const members = await this.repo.filterRecipients(expanded);
     const userIds = [...new Set([...directUsers, ...members])].toSorted();
     return { userIds, skipped };
+  }
+
+  /**
+   * 這一個人在不在受眾裡（事件點的 `audience` 比對，docs/architecture/backend/19-announcement.md §5.3）：結果與
+   * 「`resolve()` 的收件人含不含他」相同，但不展開整個受眾。他的主體閉包（所屬的群組含巢狀、本人與群組持有的角色；
+   * 已刪除的群組與角色不算）與受眾的群組、角色取交集，或直接被指定；最後確認他可登入（與 `filterRecipients` 同一個條件）。
+   * 最多兩次查詢，與受眾大小無關。`tx` 給已在交易裡的呼叫端：查詢走同一條連線。
+   */
+  async includes(
+    audience: AnnouncementAudienceValue,
+    userId: string,
+    tx?: DbOrTx,
+  ): Promise<boolean> {
+    const listed =
+      audience.all ||
+      audience.userIds.includes(userId) ||
+      (await this.inGroupsOrRoles(audience, userId, tx));
+    return listed && (await this.repo.filterRecipients([userId], tx)).length > 0;
+  }
+
+  private async inGroupsOrRoles(
+    audience: AnnouncementAudienceValue,
+    userId: string,
+    tx?: DbOrTx,
+  ): Promise<boolean> {
+    if (audience.groupIds.length === 0 && audience.roleIds.length === 0) return false;
+    const subjects = new Set(await this.authz.subjectClosure(userId, { tx }));
+    return (
+      audience.groupIds.some((id) =>
+        subjects.has(subjectKey(GROUP_OBJECT_TYPE, id, GROUP_MEMBER_RELATION)),
+      ) ||
+      audience.roleIds.some((id) =>
+        subjects.has(subjectKey(ROLE_OBJECT_TYPE, id, ROLE_HOLDER_RELATION)),
+      )
+    );
   }
 }
 

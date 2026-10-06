@@ -1,4 +1,8 @@
+import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
+import { DrizzleQueryError } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '../../config';
@@ -10,7 +14,7 @@ import type { Tenancy, TenantContext, TenantDirectory, TenantRecord } from '../.
 import { JobQueue } from '../job-queue';
 import type { JobContext, JobEnvelope } from '../job-queue';
 import type { JobStore } from '../job-store';
-import { defineJob } from '../job-type';
+import { defineJob, HIGH_VOLUME_RETENTION_SECONDS } from '../job-type';
 
 /**
  * 假的 pg-boss：建構時不連線，記下每個呼叫。測的是 JobQueue 交給 pg-boss 的設定與資料，
@@ -35,6 +39,10 @@ const { FakeBoss } = vi.hoisted(() => {
     readonly unschedule = vi.fn(async (_name: string) => {});
     readonly send = vi.fn(
       async (_name: string, _data: object, _options: object): Promise<string | null> => 'job-id',
+    );
+    readonly insert = vi.fn(
+      async (_name: string, _jobs: Array<Record<string, unknown>>): Promise<string[] | null> =>
+        null,
     );
     readonly retry = vi.fn(async (_name: string, _id: string): Promise<object> => ({
       affected: 1,
@@ -153,7 +161,12 @@ describe('JobQueue：租戶的同時執行上限（docs/architecture/05-tenancy.
     });
     await expect(execute(ENVELOPE)).resolves.toMatchObject({ skipped: 'TENANT_CONCURRENCY' });
     expect(handler).not.toHaveBeenCalled();
-    expect(activeAhead).toHaveBeenCalledWith('t1', 'job-1');
+    expect(activeAhead).toHaveBeenCalledWith({
+      tenantId: 't1',
+      name: 'test.work',
+      jobId: 'job-1',
+      names: expect.arrayContaining(['jobs.outboxSweep']),
+    });
     expect(requeue).toHaveBeenCalledWith('test.work', 'job-1', expect.any(Number));
     const delay = requeue.mock.calls[0]?.[2] ?? 0;
     expect(delay).toBeGreaterThanOrEqual(5);
@@ -241,19 +254,70 @@ interface OutboxRow {
   options: { throttle?: { key: string; seconds: number }; startAfter?: string };
 }
 
-/** 租戶 DB 的假物件：每個交易依序回傳一批 outbox 的列。 */
+/** drizzle 條件的參數（例：`inArray` 的名單）。 */
+function paramsOf(condition: SQL): unknown[] {
+  return new PgDialect().sqlToQuery(condition).params;
+}
+
+/**
+ * 租戶 DB 的假物件：每個交易依序回傳一批 outbox 的列（不管查詢條件，模擬資料庫每次都選到它們）。
+ * `unregistered` 是定期清掃數「沒有註冊的列」的結果。
+ */
 function outboxDb(...batches: OutboxRow[][]) {
   const remove = vi.fn((_table: unknown) => ({ where: vi.fn(async (_where: unknown) => {}) }));
-  const tx = {
-    select: () => ({
-      from: () => ({
-        orderBy: () => ({ limit: () => ({ for: async () => batches.shift() ?? [] }) }),
-      }),
-    }),
-    delete: remove,
+  const selectWhere = vi.fn((_condition: SQL) => {});
+  const query = {
+    where: (condition: SQL) => {
+      selectWhere(condition);
+      return query;
+    },
+    orderBy: () => query,
+    limit: () => query,
+    for: async () => batches.shift() ?? [],
   };
+  const tx = { select: () => ({ from: () => query }), delete: remove };
   const transaction = vi.fn(async (work: (t: unknown) => Promise<unknown>) => work(tx));
-  return { db: { transaction } as unknown as Database, remove, transaction };
+  const unregistered = vi.fn(async (): Promise<Array<{ name: string; count: number }>> => []);
+  const db = {
+    transaction,
+    select: () => ({ from: () => ({ where: () => ({ groupBy: unregistered }) }) }),
+  };
+  return { db: db as unknown as Database, remove, transaction, selectWhere, unregistered };
+}
+
+/**
+ * 記憶體裡的 outbox 表：查詢套用名稱條件（`inArray`）、依順序取 `limit` 筆；刪除移掉條件裡的 id。
+ * 用來驗證「沒有註冊的列不擋住後面的列」。
+ */
+function outboxTable(initial: OutboxRow[]) {
+  let rows = [...initial];
+  const transaction = vi.fn(async (work: (t: unknown) => Promise<unknown>) => {
+    let names: unknown[] = [];
+    let take = Number.POSITIVE_INFINITY;
+    const query = {
+      where: (condition: SQL) => {
+        names = paramsOf(condition);
+        return query;
+      },
+      orderBy: () => query,
+      limit: (count: number) => {
+        take = count;
+        return query;
+      },
+      for: async () => rows.filter((row) => names.includes(row.name)).slice(0, take),
+    };
+    const tx = {
+      select: () => ({ from: () => query }),
+      delete: () => ({
+        where: async (condition: SQL) => {
+          const ids = paramsOf(condition);
+          rows = rows.filter((row) => !ids.includes(row.id));
+        },
+      }),
+    };
+    return work(tx);
+  });
+  return { db: { transaction } as unknown as Database, transaction, rows: () => rows };
 }
 
 interface HarnessOptions {
@@ -386,6 +450,7 @@ describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architectur
       retryBackoff: true,
       retryDelayMax: 3600,
       expireInSeconds: 3600,
+      deleteAfterSeconds: 7 * 24 * 60 * 60,
       policy: 'stately',
     });
   });
@@ -411,7 +476,22 @@ describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architectur
       retryDelay: 300,
       retryBackoff: true,
       expireInSeconds: 3600,
+      deleteAfterSeconds: 7 * 24 * 60 * 60,
     });
+  });
+
+  it('高流量工作的保留期（deleteAfterSeconds）交給 pg-boss：新佇列與既有佇列都同步', async () => {
+    const type = defineJob('test.burst', { deleteAfterSeconds: HIGH_VOLUME_RETENTION_SECONDS });
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    boss.getQueue.mockImplementation(async (name: string) =>
+      name === 'test.burst' ? { name } : null,
+    );
+    queue.register(type, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.updateQueue).toHaveBeenCalledWith(
+      'test.burst',
+      expect.objectContaining({ deleteAfterSeconds: 24 * 60 * 60 }),
+    );
   });
 
   it('JOBS_WORKER_ENABLED=false → 建立佇列（仍可入列），不啟動 worker、不同步排程', async () => {
@@ -511,6 +591,7 @@ describe('JobQueue.enqueue（docs/architecture/backend/10-jobs.md §4）', () =>
         singletonKey: undefined,
         singletonSeconds: undefined,
         startAfter: undefined,
+        group: undefined,
       },
     );
   });
@@ -531,11 +612,12 @@ describe('JobQueue.enqueue（docs/architecture/backend/10-jobs.md §4）', () =>
     });
   });
 
-  it('租戶工作 → 信封帶目前的租戶 id', async () => {
+  it('租戶工作 → 信封帶目前的租戶 id，pg-boss 的 group 也是租戶 id（計數走 group_id 的索引）', async () => {
     const { queue, boss } = createQueue();
     queue.register(TYPE, vi.fn());
     await inTenant(() => queue.enqueue(TYPE, { id: 'x' }));
     expect(boss.send.mock.calls[0]?.[1]).toEqual({ tenantId: 't1', payload: { id: 'x' } });
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({ group: { id: 't1' } });
   });
 
   it('throttle → singletonKey 以租戶區分（<租戶>:<key>）並帶時間窗', async () => {
@@ -584,16 +666,17 @@ describe('JobQueue.enqueue（docs/architecture/backend/10-jobs.md §4）', () =>
   });
 });
 
-/** 業務交易：insert 進 outbox 回傳 outbox-1。 */
+/** 業務交易：insert 進 outbox 回傳 outbox-1（多列的 INSERT 不取回 id）。 */
 function businessDb() {
-  const values = vi.fn((_row: Record<string, unknown>) => ({
-    returning: async () => [{ id: 'outbox-1' }],
-  }));
-  const tx = { insert: vi.fn(() => ({ values })) };
+  const values = vi.fn((_rows: Record<string, unknown> | Array<Record<string, unknown>>) =>
+    Object.assign(Promise.resolve(), { returning: async () => [{ id: 'outbox-1' }] }),
+  );
+  const insert = vi.fn(() => ({ values }));
+  // 每個交易是不同的物件（同一個交易只登記一次搬移，以物件區分）
   const db = {
-    transaction: async (work: (t: unknown) => Promise<unknown>) => work(tx),
+    transaction: async (work: (t: unknown) => Promise<unknown>) => work({ insert }),
   } as unknown as Database;
-  return { db, values };
+  return { db, values, insert };
 }
 
 describe('JobQueue.enqueue 帶 tx：outbox（docs/architecture/backend/10-jobs.md §4.1）', () => {
@@ -636,17 +719,47 @@ describe('JobQueue.enqueue 帶 tx：outbox（docs/architecture/backend/10-jobs.m
     const { db } = businessDb();
 
     await inTenant(() => withTransaction(db, (tx) => queue.enqueue(TYPE, { id: 'x' }, { tx })));
-    expect(boss.send).toHaveBeenCalledExactlyOnceWith(
-      'test.work',
-      { tenantId: 't1', payload: { id: 'x' } },
+    expect(boss.insert).toHaveBeenCalledExactlyOnceWith('test.work', [
       {
+        data: { tenantId: 't1', payload: { id: 'x' } },
         id: 'outbox-1',
         singletonKey: 't1:k',
         singletonSeconds: 60,
         startAfter: new Date('2026-11-01T00:00:00.000Z'),
+        group: { id: 't1' },
       },
-    );
+    ]);
+    expect(boss.send).not.toHaveBeenCalled();
     expect(tenant.remove).toHaveBeenCalledOnce();
+  });
+
+  it('同一個交易入列 3 筆：提交後只搬移一次（不為每一筆各開一個交易）', async () => {
+    const tenant = outboxDb([ROW]);
+    const { queue } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    const { db } = businessDb();
+
+    await inTenant(() =>
+      withTransaction(db, async (tx) => {
+        await queue.enqueue(TYPE, { id: 'a' }, { tx });
+        await queue.enqueue(TYPE, { id: 'b' }, { tx });
+        await queue.enqueueMany(TYPE, [{ data: { id: 'c' } }], { tx });
+      }),
+    );
+    expect(tenant.transaction).toHaveBeenCalledOnce();
+  });
+
+  it('不同的交易各自搬移一次', async () => {
+    const tenant = outboxDb([ROW], [ROW]);
+    const { queue } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    const { db } = businessDb();
+
+    await inTenant(async () => {
+      await withTransaction(db, (tx) => queue.enqueue(TYPE, { id: 'a' }, { tx }));
+      await withTransaction(db, (tx) => queue.enqueue(TYPE, { id: 'b' }, { tx }));
+    });
+    expect(tenant.transaction).toHaveBeenCalledTimes(2);
   });
 
   it('提交後的搬移失敗 → 業務交易照常完成（等定期清掃補搬）', async () => {
@@ -672,41 +785,157 @@ const outboxRow = (id: string, name = 'test.work'): OutboxRow => ({
   options: {},
 });
 
+describe('JobQueue.enqueueMany（docs/architecture/backend/10-jobs.md §4.1）', () => {
+  it('一條多列 INSERT 寫進 outbox（名稱、資料、延後時間），提交後搬移一次', async () => {
+    const tenant = outboxDb([]);
+    const { queue, boss } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    const { db, values, insert } = businessDb();
+    const startAfter = new Date('2026-11-01T00:00:00.000Z');
+
+    await inTenant(() =>
+      withTransaction(db, (tx) =>
+        queue.enqueueMany(TYPE, [{ data: { id: 'a' } }, { data: { id: 'b' }, startAfter }], { tx }),
+      ),
+    );
+    expect(insert).toHaveBeenCalledOnce();
+    expect(values).toHaveBeenCalledExactlyOnceWith([
+      { name: 'test.work', data: { id: 'a' }, options: { startAfter: undefined } },
+      {
+        name: 'test.work',
+        data: { id: 'b' },
+        options: { startAfter: '2026-11-01T00:00:00.000Z' },
+      },
+    ]);
+    expect(boss.send).not.toHaveBeenCalled();
+    expect(tenant.transaction).toHaveBeenCalledOnce();
+  });
+
+  it('超過 1000 筆時分段寫入（一條語句的參數有上限）', async () => {
+    const { queue } = createQueue({ tenantDb: outboxDb().db });
+    queue.register(TYPE, vi.fn());
+    const { db, values } = businessDb();
+    const items = Array.from({ length: 2500 }, (_, index) => ({ data: { id: `j${index}` } }));
+
+    await inTenant(() => withTransaction(db, (tx) => queue.enqueueMany(TYPE, items, { tx })));
+    expect(values.mock.calls.map(([rows]) => (rows as unknown[]).length)).toEqual([
+      1000, 1000, 500,
+    ]);
+  });
+
+  it('沒有任何一筆 → 不寫 outbox、不登記搬移', async () => {
+    const tenant = outboxDb();
+    const { queue } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    const { db, insert } = businessDb();
+
+    await inTenant(() => withTransaction(db, (tx) => queue.enqueueMany(TYPE, [], { tx })));
+    expect(insert).not.toHaveBeenCalled();
+    expect(tenant.transaction).not.toHaveBeenCalled();
+  });
+
+  it('平台工作 → 拋錯；沒註冊 → 拋錯；沒有租戶脈絡 → TENANT_NOT_FOUND', async () => {
+    const { queue } = createQueue();
+    queue.register(PLATFORM_TYPE, vi.fn());
+    const tx = {} as Transaction;
+    await expect(queue.enqueueMany(PLATFORM_TYPE, [{ data: { id: 'x' } }], { tx })).rejects.toThrow(
+      /不能在租戶的交易裡入列/,
+    );
+    await expect(queue.enqueueMany(TYPE, [{ data: { id: 'x' } }], { tx })).rejects.toThrow(
+      /沒有註冊 handler/,
+    );
+    queue.register(TYPE, vi.fn());
+    await expect(queue.enqueueMany(TYPE, [{ data: { id: 'x' } }], { tx })).rejects.toMatchObject({
+      code: 'TENANT_NOT_FOUND',
+    });
+  });
+});
+
 describe('JobQueue.relayOutbox（docs/architecture/backend/10-jobs.md §4.1）', () => {
   it('沒有租戶脈絡 → TENANT_NOT_FOUND', async () => {
     const { queue } = createQueue();
     await expect(queue.relayOutbox()).rejects.toMatchObject({ code: 'TENANT_NOT_FOUND' });
   });
 
+  it('只選已註冊的工作名稱（沒有註冊的列不選、不刪）', async () => {
+    const tenant = outboxDb([]);
+    const { queue } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    await inTenant(() => queue.relayOutbox());
+    const [condition] = tenant.selectWhere.mock.calls[0] ?? [];
+    expect(paramsOf(condition as SQL).toSorted()).toEqual(['jobs.outboxSweep', 'test.work']);
+  });
+
   it('沒有註冊 handler 的列留在 outbox：不送、不刪', async () => {
     const tenant = outboxDb([outboxRow('o-1', 'retired.job')]);
     const { queue, boss } = createQueue({ tenantDb: tenant.db });
     await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(0);
-    expect(boss.send).not.toHaveBeenCalled();
+    expect(boss.insert).not.toHaveBeenCalled();
     expect(tenant.remove).not.toHaveBeenCalled();
   });
 
-  it('同一批裡有註冊的照常送出，只算送出的筆數', async () => {
-    const tenant = outboxDb([outboxRow('o-1', 'retired.job'), outboxRow('o-2')]);
+  it('資料庫每次都選到同一批 100 列沒有註冊的工作 → 一輪就結束，不空轉', async () => {
+    const retired = Array.from({ length: 100 }, (_, index) =>
+      outboxRow(`r-${index}`, 'retired.job'),
+    );
+    const tenant = outboxDb(retired, retired, retired, retired, retired);
     const { queue, boss } = createQueue({ tenantDb: tenant.db });
     queue.register(TYPE, vi.fn());
-    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(1);
-    expect(boss.send).toHaveBeenCalledExactlyOnceWith(
-      'test.work',
-      { tenantId: 't1', payload: { id: 'o-2' } },
-      expect.objectContaining({ id: 'o-2', startAfter: undefined }),
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(0);
+    expect(tenant.transaction).toHaveBeenCalledOnce();
+    expect(boss.insert).not.toHaveBeenCalled();
+    expect(tenant.remove).not.toHaveBeenCalled();
+  });
+
+  it('最舊的 100 列都沒有註冊、後面 1 列有註冊 → 那 1 列照常送出，沒有註冊的留著', async () => {
+    const retired = Array.from({ length: 100 }, (_, index) =>
+      outboxRow(`r-${index}`, 'retired.job'),
     );
+    const table = outboxTable([...retired, outboxRow('o-1')]);
+    const { queue, boss } = createQueue({ tenantDb: table.db });
+    queue.register(TYPE, vi.fn());
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(1);
+    expect(boss.insert).toHaveBeenCalledExactlyOnceWith('test.work', [
+      expect.objectContaining({ id: 'o-1', data: { tenantId: 't1', payload: { id: 'o-1' } } }),
+    ]);
+    expect(table.rows()).toHaveLength(100);
+    expect(table.transaction).toHaveBeenCalledOnce();
+  });
+
+  it('同一批依工作名稱分組，每組一次批次送出；只刪送出的列', async () => {
+    const other = defineJob<{ id: string }>('test.other');
+    const tenant = outboxDb([outboxRow('o-1'), outboxRow('o-2', 'test.other'), outboxRow('o-3')]);
+    const { queue, boss } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    queue.register(other, vi.fn());
+    await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(3);
+    expect(boss.insert.mock.calls.map(([name, jobs]) => [name, jobs.map((j) => j.id)])).toEqual([
+      ['test.work', ['o-1', 'o-3']],
+      ['test.other', ['o-2']],
+    ]);
+    expect(boss.send).not.toHaveBeenCalled();
     expect(tenant.remove).toHaveBeenCalledOnce();
   });
 
-  it('一批 100 筆滿了就再開一個交易取下一批，直到不滿為止', async () => {
+  it('一批 100 筆滿了就再開一個交易取下一批，直到不滿為止；一批只送出一次，不是 100 次 send', async () => {
     const full = Array.from({ length: 100 }, (_, index) => outboxRow(`o-${index}`));
     const tenant = outboxDb(full, [outboxRow('o-last')]);
     const { queue, boss } = createQueue({ tenantDb: tenant.db });
     queue.register(TYPE, vi.fn());
     await expect(inTenant(() => queue.relayOutbox())).resolves.toBe(101);
     expect(tenant.transaction).toHaveBeenCalledTimes(2);
-    expect(boss.send).toHaveBeenCalledTimes(101);
+    expect(boss.insert.mock.calls.map(([, jobs]) => jobs.length)).toEqual([100, 1]);
+    expect(boss.send).not.toHaveBeenCalled();
+  });
+
+  it('signal 已中止 → 不再開新的一批', async () => {
+    const tenant = outboxDb([outboxRow('o-1')]);
+    const { queue } = createQueue({ tenantDb: tenant.db });
+    queue.register(TYPE, vi.fn());
+    const controller = new AbortController();
+    controller.abort();
+    await expect(inTenant(() => queue.relayOutbox(controller.signal))).resolves.toBe(0);
+    expect(tenant.transaction).not.toHaveBeenCalled();
   });
 
   it('outbox 是空的 → 0，一個交易就結束', async () => {
@@ -774,6 +1003,32 @@ describe('JobQueue：worker 執行工作（docs/architecture/backend/10-jobs.md 
     ).rejects.toThrow('smtp down');
   });
 
+  it('handler 拋資料庫的查詢錯誤 → 交給 pg-boss 的錯誤不含參數（存成 output，job:read 看得到）', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(PLATFORM_TYPE, async () => {
+      throw new DrizzleQueryError(
+        'update "users" set "password_hash" = $1 where "id" = $2',
+        ['$argon2id$secret', 'u1'],
+        Object.assign(new Error('deadlock detected'), { code: '40P01', detail: 'secret detail' }),
+      );
+    });
+    await queue.onApplicationBootstrap();
+    const thrown = await workerOf(
+      boss,
+      'test.platform',
+    )([job({ tenantId: null, payload: { id: 'x' } })]).catch((error: unknown) => error);
+
+    expect(thrown).toMatchObject({
+      name: 'DbQueryError',
+      query: 'update "users" set "password_hash" = $1 where "id" = $2',
+      cause: { code: '40P01' },
+    });
+    expect(thrown).not.toHaveProperty('params');
+    expect(JSON.stringify(thrown)).not.toContain('secret');
+    expect((thrown as Error).message).not.toContain('secret');
+    expect((thrown as Error).stack).not.toContain('secret');
+  });
+
   it('排程觸發的租戶工作（沒有租戶）→ 每個 active 租戶各入列一筆，不執行 handler', async () => {
     const { queue, boss } = createQueue({ activeTenants: [{ id: 't1' }, { id: 't2' }] });
     const handler = vi.fn();
@@ -788,17 +1043,17 @@ describe('JobQueue：worker 執行工作（docs/architecture/backend/10-jobs.md 
       [
         'test.exclusive',
         { tenantId: 't1', payload: {} },
-        expect.objectContaining({ singletonKey: 't1' }),
+        expect.objectContaining({ singletonKey: 't1', group: { id: 't1' } }),
       ],
       [
         'test.exclusive',
         { tenantId: 't2', payload: {} },
-        expect.objectContaining({ singletonKey: 't2' }),
+        expect.objectContaining({ singletonKey: 't2', group: { id: 't2' } }),
       ],
     ]);
   });
 
-  it('jobs.outboxSweep：走遍每個 active 租戶補搬，回傳搬移筆數與失敗的租戶', async () => {
+  it('jobs.outboxSweep：走遍每個 active 租戶補搬，回傳搬移筆數與失敗的租戶；把工作的 signal 交給 forEachActive', async () => {
     const tenant = outboxDb([{ id: 'o-1', name: 'test.work', data: {}, options: {} }]);
     const forEachActive = vi.fn(async (fn: (context: TenantContext) => Promise<void>) => {
       await runInTenantContext(TENANT, () => fn(TENANT));
@@ -811,6 +1066,60 @@ describe('JobQueue：worker 執行工作（docs/architecture/backend/10-jobs.md 
     await expect(workerOf(boss, 'jobs.outboxSweep')([job(null)])).resolves.toEqual({
       moved: 1,
       failedTenants: ['broken'],
+      unregistered: 0,
     });
+    expect(forEachActive).toHaveBeenCalledWith(expect.any(Function), { signal: SIGNAL });
+  });
+
+  it('jobs.outboxSweep：有沒有註冊的列 → 每個租戶記一筆 warn（名稱與筆數），不逐列記錄', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const tenant = outboxDb([]);
+    tenant.unregistered.mockResolvedValue([
+      { name: 'retired.job', count: 120 },
+      { name: 'renamed.job', count: 3 },
+    ]);
+    const forEachActive = vi.fn(async (fn: (context: TenantContext) => Promise<void>) => {
+      await runInTenantContext(TENANT, () => fn(TENANT));
+      return [];
+    });
+    const { queue, boss } = createQueue({ tenantDb: tenant.db, forEachActive });
+    await queue.onApplicationBootstrap();
+
+    await expect(workerOf(boss, 'jobs.outboxSweep')([job(null)])).resolves.toEqual({
+      moved: 0,
+      failedTenants: [],
+      unregistered: 123,
+    });
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      {
+        tenant: 'acme',
+        jobs: [
+          { name: 'retired.job', count: 120 },
+          { name: 'renamed.job', count: 3 },
+        ],
+      },
+      expect.stringContaining('沒有註冊 handler'),
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it('jobs.outboxSweep：工作逾時（signal 中止）→ 不再搬下一批', async () => {
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    const tenant = outboxDb([outboxRow('o-1')]);
+    const forEachActive = vi.fn(async (fn: (context: TenantContext) => Promise<void>) => {
+      await runInTenantContext(TENANT, () => fn(TENANT));
+      return [];
+    });
+    const { queue, boss } = createQueue({ tenantDb: tenant.db, forEachActive });
+    queue.register(TYPE, vi.fn());
+    await queue.onApplicationBootstrap();
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      workerOf(boss, 'jobs.outboxSweep')([{ ...job(null), signal: controller.signal }]),
+    ).resolves.toMatchObject({ moved: 0 });
+    expect(tenant.transaction).not.toHaveBeenCalled();
   });
 });

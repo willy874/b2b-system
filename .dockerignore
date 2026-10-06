@@ -4,9 +4,23 @@
 **/coverage
 **/*.tsbuildinfo
 .git
+# 任何層級的 .env 與備份都不進 build context（COPY apps/<app> 會帶進子目錄的 .env，ConfigModule 也會讀它）
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+prompt.txt
+# 正式環境的變數檔（docker compose --env-file deploy/prod.env）
+deploy/*.env
 .claude
+.vscode
 docs
 apps/e2e
 # apps/file-storage 的本機資料
 **/.data
+# 本機的測試與建置產物
+**/test-results
+**/playwright-report
+**/storybook-static

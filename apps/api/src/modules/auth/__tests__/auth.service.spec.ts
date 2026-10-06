@@ -27,6 +27,7 @@ function setup(
     identityProviders as never,
     {} as never, // settings
     {} as never, // flags
+    {} as never, // accessTokens
   );
   return { service, jobs, users, identityProviders };
 }

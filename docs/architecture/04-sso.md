@@ -165,6 +165,13 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 - 不自動跳回 IdP：頁面卸載會取消還在路上的登出請求，使用者會被尚未銷毀的 IdP session 直接登回來。
   前端的 `SessionWatcher` 只在「這個分頁曾經有 session」時才在 session 消失後導向登入頁。
 - 離線的分頁要等下一次續期失敗才發現；已發出的 access token 最多再活 5 分鐘。
+- **登出失敗時要讓使用者知道**（web-core 的 `signOut`）：前端照樣登出，但伺服器端沒有撤銷（撤銷的請求失敗，或續期失敗後改以
+  refresh cookie 撤銷也失敗）時，已登出頁帶 `?logout=incomplete`，顯示警示「伺服器端的登出沒有完成…在共用電腦上請關閉瀏覽器」與「重試登出」。
+  - 續期失敗、拿不到 access token 時，`POST /auth/logout`（apps/platform 是 `/platform/auth/logout`）不帶 bearer、改帶 `x-refresh-request: 1`，
+    後端以 refresh cookie 找家族並結束 IdP session；「重試登出」走同一條。登出的請求帶 `keepalive`，按完立刻關分頁也會送完。
+  - 重試仍失敗（例：refresh cookie 已失效，後端認不出家族）時，「重試登出」旁提供 IdP 的 end-session 連結（`endSessionUrlOf`，
+    `/session/end?client_id=…&post_logout_redirect_uri=<登入頁>`）：使用者在 IdP 的確認頁按下登出，IdP session 與它底下的 app session 一起結束。
+    這是使用者手動按的退路；D5 排除的只是「自動」跳回 IdP。
 
 ### 3.5 帳號停用、刪除、憑證失效（D17）
 
@@ -219,11 +226,11 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 
 | 位置 | 內容 |
 | --- | --- |
-| `@b2b-system/web-core/auth`（`sso.ts`） | `createAuthorizationUrl`（state、PKCE S256）、`readPendingLogin`／`discardPendingLogin`（verifier 以 state 為鍵存本分頁 sessionStorage）、`safeReturnTo`（只接受同源相對路徑） |
+| `@b2b-system/web-core/auth`（`sso.ts`） | `createAuthorizationUrl`（state、PKCE S256）、`readPendingLogin`／`discardPendingLogin`（verifier 以 state 為鍵存本分頁 sessionStorage）、`safeReturnTo`（只接受同源相對路徑；以瀏覽器的解析結果判斷，正規化後以 `//` 開頭的——例如 `/.//外站`、`/\外站`——一律退回 `/`） |
 | `features/auth/pages/Login` | `/auth/login`：取得這個網域的租戶代碼（`GET /tenant/current`）後跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」；跳轉前失敗（租戶停用、網址打錯）顯示原因並可重試 |
 | `features/identity-provider` | `/identity-provider`：這個租戶的外部 IdP 連線（`identityProvider:*`，[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D18）；顯示要登記在外部 IdP 的 redirect URI |
 | `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」；失敗後的「登入」帶上原本的 `returnTo` |
-| `app/App.tsx` 的 `SessionWatcher` | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
+| `SessionWatcher`（`@b2b-system/web-core/shell`，`app/App.tsx` 掛上） | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
 
 ### 6.2 apps/platform
 
@@ -254,14 +261,14 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 | 變數 | 用途 | production |
 | --- | --- | --- |
-| `PLATFORM_APP_URL` | apps/platform 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `PLATFORM_PUBLIC_ORIGIN` 產生） |
-| `APP_PUBLIC_URL` | 預設租戶的 backstage origin；信中連結的協定（各租戶的網域在平台 DB 的 `tenant_domains`） | 必填（`PUBLIC_ORIGIN`） |
+| `PLATFORM_APP_URL` | apps/platform 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `PLATFORM_PUBLIC_ORIGIN` 產生）；https、不能是 localhost |
+| `APP_PUBLIC_URL` | 預設租戶的 backstage origin；信中連結的協定（各租戶的網域在平台 DB 的 `tenant_domains`） | 必填（`PUBLIC_ORIGIN`）；同上 |
 | `PLATFORM_REFRESH_COOKIE_PATH` | 平台管理者的 refresh cookie path | 預設 `/api/platform/auth` |
 | `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | 第一位平台管理者（`db:seed`）；密碼留空時 production 建成 `pending`，印出一次性的設定連結（[`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md) §5.1） | compose 的 migrate 必填 email |
-| `OIDC_ISSUER` | `{PLATFORM_APP_URL}/api/oidc` | 必填 |
-| `OIDC_JWKS` | 簽 ID token 的私鑰（JWKS JSON）；輪替時新舊並存一個 access token TTL | 必填（沒設時啟動時產生臨時金鑰） |
-| `OIDC_COOKIE_KEYS` | 簽 IdP cookie 的金鑰，逗號分隔，第一把用來簽 | 必填 |
-| `IDP_SECRET_KEY` | AES-256-GCM 加密外部 IdP 的 client secret（32 bytes，base64） | 必填（沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用） |
+| `OIDC_ISSUER` | `{PLATFORM_APP_URL}/api/oidc` | 必填；與 `PLATFORM_APP_URL` 同源 |
+| `OIDC_JWKS` | 簽 ID token 的私鑰（JWKS JSON）；輪替時新舊並存一個 access token TTL | 必填，至少一把含私鑰（沒設時啟動時產生臨時金鑰，只給開發用） |
+| `OIDC_COOKIE_KEYS` | 簽 IdP cookie 的金鑰，逗號分隔，第一把用來簽 | 必填，每一把至少 32 字元的隨機值 |
+| `IDP_SECRET_KEY` | AES-256-GCM 加密外部 IdP 的 client secret（32 bytes，base64） | 必填，拒絕低熵的值（沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用） |
 | `TENANT_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 加密租戶連線字串、Webhook 簽章密鑰（同上的形狀；[`05-tenancy.md`](./05-tenancy.md) §7、[`backend/17-webhook.md`](./backend/17-webhook.md) §9.2 D14） | 必填（同上） |
 | `OIDC_CLEANUP_CRON` | 清除過期 `oidc_payloads` | 預設 `45 3 * * *` |
 | `VITE_OIDC_ISSUER`、`VITE_PLATFORM_APP_URL` | 前端（backstage、apps/platform）**建置時** 寫進產物 | Dockerfile 的 build arg |

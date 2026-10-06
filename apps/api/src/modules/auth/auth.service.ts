@@ -5,6 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
+import { AccessTokenVerifier } from '@/common/auth';
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import type { Env } from '@/core/config';
@@ -66,6 +67,19 @@ export interface IssuedSession extends SessionDto {
   refreshTtlSeconds: number;
 }
 
+/**
+ * `POST /auth/logout`、`POST /platform/auth/logout` 的輸入（docs/architecture/04-sso.md §3.4）。
+ * 有 bearer 時照舊以它認人；沒有時（前端續期失敗、已登出頁的「重試登出」）以 refresh cookie 認人。
+ */
+export interface LogoutInput {
+  /** refresh cookie 的值。 */
+  refreshToken: string | undefined;
+  /** `Authorization: Bearer` 的 access token。 */
+  accessToken: string | undefined;
+  /** 帶了 `x-refresh-request: 1`。沒有 bearer 時必須帶（CSRF 緩解，同 `/auth/refresh`）。 */
+  refreshRequested: boolean;
+}
+
 /** 經 SSO 發出的 app session 帶的來源（docs/architecture/04-sso.md §12.2 D4）。 */
 export interface SsoOrigin {
   clientId: string;
@@ -91,6 +105,7 @@ export class AuthService {
     private readonly identityProviders: IdentityProviderService,
     private readonly settings: SettingService,
     private readonly flags: FeatureFlagService,
+    private readonly accessTokens: AccessTokenVerifier,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -335,7 +350,21 @@ export class AuthService {
 
   // ── 登出 ────────────────────────────────────────────────
 
-  async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
+  /**
+   * 登出：撤銷整條 refresh 家族；經 SSO 登入的一併結束 IdP session（docs/architecture/04-sso.md §3.4）。
+   * 端點是 `@Public()`：有 bearer 時在這裡驗證（與 `JwtAuthGuard` 同一套判定），沒有時以 refresh cookie 登出。
+   */
+  async logout(input: LogoutInput): Promise<{ success: true }> {
+    if (!input.accessToken) return this.logoutByRefreshCookie(input);
+    const verified = await this.accessTokens.verify(input.accessToken);
+    if (!verified.ok) throw new AppException(verified.code);
+    return this.logoutAs(input.refreshToken, verified.user);
+  }
+
+  private async logoutAs(
+    rawToken: string | undefined,
+    actor: AuthUser,
+  ): Promise<{ success: true }> {
     // 撤銷整條家族，而不只是當前這一條
     const row = rawToken ? await this.refreshTokens.revokeFamilyOf(rawToken, 'logout') : undefined;
     // 經 SSO 登入的 session：同一個 IdP session 的所有產品一起登出（docs/architecture/04-sso.md §12.2 D5）
@@ -350,6 +379,35 @@ export class AuthService {
       metadata: row?.clientId
         ? { clientId: row.clientId, singleLogout: Boolean(idpSessionUid) }
         : undefined,
+    });
+    return { success: true };
+  }
+
+  /**
+   * 沒有 access token 的登出：前端續期失敗而拿不到 token，或已登出頁的「重試登出」（docs/architecture/04-sso.md §3.4）。
+   * 以 refresh cookie 找到家族與它的主人；比照 `/auth/refresh` 要求 `x-refresh-request: 1`——跨站的表單送不出自訂標頭，
+   * 帶了就會觸發 preflight，而我們不回應其他來源的 CORS。家族已撤銷（例：上一次登出只完成一半）仍照樣結束 IdP session。
+   */
+  private async logoutByRefreshCookie({
+    refreshToken,
+    refreshRequested,
+  }: LogoutInput): Promise<{ success: true }> {
+    if (!refreshRequested || !refreshToken) throw new AppException('AUTH_REFRESH_INVALID');
+    const row = await this.refreshTokens.revokeFamilyOf(refreshToken, 'logout');
+    if (!row) throw new AppException('AUTH_REFRESH_INVALID');
+    if (row.idpSessionUid) await this.endIdpSession(row.idpSessionUid);
+    const user = await this.users.findAccountById(row.userId);
+    await this.audit.recordSafely({
+      action: 'auth.logout',
+      resourceType: 'auth',
+      resourceId: row.userId,
+      actorId: row.userId,
+      actorEmail: user?.email ?? 'unknown',
+      metadata: {
+        ...(row.clientId && { clientId: row.clientId }),
+        singleLogout: Boolean(row.idpSessionUid),
+        via: 'refreshCookie',
+      },
     });
     return { success: true };
   }

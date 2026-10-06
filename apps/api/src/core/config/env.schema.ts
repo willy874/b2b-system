@@ -9,7 +9,18 @@ export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
  */
 export const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /**
+   * 這個程序是內部 api 還是對外 API（`main.external.ts` 在讀取任何設定之前固定成 `external`）。
+   * production 要求哪些金鑰依它決定：對外 API 不載入 OIDC Provider、外部 IdP 的登入，也不投遞 webhook，
+   * 不持有那些金鑰（docs/architecture/06-external-api.md §6）。
+   */
+  API_SURFACE: z.enum(['internal', 'external']).default('internal'),
   PORT: z.coerce.number().int().default(3000),
+  /**
+   * 監聽的位址（`listenHostOf()`）。沒設定時 production 聽所有介面（nginx 從另一個容器連進來），
+   * 其他環境只聽 `127.0.0.1`：同一個網段的人連不到開發機的 api。要從其他機器連（例：手機測試）時設 `0.0.0.0`。
+   */
+  LISTEN_HOST: z.preprocess((value) => (value === '' ? undefined : value), z.string().optional()),
   /**
    * 對外 API 的程序（`main.external.ts`）監聽的 port（docs/architecture/06-external-api.md §9.2 D9）。
    * 同一份 env 給兩個程序用，所以另開一個變數，不沿用 `PORT`。
@@ -87,7 +98,6 @@ export const EnvSchema = z.object({
   REFRESH_COOKIE_PATH: z.string().default('/api/auth'),
   /** 平台管理者的 refresh cookie（apps/platform 的 origin，`/platform/auth/*`；docs/architecture/05-tenancy.md §10.2 D5）。 */
   PLATFORM_REFRESH_COOKIE_PATH: z.string().default('/api/platform/auth'),
-  REFRESH_COOKIE_DOMAIN: z.string().default('localhost'),
   /**
    * 瀏覽器看到的 api 位址（同源時是路徑前綴）。api 自己產生、要放進 `<img src>` 的網址
    * （影像 API，docs/architecture/backend/09-file.md §5.4）以它開頭；理由同 `REFRESH_COOKIE_PATH`。
@@ -379,48 +389,120 @@ export function isWeakSecret(value: string): boolean {
   );
 }
 
-/** production 不接受開發用的預設值：沒有金鑰就不能簽 ID token 與 IdP cookie。 */
+const WEAK_SECRET_MESSAGE =
+  'production 不能用範例值或低熵的字串（請以 openssl rand -base64 48 之類產生）';
+
+/**
+ * SecretBox 的主金鑰（`core/crypto/secret-box.ts`）：base64 解開要是 32 bytes，而且不同的位元組夠多。
+ * 隨機的 32 bytes 平均有 30 個不同的值；少於 16 個幾乎只會是手填的值（例：32 個 0x00）。
+ */
+function secretKeyProblem(value: string): string | undefined {
+  const key = Buffer.from(value, 'base64');
+  if (key.length !== 32) return '必須是 32 bytes 的 base64（openssl rand -base64 32）';
+  if (new Set(key).size < 16) {
+    return '看起來不是隨機產生的（不同的位元組太少）；請以 openssl rand -base64 32 產生';
+  }
+  return undefined;
+}
+
+/** `OIDC_JWKS` 在啟動時就檢查形狀，不等到 oidc-provider 載入金鑰才失敗。 */
+function jwksProblem(raw: string): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return '不是合法的 JSON';
+  }
+  const keys =
+    typeof parsed === 'object' && parsed !== null ? (parsed as { keys?: unknown }).keys : undefined;
+  if (!Array.isArray(keys)) return '必須是 {"keys":[…]} 形狀的 JWKS';
+  const hasPrivateKey = keys.some(
+    (key: unknown) =>
+      typeof key === 'object' && key !== null && typeof (key as { d?: unknown }).d === 'string',
+  );
+  return hasPrivateKey ? undefined : '至少要有一把含私鑰（`d`）的金鑰，才能簽 ID token';
+}
+
+/** 瀏覽器在別台電腦上連不到的主機：production 的公開網址不能是它。 */
+function isLocalHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '::1' ||
+    host === '0.0.0.0' ||
+    host.startsWith('127.')
+  );
+}
+
+/** 瀏覽器看到的網址：信件連結、presigned 網址、OIDC 的 redirect 都以它們開頭（production 的 redirect URI 只接受 https）。 */
+const PUBLIC_URL_KEYS = ['APP_PUBLIC_URL', 'PLATFORM_APP_URL', 'OIDC_ISSUER'] as const;
+
+/** production 不接受開發用的預設值：範例或低熵的金鑰、本機的公開網址、`console` 寄信。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   if (env.NODE_ENV !== 'production') return;
-  const secrets = {
-    JWT_SECRET: env.JWT_SECRET,
-    FILE_STORAGE_ACCESS_KEY_ID: env.FILE_STORAGE_ACCESS_KEY_ID,
-    FILE_STORAGE_SECRET_ACCESS_KEY: env.FILE_STORAGE_SECRET_ACCESS_KEY,
-  };
-  for (const [key, value] of Object.entries(secrets)) {
-    // access key id 不是祕密（常是短的識別字），只擋範例值
-    const weak =
-      key === 'FILE_STORAGE_ACCESS_KEY_ID' ? EXAMPLE_SECRETS.has(value) : isWeakSecret(value);
-    if (weak) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [key],
-        message: 'production 不能用範例值或低熵的字串（請以 openssl rand -base64 48 之類產生）',
-      });
-    }
+  const issue = (key: keyof Env, message: string) =>
+    ctx.addIssue({ code: 'custom', path: [key], message });
+  // 對外 API 的程序不簽 ID token、不碰外部 IdP 與 webhook 的密鑰：不要求這些金鑰，給了才檢查（06-external-api.md §6）
+  const internal = env.API_SURFACE === 'internal';
+
+  for (const key of ['JWT_SECRET', 'FILE_STORAGE_SECRET_ACCESS_KEY'] as const) {
+    if (isWeakSecret(env[key])) issue(key, WEAK_SECRET_MESSAGE);
+  }
+  // access key id 不是祕密（常是短的識別字），只擋範例值
+  if (EXAMPLE_SECRETS.has(env.FILE_STORAGE_ACCESS_KEY_ID)) {
+    issue('FILE_STORAGE_ACCESS_KEY_ID', WEAK_SECRET_MESSAGE);
   }
   if (env.MAIL_TRANSPORT !== 'smtp') {
     // console 會把能登入的啟用／重設連結寫進日誌
-    ctx.addIssue({ code: 'custom', path: ['MAIL_TRANSPORT'], message: 'production 必須是 smtp' });
+    issue('MAIL_TRANSPORT', 'production 必須是 smtp');
   }
-  if (!env.OIDC_JWKS) {
-    ctx.addIssue({ code: 'custom', path: ['OIDC_JWKS'], message: 'production 必須設定簽章金鑰' });
+
+  const secretKeys = [
+    ['TENANT_SECRET_KEY', true],
+    ['IDP_SECRET_KEY', internal],
+    ['WEBHOOK_SECRET_KEY', internal],
+  ] as const;
+  for (const [key, required] of secretKeys) {
+    const value = env[key];
+    const problem = value ? secretKeyProblem(value) : required ? 'production 必須設定' : undefined;
+    if (problem) issue(key, problem);
   }
-  if (!env.OIDC_COOKIE_KEYS?.length) {
-    ctx.addIssue({ code: 'custom', path: ['OIDC_COOKIE_KEYS'], message: 'production 必須設定' });
+
+  if (env.OIDC_JWKS) {
+    const problem = jwksProblem(env.OIDC_JWKS);
+    if (problem) issue('OIDC_JWKS', problem);
+  } else if (internal) {
+    issue('OIDC_JWKS', 'production 必須設定簽章金鑰');
   }
-  if (!env.IDP_SECRET_KEY) {
-    ctx.addIssue({ code: 'custom', path: ['IDP_SECRET_KEY'], message: 'production 必須設定' });
+  if (env.OIDC_COOKIE_KEYS?.length) {
+    if (env.OIDC_COOKIE_KEYS.some((key) => key.length < 32 || isWeakSecret(key))) {
+      issue('OIDC_COOKIE_KEYS', '每一把都要是至少 32 字元的隨機值（openssl rand -base64 32）');
+    }
+  } else if (internal) {
+    issue('OIDC_COOKIE_KEYS', 'production 必須設定');
   }
-  if (!env.WEBHOOK_SECRET_KEY) {
-    ctx.addIssue({ code: 'custom', path: ['WEBHOOK_SECRET_KEY'], message: 'production 必須設定' });
+
+  for (const key of PUBLIC_URL_KEYS) {
+    const url = new URL(env[key]);
+    if (url.protocol !== 'https:' || isLocalHost(url.hostname)) {
+      issue(key, 'production 必須是瀏覽器看到的 https 網址，不能是 localhost');
+    }
   }
-  if (!env.TENANT_SECRET_KEY) {
-    ctx.addIssue({ code: 'custom', path: ['TENANT_SECRET_KEY'], message: 'production 必須設定' });
+  if (new URL(env.OIDC_ISSUER).origin !== new URL(env.PLATFORM_APP_URL).origin) {
+    issue(
+      'OIDC_ISSUER',
+      '必須在 PLATFORM_APP_URL 的 origin 底下（例：<PLATFORM_APP_URL>/api/oidc）',
+    );
   }
 });
 
 export type Env = z.infer<typeof EnvSchema>;
+
+/** `app.listen()` 的位址：`undefined` 是 Node 的預設（所有介面）。 */
+export function listenHostOf(env: Pick<Env, 'NODE_ENV' | 'LISTEN_HOST'>): string | undefined {
+  return env.LISTEN_HOST ?? (env.NODE_ENV === 'production' ? undefined : '127.0.0.1');
+}
 
 /** 環境變數只能是字串；換成 Express `trust proxy` 接受的布林、跳數或子網路字串。 */
 export function parseTrustProxy(value: string): boolean | number | string {

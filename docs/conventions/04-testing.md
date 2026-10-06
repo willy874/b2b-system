@@ -87,8 +87,15 @@ MSW handler 要模擬權限行為（無權限回 403），不能一律回 200。
 ## 5. 執行
 
 ```bash
-pnpm test         # backstage ＋ api（api 整合測試需要 Docker）
+pnpm test         # 所有 app 與 package（api 的整合測試需要 Docker）
 pnpm test:e2e     # 先跑 pnpm dev:e2e 與 backstage
+
+pnpm --filter @b2b-system/api test:unit          # api 的單元測試（src/**/*.spec.ts）：不需要 Docker、檔案並行
+pnpm --filter @b2b-system/api test:integration   # api 的整合測試（test/**/*.spec.ts）：一次性的 Postgres，檔案依序執行
 ```
+
+api 的 `vitest.config.ts` 以 `test.projects` 分成 `unit` 與 `integration` 兩個 project：
+只有 `integration` 掛 Testcontainers 的 `globalSetup` 與 `setupFiles`。`src/` 底下要資料庫的測試
+（目前只有 `src/db/seeds/__tests__/seed.spec.ts`）要加進 `integration` 的 `include`、從 `unit` 排除。
 
 測試失敗時修程式或修測試，**不** 用 `it.skip` / `it.only` 提交。

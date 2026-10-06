@@ -12,7 +12,7 @@ function isSettled(id: string): boolean {
 
 /**
  * 等到這個 feature 有定論（清單已套用、不在安裝中）。沒有 session 時不等：
- * 啟用清單要登入後才拿得到，導向登入頁的工作交給 `app/App.tsx` 的 `SessionWatcher`。
+ * 啟用清單要登入後才拿得到，導向登入頁的工作交給 `SessionWatcher`（web-core/shell，`app/App.tsx` 掛上）。
  */
 export function waitForFeature(id: string): Promise<FeatureStatus | undefined> {
   const current = () => featureStore.getState().statuses.get(id);

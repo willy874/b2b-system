@@ -234,6 +234,11 @@ pathname '/role/abc/permission'
 `/auth/login`、devtools 這些路徑本來就不該有權限規則，強行要求註冊只會製造噪音。
 真正的防線在後端。
 
+**路徑比對分大小寫。** 守衛拿網址上原樣的 `location.pathname` 逐字比對頁面鍵，所以兩個 app 的 `createAppRouter()`
+都設 `caseSensitive: true`，讓 router 用同一套規則：`/USER`、`/User/create` 不命中任何 route，顯示 404。
+router 若不分大小寫，這些網址會命中 `/user` 的頁面、守衛卻查不到頁面鍵（fail-open），沒有權限的人看得到頁面骨架與按鈕。
+所有 route 的靜態路徑與 `registerPagePermission` 的路徑都寫小寫；動態參數（`$userId`、`$uid`）的大小寫不受影響。
+
 ### 4.3 未登入的處理
 
 這一層不是權限守衛的責任，而是 `SessionStore` 的：
@@ -242,9 +247,14 @@ pathname '/role/abc/permission'
 任何請求 → 401 → 續期被伺服器拒絕，或收到終止類錯誤碼
   → 主後端的 SessionStore 判定 session 結束（latched，只觸發一次；網路錯誤、5xx 不算）
   → emit SESSION_ENDED
-  → app 層監聽：清空 permission store、清空 query cache、
-     navigate({ to: '/auth/login', search: { signedOut, reason, redirect: pathname + search } })
+  → SessionWatcher（@b2b-system/web-core/shell，兩個 app 共用）：清掉以使用者身分取得的資料（permission store、query cache…）、
+     navigate({ to: '/auth/login', search: { signedOut, reason, redirect: pathname + search }, ignoreBlocker: true })
 ```
+
+`SessionWatcher` 由 app 的 `app/App.tsx` 掛上，參數是登入頁的路徑（backstage `/auth/login`、apps/platform `/login`）、
+`isPublic()` 與 `loginSearchAfterSessionEnd()`（`app/sessionRedirect.ts`）。導覽帶 `ignoreBlocker`（§2.1）：
+`endSession()` 常在表單的 state 還沒 commit 時同步觸發（改密碼成功後先清空欄位再結束 session），blocker 讀到的仍是 dirty。
+權限水合（`useSyncPermissions`）與 backstage 的 `useSyncFeatures` 不經過它，由 app 自己的 `ProfileSync` 元件呼叫。
 
 登入成功後讀 `search.redirect` 導回原本要去的頁面（含查詢字串）。`reason` 是 `endSession(reason)` 的原因，
 登入頁以 `features/auth/sessionEnd.ts` 對到說明（逾時、帳號停用、憑證重用、密碼已變更…；自己登出不帶）。

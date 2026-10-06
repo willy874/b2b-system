@@ -23,6 +23,8 @@ export function createFakeBatchQueue() {
       host?: BatchQueueHost;
       /** 這個分頁能執行的操作；預設是共用的註冊表（同一個程序裡所有分頁相同）。 */
       operations?: BatchOperationSource;
+      /** 這個分頁目前登入的身分（`BatchQueueClientOptions.principal`）；不給時不過濾。 */
+      principal?: () => string | undefined;
     } = {},
   ) {
     const { port1, port2 } = new MessageChannel();
@@ -34,6 +36,7 @@ export function createFakeBatchQueue() {
       holdLock: () => undefined,
       ownsHost: options.ownsHost,
       operations: options.operations,
+      principal: options.principal,
     });
     tabs.push(client);
     return client;

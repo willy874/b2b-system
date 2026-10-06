@@ -155,6 +155,14 @@ export class SessionStore {
     return this.accessToken;
   }
 
+  /**
+   * 目前 access token 的身分（`<租戶>:<使用者>`）；沒有 token、或不是 JWT（測試與 mock 模式的假 token）時為 undefined。
+   * 只解碼、不驗簽：用來區分「同一個人」的前端資料（例：批次佇列的工作），授權仍由後端判斷。
+   */
+  getIdentity(): string | undefined {
+    return this.accessToken ? identityOf(this.accessToken) : undefined;
+  }
+
   setTokens({ accessToken, expiresIn }: SessionTokens): void {
     this.applyTokens(accessToken, Date.now() + expiresIn * 1000);
   }

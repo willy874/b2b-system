@@ -248,6 +248,8 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 - **同源**：每個租戶的頁面、`/api`、`/storage`、WebSocket 都在自己的網域，CSP 維持 `connect-src 'self'`。
 - **單一 api 執行個體**：租戶狀態的變更（停用、網域）經廣播在每個程序立即生效（漏掉時最多晚 `TENANT_CACHE_TTL` 秒）；
   其他程序寫入的推播經事件轉送送到每個程序（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6）。擴成多個執行個體的前提見 [`01-system.md`](./01-system.md) §4.3。
+- **備份與還原**：平台 DB 與每個租戶的 database 各自 `pg_dump`，DB 角色另外一份（租戶角色的密碼只存在加密的連線字串裡），
+  每個租戶可以單獨還原；`TENANT_SECRET_KEY` 與資料備份分開保存。步驟見 [`01-system.md`](./01-system.md) §4.5。
 
 | 環境變數 | 用途 |
 | --- | --- |
@@ -656,5 +658,5 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 | D3 | `UpdateTenantRequest.featureParams` 在 OpenAPI 上是 `Record<string, number \| string \| null>`（zod 的 `partialRecord`）；key 仍以 `TenantFeatureParamKey` 驗證 |
 | D7 | `archiveAuditLogs()` 改成由呼叫端傳入保留天數；排程讀 `TenantContext`，`pnpm db:archive-audit-logs` 讀 `ScriptTenant.featureParams` |
 | D8 | 不帶資料夾的上傳原本不在交易內；`FileFolderService.insideFolder()` 改成一律開交易，advisory lock 才有作用 |
-| D9 | 排名與放回在 `JobStore.activeAhead()`／`requeue()`（`JOB_SCHEMA` 從 `job-queue.ts` 搬到 `job-store.ts`，避免循環 import）；放回時一併清掉 `started_on`、`heartbeat_on` |
+| D9 | 排名與放回在 `JobStore.activeAhead()`／`requeue()`（`JOB_SCHEMA` 從 `job-queue.ts` 搬到 `job-store.ts`，避免循環 import）；放回時一併清掉 `started_on`、`heartbeat_on`。每一筆租戶工作開始前都要排名，所以兩段都走索引：租戶的工作送出時帶 pg-boss 的 `group: { id: tenantId }`，這一筆以主鍵 `(name, id)` 找、計數以 `name IN (已註冊) AND group_id = 租戶 AND state = 'active'` 用 pg-boss 內建的 `job_i7`。原本以 `data->>'tenantId'` 比對，每一筆都全表掃描所有租戶 7 天內的工作（[`backend/10-jobs.md`](./backend/10-jobs.md) §3） |
 | 前端 | apps/platform 的參數列在「啟用的功能」每個 feature 那一列下，編輯是單一參數的對話框（只送那一個 key）；backstage 的檔案管理器側欄顯示容量用量（`FileStorageUsage`） |

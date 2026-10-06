@@ -105,12 +105,32 @@
 | 啟動 | `pnpm dev:external-api`（`node --watch` ＋ swc，不跑第二個 `nest --watch`） | 服務 `external-api`：同一個映像，`node dist/src/main.external.js` |
 | port | `EXTERNAL_API_PORT`（預設 3001） | 容器內 3001；閘道 `external-gateway`（nginx，`deploy/nginx.external-api.conf`）對外 8082 |
 | 網路 | — | `external`（閘道 ＋ external-api）、`data`、`storage`；閘道碰不到內部 api |
-| 環境變數 | 與 api 共用 `.env` | 沿用 api 的 environment（YAML merge），另外覆寫連線池（`EXTERNAL_TENANT_POOL_MAX`、`EXTERNAL_PLATFORM_POOL_MAX`）、heap、限流 |
-| 健康檢查 | `GET /health` | compose 的 healthcheck 打 `:3001/health`（映像的 HEALTHCHECK 是 api 的 :3000） |
+| 環境變數 | 與 api 共用 `.env` | 只合併兩個程序共用的 `x-api-common-env`（見下方「秘密的範圍」），另外覆寫連線池（`EXTERNAL_TENANT_POOL_MAX`、`EXTERNAL_PLATFORM_POOL_MAX`）、heap、限流 |
+| 健康檢查 | `GET /health` | compose 的 healthcheck 打 `:3001/health`（映像的 HEALTHCHECK 是 api 的 :3000）；閘道打自己的 `/_nginx_health` |
 
 - 連線預算：每個程序都有自己的平台池與租戶池，公式要把這個程序算進去（[`backend/02-database.md`](./backend/02-database.md) §6.2）。
 - nginx 閘道：只有一個 `location /`，`client_max_body_size 1m`（檔案以 presigned URL 直傳租戶網域的 `/storage`），
-  `Cache-Control: no-store`、HSTS、`nosniff`。`sh deploy/check-nginx.sh` 一併檢查它。
+  `Cache-Control: no-store`、HSTS、`nosniff`。客戶端 IP 的處理與兩個前端相同（`TRUSTED_PROXY_CIDRS`，[`01-system.md`](./01-system.md) §4.2）。
+  `sh deploy/check-nginx.sh` 一併檢查它。
+
+**秘密的範圍**：對外入口是給整合方的程序與網域，它一旦被攻破（RCE、環境變數外洩），影響不該超出它需要的權限。
+compose 把環境變數拆成兩份 anchor，external-api 只合併共用的那一份：
+
+| | api | external-api | 理由 |
+| --- | --- | --- | --- |
+| `PLATFORM_DATABASE_URL`、`TENANT_SECRET_KEY` | ✓ | ✓ | 要連平台 DB 與每個租戶的 DB |
+| `JWT_SECRET` | ✓ | ✓ | 檔案的縮圖網址以它推導的金鑰簽章，由 api 的影像端點驗證（[`backend/09-file.md`](./backend/09-file.md) §5.4）；這個程序本身從不驗 JWT |
+| `FILE_STORAGE_*` | ✓ | ✓ | 簽 presigned 網址 |
+| `TENANT_PROVISIONING_DATABASE_URL` | ✓ | — | 佈建角色（`CREATEDB`、`CREATEROLE`）只在平台建立租戶時用 |
+| `OIDC_JWKS`、`OIDC_COOKIE_KEYS` | ✓ | — | 沒有載入 OIDC Provider |
+| `IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | ✓ | — | 模組有載入（使用者、檔案的模組依賴它們），但不會解開外部 IdP 的 client secret，也不投遞 webhook |
+| `MAIL_SMTP_URL` | ✓ | — | 只入列、不寄信 |
+
+- 環境變數驗證以 `API_SURFACE=external`（`external-process-env.ts` 固定）檢查：production 不要求上表沒有的金鑰，給了才檢查強度。
+- production 不再由 `JWT_SECRET` 推導 SecretBox 的金鑰：沒有金鑰的程序要加解密時直接拋錯，不會以推導出的另一把金鑰寫出 api 解不開的密文。
+- `prod-compose-env.spec.ts` 守住兩件事：兩個程序的變數都能通過 production 的驗證，external-api 拿不到上表的「—」。
+- 還沒做：金鑰仍以環境變數傳入，看得到 `docker inspect` 與 `/proc/<pid>/environ` 的人就拿得到。改成 Docker secrets（`*_FILE`）掛載要另外處理；
+  縮圖網址的簽章金鑰也可以改成獨立的變數，讓 external-api 不必持有 `JWT_SECRET`。
 
 ## 7. 文件（OpenAPI）
 

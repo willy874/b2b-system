@@ -385,7 +385,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 | `exp` 取整到 `FILE_URL_TTL / 2` 的時間窗（同 §7.1） | 同一個時間窗內網址不變，`<img>` 與 HTTP 快取直接命中 |
 | 回 **302 轉址** 到物件儲存的 presigned 網址，帶 `Cache-Control: private, max-age=<剩餘秒數>`、`Vary: Accept` | 內容仍由物件儲存送出、不經過 api；轉址本身也被瀏覽器快取 |
 | 不限流（`@SkipThrottle()`） | 一頁的圖示預覽就有數十個請求；轉址會被快取，格式轉換只發生一次 |
-| 簽章不符、換了版本、過期 → `403 FILE_IMAGE_URL_INVALID`；檔案不存在、已刪除、變體不可用 → `404 FILE_NOT_FOUND` | |
+| 簽章不符、換了版本、過期 → `403 FILE_IMAGE_URL_INVALID`；檔案不存在、已刪除、變體不可用 → `404 FILE_NOT_FOUND`；轉出的格式超過上限 → `422 FILE_IMAGE_TOO_LARGE`（見下方「轉出的上限」） | |
 
 **格式**（`format` 參數）：
 
@@ -402,6 +402,12 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 `format=auto` 協商出來的格式還沒轉出時，請求 **不等** 轉檔（AVIF 大圖要好幾秒）：先轉址到主格式（`original` 則原封不動），
 轉址只快取 30 秒，轉檔在背景做，之後再來就拿到新格式。原圖是瀏覽器顯示不了的格式（TIFF）時沒有東西可以退回，照舊等轉完。
 明確指定的格式（`jpeg` / `webp` / `avif` / `png`）一律等轉完。
+
+**轉出的上限**：轉出來超過 128 MiB（`IMAGE_CONVERSION_MAX_OUTPUT_SIZE`）就不存——大圖的原圖轉成 PNG 可達數百 MiB
+（1 億像素的照片約 160 MiB），而物件儲存的部署預設只收 128 MiB 的單一物件（§8）。
+`format=auto` 退回主格式（`original` 則原封不動），明確指定的格式回 `422 FILE_IMAGE_TOO_LARGE`（`details.maxSize`）。
+同一個 api 執行個體記住最近 1000 個超過上限的格式，不再重新解碼；`format=auto` 因此直接用主格式，轉址照一般的時間快取。
+原圖是 TIFF 時沒有東西可以退回，`format=auto` 也回 `FILE_IMAGE_TOO_LARGE`。
 
 ---
 
@@ -519,6 +525,7 @@ LIMIT $limit
 | `FILE_UPLOAD_PART_INVALID` | 422 | 對單次 PUT 的上傳要分塊網址、塊號超出 `partCount`、分塊上傳 `complete` 沒帶 `parts` |
 | `FILE_VERSION_CONFLICT` | 409 | 改名時版本不符（§6.2） |
 | `FILE_IMAGE_URL_INVALID` | 403 | 影像 API 的網址簽章不符、版本不符或已過期（§5.4） |
+| `FILE_IMAGE_TOO_LARGE` | 422 | 影像 API 明確指定的格式轉出來超過 128 MiB（`details.maxSize`；§5.4） |
 | `FILE_STORAGE_UNAVAILABLE` | 503 | 物件儲存連不上或回非預期錯誤 |
 | `FILE_FOLDER_NOT_FOUND` | 404 | 資料夾不存在或已刪除（上傳、建立、改名、移動的目的地或來源） |
 | `FILE_FOLDER_NAME_CONFLICT` | 409 | 同一層已有同名（不分大小寫）的資料夾 |
@@ -609,7 +616,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 位置 | 建議值 | 說明 |
 | --- | --- | --- |
 | `deploy/nginx.conf` 的 `location /storage/` → `client_max_body_size` | `32m`（已設定） | 瀏覽器實際會送的最大單次請求：要大於單次上傳門檻 `FILE_MULTIPART_THRESHOLD` 與分塊大小（自動放大後的，§5.2）。調大這兩個值時跟著調。api 寫入影像變體走內網的 `FILE_STORAGE_ENDPOINT`，不經過這一層 |
-| apps/file-storage 的 `FILE_STORAGE_MAX_OBJECT_SIZE`（[`../03-file-storage.md`](../03-file-storage.md) §1） | 部署預設 5 GiB；可降到 api 實際會發出的最大單次請求（例：32 MiB） | 它 **同時** 限制 api 自己寫入的影像變體與依請求轉出的格式（§5.4）：大圖的原圖轉成 PNG 可能超過 32 MiB，調降前要一起評估，所以 `docker-compose.prod.yml` 沒有跟著降 |
+| apps/file-storage 的 `FILE_STORAGE_MAX_OBJECT_SIZE`（[`../03-file-storage.md`](../03-file-storage.md) §1） | 部署預設 128 MiB（`docker-compose.prod.yml`） | 單一物件（或單一分塊）的上限。瀏覽器的請求已被 nginx 擋在 32 MiB，這個值實際限制的是 api 走內網寫入的影像變體與依請求轉出的格式（§5.4）：與 api 的轉出上限 `IMAGE_CONVERSION_MAX_OUTPUT_SIZE` 相同，超過的格式 api 根本不寫入。調整時兩邊一起改；不要降到 32 MiB——一般 24 MP 照片的原圖轉成 PNG 就有 40–70 MiB |
 
 ---
 

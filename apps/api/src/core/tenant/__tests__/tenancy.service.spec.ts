@@ -168,6 +168,23 @@ describe('Tenancy：租戶的 migration 版本檢查（docs/architecture/05-tena
     expect(failed).toEqual(['behind']);
   });
 
+  it('forEachActive 的 signal 中止後不再進入下一個租戶', async () => {
+    const second = tenant({ id: 'second', code: 'second', databaseUrl: 'postgres://x@h:1/s' });
+    tenancy = setup([tenant(), second]);
+    applied.mockResolvedValue(200);
+    const controller = new AbortController();
+    const visited: string[] = [];
+    const failed = await tenancy.forEachActive(
+      async (context) => {
+        visited.push(context.code);
+        controller.abort();
+      },
+      { signal: controller.signal },
+    );
+    expect(visited).toEqual(['acme']);
+    expect(failed).toEqual([]);
+  });
+
   it('TENANT_UNAVAILABLE 帶原因：停用是 inactive（重試沒用），落後是 maintenance（暫時的）', async () => {
     tenancy = setup();
     expect(await errorOf(tenancy.enter(tenant({ status: 'disabled' })))).toEqual({

@@ -19,7 +19,7 @@ function card(tableId: string): HTMLElement {
 describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
     resetPreferenceRegistry();
     registerPreferenceTable({
       id: 'user-list',
@@ -102,7 +102,7 @@ describe('TableColumnsSection（偏好頁的表格欄位分頁）', () => {
     // 掛載時會從 localStorage 重讀，所以直接寫進 localStorage
     localStorage.setItem(
       'b2b-system:table-column-settings:pinnedRows',
-      JSON.stringify({ 'user-list': [{ id: '1', side: 'top', row: {} }] }),
+      JSON.stringify({ 'user-list': [{ id: '1', side: 'top' }] }),
     );
     render(<TableColumnsSection />);
     const summary = within(card('user-list')).getByTestId('table-columns-pinning');

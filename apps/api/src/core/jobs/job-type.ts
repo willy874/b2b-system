@@ -8,6 +8,11 @@ export interface JobTypeOptions {
   /** 一次執行最多幾秒；超過視為失敗（會重試）。 */
   expireInSeconds: number;
   /**
+   * 結束（完成、失敗、取消）後在 pg-boss 的表裡留幾秒，之後由 pg-boss 刪除；管理頁只看得到保留期內的。
+   * 預設 7 天；每個事件、每個人各一筆的高流量工作用 `HIGH_VOLUME_RETENTION_SECONDS`。
+   */
+  deleteAfterSeconds: number;
+  /**
    * 同一時間最多一筆在排隊、一筆在執行（pg-boss 的 `stately`）。排程工作用它避免上一輪沒跑完時越積越多；
    * 一般工作（例：寄信）每筆都要執行，不能開。
    */
@@ -37,12 +42,19 @@ export interface JobType<TData extends object> {
   readonly dataType?: TData;
 }
 
-/** 一般工作的預設：重試 5 次，30 秒起跳、最多間隔 1 小時。 */
+/**
+ * 高流量工作（webhook 投遞、公告的事件點與分批寫入）的保留期：1 天。所有租戶的工作在同一張表，
+ * 保留越久，管理頁的查詢與 pg-boss 的維護越慢（docs/architecture/backend/10-jobs.md §3）。
+ */
+export const HIGH_VOLUME_RETENTION_SECONDS = 24 * 60 * 60;
+
+/** 一般工作的預設：重試 5 次，30 秒起跳、最多間隔 1 小時；結束後保留 7 天（pg-boss 的預設）。 */
 const DEFAULT_JOB_OPTIONS: JobTypeOptions = {
   retryLimit: 5,
   retryDelaySeconds: 30,
   retryDelayMaxSeconds: 3600,
   expireInSeconds: 15 * 60,
+  deleteAfterSeconds: 7 * 24 * 60 * 60,
   exclusive: false,
   scope: 'tenant',
   concurrency: 1,

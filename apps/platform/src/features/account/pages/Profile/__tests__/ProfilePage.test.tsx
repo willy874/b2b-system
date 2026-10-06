@@ -1,9 +1,11 @@
 import { sessionStore } from '@b2b-system/web-core/auth';
 import { AppError } from '@b2b-system/web-core/errors';
+import { SessionWatcher } from '@b2b-system/web-core/shell';
 import { renderRoute } from '@b2b-system/web-core/testing';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { isPublic, loginSearchAfterSessionEnd } from '@/app/sessionRedirect';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
 
@@ -104,6 +106,36 @@ describe('ProfilePage 的變更密碼', () => {
     expect(changePassword.mock.calls[0]![0]).toMatchObject({
       params: { currentPassword: 'old password 123', newPassword: NEW_PASSWORD },
     });
+  });
+
+  it('★ 真的結束 session：經 SessionWatcher 導到登入頁（reason=password_changed），不被未儲存提醒擋下', async () => {
+    sessionStore.setTokens({ accessToken: 'token', expiresIn: 300 });
+    const { router } = renderRoute(routes, '/profile', []);
+    // 與 app/App.tsx 相同的接法
+    render(
+      <SessionWatcher
+        router={router}
+        loginPath="/login"
+        isPublic={isPublic}
+        loginSearchAfterSessionEnd={loginSearchAfterSessionEnd}
+      />,
+    );
+    await fillPasswords('old password 123', NEW_PASSWORD, NEW_PASSWORD);
+    fireEvent.click(screen.getByTestId('profile-change-password'));
+    fireEvent.click(
+      within(await screen.findByTestId('profile-change-password-confirm')).getByTestId(
+        'alert-dialog-confirm',
+      ),
+    );
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(router.state.location.search).toMatchObject({
+      signedOut: 'true',
+      reason: 'password_changed',
+      redirect: '/profile',
+    });
+    expect(screen.queryByTestId('unsaved-changes-confirm')).not.toBeInTheDocument();
+    sessionStore.clear();
   });
 
   it('目前密碼錯誤時錯誤顯示在目前密碼欄', async () => {

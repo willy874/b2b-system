@@ -38,10 +38,27 @@ describe('對外連線的位址檢查（docs/architecture/backend/17-webhook.md 
     ['fd00::1', true],
     ['fe80::1', true],
     ['::ffff:127.0.0.1', true],
+    ['::ffff:7f00:1', true],
     ['8.8.8.8', false],
     ['140.112.8.116', false],
     ['2001:4860:4860::8888', false],
+    ['::ffff:8.8.8.8', false],
   ])('%s 是否擋下 → %s', (address, blocked) => {
+    expect(isBlockedAddress(address)).toBe(blocked);
+  });
+
+  it.each([
+    ['NAT64 well-known（169.254.169.254）', '64:ff9b::a9fe:a9fe', true],
+    ['NAT64 well-known 的點分寫法（10.0.0.5）', '64:ff9b::10.0.0.5', true],
+    ['NAT64 local-use（整段擋）', '64:ff9b:1::a00:5', true],
+    ['6to4（10.0.0.5）', '2002:a00:5::1', true],
+    ['IPv4-compatible（127.0.0.1）', '::7f00:1', true],
+    ['IPv4-translated（10.0.0.5）', '::ffff:0:a00:5', true],
+    ['Teredo（用戶端 10.0.0.5）', '2001:0:4136:e378:8000:63bf:f5ff:fffa', true],
+    ['已廢止的 site-local', 'fec0::1', true],
+    ['NAT64 連公開 IPv4（8.8.8.8）', '64:ff9b::808:808', false],
+    ['6to4 連公開 IPv4（8.8.8.8）', '2002:808:808::1', false],
+  ])('內嵌 IPv4 的 IPv6：%s %s → %s', (_name, address, blocked) => {
     expect(isBlockedAddress(address)).toBe(blocked);
   });
 
@@ -168,6 +185,20 @@ describe('sendOutboundRequest（代替租戶送出的請求）', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it('擋內網時，解析到內嵌內網 IPv4 的 NAT64 位址也不會建立連線', async () => {
+    const handler = vi.fn((_req, res) => res.end());
+    const url = await listen(handler, 'nat64.example.com');
+    await expect(
+      sendOutboundRequest({
+        ...base,
+        url,
+        blockPrivateNetworks: true,
+        resolve: resolvesTo('64:ff9b::7f00:1'),
+      }),
+    ).rejects.toMatchObject({ code: 'BLOCKED' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('擋內網時，字面 IP 的內網位址直接拒絕', async () => {
     await expect(
       sendOutboundRequest({
@@ -176,6 +207,13 @@ describe('sendOutboundRequest（代替租戶送出的請求）', () => {
         blockPrivateNetworks: true,
       }),
     ).rejects.toBeInstanceOf(OutboundRequestError);
+    await expect(
+      sendOutboundRequest({
+        ...base,
+        url: new URL('https://[64:ff9b::a00:5]/'),
+        blockPrivateNetworks: true,
+      }),
+    ).rejects.toMatchObject({ code: 'BLOCKED' });
   });
 
   it('超過逾時回 TIMEOUT', async () => {

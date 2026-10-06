@@ -972,7 +972,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | ---- | -------- | ------ | ---- |
 | 欄位固定（Column Pin） | 齒輪面板每一欄右側的「左／右」切換鈕；操作欄在面板下方的「固定」區塊 | `TableColumnSettings.pinnedColumns`（欄位 id → `'start'` / `'end'`） | 操作欄 `end` |
 | 固定表頭 | 齒輪面板「固定」區塊的勾選框 | `TableColumnSettings.stickyHeader` | 關 |
-| 資料列釘選（Row Pin） | 釘選欄（PinColumn，`__pin`）每列的選單：釘選到頂端／底端／取消 | `pinnedRows[tableId]`（`{ id, side: 'top' \| 'bottom', row }[]`） | 無 |
+| 資料列釘選（Row Pin） | 釘選欄（PinColumn，`__pin`）每列的選單：釘選到頂端／底端／取消 | `pinnedRows[tableId]`（`{ id, side: 'top' \| 'bottom' }[]`；資料只在記憶體的 `pinnedRowData`） | 無 |
 
 **每個 `RichTable` 預設都有這兩個工具欄**，排在所有欄位最前面，和一般欄位一樣進欄位設定（可排序、隱藏、固定）：
 
@@ -993,7 +993,10 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 - 欄位固定與固定表頭跟欄位順序一樣是 **草稿**，按「套用」才生效；固定的欄位依目前的欄位順序排在左右兩側。
 - 資料列釘選 **立即生效**，和欄位設定分開存：「恢復預設」不會清掉釘選列。釘選的列換頁、排序、篩選都不動——
-  其他頁的釘選列以釘選當下的資料（`row`）併進 `data`，回到該頁時改用最新的那一筆；因為存的是整筆資料，重新整理後仍在，但內容可能是舊的。
+  其他頁的釘選列以釘選當下的資料併進 `data`，回到該頁時改用最新的那一筆。
+  **localStorage 只存 id 與側邊**，資料只留在本分頁的記憶體（`pinnedRowData`）：伺服器資料的複本不落地，
+  session 結束時由 `SessionWatcher` 清掉（[`09-state-and-storage.md`](./09-state-and-storage.md) §3.3、§4.2）。
+  所以重新整理、換分頁或重新登入之後，不在目前這一頁的釘選列先不顯示，回到它所在的頁仍釘在原位；舊版本存過的整筆資料讀到時就丟掉。
   釘選欄被隱藏時，已釘選的列仍然釘在原位（偏好頁可整批清除）。
 - 偏好頁「表格欄位」的卡片用同一個齒輪面板，並列出固定的欄位數、固定表頭、釘選的列數（可整批清除）。
 - 釘選欄的儲存格由 context 取得狀態（`RowPin/`），理由同下方的 `ToolsHeader`；勾選欄與釘選欄的定義以翻譯後的字串為依賴 memo，
@@ -1071,7 +1074,10 @@ const batchActions = useUserBatchActions();
 - **AppHeader 的佇列按鈕**（`batch-queue-trigger`，徽章 `batch-queue-count` 是進行中的工作數）打開面板
   （`batch-queue-panel`），新的在上面：取消（`batch-progress-cancel`）、查看失敗項目（`batch-progress-failures`）、
   移除（`batch-progress-dismiss`）、清除已結束（`batch-queue-clear`）。已結束的工作最多保留 30 筆。
-- session 結束時取消所有進行中的工作。
+- session 結束時 **清空佇列**（`BatchQueueClient.reset()`）：中止處理中的項目、移除所有工作（含已結束的），不彈出結果；
+  檔案的上傳暫存（`uploadSources`，記憶體與 IndexedDB）也一併清除。同源的佇列由所有分頁共用，項目名稱（email、檔名）
+  是上一個人的操作紀錄，不能留給下一個登入的人。另外，工作記下送出時的身分（`BatchJob.principal`，租戶＋使用者），
+  每個分頁只顯示目前身分的工作，換人登入的過渡期間也看不到別人的工作。
 - 略過的列（不適用、沒送出）保留勾選，可以接著做別的批次動作。
 - `batch` 提供時由 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
 - 篩選條件（不含排序）改變時頁面呼叫 `selection.clear()`：勾選的列可能已不在結果裡。
@@ -1360,13 +1366,13 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 | D9 | 列表的 UI | 勾選後的操作列（`BatchActionBar`）不變；這張表送出的工作進行中時，**操作列換成進度條**（`BatchProgressBar`），在任何分頁打開這張表都看得到 |
 | D10 | 全域追蹤 | AppHeader 的佇列按鈕（徽章 = 進行中的工作數）隨時打開面板：所有工作的進度、取消、查看失敗、移除／清除已結束 |
 | D11 | 一次的上限 | 不設上限（沒有請求大小的限制了）；逐筆處理，量大只是時間長 |
-| D12 | session 結束 | 取消所有進行中的工作——之後的每一筆都只會得到 401 |
+| D12 | session 結束 | **清空佇列**（`reset`）：中止進行中的工作、移除所有工作（含已結束的），不彈出結果——之後的每一筆都只會得到 401，留著的結果清單是上一個人的操作紀錄（項目名稱含 email、檔名）。上傳暫存一併清除；工作記下送出時的身分，分頁只顯示目前身分的工作 |
 
 **通道**
 
 | 通道 | 方向 | 內容 |
 | ---- | ---- | ---- |
-| port（SharedWorker 的 `MessagePort`、dedicated worker 本身） | 分頁 ⇄ 佇列 | `hello` / `bye`、`enqueue`、`cancel`、`dismiss`；佇列交派 `execute`、分頁回 `result`；結束通知 `finished` |
+| port（SharedWorker 的 `MessagePort`、dedicated worker 本身） | 分頁 ⇄ 佇列 | `hello` / `bye`、`enqueue`（帶送出者的身分 `principal`）、`cancel`、`dismiss`、`reset`（session 結束）；佇列交派 `execute`、分頁回 `result`；結束通知 `finished` |
 | Channel `batch-queue` | 佇列 → 所有分頁 | `snapshot`（帶 `version`，晚到的舊快照略過）；分頁加入時送 `snapshot-request`；dedicated worker 的分頁關閉時送 `host-closed` |
 
 ### 13.3 理由

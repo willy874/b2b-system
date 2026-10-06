@@ -1,0 +1,18 @@
+# gitleaks 的設定（CI 的 secrets job，.github/workflows/ci.yml）：沿用預設規則，只排除放假值的地方。
+# 測試的帳密與金鑰都是寫死的假值；真的金鑰只放在 .env／deploy/*.env（不進版控）。
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "測試與檢查腳本裡的假值"
+paths = [
+  '''(^|/)__tests__/''',
+  '''(^|/)apps/api/test/''',
+  '''(^|/)apps/e2e/''',
+  '''\.spec\.tsx?$''',
+  '''\.stories\.tsx?$''',
+  # 常見密碼清單（密碼政策拒絕這些值）
+  '''(^|/)apps/api/src/modules/(auth|credential)/password\.ts$''',
+  # 以假的 Authorization 標頭檢查轉發
+  '''(^|/)deploy/check-nginx\.sh$''',
+]

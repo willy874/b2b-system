@@ -90,7 +90,7 @@ async function confirmBatch() {
 describe('RichTable 的批次操作（docs/architecture/frontend/07-ui-system.md §13）', () => {
   beforeEach(async () => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
     resetBatchOperations();
     runItem = vi.fn(async (_id: string): Promise<unknown> => undefined);
     registerBatchOperation({

@@ -9,5 +9,17 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts", "**/__tests__/**"]
+  // 正式映像只複製 dist：開發與 E2E 的腳本（mock IdP、openapi 產生器、dev／e2e seed、db:reset）不編進去。
+  // 這些指令以 tsx／swc 直接跑原始碼，不受影響
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "scripts",
+    "src/db/seeds/dev.ts",
+    "src/db/seeds/e2e.ts",
+    "src/db/reset.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**"
+  ]
 }

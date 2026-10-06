@@ -1,3 +1,4 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
 import { getBatchOperation, resetBatchOperations } from '@b2b-system/web-core/batch';
 import type { BatchQueueClient } from '@b2b-system/web-core/batch';
 import { isAppError } from '@b2b-system/web-core/errors';
@@ -31,7 +32,7 @@ vi.mock('@b2b-system/web-core/cache', async (importOriginal) => ({
 
 const { registerFileBatchOperations, enqueueFileUploads, FileBatchOperation, FILE_MANAGER_SCOPE } =
   await import('../batch');
-const { uploadSources } = await import('../upload/uploadSources');
+const { uploadSources, clearUploadSourcesOnSessionEnd } = await import('../upload/uploadSources');
 
 const context = () => ({ signal: new AbortController().signal, reportProgress: vi.fn() });
 
@@ -123,6 +124,22 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
       .catch((reason: unknown) => reason);
     expect(isAppError(error) && error.code).toBe('FILE_UPLOAD_INCOMPLETE');
     expect(uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('★ 主 session 結束時清掉所有排隊中的檔案（上一個人的檔案不留給下一個人）', async () => {
+    const off = clearUploadSourcesOnSessionEnd();
+    await uploadSources.put('queued-1', new File(['a'], 'a.txt'));
+    await uploadSources.put('queued-2', new File(['b'], 'b.txt'));
+    sessionStore.setTokens({ accessToken: 'token', expiresIn: 300 });
+
+    sessionStore.endSession('logout');
+
+    await vi.waitFor(async () => {
+      await expect(uploadSources.get('queued-1')).resolves.toBeUndefined();
+    });
+    await expect(uploadSources.get('queued-2')).resolves.toBeUndefined();
+    off();
+    sessionStore.clear();
   });
 
   it('上傳失敗也清掉暫存的檔案（佇列不自動重試）', async () => {

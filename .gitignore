@@ -24,6 +24,9 @@ storybook-static/
 # tsc -b 在早期設定下會把設定檔也編出來，別讓它進版控
 apps/api/*.config.js
 apps/api/*.config.js.map
+# scripts/ 以 swc 直接跑 .ts；編出來的 .js 會比原始碼舊
+apps/api/scripts/*.js
+apps/api/scripts/*.js.map
 packages/api-sdk/codegen/__tests__/.output/
 
 # ─────────────────────────────────────────────
@@ -98,3 +101,9 @@ CLAUDE.local.md
 prompt.txt
 graphify-out/
 .understand-anything/
+
+# 本機覆寫開發用 compose（例：讓其他機器連 postgres／Mailpit）
+docker-compose.override.yml
+
+# 正式環境的變數（範本是 deploy/prod.env.example）
+deploy/*.env

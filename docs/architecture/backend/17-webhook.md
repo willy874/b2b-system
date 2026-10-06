@@ -137,7 +137,7 @@
 
 | 函式 | 用途 |
 | --- | --- |
-| `isBlockedAddress(address)` | 私有網段、loopback、link-local（含 `169.254.169.254`）、CGNAT、保留位址、IPv6 的 ULA／link-local；IPv4-mapped IPv6 以其 IPv4 判斷 |
+| `isBlockedAddress(address)` | 私有網段、loopback、link-local（含 `169.254.169.254`）、CGNAT、保留位址；IPv6 的 ULA、link-local、multicast、已廢止的 site-local（`fec0::/10`）。內嵌 IPv4 的 IPv6 先取出 IPv4 再以 IPv4 的清單判斷：IPv4-mapped（`::ffff:0:0/96`）、IPv4-translated（`::ffff:0:0:0/96`）、IPv4-compatible（`::/96`）、NAT64 well-known（`64:ff9b::/96`）取最後 32 位元，6to4（`2002::/16`）取第 17～48 位元，Teredo（`2001::/32`）取最後 32 位元與 `0xffffffff` 做 XOR。透過 NAT64 連公開 IPv4 照常可用；NAT64 local-use（`64:ff9b:1::/48`）內嵌的位置依網路而定、取不出來，整段擋下 |
 | `assertPublicDestination(url)` | 解析後 **每一個** 位址都要公開；只檢查不綁定。給「儲存設定時及早告訴使用者」與外部 IdP（openid-client 只接受 fetch）用 |
 | `pinnedLookup(resolve)` | 給 `http.request` 的 `lookup`：解析、檢查，把通過檢查的位址交給 socket。查詢與連線是同一次解析，DNS rebinding 沒有空窗 |
 | `sendOutboundRequest(input)` | 不跟隨轉址、總逾時、回應只讀前 N 位元組；`blockPrivateNetworks` 時以 `pinnedLookup` 解析，字面 IP 另外檢查 |

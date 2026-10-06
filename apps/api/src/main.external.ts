@@ -8,7 +8,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger as PinoLogger } from 'nestjs-pino';
 
 import { auditRoutes } from './common/route-audit';
-import type { Env } from './core/config';
+import { listenHostOf } from './core/config/env.schema';
+import type { Env } from './core/config/env.schema';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { ExternalApiModule } from './external-api.module';
 import { setupSwagger } from './swagger';
@@ -39,7 +40,12 @@ async function bootstrap(): Promise<void> {
   setupSwagger(app, config.get('NODE_ENV', { infer: true }) !== 'production', 'external');
 
   const port = config.get('EXTERNAL_API_PORT', { infer: true });
-  await app.listen(port);
+  // 同 main.ts：開發環境只聽 127.0.0.1
+  const host = listenHostOf({
+    NODE_ENV: config.get('NODE_ENV', { infer: true }),
+    LISTEN_HOST: config.get('LISTEN_HOST', { infer: true }),
+  });
+  await (host ? app.listen(port, host) : app.listen(port));
   const server = app.getHttpServer();
   server.keepAliveTimeout = HTTP_KEEP_ALIVE_TIMEOUT_MS;
   server.headersTimeout = HTTP_KEEP_ALIVE_TIMEOUT_MS + 1000;

@@ -30,7 +30,7 @@ pnpm --filter @b2b-system/platform build
 | `features/home` | `/`：目前登入的平台管理者、各狀態的租戶數 |
 | `features/account` | `/profile`、`/preference`：個人資料（改名、角色與權限、變更密碼）、偏好設定（只存在瀏覽器） |
 | `features/notification` | `/notification` 與頂列的鈴鐺：平台的站內通知（[`backend/15-notification.md`](../../docs/architecture/backend/15-notification.md) §6.2） |
-| `app/` | 自己寫的 App Shell：`App.tsx`（沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（403／404、router 的預設錯誤頁與載入中；部署後舊 chunk 載入失敗提示重新整理）、`layouts/`（與 backstage 相同結構的 `DashboardLayout`：分組側欄 `SidebarNav`、頂列工具 `headerTools.ts`） |
+| `app/` | 自己寫的 App Shell：`App.tsx`（掛上 web-core 的 `SessionWatcher`：沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（403／404、router 的預設錯誤頁與載入中；部署後舊 chunk 載入失敗提示重新整理）、`layouts/`（與 backstage 相同結構的 `DashboardLayout`：分組側欄 `SidebarNav`、頂列工具 `headerTools.ts`） |
 
 有即時推播（平台管理者的連線，[`backend/08-realtime.md`](../../docs/architecture/backend/08-realtime.md) §3.6）。
 沒有批次佇列的畫面、執行期啟用的 feature 與 MSW mock；需要時再從 backstage 帶過來（Storybook 在 `packages/ui`）。
@@ -70,5 +70,6 @@ web-core 的批次佇列在這裡沒有接上（沒有 `batchQueuePlugin`），�
 ### 同步規則
 
 - 修 web-core 就是兩邊一起修；改完兩個 app 都要跑測試與 build。
-- 安全相關的 app 程式仍要兩邊一起看：`app/App.tsx` 的 `SessionWatcher`（登出後不自動跳回 IdP，[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D5）、`app/sessionRedirect.ts`、`apis/auth/*`（結構相同、端點不同）。
+- 安全相關的 app 程式仍要兩邊一起看：`app/sessionRedirect.ts`（交給 `SessionWatcher` 的登入頁路徑與公開頁面）、`apis/auth/*`（結構相同、端點不同）。
+  `SessionWatcher`（session 結束時清資料、導向登入頁且不自動跳回 IdP，[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D5）在 `@b2b-system/web-core/shell`，兩個 app 共用。
 - 新增錯誤碼只動 `@b2b-system/error-codes` 與 web-core（[`packages/error-codes/README.md`](../../packages/error-codes/README.md)），這個 app 不必改。

@@ -85,6 +85,10 @@ describe('WebhookTransport.normalizeUrl（docs/architecture/backend/17-webhook.m
     expect(sealed).not.toContain('whsec_abc');
     expect(box.decryptSecret(sealed)).toBe('whsec_abc');
   });
+
+  it('production 沒有 WEBHOOK_SECRET_KEY（對外 API 的程序）：不以 JWT_SECRET 推導，用到時才失敗', () => {
+    expect(() => transport('production').encryptSecret('whsec_abc')).toThrow('WEBHOOK_SECRET_KEY');
+  });
 });
 
 describe('簽章（D11、D14）', () => {

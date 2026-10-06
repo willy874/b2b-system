@@ -29,6 +29,12 @@ describe('SecretBox（docs/architecture/04-sso.md §12.2 D11、0020 D4）', () =
     expect(box(undefined, 'jwt-secret-seed').decrypt(sealed)).toBe('x');
   });
 
+  it('沒有主金鑰、也不允許推導（production）：建立時不失敗，加解密時指出缺哪個環境變數', () => {
+    const locked = SecretBox.fromConfig(undefined, null, IDP_SECRET_PURPOSE);
+    expect(() => locked.encrypt('x')).toThrow(/IDP_SECRET_KEY/);
+    expect(() => locked.decrypt(box(key).encrypt('x'))).toThrow(/IDP_SECRET_KEY/);
+  });
+
   it('不同用途推導出不同的金鑰：IdP 的金鑰解不開租戶的密文', () => {
     const sealed = box(undefined, 'jwt-secret-seed', TENANT_SECRET_PURPOSE).encrypt('x');
     expect(() => box(undefined, 'jwt-secret-seed', IDP_SECRET_PURPOSE).decrypt(sealed)).toThrow();

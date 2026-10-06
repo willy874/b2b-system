@@ -3,13 +3,41 @@ import type { IncomingMessage } from 'node:http';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
+import type { Options } from 'pino-http';
 
 import type { Env } from '../config';
 import { resolveRequestId } from '../http';
-import { redactRequest } from './redact';
+import { redactRequest, serializeError } from './redact';
 
 /** 開發時多看 debug；測試靜音（整合測試以 `logger: false` 建 app，單元測試不經過這裡）。 */
 const LOG_LEVEL = { development: 'debug', production: 'info', test: 'silent' } as const;
+
+/**
+ * pino-http 的選項（LoggerModule 與遮蔽的測試共用同一份）。
+ * 憑證不進日誌：access token、refresh cookie（請求與回應）以 `redact` 遮整個欄位；
+ * 網址、`query` 與 Referer 裡的憑證參數由 `redactRequest` 遮（名單是 `SENSITIVE_QUERY_KEYS`）；
+ * 錯誤由 `serializeError` 拿掉查詢參數。
+ */
+export function pinoHttpOptions(nodeEnv: Env['NODE_ENV']): Options {
+  return {
+    level: LOG_LEVEL[nodeEnv],
+    transport:
+      nodeEnv === 'development'
+        ? { target: 'pino-pretty', options: { singleLine: true } }
+        : undefined,
+    // 請求的 id 與 RequestIdMiddleware（回應標頭、稽核）是同一個值；欄位名稱用 requestId。
+    // quietReqLogger：請求內的應用程式日誌只綁 requestId，不再每筆都帶整份 req（存取日誌照常有）
+    genReqId: (req: IncomingMessage) => resolveRequestId(req),
+    customAttributeKeys: { reqId: 'requestId' },
+    quietReqLogger: true,
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+    // 資料庫的查詢錯誤不帶參數（密碼雜湊、token、個資）：HTTP 的未知錯誤、IdP 的錯誤、背景工作的失敗都經過這裡
+    serializers: { req: redactRequest, err: serializeError },
+    autoLogging: {
+      ignore: (req: IncomingMessage) => req.url?.startsWith('/health') === true,
+    },
+  };
+}
 
 /**
  * 結構化日誌（JSON）。欄位含 requestId，可與稽核紀錄對照。
@@ -20,34 +48,9 @@ const LOG_LEVEL = { development: 'debug', production: 'info', test: 'silent' } a
   imports: [
     PinoLoggerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => {
-        const nodeEnv = config.get('NODE_ENV', { infer: true });
-        return {
-          pinoHttp: {
-            level: LOG_LEVEL[nodeEnv],
-            transport:
-              nodeEnv === 'development'
-                ? { target: 'pino-pretty', options: { singleLine: true } }
-                : undefined,
-            // 請求的 id 與 RequestIdMiddleware（回應標頭、稽核）是同一個值；欄位名稱用 requestId。
-            // quietReqLogger：請求內的應用程式日誌只綁 requestId，不再每筆都帶整份 req（存取日誌照常有）
-            genReqId: (req: IncomingMessage) => resolveRequestId(req),
-            customAttributeKeys: { reqId: 'requestId' },
-            quietReqLogger: true,
-            // 憑證不進日誌：access token、refresh cookie（請求與回應）、網址裡的 token
-            redact: [
-              'req.headers.authorization',
-              'req.headers.cookie',
-              'req.query.token',
-              'res.headers["set-cookie"]',
-            ],
-            serializers: { req: redactRequest },
-            autoLogging: {
-              ignore: (req: IncomingMessage) => req.url?.startsWith('/health') === true,
-            },
-          },
-        };
-      },
+      useFactory: (config: ConfigService<Env, true>) => ({
+        pinoHttp: pinoHttpOptions(config.get('NODE_ENV', { infer: true })),
+      }),
     }),
   ],
   exports: [PinoLoggerModule],

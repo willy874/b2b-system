@@ -120,10 +120,17 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
     return runInTenantContext(await this.enter(tenant), fn);
   }
 
-  /** 依序在每個 `active` 的租戶裡執行；單一租戶失敗不影響其他租戶，回傳失敗的租戶代碼。 */
-  async forEachActive(fn: (tenant: TenantContext) => Promise<void>): Promise<string[]> {
+  /**
+   * 依序在每個 `active` 的租戶裡執行；單一租戶失敗不影響其他租戶，回傳失敗的租戶代碼。
+   * `signal` 中止時不再進入下一個租戶（例：背景工作逾時），已在執行的那一個由 `fn` 自己決定何時停。
+   */
+  async forEachActive(
+    fn: (tenant: TenantContext) => Promise<void>,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<string[]> {
     const failed: string[] = [];
     for (const tenant of await this.directory.listActive()) {
+      if (options.signal?.aborted) break;
       try {
         // oxlint-disable-next-line no-await-in-loop -- 依序執行，不一次打開所有租戶的連線
         const context = await this.enter(tenant);

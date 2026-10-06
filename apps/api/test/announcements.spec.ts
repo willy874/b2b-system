@@ -12,6 +12,7 @@ import {
   announcements,
   auditLogs,
   groupMemberTuple,
+  groupRoleTuple,
   groups,
   jobOutbox,
   notifications,
@@ -22,6 +23,7 @@ import {
   users,
 } from '@/db/schema';
 import { AnnouncementDispatchService } from '@/modules/announcement/announcement-dispatch.service';
+import { AnnouncementAudienceResolver } from '@/modules/announcement/announcement.audience';
 import { UserService } from '@/modules/user/user.service';
 
 import type { TestDatabase } from './db';
@@ -863,5 +865,50 @@ describe('公告與排程通知（docs/architecture/backend/19-announcement.md �
     ).toBeGreaterThanOrEqual(2);
     expect(rows.some((row) => row.action === 'announcement.pause')).toBe(true);
     expect(rows.some((row) => row.action === 'announcement.resume')).toBe(true);
+  });
+
+  // 放在最後：這裡新增的帳號會成為之後「全租戶」受眾的收件人
+  it('事件點的 audience 比對只判斷一個人（includes）：與解析整個受眾的結果一致——巢狀群組、群組持有的角色、已刪除的群組或角色、停用的人', async () => {
+    // G1 ⊃ G2（m1、m2、停用的 m4）與角色 R（m3）沿用上面的設定；另外：
+    // G3 持有角色 R2、m5 是 G3 的成員；已刪除的群組 G4 有成員 m6；已刪除的角色 R3 由 m7 持有
+    const m5 = await createUser({ email: 'an-m5@example.com' });
+    const m6 = await createUser({ email: 'an-m6@example.com' });
+    const m7 = await createUser({ email: 'an-m7@example.com' });
+    const [g3, g4] = await db
+      .insert(groups)
+      .values([{ name: '公告-持有角色' }, { name: '公告-已刪除', deletedAt: new Date() }])
+      .returning();
+    const [r2, r3] = await db
+      .insert(roles)
+      .values([
+        { slug: 'announcement-held-by-group', name: '群組持有', isSystem: false },
+        { slug: 'announcement-deleted', name: '已刪除', isSystem: false, deletedAt: new Date() },
+      ])
+      .returning();
+    await db
+      .insert(relationTuples)
+      .values([
+        groupRoleTuple(r2!.id, g3!.id),
+        groupMemberTuple(g3!.id, { type: 'user', id: m5 }),
+        groupMemberTuple(g4!.id, { type: 'user', id: m6 }),
+        roleHolderTuple(r3!.id, m7),
+      ]);
+
+    const audience = {
+      all: false,
+      userIds: [],
+      groupIds: [ids.g1!, g4!.id],
+      roleIds: [ids.role!, r2!.id, r3!.id],
+    };
+    const resolver = app.get(AnnouncementAudienceResolver);
+    const resolved = await inTestTenant(app, () => resolver.resolve(audience));
+    // m1（G1）、m2（G1 ⊃ G2）、m3（角色 R）、m5（G3 持有 R2）；m4 停用、m6 在已刪除的群組、m7 持有已刪除的角色
+    expect(new Set(resolved.userIds)).toEqual(new Set([ids.m1, ids.m2, ids.m3, m5]));
+
+    const candidates = [ids.m1!, ids.m2!, ids.m3!, ids.m4!, m5, m6, m7, ids.root!];
+    const included = await Promise.all(
+      candidates.map((userId) => inTestTenant(app, () => resolver.includes(audience, userId))),
+    );
+    expect(included).toEqual(candidates.map((userId) => resolved.userIds.includes(userId)));
   });
 });

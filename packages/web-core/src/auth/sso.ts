@@ -47,13 +47,18 @@ async function challengeOf(verifier: string): Promise<string> {
 /**
  * 只接受同 origin 的路徑，避免登入後被導到別的網站（open redirect）。以瀏覽器實際的解析結果判斷：
  * `/\evil.com` 字面上是 `/` 開頭，瀏覽器卻把 `\` 當成 `/`、解析成 `//evil.com`。
+ *
+ * 回傳的是正規化後的路徑，所以也要檢查它本身：`/.//evil.com`、`/a/..//evil.com` 解析後 origin 是本站，
+ * `pathname` 卻是 `//evil.com`——交給 `location`、`href` 就是 protocol-relative 的外站網址。
+ * `pathname` 已把 `\` 換成 `/`，只要檢查 `//`。
  */
 export function safeReturnTo(value: string | undefined): string {
   if (!value?.startsWith('/')) return '/';
   const { origin } = globalThis.location;
   if (!URL.canParse(value, origin)) return '/';
   const url = new URL(value, origin);
-  return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : '/';
+  if (url.origin !== origin || url.pathname.startsWith('//')) return '/';
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 export function redirectUriOf(config: SsoClientConfig): string {
@@ -84,6 +89,21 @@ export async function createAuthorizationUrl(
     ...extraParams,
   });
   return `${config.issuer}/auth?${query.toString()}`;
+}
+
+/**
+ * IdP 的 end-session 網址（OIDC RP-Initiated Logout）：使用者在 IdP 的確認頁按下登出後，IdP session 與它底下所有產品的
+ * app session 一起結束，再回到 `loggedOutPath`（api 登記的 post-logout redirect URI）。
+ *
+ * 只當作伺服器端登出一直失敗時的手動退路（docs/architecture/04-sso.md §3.4）——一般的登出不跳轉，
+ * 停在「已登出」頁（§12.2 D5）。
+ */
+export function endSessionUrlOf(config: SsoClientConfig, loggedOutPath: string): string {
+  const query = new URLSearchParams({
+    client_id: config.clientId,
+    post_logout_redirect_uri: `${globalThis.location.origin}${loggedOutPath}`,
+  });
+  return `${config.issuer}/session/end?${query.toString()}`;
 }
 
 /**

@@ -151,19 +151,33 @@ platform（nginx，:8081）──────┘                          └→
 
 `migrate` 是一次性工作，migration 與冪等 seed 跑完才啟動 api。只有平台 DB 失敗會擋住 api；單一租戶失敗只列在 `migrate` 的日誌，
 那個租戶回 503、其他租戶照常服務（[`05-tenancy.md`](./docs/architecture/05-tenancy.md) §10.2 D14）。
-必填的環境變數（compose 會以 `:?required` 擋下）包含
-`JWT_SECRET`、`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、各組 `POSTGRES_*_PASSWORD`、
-`FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY`、`MAIL_SMTP_URL`、`MAIL_FROM`、
-`SUPER_ADMIN_EMAIL`、`PLATFORM_ADMIN_EMAIL`。`api` 與 `external-api` 拿到的變數能不能通過 production 的檢查，
+
+變數放在獨立的 env 檔，**不要沿用開發的 `.env`**：compose 會拿它替換 `${…}`，開發用的帳密與網域會流進正式環境。
+
+```bash
+cp deploy/prod.env.example deploy/prod.env
+```
+
+`deploy/prod.env.example` 列出 compose 用到的每個變數與產生方式。必填的變數（compose 以 `:?required` 擋下）包含：
+
+- 公開網址：`PUBLIC_ORIGIN`、`PLATFORM_PUBLIC_ORIGIN`（https、不能是 localhost）、`DEFAULT_TENANT_DOMAINS`
+- 前置 LB：`TRUSTED_PROXY_CIDRS`（nginx 只採用這些來源帶來的 `X-Forwarded-For`）；對外的 port 綁在 `EDGE_BIND_ADDRESS`（預設 `127.0.0.1`）
+- 金鑰：`JWT_SECRET`、`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`
+- 其他：各組 `POSTGRES_*_PASSWORD`、`FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY`、`MAIL_SMTP_URL`、`MAIL_FROM`、
+  `SUPER_ADMIN_EMAIL`、`PLATFORM_ADMIN_EMAIL`
+
+api 在 production 另外拒絕低熵的金鑰與指向 localhost 的公開網址（[`02-repository-structure.md`](./docs/architecture/02-repository-structure.md) §5）。
+`api` 與 `external-api` 拿到的變數能不能通過這些檢查、external-api 有沒有拿到它用不到的秘密，
 由 `apps/api/src/core/config/__tests__/prod-compose-env.spec.ts` 守住。
 
 `PLATFORM_ADMIN_PASSWORD` 留空時，第一位平台管理者建成 `pending`，`migrate` 的日誌印出一次性的設定連結（1 小時有效，不印密碼）；
 過期時重新部署就會換發新的連結。有提供密碼時它必須符合密碼政策，否則 seed 失敗。
 
 ```bash
-docker compose -f docker-compose.prod.yml up --build
+docker compose --env-file deploy/prod.env -f docker-compose.prod.yml up -d --build
 ```
 
 - 映像：`apps/api/Dockerfile`、`apps/backstage/Dockerfile`、`apps/platform/Dockerfile`、`apps/file-storage/Dockerfile`；nginx 設定在 `deploy/`
 - `REFRESH_COOKIE_PATH` 必須與反向代理對外的前綴一致（預設 `/api/auth`）
-- 租戶的網域、佈建與部署細節見 [`docs/architecture/05-tenancy.md`](./docs/architecture/05-tenancy.md)，系統拓撲見 [`docs/architecture/01-system.md`](./docs/architecture/01-system.md) §4
+- 租戶的網域、佈建與部署細節見 [`docs/architecture/05-tenancy.md`](./docs/architecture/05-tenancy.md)，系統拓撲與前置 LB 的要求見 [`docs/architecture/01-system.md`](./docs/architecture/01-system.md) §4.2
+- 備份：`sh deploy/backup.sh <輸出目錄>`（每天排一次，再複製到主機以外）；還原步驟與日誌輪替見 [`docs/architecture/01-system.md`](./docs/architecture/01-system.md) §4.5

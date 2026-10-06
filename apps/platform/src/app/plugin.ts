@@ -7,12 +7,15 @@ import { ROUTER_DEFAULT_COMPONENTS } from './ErrorPages';
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
 import { routeTree } from './routes';
 
-function createAppRouter() {
+export function createAppRouter() {
   return createRouter({
     routeTree,
     context: { queryClient },
     defaultPreload: 'intent',
     defaultPendingMs: 200,
+    // 路徑分大小寫：頁面權限守衛（Layout 的 usePageAccess）以網址上原樣的路徑比對頁面鍵，
+    // router 若不分大小寫，`/TENANT`、`/Admin` 會命中頁面卻查不到頁面鍵而略過 403（docs/architecture/frontend/04-routing.md §4）
+    caseSensitive: true,
     parseSearch,
     stringifySearch,
     // 載入中、未知網址與頁面載入失敗（含部署後舊 chunk 不見）顯示本地化的頁面，不用框架預設的英文畫面
