@@ -1,7 +1,7 @@
 # @b2b-system/ui
 
 backstage 與 apps/platform 共用的 **設計系統**：Base UI 之上的元件、Design Token、圖示、共用的 UnoCSS 設定與 Storybook。
-規格見 [`docs/architecture/frontend/07-ui-system.md`](../../docs/architecture/frontend/07-ui-system.md)。
+規格見 [`docs/architecture/frontend/07-ui-system.md`](../../docs/architecture/frontend/07-ui-system.md)；與其他 package 的分工見 [`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md)。
 
 只有原始碼、不 build：`exports` 直接指向 `src/`，由各 app 自己的 Vite 編譯（CSS Module 的 class 前綴因此是 app 的：backstage `ge-`、platform `ga-`）。
 

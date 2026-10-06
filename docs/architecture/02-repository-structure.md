@@ -152,7 +152,8 @@ features 見 [`apps/platform/README.md`](../../apps/platform/README.md)；機制
 
 `packages/web-shared`、`packages/ui` 與 `packages/web-core` 只有原始碼、不 build（`exports` 直接指向 `src/`），由各 app 自己的 Vite 編譯；
 所以 CSS Module 的 class 前綴仍是各 app 自己的（backstage `ge-`、platform `ga-`）。`packages/error-codes` 與 `realtime` 一樣 build 到 `dist/`
-（api 在 Node 執行時要用），新 clone 或改了它之後要 `pnpm build:packages`。各 package 的規則見各自的 README。
+（api 在 Node 執行時要用），新 clone 或改了它之後要 `pnpm build:packages`。各 package 的規則見各自的 README；
+整體的分層、程式該放哪、app 怎麼接上 web-core 見 [`frontend/17-shared-packages.md`](./frontend/17-shared-packages.md)。
 
 ---
 

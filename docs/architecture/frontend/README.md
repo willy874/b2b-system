@@ -8,6 +8,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此設計系
 
 兩個前端（backstage、apps/platform）共用的機制層在 `packages/web-core`（`@b2b-system/web-core`）；文件裡的 `web-core/<module>` 指 `packages/web-core/src/<module>`，
 `core/`、`app/`、`plugins/` 等指 app 自己的 `src/` 底下（[`01-architecture.md`](./01-architecture.md) §1）。
+整體怎麼切、程式該放哪見 [`17-shared-packages.md`](./17-shared-packages.md)。
 
 ## 章節
 
@@ -29,6 +30,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此設計系
 | 14  | [`14-revisions.md`](./14-revisions.md)                 | 版本紀錄：版本列表、`JsonDiff` 比較、還原到某一版 |
 | 15  | [`15-notification.md`](./15-notification.md)           | 站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表、事件管理頁 |
 | 16  | [`16-announcement.md`](./16-announcement.md)           | 公告：列表、建立、詳情與發送紀錄、收件人看全文 |
+| 17  | [`17-shared-packages.md`](./17-shared-packages.md)     | 兩個前端共用的 packages：分層、程式放哪、app 怎麼接上 web-core |
 
 ## 三條必須記住的規則
 

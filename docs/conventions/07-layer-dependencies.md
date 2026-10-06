@@ -10,6 +10,8 @@
 
 ## 1. Package 層（monorepo）
 
+前端 package 的分工與「程式該放哪」的判斷見 [`architecture/frontend/17-shared-packages.md`](../architecture/frontend/17-shared-packages.md) §2。
+
 ```
 apps/backstage ─┬────▶ packages/api-sdk
 apps/platform ──┤

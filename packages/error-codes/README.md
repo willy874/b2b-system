@@ -1,7 +1,7 @@
 # @b2b-system/error-codes
 
 api 與兩個前端（經由 `@b2b-system/web-core`）共用的 **錯誤碼清單**：`ErrorCode`（每個碼對應的 HTTP 狀態）、`ALL_ERROR_CODES`、`statusOf()`。
-規格見 [`docs/architecture/backend/03-api-conventions.md`](../../docs/architecture/backend/03-api-conventions.md) §5。
+規格見 [`docs/architecture/backend/03-api-conventions.md`](../../docs/architecture/backend/03-api-conventions.md) §5；在 packages 裡的位置見 [`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md)。
 
 ```ts
 import { ErrorCode, statusOf } from '@b2b-system/error-codes';

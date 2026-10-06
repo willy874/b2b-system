@@ -37,6 +37,8 @@ pnpm --filter @b2b-system/platform build
 
 ## 與 backstage 共用的 packages
 
+分工、app 怎麼接上 web-core、程式該放哪見 [`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md)。
+
 兩個前端 import 同一份 workspace package，不再複製程式碼（[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D14 的兩次更新）：
 
 | package | 內容 |

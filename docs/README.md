@@ -7,7 +7,7 @@
 > 狀態：Phase 0（RBAC 骨架）已完成，之後陸續加入 SSO、多租戶、群組與關係圖、回收桶與版本歷史、站內通知、公告、Webhook、標籤等通用機制。
 > 能力地圖見 [`overview/01-overview.md`](./overview/01-overview.md) §3，畫面見 [`overview/05-feature-tour.md`](./overview/05-feature-tour.md)，
 > 時間軸見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)，待製作的功能見 [`features/README.md`](./features/README.md)。
-> 最後更新：2026-10-04
+> 最後更新：2026-10-06
 
 ---
 
@@ -50,9 +50,10 @@
 1. [`architecture/02-repository-structure.md`](./architecture/02-repository-structure.md)
 2. [`architecture/frontend/01-architecture.md`](./architecture/frontend/01-architecture.md)
 3. [`architecture/frontend/02-plugin-system.md`](./architecture/frontend/02-plugin-system.md)
-4. [`architecture/frontend/03-feature-anatomy.md`](./architecture/frontend/03-feature-anatomy.md) ← 新增 feature 的 SOP
-5. [`architecture/frontend/06-permission.md`](./architecture/frontend/06-permission.md)
-6. [`conventions/02-frontend.md`](./conventions/02-frontend.md)
+4. [`architecture/frontend/17-shared-packages.md`](./architecture/frontend/17-shared-packages.md) — 兩個前端共用的 packages、程式該放哪
+5. [`architecture/frontend/03-feature-anatomy.md`](./architecture/frontend/03-feature-anatomy.md) ← 新增 feature 的 SOP
+6. [`architecture/frontend/06-permission.md`](./architecture/frontend/06-permission.md)
+7. [`conventions/02-frontend.md`](./conventions/02-frontend.md)
 
 **要寫後端**
 

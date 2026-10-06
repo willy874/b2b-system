@@ -1,6 +1,7 @@
 # @b2b-system/web-shared
 
 backstage 與 apps/platform 共用的 **前端純工具**：前端分層的最底層（[`docs/conventions/07-layer-dependencies.md`](../../docs/conventions/07-layer-dependencies.md) §2）。
+四個前端 package 怎麼分工見 [`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md)。
 
 只有原始碼、不 build：`exports` 是 `{ "./*": "./src/*/index.ts" }`，由各 app 自己的 Vite 編譯。
 

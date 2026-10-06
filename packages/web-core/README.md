@@ -2,6 +2,7 @@
 
 backstage 與 apps/platform 共用的 **前端機制層**：AppContext 與 plugin、session、HTTP client 與攔截器、快取、權限機制、i18n、推播、批次佇列、路由、全域 store，
 以及外框（providers、頂列工具）與列表頁的 `RichTable`。在分層裡位於 `@b2b-system/ui` 之上、app 之下（[`docs/conventions/07-layer-dependencies.md`](../../docs/conventions/07-layer-dependencies.md) §2）。
+整體的設計與決策（為什麼這樣切、程式該放哪、陷阱）見 [`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md)。
 
 只有原始碼、不 build：由各 app 自己的 Vite 編譯。`exports` 是 `"./*": "./src/*/index.ts"`，另外單獨開放
 `./app/context`、`./permission/register`（給 module augmentation 指向定義的檔案）與 `./locales/resources/*.json`。

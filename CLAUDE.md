@@ -13,15 +13,36 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 你要做什麼 | 先讀 |
 | --- | --- |
 | 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/conventions/01-general.md`](docs/conventions/01-general.md) |
-| 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的機制層在 `packages/web-core`，設計系統與純工具在 `packages/ui`、`packages/web-shared`（各自的 README） |
+| 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的程式在 `packages/`（下方「Monorepo 結構」） |
+| 改兩個前端共用的程式、判斷程式該放 app 還是 package、加第三個前端 | [`docs/architecture/frontend/17-shared-packages.md`](docs/architecture/frontend/17-shared-packages.md)（§2 程式放哪、§3 app 怎麼接上 web-core、§7 常見陷阱）；各 package 的 README |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、部署） |
 | 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19` |
 | 對外 API、API token 的驗證 | [`docs/architecture/06-external-api.md`](docs/architecture/06-external-api.md)（獨立的程序；對外的 controller 標 `@ExternalApi()`、放 `modules/<name>/external/`） |
-| 登入、SSO、apps/platform | [`docs/architecture/04-sso.md`](docs/architecture/04-sso.md)（§1.1 租戶與平台的身分範圍）、[`apps/platform/README.md`](apps/platform/README.md)（從 backstage 複製的程式碼與同步規則） |
+| 登入、SSO、apps/platform | [`docs/architecture/04-sso.md`](docs/architecture/04-sso.md)（§1.1 租戶與平台的身分範圍）、[`apps/platform/README.md`](apps/platform/README.md)（與 backstage 共用的 packages、刻意各自一份的部分與同步規則） |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md)；群組看 [`docs/rbac/08-groups.md`](docs/rbac/08-groups.md)；「為什麼能做 X」看 [`docs/rbac/09-explain.md`](docs/rbac/09-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
 | 挑下一個要做的功能 | [`docs/features/README.md`](docs/features/README.md)（待製作清單；完成後刪提案、寫正式文件歸檔） |
 | 處理已知問題 | [`docs/issues/README.md`](docs/issues/README.md)（現有程式的問題與技術債；修完刪掉該份文件） |
 | 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
+
+## Monorepo 結構
+
+| 位置 | 內容 |
+| --- | --- |
+| `apps/api` | NestJS 後端（另有對外 API 的程序 `dev:external-api`） |
+| `apps/backstage` | 租戶的後台（:5173） |
+| `apps/platform` | 全平台共用的登入入口與平台管理（:5175） |
+| `apps/file-storage` | 本機的 S3 相容物件儲存 |
+| `apps/e2e` | Playwright |
+| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框、`RichTable`、測試輔助 |
+| `packages/ui` | 設計系統：元件、Design Token、icons、UnoCSS 設定、Storybook |
+| `packages/web-shared` | 框架無關的前端工具：store、channel、registry、date… |
+| `packages/error-codes` | api 與前端共用的錯誤碼（build 到 `dist/`） |
+| `packages/realtime` | 推播事件的契約（api 與前端共用，build 到 `dist/`） |
+| `packages/api-sdk` | 由 api 的 OpenAPI 產生的前端 SDK（build 到 `dist/`） |
+
+- 前端 package 只有原始碼，由 app 的 Vite 編譯；以子路徑匯入：`@b2b-system/web-core/store`、`@b2b-system/ui/Button`、`@b2b-system/web-shared/utils`。
+- app 的權限目錄、plugin 屬性以 module augmentation 接上 web-core（`@b2b-system/web-core/permission/register`、`@b2b-system/web-core/app/context`），app 的程式照舊從 `@/core/permission`、`@/plugins/app` 匯入。
+- 只有一個 app 用的程式留在 app；**第二個前端也需要時搬進 package，不要複製**（先把它對 app 的依賴改成參數）。
 
 ## 三處必須同步
 
@@ -62,6 +83,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 5. 設計系統 `@b2b-system/ui`（`packages/ui`）不出現業務名詞；業務元件放 `features/<name>/components/`。
 6. 顏色一律走 Design Token（`packages/ui/src/styles/tokens.css`），不寫十六進位色碼。
 7. Access token 只存在記憶體，不進 `localStorage`。
+8. 兩個前端都要用的程式放 `packages/`，不在 app 之間複製；package 內部用相對路徑，不用 `@/`。
 
 ## 常用指令
 
@@ -72,9 +94,11 @@ pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
 pnpm dev:mock-idp   # 模擬的外部 IdP（:4455，client b2b-mock／mock-secret）；外部 IdP 登入的開發與 E2E 用
 pnpm dev:external-api  # 對外 API（:3001，只認 API token；docs/architecture/06-external-api.md）
+pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、api-sdk）；拉下新的 main 後先 pnpm install 再跑這個
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
+pnpm --filter @b2b-system/<app 或 package> test   # 只跑一個（例：web-core、ui、backstage）
 pnpm test:e2e       # Playwright（需要 api 與 backstage 已啟動）
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # 平台 DB ＋ 每個租戶的 DB（docs/architecture/backend/02-database.md §6.1）；seed:dev/e2e 只跑 SEED_TENANT（預設 default）
