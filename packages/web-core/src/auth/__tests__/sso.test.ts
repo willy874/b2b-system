@@ -59,6 +59,13 @@ describe('SSO 的瀏覽器端（docs/architecture/04-sso.md §12）', () => {
     // 編碼過的反斜線只是路徑的一部分，留在同一個 origin
     ['/%5Cevil.example.com', '/%5Cevil.example.com'],
     ['/users#row-1', '/users#row-1'],
+    // 路徑段正規化後變成 `//evil.example.com`：origin 仍是本站，回傳值卻是 protocol-relative 的外站網址
+    ['/.//evil.example.com', '/'],
+    ['/a/..//evil.example.com', '/'],
+    ['/%2e//evil.example.com', '/'],
+    ['/./\\evil.example.com', '/'],
+    // 一般的路徑正規化不受影響
+    ['/a/../users', '/users'],
     [undefined, '/'],
   ])('safeReturnTo(%s) → %s（只接受同 origin 的路徑）', (input, expected) => {
     expect(safeReturnTo(input)).toBe(expected);
