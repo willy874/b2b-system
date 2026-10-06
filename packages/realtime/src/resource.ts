@@ -138,3 +138,34 @@ export const ResourceChangedSchema = z.object({
 });
 
 export type ResourceChanged = z.infer<typeof ResourceChangedSchema>;
+
+/**
+ * 不帶個別 id 的版本：同一個 `{ resource, kind }` 只留一筆，拿掉 `id` 與 `refs`。前端把它當成「這個來源全部失效」，
+ * 多重抓幾個 query，但不會漏。順序依第一次出現。
+ */
+export function coarsenChanges(changes: readonly ResourceChangeWire[]): ResourceChangeWire[] {
+  const coarse = new Map<string, ResourceChangeWire>();
+  for (const { resource, kind } of changes) {
+    const key = `${resource}:${kind}`;
+    if (!coarse.has(key)) coarse.set(key, { resource, kind });
+  }
+  return [...coarse.values()];
+}
+
+/** `changes` 超過 `MAX_CHANGES_PER_EVENT` 筆，或任一筆的任一個 `refs` 陣列超過：客戶端會整則拒收。 */
+export function exceedsChangeLimit(changes: readonly ResourceChangeWire[]): boolean {
+  if (changes.length > MAX_CHANGES_PER_EVENT) return true;
+  return changes.some(
+    (change) =>
+      change.refs !== undefined &&
+      Object.values(change.refs).some((ids) => (ids?.length ?? 0) > MAX_CHANGES_PER_EVENT),
+  );
+}
+
+/**
+ * 推播前讓變更符合合約的上限（docs/architecture/backend/08-realtime.md §9）：超過時改成 `coarsenChanges` 的結果，
+ * 沒超過時原樣回傳。伺服器送出 `resource.changed` 之前、跨程序轉送之前都要套用，否則客戶端驗證失敗會整則丟掉。
+ */
+export function limitChanges(changes: readonly ResourceChangeWire[]): ResourceChangeWire[] {
+  return exceedsChangeLimit(changes) ? coarsenChanges(changes) : [...changes];
+}

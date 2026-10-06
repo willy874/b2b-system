@@ -1,4 +1,5 @@
-import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { ChangeKind, ChangeSource, MAX_CHANGES_PER_EVENT } from '@b2b-system/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
@@ -56,6 +57,38 @@ function toDto(role: RoleWithCounts): RoleDto {
     createdAt: role.createdAt.toISOString(),
     updatedAt: role.updatedAt.toISOString(),
   };
+}
+
+/**
+ * 角色的持有者（docs/rbac/08-groups.md §1：群組 g 持有 r 時，g 的成員都持有 r）。
+ * - `holders`：直接持有的，加上經由群組（含巢狀）持有的。推播的「持有該角色的所有人」與「誰會失去權限」都是它。
+ * - `viaGroupsOnly`：只經由群組持有的人。前端以 profile 的角色清單判斷「我是不是持有者」，profile 只列直接持有的角色，
+ *   所以這些人另外各推一筆本人的 `userRole update`，profile 才會重抓（docs/architecture/backend/08-realtime.md §6.1）。
+ */
+interface RoleHolders {
+  holders: string[];
+  viaGroupsOnly: string[];
+}
+
+/**
+ * 讓這些人的 profile 重抓：各一筆本人的 `userRole update`（帶 `refs.role`）。加上同一則推播的其他 `reserved` 筆會超過
+ * 合約的上限時，改成一筆不帶 id 的（每位收到的人都重抓自己的 profile；docs/architecture/backend/08-realtime.md §9）。
+ */
+function holderRefreshChanges(
+  roleId: string,
+  userIds: readonly string[],
+  reserved: number,
+): ResourceChangeWire[] {
+  if (userIds.length === 0) return [];
+  if (userIds.length + reserved > MAX_CHANGES_PER_EVENT) {
+    return [{ resource: ChangeSource.USER_ROLE, kind: ChangeKind.UPDATE }];
+  }
+  return userIds.map((userId) => ({
+    resource: ChangeSource.USER_ROLE,
+    kind: ChangeKind.UPDATE,
+    id: userId,
+    refs: { [ChangeSource.ROLE]: [roleId] },
+  }));
 }
 
 /** `GET /roles/:id/permissions` 的回應（RolePermissionsSchema）。 */
@@ -183,8 +216,8 @@ export class RoleService {
       );
     });
 
-    // 改名不影響權限，但持有者的 profile（角色名稱）要重抓
-    const holders = await this.permissionService.findUserIdsByRole(id);
+    // 改名不影響權限，但持有者的 profile（角色名稱）要重抓。只經由群組持有的人 profile 不列這個角色，不必另外推
+    const holders = await this.permissionService.findUserIdsHoldingRole(id);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.UPDATE, id }],
       affectedUserIds: holders,
@@ -248,10 +281,13 @@ export class RoleService {
 
     // ★ 快取失效在交易「之後」——交易可能 rollback；推播的 room 同步在失效之後。
     // 持有者不是失效的依據（整個租戶都失效）：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓
-    const holders = await this.permissionService.findUserIdsByRole(id);
+    const { holders, viaGroupsOnly } = await this.holdersOf(id);
     await this.permissionService.permissionsChanged(holders);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }],
+      changes: [
+        { resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id },
+        ...holderRefreshChanges(id, viaGroupsOnly, 1),
+      ],
       affectedUserIds: holders,
     });
     return this.describePermissions(id, false);
@@ -310,12 +346,13 @@ export class RoleService {
       // 鎖住角色列再計數：併發的指派（`FOR SHARE`）會先提交、
       // 被算進來；或是等這裡提交後看到角色已刪除而不插入。
       if (!(await this.repo.lockActive(id, tx))) throw new AppException('ROLE_NOT_FOUND');
-      const count = await this.repo.countUsers(id, tx);
+      // 持有者含經由群組持有的：只由群組持有的角色刪掉，群組的成員一樣失去這些權限。角色刪除後就查不到，所以在軟刪除之前查；
+      // 持有者邊保留（還原時原本的持有者自動回來，docs/architecture/backend/14-revisions.md §9.2 D2）
+      const holders = await this.holdersOf(id, tx);
+      const count = await this.repo.countUndeletedUsers(holders.holders, tx);
       if (count > 0 && !query.force) {
         throw new AppException('ROLE_IN_USE', { userCount: count });
       }
-      // 持有者邊保留（還原時原本的持有者自動回來，docs/architecture/backend/14-revisions.md §9.2 D2）；持有者在刪除前查出，只用來推播讓他們的畫面重抓
-      const holders = await this.repo.findHolderIds(id, tx);
       await this.repo.softDelete(id, actor.id, tx);
       await this.audit.record(
         {
@@ -333,8 +370,11 @@ export class RoleService {
 
     await this.permissionService.permissionsChanged();
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.DELETE, id }],
-      affectedUserIds: affected,
+      changes: [
+        { resource: ChangeSource.ROLE, kind: ChangeKind.DELETE, id },
+        ...holderRefreshChanges(id, affected.viaGroupsOnly, 1),
+      ],
+      affectedUserIds: affected.holders,
     });
   }
 
@@ -357,12 +397,13 @@ export class RoleService {
     await this.assertRestorable(role);
     await this.permissionService.assertRolesAssignable(actor.id, [id]);
 
-    const holdersRestored = await withTransaction(this.db, async (tx) => {
+    const { holders, holdersRestored } = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.restore(id, actor.id, tx);
       // 檢查之後被別人搶先還原
       if (!row) throw new AppException('ROLE_NOT_DELETED');
-      // 休眠的持有者邊中仍存在的使用者：還原之後就是這個角色的持有者（與 userCount 同一個計數）
-      const restoredHolders = await this.repo.countUsers(id, tx);
+      // 休眠的持有者邊中仍存在的使用者，含經由群組持有的：還原之後重新取得這個角色的人（與 ROLE_IN_USE 同一個計數）
+      const { holders: restored } = await this.holdersOf(id, tx);
+      const restoredHolders = await this.repo.countUndeletedUsers(restored, tx);
       await this.audit.record(
         {
           action: 'role.restore',
@@ -374,24 +415,18 @@ export class RoleService {
         },
         tx,
       );
-      return restoredHolders;
+      return { holders: restored, holdersRestored: restoredHolders };
     });
 
     // ★ 交易之後：權限快取失效（持有者重新拿到角色的權限鍵）→ 推播。持有者只用來補建個人資料夾與推播
-    const holders = await this.permissionService.findUserIdsByRole(id);
     await this.permissionService.permissionsChanged(holders);
     // 重新出現在列表：以 create 宣告（與使用者的還原相同；回收桶由前端的依賴圖跟著失效）。
-    // 每位持有者的角色也變了：以 userRole update 宣告，他們的使用者詳情與本人的 profile 才會重抓
-    // （還原的角色不在他們的 profile 裡，前端無法從 role 的變更判斷自己是不是持有者）
+    // 每位持有者（含經由群組的）的角色也變了：以 userRole update 宣告，他們的使用者詳情與本人的 profile 才會重抓
+    // （還原的角色不在他們的 profile 裡，前端無法從 role 的變更判斷自己是不是持有者）。人多時改一筆不帶 id 的
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [
         { resource: ChangeSource.ROLE, kind: ChangeKind.CREATE, id },
-        ...holders.map((userId) => ({
-          resource: ChangeSource.USER_ROLE,
-          kind: ChangeKind.UPDATE,
-          id: userId,
-          refs: { [ChangeSource.ROLE]: [id] },
-        })),
+        ...holderRefreshChanges(id, holders, 1),
       ],
       affectedUserIds: holders,
     });
@@ -501,13 +536,16 @@ export class RoleService {
     });
 
     // ★ 交易之後：權限快取失效（改了權限鍵時）→ 推播；與 update／updatePermissions 相同的順序
-    const holders = await this.permissionService.findUserIdsByRole(id);
+    const { holders, viaGroupsOnly } = await this.holdersOf(id);
     if (keysChanged) await this.permissionService.permissionsChanged(holders);
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [
         { resource: ChangeSource.ROLE, kind: ChangeKind.UPDATE, id },
         ...(keysChanged
-          ? [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id }]
+          ? [
+              { resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id },
+              ...holderRefreshChanges(id, viaGroupsOnly, 2),
+            ]
           : []),
       ],
       affectedUserIds: holders,
@@ -548,6 +586,13 @@ export class RoleService {
       },
     });
     throw new AppException('AUTHZ_FORBIDDEN', { required, missing: required });
+  }
+
+  /** 角色的持有者（含經由群組）與只經由群組持有的人（`RoleHolders`）。角色已刪除時是空的。 */
+  private async holdersOf(id: string, tx?: DbOrTx): Promise<RoleHolders> {
+    const holders = await this.permissionService.findUserIdsHoldingRole(id, tx);
+    const direct = new Set(await this.repo.findHolderIds(id, tx));
+    return { holders, viaGroupsOnly: holders.filter((userId) => !direct.has(userId)) };
   }
 
   /** 寫入之後的狀態存成一版（在呼叫端的交易內，角色列已被鎖住或剛建立）。 */

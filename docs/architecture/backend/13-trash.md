@@ -197,7 +197,8 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | 關係圖的主體閉包（權限集合） | 遞迴 CTE 只走未刪除的角色（`authz.repository.ts`） |
 | 使用者的角色（`HELD_ROLE`：列表、詳情、`GET /users/:id/roles`）、`hasRoleSlug`、`countActiveUsersByRoleSlug`（最後一位 super-admin） | join `roles` 時加 `notDeleted(roles)`；super-admin 是系統角色、本來就刪不掉 |
 | `GET /users?roleId=` | 子查詢只認未刪除的角色（以刪除的角色篩選是空的，不會列出休眠的持有者） |
-| 以角色為起點的查詢（`countUsers`、`listUsers`、`userCountOf`、`findHolderIds`、`findUserIdsByRole`、`userHasRole`） | **不看** 角色是否刪除；呼叫端先確認角色的狀態（`findById`／`lockActive`），程式碼註解寫明這個前提（D2 ②）。還原時故意用 `countUsers` 算休眠的持有者 |
+| 以角色為起點的查詢（`listUsers`、`userCountOf`、`findHolderIds`） | **不看** 角色是否刪除；呼叫端先確認角色的狀態（`findById`／`lockActive`），程式碼註解寫明這個前提（D2 ②） |
+| 含經由群組的持有者（`PermissionService.findUserIdsHoldingRole`） | 走關係圖，**角色已刪除時是空的**：刪除角色在軟刪除之前（交易內、鎖住角色列之後）查；還原時在清掉 `deleted_at` 之後、同一個交易內查（`holdersRestored`） |
 
 - `PUT /users/:id/roles`（`replaceRoles`）只刪 **未刪除角色** 的持有者邊（D2 ①）：改一次某人的角色不會清掉他在已刪除角色上的休眠邊。
 - 刪除與還原都不寫 `relation_tuples`，但會改變權限的解析結果，所以 migration 0012 在 `roles.deleted_at` 改變時讓
@@ -207,7 +208,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 
 ### 6.1 還原：`POST /roles/:id/restore`
 
-權限 `role:delete`（D10）。回應是 `RestoredRole`：還原後的 `Role` ＋ `holdersRestored`（重新生效的持有者人數，等於還原後的 `userCount`）。
+權限 `role:delete`（D10）。回應是 `RestoredRole`：還原後的 `Role` ＋ `holdersRestored`（重新取得這個角色的人數，含經由群組持有的；直接持有者的人數是還原後的 `userCount`）。
 
 1. 找已刪除的列；找不到 → 角色存在但沒被刪除 `409 ROLE_NOT_DELETED`，不存在或已被永久刪除 `404 ROLE_NOT_FOUND`。
    系統角色刪不掉（service 與 DB trigger 都擋，[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §5），所以不會走到還原。
@@ -218,10 +219,11 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
    所以角色帶的鍵都要是 actor 持有的（`403 AUTHZ_ESCALATION`，`details.missing`）；super-admin 豁免。
    只比對權限鍵（`assertGrantable`）與它的差別只在 super-admin 角色的特判，而系統角色不會被刪除；選指派的檢查是讓規則的語意與效果（持有者重新生效）一致。
 4. 交易內：`UPDATE roles SET deleted_at = NULL, updated_by = <actor> WHERE id = $id AND deleted_at IS NOT NULL`
-   （並行的兩個還原只有一個命中，另一個 `409 ROLE_NOT_DELETED`）→ 計算 `holdersRestored`（休眠的邊中仍存在的使用者）→
+   （並行的兩個還原只有一個命中，另一個 `409 ROLE_NOT_DELETED`）→ 計算 `holdersRestored`（休眠的邊帶回的、未刪除的使用者，含經由群組持有的）→
    稽核 `role.restore`（`changes.after: { name, slug }`、`metadata: { deletedAt, holdersRestored }`）。
 5. 交易後：`permissionsChanged(持有者)`（權限快取失效、個人資料夾補建）→ `resource.changed`：`role` / `create`（重新出現在列表、回收桶失效），
-   加上每位持有者一筆 `userRole` / `update`（`refs.role`；他們的角色摘要與本人的 profile 重抓）。
+   加上每位持有者（含經由群組的）一筆 `userRole` / `update`（`refs.role`；他們的角色摘要與本人的 profile 重抓）。
+   持有者多到一則推播放不下（合約上限 100 筆，[`08-realtime.md`](./08-realtime.md) §9）時改成一筆不帶 id 的 `userRole` / `update`。
 
 `version` 不遞增（與刪除相同）。R3 之前刪除的角色沒有持有者邊，還原後沒有持有者：回應與稽核的 `holdersRestored` 是 0，這是預期的（[`backend/14-revisions.md`](14-revisions.md) §9 R3）。
 

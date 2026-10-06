@@ -1,3 +1,5 @@
+import { MAX_CHANGES_PER_EVENT } from '@b2b-system/realtime';
+
 import { PERMISSION } from '@/common/types';
 import type { PermissionKey } from '@/common/types';
 import { RESOURCE_TYPE } from '@/core/resource';
@@ -32,5 +34,8 @@ export const TRASH_PERMISSIONS: readonly PermissionKey[] = [
   PERMISSION.ANNOUNCEMENT_DELETE,
 ];
 
-/** 永久刪除一批的筆數：一批一個交易（docs/architecture/backend/14-revisions.md §9.2 D11）。也是一次推播的變更數上限。 */
-export const TRASH_PURGE_BATCH_SIZE = 100;
+/**
+ * 永久刪除一批的筆數：一批一個交易（docs/architecture/backend/14-revisions.md §9.2 D11）。一批推一則 `delete`，
+ * 所以直接取推播合約的上限：每一則都帶得下個別的 id。
+ */
+export const TRASH_PURGE_BATCH_SIZE = MAX_CHANGES_PER_EVENT;

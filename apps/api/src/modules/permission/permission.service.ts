@@ -4,6 +4,7 @@ import type { PermissionKey } from '@/common/types';
 import {
   AuthzRevision,
   AuthzService,
+  parseSubjectKey,
   ROLE_HOLDER_RELATION,
   SUPER_ADMIN_RELATION,
   TENANT_OBJECT,
@@ -15,6 +16,7 @@ import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { getRequestContext } from '@/core/http';
 import type { PermissionRow } from '@/db/schema';
+import { ROLE_OBJECT_TYPE } from '@/db/schema';
 import {
   ALL_PERMISSION_KEYS,
   implyingPermissions,
@@ -42,6 +44,14 @@ function withTokenScopes(userId: string, value: PermissionSet): PermissionSet {
     if (value.isSuperAdmin || value.permissions.has(key)) permissions.add(key);
   }
   return { permissions, isSuperAdmin: false, subjects: value.subjects, tokenScoped: true };
+}
+
+/** 主體閉包裡的角色（`role:<id>#holder`）。 */
+function roleIdsIn(subjects: readonly string[]): string[] {
+  return subjects.flatMap((key) => {
+    const { object, relation } = parseSubjectKey(key);
+    return object.type === ROLE_OBJECT_TYPE && relation === ROLE_HOLDER_RELATION ? [object.id] : [];
+  });
 }
 
 export interface PermissionCatalogItem extends PermissionRow {
@@ -196,6 +206,10 @@ export class PermissionService {
    * 自我鎖定保護：actor 持有 `roleId`，而這個角色的權限變成 `nextRoleKeys`（刪除角色時是空陣列）之後，
    * actor 會失去目前持有的 `guarded` 權限 → `ROLE_SELF_LOCKOUT`。super-admin 豁免（權限是隱含全集）。
    * 沒有持有該角色、或本來就沒有那些權限時不擋（docs/architecture/backend/05-rbac.md §8.4）。
+   *
+   * 「持有」與「剩下的權限」都以 actor 的主體閉包判斷（`PermissionSet.subjects` 裡的 `role:<id>#holder`），
+   * 經由群組（含巢狀）持有的角色與直接持有的一樣算（docs/rbac/08-groups.md §1）：只經由群組持有 R 的人改 R 也會被擋，
+   * 另外經由群組持有同樣權限的人不會被誤擋。
    */
   async assertNoSelfLockout(
     actorId: string,
@@ -203,15 +217,17 @@ export class PermissionService {
     nextRoleKeys: readonly string[],
     guarded: readonly PermissionKey[],
   ): Promise<void> {
-    const { permissions, isSuperAdmin } = await this.getPermissionSet(actorId);
+    const { permissions, isSuperAdmin, subjects = [] } = await this.getPermissionSet(actorId);
     if (isSuperAdmin) return;
     const held = guarded.filter((key) => permissions.has(key));
     if (held.length === 0) return;
-    if (!(await this.repo.userHasRole(actorId, roleId))) return;
+    const heldRoleIds = roleIdsIn(subjects);
+    if (!heldRoleIds.includes(roleId)) return;
 
     // 剩下的鍵也要套上依賴樹的閉包：拿掉 file:update 時，file:delete 仍會帶回它
+    const others = heldRoleIds.filter((id) => id !== roleId);
     const remaining = permissionClosure([
-      ...(await this.repo.findPermissionKeysByUserExcludingRole(actorId, roleId)),
+      ...(await this.repo.findPermissionKeysOfRoles(others)),
       ...(nextRoleKeys as PermissionKey[]),
     ]);
     const lost = held.filter((key) => !remaining.has(key));
@@ -303,8 +319,17 @@ export class PermissionService {
     return this.revision.changed(userIds);
   }
 
-  findUserIdsByRole(roleId: string): Promise<string[]> {
-    return this.repo.findUserIdsByRole(roleId);
+  /**
+   * 持有這個角色的使用者：直接持有的，加上持有它的群組（含巢狀）的成員——群組 g 持有 r 時，g 的成員都持有 r
+   * （docs/rbac/08-groups.md §1）。與權限解析走同一張圖（`AuthzService.usersInSubjectSets`）：過期的邊、已刪除的群組不算；
+   * **角色本身已刪除時是空的**，刪除角色要在軟刪除之前（交易內、鎖住角色列之後）查。含已刪除、停用的使用者，
+   * 給推播（「持有該角色的所有人」，docs/architecture/backend/08-realtime.md §6.1）與「誰會失去權限」的計數用。
+   */
+  findUserIdsHoldingRole(roleId: string, tx?: DbOrTx): Promise<string[]> {
+    return this.authz.usersInSubjectSets(
+      [{ type: ROLE_OBJECT_TYPE, id: roleId, relation: ROLE_HOLDER_RELATION }],
+      { tx },
+    );
   }
 
   /**

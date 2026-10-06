@@ -1,6 +1,7 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { ButtonLink } from '@b2b-system/ui/Button';
 import { useTableSelection } from '@b2b-system/ui/Table';
+import { ErrorCodes, isAppError } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
@@ -126,7 +127,11 @@ export default function RoleListPage() {
             await deleteRole.mutateAsync({
               params: { roleId: pendingDelete.id, force: pendingDelete.userCount > 0 },
             });
-          } catch {
+          } catch (reason) {
+            // 列表的 userCount 只算直接持有者；只由群組持有的角色要到刪除時才知道有人會失去權限
+            // （ROLE_IN_USE 的 details.userCount 含群組的成員）：改成「仍要刪除」的確認，讓使用者決定要不要強制
+            const inUse = inUseCountOf(reason);
+            if (inUse > 0) setPendingDelete({ ...pendingDelete, userCount: inUse });
             // 錯誤由 mutation 的 onError 顯示；對話框留著讓使用者重試或取消
             return;
           }
@@ -143,3 +148,10 @@ export default function RoleListPage() {
 
 const getRowId = (row: RoleRowVM) => row.id;
 const getRowLabel = (row: RoleRowVM) => row.name;
+
+/** `ROLE_IN_USE` 的持有人數（含經由群組持有的）；其他錯誤是 0。 */
+function inUseCountOf(error: unknown): number {
+  if (!isAppError(error) || error.code !== ErrorCodes.ROLE_IN_USE) return 0;
+  const count = error.details?.userCount;
+  return typeof count === 'number' ? count : 0;
+}

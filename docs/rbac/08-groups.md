@@ -20,6 +20,9 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
   已刪除的節點看哪張表（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2）。
 - 主體閉包沿 `group#member` 與 `role#holder` 往上走：使用者 → 所屬群組 → 上層群組 → 這些群組持有的角色。全域權限、資料夾授權都由閉包解析，
   不需要群組專屬的判斷。
+- 以角色為中心的業務規則也把經由群組持有的人算成持有者（`PermissionService.findUserIdsHoldingRole`、操作者的主體閉包）：
+  自我鎖定（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8.4）、刪除角色的 `ROLE_IN_USE`（[`04-api-spec.md`](./04-api-spec.md) §3.4）、
+  角色變更的推播（[`../architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §6.1）。「是不是 super-admin」仍只看直接持有（D12）。
 - 成員與持有的角色只存在 `relation_tuples`（沒有 `group_members` 表）；`groups` 表只有名稱、說明、樂觀鎖的 `version` 與軟刪除
   （[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.14）。
 - 邊的形狀由 `db/schema/relation-tuples.ts` 的 `groupMemberTuple`、`groupRoleTuple` 產生，每一種形狀由測試對完整的模型驗證過

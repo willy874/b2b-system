@@ -161,6 +161,34 @@ describe('DomainEventRelay（docs/architecture/06-external-api.md §9.2 D18）',
     ]);
   });
 
+  it('放得進一則廣播、但超過合約的 100 筆：轉送前退化成整個來源，接收端仍收得到', async () => {
+    const hub = new BroadcastHub();
+    const [a, b] = [await processOn(hub), await processOn(hub)];
+    const received: unknown[] = [];
+    b.bus.subscribe(DomainEvent.RESOURCE_CHANGED, (payload) => void received.push(payload), {
+      remote: true,
+    });
+    // 101 筆短 id 的變更約 4 KB：放得進一則 NOTIFY
+    const changes = Array.from({ length: 101 }, (_, index) => ({
+      resource: ChangeSource.FILE,
+      kind: ChangeKind.UPDATE,
+      id: `f${index}`,
+    }));
+
+    runInTenantContext(tenantContext('t1'), () =>
+      a.bus.publish(DomainEvent.RESOURCE_CHANGED, { changes, affectedUserIds: ['u1'] }),
+    );
+    await settle(a.bus, b.bus);
+
+    expect(hub.messages(DOMAIN_EVENT_CHANNEL)).toHaveLength(1);
+    expect(received).toEqual([
+      {
+        changes: [{ resource: ChangeSource.FILE, kind: ChangeKind.UPDATE }],
+        affectedUserIds: ['u1'],
+      },
+    ]);
+  });
+
   it('平台的變更放不進一則廣播：同樣退化成整個來源，收件人分批（docs/architecture/backend/08-realtime.md §3.6）', async () => {
     const hub = new BroadcastHub();
     const [a, b] = [await processOn(hub), await processOn(hub)];

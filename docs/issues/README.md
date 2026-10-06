@@ -33,9 +33,7 @@
 | 中 | 批次進度計算為 O(n²)，大量上傳時每個快照都重算造成卡頓 | [`batch-progress-quadratic.md`](./batch-progress-quadratic.md) | 2026-10-06（全面檢測：效能） |
 | 中 | api-sdk 無法 tree-shake，兩個前端首屏帶著全部 zod schema | [`api-sdk-not-tree-shakable.md`](./api-sdk-not-tree-shakable.md) | 2026-10-06（全面檢測：效能） |
 | 中 | backstage 首屏帶進頁面專用程式，約多 50 KB gzip | [`backstage-entry-bundle-bloat.md`](./backstage-entry-bundle-bloat.md) | 2026-10-06（全面檢測：效能） |
-| 中 | 角色的自我鎖定、使用中與推播只看直接持有者 | [`role-checks-ignore-group-holders.md`](./role-checks-ignore-group-holders.md) | 2026-10-06（全面檢測：架構） |
 | 中 | 租戶登記、設定、事件政策的快取可能寫回失效前的舊值 | [`caches-missing-invalidation-ticket.md`](./caches-missing-invalidation-ticket.md) | 2026-10-06（全面檢測：架構） |
-| 中 | 推播超過 100 筆變更時前端整則丟棄（還原角色） | [`realtime-changes-exceed-event-limit.md`](./realtime-changes-exceed-event-limit.md) | 2026-10-06（全面檢測：架構） |
 | 中 | Service 層的四處權限拒絕不寫 authz.denied 稽核 | [`service-authz-denied-not-audited.md`](./service-authz-denied-not-audited.md) | 2026-10-06（全面檢測：架構） |
 | 中 | @Audit() 沒有對應的 interceptor，標上去不會寫稽核 | [`audit-decorator-without-interceptor.md`](./audit-decorator-without-interceptor.md) | 2026-10-06（全面檢測：架構） |
 | 中 | 放在 Field 裡的 Select 沒有連上欄位標籤與錯誤訊息 | [`select-not-linked-to-field-label.md`](./select-not-linked-to-field-label.md) | 2026-10-06（全面檢測：使用者體驗） |

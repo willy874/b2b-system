@@ -591,6 +591,10 @@ private assertNotSelf(actorId: string, targetId: string): void {
 - super-admin 豁免（權限是隱含全集，也沒有角色能拿掉它）。
 - 只看操作者本人：同一個角色的其他持有者失去權限是正常的業務操作。
 - 沒有持有該角色、或本來就沒有那些權限時不擋。
+- 「持有」與「剩下的權限」都以操作者的 **主體閉包**（`PermissionSet.subjects` 裡的 `role:<id>#holder`）判斷：經由群組（含巢狀）持有的角色
+  與直接持有的一樣算（[`rbac/08-groups.md`](../../rbac/08-groups.md) §1）。只經由群組持有該角色的人一樣會被擋；
+  經由群組持有另一個提供同樣權限的角色時，不會被誤擋。剩下的鍵是閉包中其他角色的鍵（`PermissionRepository.findPermissionKeysOfRoles`）
+  加上變更後的鍵，再套依賴樹的閉包。
 
 ---
 

@@ -324,6 +324,9 @@
 - `isSystem` → `403 ROLE_SYSTEM_PROTECTED`（DB trigger 也擋系統角色的軟刪除）
 - actor 持有這個角色、且刪除後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
 - 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
+  - 持有者含 **經由群組（含巢狀）持有** 的人（[`08-groups.md`](./08-groups.md) §1）：`userCount` 是刪除後會失去這些權限的人數，
+    只由群組持有的角色也算使用中。列表的 `userCount`（§3.1）只算直接持有者，所以前端在收到 `ROLE_IN_USE` 時以 `details.userCount`
+    改成「仍要刪除」的確認
   - 可加 `?force=true`（仍需 `role:delete`）強制刪除，持有者立即失去這個角色的權限，
     此時稽核紀錄 `metadata.forced = true`
 - 角色是軟刪除，移到回收桶；它的持有者邊、權限鍵與它作為對象的資料夾授權都留著，解析時略過已刪除的角色。
@@ -358,7 +361,8 @@
 | `409 ROLE_NAME_DUPLICATE` | 名稱或 slug 已被未刪除的角色使用；`details.field`（`name`／`slug`）、`details.conflictingRoleId` |
 | `403 AUTHZ_ESCALATION` | 角色帶了 actor 沒有的權限鍵（與指派角色相同的反提權，§5） |
 
-- `holdersRestored`：重新生效的持有者人數（等於還原後的 `userCount`）。R3 之前刪除的角色已經沒有持有者邊，是 0。
+- `holdersRestored`：重新取得這個角色的人數，含經由群組持有的人（與 `ROLE_IN_USE` 的 `userCount` 同一個計數；直接持有者的人數是還原後的 `userCount`）。
+  R3 之前刪除的角色已經沒有持有者邊，是 0。
 - 回收桶的列表是 `GET /trash?type=role`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §6。
 
 ### 3.7 版本歷史：`/roles/:id/revisions`

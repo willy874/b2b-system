@@ -57,6 +57,7 @@ export const ErrorCodes = {
   AUTH_REFRESH_REUSED: 'AUTH_REFRESH_REUSED',
   AUTHZ_FORBIDDEN: 'AUTHZ_FORBIDDEN',
   AUTHZ_ESCALATION: 'AUTHZ_ESCALATION',
+  ROLE_IN_USE: 'ROLE_IN_USE',
   RATE_LIMITED: 'RATE_LIMITED',
 } as const satisfies Partial<Record<ErrorCode, ErrorCode>>;
 

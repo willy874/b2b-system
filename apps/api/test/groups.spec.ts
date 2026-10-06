@@ -8,6 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AuthzService } from '@/core/authz';
 import {
   authzRevision,
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
   relationTuples,
   roleHolderTuple,
   rolePermissionTuple,
@@ -63,6 +66,22 @@ async function createRole(slug: string, keys: string[]): Promise<string> {
   if (keys.length)
     await db.insert(relationTuples).values(keys.map((key) => rolePermissionTuple(role!.id, key)));
   return role!.id;
+}
+
+/** 直接寫 DB 建立一個群組：持有 `roleIds`，成員是 `userIds`。 */
+async function createGroupHolding(
+  name: string,
+  roleIds: string[],
+  userIds: string[],
+): Promise<string> {
+  const [group] = await db.insert(groups).values({ name }).returning();
+  await db
+    .insert(relationTuples)
+    .values([
+      ...roleIds.map((roleId) => groupRoleTuple(roleId, group!.id)),
+      ...userIds.map((id) => groupMemberTuple(group!.id, { type: 'user', id })),
+    ]);
+  return group!.id;
 }
 
 async function permissionsOf(credentials: { email: string; password: string }): Promise<string[]> {
@@ -351,6 +370,64 @@ describe('群組（docs/rbac/01-domain-model.md §9.3 D11、D12）', () => {
     expect(sources).toContainEqual({
       relation: 'file:update',
       path: closure.get(`role:${ids.editorRole}#holder`),
+    });
+  });
+
+  describe('經由群組持有角色的人也算持有者（docs/architecture/backend/05-rbac.md §8.4、docs/rbac/04-api-spec.md §3.4）', () => {
+    const MANAGEMENT = ['role:read', 'role:update', 'role:grantPermission'];
+
+    it('自我鎖定：只經由群組持有 R 的管理者拿掉 R 的 role:grantPermission → 403 ROLE_SELF_LOCKOUT', async () => {
+      const credentials = { email: 'lockout-group@example.com', password: 'LockoutPassword!2026' };
+      const roleId = await createRole('lockout-via-group', MANAGEMENT);
+      const userId = await createActiveUser(credentials.email, credentials.password);
+      await createGroupHolding('鎖定：群組持有', [roleId], [userId]);
+
+      const response = await (
+        await as(credentials)
+      )
+        .patch(`/roles/${roleId}/permissions`, { add: [], remove: ['role:grantPermission'] })
+        .expect(403);
+      expect(response.body.error).toMatchObject({
+        code: 'ROLE_SELF_LOCKOUT',
+        details: { lost: ['role:grantPermission'] },
+      });
+    });
+
+    it('自我鎖定：直接持有 R1、經由群組持有同樣權限的 R2，改 R1 → 放行（不會失去那些權限）', async () => {
+      const credentials = { email: 'lockout-dual@example.com', password: 'DualPassword!2026' };
+      const direct = await createRole('lockout-direct', MANAGEMENT);
+      const viaGroup = await createRole('lockout-group-backup', MANAGEMENT);
+      const userId = await createActiveUser(credentials.email, credentials.password);
+      await db.insert(relationTuples).values(roleHolderTuple(direct, userId));
+      await createGroupHolding('鎖定：備援', [viaGroup], [userId]);
+
+      await (
+        await as(credentials)
+      )
+        .patch(`/roles/${direct}/permissions`, { add: [], remove: ['role:grantPermission'] })
+        .expect(200);
+      expect(await permissionsOf(credentials)).toContain('role:grantPermission');
+    });
+
+    it('使用中：只由群組持有的角色，不帶 force 刪除 → 409 ROLE_IN_USE（userCount 含群組的成員）；帶 force 才刪得掉', async () => {
+      const roleId = await createRole('held-by-group-only', ['file:read']);
+      const first = await createActiveUser('in-use-1@example.com', 'InUsePassword!2026');
+      const second = await createActiveUser('in-use-2@example.com', 'InUsePassword!2026');
+      await createGroupHolding('使用中：群組', [roleId], [first, second]);
+      const admin = await as(ADMIN);
+
+      const response = await admin.delete(`/roles/${roleId}`).expect(409);
+      expect(response.body.error).toMatchObject({
+        code: 'ROLE_IN_USE',
+        details: { userCount: 2 },
+      });
+      await admin.get(`/roles/${roleId}`).expect(200);
+
+      await admin.delete(`/roles/${roleId}?force=true`).expect(204);
+      await admin.get(`/roles/${roleId}`).expect(404);
+      // 還原時回報重新取得角色的人數，同樣含群組的成員
+      const restored = await admin.post(`/roles/${roleId}/restore`).expect(200);
+      expect(restored.body.data).toMatchObject({ id: roleId, holdersRestored: 2 });
     });
   });
 });

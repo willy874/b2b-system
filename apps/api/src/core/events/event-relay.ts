@@ -1,9 +1,10 @@
 import {
+  coarsenChanges,
+  limitChanges,
   MAX_CHANGES_PER_EVENT,
   ResourceChangeWireSchema,
   SessionRevokedReason,
 } from '@b2b-system/realtime';
-import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { z } from 'zod';
@@ -101,6 +102,21 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 }
 
 /**
+ * 接收端以合約的上限驗證 `changes`（`PAYLOAD_SCHEMAS`）：放得進一則 `NOTIFY`、但超過 100 筆（或 `refs` 過長）的事件
+ * 送過去會被整則拒收，所以轉送前先套用 `limitChanges`，與推播給客戶端時同一個規則（docs/architecture/backend/08-realtime.md §9）。
+ */
+function withinChangeLimit<T extends RelayedEvent>(
+  type: T,
+  payload: DomainEventPayloads[T],
+): DomainEventPayloads[T] {
+  if (type !== DomainEvent.RESOURCE_CHANGED && type !== DomainEvent.PLATFORM_CHANGED) {
+    return payload;
+  }
+  const { changes } = payload as { changes: DomainEventPayloads['resource.changed']['changes'] };
+  return { ...payload, changes: limitChanges(changes) };
+}
+
+/**
  * 放不進一則 `NOTIFY` 的事件拆成幾則：
  * - 資源變更：拿掉個別的 id（`id`、`refs`），退化成「這個來源全部失效」；受影響的人分批帶。
  * - 撤銷連線：名單分批。
@@ -119,15 +135,10 @@ function split(message: RelayMessage): RelayMessage[] {
   if (message.type === DomainEvent.RESOURCE_CHANGED) {
     const { changes, affectedUserIds = [] } =
       message.payload as DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED];
-    const coarse = new Map<string, ResourceChangeWire>();
-    for (const { resource, kind } of changes) coarse.set(`${resource}:${kind}`, { resource, kind });
+    const coarse = coarsenChanges(changes);
     const userChunks = affectedUserIds.length ? chunk(affectedUserIds, IDS_PER_MESSAGE) : [[]];
     return userChunks.map((users) =>
-      withPayload(
-        users.length
-          ? { changes: [...coarse.values()], affectedUserIds: users }
-          : { changes: [...coarse.values()] },
-      ),
+      withPayload(users.length ? { changes: coarse, affectedUserIds: users } : { changes: coarse }),
     );
   }
 
@@ -145,15 +156,10 @@ function split(message: RelayMessage): RelayMessage[] {
   if (message.type === DomainEvent.PLATFORM_CHANGED) {
     const { changes, adminIds = [] } =
       message.payload as DomainEventPayloads[typeof DomainEvent.PLATFORM_CHANGED];
-    const coarse = new Map<string, ResourceChangeWire>();
-    for (const { resource, kind } of changes) coarse.set(`${resource}:${kind}`, { resource, kind });
+    const coarse = coarsenChanges(changes);
     const adminChunks = adminIds.length ? chunk(adminIds, IDS_PER_MESSAGE) : [[]];
     return adminChunks.map((admins) =>
-      withPayload(
-        admins.length
-          ? { changes: [...coarse.values()], adminIds: admins }
-          : { changes: [...coarse.values()] },
-      ),
+      withPayload(admins.length ? { changes: coarse, adminIds: admins } : { changes: coarse }),
     );
   }
 
@@ -207,7 +213,7 @@ export class DomainEventRelay implements OnModuleInit, OnModuleDestroy {
     const message: RelayMessage<T> = {
       type,
       tenant: currentTenant()?.id ?? null,
-      payload,
+      payload: withinChangeLimit(type, payload),
       occurredAt: meta.occurredAt.toISOString(),
       ...(meta.clientId ? { clientId: meta.clientId } : {}),
       ...(meta.requestId ? { requestId: meta.requestId } : {}),

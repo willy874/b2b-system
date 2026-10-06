@@ -1,3 +1,4 @@
+import { ResourceChangedSchema } from '@b2b-system/realtime';
 import { describe, expect, it, vi } from 'vitest';
 
 // perm room 帶租戶（docs/architecture/05-tenancy.md §10.2 D17）：固定在租戶 t1
@@ -108,6 +109,47 @@ describe('RealtimeListener（領域事件 → 推播）', () => {
       changes: [{ resource: 'userCredential', kind: 'update', id: 'u1' }],
     });
     expect(emits).toEqual([]);
+  });
+
+  it('resource.changed 超過合約的 100 筆：送出不帶 id 的版本，通過 ResourceChangedSchema（docs/architecture/backend/08-realtime.md §9）', () => {
+    const { fire, emits } = setup();
+    const changes = Array.from({ length: 150 }, (_, index) => ({
+      resource: 'userRole',
+      kind: 'update',
+      id: `u${index}`,
+      refs: { role: ['r1'] },
+    }));
+    fire(
+      DomainEvent.RESOURCE_CHANGED,
+      { changes: [{ resource: 'role', kind: 'create', id: 'r1' }, ...changes] },
+      { clientId: 'tab-1' },
+    );
+
+    expect(emits).toHaveLength(1);
+    const payload = emits[0]?.payload;
+    expect(ResourceChangedSchema.safeParse(payload).success).toBe(true);
+    expect(payload).toEqual({
+      changes: [
+        { resource: 'role', kind: 'create' },
+        { resource: 'userRole', kind: 'update' },
+      ],
+      origin: 'tab-1',
+    });
+    // 受眾仍以原本的變更計算：每位被改的人（userRole 的 includesSubject）都在
+    expect(emits[0]?.rooms).toEqual(expect.arrayContaining(['t:t1:user:u0', 't:t1:user:u149']));
+  });
+
+  it('平台的變更超過 100 筆：同樣送出不帶 id 的版本', () => {
+    const { fire, emits } = setup();
+    const changes = Array.from({ length: 101 }, (_, index) => ({
+      resource: 'platformNotification',
+      kind: 'create',
+      id: `n${index}`,
+    }));
+    fire(DomainEvent.PLATFORM_CHANGED, { changes, adminIds: ['a1'] });
+    expect(emits[0]?.payload).toEqual({
+      changes: [{ resource: 'platformNotification', kind: 'create' }],
+    });
   });
 
   it('resource.changed 沒有 clientId 時不帶 origin', () => {
