@@ -74,7 +74,7 @@
 - api 不自己跑 migration，而是在 `Tenancy.enter()` 比對租戶 DB 的最後一筆套用紀錄與程式的 journal：落後的租戶回 503、
   每 30 秒重新檢查；DB 比程式新照常服務（migration 必須對上一版程式相容）。細節見
   [`backend/02-database.md`](./backend/02-database.md) §5.2、§5.3。
-- migration 的 SQL 由 nest-cli 的 assets 複製進 `dist/src/db/`（兩條線），`db:migrate` 與佈建共用 `src/db/provision.ts`。
+- migration 的 SQL 由 nest-cli 的 assets 複製進 `dist/src/db/`（兩條線，以資料夾為單位並開 `watchAssets`：`pnpm dev` 跑著時新加的 migration 與改過的 `_journal.json` 也會同步，api 隨之重啟），`db:migrate` 與佈建共用 `src/db/provision.ts`。
 
 ## 5. 租戶的生命週期
 

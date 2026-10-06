@@ -7,20 +7,14 @@
     "tsConfigPath": "tsconfig.build.json",
     "assets": [
       {
-        "include": "db/migrations/**/*.sql",
-        "outDir": "dist"
+        "include": "db/migrations",
+        "outDir": "dist",
+        "watchAssets": true
       },
       {
-        "include": "db/migrations/meta/*.json",
-        "outDir": "dist"
-      },
-      {
-        "include": "db/platform/migrations/**/*.sql",
-        "outDir": "dist"
-      },
-      {
-        "include": "db/platform/migrations/meta/*.json",
-        "outDir": "dist"
+        "include": "db/platform/migrations",
+        "outDir": "dist",
+        "watchAssets": true
       }
     ]
   }
