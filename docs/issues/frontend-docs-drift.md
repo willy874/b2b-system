@@ -10,7 +10,7 @@
   - §5 也寫「CI 另有一支腳本檢查 `features/*/index.tsx` 是否都匯出了 `Routes` 與 `<name>FeaturePlugin`」。
 - 實際狀況：
   - `.oxlintrc.json` 的 `no-restricted-imports`（L52、L68、L88）只限制 `@sigrea/core` 與 `react`。
-  - repo 沒有 CI，見 [`no-ci-pipeline.md`](./no-ci-pipeline.md)。
+  - CI（`.github/workflows/ci.yml`，2026-10-06 加入）只跑 lint、typecheck 與測試，沒有分層或 `index.tsx` 匯出的檢查。
   - 前端沒有比照 `apps/api/src/__tests__/layer-dependencies.spec.ts` 的分層測試。
 - 其他文件的說法相反：[`conventions/02-frontend.md`](../conventions/02-frontend.md) §1（L22）寫「目前 `.oxlintrc.json` 尚未設定，先靠 review」，[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §4 也說「其餘用搜尋自查」。
 - 「不用 `../../../*`」在兩個 app 有 135 處（不含測試），例如 `features/announcement/pages/AnnouncementDetail/components/AnnouncementSettingsSection.tsx` L15–30。

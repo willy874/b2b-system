@@ -25,7 +25,6 @@
 | 中 | 登出的後端撤銷失敗被吞掉，IdP session 仍有效 | [`logout-failure-leaves-sessions.md`](./logout-failure-leaves-sessions.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 釘選列把整筆伺服器資料存進 localStorage，登出不清 | [`pinned-rows-persist-server-data.md`](./pinned-rows-persist-server-data.md) | 2026-10-06（全面檢測：程式資安） |
-| 中 | 沒有 CI，main 未保護，檢查只靠人 | [`no-ci-pipeline.md`](./no-ci-pipeline.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 每筆租戶背景工作開始前都全表掃描 pgboss.job | [`job-active-ahead-full-scan.md`](./job-active-ahead-full-scan.md) | 2026-10-06（全面檢測：效能） |
 | 中 | outbox 最舊 100 列都未註冊時 relayOutbox 無窮迴圈 | [`outbox-relay-infinite-loop.md`](./outbox-relay-infinite-loop.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次逐筆失效重抓且不處理 429，大批次可能用光限流額度 | [`batch-invalidation-and-rate-limit.md`](./batch-invalidation-and-rate-limit.md) | 2026-10-06（全面檢測：效能） |

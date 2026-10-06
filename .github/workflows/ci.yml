@@ -1,0 +1,72 @@
+# CI（docs/conventions/05-git.md §2.4）：PR 與 push 到 main 時跑。三個 job 互不依賴、並行：
+#   check   typecheck、lint、format、單元與整合測試（api 的整合測試以 Testcontainers 起 Postgres）、依賴稽核
+#   secrets gitleaks 掃整段 git 歷史（設定在 .gitleaks.toml）
+#   deploy  docker-compose.prod.yml 整套建置啟動（deploy/smoke-test.sh）＋ nginx 設定（deploy/check-nginx.sh）
+# 第三方 action 與映像都釘 commit SHA／digest：tag 可以被移動，SHA 不行。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 同一個分支的新 push 取消還在跑的舊一輪
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck、lint、測試
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # 版本取自 package.json 的 packageManager
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:packages
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      # 只看正式依賴的高風險漏洞；開發依賴（drizzle-kit 帶的舊 esbuild 等）不擋
+      - run: pnpm audit --prod --audit-level=high
+
+  secrets:
+    name: 秘密掃描
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: gitleaks
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro"
+          zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git /repo --config /repo/.gitleaks.toml --redact --no-banner
+
+  deploy:
+    name: 正式映像與 nginx
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: sh deploy/smoke-test.sh
+      - run: sh deploy/check-nginx.sh

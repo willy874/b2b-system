@@ -7,3 +7,9 @@ pre-commit:
     lint:
       glob: '*.{js,ts,jsx,tsx,mjs,cjs}'
       run: pnpm oxlint {staged_files}
+
+# commit 時跑太慢，push 時剛好；CI 還會再跑一次（.github/workflows/ci.yml）
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm typecheck
