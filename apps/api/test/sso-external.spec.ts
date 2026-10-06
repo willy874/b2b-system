@@ -10,6 +10,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
 import {
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
   identityProviders,
   relationTuples,
   roleHolderTuple,
@@ -515,6 +518,69 @@ describe('外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D11）', (
         expect(await loginExternally(interaction, acmeId)).toContain(
           'error=AUTH_SSO_LINK_NOT_ALLOWED',
         );
+      });
+
+      /** 只經由群組（`via` 依序是外層到內層的群組名稱）持有某個系統角色的帳號。 */
+      async function userHoldingViaGroups(email: string, roleSlug: string, via: string[]) {
+        const [user] = await db
+          .insert(users)
+          .values({ email, displayName: email, status: 'active' })
+          .returning();
+        const created = await db
+          .insert(groups)
+          .values(via.map((name) => ({ name })))
+          .returning();
+        await db.insert(relationTuples).values([
+          groupRoleTuple(await roleIdOf(roleSlug), created[0]!.id),
+          // 外層群組的成員是下一層群組，最內層的成員是這個帳號
+          ...created.map((group, index) =>
+            groupMemberTuple(
+              group.id,
+              created[index + 1]
+                ? { type: 'group', id: created[index + 1]!.id }
+                : { type: 'user', id: user!.id },
+            ),
+          ),
+        ]);
+        return user!;
+      }
+
+      it('只經由群組持有 admin 的帳號也不自動連結（rbac/08-groups.md §1：群組的成員都持有）', async () => {
+        await userHoldingViaGroups('group-boss@acme.test', 'admin', ['Admins']);
+        external.nextIdentity = {
+          subject: 'acme-group-boss',
+          email: 'group-boss@acme.test',
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, acmeId)).toContain(
+          'error=AUTH_SSO_LINK_NOT_ALLOWED',
+        );
+        const linked = await db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.subject, 'acme-group-boss'));
+        expect(linked).toEqual([]);
+      });
+
+      it('巢狀群組（帳號在 H、H 在 G、G 持有 auditor）同樣不自動連結', async () => {
+        await userHoldingViaGroups('nested-auditor@acme.test', 'auditor', ['G', 'H']);
+        external.nextIdentity = {
+          subject: 'acme-nested-auditor',
+          email: 'nested-auditor@acme.test',
+          emailVerified: true,
+          name: null,
+        };
+        const interaction = await beginInteraction();
+        expect(await loginExternally(interaction, acmeId)).toContain(
+          'error=AUTH_SSO_LINK_NOT_ALLOWED',
+        );
+        const linked = await db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.subject, 'acme-nested-auditor'));
+        expect(linked).toEqual([]);
       });
 
       it('換掉連線的 issuer：既有的連結全部作廢，舊的 subject 不能再登入', async () => {

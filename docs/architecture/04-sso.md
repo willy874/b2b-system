@@ -134,6 +134,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 第 2 步的限制：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
 改成它），對任何 email 簽出 `email_verified = true`。不限網域的話，就能把自己的外部身分連到租戶裡任何人（包括 super-admin）的帳號。
 所以 email 網域必須屬於這個連線；持有 super-admin、admin、auditor 的帳號即使網域相符也不自動連結，要由本人以密碼登入（或由管理員處理）。
+「持有」含經由群組（含巢狀）持有的角色（[`../rbac/08-groups.md`](../rbac/08-groups.md) §1），以權限解析的主體閉包判斷。
 修改連線的 `issuer` 或 `client_id` 會在同一個交易內刪除它所有的連結（稽核 `metadata.identitiesCleared`、`severity: high`）：
 新的 IdP 發的 `subject` 不代表同一個人。刪除帳號時也一併刪除它的連結（帳號是軟刪除，不會觸發 cascade），同 email 重建的帳號才能再連結。
 

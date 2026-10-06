@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 外部 IdP 自動連結漏看經由群組持有的 admin／auditor | [`external-idp-autolink-ignores-group-roles.md`](./external-idp-autolink-ignores-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 平台端點的網域限制可用大小寫不同的路徑繞過 | [`platform-path-case-insensitive-bypass.md`](./platform-path-case-insensitive-bypass.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 直傳網址未綁定大小、完成後仍可覆寫，繞過上限與容量 | [`presigned-upload-size-not-bound.md`](./presigned-upload-size-not-bound.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 外部 IdP 登入的 state／ticket 沒綁定瀏覽器，可被接管成別人的 session | [`external-idp-state-not-bound-to-browser.md`](./external-idp-state-not-bound-to-browser.md) | 2026-10-06（全面檢測：流程資安） |

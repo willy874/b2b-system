@@ -337,7 +337,7 @@ export class ExternalLoginService {
    * - email 網域必須登記在 **這個** 連線底下：持 `identityProvider:*` 的人可以自架 IdP、對任何 email 簽出
    *   `email_verified`，不限網域就能連到別人的帳號
    * - 帳號不能持有 `member` 以外的系統角色（super-admin、admin、auditor）：這些帳號被接管的代價太高，
-   *   要由本人以密碼登入（或由管理員處理），不自動連結
+   *   要由本人以密碼登入（或由管理員處理），不自動連結。「持有」含經由群組（含巢狀）持有的
    */
   private async assertLinkable(
     provider: { id: string; domains: { domain: string }[] },
@@ -347,7 +347,7 @@ export class ExternalLoginService {
     if (!provider.domains.some((item) => item.domain === domain)) {
       throw new AppException('AUTH_SSO_LINK_NOT_ALLOWED');
     }
-    const roles = await this.users.listRoleSummaries(user.id);
+    const roles = await this.users.listEffectiveRoles(user.id);
     if (roles.some((role) => role.isSystem && role.slug !== MEMBER_SLUG)) {
       throw new AppException('AUTH_SSO_LINK_NOT_ALLOWED');
     }

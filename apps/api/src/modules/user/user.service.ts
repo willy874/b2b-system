@@ -3,6 +3,7 @@ import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
+import { parseSubjectKey } from '@/core/authz';
 import { UserCacheService } from '@/core/cache';
 import type { Database, DbOrTx, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
@@ -11,7 +12,7 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
 import { RESOURCE_TYPE } from '@/core/resource';
-import type { AuditMetadata, UserInsert, UserRow, UserStatus } from '@/db/schema';
+import type { AuditMetadata, RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import { AnnouncementTriggerService } from '@/modules/announcement/announcement-trigger.service';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -752,5 +753,19 @@ export class UserService {
 
   listRoleSummaries(id: string): Promise<UserRoleSummary[]> {
     return this.repo.listRoles(id);
+  }
+
+  /**
+   * 實際持有的（未刪除的）角色：直接持有，加上經由群組（含巢狀）持有的——群組 g 持有 r 時，g 的成員都持有 r
+   * （docs/rbac/08-groups.md §1）。取自權限解析的主體閉包（`role:<id>#holder`），不另外維護一份遞迴查詢。
+   */
+  async listEffectiveRoles(id: string): Promise<Pick<RoleRow, 'id' | 'slug' | 'isSystem'>[]> {
+    const { subjects } = await this.permissionService.getPermissionSet(id);
+    if (!subjects) return this.repo.listRoles(id);
+    const roleIds = subjects.flatMap((key) => {
+      const { object, relation } = parseSubjectKey(key);
+      return object.type === 'role' && relation === 'holder' ? [object.id] : [];
+    });
+    return this.repo.findActiveRolesByIds(roleIds);
   }
 }
