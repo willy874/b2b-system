@@ -1,10 +1,10 @@
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { useTableSelection } from '@b2b-system/ui/Table';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useTableColumnSettingsStore } from '../../store';
+import { clearPinnedRowData, useTableColumnSettingsStore } from '../../store';
 import type { FilterBarProps } from './FilterBar';
 import { RichTable } from './RichTable';
 
@@ -124,7 +124,7 @@ describe('RichTable 的欄位設定', () => {
   ];
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
   });
 
   it('沒有存過設定時照原本順序，套用 defaultHidden', () => {
@@ -183,7 +183,7 @@ describe('RichTable 的欄位固定與固定表頭（依每張表的欄位設定
 
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
   });
 
   it('預設操作欄固定在右側、表頭不固定', () => {
@@ -258,7 +258,7 @@ describe('RichTable 的釘選欄（PinColumn）', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
   });
 
   it('預設隱藏；在欄位設定裡列為可設定的欄位', async () => {
@@ -297,12 +297,13 @@ describe('RichTable 的釘選欄（PinColumn）', () => {
     await pinRowAt(1, 'bottom');
     expect(rowNames()).toEqual(['Carol', 'Bob', 'Alice']);
     expect(screen.getAllByTestId('table-row')[2]).toHaveAttribute('data-pinned-row', 'bottom');
+    // 偏好只記 id 與側邊，資料不落地（docs/architecture/frontend/09-state-and-storage.md §4.2）
     expect(
       JSON.parse(localStorage.getItem('b2b-system:table-column-settings:pinnedRows') ?? '{}'),
     ).toEqual({
       sample: [
-        { id: '3', side: 'top', row: { id: '3', name: 'Carol' } },
-        { id: '1', side: 'bottom', row: { id: '1', name: 'Alice' } },
+        { id: '3', side: 'top' },
+        { id: '1', side: 'bottom' },
       ],
     });
 
@@ -323,6 +324,28 @@ describe('RichTable 的釘選欄（PinColumn）', () => {
       />,
     );
     expect(rowNames()).toEqual(['Alice', 'Carol']);
+  });
+
+  it('session 結束清掉記憶體裡的資料後：其他頁的釘選列不再顯示，回到它所在的頁仍釘在原位', async () => {
+    showPinColumn();
+    const { rerender } = renderTable(rows);
+    await pinRowAt(0, 'top');
+    act(() => clearPinnedRowData());
+
+    const otherPage = (data: Row[]) => (
+      <RichTable
+        data={data}
+        columns={withActionsColumn}
+        getRowId={(row) => row.id}
+        settings={settings}
+      />
+    );
+    rerender(otherPage([{ id: '3', name: 'Carol' }]));
+    expect(rowNames()).toEqual(['Carol']);
+
+    rerender(otherPage(rows));
+    expect(rowNames()).toEqual(['Alice', 'Bob']);
+    expect(screen.getAllByTestId('table-row')[0]).toHaveAttribute('data-pinned-row', 'top');
   });
 
   it('enableRowPinning={false}、沒有 getRowId 或沒有 tableId 時不提供釘選欄', () => {
@@ -369,7 +392,7 @@ describe('RichTable 的勾選欄（CheckboxColumn）', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
   });
 
   it('預設就有勾選欄：呼叫端沒接手時由 RichTable 自己管理選取；enableRowSelection={false} 時沒有', async () => {

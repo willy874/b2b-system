@@ -17,7 +17,7 @@ export const RATE_LIMIT_WINDOW_MS = 60_000;
  * 端點的限流類別；沒標的端點走一般規則（使用者或 IP）。
  * - `auth`：登入、SSO 回呼、帳號流程的 token 端點、租戶代碼查詢、已登入時驗證目前密碼的端點（改密碼）
  * - `authMail`：會寄信或進待審清單的端點（忘記密碼、註冊）
- * - `refresh`：以 refresh cookie 續期
+ * - `refresh`：以 refresh cookie 續期；登出（沒有 bearer 時以 refresh cookie 認人，也不該被一般額度擋下）
  */
 export type RateLimitPolicy = 'auth' | 'authMail' | 'refresh';
 

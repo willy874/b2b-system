@@ -48,6 +48,28 @@ test.describe('認證流程', () => {
     await expectSignedOut(page);
   });
 
+  // 登出的後端撤銷失敗（docs/architecture/04-sso.md §3.4）：不能假裝已登出——IdP session 還在，下一個人會被直接登入。
+  // 重試以 refresh cookie 完成後，IdP session 也結束了：再次登入要重新輸入密碼
+  test('登出請求失敗 → 已登出頁警示並可重試；重試成功後再次登入要重新輸入密碼', async ({
+    page,
+  }) => {
+    await loginAndWaitForHome(page, 'superAdmin');
+    await page.route('**/api/auth/logout', (route) => route.abort());
+
+    await logout(page);
+    await expect(page.getByTestId('logout-incomplete')).toBeVisible();
+    await expect(page).toHaveURL(/\/auth\/login\?.*logout=incomplete/);
+    await snapshot(page, 'logout-incomplete');
+
+    await page.unroute('**/api/auth/logout');
+    await page.getByTestId('logout-retry').click();
+    await expect(page.getByTestId('logout-incomplete')).toHaveCount(0);
+    await expectSignedOut(page);
+
+    await page.getByTestId('login-sso').click();
+    await expectIdpLogin(page);
+  });
+
   test('access token 不進 localStorage（只有 session 旗標）', async ({ page }) => {
     await loginAndWaitForHome(page, 'superAdmin');
     const dump = await page.evaluate(() => JSON.stringify(globalThis.localStorage));

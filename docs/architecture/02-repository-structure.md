@@ -71,7 +71,7 @@ apps/backstage/src/
 ├── index.css                只有 @import '@b2b-system/ui/styles.css'
 │
 ├── app/                     App Shell（只組裝，不實作業務；providers 在 @b2b-system/web-core/shell）
-│   ├── App.tsx              GlobalProvider ＋ SessionWatcher
+│   ├── App.tsx              GlobalProvider ＋ SessionWatcher（web-core/shell）＋ 權限水合
 │   ├── Layout.tsx           依 matcher 決定套哪個 layout
 │   ├── plugin.ts            建立 router，掛到 AppContext
 │   ├── features.ts          執行期啟用的 feature 清單

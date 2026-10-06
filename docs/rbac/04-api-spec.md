@@ -18,7 +18,7 @@
 | ------ | ----------------------- | --------------- | ----------------------------------- |
 | POST   | `/auth/login`           | 🔓              | 帳密登入                            |
 | POST   | `/auth/refresh`         | 🔓（靠 cookie） | 以 refresh token 續期               |
-| POST   | `/auth/logout`          | 🔑              | 撤銷當前 refresh token 家族         |
+| POST   | `/auth/logout`          | 🔓（bearer 或 cookie） | 撤銷當前 refresh token 家族；沒有 bearer 時以 refresh cookie 認人（需 `x-refresh-request: 1`） |
 | GET    | `/auth/profile`         | 🔑              | 取得自己的身分、角色與 **權限集合** |
 | PATCH  | `/auth/profile`         | 🔑              | 修改自己的顯示名稱與偏好設定        |
 | POST   | `/auth/change-password` | 🔑              | 變更自己的密碼（需提供舊密碼）      |

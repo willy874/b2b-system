@@ -5,6 +5,7 @@ import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
+import { AccessTokenVerifier } from '@/common/auth';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
@@ -24,7 +25,7 @@ import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.se
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 import { PlatformRefreshTokenService } from '@/modules/platform-admin/platform-refresh-token.service';
 
-import type { IssuedSession } from './auth.service';
+import type { IssuedSession, LogoutInput } from './auth.service';
 import type {
   ChangePasswordDto,
   PlatformProfileDto,
@@ -53,6 +54,7 @@ export class PlatformAuthService implements OnModuleInit {
     private readonly audit: PlatformAuditService,
     private readonly oidc: OidcProviderService,
     private readonly accounts: PlatformAccountService,
+    private readonly accessTokens: AccessTokenVerifier,
   ) {}
 
   onModuleInit(): void {
@@ -131,9 +133,22 @@ export class PlatformAuthService implements OnModuleInit {
     };
   }
 
-  /** 登出：撤銷家族；經 SSO 登入的一併結束 IdP session（docs/architecture/04-sso.md §12.2 D5）。 */
-  async logout(rawToken: string | undefined, actor: AuthUser): Promise<{ success: true }> {
+  /**
+   * 登出：撤銷家族；經 SSO 登入的一併結束 IdP session（docs/architecture/04-sso.md §12.2 D5）。
+   * 有 bearer 時在這裡驗證，沒有時以 refresh cookie 登出（同 `AuthService.logout`，§3.4）。
+   */
+  async logout(input: LogoutInput): Promise<{ success: true }> {
     this.assertPlatformHost();
+    if (!input.accessToken) return this.logoutByRefreshCookie(input);
+    const verified = await this.accessTokens.verify(input.accessToken);
+    if (!verified.ok) throw new AppException(verified.code);
+    return this.logoutAs(input.refreshToken, verified.user);
+  }
+
+  private async logoutAs(
+    rawToken: string | undefined,
+    actor: AuthUser,
+  ): Promise<{ success: true }> {
     const row = rawToken ? await this.refreshTokens.revokeFamilyOf(rawToken, 'logout') : undefined;
     const idpSessionUid = row?.adminId === actor.id ? row.idpSessionUid : null;
     if (idpSessionUid) await this.endIdpSession(idpSessionUid);
@@ -144,6 +159,27 @@ export class PlatformAuthService implements OnModuleInit {
       actorId: actor.id,
       actorEmail: actor.email,
       metadata: { singleLogout: Boolean(idpSessionUid) },
+    });
+    return { success: true };
+  }
+
+  /** 沒有 access token 的登出：以 refresh cookie 認人，要求 `x-refresh-request: 1`（同 `AuthService` 的同名方法）。 */
+  private async logoutByRefreshCookie({
+    refreshToken,
+    refreshRequested,
+  }: LogoutInput): Promise<{ success: true }> {
+    if (!refreshRequested || !refreshToken) throw new AppException('AUTH_REFRESH_INVALID');
+    const row = await this.refreshTokens.revokeFamilyOf(refreshToken, 'logout');
+    if (!row) throw new AppException('AUTH_REFRESH_INVALID');
+    if (row.idpSessionUid) await this.endIdpSession(row.idpSessionUid);
+    const admin = await this.admins.findById(row.adminId);
+    await this.audit.recordSafely({
+      action: 'platformAuth.logout',
+      resourceType: 'platformAuth',
+      resourceId: row.adminId,
+      actorId: row.adminId,
+      actorEmail: admin?.email ?? 'unknown',
+      metadata: { singleLogout: Boolean(row.idpSessionUid), via: 'refreshCookie' },
     });
     return { success: true };
   }

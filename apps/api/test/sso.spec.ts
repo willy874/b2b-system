@@ -3,14 +3,14 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ObjectStorage } from '@/core/storage';
 import { oidcPayloads, platformAdmins, platformRefreshTokens } from '@/db/platform/schema';
-import { refreshTokens, users } from '@/db/schema';
+import { auditLogs, refreshTokens, users } from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 import { PlatformAuthTokenRepository } from '@/modules/platform-admin/platform-auth-token.repository';
 
@@ -321,6 +321,77 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     await expect(authorize(jar, BACKSTAGE)).rejects.toThrow(/卻被導去登入/);
   });
 
+  describe('登出沒有 bearer 時以 refresh cookie 登出（docs/architecture/04-sso.md §3.4）', () => {
+    it('★ 帶 x-refresh-request：撤銷家族、清掉 cookie、結束 IdP session，稽核記在 cookie 的主人名下', async () => {
+      const jar = new CookieJar();
+      const cookie = refreshCookieOf(
+        await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200),
+      );
+
+      const response = await logoutWithCookie(cookie).set('x-refresh-request', '1').expect(200);
+
+      expect(String(response.headers['set-cookie'])).toMatch(/refresh_token=;/);
+      expect((await refreshFamilyOf(cookie))?.revokedReason).toBe('logout');
+      await expect(authorize(jar, BACKSTAGE)).rejects.toThrow(/卻被導去登入/);
+      const [audit] = await db
+        .select()
+        .from(auditLogs)
+        .where(and(eq(auditLogs.action, 'auth.logout'), eq(auditLogs.actorId, userId)))
+        .orderBy(desc(auditLogs.id))
+        .limit(1);
+      expect(audit).toMatchObject({
+        actorEmail: USER.email,
+        metadata: { clientId: 'backstage', singleLogout: true, via: 'refreshCookie' },
+      });
+    });
+
+    it('重試：家族已撤銷（上一次只完成一半）仍回 200', async () => {
+      const cookie = refreshCookieOf(
+        await callback(BACKSTAGE, await authorize(new CookieJar(), BACKSTAGE, USER)).expect(200),
+      );
+      await logoutWithCookie(cookie).set('x-refresh-request', '1').expect(200);
+      await logoutWithCookie(cookie).set('x-refresh-request', '1').expect(200);
+    });
+
+    it('沒帶 x-refresh-request（CSRF 緩解）、沒有或不認得的 cookie → 401 AUTH_REFRESH_INVALID，什麼都不撤銷', async () => {
+      const jar = new CookieJar();
+      const cookie = refreshCookieOf(
+        await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200),
+      );
+
+      const withoutHeader = await logoutWithCookie(cookie).expect(401);
+      expect(errorCode(withoutHeader)).toBe('AUTH_REFRESH_INVALID');
+      expect((await refreshFamilyOf(cookie))?.revokedAt).toBeNull();
+      // IdP session 還在：不帶密碼就拿得到授權碼
+      await authorize(jar, BACKSTAGE);
+
+      const unknown = await logoutWithCookie('refresh_token=not-a-real-token')
+        .set('x-refresh-request', '1')
+        .expect(401);
+      expect(errorCode(unknown)).toBe('AUTH_REFRESH_INVALID');
+      const none = await request(http)
+        .post('/auth/logout')
+        .set('Host', BACKSTAGE.host)
+        .set('x-refresh-request', '1')
+        .expect(401);
+      expect(errorCode(none)).toBe('AUTH_REFRESH_INVALID');
+    });
+
+    it('帶了 bearer 就照舊驗證：無效的 token → 401，不改走 cookie', async () => {
+      const cookie = refreshCookieOf(
+        await callback(BACKSTAGE, await authorize(new CookieJar(), BACKSTAGE, USER)).expect(200),
+      );
+
+      const response = await logoutWithCookie(cookie)
+        .set('authorization', 'Bearer not-a-jwt')
+        .set('x-refresh-request', '1')
+        .expect(401);
+
+      expect(errorCode(response)).toBe('AUTH_TOKEN_INVALID');
+      expect((await refreshFamilyOf(cookie))?.revokedAt).toBeNull();
+    });
+  });
+
   it('同一個 IdP session 換租戶或換成平台 → 要求重新登入（D9），登入後換成新的身分', async () => {
     const jar = new CookieJar();
     await callback(BACKSTAGE, await authorize(jar, BACKSTAGE, USER)).expect(200);
@@ -596,6 +667,28 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
       await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
       expect(tokenOf(refreshed)).toBeTruthy();
     });
+
+    it('沒有 bearer：以 refresh cookie 登出（需 x-refresh-request），一併結束 IdP session；租戶網域上 PLATFORM_ONLY', async () => {
+      const jar = new CookieJar();
+      const cookie = refreshCookieOf(
+        await callback(AUTH_APP, await authorize(jar, AUTH_APP, PLATFORM_ADMIN)).expect(200),
+      );
+      const logout = (host: string) =>
+        request(http).post('/platform/auth/logout').set('Host', host).set('cookie', cookie);
+
+      expect(errorCode(await logout(BACKSTAGE.host).set('x-refresh-request', '1'))).toBe(
+        'PLATFORM_ONLY',
+      );
+      expect(errorCode(await logout(AUTH_HOST).expect(401))).toBe('AUTH_REFRESH_INVALID');
+
+      await logout(AUTH_HOST).set('x-refresh-request', '1').expect(200);
+      const [row] = await platformDb
+        .select()
+        .from(platformRefreshTokens)
+        .where(eq(platformRefreshTokens.tokenHash, sha256Of(cookie)));
+      expect(row?.revokedReason).toBe('logout');
+      await expect(authorize(jar, AUTH_APP)).rejects.toThrow(/卻被導去登入/);
+    });
   });
 
   describe('平台管理者的憑證失效：IdP session 一起結束（docs/architecture/04-sso.md §3.5、§12.2 D17）', () => {
@@ -810,4 +903,18 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
 
 function sha256Of(cookie: string): string {
   return createHash('sha256').update(cookie.slice('refresh_token='.length)).digest('hex');
+}
+
+/** 租戶網域上不帶 bearer 的登出（以 refresh cookie 認人）。 */
+function logoutWithCookie(cookie: string): request.Test {
+  return request(http).post('/auth/logout').set('Host', BACKSTAGE.host).set('cookie', cookie);
+}
+
+/** 這個 refresh cookie 在租戶 DB 的那一列。 */
+async function refreshFamilyOf(cookie: string) {
+  const [row] = await db
+    .select()
+    .from(refreshTokens)
+    .where(eq(refreshTokens.tokenHash, sha256Of(cookie)));
+  return row;
 }

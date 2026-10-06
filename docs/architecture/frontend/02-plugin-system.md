@@ -380,7 +380,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | --- | --- | --- |
 | catalog | `app/features.ts` 的 `FEATURE_CATALOG` | id → `{ plugin, routes, requires? }`；`satisfies Record<TenantFeature, …>` 對齊後端 |
 | 安裝器 | `core/feature/FeatureActivator.ts` | 比對清單，`install` / `uninstall`；狀態寫進 `featureStore` |
-| 同步 | `app/features.ts` 的 `useSyncFeatures()`（掛在 `SessionWatcher`） | 把 profile 的 `features` 與 `flags` 交給安裝器 |
+| 同步 | `app/features.ts` 的 `useSyncFeatures()`（掛在 `app/App.tsx` 的 `ProfileSync`） | 把 profile 的 `features` 與 `flags` 交給安裝器 |
 | route guard | 最上層 route 的 `beforeLoad: requireFeature(<ID>)` | 已安裝 → 通過；未定 → 等待；未啟用 → 404；安裝失敗 → 錯誤頁 |
 | 第二道防線 | `app/Layout.tsx` 的 `useFeatureGate()` | 同上的判斷，避免「頁面權限還沒註冊」被當成不受管而放行 |
 

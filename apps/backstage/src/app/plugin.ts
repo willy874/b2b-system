@@ -9,12 +9,15 @@ import { NotFoundPage, RouteErrorPage } from '@/core/components';
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
 import { routeTree } from './routes';
 
-function createAppRouter() {
+export function createAppRouter() {
   return createRouter({
     routeTree,
     context: { queryClient },
     defaultPreload: 'intent',
     defaultPendingMs: 200,
+    // 路徑分大小寫：頁面權限守衛（Layout 的 usePageAccess）以網址上原樣的路徑比對頁面鍵，
+    // router 若不分大小寫，`/USER`、`/User/create` 會命中頁面卻查不到頁面鍵而略過 403（docs/architecture/frontend/04-routing.md §4）
+    caseSensitive: true,
     // 未知網址、頁面載入失敗（含部署後舊 chunk 不見）與載入中顯示本地化的頁面，不用框架預設的英文畫面
     defaultNotFoundComponent: NotFoundPage,
     defaultErrorComponent: RouteErrorPage,

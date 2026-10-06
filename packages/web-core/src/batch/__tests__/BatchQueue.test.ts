@@ -174,6 +174,74 @@ describe('批次佇列（docs/architecture/frontend/07-ui-system.md §13）', ()
     await waitFor(() => expect(tab.getJobs()).toHaveLength(0));
   });
 
+  it('★ reset（session 結束）：所有分頁的工作都清空，含已結束的；處理中那一筆晚到的結果不會把工作加回來', async () => {
+    const pending = deferred();
+    registerBatchOperation({
+      id: 'done-op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: async () => {
+        throw new AppError('USER_NOT_LOCKED', 409);
+      },
+    });
+    registerBatchOperation({
+      id: 'slow-op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: () => pending.promise,
+    });
+    const owner = queue.openTab('tab-a');
+    const other = queue.openTab('tab-b');
+    await Promise.all([owner.start(), other.start()]);
+
+    owner.enqueue({ operation: 'done-op', scope: 'list', items: items('1') });
+    owner.enqueue({ operation: 'slow-op', scope: 'list', items: items('2') });
+    await waitFor(() =>
+      expect(other.getJobs().map((job) => job.status)).toEqual(['done', 'running']),
+    );
+    const finished = vi.fn();
+    owner.events.on('finished', finished);
+
+    owner.reset();
+    await waitFor(() => expect(other.getJobs()).toEqual([]));
+    expect(owner.getJobs()).toEqual([]);
+    expect(queue.host.getJobs()).toEqual([]);
+
+    // 被中止的那一筆晚到：佇列已不認得它，不會把工作加回來，也不彈出結果。
+    // 等 pending 之後，執行端的結果已經送出；之後送的工作排在它後面，處理完就代表晚到的結果也處理過了
+    pending.resolve();
+    await pending.promise;
+    const next = owner.enqueue({ operation: 'done-op', scope: 'list', items: items('3') });
+    await waitFor(() => expect(other.getJobs().map((job) => job.id)).toEqual([next]));
+    expect(other.getJobs()[0]?.status).toBe('done');
+    expect(finished.mock.calls.map(([job]) => (job as BatchJob).id)).toEqual([next]);
+  });
+
+  it('reset 中止處理中的項目（操作有接 signal 時立即停止）', async () => {
+    let signal: AbortSignal | undefined;
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: (_id, context) =>
+        new Promise((_resolve, reject) => {
+          signal = context.signal;
+          context.signal.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    });
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+    tab.enqueue({ operation: 'op', scope: 'list', items: items('1') });
+    await waitFor(() => expect(signal).toBeDefined());
+
+    tab.reset();
+
+    await waitFor(() => expect(signal?.aborted).toBe(true));
+    await waitFor(() => expect(tab.getJobs()).toEqual([]));
+  });
+
   it('dedicated worker：分頁離開時宣告佇列消失，其他分頁移除它的工作', async () => {
     const pending = deferred();
     registerBatchOperation({
@@ -303,6 +371,56 @@ describe('批次佇列：並行、進度與中止（docs/architecture/frontend/1
       succeeded: [],
       failures: [],
     });
+  });
+});
+
+describe('批次佇列：只顯示目前身分的工作（docs/architecture/frontend/07-ui-system.md §13.2 D12）', () => {
+  it('工作記下送出時的身分；其他身分的分頁看不到，換回同一個身分才看得到', async () => {
+    const pending = deferred();
+    registerBatchOperation({
+      id: 'op',
+      labelKey: 'x',
+      successKey: 'y',
+      run: () => pending.promise,
+    });
+    let otherIdentity: string | undefined = 'tenant:bob';
+    const alice = queue.openTab('tab-a', { principal: () => 'tenant:alice' });
+    const other = queue.openTab('tab-b', { principal: () => otherIdentity });
+    await Promise.all([alice.start(), other.start()]);
+
+    alice.enqueue({ operation: 'op', scope: 'list', items: items('1') });
+    await waitFor(() => expect(alice.getJobs()).toHaveLength(1));
+    expect(alice.getJobs()[0]?.principal).toBe('tenant:alice');
+    expect(queue.host.getJobs()).toHaveLength(1);
+    expect(other.getJobs()).toEqual([]);
+
+    otherIdentity = 'tenant:alice';
+    other.principalChanged();
+    expect(other.getJobs()).toHaveLength(1);
+
+    // 登出（沒有身分）後什麼都看不到
+    otherIdentity = undefined;
+    other.principalChanged();
+    expect(other.getJobs()).toEqual([]);
+  });
+
+  it('不是目前身分的工作結束時不彈出結果', async () => {
+    let identity: string | undefined = 'tenant:alice';
+    const tab = queue.openTab('tab-a', { principal: () => identity });
+    await tab.start();
+    const finished = vi.fn();
+    tab.events.on('finished', finished);
+    const gate = deferred();
+    registerBatchOperation({ id: 'slow', labelKey: 'x', successKey: 'y', run: () => gate.promise });
+
+    tab.enqueue({ operation: 'slow', scope: 'list', items: items('1') });
+    await waitFor(() => expect(tab.getJobs()[0]?.status).toBe('running'));
+    identity = 'tenant:bob';
+    tab.principalChanged();
+    gate.resolve();
+
+    await waitFor(() => expect(queue.host.getJobs()[0]?.status).toBe('done'));
+    expect(finished).not.toHaveBeenCalled();
   });
 });
 

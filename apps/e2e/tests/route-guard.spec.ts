@@ -14,6 +14,16 @@ test.describe('路由守衛與選單過濾', () => {
     await snapshot(page, 'forbidden');
   });
 
+  // 路徑分大小寫（docs/architecture/frontend/04-routing.md §4）：大小寫不符的網址是 404，不會繞過 403 頁打開對話框
+  test('auditor 直接進入 /User/create 看到 404 頁，不會打開建立使用者的對話框', async ({
+    page,
+  }) => {
+    await loginAndWaitForHome(page, 'auditor');
+    await page.goto('/User/create');
+    await expect(page.getByTestId('not-found-page')).toBeVisible();
+    await expect(page.getByTestId('user-create-dialog')).toHaveCount(0);
+  });
+
   test('member 沒有任何管理選單，直接打 /role 看到 403', async ({ page }) => {
     await loginAndWaitForHome(page, 'member');
     await expect(page.getByTestId('menu-user')).toHaveCount(0);
@@ -21,6 +31,13 @@ test.describe('路由守衛與選單過濾', () => {
 
     await page.goto('/role');
     await expect(page.getByTestId('forbidden-page')).toBeVisible();
+  });
+
+  test('member 直接打 /ROLE 看到 404 頁，不會出現角色列表的外框', async ({ page }) => {
+    await loginAndWaitForHome(page, 'member');
+    await page.goto('/ROLE');
+    await expect(page.getByTestId('not-found-page')).toBeVisible();
+    await expect(page.getByTestId('role-list-page')).toHaveCount(0);
   });
 
   test('auditor 看得到唯讀選單，但沒有建立按鈕', async ({ page }) => {

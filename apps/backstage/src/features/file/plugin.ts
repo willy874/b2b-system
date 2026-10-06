@@ -13,7 +13,11 @@ import { registerFilePagePermissions } from './permission';
 import { registerBuiltinFilePreviewers } from './preview/builtins';
 import { registerFileRouteLinks } from './routeLinks';
 import { registerFileTrashTypes } from './trash';
-import { UPLOAD_SOURCE_MAX_AGE_MS, uploadSources } from './upload/uploadSources';
+import {
+  clearUploadSourcesOnSessionEnd,
+  UPLOAD_SOURCE_MAX_AGE_MS,
+  uploadSources,
+} from './upload/uploadSources';
 import { imageSignatureValidator, maxSizeValidator } from './upload/validators';
 
 /** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/frontend/02-plugin-system.md §9.2 D1）。 */
@@ -30,6 +34,7 @@ export function appContextPlugin(): AppDynamicPluginFactory {
     registerFileValidator(imageSignatureValidator);
     registerThumbnailGenerator(imageThumbnailGenerator);
     const app = context.getInstance();
+    let offSessionEnd: (() => void) | undefined;
 
     return {
       name: 'app-file-feature-plugin',
@@ -47,7 +52,10 @@ export function appContextPlugin(): AppDynamicPluginFactory {
         );
         // 分頁當掉留下的排隊檔案；不等它完成，失敗也無妨
         void uploadSources.prune(UPLOAD_SOURCE_MAX_AGE_MS);
+        // session 結束時清掉排隊中的檔案；feature 被停用（卸載）時解除
+        offSessionEnd = clearUploadSourcesOnSessionEnd();
       },
+      onDestroy: () => offSessionEnd?.(),
     };
   };
 }

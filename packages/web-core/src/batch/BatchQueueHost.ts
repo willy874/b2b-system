@@ -161,6 +161,7 @@ export class BatchQueueHost {
           ...message.input,
           items,
           ownerId: clientId,
+          ...(message.principal !== undefined && { principal: message.principal }),
           status: 'queued',
           succeeded: [],
           failures: [],
@@ -194,6 +195,9 @@ export class BatchQueueHost {
       case 'clear-finished':
         this.jobs = this.jobs.filter(isActive);
         this.broadcast();
+        return;
+      case 'reset':
+        this.reset();
         return;
       case 'capabilities':
         if (!clientId) return;
@@ -295,6 +299,21 @@ export class BatchQueueHost {
       }
       if (inFlight.length === 0) this.notifyFinished(job);
     }
+    this.broadcast();
+  }
+
+  /**
+   * session 結束（docs/architecture/frontend/07-ui-system.md §13.2 D12）：中止處理中的項目、移除所有工作（含已結束的），
+   * 廣播空的快照。不送結束通知：結果清單是上一個人的操作紀錄，不能在下一個人的畫面彈出。
+   * 處理中的那幾筆已不在 `running`：晚到的結果與進度一律略過，不會把工作加回來。
+   */
+  private reset(): void {
+    for (const run of this.running.values()) {
+      const port = this.clients.get(run.clientId);
+      if (port) this.send(port, { type: 'abort', jobId: run.jobId, itemId: run.itemId });
+    }
+    this.running.clear();
+    this.jobs = [];
     this.broadcast();
   }
 

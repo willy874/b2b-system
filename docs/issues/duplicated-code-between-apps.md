@@ -9,7 +9,6 @@
 | `app/layouts/SidebarNav.tsx` 的渲染部分 | platform L93–227 ／ backstage L179–313 | class 前綴 `ga-` 換成 `ge-` 之後完全相同；只差上方的選單資料 |
 | `app/layouts/DashboardLayout.css` | 262／262 | 換掉 class 前綴之後完全相同 |
 | `app/layouts/DashboardLayout.tsx` | 157／174 | 71 行不同（選單、品牌、帳號選單項目） |
-| `app/App.tsx`（`SessionWatcher`） | 64／68 | 12 行不同 |
 | platform `app/ErrorPages.tsx` ↔ backstage `core/components/ErrorPage/ErrorPage.tsx` | 152／166 | `CHUNK_ERROR_PATTERN`、`isChunkLoadError()`（platform L13–19 ／ backstage L37–43）照抄；`ForbiddenPage`、`NotFoundPage`、`RouteErrorPage` 結構相同 |
 | `features/login/pages/AuthShell.tsx` ↔ `features/auth/pages/AuthShell.tsx` | 28／28 | 完全相同 |
 | `…/pages/SsoCallback/page.tsx` | 74／74 | 8 行不同 |
@@ -26,7 +25,6 @@ backstage 的程式裡有兩處註解自己承認是複製的：
 
 已經分岔的例子（一邊改了，另一邊沒跟上）：
 
-- `SessionWatcher` 結束 session 時沒有略過未儲存提醒，見 [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md)。
 - `JobQueueSummary`：平台 L43 的失敗數 Chip 有 `data-testid="job-queue-failed"` 與 `data-value`；backstage 沒有。
   E2E 在 backstage 無法用同樣的方式斷言。
 - 改密碼的註解：
@@ -49,15 +47,16 @@ backstage 的程式裡有兩處註解自己承認是複製的：
 
 依影響大小，依序搬進 `packages/web-core`（判斷依據是 17 §2 的表）：
 
-1. `SessionWatcher` → `web-core/shell`：參數是登入路徑，以及額外的同步 hook（backstage 的 `useSyncFeatures`）。
-2. `isChunkLoadError()`、`RouteErrorPage`、403／404 頁 → `web-core/components`。各 app 只留文案或外框的差異。
-3. `AuthShell` → `web-core/components`（只用到 `app.title` 一個字串）。
-4. 側欄 → `web-core/layout` 的 `SideNav`：
+（`SessionWatcher` 已於 2026-10-06 搬進 `web-core/shell`，見 [`17-shared-packages.md`](../architecture/frontend/17-shared-packages.md) §3.4。）
+
+1. `isChunkLoadError()`、`RouteErrorPage`、403／404 頁 → `web-core/components`。各 app 只留文案或外框的差異。
+2. `AuthShell` → `web-core/components`（只用到 `app.title` 一個字串）。
+3. 側欄 → `web-core/layout` 的 `SideNav`：
    - 選單資料由 props 傳入。
    - 樣式改成 CSS Module，`DashboardLayout.css` 不再以 `ge-`／`ga-` 全域 class 各寫一份。
-5. 改密碼 → `web-core` 的 `ChangePasswordSection`：接收各 app 的 mutation options 與登出原因常數。
-6. job、audit-log 列表的展示元件：欄位設定（例如平台的租戶欄）改成參數。
-7. 搬完之後刪掉「與 apps/platform … 相同」這類註解，並更新 17 §5 的清單。
+4. 改密碼 → `web-core` 的 `ChangePasswordSection`：接收各 app 的 mutation options 與登出原因常數。
+5. job、audit-log 列表的展示元件：欄位設定（例如平台的租戶欄）改成參數。
+6. 搬完之後刪掉「與 apps/platform … 相同」這類註解，並更新 17 §5 的清單。
 
 ## 驗證方式
 

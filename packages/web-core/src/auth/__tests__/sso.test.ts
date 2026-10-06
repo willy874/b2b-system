@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createAuthorizationUrl,
   discardPendingLogin,
+  endSessionUrlOf,
   readPendingLogin,
   safeReturnTo,
 } from '../sso';
@@ -40,6 +41,13 @@ describe('SSO 的瀏覽器端（docs/architecture/04-sso.md §12）', () => {
     expect(params.get('code_challenge')).toBe(await sha256Base64Url(pending!.verifier));
   });
 
+  it('end-session 網址：client 與登出後回到的頁面（伺服器端登出失敗時的手動退路，§3.4）', () => {
+    const url = new URL(endSessionUrlOf(CONFIG, '/auth/login'));
+    expect(`${url.origin}${url.pathname}`).toBe('https://auth.example.com/api/oidc/session/end');
+    expect(url.searchParams.get('client_id')).toBe('backstage');
+    expect(url.searchParams.get('post_logout_redirect_uri')).toBe(`${location.origin}/auth/login`);
+  });
+
   it('丟棄之後取不到；不認識的 state 取不到', async () => {
     const url = new URL(await createAuthorizationUrl(CONFIG, undefined));
     const state = url.searchParams.get('state') ?? undefined;
@@ -59,6 +67,13 @@ describe('SSO 的瀏覽器端（docs/architecture/04-sso.md §12）', () => {
     // 編碼過的反斜線只是路徑的一部分，留在同一個 origin
     ['/%5Cevil.example.com', '/%5Cevil.example.com'],
     ['/users#row-1', '/users#row-1'],
+    // 路徑段正規化後變成 `//evil.example.com`：origin 仍是本站，回傳值卻是 protocol-relative 的外站網址
+    ['/.//evil.example.com', '/'],
+    ['/a/..//evil.example.com', '/'],
+    ['/%2e//evil.example.com', '/'],
+    ['/./\\evil.example.com', '/'],
+    // 一般的路徑正規化不受影響
+    ['/a/../users', '/users'],
     [undefined, '/'],
   ])('safeReturnTo(%s) → %s（只接受同 origin 的路徑）', (input, expected) => {
     expect(safeReturnTo(input)).toBe(expected);

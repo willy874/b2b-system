@@ -29,13 +29,19 @@ const TAG = 'ge-batch-queue';
 export type BatchClientMessage =
   | { type: 'hello'; clientId: string }
   | { type: 'bye' }
-  | { type: 'enqueue'; jobId: string; input: BatchJobInput }
+  /** `principal`：送出時登入的身分（`SessionStore.getIdentity()`）；佇列記在工作上，各分頁只顯示目前身分的工作。 */
+  | { type: 'enqueue'; jobId: string; input: BatchJobInput; principal?: string }
   | { type: 'result'; jobId: string; itemId: string; error?: BatchItemError }
   | { type: 'progress'; jobId: string; itemId: string; progress: BatchItemProgress }
   | { type: 'cancel'; jobId: string }
   | { type: 'cancel-all' }
   | { type: 'dismiss'; jobId: string }
   | { type: 'clear-finished' }
+  /**
+   * session 結束：中止處理中的項目、移除所有工作（含已結束的），不彈出結果——
+   * 項目名稱（email、檔名）是上一個人的操作紀錄（docs/architecture/frontend/07-ui-system.md §13.2 D12）。
+   */
+  | { type: 'reset' }
   /**
    * 這個分頁能執行哪些操作（docs/architecture/frontend/02-plugin-system.md §9.2 D10）：feature 在執行期安裝或卸載，
    * 各分頁的註冊表可能暫時不同。佇列只把項目交給宣告過支援的分頁；沒送過的分頁視為全部支援。
