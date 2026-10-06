@@ -14,7 +14,7 @@ export const PermissionSearchQuerySchema = z.object({
   view: z.enum(PERMISSION_VIEWS).default('list').catch('list'),
   /** 比對權限名稱（目前語系）與權限鍵，不分大小寫。 */
   keyword: z.string().trim().max(100).optional().catch(undefined),
-  /** 只看這些資源；網址上重複的 `resource` 成為陣列（`core/router/search.ts`）。 */
+  /** 只看這些資源；網址上重複的 `resource` 成為陣列（`web-core/router/search.ts`）。 */
   resource: z
     .union([z.string(), z.array(z.string())])
     .transform((value) => (Array.isArray(value) ? value : [value]))

@@ -108,7 +108,10 @@ import { RoleFilter } from './components/RoleFilter';
 ## 5. 註解
 
 - 註解寫 **為什麼**，不寫程式碼已經說清楚的 **做什麼**。
-- 引用規格時寫出處：`（docs/architecture/backend/05-rbac.md §7）`。搬動文件時要一起改。
+- 引用規格時寫出處：`（docs/architecture/backend/05-rbac.md §7）`。搬動文件或程式時要一起改。
+  前端（兩個 app 與 `packages/{web-shared,ui,web-core}`）🔒 由 `packages/web-core/src/__tests__/comment-paths.test.ts` 檢查註解裡的路徑存在：
+  從 repo 根目錄寫起的 `apps/…`、`packages/…`、`docs/…`；反引號括住的 `core/…`、`app/…`、`apis/…`、`features/…` 等（app 的 `src/` 底下）
+  與 `web-core/…`、`ui/…`、`web-shared/…`（`packages/<名稱>/src/` 底下）。web-core 的檔案在 app 的註解裡寫 `web-core/…`，不寫 `core/…`。
 - 與文件不同的實作決定，在程式碼註解說明原因，並登記到根目錄 `CLAUDE.md`
   的「與文件不同的實作決定」表。
 - 公開 API（`core/`、`common/`、`packages/web-shared`、`packages/ui`、`packages/web-core` 匯出的東西）用 `/** */`，

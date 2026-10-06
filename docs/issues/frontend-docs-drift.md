@@ -38,7 +38,7 @@
 
 - [`frontend/04-routing.md`](../architecture/frontend/04-routing.md) §6（L274 起）以 `RoleDetailRoute` 的 route context eventBus 當範例，說明子頁 `emit`、工具列 `on`。
 - 程式裡 `features/role/routes/pages.ts` L31–36 仍然建立這個 `EventEmitter`，但全 repo 沒有任何 `emit` 或 `on`。
-- 刪除死碼見 [`frontend-dead-code-and-stale-comments.md`](./frontend-dead-code-and-stale-comments.md)。
+- 程式的死碼與 04 §6 已在 2026-10-07 一併處理（`refactor: 刪除前端沒有人用的程式與 route context 的範例`）。
 
 ## 影響
 
