@@ -1,9 +1,11 @@
 import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
-import { AppException } from '@/core/errors';
+import { PLATFORM_DB, withTransaction } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
+import { AppException, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { JobQueue } from '@/core/jobs';
 import type { PlatformAdminRow } from '@/db/platform/schema';
@@ -22,6 +24,17 @@ import type {
 import { PLATFORM_ACCOUNT_MAIL_JOB } from './platform-admin.constants';
 import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';
+import { PlatformAuthTokenRepository } from './platform-auth-token.repository';
+
+/** 登入失敗鎖定中（`locked_until` 未到期）。鎖定不改 `status`（docs/architecture/backend/04-auth.md §3.3）。 */
+function isLoginLocked(admin: PlatformAdminRow): boolean {
+  return admin.lockedUntil !== null && admin.lockedUntil.getTime() > Date.now();
+}
+
+/** 對外顯示的狀態：`active` 而鎖定中時是 `locked`（同租戶的 `displayStatusOf`），管理介面據此顯示與解鎖。 */
+function displayStatusOf(admin: PlatformAdminRow): PlatformAdminRow['status'] {
+  return admin.status === 'active' && isLoginLocked(admin) ? 'locked' : admin.status;
+}
 
 function toDto(admin: PlatformAdminRow): PlatformAdminDto {
   return {
@@ -29,7 +42,7 @@ function toDto(admin: PlatformAdminRow): PlatformAdminDto {
     email: admin.email,
     displayName: admin.displayName,
     role: admin.role,
-    status: admin.status,
+    status: displayStatusOf(admin),
     lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
     createdAt: admin.createdAt.toISOString(),
   };
@@ -38,12 +51,15 @@ function toDto(admin: PlatformAdminRow): PlatformAdminDto {
 /**
  * 平台管理者的管理（docs/architecture/05-tenancy.md §10.2 D5；`platformAdmin:*` 只有 super-admin 有）。
  * 規則同租戶的使用者管理：不接受密碼（一律寄設定密碼的連結）、不能改自己的角色與狀態、
- * 不能讓最後一位 `active` 的 super-admin 消失；停用即撤銷 session。
+ * 不能讓最後一位 `active` 的 super-admin 消失；停用即撤銷 session 與已寄出的連結。
+ * 寫入與稽核在同一個交易；快取失效、事件、通知、寄信在提交之後（CLAUDE.md 後端規則 6）。
  */
 @Injectable()
 export class PlatformAdminManagementService {
   constructor(
+    @Inject(PLATFORM_DB) private readonly db: PlatformDatabase,
     private readonly repo: PlatformAdminRepository,
+    private readonly tokens: PlatformAuthTokenRepository,
     private readonly audit: PlatformAuditService,
     private readonly jobs: JobQueue,
     private readonly userCache: UserCacheService,
@@ -57,19 +73,24 @@ export class PlatformAdminManagementService {
 
   async create(dto: CreatePlatformAdminDto): Promise<PlatformAdminDto> {
     if (await this.repo.findByEmail(dto.email)) throw new AppException('USER_EMAIL_DUPLICATE');
-    const admin = await this.repo.create(dto).catch((error: unknown) => {
+    const admin = await withTransaction(this.db, async (tx) => {
+      const created = await this.repo.create(dto, tx);
+      await this.audit.record(
+        {
+          action: 'platformAdmin.create',
+          resourceType: 'platformAdmin',
+          resourceId: created.id,
+          metadata: { email: created.email, role: created.role },
+        },
+        tx,
+      );
+      return created;
+    }).catch((error: unknown) => {
       // 同時建立同一個 email：唯一索引擋下
-      if ((error as { code?: string }).code === '23505') {
-        throw new AppException('USER_EMAIL_DUPLICATE');
-      }
+      if (isUniqueViolation(error)) throw new AppException('USER_EMAIL_DUPLICATE');
       throw error;
     });
-    await this.audit.record({
-      action: 'platformAdmin.create',
-      resourceType: 'platformAdmin',
-      resourceId: admin.id,
-      metadata: { email: admin.email, role: admin.role },
-    });
+    // 平台工作不能在交易裡入列：提交之後才寄。入列失敗時管理介面的「寄設定密碼的連結」可以補寄
     await this.jobs.enqueue(PLATFORM_ACCOUNT_MAIL_JOB, {
       adminId: admin.id,
       purpose: 'activation',
@@ -87,52 +108,68 @@ export class PlatformAdminManagementService {
     const roleChanged = dto.role !== undefined && dto.role !== admin.role;
     const nextStatus = this.nextStatus(admin, dto.status);
     const statusChanged = nextStatus !== admin.status;
+    // 顯示為 locked 的人改成 active＝解鎖：清掉失敗計數與鎖定到期時間（status 本來就是 active）
+    const unlocking = dto.status === 'active' && displayStatusOf(admin) === 'locked';
+    const deactivating = statusChanged && nextStatus === 'inactive';
     if ((roleChanged || statusChanged) && actor.id === id) {
       throw new AppException('AUTHZ_SELF_MODIFY');
     }
-    // 只有 active 的 super-admin 能管理平台管理者，而且不能改自己：經 API 時一定還有另一位（執行者本人）。
-    // 仍然檢查——之後若開放別的角色管理管理者，這條規則不能靠呼叫端記得
     const losesSuperAdmin =
       admin.role === 'super-admin' &&
       admin.status === 'active' &&
       ((roleChanged && dto.role !== 'super-admin') || nextStatus !== 'active');
-    if (losesSuperAdmin && (await this.repo.countActiveSuperAdmins(id)) < 1) {
-      throw new AppException('LAST_SUPER_ADMIN');
-    }
 
-    const patch = {
-      displayName: dto.displayName,
-      role: dto.role,
-      status: nextStatus,
-      // 解鎖：同時清掉失敗計數
-      ...(admin.status === 'locked' && nextStatus === 'active'
-        ? { failedLoginCount: 0, lockedUntil: null }
-        : {}),
-    };
-    if (statusChanged && nextStatus === 'inactive') {
-      await this.repo.updateAndEndSessions(id, patch, 'user_disabled');
-    } else {
-      await this.repo.update(id, patch);
-    }
-    this.userCache.invalidate(id);
-
-    await this.audit.record({
-      action: 'platformAdmin.update',
-      resourceType: 'platformAdmin',
-      resourceId: id,
-      metadata: {
-        email: admin.email,
-        before: { displayName: admin.displayName, role: admin.role, status: admin.status },
-        after: {
-          displayName: dto.displayName ?? admin.displayName,
-          role: dto.role ?? admin.role,
+    await withTransaction(this.db, async (tx) => {
+      // 「最後一位 super-admin」：鎖 → 計數 → 寫入在同一個交易，兩位 super-admin 同時互相降級時只有一個成功
+      // （docs/architecture/backend/05-rbac.md §8.2）
+      if (losesSuperAdmin) {
+        await this.repo.lockSuperAdminGuard(tx);
+        if ((await this.repo.countActiveSuperAdmins(id, tx)) < 1) {
+          throw new AppException('LAST_SUPER_ADMIN');
+        }
+      }
+      await this.repo.update(
+        id,
+        {
+          displayName: dto.displayName,
+          role: dto.role,
           status: nextStatus,
+          ...(unlocking ? { failedLoginCount: 0, lockedUntil: null } : {}),
         },
-      },
+        tx,
+      );
+      if (deactivating) {
+        // 停用：既存的 access token 失效、refresh token 撤銷，已寄出還沒用的啟用與重設連結一併作廢
+        await this.repo.incrementTokenVersion(id, tx);
+        await this.repo.revokeRefreshTokens(id, 'user_disabled', tx);
+        await this.tokens.revokeUnused(id, tx);
+      }
+      await this.audit.record(
+        {
+          action: 'platformAdmin.update',
+          resourceType: 'platformAdmin',
+          resourceId: id,
+          metadata: {
+            email: admin.email,
+            before: {
+              displayName: admin.displayName,
+              role: admin.role,
+              status: displayStatusOf(admin),
+            },
+            after: {
+              displayName: dto.displayName ?? admin.displayName,
+              role: dto.role ?? admin.role,
+              status: nextStatus,
+            },
+          },
+        },
+        tx,
+      );
     });
+    this.userCache.invalidate(id);
     this.changed(ChangeKind.UPDATE, id);
-    // 停用：這個人在 apps/platform 上的即時連線一起斷掉（docs/architecture/backend/08-realtime.md §3.6）
-    if (statusChanged && nextStatus === 'inactive') {
+    // 停用：這個人在 apps/platform 上的即時連線與 IdP session 一起結束（docs/architecture/backend/08-realtime.md §3.6）
+    if (deactivating) {
       this.events.publish(DomainEvent.SESSIONS_REVOKED, {
         platformAdminIds: [id],
         reason: SessionRevokedReason.ACCOUNT_DISABLED,
@@ -175,7 +212,7 @@ export class PlatformAdminManagementService {
     return admin;
   }
 
-  /** 還沒啟用的人只能靠啟用信變成 `active`；其他狀態依要求改（`locked` → `active` 即解鎖）。 */
+  /** 還沒啟用的人只能靠啟用信變成 `active`；其他狀態依要求改（鎖定中改成 `active` 即解鎖，見 `update`）。 */
   private nextStatus(
     admin: PlatformAdminRow,
     requested: 'active' | 'inactive' | undefined,

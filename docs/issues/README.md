@@ -30,9 +30,6 @@
 | 中 | 登出的後端撤銷失敗被吞掉，IdP session 仍有效 | [`logout-failure-leaves-sessions.md`](./logout-failure-leaves-sessions.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 釘選列把整筆伺服器資料存進 localStorage，登出不清 | [`pinned-rows-persist-server-data.md`](./pinned-rows-persist-server-data.md) | 2026-10-06（全面檢測：程式資安） |
-| 中 | 平台管理者被登入鎖定時改寫 status，任何人可踢人下線 | [`platform-admin-lockout-revokes-sessions.md`](./platform-admin-lockout-revokes-sessions.md) | 2026-10-06（全面檢測：流程資安） |
-| 中 | 平台「最後一位 super-admin」檢查在交易外，可被並行繞過 | [`platform-last-super-admin-race.md`](./platform-last-super-admin-race.md) | 2026-10-06（全面檢測：流程資安） |
-| 中 | 平台管理者帳號流程沒有交易：稽核在提交後寫、token 可重複使用 | [`platform-account-flows-not-transactional.md`](./platform-account-flows-not-transactional.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | 沒有 CI，main 未保護，檢查只靠人 | [`no-ci-pipeline.md`](./no-ci-pipeline.md) | 2026-10-06（全面檢測：流程資安） |
 | 中 | nginx 映像釘在停止更新的 1.27，基底映像未釘 digest | [`nginx-image-eol.md`](./nginx-image-eol.md) | 2026-10-06（全面檢測：部署） |
 | 中 | XFF 信任鏈依賴前置 LB，每 IP 限流可能失效 | [`trust-proxy-depends-on-load-balancer.md`](./trust-proxy-depends-on-load-balancer.md) | 2026-10-06（全面檢測：部署） |

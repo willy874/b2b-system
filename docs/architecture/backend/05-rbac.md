@@ -554,6 +554,10 @@ private async assertNotLastSuperAdmin(userId: string, tx: DbOrTx): Promise<void>
 `countActiveUsersByRoleSlug` 只算 `status = 'active'` 且未刪除的使用者——
 把 super-admin 全部停用而不刪除，一樣會讓系統無人可管。
 
+平台管理者的「最後一位 super-admin」是同一個寫法（`PlatformAdminManagementService.update`）：在平台 DB 的交易內
+`lockSuperAdminGuard`（`hashtext('platform_super_admin_guard')`）→ `countActiveSuperAdmins(…, tx)` → 寫入 → 稽核。
+平台管理者全部失去 super-admin 時沒有任何 API 救得回來（`db:seed` 只在一位管理者都沒有時才建立），只能直接改資料庫。
+
 ### 8.3 自我操作的判定
 
 ```ts
