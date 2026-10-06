@@ -106,9 +106,12 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
   `metadata` 只有 `{ template, jobId, messageId }`。**不記內容與 token**（§9.2 D8）。
   寄信發生在背景工作裡，操作者是 `system`。
 - 工作的 `output` 是 `{ messageId }` 或 `{ skipped }`，在背景工作頁看得到。
-- **日誌不出現 token**：`smtp` 傳輸只記「已寄出」與 messageId；HTTP 請求日誌的網址、`query`、`Referer`
-  裡的 `token` 參數遮成 `[Redacted]`，回應的 `set-cookie` 也遮掉（`core/logger/redact.ts`）。
+- **日誌不出現 token**：`smtp` 傳輸只記「已寄出」與 messageId；HTTP 請求日誌的網址、解析好的 `query` 物件、`Referer`
+  裡的憑證參數遮成 `[Redacted]`，請求的 `authorization`、`cookie` 與回應的 `set-cookie` 也遮掉（`core/logger/redact.ts`）。
   只有 `console` 傳輸會把連結寫進日誌。
+  - 憑證參數的名單只有一份（`SENSITIVE_QUERY_KEYS`）：`token`（啟用、重設密碼）、`code` 與 `state`（外部 IdP 回來的授權碼）、
+    `ticket`（完成外部登入）、`code_verifier`、`id_token_hint`（RP 發起的登出，含 email 與名稱的 ID token）。
+  - pino-http 的 `req` 除了網址字串，還帶著 Express 解析好的 `query` 物件；兩者都由這份名單遮，不另外寫 `redact` 路徑。
 
 ## 6. 本機與 E2E
 
@@ -138,7 +141,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | `src/modules/credential/__tests__/auth-mail.jobs.spec.ts` | 寄出當下簽發、狀態不符不寄、依語系、寄送失敗拋出且不寫稽核 |
 | `src/modules/approval/__tests__/approval.service.spec.ts` | 核准／駁回時在交易內入列，搶輸時不入列 |
 | `src/core/mail/__tests__/mail.service.spec.ts` | 連結編碼、HTML 與純文字 |
-| `src/core/logger/__tests__/redact.spec.ts` | 網址與 Referer 的 token 遮蔽 |
+| `src/core/logger/__tests__/redact.spec.ts` | 網址、`query` 物件與 Referer 的憑證參數遮蔽；經過 pino-http（`pinoHttpOptions()`）的存取日誌找不到原文 |
 | `apps/e2e/tests/mail.spec.ts` | 經 Mailpit：從信箱點啟用連結 → 設定密碼 → 登入；用過的連結顯示失效 |
 | `apps/e2e/tests/approval.spec.ts` | 經 Mailpit：註冊核准後從啟用信設定密碼 → 登入（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §5） |
 

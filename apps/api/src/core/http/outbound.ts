@@ -12,7 +12,8 @@ export const systemLookup: HostLookup = (hostname) => lookup(hostname, { all: tr
 
 /**
  * api 不應該代替租戶去連的位址：私有網段、loopback、link-local（含雲端的 metadata 端點
- * `169.254.169.254`）、CGNAT、保留位址。
+ * `169.254.169.254`）、CGNAT、保留位址。IPv6 另擋 ULA、link-local、multicast、已廢止的 site-local，
+ * 以及 NAT64 的 local-use 前綴（內嵌 IPv4 的位置依各網路的設定而定，取不出來，整段擋下）。
  */
 const BLOCKED = new BlockList();
 for (const [network, prefix] of [
@@ -33,20 +34,71 @@ for (const [network, prefix] of [
 for (const [network, prefix] of [
   ['::', 128],
   ['::1', 128],
+  ['64:ff9b:1::', 48],
   ['fc00::', 7],
   ['fe80::', 10],
+  ['fec0::', 10],
   ['ff00::', 8],
 ] as const) {
   BLOCKED.addSubnet(network, prefix, 'ipv6');
 }
 
-/** 位址是否不可連（IPv4-mapped IPv6 以其 IPv4 判斷）。 */
+function hexGroups(part: string): number[] {
+  return part === '' ? [] : part.split(':').map((group) => Number.parseInt(group, 16));
+}
+
+/** 合法 IPv6 位址的 8 個 16 位元群組（呼叫前已以 `isIP` 確認格式）；結尾的點分 IPv4 換成兩個群組。 */
+function ipv6Groups(address: string): number[] {
+  const [text = ''] = address.split('%');
+  const dotted = /^(.*:)(\d+\.\d+\.\d+\.\d+)$/.exec(text);
+  const [a = 0, b = 0, c = 0, d = 0] = dotted?.[2]?.split('.').map(Number) ?? [];
+  const hex = dotted
+    ? `${dotted[1]}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`
+    : text;
+  const [head = '', tail] = hex.split('::');
+  if (tail === undefined) return hexGroups(head);
+  const before = hexGroups(head);
+  const after = hexGroups(tail);
+  const zeros = Array.from({ length: 8 - before.length - after.length }, () => 0);
+  return [...before, ...zeros, ...after];
+}
+
+function ipv4Of(high: number, low: number): string {
+  return `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`;
+}
+
+/**
+ * IPv6 位址裡內嵌的 IPv4（RFC 6052、3056、4380）：送到這些位址的流量在路上會被轉成 IPv4，
+ * 所以要用 IPv4 的清單判斷。沒有內嵌 IPv4 回 `undefined`。
+ */
+function embeddedIpv4(address: string): string | undefined {
+  const [g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, g5 = 0, g6 = 0, g7 = 0] = ipv6Groups(address);
+  const last32 = ipv4Of(g6, g7);
+  // NAT64 well-known 64:ff9b::/96
+  if (g0 === 0x64 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) return last32;
+  // IPv4-compatible ::/96（已廢止）、IPv4-mapped ::ffff:0:0/96、IPv4-translated ::ffff:0:0:0/96
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0) {
+    if (g4 === 0 && (g5 === 0 || g5 === 0xffff)) return last32;
+    if (g4 === 0xffff && g5 === 0) return last32;
+  }
+  // 6to4 2002::/16：第 17～48 位元
+  if (g0 === 0x2002) return ipv4Of(g1, g2);
+  // Teredo 2001::/32：用戶端位址是最後 32 位元與 0xffffffff 做 XOR
+  if (g0 === 0x2001 && g1 === 0) return ipv4Of(~g6 & 0xffff, ~g7 & 0xffff);
+  return undefined;
+}
+
+/**
+ * 位址是否不可連。IPv6 裡內嵌 IPv4 的（IPv4-mapped、NAT64、6to4、Teredo…）以其 IPv4 判斷：
+ * 透過 NAT64 連公開 IPv4 的接收端照常可用，連內網的擋下。
+ */
 export function isBlockedAddress(address: string): boolean {
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address)?.[1];
-  if (mapped) return BLOCKED.check(mapped, 'ipv4');
   const family = isIP(address);
   if (family === 0) return true;
-  return BLOCKED.check(address, family === 4 ? 'ipv4' : 'ipv6');
+  if (family === 4) return BLOCKED.check(address, 'ipv4');
+  const embedded = embeddedIpv4(address);
+  if (embedded !== undefined && BLOCKED.check(embedded, 'ipv4')) return true;
+  return BLOCKED.check(address, 'ipv6');
 }
 
 /** 對外連線被擋下：呼叫端轉成自己的錯誤碼（例：`AUTH_SSO_PROVIDER_UNAVAILABLE`、`WEBHOOK_URL_NOT_ALLOWED`）。 */

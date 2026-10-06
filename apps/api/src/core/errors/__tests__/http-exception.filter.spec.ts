@@ -7,11 +7,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
+import { DrizzleQueryError } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { runWithRequestContext } from '../../http/request-context';
 import { AppException } from '../app.exception';
+import { DbQueryError } from '../db-error';
 import { HttpExceptionFilter, codeOfHttpStatus, flattenZodError } from '../http-exception.filter';
 
 function capture(exception: unknown): { status: number; code: string } {
@@ -185,6 +187,28 @@ describe('HttpExceptionFilter：回應的 body（docs/architecture/backend/03-ap
       error: { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: undefined },
     });
     expect(error).toHaveBeenCalledWith({ err: boom, requestId: undefined }, 'Unhandled exception');
+  });
+
+  it('未知的資料庫錯誤：仍回 500，記錄的錯誤不含查詢參數（docs/conventions/03-backend.md §7）', () => {
+    const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const exception = new DrizzleQueryError(
+      'update "users" set "password_hash" = $1 where "id" = $2',
+      ['$argon2id$secret', 'u1'],
+      Object.assign(new Error('canceling statement due to statement timeout'), { code: '57014' }),
+    );
+    expect(respond(exception)).toEqual({
+      status: 500,
+      body: {
+        error: { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: undefined },
+      },
+    });
+    const logged = error.mock.calls[0]?.[0] as { err: unknown };
+    expect(logged.err).toBeInstanceOf(DbQueryError);
+    expect(logged.err).toMatchObject({ cause: { code: '57014' } });
+    expect(logged.err).not.toHaveProperty('params');
+    expect(JSON.stringify(logged)).not.toContain('secret');
+    expect((logged.err as Error).message).not.toContain('secret');
+    expect((logged.err as Error).stack).not.toContain('secret');
   });
 
   it('不是 Error 的拋出值（字串）也回 500', () => {

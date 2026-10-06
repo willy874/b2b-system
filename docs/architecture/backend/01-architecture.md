@@ -56,13 +56,15 @@ apps/api/src/
 │   ├── errors/
 │   │   ├── error-code.ts                 轉出 @b2b-system/error-codes（ErrorCode ＋ → HTTP status 對照）
 │   │   ├── app.exception.ts
+│   │   ├── db-error.ts                   資料庫查詢錯誤的不含參數版本（describeDbError、redactDbError）
 │   │   └── http-exception.filter.ts
 │   ├── http/
 │   │   ├── request-id.middleware.ts
 │   │   ├── transform.interceptor.ts      包成 { data: ... }
 │   │   └── pagination.ts                 分頁 DTO 與輔助
 │   ├── logger/
-│   │   └── logger.module.ts              Pino：存取日誌與應用程式日誌共用（main.ts 以 app.useLogger 接上）、requestId、redact
+│   │   ├── logger.module.ts              Pino：存取日誌與應用程式日誌共用（main.ts 以 app.useLogger 接上）、requestId、redact
+│   │   └── redact.ts                     日誌遮蔽：網址與 query 的憑證參數、錯誤裡的查詢參數
 │   ├── validation/
 │   │   ├── zod-validation.pipe.ts
 │   │   └── zod-openapi.ts                Zod schema → OpenAPI schema

@@ -79,16 +79,25 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `retryLimit` | 重試幾次；用完停在 `failed`，留在表內（直到超過 pg-boss 的保留期被清除）等管理頁手動重試 |
 | `retryDelaySeconds` / `retryDelayMaxSeconds` | 退避的起點與上限 |
 | `expireInSeconds` | 執行超過這個秒數視為失敗（worker 當掉也會被收回重試） |
+| `deleteAfterSeconds` | 結束後在表裡保留幾秒（預設 7 天）；高流量的工作用 `HIGH_VOLUME_RETENTION_SECONDS`（1 天） |
 | `exclusive` | 同時最多一筆排隊、一筆執行（pg-boss 的 `stately`）。排程工作用它避免越積越多；寄信這類每筆都要做的不能開 |
 | `concurrency` | 這個程序同時執行幾筆（pg-boss 的 `localConcurrency`，預設 1）。寄信（`MAIL_JOB_OPTIONS`）是 5；吃 CPU／記憶體的工作維持 1，免得拖慢同一個程序上的 API |
 
 - **租戶的同時執行上限**：`concurrency` 是每個程序、每種工作的上限；另外每個租戶 **所有種類** 的工作同時執行的筆數不超過
   feature 參數 `job.maxConcurrency`（預設 10，平台管理者設定；[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D9）。
-  worker 取到租戶的工作後，`JobStore.activeAhead()` 在該租戶 `active` 的工作中依 `(started_on, id)` 排名；排在上限之後的
+  worker 取到租戶的工作後，`JobStore.activeAhead()` 在該租戶 `active` 的工作中依 `(started_on, id)` 排名（計數方式見下方「租戶的工作與 `group_id`」）；排在上限之後的
   以 `JobStore.requeue()` **放回佇列**（改回 `created`、`start_after` 延後 5～10 秒、不動重試次數、工作 id 不變），handler 不執行。
   pg-boss 完成工作時只更新 `active` 的列，handler 回傳後的完成是空操作。排程觸發的展開（沒有租戶）與平台工作不受限；
   `exclusive` 佇列已有一筆排隊時放不回去，這一筆以 `{ skipped: 'TENANT_CONCURRENCY' }` 結束。
-- `exclusive` 在佇列建立時決定，之後不能改；要改就換工作名稱。其他選項每次啟動同步到佇列。
+- **租戶的工作與 `group_id`**：所有租戶的工作在同一張表（`pgboss.job`），送出時除了信封的 `tenantId`，也把租戶 id 寫進
+  pg-boss 的 `group`（`group_id`）。`activeAhead()` 每一筆租戶工作開始前都要查，以主鍵 `(name, id)` 找到這一筆、以
+  `name IN (已註冊的工作) AND group_id = 租戶 AND state = 'active'` 計數，走 pg-boss 內建的部分索引
+  `job_i7 (name, group_id) WHERE state = 'active'`，成本與表的大小無關。管理頁的列表與計數也以 `group_id` 過濾（一般欄位，不必逐列解析 JSON）；
+  `group_id` 是空的只有平台工作與開始帶 `group` 之前入列的舊工作，這些才看信封的 `tenantId`。worker 沒設 `groupConcurrency`，`group` 不影響取工作。
+- `deleteAfterSeconds`：結束（完成、失敗、取消）後在表裡留幾秒，之後由 pg-boss 刪除，管理頁也就看不到了。預設 7 天；
+  每個事件、每個人各一筆的高流量工作 `webhook.deliver`、`announcement.eventDispatch`、`announcement.fanOut` 是 1 天
+  （`HIGH_VOLUME_RETENTION_SECONDS`），讓表維持在小的範圍。這三種失敗後也只留 1 天：webhook 另有投遞紀錄與重送，公告另有發送紀錄。
+- `exclusive` 在佇列建立時決定，之後不能改；要改就換工作名稱。其他選項每次啟動同步到佇列（`deleteAfterSeconds` 只套用到之後入列的工作）。
 - 排程（`cron`，UTC）由註冊時的 `{ cron }` 決定；空字串代表不排程，啟動時會移除之前的排程。
 - 排程與 pg-boss 的維護（逾時收回、清除過期工作）只在 `JOBS_WORKER_ENABLED=true` 的程序跑；
   pg-boss 以資料庫鎖保證多個程序同時開也只觸發一次。
@@ -138,10 +147,17 @@ await withTransaction(this.db, async (tx) => {
 帶 `tx` 的入列寫進租戶 DB 的 `job_outbox`（同一個交易），回傳的 id 在提交後就是佇列裡的工作 id：
 
 1. 交易提交後（`afterCommit`）立刻把目前租戶 outbox 裡的列搬進佇列並刪除（`SELECT … FOR UPDATE SKIP LOCKED`，一批 100 筆）。
+   - **每個交易只登記一次搬移**：同一個交易入列幾筆都一樣，第一次搬移就把整個租戶的 outbox 搬完。
+   - 一批依工作名稱分組，每組一次 pg-boss 的批次 `insert(name, jobs[])`，不是逐筆 `send`。
+   - 同一種工作一次要入列很多筆時（例：公告的事件點，每則 × 每人一筆）用 `enqueueMany(type, items, { tx })`：一條多列 INSERT（每 1000 列一段）。
 2. 搬移失敗或程序剛好在提交與搬移之間當掉：每 10 分鐘的 `jobs.outboxSweep` 走遍每個 `active` 租戶補搬。
    它會在每個租戶開一條連線，所以間隔要遠大於 `TENANT_POOL_IDLE_TIMEOUT`（30 秒），閒置租戶的連線池才會關掉
-   （[`02-database.md`](./02-database.md) §6.2）。
-3. 以 outbox 的 id 當 pg-boss 的工作 id（`ON CONFLICT DO NOTHING`）：送出後、刪除前當掉而重搬，也只會有一筆工作。
+   （[`02-database.md`](./02-database.md) §6.2）。工作逾時或程序關閉時（`signal`）在兩批之間停下、不再進入下一個租戶。
+3. 以 outbox 的 id 當 pg-boss 的工作 id：`send` 與批次 `insert` 用同一條 INSERT（`ON CONFLICT DO NOTHING`），
+   送出後、刪除前當掉而重搬，也只會有一筆工作。
+4. **沒有註冊 handler 的列**（工作已下線或改名；滾動部署時舊版程序清掃到只有新版認得的工作）：搬移只選已註冊的名稱，
+   這些列不送、不刪、也不擋住後面的列。定期清掃每輪數一次，有的話每個租戶記一筆 warn（名稱與筆數）。
+   要不要刪、或改名後搬回來由人決定：工作不能默默丟掉。
 
 交易回滾時 outbox 的列跟著消失，工作不存在——與 §9.2 D2 的保證相同，只是多了「提交後最多一分鐘才入列」的極端情況。
 
@@ -162,7 +178,7 @@ await withTransaction(this.db, async (tx) => {
 | --- | --- | --- |
 | `GET /jobs/queues` | `job:read` | 已註冊的工作、排程、各狀態的 **即時** 筆數 |
 | `GET /jobs` | `job:read` | 列表（`createdOn DESC`；`name`、`state` 篩選；不含 `data` / `output`） |
-| `GET /jobs/:id` | `job:read` | 詳情（含 `data` 與 `output`；失敗時 `output` 是錯誤的 `message` / `stack`） |
+| `GET /jobs/:id` | `job:read` | 詳情（含 `data` 與 `output`；失敗時 `output` 是錯誤的 `message` / `stack`。資料庫的查詢錯誤在交給 pg-boss 之前換成只帶 SQL 本文與錯誤碼的版本，不含參數，[`03-api-conventions.md`](./03-api-conventions.md) §6） |
 | `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；重試成功後寫稽核 `job.retry` |
 
 - 只列出程式有註冊的 **租戶** 工作，而且只看目前租戶的（信封的 `tenantId`）；平台工作、pg-boss 內部或已下線的佇列不出現。
@@ -170,7 +186,8 @@ await withTransaction(this.db, async (tx) => {
   `/platform/jobs/*`（`platformJob:read` / `platformJob:retry`，平台的權限目錄）：看得到所有租戶與平台自己的工作，
   列表多了 `tenantId` / `tenantCode`，`?tenant=<代碼>` 只看那個租戶、`?tenant=platform`（保留字）只看平台工作；
   佇列卡片的筆數是所有租戶合計，並標示 `scope`。重試寫平台稽核 `platformJob.retry`。
-- 計數直接查表：`getQueues()` 的數字是 pg-boss 監控迴圈寫入的快照，最多落後一分鐘，重試完看不到數字變。
+- 計數直接查表：`getQueues()` 的數字是 pg-boss 監控迴圈寫入的快照，最多落後一分鐘，重試完看不到數字變；而且只有整個佇列的合計，分不出租戶。
+  租戶以 `group_id` 過濾（§3）。
 - `JobStore` 是唯一直接讀 pg-boss 表結構的地方；升級 pg-boss 時對照它的 migration 檢查這個檔案。
 - 重試以 `state = 'failed'` 為條件更新：兩個人同時按，後到的得到 `JOB_NOT_RETRYABLE`（409），不寫稽核。
   佇列在平台 DB、稽核在租戶 DB，兩者不在同一個交易：先重試、成功才寫稽核。

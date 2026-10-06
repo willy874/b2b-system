@@ -1,3 +1,5 @@
+import type { SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PlatformDatabase } from '../../database';
@@ -112,15 +114,64 @@ describe('JobStore.find', () => {
   });
 });
 
+/** 交給 db.execute 的 SQL 轉成文字與參數（不連資料庫）。 */
+function rendered(execute: ReturnType<typeof setup>['execute'], call = 0) {
+  const query = (execute.mock.calls as unknown as Array<[SQL]>)[call]?.[0];
+  if (!query) throw new Error('沒有執行查詢');
+  const { sql, params } = new PgDialect().sqlToQuery(query);
+  return { sql: sql.replace(/\s+/g, ' '), params };
+}
+
 describe('JobStore.activeAhead（docs/architecture/05-tenancy.md §13.3 D9）', () => {
+  const QUERY = {
+    tenantId: 't1',
+    name: 'test.work',
+    jobId: 'job-1',
+    names: ['test.a', 'test.work'],
+  };
+
   it('回傳排在前面的 active 筆數', async () => {
     const { store } = setup([{ ahead: 3 }]);
-    await expect(store.activeAhead('t1', 'job-1')).resolves.toBe(3);
+    await expect(store.activeAhead(QUERY)).resolves.toBe(3);
   });
 
   it('查詢沒有回列 → 0（交給 pg-boss 自己處理）', async () => {
     const { store } = setup([]);
-    await expect(store.activeAhead('t1', 'job-1')).resolves.toBe(0);
+    await expect(store.activeAhead(QUERY)).resolves.toBe(0);
+  });
+
+  it('這一筆以主鍵 (name, id) 找；計數以已註冊的名稱與 group_id 過濾（走 job_i7），不解析 JSON', async () => {
+    const { store, execute } = setup([{ ahead: 0 }]);
+    await store.activeAhead(QUERY);
+    const { sql, params } = rendered(execute);
+    expect(sql).toContain("WHERE name = $1 AND id = $2 AND state = 'active'");
+    expect(sql).toContain("j.name IN ($3, $4) AND j.group_id = $5 AND j.state = 'active'");
+    expect(sql).not.toContain("data->>'tenantId'");
+    expect(params).toEqual(['test.work', 'job-1', 'test.a', 'test.work', 't1']);
+  });
+
+  it('沒有已註冊的工作 → 0，不查詢', async () => {
+    const { store, execute } = setup();
+    await expect(store.activeAhead({ ...QUERY, names: [] })).resolves.toBe(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobStore：以租戶過濾（docs/architecture/backend/10-jobs.md §6）', () => {
+  it('租戶：group_id 比對；group_id 是空的（開始帶 group 之前入列的）才看信封的 tenantId', async () => {
+    const { store, execute } = setup([]);
+    await store.counts('t1', ['test.work']);
+    const { sql, params } = rendered(execute);
+    expect(sql).toContain(
+      "(group_id = $1 OR (group_id IS NULL AND data->>'tenantId' = $2)) AND name IN ($3)",
+    );
+    expect(params).toEqual(['t1', 't1', 'test.work']);
+  });
+
+  it('只看平台工作：group_id 與信封的 tenantId 都是空的', async () => {
+    const { store, execute } = setup([]);
+    await store.counts(null, ['test.work']);
+    expect(rendered(execute).sql).toContain("(group_id IS NULL AND data->>'tenantId' IS NULL)");
   });
 });
 

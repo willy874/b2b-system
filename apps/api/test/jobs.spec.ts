@@ -1,13 +1,13 @@
 import { Injectable, Module } from '@nestjs/common';
 import type { INestApplication, OnModuleInit } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { TENANT_DB, withTransaction } from '@/core/database';
-import type { Database } from '@/core/database';
+import { PLATFORM_DB, TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, PlatformDatabase } from '@/core/database';
 import { defineJob, JobQueue, JobStore } from '@/core/jobs';
 import { auditLogs, jobOutbox, relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 
@@ -364,6 +364,111 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     } finally {
       await setTestTenantFeatureParams(app, {});
     }
+  });
+
+  it('送出後、刪除前當掉而重搬（同一個 id 再搬一次）：pg-boss 的批次 insert 略過，仍只有一筆工作', async () => {
+    const [row] = await db
+      .insert(jobOutbox)
+      .values({ name: FLAKY_JOB.name, data: { label: 'relayed-twice' } })
+      .returning();
+    expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+    await waitForState(row!.id, 'failed');
+
+    await db.insert(jobOutbox).values({ ...row!, data: { label: 'relayed-again' } });
+    expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+    expect(await db.select().from(jobOutbox)).toHaveLength(0);
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const copies = await platformDb.execute<{ data: { payload: { label: string } } }>(
+      sql`SELECT data FROM pgboss.job WHERE name = ${FLAKY_JOB.name} AND id = ${row!.id}`,
+    );
+    expect(copies.map((copy) => copy.data.payload.label)).toEqual(['relayed-twice']);
+  });
+
+  it('outbox 最舊的 100 列都是沒有註冊的工作：照樣搬出後面已註冊的那一列，沒有註冊的留在原處', async () => {
+    const createdAt = new Date(Date.now() - 60 * 60 * 1000);
+    await db.insert(jobOutbox).values(
+      Array.from({ length: 100 }, (_, index) => ({
+        name: 'retired.job',
+        data: { index },
+        createdAt,
+      })),
+    );
+    const [registered] = await db
+      .insert(jobOutbox)
+      .values({ name: FLAKY_JOB.name, data: { label: 'behind-retired' } })
+      .returning();
+    try {
+      expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+      await waitForState(registered!.id, 'failed');
+      const left = await db.select().from(jobOutbox);
+      expect(left).toHaveLength(100);
+      expect(new Set(left.map((row) => row.name))).toEqual(new Set(['retired.job']));
+    } finally {
+      await db.delete(jobOutbox).where(eq(jobOutbox.name, 'retired.job'));
+    }
+  });
+
+  it('同一個交易入列多筆（enqueue ＋ enqueueMany）：提交後一次搬完，每一筆都成為工作', async () => {
+    const appDb = app.get<Database>(TENANT_DB);
+    const ids = await inTestTenant(app, () =>
+      withTransaction(appDb, async (tx) => {
+        const first = await jobs.enqueue(FLAKY_JOB, { label: 'batch-0' }, { tx });
+        await jobs.enqueueMany(
+          FLAKY_JOB,
+          [1, 2, 3].map((index) => ({ data: { label: `batch-${index}` } })),
+          { tx },
+        );
+        return first;
+      }),
+    );
+    expect(await db.select().from(jobOutbox)).toHaveLength(0);
+    await waitForState(ids!, 'failed');
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const rows = await platformDb.execute<{ label: string; group_id: string }>(
+      sql`SELECT data->'payload'->>'label' AS label, group_id FROM pgboss.job
+          WHERE name = ${FLAKY_JOB.name} AND data->'payload'->>'label' LIKE 'batch-%'
+          ORDER BY label`,
+    );
+    expect(rows).toEqual(
+      ['batch-0', 'batch-1', 'batch-2', 'batch-3'].map((label) => ({ label, group_id: tenantId })),
+    );
+  });
+
+  it('租戶的工作在 pg-boss 帶 group_id；開始帶之前入列的（group_id 是空的）管理頁照樣看得到（docs/architecture/backend/10-jobs.md §3）', async () => {
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const id = await inTestTenant(app, () => jobs.enqueue(FLAKY_JOB, { label: 'grouped' }));
+    const groupOf = async () =>
+      (
+        await platformDb.execute<{ group_id: string | null }>(
+          sql`SELECT group_id FROM pgboss.job WHERE name = ${FLAKY_JOB.name} AND id = ${id}`,
+        )
+      )[0]?.group_id;
+    expect(await groupOf()).toBe(tenantId);
+    await waitForState(id!, 'failed');
+
+    await platformDb.execute(
+      sql`UPDATE pgboss.job SET group_id = NULL WHERE name = ${FLAKY_JOB.name} AND id = ${id}`,
+    );
+    expect(await groupOf()).toBeNull();
+    expect(await store.find(tenantId, jobs.names(), id!)).toMatchObject({ id, state: 'failed' });
+    expect(
+      (await store.counts(tenantId, [FLAKY_JOB.name])).get(FLAKY_JOB.name)?.failedCount,
+    ).toBeGreaterThan(0);
+  });
+
+  it('高流量工作的佇列只保留 1 天（deleteAfterSeconds）', async () => {
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const rows = await platformDb.execute<{ name: string; deletion_seconds: number }>(
+      sql`SELECT name, deletion_seconds FROM pgboss.queue
+          WHERE name IN ('webhook.deliver', 'announcement.eventDispatch', 'announcement.fanOut', 'auditLog.archive')
+          ORDER BY name`,
+    );
+    expect(Object.fromEntries(rows.map((row) => [row.name, row.deletion_seconds]))).toEqual({
+      'announcement.eventDispatch': 24 * 60 * 60,
+      'announcement.fanOut': 24 * 60 * 60,
+      'auditLog.archive': 7 * 24 * 60 * 60,
+      'webhook.deliver': 24 * 60 * 60,
+    });
   });
 
   it('租戶同時執行的上限 job.maxConcurrency：超過的放回佇列，不耗重試次數，之後照常完成（docs/architecture/05-tenancy.md §13.3 D9）', async () => {
