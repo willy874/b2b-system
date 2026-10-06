@@ -40,7 +40,7 @@ function setup(hub: BroadcastHub = new BroadcastHub()) {
         .map((row) => ({ domain: row.domain, tenant: acme })),
     ),
     findByCode: vi.fn(async (code: string) => (code === acme.code ? acme : undefined)),
-    findById: vi.fn(async () => undefined),
+    findById: vi.fn(async (): Promise<TenantRow | undefined> => undefined),
   };
   const config = {
     get: (key: string) =>
@@ -111,6 +111,71 @@ describe('TenantDirectory', () => {
     expect(b.repo.findByCode).toHaveBeenCalledTimes(2);
     a.directory.onModuleDestroy();
     b.directory.onModuleDestroy();
+  });
+
+  it('查詢期間被 invalidate()：回來的舊紀錄不寫回快取，下一次重新查 DB（resolveHost）', async () => {
+    const { directory, repo, acme } = setup();
+    await directory.onApplicationBootstrap();
+    // 第一次查詢卡住，讀到的是停用之前的 active
+    let resolveStale: ((value: Array<{ domain: string; tenant: TenantRow }>) => void) | undefined;
+    repo.findByDomains.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStale = resolve;
+        }),
+    );
+    const loading = directory.resolveHost('acme.example.com');
+    await vi.waitFor(() => expect(repo.findByDomains).toHaveBeenCalledTimes(1));
+
+    // 停用的交易提交 → invalidate()；之後才回來的是舊值
+    directory.invalidate();
+    resolveStale?.([{ domain: 'acme.example.com', tenant: acme }]);
+    expect((await loading)?.status).toBe('active');
+
+    const disabled = { ...acme, status: 'disabled' } as TenantRow;
+    repo.findByDomains.mockResolvedValueOnce([{ domain: 'acme.example.com', tenant: disabled }]);
+    expect((await directory.resolveHost('acme.example.com'))?.status).toBe('disabled');
+    expect(repo.findByDomains).toHaveBeenCalledTimes(2);
+    directory.onModuleDestroy();
+  });
+
+  it('查詢期間被 invalidate()：findById 一樣不寫回，下一次重新查 DB', async () => {
+    const { directory, repo, acme } = setup();
+    let resolveStale: ((value: TenantRow | undefined) => void) | undefined;
+    repo.findById.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStale = resolve;
+        }),
+    );
+    const loading = directory.findById(acme.id);
+    directory.invalidate();
+    resolveStale?.(acme);
+    await loading;
+
+    repo.findById.mockResolvedValueOnce({ ...acme, status: 'disabled' } as TenantRow);
+    expect((await directory.findById(acme.id))?.status).toBe('disabled');
+    expect(repo.findById).toHaveBeenCalledTimes(2);
+  });
+
+  it('先開始的網域快照比後開始的晚回來：不蓋掉較新的快照', async () => {
+    const { directory, repo, domains } = setup();
+    let resolveOld: ((value: Array<{ domain: string; tenantId: string }>) => void) | undefined;
+    repo.listDomains.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+    );
+    const old = directory.onApplicationBootstrap();
+    domains.push({ domain: 'new.example.com', tenantId: 'tenant-acme' });
+    directory.invalidate();
+    await vi.waitFor(() => expect(directory.tenantIdOfHost('new.example.com')).toBe('tenant-acme'));
+
+    resolveOld?.([{ domain: 'acme.example.com', tenantId: 'tenant-acme' }]);
+    await old;
+    expect(directory.tenantIdOfHost('new.example.com')).toBe('tenant-acme');
+    directory.onModuleDestroy();
   });
 
   it('快照還沒載入（啟動時 DB 暫時連不上）時退回查 DB', async () => {

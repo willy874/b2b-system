@@ -112,6 +112,31 @@ describe('SettingService（docs/architecture/backend/12-settings.md §1）', () 
     expect(repo.listAll).toHaveBeenCalledTimes(2);
   });
 
+  it('查詢期間被 invalidate()：回來的舊值不寫回快取，下一次重新查 DB', async () => {
+    const { service, repo } = setup();
+    service.register([MAX_ATTEMPTS]);
+    let resolveStale: ((rows: unknown[]) => void) | undefined;
+    repo.listAll.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStale = resolve as (rows: unknown[]) => void;
+        }) as never,
+    );
+    const loading = service.get(MAX_ATTEMPTS);
+    // 寫入的交易提交 → invalidate()；之後才回來的是寫入前的值
+    service.invalidate();
+    resolveStale?.([
+      { key: 'auth.loginMaxAttempts', value: 8, updatedAt: new Date(), updatedBy: null },
+    ]);
+    await expect(loading).resolves.toBe(8);
+
+    repo.listAll.mockResolvedValueOnce([
+      { key: 'auth.loginMaxAttempts', value: 12, updatedAt: new Date(), updatedBy: null },
+    ] as never);
+    await expect(service.get(MAX_ATTEMPTS)).resolves.toBe(12);
+    expect(repo.listAll).toHaveBeenCalledTimes(2);
+  });
+
   it('快取以租戶區分：A 租戶的快取不會被 B 租戶拿去用', async () => {
     const { service, repo } = setup();
     service.register([MAX_ATTEMPTS]);
