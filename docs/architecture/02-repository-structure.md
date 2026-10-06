@@ -344,7 +344,7 @@ FILE_STORAGE_REGION=us-east-1
 FILE_STORAGE_ACCESS_KEY_ID=b2b-system-dev
 FILE_STORAGE_SECRET_ACCESS_KEY=b2b-system-dev-secret
 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS（逗號分隔，* 代表全部）
-FILE_STORAGE_MAX_OBJECT_SIZE=5368709120      # 位元組（預設 5 GiB，與 S3 單次 PutObject 上限相同）
+FILE_STORAGE_MAX_OBJECT_SIZE=134217728       # 位元組（128 MiB，與 api 的影像轉出上限相同；不設時 5 GiB，同 S3 單次 PutObject 上限）
 
 # ── apps/api 連物件儲存（上面兩個 KEY 共用）─────────────────
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage          # api 自己連線用

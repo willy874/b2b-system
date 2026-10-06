@@ -266,7 +266,9 @@ services:
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
       # nginx 以 /storage/ 轉進來且 **不去掉前綴**：SigV4 簽的是瀏覽器看到的完整路徑
       FILE_STORAGE_BASE_PATH: /storage
-      FILE_STORAGE_MAX_OBJECT_SIZE: ${FILE_STORAGE_MAX_OBJECT_SIZE:-5368709120}
+      # 128 MiB：瀏覽器的請求先被 nginx 擋在 32m；這裡限制的是 api 寫入的影像變體與轉出的格式，
+      # 與 api 的 IMAGE_CONVERSION_MAX_OUTPUT_SIZE 相同（docs/architecture/backend/09-file.md §8）
+      FILE_STORAGE_MAX_OBJECT_SIZE: ${FILE_STORAGE_MAX_OBJECT_SIZE:-134217728}
     volumes:
       - file-storage-data:/data
     mem_limit: ${FILE_STORAGE_MEM_LIMIT:-512m}

@@ -30,7 +30,7 @@ pnpm dev:storage     # 單獨啟動（tsx watch），預設 http://127.0.0.1:900
 | `FILE_STORAGE_ACCESS_KEY_ID` | —（必填） | 唯一一組存取金鑰 |
 | `FILE_STORAGE_SECRET_ACCESS_KEY` | —（必填） | 同上 |
 | `FILE_STORAGE_ALLOWED_ORIGINS` | 空 | CORS 白名單（逗號分隔，`*` 為全部）；瀏覽器用 presigned URL 直傳 / 下載時需要 |
-| `FILE_STORAGE_MAX_OBJECT_SIZE` | `5368709120` | 單次 PutObject / 單一 part 的上限（位元組），最大 5 GiB（與 S3 相同） |
+| `FILE_STORAGE_MAX_OBJECT_SIZE` | `5368709120` | 單次 PutObject / 單一 part 的上限（位元組），最大 5 GiB（與 S3 相同）。`.env.example` 與 `docker-compose.prod.yml` 設 128 MiB，與 api 的影像轉出上限相同（[`backend/09-file.md`](./backend/09-file.md) §8） |
 
 ---
 

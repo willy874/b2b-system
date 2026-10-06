@@ -106,6 +106,16 @@ export const IMAGE_VARIANT_MAX_EDGE: Record<Exclude<ImageVariant, 'original'>, n
 /** 產生變體時讀入原圖的位元組上限；超過的圖片標為 `failed`，前端退回瀏覽器縮圖或類型圖示。 */
 export const IMAGE_VARIANT_MAX_INPUT_SIZE = 128 * 1024 * 1024;
 
+/**
+ * 依請求轉出的格式的位元組上限：大圖的原圖轉成 PNG 可達數百 MiB（1 億像素的照片約 160 MiB）。
+ * 超過就不存：`format=auto` 退回主格式（原圖則原封不動），明確指定的格式回 `FILE_IMAGE_TOO_LARGE`。
+ * 與部署預設的 `FILE_STORAGE_MAX_OBJECT_SIZE`（apps/file-storage）相同，調整時一起改。
+ */
+export const IMAGE_CONVERSION_MAX_OUTPUT_SIZE = 128 * 1024 * 1024;
+
+/** 每個 api 執行個體最多記住幾個「轉出後超過上限」的格式，免得每次請求都重新解碼一次大圖。 */
+export const IMAGE_CONVERSION_OVERSIZED_MEMORY = 1000;
+
 /** 同一個 api 執行個體同時產生變體的數量：解碼大圖很吃 CPU 與記憶體。 */
 export const IMAGE_VARIANT_CONCURRENCY = 2;
 
