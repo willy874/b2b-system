@@ -99,9 +99,16 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 換成真正的 S3 時，`FILE_STORAGE_PUBLIC_ENDPOINT` 設成 S3 的 endpoint，並在 bucket 上設定 CORS 與放寬 CSP。
 
-每個租戶的 backstage 在自己的網域（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2），CSP 的 `connect-src 'self'` 只允許同源，
-所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **目前租戶主要網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
-acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
+每個租戶的 backstage 在自己的網域（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2），CSP 的 `img-src 'self'`、`connect-src 'self'` 只允許同源，
+所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **請求進來的那個租戶網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
+acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.example.com/storage/…`，從次要網域（客戶自訂網域，
+[`../05-tenancy.md`](../05-tenancy.md) §10.2 D24）`https://files.acme-corp.example` 進來就拿到 `https://files.acme-corp.example/storage/…`，
+由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
+
+- 「請求進來的網域」是 `TenantMiddleware` 以網域找到租戶時記在 `TenantContext.domain` 的 `host[:port]`（`S3ObjectStorage.presigner()` 優先用它）。
+- 沒有請求可依據時——背景工作、對外 API（租戶由 token 決定，[`../06-external-api.md`](../06-external-api.md) §3）、apps/platform 以 `X-Tenant` 指定的帳號流程——
+  用 **主要網域**（第一個登記的）。影像 API 的網址（`/api/files/:id/image/…`）是相對網址，不受影響。
+- 不放寬 CSP：nginx 的 CSP 是靜態的，列不出每個租戶的網域；放寬成任意網域就失去同源的保護。
 
 ### 3.1 每個租戶一個 bucket（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D16）
 

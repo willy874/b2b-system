@@ -54,7 +54,7 @@
 
 | 元件 | 做什麼 |
 | --- | --- |
-| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags }`；`currentTenant()`、`requireTenant()` 讀取 |
+| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags, featureParams, domain? }`；`currentTenant()`、`requireTenant()` 讀取。`domain` 是 `TenantMiddleware` 以網域找到租戶時比對到的網域（瀏覽器看到的 `host[:port]`），presigned 網址以它簽（[`backend/09-file.md`](./backend/09-file.md) §3）；背景工作、對外 API、`X-Tenant` 沒有 |
 | `TENANT_DB` | repository 注入的 Proxy：每次存取都轉到 **目前租戶** 的 `db`；沒有脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何預設 DB |
 | `PLATFORM_DB` | 平台 DB（租戶登記、平台管理者、佇列、OIDC 的協定狀態） |
 | `Tenancy.enter(record)` | 進入租戶的唯一入口：檢查狀態與 migration 版本，建立（或沿用）那個租戶的連線池 |

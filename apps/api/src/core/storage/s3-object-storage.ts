@@ -120,13 +120,17 @@ export class S3ObjectStorage
     this.appOrigin = new URL(config.get('APP_PUBLIC_URL', { infer: true }));
   }
 
-  /** 目前租戶的 presigner（瀏覽器看到的 endpoint）；沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。 */
+  /**
+   * 目前租戶的 presigner（瀏覽器看到的 endpoint）。`{tenantOrigin}` 換成請求進來的那個租戶網域
+   * （次要網域、客戶自訂網域也一樣，CSP 的 `'self'` 才放得過；docs/architecture/backend/09-file.md §3）；
+   * 沒有請求可依據（背景工作、對外 API）時用主要網域，沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。
+   */
   private async presigner(): Promise<S3Client> {
     let endpoint = this.publicEndpoint;
     if (endpoint.includes(TENANT_ORIGIN_PLACEHOLDER)) {
       const tenant = currentTenant();
       const origin = tenant
-        ? `${this.appOrigin.protocol}//${await this.directory.requirePrimaryDomain(tenant.id)}`
+        ? `${this.appOrigin.protocol}//${tenant.domain ?? (await this.directory.requirePrimaryDomain(tenant.id))}`
         : this.appOrigin.origin;
       endpoint = endpoint.replace(TENANT_ORIGIN_PLACEHOLDER, origin);
     }

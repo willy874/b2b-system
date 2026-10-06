@@ -122,6 +122,40 @@ describe('S3ObjectStorage：每個租戶一個 bucket（docs/architecture/05-ten
     expect(new URL(beta.url).origin).toBe('https://beta.example.com');
   });
 
+  it('請求從租戶的次要網域（客戶自訂網域）進來 → 以那個網域簽，CSP 的 self 才放得過（docs/architecture/backend/09-file.md §3）', async () => {
+    const { storage } = setup([], '{tenantOrigin}/storage');
+    const context = {
+      id: 'acme',
+      code: 'acme',
+      db: {} as Database,
+      storageBucket: 'acme',
+      features: [],
+      flags: {},
+      featureParams: {},
+      domain: 'files.acme-corp.example',
+    };
+    const [upload, download] = await runInTenantContext(context, () =>
+      Promise.all([
+        storage.presignUpload('a/b', {
+          expiresIn: 60,
+          contentType: 'text/plain',
+          contentLength: 1,
+        }),
+        storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'b' }),
+      ]),
+    );
+    expect(new URL(upload.url).origin).toBe('https://files.acme-corp.example');
+    expect(new URL(download.url).origin).toBe('https://files.acme-corp.example');
+  });
+
+  it('沒有請求可依據（背景工作、對外 API）→ 退回租戶的主要網域', async () => {
+    const { storage } = setup([], '{tenantOrigin}/storage');
+    const signed = await inTenant('acme', () =>
+      storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'b' }),
+    );
+    expect(new URL(signed.url).origin).toBe('https://acme.example.com');
+  });
+
   it('固定的公開網址（真正的 S3、CDN）→ 不依租戶改變', async () => {
     const { storage } = setup([], 'https://s3.example.net');
     const signed = await inTenant('acme', () =>
