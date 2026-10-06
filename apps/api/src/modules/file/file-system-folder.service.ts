@@ -50,9 +50,9 @@ export class FileSystemFolderService
   onModuleInit(): void {
     this.unsubscribers = [
       // 只有發起寫入的程序知道是誰（其他程序收到的廣播沒有名單）：個人資料夾建在 DB，建一次就夠
-      this.events.subscribe(DomainEvent.PERMISSIONS_CHANGED, ({ userIds }) =>
-        userIds ? this.ensurePersonalFolders(userIds, { onlyEligible: true }) : undefined,
-      ),
+      this.events.subscribe(DomainEvent.PERMISSIONS_CHANGED, async ({ userIds }) => {
+        if (userIds) await this.ensurePersonalFolders(userIds, { onlyEligible: true });
+      }),
       // 新佈建或重新啟用的租戶：不等重啟就補上系統資料夾（事件在那個租戶的脈絡裡發佈）
       this.events.subscribe(DomainEvent.TENANT_ACTIVATED, () => this.prepareTenant()),
       // 使用者被刪除：空的個人資料夾跟著刪除（有東西的保留給管理者整理）
@@ -152,18 +152,18 @@ export class FileSystemFolderService
   }
 
   /**
-   * 為這些使用者補建個人資料夾（已有的略過）。`onlyEligible`：先確認他們現在能進檔案管理器
+   * 為這些使用者補建個人資料夾（已有的略過）；回傳這次建立的數量。`onlyEligible`：先確認他們現在能進檔案管理器
    * （`permissions.changed` 的對象不一定取得了檔案權限）。
    */
   async ensurePersonalFolders(
     userIds: readonly string[],
     options: { onlyEligible?: boolean } = {},
-  ): Promise<void> {
+  ): Promise<number> {
     const candidates = options.onlyEligible ? await this.eligible(userIds) : [...new Set(userIds)];
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) return 0;
     const existing = await this.repo.findPersonalOwnerIds(candidates);
     const missing = candidates.filter((id) => !existing.has(id));
-    if (missing.length === 0) return;
+    if (missing.length === 0) return 0;
 
     const privateRoot = await this.ensureSystemFolders();
     const people = await this.repo.findUsers(missing);
@@ -190,6 +190,7 @@ export class FileSystemFolderService
       this.logger.log({ count: created.length }, '建立個人資料夾');
       this.publish();
     }
+    return created.length;
   }
 
   /** 一個人的個人資料夾：挑一個同一層沒人用的名稱、授予本人 manager、寫稽核。 */

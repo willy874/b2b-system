@@ -9,8 +9,8 @@ import { snapshot } from '../helpers/snapshot';
 /**
  * 檔案管理與資料夾授權（docs/architecture/backend/09-file.md、docs/rbac/07-resource-grants.md）：
  * 上傳經 presigned URL 直傳物件儲存、預覽與下載；別人的資料夾預設鎖住，申請存取 → 擁有者核准 → 看得到；撤銷後又鎖住。
- * 資料夾由 admin 建在根目錄（只有全域 `file:read` 的人看得到，member 預設鎖住），被分享的人用專用帳號 `shareTarget`。
- * 不依賴個人資料夾：它由 api 在啟動與權限變更時補建，global-setup 在 api 跑著時重灌資料庫，種子帳號一開始沒有個人資料夾。
+ * 分享用的資料夾由 admin 建在根目錄（只有全域 `file:read` 的人看得到，member 預設鎖住），被分享的人用專用帳號 `shareTarget`。
+ * 個人資料夾：global-setup 在 api 跑著時重灌資料庫，種子帳號一開始沒有；第一次打開檔案管理時由 api 補建。
  */
 
 const unique = (prefix: string) => `${prefix} ${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -51,6 +51,28 @@ async function userIdOf(token: string, email: string): Promise<string> {
 }
 
 test.describe('檔案管理（docs/architecture/backend/09-file.md）', () => {
+  test('member 打開檔案管理就落在自己的個人資料夾，可以上傳', async ({ page }) => {
+    const name = `${unique('e2e-personal')}.txt`;
+    await loginAndWaitForHome(page, 'member');
+    await page.goto('/file');
+    await expect(page.getByTestId('file-manager-page')).toBeVisible();
+
+    const token = await apiLogin('member');
+    const folders = await apiRequest(token, 'get', '/file-folders');
+    const personalFolderId = (folders.body as { data: { personalFolderId: string | null } }).data
+      .personalFolderId;
+    expect(personalFolderId).toBeTruthy();
+    await expect(page).toHaveURL(new RegExp(`[?&]folder=${personalFolderId}`));
+
+    await page.getByTestId('file-upload-input').setInputFiles({
+      name,
+      mimeType: 'text/plain',
+      buffer: Buffer.from('personal'),
+    });
+    await expect(page.getByTestId('file-item').filter({ hasText: name })).toBeVisible();
+    await snapshot(page, 'personal-folder-upload');
+  });
+
   test('上傳文字檔 → 出現在列表 → 預覽看到內容、可以下載', async ({ page }) => {
     const name = `${unique('e2e-upload')}.txt`;
     const content = 'Hello from the E2E upload test.';

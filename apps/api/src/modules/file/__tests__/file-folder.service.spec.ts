@@ -18,6 +18,7 @@ import { FileFolderService } from '../file-folder.service';
 import type { GrantLevel } from '../file-grant.levels';
 import type { FileImageService } from '../file-image.service';
 import type { FileObjectProbe, FileObjectsService } from '../file-objects.service';
+import type { FileSystemFolderService } from '../file-system-folder.service';
 import { MAX_FOLDER_DEPTH } from '../file.constants';
 import type { FileRepository } from '../file.repository';
 import type { LevelGrant } from './file-access.fixture';
@@ -237,6 +238,10 @@ function setup(
         new Map(ids.map((id): [string, never[]] => [id, []])),
     ),
   };
+  // 個人資料夾的補建（docs/rbac/07-resource-grants.md §12）：預設補不了（沒有資格），各測試自己指定
+  const systemFolders = {
+    ensurePersonalFolders: vi.fn(async (_userIds: readonly string[]) => 0),
+  };
   const service = new FileFolderService(
     db as unknown as Database,
     repo as unknown as FileFolderRepository,
@@ -253,9 +258,11 @@ function setup(
     objects as unknown as FileObjectsService,
     images as unknown as FileImageService,
     tags as unknown as TagService,
+    systemFolders as unknown as FileSystemFolderService,
   );
   return {
     service,
+    systemFolders,
     repo,
     fileRepo,
     objects,
@@ -544,6 +551,35 @@ describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-gra
       canShare: false,
     });
     expect(list.rootCapabilities).toEqual({ canCreate: false });
+  });
+
+  it('已有個人資料夾：不補建', async () => {
+    const { service, systemFolders, all } = setup([{ name: 'Alice' }]);
+    for (const row of all.values()) Object.assign(row, { kind: 'personal', ownerId: ALICE.id });
+    const list = await service.list(ALICE);
+    expect(list.personalFolderId).not.toBeNull();
+    expect(systemFolders.ensurePersonalFolders).not.toHaveBeenCalled();
+  });
+
+  it('還沒有個人資料夾（啟動與 permissions.changed 都錯過）：當場補建並重新讀取', async () => {
+    const { service, systemFolders, repo } = setup();
+    systemFolders.ensurePersonalFolders.mockImplementation(async () => {
+      const [row] = await repo.create([{ name: 'Alice', parentId: null }]);
+      Object.assign(row!, { kind: 'personal', ownerId: ALICE.id });
+      return 1;
+    });
+    const list = await service.list(ALICE);
+    expect(systemFolders.ensurePersonalFolders).toHaveBeenCalledWith([ALICE.id], {
+      onlyEligible: true,
+    });
+    expect(list.personalFolderId).toBe(list.items.find((item) => item.name === 'Alice')?.id);
+  });
+
+  it('補建不了（沒有檔案權限）：personalFolderId 是 null，不重新讀取', async () => {
+    const { service, repo } = setup();
+    const list = await service.list(ALICE);
+    expect(list.personalFolderId).toBeNull();
+    expect(repo.listAll).toHaveBeenCalledOnce();
   });
 
   it('contributor 可以在被授權資料夾裡建立；在根目錄建立 → AUTHZ_FORBIDDEN 並寫 authz.denied', async () => {
