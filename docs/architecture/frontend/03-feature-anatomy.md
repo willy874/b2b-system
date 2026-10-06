@@ -173,8 +173,8 @@ export function useRolePermission() {
 
   return {
     ...page, // canAccess/canCreate/canRead/canUpdate/canDelete
-    /** 是否能進入權限管理子頁（需要能讀權限目錄） */
-    canManagePermission: page.canUpdate && can(PermissionKey.PermissionRead),
+    /** 是否能進入權限子頁（role:read ＋ permission:read；沒有 role:grantPermission 時唯讀） */
+    canManagePermission: page.canRead && can(PermissionKey.PermissionRead),
     /** 是否能授予／移除角色權限 */
     canGrantPermission: can(PermissionKey.RoleGrantPermission),
   };

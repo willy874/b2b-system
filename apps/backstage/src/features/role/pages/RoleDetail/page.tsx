@@ -24,6 +24,9 @@ import { RoleBasicSection } from './components/RoleBasicSection';
 import { RoleHolderSection } from './components/RoleHolderSection';
 import { RolePermissionSection } from './components/RolePermissionSection';
 
+/** 唯一不能改權限的角色（路由 `RoleDetailPermissionRoute` 與後端 `ROLE_SUPER_ADMIN_IMMUTABLE` 同一條規則）。 */
+const SUPER_ADMIN_SLUG = 'super-admin';
+
 export default function RoleDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -84,7 +87,8 @@ export default function RoleDetailPage() {
                 {t('role.detail.revisions')}
               </ButtonLink>
             )}
-            {permission.canManagePermission && !isSystem && (
+            {/* 與路由守衛、後端一致：只有 super-admin 不能改權限（admin、auditor、member 可以，仍受反提權限制） */}
+            {permission.canManagePermission && role.data && role.data.slug !== SUPER_ADMIN_SLUG && (
               <ButtonLink
                 variant="secondary"
                 to={RoleDetailPermissionRoute.to}
@@ -92,7 +96,9 @@ export default function RoleDetailPage() {
                 search={search}
                 data-testid="role-manage-permission-button"
               >
-                {t('role.detail.managePermission')}
+                {permission.canGrantPermission
+                  ? t('role.detail.managePermission')
+                  : t('role.detail.viewPermission')}
               </ButtonLink>
             )}
             <Button variant="primary" onClick={close}>
@@ -120,7 +126,7 @@ export default function RoleDetailPage() {
           <div className="flex flex-col gap-5">
             <RoleBasicSection role={role.data} canEdit={permission.canUpdate && !isSystem} />
             <RolePermissionSection
-              isSuperAdmin={role.data.slug === 'super-admin'}
+              isSuperAdmin={role.data.slug === SUPER_ADMIN_SLUG}
               permissions={rolePermissions.data?.permissions}
             />
             {(permission.canViewUsers || permission.canViewGroups) && (

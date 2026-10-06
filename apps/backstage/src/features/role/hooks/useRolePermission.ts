@@ -9,8 +9,11 @@ export function useRolePermission() {
 
   return {
     ...page,
-    /** 是否能進入權限管理子頁（需要能讀權限目錄） */
-    canManagePermission: page.canUpdate && can(PermissionKey['permission:read']),
+    /**
+     * 是否能進入權限子頁：`role:read` ＋ `permission:read`（docs/architecture/frontend/06-permission.md §7）。
+     * 能不能增減由頁面以 `canGrantPermission` 決定，沒有時唯讀；super-admin 角色由呼叫端另外排除。
+     */
+    canManagePermission: page.canRead && can(PermissionKey['permission:read']),
     /** 是否能授予／移除角色權限 */
     canGrantPermission: can(PermissionKey['role:grantPermission']),
     canViewUsers: can(PermissionKey['user:read']),

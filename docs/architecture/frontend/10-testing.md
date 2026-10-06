@@ -104,7 +104,7 @@ describe("useRolePermission", () => {
     registerRolePagePermissions();
   });
 
-  it("canManagePermission 需要 role:update 與 permission:read 兩者", () => {
+  it("canManagePermission 需要 role:read 與 permission:read 兩者", () => {
     const { result } = renderHookWithPermissions(
       () => useRolePermission(),
       [PermissionKey.RoleRead, PermissionKey.RoleUpdate], // 缺 permission:read

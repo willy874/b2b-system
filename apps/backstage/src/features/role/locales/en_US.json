@@ -51,6 +51,7 @@
       "permissions": "Granted permissions",
       "holders": "Users holding this role",
       "managePermission": "Manage permissions",
+      "viewPermission": "View permissions",
       "allPermissions": "All permissions (implicit)",
       "backToList": "Back to roles",
       "revisions": "Version history",

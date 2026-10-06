@@ -2,22 +2,32 @@ import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { initTestI18n } from '@/test/i18n';
 
 import { registerRolePagePermissions, Routes } from '../../..';
+import roleZhTW from '../../../locales/zh_TW.json';
 
-const { fetchRole, fetchRolePermissions, fetchRoleUsers, updateRole, duplicateRole, fetchGroups } =
-  vi.hoisted(() => ({
-    fetchGroups: vi.fn(),
-    fetchRole: vi.fn(),
-    fetchRolePermissions: vi.fn(),
-    fetchRoleUsers: vi.fn(),
-    updateRole: vi.fn(),
-    duplicateRole: vi.fn(),
-  }));
+const {
+  fetchRole,
+  fetchRolePermissions,
+  fetchRoleUsers,
+  updateRole,
+  duplicateRole,
+  fetchGroups,
+  fetchPermissionList,
+} = vi.hoisted(() => ({
+  fetchGroups: vi.fn(),
+  fetchRole: vi.fn(),
+  fetchRolePermissions: vi.fn(),
+  fetchRoleUsers: vi.fn(),
+  updateRole: vi.fn(),
+  duplicateRole: vi.fn(),
+  fetchPermissionList: vi.fn(),
+}));
 vi.mock('@/apis/group/get-group-list/fetcher', () => ({ fetchGroupListQuery: fetchGroups }));
 vi.mock('@/apis/role/get-role-detail/fetcher', () => ({ fetchRoleDetailQuery: fetchRole }));
 vi.mock('@/apis/role/get-role-permissions/fetcher', () => ({
@@ -27,6 +37,9 @@ vi.mock('@/apis/role/get-role-users/fetcher', () => ({ fetchRoleUsersQuery: fetc
 vi.mock('@/apis/role/update-role/fetcher', () => ({ fetchRoleUpdateMutation: updateRole }));
 vi.mock('@/apis/role/duplicate-role/fetcher', () => ({
   fetchRoleDuplicateMutation: duplicateRole,
+}));
+vi.mock('@/apis/permission/get-permission-list/fetcher', () => ({
+  fetchPermissionListQuery: fetchPermissionList,
 }));
 
 const ROLE_ID = '22222222-2222-4222-8222-222222222222';
@@ -44,7 +57,13 @@ const ROLE = {
 const MANAGER = ['role:read', 'role:update', 'role:create'] as PermissionKey[];
 
 Routes.RoleListRoute.update({ component: Outlet });
-const routes = [Routes.RoleListRoute.addChildren([Routes.RoleDetailRoute])];
+const routes = [
+  Routes.RoleListRoute.addChildren([
+    Routes.RoleDetailRoute.addChildren([Routes.RoleDetailPermissionRoute]),
+  ]),
+];
+
+beforeAll(() => initTestI18n(roleZhTW));
 
 beforeEach(() => {
   resetPagePermissionRegistry();
@@ -60,6 +79,7 @@ beforeEach(() => {
   });
   updateRole.mockReset().mockResolvedValue(ROLE);
   duplicateRole.mockReset().mockResolvedValue({ ...ROLE, id: 'copy' });
+  fetchPermissionList.mockReset().mockResolvedValue({ items: [], groups: [] });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -163,6 +183,7 @@ describe('RoleDetailPage', () => {
     await screen.findByText('Editor');
     expect(screen.queryByTestId('role-edit-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('role-duplicate-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('role-manage-permission-button')).not.toBeInTheDocument();
   });
 
   it('有 group:read → 持有者分「直接持有」與「經由群組」，以 roleId 查群組（docs/rbac/01-domain-model.md §9 G4）', async () => {
@@ -181,5 +202,44 @@ describe('RoleDetailPage', () => {
     await screen.findByText('Editor');
     expect(screen.queryByTestId('role-holder-groups')).not.toBeInTheDocument();
     expect(fetchGroups).not.toHaveBeenCalled();
+  });
+
+  describe('權限子頁的入口（docs/architecture/frontend/06-permission.md §7）', () => {
+    const VIEWER = ['role:read', 'permission:read'] as PermissionKey[];
+    const GRANTER = [...VIEWER, 'role:grantPermission'] as PermissionKey[];
+
+    it.each([
+      ['admin', 'admin'],
+      ['member', 'member'],
+    ])('系統角色 %s ＋ role:grantPermission → 顯示「管理權限」', async (_, slug) => {
+      fetchRole.mockResolvedValue({ ...ROLE, slug, name: slug, isSystem: true });
+      renderRoute(routes, `/role/${ROLE_ID}`, GRANTER);
+      expect(await screen.findByTestId('role-manage-permission-button')).toHaveTextContent(
+        '管理權限',
+      );
+    });
+
+    it('super-admin → 不顯示入口', async () => {
+      fetchRole.mockResolvedValue({ ...ROLE, slug: 'super-admin', name: 'Root', isSystem: true });
+      renderRoute(routes, `/role/${ROLE_ID}`, GRANTER);
+      await screen.findByText('Root');
+      expect(screen.queryByTestId('role-manage-permission-button')).not.toBeInTheDocument();
+    });
+
+    it('只有 role:read ＋ permission:read → 顯示「檢視權限」，進去是唯讀', async () => {
+      renderRoute(routes, `/role/${ROLE_ID}`, VIEWER);
+      const entry = await screen.findByTestId('role-manage-permission-button');
+      expect(entry).toHaveTextContent('檢視權限');
+
+      fireEvent.click(entry);
+      expect(await screen.findByTestId('role-permission-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('role-permission-save')).toBeDisabled();
+    });
+
+    it('只有 role:update、沒有 permission:read → 不顯示入口', async () => {
+      renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'role:update'] as PermissionKey[]);
+      await screen.findByText('Editor');
+      expect(screen.queryByTestId('role-manage-permission-button')).not.toBeInTheDocument();
+    });
   });
 });

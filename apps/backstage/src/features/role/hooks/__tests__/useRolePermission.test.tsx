@@ -31,15 +31,11 @@ describe('useRolePermission（feature 的權限 facade）', () => {
     });
   });
 
-  it('canManagePermission 需要 role:update ＋ permission:read', () => {
+  it('canManagePermission 需要 role:read ＋ permission:read（不看 role:update）', () => {
     hydrate([PermissionKey['role:read'], PermissionKey['role:update']]);
     expect(renderHook(() => useRolePermission()).result.current.canManagePermission).toBe(false);
 
-    hydrate([
-      PermissionKey['role:read'],
-      PermissionKey['role:update'],
-      PermissionKey['permission:read'],
-    ]);
+    hydrate([PermissionKey['role:read'], PermissionKey['permission:read']]);
     expect(renderHook(() => useRolePermission()).result.current.canManagePermission).toBe(true);
   });
 

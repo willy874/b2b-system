@@ -51,6 +51,7 @@
       "permissions": "已授予的權限",
       "holders": "持有此角色的使用者",
       "managePermission": "管理權限",
+      "viewPermission": "檢視權限",
       "allPermissions": "全部權限（隱含）",
       "backToList": "回到角色列表",
       "revisions": "版本紀錄",
