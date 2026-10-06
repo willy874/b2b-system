@@ -2,6 +2,7 @@ import { ALL_ERROR_CODES } from '@b2b-system/error-codes';
 import { describe, expect, it } from 'vitest';
 
 import { ERROR_MESSAGE_KEY } from '../../errors';
+import { hasLocaleKey, localeKeySet, pluralProblems } from '../../testing/locales';
 import enUS from '../resources/en_US.json';
 import zhTW from '../resources/zh_TW.json';
 
@@ -11,39 +12,25 @@ import zhTW from '../resources/zh_TW.json';
  */
 const bundles = { zh_TW: zhTW, en_US: enUS } as Record<string, Record<string, unknown>>;
 
-function lookup(bundle: Record<string, unknown>, path: string[]): unknown {
-  return path.reduce<unknown>(
-    (node, key) =>
-      typeof node === 'object' && node !== null
-        ? (node as Record<string, unknown>)[key]
-        : undefined,
-    bundle,
-  );
-}
-
 describe('web-core 的語系包', () => {
   for (const [name, bundle] of Object.entries(bundles)) {
     it(`${name}：每個 ErrorCode 都有翻譯`, () => {
-      const missing = ALL_ERROR_CODES.filter((code) => !lookup(bundle, ['error', code]));
+      // 帶數量的訊息是複數形（`error.ROLE_IN_USE_one`／`_other`）
+      const missing = ALL_ERROR_CODES.filter((code) => !hasLocaleKey(bundle, `error.${code}`));
       expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
     });
 
     it(`${name}：ERROR_MESSAGE_KEY 的每個語系鍵都有翻譯`, () => {
-      const missing = Object.values(ERROR_MESSAGE_KEY).filter(
-        (key) => !lookup(bundle, key.split('.')),
-      );
+      const missing = Object.values(ERROR_MESSAGE_KEY).filter((key) => !hasLocaleKey(bundle, key));
       expect(missing, `缺少：${missing.join(', ')}`).toEqual([]);
     });
   }
 
-  it('兩個語系的鍵集合一致', () => {
-    const flatten = (value: unknown, prefix = ''): string[] =>
-      typeof value === 'object' && value !== null
-        ? Object.entries(value).flatMap(([key, child]) =>
-            flatten(child, prefix ? `${prefix}.${key}` : key),
-          )
-        : [prefix];
+  it('兩個語系的鍵集合一致（複數形的後綴視為同一個鍵）', () => {
+    expect(localeKeySet(zhTW)).toEqual(localeKeySet(enUS));
+  });
 
-    expect(new Set(flatten(zhTW))).toEqual(new Set(flatten(enUS)));
+  it('帶數量（{{count}}）的句子都有複數形：英文 _one／_other、中文 _other（docs/architecture/frontend/08-i18n.md §5）', () => {
+    expect(pluralProblems(enUS, zhTW)).toEqual([]);
   });
 });

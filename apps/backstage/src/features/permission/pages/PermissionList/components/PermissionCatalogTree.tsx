@@ -94,7 +94,10 @@ export function PermissionCatalogTree({
         highlightedEdgeIds={tree.path.edgeIds}
         renderNode={(node) => {
           const isHeld = held.has(node.id);
-          const label = `${t(node.data.nameI18nKey)}（${isHeld ? t('permissionCatalog.held') : t('permissionCatalog.notHeld')}）`;
+          const label = t('common.withNote', {
+            name: t(node.data.nameI18nKey),
+            note: isHeld ? t('permissionCatalog.held') : t('permissionCatalog.notHeld'),
+          });
           return (
             <button
               type="button"

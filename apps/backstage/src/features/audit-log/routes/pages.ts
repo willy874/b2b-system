@@ -16,6 +16,7 @@ export const AUDIT_LOG_FEATURE = 'auditLog';
 export const AuditLogListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/audit-log',
+  staticData: { titleKey: 'menu.auditLog' },
   // 未啟用 → 404；清單還沒到或安裝中 → 等待，語系包的 loader 要在安裝之後才跑（docs/architecture/frontend/02-plugin-system.md §9.2 D6）
   beforeLoad: requireFeature(AUDIT_LOG_FEATURE),
   loader: localeScopeLoader(AUDIT_LOG_LOCALE_SCOPE),

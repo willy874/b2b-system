@@ -32,4 +32,13 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
   [Languages.EN_US]: 'English',
 };
 
+/**
+ * `<html lang>` 的值：報讀器依它選語音（中文介面念英文會用中文語音）。
+ * 與 index.html 一開始寫的 `zh-Hant` 相同的寫法。
+ */
+export const HTML_LANG: Record<Language, string> = {
+  [Languages.ZH_TW]: 'zh-Hant',
+  [Languages.EN_US]: 'en',
+};
+
 export const DEFAULT_TIMEZONE = 'Asia/Taipei';

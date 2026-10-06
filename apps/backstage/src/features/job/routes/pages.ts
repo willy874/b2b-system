@@ -16,6 +16,7 @@ export const JOB_FEATURE = 'job';
 export const JobListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/job',
+  staticData: { titleKey: 'menu.job' },
   // 未啟用 → 404；清單還沒到或安裝中 → 等待，語系包的 loader 要在安裝之後才跑（docs/architecture/frontend/02-plugin-system.md §9.2 D6）
   beforeLoad: requireFeature(JOB_FEATURE),
   loader: localeScopeLoader(JOB_LOCALE_SCOPE),

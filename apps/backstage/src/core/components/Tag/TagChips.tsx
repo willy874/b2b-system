@@ -1,5 +1,6 @@
 import { Chip } from '@b2b-system/ui/Chip';
-import { cn } from '@b2b-system/web-shared/utils';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn, formatList } from '@b2b-system/web-shared/utils';
 import type { ReactNode } from 'react';
 
 import type { TagSummary } from '@/shared/api-sdk';
@@ -19,6 +20,7 @@ export interface TagChipsProps {
  * 每個標籤是 `data-testid="tag-chip"`、`data-value=<標籤 id>`。
  */
 export function TagChips({ tags, empty, max, className, 'data-testid': testId }: TagChipsProps) {
+  const { language } = useTranslation();
   if (!tags.length) return empty ?? null;
   const shown = max === undefined ? tags : tags.slice(0, max);
   const hidden = tags.length - shown.length;
@@ -35,10 +37,10 @@ export function TagChips({ tags, empty, max, className, 'data-testid': testId }:
       {hidden > 0 && (
         <span
           className="text-xs text-[var(--color-fg-muted)]"
-          title={tags
-            .slice(shown.length)
-            .map((tag) => tag.name)
-            .join('、')}
+          title={formatList(
+            tags.slice(shown.length).map((tag) => tag.name),
+            language,
+          )}
           data-testid="tag-chip-more"
         >
           +{hidden}

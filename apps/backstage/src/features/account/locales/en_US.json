@@ -14,7 +14,8 @@
       "submit": "Change password",
       "changed": "Password changed. Please sign in again.",
       "confirmTitle": "Change your password?",
-      "lengthHint": "At least {{min}} characters ({{count}} so far)."
+      "lengthHint_one": "At least {{min}} characters ({{count}} so far).",
+      "lengthHint_other": "At least {{min}} characters ({{count}} so far)."
     },
     "preference": {
       "title": "Preferences",

@@ -5,6 +5,7 @@ import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/w
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { formatDateTime } from '@b2b-system/web-shared/date';
+import { formatList } from '@b2b-system/web-shared/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
@@ -260,9 +261,10 @@ export function AnnouncementSettingsSection({
         </dd>
         <dt className="text-[var(--color-fg-muted)]">{t('announcement.field.audience')}</dt>
         <dd className="m-0" data-testid="announcement-detail-audience">
-          {audienceSummary(announcement.audience)
-            .map((part) => t(part.key, part.args))
-            .join('、')}
+          {formatList(
+            audienceSummary(announcement.audience).map((part) => t(part.key, part.args)),
+            language,
+          )}
         </dd>
         <dt className="text-[var(--color-fg-muted)]">{t('announcement.field.title')}</dt>
         <dd className="m-0 font-medium">{announcement.title}</dd>

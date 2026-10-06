@@ -25,7 +25,8 @@
     "title": "B2B System",
     "mark": "B2B",
     "subtitle": "RBAC 管理後台",
-    "platform": "帳號平台"
+    "platform": "帳號平台",
+    "documentTitle": "B2B System 帳號"
   },
   "error": {
     "FEATURE_DISABLED": "這個功能目前沒有開放給這個租戶。"

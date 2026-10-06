@@ -14,6 +14,7 @@ export const WEBHOOK_FEATURE = 'webhook';
 export const WebhookListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/webhook',
+  staticData: { titleKey: 'menu.webhook' },
   beforeLoad: requireFeature(WEBHOOK_FEATURE),
   loader: localeScopeLoader(WEBHOOK_LOCALE_SCOPE),
   validateSearch: WebhookSearchQuerySchema,

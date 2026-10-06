@@ -1,8 +1,9 @@
-import { renderHook } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { AbortReason, NetworkError, RequestAbortedError } from '../../client';
 import { i18n, initI18n } from '../../locales';
+import enUS from '../../locales/resources/en_US.json';
 import zhTW from '../../locales/resources/zh_TW.json';
 import { AppError } from '../AppError';
 import { isSilentError, useErrorMessage } from '../useErrorMessage';
@@ -10,6 +11,7 @@ import { isSilentError, useErrorMessage } from '../useErrorMessage';
 beforeAll(async () => {
   await initI18n('zh-TW');
   i18n.addResourceBundle('zh-TW', 'translation', zhTW, true, true);
+  i18n.addResourceBundle('en-US', 'translation', enUS, true, true);
 });
 
 describe('useErrorMessage', () => {
@@ -65,5 +67,33 @@ describe('isSilentError', () => {
     expect(isSilentError(new RequestAbortedError(AbortReason.SESSION_ENDED))).toBe(true);
     expect(isSilentError(new RequestAbortedError(AbortReason.TIMEOUT))).toBe(false);
     expect(isSilentError(new AppError('INTERNAL_ERROR', 500))).toBe(false);
+  });
+
+  describe('英文的單複數（docs/architecture/frontend/08-i18n.md §5）', () => {
+    afterEach(async () => {
+      await act(() => i18n.changeLanguage('zh-TW'));
+    });
+
+    it('ROLE_IN_USE 的人數以 count 套用複數規則：1 user／3 users', async () => {
+      await act(() => i18n.changeLanguage('en-US'));
+      const { result } = renderHook(() => useErrorMessage());
+      expect(result.current(new AppError('ROLE_IN_USE', 409, { userCount: 1 }))).toBe(
+        '1 user still holds this role.',
+      );
+      expect(result.current(new AppError('ROLE_IN_USE', 409, { userCount: 3 }))).toBe(
+        '3 users still hold this role.',
+      );
+    });
+
+    it('429 的等待秒數：1 second／42 seconds', async () => {
+      await act(() => i18n.changeLanguage('en-US'));
+      const { result } = renderHook(() => useErrorMessage());
+      expect(result.current(new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 1 }))).toBe(
+        'Too many requests. Please try again in 1 second.',
+      );
+      expect(result.current(new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 42 }))).toBe(
+        'Too many requests. Please try again in 42 seconds.',
+      );
+    });
   });
 });

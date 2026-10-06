@@ -8,6 +8,7 @@ import { DEFAULT_SERVICE_ACCOUNT_SEARCH, ServiceAccountSearchQuerySchema } from 
 export const ServiceAccountListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/service-account',
+  staticData: { titleKey: 'menu.serviceAccount' },
   loader: localeScopeLoader(SERVICE_ACCOUNT_LOCALE_SCOPE),
   validateSearch: ServiceAccountSearchQuerySchema,
   // 等於預設值的參數不寫進網址（子路由也套用）

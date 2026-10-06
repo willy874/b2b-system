@@ -47,16 +47,21 @@
       "groupsPlaceholder": "Select groups",
       "rolesPlaceholder": "Select roles",
       "noMatch": "No matches",
-      "count": "Sending now would reach {{count}} people",
+      "count_one": "Sending now would reach {{count}} person",
+      "count_other": "Sending now would reach {{count}} people",
       "counting": "Counting recipients…",
       "summary": {
         "all": "Everyone",
-        "users": "{{count}} users",
-        "groups": "{{count}} groups",
-        "roles": "{{count}} roles",
+        "users_one": "{{count}} user",
+        "users_other": "{{count}} users",
+        "groups_one": "{{count}} group",
+        "groups_other": "{{count}} groups",
+        "roles_one": "{{count}} role",
+        "roles_other": "{{count}} roles",
         "none": "None selected"
       },
-      "countEvent": "The recipients currently include {{count}} people; when the event happens, only the matching person receives it"
+      "countEvent_one": "The recipients currently include {{count}} person; when the event happens, only the matching person receives it",
+      "countEvent_other": "The recipients currently include {{count}} people; when the event happens, only the matching person receives it"
     },
     "create": {
       "action": "New announcement",
@@ -104,7 +109,8 @@
     "dispatch": {
       "title": "Send history",
       "empty": "Not sent yet",
-      "tooManyRecipients": "{{count}} recipients exceed the limit of {{max}}; nothing was sent",
+      "tooManyRecipients_one": "{{count}} recipient exceeds the limit of {{max}}; nothing was sent",
+      "tooManyRecipients_other": "{{count}} recipients exceed the limit of {{max}}; nothing was sent",
       "field": {
         "scheduledFor": "Sent at",
         "status": "Status",
@@ -155,11 +161,11 @@
       },
       "summary": {
         "daily": "Daily at {{time}}",
-        "dailyEvery": "Every {{count}} days at {{time}}",
+        "dailyEvery": "Every {{interval}} days at {{time}}",
         "weekly": "Weekly on {{weekdays}} at {{time}}",
-        "weeklyEvery": "Every {{count}} weeks on {{weekdays}} at {{time}}",
+        "weeklyEvery": "Every {{interval}} weeks on {{weekdays}} at {{time}}",
         "monthly": "Monthly on {{day}} at {{time}}",
-        "monthlyEvery": "Every {{count}} months on {{day}} at {{time}}"
+        "monthlyEvery": "Every {{interval}} months on {{day}} at {{time}}"
       }
     },
     "event": {

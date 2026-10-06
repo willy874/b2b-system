@@ -12,6 +12,7 @@ import { DEFAULT_ROLE_SEARCH, RoleSearchQuerySchema } from './model';
 export const RoleListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/role',
+  staticData: { titleKey: 'menu.role' },
   loader: localeScopeLoader(ROLE_LOCALE_SCOPE),
   validateSearch: RoleSearchQuerySchema,
   // 等於預設值的參數不寫進網址（子路由也套用）

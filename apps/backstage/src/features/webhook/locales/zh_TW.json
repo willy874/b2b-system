@@ -23,13 +23,13 @@
       "urlNumber": "網址 {{number}}",
       "addUrl": "新增網址",
       "removeUrl": "移除網址 {{number}}",
-      "urlFailures": "連續失敗 {{count}} 次"
+      "urlFailures_other": "連續失敗 {{count}} 次"
     },
     "list": {
       "title": "Webhook",
       "description": "使用者、審批、檔案發生變化時，以 POST 通知外部系統（CI、聊天工具、自己的服務）。內容只帶 id，接收端以 API token 查詢細節。",
       "searchPlaceholder": "搜尋名稱或網址",
-      "moreUrls": "+{{count}}"
+      "moreUrls_other": "+{{count}}"
     },
     "create": {
       "action": "建立 Webhook",
@@ -68,15 +68,15 @@
     },
     "test": {
       "action": "送測試事件",
-      "sentAll": "已送到 {{count}} 個網址，全部成功",
-      "failedSome": "{{count}} 個網址中有 {{failed}} 個送出失敗，詳情見投遞紀錄"
+      "sentAll_other": "已送到 {{count}} 個網址，全部成功",
+      "failedSome_other": "{{count}} 個網址中有 {{failed}} 個送出失敗，詳情見投遞紀錄"
     },
     "detail": {
       "title": "Webhook",
       "settings": "設定",
       "deliveries": "投遞紀錄",
       "deliveriesHint": "每一次送出一筆，保留 30 天。失敗會自動重試（最多 8 次，間隔逐漸拉長到 1 小時）。",
-      "failingNotice": "連續失敗 {{count}} 次而自動停用。修好接收端之後送測試事件確認，再重新啟用。",
+      "failingNotice_other": "連續失敗 {{count}} 次而自動停用。修好接收端之後送測試事件確認，再重新啟用。",
       "backToList": "回到列表"
     },
     "delivery": {

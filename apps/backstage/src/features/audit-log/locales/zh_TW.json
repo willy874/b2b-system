@@ -33,9 +33,9 @@
       "title": "紀錄詳情",
       "changes": "變更前後",
       "metadata": "中繼資料",
-      "arraySummary": "{{count}} 項",
-      "objectSummary": "{{count}} 個欄位",
-      "expandUnchanged": "展開 {{count}} 行未變更",
+      "arraySummary_other": "{{count}} 項",
+      "objectSummary_other": "{{count}} 個欄位",
+      "expandUnchanged_other": "展開 {{count}} 行未變更",
       "noChanges": "沒有變更"
     }
   }

@@ -47,16 +47,16 @@
       "groupsPlaceholder": "選擇群組",
       "rolesPlaceholder": "選擇角色",
       "noMatch": "沒有符合的項目",
-      "count": "現在送出會發給 {{count}} 人",
+      "count_other": "現在送出會發給 {{count}} 人",
       "counting": "計算收件人數中…",
       "summary": {
         "all": "全部",
-        "users": "{{count}} 位使用者",
-        "groups": "{{count}} 個群組",
-        "roles": "{{count}} 個角色",
+        "users_other": "{{count}} 位使用者",
+        "groups_other": "{{count}} 個群組",
+        "roles_other": "{{count}} 個角色",
         "none": "尚未選擇"
       },
-      "countEvent": "收件對象目前有 {{count}} 人；事件發生時，只有符合的那個人會收到"
+      "countEvent_other": "收件對象目前有 {{count}} 人；事件發生時，只有符合的那個人會收到"
     },
     "create": {
       "action": "建立公告",
@@ -104,7 +104,7 @@
     "dispatch": {
       "title": "發送紀錄",
       "empty": "還沒有發送過",
-      "tooManyRecipients": "收件人 {{count}} 人超過上限 {{max}} 人，沒有發送",
+      "tooManyRecipients_other": "收件人 {{count}} 人超過上限 {{max}} 人，沒有發送",
       "field": {
         "scheduledFor": "發送時間",
         "status": "狀態",
@@ -155,11 +155,11 @@
       },
       "summary": {
         "daily": "每天 {{time}}",
-        "dailyEvery": "每 {{count}} 天 {{time}}",
+        "dailyEvery": "每 {{interval}} 天 {{time}}",
         "weekly": "每週{{weekdays}} {{time}}",
-        "weeklyEvery": "每 {{count}} 週的{{weekdays}} {{time}}",
+        "weeklyEvery": "每 {{interval}} 週的{{weekdays}} {{time}}",
         "monthly": "每月{{day}} {{time}}",
-        "monthlyEvery": "每 {{count}} 個月的{{day}} {{time}}"
+        "monthlyEvery": "每 {{interval}} 個月的{{day}} {{time}}"
       }
     },
     "event": {

@@ -33,9 +33,12 @@
       "title": "Record detail",
       "changes": "Before / after",
       "metadata": "Metadata",
-      "arraySummary": "{{count}} items",
-      "objectSummary": "{{count}} fields",
-      "expandUnchanged": "Show {{count}} unchanged lines",
+      "arraySummary_one": "{{count}} item",
+      "arraySummary_other": "{{count}} items",
+      "objectSummary_one": "{{count}} field",
+      "objectSummary_other": "{{count}} fields",
+      "expandUnchanged_one": "Show {{count}} unchanged line",
+      "expandUnchanged_other": "Show {{count}} unchanged lines",
       "noChanges": "No changes"
     }
   }

@@ -25,7 +25,8 @@
     "title": "B2B System",
     "mark": "B2B",
     "subtitle": "RBAC console",
-    "platform": "Account platform"
+    "platform": "Account platform",
+    "documentTitle": "B2B System Accounts"
   },
   "error": {
     "FEATURE_DISABLED": "This feature isn't available for this tenant."

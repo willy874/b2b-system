@@ -12,7 +12,8 @@
     },
     "markAllRead": {
       "action": "Mark all as read",
-      "success": "Marked {{count}} notifications as read"
+      "success_one": "Marked {{count}} notification as read",
+      "success_other": "Marked {{count}} notifications as read"
     },
     "actor": {
       "system": "System"
@@ -22,7 +23,8 @@
       "approvalApproved": "Your {{type}} request was approved",
       "approvalRejected": "Your {{type}} request was rejected",
       "userRolesChanged": "Your roles were changed",
-      "webhookDisabled": "Webhook \"{{name}}\" failed {{count}} times in a row and was turned off",
+      "webhookDisabled_one": "Webhook \"{{name}}\" failed {{count}} time in a row and was turned off",
+      "webhookDisabled_other": "Webhook \"{{name}}\" failed {{count}} times in a row and was turned off",
       "unknown": "You have a new notification",
       "announcementPublished": "Announcement: {{title}}"
     },

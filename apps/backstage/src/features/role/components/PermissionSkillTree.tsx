@@ -7,7 +7,7 @@ import type { SelectOption } from '@b2b-system/ui/Select';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { TreeEditor } from '@b2b-system/ui/TreeEditor';
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { cn } from '@b2b-system/web-shared/utils';
+import { cn, formatList } from '@b2b-system/web-shared/utils';
 
 import { PERMISSION_NODE_SIZE } from '@/core/permission-graph';
 import type { PermissionNodeData } from '@/core/permission-graph';
@@ -70,11 +70,7 @@ export function PermissionSkillTree({
     // 語系包還沒載入時 t() 可能沒有結果：退回權限鍵
     return (item && t(item.nameI18nKey)) || key;
   };
-  // 語系是 `zh_TW` 這種寫法，Intl 要 BCP 47（`zh-TW`）；還沒初始化時交給瀏覽器預設
-  const list = new Intl.ListFormat(language ? language.replace('_', '-') : undefined, {
-    type: 'conjunction',
-  });
-  const names = (keys: readonly string[]) => list.format(keys.map(nameOf));
+  const names = (keys: readonly string[]) => formatList(keys.map(nameOf), language);
   const detail = tree.items.find((item) => item.key === tree.detailKey);
   const detailState = detail ? tree.stateOf(detail.key) : undefined;
   const impliedBy = detail ? tree.impliedByOf(detail.key) : [];
@@ -165,7 +161,10 @@ export function PermissionSkillTree({
                 <button
                   type="button"
                   aria-pressed={ARIA_PRESSED[state]}
-                  aria-label={`${t(node.data.nameI18nKey)}（${t(STATE_LABEL_KEY[state])}）`}
+                  aria-label={t('common.withNote', {
+                    name: t(node.data.nameI18nKey),
+                    note: t(STATE_LABEL_KEY[state]),
+                  })}
                   disabled={tree.readOnly || state === 'unavailable'}
                   className={cn(
                     'nodrag flex w-full min-w-0 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0',
@@ -207,12 +206,18 @@ export function PermissionSkillTree({
                 )}
                 {detail.includes.length > 0 && (
                   <p className="m-0">
-                    {t('role.permission.skillTree.includes')}：{names(detail.includes)}
+                    {t('common.labelValue', {
+                      label: t('role.permission.skillTree.includes'),
+                      value: names(detail.includes),
+                    })}
                   </p>
                 )}
                 {detail.requires.length > 0 && (
                   <p className="m-0">
-                    {t('role.permission.skillTree.requires')}：{names(detail.requires)}
+                    {t('common.labelValue', {
+                      label: t('role.permission.skillTree.requires'),
+                      value: names(detail.requires),
+                    })}
                   </p>
                 )}
               </div>

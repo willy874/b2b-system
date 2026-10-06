@@ -4,14 +4,16 @@
     "title": "Notifications",
     "description": "Notifications from the platform: tenant provisioning results and changes to your role.",
     "trigger": "Notifications",
-    "triggerUnread": "Notifications ({{count}} unread)",
+    "triggerUnread_one": "Notifications ({{count}} unread)",
+    "triggerUnread_other": "Notifications ({{count}} unread)",
     "unread": "Unread: ",
     "empty": "No notifications yet",
     "emptyUnread": "No unread notifications",
     "viewAll": "View all",
     "markAllRead": {
       "action": "Mark all as read",
-      "success": "Marked {{count}} as read."
+      "success_one": "Marked {{count}} as read.",
+      "success_other": "Marked {{count}} as read."
     },
     "filter": { "all": "All", "unread": "Unread" },
     "type": {

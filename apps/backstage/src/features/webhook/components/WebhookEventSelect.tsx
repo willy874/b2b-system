@@ -34,7 +34,9 @@ export function WebhookEventSelect({
       value: type,
       label: label ? t(label.nameKey) : type,
       textValue: label ? `${t(label.nameKey)} ${type}` : type,
-      description: label ? `${type}｜${t(label.descriptionKey)}` : undefined,
+      description: label
+        ? t('common.withDescription', { name: type, description: t(label.descriptionKey) })
+        : undefined,
     };
   });
 

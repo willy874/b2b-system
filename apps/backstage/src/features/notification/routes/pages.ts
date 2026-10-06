@@ -13,6 +13,7 @@ import {
 export const NotificationListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/notification',
+  staticData: { titleKey: 'notification.title' },
   loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
   validateSearch: NotificationSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_NOTIFICATION_SEARCH)] },
@@ -25,6 +26,7 @@ export const NotificationListRoute = createRoute({
 export const NotificationEventListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/notification/events',
+  staticData: { titleKey: 'menu.notificationEvent' },
   loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
 });
 
@@ -35,6 +37,7 @@ export const NotificationEventListRoute = createRoute({
 export const NotificationOverviewRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/notification/all',
+  staticData: { titleKey: 'menu.notificationOverview' },
   loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
   validateSearch: NotificationOverviewSearchQuerySchema,
 });

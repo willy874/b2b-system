@@ -8,6 +8,7 @@ import { DEFAULT_PERMISSION_SEARCH, PermissionSearchQuerySchema } from './model'
 export const PermissionListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/permission',
+  staticData: { titleKey: 'menu.permission' },
   loader: localeScopeLoader(PERMISSION_LOCALE_SCOPE),
   validateSearch: PermissionSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_PERMISSION_SEARCH)] },

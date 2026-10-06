@@ -23,7 +23,8 @@
     },
     "delete": {
       "title": "Delete group",
-      "confirm": "Delete \"{{name}}\"? Its members ({{count}} direct members; a nested group counts as one) lose the roles the group gives them. Deleted groups go to the trash and can be restored.",
+      "confirm_one": "Delete \"{{name}}\"? Its member ({{count}} direct member; a nested group counts as one) loses the roles the group gives. Deleted groups go to the trash and can be restored.",
+      "confirm_other": "Delete \"{{name}}\"? Its members ({{count}} direct members; a nested group counts as one) lose the roles the group gives them. Deleted groups go to the trash and can be restored.",
       "success": "Group deleted",
       "undo": "Undo"
     },
@@ -37,7 +38,8 @@
       "basic": "Details",
       "roles": "Roles held",
       "rolesHint": "Members, including members of nested groups, get these roles. You can only pick roles whose permissions you already have.",
-      "members": "Members ({{count}})",
+      "members_one": "Members ({{count}})",
+      "members_other": "Members ({{count}})",
       "backToList": "Back to groups"
     },
     "role": {

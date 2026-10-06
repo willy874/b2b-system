@@ -10,7 +10,9 @@ export function AuditLogDetail({ row }: { row: AuditLogRowVM }) {
       <h2 className="m-0 text-sm font-semibold">{t('auditLog.detail.title')}</h2>
       {row.errorCode && (
         <p className="m-0 text-sm">
-          <span className="text-[var(--color-fg-muted)]">{t('auditLog.detail.errorCode')}：</span>
+          <span className="text-[var(--color-fg-muted)]">
+            {t('common.labelColon', { label: t('auditLog.detail.errorCode') })}
+          </span>
           <code className="font-mono text-xs" data-testid="audit-log-error-code">
             {row.errorCode}
           </code>
@@ -18,7 +20,9 @@ export function AuditLogDetail({ row }: { row: AuditLogRowVM }) {
       )}
       {row.resourceId && (
         <p className="m-0 text-sm">
-          <span className="text-[var(--color-fg-muted)]">{t('auditLog.detail.resourceId')}：</span>
+          <span className="text-[var(--color-fg-muted)]">
+            {t('common.labelColon', { label: t('auditLog.detail.resourceId') })}
+          </span>
           <code className="font-mono text-xs">{row.resourceId}</code>
         </p>
       )}

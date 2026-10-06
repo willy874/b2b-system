@@ -12,7 +12,7 @@
     },
     "markAllRead": {
       "action": "全部已讀",
-      "success": "已將 {{count}} 則通知標為已讀"
+      "success_other": "已將 {{count}} 則通知標為已讀"
     },
     "actor": {
       "system": "系統"
@@ -22,7 +22,7 @@
       "approvalApproved": "你的{{type}}申請已核准",
       "approvalRejected": "你的{{type}}申請已被駁回",
       "userRolesChanged": "你的角色已變更",
-      "webhookDisabled": "Webhook「{{name}}」連續失敗 {{count}} 次，已自動停用",
+      "webhookDisabled_other": "Webhook「{{name}}」連續失敗 {{count}} 次，已自動停用",
       "unknown": "你有一則新通知",
       "announcementPublished": "公告：{{title}}"
     },

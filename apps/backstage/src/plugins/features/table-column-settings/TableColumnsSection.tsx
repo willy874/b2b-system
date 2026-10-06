@@ -144,7 +144,11 @@ function TableColumnsCard({ table }: { table: PreferenceTable }) {
                   )}
                 />
               )}
-              {hidden && <span className="sr-only">（{t('preference.tableColumns.hidden')}）</span>}
+              {hidden && (
+                <span className="sr-only">
+                  {t('common.parenthetical', { text: t('preference.tableColumns.hidden') })}
+                </span>
+              )}
             </li>
           );
         })}

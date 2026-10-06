@@ -152,7 +152,8 @@
   "notification": {
     "label": "Notifications",
     "trigger": "Notifications",
-    "triggerUnread": "Notifications: {{count}} unread"
+    "triggerUnread_one": "Notifications: {{count}} unread",
+    "triggerUnread_other": "Notifications: {{count}} unread"
   },
   "explain": {
     "everyone": "Everyone",
@@ -196,11 +197,13 @@
     },
     "scopes": {
       "all": "All of the account's permissions",
-      "limited": "Limited to {{count}} permissions"
+      "limited_one": "Limited to {{count}} permission",
+      "limited_other": "Limited to {{count}} permissions"
     },
     "neverUsed": "Never used",
     "empty": "No API tokens yet",
-    "lifetime": "{{count}} days",
+    "lifetime_one": "{{count}} day",
+    "lifetime_other": "{{count}} days",
     "revoke": {
       "action": "Revoke",
       "title": "Revoke API token",

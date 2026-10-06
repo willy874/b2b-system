@@ -34,4 +34,10 @@ describe('i18nPlugin', () => {
     await waitFor(() => expect(i18n.language).toBe('en-US'));
     expect(getDateTimeDefaults()).toMatchObject({ locale: 'en-US', timeZone: 'Europe/Berlin' });
   });
+
+  it('<html lang> 跟著介面語系：初始化時設定，切換成 en-US 之後是 en', async () => {
+    expect(document.documentElement.lang).toBe('zh-Hant');
+    useLocaleStore.getState().setLocale('en-US');
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+  });
 });

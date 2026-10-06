@@ -319,7 +319,10 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
           </dd>
           <dt className="text-[var(--color-fg-muted)]">{t('webhook.field.createdBy')}</dt>
           <dd className="m-0">
-            {webhook.createdBy?.displayName ?? '-'}（{formatDateTime(webhook.createdAt)}）
+            {t('common.withNote', {
+              name: webhook.createdBy?.displayName ?? '-',
+              note: formatDateTime(webhook.createdAt),
+            })}
           </dd>
         </dl>
       )}

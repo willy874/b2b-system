@@ -68,7 +68,8 @@ export function BatchJobProgress({
       />
       <div className={styles.meta}>
         <span data-testid="batch-progress-count" data-value={done}>
-          {t(STATUS_KEY[job.status], { done, total })}
+          {/* count：排隊中的「N 筆」依它挑單複數（其他狀態的句子沒有複數形，i18next 退回原本的鍵） */}
+          {t(STATUS_KEY[job.status], { done, total, count: total })}
         </span>
         {amount.weighted && active && (
           <span data-testid="batch-progress-bytes">
