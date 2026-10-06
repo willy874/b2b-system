@@ -1,5 +1,7 @@
 export * from './any-uuid';
 export * from './database.module';
 export * from './database.provider';
+export * from './delete-in-batches';
 export * from './like';
+export * from './optimistic-lock';
 export * from './transaction';

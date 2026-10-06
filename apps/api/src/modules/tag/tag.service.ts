@@ -2,8 +2,8 @@ import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
@@ -47,6 +47,12 @@ const TAG_AUDIT_FIELDS = ['name', 'color'] as const;
  * 標籤（docs/architecture/backend/18-tag.md §7）：定義的增刪改、資源的指派、給擁有者的批次讀取與清理。
  * 不認識任何業務模組：標籤組與資源類型由擁有者在 `onModuleInit` 登記（D1、D7）。
  */
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const TAG_LOCK_CODES = {
+  notFound: 'TAG_NOT_FOUND',
+  conflict: 'TAG_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
+
 @Injectable()
 export class TagService {
   private readonly scopes = new Map<string, TagScopeDefinition>();
@@ -157,12 +163,7 @@ export class TagService {
           dto.version,
           tx,
         );
-        if (!row) {
-          const latest = await this.repo.findById(id, tx);
-          throw latest
-            ? new AppException('TAG_VERSION_CONFLICT', { current: latest.version })
-            : new AppException('TAG_NOT_FOUND');
-        }
+        if (!row) throw await missedUpdate(() => this.repo.findVersion(id, tx), TAG_LOCK_CODES);
         const changes = diff(current, row, TAG_AUDIT_FIELDS);
         if (changes) {
           await this.audit.record(

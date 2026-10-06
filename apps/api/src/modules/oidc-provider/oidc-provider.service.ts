@@ -21,7 +21,7 @@ import { DomainEvent, DomainEventBus } from '@/core/events';
 import { currentTenant, Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantRecord } from '@/core/tenant';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
-import { UserService } from '@/modules/user/user.service';
+import { UserAccountService } from '@/modules/user/user-account.service';
 
 import { parseAccountId, platformAccountId, tenantAccountId } from './oidc-account';
 import type { OidcAccount } from './oidc-account';
@@ -130,7 +130,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly config: ConfigService<Env, true>,
     private readonly repo: OidcPayloadRepository,
-    private readonly users: UserService,
+    private readonly users: UserAccountService,
     private readonly platformAdmins: PlatformAdminService,
     private readonly directory: TenantDirectory,
     private readonly tenancy: Tenancy,

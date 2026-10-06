@@ -96,9 +96,11 @@ function setup(initial: TenantWithDomains = tenantRow()) {
       })[key as string],
   } as unknown as ConfigService<Env, true>;
 
+  const provisioner = { tenantDatabaseUrl: vi.fn(() => 'postgres://tenant') };
+
   const service = new PlatformTenantService(
     repo as unknown as PlatformTenantRepository,
-    {} as TenantProvisioner,
+    provisioner as unknown as TenantProvisioner,
     {} as JobQueue,
     {} as Tenancy,
     directory as unknown as TenantDirectory,
@@ -353,5 +355,27 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       'webhook.maxUrls',
     ]);
     expect(params.every((param) => !param.overridden)).toBe(true);
+  });
+});
+
+describe('PlatformTenantService.create 的 bucket 名稱（docs/architecture/backend/03-api-conventions.md §1）', () => {
+  it('由代碼推導出的 bucket 名稱不合法 → VALIDATION_FAILED（details.fields.code），不建立', async () => {
+    const { service, repo } = setup();
+    const create = vi.fn();
+    Object.assign(repo, {
+      codeTaken: vi.fn(async () => false),
+      domainsTaken: vi.fn(async () => []),
+      bucketsLike: vi.fn(async () => new Set<string>()),
+      create,
+    });
+
+    // DTO 的代碼格式擋不到的組合（這裡直接呼叫 service，繞過 DTO）：大寫字母不能出現在 bucket 名稱
+    await expect(
+      service.create({ code: 'Acme', name: 'Acme', domains: [], adminEmail: 'a@example.test' }),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { fields: { code: expect.any(String) } },
+    });
+    expect(create).not.toHaveBeenCalled();
   });
 });

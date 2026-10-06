@@ -218,8 +218,11 @@ export class PlatformAdminManagementService {
     requested: 'active' | 'inactive' | undefined,
   ): PlatformAdminRow['status'] {
     if (!requested || requested === admin.status) return admin.status;
-    if (admin.status === 'pending')
-      throw new AppException('VALIDATION_FAILED', { field: 'status' });
+    if (admin.status === 'pending') {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { status: 'a pending admin is activated only by the activation link' },
+      });
+    }
     return requested;
   }
 }

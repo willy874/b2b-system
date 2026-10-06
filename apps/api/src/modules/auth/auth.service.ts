@@ -47,8 +47,9 @@ import { RefreshTokenService } from '@/modules/credential/refresh-token.service'
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
+import { UserAccountService } from '@/modules/user/user-account.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
-import { isLoginLocked, UserService, userUpdated } from '@/modules/user/user.service';
+import { isLoginLocked, userUpdated } from '@/modules/user/user.service';
 
 import type {
   ChangePasswordDto,
@@ -92,7 +93,7 @@ export class AuthService {
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly config: ConfigService<Env, true>,
     private readonly jwt: JwtService,
-    private readonly users: UserService,
+    private readonly users: UserAccountService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly authTokens: AuthTokenService,
     private readonly permissionService: PermissionService,
@@ -597,7 +598,7 @@ export class AuthService {
     const user = await this.users.findAccountById(token.userId);
     if (!user) throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     await this.assertPasswordPolicy(dto.newPassword, 'newPassword', user.email);
-    const wasLocked = user.status === 'locked' || isLoginLocked(user);
+    const wasLocked = isLoginLocked(user);
     const passwordHash = await this.hash(dto.newPassword);
 
     await withTransaction(this.db, async (tx) => {
@@ -605,13 +606,7 @@ export class AuthService {
       await this.consumeToken(token.id, tx);
       await this.users.updateAccount(
         user.id,
-        {
-          passwordHash,
-          failedLoginCount: 0,
-          lockedUntil: null,
-          // 只有真的改變狀態時才帶：帶了 status 就會遞增樂觀鎖的 version（UserService.updateAccount）
-          ...(user.status === 'locked' ? { status: 'active' as const } : {}),
-        },
+        { passwordHash, failedLoginCount: 0, lockedUntil: null },
         tx,
       );
       await this.users.incrementTokenVersion(user.id, tx);
@@ -626,9 +621,6 @@ export class AuthService {
         },
         tx,
       );
-      if (user.status === 'locked') {
-        await this.users.emitStatusChanged(user.id, 'active', 'locked', tx);
-      }
     });
 
     this.userCache.invalidate(user.id);

@@ -445,6 +445,12 @@ describe('租戶的建立與佈建（docs/architecture/05-tenancy.md §10.2 D12�
 
     const invalid = await platform('get', '/platform/tenants?status=gone').expect(400);
     expect(errorCodeOf(invalid)).toBe('VALIDATION_FAILED');
+    // offset 有上限（docs/architecture/backend/03-api-conventions.md §2）；超出 bigint 的值也是 400，不是 500
+    for (const offset of ['10001', '10000000000000000000']) {
+      // oxlint-disable-next-line no-await-in-loop -- 依序檢查兩個值
+      const tooFar = await platform('get', `/platform/tenants?offset=${offset}`).expect(400);
+      expect(errorCodeOf(tooFar)).toBe('VALIDATION_FAILED');
+    }
   });
 
   it('佈建途中程序被重啟：逾時仍在 provisioning 的租戶改成 failed，可以重試或刪除', async () => {

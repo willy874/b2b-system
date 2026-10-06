@@ -42,11 +42,6 @@ export function getRequestId(): string | undefined {
   return storage.getStore()?.requestId;
 }
 
-/** 當前請求的 `x-client-id`；沒帶或格式不合時為 undefined。 */
-export function getClientId(): string | undefined {
-  return storage.getStore()?.clientId;
-}
-
 /** 對外 API 認出 token 後補寫進當前 context（權限的交集、稽核的 `metadata.tokenId`）。 */
 export function setContextApiToken(token: ContextApiToken): void {
   const context = storage.getStore();

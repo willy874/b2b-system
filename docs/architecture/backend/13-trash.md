@@ -5,7 +5,9 @@
 平台可對租戶關閉回收桶（feature `trash`，[`architecture/05-tenancy.md`](../05-tenancy.md) §12.2 D3）：`GET /trash` 與每個還原端點都標
 `@RequireFeature('trash')`（新增可還原的資源時也要標），刪除與到期永久刪除照舊。
 
-**使用者**（§4）、**角色**（§6）、**檔案** 與 **資料夾**（§7）進回收桶。檔案的物件（原檔、縮圖、變體）保留到永久刪除，
+會進回收桶的類型以 `modules/trash/trash.constants.ts` 的 `TRASH_RESOURCE_TYPES` 為準（列在那裡卻沒有登記 handler，程序啟動失敗）。
+目前是 **使用者**（§4）、**角色**（§6）、**群組**（§6.3）、**檔案** 與 **資料夾**（§7）、**公告**（[`19-announcement.md`](./19-announcement.md) §9.2 D19）。
+檔案的物件（原檔、縮圖、變體）保留到永久刪除，
 保留期限內還原不會少內容；這是分兩次部署做到的（[`14-revisions.md`](14-revisions.md) §9.3 的 R4a、R4b，§7.5）。
 
 ---
@@ -77,7 +79,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 
 | 參數 | 說明 |
 | --- | --- |
-| `type` | 必填，`TrashResourceType`（`user`、`role`、`file`、`fileFolder`）。一次只列一種類型，不跨類型合併分頁（D9） |
+| `type` | 必填，`TrashResourceType`（`TRASH_RESOURCE_TYPES` 的值，見本文開頭）。一次只列一種類型，不跨類型合併分頁（D9） |
 | `offset`、`limit` | 一般的分頁（[`03-api-conventions.md`](./03-api-conventions.md) §2） |
 | `keyword` | 選填；使用者比對 email 與顯示名稱，角色比對名稱與 slug，檔案與資料夾比對名稱 |
 
@@ -176,8 +178,8 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | 對象 | 依 `purgeOrder` 逐類處理 `deleted_at < now - retentionDays` 的列 |
 | 交易 | 每批（`TRASH_PURGE_BATCH_SIZE` = 100）一個交易；每一列一個 savepoint：外鍵違反只略過那一列，其他錯誤讓整個工作失敗、依設定重試 |
 | 稽核 | 每一列一筆 `<resource>.purge`，與刪除同一個 savepoint：`actorId: null`、`actorEmail: 'system'`、`metadata: { retentionDays, deletedAt }` |
-| 結果 | 工作的 `output`：`{ retentionDays, cutoff, purged: { file: n, fileFolder: n, user: n, role: n }, skipped: { … } }` |
-| 順序 | 檔案（10）→ 資料夾（20）→ 使用者（30）→ 角色（40）→ 群組（50）：`files.folder_id`、`file_folders.parent_id`、`file_folders.owner_id` 都是 `RESTRICT` |
+| 結果 | 工作的 `output`：`{ retentionDays, cutoff, purged: { <type>: n, … }, skipped: { … } }`（以 `TrashResourceType` 為鍵） |
+| 順序 | 檔案（10）→ 資料夾（20）→ 使用者（30）→ 角色（40）→ 群組（50）→ 公告（60）：`files.folder_id`、`file_folders.parent_id`、`file_folders.owner_id` 都是 `RESTRICT` |
 
 - 分批以 `id` 的 keyset 往後走：略過的列不會在同一輪被重複取到，一輪一定會結束。
 - 中途失敗也安全：已提交的批次已經刪掉，重做時只剩還沒處理的列。

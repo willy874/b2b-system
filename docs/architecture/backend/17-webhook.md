@@ -67,8 +67,8 @@
 
 | 事件 | 版本 | `data` | 發出點 | feature |
 | --- | --- | --- | --- | --- |
-| `user.created` | 1 | `{ userId }` | `UserService.createAccount()`：管理者建立、註冊審批通過、外部 IdP 首次登入 | — |
-| `user.statusChanged` | 1 | `{ userId, status, previousStatus }` | 管理者改狀態（`PATCH /users/:id`）、解鎖（`status` 真的改變時）、完成啟用（`pending` → `active`）、重設密碼順帶解鎖（`locked` → `active`） | — |
+| `user.created` | 1 | `{ userId }` | `UserAccountService.createAccount()`：管理者建立、註冊審批通過、外部 IdP 首次登入 | — |
+| `user.statusChanged` | 1 | `{ userId, status, previousStatus }` | 管理者改狀態（`PATCH /users/:id`）、完成啟用（`pending` → `active`）。登入失敗的鎖定與解鎖只動 `locked_until`、不改 `status`，不發這個事件（[`04-auth.md`](./04-auth.md) §3.3） | — |
 | `user.deleted` | 1 | `{ userId }` | `UserService.remove()`（軟刪除） | — |
 | `user.restored` | 1 | `{ userId }` | `UserService.restore()` | — |
 | `approval.decided` | 1 | `{ approvalId, approvalType, decision }` | `ApprovalService.approve()`／`reject()` | — |

@@ -6,7 +6,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { Database } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import { deleteInBatches, TENANT_DB, withTransaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { requireTenant } from '@/core/tenant';
@@ -231,13 +231,10 @@ export class WebhookDeliveryService {
   /** 保留清理（D16）：刪掉超過保留天數的事件，投遞紀錄隨之刪除。分批各自提交。 */
   async cleanup(now: Date = new Date()): Promise<WebhookCleanupReport> {
     const cutoff = new Date(now.getTime() - WEBHOOK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    let deletedEvents = 0;
-    for (;;) {
-      // oxlint-disable-next-line no-await-in-loop -- 一批一條 DELETE，依序執行
-      const count = await this.repo.deleteEventsBefore(cutoff, WEBHOOK_CLEANUP_BATCH_SIZE);
-      deletedEvents += count;
-      if (count < WEBHOOK_CLEANUP_BATCH_SIZE) break;
-    }
+    const deletedEvents = await deleteInBatches(
+      (size) => this.repo.deleteEventsBefore(cutoff, size),
+      WEBHOOK_CLEANUP_BATCH_SIZE,
+    );
     return { retentionDays: WEBHOOK_RETENTION_DAYS, cutoff: cutoff.toISOString(), deletedEvents };
   }
 

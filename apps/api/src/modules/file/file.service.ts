@@ -6,8 +6,8 @@ import { ConfigService } from '@nestjs/config';
 
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
-import type { Database } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, MissedUpdateCodes } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -67,6 +67,12 @@ import { FILE_UPLOADED_WEBHOOK } from './file.webhooks';
  * `completeUpload` 向物件儲存確認後改成 `ready`。檔案內容從不經過 api，大檔也不佔 api 的頻寬與記憶體。
  * 圖片完成後另外排入產生影像變體（`FileImageService`，§5.4）。
  */
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const FILE_LOCK_CODES = {
+  notFound: 'FILE_NOT_FOUND',
+  conflict: 'FILE_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
+
 @Injectable()
 export class FileService {
   private readonly logger = new Logger(FileService.name);
@@ -405,13 +411,8 @@ export class FileService {
         dto.version,
         tx,
       );
-      // 讀到之後、寫入之前被別人改名（版本變了）或刪除：重讀一次，還在就帶目前的版本（docs/architecture/backend/14-revisions.md §9.2 D3）
-      if (!updated) {
-        const current = await this.repo.findVersion(id, tx);
-        throw current === undefined
-          ? new AppException('FILE_NOT_FOUND')
-          : new AppException('FILE_VERSION_CONFLICT', { current });
-      }
+      // 讀到之後、寫入之前被別人改名（版本變了）或刪除
+      if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), FILE_LOCK_CODES);
       await this.audit.record(
         {
           action: 'file.update',

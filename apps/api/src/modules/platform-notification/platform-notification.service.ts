@@ -1,6 +1,7 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 
+import { deleteInBatches } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -12,13 +13,13 @@ import type {
 } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
 import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
-import { deleteInBatches } from '@/modules/credential/delete-in-batches';
 
 import type {
   ListPlatformNotificationDto,
   PlatformNotificationDto,
 } from './dto/platform-notification.dto';
 import {
+  PLATFORM_NOTIFICATION_CLEANUP_BATCH_SIZE,
   PLATFORM_NOTIFICATION_MAX_RETENTION_DAYS,
   PLATFORM_NOTIFICATION_READ_RETENTION_DAYS,
 } from './platform-notification.constants';
@@ -134,8 +135,9 @@ export class PlatformNotificationService {
     const createdBefore = new Date(
       now.getTime() - PLATFORM_NOTIFICATION_MAX_RETENTION_DAYS * DAY_MS,
     );
-    const deleted = await deleteInBatches((size) =>
-      this.repo.deleteExpiredBatch(readBefore, createdBefore, size),
+    const deleted = await deleteInBatches(
+      (size) => this.repo.deleteExpiredBatch(readBefore, createdBefore, size),
+      PLATFORM_NOTIFICATION_CLEANUP_BATCH_SIZE,
     );
     this.logger.log({ deleted }, '已清除過期的平台通知');
     return { deleted };

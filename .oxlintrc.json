@@ -131,6 +131,7 @@
     {
       "files": [
         "apps/api/src/db/**",
+        "apps/api/src/cli/**",
         "apps/api/scripts/**",
         "apps/e2e/**",
         "packages/api-sdk/scripts/**"

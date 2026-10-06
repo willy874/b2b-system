@@ -506,6 +506,22 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
       );
     });
 
+    it('待啟用的管理者不能改狀態：400 VALIDATION_FAILED，錯誤標在 details.fields.status', async () => {
+      const id = await ensureAdmin('pa-pending-status@example.com');
+      await platformDb
+        .update(platformAdmins)
+        .set({ status: 'pending', passwordHash: null })
+        .where(eq(platformAdmins.id, id));
+      const response = await as(root, 'patch', `/platform/admins/${id}`)
+        .send({ status: 'inactive' })
+        .expect(400);
+      expect(response.body.error).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { fields: { status: expect.any(String) } },
+      });
+      expect((await adminRow(id)).status).toBe('pending');
+    });
+
     it('同一個啟用連結併發送出兩次：恰好一個成功', async () => {
       const id = await ensureAdmin('pa-double-setup@example.com');
       await platformDb
@@ -571,6 +587,16 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
     const actions = page.items.map((row) => row.action);
     expect(actions).toContain('platformAdmin.create');
     expect(actions.every((action) => action.startsWith('platformAdmin.'))).toBe(true);
+  });
+
+  it('平台的列表：offset 超過上限回 400 VALIDATION_FAILED，超出 bigint 的值也不是 500（docs/architecture/backend/03-api-conventions.md §2）', async () => {
+    for (const path of ['/platform/audit-logs', '/platform/notifications']) {
+      for (const offset of ['10001', '10000000000000000000']) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序檢查每個端點與值
+        const response = await as(root, 'get', path).query({ offset }).expect(400);
+        expect(errorCodeOf(response)).toBe('VALIDATION_FAILED');
+      }
+    }
   });
 
   it('背景工作：平台看得到所有租戶與平台自己的工作，可以用租戶代碼或 platform 篩選', async () => {

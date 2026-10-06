@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
@@ -9,6 +7,7 @@ import { SettingService } from '@/core/settings';
 import type { AuthTokenPurpose, AuthTokenRow } from '@/db/schema';
 import { authTokens } from '@/db/schema';
 
+import { issueAuthToken } from './auth-token-issue';
 import { ACTIVATION_TTL_HOURS_SETTING, PASSWORD_RESET_TTL_HOURS_SETTING } from './auth.settings';
 import { sha256 } from './token-hash';
 
@@ -29,26 +28,15 @@ export class AuthTokenService {
     purpose: AuthTokenPurpose,
     tx?: DbOrTx,
   ): Promise<{ raw: string; expiresAt: Date; validHours: number }> {
-    const db = tx ?? this.db;
-    await db
-      .update(authTokens)
-      .set({ usedAt: new Date() })
-      .where(
-        and(
-          eq(authTokens.userId, userId),
-          eq(authTokens.purpose, purpose),
-          isNull(authTokens.usedAt),
-        ),
-      );
-
-    const raw = randomBytes(32).toString('base64url');
     // 有效時數是租戶的設定；信裡寫的時數與實際到期時間出自同一個值
     const validHours = await this.settings.get(
       purpose === 'activation' ? ACTIVATION_TTL_HOURS_SETTING : PASSWORD_RESET_TTL_HOURS_SETTING,
     );
-    const expiresAt = new Date(Date.now() + validHours * 60 * 60 * 1000);
-
-    await db.insert(authTokens).values({ userId, purpose, tokenHash: sha256(raw), expiresAt });
+    const { raw, expiresAt } = await issueAuthToken(tx ?? this.db, {
+      userId,
+      purpose,
+      validSeconds: validHours * 60 * 60,
+    });
     // 原文只回給寄信的工作放進連結，不寫日誌（docs/architecture/backend/11-mail.md §9.2 D7）
     return { raw, expiresAt, validHours };
   }

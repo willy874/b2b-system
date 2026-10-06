@@ -3,8 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, MissedUpdateCodes } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -113,6 +113,12 @@ function auditSnapshot(row: Pick<AnnouncementRow, 'title' | 'body' | 'audience' 
  * `scheduled` ⇄ `paused`（暫停、恢復）。草稿以外的公告會對外發話，修改要 `announcement:publish`（D15）。
  * 排程是延遲工作（D8）：狀態或時間變了，舊的工作在執行時發現對不上就略過。
  */
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const ANNOUNCEMENT_LOCK_CODES = {
+  notFound: 'ANNOUNCEMENT_NOT_FOUND',
+  conflict: 'ANNOUNCEMENT_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
+
 @Injectable()
 export class AnnouncementService {
   constructor(
@@ -221,7 +227,8 @@ export class AnnouncementService {
         version,
         tx,
       );
-      if (!updated) throw await this.missedUpdate(id, tx);
+      if (!updated)
+        throw await missedUpdate(() => this.repo.findVersion(id, tx), ANNOUNCEMENT_LOCK_CODES);
       if (runAt) await this.scheduler.enqueue(id, runAt, tx);
       await this.audit.record(
         {
@@ -267,7 +274,8 @@ export class AnnouncementService {
         dto.version,
         tx,
       );
-      if (!updated) throw await this.missedUpdate(id, tx);
+      if (!updated)
+        throw await missedUpdate(() => this.repo.findVersion(id, tx), ANNOUNCEMENT_LOCK_CODES);
       let dispatchId: string | undefined;
       if (schedule) {
         if (schedule.nextRunAt) await this.scheduler.enqueue(id, schedule.nextRunAt, tx);
@@ -488,7 +496,8 @@ export class AnnouncementService {
         dto.version,
         tx,
       );
-      if (!updated) throw await this.missedUpdate(id, tx);
+      if (!updated)
+        throw await missedUpdate(() => this.repo.findVersion(id, tx), ANNOUNCEMENT_LOCK_CODES);
       if (values.nextRunAt) await this.scheduler.enqueue(id, values.nextRunAt, tx);
       await this.audit.record(
         {
@@ -536,13 +545,6 @@ export class AnnouncementService {
       route: 'PATCH /announcements/:id',
       metadata: { announcementId: id },
     });
-  }
-
-  private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
-    const current = await this.repo.findVersion(id, tx);
-    return current === undefined
-      ? new AppException('ANNOUNCEMENT_NOT_FOUND')
-      : new AppException('ANNOUNCEMENT_VERSION_CONFLICT', { current });
   }
 
   private async getExisting(id: string): Promise<AnnouncementRow> {

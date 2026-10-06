@@ -23,3 +23,6 @@ export const PlatformNotificationRoute = {
 /** 保留：已讀的留 30 天、未讀的最多 180 天（同租戶通知的預設，docs/architecture/backend/15-notification.md §12.2 D10）。 */
 export const PLATFORM_NOTIFICATION_READ_RETENTION_DAYS = 30;
 export const PLATFORM_NOTIFICATION_MAX_RETENTION_DAYS = 180;
+
+/** 保留清理一批刪幾列（`deleteInBatches`）。 */
+export const PLATFORM_NOTIFICATION_CLEANUP_BATCH_SIZE = 5_000;

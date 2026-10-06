@@ -16,7 +16,7 @@ import type {
 } from '@/modules/approval/approval.types';
 import { ACTIVATION_MAIL_JOB } from '@/modules/credential/auth-mail.constants';
 
-import { UserService } from './user.service';
+import { UserAccountService } from './user-account.service';
 
 /** 審核者看得到的註冊內容。 */
 const RegistrationPayloadSchema = z.object({
@@ -63,7 +63,7 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
 
   constructor(
     private readonly approvals: ApprovalService,
-    private readonly users: UserService,
+    private readonly users: UserAccountService,
     private readonly jobs: JobQueue,
   ) {}
 

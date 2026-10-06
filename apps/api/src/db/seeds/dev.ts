@@ -38,6 +38,10 @@ function mulberry32(seed: number): () => number {
 const DEV_PASSWORD = 'Dev!Password123';
 const DEV_DOMAIN = '@dev.local';
 
+/**
+ * 顯示的狀態分布。`locked` 是登入失敗的自動鎖定：`status = active` ＋ 15 分鐘後到期的 `locked_until`
+ * （docs/architecture/backend/04-auth.md §3.3），到期後恢復成 active。
+ */
 const STATUS_PLAN = [
   ...Array.from({ length: 35 }, () => 'active' as const),
   ...Array.from({ length: 8 }, () => 'inactive' as const),
@@ -178,7 +182,7 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
 
   // ── 50 位使用者 ──────────────────────────────────────────
   const createdUserIds: string[] = [];
-  for (const [index, status] of STATUS_PLAN.entries()) {
+  for (const [index, plan] of STATUS_PLAN.entries()) {
     const email = `dev${String(index + 1).padStart(2, '0')}${DEV_DOMAIN}`;
     const [existing] = await db
       .select({ id: users.id })
@@ -196,9 +200,9 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
         email,
         username: `dev${String(index + 1).padStart(2, '0')}`,
         displayName: `Dev User ${index + 1}`,
-        passwordHash: status === 'pending' ? null : passwordHash,
-        status,
-        lockedUntil: status === 'locked' ? new Date(Date.now() + 15 * 60 * 1000) : null,
+        passwordHash: plan === 'pending' ? null : passwordHash,
+        status: plan === 'locked' ? 'active' : plan,
+        lockedUntil: plan === 'locked' ? new Date(Date.now() + 15 * 60 * 1000) : null,
       })
       .returning({ id: users.id });
     if (!created) continue;

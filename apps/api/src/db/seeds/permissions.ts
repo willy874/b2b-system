@@ -97,8 +97,6 @@ export const ALL_PERMISSION_KEYS = PERMISSION_SEED.map(
   ([resource, action]) => `${resource}:${action}`,
 ) as PermissionKey[];
 
-export const PERMISSION_RESOURCES = [...new Set(PERMISSION_SEED.map(([resource]) => resource))];
-
 export function isPermissionKey(value: string): value is PermissionKey {
   return (ALL_PERMISSION_KEYS as string[]).includes(value);
 }

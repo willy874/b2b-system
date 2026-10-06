@@ -41,6 +41,15 @@
 | `details`   | 結構化補充資料。欄位錯誤放 `details.fields`                 |
 | `requestId` | 對應日誌與稽核紀錄                                          |
 
+`details` 裡指出欄位的兩種形狀：
+
+| 形狀 | 用在 | 例 |
+| --- | --- | --- |
+| `details.fields`（`{ <欄位>: <原因> }`） | **`VALIDATION_FAILED` 的請求本體欄位**：Zod 驗證失敗，以及 service 才判斷得出的欄位錯誤。前端表單以它回填欄位（[`../frontend/05-data-layer.md`](../frontend/05-data-layer.md) §7） | 租戶代碼推導出的 bucket 名稱不合法：`{ fields: { code: '…' } }`；資料夾超過深度上限：`{ fields: { name: '…' }, max: 32 }` |
+| `details.field`（單數） | query 參數的 `VALIDATION_FAILED`（不在任何表單上），以及衝突類錯誤碼指出撞到的欄位（前端以 `useServerFieldErrors` 的錯誤碼對照表回填，不讀這個值） | 游標格式不對：`{ field: 'cursor' }`；`ROLE_NAME_DUPLICATE`：`{ field: 'name', value }` |
+
+service 自己拋的 `VALIDATION_FAILED` 沒有對應的請求欄位時（例：還原資料夾超過深度上限，請求沒有本體）不帶 `fields`，只帶其他補充（`max`）。
+
 > `message` 不做 i18n。後端不知道使用者的語系偏好（那是 UI 決定），也不該
 > 為了錯誤訊息而載入語系包。前端用 `t('error.' + code)` 顯示。
 
@@ -471,7 +480,7 @@ async login(...) {}
 ## 11. 樂觀鎖（`version`）
 
 「兩個人同時編輯同一筆，後送出的默默蓋掉先送出的」以 `version` 欄防止（[`backend/14-revisions.md`](14-revisions.md) §9.2 D3、D4）。
-目前套用在 `users`、`roles`、`files`（[`09-file.md`](./09-file.md) §6.2）。
+目前套用在 `users`（含服務帳號）、`roles`、`groups`、`files`（[`09-file.md`](./09-file.md) §6.2）、`announcements`、`webhook_subscriptions`、`tags`。
 
 | 項目 | 約定 |
 | ---- | ---- |
@@ -480,6 +489,7 @@ async login(...) {}
 | 寫入 | 讀到時先比對；寫入是條件式 `UPDATE … SET version = version + 1 WHERE id = $id AND version = $v AND deleted_at IS NULL`，比對與寫入在同一條語句 |
 | 衝突 | `409 <RESOURCE>_VERSION_CONFLICT`，`details: { current }`。「讀到時就不同」與「UPDATE 沒命中而列仍存在」**兩條路徑都帶** `current`：沒命中時在同一個交易內重讀一次 |
 | 已刪除 | UPDATE 沒命中而列已刪除 → 既有的 `404 <RESOURCE>_NOT_FOUND`，不是衝突 |
+| 沒命中的判斷 | 一律用 `core/database` 的 `missedUpdate(() => repo.findVersion(id, tx), { notFound, conflict })`：在 UPDATE 的同一個交易內重讀版本，決定回 404 還是 409。repository 的 `findVersion(id, tx)` 只讀 `version`，條件與 UPDATE 的「未刪除」一致 |
 | 批次、腳本 | 批次以列表那一列的 `version` 逐筆送出，衝突逐筆失敗（[`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13.6）。沒有「不帶就後寫者勝」的路徑；腳本要後寫者勝就先讀一次目前的版本再送出（[`backend/14-revisions.md`](14-revisions.md) §9.2 D4） |
 | 遞增時機 | **實體自己的可編輯欄位** 被寫入時遞增（包括不收 `version` 的端點，例如解鎖、個人資料）；關聯的寫入不遞增（見下表） |
 
@@ -487,7 +497,7 @@ async login(...) {}
 
 | 實體 | 遞增 | 不遞增 |
 | ---- | ---- | ------ |
-| `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）、重設密碼順帶解除 `locked` 狀態——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用必填的 `expectedRoleIds`） |
+| `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用必填的 `expectedRoleIds`） |
 | `roles` | `PATCH /roles/:id`（名稱、說明）、還原到某一版（`POST /roles/:id/revisions/:version/revert`，當成一次更新；[`14-revisions.md`](./14-revisions.md) §4.3） | 權限鍵（`PATCH /roles/:id/permissions`，差異語意）、持有者、刪除 |
 | `files` | 改名（`PATCH /files/:id`） | 上傳流程的狀態、變體、移動（見 09 §6.2） |
 

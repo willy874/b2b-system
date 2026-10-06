@@ -24,7 +24,7 @@ import {
 } from '@/db/schema';
 import { AnnouncementDispatchService } from '@/modules/announcement/announcement-dispatch.service';
 import { AnnouncementAudienceResolver } from '@/modules/announcement/announcement.audience';
-import { UserService } from '@/modules/user/user.service';
+import { UserAccountService } from '@/modules/user/user-account.service';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -810,7 +810,7 @@ describe('公告與排程通知（docs/architecture/backend/19-announcement.md �
     const tenantDb = app.get<Database>(TENANT_DB);
     const newcomer = await inTestTenant(app, () =>
       withTransaction(tenantDb, (tx) =>
-        app.get(UserService).createAccount(
+        app.get(UserAccountService).createAccount(
           {
             email: 'an-newcomer@example.com',
             displayName: '新人',

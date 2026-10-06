@@ -5,8 +5,8 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
-import type { Database } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, MissedUpdateCodes } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -61,6 +61,12 @@ function sameIds(
  * 它是 `users` 的一列（`kind = 'service'`），角色、權限快取、稽核的 `actor_id` 與人共用；
  * 沒有密碼、不寄信、不進回收桶（刪除後不能還原）。
  */
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const SERVICE_ACCOUNT_LOCK_CODES = {
+  notFound: 'SERVICE_ACCOUNT_NOT_FOUND',
+  conflict: 'SERVICE_ACCOUNT_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
+
 @Injectable()
 export class ServiceAccountService {
   constructor(
@@ -132,8 +138,9 @@ export class ServiceAccountService {
     const deactivating = dto.status === 'inactive' && current.status !== 'inactive';
     await withTransaction(this.db, async (tx) => {
       const row = await this.repo.update(id, values, dto.version, deactivating, tx);
+      // 讀到之後、寫入之前被別人改過或刪除：在交易內重讀，帶目前的版本或回 404
       if (!row) {
-        throw new AppException('SERVICE_ACCOUNT_VERSION_CONFLICT', { current: current.version });
+        throw await missedUpdate(() => this.repo.findVersion(id, tx), SERVICE_ACCOUNT_LOCK_CODES);
       }
       const changes = diff(
         { name: current.displayName, status: current.status },

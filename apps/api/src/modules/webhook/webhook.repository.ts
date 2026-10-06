@@ -257,6 +257,16 @@ export class WebhookRepository {
     return row;
   }
 
+  /** 訂閱目前的 `version`；不存在回 undefined（樂觀鎖沒命中時重讀）。 */
+  async findVersion(id: string, tx: DbOrTx): Promise<number | undefined> {
+    const [row] = await tx
+      .select({ version: webhookSubscriptions.version })
+      .from(webhookSubscriptions)
+      .where(eq(webhookSubscriptions.id, id))
+      .limit(1);
+    return row?.version;
+  }
+
   /** 輪替密鑰：不改 `version`（不是使用者編輯的欄位，不該讓開著編輯框的人 409）。 */
   async replaceSecret(
     id: string,
