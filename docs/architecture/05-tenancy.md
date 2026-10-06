@@ -54,7 +54,7 @@
 
 | 元件 | 做什麼 |
 | --- | --- |
-| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags }`；`currentTenant()`、`requireTenant()` 讀取 |
+| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags, featureParams, domain? }`；`currentTenant()`、`requireTenant()` 讀取。`domain` 是 `TenantMiddleware` 以網域找到租戶時比對到的網域（瀏覽器看到的 `host[:port]`），presigned 網址以它簽（[`backend/09-file.md`](./backend/09-file.md) §3）；背景工作、對外 API、`X-Tenant` 沒有 |
 | `TENANT_DB` | repository 注入的 Proxy：每次存取都轉到 **目前租戶** 的 `db`；沒有脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何預設 DB |
 | `PLATFORM_DB` | 平台 DB（租戶登記、平台管理者、佇列、OIDC 的協定狀態） |
 | `Tenancy.enter(record)` | 進入租戶的唯一入口：檢查狀態與 migration 版本，建立（或沿用）那個租戶的連線池 |
@@ -615,7 +615,7 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 | # | key | 預設 | 範圍 | 效果 |
 | --- | --- | --- | --- | --- |
 | D7 | `auditLog.hotRetentionDays` | 90 天 | 7–3650 | `auditLog.archive` 搬移早於「現在 − 天數」的紀錄（`pnpm db:archive-audit-logs` 同樣讀登記）。查詢是否要連冷表改看 **冷表最新一筆的時間**（索引的第一列），不再以保留天數推算：天數調大後，已在冷表的紀錄不會搬回熱表，以天數推算會漏查 |
-| D8 | `file.storageQuotaMb` | 2048 MB | 1–10485760 | 租戶所有檔案的 `size` 合計（含上傳中的 `pending` 與回收桶裡的，不含縮圖與影像變體）。`createUpload` 在登記 `pending` 的同一個交易以 advisory lock 序列化後加總，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）。調小到低於已用量時不刪任何檔案，只擋新的上傳。`GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`，檔案頁顯示用量 |
+| D8 | `file.storageQuotaMb` | 2048 MB | 1–10485760 | 租戶所有檔案的 `size` 合計（含上傳中的 `pending` 與回收桶裡的，不含縮圖與影像變體）。已用量是租戶 DB 單列的計數 `file_storage_usage.used_bytes`（migration 0036 以 `SUM(size)` 回填），不每次加總整張 `files`：登記、完成（大小有差時）、永久刪除在同一個交易內增減，軟刪除與還原不動它；`file.maintenance` 每天以 `SUM(size)` 對帳一次。`createUpload` 在登記 `pending` 的同一個交易以一條條件式 UPDATE（`used_bytes + size <= quota`）同時檢查與佔用，同時的登記以那一列的列鎖排隊，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）。調小到低於已用量時不刪任何檔案，只擋新的上傳。`GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（讀計數，O(1)），檔案頁顯示用量；前端不隨每次檔案推播重抓用量，只在自己的上傳結束時重抓（[`frontend/05-data-layer.md`](./frontend/05-data-layer.md) §6.2）。細節見 [`backend/09-file.md`](./backend/09-file.md) §5.0 |
 | D9 | `job.maxConcurrency` | 10 | 1–100 | 一個租戶 **所有種類** 的背景工作同時執行的筆數（跨程序）。worker 取到租戶的工作後，在該租戶 `active` 的工作中依 `(started_on, id)` 排名，排在上限之後的 **放回佇列**（改回 `created`、`start_after` 延後 5～10 秒、不計入重試次數、工作 id 不變），由之後的輪詢再取。排程觸發的展開（沒有租戶）與平台工作不受限。每個程序的 `concurrency` 照舊 |
 | D10 | `identityProvider.maxProviders` | 10 | 1–100 | 建立連線時以 advisory lock 序列化後數，已達上限回 `409 IDENTITY_PROVIDER_LIMIT_REACHED`（`details.max`） |
 | D11 | `webhook.maxUrls` | 1 | 1–500 | 整個租戶的訂閱 **不重複** 的目標網址數（[`backend/17-webhook.md`](./backend/17-webhook.md) §10.2 D13）。建立或修改訂閱時鎖表後計算；變更後的數量超過上限 **而且比變更前多** 才回 `409 WEBHOOK_URL_LIMIT_REACHED`（`details.max`）——升版前已經超過的租戶仍能修改、刪除、減少網址 |

@@ -18,8 +18,9 @@ export const getFileUploadPolicyQueryOptions = () =>
   });
 
 /**
- * 檔案容量與已用量（docs/architecture/05-tenancy.md §13.3 D8）：同一支端點，另一個 key，
- * 檔案的增刪由依賴圖（`apis/resources.ts`）讓它重抓。
+ * 檔案容量與已用量（docs/architecture/05-tenancy.md §13.3 D8）：同一支端點，另一個 key。
+ * 不隨每次檔案推播重抓，只在自己的上傳結束時失效（`Resource.FILE_STORAGE_USAGE`，`apis/resources.ts`）；
+ * 別人造成的變化等 staleTime 過後、切回分頁時重抓。
  */
 export const getFileStorageUsageQueryOptions = () =>
   queryOptions({

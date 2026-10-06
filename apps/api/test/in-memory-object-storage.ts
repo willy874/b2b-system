@@ -9,6 +9,7 @@ import type {
   PresignDownloadOptions,
   PresignedRequest,
   PresignUploadOptions,
+  PresignUploadPartOptions,
   StoredObjectHead,
   UploadedPart,
 } from '@/core/storage';
@@ -113,7 +114,7 @@ export class InMemoryObjectStorage extends ObjectStorage {
     key: string,
     uploadId: string,
     partNumber: number,
-    options: { expiresIn: number },
+    options: PresignUploadPartOptions,
   ): Promise<PresignedRequest> {
     return {
       url: `http://storage.test/${key}?uploadId=${uploadId}&partNumber=${partNumber}`,

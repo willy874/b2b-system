@@ -2,6 +2,7 @@ import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
+import type { Database } from '@/core/database';
 import type { JobQueue } from '@/core/jobs';
 import type { ObjectStorage } from '@/core/storage';
 
@@ -21,8 +22,15 @@ const GONE = '33333333-3333-4333-8333-333333333333';
 const FRESH = '44444444-4444-4444-8444-444444444444';
 /** 紀錄已軟刪除（在回收桶裡）：物件要留到永久刪除。 */
 const TRASHED = '66666666-6666-4666-8666-666666666666';
+/** `SUM(size)` 的結果。 */
+const ACTUAL_USED = 1000;
+/** 一小時前對帳過、計數一致：這一輪不必加總。 */
+const USAGE_UP_TO_DATE = {
+  usedBytes: ACTUAL_USED,
+  reconciledAt: new Date('2026-09-27T11:00:00Z'),
+};
 
-function setup() {
+function setup(usage: { usedBytes: number; reconciledAt: Date | null } = USAGE_UP_TO_DATE) {
   const liveIds = new Set([LIVE, STALE, FRESH]);
   const deletedIds = new Set([TRASHED]);
   const repo = {
@@ -42,7 +50,13 @@ function setup() {
         new Set(uploadIds.filter((uploadId) => uploadId === 'upload-live')),
     ),
     findPendingVariants: vi.fn(async () => [LIVE]),
+    // 已用量的計數與實際的合計（docs/architecture/05-tenancy.md §13.3 D8）
+    lockStorageUsage: vi.fn(async (_tx: unknown) => usage),
+    sumSizes: vi.fn(async (_tx: unknown) => ACTUAL_USED),
+    setStorageUsage: vi.fn(async (_used: number, _at: Date, _tx: unknown) => undefined),
   };
+  // withTransaction(db, fn) 只呼叫 db.transaction(fn)
+  const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
   const objects = [
     { key: storageKeyOf(LIVE), lastModified: OLD },
     { key: storageKeyOf(GONE), lastModified: OLD },
@@ -86,6 +100,7 @@ function setup() {
   };
   const jobs = { register: vi.fn() };
   const service = new FileMaintenanceService(
+    db as unknown as Database,
     repo as unknown as FileRepository,
     storage as unknown as ObjectStorage,
     images as unknown as FileImageService,
@@ -117,6 +132,8 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
       // GONE 的原檔、縮圖、變體 ＋ 剛被清掉的 STALE 沒有物件
       orphanObjects: 3,
       requeuedVariants: 1,
+      // 一小時前才對帳過
+      storageUsageDrift: null,
       failures: 0,
     });
     expect(repo.findStalePending).toHaveBeenCalledWith(
@@ -189,6 +206,50 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     const report = await service.sweep({ now: NOW });
     expect(report).toMatchObject({ stalePendingFiles: 1, orphanObjects: 3, failures: 1 });
     expect(images.schedule).toHaveBeenCalledWith(LIVE);
+  });
+
+  describe('已用量的對帳（docs/architecture/05-tenancy.md §13.3 D8）', () => {
+    it('距上次對帳超過一天：鎖住計數後以 SUM(size) 重算、寫回，偏差記進報告', async () => {
+      const { service, repo } = setup({
+        usedBytes: ACTUAL_USED + 30,
+        reconciledAt: new Date('2026-09-26T11:00:00Z'),
+      });
+      const report = await service.sweep({ now: NOW });
+      expect(report.storageUsageDrift).toBe(30);
+      expect(repo.lockStorageUsage).toHaveBeenCalledWith('tx');
+      expect(repo.sumSizes).toHaveBeenCalledWith('tx');
+      expect(repo.setStorageUsage).toHaveBeenCalledWith(ACTUAL_USED, NOW, 'tx');
+    });
+
+    it('從沒對帳過（migration 剛回填）→ 這一輪就對帳；一致時偏差是 0，仍記下對帳時間', async () => {
+      const { service, repo } = setup({ usedBytes: ACTUAL_USED, reconciledAt: null });
+      const report = await service.sweep({ now: NOW });
+      expect(report.storageUsageDrift).toBe(0);
+      expect(repo.setStorageUsage).toHaveBeenCalledWith(ACTUAL_USED, NOW, 'tx');
+    });
+
+    it('距上次對帳不到一天 → 不加總、不寫回', async () => {
+      const { service, repo } = setup();
+      const report = await service.sweep({ now: NOW });
+      expect(report.storageUsageDrift).toBeNull();
+      expect(repo.sumSizes).not.toHaveBeenCalled();
+      expect(repo.setStorageUsage).not.toHaveBeenCalled();
+    });
+
+    it('dry run：只偵測偏差，不修正計數', async () => {
+      const { service, repo } = setup({ usedBytes: 0, reconciledAt: null });
+      const report = await service.sweep({ now: NOW, dryRun: true });
+      expect(report.storageUsageDrift).toBe(-ACTUAL_USED);
+      expect(repo.setStorageUsage).not.toHaveBeenCalled();
+    });
+
+    it('計數那一列不見了 → 視為從沒對帳過，補上那一列', async () => {
+      const { service, repo } = setup();
+      repo.lockStorageUsage.mockResolvedValueOnce(undefined as never);
+      const report = await service.sweep({ now: NOW });
+      expect(report.storageUsageDrift).toBe(-ACTUAL_USED);
+      expect(repo.setStorageUsage).toHaveBeenCalledWith(ACTUAL_USED, NOW, 'tx');
+    });
   });
 
   it('上一輪還沒結束時不重疊執行', async () => {

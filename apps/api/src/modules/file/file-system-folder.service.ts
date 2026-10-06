@@ -13,6 +13,7 @@ import type { FileFolderRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
+import { FORBIDDEN_NAME_CHARS_RUN } from './dto/create-file-upload.dto';
 import { FileFolderGrantRepository } from './file-folder-grant.repository';
 import { FileFolderTree } from './file-folder-tree';
 import { FileFolderRepository } from './file-folder.repository';
@@ -308,13 +309,12 @@ const MAX_FOLDER_NAME_LENGTH = 255;
 /** 編號試到這裡還撞名就改用 user id（一定唯一）。 */
 const MAX_NUMBERED_NAME = 20;
 
-/** 顯示名稱不經過資料夾名稱的驗證：把 `/`、`\`、控制字元換成空白，`.`、`..` 視為沒有名稱。 */
+/**
+ * 顯示名稱不經過資料夾名稱的驗證：把資料夾名稱不允許的字元（`/`、`\`、控制字元、雙向文字控制、零寬字元，
+ * `FileNameSchema`）換成空白，`.`、`..` 視為沒有名稱。
+ */
 function toFolderName(value: string): string {
-  const cleaned = value
-    // oxlint-disable-next-line no-control-regex -- 就是要排除控制字元
-    .replaceAll(/[/\\\u0000-\u001f\u007f]+/g, ' ')
-    .replaceAll(/\s+/g, ' ')
-    .trim();
+  const cleaned = value.replaceAll(FORBIDDEN_NAME_CHARS_RUN, ' ').replaceAll(/\s+/g, ' ').trim();
   return cleaned === '.' || cleaned === '..' ? '' : cleaned;
 }
 

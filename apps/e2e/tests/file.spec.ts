@@ -73,6 +73,35 @@ test.describe('檔案管理（docs/architecture/backend/09-file.md）', () => {
     await snapshot(page, 'personal-folder-upload');
   });
 
+  test('直傳網址綁定大小、只能寫一次：大小不同回 403，完成後用同一個網址再 PUT 回 412', async () => {
+    const content = 'once';
+    const token = await apiLogin('admin');
+    const folderId = await createFolder(token, unique('E2E 直傳'));
+    const registered = await apiRequest(token, 'post', '/files', {
+      name: `${unique('e2e-once')}.txt`,
+      contentType: 'text/plain',
+      size: Buffer.byteLength(content),
+      folderId,
+    });
+    expect(registered.status).toBe(201);
+    const { file, upload } = (
+      registered.body as {
+        data: { file: { id: string }; upload: { url: string; headers: Record<string, string> } };
+      }
+    ).data;
+    const storage = await request.newContext();
+    const put = async (data: string) =>
+      (await storage.put(upload.url, { headers: upload.headers, data })).status();
+
+    expect(await put(`${content}!`)).toBe(403);
+    expect(await put(content)).toBe(200);
+    expect((await apiRequest(token, 'post', `/files/${file.id}/complete`, {})).status).toBe(200);
+    expect(await put(content)).toBe(412);
+    await storage.dispose();
+
+    await apiRequest(token, 'delete', `/file-folders/${folderId}`);
+  });
+
   test('上傳文字檔 → 出現在列表 → 預覽看到內容、可以下載', async ({ page }) => {
     const name = `${unique('e2e-upload')}.txt`;
     const content = 'Hello from the E2E upload test.';

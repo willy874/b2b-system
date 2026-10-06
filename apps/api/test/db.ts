@@ -29,6 +29,8 @@ export async function truncateAll(db: TestDatabase): Promise<void> {
   await db.execute(
     sql`TRUNCATE approval_requests, files, file_folders, relation_tuples, users, roles, groups, permissions, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive, system_settings, revisions, notifications, notification_policies, notification_preferences, webhook_subscriptions, webhook_events, webhook_deliveries, tags, resource_tags, announcements, announcement_dispatches RESTART IDENTITY CASCADE`,
   );
+  // 已用量的計數是單列（migration 0036 建立），不能 TRUNCATE：檔案清空了，計數歸零
+  await db.execute(sql`UPDATE file_storage_usage SET used_bytes = 0, reconciled_at = NULL`);
 }
 
 /** Drizzle 把驅動錯誤包成 `Failed query: …`，真正的訊息在 `cause`。 */

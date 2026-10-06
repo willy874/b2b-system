@@ -1,3 +1,4 @@
+import { isCursorTimestamp } from '@/core/http';
 import type { SortEntry } from '@/core/http';
 
 export type FileSortField = 'createdAt' | 'name' | 'size';
@@ -27,7 +28,24 @@ export function encodeFileCursor(cursor: FileCursor): string {
 const SORT_FIELDS: ReadonlySet<string> = new Set(['createdAt', 'name', 'size']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** 格式不對回 `undefined`（由呼叫端決定錯誤碼）；不信任內容，逐欄檢查型別。 */
+/**
+ * 排序值是不是 Postgres 一定接受的值：值會直接進 SQL（`::timestamptz`、與 bigint／text 欄位比較），
+ * Postgres 拒絕的值會讓請求回 500 而不是 400（docs/architecture/backend/09-file.md §6.1）。
+ */
+function isValidSortValue(field: FileSortField, value: unknown): value is string | number {
+  switch (field) {
+    case 'createdAt':
+      return isCursorTimestamp(value);
+    case 'size':
+      // 1.5、1e400（JSON.parse 之後是 Infinity）的型別都是 number，但轉不成 bigint
+      return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+    case 'name':
+      // Postgres 的 text 存不下 NUL
+      return typeof value === 'string' && !value.includes('\u0000');
+  }
+}
+
+/** 格式不對回 `undefined`（由呼叫端決定錯誤碼）；不信任內容，逐欄檢查型別與值。 */
 export function decodeFileCursor(raw: string): FileCursor | undefined {
   let payload: unknown;
   try {
@@ -41,7 +59,6 @@ export function decodeFileCursor(raw: string): FileCursor | undefined {
   if (order !== 'asc' && order !== 'desc') return undefined;
   if (typeof id !== 'string' || !UUID.test(id)) return undefined;
   const field = sort as FileSortField;
-  if (field === 'size' ? typeof value !== 'number' : typeof value !== 'string') return undefined;
-  if (field === 'createdAt' && Number.isNaN(Date.parse(value as string))) return undefined;
-  return { sort: { sort: field, order }, value: value as string | number, id };
+  if (!isValidSortValue(field, value)) return undefined;
+  return { sort: { sort: field, order }, value, id };
 }

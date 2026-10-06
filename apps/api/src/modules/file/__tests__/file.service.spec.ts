@@ -90,7 +90,13 @@ function setup(
   const repo = {
     storageUsed: vi.fn(async (): Promise<number> => 0),
     findById: vi.fn(async () => options.file),
-    create: vi.fn(async (values: Partial<FileWithUploader>) => fileRow(values)),
+    create: vi.fn(
+      async (
+        values: Partial<FileWithUploader>,
+        _quota?: number,
+        _tx?: unknown,
+      ): Promise<FileWithUploader | undefined> => fileRow(values),
+    ),
     markReady: vi.fn(async () => fileRow({ status: 'ready' })),
     update: vi.fn(async () => fileRow({ status: 'ready' })),
     findVersion: vi.fn(async (): Promise<number | undefined> => 4),
@@ -157,11 +163,9 @@ function setup(
   };
   // withTransaction(db, fn) 只呼叫 db.transaction(fn)
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
-  // 根目錄不排隊，直接以預設連線執行
+  // 根目錄不排隊，但仍在交易內（容量的佔用與 INSERT 要同生共死）
   const folders = {
-    insideFolder: vi.fn(async (_folderId: unknown, work: (tx: unknown) => unknown) =>
-      work(undefined),
-    ),
+    insideFolder: vi.fn(async (_folderId: unknown, work: (tx: unknown) => unknown) => work('tx')),
     withinLiveFolder: vi.fn(
       async (_folderId: unknown, _missing: unknown, work: (tx: unknown) => unknown) => work('tx'),
     ),
@@ -230,6 +234,18 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
       headers: { 'Content-Type': 'image/png' },
     });
     expect(result.file).toMatchObject({ status: 'pending', url: null, downloadUrl: null });
+  });
+
+  it('直傳網址綁定登記的大小（docs/architecture/backend/09-file.md §5）', async () => {
+    const { service, storage } = setup();
+    const result = await inTenant(() =>
+      service.createUpload({ name: 'a.png', contentType: 'image/png', size: 10 }, ALICE),
+    );
+    expect(storage.presignUpload).toHaveBeenCalledWith(storageKeyOf(result.file.id), {
+      contentType: 'image/png',
+      contentLength: 10,
+      expiresIn: 900,
+    });
   });
 
   it('超過大小上限回 FILE_TOO_LARGE，不建立紀錄', async () => {
@@ -310,6 +326,16 @@ describe('FileService.completeUpload', () => {
       head: { size: 999, etag: 'abc', contentType: 'image/png' },
     });
     await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_SIZE_MISMATCH');
+    expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
+    expect(repo.markReady).not.toHaveBeenCalled();
+  });
+
+  it('原檔帶 Content-Encoding（api 從不要求）→ 刪掉物件並回 FILE_UPLOAD_INCOMPLETE', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow(),
+      head: { size: 10, etag: 'abc', contentType: 'image/png', contentEncoding: 'gzip' },
+    });
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_INCOMPLETE');
     expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
     expect(repo.markReady).not.toHaveBeenCalled();
   });
@@ -491,6 +517,21 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
     );
   });
 
+  it('parts：每一塊的網址綁定那一塊的大小，最後一塊是餘數', async () => {
+    const { service, storage } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: big.size }),
+    });
+    await service.createUploadParts(FILE_ID, { partNumbers: [1, 2, 3] }, ALICE);
+    const lengths = storage.presignUploadPart.mock.calls.map(
+      (call) => (call as unknown as [string, string, number, { contentLength: number }])[3],
+    );
+    expect(lengths).toEqual([
+      { contentLength: PART_SIZE, expiresIn: 900 },
+      { contentLength: PART_SIZE, expiresIn: 900 },
+      { contentLength: big.size - 2 * PART_SIZE, expiresIn: 900 },
+    ]);
+  });
+
   it('parts：單次 PUT 的上傳 → FILE_UPLOAD_PART_INVALID；別人的 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
     await expectAppError(
@@ -599,6 +640,7 @@ describe('FileService：縮圖', () => {
     );
     expect(storage.presignUpload).toHaveBeenCalledWith(thumbnailKeyOf(result.file.id), {
       contentType: 'image/webp',
+      contentLength: 100,
       expiresIn: 900,
     });
     expect(result.thumbnailUpload).not.toBeNull();
@@ -629,6 +671,39 @@ describe('FileService：縮圖', () => {
       expect.objectContaining({ hasThumbnail: false }),
       'tx',
     );
+  });
+
+  it('complete：縮圖存在但不合規格（超過大小上限、型別不對、帶 Content-Encoding）→ 刪掉縮圖', async () => {
+    const head = { size: 10, etag: 'abc', contentType: 'image/png' };
+    for (const thumbnailHead of [
+      { size: 512 * 1024 + 1, etag: 't', contentType: 'image/webp' },
+      { size: 100, etag: 't', contentType: 'text/html' },
+      { size: 100, etag: 't', contentType: 'image/webp', contentEncoding: 'gzip' },
+    ]) {
+      const { service, storage, repo } = setup({ file: fileRow(), head, thumbnailHead });
+      // oxlint-disable-next-line no-await-in-loop -- 每個案例各自一組假物件
+      await service.completeUpload(FILE_ID, {}, ALICE);
+      expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
+      expect(repo.markReady).toHaveBeenCalledWith(
+        FILE_ID,
+        expect.objectContaining({ hasThumbnail: false }),
+        'tx',
+      );
+    }
+  });
+
+  it('complete：合規格的縮圖不刪；沒有縮圖時不呼叫刪除', async () => {
+    const head = { size: 10, etag: 'abc', contentType: 'image/png' };
+    const ok = setup({
+      file: fileRow(),
+      head,
+      thumbnailHead: { size: 100, etag: 't', contentType: 'image/webp' },
+    });
+    await ok.service.completeUpload(FILE_ID, {}, ALICE);
+    const none = setup({ file: fileRow(), head });
+    await none.service.completeUpload(FILE_ID, {}, ALICE);
+    expect(ok.storage.delete).not.toHaveBeenCalled();
+    expect(none.storage.delete).not.toHaveBeenCalled();
   });
 
   it('有縮圖的檔案帶 thumbnailUrl', async () => {
@@ -780,6 +855,36 @@ describe('FileService.list：keyset 游標', () => {
     await expect(service.list(query, ALICE)).resolves.toMatchObject({ nextCursor: null });
   });
 
+  it.each([
+    // V8 的 Date.parse 會把 2 月 30 日進位成 3 月 2 日，Postgres 卻拒絕轉成 timestamptz
+    ['createdAt 是 2 月 30 日', 'createdAt', '2026-02-30T00:00:00.000000Z'],
+    ['createdAt 只有年份', 'createdAt', '2026'],
+    ['size 不是整數', 'size', 1.5],
+    // JSON.parse('1e400') 是 Infinity：型別是 number，但轉不成 bigint
+    ['size 是 1e400', 'size', '1e400'],
+    ['size 是負數', 'size', -1],
+    ['name 含 NUL（Postgres 的 text 存不下）', 'name', 'a\u0000b'],
+  ])(
+    '游標的值 Postgres 不接受（%s）→ VALIDATION_FAILED，不查資料庫',
+    async (_label, sort, value) => {
+      const { service, repo } = setup();
+      const id = '44444444-4444-4444-8444-444444444444';
+      // 1e400 要以 JSON 字面量放進去，JSON.stringify(Infinity) 會變成 null
+      const json =
+        value === '1e400'
+          ? `["size","desc",1e400,"${id}"]`
+          : JSON.stringify([sort, 'desc', value, id]);
+      const cursor = Buffer.from(json, 'utf8').toString('base64url');
+      const sorted = { ...query, sort: [{ sort: sort as 'createdAt', order: 'desc' as const }] };
+      const error = await expectAppError(
+        service.list({ ...sorted, cursor }, ALICE),
+        'VALIDATION_FAILED',
+      );
+      expect(error.details).toEqual({ field: 'cursor' });
+      expect(repo.list).not.toHaveBeenCalled();
+    },
+  );
+
   it('游標格式錯誤或排序與游標不一致 → VALIDATION_FAILED', async () => {
     const { service } = setup();
     await expectAppError(service.list({ ...query, cursor: 'garbage' }, ALICE), 'VALIDATION_FAILED');
@@ -819,6 +924,27 @@ describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md
       folderIds: [FOLDER],
     });
     await expectAppError(service.list({ ...query, folderId: OTHER }, ALICE), 'AUTHZ_FORBIDDEN');
+  });
+
+  it('列表指定了讀得到的資料夾：已經檢查過，不再帶「所有讀得到的資料夾」的範圍（docs/architecture/backend/09-file.md §11）', async () => {
+    const { service, repo } = setup({ access: contributor });
+    repo.list.mockResolvedValue({ items: [], total: 0, lastCreatedAt: undefined });
+    const query = {
+      offset: 0,
+      limit: 20,
+      sort: [{ sort: 'createdAt' as const, order: 'desc' as const }],
+    };
+    await service.list({ ...query, folderId: FOLDER }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ folderId: FOLDER }),
+      undefined,
+      undefined,
+    );
+    // 根目錄沒有資料夾可以檢查：仍以讀得到的資料夾為範圍（根目錄的檔案不列）
+    await service.list({ ...query, folderId: 'root' }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, {
+      folderIds: [FOLDER],
+    });
   });
 
   it('看不到所在資料夾的 ready 檔案 → FILE_NOT_FOUND', async () => {
@@ -1006,13 +1132,31 @@ describe('FileService：檔案容量（docs/architecture/05-tenancy.md §13.3 D8
     expect(storage.createMultipartUpload).not.toHaveBeenCalled();
   });
 
-  it('剛好用滿可以；交易內以鎖住的加總再確認一次', async () => {
+  it('剛好用滿可以；登記時把容量交給 repo.create，在交易內以已用量那一列的條件式 UPDATE 佔用', async () => {
     const { service, repo } = setup();
     repo.storageUsed.mockResolvedValue(8 * MIB);
     await inTenant(() => service.createUpload(dto, ALICE), { 'file.storageQuotaMb': 10 });
-    expect(repo.create).toHaveBeenCalled();
-    expect(repo.storageUsed).toHaveBeenCalledTimes(2);
-    expect(repo.storageUsed.mock.calls[1]).toHaveLength(1);
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ size: 2 * MIB, status: 'pending' }),
+      10 * MIB,
+      'tx',
+    );
+    // 不鎖的預先檢查只讀計數一次（O(1)），不再對整張表加總
+    expect(repo.storageUsed).toHaveBeenCalledTimes(1);
+  });
+
+  it('交易內佔用失敗（同時的登記先用掉了容量）→ FILE_STORAGE_QUOTA_EXCEEDED，details.used 是交易內讀到的已用量', async () => {
+    const { service, repo } = setup();
+    repo.storageUsed.mockResolvedValueOnce(0).mockResolvedValueOnce(9 * MIB);
+    repo.create.mockResolvedValueOnce(undefined);
+    const error = await inTenant(() => service.createUpload(dto, ALICE), {
+      'file.storageQuotaMb': 10,
+    }).catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
+      code: 'FILE_STORAGE_QUOTA_EXCEEDED',
+      details: { quota: 10 * MIB, used: 9 * MIB, size: 2 * MIB },
+    });
+    expect(repo.storageUsed).toHaveBeenLastCalledWith('tx');
   });
 
   it('上傳政策帶容量與已用量（預設 2048 MB）', async () => {
@@ -1043,7 +1187,7 @@ describe('FileService 的其他錯誤分支（docs/architecture/backend/09-file.
 
   it('分塊上傳登記失敗（交易內的容量確認）→ 取消已要到的 uploadId，拋出原本的錯誤', async () => {
     const { service, repo, storage } = setup();
-    repo.storageUsed.mockResolvedValueOnce(0).mockResolvedValueOnce(Number.MAX_SAFE_INTEGER);
+    repo.create.mockResolvedValueOnce(undefined);
     await expectAppError(
       inTenant(() => service.createUpload(big, ALICE)),
       'FILE_STORAGE_QUOTA_EXCEEDED',
@@ -1052,7 +1196,6 @@ describe('FileService 的其他錯誤分支（docs/architecture/backend/09-file.
       expect.stringMatching(/^files\//),
       'upload-1',
     );
-    expect(repo.create).not.toHaveBeenCalled();
   });
 
   it('取消分塊上傳也失敗 → 只記警告，仍拋出原本的錯誤', async () => {

@@ -80,6 +80,8 @@ async function runUpload(
     );
     invalidateResources([{ resource: Resource.FILE, kind: 'create', id: stored.id }]);
   } finally {
+    // 登記就佔用了容量（失敗、取消的上傳也要到永久刪除才釋出）：成功與否都重抓已用量
+    invalidateResources([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]);
     // 成功或失敗都不會再用到（佇列不自動重試；重傳由使用者重新選檔）
     await uploadSources.delete(sourceKey);
   }

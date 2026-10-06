@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -9,6 +9,7 @@ import { ObjectStorage } from '@/core/storage';
 import {
   auditLogs,
   fileFolders,
+  files,
   permissions,
   relationTuples,
   roleHolderTuple,
@@ -16,6 +17,7 @@ import {
   roles,
   users,
 } from '@/db/schema';
+import { FileFolderTree } from '@/modules/file/file-folder-tree';
 import { FileFolderRepository } from '@/modules/file/file-folder.repository';
 import { FileSystemFolderService } from '@/modules/file/file-system-folder.service';
 
@@ -805,5 +807,56 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       expect(owners).toContain(fine.id);
       expect(owners).not.toContain(broken.id);
     });
+  });
+
+  describe('大量資料夾（docs/architecture/backend/09-file.md §11：範圍以陣列參數傳遞）', () => {
+    /** 超過 postgres.js 的參數上限（65,534）：逐一綁定的 IN 清單會拋 MAX_PARAMETERS_EXCEEDED。 */
+    const BULK = 66_000;
+    const CHUNK = 5_000;
+
+    it('member 讀得到 6.6 萬個資料夾：GET /files（不分資料夾、指定資料夾）與 GET /file-folders 都回 200', async () => {
+      const [shared] = await db.select().from(fileFolders).where(eq(fileFolders.kind, 'shared'));
+      if (!shared) throw new Error('沒有共用資料夾');
+      for (let start = 0; start < BULK; start += CHUNK) {
+        const rows = Array.from({ length: Math.min(CHUNK, BULK - start) }, (_, i) => ({
+          name: `bulk-${start + i}`,
+          parentId: shared.id,
+        }));
+        // oxlint-disable-next-line no-await-in-loop -- 分批插入，每批的參數數在上限以內
+        await db.insert(fileFolders).values(rows);
+      }
+      // 直接寫資料庫：讓程序內的資料夾結構快取重讀（docs/architecture/backend/09-file.md §11.1）
+      await inTestTenant(app, async () => app.get(FileFolderTree).invalidate());
+      const [target] = await db
+        .select()
+        .from(fileFolders)
+        .where(eq(fileFolders.name, `bulk-${BULK - 1}`));
+      if (!target) throw new Error('沒有插入資料夾');
+
+      try {
+        const outsider = await login(OUTSIDER);
+        const file = await uploadFile(outsider, 'bulk.txt', target.id);
+
+        const anywhere = await listFiles(outsider, `?keyword=bulk.txt`);
+        expect(anywhere.map((item) => item.id)).toContain(file.id);
+        const inFolder = await listFiles(outsider, `?folderId=${target.id}`);
+        expect(inFolder.map((item) => item.id)).toEqual([file.id]);
+
+        const { items } = await listFolders(outsider);
+        expect(items.length).toBeGreaterThan(BULK);
+      } finally {
+        // 軟刪除就好：硬刪除 6.6 萬列要逐列檢查自我參照的外鍵，要等上一分鐘
+        const bulk = db
+          .select({ id: fileFolders.id })
+          .from(fileFolders)
+          .where(like(fileFolders.name, 'bulk-%'));
+        await db.update(files).set({ deletedAt: new Date() }).where(inArray(files.folderId, bulk));
+        await db
+          .update(fileFolders)
+          .set({ deletedAt: new Date() })
+          .where(like(fileFolders.name, 'bulk-%'));
+        await inTestTenant(app, async () => app.get(FileFolderTree).invalidate());
+      }
+    }, 120_000);
   });
 });

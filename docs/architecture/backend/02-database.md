@@ -650,6 +650,8 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0030_announcements.sql              announcements、announcement_dispatches、notifications.source_id（[`backend/19-announcement.md`](19-announcement.md) §9；純加法）
 ├── 0031_announcement_system_roles.sql  手寫：既有租戶的 admin 補 announcement:*、auditor 補 read
 ├── 0032_announcement_event_triggers.sql  公告的事件點：trigger_subject_id 與兩種唯一索引、事件查詢索引（純加法，唯一索引改為部分索引）
+├── 0036_file_storage_usage.sql         檔案已用量的單列計數 file_storage_usage ＋ 手寫：以既有檔案的 SUM(size) 回填
+│                                       （[`backend/09-file.md`](09-file.md) §5.0；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

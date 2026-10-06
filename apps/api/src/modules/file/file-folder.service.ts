@@ -106,7 +106,7 @@ export class FileFolderService {
   /**
    * 在「資料夾確定存在」的交易內執行（登記上傳時建立檔案紀錄）：與遞迴刪除排隊，
    * 不會把檔案放進剛被刪除的資料夾。`folderId` 為 null / undefined 是根目錄，不必排隊，但仍在交易內
-   * （容量的檢查以 advisory lock 序列化，docs/architecture/05-tenancy.md §13.3 D8）。
+   * （容量的佔用與 INSERT 同生共死，docs/architecture/05-tenancy.md §13.3 D8）。
    */
   async insideFolder<T>(
     folderId: string | null | undefined,

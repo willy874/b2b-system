@@ -37,6 +37,7 @@ import type {
   PresignDownloadOptions,
   PresignedRequest,
   PresignUploadOptions,
+  PresignUploadPartOptions,
   StoredObjectHead,
   UploadedPart,
 } from './object-storage';
@@ -119,13 +120,17 @@ export class S3ObjectStorage
     this.appOrigin = new URL(config.get('APP_PUBLIC_URL', { infer: true }));
   }
 
-  /** 目前租戶的 presigner（瀏覽器看到的 endpoint）；沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。 */
+  /**
+   * 目前租戶的 presigner（瀏覽器看到的 endpoint）。`{tenantOrigin}` 換成請求進來的那個租戶網域
+   * （次要網域、客戶自訂網域也一樣，CSP 的 `'self'` 才放得過；docs/architecture/backend/09-file.md §3）；
+   * 沒有請求可依據（背景工作、對外 API）時用主要網域，沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。
+   */
   private async presigner(): Promise<S3Client> {
     let endpoint = this.publicEndpoint;
     if (endpoint.includes(TENANT_ORIGIN_PLACEHOLDER)) {
       const tenant = currentTenant();
       const origin = tenant
-        ? `${this.appOrigin.protocol}//${await this.directory.requirePrimaryDomain(tenant.id)}`
+        ? `${this.appOrigin.protocol}//${tenant.domain ?? (await this.directory.requirePrimaryDomain(tenant.id))}`
         : this.appOrigin.origin;
       endpoint = endpoint.replace(TENANT_ORIGIN_PLACEHOLDER, origin);
     }
@@ -201,6 +206,7 @@ export class S3ObjectStorage
         size: result.ContentLength ?? 0,
         etag: stripQuotes(result.ETag),
         contentType: result.ContentType,
+        ...(result.ContentEncoding ? { contentEncoding: result.ContentEncoding } : {}),
       };
     } catch (error) {
       if (isNotFound(error)) return undefined;
@@ -276,14 +282,28 @@ export class S3ObjectStorage
   async presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest> {
     const url = await getSignedUrl(
       await this.presigner(),
-      new PutObjectCommand({ Bucket: this.bucket(), Key: key, ContentType: options.contentType }),
-      // 把 Content-Type 簽進去：瀏覽器換了型別就上傳失敗，存下來的型別一定是登記的那個
-      { expiresIn: options.expiresIn, signableHeaders: new Set(['content-type']) },
+      new PutObjectCommand({
+        Bucket: this.bucket(),
+        Key: key,
+        ContentType: options.contentType,
+        ContentLength: options.contentLength,
+        IfNoneMatch: '*',
+      }),
+      // - Content-Type：瀏覽器換了型別就上傳失敗，存下來的型別一定是登記的那個；
+      // - Content-Length：只能傳登記的大小，檔案上限與容量擋得住（大小不同 → 403 SignatureDoesNotMatch）；
+      // - If-None-Match: *：只能寫一次，complete 之後到網址到期前不能覆寫內容（→ 412 PreconditionFailed）。
+      //   complete 發現大小不符時會先刪物件，用同一個網址重傳仍然可以。
+      //   S3 從 2024 年起支援條件寫入；換用其他相容服務時要確認（docs/architecture/backend/09-file.md §5）
+      {
+        expiresIn: options.expiresIn,
+        signableHeaders: new Set(['content-type', 'content-length', 'if-none-match']),
+      },
     );
     return {
       url,
       method: 'PUT',
-      headers: { 'Content-Type': options.contentType },
+      // Content-Length 由瀏覽器依 body 自動帶（XHR 不能自己設），這裡只列呼叫端要原樣帶上的
+      headers: { 'Content-Type': options.contentType, 'If-None-Match': '*' },
       expiresAt: new Date(Date.now() + options.expiresIn * 1000),
     };
   }
@@ -326,7 +346,7 @@ export class S3ObjectStorage
     key: string,
     uploadId: string,
     partNumber: number,
-    options: { expiresIn: number },
+    options: PresignUploadPartOptions,
   ): Promise<PresignedRequest> {
     const url = await getSignedUrl(
       await this.presigner(),
@@ -335,8 +355,10 @@ export class S3ObjectStorage
         Key: key,
         UploadId: uploadId,
         PartNumber: partNumber,
+        ContentLength: options.contentLength,
       }),
-      { expiresIn: options.expiresIn },
+      // 這一塊只能是切法算出來的大小；UploadPart 不支援 If-None-Match（uploadId 組合後就失效，不能再覆寫）
+      { expiresIn: options.expiresIn, signableHeaders: new Set(['content-length']) },
     );
     return {
       url,

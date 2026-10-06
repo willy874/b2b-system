@@ -135,3 +135,20 @@ export const files = pgTable(
 
 export type FileRow = typeof files.$inferSelect;
 export type FileInsert = typeof files.$inferInsert;
+
+/**
+ * 租戶的檔案已用量（單列；docs/architecture/05-tenancy.md §13.3 D8、docs/architecture/backend/09-file.md §5.0）：
+ * `files.size` 的合計，含上傳中與回收桶裡的檔案。登記（`FileRepository.create`）、完成（`markReady` 大小有差時）、
+ * 永久刪除（`hardDelete`）在同一個交易內更新它；登記以這一列的鎖排隊並檢查容量，不必每次加總整張 `files`。
+ * `file.maintenance` 每天以 `SUM(size)` 對帳一次（`reconciled_at`）。初始值由 migration 0036 回填。
+ */
+export const fileStorageUsage = pgTable(
+  'file_storage_usage',
+  {
+    id: boolean('id').primaryKey().default(true),
+    usedBytes: bigint('used_bytes', { mode: 'number' }).notNull().default(0),
+    /** 上一次以 `SUM(size)` 對帳的時間；null 是還沒對帳過。 */
+    reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
+  },
+  (t) => [check('file_storage_usage_single_row', sql`${t.id}`)],
+);

@@ -100,6 +100,12 @@ export const Resource = {
   AUTHZ_EXPLAIN: 'authzExplain',
   /** 角色的版本歷史（`id` = roleId）；後端沒有這個來源，由角色與它的權限鍵的更新衍生 */
   ROLE_REVISION: 'roleRevision',
+  /**
+   * 檔案的容量與已用量（docs/architecture/05-tenancy.md §13.3 D8）；後端沒有這個來源。刻意 **不** 跟著 `file` 失效：
+   * 任何人的每一次檔案變動都推給所有開著檔案管理的人，跟著重抓等於「推播數 × 分頁數」次 upload-policy。
+   * 只在自己的上傳結束時宣告（登記就佔用了容量）；別人造成的變化等 staleTime 過後、切回分頁時重抓。
+   */
+  FILE_STORAGE_USAGE: 'fileStorageUsage',
   // 關係：沒有自己的 query，只作為來源
   /** 使用者 ↔ 角色（`id` = userId，`refs.role` = 新舊角色） */
   USER_ROLE: 'userRole',
@@ -229,7 +235,10 @@ const graph = createResourceGraph<Resource>({
     // 任何寫入都會產生稽核紀錄；既有紀錄不可變，所以只影響列表。
     // 站內通知不寫稽核（docs/architecture/backend/15-notification.md §12.2 D9），後端也不把它推給 auditLog:read（08-realtime.md §6.1 的 recordsAudit: false）：
     // 收到自己的通知、標為已讀時不重抓稽核列表
-    derivesFromAnyChange: { except: [Resource.NOTIFICATION, Resource.WEBHOOK_DELIVERY] },
+    // 已用量（前端自己的宣告）也不是寫入
+    derivesFromAnyChange: {
+      except: [Resource.NOTIFICATION, Resource.WEBHOOK_DELIVERY, Resource.FILE_STORAGE_USAGE],
+    },
   },
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],
@@ -242,9 +251,8 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.FILE]: {
     // 檔案內容（FILE_TEXT_QUERY_KEY）刻意不列：內容以 id 為 key、上傳後不可變，改名不必重抓；
-    // 刪除後 LightBox 由詳情的 404 得知
-    // 容量的已用量（docs/architecture/05-tenancy.md §13.3 D8）跟著檔案的增刪變
-    collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY, FILE_STORAGE_USAGE_QUERY_KEY],
+    // 刪除後 LightBox 由詳情的 404 得知。容量的已用量也不列，見 `Resource.FILE_STORAGE_USAGE`
+    collection: [FILE_LIST_QUERY_KEY, FILE_INFINITE_LIST_QUERY_KEY],
     // 推播帶 `refs.fileFolder`（所在的資料夾）：只重抓正在看那個資料夾與不分資料夾的列表，
     // 其他資料夾的檔案管理器不動
     scopedCollection: {
@@ -274,6 +282,9 @@ const graph = createResourceGraph<Resource>({
   },
   [Resource.TAG]: {
     collection: [TAG_LIST_QUERY_KEY],
+  },
+  [Resource.FILE_STORAGE_USAGE]: {
+    collection: [FILE_STORAGE_USAGE_QUERY_KEY],
   },
   [Resource.PROFILE]: {
     collection: [AUTH_PROFILE_QUERY_KEY],

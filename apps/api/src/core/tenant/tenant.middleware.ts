@@ -52,7 +52,12 @@ export class TenantMiddleware implements NestMiddleware {
       next();
       return;
     }
-    runInTenantContext(await this.tenancy.enter(tenant), () => next());
+    const context = await this.tenancy.enter(tenant);
+    // 以網域找到的租戶記下那個網域（presigned 網址用它簽）；apps/platform 的網域不是租戶的網域
+    runInTenantContext(
+      host && host !== this.authHost ? { ...context, domain: host } : context,
+      () => next(),
+    );
   }
 
   private async resolve(req: Request, host: string | undefined): Promise<TenantRecord | undefined> {
