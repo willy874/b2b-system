@@ -804,8 +804,10 @@ seed、尺寸、字型、z-index 與 component 層都沿用淺色。
 
 - 主色與狀態色的 **前景**（`--color-brand`、`--color-*-text`）調亮到在深色 surface 上 ≥ 4.5:1；
   主色調亮後白字不夠，`--color-brand-fg` 改成深色。
-- 狀態色的 **填色**（`--color-danger` 等）沿用淺色，搭配 `-on` 的白字仍 ≥ 3:1。
-  所以危險按鈕的字用 `--color-danger-on`，不要借用 `--color-brand-fg`。
+- 狀態色的 **填色**（`--color-danger` 等）沿用淺色。實心按鈕另有較深的 `--color-danger-fill`／`--color-success-fill`／`--color-warning-fill`：
+  按鈕文字是一般文字，搭配 `-on` 的白字要 ≥ 4.5:1（hover 往表面色混 10% 之後也是），而 `--color-success`、`--color-warning`
+  本身白字不到 4.5:1（Chip、Progress、邊框等不放文字的地方仍用它們）。
+  所以危險按鈕的字用 `--color-danger-on`，不要借用 `--color-brand-fg`。`contrast.test.ts` 會算出 `color-mix` 的 hover 色再比對。
 - 中性填色有自己的 alias：`--color-fill-subtle`（停用欄位、中性標籤）、`--color-fill`（軌道、骨架、頭像）、
   `--color-scrollbar(-hover)`、`--color-tooltip-bg/-fg`。元件不直接引用 `--seed-gray-*`
   （🔒 `design-system.test.ts` 擋 `components/` 的 CSS 引用 seed 色）。
