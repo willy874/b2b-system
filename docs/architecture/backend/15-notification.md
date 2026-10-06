@@ -196,7 +196,9 @@ await withTransaction(this.db, async (tx) => {
 
 - **keyset 而非 offset**（[`03-api-conventions.md`](./03-api-conventions.md) §2 的例外，與檔案列表同理）：通知會在捲動途中不斷新增在最前面，
   offset 會讓下一頁重複前一頁的最後幾筆。游標是上一頁最後一筆的 `created_at`（微秒精度，由資料庫格式化）＋ id，
-  條件 `(created_at, id) < (…)`；格式不對回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`）。
+  條件 `(created_at, id) < (…)`；格式不對回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`）。時間只接受 encode 時的格式
+  （UTC、毫秒或微秒，日期與時間的每一欄都存在；`core/http` 的 `isCursorTimestamp`）：V8 的 `Date.parse` 比 Postgres 寬鬆，
+  `2026-02-30`、`2026`、`0` 都過得了它，進 SQL 時卻會讓 Postgres 拋錯、回 500。
 - 每筆帶 `actor: { id, name } | null`（`users` 的 left join，被軟刪除的人照樣顯示名字）。
 - 已讀與全部已讀 **不寫稽核**：使用者自己的狀態，量大、沒有稽核價值。
 

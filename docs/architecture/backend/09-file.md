@@ -485,6 +485,10 @@ LIMIT $limit
 ```
 
 - 游標內容是 `[排序欄位, 方向, 值, id]` 的 base64url JSON；**排序條件寫進游標**，換了排序還拿舊游標回 `400 VALIDATION_FAILED`。
+- 游標的值直接進 SQL，所以解碼時就檢查成 **Postgres 一定接受的值**，否則同樣回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`），
+  不讓 Postgres 拋錯變成 500：`createdAt` 只接受 encode 時的格式（UTC、毫秒或微秒，日期與時間的每一欄都存在——V8 的 `Date.parse`
+  會把 2 月 30 日進位、也接受 `2026`、`0`；`core/http` 的 `isCursorTimestamp`）；`size` 是非負的安全整數（擋下 `1.5`、`1e400`）；
+  `name` 不含 NUL（Postgres 的 text 存不下）。對外 API 的 `GET /v1/files?cursor=` 走同一個 service。
 - `createdAt` 的值由資料庫以 **微秒** 格式化（`to_char(… 'US')`）：JS 的 Date 只有毫秒，截掉會漏掉同一毫秒內的其他檔案。
 - 帶游標時只依 `sort` 的第一個條件（＋ id）排序、忽略 `offset`；`pagination.total` 為 `null`——每捲一頁都重算 `count(*)` 太貴，
   篩選後的總數只在第一頁（不帶游標）回傳，前端也只讀第一頁的 total。

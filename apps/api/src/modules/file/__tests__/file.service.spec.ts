@@ -855,6 +855,36 @@ describe('FileService.list：keyset 游標', () => {
     await expect(service.list(query, ALICE)).resolves.toMatchObject({ nextCursor: null });
   });
 
+  it.each([
+    // V8 的 Date.parse 會把 2 月 30 日進位成 3 月 2 日，Postgres 卻拒絕轉成 timestamptz
+    ['createdAt 是 2 月 30 日', 'createdAt', '2026-02-30T00:00:00.000000Z'],
+    ['createdAt 只有年份', 'createdAt', '2026'],
+    ['size 不是整數', 'size', 1.5],
+    // JSON.parse('1e400') 是 Infinity：型別是 number，但轉不成 bigint
+    ['size 是 1e400', 'size', '1e400'],
+    ['size 是負數', 'size', -1],
+    ['name 含 NUL（Postgres 的 text 存不下）', 'name', 'a\u0000b'],
+  ])(
+    '游標的值 Postgres 不接受（%s）→ VALIDATION_FAILED，不查資料庫',
+    async (_label, sort, value) => {
+      const { service, repo } = setup();
+      const id = '44444444-4444-4444-8444-444444444444';
+      // 1e400 要以 JSON 字面量放進去，JSON.stringify(Infinity) 會變成 null
+      const json =
+        value === '1e400'
+          ? `["size","desc",1e400,"${id}"]`
+          : JSON.stringify([sort, 'desc', value, id]);
+      const cursor = Buffer.from(json, 'utf8').toString('base64url');
+      const sorted = { ...query, sort: [{ sort: sort as 'createdAt', order: 'desc' as const }] };
+      const error = await expectAppError(
+        service.list({ ...sorted, cursor }, ALICE),
+        'VALIDATION_FAILED',
+      );
+      expect(error.details).toEqual({ field: 'cursor' });
+      expect(repo.list).not.toHaveBeenCalled();
+    },
+  );
+
   it('游標格式錯誤或排序與游標不一致 → VALIDATION_FAILED', async () => {
     const { service } = setup();
     await expectAppError(service.list({ ...query, cursor: 'garbage' }, ALICE), 'VALIDATION_FAILED');

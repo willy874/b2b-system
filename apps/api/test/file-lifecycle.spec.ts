@@ -550,6 +550,27 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .expect(400);
   });
 
+  it('游標的值 Postgres 不接受（2 月 30 日）→ 400 VALIDATION_FAILED（docs/architecture/backend/09-file.md §6.1）', async () => {
+    const token = await login(ADMIN);
+    const cursor = Buffer.from(
+      JSON.stringify([
+        'createdAt',
+        'desc',
+        '2026-02-30T00:00:00.000000Z',
+        '44444444-4444-4444-8444-444444444444',
+      ]),
+      'utf8',
+    ).toString('base64url');
+    const response = await request(http)
+      .get('/files')
+      .query({ sort: '-createdAt', cursor })
+      .set('authorization', `Bearer ${token}`)
+      .expect(400);
+    expect(response.body).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', details: { field: 'cursor' } },
+    });
+  });
+
   it('分類篩選：document、other', async () => {
     const token = await login(ADMIN);
     await uploadFile(token, { name: 'spec.pdf', contentType: 'application/pdf', size: 1 });
