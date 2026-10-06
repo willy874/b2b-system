@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 
 import { getRequestId } from '../http/request-context';
 import { AppException } from './app.exception';
+import { redactDbError } from './db-error';
 import { ErrorCode, statusOf } from './error-code';
 import {
   constraintNameOf,
@@ -115,8 +116,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return;
     }
 
-    // 未知錯誤：記完整堆疊到日誌，只回 requestId 給客戶端
-    this.logger.error({ err: exception, requestId }, 'Unhandled exception');
+    // 未知錯誤：記完整堆疊到日誌，只回 requestId 給客戶端。資料庫的查詢錯誤拿掉參數（docs/conventions/03-backend.md §7）
+    this.logger.error({ err: redactDbError(exception), requestId }, 'Unhandled exception');
     this.send(res, 500, {
       error: { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId },
     });

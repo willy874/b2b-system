@@ -1,4 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
+import { DrizzleQueryError } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '../../config';
@@ -772,6 +773,32 @@ describe('JobQueue：worker 執行工作（docs/architecture/backend/10-jobs.md 
     await expect(
       workerOf(boss, 'test.platform')([job({ tenantId: null, payload: { id: 'x' } })]),
     ).rejects.toThrow('smtp down');
+  });
+
+  it('handler 拋資料庫的查詢錯誤 → 交給 pg-boss 的錯誤不含參數（存成 output，job:read 看得到）', async () => {
+    const { queue, boss } = createQueue();
+    queue.register(PLATFORM_TYPE, async () => {
+      throw new DrizzleQueryError(
+        'update "users" set "password_hash" = $1 where "id" = $2',
+        ['$argon2id$secret', 'u1'],
+        Object.assign(new Error('deadlock detected'), { code: '40P01', detail: 'secret detail' }),
+      );
+    });
+    await queue.onApplicationBootstrap();
+    const thrown = await workerOf(
+      boss,
+      'test.platform',
+    )([job({ tenantId: null, payload: { id: 'x' } })]).catch((error: unknown) => error);
+
+    expect(thrown).toMatchObject({
+      name: 'DbQueryError',
+      query: 'update "users" set "password_hash" = $1 where "id" = $2',
+      cause: { code: '40P01' },
+    });
+    expect(thrown).not.toHaveProperty('params');
+    expect(JSON.stringify(thrown)).not.toContain('secret');
+    expect((thrown as Error).message).not.toContain('secret');
+    expect((thrown as Error).stack).not.toContain('secret');
   });
 
   it('排程觸發的租戶工作（沒有租戶）→ 每個 active 租戶各入列一筆，不執行 handler', async () => {

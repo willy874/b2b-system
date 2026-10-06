@@ -324,8 +324,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       });
     }
 
-    // 未知錯誤：記完整堆疊到日誌，只回 requestId 給客戶端
-    this.logger.error({ err: exception, requestId }, "Unhandled exception");
+    // 未知錯誤：記完整堆疊到日誌，只回 requestId 給客戶端；資料庫的查詢錯誤先拿掉參數
+    this.logger.error({ err: redactDbError(exception), requestId }, "Unhandled exception");
     return res.status(500).json({
       error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId },
     });
@@ -339,6 +339,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
 沒有登記在 `CONSTRAINT_TO_CODE` 的約束回通用的 `409 CONFLICT`（並記一筆 warn 日誌），不是 500：
 衝突是請求與現有資料的問題，不是伺服器壞了。
+
+**資料庫錯誤不把參數寫進日誌。** drizzle 的查詢錯誤（`DrizzleQueryError`）的訊息、`params` 屬性與堆疊的第一行帶著
+整份查詢參數（密碼雜湊、token、IdP 的授權碼、個資）。`core/errors/db-error.ts` 的兩個函式只留型別、SQL 本文（值是 `$1` 佔位）、
+堆疊位置，以及驅動錯誤的 `code`／`constraint_name`／`message`（不留 `detail`，它會帶到值）：
+
+- `describeDbError(error)`：回傳不含參數的描述物件，不是查詢錯誤回 `undefined`。Pino 的 `err` serializer
+  （`core/logger/redact.ts` 的 `serializeError`）用它，所以存取日誌與 `new Logger(…)` 的 `{ err }` 都不會出現參數。
+- `redactDbError(error)`：把查詢錯誤換成不帶參數的 `DbQueryError`（`cause` 只剩上面三個欄位，`isUniqueViolation` 等判斷照常可用），
+  其他錯誤原樣回傳。錯誤會被別人整個序列化的地方用它：上面的未知錯誤、背景工作重新拋給 pg-boss 的錯誤（[`10-jobs.md`](./10-jobs.md) §6）。
 
 框架內建的 `HttpException`（`ParseUUIDPipe`、找不到路由、guard 回 false）依狀態碼對應錯誤碼：
 400 → `VALIDATION_FAILED`、401 → `AUTH_TOKEN_INVALID`、403 → `AUTHZ_FORBIDDEN`、404 → `NOT_FOUND`、

@@ -162,7 +162,7 @@ await withTransaction(this.db, async (tx) => {
 | --- | --- | --- |
 | `GET /jobs/queues` | `job:read` | 已註冊的工作、排程、各狀態的 **即時** 筆數 |
 | `GET /jobs` | `job:read` | 列表（`createdOn DESC`；`name`、`state` 篩選；不含 `data` / `output`） |
-| `GET /jobs/:id` | `job:read` | 詳情（含 `data` 與 `output`；失敗時 `output` 是錯誤的 `message` / `stack`） |
+| `GET /jobs/:id` | `job:read` | 詳情（含 `data` 與 `output`；失敗時 `output` 是錯誤的 `message` / `stack`。資料庫的查詢錯誤在交給 pg-boss 之前換成只帶 SQL 本文與錯誤碼的版本，不含參數，[`03-api-conventions.md`](./03-api-conventions.md) §6） |
 | `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；重試成功後寫稽核 `job.retry` |
 
 - 只列出程式有註冊的 **租戶** 工作，而且只看目前租戶的（信封的 `tenantId`）；平台工作、pg-boss 內部或已下線的佇列不出現。

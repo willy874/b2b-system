@@ -10,7 +10,7 @@ import { jobOutbox } from '@/db/schema';
 import type { Env } from '../config';
 import { afterCommit, TENANT_DB, withTransaction } from '../database';
 import type { Database, Transaction } from '../database';
-import { AppException } from '../errors';
+import { AppException, redactDbError } from '../errors';
 import {
   JOB_MAX_CONCURRENCY_PARAM,
   requireTenant,
@@ -410,7 +410,9 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
           { err: error, job: { name: type.name, id: job.id, retryCount: job.retryCount } },
           '背景工作失敗',
         );
-        throw error;
+        // pg-boss 把拋出的錯誤連同可列舉的屬性存成工作的 output（持有 job:read 的人看得到）：
+        // 資料庫的查詢錯誤換成只帶 SQL 與錯誤碼的版本，參數不跟著存下來（docs/architecture/backend/10-jobs.md §6）
+        throw redactDbError(error);
       }
     });
   }

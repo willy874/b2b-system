@@ -3,11 +3,30 @@ import { Writable } from 'node:stream';
 import { Controller, Get } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { DrizzleQueryError } from 'drizzle-orm';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
+import { stdSerializers } from 'pino';
+import { pinoHttp } from 'pino-http';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { pinoHttpOptions } from '../logger.module';
-import { redactQuery, redactRequest, redactUrl, SENSITIVE_QUERY_KEYS } from '../redact';
+import {
+  redactQuery,
+  redactRequest,
+  redactUrl,
+  SENSITIVE_QUERY_KEYS,
+  serializeError,
+} from '../redact';
+
+/** 寫進記憶體的 Pino 輸出。 */
+function memoryStream(lines: string[]): Writable {
+  return new Writable({
+    write(chunk: Buffer, _encoding, done) {
+      lines.push(chunk.toString());
+      done();
+    },
+  });
+}
 
 describe('日誌遮蔽（docs/conventions/03-backend.md §7）', () => {
   it('遮掉查詢字串裡的 token，保留其他參數', () => {
@@ -85,12 +104,7 @@ describe('請求日誌經過 pino-http 的輸出（docs/architecture/backend/11-
   const lines: string[] = [];
 
   beforeAll(async () => {
-    const stream = new Writable({
-      write(chunk: Buffer, _encoding, done) {
-        lines.push(chunk.toString());
-        done();
-      },
-    });
+    const stream = memoryStream(lines);
     const moduleRef = await Test.createTestingModule({
       imports: [PinoLoggerModule.forRoot({ pinoHttp: [pinoHttpOptions('production'), stream] })],
       controllers: [ProbeController],
@@ -141,5 +155,53 @@ describe('請求日誌經過 pino-http 的輸出（docs/architecture/backend/11-
       keyword: 'kept-keyword',
     });
     expect(entry.req.url).toContain('keyword=kept-keyword');
+  });
+});
+
+const UPDATE_SQL = 'update "users" set "password_hash" = $1 where "id" = $2';
+
+/** 驅動錯誤（postgres.js）包在 drizzle 的查詢錯誤裡；參數是密碼雜湊。 */
+function passwordUpdateError(): DrizzleQueryError {
+  const cause = Object.assign(new Error('canceling statement due to statement timeout'), {
+    code: '57014',
+  });
+  return new DrizzleQueryError(UPDATE_SQL, ['$argon2id$secret', 'u1'], cause);
+}
+
+/** 以正式的 pino-http 選項建立的 Pino（應用程式日誌與存取日誌共用的那一個）記一筆錯誤。 */
+function logError(err: unknown): Record<string, unknown> {
+  const lines: string[] = [];
+  pinoHttp(pinoHttpOptions('production'), memoryStream(lines)).logger.error({ err }, 'boom');
+  return JSON.parse(lines[0] ?? '{}') as Record<string, unknown>;
+}
+
+describe('錯誤的 serializer：資料庫錯誤不帶查詢參數（docs/conventions/03-backend.md §7）', () => {
+  it('drizzle 的查詢錯誤：輸出找不到參數，SQL 本文與 cause.code 還在', () => {
+    const entry = logError(passwordUpdateError());
+    expect(JSON.stringify(entry)).not.toContain('secret');
+    expect(entry.err).toMatchObject({
+      type: 'DrizzleQueryError',
+      message: `Failed query: ${UPDATE_SQL}`,
+      query: UPDATE_SQL,
+      cause: { code: '57014' },
+    });
+    expect(entry.err).not.toHaveProperty('params');
+  });
+
+  it('其他錯誤照 pino 的標準 serializer（type、message、stack 與自訂屬性）', () => {
+    const entry = logError(Object.assign(new Error('smtp down'), { code: 'ECONNREFUSED' }));
+    expect(entry.err).toMatchObject({
+      type: 'Error',
+      message: 'smtp down',
+      code: 'ECONNREFUSED',
+      stack: expect.stringContaining('smtp down'),
+    });
+  });
+
+  it('沒經過 pino-http 包裝時（直接拿到原本的錯誤）結果相同', () => {
+    expect(JSON.stringify(serializeError(passwordUpdateError()))).not.toContain('secret');
+    const plain = new Error('boom');
+    expect(serializeError(plain)).toEqual(stdSerializers.err(plain));
+    expect(serializeError('not an error')).toBe('not an error');
   });
 });
