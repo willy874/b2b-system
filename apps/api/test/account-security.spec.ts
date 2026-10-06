@@ -316,6 +316,43 @@ describe('帳號安全', () => {
   });
 
   describe('還沒啟用的人', () => {
+    it('管理員不能把 pending 直接改成 active：仍要靠啟用信證明擁有這個 email', async () => {
+      const admin = await tokenOf(ADMIN);
+      const credentials = { email: 'claimed@example.com', password: 'ApplicantPassword!2026' };
+      // 註冊申請核准後的帳號：pending，但已經存了申請人設定的密碼
+      const id = await createUser(credentials.email, credentials.password, { status: 'pending' });
+
+      const response = await request(http)
+        .patch(`/users/${id}`)
+        .set('authorization', `Bearer ${admin}`)
+        .send({ status: 'active', version: await userVersion(db, id) })
+        .expect(400);
+
+      expect(response.body).toMatchObject({
+        error: { code: 'VALIDATION_FAILED', details: { fields: { status: 'pending' } } },
+      });
+      expect((await userOf(credentials.email)).status).toBe('pending');
+      expect(errorCode(await login(credentials).expect(401))).toBe('AUTH_ACCOUNT_PENDING');
+    });
+
+    it('pending 先停用再啟用：申請時存的密碼已清掉，不能拿來登入', async () => {
+      const admin = await tokenOf(ADMIN);
+      const credentials = { email: 'detour@example.com', password: 'ApplicantPassword!2026' };
+      const id = await createUser(credentials.email, credentials.password, { status: 'pending' });
+
+      for (const status of ['inactive', 'active'] as const) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序改兩次狀態
+        await request(http)
+          .patch(`/users/${id}`)
+          .set('authorization', `Bearer ${admin}`)
+          .send({ status, version: await userVersion(db, id) })
+          .expect(200);
+      }
+
+      expect((await userOf(credentials.email)).passwordHash).toBeNull();
+      expect(errorCode(await login(credentials).expect(401))).toBe('AUTH_INVALID_CREDENTIALS');
+    });
+
     it('不能把人改回 pending（改了就再也沒有啟用 token）', async () => {
       const admin = await tokenOf(ADMIN);
       const target = await createUser('to-pending@example.com', 'ToPendingPassword!2026');

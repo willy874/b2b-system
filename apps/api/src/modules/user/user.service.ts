@@ -193,6 +193,11 @@ export class UserService {
 
     const statusChanging = dto.status !== undefined && dto.status !== user.status;
     if (statusChanging) {
+      // `pending` 只能靠啟用信離開：收得到信才證明擁有這個 email（docs/rbac/06-approval.md §5），
+      // 管理者不能直接改成 active（平台管理者的 nextStatus() 同一條規則）
+      if (user.status === 'pending' && dto.status === 'active') {
+        throw new AppException('VALIDATION_FAILED', { fields: { status: 'pending' } });
+      }
       this.assertNotSelf(actor.id, id);
       await this.assertCanManage(actor, id);
     }
@@ -205,10 +210,15 @@ export class UserService {
 
     const updated = await withTransaction(this.db, async (tx) => {
       if (statusChanging && deactivating) await this.assertNotLastSuperAdmin(id, tx);
-      const next = await this.repo.update(id, { ...fields, updatedBy: actor.id }, tx, {
-        expectedVersion: version,
-        bumpVersion: true,
-      });
+      // 還沒啟用就停用：一併清掉註冊申請時存的密碼。否則之後改回 active，申請人不必收信就能以那組密碼登入；
+      // 清掉之後只能經「重設密碼」設定，仍要證明擁有這個 email
+      const discardPassword = statusChanging && user.status === 'pending';
+      const next = await this.repo.update(
+        id,
+        { ...fields, ...(discardPassword ? { passwordHash: null } : {}), updatedBy: actor.id },
+        tx,
+        { expectedVersion: version, bumpVersion: true },
+      );
       // 讀到之後、寫入之前被別人改過（版本變了）或刪除
       if (!next) throw await this.missedUpdate(id, tx);
 
