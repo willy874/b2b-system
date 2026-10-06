@@ -1,8 +1,6 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
-import { z } from 'zod';
-
 import type {
   ApiTokenList,
   CreateApiTokenRequest,
@@ -13,23 +11,8 @@ import type {
   ServiceAccountRoles,
   UpdateServiceAccountRequest,
 } from '../models';
-import { buildUrl, request } from '../runtime';
-import type {
-  ApiResponse,
-  OperationDefinition,
-  OperationSchemas,
-  RequestOptions,
-} from '../runtime';
-import {
-  ApiTokenListSchema,
-  CreateApiTokenRequestSchema,
-  CreateServiceAccountRequestSchema,
-  CreatedApiTokenSchema,
-  ReplaceServiceAccountRolesRequestSchema,
-  ServiceAccountRolesSchema,
-  ServiceAccountSchema,
-  UpdateServiceAccountRequestSchema,
-} from '../schemas';
+import type { ApiResponse } from '../runtime';
+import { buildUrl } from '../url';
 
 // GET /service-accounts
 
@@ -53,41 +36,8 @@ export type ServiceAccountControllerListResult = ApiResponse<
   ServiceAccountControllerListResponses[200]
 >;
 
-export const ServiceAccountControllerListSchemas = {
-  responses: {
-    200: z.object({
-      data: z.object({
-        items: z.array(ServiceAccountSchema),
-        pagination: z.object({
-          offset: z.int(),
-          limit: z.int(),
-          total: z.int(),
-        }),
-      }),
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerListUrl(): string {
   return buildUrl('/service-accounts');
-}
-
-const serviceAccountControllerListOperation: OperationDefinition = {
-  id: 'ServiceAccountController_list',
-  method: 'GET',
-  path: '/service-accounts',
-  responseTypes: { 200: 'json' },
-  schemas: ServiceAccountControllerListSchemas,
-};
-
-export function serviceAccountControllerList(
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerListResult> {
-  return request<ServiceAccountControllerListResult>(
-    serviceAccountControllerListOperation,
-    {},
-    options,
-  );
 }
 
 // POST /service-accounts
@@ -111,39 +61,8 @@ export type ServiceAccountControllerCreateResult = ApiResponse<
   ServiceAccountControllerCreateResponses[201]
 >;
 
-export const ServiceAccountControllerCreateSchemas = {
-  body: CreateServiceAccountRequestSchema,
-  responses: {
-    201: z.object({
-      data: ServiceAccountSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerCreateUrl(): string {
   return buildUrl('/service-accounts');
-}
-
-const serviceAccountControllerCreateOperation: OperationDefinition = {
-  id: 'ServiceAccountController_create',
-  method: 'POST',
-  path: '/service-accounts',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 201: 'json' },
-  schemas: ServiceAccountControllerCreateSchemas,
-};
-
-/** 建立服務帳號；指派的角色受反提權限制 */
-export function serviceAccountControllerCreate(
-  input: ServiceAccountControllerCreateInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerCreateResult> {
-  return request<ServiceAccountControllerCreateResult>(
-    serviceAccountControllerCreateOperation,
-    input,
-    options,
-  );
 }
 
 // GET /service-accounts/{id}
@@ -169,40 +88,10 @@ export type ServiceAccountControllerFindOneResult = ApiResponse<
   ServiceAccountControllerFindOneResponses[200]
 >;
 
-export const ServiceAccountControllerFindOneSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: ServiceAccountSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerFindOneUrl(
   path: ServiceAccountControllerFindOnePathParams,
 ): string {
   return buildUrl('/service-accounts/{id}', path);
-}
-
-const serviceAccountControllerFindOneOperation: OperationDefinition = {
-  id: 'ServiceAccountController_findOne',
-  method: 'GET',
-  path: '/service-accounts/{id}',
-  responseTypes: { 200: 'json' },
-  schemas: ServiceAccountControllerFindOneSchemas,
-};
-
-export function serviceAccountControllerFindOne(
-  input: ServiceAccountControllerFindOneInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerFindOneResult> {
-  return request<ServiceAccountControllerFindOneResult>(
-    serviceAccountControllerFindOneOperation,
-    input,
-    options,
-  );
 }
 
 // DELETE /service-accounts/{id}
@@ -226,36 +115,10 @@ export type ServiceAccountControllerRemoveResult = ApiResponse<
   ServiceAccountControllerRemoveResponses[204]
 >;
 
-export const ServiceAccountControllerRemoveSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerRemoveUrl(
   path: ServiceAccountControllerRemovePathParams,
 ): string {
   return buildUrl('/service-accounts/{id}', path);
-}
-
-const serviceAccountControllerRemoveOperation: OperationDefinition = {
-  id: 'ServiceAccountController_remove',
-  method: 'DELETE',
-  path: '/service-accounts/{id}',
-  responseTypes: { 204: 'none' },
-  schemas: ServiceAccountControllerRemoveSchemas,
-};
-
-/** 刪除；它的 token 一併失效，不進回收桶 */
-export function serviceAccountControllerRemove(
-  input: ServiceAccountControllerRemoveInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerRemoveResult> {
-  return request<ServiceAccountControllerRemoveResult>(
-    serviceAccountControllerRemoveOperation,
-    input,
-    options,
-  );
 }
 
 // PATCH /service-accounts/{id}
@@ -284,44 +147,10 @@ export type ServiceAccountControllerUpdateResult = ApiResponse<
   ServiceAccountControllerUpdateResponses[200]
 >;
 
-export const ServiceAccountControllerUpdateSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  body: UpdateServiceAccountRequestSchema,
-  responses: {
-    200: z.object({
-      data: ServiceAccountSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerUpdateUrl(
   path: ServiceAccountControllerUpdatePathParams,
 ): string {
   return buildUrl('/service-accounts/{id}', path);
-}
-
-const serviceAccountControllerUpdateOperation: OperationDefinition = {
-  id: 'ServiceAccountController_update',
-  method: 'PATCH',
-  path: '/service-accounts/{id}',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 200: 'json' },
-  schemas: ServiceAccountControllerUpdateSchemas,
-};
-
-/** 改名、停用、啟用；停用時它的 token 全部失效 */
-export function serviceAccountControllerUpdate(
-  input: ServiceAccountControllerUpdateInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerUpdateResult> {
-  return request<ServiceAccountControllerUpdateResult>(
-    serviceAccountControllerUpdateOperation,
-    input,
-    options,
-  );
 }
 
 // PUT /service-accounts/{id}/roles
@@ -351,44 +180,10 @@ export type ServiceAccountControllerReplaceRolesResult = ApiResponse<
   ServiceAccountControllerReplaceRolesResponses[200]
 >;
 
-export const ServiceAccountControllerReplaceRolesSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  body: ReplaceServiceAccountRolesRequestSchema,
-  responses: {
-    200: z.object({
-      data: ServiceAccountRolesSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerReplaceRolesUrl(
   path: ServiceAccountControllerReplaceRolesPathParams,
 ): string {
   return buildUrl('/service-accounts/{id}/roles', path);
-}
-
-const serviceAccountControllerReplaceRolesOperation: OperationDefinition = {
-  id: 'ServiceAccountController_replaceRoles',
-  method: 'PUT',
-  path: '/service-accounts/{id}/roles',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 200: 'json' },
-  schemas: ServiceAccountControllerReplaceRolesSchemas,
-};
-
-/** 整批取代持有的角色；受反提權限制 */
-export function serviceAccountControllerReplaceRoles(
-  input: ServiceAccountControllerReplaceRolesInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerReplaceRolesResult> {
-  return request<ServiceAccountControllerReplaceRolesResult>(
-    serviceAccountControllerReplaceRolesOperation,
-    input,
-    options,
-  );
 }
 
 // GET /service-accounts/{id}/tokens
@@ -415,41 +210,10 @@ export type ServiceAccountControllerListTokensResult = ApiResponse<
   ServiceAccountControllerListTokensResponses[200]
 >;
 
-export const ServiceAccountControllerListTokensSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  responses: {
-    200: z.object({
-      data: ApiTokenListSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerListTokensUrl(
   path: ServiceAccountControllerListTokensPathParams,
 ): string {
   return buildUrl('/service-accounts/{id}/tokens', path);
-}
-
-const serviceAccountControllerListTokensOperation: OperationDefinition = {
-  id: 'ServiceAccountController_listTokens',
-  method: 'GET',
-  path: '/service-accounts/{id}/tokens',
-  responseTypes: { 200: 'json' },
-  schemas: ServiceAccountControllerListTokensSchemas,
-};
-
-/** 它的 API token（含已撤銷、已過期；不含 secret） */
-export function serviceAccountControllerListTokens(
-  input: ServiceAccountControllerListTokensInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerListTokensResult> {
-  return request<ServiceAccountControllerListTokensResult>(
-    serviceAccountControllerListTokensOperation,
-    input,
-    options,
-  );
 }
 
 // POST /service-accounts/{id}/tokens
@@ -479,44 +243,10 @@ export type ServiceAccountControllerCreateTokenResult = ApiResponse<
   ServiceAccountControllerCreateTokenResponses[201]
 >;
 
-export const ServiceAccountControllerCreateTokenSchemas = {
-  path: z.object({
-    id: z.string(),
-  }),
-  body: CreateApiTokenRequestSchema,
-  responses: {
-    201: z.object({
-      data: CreatedApiTokenSchema,
-    }),
-  },
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerCreateTokenUrl(
   path: ServiceAccountControllerCreateTokenPathParams,
 ): string {
   return buildUrl('/service-accounts/{id}/tokens', path);
-}
-
-const serviceAccountControllerCreateTokenOperation: OperationDefinition = {
-  id: 'ServiceAccountController_createToken',
-  method: 'POST',
-  path: '/service-accounts/{id}/tokens',
-  bodyType: 'json',
-  contentType: 'application/json',
-  responseTypes: { 201: 'json' },
-  schemas: ServiceAccountControllerCreateTokenSchemas,
-};
-
-/** 替它建立 API token；回應的 token 只出現這一次。token 的有效權限必須是操作者持有的 */
-export function serviceAccountControllerCreateToken(
-  input: ServiceAccountControllerCreateTokenInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerCreateTokenResult> {
-  return request<ServiceAccountControllerCreateTokenResult>(
-    serviceAccountControllerCreateTokenOperation,
-    input,
-    options,
-  );
 }
 
 // DELETE /service-accounts/{id}/tokens/{tokenId}
@@ -542,35 +272,8 @@ export type ServiceAccountControllerRevokeTokenResult = ApiResponse<
   ServiceAccountControllerRevokeTokenResponses[204]
 >;
 
-export const ServiceAccountControllerRevokeTokenSchemas = {
-  path: z.object({
-    id: z.string(),
-    tokenId: z.string(),
-  }),
-} satisfies OperationSchemas;
-
 export function getServiceAccountControllerRevokeTokenUrl(
   path: ServiceAccountControllerRevokeTokenPathParams,
 ): string {
   return buildUrl('/service-accounts/{id}/tokens/{tokenId}', path);
-}
-
-const serviceAccountControllerRevokeTokenOperation: OperationDefinition = {
-  id: 'ServiceAccountController_revokeToken',
-  method: 'DELETE',
-  path: '/service-accounts/{id}/tokens/{tokenId}',
-  responseTypes: { 204: 'none' },
-  schemas: ServiceAccountControllerRevokeTokenSchemas,
-};
-
-/** 撤銷它的一把 API token */
-export function serviceAccountControllerRevokeToken(
-  input: ServiceAccountControllerRevokeTokenInput,
-  options?: RequestOptions,
-): Promise<ServiceAccountControllerRevokeTokenResult> {
-  return request<ServiceAccountControllerRevokeTokenResult>(
-    serviceAccountControllerRevokeTokenOperation,
-    input,
-    options,
-  );
 }

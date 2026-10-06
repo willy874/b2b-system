@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { sessionStore } from '../SessionStore';
 import { useHasSession } from '../useSession';
@@ -15,5 +15,15 @@ describe('useHasSession', () => {
 
     act(() => sessionStore.endSession('logout'));
     expect(result.current).toBe(false);
+  });
+
+  it('rerender 不會退訂再重新訂閱（subscribe 是穩定的函式）', () => {
+    const subscribe = vi.spyOn(sessionStore, 'subscribe');
+    const { rerender, unmount } = renderHook(() => useHasSession());
+    rerender();
+    rerender();
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    unmount();
+    subscribe.mockRestore();
   });
 });

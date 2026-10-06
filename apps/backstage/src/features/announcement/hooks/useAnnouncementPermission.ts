@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
 
 import { ANNOUNCEMENT_PAGE } from '../permission';
@@ -9,5 +11,9 @@ import { ANNOUNCEMENT_PAGE } from '../permission';
 export function useAnnouncementPermission() {
   const page = usePagePermission(ANNOUNCEMENT_PAGE);
   const { can } = usePermission();
-  return { ...page, canPublish: can(PermissionKey['announcement:publish']) };
+  // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
+  return useMemo(
+    () => ({ ...page, canPublish: can(PermissionKey['announcement:publish']) }),
+    [page, can],
+  );
 }

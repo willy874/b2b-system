@@ -1,6 +1,7 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
+import type { BatchRunContext } from '@b2b-system/web-core/batch';
 
-import { invalidateResources, Resource } from '@/apis/resources';
+import { Resource } from '@/apis/resources';
 import { getUserDeleteMutationOptions } from '@/apis/user/delete-user/mutation';
 import { getUserUnlockMutationOptions } from '@/apis/user/unlock-user/mutation';
 import { getUserUpdateMutationOptions } from '@/apis/user/update-user/mutation';
@@ -28,18 +29,16 @@ const deleteUser = getUserDeleteMutationOptions().mutationFn;
 async function updateStatus(
   userId: string,
   status: 'active' | 'inactive',
-  version: number | undefined,
+  { version, invalidate }: BatchRunContext,
 ): Promise<void> {
   if (version === undefined) throw new Error('批次啟用／停用使用者需要列表那一列的 version');
   const user = await updateUser({ params: { userId, body: { status, version } } });
-  invalidateResources([
-    { resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) },
-  ]);
+  invalidate([{ resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) }]);
 }
 
 /**
- * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、失效快取（同單筆 mutation hook），
- * 不發 toast：結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
+ * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、以 `invalidate` 宣告變更（同單筆 mutation hook 的
+ * `invalidateResources`，由佇列合併套用），不發 toast：結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
  */
 export function registerUserBatchOperations(): void {
   registerBatchOperation({
@@ -47,25 +46,23 @@ export function registerUserBatchOperations(): void {
     labelKey: 'user.batch.activate.title',
     localeScope: USER_LOCALE_SCOPE,
     successKey: 'user.batch.activate.success',
-    run: (userId, { version }) => updateStatus(userId, 'active', version),
+    run: (userId, context) => updateStatus(userId, 'active', context),
   });
   registerBatchOperation({
     id: UserBatchOperation.DEACTIVATE,
     labelKey: 'user.batch.deactivate.title',
     localeScope: USER_LOCALE_SCOPE,
     successKey: 'user.batch.deactivate.success',
-    run: (userId, { version }) => updateStatus(userId, 'inactive', version),
+    run: (userId, context) => updateStatus(userId, 'inactive', context),
   });
   registerBatchOperation({
     id: UserBatchOperation.UNLOCK,
     labelKey: 'user.batch.unlock.title',
     localeScope: USER_LOCALE_SCOPE,
     successKey: 'user.batch.unlock.success',
-    run: async (userId) => {
+    run: async (userId, { invalidate }) => {
       const user = await unlockUser({ params: { userId } });
-      invalidateResources([
-        { resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) },
-      ]);
+      invalidate([{ resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) }]);
     },
   });
   registerBatchOperation({
@@ -73,10 +70,10 @@ export function registerUserBatchOperations(): void {
     labelKey: 'user.batch.delete.title',
     localeScope: USER_LOCALE_SCOPE,
     successKey: 'user.batch.delete.success',
-    run: async (userId) => {
+    run: async (userId, { invalidate }) => {
       await deleteUser({ params: { userId } });
       // 不知道被刪的人持有哪些角色 → 角色端退回整批失效（同單筆刪除）
-      invalidateResources([{ resource: Resource.USER, kind: 'delete', id: userId }]);
+      invalidate([{ resource: Resource.USER, kind: 'delete', id: userId }]);
     },
   });
 }

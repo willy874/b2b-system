@@ -1,9 +1,9 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
-export * from './runtime';
+export * from './url';
+export type { ApiResponse } from './runtime';
 export * from './models';
-export * from './schemas';
 export * from './endpoints/announcements';
 export * from './endpoints/api-tokens';
 export * from './endpoints/approvals';

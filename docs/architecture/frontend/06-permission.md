@@ -236,6 +236,11 @@ const { hydrated, permissions, can, canEvery, canSome } = usePermission();
 
 **大多數情況不該直接用它**，用下面的頁面級 hook 或 feature 的 facade。
 
+**參考是穩定的**：權限集合沒變時，`usePermission()`、`usePagePermission()` 回傳同一個物件，`can`／`canEvery`／`canSome`、
+`usePageAccessChecker().canAccessPage` 也是同一個函式，可以放進 `useMemo`／`useEffect` 的依賴。
+feature 的 facade 照做（`useMemo` 包住回傳的物件，[`03-feature-anatomy.md`](./03-feature-anatomy.md) §2.4）；
+列表的 `rows` 只依賴 adapter 用到的布林值（`[data, canDelete, canUpdate]`），不依賴整個 facade（同一份文件 §2.6）。
+
 ### 5.2 `usePagePermission(pageKey)` — 頁面級
 
 ```ts
@@ -253,7 +258,7 @@ const { hydrated, canAccessPage } = usePageAccessChecker();
 const items = MENU.filter((m) => canAccessPage(m.pageKey));
 ```
 
-回傳穩定的 predicate。hook 不能在迴圈裡呼叫，所以選單過濾必須用這個。
+`canAccessPage` 只在權限集合或頁面註冊表改變時換新。hook 不能在迴圈裡呼叫，所以選單過濾必須用這個。
 
 ### 5.4 `usePageAccess(pathname)` — 供 route guard 使用
 

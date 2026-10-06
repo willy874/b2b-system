@@ -2,6 +2,7 @@ import { createInstanceId } from '@b2b-system/web-shared/channel';
 import type { Channel } from '@b2b-system/web-shared/channel';
 import { EventEmitter } from '@b2b-system/web-shared/EventEmitter';
 
+import type { ResourceChange } from '../cache';
 import { serializeBatchError } from './errors';
 import { batchOperationRegistry, getBatchOperation } from './operations';
 import {
@@ -63,6 +64,16 @@ export interface BatchQueueClientOptions {
    * 身分改變時呼叫 `principalChanged()`。不給時不過濾。
    */
   principal?: () => string | undefined;
+  /**
+   * 操作以 `BatchRunContext.invalidate` 宣告的變更最後交給它：app 的 `invalidateResources`（依賴圖換算、失效並廣播）。
+   * 由 `main.tsx` 經 `batchQueuePlugin` 注入（plugin 不能 import `apis/`）；不給時忽略（測試）。
+   *
+   * 以方法語法宣告：app 的 `invalidateResources` 只收自己的 `Resource`（比 `string` 窄），
+   * 操作宣告的也是同一批 `Resource`，雙變的參數讓它不必轉型就能傳入。
+   */
+  invalidate?(changes: readonly ResourceChange[]): void;
+  /** 合併失效的間隔：每隔這麼久最多套用一次。預設 1 秒。 */
+  invalidateIntervalMs?: number;
 }
 
 function webLocksHold(): HoldClientLock {
@@ -85,6 +96,12 @@ const EMPTY: readonly BatchJob[] = [];
 
 /** 進度回報的最短間隔：上傳的 progress 事件一秒可達數十次，每次都廣播快照給所有分頁太吵。 */
 const PROGRESS_INTERVAL_MS = 200;
+
+/**
+ * 批次期間合併失效的間隔：每完成一筆就失效一次，畫面上的列表、容量會跟著每筆重抓，
+ * 大批次會用光每人每分鐘的限流額度（docs/architecture/frontend/07-ui-system.md §13.4）。
+ */
+const INVALIDATE_INTERVAL_MS = 1_000;
 
 const executionKey = (jobId: string, itemId: string) => `${jobId}\u0000${itemId}`;
 
@@ -119,6 +136,13 @@ export class BatchQueueClient {
   private lock: { release: () => void } | undefined;
   private started = false;
   private jobs: readonly BatchJob[] = EMPTY;
+  private readonly invalidateSink: ((changes: readonly ResourceChange[]) => void) | undefined;
+  private readonly invalidateIntervalMs: number;
+  /** 還沒套用的變更，與它們來自哪些工作（那些工作都結束時立刻套用）。 */
+  private pendingChanges: ResourceChange[] = [];
+  private readonly pendingJobs = new Set<string>();
+  private lastInvalidatedAt = Number.NEGATIVE_INFINITY;
+  private invalidateTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(options: BatchQueueClientOptions) {
     this.port = options.port;
@@ -132,6 +156,8 @@ export class BatchQueueClient {
     this.ownsHost = options.ownsHost ?? false;
     this.principal = options.principal;
     this.viewedPrincipal = this.principal?.();
+    this.invalidateSink = options.invalidate?.bind(options);
+    this.invalidateIntervalMs = options.invalidateIntervalMs ?? INVALIDATE_INTERVAL_MS;
 
     this.port.addEventListener('message', this.onPortMessage);
     this.port.start?.();
@@ -140,6 +166,7 @@ export class BatchQueueClient {
       if (current && current.version >= version) return;
       this.hosts.set(hostId, { version, jobs });
       this.recompute();
+      this.flushIfJobsSettled();
     });
     this.channel.on('host-closed', ({ hostId }) => {
       if (this.hosts.delete(hostId)) this.recompute();
@@ -170,6 +197,7 @@ export class BatchQueueClient {
   }
 
   dispose(): void {
+    this.discardInvalidations();
     this.stopOperations?.();
     for (const controller of this.executions.values()) controller.abort();
     this.executions.clear();
@@ -215,6 +243,8 @@ export class BatchQueueClient {
    * （含已結束的），不彈出結果。之後的每一筆都只會得到 401，留著的結果清單是上一個人的操作紀錄。
    */
   reset(): void {
+    // 還沒套用的失效是上一個人的操作：session 已結束，不必再重抓
+    this.discardInvalidations();
     this.send({ type: 'reset' });
   }
 
@@ -283,7 +313,12 @@ export class BatchQueueClient {
     try {
       const operation = this.resolveOperation(operationId);
       if (!operation) throw new Error(`BatchOperation "${operationId}" 尚未註冊`);
-      await operation.run(itemId, { signal: controller.signal, reportProgress: report, version });
+      await operation.run(itemId, {
+        signal: controller.signal,
+        reportProgress: report,
+        version,
+        invalidate: (changes) => this.queueInvalidation(jobId, changes),
+      });
       clearTimeout(trailing);
       this.send({ type: 'result', jobId, itemId });
     } catch (error) {
@@ -305,6 +340,50 @@ export class BatchQueueClient {
     this.declared = next;
     this.send({ type: 'capabilities', operations: [...next] });
     if (removed.length > 0) this.send({ type: 'cancel-operations', operations: removed });
+  }
+
+  /**
+   * 批次期間合併失效（docs/architecture/frontend/07-ui-system.md §13.4）：距離上一次套用超過間隔就立刻套用，
+   * 否則等到間隔滿了再把期間累積的變更一次套用。依賴圖會把重複的目標去重，一次套用只重抓一輪。
+   */
+  private queueInvalidation(jobId: string, changes: readonly ResourceChange[]): void {
+    if (!this.invalidateSink || changes.length === 0) return;
+    this.pendingChanges.push(...changes);
+    this.pendingJobs.add(jobId);
+    if (this.invalidateTimer !== undefined) return;
+    const wait = this.lastInvalidatedAt + this.invalidateIntervalMs - Date.now();
+    if (wait <= 0) this.flushInvalidations();
+    else this.invalidateTimer = setTimeout(() => this.flushInvalidations(), wait);
+  }
+
+  private flushInvalidations(): void {
+    clearTimeout(this.invalidateTimer);
+    this.invalidateTimer = undefined;
+    this.pendingJobs.clear();
+    if (this.pendingChanges.length === 0) return;
+    const changes = this.pendingChanges;
+    this.pendingChanges = [];
+    this.lastInvalidatedAt = Date.now();
+    this.invalidateSink?.(changes);
+  }
+
+  /** 累積變更的工作都結束了（完成、取消、被移除）：不等間隔，畫面與結果提示同時更新。 */
+  private flushIfJobsSettled(): void {
+    if (this.pendingChanges.length === 0) return;
+    const active = new Set(
+      [...this.hosts.values()]
+        .flatMap((host) => host.jobs)
+        .filter((job) => job.status === 'queued' || job.status === 'running')
+        .map((job) => job.id),
+    );
+    if ([...this.pendingJobs].every((jobId) => !active.has(jobId))) this.flushInvalidations();
+  }
+
+  private discardInvalidations(): void {
+    clearTimeout(this.invalidateTimer);
+    this.invalidateTimer = undefined;
+    this.pendingChanges = [];
+    this.pendingJobs.clear();
   }
 
   private recompute(): void {

@@ -1,6 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Progress } from '@b2b-system/ui/Progress';
 import { formatBytes } from '@b2b-system/web-shared/utils';
+import { useMemo } from 'react';
 
 import { useTranslation } from '../locales';
 import { jobProgressAmount, processedCount } from './activeQueue';
@@ -46,8 +47,9 @@ export function BatchJobProgress({
   const total = job.items.length;
   const failed = job.failures.length;
   const active = job.status === 'queued' || job.status === 'running';
-  // 項目帶份量（上傳的位元組）時依份量計算，處理中的項目也依回報的進度推進
-  const amount = jobProgressAmount(job);
+  // 項目帶份量（上傳的位元組）時依份量計算，處理中的項目也依回報的進度推進。
+  // 每個快照都是新的 job：同一個快照只算一次（父元件因別的原因重繪時不重算）
+  const amount = useMemo(() => jobProgressAmount(job), [job]);
   const percent = amount.total > 0 ? Math.round((amount.done / amount.total) * 100) : 0;
 
   return (
@@ -72,6 +74,10 @@ export function BatchJobProgress({
           <span data-testid="batch-progress-bytes">
             {formatBytes(amount.done)} / {formatBytes(amount.total)}
           </span>
+        )}
+        {active && job.pausedUntil !== undefined && (
+          // 被限流而暫停（docs/architecture/frontend/07-ui-system.md §13.4）：進度條停住時說明原因
+          <span data-testid="batch-progress-paused">{t('common.batch.progress.paused')}</span>
         )}
         {failed > 0 && (
           <span className={styles.failed} data-testid="batch-progress-failed" data-value={failed}>

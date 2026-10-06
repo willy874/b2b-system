@@ -46,6 +46,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
 - `apps/platform` 的資料夾層級與 §2 的 `apps/backstage` 相同，§2 的矩陣同樣適用。
 - `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@b2b-system/api-sdk`，其餘一律 `@/shared/api-sdk`。
+  只轉出主入口（型別、URL builder、enum），不 import `@b2b-system/api-sdk/schemas`（zod schema 會整批進首屏；[`architecture/frontend/17-shared-packages.md`](../architecture/frontend/17-shared-packages.md) §1）。
   `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`（`packages/web-shared` 內部直接 import `@b2b-system/realtime`）。
 - `@sigrea/core` 只在 `packages/web-shared/src/store/` import，其餘一律 `@b2b-system/web-shared/store`（React 綁定 `@b2b-system/web-shared/hooks`）；
   `web-shared` 的 `store/` 與 `context/` 不 import React。🔒 oxlint `no-restricted-imports`

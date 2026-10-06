@@ -215,6 +215,11 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 
 ```ts
 // plugins/features/table-column-settings/plugin.ts
+// 只有偏好頁會渲染：登記 lazy 元件，分頁本體（TableSettings 帶的 dnd-kit）不進首屏
+const TableColumnsSection = lazy(() =>
+  import('./TableColumnsSection').then((module) => ({ default: module.TableColumnsSection })),
+);
+
 export function tableColumnSettingsPlugin(): AppPluginFactory {
   return (context) => {
     // 同步階段：往 web-core/preference 的註冊表插一個分頁
@@ -233,9 +238,14 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 }
 ```
 
-`features/account` 的偏好頁只做一件事：`getPreferenceSections()` 然後依 `order`
-渲染。**拿掉 `main.tsx` 裡那一行，這個分頁就消失了。** 目前的分頁：`notification`（100，`features/notification`，
+`features/account` 的偏好頁只做一件事：放一個 `<PreferenceSections />`（`web-core/preference`，兩個 app 共用），它依 `order`
+渲染註冊表裡的分頁。**拿掉 `main.tsx` 裡那一行，這個分頁就消失了。** 目前的分頁：`notification`（100，`features/notification`，
 [`15-notification.md`](./15-notification.md) §10）、`table-columns`（200）。
+
+分頁元件 **以 `lazy()` 登記**：註冊發生在 plugin 的同步階段，直接登記元件本體會把它和它用到的套件帶進首屏，
+實際上只有偏好頁（本身是 lazy chunk）會渲染它。`PreferenceSections` 以 `<Suspense>` 包住每個分頁，下載中顯示骨架
+（`preference-section-skeleton`），其他分頁照常顯示。頂列工具（§4.4）則不同：它們本來就在首屏渲染，直接登記元件。
+首屏不該出現的模組由 backstage 的 `app/__tests__/entry-imports.test.ts` 檢查（沿著 `main.tsx` 的靜態 import 走一遍）。
 
 分頁要列出「有哪些表、各有哪些欄位」，但不能 import 各 feature。所以 `web-core/preference` 另有一份
 **列表註冊表**：feature 在 plugin 的同步階段呼叫 `registerPreferenceTable({ id, labelI18nKey, columnLabelKeys, localeScope })`

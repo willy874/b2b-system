@@ -1,6 +1,6 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 
-import { invalidateResources, Resource } from '@/apis/resources';
+import { Resource } from '@/apis/resources';
 import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
 
 import { ROLE_LOCALE_SCOPE } from './locale';
@@ -22,9 +22,10 @@ export function registerRoleBatchOperations(): void {
     labelKey: 'role.batch.delete.title',
     localeScope: ROLE_LOCALE_SCOPE,
     successKey: 'role.batch.delete.success',
-    run: async (roleId) => {
+    run: async (roleId, { invalidate }) => {
       await deleteRole({ params: { roleId } });
-      invalidateResources([{ resource: Resource.ROLE, kind: 'delete', id: roleId }]);
+      // 合併後失效（docs/architecture/frontend/07-ui-system.md §13.4）
+      invalidate([{ resource: Resource.ROLE, kind: 'delete', id: roleId }]);
     },
   });
 }

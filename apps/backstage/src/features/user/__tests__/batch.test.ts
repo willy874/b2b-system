@@ -2,11 +2,12 @@ import { getBatchOperation, resetBatchOperations } from '@b2b-system/web-core/ba
 import { AppError } from '@b2b-system/web-core/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { updateUser, unlockUser, deleteUser, invalidateResources } = vi.hoisted(() => ({
+const { updateUser, unlockUser, deleteUser, invalidate } = vi.hoisted(() => ({
   updateUser: vi.fn(),
   unlockUser: vi.fn(),
   deleteUser: vi.fn(),
-  invalidateResources: vi.fn(),
+  /** 操作宣告的變更（`BatchRunContext.invalidate`；佇列合併後才交給依賴圖） */
+  invalidate: vi.fn(),
 }));
 
 vi.mock('@/apis/user/update-user/mutation', () => ({
@@ -17,10 +18,6 @@ vi.mock('@/apis/user/unlock-user/mutation', () => ({
 }));
 vi.mock('@/apis/user/delete-user/mutation', () => ({
   getUserDeleteMutationOptions: () => ({ mutationFn: deleteUser }),
-}));
-vi.mock('@/apis/resources', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  invalidateResources,
 }));
 
 const { registerUserBatchOperations, UserBatchOperation } = await import('../batch');
@@ -40,6 +37,7 @@ function run(operation: string, id: string, version?: number) {
     signal: new AbortController().signal,
     reportProgress: () => {},
     version,
+    invalidate,
   });
 }
 
@@ -51,7 +49,7 @@ describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {
     expect(updateUser).toHaveBeenCalledWith({
       params: { userId: 'u1', body: { status: 'inactive', version: 4 } },
     });
-    expect(invalidateResources).toHaveBeenCalledWith([
+    expect(invalidate).toHaveBeenCalledWith([
       expect.objectContaining({ kind: 'update', id: 'u1', refs: { role: ['r1'] } }),
     ]);
   });
@@ -66,7 +64,7 @@ describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {
     deleteUser.mockResolvedValue(undefined);
     await run(UserBatchOperation.DELETE, 'u1');
     expect(deleteUser).toHaveBeenCalledWith({ params: { userId: 'u1' } });
-    expect(invalidateResources).toHaveBeenCalledWith([
+    expect(invalidate).toHaveBeenCalledWith([
       expect.objectContaining({ kind: 'delete', id: 'u1' }),
     ]);
   });
@@ -76,13 +74,13 @@ describe('使用者的批次操作（每筆呼叫一次單筆 API）', () => {
     await expect(run(UserBatchOperation.ACTIVATE, 'u1', 4)).rejects.toMatchObject({
       code: 'USER_VERSION_CONFLICT',
     });
-    expect(invalidateResources).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it('單筆 API 失敗時直接拋出，交給佇列記錄為失敗、不失效快取', async () => {
     updateUser.mockRejectedValue(new Error('boom'));
     await expect(run(UserBatchOperation.ACTIVATE, 'u1', 1)).rejects.toThrow('boom');
-    expect(invalidateResources).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it('沒有列表那一列的 version → 這一筆失敗、不送出（version 必填，不自己讀最新的而後寫者勝）', async () => {

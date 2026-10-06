@@ -37,6 +37,10 @@
   @b2b-system/api-sdk：只有 app 的 apis/ 與 core/permission/enums.ts 使用（產物，由 api 的 OpenAPI 產生）
 ```
 
+前端只用 api-sdk 的 **主入口**：型別、URL builder（`getXxxUrl`）與 enum（`PermissionKey`…），執行期零 zod；請求由 `apis/` 的 fetcher 經 `HttpContext` 送出。
+zod schema 與 SDK 自己的 fetch client 在 `@b2b-system/api-sdk/schemas`，前端不 import——它會把所有端點的 schema 在載入時建構、帶進首屏
+（[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §12.6）。
+
 依賴只能往下：package 永遠不 import app，`web-shared` 不 import `ui`，`ui` 不 import `web-core`。
 完整矩陣與檢查方式見 [`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §1、§2。
 

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { usePagePermission } from '@/core/permission';
 
 import { FILE_PAGE } from '../permission';
@@ -31,13 +33,19 @@ export interface FileItemCapabilities {
 export function useFilePermission(location: FileLocationCapabilities | undefined) {
   const page = usePagePermission(FILE_PAGE);
   const ready = page.hydrated && page.canAccess && location !== undefined;
-  return {
-    hydrated: page.hydrated,
-    canAccess: page.canAccess,
-    canUpload: ready && location.canCreate,
-    canCreateFolder: ready && location.canCreate,
-    canShare: ready && location.canShare === true,
-  };
+  const canCreate = ready && location.canCreate;
+  const canShare = ready && location.canShare === true;
+  // 只依賴布林值：位置的 capabilities 物件隨列表重抓換新，結果不變時回傳同一個物件
+  return useMemo(
+    () => ({
+      hydrated: page.hydrated,
+      canAccess: page.canAccess,
+      canUpload: canCreate,
+      canCreateFolder: canCreate,
+      canShare,
+    }),
+    [page.hydrated, page.canAccess, canCreate, canShare],
+  );
 }
 
 /** 選取的項目能做什麼：每一項都要能做才算（批次操作不做一半）。 */

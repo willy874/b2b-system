@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useReducer, useRef, useSyncExternalStore } 
 import { useTranslation } from '../locales';
 import type { BatchQueueClient } from './BatchQueueClient';
 import { loadBatchOperationLocales } from './operations';
-import type { BatchJob } from './types';
+import type { BatchItemProgress, BatchJob } from './types';
 
 let active: BatchQueueClient | undefined;
 const listeners = new Set<() => void>();
@@ -88,23 +88,40 @@ export function jobProgressRatio(job: BatchJob): number {
   return total > 0 ? Math.min(1, done / total) : 0;
 }
 
-/** 已完成的份量與總份量；`weighted` 表示單位是項目的 `weight`（例：位元組）而不是筆數。 */
+/** 處理中的一筆完成了多少（0–1）。 */
+function fraction({ loaded, total }: BatchItemProgress): number {
+  return total > 0 ? Math.min(1, loaded / total) : 0;
+}
+
+/**
+ * 已完成的份量與總份量；`weighted` 表示單位是項目的 `weight`（例：位元組）而不是筆數。
+ * O(項目數)：先建 id → 份量的表再加總。每個快照（每秒數次）在每個顯示進度的元件都會算一次，
+ * 上千筆的上傳不能每個已完成的 id 都線性找一次項目。
+ */
 export function jobProgressAmount(job: BatchJob): {
   done: number;
   total: number;
   weighted: boolean;
 } {
   const weighted = job.items.length > 0 && job.items.every((item) => item.weight !== undefined);
-  const weightOf = (id: string) =>
-    weighted ? (job.items.find((item) => item.id === id)?.weight ?? 0) : 1;
-  const settled = [...job.succeeded, ...job.failures.map((failure) => failure.id)];
-  let done = settled.reduce((sum, id) => sum + weightOf(id), 0);
-  for (const [id, progress] of Object.entries(job.progress)) {
-    const fraction = progress.total > 0 ? Math.min(1, progress.loaded / progress.total) : 0;
-    done += weightOf(id) * fraction;
+  if (!weighted) {
+    let done = job.succeeded.length + job.failures.length;
+    for (const progress of Object.values(job.progress)) done += fraction(progress);
+    return { done, total: job.items.length, weighted };
   }
-  const total = weighted
-    ? job.items.reduce((sum, item) => sum + (item.weight ?? 0), 0)
-    : job.items.length;
+
+  const weights = new Map<string, number>();
+  let total = 0;
+  for (const item of job.items) {
+    const weight = item.weight ?? 0;
+    weights.set(item.id, weight);
+    total += weight;
+  }
+  let done = 0;
+  for (const id of job.succeeded) done += weights.get(id) ?? 0;
+  for (const failure of job.failures) done += weights.get(failure.id) ?? 0;
+  for (const [id, progress] of Object.entries(job.progress)) {
+    done += (weights.get(id) ?? 0) * fraction(progress);
+  }
   return { done, total, weighted };
 }
