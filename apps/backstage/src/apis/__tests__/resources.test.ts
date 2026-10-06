@@ -279,4 +279,19 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
       expect(keys).toContain('invalidate:FILE_INFINITE_LIST_QUERY_KEY');
     });
   });
+
+  it('檔案的推播不讓已用量重抓；只有自己宣告的 fileStorageUsage 會（docs/architecture/05-tenancy.md §13.3 D8）', () => {
+    for (const kind of ['create', 'update', 'delete'] as const) {
+      const keys = keysOf({
+        resource: Resource.FILE,
+        kind,
+        id: 'f1',
+        refs: { fileFolder: ['folder-a'] },
+      });
+      expect(keys.some((key) => key.includes('FILE_STORAGE_USAGE'))).toBe(false);
+    }
+    expect(keysOf({ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' })).toEqual([
+      'invalidate:FILE_STORAGE_USAGE_QUERY_KEY',
+    ]);
+  });
 });

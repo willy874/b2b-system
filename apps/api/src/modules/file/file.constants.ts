@@ -146,6 +146,12 @@ export function fileIdOfKey(key: string): string | undefined {
 /** 維護排程一次查資料庫或處理的筆數。 */
 export const MAINTENANCE_BATCH_SIZE = 500;
 
+/**
+ * 已用量的計數（`file_storage_usage`）以 `SUM(size)` 對帳的間隔（docs/architecture/backend/09-file.md §9）：
+ * 維護排程每一輪都檢查，距上次對帳超過這個時間才真的加總。加總會掃過整張 `files` 並擋住同時的登記，所以一天一次。
+ */
+export const STORAGE_USAGE_RECONCILE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 // ── 推播（docs/architecture/backend/09-file.md §7） ──
 
 /** 回收桶顯示「原本在哪裡」：由根往下的資料夾名稱 → `/素材/ui`；根目錄是 `/`。 */

@@ -25,6 +25,8 @@ async function main(): Promise<void> {
     await db.execute(
       sql`TRUNCATE users, roles, groups, permissions, relation_tuples, approval_requests, files, file_folders, system_settings, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive, job_outbox, identity_providers, identity_provider_domains, user_identities RESTART IDENTITY CASCADE`,
     );
+    // 已用量的計數是單列（migration 0036），不能 TRUNCATE：檔案清空了，計數歸零
+    await db.execute(sql`UPDATE file_storage_usage SET used_bytes = 0, reconciled_at = NULL`);
   });
   console.info('資料庫已清空（schema 與租戶登記保留）');
 }

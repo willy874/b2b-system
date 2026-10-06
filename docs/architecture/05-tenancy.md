@@ -24,19 +24,24 @@
 
 ## 2. 請求怎麼找到租戶（`core/tenant`）
 
-`TenantMiddleware` 在所有路由之前執行（含 `/oidc/*`）：
+`TenantMiddleware` 在 Nest 的路由之前執行（`/oidc/*` 由 provider 的 middleware 自己處理，見下方）：
 
 | 請求的網域 | 結果 |
 | --- | --- |
 | 登記在 `tenant_domains` 的網域（先比 `host:port`，再比主機名稱） | 進入那個租戶的脈絡 |
-| apps/platform 的網域（`PLATFORM_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26，這個標頭只在 apps/platform 的網域有效） |
+| apps/platform 的網域（`PLATFORM_APP_URL` 的 host） | 沒有租戶；帳號流程以 `X-Tenant: <代碼>` 指定租戶（D26）。這個標頭只在 apps/platform 的網域、而且只對帳號流程的端點有效（`/auth/setup`、`/auth/setup/verify`、`/auth/register`、`/auth/forgot-password`、`/auth/reset-password`、`/system/settings/public`，不分大小寫）；其他路由不採用，租戶的 access token 因此不能經由平台網域使用 |
 | 其他 | 沒有租戶；需要租戶的程式第一次存取 `TENANT_DB` 時拋 `404 TENANT_NOT_FOUND`，健康檢查照常 |
 
 對外 API（另一個程序，[`06-external-api.md`](./06-external-api.md)）不看網域：`TokenTenantMiddleware` 以 API token 的租戶代碼
 找租戶（`findByCode`），全平台只有一個對外網域。
 
-平台管理者的端點（`/platform/*`）**只在 apps/platform 的網域有效**：租戶網域、未登記的網域、直接以 IP 連線一律在 `TenantMiddleware`
-回 `404 PLATFORM_ONLY`，只套在 apps/platform 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理。
+平台管理者的端點（`/platform/*`）與 IdP（`/oidc/*`、`/oidc-interaction/*`）**只在 apps/platform 的網域有效**：租戶網域、未登記的網域、
+直接以 IP 連線一律回 `404 PLATFORM_ONLY`，只套在 apps/platform 網域上的網路控制（WAF、IP 白名單）才保護得到平台管理與登入。
+
+- 路徑比對不分大小寫：Express 的路由不分大小寫，`/PLATFORM/tenants` 也會進到 `platform/tenants` 的 handler。
+- `TenantMiddleware` 把「是不是 apps/platform 的網域」記在請求脈絡（`isPlatformHostRequest()`）；`JwtAuthGuard`、
+  `PermissionsGuard` 的平台端點與平台的帳號端點（`assertPlatformHost`）看它，不以「沒有租戶」代替——未登記的網域也沒有租戶。
+- `/oidc/*` 不是 Nest 的路由，provider 的 middleware 比 `TenantMiddleware` 先執行，所以它自己比對 Host。
 
 - Host 取自 `requestHost()`：只有受信任的代理（`TRUST_PROXY`）帶來的 `X-Forwarded-Host` 才採用，不能靠標頭換租戶。
   所以受信任的代理 **必須覆寫** 這個標頭：兩份 nginx 設定都 `proxy_set_header X-Forwarded-Host $http_host`
@@ -54,7 +59,7 @@
 
 | 元件 | 做什麼 |
 | --- | --- |
-| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags }`；`currentTenant()`、`requireTenant()` 讀取 |
+| `TenantContext`（AsyncLocalStorage） | `{ id, code, db, storageBucket, features, flags, featureParams, domain? }`；`currentTenant()`、`requireTenant()` 讀取。`domain` 是 `TenantMiddleware` 以網域找到租戶時比對到的網域（瀏覽器看到的 `host[:port]`），presigned 網址以它簽（[`backend/09-file.md`](./backend/09-file.md) §3）；背景工作、對外 API、`X-Tenant` 沒有 |
 | `TENANT_DB` | repository 注入的 Proxy：每次存取都轉到 **目前租戶** 的 `db`；沒有脈絡時拋 `TENANT_NOT_FOUND`，不會退回任何預設 DB |
 | `PLATFORM_DB` | 平台 DB（租戶登記、平台管理者、佇列、OIDC 的協定狀態） |
 | `Tenancy.enter(record)` | 進入租戶的唯一入口：檢查狀態與 migration 版本，建立（或沿用）那個租戶的連線池 |
@@ -615,7 +620,7 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 | # | key | 預設 | 範圍 | 效果 |
 | --- | --- | --- | --- | --- |
 | D7 | `auditLog.hotRetentionDays` | 90 天 | 7–3650 | `auditLog.archive` 搬移早於「現在 − 天數」的紀錄（`pnpm db:archive-audit-logs` 同樣讀登記）。查詢是否要連冷表改看 **冷表最新一筆的時間**（索引的第一列），不再以保留天數推算：天數調大後，已在冷表的紀錄不會搬回熱表，以天數推算會漏查 |
-| D8 | `file.storageQuotaMb` | 2048 MB | 1–10485760 | 租戶所有檔案的 `size` 合計（含上傳中的 `pending` 與回收桶裡的，不含縮圖與影像變體）。`createUpload` 在登記 `pending` 的同一個交易以 advisory lock 序列化後加總，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）。調小到低於已用量時不刪任何檔案，只擋新的上傳。`GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`，檔案頁顯示用量 |
+| D8 | `file.storageQuotaMb` | 2048 MB | 1–10485760 | 租戶所有檔案的 `size` 合計（含上傳中的 `pending` 與回收桶裡的，不含縮圖與影像變體）。已用量是租戶 DB 單列的計數 `file_storage_usage.used_bytes`（migration 0036 以 `SUM(size)` 回填），不每次加總整張 `files`：登記、完成（大小有差時）、永久刪除在同一個交易內增減，軟刪除與還原不動它；`file.maintenance` 每天以 `SUM(size)` 對帳一次。`createUpload` 在登記 `pending` 的同一個交易以一條條件式 UPDATE（`used_bytes + size <= quota`）同時檢查與佔用，同時的登記以那一列的列鎖排隊，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）。調小到低於已用量時不刪任何檔案，只擋新的上傳。`GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（讀計數，O(1)），檔案頁顯示用量；前端不隨每次檔案推播重抓用量，只在自己的上傳結束時重抓（[`frontend/05-data-layer.md`](./frontend/05-data-layer.md) §6.2）。細節見 [`backend/09-file.md`](./backend/09-file.md) §5.0 |
 | D9 | `job.maxConcurrency` | 10 | 1–100 | 一個租戶 **所有種類** 的背景工作同時執行的筆數（跨程序）。worker 取到租戶的工作後，在該租戶 `active` 的工作中依 `(started_on, id)` 排名，排在上限之後的 **放回佇列**（改回 `created`、`start_after` 延後 5～10 秒、不計入重試次數、工作 id 不變），由之後的輪詢再取。排程觸發的展開（沒有租戶）與平台工作不受限。每個程序的 `concurrency` 照舊 |
 | D10 | `identityProvider.maxProviders` | 10 | 1–100 | 建立連線時以 advisory lock 序列化後數，已達上限回 `409 IDENTITY_PROVIDER_LIMIT_REACHED`（`details.max`） |
 | D11 | `webhook.maxUrls` | 1 | 1–500 | 整個租戶的訂閱 **不重複** 的目標網址數（[`backend/17-webhook.md`](./backend/17-webhook.md) §10.2 D13）。建立或修改訂閱時鎖表後計算；變更後的數量超過上限 **而且比變更前多** 才回 `409 WEBHOOK_URL_LIMIT_REACHED`（`details.max`）——升版前已經超過的租戶仍能修改、刪除、減少網址 |

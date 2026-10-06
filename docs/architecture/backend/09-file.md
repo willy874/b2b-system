@@ -40,11 +40,11 @@ export abstract class ObjectStorage {
   ping(): Promise<boolean>;                 // /health/ready 用
   head(key): Promise<StoredObjectHead | undefined>;
   delete(key): Promise<void>;               // 不存在也算成功
-  presignUpload(key, { contentType, expiresIn }): Promise<PresignedRequest>;
+  presignUpload(key, { contentType, contentLength, expiresIn }): Promise<PresignedRequest>; // 綁定大小、只能寫一次（§5）
   presignDownload(key, { expiresIn, fileName, disposition }): Promise<PresignedRequest>; // 時間窗內網址不變（§7.1）
   // 分塊上傳（§5.2）
   createMultipartUpload(key, { contentType }): Promise<string>;           // uploadId
-  presignUploadPart(key, uploadId, partNumber, { expiresIn }): Promise<PresignedRequest>;
+  presignUploadPart(key, uploadId, partNumber, { contentLength, expiresIn }): Promise<PresignedRequest>; // 綁定這一塊的大小
   completeMultipartUpload(key, uploadId, parts): Promise<void>;          // 塊不對 → FILE_UPLOAD_INCOMPLETE
   abortMultipartUpload(key, uploadId): Promise<void>;                    // 不存在也算成功
   // api 自己讀寫內容（影像變體，§5.4）與對帳（維護排程，§9）
@@ -78,7 +78,10 @@ SigV4 的簽章包含 **host 與路徑**，所以不能用內網 client 簽完�
 - `forcePathStyle: true`：apps/file-storage 只支援 path-style；S3 也支援。
 - `requestChecksumCalculation: 'WHEN_REQUIRED'`：SDK 預設會替 PutObject 加 CRC32，presigned PUT 會被簽進
   「空 body 的 checksum」，瀏覽器實際上傳的內容對不上就被 **真正的 S3** 拒絕（apps/file-storage 不驗 checksum，本機測不出來）。
-- presigned PUT 把 `Content-Type` 簽進去（`signableHeaders`）：瀏覽器換了型別就被拒，存下來的型別一定是登記的那個。
+- presigned PUT 把 `Content-Type`、`Content-Length`、`If-None-Match: *` 簽進去（`signableHeaders`）：瀏覽器換了型別、大小就被拒
+  （`403 SignatureDoesNotMatch`），存下來的型別與大小一定是登記的那個；同一個網址只能寫一次（第二次 `412 PreconditionFailed`）。
+  回傳的 `headers` 帶 `Content-Type` 與 `If-None-Match`；`Content-Length` 由瀏覽器依 body 自動帶（XHR 不能自己設）。
+  分塊的 presigned PUT 只簽 `Content-Length`（UploadPart 不支援條件寫入；uploadId 在組合之後就失效，不能再覆寫）。
 
 ---
 
@@ -96,9 +99,16 @@ presigned URL 必須在瀏覽器端與儲存服務端算出相同的簽章，因
 
 換成真正的 S3 時，`FILE_STORAGE_PUBLIC_ENDPOINT` 設成 S3 的 endpoint，並在 bucket 上設定 CORS 與放寬 CSP。
 
-每個租戶的 backstage 在自己的網域（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2），CSP 的 `connect-src 'self'` 只允許同源，
-所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **目前租戶主要網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
-acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
+每個租戶的 backstage 在自己的網域（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2），CSP 的 `img-src 'self'`、`connect-src 'self'` 只允許同源，
+所以預設值 `{tenantOrigin}/storage` 的佔位符會換成 **請求進來的那個租戶網域** 的 origin（協定沿用 `APP_PUBLIC_URL`）：
+acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.example.com/storage/…`，從次要網域（客戶自訂網域，
+[`../05-tenancy.md`](../05-tenancy.md) §10.2 D24）`https://files.acme-corp.example` 進來就拿到 `https://files.acme-corp.example/storage/…`，
+由那個網域的反向代理轉給 file-storage（Host 原樣轉發，SigV4 的簽章才對得上）。
+
+- 「請求進來的網域」是 `TenantMiddleware` 以網域找到租戶時記在 `TenantContext.domain` 的 `host[:port]`（`S3ObjectStorage.presigner()` 優先用它）。
+- 沒有請求可依據時——背景工作、對外 API（租戶由 token 決定，[`../06-external-api.md`](../06-external-api.md) §3）、apps/platform 以 `X-Tenant` 指定的帳號流程——
+  用 **主要網域**（第一個登記的）。影像 API 的網址（`/api/files/:id/image/…`）是相對網址，不受影響。
+- 不放寬 CSP：nginx 的 CSP 是靜態的，列不出每個租戶的網域；放寬成任意網域就失去同源的保護。
 
 ### 3.1 每個租戶一個 bucket（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D16）
 
@@ -118,7 +128,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | `id` | uuid | 對外唯一識別 |
-| `name` | text | 顯示用檔名（可改名；不可含 `/`、`\`、控制字元，≤ 255） |
+| `name` | text | 顯示用檔名（可改名；不可含 `/`、`\`、Unicode 控制字元 `Cc`（C0、DEL、C1：U+0000–U+001F、U+007F–U+009F）、雙向文字控制（U+061C、U+200E、U+200F、U+202A–U+202E、U+2066–U+2069）、零寬與分隔字元（U+200B、U+2028、U+2029、U+FEFF；頭尾的會先被 trim 掉），≤ 255。保留 ZWNJ／ZWJ（U+200C／U+200D），以 ZWJ 串起來的 emoji 照常可用。雙向文字控制能把 `invoice` ＋ U+202E ＋ `fdp.exe` 顯示成 `invoiceexe.pdf`、零寬字元能做出看起來同名的兩個資料夾，所以一律擋下；規則只套用在新增與改名，既有的名稱不遷移） |
 | `content_type` | text | 登記時的 MIME，小寫、不含參數 |
 | `size` | bigint | `pending`：登記的大小；`ready`：物件儲存實際大小（兩者必須相同） |
 | `storage_key` | text（unique） | `files/<id>`——只由 id 決定，改名不搬物件，也沒有編碼、重名、路徑穿越問題 |
@@ -173,7 +183,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | `id` | uuid | |
-| `name` | text | 規則同檔名（不可含 `/`、`\`、控制字元，≤ 255），另外不可是 `.`、`..` |
+| `name` | text | 規則同檔名（不可含 `/`、`\`、控制字元、雙向文字控制、零寬與分隔字元，≤ 255；§4 的 `name`），另外不可是 `.`、`..`。上傳資料夾的各層路徑同樣套用 |
 | `parent_id` | uuid（FK → 自己，`ON DELETE RESTRICT`） | 上層；null 是根目錄 |
 | `inherit_grants` | boolean | false = 中斷繼承（私人資料夾，rbac/07 §3.3） |
 | `kind` | `file_folder_kind` | `normal` / `shared` / `privateRoot` / `personal`：系統資料夾（rbac/07 §12） |
@@ -212,7 +222,7 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
   │ POST /files {name, contentType, size, thumbnail?}
   │──────────────────────────────▶│ 檢查大小上限、容量（§5.0）、ensureBucket
   │                               │ 大於門檻 → CreateMultipartUpload（§5.2）
-  │                               │ 交易：advisory lock → 再檢查容量 → INSERT files (pending, storage_key=files/<id>)
+  │                               │ 交易：佔用容量（file_storage_usage 的條件式 UPDATE）→ INSERT files (pending, storage_key=files/<id>)
   │ 201 {file, upload | multipart, thumbnailUpload}
   │◀──────────────────────────────│
   │ PUT upload.url（帶 upload.headers）──────────────────────────────────▶│
@@ -220,8 +230,9 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
   │◀─────────────────────────────────────────────────────────────── 200 ETag
   │ POST /files/:id/complete
   │──────────────────────────────▶│ HeadObject：不存在 → 409 FILE_UPLOAD_INCOMPLETE
+  │                               │ 帶 Content-Encoding → 刪物件、409 FILE_UPLOAD_INCOMPLETE
   │                               │ 大小不符 → 刪物件、422 FILE_SIZE_MISMATCH
-  │                               │ HeadObject(thumbnails/<id>)：存在且合規格 → has_thumbnail
+  │                               │ HeadObject(thumbnails/<id>)：存在且合規格 → has_thumbnail；不合規格 → 刪縮圖
   │                               │ 交易：UPDATE … SET status='ready' WHERE status='pending' ＋ 稽核 file.upload
   │                               │ 交易後：推播 file create；圖片排入產生影像變體（§5.4，不等它完成）
   │ 200 StoredFile（ready，帶 url / downloadUrl / thumbnailUrl）
@@ -229,8 +240,14 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 ```
 
 - 檔案內容 **不經過 api**：大檔不佔 api 的頻寬與記憶體，也不受 api 的 body 上限限制。
-- presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，單次 PUT 可用同一個網址（未過期時）重傳
-  （分塊上傳的 uploadId 在組合後就失效了，只能放棄、重新登記）。
+- **大小與「只能寫一次」都簽進網址**（§2.2）：原檔、瀏覽器縮圖、分塊上傳的每一塊都只能是登記（切法算出來）的大小，
+  物件儲存直接拒絕其他大小——單檔上限、容量（§5.0）、縮圖上限在上傳當下就擋住，不會有「登記 1 byte、實際傳 5 GiB」的物件；
+  單次 PUT 的網址帶 `If-None-Match: *`，`complete` 之後到網址到期前不能用同一個網址覆寫內容（稽核、webhook、影像變體看到的就是最終內容）。
+  S3 從 2024 年起支援條件寫入，apps/file-storage 也支援（[`../03-file-storage.md`](../03-file-storage.md) §4.2）；換用其他相容服務時要確認。
+- `complete` 仍再比對一次大小（換成不檢查簽章標頭的服務時的保險）；不符就刪掉物件，單次 PUT 可用同一個網址（未過期時）重傳——
+  物件已經刪掉，`If-None-Match` 會通過（分塊上傳的 uploadId 在組合後就失效了，只能放棄、重新登記）。
+- 原檔帶 `Content-Encoding` 時 `complete` 視為不合格：刪除物件、回 `409 FILE_UPLOAD_INCOMPLETE`。api 從不要求瀏覽器帶這個標頭，
+  物件儲存會把它存下來、下載時原樣送出，瀏覽器就會替下載的人解壓縮（大小與比對的不同，也能做成解壓縮炸彈）。
 - 並行的兩個 `complete`：`UPDATE … WHERE status='pending'` 只有一個成功，另一個 `409 FILE_ALREADY_UPLOADED`。
 - `complete` 的重送與中斷：分塊上傳的 `CompleteMultipartUpload` 回「塊不對」（含 `NoSuchUpload`）時先 HeadObject，
   物件已在而且大小相符（並行的另一個 `complete` 先組好、或上次組好之後在 `markReady` 前中斷）就照常完成。
@@ -252,15 +269,31 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 ### 5.0 檔案容量（[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D8）
 
 租戶的容量是 feature 參數 `file.storageQuotaMb`（預設 2048 MB，平台管理者設定；[`../05-tenancy.md`](../05-tenancy.md) §5.3）。
-用量是 `files.size` 的合計（`FileRepository.storageUsed()`）：**含** 上傳中的 `pending` 與回收桶裡的檔案，**不含** 縮圖與影像變體。
+用量是 `files.size` 的合計：**含** 上傳中的 `pending` 與回收桶裡的檔案，**不含** 縮圖與影像變體。
+它不是每次加總整張 `files`（含回收桶、不帶條件的 `SUM` 沒有索引可用，只能循序掃描），而是租戶 DB 裡 **單列的計數**
+`file_storage_usage`（`used_bytes`、`reconciled_at`；migration 0036 建立並以既有檔案的 `SUM(size)` 回填）：
 
-- `createUpload` 先不鎖地檢查一次（明顯超過時不必向物件儲存要 uploadId），登記 `pending` 的交易內以
-  `pg_advisory_xact_lock(hashtext('files:storage_quota'))` 序列化後再加總一次：同時登記的上傳不會一起超過容量。
-  加上這次的 `size` 會超過容量就回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）；
-  已經要到的分塊上傳盡力取消。
-- 調小到低於已用量時不刪任何檔案，只擋新的上傳；永久刪除（`trash.purge`、放棄上傳、維護排程清掉的殘留）才會釋出容量。
-- `GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（位元組）；檔案管理器的側欄顯示用量
-  （前端以另一個 query key `FILE_STORAGE_USAGE_QUERY_KEY` 讀同一支端點，檔案的增刪由依賴圖讓它重抓）。
+| 時機 | 計數 | 在哪裡 |
+| --- | --- | --- |
+| 登記上傳 | `+ size`：`UPDATE … SET used_bytes = used_bytes + $size WHERE used_bytes + $size <= $quota`，沒有更新到就是超過容量，不 INSERT | `FileRepository.create()`，與 INSERT 同一個交易 |
+| 完成上傳 | 實際大小與登記的不同時補差額（大小已簽進直傳網址，§5，正常不會有差） | `markReady()`，同一個交易 |
+| 永久刪除 | `- size`（不低於 0） | `hardDelete()`，`trash.purge` 的交易 |
+| 軟刪除、還原、放棄上傳、維護排程軟刪除逾時的上傳 | 不變（回收桶裡的也算；保留期限後由 `trash.purge` 永久刪除才釋出） | |
+| 每天一次 | 以 `SUM(size)` 對帳、修正偏差 | `file.maintenance`（§9 #5） |
+
+- `createUpload` 先不鎖地讀一次計數（O(1)；明顯超過時不必向物件儲存要 uploadId），登記 `pending` 的交易內再以上面那條
+  條件式 UPDATE 檢查並佔用：檢查與佔用是同一條語句，同時的登記以計數那一列的 **列鎖** 排隊（不再取 advisory lock、不加總），
+  不會一起超過容量。超過就回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）；
+  已經要到的分塊上傳盡力取消。`trash.purge` 的一批（100 列）持有那一列的鎖到提交，期間的登記稍候。
+- 調小到低於已用量時不刪任何檔案，只擋新的上傳；永久刪除（`trash.purge`）才會釋出容量——放棄的上傳、維護排程清掉的逾時上傳
+  都是軟刪除，同樣等保留期限後的永久刪除。
+- 計數只在這三個寫入點維護；直接改資料庫、migration 之後到新版上線之前舊版的登記會讓它偏。`file.maintenance` 每一輪檢查
+  `reconciled_at`，距上次超過一天（或從沒對帳過）才在交易內 **先鎖住計數那一列、再以新的語句** `SUM(size)`
+  （看得到所有已提交的變更，還沒提交的排在對帳之後才加減），寫回並記下時間；偏差記進報告的 `storageUsageDrift`。
+- `GET /files/upload-policy` 多回 `storageQuota`、`storageUsed`（位元組，讀計數）；檔案管理器的側欄顯示用量
+  （前端以另一個 query key `FILE_STORAGE_USAGE_QUERY_KEY` 讀同一支端點）。用量 **不** 隨每次 `file` 推播重抓——任何人的每一次檔案變動
+  都推給所有開著檔案管理的人，跟著重抓等於「推播數 × 分頁數」次請求；只在自己的上傳結束時重抓，別人造成的變化等 staleTime 過後、
+  切回分頁時重抓（前端專屬的資源 `fileStorageUsage`，[`../frontend/05-data-layer.md`](../frontend/05-data-layer.md) §6.2）。
 
 ### 5.1 瀏覽器縮圖
 
@@ -269,7 +302,9 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 與本體一起直傳到 `thumbnails/<id>`。它讓列表在變體產生完成前就有圖可看，也是之後其他類型（影片封面等）的擴充點。
 
 - 登記時帶 `thumbnail: { contentType, size }`（型別限 `image/webp` / `image/jpeg` / `image/png`，≤ 512 KiB）才發縮圖的直傳網址。
-- `complete` 時以 HeadObject 確認縮圖存在、大小與型別合規格才設 `has_thumbnail`；**不合規格不讓上傳失敗**，只是沒有縮圖。
+- 縮圖的直傳網址同樣綁定登記的大小、只能寫一次（§5）。
+- `complete` 時以 HeadObject 確認縮圖存在、大小與型別合規格（且沒有 `Content-Encoding`）才設 `has_thumbnail`；
+  **不合規格不讓上傳失敗**，只是沒有縮圖，並 **刪掉** `thumbnails/<id>`——紀錄還在，維護排程不會把它當孤兒，不刪的話要等永久刪除才清得掉。
 - `StoredFile.thumbnailUrl`：伺服器的圖示預覽優先，其次是瀏覽器縮圖；都沒有時前端以類型圖示顯示，2 MiB 以下的圖片直接用原檔。
 - 刪除時一併刪縮圖。
 
@@ -450,6 +485,10 @@ LIMIT $limit
 ```
 
 - 游標內容是 `[排序欄位, 方向, 值, id]` 的 base64url JSON；**排序條件寫進游標**，換了排序還拿舊游標回 `400 VALIDATION_FAILED`。
+- 游標的值直接進 SQL，所以解碼時就檢查成 **Postgres 一定接受的值**，否則同樣回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`），
+  不讓 Postgres 拋錯變成 500：`createdAt` 只接受 encode 時的格式（UTC、毫秒或微秒，日期與時間的每一欄都存在——V8 的 `Date.parse`
+  會把 2 月 30 日進位、也接受 `2026`、`0`；`core/http` 的 `isCursorTimestamp`）；`size` 是非負的安全整數（擋下 `1.5`、`1e400`）；
+  `name` 不含 NUL（Postgres 的 text 存不下）。對外 API 的 `GET /v1/files?cursor=` 走同一個 service。
 - `createdAt` 的值由資料庫以 **微秒** 格式化（`to_char(… 'US')`）：JS 的 Date 只有毫秒，截掉會漏掉同一毫秒內的其他檔案。
 - 帶游標時只依 `sort` 的第一個條件（＋ id）排序、忽略 `offset`；`pagination.total` 為 `null`——每捲一頁都重算 `count(*)` 太貴，
   篩選後的總數只在第一頁（不帶游標）回傳，前端也只讀第一頁的 total。
@@ -565,6 +604,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_MAINTENANCE_DRY_RUN` | `false` | `true`：只偵測並記錄殘留，不刪除任何東西 |
 | `API_PUBLIC_BASE_URL` | `/api` | 瀏覽器看到的 api 位址；影像 API 的網址以它開頭（§5.4） |
 
+物件儲存那一側的上限（縱深防禦，**不能** 取代 §5 簽進網址的大小；換成真正的 S3 時沒有這一層）：
+
+| 位置 | 建議值 | 說明 |
+| --- | --- | --- |
+| `deploy/nginx.conf` 的 `location /storage/` → `client_max_body_size` | `32m`（已設定） | 瀏覽器實際會送的最大單次請求：要大於單次上傳門檻 `FILE_MULTIPART_THRESHOLD` 與分塊大小（自動放大後的，§5.2）。調大這兩個值時跟著調。api 寫入影像變體走內網的 `FILE_STORAGE_ENDPOINT`，不經過這一層 |
+| apps/file-storage 的 `FILE_STORAGE_MAX_OBJECT_SIZE`（[`../03-file-storage.md`](../03-file-storage.md) §1） | 部署預設 5 GiB；可降到 api 實際會發出的最大單次請求（例：32 MiB） | 它 **同時** 限制 api 自己寫入的影像變體與依請求轉出的格式（§5.4）：大圖的原圖轉成 PNG 可能超過 32 MiB，調降前要一起評估，所以 `docker-compose.prod.yml` 沒有跟著降 |
+
 ---
 
 ## 9. 維護排程：上傳失敗的殘留
@@ -579,12 +625,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | 2 | 沒有紀錄的分塊上傳 | `CreateMultipartUpload` 成功而 INSERT 失敗；放棄時 abort 失敗 | `ListMultipartUploads(files/)` 中 uploadId 不屬於任何未刪除紀錄 | AbortMultipartUpload |
 | 3 | 孤兒物件 | 放棄上傳、永久刪除之後的物件刪除失敗；紀錄已不存在 | `ListObjectsV2` 列出 `files/`、`thumbnails/`、`variants/`，由 key 取出 id，查不到 **任何** 紀錄（含已軟刪除的） | 刪除 |
 | 4 | 卡住的影像變體 | 產生途中重啟、儲存服務暫時不可用；migration 補產生 | `variant_status='pending' AND uploaded_at < now - 5 分鐘` | 重新排入（§5.4） |
+| 5 | 已用量的計數偏差（§5.0） | 直接改資料庫；migration 0036 之後、新版上線之前舊版的登記 | `file_storage_usage.reconciled_at` 距今超過一天（或 null）時，鎖住計數那一列後 `SUM(size)` | 寫回 `SUM(size)` 與對帳時間；偏差記進 `storageUsageDrift`（null 是這一輪沒對帳） |
 
 - **已刪除紀錄的物件不是孤兒**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D11）：紀錄還在回收桶裡，保留期限內可以還原；
   物件由 `trash.purge` 在永久刪除之後刪（[`13-trash.md`](./13-trash.md) §7.3）。R4a 之前這一類是「查不到 **未刪除** 紀錄」，遞迴刪除資料夾的物件靠它清除。
 - **不誤判**：2、3 只看建立早於 `now - FILE_PENDING_TTL` 的東西——剛登記、INSERT 還沒提交的上傳不會被當成孤兒；
   不是這個模組產生的 key（前綴不對、id 不是 uuid）一律不碰。
-- **偵測**：每一輪回傳 `FileMaintenanceReport`（四類各偵測到幾筆、處理失敗幾筆），有發現時記 info log；
+- **偵測**：每一輪回傳 `FileMaintenanceReport`（1–4 各偵測到幾筆、5 的偏差、處理失敗幾筆），有發現時記 info log；
   `FILE_MAINTENANCE_DRY_RUN=true` 時 **只偵測、不處理**，可以先觀察再開啟。
 - **冪等**：刪除不存在的東西視為成功、軟刪除以條件 UPDATE 決勝；工作中途中斷、被收回重試時重做也不會出錯。
   佇列同時段只放一筆（`exclusive`），上一輪沒結束時下一輪不會開始。處理失敗的項目下一輪會再偵測到；
@@ -601,7 +648,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 | 檔案 | 內容 |
 | --- | --- |
-| `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、刪除時不刪物件（保留到永久刪除）；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
+| `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、刪除時不刪物件（保留到永久刪除）；直傳網址綁定的大小（含每一塊）、分塊上傳、放棄上傳、縮圖（不合規格的刪除）、`Content-Encoding` 的原檔、樂觀鎖、游標 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
 | `src/modules/file/__tests__/file.authz.spec.ts` | 關係模型：繼承、取最高、中斷繼承、everyone、規則 A、依賴樹閉包、等級蘊含的動作 |
 | `src/modules/file/__tests__/file-grant.levels.spec.ts` | 等級規則（`file-grant.levels.ts`）：反提權比對（`missingActions`、`assignableLevels`）、繼承鏈（含壞資料的循環）、`maxLevel` |
@@ -609,14 +656,15 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
-| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
+| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、讀得到 6.6 萬個資料夾（超過參數上限）時列表與資料夾清單照常回應、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
-| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
+| `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、已用量的計數（登記、完成、放棄、刪除、還原、永久刪除之後都等於 `SUM(size)`，維護排程的對帳）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
+| `src/core/storage/__tests__/s3-object-storage.spec.ts` | 每個租戶一個 bucket、`{tenantOrigin}`、錯誤分類；presigned PUT 簽了 `content-type`、`content-length`、`if-none-match`，分塊簽 `content-length` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入（經暫存檔、dispose 後刪除）、位元組上限、libvips 資源上限 |
 | `src/modules/file/__tests__/file-image.service.spec.ts` | 真的 sharp ＋ 記憶體儲存：實體化兩個變體、WebP 主格式、失敗與重試的分界、途中刪除、影像 API 的簽章／格式協商／依請求轉出並快取、`auto` 背景轉出前先回主格式 |
-| `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
+| `src/modules/file/__tests__/file-maintenance.service.spec.ts` | 四類殘留的偵測與清除、已用量的對帳（一天一次、dry run 不修正、計數那一列不見時補上）、dry run、與 complete 並行、失敗不中斷、不重疊執行 |
 | `apps/backstage/src/apis/file/upload-file/__tests__/uploadFile.test.ts` | 編排、進度、直傳失敗、取消與放棄上傳、縮圖、`complete` 回應遺失時查狀態；分塊：並行、ETag 排序、單塊重試、4xx 不重試 |
 
 與真實 S3 協定的相容性由 apps/file-storage 的測試（官方 SDK）負責；api 端的 `S3ObjectStorage` 另以 Docker 整套
@@ -659,7 +707,8 @@ FileAccessService（modules/file）
 | 項目 | 做法 |
 | --- | --- |
 | 解析範圍 | 每個請求取一次整棵資料夾結構（四個欄位）與操作者的邊，在記憶體判斷（記憶化，同一個 `物件#關係` 只算一次）。結構以租戶為 key 快取在程序內（§11.1），邊每次查（只有操作者主體閉包裡的主體） |
-| 列表過濾 | `GET /files` 不帶 `folderId` 且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY(…)`，根目錄的檔案不列 |
+| 列表過濾 | `GET /files` 不帶 `folderId`（或 `root`）且沒有全域 `file:read`：以看得到的資料夾 id 限制 `folder_id = ANY($1::uuid[])`，根目錄的檔案不列。指定了資料夾時先檢查讀得到（否則 404／403），之後只靠 `folder_id = $folderId`，不再帶整個範圍 |
+| 陣列參數 | 範圍（讀得到的資料夾）與批次讀取（整棵資料夾樹的標籤，`TagRepository.tagsOf`）以 **一個陣列參數** 傳遞（`core/database` 的 `anyUuid()`），不受 postgres.js 參數個數上限（65,534）影響，也不必逐一綁定。共用資料夾授權給所有人、`GET /file-folders` 連別人的個人資料夾也列出，數量會隨租戶成長；`inArray` 每個 id 一個參數，到上限就整個請求失敗 |
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
 | 授權寫入 | `relation_tuples` 的寫入與稽核在同一個交易，經 `FileFolderTree.write` 序列化；「一個對象在一個資料夾只有一個等級」由 `FileFolderGrantRepository.set` 先刪後插維持（不是 DB 唯一索引）。交易後推 `fileFolder update`；不呼叫 `permissionsChanged`（資料夾授權不在權限快取裡），`authz_revision` 仍 +1 |

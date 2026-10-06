@@ -730,6 +730,39 @@ describe('Presigned URL 與 CORS', () => {
     expect(got.headers.get('content-security-policy')).toContain("default-src 'none'");
   });
 
+  it('簽了 content-length 的 presigned PUT：大小不同回 SignatureDoesNotMatch（api 的直傳網址綁定大小）', async () => {
+    const bucket = await newBucket();
+    const url = await getSignedUrl(
+      client,
+      new PutObjectCommand({ Bucket: bucket, Key: 'sized', ContentLength: 10 }),
+      { expiresIn: 60, signableHeaders: new Set(['content-length']) },
+    );
+    const tooBig = await fetch(url, { method: 'PUT', body: 'x'.repeat(11) });
+    expect(tooBig.status).toBe(403);
+    expect(await tooBig.text()).toContain('<Code>SignatureDoesNotMatch</Code>');
+
+    const exact = await fetch(url, { method: 'PUT', body: 'x'.repeat(10) });
+    expect(exact.status).toBe(200);
+  });
+
+  it('簽了 if-none-match: * 的 presigned PUT：只能寫一次，第二次回 412 PreconditionFailed', async () => {
+    const bucket = await newBucket();
+    const url = await getSignedUrl(
+      client,
+      new PutObjectCommand({ Bucket: bucket, Key: 'once', IfNoneMatch: '*' }),
+      { expiresIn: 60, signableHeaders: new Set(['if-none-match']) },
+    );
+    const put = (body: string) =>
+      fetch(url, { method: 'PUT', body, headers: { 'If-None-Match': '*' } });
+    expect((await put('first')).status).toBe(200);
+
+    const again = await put('second');
+    expect(again.status).toBe(412);
+    expect(await again.text()).toContain('<Code>PreconditionFailed</Code>');
+    const stored = await client.send(new GetObjectCommand({ Bucket: bucket, Key: 'once' }));
+    expect(await stored.Body?.transformToString()).toBe('first');
+  });
+
   it('presigned URL 被竄改回 SignatureDoesNotMatch', async () => {
     const bucket = await newBucket();
     const url = await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: 'a' }), {

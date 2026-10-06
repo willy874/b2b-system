@@ -5,6 +5,7 @@ import { WsException } from '@nestjs/websockets';
 import { MESSAGE_METADATA } from '@nestjs/websockets/constants';
 
 import { AppException } from '@/core/errors';
+import { isPlatformHostRequest } from '@/core/http';
 import { currentTenant } from '@/core/tenant';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
@@ -90,7 +91,7 @@ export class PermissionsGuard implements CanActivate {
   }
 
   /**
-   * 平台管理者的端點（docs/architecture/05-tenancy.md §10.2 D5）：只在不屬於任何租戶的網域有效，
+   * 平台管理者的端點（docs/architecture/05-tenancy.md §10.2 D5）：只在 apps/platform 的網域、沒有租戶時有效，
    * 權限來自平台管理者的角色。拒絕寫平台稽核（租戶的稽核看不到平台的事）。
    */
   private async checkPlatform(
@@ -99,7 +100,9 @@ export class PermissionsGuard implements CanActivate {
     user: GuardSubject['user'],
     { keys }: PlatformPermissionRequirement,
   ): Promise<true> {
-    if (type !== 'http' || currentTenant()) throw new AppException('PLATFORM_ONLY');
+    if (type !== 'http' || currentTenant() || !isPlatformHostRequest()) {
+      throw new AppException('PLATFORM_ONLY');
+    }
     // JwtAuthGuard 在沒有租戶的網域只接受平台管理者的 token
     if (!user) throw new AppException('AUTH_TOKEN_INVALID');
     const permissions = await this.platformAdmins.permissionsOf(user.id);

@@ -15,6 +15,11 @@ export interface StoredObjectHead {
   /** 不含雙引號。 */
   etag: string;
   contentType: string | undefined;
+  /**
+   * 上傳時帶的 `Content-Encoding`（下載時會原樣送出）。api 從不要求瀏覽器帶它，
+   * 帶著它的原檔視為不合格（docs/architecture/backend/09-file.md §5）。
+   */
+  contentEncoding?: string;
 }
 
 /** 交給瀏覽器直接對儲存服務發出的請求。 */
@@ -28,6 +33,15 @@ export interface PresignedRequest {
 
 export interface PresignUploadOptions {
   contentType: string;
+  /** 登記的大小（位元組）：簽進網址，大小不同的上傳會被物件儲存拒絕。 */
+  contentLength: number;
+  /** 秒。 */
+  expiresIn: number;
+}
+
+export interface PresignUploadPartOptions {
+  /** 這一塊的大小（位元組）：簽進網址，大小不同的上傳會被物件儲存拒絕。 */
+  contentLength: number;
   /** 秒。 */
   expiresIn: number;
 }
@@ -97,6 +111,10 @@ export abstract class ObjectStorage {
   /** 依 key 排序逐頁列出 `prefix` 開頭的物件（殘留檔案對帳用）。 */
   abstract listObjects(prefix: string): AsyncIterable<ListedObject>;
 
+  /**
+   * 單次 PUT 的直傳網址。大小（`Content-Length`）與「只能寫一次」（`If-None-Match: *`）都簽進網址：
+   * 不能用它上傳別的大小，也不能在完成之後（網址到期之前）覆寫內容（docs/architecture/backend/09-file.md §5）。
+   */
   abstract presignUpload(key: string, options: PresignUploadOptions): Promise<PresignedRequest>;
 
   /**
@@ -113,12 +131,15 @@ export abstract class ObjectStorage {
     options: CreateMultipartUploadOptions,
   ): Promise<string>;
 
-  /** 讓瀏覽器直接上傳第 `partNumber` 塊（1 起算）的 presigned PUT。 */
+  /**
+   * 讓瀏覽器直接上傳第 `partNumber` 塊（1 起算）的 presigned PUT。這一塊的大小簽進網址；
+   * 不帶 `If-None-Match`（UploadPart 不支援條件寫入，uploadId 在組合之後就失效）。
+   */
   abstract presignUploadPart(
     key: string,
     uploadId: string,
     partNumber: number,
-    options: { expiresIn: number },
+    options: PresignUploadPartOptions,
   ): Promise<PresignedRequest>;
 
   /**

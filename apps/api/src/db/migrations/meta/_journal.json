@@ -253,6 +253,13 @@
       "when": 1791256434150,
       "tag": "0035_drop_webhook_legacy_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791286665389,
+      "tag": "0036_file_storage_usage",
+      "breakpoints": true
     }
   ]
 }

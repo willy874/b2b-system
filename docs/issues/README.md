@@ -17,15 +17,11 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 平台端點的網域限制可用大小寫不同的路徑繞過 | [`platform-path-case-insensitive-bypass.md`](./platform-path-case-insensitive-bypass.md) | 2026-10-06（全面檢測：程式資安） |
-| 高 | 直傳網址未綁定大小、完成後仍可覆寫，繞過上限與容量 | [`presigned-upload-size-not-bound.md`](./presigned-upload-size-not-bound.md) | 2026-10-06（全面檢測：程式資安） |
-| 高 | 檔案已用量每次全表加總，上傳登記與檔案變動推播都會觸發 | [`file-storage-usage-full-table-sum.md`](./file-storage-usage-full-table-sum.md) | 2026-10-06（全面檢測：效能） |
 | 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 還原使用者時反提權漏看他的群組成員資格 | [`user-restore-revives-group-roles.md`](./user-restore-revives-group-roles.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 恢復資料夾繼承沒有反提權，可流入高於自己能授予的等級 | [`folder-inheritance-restore-escalation.md`](./folder-inheritance-restore-escalation.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 請求日誌的 query 仍記下 code／state／ticket 原文 | [`request-log-query-not-redacted.md`](./request-log-query-not-redacted.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | DB 錯誤把查詢參數寫進日誌與背景工作 output | [`db-error-log-leaks-params.md`](./db-error-log-leaks-params.md) | 2026-10-06（全面檢測：程式資安） |
-| 中 | 檔名允許雙向控制、C1 控制與零寬字元 | [`file-name-allows-bidi-controls.md`](./file-name-allows-bidi-controls.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | SSRF 封鎖清單漏了內嵌 IPv4 的 IPv6 前綴 | [`ssrf-blocklist-misses-ipv6-embedded-ipv4.md`](./ssrf-blocklist-misses-ipv6-embedded-ipv4.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出的後端撤銷失敗被吞掉，IdP session 仍有效 | [`logout-failure-leaves-sessions.md`](./logout-failure-leaves-sessions.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
@@ -34,10 +30,8 @@
 | 中 | nginx 映像釘在停止更新的 1.27，基底映像未釘 digest | [`nginx-image-eol.md`](./nginx-image-eol.md) | 2026-10-06（全面檢測：部署） |
 | 中 | XFF 信任鏈依賴前置 LB，每 IP 限流可能失效 | [`trust-proxy-depends-on-load-balancer.md`](./trust-proxy-depends-on-load-balancer.md) | 2026-10-06（全面檢測：部署） |
 | 中 | prod compose 公開網址預設 localhost 且不檢查 | [`prod-compose-localhost-defaults.md`](./prod-compose-localhost-defaults.md) | 2026-10-06（全面檢測：部署） |
-| 中 | 次要網域上的檔案上傳與預覽被 CSP 擋下 | [`secondary-domain-file-features-blocked-by-csp.md`](./secondary-domain-file-features-blocked-by-csp.md) | 2026-10-06（全面檢測：部署） |
 | 中 | 每筆租戶背景工作開始前都全表掃描 pgboss.job | [`job-active-ahead-full-scan.md`](./job-active-ahead-full-scan.md) | 2026-10-06（全面檢測：效能） |
 | 中 | outbox 最舊 100 列都未註冊時 relayOutbox 無窮迴圈 | [`outbox-relay-infinite-loop.md`](./outbox-relay-infinite-loop.md) | 2026-10-06（全面檢測：效能） |
-| 中 | 檔案與資料夾清單以全部資料夾 id 組 IN 清單，超過 65,534 個即失敗 | [`file-list-folder-in-list.md`](./file-list-folder-in-list.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次逐筆失效重抓且不處理 429，大批次可能用光限流額度 | [`batch-invalidation-and-rate-limit.md`](./batch-invalidation-and-rate-limit.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次進度計算為 O(n²)，大量上傳時每個快照都重算造成卡頓 | [`batch-progress-quadratic.md`](./batch-progress-quadratic.md) | 2026-10-06（全面檢測：效能） |
 | 中 | api-sdk 無法 tree-shake，兩個前端首屏帶著全部 zod schema | [`api-sdk-not-tree-shakable.md`](./api-sdk-not-tree-shakable.md) | 2026-10-06（全面檢測：效能） |
@@ -61,8 +55,6 @@
 | 中 | 警告色與成功色按鈕的白字對比不足，測試只要求 3:1 | [`button-color-contrast.md`](./button-color-contrast.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 平台 session 結束時被未儲存提醒擋下（改密碼必現） | [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 檔案管理器切換排列方式或他分頁改偏好時清空選取 | [`file-manager-selection-cleared-by-preference.md`](./file-manager-selection-cleared-by-preference.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 低 | apps/platform 上的 X-Tenant 對所有路由生效 | [`platform-host-x-tenant-all-routes.md`](./platform-host-x-tenant-all-routes.md) | 2026-10-06（全面檢測：程式資安） |
-| 低 | 游標日期或數值不合格式時回 500 而非 400 | [`cursor-invalid-date-returns-500.md`](./cursor-invalid-date-returns-500.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | safeReturnTo 遇到 ./.. 路徑段會回傳 //外站 | [`safe-return-to-dot-segments.md`](./safe-return-to-dot-segments.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 頁面權限守衛分大小寫，/USER 等路徑繞過 403 頁 | [`route-guard-case-sensitivity.md`](./route-guard-case-sensitivity.md) | 2026-10-06（全面檢測：程式資安） |
 | 低 | 映像帶開發腳本與 CLI 依賴，.dockerignore 不全 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |

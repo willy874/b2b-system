@@ -76,7 +76,7 @@
 
 - 對外的 controller 與 DTO 在 `modules/file/external/`、`modules/user/external/`：`*.external.service.ts` 呼叫模組原本的 service，
   只把內部的 DTO 換成 `External*` 的契約（不含內部的影像網址、`capabilities`、`version`、使用者的偏好與登入細節）。
-- 直傳與下載的網址是 **租戶網域** 的 `/storage`（presigned URL 以租戶的主要網域簽章，與請求從哪個網域進來無關）：整合方的網路要連得到租戶網域。
+- 直傳與下載的網址是 **租戶網域** 的 `/storage`（對外 API 的租戶由 token 決定、沒有租戶網域可依據，presigned URL 以租戶的 **主要網域** 簽章；[`backend/09-file.md`](./backend/09-file.md) §3）：整合方的網路要連得到租戶網域。
 - 對外程序 import 的業務模組：`ApiTokenModule`、`FileModule`、`UserModule`、`HealthModule`，以及 `RoleModule`、`GroupModule`
   ——回收桶在啟動時要求每一種類型都有 handler。這些模組內部的路由一律由 `SurfaceGuard` 擋下。
 

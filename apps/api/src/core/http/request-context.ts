@@ -15,6 +15,11 @@ export interface RequestContext {
    * （已含依賴樹的閉包）；undefined＝跟著帳號。`PermissionService` 對 `userId` 的權限一律與它取交集。
    */
   apiToken?: ContextApiToken;
+  /**
+   * 請求是不是從 apps/platform 的網域進來（`TenantMiddleware` 依 Host 判斷）。平台管理者的端點只看這個，
+   * 不以「沒有租戶」代替：未登記的網域、直接用 IP 連線也沒有租戶（docs/architecture/05-tenancy.md §2）。
+   */
+  platformHost?: boolean;
 }
 
 export interface ContextApiToken {
@@ -46,6 +51,17 @@ export function getClientId(): string | undefined {
 export function setContextApiToken(token: ContextApiToken): void {
   const context = storage.getStore();
   if (context) context.apiToken = token;
+}
+
+/** `TenantMiddleware` 以 Host 判斷後補寫進當前 context。 */
+export function setContextPlatformHost(platformHost: boolean): void {
+  const context = storage.getStore();
+  if (context) context.platformHost = platformHost;
+}
+
+/** 這個請求是不是從 apps/platform 的網域進來；沒有請求脈絡（背景工作、WebSocket）時是 false。 */
+export function isPlatformHostRequest(): boolean {
+  return storage.getStore()?.platformHost === true;
 }
 
 /** JwtAuthGuard 認出使用者後補寫進當前 context，讓稽核不必逐層傳遞。 */

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, count, eq, inArray, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { anyUuid, TENANT_DB } from '@/core/database';
 import { resourceTags, tags } from '@/db/schema';
 import type { TagColor, TagInsert, TagRow } from '@/db/schema';
 
@@ -87,7 +87,10 @@ export class TagRepository {
 
   // ── 指派 ─────────────────────────────────────────────
 
-  /** 這些資源各自的標籤（依名稱排序）。 */
+  /**
+   * 這些資源各自的標籤（依名稱排序）。資源 id 可能是整棵資料夾樹（上萬個）：以一個陣列參數傳遞，
+   * 不受參數個數上限影響（docs/architecture/backend/09-file.md §11）。
+   */
   tagsOf(
     resourceType: string,
     resourceIds: readonly string[],
@@ -106,7 +109,7 @@ export class TagRepository {
       .where(
         and(
           eq(resourceTags.resourceType, resourceType),
-          inArray(resourceTags.resourceId, [...resourceIds]),
+          anyUuid(resourceTags.resourceId, resourceIds),
         ),
       )
       .orderBy(asc(sql`lower(${tags.name})`), asc(tags.id));

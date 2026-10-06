@@ -25,6 +25,13 @@ export interface TenantContext {
    * 生效值以 `tenantFeatureParam(PARAM)` 取得，不要直接讀這裡。
    */
   featureParams: TenantFeatureParamOverrides;
+  /**
+   * 這個請求比對到的租戶網域（瀏覽器看到的 `host[:port]`，小寫）；只有 `TenantMiddleware` 以網域找到租戶時才有。
+   * 給瀏覽器的絕對網址（presigned）用它，從次要網域（客戶自訂網域）進來的使用者才不會被 CSP 的 `'self'` 擋下
+   * （docs/architecture/backend/09-file.md §3）。沒有請求可依據（背景工作、對外 API、apps/platform 以 `X-Tenant` 指定）時
+   * 為 undefined，改用主要網域。
+   */
+  domain?: string;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();
