@@ -92,6 +92,21 @@ export async function createAuthorizationUrl(
 }
 
 /**
+ * IdP 的 end-session 網址（OIDC RP-Initiated Logout）：使用者在 IdP 的確認頁按下登出後，IdP session 與它底下所有產品的
+ * app session 一起結束，再回到 `loggedOutPath`（api 登記的 post-logout redirect URI）。
+ *
+ * 只當作伺服器端登出一直失敗時的手動退路（docs/architecture/04-sso.md §3.4）——一般的登出不跳轉，
+ * 停在「已登出」頁（§12.2 D5）。
+ */
+export function endSessionUrlOf(config: SsoClientConfig, loggedOutPath: string): string {
+  const query = new URLSearchParams({
+    client_id: config.clientId,
+    post_logout_redirect_uri: `${globalThis.location.origin}${loggedOutPath}`,
+  });
+  return `${config.issuer}/session/end?${query.toString()}`;
+}
+
+/**
  * 讀取這次登入的 verifier（不刪除：render 時就要知道 callback 是否有效）；找不到代表不是這個分頁發起的（或已經用過）。
  * 開始兌換時呼叫 `discardPendingLogin()`，同一個 verifier 不會用兩次。
  */

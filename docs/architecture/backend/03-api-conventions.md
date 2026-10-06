@@ -420,7 +420,7 @@ async login(...) {}
 | 一般端點，未登入（或 token 無效）      | 每個 IP，所有未登入請求合計                              | `ANONYMOUS_RATE_LIMIT`（3000）                     |
 | `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設（含 `GET /auth/setup/verify`）、外部 IdP、租戶代碼查詢、改密碼（`/auth/change-password`、`/platform/auth/change-password`） | 每個「email ＋ IP」（body 有 `email` 時；已登入、沒有 email 的改密碼以 **身分** 計、不分 IP）＋ 每個 IP | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300） |
 | `@RateLimit('authMail')`：忘記密碼、註冊 | 每個「email ＋ IP」＋ 每個 IP                            | 上一列的 1/3（至少 3）、1/10                       |
-| `@RateLimit('refresh')`：`/auth/refresh`、`/platform/auth/refresh` | 每個 refresh session（cookie 的雜湊）＋ 每個 IP | `REFRESH_RATE_LIMIT`（30）、`REFRESH_IP_RATE_LIMIT`（2000） |
+| `@RateLimit('refresh')`：`/auth/refresh`、`/platform/auth/refresh`、登出（`/auth/logout`、`/platform/auth/logout`；大批次用光每人的一般額度時登出不被 429 擋下） | 每個 refresh session（cookie 的雜湊）＋ 每個 IP | `REFRESH_RATE_LIMIT`（30）、`REFRESH_IP_RATE_LIMIT`（2000） |
 | `@SkipThrottle()`（影像 API）           | 不計                                                     | —                                                  |
 
 - **數值的估算**（1000 人在同一個出口 IP）：access token 5 分鐘 → 續期約 200 次/分（重啟後會集中，IP 桶留 10 倍）；

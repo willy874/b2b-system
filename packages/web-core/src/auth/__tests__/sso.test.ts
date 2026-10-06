@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createAuthorizationUrl,
   discardPendingLogin,
+  endSessionUrlOf,
   readPendingLogin,
   safeReturnTo,
 } from '../sso';
@@ -38,6 +39,13 @@ describe('SSO 的瀏覽器端（docs/architecture/04-sso.md §12）', () => {
     const pending = readPendingLogin(params.get('state') ?? undefined);
     expect(pending?.returnTo).toBe('/users');
     expect(params.get('code_challenge')).toBe(await sha256Base64Url(pending!.verifier));
+  });
+
+  it('end-session 網址：client 與登出後回到的頁面（伺服器端登出失敗時的手動退路，§3.4）', () => {
+    const url = new URL(endSessionUrlOf(CONFIG, '/auth/login'));
+    expect(`${url.origin}${url.pathname}`).toBe('https://auth.example.com/api/oidc/session/end');
+    expect(url.searchParams.get('client_id')).toBe('backstage');
+    expect(url.searchParams.get('post_logout_redirect_uri')).toBe(`${location.origin}/auth/login`);
   });
 
   it('丟棄之後取不到；不認識的 state 取不到', async () => {

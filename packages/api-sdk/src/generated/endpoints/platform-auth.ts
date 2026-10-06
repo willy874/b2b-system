@@ -159,6 +159,7 @@ const platformAuthControllerLogoutOperation: OperationDefinition = {
   schemas: PlatformAuthControllerLogoutSchemas,
 };
 
+/** 平台管理者登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1） */
 export function platformAuthControllerLogout(
   options?: RequestOptions,
 ): Promise<PlatformAuthControllerLogoutResult> {

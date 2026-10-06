@@ -463,18 +463,27 @@ export class JwtAuthGuard implements CanActivate {
 
 ```ts
 @Post('logout')
-@Authenticated()
+@Public()                 // bearer 可有可無（見下方）
+@RateLimit('refresh')     // 以 refresh session 計數，不吃每人的一般額度
 async logout(@Req() req, @Res({ passthrough: true }) res) {
-  const raw = req.cookies[env.REFRESH_COOKIE_NAME];
-  if (raw) {
-    const row = await this.tokenRepo.findByHash(sha256(raw));
-    if (row) await this.tokenRepo.revokeFamily(row.familyId, 'logout');
-  }
-  res.clearCookie(env.REFRESH_COOKIE_NAME, { path: '/auth' });
-  await this.audit.record({ action: 'auth.logout', result: 'success', ... });
-  return { success: true };
+  const result = await this.authService.logout({
+    refreshToken: req.cookies[env.REFRESH_COOKIE_NAME],
+    accessToken: extractBearer(req.headers.authorization),
+    refreshRequested: req.header('x-refresh-request') === '1',
+  });
+  res.clearCookie(env.REFRESH_COOKIE_NAME, { path: env.REFRESH_COOKIE_PATH });
+  return result;
 }
+
+// AuthService.logout
+//   有 bearer → 照 JwtAuthGuard 的規則驗證（AccessTokenVerifier），撤銷 cookie 所在的家族，稽核記在 bearer 的主人名下
+//   沒有 bearer → 要求 x-refresh-request: 1 與 refresh cookie（否則 401 AUTH_REFRESH_INVALID），以 cookie 找家族與主人；
+//                 家族已撤銷也照樣結束 IdP session（上一次登出只完成一半時的重試）
 ```
+
+**為什麼沒有 bearer 也能登出**：前端在登出前先等續期，續期暫時失敗（離線、5xx、429）時手上沒有 access token；
+已登出頁的「重試登出」也沒有。只認 bearer 的話這兩種情況都撤銷不了，IdP session 留著，下一個人打開產品會被直接登入
+（[`../04-sso.md`](../04-sso.md) §3.4）。CSRF 的緩解與 `/auth/refresh` 相同：跨站的表單送不出自訂標頭，帶了就會觸發 preflight。
 
 **撤銷整條家族，而不只是當前這一條**：使用者按登出的意思是「結束這個裝置的
 session」，而不是「作廢我手上這個 token 但留著它的後繼者」。

@@ -165,6 +165,13 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 - 不自動跳回 IdP：頁面卸載會取消還在路上的登出請求，使用者會被尚未銷毀的 IdP session 直接登回來。
   前端的 `SessionWatcher` 只在「這個分頁曾經有 session」時才在 session 消失後導向登入頁。
 - 離線的分頁要等下一次續期失敗才發現；已發出的 access token 最多再活 5 分鐘。
+- **登出失敗時要讓使用者知道**（web-core 的 `signOut`）：前端照樣登出，但伺服器端沒有撤銷（撤銷的請求失敗，或續期失敗後改以
+  refresh cookie 撤銷也失敗）時，已登出頁帶 `?logout=incomplete`，顯示警示「伺服器端的登出沒有完成…在共用電腦上請關閉瀏覽器」與「重試登出」。
+  - 續期失敗、拿不到 access token 時，`POST /auth/logout`（apps/platform 是 `/platform/auth/logout`）不帶 bearer、改帶 `x-refresh-request: 1`，
+    後端以 refresh cookie 找家族並結束 IdP session；「重試登出」走同一條。登出的請求帶 `keepalive`，按完立刻關分頁也會送完。
+  - 重試仍失敗（例：refresh cookie 已失效，後端認不出家族）時，「重試登出」旁提供 IdP 的 end-session 連結（`endSessionUrlOf`，
+    `/session/end?client_id=…&post_logout_redirect_uri=<登入頁>`）：使用者在 IdP 的確認頁按下登出，IdP session 與它底下的 app session 一起結束。
+    這是使用者手動按的退路；D5 排除的只是「自動」跳回 IdP。
 
 ### 3.5 帳號停用、刪除、憑證失效（D17）
 

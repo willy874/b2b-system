@@ -4,6 +4,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { Authenticated, CurrentUser, JsonBodyOnly, Public } from '@/common/decorators';
+import { extractBearer } from '@/common/guards';
 import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
@@ -90,13 +91,21 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(200)
-  @Authenticated()
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    const result = await this.authService.logout(this.readRefreshCookie(req), actor);
+  // bearer 可有可無：有就在 service 驗證（與 JwtAuthGuard 同一套判定）；沒有時以 refresh cookie 登出
+  // （前端續期失敗、已登出頁的「重試登出」，docs/architecture/04-sso.md §3.4）
+  @Public()
+  // 以 refresh session 計數：大批次操作用光每人的一般額度時，登出不會被 429 擋下
+  @RateLimit('refresh')
+  @ApiOperation({
+    summary:
+      '登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1）',
+  })
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.logout({
+      refreshToken: this.readRefreshCookie(req),
+      accessToken: extractBearer(req.headers.authorization),
+      refreshRequested: req.header('x-refresh-request') === '1',
+    });
     res.clearCookie(this.cookieName, { path: this.cookiePath });
     return result;
   }

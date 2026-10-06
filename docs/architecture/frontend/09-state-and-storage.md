@@ -409,11 +409,13 @@ channel.post("session-ended", { reason });
 // 其他分頁：clear permission store → queryClient.clear() → navigate('/auth/login')
 ```
 
-登出的順序是 **先結束前端、再撤銷後端**（`useLogoutMutation`）：
+登出的順序是 **先結束前端、再撤銷後端**（各 app 的 `useLogoutMutation` → web-core 的 `signOut`）：
 
 1. `ensureAccessToken()`：等手上的續期結束，取得目前的 token
 2. `endSession('logout')`：中止帶身分的請求、清掉 token、廣播、導回登入頁
-3. 用第 1 步的 token 走 base 管道打 `POST /auth/logout`，撤銷整條家族
+3. 用第 1 步的 token 走 base 管道打 `POST /auth/logout`，撤銷整條家族；續期失敗拿不到 token 時改以 refresh cookie
+   （`x-refresh-request: 1`）。請求帶 `keepalive`，關分頁也會送完
+4. 第 3 步失敗：已登出頁加上 `?logout=incomplete`，顯示警示與「重試登出」（[`../04-sso.md`](../04-sso.md) §3.4）
 
 反過來（先打 API、回應後才結束 session）的話，等待期間完成的續期會把新 token
 寫回已登出的頁面。

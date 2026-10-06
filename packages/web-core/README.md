@@ -21,7 +21,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | 子路徑 | 內容 |
 | --- | --- |
 | `app` | `AppContext` 型別、`createAppContext()`、React bridge、跨 feature 的事件（`events.ts`） |
-| `auth` | `SessionStore`（token 生命週期、跨分頁單飛續期）、SSO 的瀏覽器端（`sso.ts`：PKCE、授權網址） |
+| `auth` | `SessionStore`（token 生命週期、跨分頁單飛續期）、`signOut`（先結束前端、再撤銷後端；回傳後端是否完成）、SSO 的瀏覽器端（`sso.ts`：PKCE、授權網址、end-session 網址） |
 | `batch` | 全域批次佇列（SharedWorker 排程、進度條、頂列面板、結果彈出） |
 | `cache` | `queryClient`（`AppQueryClient`）、依賴圖引擎（`resourceGraph`）、跨分頁失效 |
 | `client` | `HttpContext`／`FetcherContext`／`defineFetcher`／攔截器鏈 |

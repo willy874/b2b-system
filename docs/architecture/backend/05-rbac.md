@@ -595,7 +595,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/auth/sso/callback`        | `@Public`（授權碼 ＋ PKCE 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D3） |
 | POST   | `/platform/auth/sso/callback` | `@Public`（apps/platform 的 BFF：平台管理者，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5） |
 | POST   | `/platform/auth/refresh`    | `@Public`                        |
-| POST   | `/platform/auth/logout`     | `@Authenticated`（平台管理者）   |
+| POST   | `/platform/auth/logout`     | `@Public`（同 `/auth/logout`）   |
 | GET    | `/platform/auth/profile`    | `@Authenticated`（平台管理者）   |
 | GET    | `/platform/auth/setup/verify` | `@Public`（平台管理者的啟用 token；連結不帶 `?tenant=`） |
 | POST   | `/platform/auth/setup`      | `@Public`                        |
@@ -629,7 +629,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/oidc-interaction/:uid/discover` | `@Public`（email 網域 → 外部 IdP 連線） |
 | POST   | `/oidc-interaction/:uid/external` | `@Public`                  |
 | GET    | `/oidc-interaction/:uid/external/complete` | `@Public`（一次性 ticket ＋ 互動 cookie） |
-| POST   | `/auth/logout`              | `@Authenticated`                 |
+| POST   | `/auth/logout`              | `@Public`（有 bearer 時在 service 照 `JwtAuthGuard` 的規則驗證；沒有時以 refresh cookie 認人，要求 `x-refresh-request: 1`，[`architecture/04-sso.md`](../04-sso.md) §3.4） |
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
 | POST   | `/auth/change-password`     | `@Authenticated`                 |
