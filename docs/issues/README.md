@@ -17,6 +17,11 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
+| 高 | 夏令時間開始當天，落在不存在時段的公告發送時間會提早一小時（前後端同一套算法） | [`announcement-dst-gap.md`](./announcement-dst-gap.md) | 2026-10-06（補公告的單元測試） |
+| 中 | 稽核明細查無資料時回 400 `VALIDATION_FAILED`，其他資源都是 404 | [`audit-log-detail-not-found-status.md`](./audit-log-detail-not-found-status.md) | 2026-10-06（補稽核的單元測試） |
+| 低 | 公告每日維護的 `requeued` 計數包含沒有入列的公告 | [`announcement-maintain-requeued-count.md`](./announcement-maintain-requeued-count.md) | 2026-10-06（補公告的單元測試） |
+| 低 | 建立 API token 時，推播早於讀回剛建立的列 | [`api-token-create-publish-before-read.md`](./api-token-create-publish-before-read.md) | 2026-10-06（補 API token 的單元測試） |
+| 低 | 資料夾的繼承設定沒有改變時仍推播一次更新 | [`file-folder-inheritance-noop-publish.md`](./file-folder-inheritance-noop-publish.md) | 2026-10-06（補檔案的單元測試） |
 | 低 | Webhook 訂閱的 `url`、`consecutive_failures` 已由 `webhook_targets` 取代，下一次部署刪除 | [`webhook-legacy-columns.md`](./webhook-legacy-columns.md) | 2026-10-02（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §13） |
 
 嚴重度：
