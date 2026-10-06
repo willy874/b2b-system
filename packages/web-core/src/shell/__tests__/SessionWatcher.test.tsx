@@ -18,7 +18,7 @@ import {
   useDialogUnsavedGuard,
   useUnsavedChangesGuard,
 } from '../../router';
-import { usePermissionStore } from '../../store';
+import { useTableColumnSettingsStore, usePermissionStore } from '../../store';
 import { AllProviders, initTestI18n } from '../../testing';
 import { SessionWatcher } from '../SessionWatcher';
 
@@ -108,9 +108,12 @@ describe('SessionWatcher：session 中途結束（docs/architecture/frontend/04-
     expect(screen.queryByTestId('unsaved-changes-confirm')).not.toBeInTheDocument();
   });
 
-  it('清掉以使用者身分取得的資料：權限集合與查詢快取', async () => {
+  it('清掉以使用者身分取得的資料：權限集合、查詢快取、表格釘選列的資料', async () => {
     usePermissionStore.getState().setPermissions(['user:read']);
     queryClient.setQueryData(['profile'], { id: 'me' });
+    useTableColumnSettingsStore
+      .getState()
+      .pinRow('user-list', '1', 'top', { email: 'a@acme.test' });
     renderApp('/form');
     await screen.findByTestId('dirty-form');
 
@@ -120,6 +123,7 @@ describe('SessionWatcher：session 中途結束（docs/architecture/frontend/04-
     expect(usePermissionStore.getState()).toMatchObject({ hydrated: false });
     expect(usePermissionStore.getState().permissions.size).toBe(0);
     expect(queryClient.getQueryData(['profile'])).toBeUndefined();
+    expect(useTableColumnSettingsStore.getState().pinnedRowData).toEqual({});
   });
 });
 

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import { sessionStore, useHasSession } from '../auth';
 import { queryClient } from '../cache';
-import { usePermissionStore } from '../store';
+import { clearPinnedRowData, usePermissionStore } from '../store';
 
 export interface SessionWatcherProps {
   /** app 的 router：`SessionWatcher` 放在 `RouterProvider` 之外，以參數傳入。 */
@@ -28,12 +28,14 @@ export interface SessionWatcherProps {
  *
  * - 權限集合（唯一進 store 的伺服器狀態）
  * - TanStack Query 的快取（含 mutation）
+ * - 表格釘選列的資料（只在記憶體；localStorage 只存 id 與側邊）
  *
  * 批次佇列與上傳暫存由各自的 plugin 訂閱同一個 `ended` 清除（backstage 的 `batchQueuePlugin`、file feature）。
  */
 function clearUserData(): void {
   usePermissionStore.getState().clear();
   queryClient.clear();
+  clearPinnedRowData();
 }
 
 /** 目前的網址（router 最新的位置；瀏覽器上與 `location` 相同，測試的記憶體路由也適用）。 */

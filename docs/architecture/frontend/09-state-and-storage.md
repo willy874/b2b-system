@@ -134,13 +134,15 @@ Store 用參照比較來決定是否通知訂閱者，原地修改不會觸發�
 角色權限變更（自己受影響）
   → profile query 失效並重取 → setPermissions(...)
 
-登出 / session 終止
+登出 / session 終止（web-core 的 SessionWatcher）
   → clear()                                 hydrated = false
   → queryClient.clear()
+  → clearPinnedRowData()                    表格釘選列在記憶體裡的資料
 ```
 
 **登出時 `queryClient.clear()` 是必要的**：否則下一個在同一個分頁登入的人會先
-看到上一個人的快取資料。
+看到上一個人的快取資料。同理，任何以使用者身分取得、留在前端的資料都要在這裡清掉：
+`SessionWatcher` 清權限、查詢快取與釘選列的資料；批次佇列與上傳暫存由各自的 plugin 訂閱同一個 `ended` 清除。
 
 ---
 

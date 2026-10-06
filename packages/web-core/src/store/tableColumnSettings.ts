@@ -43,17 +43,19 @@ export const DEFAULT_HIDDEN_COLUMNS: readonly string[] = [ROW_PIN_COLUMN_ID];
 export const DEFAULT_STICKY_HEADER = false;
 
 /**
- * 釘選的資料列：保留整筆資料，換到別頁（資料不在目前的 `data` 裡）時仍能顯示。
+ * 釘選的資料列：存進 localStorage 的只有 id 與側邊，**不存資料本身**——伺服器資料的複本不能落地，
+ * 也不能留給下一個登入的人（docs/architecture/frontend/09-state-and-storage.md §3.3、§4.2）。
  * 與欄位設定分開存：「恢復預設」只重設欄位，不會清掉釘選的列。
  */
 export interface PinnedRow {
   id: string;
   side: RowPinSide;
-  row: unknown;
 }
 
 type TableColumnSettingsMap = Record<string, StoredTableColumnSettings>;
 type PinnedRowsMap = Record<string, PinnedRow[]>;
+/** 表格 id → 列 id → 釘選當下的資料。只在本分頁的記憶體，session 結束時清掉（`clearPinnedRowData`）。 */
+type PinnedRowDataMap = Record<string, Record<string, unknown>>;
 
 const SETTINGS_KEY = 'tables';
 const PINNED_ROWS_KEY = 'pinnedRows';
@@ -77,17 +79,43 @@ function readSettings(): TableColumnSettingsMap {
   return isSettingsMap(value) ? value : {};
 }
 
+/** 只留 id 與側邊：舊版本存過整筆資料（`row`），讀到就丟掉。 */
+function toPinnedRowsMap(value: unknown): PinnedRowsMap {
+  if (!isPinnedRowsMap(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([tableId, rows]) => [
+      tableId,
+      rows.map(({ id, side }) => ({ id, side })),
+    ]),
+  );
+}
+
+function hasStoredRowData(value: unknown): boolean {
+  return (
+    isPinnedRowsMap(value) &&
+    Object.values(value).some((rows) => rows.some((entry) => 'row' in entry))
+  );
+}
+
 function readPinnedRows(): PinnedRowsMap {
   const value = storage.get<unknown>(PINNED_ROWS_KEY, {});
-  return isPinnedRowsMap(value) ? value : {};
+  const pinnedRows = toPinnedRowsMap(value);
+  // 舊版本存在 localStorage 的整筆資料：改寫成只有 id 與側邊，不留在這台裝置上
+  if (hasStoredRowData(value)) storage.set(PINNED_ROWS_KEY, pinnedRows);
+  return pinnedRows;
 }
 
 interface TableColumnSettingsStore {
   settings: TableColumnSettingsMap;
   pinnedRows: PinnedRowsMap;
+  /**
+   * 釘選當下的資料：換到別頁（資料不在目前的 `data` 裡）時仍能顯示那一列。只在記憶體——
+   * 重新整理或換分頁之後沒有，那些列要回到它們所在的頁才會顯示（id 仍記著）。
+   */
+  pinnedRowData: PinnedRowDataMap;
   setTableSettings: (tableId: string, next: StoredTableColumnSettings) => void;
   resetTableSettings: (tableId: string) => void;
-  /** 釘選（或改到另一側）一列；同一列只會出現一次，改側時移到該側的最後。 */
+  /** 釘選（或改到另一側）一列；同一列只會出現一次，改側時移到該側的最後。`row` 只留在記憶體。 */
   pinRow: (tableId: string, id: string, side: RowPinSide, row: unknown) => void;
   unpinRow: (tableId: string, id: string) => void;
   clearPinnedRows: (tableId: string) => void;
@@ -96,6 +124,7 @@ interface TableColumnSettingsStore {
 export const useTableColumnSettingsStore = create<TableColumnSettingsStore>((set, get) => ({
   settings: readSettings(),
   pinnedRows: readPinnedRows(),
+  pinnedRowData: {},
   setTableSettings: (tableId, next) => {
     const settings = { ...get().settings, [tableId]: next };
     storage.set(SETTINGS_KEY, settings);
@@ -107,23 +136,42 @@ export const useTableColumnSettingsStore = create<TableColumnSettingsStore>((set
     set({ settings });
   },
   pinRow: (tableId, id, side, row) => {
-    const rest = (get().pinnedRows[tableId] ?? []).filter((entry) => entry.id !== id);
-    writePinnedRows({ ...get().pinnedRows, [tableId]: [...rest, { id, side, row }] });
+    const { pinnedRows, pinnedRowData } = get();
+    const rest = (pinnedRows[tableId] ?? []).filter((entry) => entry.id !== id);
+    writePinnedRows(
+      { ...pinnedRows, [tableId]: [...rest, { id, side }] },
+      { ...pinnedRowData, [tableId]: { ...pinnedRowData[tableId], [id]: row } },
+    );
   },
   unpinRow: (tableId, id) => {
-    const rest = (get().pinnedRows[tableId] ?? []).filter((entry) => entry.id !== id);
-    const { [tableId]: _removed, ...others } = get().pinnedRows;
-    writePinnedRows(rest.length > 0 ? { ...others, [tableId]: rest } : others);
+    const { pinnedRows, pinnedRowData } = get();
+    const rest = (pinnedRows[tableId] ?? []).filter((entry) => entry.id !== id);
+    const { [tableId]: _removed, ...others } = pinnedRows;
+    const { [id]: _row, ...tableData } = pinnedRowData[tableId] ?? {};
+    writePinnedRows(rest.length > 0 ? { ...others, [tableId]: rest } : others, {
+      ...pinnedRowData,
+      [tableId]: tableData,
+    });
   },
   clearPinnedRows: (tableId) => {
     const { [tableId]: _removed, ...pinnedRows } = get().pinnedRows;
-    writePinnedRows(pinnedRows);
+    const { [tableId]: _data, ...pinnedRowData } = get().pinnedRowData;
+    writePinnedRows(pinnedRows, pinnedRowData);
   },
 }));
 
-function writePinnedRows(pinnedRows: PinnedRowsMap): void {
+/** localStorage 只寫 id 與側邊；資料只進記憶體的 `pinnedRowData`。 */
+function writePinnedRows(pinnedRows: PinnedRowsMap, pinnedRowData: PinnedRowDataMap): void {
   storage.set(PINNED_ROWS_KEY, pinnedRows);
-  useTableColumnSettingsStore.setState({ pinnedRows });
+  useTableColumnSettingsStore.setState({ pinnedRows, pinnedRowData });
+}
+
+/**
+ * 清掉釘選列在記憶體裡的資料（session 結束時，web-core 的 `SessionWatcher`）：那是以上一個人的身分取得的，
+ * 下一個在同一個分頁登入的人不能看到。釘選的 id 與側邊是這台裝置的版面偏好，保留。
+ */
+export function clearPinnedRowData(): void {
+  useTableColumnSettingsStore.setState({ pinnedRowData: {} });
 }
 
 /**
@@ -138,7 +186,7 @@ export function syncTableColumnSettings(): () => void {
       useTableColumnSettingsStore.setState({ settings: isSettingsMap(value) ? value : {} });
     }),
     storage.subscribe(PINNED_ROWS_KEY, (value) => {
-      useTableColumnSettingsStore.setState({ pinnedRows: isPinnedRowsMap(value) ? value : {} });
+      useTableColumnSettingsStore.setState({ pinnedRows: toPinnedRowsMap(value) });
     }),
   ];
   return () => {
@@ -215,7 +263,10 @@ function isOptionalPinnedColumns(value: unknown): boolean {
   );
 }
 
-function isPinnedRowsMap(value: unknown): value is PinnedRowsMap {
+/** 舊版本的值多一個 `row`（整筆資料）：仍算合法，讀進來時由 `toPinnedRowsMap` 丟掉。 */
+function isPinnedRowsMap(
+  value: unknown,
+): value is Record<string, Array<PinnedRow & { row?: unknown }>> {
   if (!isRecord(value)) return false;
   return Object.values(value).every(
     (rows) =>
@@ -224,8 +275,7 @@ function isPinnedRowsMap(value: unknown): value is PinnedRowsMap {
         (entry: unknown) =>
           isRecord(entry) &&
           typeof entry.id === 'string' &&
-          (entry.side === 'top' || entry.side === 'bottom') &&
-          'row' in entry,
+          (entry.side === 'top' || entry.side === 'bottom'),
       ),
   );
 }

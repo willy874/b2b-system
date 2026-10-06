@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { resolveColumnSettings, useTableColumnSettingsStore } from '../tableColumnSettings';
+import {
+  clearPinnedRowData,
+  resolveColumnSettings,
+  syncTableColumnSettings,
+  useTableColumnSettingsStore,
+} from '../tableColumnSettings';
 
 const STORAGE_KEY = 'b2b-system:table-column-settings:tables';
 
@@ -101,7 +106,7 @@ describe('resolveColumnSettings（把存下來的設定套到目前的欄位）'
 describe('useTableColumnSettingsStore', () => {
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
   });
 
   it('寫入時存進 localStorage，各表格分開', () => {
@@ -132,7 +137,7 @@ describe('釘選的資料列', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {} });
+    useTableColumnSettingsStore.setState({ settings: {}, pinnedRows: {}, pinnedRowData: {} });
   });
 
   it('釘選寫進 localStorage；同一列改側時移到該側的最後', () => {
@@ -143,9 +148,49 @@ describe('釘選的資料列', () => {
 
     expect(JSON.parse(localStorage.getItem(PINNED_KEY) ?? '{}')).toEqual({
       'user-list': [
-        { id: '2', side: 'bottom', row: { id: '2' } },
-        { id: '1', side: 'bottom', row: { id: '1' } },
+        { id: '2', side: 'bottom' },
+        { id: '1', side: 'bottom' },
       ],
+    });
+  });
+
+  it('★ localStorage 只存 id 與側邊，資料只留在記憶體（docs/architecture/frontend/09-state-and-storage.md §4.2）', () => {
+    const row = { id: '1', email: 'someone@acme.test', status: 'active' };
+    useTableColumnSettingsStore.getState().pinRow('user-list', '1', 'top', row);
+
+    const stored = localStorage.getItem(PINNED_KEY) ?? '';
+    expect(stored).not.toContain('row');
+    expect(stored).not.toContain('someone@acme.test');
+    expect(useTableColumnSettingsStore.getState().pinnedRowData).toEqual({
+      'user-list': { '1': row },
+    });
+  });
+
+  it('clearPinnedRowData（session 結束）清掉記憶體裡的資料，釘選的 id 與側邊保留', () => {
+    useTableColumnSettingsStore.getState().pinRow('user-list', '1', 'top', { id: '1' });
+
+    clearPinnedRowData();
+
+    expect(useTableColumnSettingsStore.getState().pinnedRowData).toEqual({});
+    expect(useTableColumnSettingsStore.getState().pinnedRows).toEqual({
+      'user-list': [{ id: '1', side: 'top' }],
+    });
+  });
+
+  it('舊版本存在 localStorage 的整筆資料：讀進來時丟掉，並改寫成只有 id 與側邊', () => {
+    localStorage.setItem(
+      PINNED_KEY,
+      JSON.stringify({ 'user-list': [{ id: '1', side: 'top', row: { email: 'a@acme.test' } }] }),
+    );
+
+    const stop = syncTableColumnSettings();
+    stop();
+
+    expect(useTableColumnSettingsStore.getState().pinnedRows).toEqual({
+      'user-list': [{ id: '1', side: 'top' }],
+    });
+    expect(JSON.parse(localStorage.getItem(PINNED_KEY) ?? '{}')).toEqual({
+      'user-list': [{ id: '1', side: 'top' }],
     });
   });
 
@@ -159,5 +204,6 @@ describe('釘選的資料列', () => {
 
     unpinRow('user-list', '1');
     expect(useTableColumnSettingsStore.getState().pinnedRows).toEqual({});
+    expect(useTableColumnSettingsStore.getState().pinnedRowData).toEqual({ 'user-list': {} });
   });
 });
