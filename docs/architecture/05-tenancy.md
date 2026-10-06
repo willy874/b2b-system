@@ -70,7 +70,9 @@
 
 ## 4. Migration 與版本檢查
 
-- `pnpm db:migrate` 先跑平台 DB，再依序跑每個未刪除的租戶；單一租戶失敗不影響其他租戶，最後列出失敗的租戶並以非零結束（D14）。
+- `pnpm db:migrate` 先跑平台 DB，再依序跑每個未刪除、而且不是佈建中（`provisioning`）或佈建失敗（`failed`）的租戶（D14）。
+  佈建中、佈建失敗的租戶由佈建與「重試佈建」跑 migration。單一租戶失敗不影響其他租戶，最後列出失敗的租戶；
+  只有平台 DB 失敗才以非零結束（`--strict` 時租戶失敗也非零，給 CI 用），所以一個租戶壞掉不會擋住 api 啟動。
 - api 不自己跑 migration，而是在 `Tenancy.enter()` 比對租戶 DB 的最後一筆套用紀錄與程式的 journal：落後的租戶回 503、
   每 30 秒重新檢查；DB 比程式新照常服務（migration 必須對上一版程式相容）。細節見
   [`backend/02-database.md`](./backend/02-database.md) §5.2、§5.3。
@@ -276,12 +278,12 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 
 | 指令 | 範圍 |
 | --- | --- |
-| `pnpm db:migrate` | 平台 DB ＋ 每個未刪除的租戶；平台 DB 沒有租戶時登記預設租戶 |
-| `pnpm db:seed` | 第一位平台管理者；每個 `active`、`disabled` 租戶補權限目錄與系統角色；`SUPER_ADMIN_EMAIL` 只建在 `SEED_TENANT` |
-| `pnpm db:seed:dev`、`db:seed:e2e` | `SEED_TENANT` 一個租戶 |
-| `pnpm db:reset` | 清空平台 DB 的協定狀態與 session，以及每個租戶的業務資料（production 禁止） |
+| `pnpm db:migrate [--strict]` | 平台 DB ＋ 每個未刪除、不是佈建中或佈建失敗的租戶；平台 DB **一個租戶都沒有（含已刪除的）** 時登記預設租戶，所以預設租戶被刪除後不會再被登記回來。production 執行時在平台 DB 寫入環境標記（`platform_environment`） |
+| `pnpm db:seed [--strict]` | 第一位平台管理者；每個 `active`、`disabled` 租戶補權限目錄與系統角色；`SUPER_ADMIN_EMAIL` 只建在 `SEED_TENANT`。結束碼的規則同 `db:migrate`：單一租戶失敗只列出來 |
+| `pnpm db:seed:dev`、`db:seed:e2e` | `SEED_TENANT` 一個租戶（寫入前的防呆同 `db:reset`） |
+| `pnpm db:reset` | 清空平台 DB 的協定狀態與 session，以及每個租戶的業務資料。拒絕標記為 production 的平台 DB；不在本機的 DB 要加 `--confirm <平台 database 名稱>`（[`backend/02-database.md`](./backend/02-database.md) §6.1） |
 | `pnpm db:archive-audit-logs` | 每個 `active` 租戶的稽核冷熱搬移 |
-| `pnpm db:drop-tenant` | §5 的清除 |
+| `pnpm db:drop-tenant` | §5 的清除。`db:migrate` 登記的租戶（預設租戶）刪除後，database 不是佈建產生的：要另外加 `--database <名稱>` 確認，只 DROP DATABASE、不刪共用的 DB 角色 |
 
 ## 9. 測試
 
@@ -292,7 +294,8 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 | E2E（`apps/e2e/tests/tenancy.spec.ts`） | 平台管理者在 apps/platform 建立租戶，第一位管理員從啟用信進入 `{code}.localhost:5173`；同一個 IdP session 換租戶要重新登入；授權碼送到別的租戶的 BFF → `AUTH_SSO_CODE_INVALID`；authorize 的租戶與 redirect URI 不一致 → `invalid_request`、沒有授權碼；停用後網域 503 |
 
 HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../conventions/04-testing.md`](../conventions/04-testing.md) §3）。
-E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`，否則會清空共用的開發資料庫。
+E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`。沒有帶（環境變數與 `.env` 的相同）時 global setup 拒絕執行，
+要清空 `.env` 那一個得明確加 `E2E_RESET_CONFIRM=<平台 database 名稱>`（[`frontend/10-testing.md`](./frontend/10-testing.md) §4.3）。
 
 ## 10. 設計決策：租戶實體隔離（每個租戶一個 database 與網域）
 
@@ -347,7 +350,7 @@ E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`�
 | D11 | **在 apps/platform 切換租戶 = 前往該租戶的 backstage 登入**：apps/platform 的「進入租戶」頁讓使用者輸入租戶代碼（或從 `?tenant=` 帶入），查到租戶後頂層跳轉到該租戶網域的 `/auth/login`，之後走一般的授權流程（D7–D10），完成後落在該租戶的 backstage。apps/platform **不列出** 一個人屬於哪些租戶 | 使用者要求「跳轉工作區必須在 auth 中」且以租戶代碼選擇；帳號分散在各租戶 DB，列出所屬租戶需要跨租戶掃描或在平台留索引，兩者都破壞硬切分 |
 | D12 | **租戶佈建**：平台管理者在 apps/platform 建立租戶（代碼、名稱、網域、第一位管理員的 email）→ api 建立 DB 角色與 database、跑租戶 migration、seed 權限目錄與系統角色、建立第一位管理員（寄啟用信，連結帶租戶）→ 租戶狀態 `provisioning` → `active`；失敗停在 `failed`，可重試。佈建是背景工作 | 建立 database 不能包在一般交易裡，且可能耗時；狀態機讓失敗可以重試、可以看見 |
 | D13 | **停用與刪除**：停用 = 該租戶的網域回 503、撤銷所有 session；刪除 = 標記刪除並停用，`DROP DATABASE` 是另一個需要確認的手動動作（腳本），不在管理頁一鍵完成 | 硬切分的好處之一是可以真的刪乾淨，但不可逆的動作不該是一個按鈕 |
-| D14 | **migration 一律跑遍所有租戶**：`pnpm db:migrate` 先跑平台，再依序跑每個 `active` 租戶；單一租戶失敗不影響其他租戶，結束時列出失敗的租戶並以非零結束。應用程式啟動時檢查每個租戶的 migration 版本，落後的租戶標成不可用（503），不阻止整個程序啟動 | 一個租戶壞掉不該讓所有租戶停擺；但也不能讓舊 schema 的租戶收到新程式的請求 |
+| D14 | **migration 一律跑遍所有租戶**：`pnpm db:migrate` 先跑平台，再依序跑每個未刪除、而且不是佈建中或佈建失敗的租戶（那兩種由佈建負責）；單一租戶失敗不影響其他租戶，結束時列出失敗的租戶。只有平台 DB 失敗才以非零結束（部署時 api 依賴 migrate 成功結束；`--strict` 給 CI）。`db:seed` 同樣逐一處理租戶。應用程式啟動時檢查每個租戶的 migration 版本，落後的租戶標成不可用（503），不阻止整個程序啟動 | 一個租戶壞掉不該讓所有租戶停擺；但也不能讓舊 schema 的租戶收到新程式的請求 |
 | D15 | **背景工作佇列在平台 DB**，資料是信封 `{ tenantId, payload }`，handler 在該租戶的脈絡裡執行；payload 只放 id，不放租戶的個人資料。排程觸發的租戶工作沒有 `tenantId`，worker 收到時 **展開** 成每個 `active` 租戶一筆；只碰平台 DB 的工作（`oidc.cleanup`）宣告成 `scope: 'platform'`。**交易內的入列寫租戶 DB 的 `job_outbox`**，提交後立刻搬進佇列，定期的 `jobs.outboxSweep`（預設每 10 分鐘）補搬程序當掉時沒搬成的；outbox 的 id 就是工作 id，重搬也只有一筆 | 每個租戶一套 pg-boss 等於 N 組輪詢；payload 只放 id 則平台 DB 不會存到租戶的內容。平台 DB 的佇列不能和租戶 DB 的業務寫入在同一個交易，outbox 保住 [`backend/10-jobs.md`](backend/10-jobs.md) §9.2 D2「資料與工作一起提交或一起回滾」 |
 | D16 | **物件儲存每租戶一個 bucket**（`tenants.storage_bucket`，佈建時建立），`ObjectStorage` 依目前租戶選 bucket；沒有租戶脈絡時拋錯，不退回共用的 bucket | 與 database 同一個隔離層級；刪除租戶時整個 bucket 可以清掉 |
 | D17 | **快取與推播加上租戶前綴**：權限快取、使用者快取的 key 是 `{tenantId}:{userId}`；Socket.io 的連線從租戶網域進來、屬於那個租戶，權限的 room 名稱是 `t:{tenantId}:perm:{key}`（租戶取自目前的脈絡）；使用者與 IdP session 的 room 用全域唯一的 id，不另外帶租戶 | 單一程序服務所有租戶時，記憶體裡的東西仍是共用的 |

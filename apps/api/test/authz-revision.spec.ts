@@ -32,7 +32,7 @@ let tenantId: string;
 let platform: postgres.Sql;
 const received: Array<{ tenant: string; revision: number }> = [];
 
-const SUPER_ADMIN = { email: 'root-rev@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'root-rev@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const READER = { email: 'reader-rev@example.com', password: 'ReaderPassword!2026' };
 
 async function revision(): Promise<number> {

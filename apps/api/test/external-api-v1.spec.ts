@@ -27,7 +27,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
 
-const ROOT = { email: 'v1-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'v1-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN = { email: 'v1-admin@example.com', password: 'AdminPassword!2026' };
 const ids: Record<string, string> = {};
 const tokens: Record<string, string> = {};

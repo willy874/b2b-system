@@ -243,6 +243,8 @@ if (!env.SUPER_ADMIN_PASSWORD) {
 | 密碼不得寫死在程式碼或 repo | `SUPER_ADMIN_PASSWORD` 來自環境變數，`.env.example` 中留空                       |
 | 隨機密碼只出現一次          | 只寫到啟動日誌，不入庫、不回傳                                                   |
 | production 強制變更         | `NODE_ENV=production` 且使用隨機密碼時，該帳號建立為 `pending`，必須走啟用信流程 |
+| 平台管理者同樣不落地密碼    | 第一位平台管理者（`PLATFORM_ADMIN_PASSWORD` 留空）在 production 建成 `pending`、**不印密碼**，改印一次性的設定連結（apps/platform 的 `/setup`，1 小時有效、用過即失效）；它還是唯一一位而且還沒設定密碼時，下一次 `db:seed`（重新部署）換發新的連結、舊的作廢 |
+| 提供的密碼要合格            | `SUPER_ADMIN_PASSWORD`、`PLATFORM_ADMIN_PASSWORD` 有值時套用與登入相同的密碼政策（≥ 12 字元、不是常見密碼、不含 email 的片段）；不合格就讓 seed 失敗，不靜默換成隨機密碼 |
 | 不可重複建立                | 已存在任何 super-admin 時整段略過                                                |
 | 留下痕跡                    | 寫入 `audit_logs`，`actor = system`                                              |
 

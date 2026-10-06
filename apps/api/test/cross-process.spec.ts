@@ -126,7 +126,7 @@ describe('兩個程序之間的一致性（docs/architecture/06-external-api.md 
   beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
-    process.env.SUPER_ADMIN_PASSWORD = 'CrossRootPassword!2026';
+    process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
 
     const created = createTestDatabase();
     db = created.db;

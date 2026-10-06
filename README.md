@@ -131,10 +131,14 @@ pnpm test:e2e    # Playwright：需要 api 已啟動，且 DB 有 E2E 帳號
 E2E 的完整前置（Playwright 會自己起 backstage、platform 與模擬 IdP，已在跑的會沿用）：
 
 ```bash
-pnpm db:reset && pnpm db:seed && pnpm db:seed:e2e
 pnpm dev:e2e         # 另一個終端機：api（放寬速率限制）
 pnpm test:e2e
 ```
+
+`pnpm test:e2e` 一開始會 `db:reset`，**清空** `PLATFORM_DATABASE_URL` 指向的資料庫與它登記的每個租戶 DB。
+沒有明確指定 E2E 用的 DB 時它會拒絕執行：對暫用 DB 跑時 `export PLATFORM_DATABASE_URL=…`
+（[`10-testing.md`](./docs/architecture/frontend/10-testing.md) §4.3）；確定要清空 `.env` 那一個時加上 `E2E_RESET_CONFIRM=<平台 database 名稱>`。
+`db:reset`、`db:seed:dev`、`db:seed:e2e` 本身也會拒絕標記為 production 的平台 DB，不在本機的 DB 要加 `--confirm <平台 database 名稱>`。
 
 ## 部署
 
@@ -145,10 +149,16 @@ backstage（nginx，:8080）─┬→ api（REST ＋ Socket.io ＋ OIDC）→ po
 platform（nginx，:8081）──────┘                          └→ file-storage（S3 相容）
 ```
 
-`migrate` 是一次性工作，migration 與冪等 seed 跑完才啟動 api。必填的環境變數（compose 會以 `:?required` 擋下）包含
-`JWT_SECRET`、`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、各組 `POSTGRES_*_PASSWORD`、
+`migrate` 是一次性工作，migration 與冪等 seed 跑完才啟動 api。只有平台 DB 失敗會擋住 api；單一租戶失敗只列在 `migrate` 的日誌，
+那個租戶回 503、其他租戶照常服務（[`05-tenancy.md`](./docs/architecture/05-tenancy.md) §10.2 D14）。
+必填的環境變數（compose 會以 `:?required` 擋下）包含
+`JWT_SECRET`、`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、各組 `POSTGRES_*_PASSWORD`、
 `FILE_STORAGE_ACCESS_KEY_ID` / `FILE_STORAGE_SECRET_ACCESS_KEY`、`MAIL_SMTP_URL`、`MAIL_FROM`、
-`SUPER_ADMIN_EMAIL`、`PLATFORM_ADMIN_EMAIL`。
+`SUPER_ADMIN_EMAIL`、`PLATFORM_ADMIN_EMAIL`。`api` 與 `external-api` 拿到的變數能不能通過 production 的檢查，
+由 `apps/api/src/core/config/__tests__/prod-compose-env.spec.ts` 守住。
+
+`PLATFORM_ADMIN_PASSWORD` 留空時，第一位平台管理者建成 `pending`，`migrate` 的日誌印出一次性的設定連結（1 小時有效，不印密碼）；
+過期時重新部署就會換發新的連結。有提供密碼時它必須符合密碼政策，否則 seed 失敗。
 
 ```bash
 docker compose -f docker-compose.prod.yml up --build

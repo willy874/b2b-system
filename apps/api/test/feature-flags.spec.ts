@@ -56,7 +56,7 @@ class TrialController {
 const AUTH_HOST = 'localhost:5175';
 const HOME_HOST = '127.0.0.1';
 const PASSWORD = 'PlatformPassword!2026';
-const ROOT = { email: 'ff-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'ff-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 
 let app: INestApplication;
 let http: App;

@@ -99,11 +99,12 @@ pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）
 pnpm --filter @b2b-system/<app 或 package> test   # 只跑一個（例：web-core、ui、backstage）
-pnpm test:e2e       # Playwright（需要 api 與 backstage 已啟動）
+pnpm test:e2e       # Playwright（需要 api 與 backstage 已啟動）；會先 db:reset：要帶暫用 DB 的 PLATFORM_DATABASE_URL，或 E2E_RESET_CONFIRM=<平台 database 名稱>
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # 平台 DB ＋ 每個租戶的 DB（docs/architecture/backend/02-database.md §6.1）；seed:dev/e2e 只跑 SEED_TENANT（預設 default）
+                    # reset／seed:dev／seed:e2e 拒絕標記為 production 的平台 DB，不在本機的 DB 要加 --confirm <平台 database 名稱>
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
-pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出
+pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出；db:migrate 登記的預設租戶另要 --database <名稱>
 pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json apps/api/openapi.external.json && pnpm sdk:generate
                     # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
 pnpm storybook      # packages/ui 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9

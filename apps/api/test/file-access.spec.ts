@@ -31,7 +31,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
 
-const SUPER_ADMIN = { email: 'access-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'access-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN = { email: 'access-admin@example.com', password: 'AdminPassword!2026' };
 /** member ＋ 美術組 */
 const ARTIST = { email: 'access-artist@example.com', password: 'ArtistPassword!2026' };

@@ -113,7 +113,7 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、do
   beforeAll(async () => {
     process.env.JWT_SECRET = JWT_SECRET;
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAIL;
-    process.env.SUPER_ADMIN_PASSWORD = 'EventsRoot!2026';
+    process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
 
     const created = createTestDatabase();
     db = created.db;

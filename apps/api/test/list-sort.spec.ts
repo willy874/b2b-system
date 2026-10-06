@@ -24,7 +24,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let token: string;
 
-const SUPER_ADMIN = { email: 'root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 
 async function listUsers(query: string): Promise<Array<{ email: string; displayName: string }>> {
   const response = await request(http)

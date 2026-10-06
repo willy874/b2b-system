@@ -2,8 +2,14 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { hashPassword } from '@/modules/credential/password';
 
+import { recordRoleBaseline } from '../bootstrap';
 import type { ScriptDatabase } from '../client';
-import { forEachScriptTenant, loadScriptEnv, seedTenantCode } from '../client';
+import {
+  assertDisposableScriptTargets,
+  forEachScriptTenant,
+  loadScriptEnv,
+  seedTenantCode,
+} from '../client';
 import {
   auditLogs,
   groupMemberTuple,
@@ -16,7 +22,6 @@ import {
   roles,
   users,
 } from '../schema';
-import { recordRoleBaseline } from './role-revisions';
 
 /** 固定亂數種子，確保 E2E fixture 可重現。 */
 function mulberry32(seed: number): () => number {
@@ -286,7 +291,9 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
 
 async function main(): Promise<void> {
   loadScriptEnv();
-  await forEachScriptTenant((db) => seedDevData(db), { code: seedTenantCode() });
+  const code = seedTenantCode();
+  await assertDisposableScriptTargets('db:seed:dev', { code });
+  await forEachScriptTenant((db) => seedDevData(db), { code });
 }
 
 if (require.main === module) {

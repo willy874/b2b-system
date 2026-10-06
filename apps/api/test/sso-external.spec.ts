@@ -34,7 +34,7 @@ let http: App;
 let db: TestDatabase;
 let closeDb: () => Promise<void>;
 
-const SUPER_ADMIN = { email: 'ext-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'ext-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const MEMBER = { email: 'ext-member@example.com', password: 'MemberPassword!2026' };
 const ALICE = 'alice@acme.test';
 const BACKSTAGE = { clientId: 'backstage', redirectUri: 'http://localhost:5173/auth/callback' };

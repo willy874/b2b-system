@@ -31,7 +31,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
 
-const SUPER_ADMIN = { email: 'file-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'file-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN = { email: 'file-admin@example.com', password: 'AdminPassword!2026' };
 const AUDITOR = { email: 'file-auditor@example.com', password: 'AuditorPassword!2026' };
 const MEMBER = { email: 'file-member@example.com', password: 'MemberPassword!2026' };

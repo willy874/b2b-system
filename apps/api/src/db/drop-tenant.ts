@@ -12,6 +12,7 @@ import { tenantAccountPrefix } from '@/modules/oidc-provider/oidc-account';
 
 import { createPlatformScriptClient, loadScriptEnv, tenantSecretBox } from './client';
 import { oidcPayloads, platformAuditLogs, tenants } from './platform/schema';
+import { databaseNameOf } from './script-guard';
 
 /**
  * 清除 **已刪除** 的租戶（docs/architecture/05-tenancy.md §10.2 D13）：`DROP DATABASE`、`DROP ROLE`、
@@ -20,15 +21,27 @@ import { oidcPayloads, platformAuditLogs, tenants } from './platform/schema';
  *   pnpm db:drop-tenant <租戶代碼或 id>            # 只列出會清除什麼
  *   pnpm db:drop-tenant <租戶代碼或 id> --confirm  # 真的清除
  *
- * 只處理 apps/platform 刪除過的租戶；database 名稱不是佈建產生的（`tenant_` 開頭，例如 `db:migrate` 登記的預設租戶）時拒絕。
+ * 只處理 apps/platform 刪除過的租戶。database 不是佈建產生的（不是 `tenant_` 開頭，例如 `db:migrate` 登記的預設租戶）時，
+ * 要另外加 `--database <database 名稱>` 確認；這種租戶的 DB 角色可能與其他 database 共用，所以只 DROP DATABASE、不 DROP ROLE，
+ * 平台 DB 本身一律拒絕（docs/architecture/05-tenancy.md §8）。
  */
 const PROVISIONED_NAME = /^tenant_[a-z0-9_]+$/;
 
+function argumentOf(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index >= 0 ? argv[index + 1] : undefined;
+}
+
 async function main(): Promise<void> {
   loadScriptEnv();
-  const [target, flag] = process.argv.slice(2);
-  if (!target) throw new Error('用法：pnpm db:drop-tenant <租戶代碼或 id> [--confirm]');
-  const confirmed = flag === '--confirm';
+  const argv = process.argv.slice(2);
+  const [target] = argv;
+  if (!target) {
+    throw new Error(
+      '用法：pnpm db:drop-tenant <租戶代碼或 id> [--confirm] [--database <database 名稱>]',
+    );
+  }
+  const confirmed = argv.includes('--confirm');
 
   const platform = createPlatformScriptClient();
   try {
@@ -50,12 +63,23 @@ async function main(): Promise<void> {
     const url = new URL(tenantSecretBox().decrypt(tenant.databaseUrlEncrypted));
     const database = decodeURIComponent(url.pathname.slice(1));
     const role = decodeURIComponent(url.username);
-    if (!PROVISIONED_NAME.test(database) || !PROVISIONED_NAME.test(role)) {
-      throw new Error(`租戶 ${tenant.code} 的 database（${database}）不是佈建產生的，拒絕清除`);
+    const provisioned = PROVISIONED_NAME.test(database) && PROVISIONED_NAME.test(role);
+    if (!provisioned) {
+      // createPlatformScriptClient 已確認 PLATFORM_DATABASE_URL 有值
+      if (database === databaseNameOf(process.env.PLATFORM_DATABASE_URL ?? '')) {
+        throw new Error(`租戶 ${tenant.code} 的 database（${database}）就是平台 DB，拒絕清除`);
+      }
+      if (argumentOf(argv, '--database') !== database) {
+        throw new Error(
+          `租戶 ${tenant.code} 的 database（${database}）不是佈建產生的（例：db:migrate 登記的預設租戶）。` +
+            `確定要清除時加上 --database ${database}；DB 角色 ${role} 可能與其他 database 共用，不會刪除`,
+        );
+      }
     }
 
     console.info(
-      `租戶 ${tenant.code}（${tenant.id}）\n  database：${database}\n  DB 角色：${role}\n  bucket：${tenant.storageBucket}`,
+      `租戶 ${tenant.code}（${tenant.id}）\n  database：${database}\n` +
+        `  DB 角色：${role}${provisioned ? '' : '（不刪除）'}\n  bucket：${tenant.storageBucket}`,
     );
     if (!confirmed) {
       console.info('\n沒有加 --confirm：什麼都沒做。確認無誤後再加上 --confirm 執行。');
@@ -68,8 +92,10 @@ async function main(): Promise<void> {
     const admin = postgres(adminUrl!, { max: 1, onnotice: () => {} });
     try {
       // WITH (FORCE)：還有閒置的連線（api 的連線池）也一併中斷
-      await admin.unsafe(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);
-      await admin.unsafe(`DROP ROLE IF EXISTS "${role}"`);
+      await admin.unsafe(
+        `DROP DATABASE IF EXISTS "${database.replaceAll('"', '""')}" WITH (FORCE)`,
+      );
+      if (provisioned) await admin.unsafe(`DROP ROLE IF EXISTS "${role}"`);
     } finally {
       await admin.end();
     }

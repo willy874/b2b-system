@@ -1,33 +1,95 @@
-import { isNull, sql } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
+
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { generateStrongPassword, hashPassword } from '@/modules/credential/password';
+import { sha256 } from '@/modules/credential/token-hash';
 
-import type { PlatformScriptDatabase } from '../client';
-import { platformAdmins, platformAuditLogs } from '../platform/schema';
+import type { PlatformScriptDatabase } from '../connect';
+import { platformAdmins, platformAuditLogs, platformAuthTokens } from '../platform/schema';
 import type { PlatformAdminRole } from '../platform/schema';
+import { assertSeedPassword } from './seed-password';
+
+/**
+ * production 印出的設定連結的有效時間。連結出現在部署日誌裡，所以比啟用信（24 小時）短；
+ * 過期或遺失時重新執行 `db:seed`（重新部署）會換發新的連結。
+ */
+const BOOTSTRAP_SETUP_TTL_SECONDS = 60 * 60;
+
+type PlatformScriptDbOrTx =
+  | PlatformScriptDatabase
+  | Parameters<Parameters<PlatformScriptDatabase['transaction']>[0]>[0];
+
+export interface PlatformAdminSeedResult {
+  /** production 的第一位管理者（`pending`）設定密碼用的一次性連結。 */
+  setupLink?: string;
+}
 
 /**
  * 第一位平台管理者（docs/architecture/05-tenancy.md §10.2 D5）：平台 DB 還沒有任何管理者時，
  * 依 `PLATFORM_ADMIN_EMAIL` 建立。沒設定就略過（這時沒有人能登入 apps/platform 的租戶管理）。
- * 密碼留空時隨機產生並只印這一次。
+ *
+ * - 提供的 `PLATFORM_ADMIN_PASSWORD` 不符合密碼政策時失敗，不靜默換成隨機密碼。
+ * - production 沒有提供密碼：建成 `pending`，**不印密碼**，改印一次性、短效的設定連結（apps/platform 的 `/setup`）；
+ *   之後的部署只要這位管理者還是唯一一位、而且還沒設定密碼，就換發新的連結（docs/rbac/05-seed-and-bootstrap.md §5.1）。
+ * - 開發環境沒有提供密碼：隨機產生、直接啟用，只印這一次。
  */
-export async function seedPlatformAdmin(db: PlatformScriptDatabase): Promise<void> {
-  const [{ total } = { total: 0 }] = await db
-    .select({ total: sql<number>`count(*)::int` })
+export async function seedPlatformAdmin(
+  db: PlatformScriptDatabase,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<PlatformAdminSeedResult> {
+  const email = env.PLATFORM_ADMIN_EMAIL;
+  const production = env.NODE_ENV === 'production';
+  const admins = await db
+    .select({ id: platformAdmins.id, email: platformAdmins.email, status: platformAdmins.status })
     .from(platformAdmins)
     .where(isNull(platformAdmins.deletedAt));
-  if (total > 0) {
-    console.info('平台管理者已存在，略過建立');
-    return;
+  if (admins.length > 0) {
+    const [only] = admins;
+    const awaitingSetup =
+      production &&
+      admins.length === 1 &&
+      only?.status === 'pending' &&
+      only.email.toLowerCase() === email?.toLowerCase();
+    if (!only || !awaitingSetup) {
+      console.info('平台管理者已存在，略過建立');
+      return {};
+    }
+    const setupLink = await db.transaction((tx) => issueSetupLink(tx, only.id, env));
+    printSetupLink(only.email, setupLink);
+    return { setupLink };
   }
-  const email = process.env.PLATFORM_ADMIN_EMAIL;
+
   if (!email) {
     console.warn('PLATFORM_ADMIN_EMAIL 未設定：沒有建立平台管理者');
-    return;
+    return {};
   }
-  const provided = process.env.PLATFORM_ADMIN_PASSWORD;
-  const password = provided && provided.length >= 12 ? provided : generateStrongPassword(24);
+  const provided = env.PLATFORM_ADMIN_PASSWORD || undefined;
+  if (provided) assertSeedPassword(provided, email, 'PLATFORM_ADMIN_PASSWORD');
+
+  if (production && !provided) {
+    const setupLink = await db.transaction(async (tx) => {
+      const [admin] = await tx
+        .insert(platformAdmins)
+        .values({ email, displayName: 'Platform Admin', role: 'super-admin', status: 'pending' })
+        .returning({ id: platformAdmins.id });
+      if (!admin) throw new Error('建立平台管理者失敗');
+      await recordBootstrap(tx, email);
+      return issueSetupLink(tx, admin.id, env);
+    });
+    printSetupLink(email, setupLink);
+    return { setupLink };
+  }
+
+  const password = provided ?? generateStrongPassword(24);
   await upsertPlatformAdmin(db, { email, displayName: 'Platform Admin', password });
+  await recordBootstrap(db, email);
+  if (provided) console.info(`平台管理者已建立：${email}`);
+  else console.warn(`\n=== 初始平台管理者 ===\n  帳號：${email}\n  密碼：${password}\n`);
+  return {};
+}
+
+async function recordBootstrap(db: PlatformScriptDbOrTx, email: string): Promise<void> {
   await db.insert(platformAuditLogs).values({
     action: 'system.bootstrap',
     actorEmail: 'system',
@@ -36,8 +98,47 @@ export async function seedPlatformAdmin(db: PlatformScriptDatabase): Promise<voi
     result: 'success',
     metadata: { reason: 'initial platform admin created' },
   });
-  if (provided) console.info(`平台管理者已建立：${email}`);
-  else console.warn(`\n=== 初始平台管理者 ===\n  帳號：${email}\n  密碼：${password}\n`);
+}
+
+/** 簽發啟用用的 token（先作廢同一位管理者還沒用掉的），回傳 apps/platform 的設定連結。 */
+async function issueSetupLink(
+  db: PlatformScriptDbOrTx,
+  adminId: string,
+  env: NodeJS.ProcessEnv,
+): Promise<string> {
+  const base = env.PLATFORM_APP_URL;
+  if (!base) {
+    throw new Error('PLATFORM_APP_URL 未設定：production 的第一位平台管理者要以設定連結啟用');
+  }
+  await db
+    .update(platformAuthTokens)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(platformAuthTokens.adminId, adminId),
+        eq(platformAuthTokens.purpose, 'activation'),
+        isNull(platformAuthTokens.usedAt),
+      ),
+    );
+  const raw = randomBytes(32).toString('base64url');
+  await db.insert(platformAuthTokens).values({
+    adminId,
+    purpose: 'activation',
+    tokenHash: sha256(raw),
+    expiresAt: new Date(Date.now() + BOOTSTRAP_SETUP_TTL_SECONDS * 1000),
+  });
+  // 與 MailService.accountLink 相同的組法；平台管理者的連結不帶 ?tenant=
+  const link = new URL(`${base}/setup`);
+  link.searchParams.set('token', raw);
+  return link.toString();
+}
+
+function printSetupLink(email: string, link: string): void {
+  console.warn(
+    `\n=== 初始平台管理者 ===\n  帳號：${email}（pending）\n` +
+      `  以下連結設定密碼，${BOOTSTRAP_SETUP_TTL_SECONDS / 60} 分鐘內有效、只能用一次：\n  ${link}\n` +
+      '  過期時重新執行 db:seed（重新部署）會換發新的連結。\n',
+  );
 }
 
 /** 建立或重設（密碼、狀態）一位平台管理者；E2E 的固定帳號也用它。 */

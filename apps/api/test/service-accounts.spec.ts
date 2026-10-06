@@ -33,7 +33,7 @@ interface Credentials {
   password: string;
 }
 
-const ROOT: Credentials = { email: 'sa-root@example.com', password: 'RootPassword!2026' };
+const ROOT: Credentials = { email: 'sa-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN: Credentials = { email: 'sa-admin@example.com', password: 'AdminPassword!2026' };
 /** 只能管理服務帳號（含它的 token），本身沒有 `user:read`。 */
 const MANAGER: Credentials = { email: 'sa-manager@example.com', password: 'ManagerPassword!2026' };

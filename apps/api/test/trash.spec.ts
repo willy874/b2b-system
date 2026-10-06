@@ -31,7 +31,7 @@ let closeDb: () => Promise<void>;
 let rootToken: string;
 let rootId: string;
 
-const ROOT = { email: 'trash-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'trash-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const PASSWORD = 'TrashPassword!2026';
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -26,7 +26,7 @@ let http: App;
 let db: TestDatabase;
 let closeDb: () => Promise<void>;
 
-const SUPER_ADMIN = { email: 'approval-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'approval-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const ADMIN = { email: 'approval-admin@example.com', password: 'AdminPassword!2026' };
 const AUDITOR = { email: 'approval-auditor@example.com', password: 'AuditorPassword!2026' };
 const MEMBER = { email: 'approval-member@example.com', password: 'MemberPassword!2026' };

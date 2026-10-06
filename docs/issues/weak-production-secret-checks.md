@@ -19,7 +19,7 @@
 | `POSTGRES_*_PASSWORD` | 只靠 compose 的 `:?required` | 任何非空字串 |
 
 - `.env.example` 的範例值在 production 都會被拒絕（`JWT_SECRET`、`FILE_STORAGE_*`），金鑰類則本來就留空。問題出在手動填入的短值或測試值。
-- 初始管理者的密碼另見 [`platform-admin-bootstrap-password-logged.md`](./platform-admin-bootstrap-password-logged.md)。
+- 初始管理者的密碼：2026-10-06 起 seed 會拒絕不符合密碼政策的 `SUPER_ADMIN_PASSWORD`、`PLATFORM_ADMIN_PASSWORD`（[`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md) §5.1）。
 
 ## 影響
 

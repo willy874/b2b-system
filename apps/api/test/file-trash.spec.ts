@@ -35,7 +35,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const storage = new InMemoryObjectStorage();
 
-const ROOT = { email: 'file-trash-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'file-trash-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const PASSWORD = 'FileTrashPassword!2026';
 const DAY_MS = 24 * 60 * 60 * 1000;
 

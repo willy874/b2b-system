@@ -35,7 +35,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let tenantCode: string;
 
-const ROOT = { email: 'wh-root@example.com', password: 'RootPassword!2026' };
+const ROOT = { email: 'wh-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const AUDITOR = { email: 'wh-auditor@example.com', password: 'AuditorPassword!2026' };
 
 interface Received {

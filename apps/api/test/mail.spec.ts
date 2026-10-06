@@ -33,7 +33,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 const mailbox = new RecordingMailTransport();
 
-const SUPER_ADMIN = { email: 'mail-root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'mail-root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const NEW_PASSWORD = 'MailFlow!Pass2026';
 
 function login(email: string, password: string) {

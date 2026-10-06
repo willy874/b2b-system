@@ -18,7 +18,7 @@ let db: TestDatabase;
 let closeDb: () => Promise<void>;
 let token: string;
 
-const SUPER_ADMIN = { email: 'root@example.com', password: 'RootPassword!2026' };
+const SUPER_ADMIN = { email: 'root@example.com', password: 'Quiet-Harbor-Lantern-26' };
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY);
 
