@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 中 | 恢復資料夾繼承沒有反提權，可流入高於自己能授予的等級 | [`folder-inheritance-restore-escalation.md`](./folder-inheritance-restore-escalation.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 請求日誌的 query 仍記下 code／state／ticket 原文 | [`request-log-query-not-redacted.md`](./request-log-query-not-redacted.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | DB 錯誤把查詢參數寫進日誌與背景工作 output | [`db-error-log-leaks-params.md`](./db-error-log-leaks-params.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | SSRF 封鎖清單漏了內嵌 IPv4 的 IPv6 前綴 | [`ssrf-blocklist-misses-ipv6-embedded-ipv4.md`](./ssrf-blocklist-misses-ipv6-embedded-ipv4.md) | 2026-10-06（全面檢測：程式資安） |

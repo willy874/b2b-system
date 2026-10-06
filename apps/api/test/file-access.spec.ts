@@ -534,6 +534,56 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     expect(await readableNames(artist)).toContain('私人');
   });
 
+  it('恢復繼承受反提權限制：上層有 contributor 以上時只授予得起 viewer 的人 → 403，上層只有 viewer 時放行（§3.3、§6.1）', async () => {
+    const admin = await login(ADMIN);
+    const sharer = await login(SHARER);
+    const team = await createFolder(admin, '共用（恢復繼承）');
+    await api(admin)
+      .put(`/file-folders/${team.id}/grants`, {
+        subjectType: 'role',
+        subjectId: artTeam,
+        level: 'editor',
+      })
+      .expect(200);
+    const locked = await createFolder(admin, '私人（恢復繼承）', team.id);
+    await api(admin)
+      .patch(`/file-folders/${locked.id}/access`, { inheritGrants: false })
+      .expect(200);
+    await api(admin).delete(`/file-folders/${locked.id}/grants/role/${artTeam}`).expect(204);
+
+    // 直接授予 editor 不行（只授予得起 viewer），恢復繼承也不行
+    await api(sharer)
+      .put(`/file-folders/${locked.id}/grants`, {
+        subjectType: 'role',
+        subjectId: artTeam,
+        level: 'editor',
+      })
+      .expect(403);
+    const denied = await api(sharer)
+      .patch(`/file-folders/${locked.id}/access`, { inheritGrants: true })
+      .expect(403);
+    expect(denied.body).toMatchObject({
+      error: {
+        code: 'AUTHZ_ESCALATION',
+        details: { missing: ['file:create', 'file:update', 'file:delete'] },
+      },
+    });
+    const [row] = await db.select().from(fileFolders).where(eq(fileFolders.id, locked.id));
+    expect(row?.inheritGrants).toBe(false);
+
+    // 上層降成 viewer：恢復之後流進來的不高於他授予得起的
+    await api(admin)
+      .put(`/file-folders/${team.id}/grants`, {
+        subjectType: 'role',
+        subjectId: artTeam,
+        level: 'viewer',
+      })
+      .expect(200);
+    await api(sharer)
+      .patch(`/file-folders/${locked.id}/access`, { inheritGrants: true })
+      .expect(200);
+  });
+
   describe('申請存取（docs/rbac/07-resource-grants.md §6.5）', () => {
     async function pendingRequests(token: string, folderId: string) {
       const response = await api(token)
