@@ -217,7 +217,13 @@
     "created": {
       "title": "API token created",
       "warning": "Copy and store it now. This token is shown only once.",
-      "done": "I've saved it"
+      "done": "I've saved it",
+      "unsaved": {
+        "title": "Have you saved the token?",
+        "description": "The token is shown only this once. After you leave you can't see it again; if you didn't save it you'll have to revoke it and create another.",
+        "leave": "Leave anyway",
+        "stay": "Stay here"
+      }
     }
   },
   "tag": {

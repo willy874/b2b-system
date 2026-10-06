@@ -1,8 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
+import {
+  createMemoryHistory,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import type { AnyRoute, AnyRouter } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
+import type { ReactElement } from 'react';
 
 import type { PermissionKey } from '../permission';
 import { parseSearch, RootRoute, stringifySearch } from '../router';
@@ -37,4 +43,17 @@ export function renderRoute(
     </AllProviders>,
   );
   return { ...result, router, queryClient };
+}
+
+/**
+ * 把單一元件放進只有 `/` 的記憶體路由渲染：元件用到需要 router 的 hook
+ * （`useUnsavedChangesGuard`、`useDialogUnsavedGuard`、`useNavigate`）時用它。
+ * 路由載入是非同步的，第一個斷言用 `findBy*`。
+ */
+export function renderInRouter(
+  ui: ReactElement,
+  permissions: PermissionKey[] | 'unhydrated' = [],
+): RenderResult & { router: AnyRouter; queryClient: QueryClient } {
+  const route = createRoute({ getParentRoute: () => RootRoute, path: '/', component: () => ui });
+  return renderRoute([route], '/', permissions);
 }

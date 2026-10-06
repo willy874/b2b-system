@@ -5,6 +5,7 @@ import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { isVersionConflict, useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useId, useState } from 'react';
 
 import { TagChips, VersionConflictAlert } from '@/core/components';
@@ -79,17 +80,24 @@ export function TagFormDialog({ open, onOpenChange, tag, onSubmit, onReload }: T
     }
   };
   const conflict = isVersionConflict(error);
+  // 有改動時 Esc、點遮罩、取消與換頁都先確認；儲存成功直接關閉
+  const guard = useDialogUnsavedGuard(
+    open && (name !== (tag?.name ?? '') || color !== (tag?.color ?? 'neutral')),
+    () => onOpenChange(false),
+  );
 
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={guard.onOpenChange}
       title={tag ? t('tagAdmin.edit.title') : t('tagAdmin.create.title')}
       size="sm"
       data-testid="tag-form-dialog"
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="tag-form-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             type="submit"

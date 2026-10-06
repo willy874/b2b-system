@@ -5,6 +5,7 @@ import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useState } from 'react';
 
 import type { PlatformAdmin, UpdatePlatformAdminRequest } from '@/shared/api-sdk';
@@ -53,6 +54,13 @@ export function EditPlatformAdminDialog({ admin, isSelf, onClose }: EditPlatform
   const canEditRole = !isSelf;
   const canEditStatus = !isSelf && admin.status !== 'pending';
   const nameInvalid = !displayName.trim();
+  // 掛上時就是開著的：有改動時 Esc、點遮罩、取消與換頁都先確認；儲存成功直接關閉
+  const guard = useDialogUnsavedGuard(
+    displayName !== admin.displayName ||
+      role !== admin.role ||
+      status !== initialStatus(admin.status),
+    onClose,
+  );
 
   const submit = async () => {
     setSubmitted(true);
@@ -77,13 +85,15 @@ export function EditPlatformAdminDialog({ admin, isSelf, onClose }: EditPlatform
   return (
     <Dialog
       open
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={guard.onOpenChange}
       title={t('platformAdmin.edit.title')}
       description={admin.email}
       data-testid="platform-admin-edit-dialog"
       footer={
         <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="platform-admin-edit-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             loading={update.isPending}

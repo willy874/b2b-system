@@ -2,7 +2,7 @@ import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/ro
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -93,5 +93,50 @@ describe('外部 IdP 連線管理頁（docs/architecture/04-sso.md §12.2 D8–D
     renderPage('unhydrated');
     expect(await screen.findByTestId('identity-provider-page')).toBeInTheDocument();
     expect(screen.queryByTestId('identity-provider-create-button')).toBeNull();
+  });
+
+  describe('表單對話框的未儲存提醒', () => {
+    const MANAGER = [
+      'identityProvider:read',
+      'identityProvider:create',
+      'identityProvider:update',
+    ] as PermissionKey[];
+
+    it('新增時輸入名稱後按 Esc：先確認；選「繼續編輯」後輸入還在', async () => {
+      renderPage(MANAGER);
+      fireEvent.click(await screen.findByTestId('identity-provider-create-button'));
+      const input = await screen.findByTestId('identity-provider-name-input');
+      fireEvent.change(input, { target: { value: 'Okta' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(screen.getByTestId('identity-provider-form-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('identity-provider-name-input')).toHaveValue('Okta');
+    });
+
+    it('新增時輸入名稱後按取消：選「放棄變更」才關閉', async () => {
+      renderPage(MANAGER);
+      fireEvent.click(await screen.findByTestId('identity-provider-create-button'));
+      fireEvent.change(await screen.findByTestId('identity-provider-name-input'), {
+        target: { value: 'Okta' },
+      });
+      fireEvent.click(screen.getByTestId('identity-provider-form-cancel'));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(screen.queryByTestId('identity-provider-form-dialog')).toBeNull());
+    });
+
+    it('編輯時沒有改動按取消：直接關閉', async () => {
+      renderPage(MANAGER);
+      fireEvent.click(await screen.findByTestId('identity-provider-edit'));
+      await screen.findByTestId('identity-provider-name-input');
+      fireEvent.click(screen.getByTestId('identity-provider-form-cancel'));
+
+      await waitFor(() => expect(screen.queryByTestId('identity-provider-form-dialog')).toBeNull());
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
   });
 });

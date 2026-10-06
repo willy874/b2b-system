@@ -134,4 +134,45 @@ describe('TagListPage（docs/architecture/backend/18-tag.md §7.2 D5）', () => 
     });
     await waitFor(() => expect(screen.queryByTestId('tag-form-dialog')).toBeNull());
   });
+
+  describe('表單對話框的未儲存提醒', () => {
+    it('改了名稱後按 Esc：先確認；選「繼續編輯」後輸入還在', async () => {
+      renderRoute(routes, '/tag', ADMIN);
+      await screen.findByText('合約', undefined, { timeout: 5000 });
+      fireEvent.click(screen.getByTestId('tag-edit-button'));
+      const dialog = await screen.findByTestId('tag-form-dialog');
+      const input = within(dialog).getByTestId('tag-name-input');
+      fireEvent.change(input, { target: { value: '合約書' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(within(dialog).getByTestId('tag-name-input')).toHaveValue('合約書');
+    });
+
+    it('建立時輸入名稱後按取消：選「放棄變更」才關閉', async () => {
+      renderRoute(routes, '/tag', ADMIN);
+      await screen.findByText('合約', undefined, { timeout: 5000 });
+      fireEvent.click(screen.getByTestId('tag-create-button'));
+      const dialog = await screen.findByTestId('tag-form-dialog');
+      fireEvent.change(within(dialog).getByTestId('tag-name-input'), { target: { value: '急件' } });
+      fireEvent.click(within(dialog).getByTestId('tag-form-cancel'));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(screen.queryByTestId('tag-form-dialog')).toBeNull());
+    });
+
+    it('沒有改動時按 Esc：直接關閉', async () => {
+      renderRoute(routes, '/tag', ADMIN);
+      await screen.findByText('合約', undefined, { timeout: 5000 });
+      fireEvent.click(screen.getByTestId('tag-edit-button'));
+      const dialog = await screen.findByTestId('tag-form-dialog');
+      fireEvent.keyDown(within(dialog).getByTestId('tag-name-input'), { key: 'Escape' });
+
+      await waitFor(() => expect(screen.queryByTestId('tag-form-dialog')).toBeNull());
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+  });
 });

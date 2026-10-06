@@ -5,6 +5,7 @@ import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useState } from 'react';
 
 import type { PlatformAdmin } from '@/shared/api-sdk';
@@ -49,6 +50,11 @@ export function CreatePlatformAdminDialog({ open, onClose }: CreatePlatformAdmin
     email: !EMAIL_PATTERN.test(email.trim()),
     displayName: !displayName.trim(),
   };
+  // 有輸入時 Esc、點遮罩、取消與換頁都先確認；建立成功直接關閉
+  const guard = useDialogUnsavedGuard(
+    open && (email !== '' || displayName !== '' || role !== DEFAULT_ROLE),
+    onClose,
+  );
 
   const submit = async () => {
     setSubmitted(true);
@@ -71,12 +77,14 @@ export function CreatePlatformAdminDialog({ open, onClose }: CreatePlatformAdmin
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={guard.onOpenChange}
       title={t('platformAdmin.create.title')}
       data-testid="platform-admin-create-dialog"
       footer={
         <>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="platform-admin-create-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             loading={create.isPending}

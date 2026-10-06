@@ -39,11 +39,12 @@ export default function TenantListPage() {
   );
   const rows = useMemo(() => (data?.items ?? []).map(toTenantRowVM), [data]);
 
-  const openDetail = (id: string) =>
+  const openDetail = (id: string, options?: { ignoreBlocker?: boolean }) =>
     void navigate({
       to: TenantDetailRoute.to,
       params: { id },
       search: DEFAULT_TENANT_DETAIL_SEARCH,
+      ...options,
     });
 
   return (
@@ -92,7 +93,8 @@ export default function TenantListPage() {
         onClose={() => setCreating(false)}
         onCreated={(id) => {
           setCreating(false);
-          openDetail(id);
+          // 建立成功：對話框的未儲存提醒還來不及隨 `creating` 解除，導覽要略過它
+          openDetail(id, { ignoreBlocker: true });
         }}
       />
     </div>

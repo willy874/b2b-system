@@ -62,7 +62,6 @@
 | 中 | Service 層的四處權限拒絕不寫 authz.denied 稽核 | [`service-authz-denied-not-audited.md`](./service-authz-denied-not-audited.md) | 2026-10-06（全面檢測：架構） |
 | 中 | @Audit() 沒有對應的 interceptor，標上去不會寫稽核 | [`audit-decorator-without-interceptor.md`](./audit-decorator-without-interceptor.md) | 2026-10-06（全面檢測：架構） |
 | 中 | 查詢失敗時多個頁面顯示成「沒有資料」、空白或一直轉圈 | [`query-errors-shown-as-empty.md`](./query-errors-shown-as-empty.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 非路由的表單對話框與頁內草稿沒有未儲存提醒 | [`stateful-dialogs-no-unsaved-guard.md`](./stateful-dialogs-no-unsaved-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 放在 Field 裡的 Select 沒有連上欄位標籤與錯誤訊息 | [`select-not-linked-to-field-label.md`](./select-not-linked-to-field-label.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 登入頁等表單的送出錯誤沒有 role="alert"，報讀器不會念出 | [`form-errors-missing-alert-role.md`](./form-errors-missing-alert-role.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 帳號存的語系與時區沒被套用，偏好頁時區只有 4 個 | [`account-preferences-not-applied.md`](./account-preferences-not-applied.md) | 2026-10-06（全面檢測：使用者體驗） |

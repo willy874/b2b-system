@@ -79,11 +79,12 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
     parseSearch,
     stringifySearch,
   });
-  return render(
+  const result = render(
     <AllProviders>
       <RouterProvider router={router} />
     </AllProviders>,
   );
+  return { ...result, router };
 }
 
 function rowOf(type: string): HTMLElement {
@@ -185,5 +186,32 @@ describe('事件管理頁（docs/architecture/frontend/15-notification.md §9）
     expect(await screen.findByTestId('notification-event-page')).toBeInTheDocument();
     expect(screen.queryByTestId('notification-event-reset')).toBeNull();
     expect(screen.queryByTestId('notification-event-save')).toBeNull();
+  });
+
+  describe('未儲存提醒', () => {
+    it('切換開關還沒儲存就換頁：先確認；選「繼續編輯」後留在原處', async () => {
+      const { router } = renderPage(['system:read', 'system:update'] as PermissionKey[]);
+      await screen.findAllByTestId('notification-event-row');
+      fireEvent.click(
+        within(channelOf('approval.result', 'inApp')).getByTestId('notification-event-switch'),
+      );
+      await screen.findByTestId('notification-event-save');
+      router.history.push('/user');
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(router.state.location.pathname).toBe('/notification/events');
+      expect(screen.getByTestId('notification-event-save')).toBeInTheDocument();
+    });
+
+    it('沒有改動時換頁：不確認', async () => {
+      const { router } = renderPage(['system:read', 'system:update'] as PermissionKey[]);
+      await screen.findAllByTestId('notification-event-row');
+      router.history.push('/user');
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/user'));
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
   });
 });

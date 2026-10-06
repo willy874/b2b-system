@@ -4,6 +4,7 @@ import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
 import { useState } from 'react';
 
 import type { PlatformTenant, TenantFeatureParam } from '@/shared/api-sdk';
@@ -43,6 +44,11 @@ export function TenantFeatureParamDialog({
     setDraft(param ? String(param.value) : '');
     setError(undefined);
   }
+  // 改了值時 Esc、點遮罩、取消與換頁都先確認；儲存、恢復預設成功直接關閉
+  const guard = useDialogUnsavedGuard(
+    param !== undefined && draft !== String(param.value),
+    onClose,
+  );
   if (!param) return null;
 
   const isInteger = param.type === 'integer';
@@ -78,7 +84,7 @@ export function TenantFeatureParamDialog({
   return (
     <Dialog
       open
-      onOpenChange={(next) => !next && onClose()}
+      onOpenChange={guard.onOpenChange}
       title={t('tenant.param.editTitle', { name: label })}
       description={t(TENANT_FEATURE_PARAM_DESCRIPTION_KEY[param.key])}
       data-testid="tenant-param-dialog"
@@ -94,7 +100,9 @@ export function TenantFeatureParamDialog({
               {t('tenant.param.reset')}
             </Button>
           )}
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={guard.requestClose} data-testid="tenant-param-cancel">
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="primary"
             loading={update.isPending && !resetting}

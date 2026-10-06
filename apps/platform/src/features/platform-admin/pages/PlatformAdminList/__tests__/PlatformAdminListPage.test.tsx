@@ -2,7 +2,7 @@ import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/ro
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -223,5 +223,43 @@ describe('平台管理者清單', () => {
     fireEvent.click(await screen.findByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(sendPasswordLink).toHaveBeenCalled());
     expect(sendPasswordLink.mock.calls[0]?.[0]).toEqual({ params: { id: OTHER.id } });
+  });
+
+  describe('對話框的未儲存提醒', () => {
+    it('新增時輸入 email 後按 Esc：先確認；選「繼續編輯」後輸入還在', async () => {
+      renderPage(ALL);
+      fireEvent.click(await screen.findByTestId('platform-admin-create-button'));
+      const input = screen.getByTestId('platform-admin-email-input');
+      fireEvent.change(input, { target: { value: 'new@platform.test' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(screen.getByTestId('platform-admin-email-input')).toHaveValue('new@platform.test');
+    });
+
+    it('新增時沒有輸入按取消：直接關閉', async () => {
+      renderPage(ALL);
+      fireEvent.click(await screen.findByTestId('platform-admin-create-button'));
+      fireEvent.click(screen.getByTestId('platform-admin-create-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('platform-admin-create-dialog')).toBeNull());
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+
+    it('編輯時改了名稱按取消：選「放棄變更」才關閉', async () => {
+      renderPage(ALL);
+      await screen.findByTestId('platform-admin-self');
+      fireEvent.click(byTestIdAndValue('platform-admin-edit', OTHER.email));
+      fireEvent.change(await screen.findByTestId('platform-admin-edit-display-name-input'), {
+        target: { value: '改過的名稱' },
+      });
+      fireEvent.click(screen.getByTestId('platform-admin-edit-cancel'));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(screen.queryByTestId('platform-admin-edit-dialog')).toBeNull());
+      expect(updateAdmin).not.toHaveBeenCalled();
+    });
   });
 });

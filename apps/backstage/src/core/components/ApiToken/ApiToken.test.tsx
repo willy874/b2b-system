@@ -1,5 +1,6 @@
-import { AllProviders } from '@b2b-system/web-core/testing';
+import { AllProviders, renderInRouter } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ApiToken } from '@/shared/api-sdk';
@@ -49,11 +50,25 @@ describe('ApiTokenTable（docs/architecture/06-external-api.md §9）', () => {
   });
 });
 
+/** 對話框用到未儲存提醒（需要 router）：放進記憶體路由渲染。 */
+async function renderDialog(props: Partial<ComponentProps<typeof ApiTokenCreateDialog>> = {}) {
+  const onOpenChange = vi.fn();
+  const result = renderInRouter(
+    <ApiTokenCreateDialog
+      open
+      onOpenChange={onOpenChange}
+      maxDays={90}
+      onCreate={vi.fn()}
+      {...props}
+    />,
+  );
+  const nameInput = await screen.findByTestId('api-token-name-input');
+  return { ...result, onOpenChange, nameInput };
+}
+
 describe('ApiTokenCreateDialog', () => {
-  it('有效天數的選項不超過上限（個人 token 90 天）', () => {
-    render(<ApiTokenCreateDialog open onOpenChange={vi.fn()} maxDays={90} onCreate={vi.fn()} />, {
-      wrapper: AllProviders,
-    });
+  it('有效天數的選項不超過上限（個人 token 90 天）', async () => {
+    await renderDialog();
     fireEvent.click(screen.getByTestId('api-token-lifetime-select'));
     const listbox = screen.getByRole('listbox');
     expect(
@@ -64,26 +79,20 @@ describe('ApiTokenCreateDialog', () => {
   });
 
   it('建立失敗：錯誤顯示在對話框裡，不切到顯示 token', async () => {
-    const onCreate = vi.fn().mockRejectedValue(new Error('boom'));
-    render(<ApiTokenCreateDialog open onOpenChange={vi.fn()} maxDays={90} onCreate={onCreate} />, {
-      wrapper: AllProviders,
+    const { nameInput } = await renderDialog({
+      onCreate: vi.fn().mockRejectedValue(new Error('boom')),
     });
-    fireEvent.change(screen.getByTestId('api-token-name-input'), { target: { value: 'x' } });
+    fireEvent.change(nameInput, { target: { value: 'x' } });
     fireEvent.click(screen.getByTestId('api-token-create-submit'));
     expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
     expect(screen.queryByTestId('api-token-value')).toBeNull();
   });
 
   it('建立成功後按 Esc：token 仍在畫面上；按「我已保存」才關閉（docs/architecture/06-external-api.md §9.2 D7）', async () => {
-    const onOpenChange = vi.fn();
-    const onCreate = vi
-      .fn()
-      .mockResolvedValue({ token: 'b2bt_secret', apiToken: token('a', 'active') });
-    render(
-      <ApiTokenCreateDialog open onOpenChange={onOpenChange} maxDays={90} onCreate={onCreate} />,
-      { wrapper: AllProviders },
-    );
-    fireEvent.change(screen.getByTestId('api-token-name-input'), { target: { value: '部署' } });
+    const { onOpenChange, nameInput } = await renderDialog({
+      onCreate: vi.fn().mockResolvedValue({ token: 'b2bt_secret', apiToken: token('a', 'active') }),
+    });
+    fireEvent.change(nameInput, { target: { value: '部署' } });
     fireEvent.click(screen.getByTestId('api-token-create-submit'));
     const value = await screen.findByTestId('api-token-value');
 
@@ -93,5 +102,37 @@ describe('ApiTokenCreateDialog', () => {
 
     fireEvent.click(screen.getByTestId('api-token-done'));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+  });
+
+  describe('未儲存提醒（表單階段）', () => {
+    it('輸入名稱後按 Esc：先確認；選「繼續編輯」後輸入還在', async () => {
+      const { onOpenChange, nameInput } = await renderDialog();
+      fireEvent.change(nameInput, { target: { value: '部署' } });
+      fireEvent.keyDown(nameInput, { key: 'Escape' });
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
+      expect(onOpenChange).not.toHaveBeenCalled();
+      expect(screen.getByTestId('api-token-name-input')).toHaveValue('部署');
+    });
+
+    it('輸入名稱後按取消：選「放棄變更」才關閉', async () => {
+      const { onOpenChange, nameInput } = await renderDialog();
+      fireEvent.change(nameInput, { target: { value: '部署' } });
+      fireEvent.click(screen.getByTestId('api-token-create-cancel'));
+
+      const confirm = await screen.findByTestId('unsaved-changes-confirm');
+      fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    });
+
+    it('沒有輸入時按取消：直接關閉', async () => {
+      const { onOpenChange } = await renderDialog();
+      fireEvent.click(screen.getByTestId('api-token-create-cancel'));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
   });
 });
