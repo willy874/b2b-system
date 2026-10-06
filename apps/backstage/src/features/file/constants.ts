@@ -101,6 +101,22 @@ export const FILE_GRANT_SUBJECT_TYPE_LABEL_KEY = {
   everyone: 'file.share.subjectType.everyone',
 } as const satisfies Record<FileGrantSubjectType, string>;
 
+/** 移除授權的確認說明：對象是角色、群組或所有人時，影響的是一群人。 */
+export const FILE_GRANT_REMOVE_CONFIRM_KEY = {
+  role: 'file.share.removeConfirm.role',
+  user: 'file.share.removeConfirm.user',
+  group: 'file.share.removeConfirm.group',
+  everyone: 'file.share.removeConfirm.everyone',
+} as const satisfies Record<FileGrantSubjectType, string>;
+
+/** 降低授權等級的確認說明（同上，依對象種類說明影響範圍）。 */
+export const FILE_GRANT_DOWNGRADE_CONFIRM_KEY = {
+  role: 'file.share.downgradeConfirm.role',
+  user: 'file.share.downgradeConfirm.user',
+  group: 'file.share.downgradeConfirm.group',
+  everyone: 'file.share.downgradeConfirm.everyone',
+} as const satisfies Record<FileGrantSubjectType, string>;
+
 /** 對象種類 → 搜尋框的文案（完整字面量，docs/conventions/06-literal-strings.md）。 */
 export const FILE_GRANT_SUBJECT_COPY_KEY = {
   role: {

@@ -206,6 +206,21 @@
       "add": "Add",
       "remove": "Remove",
       "removeLabel": "Remove access for “{{name}}”",
+      "removeTitle": "Remove access",
+      "removeConfirm": {
+        "role": "After removal, everyone with the \"{{name}}\" role loses the access this grant gives to this folder and its subfolders.",
+        "user": "After removal, \"{{name}}\" loses the access this grant gives to this folder and its subfolders.",
+        "group": "After removal, every member of the \"{{name}}\" group loses the access this grant gives to this folder and its subfolders.",
+        "everyone": "After removal, everyone loses the access this grant gives to this folder and its subfolders."
+      },
+      "downgradeTitle": "Lower access level",
+      "downgradeAction": "Lower level",
+      "downgradeConfirm": {
+        "role": "Everyone with the \"{{name}}\" role goes from \"{{from}}\" to \"{{to}}\" and loses what only the higher level allows.",
+        "user": "\"{{name}}\" goes from \"{{from}}\" to \"{{to}}\" and loses what only the higher level allows.",
+        "group": "Every member of the \"{{name}}\" group goes from \"{{from}}\" to \"{{to}}\" and loses what only the higher level allows.",
+        "everyone": "Everyone goes from \"{{from}}\" to \"{{to}}\" and loses what only the higher level allows."
+      },
       "inherited": "Inherited from “{{name}}”",
       "granted": "Access updated",
       "revoked": "Access removed",

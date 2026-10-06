@@ -43,6 +43,16 @@
       "title": "Edit platform administrator",
       "success": "Updated"
     },
+    "deactivate": {
+      "title": "Deactivate platform admin",
+      "confirm": "Deactivate \"{{name}}\"? They will be signed out immediately.",
+      "action": "Deactivate"
+    },
+    "downgrade": {
+      "title": "Lower role",
+      "confirm": "\"{{name}}\" goes from \"{{from}}\" to \"{{to}}\" and immediately loses what only the higher role allows.",
+      "action": "Lower role"
+    },
     "passwordLink": {
       "action": "Send password link",
       "title": "Send password link",

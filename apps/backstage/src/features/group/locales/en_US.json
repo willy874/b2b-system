@@ -58,7 +58,13 @@
       "noMatch": "No matches",
       "add": "Add",
       "remove": "Remove \"{{name}}\"",
-      "success": "Group members updated"
+      "removeTitle": "Remove member",
+      "removeAction": "Remove",
+      "success": "Group members updated",
+      "removeConfirm": {
+        "user": "After removal, \"{{name}}\" no longer gets this group's roles.",
+        "group": "After removal, \"{{name}}\" no longer gets this group's roles, and neither do its members."
+      }
     }
   }
 }

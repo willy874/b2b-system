@@ -200,7 +200,7 @@ describe('平台管理者清單', () => {
     expect(screen.getByTestId('platform-admin-edit-pending-hint')).toBeInTheDocument();
   });
 
-  it('編輯別人 → 只送出有改的欄位', async () => {
+  it('編輯別人 → 只送出有改的欄位；停用要先確認（對方會立即被登出）', async () => {
     updateAdmin.mockResolvedValue({ ...OTHER, status: 'inactive' });
     renderPage(ALL);
     await screen.findByTestId('platform-admin-self');
@@ -208,10 +208,64 @@ describe('平台管理者清單', () => {
     await screen.findByTestId('platform-admin-edit-status-select');
     await pickOption('platform-admin-edit-status-select', 'inactive');
     fireEvent.click(screen.getByTestId('platform-admin-edit-submit'));
+
+    const confirm = await screen.findByTestId('platform-admin-deactivate-confirm');
+    expect(updateAdmin).not.toHaveBeenCalled();
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(updateAdmin).toHaveBeenCalled());
     expect(updateAdmin.mock.calls[0]?.[0]).toEqual({
       params: { id: OTHER.id, body: { status: 'inactive' } },
     });
+  });
+
+  it('停用時在確認框按取消 → 不送出，編輯對話框留著', async () => {
+    renderPage(ALL);
+    await screen.findByTestId('platform-admin-self');
+    fireEvent.click(byTestIdAndValue('platform-admin-edit', OTHER.email));
+    await screen.findByTestId('platform-admin-edit-status-select');
+    await pickOption('platform-admin-edit-status-select', 'inactive');
+    fireEvent.click(screen.getByTestId('platform-admin-edit-submit'));
+
+    const confirm = await screen.findByTestId('platform-admin-deactivate-confirm');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('platform-admin-deactivate-confirm')).toBeNull(),
+    );
+    expect(updateAdmin).not.toHaveBeenCalled();
+    expect(screen.getByTestId('platform-admin-edit-dialog')).toBeInTheDocument();
+  });
+
+  it('降低角色要先確認；升級不必', async () => {
+    updateAdmin.mockResolvedValue({ ...OTHER, role: 'auditor' });
+    renderPage(ALL);
+    await screen.findByTestId('platform-admin-self');
+    fireEvent.click(byTestIdAndValue('platform-admin-edit', OTHER.email));
+    await screen.findByTestId('platform-admin-edit-role-select');
+    await pickOption('platform-admin-edit-role-select', 'auditor');
+    fireEvent.click(screen.getByTestId('platform-admin-edit-submit'));
+
+    fireEvent.click(
+      within(await screen.findByTestId('platform-admin-downgrade-confirm')).getByTestId(
+        'alert-dialog-confirm',
+      ),
+    );
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalledTimes(1));
+    expect(updateAdmin.mock.calls[0]?.[0]).toEqual({
+      params: { id: OTHER.id, body: { role: 'auditor' } },
+    });
+  });
+
+  it('提升角色 → 不確認，直接送出', async () => {
+    updateAdmin.mockResolvedValue({ ...OTHER, role: 'super-admin' });
+    renderPage(ALL);
+    await screen.findByTestId('platform-admin-self');
+    fireEvent.click(byTestIdAndValue('platform-admin-edit', OTHER.email));
+    await screen.findByTestId('platform-admin-edit-role-select');
+    await pickOption('platform-admin-edit-role-select', 'super-admin');
+    fireEvent.click(screen.getByTestId('platform-admin-edit-submit'));
+
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('platform-admin-downgrade-confirm')).toBeNull();
   });
 
   it('寄設定密碼連結要先確認', async () => {

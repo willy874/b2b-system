@@ -1,4 +1,5 @@
 import { Button, IconButton } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Select } from '@b2b-system/ui/Select';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -13,6 +14,12 @@ import type { GroupMember } from '@/shared/api-sdk';
 
 import { useGroupMembersUpdateMutation } from '../../../hooks/useGroupMutations';
 import { GroupDetailRoute, GroupListRoute } from '../../../routes';
+
+/** 移除的確認說明：成員是群組時，裡面的人也一起失去這個群組帶來的角色。 */
+const REMOVE_CONFIRM_KEY = {
+  user: 'group.member.removeConfirm.user',
+  group: 'group.member.removeConfirm.group',
+} as const satisfies Record<GroupMember['type'], string>;
 
 /** 使用者搜尋的輸入停頓多久才查詢（與資料夾共用對話框相同）。 */
 const USER_SEARCH_DEBOUNCE_MS = 250;
@@ -33,10 +40,20 @@ export function GroupMemberSection({ groupId, members, total, canEdit }: GroupMe
   const { t } = useTranslation();
   const search = GroupListRoute.useSearch();
   const updateMembers = useGroupMembersUpdateMutation();
+  const confirm = useConfirm();
 
+  // 沒有復原，而且移除子群組會讓裡面所有人失去這個群組的角色：先說明影響再送出
   const remove = (member: GroupMember) =>
-    updateMembers.mutate({
-      params: { groupId, body: { add: [], remove: [{ type: member.type, id: member.id }] } },
+    void confirm({
+      title: t('group.member.removeTitle'),
+      description: t(REMOVE_CONFIRM_KEY[member.type], { name: member.name }),
+      confirmLabel: t('group.member.removeAction'),
+      tone: 'danger',
+      onConfirm: () =>
+        updateMembers.mutateAsync({
+          params: { groupId, body: { add: [], remove: [{ type: member.type, id: member.id }] } },
+        }),
+      'data-testid': 'group-member-remove-confirm',
     });
 
   return (

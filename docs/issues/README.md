@@ -67,7 +67,6 @@
 | 中 | 帳號存的語系與時區沒被套用，偏好頁時區只有 4 個 | [`account-preferences-not-applied.md`](./account-preferences-not-applied.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 日期選擇器、TreeEditor、Spinner 的預設文案沒跟著語系 | [`ui-component-default-labels-not-localized.md`](./ui-component-default-labels-not-localized.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 系統角色看不到「管理權限」入口，且入口用錯權限判斷 | [`system-role-permission-entry-hidden.md`](./system-role-permission-entry-hidden.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 中 | 移除群組成員、資料夾授權、駁回審批、停用平台管理者沒有確認 | [`destructive-actions-without-confirm.md`](./destructive-actions-without-confirm.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 警告色與成功色按鈕的白字對比不足，測試只要求 3:1 | [`button-color-contrast.md`](./button-color-contrast.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 平台 session 結束時被未儲存提醒擋下（改密碼必現） | [`platform-session-end-blocked-by-guard.md`](./platform-session-end-blocked-by-guard.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 檔案管理器切換排列方式或他分頁改偏好時清空選取 | [`file-manager-selection-cleared-by-preference.md`](./file-manager-selection-cleared-by-preference.md) | 2026-10-06（全面檢測：使用者體驗） |

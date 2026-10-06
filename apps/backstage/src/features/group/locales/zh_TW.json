@@ -58,7 +58,13 @@
       "noMatch": "沒有符合的對象",
       "add": "加入",
       "remove": "移除「{{name}}」",
-      "success": "已更新群組的成員"
+      "removeTitle": "移除成員",
+      "removeAction": "移除",
+      "success": "已更新群組的成員",
+      "removeConfirm": {
+        "user": "移除後，「{{name}}」不再取得這個群組的角色。",
+        "group": "移除後，「{{name}}」不再取得這個群組的角色，其中的成員也一樣。"
+      }
     }
   }
 }

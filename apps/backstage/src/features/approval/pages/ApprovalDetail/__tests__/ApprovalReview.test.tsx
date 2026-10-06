@@ -135,13 +135,31 @@ describe('審核操作（依類型要求的權限）', () => {
     expect(screen.queryByTestId('approval-approve-button')).not.toBeInTheDocument();
   });
 
-  it('點核准／駁回呼叫對應的動作', () => {
+  it('點核准呼叫核准', () => {
     const state = reviewState();
     renderWithPermissions(review(PENDING, state), REVIEWER);
     screen.getByTestId('approval-approve-button').click();
-    screen.getByTestId('approval-reject-button').click();
     expect(state.approve).toHaveBeenCalledOnce();
-    expect(state.reject).toHaveBeenCalledOnce();
+  });
+
+  it('駁回無法撤回：先確認；按取消不送出，按確認才駁回', async () => {
+    const state = reviewState();
+    renderWithPermissions(review(PENDING, state), REVIEWER);
+
+    fireEvent.click(screen.getByTestId('approval-reject-button'));
+    const confirm = await screen.findByTestId('approval-reject-confirm');
+    expect(confirm).toHaveTextContent('alice@example.com');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('approval-reject-confirm')).toBeNull());
+    expect(state.reject).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('approval-reject-button'));
+    fireEvent.click(
+      within(await screen.findByTestId('approval-reject-confirm')).getByTestId(
+        'alert-dialog-confirm',
+      ),
+    );
+    await waitFor(() => expect(state.reject).toHaveBeenCalledOnce());
   });
 });
 

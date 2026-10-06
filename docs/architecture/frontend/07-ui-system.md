@@ -490,6 +490,11 @@ const handleDelete = async (row: RoleRowVM) => {
 - 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。
 - 需要在對話框裡放表單或其他內容時，仍用宣告式的 `AlertDialog`（`children`）或 `Dialog`。
 
+**什麼時候要確認**：點一下就生效、而且無法復原或會影響一群人的操作，一律先 `confirm({ tone: 'danger' })` 並在說明寫出影響：
+刪除、停用（對方會被登出）、駁回（申請人會收到結果）、移除群組成員（子群組的成員一起失去角色）、
+移除或降低資料夾授權（對象是角色、群組或所有人時說明是一群人）、降低平台管理者的角色。
+升級、新增這類放寬的操作不必確認。
+
 ### 3.12 JSON：`JsonViewer` / `JsonEditor`
 
 `JsonEditor` 以 **CodeMirror 6** 實作；`JsonViewer` 自製、不載入 CodeMirror，但外觀與它一致——

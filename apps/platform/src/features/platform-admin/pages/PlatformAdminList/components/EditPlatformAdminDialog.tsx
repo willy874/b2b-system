@@ -1,4 +1,5 @@
 import { Button } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
@@ -44,6 +45,7 @@ function initialStatus(status: PlatformAdmin['status']): EditablePlatformAdminSt
 export function EditPlatformAdminDialog({ admin, isSelf, onClose }: EditPlatformAdminDialogProps) {
   const { t } = useTranslation();
   const toMessage = useErrorMessage();
+  const confirm = useConfirm();
   const update = useUpdatePlatformAdminMutation();
   const [displayName, setDisplayName] = useState(admin.displayName);
   const [role, setRole] = useState(admin.role);
@@ -72,6 +74,36 @@ export function EditPlatformAdminDialog({ admin, isSelf, onClose }: EditPlatform
     if (Object.keys(body).length === 0) {
       onClose();
       return;
+    }
+    // 停用會撤銷對方所有 session 並立即登出、降級會立即拿走權限：與 backstage 停用使用者一樣先說清楚
+    // （PLATFORM_ADMIN_ROLES 由大到小排列）
+    const deactivating = body.status === 'inactive';
+    const downgrading =
+      body.role !== undefined &&
+      PLATFORM_ADMIN_ROLES.indexOf(body.role) > PLATFORM_ADMIN_ROLES.indexOf(admin.role);
+    if (deactivating || downgrading) {
+      const confirmed = await confirm(
+        deactivating
+          ? {
+              title: t('platformAdmin.deactivate.title'),
+              description: t('platformAdmin.deactivate.confirm', { name: admin.displayName }),
+              confirmLabel: t('platformAdmin.deactivate.action'),
+              tone: 'danger',
+              'data-testid': 'platform-admin-deactivate-confirm',
+            }
+          : {
+              title: t('platformAdmin.downgrade.title'),
+              description: t('platformAdmin.downgrade.confirm', {
+                name: admin.displayName,
+                from: t(PLATFORM_ADMIN_ROLE_LABEL_KEY[admin.role]),
+                to: t(PLATFORM_ADMIN_ROLE_LABEL_KEY[role]),
+              }),
+              confirmLabel: t('platformAdmin.downgrade.action'),
+              tone: 'danger',
+              'data-testid': 'platform-admin-downgrade-confirm',
+            },
+      );
+      if (!confirmed) return;
     }
     setError(undefined);
     try {

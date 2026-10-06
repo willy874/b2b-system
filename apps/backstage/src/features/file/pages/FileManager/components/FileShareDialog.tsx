@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { DatePicker } from '@b2b-system/ui/DatePicker';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Icon } from '@b2b-system/ui/Icon';
@@ -20,8 +21,11 @@ import type { FileAccessRequest, FileFolderGrant } from '@/shared/api-sdk';
 
 import {
   EVERYONE_SUBJECT_ID,
+  FILE_GRANT_DOWNGRADE_CONFIRM_KEY,
   FILE_GRANT_LEVEL_HINT_KEY,
   FILE_GRANT_LEVEL_LABEL_KEY,
+  FILE_GRANT_LEVELS,
+  FILE_GRANT_REMOVE_CONFIRM_KEY,
   FILE_GRANT_SUBJECT_COPY_KEY,
   FILE_GRANT_SUBJECT_TYPE_LABEL_KEY,
 } from '../../../constants';
@@ -355,12 +359,54 @@ interface GrantRowProps {
 
 function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const setGrant = useFolderGrantSetMutation();
   const removeGrant = useFolderGrantDeleteMutation();
   const subject = { subjectType: grant.subjectType, subjectId: grant.subjectId };
   // `everyone` 沒有名稱（後端回空字串）：以語系顯示
   const subjectName =
     grant.subjectType === 'everyone' ? t('file.share.everyone') : grant.subjectName;
+
+  // 移除立即生效、對象可能是一群人：先說明影響再送出
+  const remove = () =>
+    void confirm({
+      title: t('file.share.removeTitle'),
+      description: t(FILE_GRANT_REMOVE_CONFIRM_KEY[grant.subjectType], { name: subjectName }),
+      confirmLabel: t('file.share.remove'),
+      tone: 'danger',
+      onConfirm: () => removeGrant.mutateAsync({ params: { folderId, ...subject } }),
+      'data-testid': 'file-share-remove-confirm',
+    });
+
+  const changeLevel = (level: FileGrantLevel) => {
+    if (level === grant.level) return;
+    const request = {
+      params: {
+        folderId,
+        // 變更等級時保留期限；已過期的改等級等於重新授予（不過期）
+        body: { ...subject, level, expiresAt: grant.isExpired ? null : grant.expiresAt },
+      },
+    };
+    // 降級會拿走較高等級才有的操作，先確認；升級與已過期的（重新授予）直接送出
+    const isDowngrade =
+      !grant.isExpired && FILE_GRANT_LEVELS.indexOf(level) < FILE_GRANT_LEVELS.indexOf(grant.level);
+    if (!isDowngrade) {
+      setGrant.mutate(request);
+      return;
+    }
+    void confirm({
+      title: t('file.share.downgradeTitle'),
+      description: t(FILE_GRANT_DOWNGRADE_CONFIRM_KEY[grant.subjectType], {
+        name: subjectName,
+        from: t(FILE_GRANT_LEVEL_LABEL_KEY[grant.level]),
+        to: t(FILE_GRANT_LEVEL_LABEL_KEY[level]),
+      }),
+      confirmLabel: t('file.share.downgradeAction'),
+      tone: 'danger',
+      onConfirm: () => setGrant.mutateAsync(request),
+      'data-testid': 'file-share-downgrade-confirm',
+    });
+  };
   const details = [
     grant.source
       ? t('file.share.inherited', { name: grant.source.folderName })
@@ -398,16 +444,7 @@ function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
             options={levelOptions}
             value={grant.level}
             disabled={setGrant.isPending}
-            onValueChange={(level) =>
-              level !== grant.level &&
-              setGrant.mutate({
-                params: {
-                  folderId,
-                  // 變更等級時保留期限；已過期的改等級等於重新授予（不過期）
-                  body: { ...subject, level, expiresAt: grant.isExpired ? null : grant.expiresAt },
-                },
-              })
-            }
+            onValueChange={changeLevel}
             data-testid="file-share-grant-level"
           />
           <Button
@@ -415,7 +452,7 @@ function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
             size="sm"
             loading={removeGrant.isPending}
             aria-label={t('file.share.removeLabel', { name: subjectName })}
-            onClick={() => removeGrant.mutate({ params: { folderId, ...subject } })}
+            onClick={remove}
             data-testid="file-share-grant-remove"
           >
             {t('file.share.remove')}
