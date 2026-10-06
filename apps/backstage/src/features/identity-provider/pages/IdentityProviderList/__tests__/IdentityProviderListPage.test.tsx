@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -138,5 +139,15 @@ describe('外部 IdP 連線管理頁（docs/architecture/04-sso.md §12.2 D8–D
       await waitFor(() => expect(screen.queryByTestId('identity-provider-form-dialog')).toBeNull());
       expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
     });
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不顯示「還沒有任何外部 IdP 連線」', async () => {
+    listProviders.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['identityProvider:read'] as PermissionKey[]);
+
+    expect(await screen.findByTestId('identity-provider-error')).toBeInTheDocument();
+    listProviders.mockResolvedValue({ items: [PROVIDER], callbackUrl: CALLBACK_URL });
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findByTestId('identity-provider-domain')).toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -213,5 +214,15 @@ describe('事件管理頁（docs/architecture/frontend/15-notification.md §9）
       await waitFor(() => expect(router.state.location.pathname).toBe('/user'));
       expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
     });
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不是一片空白；重試成功後列出', async () => {
+    listEvents.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['system:read'] as PermissionKey[]);
+
+    expect(await screen.findByTestId('notification-event-error')).toBeInTheDocument();
+    listEvents.mockResolvedValue({ items: EVENTS });
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findAllByTestId('notification-event-row')).toHaveLength(2);
   });
 });

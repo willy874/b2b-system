@@ -1,6 +1,8 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { QueryError } from '@b2b-system/web-core/components';
+import { isNotFound } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
@@ -53,6 +55,19 @@ export default function ApprovalDetailPage() {
       }
     >
       {detail.isPending && <Skeleton height={200} />}
+      {/* 例：從通知點進一筆已不存在的審批：說明原因並提供返回，不留一個只有標題的空對話框 */}
+      {detail.isError && (
+        <QueryError
+          error={detail.error}
+          onRetry={isNotFound(detail.error) ? undefined : () => void detail.refetch()}
+          action={
+            <Button onClick={() => close()} data-testid="approval-detail-back">
+              {t('approval.detail.backToList')}
+            </Button>
+          }
+          data-testid="approval-detail-error"
+        />
+      )}
 
       {approval && (
         <div className="flex flex-col gap-5">

@@ -5,6 +5,7 @@ import { Input } from '@b2b-system/ui/Input';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
+import { QueryError } from '@b2b-system/web-core/components';
 import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
@@ -31,7 +32,7 @@ export default function IdentityProviderListPage() {
   const [editing, setEditing] = useState<IdentityProvider>();
   const [removing, setRemoving] = useState<IdentityProvider>();
 
-  const { data, isPending } = useQuery(getIdentityProviderListQueryOptions());
+  const { data, isPending, error, refetch } = useQuery(getIdentityProviderListQueryOptions());
 
   const columns = useMemo<Array<TableColumnDef<IdentityProvider>>>(
     () => [
@@ -152,13 +153,22 @@ export default function IdentityProviderListPage() {
         </label>
       )}
 
-      <Table
-        data={data?.items ?? []}
-        columns={columns}
-        getRowId={(row) => row.id}
-        loading={isPending}
-        emptyTitle={t('identityProvider.empty')}
-      />
+      {/* 查詢失敗而且沒有舊資料：顯示錯誤與重試，不落到「還沒有任何外部 IdP 連線」 */}
+      {error && !data ? (
+        <QueryError
+          error={error}
+          onRetry={() => void refetch()}
+          data-testid="identity-provider-error"
+        />
+      ) : (
+        <Table
+          data={data?.items ?? []}
+          columns={columns}
+          getRowId={(row) => row.id}
+          loading={isPending}
+          emptyTitle={t('identityProvider.empty')}
+        />
+      )}
 
       <IdentityProviderFormDialog
         open={formOpen}

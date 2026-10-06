@@ -17,6 +17,9 @@ const renderDetail = (row: JobRowVM) => <JobDetail id={row.id} />;
 interface JobTableProps {
   items: JobRowVM[];
   loading: boolean;
+  /** 查詢失敗：沒有資料時以錯誤與重試取代表格，不落到「沒有資料」。 */
+  error: unknown;
+  onRetry: () => void;
   expandedId: string | undefined;
   onToggleExpand: (id: string) => void;
   filters: FilterBarProps<JobFilterValues>;
@@ -26,6 +29,8 @@ interface JobTableProps {
 export function JobTable({
   items,
   loading,
+  error,
+  onRetry,
   expandedId,
   onToggleExpand,
   filters,
@@ -105,6 +110,8 @@ export function JobTable({
       data={items}
       columns={columns}
       loading={loading}
+      error={error}
+      onRetry={onRetry}
       getRowId={(row) => row.id}
       // 沒有批次操作：重試逐筆確認
       enableRowSelection={false}

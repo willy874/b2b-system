@@ -310,4 +310,16 @@ describe('UserDetailPage', () => {
     ).toBeInTheDocument();
     expect(fetchSources).not.toHaveBeenCalled();
   });
+
+  it('所屬群組查詢失敗 → 顯示原因與重試，不顯示「無」', async () => {
+    fetchGroups.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, PATH, ['user:read', 'group:read'] as PermissionKey[]);
+
+    const error = await screen.findByTestId('user-group-error', undefined, { timeout: 5000 });
+    expect(within(screen.getByTestId('user-group-section')).queryByText('無')).toBeNull();
+
+    fetchGroups.mockResolvedValue({ items: [], pagination: { total: 0 } });
+    fireEvent.click(within(error).getByTestId('user-group-retry'));
+    await waitFor(() => expect(screen.queryByTestId('user-group-error')).toBeNull());
+  });
 });

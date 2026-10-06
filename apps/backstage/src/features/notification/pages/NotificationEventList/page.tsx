@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
+import { QueryError } from '@b2b-system/web-core/components';
 import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
@@ -21,7 +22,12 @@ import { NotificationEventRow } from './components/NotificationEventRow';
 export default function NotificationEventListPage() {
   const { t } = useTranslation();
   const permission = useNotificationEventPermission();
-  const { data, isPending } = useQuery(getNotificationEventListQueryOptions());
+  const {
+    data,
+    isPending,
+    error: loadError,
+    refetch,
+  } = useQuery(getNotificationEventListQueryOptions());
   const categories = useMemo(() => toNotificationEventCategories(data?.items ?? []), [data]);
   const draft = useNotificationEventDraft();
   const update = useUpdateNotificationEventsMutation();
@@ -50,6 +56,13 @@ export default function NotificationEventListPage() {
       </header>
       {isPending ? (
         <Skeleton className="h-40" />
+      ) : loadError && !data ? (
+        // 查詢失敗：說明並提供重試，不是一片空白
+        <QueryError
+          error={loadError}
+          onRetry={() => void refetch()}
+          data-testid="notification-event-error"
+        />
       ) : (
         categories.map((view) => (
           <section

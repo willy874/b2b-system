@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute, renderUnhydrated, renderWithPermissions } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -233,5 +234,29 @@ describe('審批詳情（路由對話框）的未儲存提醒', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/approval'));
     expect(approve).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+  });
+
+  it('審批已不存在（例：從通知點進來）→ 說明原因並提供回到列表，不提供重試', async () => {
+    fetchDetail.mockRejectedValue(new AppError('APPROVAL_NOT_FOUND', 404));
+    const { router } = renderRoute(routes, '/approval/a1', REVIEWER);
+
+    expect(
+      await screen.findByTestId('approval-detail-error', undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('query-error-retry')).toBeNull();
+    fireEvent.click(screen.getByTestId('approval-detail-back'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approval'));
+  });
+
+  it('查詢失敗（500）→ 顯示錯誤與重試；重試成功後顯示內容', async () => {
+    fetchDetail.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, '/approval/a1', REVIEWER);
+
+    expect(
+      await screen.findByTestId('approval-detail-error', undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    fetchDetail.mockResolvedValue(DTO);
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findByTestId('approval-review-form')).toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -158,5 +159,15 @@ describe('系統設定頁（docs/architecture/backend/12-settings.md）', () => 
       await waitFor(() => expect(router.state.location.pathname).toBe('/user'));
       expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
     });
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不是標題下方一片空白；重試成功後列出', async () => {
+    listSettings.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['system:read'] as PermissionKey[]);
+
+    expect(await screen.findByTestId('setting-error')).toBeInTheDocument();
+    listSettings.mockResolvedValue({ items: SETTINGS });
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findAllByTestId('setting-field')).toHaveLength(2);
   });
 });
