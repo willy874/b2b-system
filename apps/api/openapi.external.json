@@ -740,7 +740,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 255,
-            "pattern": "^[^/\\\\\\u0000-\\u001f\\u007f]+$"
+            "pattern": "^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b\\u200e\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$"
           },
           "contentType": {
             "type": "string",

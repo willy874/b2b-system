@@ -1,3 +1,5 @@
+import { isCursorTimestamp } from '@/core/http';
+
 /**
  * keyset 分頁的游標：上一頁最後一筆的 `created_at`（**微秒** 精度的 ISO 字串，由資料庫直接格式化；
  * JS 的 Date 只有毫秒，截掉會漏項目）＋ id。
@@ -16,7 +18,10 @@ export function encodeNotificationCursor(cursor: NotificationCursor): string {
   return Buffer.from(JSON.stringify([cursor.createdAt, cursor.id]), 'utf8').toString('base64url');
 }
 
-/** 格式不對回 `undefined`（由呼叫端決定錯誤碼）；不信任內容，逐欄檢查型別。 */
+/**
+ * 格式不對回 `undefined`（由呼叫端決定錯誤碼）；不信任內容，逐欄檢查型別與值。
+ * 時間只接受 encode 時的格式：值會以 `::timestamptz` 進 SQL，Postgres 拒絕的值會讓請求回 500（`isCursorTimestamp`）。
+ */
 export function decodeNotificationCursor(raw: string): NotificationCursor | undefined {
   let payload: unknown;
   try {
@@ -26,7 +31,7 @@ export function decodeNotificationCursor(raw: string): NotificationCursor | unde
   }
   if (!Array.isArray(payload) || payload.length !== 2) return undefined;
   const [createdAt, id] = payload as unknown[];
-  if (typeof createdAt !== 'string' || Number.isNaN(Date.parse(createdAt))) return undefined;
+  if (!isCursorTimestamp(createdAt)) return undefined;
   if (typeof id !== 'string' || !UUID.test(id)) return undefined;
   return { createdAt, id };
 }

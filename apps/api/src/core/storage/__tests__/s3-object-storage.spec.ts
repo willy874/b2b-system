@@ -115,17 +115,51 @@ describe('S3ObjectStorage：每個租戶一個 bucket（docs/architecture/05-ten
       storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'x.png' }),
     );
     const beta = await inTenant('beta', () =>
-      storage.presignUpload('a/b', { expiresIn: 60, contentType: 'image/png' }),
+      storage.presignUpload('a/b', { expiresIn: 60, contentType: 'image/png', contentLength: 1 }),
     );
     expect(new URL(acme.url).origin).toBe('https://acme.example.com');
     expect(new URL(acme.url).pathname).toBe('/storage/acme/a/b');
     expect(new URL(beta.url).origin).toBe('https://beta.example.com');
   });
 
+  it('請求從租戶的次要網域（客戶自訂網域）進來 → 以那個網域簽，CSP 的 self 才放得過（docs/architecture/backend/09-file.md §3）', async () => {
+    const { storage } = setup([], '{tenantOrigin}/storage');
+    const context = {
+      id: 'acme',
+      code: 'acme',
+      db: {} as Database,
+      storageBucket: 'acme',
+      features: [],
+      flags: {},
+      featureParams: {},
+      domain: 'files.acme-corp.example',
+    };
+    const [upload, download] = await runInTenantContext(context, () =>
+      Promise.all([
+        storage.presignUpload('a/b', {
+          expiresIn: 60,
+          contentType: 'text/plain',
+          contentLength: 1,
+        }),
+        storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'b' }),
+      ]),
+    );
+    expect(new URL(upload.url).origin).toBe('https://files.acme-corp.example');
+    expect(new URL(download.url).origin).toBe('https://files.acme-corp.example');
+  });
+
+  it('沒有請求可依據（背景工作、對外 API）→ 退回租戶的主要網域', async () => {
+    const { storage } = setup([], '{tenantOrigin}/storage');
+    const signed = await inTenant('acme', () =>
+      storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'b' }),
+    );
+    expect(new URL(signed.url).origin).toBe('https://acme.example.com');
+  });
+
   it('固定的公開網址（真正的 S3、CDN）→ 不依租戶改變', async () => {
     const { storage } = setup([], 'https://s3.example.net');
     const signed = await inTenant('acme', () =>
-      storage.presignUpload('k', { expiresIn: 60, contentType: 'text/plain' }),
+      storage.presignUpload('k', { expiresIn: 60, contentType: 'text/plain', contentLength: 1 }),
     );
     expect(new URL(signed.url).origin).toBe('https://s3.example.net');
   });
@@ -235,6 +269,15 @@ describe('S3ObjectStorage：讀寫與錯誤分類', () => {
       size: 12,
       etag: 'abc',
       contentType: 'image/png',
+    });
+  });
+
+  it('head：物件帶 Content-Encoding 時一併回傳（complete 據此拒絕，docs/architecture/backend/09-file.md §5）', async () => {
+    const { storage } = storageWith({
+      HeadObjectCommand: () => ({ ContentLength: 12, ETag: '"abc"', ContentEncoding: 'gzip' }),
+    });
+    await expect(inAcme(() => storage.head('k'))).resolves.toMatchObject({
+      contentEncoding: 'gzip',
     });
   });
 
@@ -377,7 +420,11 @@ describe('S3ObjectStorage：presigned URL', () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T00:00:00Z') });
     const { storage } = storageWith();
     const signed = await inAcme(() =>
-      storage.presignUpload('files/1', { contentType: 'image/png', expiresIn: 300 }),
+      storage.presignUpload('files/1', {
+        contentType: 'image/png',
+        contentLength: 10,
+        expiresIn: 300,
+      }),
     );
     expect(signed).toMatchObject({
       method: 'PUT',
@@ -387,6 +434,35 @@ describe('S3ObjectStorage：presigned URL', () => {
     const params = new URL(signed.url).searchParams;
     expect(params.get('X-Amz-SignedHeaders')?.split(';')).toContain('content-type');
     expect(params.get('X-Amz-Expires')).toBe('300');
+  });
+
+  it('presignUpload：大小與「只能寫一次」都簽進網址（docs/architecture/backend/09-file.md §5）', async () => {
+    const { storage } = storageWith();
+    const signed = await inAcme(() =>
+      storage.presignUpload('files/1', {
+        contentType: 'image/png',
+        contentLength: 10,
+        expiresIn: 300,
+      }),
+    );
+    const signedHeaders = new URL(signed.url).searchParams.get('X-Amz-SignedHeaders')?.split(';');
+    expect(signedHeaders).toEqual(expect.arrayContaining(['content-length', 'if-none-match']));
+    // Content-Length 由瀏覽器依 body 自動帶（XHR 不能自己設），If-None-Match 要呼叫端原樣帶上
+    expect(signed.headers).toEqual({ 'Content-Type': 'image/png', 'If-None-Match': '*' });
+  });
+
+  it('presignUpload：大小 0 的檔案也把 content-length 簽進去', async () => {
+    const { storage } = storageWith();
+    const signed = await inAcme(() =>
+      storage.presignUpload('files/1', {
+        contentType: 'text/plain',
+        contentLength: 0,
+        expiresIn: 60,
+      }),
+    );
+    expect(new URL(signed.url).searchParams.get('X-Amz-SignedHeaders')?.split(';')).toContain(
+      'content-length',
+    );
   });
 
   it('presignDownload：同一個時間窗內網址不變，快取時間是效期的一半', async () => {
@@ -428,7 +504,7 @@ describe('S3ObjectStorage：presigned URL', () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T00:00:00Z') });
     const { storage } = storageWith();
     const signed = await inAcme(() =>
-      storage.presignUploadPart('files/1', 'up-1', 3, { expiresIn: 60 }),
+      storage.presignUploadPart('files/1', 'up-1', 3, { expiresIn: 60, contentLength: 1024 }),
     );
     const url = new URL(signed.url);
     expect(url.searchParams.get('uploadId')).toBe('up-1');
@@ -440,10 +516,20 @@ describe('S3ObjectStorage：presigned URL', () => {
     });
   });
 
+  it('presignUploadPart：這一塊的大小簽進網址；不帶 If-None-Match（UploadPart 不支援條件寫入）', async () => {
+    const { storage } = storageWith();
+    const signed = await inAcme(() =>
+      storage.presignUploadPart('files/1', 'up-1', 1, { expiresIn: 60, contentLength: 1024 }),
+    );
+    const signedHeaders = new URL(signed.url).searchParams.get('X-Amz-SignedHeaders')?.split(';');
+    expect(signedHeaders).toContain('content-length');
+    expect(signedHeaders).not.toContain('if-none-match');
+  });
+
   it('沒有租戶脈絡時 presign 也拋 TENANT_NOT_FOUND', async () => {
     const { storage } = storageWith();
     await expect(
-      storage.presignUpload('k', { contentType: 'text/plain', expiresIn: 60 }),
+      storage.presignUpload('k', { contentType: 'text/plain', contentLength: 1, expiresIn: 60 }),
     ).rejects.toMatchObject({ code: 'TENANT_NOT_FOUND' });
   });
 });

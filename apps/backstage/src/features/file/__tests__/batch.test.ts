@@ -80,6 +80,24 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
     await expect(uploadSources.get('src-1')).resolves.toBeUndefined();
   });
 
+  it('上傳結束（成功或失敗）都重抓已用量：登記就佔用了容量（docs/architecture/05-tenancy.md §13.3 D8）', async () => {
+    await uploadSources.put('src-ok', new File(['a'], 'ok.txt'));
+    uploadFile.mockResolvedValueOnce({ id: 'file-ok' });
+    await getBatchOperation(FileBatchOperation.UPLOAD)?.run('src-ok', context());
+    await uploadSources.put('src-fail', new File(['b'], 'fail.txt'));
+    uploadFile.mockRejectedValueOnce(new Error('boom'));
+    await getBatchOperation(FileBatchOperation.UPLOAD)
+      ?.run('src-fail', context())
+      .catch(() => undefined);
+
+    const usageCalls = invalidateResources.mock.calls.filter(([changes]) =>
+      (changes as Array<{ resource: string }>).some(
+        (change) => change.resource === 'fileStorageUsage',
+      ),
+    );
+    expect(usageCalls).toHaveLength(2);
+  });
+
   it('上傳到資料夾：目的地編進項目 id，上傳時帶上 folderId；結果清單顯示相對路徑', async () => {
     const enqueue = vi.fn((_input: unknown) => 'job-1');
     const file = new File(['12'], 'button.png', { type: 'image/png' });

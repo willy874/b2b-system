@@ -248,7 +248,7 @@ pnpm --filter @b2b-system/file-storage test
 
 | 檔案 | 內容 |
 | --- | --- |
-| `test/s3-client.spec.ts` | 以 **官方 `@aws-sdk/client-s3`** 對起在隨機埠的伺服器跑完整流程：bucket、object、Range、條件式請求、Copy、DeleteObjects、ListObjects V1/V2 分頁、multipart、SigV4 失敗案例、presigned URL、CORS、重啟後持久化 |
+| `test/s3-client.spec.ts` | 以 **官方 `@aws-sdk/client-s3`** 對起在隨機埠的伺服器跑完整流程：bucket、object、Range、條件式請求、Copy、DeleteObjects、ListObjects V1/V2 分頁、multipart、SigV4 失敗案例、presigned URL（含 api 的直傳網址：簽了 `content-length` 時大小不同回 403、簽了 `if-none-match: *` 時第二次 PUT 回 412）、CORS、重啟後持久化 |
 | `src/auth/__tests__/sigv4.spec.ts` | AWS 文件中的 SigV4 範例向量（標頭與 presigned） |
 | `src/s3/__tests__/list.spec.ts` | 分頁與 delimiter 折疊（table-driven） |
 | `src/http/__tests__/aws-chunked.spec.ts` | aws-chunked 解碼（含逐位元組送入） |

@@ -46,6 +46,9 @@ describe('personalFolderName（個人資料夾的候選名稱）', () => {
     ['a/b\\c', 'a b c'],
     ['..', 'alice@example.com'],
     ['  \u0007 ', 'alice@example.com'],
+    // 雙向文字控制、C1、零寬字元同樣不允許（docs/architecture/backend/09-file.md §4.2）
+    ['Eve\u202egnp.exe', 'Eve gnp.exe'],
+    ['a\u0085b\u200bc', 'a b c'],
     ['x'.repeat(300), 'x'.repeat(255)],
   ])('顯示名稱 %j 清理成合法的資料夾名稱 %j', (displayName, expected) => {
     const name = personalFolderName({ ...ALICE, displayName }, 0);

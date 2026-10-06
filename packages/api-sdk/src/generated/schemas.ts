@@ -1691,7 +1691,15 @@ export const UpdateFeatureFlagRequestSchema = z.object({
 }) satisfies z.ZodType<UpdateFeatureFlagRequest>;
 
 export const CreateFileUploadRequestSchema = z.object({
-  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(
+      new RegExp(
+        '^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b\\u200e\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$',
+      ),
+    ),
   contentType: z
     .string()
     .max(255)
@@ -1956,7 +1964,15 @@ export const FileFolderListSchema = z.object({
 }) satisfies z.ZodType<FileFolderList>;
 
 export const CreateFileFolderRequestSchema = z.object({
-  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(
+      new RegExp(
+        '^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b\\u200e\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$',
+      ),
+    ),
   parentId: z
     .uuid()
     .regex(
@@ -1969,7 +1985,15 @@ export const CreateFileFolderRequestSchema = z.object({
 }) satisfies z.ZodType<CreateFileFolderRequest>;
 
 export const UpdateFileFolderRequestSchema = z.object({
-  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(
+      new RegExp(
+        '^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b\\u200e\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$',
+      ),
+    ),
 }) satisfies z.ZodType<UpdateFileFolderRequest>;
 
 export const EnsureFileFolderPathsRequestSchema = z.object({
@@ -1985,7 +2009,17 @@ export const EnsureFileFolderPathsRequestSchema = z.object({
   paths: z
     .array(
       z
-        .array(z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')))
+        .array(
+          z
+            .string()
+            .min(1)
+            .max(255)
+            .regex(
+              new RegExp(
+                '^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b\\u200e\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$',
+              ),
+            ),
+        )
         .min(1)
         .max(32),
     )
@@ -2165,7 +2199,15 @@ export const GetFileImageQuerySchema = z.object({
 }) satisfies z.ZodType<GetFileImageQuery>;
 
 export const UpdateFileRequestSchema = z.object({
-  name: z.string().min(1).max(255).regex(new RegExp('^[^/\\\\\\u0000-\\u001f\\u007f]+$')),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(
+      new RegExp(
+        '^[^/\\\\\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b\\u200e\\u200f\\u2028-\\u202e\\u2066-\\u2069\\ufeff]+$',
+      ),
+    ),
   version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateFileRequest>;
 

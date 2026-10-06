@@ -14,7 +14,7 @@ import { paginated } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
-import type { PresignedRequest } from '@/core/storage';
+import type { PresignedRequest, StoredObjectHead } from '@/core/storage';
 import { FILE_STORAGE_QUOTA_MB_PARAM, tenantFeatureParam } from '@/core/tenant';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -177,7 +177,8 @@ export class FileService {
     }
     const ctx = await this.access.contextFor(actor);
     await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
-    // 先不鎖地檢查一次：明顯超過容量時不必向物件儲存要分塊上傳的 uploadId；登記時在交易內再確認一次
+    // 先不鎖地檢查一次（讀計數，O(1)）：明顯超過容量時不必向物件儲存要分塊上傳的 uploadId；
+    // 登記時在交易內以條件式 UPDATE 確認並佔用
     assertWithinQuota(await this.repo.storageUsed(), dto.size);
     await this.storage.ensureBucket();
 
@@ -190,8 +191,7 @@ export class FileService {
       : null;
     const row = await this.folders
       .insideFolder(dto.folderId, async (tx) => {
-        assertWithinQuota(await this.repo.storageUsed(tx), dto.size);
-        return this.repo.create(
+        const created = await this.repo.create(
           {
             id,
             name: dto.name,
@@ -204,8 +204,12 @@ export class FileService {
             createdBy: actor.id,
             updatedBy: actor.id,
           },
+          storageQuotaBytes(),
           tx,
         );
+        // 同時的登記先用掉了容量
+        if (!created) throw quotaExceeded(await this.repo.storageUsed(tx), dto.size);
+        return created;
       })
       .catch(async (error: unknown) => {
         // 登記失敗（容量、資料夾已刪除）：已要到的分塊上傳不會再被用到，盡力取消
@@ -220,15 +224,18 @@ export class FileService {
       });
 
     const [upload, thumbnailUpload] = await Promise.all([
+      // 網址綁定登記的大小並且只能寫一次：檔案上限、容量與縮圖上限都在物件儲存那一側擋住（§5）
       isMultipart
         ? undefined
         : this.storage.presignUpload(storageKey, {
             contentType: dto.contentType,
+            contentLength: dto.size,
             expiresIn: this.urlTtl,
           }),
       dto.thumbnail
         ? this.storage.presignUpload(thumbnailKeyOf(id), {
             contentType: dto.thumbnail.contentType,
+            contentLength: dto.thumbnail.size,
             expiresIn: this.urlTtl,
           })
         : undefined,
@@ -263,7 +270,11 @@ export class FileService {
 
     const parts = await Promise.all(
       dto.partNumbers.map(async (partNumber) => {
+        // 每一塊只能是切法算出來的大小：前面的塊是 partSize，最後一塊是餘數
+        const contentLength =
+          partNumber < partCount ? this.partSize : file.size - (partCount - 1) * this.partSize;
         const signed = await this.storage.presignUploadPart(file.storageKey, uploadId, partNumber, {
+          contentLength,
           expiresIn: this.urlTtl,
         });
         return { partNumber, url: signed.url, method: 'PUT' as const, headers: signed.headers };
@@ -305,18 +316,21 @@ export class FileService {
       this.storage.head(thumbnailKeyOf(id)),
     ]);
     if (!stored) throw new AppException('FILE_UPLOAD_INCOMPLETE');
+    // api 從不要求瀏覽器帶 Content-Encoding：帶著它的內容下載時會被瀏覽器解壓縮（大小與比對的不同、可做成解壓縮炸彈）
+    if (stored.contentEncoding) {
+      await this.storage.delete(file.storageKey);
+      throw new AppException('FILE_UPLOAD_INCOMPLETE');
+    }
     if (stored.size !== file.size) {
       // 刪掉不符的內容：單次 PUT 可以用同一個網址（未過期時）重傳；
       // 分塊上傳的 uploadId 在組合後就失效了，只能放棄這次上傳、重新登記
       await this.storage.delete(file.storageKey);
       throw new AppException('FILE_SIZE_MISMATCH', { expected: file.size, actual: stored.size });
     }
-    // 縮圖只是加分：不存在或不合規格就當作沒有，不讓上傳失敗
-    const hasThumbnail = Boolean(
-      thumbnail &&
-      thumbnail.size <= THUMBNAIL_MAX_SIZE &&
-      (THUMBNAIL_CONTENT_TYPES as readonly string[]).includes(thumbnail.contentType ?? ''),
-    );
+    // 縮圖只是加分：不存在或不合規格就當作沒有，不讓上傳失敗。不合規格的刪掉：
+    // 紀錄還在，維護排程不會把它當孤兒，否則要等永久刪除才清得掉（§5.1）
+    const hasThumbnail = thumbnail !== undefined && isValidThumbnail(thumbnail);
+    if (thumbnail && !hasThumbnail) await this.storage.delete(thumbnailKeyOf(id));
     const hasVariants = isImageVariantSource(file.contentType);
 
     await withTransaction(this.db, async (tx) => {
@@ -549,7 +563,8 @@ export class FileService {
 
   /**
    * 列表的範圍：持有全域 `file:read` 不限；否則只有讀得到的資料夾，根目錄是空的（§5.2）。
-   * 指定了不存在的資料夾回 404、鎖住的回 403。
+   * 指定了不存在的資料夾回 404、鎖住的回 403；指定了讀得到的資料夾就只靠 `folder_id = $folderId`，
+   * 不再帶「所有讀得到的資料夾」的範圍（docs/architecture/backend/09-file.md §11）。
    */
   private async listScope(
     ctx: FileAccessContext,
@@ -558,6 +573,7 @@ export class FileService {
   ): Promise<{ folderIds: readonly string[] } | undefined> {
     if (folderId && folderId !== 'root') {
       await this.access.assertCan(ctx, actor, 'read', folderId);
+      return undefined;
     }
     const readable = ctx.readableFolderIds();
     return readable ? { folderIds: readable } : undefined;
@@ -661,6 +677,15 @@ function parentDeleted(folderId: string): AppException {
   });
 }
 
+/** 瀏覽器縮圖的規格（§5.1）：大小、型別在白名單內，沒有內容編碼。 */
+function isValidThumbnail(thumbnail: StoredObjectHead): boolean {
+  return (
+    thumbnail.size <= THUMBNAIL_MAX_SIZE &&
+    (THUMBNAIL_CONTENT_TYPES as readonly string[]).includes(thumbnail.contentType ?? '') &&
+    !thumbnail.contentEncoding
+  );
+}
+
 function toUploadTarget(signed: PresignedRequest) {
   return {
     url: signed.url,
@@ -679,8 +704,13 @@ function storageQuotaBytes(): number {
 
 /** 加上這次的大小會超過容量時拋 `FILE_STORAGE_QUOTA_EXCEEDED`。調小到低於已用量時只擋新的上傳。 */
 function assertWithinQuota(used: number, size: number): void {
-  const quota = storageQuotaBytes();
-  if (used + size > quota) {
-    throw new AppException('FILE_STORAGE_QUOTA_EXCEEDED', { quota, used, size });
-  }
+  if (used + size > storageQuotaBytes()) throw quotaExceeded(used, size);
+}
+
+function quotaExceeded(used: number, size: number): AppException {
+  return new AppException('FILE_STORAGE_QUOTA_EXCEEDED', {
+    quota: storageQuotaBytes(),
+    used,
+    size,
+  });
 }

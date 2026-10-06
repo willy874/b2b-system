@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
+import type { Database } from '@/core/database';
+import { TENANT_DB, withTransaction } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage } from '@/core/storage';
 import { currentTenant } from '@/core/tenant';
@@ -14,6 +16,7 @@ import {
   MAINTENANCE_BATCH_SIZE,
   MANAGED_KEY_PREFIXES,
   ORIGINAL_KEY_PREFIX,
+  STORAGE_USAGE_RECONCILE_INTERVAL_MS,
   thumbnailKeyOf,
 } from './file.constants';
 import { FileRepository } from './file.repository';
@@ -32,6 +35,11 @@ export interface FileMaintenanceReport {
   orphanObjects: number;
   /** 卡在 `pending` 而重新排入的影像變體。 */
   requeuedVariants: number;
+  /**
+   * 已用量的計數減去 `SUM(size)` 的差（位元組）；0 是一致，null 是這一輪沒有對帳（距上次不到一天）。
+   * 不是 0 時修正計數（dry run 只偵測）。
+   */
+  storageUsageDrift: number | null;
   /** 處理失敗的項目數；下一輪會再偵測到。 */
   failures: number;
 }
@@ -59,7 +67,8 @@ export const FILE_MAINTENANCE_JOB = defineJob<Record<string, never>>('file.maint
  * 2. 物件儲存裡的分塊上傳沒有對應的紀錄 → AbortMultipartUpload；
  * 3. 受管理前綴（`files/`、`thumbnails/`、`variants/`）下的物件查不到任何紀錄（含已軟刪除的）→ 刪除。
  *    已刪除紀錄的物件要留到回收桶的保留期限結束，由 `trash.purge` 在永久刪除後清掉（docs/architecture/backend/14-revisions.md §9.2 D11、R4a）；
- * 4. 影像變體卡在 `pending` → 重新排入。
+ * 4. 影像變體卡在 `pending` → 重新排入；
+ * 5. 已用量的計數（`file_storage_usage`）距上次對帳超過一天 → 以 `SUM(size)` 重算並修正偏差。
  *
  * 2、3 只看建立早於 `FILE_PENDING_TTL` 的東西：剛登記、INSERT 還沒提交的上傳不會被誤判。
  * 每一步都是冪等的（刪除不存在的東西視為成功、軟刪除以 `WHERE status='pending'` 決勝），
@@ -75,6 +84,7 @@ export class FileMaintenanceService implements OnModuleInit {
   private readonly running = new Map<string, Promise<FileMaintenanceReport>>();
 
   constructor(
+    @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: FileRepository,
     private readonly storage: ObjectStorage,
     private readonly images: FileImageService,
@@ -113,7 +123,8 @@ export class FileMaintenanceService implements OnModuleInit {
       report.orphanMultipartUploads +
       report.orphanObjects +
       report.requeuedVariants;
-    if (found > 0 || report.failures > 0) {
+    const drifted = report.storageUsageDrift !== null && report.storageUsageDrift !== 0;
+    if (found > 0 || drifted || report.failures > 0) {
       this.logger.log({ report }, report.dryRun ? '偵測到檔案殘留（未處理）' : '檔案維護完成');
     }
     return report;
@@ -126,6 +137,7 @@ export class FileMaintenanceService implements OnModuleInit {
       orphanMultipartUploads: 0,
       orphanObjects: 0,
       requeuedVariants: 0,
+      storageUsageDrift: null,
       failures: 0,
     };
     const staleBefore = new Date(now.getTime() - this.pendingTtlMs);
@@ -139,6 +151,7 @@ export class FileMaintenanceService implements OnModuleInit {
       ],
       ['deleteOrphanObjects', () => this.deleteOrphanObjects(staleBefore, dryRun, report)],
       ['requeueVariants', () => this.requeueVariants(now, dryRun, report)],
+      ['reconcileStorageUsage', () => this.reconcileStorageUsage(now, dryRun, report)],
     ] as const;
     for (const [step, run] of steps) {
       try {
@@ -262,5 +275,30 @@ export class FileMaintenanceService implements OnModuleInit {
     report.requeuedVariants = ids.length;
     if (dryRun) return;
     for (const id of ids) this.images.schedule(id);
+  }
+
+  /**
+   * 已用量的對帳（docs/architecture/05-tenancy.md §13.3 D8）：計數由登記、完成、永久刪除在各自的交易內增減，
+   * 正常不會偏；直接改資料庫、migration 與新版上線之間舊版的登記會讓它偏。距上次對帳超過一天才加總：
+   * 先鎖住計數那一列，再以新的語句加總（看得到所有已提交的變更），寫回並記下對帳時間。
+   */
+  private async reconcileStorageUsage(
+    now: Date,
+    dryRun: boolean,
+    report: FileMaintenanceReport,
+  ): Promise<void> {
+    await withTransaction(this.db, async (tx) => {
+      const usage = await this.repo.lockStorageUsage(tx);
+      const reconciledAt = usage?.reconciledAt?.getTime();
+      if (
+        reconciledAt !== undefined &&
+        now.getTime() - reconciledAt < STORAGE_USAGE_RECONCILE_INTERVAL_MS
+      ) {
+        return;
+      }
+      const actual = await this.repo.sumSizes(tx);
+      report.storageUsageDrift = (usage?.usedBytes ?? 0) - actual;
+      if (!dryRun) await this.repo.setStorageUsage(actual, now, tx);
+    });
   }
 }

@@ -11,6 +11,7 @@ import {
   auditLogs,
   fileFolders,
   files,
+  fileStorageUsage,
   relationTuples,
   roleHolderTuple,
   roles,
@@ -18,6 +19,7 @@ import {
 } from '@/db/schema';
 import { FileImageService } from '@/modules/file/file-image.service';
 import { FileMaintenanceService } from '@/modules/file/file-maintenance.service';
+import { TrashService } from '@/modules/trash/trash.service';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
@@ -118,6 +120,22 @@ async function uploadFile(
     .set('authorization', `Bearer ${token}`)
     .expect(200);
   return (response.body as { data: FileBody }).data;
+}
+
+/** 已用量的計數（`file_storage_usage`）與實際的 `SUM(size)`。 */
+async function usage() {
+  const [counted] = await db.select().from(fileStorageUsage);
+  const [summed] = await db
+    .select({ used: sql<string>`coalesce(sum(${files.size}), 0)::text` })
+    .from(files);
+  return { counted: counted?.usedBytes, summed: Number(summed?.used) };
+}
+
+/** 計數等於 `SUM(size)`（含上傳中與回收桶裡的），回傳目前的值。 */
+async function expectConsistent(): Promise<number> {
+  const { counted, summed } = await usage();
+  expect(counted).toBe(summed);
+  return summed;
 }
 
 describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
@@ -244,6 +262,23 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .set('authorization', `Bearer ${token}`)
       .send({ name: '../etc/passwd', contentType: 'text/plain', size: 1 })
       .expect(400);
+  });
+
+  it('改名成含雙向文字控制字元（U+202E）的名稱 → 400 VALIDATION_FAILED，名稱不變（docs/architecture/backend/09-file.md §4）', async () => {
+    const token = await login(ADMIN);
+    const file = await uploadFile(token, {
+      name: 'invoice.pdf',
+      contentType: 'text/plain',
+      size: 1,
+    });
+    const response = await request(http)
+      .patch(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: 'invoice\u202efdp.exe', version: file.version })
+      .expect(400);
+    expect((response.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+    const [row] = await db.select().from(files).where(eq(files.id, file.id));
+    expect(row?.name).toBe('invoice.pdf');
   });
 
   it('列表：keyword 與 contentType（含 image/*）篩選', async () => {
@@ -513,6 +548,27 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .query({ cursor: first.nextCursor ?? '', sort: 'name' })
       .set('authorization', `Bearer ${token}`)
       .expect(400);
+  });
+
+  it('游標的值 Postgres 不接受（2 月 30 日）→ 400 VALIDATION_FAILED（docs/architecture/backend/09-file.md §6.1）', async () => {
+    const token = await login(ADMIN);
+    const cursor = Buffer.from(
+      JSON.stringify([
+        'createdAt',
+        'desc',
+        '2026-02-30T00:00:00.000000Z',
+        '44444444-4444-4444-8444-444444444444',
+      ]),
+      'utf8',
+    ).toString('base64url');
+    const response = await request(http)
+      .get('/files')
+      .query({ sort: '-createdAt', cursor })
+      .set('authorization', `Bearer ${token}`)
+      .expect(400);
+    expect(response.body).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', details: { field: 'cursor' } },
+    });
   });
 
   it('分類篩選：document、other', async () => {
@@ -828,6 +884,86 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
           .where(eq(fileFolders.id, row?.id ?? '')),
         /file_folders_not_own_parent/,
       );
+    });
+  });
+
+  describe('已用量的計數（docs/architecture/05-tenancy.md §13.3 D8、migration 0036）', () => {
+    it('登記、完成、放棄、刪除、還原、永久刪除之後，計數都等於 SUM(size)', async () => {
+      const token = await login(ADMIN);
+      const auth = { authorization: `Bearer ${token}` };
+      const start = await expectConsistent();
+
+      const kept = await uploadFile(token, { name: 'u1.bin', contentType: 'text/plain', size: 7 });
+      expect(await expectConsistent()).toBe(start + 7);
+
+      // 放棄上傳只是軟刪除：仍算在用量裡（永久刪除才釋出）
+      const { file: abandoned } = await startUpload(token, {
+        name: 'u2.bin',
+        contentType: 'text/plain',
+        size: 11,
+      });
+      expect(await expectConsistent()).toBe(start + 18);
+      await request(http).delete(`/files/${abandoned.id}/upload`).set(auth).expect(204);
+      expect(await expectConsistent()).toBe(start + 18);
+
+      await request(http).delete(`/files/${kept.id}`).set(auth).expect(204);
+      expect(await expectConsistent()).toBe(start + 18);
+      await request(http).post(`/files/${kept.id}/restore`).set(auth).expect(200);
+      expect(await expectConsistent()).toBe(start + 18);
+
+      // 永久刪除（trash.purge）：兩個都在回收桶裡放超過保留期限
+      await request(http).delete(`/files/${kept.id}`).set(auth).expect(204);
+      await db
+        .update(files)
+        .set({ deletedAt: new Date(Date.now() - 400 * 86_400_000) })
+        .where(sql`${files.id} IN (${kept.id}, ${abandoned.id})`);
+      await inTestTenant(app, () => app.get(TrashService).purgeExpired());
+      expect(await expectConsistent()).toBe(start);
+    });
+
+    it('登記失敗（資料夾不存在）→ 計數不變', async () => {
+      const token = await login(ADMIN);
+      const before = await expectConsistent();
+      await request(http)
+        .post('/files')
+        .set('authorization', `Bearer ${token}`)
+        .send({
+          name: 'x.txt',
+          contentType: 'text/plain',
+          size: 5,
+          folderId: '99999999-9999-4999-8999-999999999999',
+        })
+        .expect(404);
+      expect(await expectConsistent()).toBe(before);
+    });
+
+    it('upload-policy 的 storageUsed 讀的是計數', async () => {
+      const token = await login(ADMIN);
+      await db.update(fileStorageUsage).set({ usedBytes: 12_345 });
+      const response = await request(http)
+        .get('/files/upload-policy')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      expect((response.body as { data: { storageUsed: number } }).data.storageUsed).toBe(12_345);
+    });
+
+    it('維護排程的對帳：距上次超過一天才以 SUM(size) 修正偏差', async () => {
+      const maintenance = app.get(FileMaintenanceService);
+      const { summed } = await usage();
+      await db
+        .update(fileStorageUsage)
+        .set({ usedBytes: summed + 99, reconciledAt: new Date(Date.now() - 2 * 86_400_000) });
+
+      const report = await inTestTenant(app, () => maintenance.sweep());
+      expect(report.storageUsageDrift).toBe(99);
+      await expectConsistent();
+
+      // 剛對帳過：這一輪不加總
+      await db.update(fileStorageUsage).set({ usedBytes: summed + 1 });
+      const next = await inTestTenant(app, () => maintenance.sweep());
+      expect(next.storageUsageDrift).toBeNull();
+      expect((await usage()).counted).toBe(summed + 1);
+      await db.update(fileStorageUsage).set({ usedBytes: summed });
     });
   });
 
