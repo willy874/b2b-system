@@ -143,6 +143,14 @@ describe('審核操作（依類型要求的權限）', () => {
     expect(state.approve).toHaveBeenCalledOnce();
   });
 
+  it('核准或駁回失敗的訊息在 role="alert" 裡（docs/architecture/frontend/07-ui-system.md §5）', () => {
+    renderWithPermissions(
+      review(PENDING, { ...reviewState(), error: '這筆申請已經被審核過了' }),
+      REVIEWER,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('這筆申請已經被審核過了');
+  });
+
   it('駁回無法撤回：先確認；按取消不送出，按確認才駁回', async () => {
     const state = reviewState();
     renderWithPermissions(review(PENDING, state), REVIEWER);

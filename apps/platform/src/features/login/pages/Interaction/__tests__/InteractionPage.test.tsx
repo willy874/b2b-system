@@ -3,7 +3,9 @@ import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/ro
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
 
@@ -102,6 +104,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
+beforeAll(() => initTestI18n());
+
 describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
   it('租戶的互動：帳號流程的連結帶上租戶代碼（docs/architecture/05-tenancy.md §10.2 D8）', async () => {
     renderInteraction();
@@ -180,10 +185,28 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
     await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
     fireEvent.click(screen.getByTestId('login-submit'));
 
-    expect(await screen.findByTestId('login-error')).toHaveAttribute(
-      'data-value',
-      'AUTH_ACCOUNT_LOCKED',
+    await waitFor(() =>
+      expect(screen.getByTestId('login-error')).toHaveAttribute(
+        'data-value',
+        'AUTH_ACCOUNT_LOCKED',
+      ),
     );
+  });
+
+  it('密碼錯誤 → 錯誤訊息在 role="alert" 裡，報讀器會立即念出（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+    login.mockRejectedValue(new AppError('AUTH_INVALID_CREDENTIALS', 401));
+    renderInteraction();
+    fireEvent.change(await screen.findByTestId('login-email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { value: 'wrong-123' } });
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('login-submit'));
+
+    await waitFor(() => expect(screen.getByRole('alert')).not.toBeEmptyDOMElement());
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('帳號或密碼錯誤');
+    expect(alert).toHaveAttribute('data-value', 'AUTH_INVALID_CREDENTIALS');
   });
 
   it('取消 → 頂層跳轉到 provider（產品收到 access_denied）', async () => {
@@ -253,8 +276,9 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
 
     it('外部登入失敗帶回的錯誤碼 → 顯示對應訊息', async () => {
       renderInteraction('?error=AUTH_SSO_ACCOUNT_NOT_FOUND');
-      const error = await screen.findByTestId('login-error');
+      const error = await screen.findByRole('alert');
       expect(error).toHaveAttribute('data-value', 'AUTH_SSO_ACCOUNT_NOT_FOUND');
+      expect(error).not.toBeEmptyDOMElement();
     });
   });
 

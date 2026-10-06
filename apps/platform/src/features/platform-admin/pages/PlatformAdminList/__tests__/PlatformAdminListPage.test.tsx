@@ -1,13 +1,15 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { initTestI18n } from '@/test/i18n';
 
 import { registerPlatformAdminPagePermissions, Routes } from '../../..';
 import { platformAdminFixture, platformProfileFixture } from '../../../test-fixtures';
@@ -92,6 +94,9 @@ async function pickOption(selectTestId: string, value: string) {
   });
   await userEvent.click(item);
 }
+
+// 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
+beforeAll(() => initTestI18n());
 
 beforeEach(() => {
   resetPagePermissionRegistry();
@@ -179,6 +184,38 @@ describe('平台管理者清單', () => {
     expect(createAdmin.mock.calls[0]?.[0]).toEqual({
       params: { email: 'new@platform.test', displayName: '新同事', role: 'operator' },
     });
+  });
+
+  it('新增失敗 → 錯誤訊息在 role="alert" 裡（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+    createAdmin.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(ALL);
+    fireEvent.click(await screen.findByTestId('platform-admin-create-button'));
+    fireEvent.change(screen.getByTestId('platform-admin-email-input'), {
+      target: { value: 'new@platform.test' },
+    });
+    fireEvent.change(screen.getByTestId('platform-admin-display-name-input'), {
+      target: { value: '新同事' },
+    });
+    fireEvent.click(screen.getByTestId('platform-admin-create-submit'));
+
+    await waitFor(() => expect(createAdmin).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('伺服器發生錯誤'));
+    expect(screen.getByRole('alert')).toHaveAttribute('data-testid', 'platform-admin-create-error');
+  });
+
+  it('編輯失敗 → 錯誤訊息在 role="alert" 裡（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+    updateAdmin.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(ALL);
+    await screen.findByTestId('platform-admin-self');
+    fireEvent.click(byTestIdAndValue('platform-admin-edit', SELF.email));
+    fireEvent.change(await screen.findByTestId('platform-admin-edit-display-name-input'), {
+      target: { value: '改過的名字' },
+    });
+    fireEvent.click(screen.getByTestId('platform-admin-edit-submit'));
+
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('伺服器發生錯誤'));
+    expect(screen.getByRole('alert')).toHaveAttribute('data-testid', 'platform-admin-edit-error');
   });
 
   it('編輯自己 → 只能改名稱，沒有角色與狀態', async () => {

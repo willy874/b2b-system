@@ -4,6 +4,7 @@ import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { TextEllipsis } from '@b2b-system/ui/Ellipsis';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -244,9 +245,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
               data-testid="webhook-events-edit-select"
             />
           </Field>
-          <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
-            {formError}
-          </p>
+          <FormError>{formError}</FormError>
           <div className="flex justify-end gap-2">
             <Button size="sm" onClick={() => setDraft(undefined)}>
               {t('common.cancel')}

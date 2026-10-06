@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { getErrorMessageKey, isAppError, useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -252,15 +253,13 @@ export default function InteractionPage() {
           </form.Field>
         )}
 
-        {(formError ?? searchError) !== undefined && (
-          <p
-            className="m-0 text-sm text-[var(--color-danger-text)]"
-            data-testid="login-error"
-            data-value={formError === undefined ? searchError : formError.code}
-          >
-            {formError?.message ?? t(searchErrorKey ?? 'login.error.generic')}
-          </p>
-        )}
+        <FormError
+          code={formError === undefined ? searchError : formError.code}
+          data-testid="login-error"
+        >
+          {(formError ?? searchError) !== undefined &&
+            (formError?.message ?? t(searchErrorKey ?? 'login.error.generic'))}
+        </FormError>
 
         {!ssoOnly && (
           <Button

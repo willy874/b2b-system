@@ -4,14 +4,21 @@ import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { initTestI18n } from '@/test/i18n';
 
 import { registerIdentityProviderPagePermissions, Routes } from '../../..';
 
-const { listProviders } = vi.hoisted(() => ({ listProviders: vi.fn() }));
+const { listProviders, updateProvider } = vi.hoisted(() => ({
+  listProviders: vi.fn(),
+  updateProvider: vi.fn(),
+}));
+vi.mock('@/apis/identity-provider/update-identity-provider/mutation', () => ({
+  getUpdateIdentityProviderMutationOptions: () => ({ mutationFn: updateProvider }),
+}));
 vi.mock('@/apis/identity-provider/get-identity-provider-list/query', () => ({
   IDENTITY_PROVIDER_LIST_QUERY_KEY: 'IDENTITY_PROVIDER_LIST_QUERY_KEY',
   getIdentityProviderListQueryOptions: () => ({
@@ -53,7 +60,11 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   );
 }
 
+// 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
+beforeAll(() => initTestI18n());
+
 beforeEach(() => {
+  updateProvider.mockReset();
   resetPagePermissionRegistry();
   registerIdentityProviderPagePermissions();
   listProviders.mockReset().mockResolvedValue({
@@ -128,6 +139,19 @@ describe('外部 IdP 連線管理頁（docs/architecture/04-sso.md §12.2 D8–D
       const confirm = await screen.findByTestId('unsaved-changes-confirm');
       fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
       await waitFor(() => expect(screen.queryByTestId('identity-provider-form-dialog')).toBeNull());
+    });
+
+    it('儲存失敗 → 錯誤訊息在 role="alert" 裡，對話框不關閉（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+      updateProvider.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+      renderPage(MANAGER);
+      fireEvent.click(await screen.findByTestId('identity-provider-edit'));
+      await screen.findByTestId('identity-provider-name-input');
+      fireEvent.click(screen.getByTestId('identity-provider-form-submit'));
+
+      await waitFor(() => expect(updateProvider).toHaveBeenCalled());
+      const dialog = screen.getByTestId('identity-provider-form-dialog');
+      await waitFor(() => expect(within(dialog).getByRole('alert')).not.toBeEmptyDOMElement());
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('伺服器發生錯誤');
     });
 
     it('編輯時沒有改動按取消：直接關閉', async () => {

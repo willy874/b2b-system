@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -143,10 +144,7 @@ export function TagAssignDialog({
         <p className="m-0 text-xs text-[var(--color-fg-muted)]">
           {t('tag.assign.hint', { max: TAG_MAX_PER_RESOURCE })}
         </p>
-        {/* role="alert"：送出失敗時報讀器會立即念出 */}
-        <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
-          {error}
-        </p>
+        <FormError>{error}</FormError>
       </div>
     </Dialog>
   );

@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -7,6 +8,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { initTestI18n } from '@/test/i18n';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
 import { tenantFixture } from '../../../test-fixtures';
@@ -60,6 +62,9 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated', url = '/tenant'
 beforeAll(async () => {
   await import('../page');
 });
+
+// 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
+beforeAll(() => initTestI18n());
 
 beforeEach(() => {
   resetPagePermissionRegistry();
@@ -128,6 +133,22 @@ describe('租戶清單（docs/architecture/05-tenancy.md §10.2 D12）', () => {
       },
     });
     await waitFor(() => expect(router.state.location.pathname).toBe(`/tenant/${created.id}`));
+  });
+
+  it('建立失敗 → 錯誤訊息在 role="alert" 裡，對話框不關閉（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+    createTenant.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['tenant:read', 'tenant:create']);
+    fireEvent.click(await screen.findByTestId('tenant-create-button'));
+    fireEvent.change(screen.getByTestId('tenant-code-input'), { target: { value: 'beta' } });
+    fireEvent.change(screen.getByTestId('tenant-name-input'), { target: { value: 'Beta' } });
+    fireEvent.change(screen.getByTestId('tenant-admin-email-input'), {
+      target: { value: 'owner@beta.test' },
+    });
+    fireEvent.click(screen.getByTestId('tenant-create-submit'));
+
+    await waitFor(() => expect(createTenant).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('伺服器發生錯誤'));
+    expect(screen.getByRole('alert')).toHaveAttribute('data-testid', 'tenant-create-error');
   });
 
   it('預設第一頁、每頁 50 筆，不帶搜尋與篩選', async () => {

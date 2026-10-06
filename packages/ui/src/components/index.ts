@@ -14,6 +14,7 @@ export * from './Empty';
 export * from './Field';
 export * from './FileUpload';
 export * from './Form';
+export * from './FormError';
 export * from './Icon';
 export * from './Input';
 export * from './JsonDiff';

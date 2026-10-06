@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -119,7 +120,7 @@ export default function SetupPage() {
             </Field>
           )}
         </form.Field>
-        {formError && <p className="m-0 text-sm text-[var(--color-danger-text)]">{formError}</p>}
+        <FormError data-testid="setup-error">{formError}</FormError>
         <Button
           type="submit"
           variant="primary"

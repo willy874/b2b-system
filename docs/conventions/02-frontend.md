@@ -153,4 +153,5 @@
 
 - 可點的東西用 `<button>` / `<a>`，不在 `<div>` 上掛 `onClick`。
 - 只有圖示的按鈕要有 `aria-label`。
+- 表單送出失敗的訊息用 `@b2b-system/ui/FormError`（`role="alert"`），不寫一般的 `<p>`：焦點留在送出鈕上時，報讀器才念得到。
 - 基線見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §5。

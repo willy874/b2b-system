@@ -1,8 +1,11 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
 
@@ -63,6 +66,9 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
+// 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
+beforeAll(() => initTestI18n());
+
 describe('設定初始密碼（租戶的帳號與平台管理者，docs/architecture/05-tenancy.md §10.2 D5、D26）', () => {
   it('帶 ?tenant= → 租戶的帳號，完成後前往那個租戶的登入', async () => {
     renderAt('/setup?token=abcdefghijkl&tenant=acme');
@@ -82,6 +88,15 @@ describe('設定初始密碼（租戶的帳號與平台管理者，docs/architec
       params: { tenant: undefined, token: 'abcdefghijkl', password: PASSWORD },
     });
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(goToTenantLogin).not.toHaveBeenCalled();
+  });
+
+  it('送出失敗 → 錯誤訊息在 role="alert" 裡（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+    setup.mockRejectedValue(new AppError('AUTH_SETUP_TOKEN_INVALID', 400));
+    renderAt('/setup?token=abcdefghijkl&tenant=acme');
+    await submit();
+    await waitFor(() => expect(screen.getByRole('alert')).not.toBeEmptyDOMElement());
+    expect(screen.getByRole('alert')).toHaveTextContent('連結無效或已過期');
     expect(goToTenantLogin).not.toHaveBeenCalled();
   });
 
