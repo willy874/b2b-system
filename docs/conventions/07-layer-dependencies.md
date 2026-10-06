@@ -138,7 +138,8 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
                                           不經 DI 的連線、租戶 DB 的建立與 migration、租戶的初始資料
                                           （CLI 與租戶佈建共用；不讀 .env、不用 console）
 
- db/seeds/  db/migrations/  scripts/      獨立入口（CLI），不被執行期程式 import（註 1 的白名單除外）
+ db/seeds/  db/migrations/  cli/  scripts/
+                                          獨立入口（CLI），不被執行期程式 import（註 1 的白名單除外）
 ```
 
 ### 3.2 依賴矩陣
@@ -150,7 +151,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | `common/`         | ✅        | ✅   | ✅     | ⚠️⁴                             | ⚠️¹      |
 | `modules/<a>/`    | ✅        | ✅   | ✅     | ⚠️²                             | ⚠️¹      |
 | 組裝根            | ✅        | ✅   | ✅     | ✅                              | ❌       |
-| `db/seeds/`、`scripts/` | ✅  | ✅   | ✅     | ⚠️³                             | ✅       |
+| `db/seeds/`、`cli/`、`scripts/` | ✅  | ✅   | ✅     | ⚠️³                             | ✅       |
 
 1. 執行期（`core/`、`common/`、`modules/`）能 import 的 `db/` 檔案只有白名單：schema（`db/schema/`、`db/platform/schema/`、`db/relations.ts`）、
    權限目錄與系統角色的定義（`db/seeds/permissions.ts`、`db/seeds/platform-permissions.ts`、`db/seeds/roles.ts`，權限鍵的唯一來源）、
@@ -159,7 +160,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
    改它們不該變成 api 程序的行為。
 2. 跨模組只能 import 對方的 `*.module.ts`、`*.service.ts`、`dto/`、`*.constants.ts`、`*.types.ts`（只限 `import type`）與純函式；
    **不可 import 對方的 `*.repository.ts`、`*.controller.ts`**；不用 `forwardRef`。
-3. 只能 import 不依賴 DI 的純函式（例：`modules/credential/password.ts`）。
+3. 只能 import 不依賴 DI 的純函式（例：`modules/credential/password.ts`、簽發 token 的 `modules/credential/auth-token-issue.ts`）。
 4. 只有 `common/guards/permissions.guard.ts` 可以注入 **全域葉節點** 模組的 service：
    `PermissionService`（`modules/permission`）、`AuditService`（`modules/audit-log`），
    以及平台端點用的 `PlatformAdminService`、`PlatformAuditService`（`modules/platform-admin`）。

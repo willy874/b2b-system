@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { confirmArgument, disposableRejection } from '../script-guard';
+import { confirmArgument, disposableRejection, remoteRejection } from '../script-guard';
 
 const LOCAL = 'postgres://dev:dev@localhost:5432/b2b_platform';
 const REMOTE = 'postgres://app:secret@db.prod.internal:5432/b2b_platform';
@@ -60,5 +60,26 @@ describe('會清空資料的腳本的防呆（docs/architecture/backend/02-datab
     expect(confirmArgument(['--confirm', 'b2b_platform'])).toBe('b2b_platform');
     expect(confirmArgument(['--confirm'])).toBeUndefined();
     expect(confirmArgument([])).toBeUndefined();
+  });
+});
+
+describe('正式環境也能執行的維運指令只要求確認遠端 DB（remoteRejection）', () => {
+  const reset = (platformUrl: string, tenantUrls: string[] = []) => ({
+    script: 'cli:reset-super-admin',
+    platformUrl,
+    tenantUrls,
+  });
+
+  it('全部在本機 → 放行', () => {
+    expect(remoteRejection(reset(LOCAL, [LOCAL]), undefined)).toBeUndefined();
+  });
+
+  it('任一個不在本機、沒有確認 → 拒絕，訊息帶出要確認的 database 名稱', () => {
+    expect(remoteRejection(reset(LOCAL, [REMOTE]), undefined)).toMatch('--confirm b2b_platform');
+    expect(remoteRejection(reset(REMOTE), 'other')).toBeDefined();
+  });
+
+  it('確認了平台 database 名稱 → 放行（不像 disposableRejection 那樣看 NODE_ENV 與環境標記）', () => {
+    expect(remoteRejection(reset(REMOTE, [REMOTE]), 'b2b_platform')).toBeUndefined();
   });
 });

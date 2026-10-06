@@ -43,6 +43,7 @@
 | 郵件   | `mail.send`                                                       | 寄出的信；只記範本、收件人、jobId、messageId，不記內容與 token（[`11-mail.md`](./11-mail.md) §5） |
 | 背景工作 | `job.retry`                                                     | 手動重試失敗的工作；`resourceName` 是工作名稱（[`10-jobs.md`](./10-jobs.md) §6） |
 | 系統   | `system.bootstrap`                                                | 初始 super-admin 建立  |
+|        | `system.super_admin_reset_requested`                              | 災難復原的 CLI 簽發了 super-admin 的重設（或啟用）連結；`actorEmail = 'system'`，`metadata.purpose`、`metadata.expiresAt`（[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §7） |
 |        | `system.seed`                                                     | 權限目錄變更           |
 
 ### 2.2 不記

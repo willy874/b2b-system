@@ -75,6 +75,16 @@ export class TagRepository {
     return row;
   }
 
+  /** 標籤目前的 `version`；不存在回 undefined（樂觀鎖沒命中時重讀）。 */
+  async findVersion(id: string, tx: DbOrTx): Promise<number | undefined> {
+    const [row] = await tx
+      .select({ version: tags.version })
+      .from(tags)
+      .where(eq(tags.id, id))
+      .limit(1);
+    return row?.version;
+  }
+
   /** 硬刪除（D4）；指派由外鍵 CASCADE。回傳刪除前貼著的資源數（稽核用）。 */
   async delete(id: string, tx: DbOrTx): Promise<number | undefined> {
     const [assigned] = await tx

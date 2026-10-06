@@ -79,7 +79,7 @@ const SORT_COLUMNS = {
  */
 function statusCondition(status: UserStatus): SQL | undefined {
   const lockActive = gt(users.lockedUntil, sql`now()`);
-  if (status === 'locked') return or(eq(users.status, 'locked'), lockActive);
+  if (status === 'locked') return and(eq(users.status, 'active'), lockActive);
   if (status === 'active') {
     return and(
       eq(users.status, 'active'),

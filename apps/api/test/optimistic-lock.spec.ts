@@ -70,6 +70,22 @@ function patchRole(id: string, body: Record<string, unknown>) {
   return request(http).patch(`/roles/${id}`).set('authorization', `Bearer ${token}`).send(body);
 }
 
+async function createServiceAccount(name: string): Promise<string> {
+  const response = await request(http)
+    .post('/service-accounts')
+    .set('authorization', `Bearer ${token}`)
+    .send({ name, roleIds: [] })
+    .expect(201);
+  return dataOf<VersionedBody>(response).id;
+}
+
+function patchServiceAccount(id: string, body: Record<string, unknown>) {
+  return request(http)
+    .patch(`/service-accounts/${id}`)
+    .set('authorization', `Bearer ${token}`)
+    .send(body);
+}
+
 type Transaction = Parameters<Parameters<TestDatabase['transaction']>[0]>[0];
 
 /**
@@ -360,6 +376,37 @@ describe('樂觀鎖（docs/architecture/backend/14-revisions.md §9.2 D3、docs/
         .send({ roleIds: [], expectedRoleIds: [id] })
         .expect(200);
       expect(await versionOfRole(id)).toBe(1);
+    });
+  });
+  describe('PATCH /service-accounts/:id', () => {
+    it('讀到之後被搶先改成 v2，再用 v1 送出（UPDATE 沒命中）→ 409，details.current 是重讀的 2', async () => {
+      const id = await createServiceAccount('Lock SA A');
+      const response = await raceAfterRead(
+        (tx) => tx.select().from(users).where(eq(users.id, id)).for('update'),
+        (tx) =>
+          tx
+            .update(users)
+            .set({ displayName: 'SA-other', version: sql`${users.version} + 1` })
+            .where(eq(users.id, id)),
+        () => patchServiceAccount(id, { name: 'SA-mine', version: 1 }),
+      );
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({
+        error: { code: 'SERVICE_ACCOUNT_VERSION_CONFLICT', details: { current: 2 } },
+      });
+      const [row] = await db.select().from(users).where(eq(users.id, id));
+      expect(row?.displayName).toBe('SA-other');
+    });
+
+    it('讀到之後被刪除，再送出 → 404 SERVICE_ACCOUNT_NOT_FOUND（不是版本衝突）', async () => {
+      const id = await createServiceAccount('Lock SA B');
+      const response = await raceAfterRead(
+        (tx) => tx.select().from(users).where(eq(users.id, id)).for('update'),
+        (tx) => tx.update(users).set({ deletedAt: new Date() }).where(eq(users.id, id)),
+        () => patchServiceAccount(id, { name: 'SA-B', version: 1 }),
+      );
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({ error: { code: 'SERVICE_ACCOUNT_NOT_FOUND' } });
     });
   });
 });

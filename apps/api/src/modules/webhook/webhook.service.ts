@@ -2,8 +2,8 @@ import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx, Transaction } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -102,6 +102,12 @@ function urlsOf(row: WebhookSubscriptionWithCreator): string[] {
  * Webhook（docs/architecture/backend/17-webhook.md §9）：訂閱的增刪改、密鑰輪替、送測試事件、重送，
  * 以及擁有者模組在業務交易內呼叫的 `emit()`。
  */
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const WEBHOOK_LOCK_CODES = {
+  notFound: 'WEBHOOK_NOT_FOUND',
+  conflict: 'WEBHOOK_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
+
 @Injectable()
 export class WebhookService {
   constructor(
@@ -229,12 +235,7 @@ export class WebhookService {
         await this.assertUrlLimit(urls, tx, id);
       }
       const row = await this.repo.update(id, values, dto.version, tx);
-      if (!row) {
-        const latest = await this.repo.findById(id, tx);
-        throw latest
-          ? new AppException('WEBHOOK_VERSION_CONFLICT', { current: latest.version })
-          : new AppException('WEBHOOK_NOT_FOUND');
-      }
+      if (!row) throw await missedUpdate(() => this.repo.findVersion(id, tx), WEBHOOK_LOCK_CODES);
       if (urls) await this.repo.replaceTargets(id, urls, tx);
       if (enabling) await this.repo.resetTargetFailures(id, tx);
       const changes = diff(

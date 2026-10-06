@@ -46,7 +46,7 @@ import { ListFileSchema } from './dto/list-file.dto';
 import type { ListFileDto } from './dto/list-file.dto';
 import { UpdateFileSchema } from './dto/update-file.dto';
 import type { UpdateFileDto } from './dto/update-file.dto';
-import { FileFolderService } from './file-folder.service';
+import { FileFolderMoveService } from './file-folder-move.service';
 import { FileImageService } from './file-image.service';
 import { IMAGE_VARIANTS } from './file.constants';
 import type { ImageVariant } from './file.constants';
@@ -59,7 +59,7 @@ export class FileController {
   constructor(
     private readonly fileService: FileService,
     private readonly fileImageService: FileImageService,
-    private readonly folderService: FileFolderService,
+    private readonly folderMoveService: FileFolderMoveService,
   ) {}
 
   @Get()
@@ -103,7 +103,7 @@ export class FileController {
     @Body(new ZodValidationPipe(MoveFileItemsSchema)) dto: MoveFileItemsDto,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.folderService.move(dto, actor);
+    return this.folderMoveService.move(dto, actor);
   }
 
   @Post(':id/parts')

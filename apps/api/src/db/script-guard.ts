@@ -47,11 +47,22 @@ export function disposableRejection(
   if (context.environment === PRODUCTION_ENVIRONMENT) {
     return `${target.script} 拒絕執行：平台 DB 標記為 production（platform_environment）`;
   }
+  return remoteRejection(target, context.confirm);
+}
+
+/**
+ * 要動到的 DB 有任何一個不在本機、而 `--confirm` 不是平台 database 名稱時回傳原因（`disposableRejection` 的第 3 條）。
+ * 正式環境也要能執行的維運指令（例：`cli:reset-super-admin`）只套這一條：連錯環境時多一道確認。
+ */
+export function remoteRejection(
+  target: DisposableTarget,
+  confirm: string | undefined,
+): string | undefined {
   const remote = [target.platformUrl, ...target.tenantUrls].filter(
     (url) => !LOCAL_HOSTS.has(new URL(url).hostname),
   );
   const platformDatabase = databaseNameOf(target.platformUrl);
-  if (remote.length && context.confirm !== platformDatabase) {
+  if (remote.length && confirm !== platformDatabase) {
     const hosts = [...new Set(remote.map((url) => new URL(url).host))].join(', ');
     return (
       `${target.script} 要動到不在本機的資料庫（${hosts}）。` +

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, count, eq, exists, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 
-import { PLATFORM_DB, withTransaction } from '@/core/database';
+import { containsPattern, PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx, PlatformTransaction } from '@/core/database';
 import { notDeleted, tenantDomains, tenants } from '@/db/platform/schema';
 import type { TenantRow, TenantStatus } from '@/db/platform/schema';
@@ -36,11 +36,6 @@ export interface TenantListFilter {
   /** 代碼、名稱或任一網域的部分相符。 */
   q?: string;
   status?: TenantStatus;
-}
-
-/** `%`、`_` 在 LIKE 裡是萬用字元：使用者輸入的要跳脫。 */
-function escapeLike(value: string): string {
-  return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 /** 平台管理者對租戶登記的讀寫（平台 DB，docs/architecture/05-tenancy.md §10.2 D12、D13）。 */
@@ -85,7 +80,7 @@ export class PlatformTenantRepository {
   }
 
   async list(filter: TenantListFilter): Promise<{ items: TenantWithDomains[]; total: number }> {
-    const pattern = filter.q ? `%${escapeLike(filter.q)}%` : undefined;
+    const pattern = filter.q ? containsPattern(filter.q) : undefined;
     const where = and(
       notDeleted(tenants),
       filter.status ? eq(tenants.status, filter.status) : undefined,

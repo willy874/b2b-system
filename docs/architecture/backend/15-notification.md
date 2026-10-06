@@ -4,7 +4,7 @@
 決策見 §12；前端（鈴鐺、列表頁、route id 註冊表）見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
 租戶可以關掉某些事件或管道：事件目錄與租戶的政策見 [`16-notification-event.md`](./16-notification-event.md)（[`backend/16-notification-event.md`](16-notification-event.md) §9）。
 
-目前的類型：`approval.pending`、`approval.result`、`user.rolesChanged`（§4）。
+目前的類型與收件人見 §4 的表（新增類型時只改那裡）；平台管理者的類型見 §6.2。
 
 ---
 

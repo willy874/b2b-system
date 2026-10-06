@@ -163,6 +163,16 @@ export class ServiceAccountRepository {
     return row;
   }
 
+  /** 未刪除的服務帳號目前的 `version`；不存在或已刪除回 undefined（樂觀鎖沒命中時重讀）。 */
+  async findVersion(id: string, tx: DbOrTx): Promise<number | undefined> {
+    const [row] = await tx
+      .select({ version: users.version })
+      .from(users)
+      .where(and(eq(users.id, id), notDeleted(users), isServiceAccount()))
+      .limit(1);
+    return row?.version;
+  }
+
   /** 軟刪除並遞增 `token_version`：它的 token 全部失效。 */
   async softDelete(id: string, actorId: string, tx: DbOrTx): Promise<void> {
     await tx

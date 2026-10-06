@@ -3,7 +3,7 @@ import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import { afterCommit } from '@/core/database';
+import { afterCommit, deleteInBatches } from '@/core/database';
 import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -254,14 +254,11 @@ export class NotificationService {
    * 每批刪完推 `delete` 給各自的收件人，未讀數跟著下降。
    */
   async removeBySource(sourceId: string): Promise<number> {
-    let removed = 0;
-    for (;;) {
-      // oxlint-disable-next-line no-await-in-loop -- 分批刪除，下一批要等這一批提交
-      const rows = await this.repo.deleteBySource(sourceId, NOTIFICATION_CLEANUP_BATCH_SIZE);
-      removed += rows.length;
+    return deleteInBatches(async (size) => {
+      const rows = await this.repo.deleteBySource(sourceId, size);
       this.publishChanges(rows, ChangeKind.DELETE);
-      if (rows.length < NOTIFICATION_CLEANUP_BATCH_SIZE) return removed;
-    }
+      return rows.length;
+    }, NOTIFICATION_CLEANUP_BATCH_SIZE);
   }
 
   /**
@@ -275,11 +272,13 @@ export class NotificationService {
       this.settings.get(NOTIFICATION_MAX_PER_USER_SETTING),
     ]);
     const cutoff = new Date(now.getTime() - retentionDays * DAY_MS);
-    const deletedRead = await this.deleteInBatches(() =>
-      this.repo.deleteReadBefore(cutoff, NOTIFICATION_CLEANUP_BATCH_SIZE),
+    const deletedRead = await deleteInBatches(
+      (size) => this.repo.deleteReadBefore(cutoff, size),
+      NOTIFICATION_CLEANUP_BATCH_SIZE,
     );
-    const deletedBeyondLimit = await this.deleteInBatches(() =>
-      this.repo.deleteBeyondPerRecipient(maxPerUser, NOTIFICATION_CLEANUP_BATCH_SIZE),
+    const deletedBeyondLimit = await deleteInBatches(
+      (size) => this.repo.deleteBeyondPerRecipient(maxPerUser, size),
+      NOTIFICATION_CLEANUP_BATCH_SIZE,
     );
     const report = {
       retentionDays,
@@ -316,16 +315,6 @@ export class NotificationService {
       allowed.set(type, new Set(ids));
     }
     return rows.filter((row) => allowed.get(row.type)?.has(row.recipientId));
-  }
-
-  private async deleteInBatches(batch: () => Promise<number>): Promise<number> {
-    let deleted = 0;
-    for (;;) {
-      // oxlint-disable-next-line no-await-in-loop -- 分批刪除，下一批要等這一批提交
-      const count = await batch();
-      deleted += count;
-      if (count < NOTIFICATION_CLEANUP_BATCH_SIZE) return deleted;
-    }
   }
 
   /**

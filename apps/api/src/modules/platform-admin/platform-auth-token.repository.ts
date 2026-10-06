@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 
@@ -13,6 +11,7 @@ import {
   PLATFORM_ACTIVATION_TTL_SECONDS,
   PLATFORM_PASSWORD_RESET_TTL_SECONDS,
 } from './platform-admin.constants';
+import { issuePlatformAuthToken } from './platform-auth-token-issue';
 
 /**
  * 平台管理者的啟用與重設密碼 token（平台 DB）；規則同租戶的 `AuthTokenService`：
@@ -24,26 +23,13 @@ export class PlatformAuthTokenRepository {
 
   /** 發新 token 前先作廢同一位管理者同用途的舊 token。只由寄信的背景工作呼叫。 */
   async issue(adminId: string, purpose: PlatformAuthTokenPurpose): Promise<{ raw: string }> {
-    await this.db
-      .update(platformAuthTokens)
-      .set({ usedAt: new Date() })
-      .where(
-        and(
-          eq(platformAuthTokens.adminId, adminId),
-          eq(platformAuthTokens.purpose, purpose),
-          isNull(platformAuthTokens.usedAt),
-        ),
-      );
-    const raw = randomBytes(32).toString('base64url');
-    const ttl =
-      purpose === 'activation'
-        ? PLATFORM_ACTIVATION_TTL_SECONDS
-        : PLATFORM_PASSWORD_RESET_TTL_SECONDS;
-    await this.db.insert(platformAuthTokens).values({
+    const { raw } = await issuePlatformAuthToken(this.db, {
       adminId,
       purpose,
-      tokenHash: sha256(raw),
-      expiresAt: new Date(Date.now() + ttl * 1000),
+      validSeconds:
+        purpose === 'activation'
+          ? PLATFORM_ACTIVATION_TTL_SECONDS
+          : PLATFORM_PASSWORD_RESET_TTL_SECONDS,
     });
     return { raw };
   }

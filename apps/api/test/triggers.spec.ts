@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { auditLogs, roles } from '@/db/schema';
+import { auditLogs, roles, users } from '@/db/schema';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, expectDbError, truncateAll } from './db';
@@ -174,6 +174,29 @@ describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3�
         sql`select count(*)::int as total from permissions where key = 'widget:read'`,
       );
       expect(Number(row?.total)).toBe(1);
+    });
+  });
+  describe('users.status 不寫入 locked（users_status_not_locked，docs/architecture/backend/04-auth.md §3.3）', () => {
+    it('寫入或改成 status = locked 被 DB 擋下；鎖定只寫 locked_until', async () => {
+      await expectDbError(
+        db
+          .insert(users)
+          .values({ email: 'check-locked@example.com', displayName: 'x', status: 'locked' }),
+        /users_status_not_locked/,
+      );
+      const [user] = await db
+        .insert(users)
+        .values({
+          email: 'check-active@example.com',
+          displayName: 'x',
+          status: 'active',
+          lockedUntil: new Date(Date.now() + 60_000),
+        })
+        .returning();
+      await expectDbError(
+        db.update(users).set({ status: 'locked' }).where(eq(users.id, user!.id)),
+        /users_status_not_locked/,
+      );
     });
   });
 });

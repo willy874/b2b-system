@@ -115,7 +115,7 @@
 
 ## 7. 日誌
 
-- 用 `new Logger(Xxx.name)`（`@nestjs/common`，底層接 Pino），不用 `console.*`（`db/`、`scripts/` 例外）。
+- 用 `new Logger(Xxx.name)`（`@nestjs/common`，底層接 Pino），不用 `console.*`（`db/`、`cli/`、`scripts/` 例外）。
 - 不記錄密碼、token、refresh cookie；敏感欄位清單見
   [`architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §5.1。
 - 資料庫錯誤照常以 `{ err: error }` 記錄：Pino 的 `err` serializer 會拿掉查詢參數。錯誤要整個交給別人存下來時

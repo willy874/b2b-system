@@ -101,7 +101,7 @@ describe('AuthMailJobs（docs/architecture/backend/11-mail.md §4）', () => {
   });
 
   it('重設密碼信：任何狀態都寄，連結指向 reset-password，依使用者語系', async () => {
-    const { run, tokens, sent } = setup({ ...PENDING, status: 'locked', locale: 'zh-TW' });
+    const { run, tokens, sent } = setup({ ...PENDING, status: 'inactive', locale: 'zh-TW' });
     await run(PASSWORD_RESET_MAIL_JOB.name);
     expect(tokens.issue).toHaveBeenCalledWith('u1', 'password_reset');
     expect(sent[0]!.content.subject).toBe('重設你的 B2B System 密碼');

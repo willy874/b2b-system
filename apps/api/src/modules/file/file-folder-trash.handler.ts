@@ -20,7 +20,7 @@ import { folderPathOf } from './file.constants';
 
 /**
  * 資料夾的回收桶（docs/architecture/backend/14-revisions.md §9.2 D5、D9、D11；docs/architecture/backend/13-trash.md §7）。還原是
- * `POST /file-folders/:id/restore`（`FileFolderService.restore`）；這裡只負責列出與到期永久刪除。
+ * `POST /file-folders/:id/restore`（`FileFolderRestoreService.restore`）；這裡只負責列出與到期永久刪除。
  */
 @Injectable()
 export class FileFolderTrashHandler implements TrashHandler, OnModuleInit {

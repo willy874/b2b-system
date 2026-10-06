@@ -21,7 +21,7 @@ import type {
   RedeemedCode,
 } from '@/modules/oidc-provider/oidc-provider.service';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
-import { UserService } from '@/modules/user/user.service';
+import { UserAccountService } from '@/modules/user/user-account.service';
 
 import { AuthService } from './auth.service';
 import type { IssuedSession } from './auth.service';
@@ -41,7 +41,7 @@ export class SsoService implements OnModuleInit {
   constructor(
     private readonly auth: AuthService,
     private readonly oidc: OidcProviderService,
-    private readonly users: UserService,
+    private readonly users: UserAccountService,
     private readonly platformAdmins: PlatformAdminService,
     private readonly tenancy: Tenancy,
     private readonly audit: AuditService,

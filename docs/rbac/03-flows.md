@@ -389,7 +389,7 @@ PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
 | 帳密錯誤                        | 401  | `AUTH_INVALID_CREDENTIALS`                     | 表單內顯示錯誤                       |
 | 帳號未啟用                      | 401  | `AUTH_ACCOUNT_PENDING`                         | 提示去收啟用信                       |
 | 帳號停用                        | 403  | `AUTH_ACCOUNT_DISABLED`                        | 提示聯絡管理員                       |
-| 帳號鎖定（登入失敗次數用完）    | 401  | `AUTH_INVALID_CREDENTIALS`                     | 與帳密錯誤相同（不透露鎖定）；外部 IdP 遇到舊版的 `status = locked` 才會是 `AUTH_ACCOUNT_LOCKED` |
+| 帳號鎖定（登入失敗次數用完）    | 401  | `AUTH_INVALID_CREDENTIALS`                     | 與帳密錯誤相同（不透露鎖定）；外部 IdP 登入不受鎖定影響（04-auth.md §3.3） |
 | access token 失效               | 401  | `AUTH_TOKEN_INVALID`                           | 觸發一次續期，失敗則登出             |
 | access token 陳舊（被強制登出） | 401  | `AUTH_TOKEN_STALE`                             | **直接登出**，不嘗試續期             |
 | refresh 重用偵測                | 401  | `AUTH_REFRESH_REUSED`                          | 直接登出 ＋ 顯示安全提示             |

@@ -21,7 +21,7 @@ import type { SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database, DbOrTx } from '@/core/database';
-import { anyUuid, containsPattern, TENANT_DB } from '@/core/database';
+import { anyUuid, containsPattern, prefixPattern, TENANT_DB } from '@/core/database';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import {
@@ -76,11 +76,6 @@ const SORT_COLUMNS = {
   name: files.name,
   size: files.size,
 } as const;
-
-/** LIKE 的萬用字元當成一般字元比對。 */
-function escapeLike(value: string): string {
-  return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
-}
 
 @Injectable()
 export class FileRepository {
@@ -140,11 +135,11 @@ export class FileRepository {
     const conditions: SQL[] = [notDeleted(files), eq(files.status, 'ready')];
     // 讀得到的資料夾可能有上萬個：一個陣列參數，不受參數個數上限影響（docs/architecture/backend/09-file.md §11）
     if (scope) conditions.push(anyUuid(files.folderId, scope.folderIds));
-    if (query.keyword) conditions.push(ilike(files.name, `%${escapeLike(query.keyword)}%`));
+    if (query.keyword) conditions.push(ilike(files.name, containsPattern(query.keyword)));
     if (query.contentType) {
       conditions.push(
         query.contentType.endsWith('/*')
-          ? like(files.contentType, `${escapeLike(query.contentType.slice(0, -1))}%`)
+          ? like(files.contentType, prefixPattern(query.contentType.slice(0, -1)))
           : eq(files.contentType, query.contentType),
       );
     }
@@ -631,7 +626,7 @@ function categoryCondition(category: FileCategory): SQL {
 
 function ruleCondition(rule: { prefixes: readonly string[]; types: readonly string[] }): SQL {
   const parts: SQL[] = rule.prefixes.map((prefix) =>
-    like(files.contentType, `${escapeLike(prefix)}%`),
+    like(files.contentType, prefixPattern(prefix)),
   );
   if (rule.types.length > 0) parts.push(inArray(files.contentType, [...rule.types]));
   return or(...parts) ?? sql`false`;

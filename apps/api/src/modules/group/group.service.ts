@@ -8,8 +8,8 @@ import {
   GROUP_OBJECT_TYPE,
   subjectKey,
 } from '@/core/authz';
-import type { Database, DbOrTx } from '@/core/database';
-import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
@@ -72,6 +72,12 @@ function idsOf(members: readonly GroupMemberSubject[], type: GroupMemberSubject[
  * - 只檢查全域權限鍵，不檢查群組在資料夾上的授權（D13）。
  * - 不能改自己：把自己、自己所屬的群組放進或移出群組，或改自己所屬群組持有的角色（I9 的延伸）。
  */
+/** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
+const GROUP_LOCK_CODES = {
+  notFound: 'GROUP_NOT_FOUND',
+  conflict: 'GROUP_VERSION_CONFLICT',
+} as const satisfies MissedUpdateCodes;
+
 @Injectable()
 export class GroupService {
   constructor(
@@ -148,7 +154,7 @@ export class GroupService {
 
     await withTransaction(this.db, async (tx) => {
       const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
-      if (!updated) throw await this.missedUpdate(id, tx);
+      if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), GROUP_LOCK_CODES);
       await this.audit.record(
         {
           action: 'group.update',
@@ -452,14 +458,6 @@ export class GroupService {
       changes: [{ resource: ChangeSource.GROUP, kind, id }],
       affectedUserIds: [...affectedUserIds],
     });
-  }
-
-  /** 條件式 UPDATE 沒有命中：列已不在 → 404；還在就是版本被搶先改過 → 409（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
-  private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {
-    const current = await this.repo.findVersion(id, tx);
-    return current === undefined
-      ? new AppException('GROUP_NOT_FOUND')
-      : new AppException('GROUP_VERSION_CONFLICT', { current });
   }
 
   private async getExisting(id: string): Promise<GroupRow> {

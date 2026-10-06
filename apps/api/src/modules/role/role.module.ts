@@ -12,6 +12,6 @@ import { RoleService } from './role.service';
   imports: [TrashModule, RevisionModule],
   controllers: [RoleController],
   providers: [RoleService, RoleRepository, RoleTrashHandler],
-  exports: [RoleService, RoleRepository],
+  exports: [RoleService],
 })
 export class RoleModule {}

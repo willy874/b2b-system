@@ -6,11 +6,11 @@ import type { ApprovalRequestRow } from '@/db/schema';
 import type { ApprovalService } from '@/modules/approval/approval.service';
 import type { ApprovalContext } from '@/modules/approval/approval.types';
 
+import type { UserAccountService } from '../user-account.service';
 import {
   UserRegistrationApprovalHandler,
   userRegistrationRequest,
 } from '../user-registration.approval';
-import type { UserService } from '../user.service';
 
 const REVIEWER: AuthUser = { id: 'reviewer-1', email: 'reviewer@example.com', status: 'active' };
 
@@ -46,7 +46,7 @@ function setup() {
   const jobs = { enqueue: vi.fn(async () => undefined) };
   const handler = new UserRegistrationApprovalHandler(
     approvals as unknown as ApprovalService,
-    users as unknown as UserService,
+    users as unknown as UserAccountService,
     jobs as unknown as JobQueue,
   );
   return { handler, users, approvals, jobs };

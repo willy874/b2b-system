@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { OffsetSchema } from '@/core/http';
 import { defineSchema } from '@/core/validation';
 import {
   AUDIT_LOG_MAX_RANGE_DAYS,
@@ -57,7 +58,7 @@ export const PlatformAdminPasswordLinkSchema = defineSchema(
 
 export const ListPlatformAuditLogSchema = z
   .object({
-    offset: z.coerce.number().int().min(0).default(0),
+    offset: OffsetSchema,
     limit: z.coerce.number().int().min(1).max(100).default(50),
     /** 支援前綴比對：`tenant.*` */
     action: z.string().trim().max(100).optional(),
