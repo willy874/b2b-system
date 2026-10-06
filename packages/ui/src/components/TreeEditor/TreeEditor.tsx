@@ -15,6 +15,8 @@ import { Button } from '../Button';
 import { Empty } from '../Empty';
 import { Icon } from '../Icon';
 import type { IconName } from '../Icon';
+import { useComponentLabels } from '../labels';
+import type { TreeEditorTextLabels } from '../labels';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import { Toolbar } from '../Toolbar';
@@ -69,21 +71,8 @@ export type TreeEditorLayout = 'manual' | 'auto';
 
 export type TreeEditorEdgeType = 'smoothstep' | 'bezier' | 'straight';
 
-export interface TreeEditorLabels {
-  addRoot?: string;
-  addChild?: string;
-  deleteSelection?: string;
-  autoLayout?: string;
-  fitView?: string;
-  zoomIn?: string;
-  zoomOut?: string;
-  undo?: string;
-  redo?: string;
-  /** 工具列放不下時，收起其餘按鈕的下拉按鈕。 */
-  more?: string;
-  /** 沒有任何節點時的標題。 */
-  empty?: string;
-}
+/** 沒有傳的鍵用 `ComponentLabelsContext` 的文案（目前語系）。 */
+export type TreeEditorLabels = Partial<TreeEditorTextLabels>;
 
 export interface TreeEditorDeleteRequest {
   nodeIds: string[];
@@ -153,7 +142,7 @@ export interface TreeEditorProps<TData> extends SlotOverrides<TreeEditorSlot> {
   showMinimap?: boolean;
   /** 畫布高度，預設 `32rem`。 */
   height?: CSSProperties['height'];
-  /** 預設文案是繁中；`features/` 使用時以 `t()` 傳入。 */
+  /** 沒有傳的文案用 `ComponentLabelsContext`（目前語系），所以 `features/` 不必傳。 */
   labels?: TreeEditorLabels;
   className?: string;
   style?: CSSProperties;
@@ -161,20 +150,6 @@ export interface TreeEditorProps<TData> extends SlotOverrides<TreeEditorSlot> {
   'aria-label'?: string;
   'data-testid'?: string;
 }
-
-const DEFAULT_LABELS: Required<TreeEditorLabels> = {
-  addRoot: '新增根節點',
-  addChild: '新增子節點',
-  deleteSelection: '刪除選取',
-  autoLayout: '自動排版',
-  fitView: '顯示全部',
-  zoomIn: '放大',
-  zoomOut: '縮小',
-  undo: '復原',
-  redo: '重做',
-  more: '更多',
-  empty: '還沒有任何節點',
-};
 
 export const DEFAULT_TREE_NODE_SIZE: TreeEditorNodeSize = { width: 180, height: 56 };
 export const DEFAULT_TREE_EDITOR_HEIGHT = '32rem';
@@ -284,7 +259,7 @@ function TreeEditorCanvas<TData>({
   'aria-label': ariaLabel,
   ...rest
 }: TreeEditorProps<TData>) {
-  const labels = { ...DEFAULT_LABELS, ...labelsProp };
+  const labels = { ...useComponentLabels().treeEditor, ...labelsProp };
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const flow = useReactFlow();
 

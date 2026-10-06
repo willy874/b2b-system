@@ -280,6 +280,26 @@
       "first": "第一頁",
       "last": "最後一頁",
       "page": "頁碼"
+    },
+    "calendar": {
+      "previousMonth": "上個月",
+      "nextMonth": "下個月"
+    },
+    "datePicker": {
+      "open": "開啟日曆"
+    },
+    "treeEditor": {
+      "addRoot": "新增根節點",
+      "addChild": "新增子節點",
+      "deleteSelection": "刪除選取",
+      "autoLayout": "自動排版",
+      "fitView": "顯示全部",
+      "zoomIn": "放大",
+      "zoomOut": "縮小",
+      "undo": "復原",
+      "redo": "重做",
+      "more": "更多",
+      "empty": "還沒有任何節點"
     }
   },
   "theme": {

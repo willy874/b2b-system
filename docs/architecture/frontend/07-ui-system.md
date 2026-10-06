@@ -608,7 +608,7 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 畫布 | 點陣背景、拖曳對齊 8px 格線、滾輪縮放（0.2–2 倍）、`showMinimap`（預設顯示）、`height`（預設 `32rem`）。初次顯示與「顯示全部」不放大超過 1 倍 |
 | 唯讀 | `readOnly`：只能平移、縮放、選取；工具列只剩縮放與顯示全部 |
 | 工具列 | `Toolbar`（§3.14），一律只顯示圖示；放不下時從尾端（縮放、顯示全部）收進「更多」，下拉選項是 `menu-item` ＋ 同樣的 `data-value` |
-| 文案 | `labels`（含「更多」的 `more`）；`features/` 以 `t()` 傳入 |
+| 文案 | `labels`（含「更多」的 `more`）；沒有傳的鍵用 `ComponentLabelsContext` 的 `treeEditor`（目前語系，[`08-i18n.md`](./08-i18n.md) §3.3） |
 | slot | `toolbar` / `canvas` / `node` / `group` / `minimap` / `empty`；`className` / `data-testid` 落在最外層 |
 | testid | 工具列 `tree-editor-toolbar`、按鈕 `tree-editor-action` ＋ `data-value`（`add-root` / `add-child` / `delete` / `auto-layout` / `undo` / `redo` / `zoom-in` / `zoom-out` / `fit-view`）、畫布 `tree-editor-canvas`、節點 `tree-editor-item` ＋ `data-value`（節點 id）＋ `data-selected`＋ `data-state` ＋ `data-highlighted`、節點上的 `+` `tree-editor-add-child`、分組背景 `tree-editor-group` ＋ `data-value`（分組 id）、空狀態 `tree-editor-empty` |
 

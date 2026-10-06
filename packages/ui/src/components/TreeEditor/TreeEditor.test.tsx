@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { installFlowDom } from '../../testing/flowDom';
+import { ComponentLabelsContext, DEFAULT_COMPONENT_LABELS } from '../labels';
 import { TreeEditor } from './TreeEditor';
 import type { TreeEditorProps } from './TreeEditor';
 import { getParentIds } from './treeGraph';
@@ -189,6 +190,20 @@ describe('TreeEditor', () => {
     await screen.findAllByTestId('tree-editor-item');
     expect(action('add-root')).toBeUndefined();
     expect(screen.queryByTestId('tree-editor-add-child')).not.toBeInTheDocument();
+  });
+
+  it('沒有傳 labels 時用 ComponentLabelsContext 的文案（目前語系）', async () => {
+    render(
+      <ComponentLabelsContext
+        value={{
+          ...DEFAULT_COMPONENT_LABELS,
+          treeEditor: { ...DEFAULT_COMPONENT_LABELS.treeEditor, addRoot: 'Add root node' },
+        }}
+      >
+        <TreeEditor<Item> defaultValue={sample} createNode={createNode} aria-label="tree" />
+      </ComponentLabelsContext>,
+    );
+    expect(await screen.findByRole('button', { name: 'Add root node' })).toBeInTheDocument();
   });
 
   it('labels 取代預設文案；testIds 取代內層的 data-testid', async () => {

@@ -8,8 +8,12 @@ import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
 import type { DateValue } from './calendar-utils';
+import { useDatePickerLabels } from './datePickerLabels';
+import type { DatePickerLabels } from './datePickerLabels';
 
 import styles from './DatePicker.module.css';
+
+export type { DatePickerLabels } from './datePickerLabels';
 
 /**
  * `className` 落在外框，`data-testid` / `aria-label` 落在 `trigger`；
@@ -26,13 +30,15 @@ export interface DatePickerProps extends SlotOverrides<DatePickerSlot> {
   disabled?: boolean;
   invalid?: boolean;
   clearable?: boolean;
+  /** 日曆的語系；沒有傳時用目前的介面語系（`ComponentLabelsContext`）。 */
   locale?: string;
   /** 沒有選取值時初始顯示的月份（`YYYY-MM-DD`）。 */
   defaultMonth?: DateValue;
   className?: string;
   'aria-label'?: string;
   'data-testid'?: string;
-  labels?: { clear: string; open: string };
+  /** 沒有傳的鍵用 `ComponentLabelsContext` 的文案（目前語系）。 */
+  labels?: DatePickerLabels;
 }
 
 /**
@@ -51,13 +57,14 @@ export function DatePicker({
   locale,
   defaultMonth,
   className,
-  labels = { clear: 'clear', open: 'open calendar' },
+  labels: labelsProp,
   classNames,
   styles: styleOverrides,
   testIds,
   ...rest
 }: DatePickerProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  const labels = useDatePickerLabels(labelsProp);
   const [open, setOpen] = useState(false);
   const triggerSlot = slot('trigger', styles.trigger);
   // 放在 Field 裡、沒有傳 aria-label 時：名稱是 Field 的標籤加上目前的值，說明與錯誤連到 aria-describedby
@@ -96,6 +103,7 @@ export function DatePicker({
           min={min}
           max={max}
           locale={locale}
+          labels={labels}
           defaultMonth={defaultMonth}
           onSelect={(next) => {
             onValueChange(next);

@@ -280,6 +280,26 @@
       "first": "First",
       "last": "Last",
       "page": "Page number"
+    },
+    "calendar": {
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month"
+    },
+    "datePicker": {
+      "open": "Open calendar"
+    },
+    "treeEditor": {
+      "addRoot": "Add root node",
+      "addChild": "Add child node",
+      "deleteSelection": "Delete selection",
+      "autoLayout": "Auto layout",
+      "fitView": "Fit to view",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "undo": "Undo",
+      "redo": "Redo",
+      "more": "More",
+      "empty": "No nodes yet"
     }
   },
   "theme": {
