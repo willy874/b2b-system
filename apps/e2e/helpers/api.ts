@@ -36,3 +36,19 @@ export async function apiRequest(
   await context.dispose();
   return { status: response.status(), body: text ? (JSON.parse(text) as unknown) : undefined };
 }
+
+/** 對外 API 的程序（`pnpm dev:external-api`，docs/architecture/06-external-api.md）：只認 API token，租戶由 token 決定。 */
+const EXTERNAL_API_URL = process.env.E2E_EXTERNAL_API_URL ?? 'http://localhost:3001';
+
+export async function externalRequest(
+  apiToken: string,
+  path: string,
+): Promise<{ status: number; body: unknown }> {
+  const context = await request.newContext({
+    extraHTTPHeaders: { authorization: `Bearer ${apiToken}` },
+  });
+  const response = await context.get(`${EXTERNAL_API_URL}${path}`);
+  const text = await response.text();
+  await context.dispose();
+  return { status: response.status(), body: text ? (JSON.parse(text) as unknown) : undefined };
+}

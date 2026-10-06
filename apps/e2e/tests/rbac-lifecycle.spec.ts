@@ -167,6 +167,55 @@ test.describe('RBAC 生命週期', () => {
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SYSTEM_PROTECTED' } });
   });
 
+  // 最後一位 super-admin（docs/overview/03-roadmap.md M4）：唯一能拿掉 super-admin 的人是 super-admin，
+  // 而動到自己先被 AUTHZ_SELF_MODIFY 擋下，所以「拿掉最後一位」在 UI 與 API 都走不到（LAST_SUPER_ADMIN 由 api 的整合測試 test/rbac-lifecycle.spec.ts 守住）
+  test('super-admin 不能刪除、停用自己或拿掉自己的 super-admin；自己那一列的刪除按鈕是 disabled', async ({
+    page,
+  }) => {
+    const token = await apiLogin('superAdmin');
+    const users = (await apiRequest(token, 'get', `/users?keyword=${ACCOUNTS.superAdmin}`))
+      .body as {
+      data: { items: Array<{ id: string; version: number; roles: Array<{ id: string }> }> };
+    };
+    const self = users.data.items[0]!;
+
+    const deleted = await apiRequest(token, 'delete', `/users/${self.id}`);
+    expect(deleted.status).toBe(403);
+    expect(deleted.body).toMatchObject({ error: { code: 'AUTHZ_SELF_MODIFY' } });
+    const disabled = await apiRequest(token, 'patch', `/users/${self.id}`, {
+      status: 'inactive',
+      version: self.version,
+    });
+    expect(disabled.status).toBe(403);
+    expect(disabled.body).toMatchObject({ error: { code: 'AUTHZ_SELF_MODIFY' } });
+    const demoted = await apiRequest(token, 'put', `/users/${self.id}/roles`, {
+      roleIds: [],
+      expectedRoleIds: self.roles.map((role) => role.id),
+    });
+    expect(demoted.status).toBe(403);
+    expect(demoted.body).toMatchObject({ error: { code: 'AUTHZ_SELF_MODIFY' } });
+
+    await loginAndWaitForHome(page, 'superAdmin');
+    await page.goto(`/user?keyword=${encodeURIComponent(ACCOUNTS.superAdmin)}`);
+    const row = getByTestIdAndValue(page, 'table-row', self.id);
+    await expect(row.getByTestId('user-delete-button')).toBeDisabled();
+    await snapshot(page, 'self-delete-disabled');
+  });
+
+  // admin 不能動 super-admin（反提權）
+  test('admin 停用 super-admin 會被擋下（AUTHZ_ESCALATION）', async () => {
+    const token = await apiLogin('admin');
+    const users = (await apiRequest(token, 'get', `/users?keyword=${ACCOUNTS.superAdmin}`))
+      .body as { data: { items: Array<{ id: string; version: number }> } };
+    const target = users.data.items[0]!;
+    const response = await apiRequest(token, 'patch', `/users/${target.id}`, {
+      status: 'inactive',
+      version: target.version,
+    });
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({ error: { code: 'AUTHZ_ESCALATION' } });
+  });
+
   // ⑦ 使用者被停用 → 其開著的分頁下一次操作被登出
   test('使用者被停用後，開著的分頁下一次操作被登出', async ({ browser }) => {
     const adminToken = await apiLogin('superAdmin');

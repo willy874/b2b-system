@@ -103,6 +103,7 @@ export function SettingField({
             size="sm"
             className="w-40"
             labels={{ increment: t('setting.increment'), decrement: t('setting.decrement') }}
+            data-testid="setting-number-input"
           />
           {unitLabel && <span className="text-sm text-[var(--color-fg-muted)]">{unitLabel}</span>}
         </div>
