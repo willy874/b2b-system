@@ -205,7 +205,7 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 | 不可移到自己或自己的子孫底下 | 交易內以遞迴 CTE 取目的地往上的鏈（`findAncestorIds`），鏈上出現任何一個要移動的資料夾 → `422 FILE_FOLDER_CYCLE` |
 | 結構的寫入不互相穿插 | 建立、改名、移動、刪除在交易開頭取 `pg_advisory_xact_lock(hashtext('file_folders_tree'))`：兩個人同時把 A 移進 B、把 B 移進 A，各自檢查時都看不到循環，排隊之後第二個就看得到。資料夾的寫入不頻繁，整棵樹共用一把鎖就夠了 |
 | 同名 | 預檢查回 `409 FILE_FOLDER_NAME_CONFLICT`；競態下撞到唯一索引也轉成同一個錯誤。一起移進同一個目的地的資料夾彼此同名也算 |
-| 深度上限 32 層（`MAX_FOLDER_DEPTH`） | 建立、上傳資料夾時檢查；移動時以「目的地的深度 ＋ 被移動子樹的高度」（遞迴 CTE，`findMaxSubtreeHeight`）檢查。超過回 `400 VALIDATION_FAILED`（`details.field = 'depth'`） |
+| 深度上限 32 層（`MAX_FOLDER_DEPTH`） | 建立、上傳資料夾時檢查；移動時以「目的地的深度 ＋ 被移動子樹的高度」（遞迴 CTE，`findMaxSubtreeHeight`）檢查。超過回 `400 VALIDATION_FAILED`：`details.max` 是上限，`details.fields` 標在請求的欄位（建立 `name`、上傳資料夾 `paths`、移動 `targetFolderId`；還原沒有請求本體，不帶 `fields`） |
 | 刪除是遞迴的 | 取出所有子孫（遞迴 CTE），同一個交易內軟刪除這些資料夾與其中的檔案（含上傳中的），全部帶同一個 `deletion_id` 與刪除時間；物件儲存的內容保留到回收桶的永久刪除（`trash.purge`，[`13-trash.md`](./13-trash.md) §7.3），還原資料夾時整批回來（§7.1） |
 | 上傳到資料夾 | 登記上傳（`POST /files` 帶 `folderId`）時，資料夾存在的檢查與 INSERT 在同一個排隊的交易內：不會把檔案放進剛被遞迴刪除的資料夾 |
 

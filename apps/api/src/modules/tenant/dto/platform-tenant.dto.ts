@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { FEATURE_FLAG_KEY_PATTERN } from '@/core/feature-flags';
+import { OffsetSchema } from '@/core/http';
 import {
   TENANT_FEATURE_PARAM_KEYS,
   TENANT_FEATURE_PARAM_UNITS,
@@ -116,7 +117,7 @@ export const PlatformTenantSchema = defineSchema(
 
 /** 租戶清單的查詢：伺服器分頁、代碼／名稱／網域搜尋、狀態篩選（依建立時間舊到新）。 */
 export const ListPlatformTenantSchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(100).default(50),
   /** 代碼、名稱或任一網域的部分相符（不分大小寫）。 */
   q: z.string().trim().max(100).optional(),

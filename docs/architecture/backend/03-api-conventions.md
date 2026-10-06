@@ -41,6 +41,15 @@
 | `details`   | 結構化補充資料。欄位錯誤放 `details.fields`                 |
 | `requestId` | 對應日誌與稽核紀錄                                          |
 
+`details` 裡指出欄位的兩種形狀：
+
+| 形狀 | 用在 | 例 |
+| --- | --- | --- |
+| `details.fields`（`{ <欄位>: <原因> }`） | **`VALIDATION_FAILED` 的請求本體欄位**：Zod 驗證失敗，以及 service 才判斷得出的欄位錯誤。前端表單以它回填欄位（[`../frontend/05-data-layer.md`](../frontend/05-data-layer.md) §7） | 租戶代碼推導出的 bucket 名稱不合法：`{ fields: { code: '…' } }`；資料夾超過深度上限：`{ fields: { name: '…' }, max: 32 }` |
+| `details.field`（單數） | query 參數的 `VALIDATION_FAILED`（不在任何表單上），以及衝突類錯誤碼指出撞到的欄位（前端以 `useServerFieldErrors` 的錯誤碼對照表回填，不讀這個值） | 游標格式不對：`{ field: 'cursor' }`；`ROLE_NAME_DUPLICATE`：`{ field: 'name', value }` |
+
+service 自己拋的 `VALIDATION_FAILED` 沒有對應的請求欄位時（例：還原資料夾超過深度上限，請求沒有本體）不帶 `fields`，只帶其他補充（`max`）。
+
 > `message` 不做 i18n。後端不知道使用者的語系偏好（那是 UI 決定），也不該
 > 為了錯誤訊息而載入語系包。前端用 `t('error.' + code)` 顯示。
 

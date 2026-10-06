@@ -322,6 +322,20 @@ describe('FileFolderService.create（docs/architecture/backend/09-file.md §4.2�
       'FILE_FOLDER_NOT_FOUND',
     );
   });
+
+  it('上層已在深度上限 → VALIDATION_FAILED（details.fields.name，表單只有名稱欄）', async () => {
+    const { service, folders } = setup();
+    const deep = Array.from({ length: MAX_FOLDER_DEPTH }, (_, i) => `d${i}`);
+    await service.ensurePaths({ parentId: null, paths: [deep] }, ALICE);
+    const deepest = folders().find((row) => row.name === `d${MAX_FOLDER_DEPTH - 1}`);
+
+    await expect(
+      service.create({ name: 'x', parentId: deepest?.id ?? null }, ALICE),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { fields: { name: expect.any(String) }, max: MAX_FOLDER_DEPTH },
+    });
+  });
 });
 
 describe('FileFolderService.ensurePaths（上傳資料夾）', () => {
@@ -350,14 +364,16 @@ describe('FileFolderService.ensurePaths（上傳資料夾）', () => {
     expect(result.items[1]?.id).toBe(ui?.id);
   });
 
-  it('根目錄起算剛好到深度上限可以；在一層資料夾底下再加滿就回 VALIDATION_FAILED', async () => {
+  it('根目錄起算剛好到深度上限可以；在一層資料夾底下再加滿就回 VALIDATION_FAILED（details.fields.paths）', async () => {
     const { service, idOf } = setup([{ name: 'a' }]);
     const deep = Array.from({ length: MAX_FOLDER_DEPTH }, (_, i) => `d${i}`);
     await service.ensurePaths({ parentId: null, paths: [deep] }, ALICE);
-    await expectAppError(
+    await expect(
       service.ensurePaths({ parentId: idOf('a'), paths: [deep] }, ALICE),
-      'VALIDATION_FAILED',
-    );
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { fields: { paths: expect.any(String) }, max: MAX_FOLDER_DEPTH },
+    });
   });
 });
 
@@ -392,7 +408,7 @@ describe('FileFolderService.move', () => {
     expect(repo.move).not.toHaveBeenCalled();
   });
 
-  it('移動後超過深度上限 → VALIDATION_FAILED(depth)，不做任何移動', async () => {
+  it('移動後超過深度上限 → VALIDATION_FAILED（details.fields.targetFolderId），不做任何移動', async () => {
     const { service, repo, idOf, folders } = setup([{ name: 'a' }, { name: 'b' }]);
     const half = Math.ceil(MAX_FOLDER_DEPTH / 2) + 1;
     const chain = (prefix: string) => Array.from({ length: half }, (_, i) => `${prefix}${i}`);
@@ -409,7 +425,7 @@ describe('FileFolderService.move', () => {
     expect(error).toBeInstanceOf(AppException);
     expect(error).toMatchObject({
       code: 'VALIDATION_FAILED',
-      details: { field: 'depth', max: MAX_FOLDER_DEPTH },
+      details: { fields: { targetFolderId: expect.any(String) }, max: MAX_FOLDER_DEPTH },
     });
     expect(repo.move).not.toHaveBeenCalled();
   });

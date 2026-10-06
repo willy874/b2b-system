@@ -143,7 +143,7 @@ export class FileFolderService {
     const { created, ctx } = await this.writeTree(async (tx) => {
       const context = await this.access.contextFor(actor, tx, permissions);
       await this.access.assertCan(context, actor, 'create', dto.parentId);
-      await this.assertDepth(dto.parentId, 1, tx);
+      await this.assertDepth(dto.parentId, 1, tx, 'name');
       if (await this.repo.hasSibling(dto.parentId, dto.name, undefined, tx)) {
         throw new AppException('FILE_FOLDER_NAME_CONFLICT', { name: dto.name });
       }
@@ -199,7 +199,7 @@ export class FileFolderService {
       const ctx = await this.access.contextFor(actor, tx, permissions);
       await this.access.assertCan(ctx, actor, 'create', dto.parentId);
       const maxDepth = Math.max(...dto.paths.map((path) => path.length));
-      await this.assertDepth(dto.parentId, maxDepth, tx);
+      await this.assertDepth(dto.parentId, maxDepth, tx, 'paths');
 
       const inserted: FileFolderRow[] = [];
       let level: { parentId: string | null; node: PathNode }[] = [
@@ -619,15 +619,21 @@ export class FileFolderService {
     return folder;
   }
 
-  /** 在 `parentId` 底下再加 `levels` 層是否超過深度上限。 */
-  private async assertDepth(parentId: string | null, levels: number, tx: DbOrTx): Promise<void> {
+  /**
+   * 在 `parentId` 底下再加 `levels` 層是否超過深度上限。`field` 是請求裡要標錯的欄位
+   * （建立：`name`、上傳資料夾：`paths`；還原沒有請求本體，不帶）。
+   */
+  private async assertDepth(
+    parentId: string | null,
+    levels: number,
+    tx: DbOrTx,
+    field?: 'name' | 'paths',
+  ): Promise<void> {
     const depth = parentId ? (await this.repo.findAncestorIds(parentId, tx)).length : 0;
     if (parentId && depth === 0) {
       throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId: parentId });
     }
-    if (depth + levels > MAX_FOLDER_DEPTH) {
-      throw new AppException('VALIDATION_FAILED', { field: 'depth', max: MAX_FOLDER_DEPTH });
-    }
+    if (depth + levels > MAX_FOLDER_DEPTH) throw folderDepthExceeded(field);
   }
 
   private async assertMovable(
@@ -651,9 +657,7 @@ export class FileFolderService {
       MAX_FOLDER_DEPTH + 1,
       tx,
     );
-    if (targetDepth + height > MAX_FOLDER_DEPTH) {
-      throw new AppException('VALIDATION_FAILED', { field: 'depth', max: MAX_FOLDER_DEPTH });
-    }
+    if (targetDepth + height > MAX_FOLDER_DEPTH) throw folderDepthExceeded('targetFolderId');
 
     const names = new Set<string>();
     for (const folder of moving) {
@@ -695,6 +699,19 @@ export class FileFolderService {
     if (changes.length === 0) return;
     this.events.publish(DomainEvent.RESOURCE_CHANGED, { changes });
   }
+}
+
+/**
+ * 超過資料夾的深度上限：`400 VALIDATION_FAILED`，`details.fields` 標在請求裡對應的欄位，`details.max` 是上限
+ * （docs/architecture/backend/03-api-conventions.md §1）。
+ */
+function folderDepthExceeded(field: string | undefined): AppException {
+  return new AppException('VALIDATION_FAILED', {
+    ...(field && {
+      fields: { [field]: `exceeds the maximum folder depth of ${MAX_FOLDER_DEPTH}` },
+    }),
+    max: MAX_FOLDER_DEPTH,
+  });
 }
 
 /** 上層資料夾已刪除：先還原上層（docs/architecture/backend/14-revisions.md §9.2 D5）。 */

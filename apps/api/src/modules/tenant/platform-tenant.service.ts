@@ -556,7 +556,11 @@ export class PlatformTenantService {
     const used = await this.repo.bucketsLike(base);
     let bucket = base;
     for (let n = 2; used.has(bucket); n += 1) bucket = `${base}-${n}`;
-    if (!isValidBucketName(bucket)) throw new AppException('VALIDATION_FAILED', { field: 'code' });
+    if (!isValidBucketName(bucket)) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { code: 'derives an invalid storage bucket name' },
+      });
+    }
     return bucket;
   }
 }

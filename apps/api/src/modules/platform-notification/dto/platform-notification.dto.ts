@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
+import { OffsetSchema } from '@/core/http';
 import { defineSchema } from '@/core/validation';
 
 export const ListPlatformNotificationSchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(100).default(20),
   /** `true`：只列未讀。 */
   unread: z
