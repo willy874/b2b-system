@@ -5,6 +5,7 @@ import type { OnModuleInit } from '@nestjs/common';
 import type { AuthUser } from '@/common/types';
 import { BroadcastService, parseTenantInvalidation } from '@/core/broadcast';
 import type { BroadcastPublisher, TenantInvalidation } from '@/core/broadcast';
+import { InvalidationTracker } from '@/core/cache';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import type { Database, DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
@@ -44,6 +45,9 @@ export interface TenantPolicy {
  * 與系統設定相同（docs/architecture/backend/12-settings.md §1）。
  */
 const TTL_MS = 30_000;
+
+/** 記錄「哪個租戶最後一次失效」的上限；被擠掉的租戶以保守的世代判斷（`InvalidationTracker`）。 */
+const MAX_TRACKED_TENANTS = 10_000;
 
 /** 平台 DB 上的廣播頻道（docs/architecture/01-system.md §4.4）。 */
 export const NOTIFICATION_POLICY_CHANNEL = 'notification_policy';
@@ -96,6 +100,8 @@ export function isVisibleEvent(kind: AnyNotificationType): boolean {
 @Injectable()
 export class NotificationPolicyService implements OnModuleInit {
   private readonly cache = new Map<string, Entry>();
+  /** 載入期間被失效過（政策剛改、交易剛提交）就不寫回：讀到的可能是舊值，會活到 TTL。 */
+  private readonly tracker = new InvalidationTracker(MAX_TRACKED_TENANTS);
   private publish?: BroadcastPublisher<TenantInvalidation>;
 
   constructor(
@@ -111,8 +117,11 @@ export class NotificationPolicyService implements OnModuleInit {
   onModuleInit(): void {
     this.publish = this.broadcast.channel(NOTIFICATION_POLICY_CHANNEL, {
       parse: parseTenantInvalidation,
-      onMessage: ({ tenant }) => void this.cache.delete(tenant),
-      onReconnect: () => this.cache.clear(),
+      onMessage: ({ tenant }) => this.drop(tenant),
+      onReconnect: () => {
+        this.tracker.invalidateAll();
+        this.cache.clear();
+      },
     });
   }
 
@@ -217,7 +226,7 @@ export class NotificationPolicyService implements OnModuleInit {
   /** 目前租戶的快取（也通知其他程序）；寫入的交易 **提交後** 呼叫。 */
   invalidate(): void {
     const tenant = tenantKey();
-    this.cache.delete(tenant);
+    this.drop(tenant);
     void this.publish?.({ tenant });
   }
 
@@ -228,6 +237,7 @@ export class NotificationPolicyService implements OnModuleInit {
     const entry = this.cache.get(key);
     if (entry && entry.expiresAt > Date.now()) return entry.rows;
 
+    const ticket = this.tracker.ticket();
     const rows: StoredPolicies = new Map(
       (await this.repo.listAll(tx)).map((row) => [
         policyKey(row.type, row.channel),
@@ -238,8 +248,16 @@ export class NotificationPolicyService implements OnModuleInit {
         },
       ]),
     );
-    this.cache.set(key, { rows, expiresAt: Date.now() + TTL_MS });
+    // 查詢期間被失效過：這次讀到的可能是寫入提交之前的值，只給這次用，不寫回快取
+    if (this.tracker.isFresh(key, ticket)) {
+      this.cache.set(key, { rows, expiresAt: Date.now() + TTL_MS });
+    }
     return rows;
+  }
+
+  private drop(tenant: string): void {
+    this.tracker.invalidate(tenant);
+    this.cache.delete(tenant);
   }
 
   private effective(

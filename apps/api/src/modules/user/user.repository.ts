@@ -9,9 +9,12 @@ import { RESOURCE_TYPE } from '@/core/resource';
 import type { RoleRow, UserInsert, UserRow, UserStatus } from '@/db/schema';
 import {
   fileFolders,
+  groups,
   hasAnyTag,
+  isActiveGroup,
   isActiveRole,
   isDeleted,
+  isGroupMemberTuple,
   isHumanUser,
   isRoleHolderTuple,
   notDeleted,
@@ -298,6 +301,28 @@ export class UserRepository {
       .where(heldBy(userId))
       .orderBy(asc(roles.slug));
     return rows;
+  }
+
+  /**
+   * 他 **直接** 所屬的（未刪除的）群組：`group:<g>#member@user:<id>`，未過期的邊。上層群組與群組持有的角色由引擎沿閉包展開
+   * （`PermissionService.assertCanGrant`）。刪除使用者不刪這些邊（永久刪除時才刪），還原或重新啟用時它們跟著生效。
+   */
+  async listGroupIds(userId: string, tx?: DbOrTx): Promise<string[]> {
+    const rows = await (tx ?? this.db)
+      .select({ id: groups.id })
+      .from(relationTuples)
+      .innerJoin(groups, and(eq(sql`${groups.id}::text`, relationTuples.objectId), isActiveGroup()))
+      .where(
+        and(
+          isGroupMemberTuple(),
+          eq(relationTuples.subjectType, USER_SUBJECT_TYPE),
+          eq(relationTuples.subjectId, userId),
+          eq(relationTuples.subjectRelation, ''),
+          or(isNull(relationTuples.expiresAt), gt(relationTuples.expiresAt, new Date())),
+        ),
+      )
+      .orderBy(asc(groups.id));
+    return rows.map((row) => row.id);
   }
 
   /**

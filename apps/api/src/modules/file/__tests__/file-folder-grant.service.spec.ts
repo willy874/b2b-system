@@ -696,6 +696,73 @@ describe('FileFolderGrantService.setInheritance（docs/rbac/07-resource-grants.m
   });
 });
 
+/** CHILD 已中斷繼承；上層鏈的授權由 `seed` 決定。 */
+function brokenChild(seed: SeedGrant[], access = SHARE_ONLY) {
+  const context = setup(access, seed);
+  context.nodes.set(CHILD, { id: CHILD, parentId: PARENT, inheritGrants: false, createdBy: null });
+  return context;
+}
+
+describe('FileFolderGrantService.setInheritance：恢復繼承的反提權（docs/rbac/07-resource-grants.md §3.3、§6.1）', () => {
+  it('上層有 editor：只授予得起 viewer 的人恢復 → AUTHZ_ESCALATION，details.missing 列出缺的權限鍵，不寫入', async () => {
+    const { service, folders, audit, events } = brokenChild([
+      { folderId: ROOT, subjectType: 'everyone', subjectId: USER_C, level: 'editor' },
+    ]);
+    const error = await errorOf(service.setInheritance(CHILD, { inheritGrants: true }, ACTOR));
+    expect(error?.code).toBe('AUTHZ_ESCALATION');
+    expect(error?.details).toEqual({ missing: ['file:create', 'file:update', 'file:delete'] });
+    expect(folders.setInheritGrants).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(events.publish).not.toHaveBeenCalled();
+  });
+
+  it('上層只有 viewer：只授予得起 viewer 的人可以恢復', async () => {
+    const { service, folders } = brokenChild([
+      { folderId: PARENT, subjectType: 'role', subjectId: ROLE_A, level: 'viewer' },
+    ]);
+    await service.setInheritance(CHILD, { inheritGrants: true }, ACTOR);
+    expect(folders.setInheritGrants).toHaveBeenCalledWith(
+      CHILD,
+      { inheritGrants: true, updatedBy: ACTOR.id },
+      'tx',
+    );
+  });
+
+  it('上層已過期的授權不會流進來，不計入', async () => {
+    const { service, folders } = brokenChild([
+      {
+        folderId: PARENT,
+        subjectType: 'role',
+        subjectId: ROLE_A,
+        level: 'manager',
+        expiresAt: PAST,
+      },
+    ]);
+    await service.setInheritance(CHILD, { inheritGrants: true }, ACTOR);
+    expect(folders.setInheritGrants).toHaveBeenCalled();
+  });
+
+  it('只看上層的繼承鏈：更上面的中斷點以外的授權不算，自己的直接授權也不算', async () => {
+    const { service, nodes, folders } = brokenChild([
+      { folderId: ROOT, subjectType: 'role', subjectId: ROLE_A, level: 'manager' },
+      { folderId: PARENT, subjectType: 'role', subjectId: ROLE_B, level: 'viewer' },
+      { folderId: CHILD, subjectType: 'user', subjectId: USER_C, level: 'manager' },
+    ]);
+    nodes.set(PARENT, { id: PARENT, parentId: ROOT, inheritGrants: false, createdBy: null });
+    await service.setInheritance(CHILD, { inheritGrants: true }, ACTOR);
+    expect(folders.setInheritGrants).toHaveBeenCalled();
+  });
+
+  it('全域權限齊全的人恢復上層的 manager 授權：放行', async () => {
+    const { service, folders } = brokenChild(
+      [{ folderId: ROOT, subjectType: 'role', subjectId: ROLE_A, level: 'manager' }],
+      {},
+    );
+    await service.setInheritance(CHILD, { inheritGrants: true }, ACTOR);
+    expect(folders.setInheritGrants).toHaveBeenCalled();
+  });
+});
+
 describe('FileFolderGrantService.searchSubjects（docs/rbac/07-resource-grants.md §6.2）', () => {
   it('沒有 share → AUTHZ_FORBIDDEN，不查詢', async () => {
     const { service, grants } = setup({ global: ['read'] });

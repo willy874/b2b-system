@@ -663,7 +663,8 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `src/modules/file/__tests__/file-access.service.spec.ts` | 能力規則：全域 × 等級 × 擁有者的組合、根目錄、鎖住的資料夾、反提權 |
 | `src/modules/file/__tests__/file-folder-access.approval.spec.ts` | 申請存取的審批 handler：已有權限不能申請、核准者要能 share 且授予得起、套用寫入授權與稽核 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts`（授權段落） | 鎖住的資料夾（canRead=false）、根目錄不能建立、鎖住的回 403、擁有者改名、遞迴刪除的 not-owner 與 protected-subfolder、移動的目的地 |
-| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、讀得到 6.6 萬個資料夾（超過參數上限）時列表與資料夾清單照常回應、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
+| `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、讀得到 6.6 萬個資料夾（超過參數上限）時列表與資料夾清單照常回應、擁有者規則、中斷繼承與複製、恢復繼承的反提權、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
+| `test/file-tree-lock-pool.spec.ts` | 真 Postgres、租戶連線池縮到 2：持鎖的建立資料夾在權限快取剛失效、另一個交易佔著最後一條連線等鎖時，不在交易內另取連線，兩個請求都在幾秒內完成（§11.1） |
 | `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、已用量的計數（登記、完成、放棄、刪除、還原、永久刪除之後都等於 `SUM(size)`，維護排程的對帳）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
 | `src/core/storage/__tests__/s3-object-storage.spec.ts` | 每個租戶一個 bucket、`{tenantOrigin}`、錯誤分類；presigned PUT 簽了 `content-type`、`content-length`、`if-none-match`，分塊簽 `content-length` |
@@ -719,7 +720,7 @@ FileAccessService（modules/file）
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
 | 授權寫入 | `relation_tuples` 的寫入與稽核在同一個交易，經 `FileFolderTree.write` 序列化；「一個對象在一個資料夾只有一個等級」由 `FileFolderGrantRepository.set` 先刪後插維持（不是 DB 唯一索引）。交易後推 `fileFolder update`；不呼叫 `permissionsChanged`（資料夾授權不在權限快取裡），`authz_revision` 仍 +1 |
-| 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權 |
+| 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權；改回 `true` 時上層流進來的等級受反提權限制（rbac/07 §3.3） |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
 
 ### 11.1 資料夾結構的快取（`FileFolderTree`）
@@ -731,7 +732,8 @@ FileAccessService（modules/file）
 | --- | --- |
 | 結構的寫入一律經過 `FileFolderTree.write()`：交易內先取樹鎖（§4.2），**提交後** 才失效（rollback 也失效） | 失效早於提交的話，並行的讀取會把舊結構重新放回快取；三個寫入者（資料夾、授權、系統資料夾）都走同一個入口 |
 | 失效時連同進行中的讀取一起丟掉 | 它可能讀到提交前的結構 |
-| 交易內（`contextFor(actor, tx)`）一律直接查資料庫 | 移動、遞迴刪除的檢查與寫入之間結構不能變 |
+| 交易內（`contextFor(actor, tx, permissions)`）一律直接查資料庫 | 移動、遞迴刪除的檢查與寫入之間結構不能變 |
+| 交易內建立判斷時，操作者的權限集合在 **進交易之前** 取好（`permissionsOf(actor)`）再傳進去 | 持有樹鎖的交易不能從連線池另取連線：等樹鎖的交易各佔一條，池子滿時會互相等到 `statement_timeout`（[`02-database.md`](./02-database.md) §6.2）。權限集合不在樹鎖保護的範圍內，提前讀與 guard 的判斷一致 |
 | 60 秒存活時間 | 只是防漏網（例：直接改資料庫）；正常的寫入都會主動失效 |
 | 跨程序的失效 | 失效後經平台 DB 廣播（頻道 `file_folder_tree`），其他程序丟掉同一個租戶的快取（[`../01-system.md`](../01-system.md) §4.4）；漏掉時靠 60 秒存活時間 |
 

@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 
 import { BroadcastService, parseTenantInvalidation } from '../broadcast';
 import type { BroadcastPublisher, TenantInvalidation } from '../broadcast';
+// 直接 import 檔案：core/cache 的 index 依賴 core/tenant，經由 index 會形成循環
+import { InvalidationTracker } from '../cache/invalidation-tracker';
 import type { Env } from '../config/env.schema';
 import type { DbOrTx } from '../database';
 import { currentTenant } from '../tenant';
@@ -26,6 +28,9 @@ export interface StoredSetting {
  * 修改後本程序立即失效、其他程序經廣播失效；TTL 只是保險（直接改了資料庫、漏掉廣播）。
  */
 const TTL_MS = 30_000;
+
+/** 記錄「哪個租戶最後一次失效」的上限；被擠掉的租戶以保守的世代判斷（`InvalidationTracker`）。 */
+const MAX_TRACKED_TENANTS = 10_000;
 
 /** 平台 DB 上的廣播頻道（docs/architecture/06-external-api.md §9.2 D16）。 */
 export const SETTINGS_CHANNEL = 'settings';
@@ -53,6 +58,8 @@ export class SettingService implements OnModuleInit {
   private readonly env: EnvReader;
   private readonly definitions = new Map<string, ResolvedSetting>();
   private readonly cache = new Map<string, Entry>();
+  /** 載入期間被失效過（設定剛改、交易剛提交）就不寫回：讀到的可能是舊值，會活到 TTL。 */
+  private readonly tracker = new InvalidationTracker(MAX_TRACKED_TENANTS);
   private publish?: BroadcastPublisher<TenantInvalidation>;
 
   constructor(
@@ -66,8 +73,11 @@ export class SettingService implements OnModuleInit {
   onModuleInit(): void {
     this.publish = this.broadcast.channel(SETTINGS_CHANNEL, {
       parse: parseTenantInvalidation,
-      onMessage: ({ tenant }) => void this.cache.delete(tenant),
-      onReconnect: () => this.cache.clear(),
+      onMessage: ({ tenant }) => this.drop(tenant),
+      onReconnect: () => {
+        this.tracker.invalidateAll();
+        this.cache.clear();
+      },
     });
   }
 
@@ -104,13 +114,17 @@ export class SettingService implements OnModuleInit {
     const entry = this.cache.get(key);
     if (entry && entry.expiresAt > Date.now()) return entry.rows;
 
+    const ticket = this.tracker.ticket();
     const rows = new Map<string, StoredSetting>(
       (await this.repo.listAll()).map((row) => [
         row.key,
         { value: row.value, updatedAt: row.updatedAt },
       ]),
     );
-    this.cache.set(key, { rows, expiresAt: Date.now() + TTL_MS });
+    // 查詢期間被失效過：這次讀到的可能是寫入提交之前的值，只給這次用，不寫回快取
+    if (this.tracker.isFresh(key, ticket)) {
+      this.cache.set(key, { rows, expiresAt: Date.now() + TTL_MS });
+    }
     return rows;
   }
 
@@ -142,7 +156,12 @@ export class SettingService implements OnModuleInit {
   /** 目前租戶的快取；寫入的交易 **提交後** 呼叫。 */
   invalidate(): void {
     const tenant = tenantKey();
-    this.cache.delete(tenant);
+    this.drop(tenant);
     void this.publish?.({ tenant });
+  }
+
+  private drop(tenant: string): void {
+    this.tracker.invalidate(tenant);
+    this.cache.delete(tenant);
   }
 }

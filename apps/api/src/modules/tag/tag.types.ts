@@ -1,5 +1,6 @@
 import type { AuthUser } from '@/common/types';
 import type { TenantFeature } from '@/core/tenant';
+import type { PermissionCheckContext } from '@/modules/permission/permission.service';
 
 /**
  * 一個標籤組（docs/architecture/backend/18-tag.md §7.2 D1）：由擁有者模組在 `onModuleInit` 以 `TagService.registerScope()` 登記。
@@ -10,8 +11,12 @@ export interface TagScopeDefinition {
   scope: string;
   /** 所屬的可啟用 feature：租戶沒啟用時這個標籤組回 `404 FEATURE_DISABLED`（D12）。 */
   feature?: TenantFeature;
-  /** 進得了這個標籤組（讀得到定義）：通常是「能看這種資源的列表」的權限（D5）。 */
-  canBrowse(actor: AuthUser): Promise<boolean>;
+  /**
+   * 進得了這個標籤組（讀得到定義）：通常是「能看這種資源的列表」的權限（D5）。進不了就拋 `403 AUTHZ_FORBIDDEN`
+   * 並寫 `authz.denied`——`GET /tags` 只宣告 `@Authenticated()`，這裡是唯一的權限檢查，拒絕要留在稽核裡。
+   * 以 `PermissionService.assertHasAll`／`assertHasAny` 判斷，`context` 原樣傳過去。
+   */
+  assertCanBrowse(actor: AuthUser, context: PermissionCheckContext): Promise<void>;
 }
 
 /** 擁有者判斷「能不能改這個資源的標籤」之後回傳的資訊。 */
@@ -29,10 +34,15 @@ export interface TagResourceDefinition {
   resourceType: string;
   scope: string;
   /**
-   * 能不能改這個資源的標籤：不存在或看不到 → 拋 `<RESOURCE>_NOT_FOUND`；看得到但不能改 → 拋 `AUTHZ_FORBIDDEN`。
-   * 規則跟著目標的編輯權限（檔案、資料夾：能改名；使用者：`user:update`）。
+   * 能不能改這個資源的標籤：不存在或看不到 → 拋 `<RESOURCE>_NOT_FOUND`；看得到但不能改 → 拋 `AUTHZ_FORBIDDEN` 並寫 `authz.denied`
+   * （指派的端點只宣告 `@Authenticated()`）。規則跟著目標的編輯權限（檔案、資料夾：能改名，資源層級的拒絕；
+   * 使用者：`user:update`，以 `PermissionService.assertHasAll` 帶 `context`）。
    */
-  resolveEditable(actor: AuthUser, resourceId: string): Promise<EditableTagTarget>;
+  resolveEditable(
+    actor: AuthUser,
+    resourceId: string,
+    context: PermissionCheckContext,
+  ): Promise<EditableTagTarget>;
   /** 交易提交後：擁有者推自己的資源變更（受眾等於目標的受眾，D10）。 */
   afterTagsChanged(resourceId: string): void | Promise<void>;
 }

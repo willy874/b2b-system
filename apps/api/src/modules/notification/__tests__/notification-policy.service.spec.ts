@@ -173,6 +173,35 @@ describe('NotificationPolicyService.isEnabled（docs/architecture/backend/16-not
     expect(b.repo.listAll).toHaveBeenCalledTimes(3);
   });
 
+  it('查詢期間被 invalidate()：回來的舊值不寫回快取，下一次重新查 DB', async () => {
+    const { service, repo } = setup();
+    let resolveStale: ((rows: unknown[]) => void) | undefined;
+    repo.listAll.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStale = resolve as (rows: unknown[]) => void;
+        }) as never,
+    );
+    const loading = service.isEnabled(PENDING.type, 'inApp');
+    // 修改的交易提交 → invalidate()；之後才回來的是修改前的值（開著）
+    service.invalidate();
+    resolveStale?.([]);
+    await expect(loading).resolves.toBe(true);
+
+    repo.listAll.mockResolvedValueOnce([
+      {
+        type: PENDING.type,
+        channel: 'inApp',
+        enabled: false,
+        allowUserOverride: true,
+        updatedAt: UPDATED_AT,
+        updatedBy: null,
+      },
+    ] as never);
+    await expect(service.isEnabled(PENDING.type, 'inApp')).resolves.toBe(false);
+    expect(repo.listAll).toHaveBeenCalledTimes(2);
+  });
+
   it('快取以租戶區分', async () => {
     const { service, repo } = setup();
     await inTenant([], () => service.isEnabled('sample.pending', 'inApp'));

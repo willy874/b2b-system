@@ -69,6 +69,9 @@ const holdersOf = (roleId: string) => and(isRoleHolderTuple(), eq(relationTuples
 const permissionsOf = (roleId: string) =>
   and(isRolePermissionTuple(), eq(relationTuples.subjectId, roleId));
 
+/** `countUndeletedUsers` 每批帶多少個 id。 */
+const COUNT_BATCH_SIZE = 1000;
+
 // 單表 select 時 Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"，在子查詢裡會被解析成 users.id；
 // 明確寫出表名才會關聯到外層的角色
 const OUTER_ROLE_ID = sql`${roles}.${sql.identifier(roles.id.name)}`;
@@ -310,19 +313,24 @@ export class RoleRepository {
   }
 
   /**
-   * 持有者人數（未刪除的使用者）。不看角色是否刪除（D2 ②）：刪除前在 `lockActive` 之後呼叫；
-   * 還原時故意拿來算休眠的持有者（`holdersRestored`）。
+   * 這些使用者之中未刪除的人數。角色的「會失去／取回權限的人」（`PermissionService.findUserIdsHoldingRole`，
+   * 含經由群組持有的）由呼叫端查好傳進來：`ROLE_IN_USE` 的 `userCount` 與還原的 `holdersRestored`。
+   * 名單可能很長（大群組），分批計數，每批的 `IN` 清單有上限。
    */
-  async countUsers(roleId: string, db: DbOrTx = this.db): Promise<number> {
-    const [row] = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(relationTuples)
-      .innerJoin(
-        users,
-        and(eq(sql`${users.id}::text`, relationTuples.subjectId), notDeleted(users)),
-      )
-      .where(holdersOf(roleId));
-    return row?.total ?? 0;
+  async countUndeletedUsers(userIds: readonly string[], db: DbOrTx = this.db): Promise<number> {
+    let total = 0;
+    const unique = [...new Set(userIds)];
+    for (let start = 0; start < unique.length; start += COUNT_BATCH_SIZE) {
+      // oxlint-disable-next-line no-await-in-loop -- 同一個連線（或交易）上依序計數
+      const [row] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(users)
+        .where(
+          and(inArray(users.id, unique.slice(start, start + COUNT_BATCH_SIZE)), notDeleted(users)),
+        );
+      total += row?.total ?? 0;
+    }
+    return total;
   }
 
   /** 持有者列表。不看角色是否刪除（D2 ②）：呼叫端先以 `findById` 確認角色未刪除。 */

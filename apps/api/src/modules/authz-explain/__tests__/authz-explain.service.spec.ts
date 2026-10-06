@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser } from '@/common/types';
 import type { AuthzService } from '@/core/authz';
-import type { AuditService } from '@/modules/audit-log/audit.service';
-import type { PermissionService } from '@/modules/permission/permission.service';
+import { createPermissionChecks } from '@/modules/permission/__tests__/permission-checks.fixture';
 
 import type { AuthzExplainRepository } from '../authz-explain.repository';
 import { AuthzExplainService } from '../authz-explain.service';
@@ -29,18 +28,14 @@ function createService(actorKeys: string[], options: { isSuperAdmin?: boolean } 
     ),
     tenantSourcesOf: vi.fn(),
   };
-  const permissions = {
-    getPermissionSet: vi.fn(async () => ({
-      permissions: new Set(actorKeys),
-      isSuperAdmin: options.isSuperAdmin ?? false,
-    })),
-  };
-  const audit = { recordSafely: vi.fn() };
+  const { service: permissions, audit } = createPermissionChecks(() => ({
+    permissions: new Set(actorKeys),
+    isSuperAdmin: options.isSuperAdmin ?? false,
+  }));
   const service = new AuthzExplainService(
     repo as unknown as AuthzExplainRepository,
     authz as unknown as AuthzService,
-    permissions as unknown as PermissionService,
-    audit as unknown as AuditService,
+    permissions,
   );
   return { service, audit };
 }
@@ -60,12 +55,17 @@ describe('AuthzExplainService.assertCanExplain（docs/rbac/01-domain-model.md §
     const { service, audit } = createService(['user:read']);
     await expect(service.assertCanExplain(ACTOR, 'other', 'GET /x')).rejects.toMatchObject({
       code: 'AUTHZ_FORBIDDEN',
-      details: { missing: ['authz:explain'] },
+      details: { required: ['authz:explain'], missing: ['authz:explain'] },
     });
     expect(audit.recordSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'authz.denied',
-        metadata: expect.objectContaining({ route: 'GET /x' }),
+        metadata: {
+          targetUserId: 'other',
+          route: 'GET /x',
+          required: ['authz:explain'],
+          missing: ['authz:explain'],
+        },
       }),
     );
   });

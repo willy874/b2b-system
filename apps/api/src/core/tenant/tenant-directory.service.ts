@@ -6,6 +6,8 @@ import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 
 import { BroadcastService } from '../broadcast';
 import type { BroadcastPublisher } from '../broadcast';
+// 直接 import 檔案：core/cache 的 index 依賴 core/tenant，經由 index 會形成循環
+import { InvalidationTracker } from '../cache/invalidation-tracker';
 import type { Env } from '../config';
 import { SecretBox, TENANT_SECRET_PURPOSE } from '../crypto';
 import { toFeatureFlagOverrides } from '../feature-flags/feature-flags';
@@ -72,12 +74,19 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
   private readonly byCode = new BoundedCache<string, TenantRecord | undefined>(
     TENANT_CACHE_MAX_ENTRIES,
   );
+  /**
+   * 載入期間被失效過（停用租戶、改網域的交易剛提交）就不寫回：讀到的可能是舊的登記，會活到 TTL
+   * （docs/architecture/05-tenancy.md §10.2 D13 的「本程序立即生效」）。失效一律整份，key 以查詢種類區分。
+   */
+  private readonly tracker = new InvalidationTracker(TENANT_CACHE_MAX_ENTRIES);
   /** 網域 → 租戶 id 的快照（同步讀取用），每 `TENANT_CACHE_TTL` 秒與 `invalidate()` 時重新載入。 */
   private domains = new Map<string, string>();
   /** 快照是否載入過；還沒有（啟動失敗、DB 暫時連不上）時退回查 DB。 */
   private domainsLoaded = false;
   /** 進行中的重新載入：`invalidate()` 之後的查詢要等它完成，剛登記的網域才找得到。 */
   private refreshing?: Promise<void>;
+  /** 第幾次載入快照：較早開始、較晚回來的載入不能蓋掉較新的結果。 */
+  private domainsLoadSeq = 0;
   private refreshTimer?: NodeJS.Timeout;
   private publish?: BroadcastPublisher<Record<string, never>>;
 
@@ -153,8 +162,15 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
     if (!CODE_LIKE.test(key)) return undefined;
     const cached = this.byCode.get(key);
     if (cached) return cached.value;
+    const ticket = this.tracker.ticket();
     const row = await this.repo.findByCode(key);
-    return this.remember(this.byCode, key, row ? this.toRecord(row) : undefined);
+    return this.remember(
+      this.byCode,
+      `code:${key}`,
+      key,
+      row ? this.toRecord(row) : undefined,
+      ticket,
+    );
   }
 
   /** 先比對 `host:port`，再比對主機名稱（正式環境的網域通常不帶 port）。 */
@@ -167,19 +183,27 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
     await this.refreshing;
     if (this.domainsLoaded && this.tenantIdOfHost(normalized) === undefined) return undefined;
 
+    const ticket = this.tracker.ticket();
     const candidates = [...new Set([normalized, hostnameOf(normalized)])];
     const rows = await this.repo.findByDomains(candidates);
     const match = candidates
       .map((candidate) => rows.find((row) => row.domain.toLowerCase() === candidate))
       .find(Boolean);
-    return this.remember(this.byHost, normalized, match ? this.toRecord(match.tenant) : undefined);
+    return this.remember(
+      this.byHost,
+      `host:${normalized}`,
+      normalized,
+      match ? this.toRecord(match.tenant) : undefined,
+      ticket,
+    );
   }
 
   async findById(id: string): Promise<TenantRecord | undefined> {
     const cached = this.byId.get(id);
     if (cached) return cached.value;
+    const ticket = this.tracker.ticket();
     const row = await this.repo.findById(id);
-    return this.remember(this.byId, id, row ? this.toRecord(row) : undefined);
+    return this.remember(this.byId, `id:${id}`, id, row ? this.toRecord(row) : undefined, ticket);
   }
 
   /** 所有 `active` 的租戶（排程工作展開、清掃 outbox 用）；不快取。 */
@@ -197,6 +221,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
   }
 
   private clear(): void {
+    this.tracker.invalidateAll();
     this.byHost.clear();
     this.byId.clear();
     this.byCode.clear();
@@ -212,8 +237,11 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
   }
 
   private async loadDomains(): Promise<void> {
+    const seq = ++this.domainsLoadSeq;
     try {
       const rows = await this.repo.listDomains();
+      // 之後又開始了一次載入（例：invalidate()）：以較新的那次為準，不讓先開始的舊結果蓋掉它
+      if (seq !== this.domainsLoadSeq) return;
       this.domains = new Map(rows.map((row) => [row.domain.toLowerCase(), row.tenantId]));
       this.domainsLoaded = true;
     } catch (error) {
@@ -236,12 +264,20 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
     };
   }
 
+  /**
+   * 寫進快取並回傳。查詢期間被失效過（`ticket` 之後有 `invalidate()`）就只回傳、不寫：
+   * 這個結果可能是失效之前讀到的，寫回去會讓停用的租戶在本程序再活一個 TTL。
+   */
   private remember(
     cache: BoundedCache<string, TenantRecord | undefined>,
+    trackerKey: string,
     key: string,
     record: TenantRecord | undefined,
+    ticket: number,
   ): TenantRecord | undefined {
-    cache.set(key, record, record ? this.ttlMs : Math.min(this.ttlMs, NEGATIVE_TTL_MS));
+    if (this.tracker.isFresh(trackerKey, ticket)) {
+      cache.set(key, record, record ? this.ttlMs : Math.min(this.ttlMs, NEGATIVE_TTL_MS));
+    }
     return record;
   }
 }

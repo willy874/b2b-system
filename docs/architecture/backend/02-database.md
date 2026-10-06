@@ -745,6 +745,16 @@ postgres 的連線是有限資源（`max_connections`，每條約數 MB 記憶�
 | `idle_in_transaction_session_timeout` | 30 秒 | `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS`（0 = 不限制） | postgres 結束該連線 |
 | `connect_timeout` | 10 秒 | `DB_CONNECT_TIMEOUT` | 建立連線失敗 |
 
+**交易進行中不從連線池另取連線**。持有鎖（資料夾樹鎖、角色列的 `FOR UPDATE`）的交易已經佔著一條連線；等同一把鎖的交易也各佔一條。
+這時再從池子取連線（例：權限快取沒命中，`getPermissionSet` 用注入的 `TENANT_DB` 查），池子一滿就互相等待——
+持鎖的在等連線、佔著連線的在等鎖，postgres.js 沒有取連線的逾時，只能等 `statement_timeout` 取消等鎖的語句，整個租戶卡 15 秒。所以：
+
+- 能在交易之前取好的就先取好，傳進交易（資料夾結構的寫入：`FileAccessService.permissionsOf()` → `contextFor(actor, tx, permissions)`；
+  帶 `tx` 卻沒傳權限集合會直接拋錯）。
+- 一定要在交易內讀的，讀取帶 `tx`（`PermissionService.getPermissionSet(userId, tx)`、`assertGrantable`、`assertNoSelfLockout`、
+  `assertHasAll` 的 `context.tx`；交易內讀到的不寫回快取）。
+- 例外：授權拒絕的 `authz.denied` 刻意不跟著交易（rollback 時仍要留下），在拒絕的路徑上會另取一條連線。
+
 postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connections`、`shared_buffers`（約記憶體 25%）、
 `effective_cache_size`（約 75%）、`work_mem`、`pg_stat_statements`、`log_min_duration_statement=500`。
 

@@ -10,9 +10,13 @@ import { DomainEventBus } from '@/core/events';
 import {
   auditLogs,
   fileFolders,
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
   refreshTokens,
   relationTuples,
   roleHolderTuple,
+  rolePermissionTuple,
   roles,
   users,
 } from '@/db/schema';
@@ -74,6 +78,30 @@ async function createUser(
     await db.insert(relationTuples).values(roleHolderTuple(await roleId(slug), user!.id));
   }
   return user!.id;
+}
+
+/** 直接寫 DB 建立一個自訂角色，帶 `keys` 這些權限鍵。 */
+async function createRole(slug: string, keys: string[]): Promise<string> {
+  const [role] = await db.insert(roles).values({ slug, name: slug, isSystem: false }).returning();
+  await db.insert(relationTuples).values(keys.map((key) => rolePermissionTuple(role!.id, key)));
+  return role!.id;
+}
+
+/** 直接寫 DB 建立一個群組：持有 `roleSlugs`，成員是 `members`（使用者）與 `subgroups`（巢狀）。 */
+async function createGroup(
+  name: string,
+  options: { roleSlugs?: string[]; members?: string[]; subgroups?: string[] } = {},
+): Promise<string> {
+  const [group] = await db.insert(groups).values({ name }).returning();
+  const tuples = [
+    ...(await Promise.all((options.roleSlugs ?? []).map(roleId))).map((id) =>
+      groupRoleTuple(id, group!.id),
+    ),
+    ...(options.members ?? []).map((id) => groupMemberTuple(group!.id, { type: 'user', id })),
+    ...(options.subgroups ?? []).map((id) => groupMemberTuple(group!.id, { type: 'group', id })),
+  ];
+  if (tuples.length) await db.insert(relationTuples).values(tuples);
+  return group!.id;
 }
 
 async function login(email: string, password = PASSWORD): Promise<string> {
@@ -226,6 +254,64 @@ describe('回收桶與使用者還原（docs/architecture/backend/13-trash.md、
       const member = await createUser('restore-member@example.com', { roles: ['member'] });
       await deleteUser(member).expect(204);
       await restoreUser(member, adminToken).expect(200);
+    });
+
+    describe('反提權也看他所屬的群組（docs/architecture/backend/05-rbac.md §4.1）', () => {
+      let operatorToken = '';
+
+      beforeAll(async () => {
+        // 只能看與刪除使用者：沒有 admin 帶的其他權限
+        const operatorRole = await createRole('restore-operator', ['user:read', 'user:delete']);
+        const operator = await createUser('restore-operator@example.com', { password: true });
+        await db.insert(relationTuples).values(roleHolderTuple(operatorRole, operator));
+        operatorToken = await login('restore-operator@example.com');
+      });
+
+      it('只經由群組持有 admin 的帳號，由只有 user:delete 的人還原 → 403 AUTHZ_ESCALATION，仍維持刪除', async () => {
+        const target = await createUser('restore-via-group@example.com');
+        await createGroup('還原測試：Admins', { roleSlugs: ['admin'], members: [target] });
+        await deleteUser(target).expect(204);
+
+        const response = await restoreUser(target, operatorToken).expect(403);
+        expect(response.body).toMatchObject({ error: { code: 'AUTHZ_ESCALATION' } });
+        expect(
+          (response.body as { error: { details: { missing: string[] } } }).error.details.missing,
+        ).toContain('role:update');
+        expect((await rowOf(target))?.deletedAt).not.toBeNull();
+      });
+
+      it('巢狀群組（他所屬的群組是持有 admin 的群組的成員）一樣擋下', async () => {
+        const target = await createUser('restore-via-nested@example.com');
+        const inner = await createGroup('還原測試：內層', { members: [target] });
+        await createGroup('還原測試：外層', { roleSlugs: ['admin'], subgroups: [inner] });
+        await deleteUser(target).expect(204);
+
+        await restoreUser(target, operatorToken).expect(403);
+        expect((await rowOf(target))?.deletedAt).not.toBeNull();
+      });
+
+      it('同一個情境由持有 admin 全部權限的人還原 → 200', async () => {
+        await createUser('restore-group-admin@example.com', { roles: ['admin'], password: true });
+        const adminToken = await login('restore-group-admin@example.com');
+        const target = await createUser('restore-via-group-ok@example.com');
+        await createGroup('還原測試：Admins 2', { roleSlugs: ['admin'], members: [target] });
+        await deleteUser(target).expect(204);
+
+        await restoreUser(target, adminToken).expect(200);
+        expect((await rowOf(target))?.deletedAt).toBeNull();
+      });
+
+      it('已刪除的群組不算：群組的角色不會跟著回來，不擋', async () => {
+        const target = await createUser('restore-deleted-group@example.com');
+        const group = await createGroup('還原測試：已刪除', {
+          roleSlugs: ['admin'],
+          members: [target],
+        });
+        await db.update(groups).set({ deletedAt: new Date() }).where(eq(groups.id, group));
+        await deleteUser(target).expect(204);
+
+        await restoreUser(target, operatorToken).expect(200);
+      });
     });
 
     it('沒有被刪除 → 409 USER_NOT_DELETED；不存在 → 404 USER_NOT_FOUND', async () => {

@@ -21,6 +21,21 @@ Guard 看不到資源。
 由 `FileAccessService` 判斷。Guard 仍然宣告閘門（`@RequireAnyPermission('file:access', 'file:<動作>')`），
 所以「每個路由都有明確宣告」與「每次拒絕都寫稽核」兩條原則不變——資源層級的拒絕同樣寫 `authz.denied`。
 
+**Service 層的權限鍵判斷**：路由的宣告表達不了的權限（依審批類型而定、依回收桶的類型而定、「自己或有權限」、只在某些狀態才需要、
+標籤組由擁有者決定）由 service 判斷，**一律** 經 `PermissionService.assertHasAll(actor, keys, { route, metadata? })`
+（任一個就好用 `assertHasAny`），不自己比對權限集合。它與 guard 同一個形狀：super-admin 放行；缺少時以 `recordSafely` 寫
+`authz.denied`（`metadata: { route, required, missing, ...metadata }`，`route` 是被拒絕的端點樣板），再拋
+`403 AUTHZ_FORBIDDEN { required, missing }`（§3.1）。稽核不跟著呼叫端的交易：rollback 時拒絕紀錄仍要留下。
+
+| 呼叫端 | 要求 | 為什麼路由擋不了 |
+| --- | --- | --- |
+| `ApprovalService.approve` | 審批類型要求的權限（註冊：`user:create`） | 路由只宣告 `approval:review`，類型在請求本體之外 |
+| `TrashService.list` | 該類型的 `<resource>:delete` | `GET /trash` 宣告「任一種刪除權」，類型在 query |
+| `AuthzExplainService.assertCanExplain` | 查別人時 `authz:explain` | 「自己或有權限」 |
+| `AnnouncementService.update` | 排程中、暫停中的公告另要 `announcement:publish` | 依公告的狀態 |
+| `RoleService.revertToRevision` | 權限鍵會改變時另要 `role:grantPermission` | 依那一版的內容 |
+| 標籤組的 `assertCanBrowse`、使用者的 `resolveEditable` | `user:read`／`user:update`；檔案組是 `file:access` 或 `file:read` | `GET /tags`、`PUT /tags/assignments/…` 只宣告 `@Authenticated()`，由擁有者決定（[`18-tag.md`](./18-tag.md)） |
+
 ---
 
 ## 2. Decorators
@@ -273,8 +288,21 @@ export class PermissionService {
   ```
 
 - 走這個檢查的端點：`POST /users`（`roleIds`）、`PUT /users/:id/roles`，審批核准時帶入的 `roleIds`，
-  以及還原（`POST /users/:id/restore` 檢查他仍存在的角色、`POST /roles/:id/restore` 檢查被還原的角色；[`13-trash.md`](./13-trash.md)）。
+  以及還原（`POST /roles/:id/restore` 檢查被還原的角色；[`13-trash.md`](./13-trash.md)）。
   新增任何會指派角色的端點都必須呼叫 `assertRolesAssignable()`，不可自行只比對權限鍵。
+
+**讓既有的邊重新生效也是授予**。刪除使用者、停用使用者都不動關係圖：他持有角色的邊、群組成員的邊都留著，
+只是暫時不起作用（刪除的人讀不到、停用的人登入不了）。所以下面兩個操作等於重新指派那些角色、重新把他加進那些群組，
+以 `assertCanGrant` 檢查他 **直接持有的角色**（`role:<r>#holder`）與 **直接所屬的群組**（`group:<g>#member`，引擎沿上層群組、
+群組持有的角色展開），actor 給不了 → `403 AUTHZ_ESCALATION`（`UserService.assertCanRevive`）：
+
+| 操作 | 為什麼要檢查 |
+| --- | --- |
+| 還原使用者（`POST /users/:id/restore`） | 還原後他以原本的密碼登入，取得所有角色與群組帶來的權限 |
+| 停用後改回 active（`PATCH /users/:id`，`inactive` → `active`） | 同上；停用時撤銷了 session，但沒有拿掉任何邊 |
+
+只檢查「直接」的兩種邊就夠：上層群組與群組持有的角色由 `grantedCapabilities` 的閉包涵蓋；已刪除的角色與群組不會跟著回來，不列入。
+停用、刪除、解鎖不檢查——前兩者是拿掉能力；解鎖的人本來就是 `active`（登入失敗的自動鎖定不改 `status`），沒有失去過角色。
 
 **反方向：被操作的人是 super-admin**（`UserService.assertCanManage`）。
 上面只檢查「新授予的」角色；持 `user:update`／`user:delete`／`user:assignRole` 的 admin 仍能停用、刪除 super-admin，
@@ -578,6 +606,10 @@ private assertNotSelf(actorId: string, targetId: string): void {
 - super-admin 豁免（權限是隱含全集，也沒有角色能拿掉它）。
 - 只看操作者本人：同一個角色的其他持有者失去權限是正常的業務操作。
 - 沒有持有該角色、或本來就沒有那些權限時不擋。
+- 「持有」與「剩下的權限」都以操作者的 **主體閉包**（`PermissionSet.subjects` 裡的 `role:<id>#holder`）判斷：經由群組（含巢狀）持有的角色
+  與直接持有的一樣算（[`rbac/08-groups.md`](../../rbac/08-groups.md) §1）。只經由群組持有該角色的人一樣會被擋；
+  經由群組持有另一個提供同樣權限的角色時，不會被誤擋。剩下的鍵是閉包中其他角色的鍵（`PermissionRepository.findPermissionKeysOfRoles`）
+  加上變更後的鍵，再套依賴樹的閉包。
 
 ---
 

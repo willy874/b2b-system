@@ -293,8 +293,12 @@ super-admin 加入自己租戶的所有 perm room。
 | 任何來源（`notification`、`notificationPreference`、`webhookDelivery` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
-- 「持有該角色的所有人」由 service 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，[`backend/14-revisions.md`](14-revisions.md) §9.2 D2），
+- 「持有該角色的所有人」含 **經由群組（含巢狀）持有** 的人（[`rbac/08-groups.md`](../../rbac/08-groups.md) §1），由 service 以
+  `PermissionService.findUserIdsHoldingRole` 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，[`backend/14-revisions.md`](14-revisions.md) §9.2 D2），
   只用來讓他們的畫面重抓；權限快取的失效與 room 的同步不依賴這份清單（[05 §5.1](./05-rbac.md)）。
+- 前端以 profile 的角色清單判斷「我是不是這個角色的持有者」，而 profile 只列直接持有的角色。所以角色的權限改變、刪除、還原、
+  還原到改了權限鍵的版本時，**只經由群組持有** 的人另外各推一筆本人的 `userRole update`（`refs.role`），前端以「是不是自己」重抓 profile。
+  人多到一則放不下時改成一筆不帶 id 的 `userRole update`（收到的人都重抓自己的 profile）。
 - Payload 只有 id，不含名稱或內容；即使受眾稍微放寬也不會外洩資料。
 
 ### 6.2 權限變更時同步 room
@@ -331,7 +335,7 @@ async refreshAudience(userIds: readonly string[]) {
 | 事件（`DomainEvent`）  | payload                                                   | 由誰發佈                         | `realtime.listener` 的動作                  |
 | ---------------------- | --------------------------------------------------------- | -------------------------------- | ------------------------------------------- |
 | `permissions.changed`  | `{ userIds? }`                                            | `AuthzRevision`：本機的權限寫入提交後，或收到其他程序的 revision 廣播後（在那個租戶的脈絡）| 重算這個租戶在本機所有連線的 perm room（§6.2）。`userIds` 只在發起寫入的程序上有、不是完整清單，給檔案模組補建個人資料夾用 |
-| `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds? }`     | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`    |
+| `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds?, perRecipient? }` | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`；`perRecipient`（`{ userId, changes }[]`）的每一項另外推一則只有他那幾筆的 `resource.changed` 到他的 user room，不經 perm room（站內通知：一批收件人一則事件，通知 id 不給別人看到） |
 | `sessions.revoked`     | `{ userIds?, idpSessionUids?, tenantIds?, platformAdminIds?, reason }` | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5；平台管理者見 §3.6） |
 | `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |
 | `platform.changed`     | `{ changes: ResourceChangeWire[], adminIds? }`            | 平台層級的寫入（租戶登記、平台管理者、全平台 flag、背景工作的重試、平台的站內通知），沒有租戶脈絡 | 推 `resource.changed` 給 `platform` room；有 `adminIds` 時只推給 `platform:admin:{id}`（§3.6） |
@@ -390,10 +394,14 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 
   // ★ 交易之後：整個租戶的權限快取失效、發 permissions.changed、廣播給其他程序（05 §5.1）。
   // 持有者不是失效的依據：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓
-  const holders = await this.permissionService.findUserIdsByRole(roleId);
+  // 持有者含經由群組持有的；只經由群組持有的人另外各一筆本人的 userRole update（§6.1）
+  const { holders, viaGroupsOnly } = await this.holdersOf(roleId);
   await this.permissionService.permissionsChanged(holders);
   this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-    changes: [{ resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id: roleId }],
+    changes: [
+      { resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id: roleId },
+      ...holderRefreshChanges(roleId, viaGroupsOnly, 1),
+    ],
     affectedUserIds: holders,
   });
 }
@@ -412,10 +420,11 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 操作                         | `resource.changed`                                   | 另外發佈                                                  |
 | ---------------------------- | ---------------------------------------------------- | --------------------------------------------------------- |
 | 角色建立／複製               | `role create`（帶 `id`）                             | —                                                         |
-| 角色更新                     | `role update`，持有者                                | —                                                         |
-| 角色權限增減                 | `rolePermission update`，持有者                      | 先發 `permissions.changed`                                |
-| 角色刪除                     | `role delete`，原本的持有者（軟刪除前查出）          | 先發 `permissions.changed`                                |
-| 角色還原                     | `role create` ＋ 每位持有者一筆 `userRole update`（`refs.role`），持有者 | 先發 `permissions.changed`（`userIds` = 持有者） |
+| 角色更新                     | `role update`，持有者（含經由群組的）                | —                                                         |
+| 角色權限增減                 | `rolePermission update` ＋ 只經由群組持有的人各一筆 `userRole update`，持有者（含經由群組的） | 先發 `permissions.changed`         |
+| 角色刪除                     | `role delete` ＋ 只經由群組持有的人各一筆 `userRole update`，原本的持有者（含經由群組的，軟刪除前查出） | 先發 `permissions.changed` |
+| 角色還原                     | `role create` ＋ 每位持有者（含經由群組的）一筆 `userRole update`（`refs.role`；超過上限時一筆不帶 id），持有者 | 先發 `permissions.changed`（`userIds` = 持有者） |
+| 角色還原到某一版             | `role update`；改了權限鍵時另加 `rolePermission update` 與只經由群組持有的人的 `userRole update`，持有者 | 改了權限鍵時先發 `permissions.changed` |
 | 角色永久刪除（`trash.purge`）| `role delete`（每個一筆）                            | 先發 `permissions.changed`                                |
 | 使用者建立                   | `user create`，`refs.role`                           | 帶角色時先發 `permissions.changed`（`userIds` = 本人）    |
 | 使用者更新／解鎖             | `user update`，`refs.role`                           | 停用時 `sessions.revoked`（`AUTH_ACCOUNT_DISABLED`）      |
@@ -436,7 +445,7 @@ async updatePermissions(roleId: string, dto: UpdatePermissionsDto, actor: AuthUs
 | 還原資料夾                   | `fileFolder create`；有檔案一起還原時另發 `file create`（`id='*'`） | —                                          |
 | 檔案、資料夾永久刪除（`trash.purge`） | `file delete` / `fileFolder delete`（每個一筆；資料夾只有每批的根） | —                                   |
 | 修改或還原系統設定           | `setting update`（每個 key 一筆，id 是設定的 key）   | —                                                         |
-| 寫入站內通知（`NotificationService.notify()`） | 每位收件人各一則 `notification create`（id 是他自己的通知 id，一次超過 100 則時不帶 id），`affectedUserIds` = 那位收件人；由 `afterCommit` 在交易提交時就發出，早於同一個操作在交易後才發的事件 | —                                        |
+| 寫入站內通知（`NotificationService.notify()`） | 一批一則事件：`changes` 是空的，`perRecipient` 帶每位收件人自己的 `notification create`（id 是他自己的通知 id，一次超過 100 則時不帶 id）；由 `afterCommit` 在交易提交時就發出，早於同一個操作在交易後才發的事件 | —                                        |
 | 通知標為已讀／全部已讀       | `notification update`（單則帶 id；全部已讀不帶），`affectedUserIds` = 自己 | —                                    |
 | 開關事件通知（`PATCH /notification-events`） | `notificationPolicy update`（每個改到的事件一筆，id 是事件類型） | —                                    |
 | 修改自己的通知設定（`PATCH /me/notification-preferences`） | `notificationPreference update`（每個改到的事件一筆，id 是事件類型），`affectedUserIds` = 自己 | —                                    |
@@ -490,8 +499,16 @@ api 之外還會有別的程序寫入資料：對外 API（[`architecture/06-ext
   「整個系統做一次」的訂閱者維持預設，不會在每個程序重複執行。
 - **不會繞圈**：轉送只訂閱本機發佈的事件；`channel()` 的信封帶送出的程序，自己送的不會收回來。
 - **`meta` 跟著過去**：`clientId`（`origin`）、`requestId`、`occurredAt` 照發佈端的；`meta.remote` 標成 `true`。
-- **放不進一則 `NOTIFY`（8000 位元組）**：資源變更拿掉個別的 `id`／`refs`，退化成「這個來源全部失效」，受影響的人每 150 個一則；
+- **超過合約的上限**（`changes` 超過 100 筆、`refs` 過長）：轉送前先套用 `limitChanges()`（§9），接收端的驗證與客戶端同一個上限，否則整則被拒收。
+- **放不進一則 `NOTIFY`（8000 位元組）**：資源變更拿掉個別的 `id`／`refs`（`coarsenChanges()`），退化成「這個來源全部失效」，受影響的人每 150 個一則；
   撤銷連線的名單每 150 個一則。
+- **`perRecipient`**（站內通知）：依位元組裝成幾則（每則數十人），每個人的 id 照帶；一個人的變更自己就放不進一則時只有他那一筆退化成不帶 id 的。
+  共用的 `changes` 放得進就原樣一則。
+- **不讓 bus 的佇列等 `NOTIFY`**：handler 把拆好的訊息交給送出佇列就返回，同一個租戶的下一則推播不必排在平台 DB 的往返後面。
+  送出佇列與 bus 的佇列同樣切法（每個租戶一條、另加優先通道），每條依序送出，接收端照順序處理；整個程序最多排 1000 則，
+  滿了就略過新的事件並記 warn（不保證送達，見下）。
+- **只送不收的程序**：對外 API 沒有推播（沒有 `{ remote: true }` 的訂閱者），以 `EventsModule.sendOnly()` 組裝：照樣把自己的寫入轉送出去，
+  但不 `LISTEN` `domain_event`（`BroadcastService.sender()`），少一條監聽的連線、也不必解析內部 api 轉來的每一則。
 - **租戶進不去**（停用、維護中）就略過：它的連線已經或即將被斷掉。格式不對的訊息（不同版本並存）略過。
 - 不保證送達，與 bus 同一個等級；漏掉時前端在下一次重新連線、或下一次自己抓資料時看到新資料。
 
@@ -596,6 +613,11 @@ export interface ClientToServerEvents {
 ```
 
 - **兩端都在執行期驗證**：伺服器驗客戶端送來的，客戶端驗伺服器推來的（版本並存時不會壞掉，只會略過）。
+- **伺服器負責守住上限**：`changes` 最多 `MAX_CHANGES_PER_EVENT`（100）筆、每個 `refs` 陣列最多 100 個，超過的一則客戶端會整則丟掉。
+  `realtime.listener` 送出 `resource.changed`（含平台的）之前、`DomainEventRelay` 轉送之前都套用 `limitChanges()`：超過時改成
+  `coarsenChanges()` 的結果——同一個 `{ resource, kind }` 只留一筆、拿掉 `id` 與 `refs`，前端視為「這個來源全部失效」。
+  受眾仍以原本的變更計算（`includesSubject` 要看 id）。呼叫端知道自己可能很多筆時，自己先降成不帶 id 的宣告（例：角色還原的 `userRole update`、
+  站內通知、回收桶一批 `MAX_CHANGES_PER_EVENT` 個），讓其他筆仍帶得到 id。
 - 新增事件＝在這裡加名稱與 schema →（需要時）`core/events` 加領域事件 → `realtime.listener` 或 gateway → 前端 `@b2b-system/web-core/realtime` 的處理，**同一批**修改。
 - 依賴規則：`packages/realtime` 只依賴 `zod`，不依賴任何 workspace package，不使用 DOM / Node 專屬 API
   （[`conventions/07`](../../conventions/07-layer-dependencies.md) §1）。
@@ -690,7 +712,11 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 | `channel.relay` 只到同使用者；非白名單頻道被略過                       | 整合   |
 | gateway 有未宣告授權的 `@SubscribeMessage` → 啟動失敗                  | 單元（route-audit） |
 | 來源 → 受眾對照（§6.1）                                               | 單元   |
-| 新的站內通知只推給收件人（payload 是通知 id），稽核的讀者收不到          | 整合   |
+| 新的站內通知只推給收件人（payload 是通知 id），稽核的讀者收不到；一批多人只發一則事件，每人只收到自己的 id | 整合   |
+| 經由群組持有角色、沒有 `role:read` 的成員：角色的權限改變後收到本人的 `userRole update` | 整合   |
+| 還原有 100 位以上持有者的角色：收到的 `resource.changed` 通過 `ResourceChangedSchema` | 整合   |
+| 超過 100 筆的變更（含平台的）送出前退化成不帶 id 的版本；`perRecipient` 逐人推到自己的 user room | 單元（`realtime.listener.spec.ts`） |
+| 轉送：超過 100 筆但放得進一則的事件接收端仍收得到；`perRecipient` 依位元組拆成有上限的幾則；不讓 bus 等 `NOTIFY`；只送不收 | 單元（`event-relay.spec.ts`） |
 | `DomainEventBus`：同租戶依序、跨租戶與 `sessions.revoked` 不互相阻塞、錯誤隔離、`meta` 在發佈當下擷取 | 單元   |
 | `realtime.listener`：五個領域事件各自的動作（假 bus ＋ 假 io）；`tenant.featuresChanged` 推給整個租戶的 room；`platform.changed` 推給 `platform` 或指定的平台管理者 | 單元   |
 | 平台管理者的連線（§3.6，`test/platform-realtime.spec.ts`）：apps/platform 的網域只接受平台的 token、租戶網域不接受平台的 token；租戶改名推給所有平台管理者；通知只推收件人；停用 → `session.revoked` 並斷線 | 整合 |

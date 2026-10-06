@@ -328,7 +328,11 @@ export class NotificationService {
     }
   }
 
-  /** 每位收件人一則推播，只送到他自己的 user room（通知 id 不給別人看到）。 */
+  /**
+   * 一批通知只發一則事件，帶「收件人 → 他的通知 id」（`perRecipient`）：listener 逐人推到各自的 user room，
+   * 通知 id 不給別人看到（D8）。不再每位收件人一則：公告發給上萬人時，每則都要經平台 DB 轉送（docs/architecture/backend/08-realtime.md §7.6），
+   * 同一個租戶的其他推播會排在後面。
+   */
   private publishChanges(
     rows: ReadonlyArray<{ id: string; recipientId: string }>,
     kind: ChangeKind,
@@ -339,12 +343,14 @@ export class NotificationService {
       if (ids) ids.push(id);
       else byRecipient.set(recipientId, [id]);
     }
-    for (const [recipientId, ids] of byRecipient) {
-      this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+    if (byRecipient.size === 0) return;
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [],
+      perRecipient: [...byRecipient].map(([userId, ids]) => ({
+        userId,
         changes: changesFor(ids, kind),
-        affectedUserIds: [recipientId],
-      });
-    }
+      })),
+    });
   }
 
   private publishRead(userId: string, changes: ResourceChangeWire[]): void {

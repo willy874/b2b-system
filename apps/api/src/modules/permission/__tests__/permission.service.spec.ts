@@ -3,27 +3,35 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PermissionKey } from '@/common/types';
 import type { AuthzRevision, AuthzService, TenantPermissions } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
+import type { DbOrTx } from '@/core/database';
 import { permissionClosure } from '@/db/seeds/permissions';
+import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import type { PermissionRepository } from '../permission.repository';
 import { PermissionService } from '../permission.service';
 
-/** 假的關係圖：每個人的明確鍵由 `keysOf` 決定，解析結果是它的依賴閉包。 */
-function fakeAuthz(keysOf: (userId: string) => { keys: PermissionKey[]; isSuperAdmin: boolean }) {
+/** 假的關係圖：每個人的明確鍵由 `keysOf` 決定，解析結果是它的依賴閉包；主體閉包預設只有本人。 */
+function fakeAuthz(
+  keysOf: (userId: string) => {
+    keys: PermissionKey[];
+    isSuperAdmin: boolean;
+    subjects?: string[];
+  },
+) {
   return {
     /** 要授予的目標帶來的租戶能力；各測試自己設定（引擎的展開另有整合測試 test/groups.spec.ts）。 */
     grantedCapabilities: vi.fn().mockResolvedValue([]),
     tenantPermissionsOf: vi.fn(async (ids: readonly string[]) => {
       return new Map<string, TenantPermissions>(
         ids.map((id) => {
-          const { keys, isSuperAdmin } = keysOf(id);
+          const { keys, isSuperAdmin, subjects = [] } = keysOf(id);
           return [
             id,
             {
               explicit: new Set(keys),
               effective: permissionClosure(keys),
               isSuperAdmin,
-              subjects: [`user:${id}`],
+              subjects: [`user:${id}`, ...subjects],
             },
           ];
         }),
@@ -34,20 +42,28 @@ function fakeAuthz(keysOf: (userId: string) => { keys: PermissionKey[]; isSuperA
 
 /** 失效與廣播另有整合測試（test/authz-revision.spec.ts）。 */
 const REVISION = { changed: vi.fn() } as unknown as AuthzRevision;
+/** 只用到 `assertHasAll`／`assertHasAny` 的案例另外建自己的稽核假物件。 */
+const NO_AUDIT = {} as AuditService;
 
 const ALL_KEYS = ['user:read', 'user:assignRole', 'system:update'] as PermissionKey[];
 
-function createService(actor: { keys: PermissionKey[]; isSuperAdmin: boolean }) {
+function createService(actor: {
+  keys: PermissionKey[];
+  isSuperAdmin: boolean;
+  subjects?: string[];
+}) {
   const repo = { findAllPermissionKeys: vi.fn().mockResolvedValue(ALL_KEYS) };
   const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
   const authz = fakeAuthz(() => actor);
+  const audit = { recordSafely: vi.fn(async () => undefined) };
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
     authz as unknown as AuthzService,
     REVISION,
+    audit as unknown as AuditService,
   );
-  return { service, repo, authz };
+  return { service, repo, authz, audit };
 }
 
 const TENANT = { type: 'tenant', id: 'self' };
@@ -125,9 +141,49 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
     cache as unknown as PermissionCacheService,
     authz as unknown as AuthzService,
     REVISION,
+    NO_AUDIT,
   );
   return { service, authz, cache };
 }
+
+describe('PermissionService.getPermissionSet（交易內，docs/architecture/backend/02-database.md §6.2）', () => {
+  it('帶 tx、快取沒命中：以同一個交易查，不寫回快取（可能含這個交易自己的寫入）', async () => {
+    const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
+    const authz = fakeAuthz(() => ({
+      keys: ['user:read'] as PermissionKey[],
+      isSuperAdmin: false,
+    }));
+    const service = new PermissionService(
+      {} as PermissionRepository,
+      cache as unknown as PermissionCacheService,
+      authz as unknown as AuthzService,
+      REVISION,
+      NO_AUDIT,
+    );
+    const tx = { name: 'tx' } as unknown as DbOrTx;
+    const { permissions } = await service.getPermissionSet('u1', tx);
+    expect(permissions.has('user:read')).toBe(true);
+    expect(authz.tenantPermissionsOf).toHaveBeenCalledWith(['u1'], { withDependencies: true, tx });
+    expect(cache.set).not.toHaveBeenCalled();
+  });
+
+  it('帶 tx、快取命中：直接用快取，不查', async () => {
+    const cached = { permissions: new Set(['user:read']), isSuperAdmin: false, subjects: [] };
+    const cache = { get: vi.fn(() => cached), set: vi.fn(), ticket: vi.fn(() => 0) };
+    const authz = fakeAuthz(() => ({ keys: [], isSuperAdmin: false }));
+    const service = new PermissionService(
+      {} as PermissionRepository,
+      cache as unknown as PermissionCacheService,
+      authz as unknown as AuthzService,
+      REVISION,
+      NO_AUDIT,
+    );
+    await expect(service.getPermissionSet('u1', { name: 'tx' } as unknown as DbOrTx)).resolves.toBe(
+      cached,
+    );
+    expect(authz.tenantPermissionsOf).not.toHaveBeenCalled();
+  });
+});
 
 describe('PermissionService.getPermissionSets（批次解析）', () => {
   it('多人一次解析：每人一個集合，沒有角色的人是空集合，super-admin 有標記', async () => {
@@ -150,6 +206,7 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
       { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) } as unknown as PermissionCacheService,
       authz as unknown as AuthzService,
       REVISION,
+      NO_AUDIT,
     );
     const { permissions } = await service.getPermissionSet('u1');
     expect([...permissions].toSorted()).toEqual([
@@ -193,25 +250,107 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
   });
 });
 
+describe('PermissionService.assertHasAll／assertHasAny（service 層的權限判斷，docs/architecture/backend/05-rbac.md §3.1）', () => {
+  const ACTOR = { id: 'actor', email: 'actor@example.com' };
+  const CONTEXT = { route: 'POST /approvals/:id/approve', metadata: { approvalId: 'a1' } };
+
+  it('全部都有 → 放行，不寫稽核', async () => {
+    const { service, audit } = createService({
+      keys: ['user:read', 'user:assignRole'],
+      isSuperAdmin: false,
+    });
+    await expect(
+      service.assertHasAll(ACTOR, ['user:read', 'user:assignRole'], CONTEXT),
+    ).resolves.toBeUndefined();
+    expect(audit.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('缺少 → 寫 authz.denied（route、required、missing 與呼叫端的 metadata），再拋 AUTHZ_FORBIDDEN { required, missing }', async () => {
+    const { service, audit } = createService({ keys: ['user:read'], isSuperAdmin: false });
+    await expect(
+      service.assertHasAll(ACTOR, ['user:read', 'system:update'], CONTEXT),
+    ).rejects.toMatchObject({
+      code: 'AUTHZ_FORBIDDEN',
+      details: { required: ['user:read', 'system:update'], missing: ['system:update'] },
+    });
+    expect(audit.recordSafely).toHaveBeenCalledWith({
+      action: 'authz.denied',
+      result: 'failure',
+      actorId: 'actor',
+      actorEmail: 'actor@example.com',
+      resourceType: 'authz',
+      errorCode: 'AUTHZ_FORBIDDEN',
+      metadata: {
+        approvalId: 'a1',
+        route: 'POST /approvals/:id/approve',
+        required: ['user:read', 'system:update'],
+        missing: ['system:update'],
+      },
+    });
+  });
+
+  it('super-admin → 放行，不寫稽核', async () => {
+    const { service, audit } = createService({ keys: [], isSuperAdmin: true });
+    await expect(service.assertHasAll(ACTOR, ['system:update'], CONTEXT)).resolves.toBeUndefined();
+    expect(audit.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('依賴樹帶來的鍵也算（user:assignRole 包含 user:read）', async () => {
+    const { service } = createService({ keys: ['user:assignRole'], isSuperAdmin: false });
+    await expect(service.assertHasAll(ACTOR, ['user:read'], CONTEXT)).resolves.toBeUndefined();
+  });
+
+  it('assertHasAny：有任一個就放行；一個都沒有 → missing 是全部', async () => {
+    const reader = createService({ keys: ['user:read'], isSuperAdmin: false });
+    await expect(
+      reader.service.assertHasAny(ACTOR, ['system:update', 'user:read'], CONTEXT),
+    ).resolves.toBeUndefined();
+
+    const nobody = createService({ keys: [], isSuperAdmin: false });
+    await expect(
+      nobody.service.assertHasAny(ACTOR, ['system:update', 'user:read'], CONTEXT),
+    ).rejects.toMatchObject({
+      code: 'AUTHZ_FORBIDDEN',
+      details: {
+        required: ['system:update', 'user:read'],
+        missing: ['system:update', 'user:read'],
+      },
+    });
+    expect(nobody.audit.recordSafely).toHaveBeenCalledTimes(1);
+  });
+
+  it('沒有要求任何權限 → 放行，不查權限', async () => {
+    const { service, authz } = createService({ keys: [], isSuperAdmin: false });
+    await expect(service.assertHasAll(ACTOR, [], CONTEXT)).resolves.toBeUndefined();
+    expect(authz.tenantPermissionsOf).not.toHaveBeenCalled();
+  });
+});
+
 describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-rbac.md §8.4）', () => {
   const GUARDED = ['role:update', 'role:grantPermission'] as PermissionKey[];
+  const R1 = 'role:r1#holder';
+  const R2 = 'role:r2#holder';
 
+  /**
+   * `subjects` 是 actor 的主體閉包（直接持有的角色與經由群組持有的角色都在裡面，形狀相同）；
+   * `otherRoleKeys` 是閉包裡其他角色帶的鍵。
+   */
   function createLockoutService(options: {
     keys: PermissionKey[];
     isSuperAdmin?: boolean;
-    holdsRole?: boolean;
+    subjects?: string[];
     otherRoleKeys?: PermissionKey[];
   }) {
-    const { service, repo } = createService({
+    const { service, repo, authz } = createService({
       keys: options.keys,
       isSuperAdmin: options.isSuperAdmin ?? false,
+      subjects: options.subjects ?? [R1],
     });
     const extra = {
-      userHasRole: vi.fn().mockResolvedValue(options.holdsRole ?? true),
-      findPermissionKeysByUserExcludingRole: vi.fn().mockResolvedValue(options.otherRoleKeys ?? []),
+      findPermissionKeysOfRoles: vi.fn().mockResolvedValue(options.otherRoleKeys ?? []),
     };
     Object.assign(repo, extra);
-    return { service, repo: { ...repo, ...extra } };
+    return { service, repo: { ...repo, ...extra }, authz };
   }
 
   it('移除自己角色上唯一來源的管理權限 → ROLE_SELF_LOCKOUT 帶出失去的權限', async () => {
@@ -221,6 +360,16 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
     ).rejects.toMatchObject({
       code: 'ROLE_SELF_LOCKOUT',
       details: { lost: ['role:grantPermission'] },
+    });
+  });
+
+  it('只經由群組持有這個角色（閉包裡有 role:r1#holder、也有群組）也算持有 → ROLE_SELF_LOCKOUT', async () => {
+    const { service } = createLockoutService({
+      keys: GUARDED,
+      subjects: ['group:g1#member', R1],
+    });
+    await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).rejects.toMatchObject({
+      code: 'ROLE_SELF_LOCKOUT',
     });
   });
 
@@ -238,27 +387,49 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
     ).resolves.toBeUndefined();
   });
 
-  it('其他角色仍提供同樣的權限 → 通過', async () => {
-    const { service } = createLockoutService({ keys: GUARDED, otherRoleKeys: GUARDED });
+  it('閉包裡的其他角色（直接或經由群組）仍提供同樣的權限 → 通過；只查這個角色以外的', async () => {
+    const { service, repo } = createLockoutService({
+      keys: GUARDED,
+      subjects: [R1, 'group:g1#member', R2],
+      otherRoleKeys: GUARDED,
+    });
     await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
+    expect(repo.findPermissionKeysOfRoles).toHaveBeenCalledWith(['r2'], undefined);
+  });
+
+  it('在交易內（鎖住角色列之後）呼叫：權限與其他角色的鍵都以同一個交易查', async () => {
+    const { service, repo, authz } = createLockoutService({
+      keys: GUARDED,
+      subjects: [R1, R2],
+      otherRoleKeys: GUARDED,
+    });
+    const tx = { name: 'tx' } as unknown as DbOrTx;
+    await expect(
+      service.assertNoSelfLockout('actor', 'r1', [], GUARDED, tx),
+    ).resolves.toBeUndefined();
+    expect(authz.tenantPermissionsOf).toHaveBeenCalledWith(['actor'], {
+      withDependencies: true,
+      tx,
+    });
+    expect(repo.findPermissionKeysOfRoles).toHaveBeenCalledWith(['r2'], tx);
   });
 
   it('沒有持有這個角色 → 通過，不查其他角色', async () => {
-    const { service, repo } = createLockoutService({ keys: GUARDED, holdsRole: false });
+    const { service, repo } = createLockoutService({ keys: GUARDED, subjects: [R2] });
     await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
-    expect(repo.findPermissionKeysByUserExcludingRole).not.toHaveBeenCalled();
+    expect(repo.findPermissionKeysOfRoles).not.toHaveBeenCalled();
   });
 
   it('本來就沒有那些管理權限 → 通過，不查角色', async () => {
     const { service, repo } = createLockoutService({ keys: ['user:read'] });
     await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
-    expect(repo.userHasRole).not.toHaveBeenCalled();
+    expect(repo.findPermissionKeysOfRoles).not.toHaveBeenCalled();
   });
 
   it('super-admin 豁免', async () => {
     const { service, repo } = createLockoutService({ keys: [], isSuperAdmin: true });
     await expect(service.assertNoSelfLockout('actor', 'r1', [], GUARDED)).resolves.toBeUndefined();
-    expect(repo.userHasRole).not.toHaveBeenCalled();
+    expect(repo.findPermissionKeysOfRoles).not.toHaveBeenCalled();
   });
 });
 
@@ -268,6 +439,7 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/0
     {} as PermissionCacheService,
     {} as AuthzService,
     REVISION,
+    NO_AUDIT,
   );
 
   it('明確的鍵標 explicit；依賴樹帶出的標 implied 並列出來源，依目錄順序', () => {
@@ -305,6 +477,7 @@ describe('PermissionService.findActiveUserIdsWithPermission（docs/architecture/
       cache as unknown as PermissionCacheService,
       authz as unknown as AuthzService,
       REVISION,
+      NO_AUDIT,
     );
     return { service, authz, repo };
   }

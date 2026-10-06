@@ -1,5 +1,5 @@
-import { ChangeKind, ChangeSource, ServerEvent } from '@b2b-system/realtime';
-import type { ResourceChanged } from '@b2b-system/realtime';
+import { ChangeKind, ChangeSource, limitChanges, ServerEvent } from '@b2b-system/realtime';
+import type { ResourceChanged, ResourceChangeWire } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
@@ -16,6 +16,12 @@ import {
   tenantRoom,
   userRoom,
 } from './realtime.rooms';
+
+/** 送出的 `resource.changed`：符合合約的上限（§9），帶上發起的分頁（§7.1）。 */
+function payloadOf(changes: readonly ResourceChangeWire[], meta: DomainEventMeta): ResourceChanged {
+  const limited = limitChanges(changes);
+  return meta.clientId ? { changes: limited, origin: meta.clientId } : { changes: limited };
+}
 
 /**
  * 領域事件 → 推播（docs/architecture/backend/08-realtime.md §3.5、§6.2、§7）。
@@ -80,20 +86,31 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  /** 依來源 → 受眾表推播；`origin` 讓發起的分頁略過（§6.1、§7.1）。 */
+  /**
+   * 依來源 → 受眾表推播；`origin` 讓發起的分頁略過（§6.1、§7.1）。受眾以原本的變更計算（`includesSubject` 要看 id），
+   * 送出的 payload 先套用合約的上限（`limitChanges`，§9）：超過 100 筆或 `refs` 過長時改成不帶 id 的版本，
+   * 否則客戶端驗證失敗會整則丟掉。
+   */
   onResourceChanged(
-    { changes, affectedUserIds }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
+    {
+      changes,
+      affectedUserIds,
+      perRecipient = [],
+    }: DomainEventPayloads[typeof DomainEvent.RESOURCE_CHANGED],
     meta: DomainEventMeta,
   ): void {
+    // 只給個別使用者的變更：各推一則到他自己的 user room（站內通知的 id 不給別人看到，§7.1）
+    for (const { userId, changes: own } of perRecipient) {
+      if (own.length) {
+        this.publisher.emit(userRoom(userId), ServerEvent.RESOURCE_CHANGED, payloadOf(own, meta));
+      }
+    }
     if (!changes.length) return;
 
     const rooms = resolveAudienceRooms(changes, affectedUserIds);
     // 沒有受眾就不推（原則 4：只推給看得到的人）
     if (!rooms.length) return;
-    const payload: ResourceChanged = meta.clientId
-      ? { changes, origin: meta.clientId }
-      : { changes };
-    this.publisher.emit(rooms, ServerEvent.RESOURCE_CHANGED, payload);
+    this.publisher.emit(rooms, ServerEvent.RESOURCE_CHANGED, payloadOf(changes, meta));
 
     this.logger.debug(
       { resources: changes.map((c) => `${c.resource}.${c.kind}`), rooms: rooms.length },
@@ -155,10 +172,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
     const rooms = adminIds?.length
       ? [...new Set(adminIds)].map(platformAdminRoom)
       : [PLATFORM_ROOM];
-    const payload: ResourceChanged = meta.clientId
-      ? { changes, origin: meta.clientId }
-      : { changes };
-    this.publisher.emit(rooms, ServerEvent.RESOURCE_CHANGED, payload);
+    this.publisher.emit(rooms, ServerEvent.RESOURCE_CHANGED, payloadOf(changes, meta));
     this.logger.debug(
       { resources: changes.map((c) => `${c.resource}.${c.kind}`), rooms: rooms.length },
       '推播平台的資源變更',

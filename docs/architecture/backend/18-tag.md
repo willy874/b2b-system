@@ -4,7 +4,7 @@
 
 ```
 擁有者模組（file、user）
-  ├─ onModuleInit：tags.registerScope({ scope, feature?, canBrowse })
+  ├─ onModuleInit：tags.registerScope({ scope, feature?, assertCanBrowse })
   │                tags.registerResource({ resourceType, scope, resolveEditable, afterTagsChanged })
   ├─ 組回應：tags.tagsOf(resourceType, ids) → 每個 DTO 的 `tags`
   ├─ 列表篩選：repository 的 hasAnyTag(resourceType, idColumn, tagIds)
@@ -18,13 +18,16 @@ PUT /tags/assignments/:resourceType/:resourceId
 
 ## 1. 標籤組與資源類型
 
-| 標籤組 | 資源類型 | 讀定義（`canBrowse`） | 貼與移除（`resolveEditable`） | feature | 登記者 |
+| 標籤組 | 資源類型 | 讀定義（`assertCanBrowse`） | 貼與移除（`resolveEditable`） | feature | 登記者 |
 | --- | --- | --- | --- | --- | --- |
 | `file` | `file`、`fileFolder` | `file:access` 或 `file:read` | 檔案：已完成上傳、看得到、能改名（`FileService.assertTaggable`）；資料夾：讀得到、能改名，系統資料夾不行（`FileFolderService.assertTaggable`） | `file` | `FileTagResource` |
 | `user` | `user`（不含服務帳號） | `user:read` | `user:update` | — | `UserTagResource` |
 
 - 標籤組名稱存在 `tags.scope`，已發布後不改名。所屬 feature 沒啟用時，該組的端點回 `404 FEATURE_DISABLED`；資料保留。
 - 看不到或不存在的目標由擁有者回自己的 404（`FILE_NOT_FOUND`、`FILE_FOLDER_NOT_FOUND`、`USER_NOT_FOUND`），不能改回 `403 AUTHZ_FORBIDDEN`。
+- 兩個端點只宣告 `@Authenticated()`，擁有者的判斷是唯一的權限檢查，所以拒絕一定要留在稽核：權限鍵的判斷經
+  `PermissionService.assertHasAll`／`assertHasAny`（`TagService` 傳入 `{ route, metadata }`，[`05-rbac.md`](./05-rbac.md) §1），
+  寫 `authz.denied` 並回 `403 AUTHZ_FORBIDDEN { required, missing }`；檔案與資料夾是資源層級的拒絕（`FileAccessService.deny`），同樣寫 `authz.denied`。
 
 ### 1.1 加入一種可貼標籤的資源
 
@@ -159,7 +162,7 @@ PUT /tags/assignments/:resourceType/:resourceId
 
 | 項目 | 補充 |
 | --- | --- |
-| D5 | 讀定義不需要權限鍵，但每個標籤組有擁有者提供的閘門（`canBrowse`）；檔案組是 `file:access` 或 `file:read`，使用者組是 `user:read` |
+| D5 | 讀定義不需要權限鍵，但每個標籤組有擁有者提供的閘門（`assertCanBrowse`，原名 `canBrowse`；進不了就拋 `AUTHZ_FORBIDDEN` 並寫 `authz.denied`）；檔案組是 `file:access` 或 `file:read`，使用者組是 `user:read` |
 | D5 | 系統資料夾（共用、私人、個人）不能改名，所以也不能貼標籤（`FILE_FOLDER_SYSTEM_PROTECTED`） |
 | D6 | 篩選的參數名稱是 `tagId`（可重複），與使用者列表既有的 `roleId` 一致；資料夾清單一次全部取回，標籤篩選在前端做 |
 | D10 | 指派後的推播由擁有者的 `afterTagsChanged` 發：檔案 `file update`（帶所在資料夾）、資料夾 `fileFolder update`、使用者 `user update` |

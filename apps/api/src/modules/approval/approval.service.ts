@@ -1,7 +1,7 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { AuthUser, PermissionKey } from '@/common/types';
+import type { AuthUser } from '@/common/types';
 import type { Database, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
@@ -172,7 +172,11 @@ export class ApprovalService {
     const handler = this.handlers.get(request.type);
     const ctx: ApprovalContext = { request, reviewer, options: { roleIds: dto.roleIds } };
 
-    await this.assertPermissions(reviewer.id, handler.requiredPermissions(ctx));
+    // 核准的權限依審批類型而定（例：註冊要 user:create），路由只宣告了 approval:review
+    await this.permissionService.assertHasAll(reviewer, handler.requiredPermissions(ctx), {
+      route: 'POST /approvals/:id/approve',
+      metadata: { approvalId: id, type: request.type },
+    });
     await handler.assertApprovable(ctx);
 
     const { reviewed, outcome } = await withTransaction(this.db, async (tx) => {
@@ -278,15 +282,6 @@ export class ApprovalService {
     // 四眼原則：自己送出的請求要由別人審
     if (request.requesterId === reviewer.id) throw new AppException('APPROVAL_SELF_REVIEW');
     return request;
-  }
-
-  /** 與 `PermissionsGuard` 相同的回應形狀：`AUTHZ_FORBIDDEN` ＋ 缺少的權限。 */
-  private async assertPermissions(userId: string, keys: readonly PermissionKey[]): Promise<void> {
-    if (!keys.length) return;
-    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(userId);
-    if (isSuperAdmin) return;
-    const missing = keys.filter((key) => !permissions.has(key));
-    if (missing.length) throw new AppException('AUTHZ_FORBIDDEN', { missing });
   }
 
   /**

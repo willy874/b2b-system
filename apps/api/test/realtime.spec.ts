@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
-import { CLIENT_ID_HEADER, ClientEvent, ServerEvent } from '@b2b-system/realtime';
+import {
+  CLIENT_ID_HEADER,
+  ClientEvent,
+  ResourceChangedSchema,
+  ServerEvent,
+} from '@b2b-system/realtime';
 import type {
   ChannelEnvelopeWire,
   ClientToServerEvents,
@@ -19,12 +24,26 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { TENANT_DB, withTransaction } from '@/core/database';
+import type { Database } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { notifications, relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
+import {
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
+  notifications,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  users,
+} from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { notification } from '@/modules/notification/notification.definition';
+import { NotificationService } from '@/modules/notification/notification.service';
 import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from '@/modules/realtime/realtime.constants';
 import { RealtimeGateway } from '@/modules/realtime/realtime.gateway';
 import { userRoom } from '@/modules/realtime/realtime.rooms';
+import { USER_ROLES_CHANGED_NOTIFICATION } from '@/modules/user/user.notifications';
 
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
@@ -491,6 +510,144 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
       expect(seenByBystander.map((change) => change.resource)).not.toContain('notification');
       // 稽核的讀者照常收到指派角色本身的變更
       expect(seenByBystander.map((change) => change.resource)).toContain('userRole');
+    });
+
+    it('經由群組持有角色、沒有 role:read 的成員：角色的權限改變後收到本人的 userRole update（profile 才會重抓）', async () => {
+      const created = await request(http)
+        .post('/roles')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ name: '群組持有的推播角色', permissionKeys: [] })
+        .expect(201);
+      const roleId = (created.body as { data: { id: string } }).data.id;
+      const member = await createUser('push-group-member@example.com');
+      const direct = await createUser('push-group-direct@example.com', [roleId]);
+      const [group] = await db.insert(groups).values({ name: '推播：群組' }).returning();
+      await db
+        .insert(relationTuples)
+        .values([
+          groupRoleTuple(roleId, group!.id),
+          groupMemberTuple(group!.id, { type: 'user', id: member }),
+        ]);
+      await bus.drain();
+      const memberSocket = await connect(await tokenFor(member));
+      const directSocket = await connect(await tokenFor(direct));
+      const memberGot = collect(memberSocket);
+      const directGot = collect(directSocket);
+
+      await request(http)
+        .patch(`/roles/${roleId}/permissions`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ add: ['file:read'], remove: [] })
+        .expect(200);
+      await barrier([memberSocket, directSocket]);
+
+      const ownUpdate = {
+        resource: 'userRole',
+        kind: 'update',
+        id: member,
+        refs: { role: [roleId] },
+      };
+      const memberChanges = memberGot.flatMap((event) => event.changes);
+      expect(memberChanges).toContainEqual(ownUpdate);
+      expect(memberChanges).toContainEqual({
+        resource: 'rolePermission',
+        kind: 'update',
+        id: roleId,
+      });
+      // 直接持有的人以 profile 的角色清單判斷，不必另外推
+      expect(directGot.flatMap((event) => event.changes)).not.toContainEqual(
+        expect.objectContaining({ resource: 'userRole', id: direct }),
+      );
+    });
+
+    it('還原有 100 位以上持有者的角色：收到的 resource.changed 符合合約（不超過 100 筆，docs/architecture/backend/08-realtime.md §9）', async () => {
+      const created = await request(http)
+        .post('/roles')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ name: '很多持有者的角色', permissionKeys: [] })
+        .expect(201);
+      const roleId = (created.body as { data: { id: string } }).data.id;
+      const holders = await db
+        .insert(users)
+        .values(
+          Array.from({ length: 120 }, (_, index) => ({
+            email: `many-holders-${index}@example.com`,
+            displayName: `many-holders-${index}`,
+            status: 'active' as const,
+          })),
+        )
+        .returning({ id: users.id });
+      await db.insert(relationTuples).values(holders.map(({ id }) => roleHolderTuple(roleId, id)));
+      await request(http)
+        .delete(`/roles/${roleId}?force=true`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .expect(204);
+      await bus.drain();
+
+      const rootSocket = await connect(superAdminToken);
+      const holderSocket = await connect(await tokenFor(holders[0]!.id));
+      const rootRaw: unknown[] = [];
+      const holderRaw: unknown[] = [];
+      rootSocket.on(ServerEvent.RESOURCE_CHANGED, (payload) => rootRaw.push(payload));
+      holderSocket.on(ServerEvent.RESOURCE_CHANGED, (payload) => holderRaw.push(payload));
+
+      const restored = await request(http)
+        .post(`/roles/${roleId}/restore`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .expect(200);
+      expect((restored.body as { data: { holdersRestored: number } }).data.holdersRestored).toBe(
+        120,
+      );
+      await barrier([rootSocket, holderSocket]);
+
+      for (const raw of [...rootRaw, ...holderRaw]) {
+        expect(ResourceChangedSchema.safeParse(raw).success).toBe(true);
+      }
+      const restoreEvent = (holderRaw as ResourceChanged[]).find((event) =>
+        event.changes.some((change) => change.resource === 'role' && change.kind === 'create'),
+      );
+      // 持有者太多：改推一筆不帶 id 的 userRole update，每位持有者都重抓自己的 profile
+      expect(restoreEvent?.changes).toEqual([
+        { resource: 'role', kind: 'create', id: roleId },
+        { resource: 'userRole', kind: 'update' },
+      ]);
+      expect(rootRaw).toContainEqual(restoreEvent);
+    });
+
+    it('一批通知發給多人（一則事件）：每位收件人只收到自己的通知 id，收不到別人的（docs/architecture/backend/15-notification.md §12.2 D8）', async () => {
+      const alice = await createUser('batch-notify-alice@example.com');
+      const bob = await createUser('batch-notify-bob@example.com');
+      await bus.drain();
+      const aliceSocket = await connect(await tokenFor(alice));
+      const bobSocket = await connect(await tokenFor(bob));
+      const toAlice = collect(aliceSocket);
+      const toBob = collect(bobSocket);
+      const publish = vi.spyOn(bus, 'publish');
+
+      const written = await inTestTenant(app, () =>
+        withTransaction(app.get<Database>(TENANT_DB), (tx) =>
+          app.get(NotificationService).notify(
+            [alice, bob].map((recipientId) =>
+              notification(USER_ROLES_CHANGED_NOTIFICATION, {
+                recipientId,
+                actorId: null,
+                params: { added: ['A'], removed: [] },
+              }),
+            ),
+            tx,
+          ),
+        ),
+      );
+      await barrier([aliceSocket, bobSocket]);
+
+      expect(publish).toHaveBeenCalledTimes(1);
+      const [aliceNotification, bobNotification] = written;
+      expect(toAlice.flatMap((event) => event.changes)).toEqual([
+        { resource: 'notification', kind: 'create', id: aliceNotification },
+      ]);
+      expect(toBob.flatMap((event) => event.changes)).toEqual([
+        { resource: 'notification', kind: 'create', id: bobNotification },
+      ]);
     });
 
     it('x-client-id 格式不合 → 不帶 origin', async () => {

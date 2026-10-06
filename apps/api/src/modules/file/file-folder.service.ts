@@ -139,8 +139,9 @@ export class FileFolderService {
   }
 
   async create(dto: CreateFileFolderDto, actor: AuthUser): Promise<FileFolderDto> {
+    const permissions = await this.access.permissionsOf(actor);
     const { created, ctx } = await this.writeTree(async (tx) => {
-      const context = await this.access.contextFor(actor, tx);
+      const context = await this.access.contextFor(actor, tx, permissions);
       await this.access.assertCan(context, actor, 'create', dto.parentId);
       await this.assertDepth(dto.parentId, 1, tx);
       if (await this.repo.hasSibling(dto.parentId, dto.name, undefined, tx)) {
@@ -193,8 +194,9 @@ export class FileFolderService {
       }
     }
 
+    const permissions = await this.access.permissionsOf(actor);
     const created = await this.writeTree(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       await this.access.assertCan(ctx, actor, 'create', dto.parentId);
       const maxDepth = Math.max(...dto.paths.map((path) => path.length));
       await this.assertDepth(dto.parentId, maxDepth, tx);
@@ -281,8 +283,9 @@ export class FileFolderService {
   }
 
   async rename(id: string, dto: UpdateFileFolderDto, actor: AuthUser): Promise<FileFolderDto> {
+    const permissions = await this.access.permissionsOf(actor);
     const { renamed, ctx } = await this.writeTree(async (tx) => {
-      const context = await this.access.contextFor(actor, tx);
+      const context = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.getReadableOrThrow(context, actor, id, tx);
       assertNotSystem([folder]);
       if (!context.canModify('update', folder.parentId, folder.createdBy)) {
@@ -318,8 +321,9 @@ export class FileFolderService {
    */
   async move(dto: MoveFileItemsDto, actor: AuthUser): Promise<MoveFileItemsResultDto> {
     const { targetFolderId } = dto;
+    const permissions = await this.access.permissionsOf(actor);
     const result = await this.writeTree(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const target = targetFolderId
         ? await this.getReadableOrThrow(ctx, actor, targetFolderId, tx)
         : undefined;
@@ -400,8 +404,9 @@ export class FileFolderService {
    */
   async remove(id: string, actor: AuthUser): Promise<void> {
     const deletionId = randomUUID();
+    const permissions = await this.access.permissionsOf(actor);
     const removed = await this.writeTree(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.getReadableOrThrow(ctx, actor, id, tx);
       assertNotSystem([folder]);
       const folderIds = await this.repo.findDescendantIds([id], tx);
@@ -468,6 +473,7 @@ export class FileFolderService {
     const candidates = await this.files.findDeletedInBatch(batchIds, folder.deletionId);
     const probes = await this.objects.probe(candidates);
     const restorable = candidates.filter((file) => probes.get(file.id)?.original);
+    const permissions = await this.access.permissionsOf(actor);
 
     const result = await this.writeTree(async (tx) => {
       if (folder.parentId && !(await this.repo.findById(folder.parentId, tx))) {
@@ -500,7 +506,7 @@ export class FileFolderService {
       await this.files.resetVariants(variantsLost, tx);
 
       // 以還原之後的結構照刪除的規則檢查（見上方說明）；不能就整個 rollback
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       if (!ctx.can('read', id)) throw await this.access.deny(actor, 'read', 'fileFolder', id);
       const folderIds = restoredFolders.map((row) => row.id);
       await this.assertRemovable(ctx, actor, root, folderIds, tx);

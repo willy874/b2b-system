@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 
-import type { AuthUser } from '@/common/types';
 import { PERMISSION } from '@/common/types';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { PermissionService } from '@/modules/permission/permission.service';
@@ -30,7 +29,12 @@ export class FileTagResource implements OnModuleInit {
     this.tags.registerScope({
       scope: FILE_TAG_SCOPE,
       feature: 'file',
-      canBrowse: (actor) => this.canEnterFileManager(actor),
+      assertCanBrowse: (actor, context) =>
+        this.permissions.assertHasAny(
+          actor,
+          [PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ],
+          context,
+        ),
     });
     this.tags.registerResource({
       resourceType: RESOURCE_TYPE.FILE,
@@ -44,14 +48,5 @@ export class FileTagResource implements OnModuleInit {
       resolveEditable: (actor, id) => this.folders.assertTaggable(id, actor),
       afterTagsChanged: (id) => this.folders.publishTagsChanged(id),
     });
-  }
-
-  private async canEnterFileManager(actor: AuthUser): Promise<boolean> {
-    const set = await this.permissions.getPermissionSet(actor.id);
-    return (
-      set.isSuperAdmin ||
-      set.permissions.has(PERMISSION.FILE_ACCESS) ||
-      set.permissions.has(PERMISSION.FILE_READ)
-    );
   }
 }

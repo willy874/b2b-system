@@ -193,7 +193,7 @@ export class AnnouncementService {
     if (current.status === 'completed') {
       throw new AppException('ANNOUNCEMENT_INVALID_STATE', { status: current.status });
     }
-    if (current.status !== 'draft') await this.assertCanPublish(actor);
+    if (current.status !== 'draft') await this.assertCanPublish(actor, id);
     const trigger = fields.trigger ?? current.trigger;
     // 排程中、暫停中的公告已經送出過：只能改成另一個時間，不能改成「立即」（要立即發送就建立新的公告）
     if (current.status !== 'draft' && trigger.kind === 'immediate') {
@@ -530,11 +530,12 @@ export class AnnouncementService {
   }
 
   /** 草稿以外的公告會對外發話：修改要 `announcement:publish`（路由只宣告了 update）。 */
-  private async assertCanPublish(actor: AuthUser): Promise<void> {
-    const { permissions, isSuperAdmin } = await this.permissions.getPermissionSet(actor.id);
-    if (!isSuperAdmin && !permissions.has(PERMISSION.ANNOUNCEMENT_PUBLISH)) {
-      throw new AppException('AUTHZ_FORBIDDEN', { missing: [PERMISSION.ANNOUNCEMENT_PUBLISH] });
-    }
+  /** 改已送出的公告（排程中、暫停中）要 `announcement:publish`；路由只宣告了 `announcement:update`。 */
+  private assertCanPublish(actor: AuthUser, id: string): Promise<void> {
+    return this.permissions.assertHasAll(actor, [PERMISSION.ANNOUNCEMENT_PUBLISH], {
+      route: 'PATCH /announcements/:id',
+      metadata: { announcementId: id },
+    });
   }
 
   private async missedUpdate(id: string, tx: DbOrTx): Promise<AppException> {

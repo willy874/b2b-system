@@ -8,7 +8,7 @@ import type { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { NotificationService } from '@/modules/notification/notification.service';
-import type { PermissionService } from '@/modules/permission/permission.service';
+import { createPermissionChecks } from '@/modules/permission/__tests__/permission-checks.fixture';
 import type { WebhookService } from '@/modules/webhook/webhook.service';
 
 import { ApprovalHandlerRegistry } from '../approval-handler.registry';
@@ -65,10 +65,14 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     ),
     setResult: vi.fn(async () => undefined),
   };
-  const permissionService = {
-    getPermissionSet: vi.fn(async () => permissionSet),
-    findActiveUserIdsWithPermission: vi.fn(async () => ['reviewer-1', 'reviewer-2']),
-  };
+  // 真的權限判斷（拒絕時寫 authz.denied）；getPermissionSet 回傳這個案例的集合
+  const { service: permissionService, audit: denials } = createPermissionChecks(
+    () => permissionSet,
+  );
+  vi.spyOn(permissionService, 'findActiveUserIdsWithPermission').mockResolvedValue([
+    'reviewer-1',
+    'reviewer-2',
+  ]);
   const notifications = {
     notify: vi.fn(async () => []),
     isChannelEnabled: vi.fn(async () => true),
@@ -91,7 +95,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     db as never,
     repo as unknown as ApprovalRepository,
     new ApprovalHandlerRegistry(),
-    permissionService as unknown as PermissionService,
+    permissionService,
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
     jobs as unknown as JobQueue,
@@ -109,6 +113,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     jobs,
     notifications,
     permissionService,
+    denials,
     webhooks,
   };
 }
@@ -322,13 +327,26 @@ describe('ApprovalService.approve', () => {
     );
   });
 
-  it('缺少 handler 要求的權限 → AUTHZ_FORBIDDEN 並帶出缺少的鍵，不寫入任何東西', async () => {
+  it('缺少 handler 要求的權限 → AUTHZ_FORBIDDEN { required, missing }、寫 authz.denied，不寫入任何東西', async () => {
     const ctx = setup({ permissions: new Set(['approval:review']), isSuperAdmin: false });
     const operation = ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
     await expect(operation).rejects.toMatchObject({
       code: 'AUTHZ_FORBIDDEN',
-      details: { missing: ['user:create'] },
+      details: { required: ['user:create'], missing: ['user:create'] },
     });
+    expect(ctx.denials.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'authz.denied',
+        actorId: REVIEWER.id,
+        metadata: {
+          approvalId: 'approval-1',
+          type: ApprovalType.USER_REGISTER,
+          route: 'POST /approvals/:id/approve',
+          required: ['user:create'],
+          missing: ['user:create'],
+        },
+      }),
+    );
     expect(ctx.repo.review).not.toHaveBeenCalled();
   });
 

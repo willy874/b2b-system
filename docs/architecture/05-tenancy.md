@@ -49,6 +49,8 @@
 - `TenantDirectory` 快取查詢結果 `TENANT_CACHE_TTL` 秒（「找不到」最多 5 秒）；租戶管理改了登記時 `invalidate()` 立即生效，
   並經平台 DB 廣播（頻道 `tenant_directory`）讓其他程序也整份重新讀（[`01-system.md`](./01-system.md) §4.4）。
   另有「網域 → 租戶 id」的同步快照（每 `TENANT_CACHE_TTL` 秒重載），給 oidc-provider 的同步判斷（redirect URI 是否屬於租戶）用。
+  「立即生效」靠兩道防線：查詢前先取票（`InvalidationTracker`），查詢期間被 `invalidate()` 過的結果不寫回快取（例：停用租戶的交易剛提交，
+  回來的仍是 `active`）；快照的重新載入以序號判斷，先開始、後回來的舊結果不蓋掉較新的快照。
 - **Host 由客戶端決定、而且在速率限制之前解析**：不在快照裡的 Host 直接視為找不到，不查平台 DB；格式不像網域或租戶代碼的值
   （`X-Tenant`、`/tenants/lookup?code=`）也不查。三個快取（網域、id、代碼）都是有上限的 LRU（`bounded-cache.ts`，各 5000 筆）。
   代價：漏掉廣播時，另一個程序剛新增的網域，這裡最多晚 `TENANT_CACHE_TTL` 秒才認得。

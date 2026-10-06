@@ -58,8 +58,9 @@ export class FileFolderGrantService {
     dto: SetFileFolderGrantDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
+    const permissions = await this.access.permissionsOf(actor);
     await this.writeGrants(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       if (!(await this.grants.subjectExists(dto.subjectType, dto.subjectId, tx))) {
         throw new AppException('FILE_GRANT_SUBJECT_NOT_FOUND', {
@@ -106,8 +107,9 @@ export class FileFolderGrantService {
     subjectId: string,
     actor: AuthUser,
   ): Promise<void> {
+    const permissions = await this.access.permissionsOf(actor);
     await this.writeGrants(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       const key = this.keyOf(folderId, subjectType, subjectId);
       const existing = await this.grants.find(key, tx);
@@ -133,16 +135,19 @@ export class FileFolderGrantService {
    * 中斷／恢復繼承（§3.3）。中斷時把目前繼承到的授權（上層鏈上、到上一個中斷點為止）複製成
    * 這個資料夾的直接授權，同一個對象取較高的等級：中斷當下沒有人失去存取，之後再由管理者移除。
    * 複製不是授予新的存取，不受反提權限制。
+   * 恢復繼承則是讓上層鏈上的授權流進這個資料夾與它的子孫，等於在這裡授予那些等級：受反提權限制（§6.1）。
    */
   async setInheritance(
     folderId: string,
     dto: UpdateFileFolderAccessDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
+    const permissions = await this.access.permissionsOf(actor);
     const changed = await this.writeGrants(async (tx) => {
-      const ctx = await this.access.contextFor(actor, tx);
+      const ctx = await this.access.contextFor(actor, tx, permissions);
       const folder = await this.assertCanShare(ctx, actor, folderId, tx);
       if (folder.inheritGrants === dto.inheritGrants) return false;
+      if (dto.inheritGrants) await this.assertInheritable(ctx, folder, tx);
 
       const copied = dto.inheritGrants ? [] : await this.copyInherited(ctx, folderId, actor, tx);
       await this.folders.setInheritGrants(
@@ -286,6 +291,27 @@ export class FileFolderGrantService {
       throw await this.access.deny(actor, 'share', 'fileFolder', folderId);
     }
     return folder;
+  }
+
+  /**
+   * 恢復繼承的反提權：恢復之後會流進來的授權——上層的繼承鏈（到下一個中斷點為止）上未過期的授權——
+   * 的等級，操作者在這個資料夾都要授予得起（§3.3、§6.1）。只擋真的會放寬的情況：上層只有 viewer 時，
+   * 只授予得起 viewer 的人照樣能恢復。
+   */
+  private async assertInheritable(
+    ctx: FileAccessContext,
+    folder: FileFolderRow,
+    tx: DbOrTx,
+  ): Promise<void> {
+    if (!folder.parentId) return;
+    const rows = await this.grants.listOn(inheritanceChain(ctx.folders, folder.parentId), tx);
+    const now = Date.now();
+    const levels = new Set<GrantLevel>();
+    for (const row of rows) {
+      if (row.expiresAt && row.expiresAt.getTime() <= now) continue;
+      levels.add(row.level);
+    }
+    this.assertGrantable(ctx, folder.id, [...levels]);
   }
 
   /** 反提權：這些等級蘊含的動作，操作者在這個資料夾都要有（§6.1）。 */

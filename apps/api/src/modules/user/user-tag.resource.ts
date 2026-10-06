@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 
-import type { AuthUser, PermissionKey } from '@/common/types';
 import { PERMISSION } from '@/common/types';
 import { AppException } from '@/core/errors';
 import { RESOURCE_TYPE } from '@/core/resource';
@@ -30,25 +29,19 @@ export class UserTagResource implements OnModuleInit {
   onModuleInit(): void {
     this.tags.registerScope({
       scope: USER_TAG_SCOPE,
-      canBrowse: (actor) => this.has(actor, PERMISSION.USER_READ),
+      assertCanBrowse: (actor, context) =>
+        this.permissions.assertHasAll(actor, [PERMISSION.USER_READ], context),
     });
     this.tags.registerResource({
       resourceType: RESOURCE_TYPE.USER,
       scope: USER_TAG_SCOPE,
-      resolveEditable: async (actor, id) => {
+      resolveEditable: async (actor, id, context) => {
         const user = await this.repo.findById(id);
         if (!user) throw new AppException('USER_NOT_FOUND');
-        if (!(await this.has(actor, PERMISSION.USER_UPDATE))) {
-          throw new AppException('AUTHZ_FORBIDDEN', { missing: [PERMISSION.USER_UPDATE] });
-        }
+        await this.permissions.assertHasAll(actor, [PERMISSION.USER_UPDATE], context);
         return { name: user.email };
       },
       afterTagsChanged: (id) => this.users.publishTagsChanged(id),
     });
-  }
-
-  private async has(actor: AuthUser, key: PermissionKey): Promise<boolean> {
-    const set = await this.permissions.getPermissionSet(actor.id);
-    return set.isSuperAdmin || set.permissions.has(key);
   }
 }
