@@ -264,6 +264,23 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .expect(400);
   });
 
+  it('改名成含雙向文字控制字元（U+202E）的名稱 → 400 VALIDATION_FAILED，名稱不變（docs/architecture/backend/09-file.md §4）', async () => {
+    const token = await login(ADMIN);
+    const file = await uploadFile(token, {
+      name: 'invoice.pdf',
+      contentType: 'text/plain',
+      size: 1,
+    });
+    const response = await request(http)
+      .patch(`/files/${file.id}`)
+      .set('authorization', `Bearer ${token}`)
+      .send({ name: 'invoice\u202efdp.exe', version: file.version })
+      .expect(400);
+    expect((response.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+    const [row] = await db.select().from(files).where(eq(files.id, file.id));
+    expect(row?.name).toBe('invoice.pdf');
+  });
+
   it('列表：keyword 與 contentType（含 image/*）篩選', async () => {
     const token = await login(ADMIN);
     await uploadFile(token, { name: 'bgm-title.mp3', contentType: 'audio/mpeg', size: 5 });

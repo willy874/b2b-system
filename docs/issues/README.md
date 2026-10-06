@@ -32,7 +32,6 @@
 | 中 | /auth/sso/callback 可被跨站表單送出（登入 CSRF） | [`sso-callback-login-csrf.md`](./sso-callback-login-csrf.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 請求日誌的 query 仍記下 code／state／ticket 原文 | [`request-log-query-not-redacted.md`](./request-log-query-not-redacted.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | DB 錯誤把查詢參數寫進日誌與背景工作 output | [`db-error-log-leaks-params.md`](./db-error-log-leaks-params.md) | 2026-10-06（全面檢測：程式資安） |
-| 中 | 檔名允許雙向控制、C1 控制與零寬字元 | [`file-name-allows-bidi-controls.md`](./file-name-allows-bidi-controls.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | SSRF 封鎖清單漏了內嵌 IPv4 的 IPv6 前綴 | [`ssrf-blocklist-misses-ipv6-embedded-ipv4.md`](./ssrf-blocklist-misses-ipv6-embedded-ipv4.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出的後端撤銷失敗被吞掉，IdP session 仍有效 | [`logout-failure-leaves-sessions.md`](./logout-failure-leaves-sessions.md) | 2026-10-06（全面檢測：程式資安） |
 | 中 | 登出後批次佇列仍保留前一人的項目與上傳暫存 | [`batch-queue-survives-logout.md`](./batch-queue-survives-logout.md) | 2026-10-06（全面檢測：程式資安） |
