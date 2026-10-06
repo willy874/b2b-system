@@ -778,6 +778,8 @@ postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connec
 | 要動到的平台或租戶 DB 不在本機（`localhost`、`127.0.0.1`、`::1`、開發用 compose 的 `postgres` 以外） | 要加 `--confirm <平台 database 名稱>` |
 
 所以開發機帶著正式環境的連線字串（開了 tunnel、臨時改過 `.env`）執行 `pnpm db:reset`，也會在清空之前被擋下。
+正式環境本來就要能執行的維運指令（`cli:reset-super-admin`，[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §7）只套第三條
+（`remoteRejection()`）：不在本機的 DB 要 `--confirm`，但不因 production 拒絕。
 E2E 的 global setup 另外要求明確指定 E2E 用的 DB（[`../frontend/10-testing.md`](../frontend/10-testing.md) §4.3）。
 
 執行期（`core/`、`common/`、`modules/`）只能 import `db/` 底下的 schema、`db/connect.ts`、`db/provision.ts`、`db/bootstrap/`
