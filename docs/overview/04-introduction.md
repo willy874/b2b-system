@@ -175,7 +175,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 | 情況 | 怎麼處理 |
 | --- | --- |
-| presigned PUT 限制不了大小 | 在 `complete` 時比對大小，不符就刪除物件。兩個 `complete` 同時到由 `WHERE status='pending'` 決勝 |
+| 直傳的大小與覆寫 | presigned PUT 把 `Content-Length` 與 `If-None-Match: *` 簽進網址：只能傳登記的大小、完成後不能用同一個網址覆寫；`complete` 再比對一次大小。兩個 `complete` 同時到由 `WHERE status='pending'` 決勝 |
 | 大檔傳到一半網址過期 | 分塊的網址按需索取，每塊各自重試；`complete` 被重送時先 HeadObject，已組好就照常完成 |
 | 上傳的 HTML 偷 refresh cookie | HTML、JS、PDF 等型別強制 attachment 與 `octet-stream`，回應帶 `nosniff` 和 `CSP sandbox` |
 | `<img>` 帶不了 token | 影像 API 用 HMAC 簽章網址授權，302 轉到物件儲存；簽章時間取整到 TTL/2，同一時間窗網址不變，瀏覽器快取命中 |

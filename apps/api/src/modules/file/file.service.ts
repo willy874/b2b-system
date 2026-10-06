@@ -14,7 +14,7 @@ import { paginated } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
-import type { PresignedRequest } from '@/core/storage';
+import type { PresignedRequest, StoredObjectHead } from '@/core/storage';
 import { FILE_STORAGE_QUOTA_MB_PARAM, tenantFeatureParam } from '@/core/tenant';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
@@ -220,15 +220,18 @@ export class FileService {
       });
 
     const [upload, thumbnailUpload] = await Promise.all([
+      // 網址綁定登記的大小並且只能寫一次：檔案上限、容量與縮圖上限都在物件儲存那一側擋住（§5）
       isMultipart
         ? undefined
         : this.storage.presignUpload(storageKey, {
             contentType: dto.contentType,
+            contentLength: dto.size,
             expiresIn: this.urlTtl,
           }),
       dto.thumbnail
         ? this.storage.presignUpload(thumbnailKeyOf(id), {
             contentType: dto.thumbnail.contentType,
+            contentLength: dto.thumbnail.size,
             expiresIn: this.urlTtl,
           })
         : undefined,
@@ -263,7 +266,11 @@ export class FileService {
 
     const parts = await Promise.all(
       dto.partNumbers.map(async (partNumber) => {
+        // 每一塊只能是切法算出來的大小：前面的塊是 partSize，最後一塊是餘數
+        const contentLength =
+          partNumber < partCount ? this.partSize : file.size - (partCount - 1) * this.partSize;
         const signed = await this.storage.presignUploadPart(file.storageKey, uploadId, partNumber, {
+          contentLength,
           expiresIn: this.urlTtl,
         });
         return { partNumber, url: signed.url, method: 'PUT' as const, headers: signed.headers };
@@ -305,18 +312,21 @@ export class FileService {
       this.storage.head(thumbnailKeyOf(id)),
     ]);
     if (!stored) throw new AppException('FILE_UPLOAD_INCOMPLETE');
+    // api 從不要求瀏覽器帶 Content-Encoding：帶著它的內容下載時會被瀏覽器解壓縮（大小與比對的不同、可做成解壓縮炸彈）
+    if (stored.contentEncoding) {
+      await this.storage.delete(file.storageKey);
+      throw new AppException('FILE_UPLOAD_INCOMPLETE');
+    }
     if (stored.size !== file.size) {
       // 刪掉不符的內容：單次 PUT 可以用同一個網址（未過期時）重傳；
       // 分塊上傳的 uploadId 在組合後就失效了，只能放棄這次上傳、重新登記
       await this.storage.delete(file.storageKey);
       throw new AppException('FILE_SIZE_MISMATCH', { expected: file.size, actual: stored.size });
     }
-    // 縮圖只是加分：不存在或不合規格就當作沒有，不讓上傳失敗
-    const hasThumbnail = Boolean(
-      thumbnail &&
-      thumbnail.size <= THUMBNAIL_MAX_SIZE &&
-      (THUMBNAIL_CONTENT_TYPES as readonly string[]).includes(thumbnail.contentType ?? ''),
-    );
+    // 縮圖只是加分：不存在或不合規格就當作沒有，不讓上傳失敗。不合規格的刪掉：
+    // 紀錄還在，維護排程不會把它當孤兒，否則要等永久刪除才清得掉（§5.1）
+    const hasThumbnail = thumbnail !== undefined && isValidThumbnail(thumbnail);
+    if (thumbnail && !hasThumbnail) await this.storage.delete(thumbnailKeyOf(id));
     const hasVariants = isImageVariantSource(file.contentType);
 
     await withTransaction(this.db, async (tx) => {
@@ -659,6 +669,15 @@ function parentDeleted(folderId: string): AppException {
     parentType: RESOURCE_TYPE.FILE_FOLDER,
     parentId: folderId,
   });
+}
+
+/** 瀏覽器縮圖的規格（§5.1）：大小、型別在白名單內，沒有內容編碼。 */
+function isValidThumbnail(thumbnail: StoredObjectHead): boolean {
+  return (
+    thumbnail.size <= THUMBNAIL_MAX_SIZE &&
+    (THUMBNAIL_CONTENT_TYPES as readonly string[]).includes(thumbnail.contentType ?? '') &&
+    !thumbnail.contentEncoding
+  );
 }
 
 function toUploadTarget(signed: PresignedRequest) {

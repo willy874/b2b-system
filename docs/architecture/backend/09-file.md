@@ -40,11 +40,11 @@ export abstract class ObjectStorage {
   ping(): Promise<boolean>;                 // /health/ready 用
   head(key): Promise<StoredObjectHead | undefined>;
   delete(key): Promise<void>;               // 不存在也算成功
-  presignUpload(key, { contentType, expiresIn }): Promise<PresignedRequest>;
+  presignUpload(key, { contentType, contentLength, expiresIn }): Promise<PresignedRequest>; // 綁定大小、只能寫一次（§5）
   presignDownload(key, { expiresIn, fileName, disposition }): Promise<PresignedRequest>; // 時間窗內網址不變（§7.1）
   // 分塊上傳（§5.2）
   createMultipartUpload(key, { contentType }): Promise<string>;           // uploadId
-  presignUploadPart(key, uploadId, partNumber, { expiresIn }): Promise<PresignedRequest>;
+  presignUploadPart(key, uploadId, partNumber, { contentLength, expiresIn }): Promise<PresignedRequest>; // 綁定這一塊的大小
   completeMultipartUpload(key, uploadId, parts): Promise<void>;          // 塊不對 → FILE_UPLOAD_INCOMPLETE
   abortMultipartUpload(key, uploadId): Promise<void>;                    // 不存在也算成功
   // api 自己讀寫內容（影像變體，§5.4）與對帳（維護排程，§9）
@@ -78,7 +78,10 @@ SigV4 的簽章包含 **host 與路徑**，所以不能用內網 client 簽完�
 - `forcePathStyle: true`：apps/file-storage 只支援 path-style；S3 也支援。
 - `requestChecksumCalculation: 'WHEN_REQUIRED'`：SDK 預設會替 PutObject 加 CRC32，presigned PUT 會被簽進
   「空 body 的 checksum」，瀏覽器實際上傳的內容對不上就被 **真正的 S3** 拒絕（apps/file-storage 不驗 checksum，本機測不出來）。
-- presigned PUT 把 `Content-Type` 簽進去（`signableHeaders`）：瀏覽器換了型別就被拒，存下來的型別一定是登記的那個。
+- presigned PUT 把 `Content-Type`、`Content-Length`、`If-None-Match: *` 簽進去（`signableHeaders`）：瀏覽器換了型別、大小就被拒
+  （`403 SignatureDoesNotMatch`），存下來的型別與大小一定是登記的那個；同一個網址只能寫一次（第二次 `412 PreconditionFailed`）。
+  回傳的 `headers` 帶 `Content-Type` 與 `If-None-Match`；`Content-Length` 由瀏覽器依 body 自動帶（XHR 不能自己設）。
+  分塊的 presigned PUT 只簽 `Content-Length`（UploadPart 不支援條件寫入；uploadId 在組合之後就失效，不能再覆寫）。
 
 ---
 
@@ -220,8 +223,9 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
   │◀─────────────────────────────────────────────────────────────── 200 ETag
   │ POST /files/:id/complete
   │──────────────────────────────▶│ HeadObject：不存在 → 409 FILE_UPLOAD_INCOMPLETE
+  │                               │ 帶 Content-Encoding → 刪物件、409 FILE_UPLOAD_INCOMPLETE
   │                               │ 大小不符 → 刪物件、422 FILE_SIZE_MISMATCH
-  │                               │ HeadObject(thumbnails/<id>)：存在且合規格 → has_thumbnail
+  │                               │ HeadObject(thumbnails/<id>)：存在且合規格 → has_thumbnail；不合規格 → 刪縮圖
   │                               │ 交易：UPDATE … SET status='ready' WHERE status='pending' ＋ 稽核 file.upload
   │                               │ 交易後：推播 file create；圖片排入產生影像變體（§5.4，不等它完成）
   │ 200 StoredFile（ready，帶 url / downloadUrl / thumbnailUrl）
@@ -229,8 +233,14 @@ acme 的使用者拿到 `https://acme.example.com/storage/…`，由那個網域
 ```
 
 - 檔案內容 **不經過 api**：大檔不佔 api 的頻寬與記憶體，也不受 api 的 body 上限限制。
-- presigned PUT 無法限制大小，所以大小在 `complete` 時比對；不符就刪掉物件，單次 PUT 可用同一個網址（未過期時）重傳
-  （分塊上傳的 uploadId 在組合後就失效了，只能放棄、重新登記）。
+- **大小與「只能寫一次」都簽進網址**（§2.2）：原檔、瀏覽器縮圖、分塊上傳的每一塊都只能是登記（切法算出來）的大小，
+  物件儲存直接拒絕其他大小——單檔上限、容量（§5.0）、縮圖上限在上傳當下就擋住，不會有「登記 1 byte、實際傳 5 GiB」的物件；
+  單次 PUT 的網址帶 `If-None-Match: *`，`complete` 之後到網址到期前不能用同一個網址覆寫內容（稽核、webhook、影像變體看到的就是最終內容）。
+  S3 從 2024 年起支援條件寫入，apps/file-storage 也支援（[`../03-file-storage.md`](../03-file-storage.md) §4.2）；換用其他相容服務時要確認。
+- `complete` 仍再比對一次大小（換成不檢查簽章標頭的服務時的保險）；不符就刪掉物件，單次 PUT 可用同一個網址（未過期時）重傳——
+  物件已經刪掉，`If-None-Match` 會通過（分塊上傳的 uploadId 在組合後就失效了，只能放棄、重新登記）。
+- 原檔帶 `Content-Encoding` 時 `complete` 視為不合格：刪除物件、回 `409 FILE_UPLOAD_INCOMPLETE`。api 從不要求瀏覽器帶這個標頭，
+  物件儲存會把它存下來、下載時原樣送出，瀏覽器就會替下載的人解壓縮（大小與比對的不同，也能做成解壓縮炸彈）。
 - 並行的兩個 `complete`：`UPDATE … WHERE status='pending'` 只有一個成功，另一個 `409 FILE_ALREADY_UPLOADED`。
 - `complete` 的重送與中斷：分塊上傳的 `CompleteMultipartUpload` 回「塊不對」（含 `NoSuchUpload`）時先 HeadObject，
   物件已在而且大小相符（並行的另一個 `complete` 先組好、或上次組好之後在 `markReady` 前中斷）就照常完成。
@@ -269,7 +279,9 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
 與本體一起直傳到 `thumbnails/<id>`。它讓列表在變體產生完成前就有圖可看，也是之後其他類型（影片封面等）的擴充點。
 
 - 登記時帶 `thumbnail: { contentType, size }`（型別限 `image/webp` / `image/jpeg` / `image/png`，≤ 512 KiB）才發縮圖的直傳網址。
-- `complete` 時以 HeadObject 確認縮圖存在、大小與型別合規格才設 `has_thumbnail`；**不合規格不讓上傳失敗**，只是沒有縮圖。
+- 縮圖的直傳網址同樣綁定登記的大小、只能寫一次（§5）。
+- `complete` 時以 HeadObject 確認縮圖存在、大小與型別合規格（且沒有 `Content-Encoding`）才設 `has_thumbnail`；
+  **不合規格不讓上傳失敗**，只是沒有縮圖，並 **刪掉** `thumbnails/<id>`——紀錄還在，維護排程不會把它當孤兒，不刪的話要等永久刪除才清得掉。
 - `StoredFile.thumbnailUrl`：伺服器的圖示預覽優先，其次是瀏覽器縮圖；都沒有時前端以類型圖示顯示，2 MiB 以下的圖片直接用原檔。
 - 刪除時一併刪縮圖。
 
@@ -565,6 +577,13 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `FILE_MAINTENANCE_DRY_RUN` | `false` | `true`：只偵測並記錄殘留，不刪除任何東西 |
 | `API_PUBLIC_BASE_URL` | `/api` | 瀏覽器看到的 api 位址；影像 API 的網址以它開頭（§5.4） |
 
+物件儲存那一側的上限（縱深防禦，**不能** 取代 §5 簽進網址的大小；換成真正的 S3 時沒有這一層）：
+
+| 位置 | 建議值 | 說明 |
+| --- | --- | --- |
+| `deploy/nginx.conf` 的 `location /storage/` → `client_max_body_size` | `32m`（已設定） | 瀏覽器實際會送的最大單次請求：要大於單次上傳門檻 `FILE_MULTIPART_THRESHOLD` 與分塊大小（自動放大後的，§5.2）。調大這兩個值時跟著調。api 寫入影像變體走內網的 `FILE_STORAGE_ENDPOINT`，不經過這一層 |
+| apps/file-storage 的 `FILE_STORAGE_MAX_OBJECT_SIZE`（[`../03-file-storage.md`](../03-file-storage.md) §1） | 部署預設 5 GiB；可降到 api 實際會發出的最大單次請求（例：32 MiB） | 它 **同時** 限制 api 自己寫入的影像變體與依請求轉出的格式（§5.4）：大圖的原圖轉成 PNG 可能超過 32 MiB，調降前要一起評估，所以 `docker-compose.prod.yml` 沒有跟著降 |
+
 ---
 
 ## 9. 維護排程：上傳失敗的殘留
@@ -601,7 +620,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 | 檔案 | 內容 |
 | --- | --- |
-| `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、刪除時不刪物件（保留到永久刪除）；分塊上傳、放棄上傳、縮圖、樂觀鎖、游標 |
+| `src/modules/file/__tests__/file.service.spec.ts` | 業務規則：每個 `AppException` 分支、可見性、刪除時不刪物件（保留到永久刪除）；直傳網址綁定的大小（含每一塊）、分塊上傳、放棄上傳、縮圖（不合規格的刪除）、`Content-Encoding` 的原檔、樂觀鎖、游標 |
 | `src/modules/file/__tests__/file-folder.service.spec.ts` | 資料夾規則（以記憶體裡的樹模擬 repository）：同名（不分大小寫、只限同一層）、循環、目的地同名、遞迴刪除、上傳資料夾的沿用與深度上限 |
 | `src/modules/file/__tests__/file.authz.spec.ts` | 關係模型：繼承、取最高、中斷繼承、everyone、規則 A、依賴樹閉包、等級蘊含的動作 |
 | `src/modules/file/__tests__/file-grant.levels.spec.ts` | 等級規則（`file-grant.levels.ts`）：反提權比對（`missingActions`、`assignableLevels`）、繼承鏈（含壞資料的循環）、`maxLevel` |
@@ -612,6 +631,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 | `test/file-access.spec.ts` | 真 Postgres：只有 `file:access` 的成員經角色／個人授權看到的資料夾與檔案、擁有者規則、中斷繼承與複製、授權過期、遞迴刪除的附加條件、同一對象只有一個等級（再次授予是覆寫）；存取申請；系統資料夾（啟動時建立、別人的個人資料夾鎖住、不能改名刪除移動、指派角色後自動建立、刪除使用者時空的個人資料夾跟著刪除） |
 | `test/file-trash.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：刪除的 `deletion_id`、檔案與資料夾的還原與衝突、回收桶列表、維護排程不刪已刪除紀錄的物件、`trash.purge`（[`13-trash.md`](./13-trash.md) §9） |
 | `test/file-lifecycle.spec.ts` | 真 Postgres ＋ 記憶體版 `ObjectStorage`：完整流程（單次與分塊）、放棄上傳、縮圖、影像變體與影像 API（不帶 token、302、轉出 WebP、簽章綁定版本、刪除後變體保留到永久刪除）、維護排程（dry run 與清除）、樂觀鎖（含不帶 `version` → 400）、keyset 游標在插入後不重複、分類篩選、權限（admin / auditor / member）、四個資料表約束；資料夾：上傳到資料夾與依 `folderId` 列出、移動、循環與同名（真的唯一索引）、上傳資料夾重送得到同樣的 id、遞迴刪除後可再建同名、`file_folders_not_own_parent` |
+| `src/core/storage/__tests__/s3-object-storage.spec.ts` | 每個租戶一個 bucket、`{tenantOrigin}`、錯誤分類；presigned PUT 簽了 `content-type`、`content-length`、`if-none-match`，分塊簽 `content-length` |
 | `src/core/storage/__tests__/content-disposition.spec.ts` | 中文檔名的 `Content-Disposition` |
 | `src/core/storage/__tests__/stable-signing-date.spec.ts` | 下載網址在時間窗內不變、剩餘效期範圍 |
 | `src/core/image/__tests__/sharp-image-processor.spec.ts` | progressive JPEG、等比縮放不放大、透明圖鋪白底、EXIF 轉正、串流讀入（經暫存檔、dispose 後刪除）、位元組上限、libvips 資源上限 |

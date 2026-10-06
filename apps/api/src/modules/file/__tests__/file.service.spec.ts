@@ -232,6 +232,18 @@ describe('FileService.createUpload（docs/architecture/backend/09-file.md §4）
     expect(result.file).toMatchObject({ status: 'pending', url: null, downloadUrl: null });
   });
 
+  it('直傳網址綁定登記的大小（docs/architecture/backend/09-file.md §5）', async () => {
+    const { service, storage } = setup();
+    const result = await inTenant(() =>
+      service.createUpload({ name: 'a.png', contentType: 'image/png', size: 10 }, ALICE),
+    );
+    expect(storage.presignUpload).toHaveBeenCalledWith(storageKeyOf(result.file.id), {
+      contentType: 'image/png',
+      contentLength: 10,
+      expiresIn: 900,
+    });
+  });
+
   it('超過大小上限回 FILE_TOO_LARGE，不建立紀錄', async () => {
     const { service, repo } = setup();
     await expectAppError(
@@ -310,6 +322,16 @@ describe('FileService.completeUpload', () => {
       head: { size: 999, etag: 'abc', contentType: 'image/png' },
     });
     await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_SIZE_MISMATCH');
+    expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
+    expect(repo.markReady).not.toHaveBeenCalled();
+  });
+
+  it('原檔帶 Content-Encoding（api 從不要求）→ 刪掉物件並回 FILE_UPLOAD_INCOMPLETE', async () => {
+    const { service, storage, repo } = setup({
+      file: fileRow(),
+      head: { size: 10, etag: 'abc', contentType: 'image/png', contentEncoding: 'gzip' },
+    });
+    await expectAppError(service.completeUpload(FILE_ID, {}, ALICE), 'FILE_UPLOAD_INCOMPLETE');
     expect(storage.delete).toHaveBeenCalledWith(storageKeyOf(FILE_ID));
     expect(repo.markReady).not.toHaveBeenCalled();
   });
@@ -491,6 +513,21 @@ describe('FileService：分塊上傳（docs/architecture/backend/09-file.md §5.
     );
   });
 
+  it('parts：每一塊的網址綁定那一塊的大小，最後一塊是餘數', async () => {
+    const { service, storage } = setup({
+      file: fileRow({ uploadId: 'upload-1', size: big.size }),
+    });
+    await service.createUploadParts(FILE_ID, { partNumbers: [1, 2, 3] }, ALICE);
+    const lengths = storage.presignUploadPart.mock.calls.map(
+      (call) => (call as unknown as [string, string, number, { contentLength: number }])[3],
+    );
+    expect(lengths).toEqual([
+      { contentLength: PART_SIZE, expiresIn: 900 },
+      { contentLength: PART_SIZE, expiresIn: 900 },
+      { contentLength: big.size - 2 * PART_SIZE, expiresIn: 900 },
+    ]);
+  });
+
   it('parts：單次 PUT 的上傳 → FILE_UPLOAD_PART_INVALID；別人的 → FILE_NOT_FOUND', async () => {
     const { service } = setup({ file: fileRow() });
     await expectAppError(
@@ -599,6 +636,7 @@ describe('FileService：縮圖', () => {
     );
     expect(storage.presignUpload).toHaveBeenCalledWith(thumbnailKeyOf(result.file.id), {
       contentType: 'image/webp',
+      contentLength: 100,
       expiresIn: 900,
     });
     expect(result.thumbnailUpload).not.toBeNull();
@@ -629,6 +667,39 @@ describe('FileService：縮圖', () => {
       expect.objectContaining({ hasThumbnail: false }),
       'tx',
     );
+  });
+
+  it('complete：縮圖存在但不合規格（超過大小上限、型別不對、帶 Content-Encoding）→ 刪掉縮圖', async () => {
+    const head = { size: 10, etag: 'abc', contentType: 'image/png' };
+    for (const thumbnailHead of [
+      { size: 512 * 1024 + 1, etag: 't', contentType: 'image/webp' },
+      { size: 100, etag: 't', contentType: 'text/html' },
+      { size: 100, etag: 't', contentType: 'image/webp', contentEncoding: 'gzip' },
+    ]) {
+      const { service, storage, repo } = setup({ file: fileRow(), head, thumbnailHead });
+      // oxlint-disable-next-line no-await-in-loop -- 每個案例各自一組假物件
+      await service.completeUpload(FILE_ID, {}, ALICE);
+      expect(storage.delete).toHaveBeenCalledWith(thumbnailKeyOf(FILE_ID));
+      expect(repo.markReady).toHaveBeenCalledWith(
+        FILE_ID,
+        expect.objectContaining({ hasThumbnail: false }),
+        'tx',
+      );
+    }
+  });
+
+  it('complete：合規格的縮圖不刪；沒有縮圖時不呼叫刪除', async () => {
+    const head = { size: 10, etag: 'abc', contentType: 'image/png' };
+    const ok = setup({
+      file: fileRow(),
+      head,
+      thumbnailHead: { size: 100, etag: 't', contentType: 'image/webp' },
+    });
+    await ok.service.completeUpload(FILE_ID, {}, ALICE);
+    const none = setup({ file: fileRow(), head });
+    await none.service.completeUpload(FILE_ID, {}, ALICE);
+    expect(ok.storage.delete).not.toHaveBeenCalled();
+    expect(none.storage.delete).not.toHaveBeenCalled();
   });
 
   it('有縮圖的檔案帶 thumbnailUrl', async () => {
