@@ -366,6 +366,74 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     }
   });
 
+  it('送出後、刪除前當掉而重搬（同一個 id 再搬一次）：pg-boss 的批次 insert 略過，仍只有一筆工作', async () => {
+    const [row] = await db
+      .insert(jobOutbox)
+      .values({ name: FLAKY_JOB.name, data: { label: 'relayed-twice' } })
+      .returning();
+    expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+    await waitForState(row!.id, 'failed');
+
+    await db.insert(jobOutbox).values({ ...row!, data: { label: 'relayed-again' } });
+    expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+    expect(await db.select().from(jobOutbox)).toHaveLength(0);
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const copies = await platformDb.execute<{ data: { payload: { label: string } } }>(
+      sql`SELECT data FROM pgboss.job WHERE name = ${FLAKY_JOB.name} AND id = ${row!.id}`,
+    );
+    expect(copies.map((copy) => copy.data.payload.label)).toEqual(['relayed-twice']);
+  });
+
+  it('outbox 最舊的 100 列都是沒有註冊的工作：照樣搬出後面已註冊的那一列，沒有註冊的留在原處', async () => {
+    const createdAt = new Date(Date.now() - 60 * 60 * 1000);
+    await db.insert(jobOutbox).values(
+      Array.from({ length: 100 }, (_, index) => ({
+        name: 'retired.job',
+        data: { index },
+        createdAt,
+      })),
+    );
+    const [registered] = await db
+      .insert(jobOutbox)
+      .values({ name: FLAKY_JOB.name, data: { label: 'behind-retired' } })
+      .returning();
+    try {
+      expect(await inTestTenant(app, () => jobs.relayOutbox())).toBe(1);
+      await waitForState(registered!.id, 'failed');
+      const left = await db.select().from(jobOutbox);
+      expect(left).toHaveLength(100);
+      expect(new Set(left.map((row) => row.name))).toEqual(new Set(['retired.job']));
+    } finally {
+      await db.delete(jobOutbox).where(eq(jobOutbox.name, 'retired.job'));
+    }
+  });
+
+  it('同一個交易入列多筆（enqueue ＋ enqueueMany）：提交後一次搬完，每一筆都成為工作', async () => {
+    const appDb = app.get<Database>(TENANT_DB);
+    const ids = await inTestTenant(app, () =>
+      withTransaction(appDb, async (tx) => {
+        const first = await jobs.enqueue(FLAKY_JOB, { label: 'batch-0' }, { tx });
+        await jobs.enqueueMany(
+          FLAKY_JOB,
+          [1, 2, 3].map((index) => ({ data: { label: `batch-${index}` } })),
+          { tx },
+        );
+        return first;
+      }),
+    );
+    expect(await db.select().from(jobOutbox)).toHaveLength(0);
+    await waitForState(ids!, 'failed');
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const rows = await platformDb.execute<{ label: string; group_id: string }>(
+      sql`SELECT data->'payload'->>'label' AS label, group_id FROM pgboss.job
+          WHERE name = ${FLAKY_JOB.name} AND data->'payload'->>'label' LIKE 'batch-%'
+          ORDER BY label`,
+    );
+    expect(rows).toEqual(
+      ['batch-0', 'batch-1', 'batch-2', 'batch-3'].map((label) => ({ label, group_id: tenantId })),
+    );
+  });
+
   it('租戶的工作在 pg-boss 帶 group_id；開始帶之前入列的（group_id 是空的）管理頁照樣看得到（docs/architecture/backend/10-jobs.md §3）', async () => {
     const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
     const id = await inTestTenant(app, () => jobs.enqueue(FLAKY_JOB, { label: 'grouped' }));

@@ -9,7 +9,6 @@ import type { AnnouncementRepository } from '../announcement.repository';
 import { defineAnnouncementTrigger } from '../announcement.triggers';
 import {
   catalog,
-  fakeJobs,
   FILE_UPLOADED,
   GROUP_MEMBER_ADDED,
   inTenant,
@@ -19,11 +18,25 @@ import {
 
 const TX = { name: 'tx' } as unknown as Transaction;
 
+/** 佇列的假物件：fire() 只用批次入列。 */
+function batchJobs() {
+  return {
+    enqueue: vi.fn(),
+    enqueueMany: vi.fn(
+      async (
+        _type: { name: string },
+        _items: Array<{ data: object; startAfter?: Date }>,
+        _options: object,
+      ) => {},
+    ),
+  };
+}
+
 function setup(subscribed: Array<{ id: string; delayMinutes: number }> = []) {
   const repo = {
     findScheduledByEvent: vi.fn(async (_event: string, _tx: unknown) => subscribed),
   };
-  const jobs = fakeJobs();
+  const jobs = batchJobs();
   const service = new AnnouncementTriggerService(
     catalog(),
     repo as unknown as AnnouncementRepository,
@@ -31,6 +44,9 @@ function setup(subscribed: Array<{ id: string; delayMinutes: number }> = []) {
   );
   return { service, repo, jobs };
 }
+
+/** 這次 fire() 批次入列的每一筆。 */
+const itemsOf = (ctx: ReturnType<typeof setup>) => ctx.jobs.enqueueMany.mock.calls[0]?.[1] ?? [];
 
 const fire = (
   ctx: ReturnType<typeof setup>,
@@ -56,53 +72,74 @@ describe('AnnouncementTriggerService.fire（docs/architecture/backend/19-announc
     await fire(ctx, [GROUP_MEMBER_ADDED, { userIds: ['u1', 'u2'], groupId: 'g1' }, TX]);
 
     expect(ctx.repo.findScheduledByEvent).toHaveBeenCalledWith('group.memberAdded', TX);
-    expect(ctx.jobs.enqueue).toHaveBeenCalledTimes(4);
-    const later = new Date(NOW.getTime() + 90 * 60 * 1000);
-    expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
+    expect(ctx.jobs.enqueueMany).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ name: 'announcement.eventDispatch' }),
-      {
+      expect.any(Array),
+      { tx: TX },
+    );
+    const later = new Date(NOW.getTime() + 90 * 60 * 1000);
+    expect(itemsOf(ctx)).toHaveLength(4);
+    expect(itemsOf(ctx)).toContainEqual({
+      data: {
         announcementId: 'ann-2',
         event: 'group.memberAdded',
         userId: 'u2',
         runAt: later.toISOString(),
         groupId: 'g1',
       },
-      { tx: TX, startAfter: later },
-    );
-    expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ announcementId: 'ann-1', userId: 'u1', runAt: NOW.toISOString() }),
-      { tx: TX, startAfter: NOW },
-    );
+      startAfter: later,
+    });
+    expect(itemsOf(ctx)).toContainEqual({
+      data: expect.objectContaining({
+        announcementId: 'ann-1',
+        userId: 'u1',
+        runAt: NOW.toISOString(),
+      }),
+      startAfter: NOW,
+    });
+    expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('100 人 × 3 則公告：outbox 只寫一次（一次批次入列 300 筆）', async () => {
+    const ctx = setup([
+      { id: 'ann-1', delayMinutes: 0 },
+      { id: 'ann-2', delayMinutes: 5 },
+      { id: 'ann-3', delayMinutes: 60 },
+    ]);
+    const userIds = Array.from({ length: 100 }, (_, index) => `u${index}`);
+    await fire(ctx, [GROUP_MEMBER_ADDED, { userIds, groupId: 'g1' }, TX]);
+    expect(ctx.jobs.enqueueMany).toHaveBeenCalledOnce();
+    expect(itemsOf(ctx)).toHaveLength(300);
   });
 
   it('同一個使用者重複出現只入列一次', async () => {
     const ctx = setup([{ id: 'ann-1', delayMinutes: 0 }]);
     await fire(ctx, [GROUP_MEMBER_ADDED, { userIds: ['u1', 'u1'], groupId: 'g1' }, TX]);
-    expect(ctx.jobs.enqueue).toHaveBeenCalledTimes(1);
+    expect(itemsOf(ctx)).toHaveLength(1);
   });
 
   it('角色帶進工作資料（比對用）；沒帶群組時資料裡沒有 groupId', async () => {
     const ctx = setup([{ id: 'ann-1', delayMinutes: 0 }]);
     await fire(ctx, [USER_ROLE_ASSIGNED, { userIds: ['u1'], roleIds: ['r1', 'r2'] }, TX]);
-    expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(itemsOf(ctx)).toEqual([
       {
-        announcementId: 'ann-1',
-        event: 'user.roleAssigned',
-        userId: 'u1',
-        runAt: NOW.toISOString(),
-        roleIds: ['r1', 'r2'],
+        data: {
+          announcementId: 'ann-1',
+          event: 'user.roleAssigned',
+          userId: 'u1',
+          runAt: NOW.toISOString(),
+          roleIds: ['r1', 'r2'],
+        },
+        startAfter: NOW,
       },
-      expect.anything(),
-    );
+    ]);
   });
 
   it('沒有訂閱的公告：只查一次，不入列', async () => {
     const ctx = setup();
     await fire(ctx, [GROUP_MEMBER_ADDED, { userIds: ['u1'], groupId: 'g1' }, TX]);
     expect(ctx.repo.findScheduledByEvent).toHaveBeenCalledTimes(1);
-    expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
+    expect(ctx.jobs.enqueueMany).not.toHaveBeenCalled();
   });
 
   it('沒有使用者：連公告都不查', async () => {
@@ -115,7 +152,7 @@ describe('AnnouncementTriggerService.fire（docs/architecture/backend/19-announc
     const ctx = setup([{ id: 'ann-1', delayMinutes: 0 }]);
     await fire(ctx, [GROUP_MEMBER_ADDED, { userIds: ['u1'] }, TX], ['file']);
     expect(ctx.repo.findScheduledByEvent).not.toHaveBeenCalled();
-    expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
+    expect(ctx.jobs.enqueueMany).not.toHaveBeenCalled();
   });
 
   it('觸發點所屬的 feature 沒啟用：直接回', async () => {

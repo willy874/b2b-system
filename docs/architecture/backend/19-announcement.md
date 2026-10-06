@@ -156,6 +156,8 @@ modules/announcement/
 1. 擁有者在業務交易內（稽核之後）呼叫 `AnnouncementTriggerService.fire(TRIGGER, { userIds, groupId?, roleIds? }, tx)`：
    公告 feature 沒啟用時直接回；否則查出訂了這個觸發點、排程中的公告（`announcements_event_idx`），每則 × 每人入列一筆
    `announcement.eventDispatch`（交易內 outbox，`startAfter` = 現在＋`delayMinutes`）。沒有公告時成本是一次有索引的查詢。
+   這些工作以一次 `JobQueue.enqueueMany` 寫進 outbox（一條多列 INSERT）：擁有者常在持有鎖的交易裡呼叫（例：群組的成員鎖），
+   往返次數不隨「人數 × 公告數」成長（[`10-jobs.md`](./10-jobs.md) §4.1）。
 2. 工作執行時：公告仍是排程中、仍訂著這個觸發點、而且比對成立，才建立只發給那個人的發送紀錄（`trigger_subject_id`）並入列分批寫入；
    唯一索引讓同一則公告對同一個人只發一次（移出又加回、重複事件都不重發）。工作的 `output`：`{ dispatchId }` 或 `{ skipped: 'stale' | 'notInAudience' | 'alreadySent' | 'featureDisabled' | 'unknownEvent' }`。
 3. 事件點的公告送出後是 `scheduled`、`next_run_at` 為 null；暫停期間發生的事件不會補發（工作執行時看到不是排程中就略過）。每日維護不碰它。

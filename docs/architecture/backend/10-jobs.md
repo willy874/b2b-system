@@ -147,10 +147,17 @@ await withTransaction(this.db, async (tx) => {
 帶 `tx` 的入列寫進租戶 DB 的 `job_outbox`（同一個交易），回傳的 id 在提交後就是佇列裡的工作 id：
 
 1. 交易提交後（`afterCommit`）立刻把目前租戶 outbox 裡的列搬進佇列並刪除（`SELECT … FOR UPDATE SKIP LOCKED`，一批 100 筆）。
+   - **每個交易只登記一次搬移**：同一個交易入列幾筆都一樣，第一次搬移就把整個租戶的 outbox 搬完。
+   - 一批依工作名稱分組，每組一次 pg-boss 的批次 `insert(name, jobs[])`，不是逐筆 `send`。
+   - 同一種工作一次要入列很多筆時（例：公告的事件點，每則 × 每人一筆）用 `enqueueMany(type, items, { tx })`：一條多列 INSERT（每 1000 列一段）。
 2. 搬移失敗或程序剛好在提交與搬移之間當掉：每 10 分鐘的 `jobs.outboxSweep` 走遍每個 `active` 租戶補搬。
    它會在每個租戶開一條連線，所以間隔要遠大於 `TENANT_POOL_IDLE_TIMEOUT`（30 秒），閒置租戶的連線池才會關掉
-   （[`02-database.md`](./02-database.md) §6.2）。
-3. 以 outbox 的 id 當 pg-boss 的工作 id（`ON CONFLICT DO NOTHING`）：送出後、刪除前當掉而重搬，也只會有一筆工作。
+   （[`02-database.md`](./02-database.md) §6.2）。工作逾時或程序關閉時（`signal`）在兩批之間停下、不再進入下一個租戶。
+3. 以 outbox 的 id 當 pg-boss 的工作 id：`send` 與批次 `insert` 用同一條 INSERT（`ON CONFLICT DO NOTHING`），
+   送出後、刪除前當掉而重搬，也只會有一筆工作。
+4. **沒有註冊 handler 的列**（工作已下線或改名；滾動部署時舊版程序清掃到只有新版認得的工作）：搬移只選已註冊的名稱，
+   這些列不送、不刪、也不擋住後面的列。定期清掃每輪數一次，有的話每個租戶記一筆 warn（名稱與筆數）。
+   要不要刪、或改名後搬回來由人決定：工作不能默默丟掉。
 
 交易回滾時 outbox 的列跟著消失，工作不存在——與 §9.2 D2 的保證相同，只是多了「提交後最多一分鐘才入列」的極端情況。
 

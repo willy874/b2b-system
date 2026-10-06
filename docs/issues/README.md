@@ -26,7 +26,6 @@
 | 中 | nginx 映像釘在停止更新的 1.27，基底映像未釘 digest | [`nginx-image-eol.md`](./nginx-image-eol.md) | 2026-10-06（全面檢測：部署） |
 | 中 | XFF 信任鏈依賴前置 LB，每 IP 限流可能失效 | [`trust-proxy-depends-on-load-balancer.md`](./trust-proxy-depends-on-load-balancer.md) | 2026-10-06（全面檢測：部署） |
 | 中 | prod compose 公開網址預設 localhost 且不檢查 | [`prod-compose-localhost-defaults.md`](./prod-compose-localhost-defaults.md) | 2026-10-06（全面檢測：部署） |
-| 中 | outbox 最舊 100 列都未註冊時 relayOutbox 無窮迴圈 | [`outbox-relay-infinite-loop.md`](./outbox-relay-infinite-loop.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次逐筆失效重抓且不處理 429，大批次可能用光限流額度 | [`batch-invalidation-and-rate-limit.md`](./batch-invalidation-and-rate-limit.md) | 2026-10-06（全面檢測：效能） |
 | 中 | 批次進度計算為 O(n²)，大量上傳時每個快照都重算造成卡頓 | [`batch-progress-quadratic.md`](./batch-progress-quadratic.md) | 2026-10-06（全面檢測：效能） |
 | 中 | api-sdk 無法 tree-shake，兩個前端首屏帶著全部 zod schema | [`api-sdk-not-tree-shakable.md`](./api-sdk-not-tree-shakable.md) | 2026-10-06（全面檢測：效能） |
@@ -49,7 +48,6 @@
 | 低 | production 只檢查部分秘密的強度 | [`weak-production-secret-checks.md`](./weak-production-secret-checks.md) | 2026-10-06（全面檢測：部署） |
 | 低 | 開發 compose 的 postgres、Mailpit 綁所有介面 | [`dev-compose-binds-all-interfaces.md`](./dev-compose-binds-all-interfaces.md) | 2026-10-06（全面檢測：部署） |
 | 低 | 沒有備份、還原程序與日誌輪替 | [`no-backup-or-log-rotation.md`](./no-backup-or-log-rotation.md) | 2026-10-06（全面檢測：部署） |
-| 低 | 同一交易入列 N 筆工作，提交後跑 N 次 outbox 搬移 | [`outbox-relay-per-enqueue.md`](./outbox-relay-per-enqueue.md) | 2026-10-06（全面檢測：效能） |
 | 低 | 站內通知每位收件人一個事件，逐一經 NOTIFY 轉送 | [`notification-event-per-recipient.md`](./notification-event-per-recipient.md) | 2026-10-06（全面檢測：效能） |
 | 低 | user.activated 事件點每個人都解析整個公告受眾 | [`announcement-activation-resolves-audience.md`](./announcement-activation-resolves-audience.md) | 2026-10-06（全面檢測：效能） |
 | 低 | 持有資料夾樹鎖的交易內另取連線查權限，池滿時卡到逾時 | [`permission-load-outside-tree-lock-tx.md`](./permission-load-outside-tree-lock-tx.md) | 2026-10-06（全面檢測：效能） |

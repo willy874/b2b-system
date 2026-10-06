@@ -1,11 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { asc, inArray } from 'drizzle-orm';
+import { asc, inArray, notInArray, sql } from 'drizzle-orm';
 import { PgBoss } from 'pg-boss';
-import type { Queue } from 'pg-boss';
+import type { JobInsert, Queue } from 'pg-boss';
 
 import { jobOutbox } from '@/db/schema';
+import type { JobOutboxRow } from '@/db/schema';
 
 import type { Env } from '../config';
 import { afterCommit, TENANT_DB, withTransaction } from '../database';
@@ -40,6 +41,9 @@ const OUTBOX_SWEEP_JOB = defineJob<Record<string, never>>('jobs.outboxSweep', {
 });
 
 const OUTBOX_BATCH = 100;
+
+/** `enqueueMany` 一條 INSERT 最多幾列（每列 3 個參數，遠低於 Postgres 一個語句 65535 個參數的上限）。 */
+const OUTBOX_INSERT_CHUNK = 1000;
 
 /**
  * 租戶的同時執行數已滿時，放回佇列後隔多久再被取到（秒）：固定的下限加上隨機的抖動，
@@ -82,11 +86,23 @@ export interface EnqueueOptions {
   startAfter?: Date;
 }
 
+/** `enqueueMany` 的一筆：資料與這一筆的延後時間。 */
+export interface EnqueueManyItem<TData extends object> {
+  data: TData;
+  startAfter?: Date;
+}
+
 interface Registration {
   type: JobType<object>;
   handler: JobHandler<object>;
   cron: string | undefined;
 }
+
+/** 交給 pg-boss 的工作選項（`send` 與搬移時的批次 `insert` 共用）。 */
+type BossJobOptions = Pick<
+  JobInsert,
+  'id' | 'singletonKey' | 'singletonSeconds' | 'startAfter' | 'group'
+>;
 
 /**
  * 背景工作佇列（docs/architecture/backend/10-jobs.md）。底層是 pg-boss；模組只認識這個類別，
@@ -102,6 +118,8 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly boss: PgBoss;
   private readonly workerEnabled: boolean;
   private readonly registrations = new Map<string, Registration>();
+  /** 已登記提交後搬移的交易：一個交易入列幾筆都只搬一次。 */
+  private readonly relayScheduled = new WeakSet<Transaction>();
   private started = false;
 
   constructor(
@@ -124,7 +142,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     });
     // 沒有監聽 error 的 EventEmitter 會讓程序直接崩潰；pg-boss 的背景迴圈錯誤會自己重試
     this.boss.on('error', (error) => this.logger.error({ err: error }, 'pg-boss 背景作業失敗'));
-    this.register(OUTBOX_SWEEP_JOB, () => this.sweepOutboxes(), {
+    this.register(OUTBOX_SWEEP_JOB, (_data, { signal }) => this.sweepOutboxes(signal), {
       cron: config.get('JOBS_OUTBOX_SWEEP_CRON', { infer: true }),
     });
   }
@@ -196,51 +214,80 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
         options: { throttle: options.throttle, startAfter: options.startAfter?.toISOString() },
       })
       .returning({ id: jobOutbox.id });
-    afterCommit(options.tx, () => this.relayOutboxSafely());
+    this.relayAfterCommit(options.tx);
     return row?.id ?? null;
   }
 
   /**
-   * 把目前租戶 outbox 裡的工作搬進佇列，回傳搬了幾筆。`SKIP LOCKED` 讓提交後的搬移與定期清掃不互搶；
-   * 以 outbox 的 id 當工作 id，萬一搬了兩次（送出後、刪除前當掉）也只會有一筆工作。
+   * 同一種租戶工作在業務交易內一次入列多筆（例：一個事件 × 每位使用者）：outbox 以多列 INSERT 寫入，
+   * 提交後與同一個交易裡的其他入列共用一次搬移（docs/architecture/backend/10-jobs.md §4.1）。
    */
-  async relayOutbox(): Promise<number> {
+  async enqueueMany<TData extends object>(
+    type: JobType<TData>,
+    items: ReadonlyArray<EnqueueManyItem<TData>>,
+    options: { tx: Transaction },
+  ): Promise<void> {
+    this.assertRegistered(type.name);
+    if (type.options.scope === 'platform') {
+      throw new Error(`平台工作 ${type.name} 不能在租戶的交易裡入列`);
+    }
+    requireTenant();
+    if (items.length === 0) return;
+    for (let start = 0; start < items.length; start += OUTBOX_INSERT_CHUNK) {
+      // oxlint-disable-next-line no-await-in-loop -- 同一個交易連線上依序寫入
+      await options.tx.insert(jobOutbox).values(
+        items.slice(start, start + OUTBOX_INSERT_CHUNK).map((item) => ({
+          name: type.name,
+          data: item.data as Record<string, unknown>,
+          options: { startAfter: item.startAfter?.toISOString() },
+        })),
+      );
+    }
+    this.relayAfterCommit(options.tx);
+  }
+
+  /**
+   * 把目前租戶 outbox 裡 **已註冊** 的工作搬進佇列，回傳搬了幾筆（docs/architecture/backend/10-jobs.md §4.1）。
+   * - 一批 100 筆一個交易，依工作名稱分組，每組一次 pg-boss 的批次 `insert`。
+   * - `SKIP LOCKED` 讓提交後的搬移與定期清掃不互搶。
+   * - 以 outbox 的 id 當工作 id（pg-boss 的 INSERT 是 `ON CONFLICT DO NOTHING`）：送出後、刪除前當掉而重搬，也只會有一筆工作。
+   * - 沒有註冊 handler 的列（工作已下線或改名、滾動部署時只有新版認得）不選、不刪，留給人處理，
+   *   也不擋住排在後面的列；定期清掃會記一筆 warn（`sweepOutboxes`）。
+   * - `signal` 中止時在兩批之間停下（定期清掃逾時）。
+   */
+  async relayOutbox(signal?: AbortSignal): Promise<number> {
     const tenant = requireTenant();
+    const names = [...this.registrations.keys()];
     let moved = 0;
     for (;;) {
+      if (signal?.aborted) return moved;
       // oxlint-disable-next-line no-await-in-loop -- 一批一個短交易，依序處理
-      const batch = await withTransaction(this.tenantDb, async (tx) => {
+      const sent = await withTransaction(this.tenantDb, async (tx) => {
         const rows = await tx
           .select()
           .from(jobOutbox)
+          .where(inArray(jobOutbox.name, names))
           .orderBy(asc(jobOutbox.createdAt))
           .limit(OUTBOX_BATCH)
           .for('update', { skipLocked: true });
-        const sent: string[] = [];
-        for (const row of rows) {
-          const registration = this.registrations.get(row.name);
-          if (!registration) {
-            // 工作已下線：留在 outbox 讓人處理，不能默默丟掉
-            this.logger.error({ id: row.id, name: row.name }, 'outbox 裡的工作沒有註冊 handler');
-            continue;
-          }
-          // oxlint-disable-next-line no-await-in-loop -- 同一個交易內依序送出
-          await this.send(
-            registration.type,
-            { tenantId: tenant.id, payload: row.data },
-            {
-              id: row.id,
-              throttle: row.options.throttle,
-              startAfter: row.options.startAfter ? new Date(row.options.startAfter) : undefined,
-            },
+        const sentIds: string[] = [];
+        for (const [name, group] of groupByName(rows)) {
+          // 查詢只選已註冊的名稱；這裡仍以實際送出的為準，沒送出的列不刪
+          const registration = this.registrations.get(name);
+          if (!registration) continue;
+          // oxlint-disable-next-line no-await-in-loop -- 同一個交易內依序送出，一批通常只有一兩種工作
+          await this.boss.insert(
+            name,
+            group.map((row) => this.toJobInsert(registration.type, tenant.id, row)),
           );
-          sent.push(row.id);
+          sentIds.push(...group.map((row) => row.id));
         }
-        if (sent.length) await tx.delete(jobOutbox).where(inArray(jobOutbox.id, sent));
-        return { size: rows.length, sent: sent.length };
+        if (sentIds.length) await tx.delete(jobOutbox).where(inArray(jobOutbox.id, sentIds));
+        return sentIds.length;
       });
-      moved += batch.sent;
-      if (batch.size < OUTBOX_BATCH) return moved;
+      moved += sent;
+      // 不滿一批就是搬完了；一筆都沒搬（例：都被另一個搬移鎖住）也停，不會在同一批上空轉
+      if (sent < OUTBOX_BATCH) return moved;
     }
   }
 
@@ -281,22 +328,53 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     envelope: JobEnvelope<TData>,
     options: Omit<EnqueueOptions, 'tx'> & { id?: string },
   ): Promise<string | null> {
+    return this.boss.send(type.name, envelope, this.jobOptions(type, envelope.tenantId, options));
+  }
+
+  private jobOptions(
+    type: JobType<object>,
+    tenantId: string | null,
+    options: Omit<EnqueueOptions, 'tx'> & { id?: string },
+  ): BossJobOptions {
     // 節流與 `exclusive` 都以租戶區分：一個租戶的工作不會擋掉另一個租戶的
-    const scope = envelope.tenantId ?? 'platform';
+    const scope = tenantId ?? 'platform';
     const singletonKey = options.throttle
       ? `${scope}:${options.throttle.key}`
       : type.options.exclusive
         ? scope
         : undefined;
-    return this.boss.send(type.name, envelope, {
+    return {
       id: options.id,
       singletonKey,
       singletonSeconds: options.throttle?.seconds,
       startAfter: options.startAfter,
       // 租戶 id 也寫進 pg-boss 的 group_id：同時執行數與管理頁的計數走索引，不解析每一列的 JSON
       // （JobStore.activeAhead）。worker 沒設 groupConcurrency，group 不影響取工作的順序。
-      group: envelope.tenantId ? { id: envelope.tenantId } : undefined,
-    });
+      group: tenantId ? { id: tenantId } : undefined,
+    };
+  }
+
+  /** outbox 的一列 → pg-boss 批次 `insert` 的一筆；outbox 的 id 就是工作 id。 */
+  private toJobInsert(type: JobType<object>, tenantId: string, row: JobOutboxRow): JobInsert {
+    const envelope: JobEnvelope = { tenantId, payload: row.data };
+    return {
+      data: envelope,
+      ...this.jobOptions(type, tenantId, {
+        id: row.id,
+        throttle: row.options.throttle,
+        startAfter: row.options.startAfter ? new Date(row.options.startAfter) : undefined,
+      }),
+    };
+  }
+
+  /**
+   * 交易提交後搬移 outbox，每個交易只登記一次：第一次搬移就把整個租戶的 outbox 搬完，
+   * 同一個交易多登記的每一次都只會多開一個什麼都選不到的交易。
+   */
+  private relayAfterCommit(tx: Transaction): void {
+    if (this.relayScheduled.has(tx)) return;
+    afterCommit(tx, () => this.relayOutboxSafely());
+    this.relayScheduled.add(tx);
   }
 
   /** 交易提交後的搬移；失敗只記錄，交給定期清掃（`jobs.outboxSweep`）。 */
@@ -308,12 +386,39 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     }
   }
 
-  private async sweepOutboxes(): Promise<{ moved: number; failedTenants: string[] }> {
+  /**
+   * 定期清掃：走遍每個 `active` 租戶補搬，並數一次沒有註冊 handler 的列（有的話每個租戶記一筆 warn）。
+   * 工作逾時或程序關閉（`signal`）時停下，不讓上一輪的迴圈與下一輪疊在一起。
+   */
+  private async sweepOutboxes(
+    signal: AbortSignal,
+  ): Promise<{ moved: number; failedTenants: string[]; unregistered: number }> {
     let moved = 0;
-    const failedTenants = await this.tenancy.forEachActive(async () => {
-      moved += await this.relayOutbox();
-    });
-    return { moved, failedTenants };
+    let unregistered = 0;
+    const failedTenants = await this.tenancy.forEachActive(
+      async (tenant) => {
+        moved += await this.relayOutbox(signal);
+        const leftovers = await this.unregisteredOutbox();
+        if (leftovers.length === 0) return;
+        unregistered += leftovers.reduce((total, { count }) => total + count, 0);
+        this.logger.warn(
+          { tenant: tenant.code, jobs: leftovers },
+          'outbox 裡有沒有註冊 handler 的工作（已下線或改名）：留在原處，等人處理',
+        );
+      },
+      { signal },
+    );
+    if (signal.aborted) this.logger.warn({ moved }, 'outbox 清掃逾時或程序關閉，這一輪提前結束');
+    return { moved, failedTenants, unregistered };
+  }
+
+  /** 目前租戶 outbox 裡沒有註冊 handler 的列，依名稱計數。 */
+  private unregisteredOutbox(): Promise<Array<{ name: string; count: number }>> {
+    return this.tenantDb
+      .select({ name: jobOutbox.name, count: sql<number>`count(*)::int` })
+      .from(jobOutbox)
+      .where(notInArray(jobOutbox.name, [...this.registrations.keys()]))
+      .groupBy(jobOutbox.name);
   }
 
   /** 排程觸發的租戶工作：每個 `active` 的租戶各入列一筆。 */
@@ -440,4 +545,15 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       }
     }
   }
+}
+
+/** 依工作名稱分組，保留每組內的順序（`created_at` 先後）。 */
+function groupByName(rows: JobOutboxRow[]): Map<string, JobOutboxRow[]> {
+  const groups = new Map<string, JobOutboxRow[]>();
+  for (const row of rows) {
+    const group = groups.get(row.name);
+    if (group) group.push(row);
+    else groups.set(row.name, [row]);
+  }
+  return groups;
 }

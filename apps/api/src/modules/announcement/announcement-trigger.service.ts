@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 import type { Transaction } from '@/core/database';
 import { JobQueue } from '@/core/jobs';
+import type { EnqueueManyItem } from '@/core/jobs';
 import { requireTenant } from '@/core/tenant';
 
 import { AnnouncementTriggerCatalog } from './announcement-trigger.catalog';
 import { ANNOUNCEMENT_EVENT_DISPATCH_JOB } from './announcement.job-types';
+import type { AnnouncementEventDispatchJobData } from './announcement.job-types';
 import { AnnouncementRepository } from './announcement.repository';
 import type {
   AnnouncementTriggerDefinition,
@@ -20,6 +22,7 @@ const MINUTE_MS = 60 * 1000;
  *
  * `fire()` 只做一件事：找出訂了這個觸發點、排程中的公告，每則 × 每位使用者入列一筆延遲工作（`startAfter` = 現在＋延遲）。
  * 是不是在受眾裡、是不是已經發過，在工作執行時才判斷（那時的受眾才是準的）。沒有公告時成本是一次有索引的查詢。
+ * 這些工作以一次 `enqueueMany` 寫進 outbox：呼叫端常在持有鎖的交易裡（例：群組的成員鎖），往返次數不隨人數成長。
  */
 @Injectable()
 export class AnnouncementTriggerService {
@@ -43,13 +46,12 @@ export class AnnouncementTriggerService {
 
     const subscribed = await this.repo.findScheduledByEvent(trigger.event, tx);
     const firedAt = new Date();
+    const items: Array<EnqueueManyItem<AnnouncementEventDispatchJobData>> = [];
     for (const announcement of subscribed) {
       const runAt = new Date(firedAt.getTime() + announcement.delayMinutes * MINUTE_MS);
       for (const userId of new Set(data.userIds)) {
-        // oxlint-disable-next-line no-await-in-loop -- 同一個交易連線上本來就依序執行；一次事件的人與公告都很少
-        await this.jobs.enqueue(
-          ANNOUNCEMENT_EVENT_DISPATCH_JOB,
-          {
+        items.push({
+          data: {
             announcementId: announcement.id,
             event: trigger.event,
             userId,
@@ -57,9 +59,10 @@ export class AnnouncementTriggerService {
             ...(data.groupId && { groupId: data.groupId }),
             ...(data.roleIds && { roleIds: [...data.roleIds] }),
           },
-          { tx, startAfter: runAt },
-        );
+          startAfter: runAt,
+        });
       }
     }
+    if (items.length) await this.jobs.enqueueMany(ANNOUNCEMENT_EVENT_DISPATCH_JOB, items, { tx });
   }
 }
