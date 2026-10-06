@@ -142,7 +142,7 @@ modules/announcement/
 | --- | --- |
 | 補排程 | 事件點除外，每則排程中的公告重算下一次（週期依目前的租戶時區；指定時間照存的時間）。與存的不同：更新 `next_run_at` 並入列（改了時區）；相同且在 25 小時內（含已經過了的）：再入列一筆（延遲工作遺失時補上）。重複的工作執行時對不上就略過 |
 | 保留清理 | 刪除建立超過 `announcement.dispatchRetentionDays`（預設 365，30～3650）天、已經結束（`sent`／`failed`／`revoked`）的發送紀錄；每批 500 筆。通知不受影響，但收件人之後讀全文會 404 |
-| 結果 | 工作的 `output`：`{ rescheduled, requeued, retentionDays, deletedDispatches }` |
+| 結果 | 工作的 `output`：`{ rescheduled, requeued, completed, retentionDays, deletedDispatches }`。`rescheduled`：`next_run_at` 有變動的則數；`requeued`：入列了發送工作的則數（含 `rescheduled`）；`completed`：週期的次數或結束日期已到、改成 `completed` 的則數（不入列）；`deletedDispatches`：清理掉的發送紀錄筆數 |
 
 
 ### 5.3 事件點

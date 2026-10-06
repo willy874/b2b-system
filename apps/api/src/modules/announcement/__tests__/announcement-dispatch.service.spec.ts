@@ -633,7 +633,7 @@ describe('AnnouncementDispatchService.maintain（docs/architecture/backend/19-an
       { tx: ctx.tx, startAfter: expected },
     );
     expect(ctx.events.publish).toHaveBeenCalledWith(...changed());
-    expect(result).toMatchObject({ rescheduled: 1 });
+    expect(result).toMatchObject({ rescheduled: 1, requeued: 1, completed: 0 });
   });
 
   it('週期的延遲工作遺失（存的時間已經過了）：照存的時間再入列一筆，不改 next_run_at', async () => {
@@ -682,7 +682,7 @@ describe('AnnouncementDispatchService.maintain（docs/architecture/backend/19-an
     expect(result).toMatchObject({ rescheduled: 0, requeued: 0 });
   });
 
-  it('週期的次數已用完：改成 completed，不入列', async () => {
+  it('週期的次數已用完：改成 completed、發布，不入列也不計入 requeued', async () => {
     const ctx = setup({ dispatchCount: 2 });
     withScheduled(ctx, [
       scheduledRow({
@@ -690,13 +690,15 @@ describe('AnnouncementDispatchService.maintain（docs/architecture/backend/19-an
         nextRunAt: new Date('2026-10-06T01:00:00.000Z'),
       }),
     ]);
-    await inTenant(() => ctx.service.maintain(NOW));
+    const result = await inTenant(() => ctx.service.maintain(NOW));
     expect(ctx.repo.setState).toHaveBeenCalledWith(
       'ann-1',
       { status: 'completed', nextRunAt: null },
       ctx.tx,
     );
     expect(ctx.jobs.enqueue).not.toHaveBeenCalled();
+    expect(ctx.events.publish).toHaveBeenCalledWith(...changed());
+    expect(result).toMatchObject({ rescheduled: 0, requeued: 0, completed: 1 });
   });
 
   it('事件點的公告沒有時間表：不碰', async () => {
@@ -737,6 +739,7 @@ describe('AnnouncementDispatchService.maintain（docs/architecture/backend/19-an
     expect(result).toEqual({
       rescheduled: 0,
       requeued: 0,
+      completed: 0,
       retentionDays: 30,
       deletedDispatches: 1003,
     });
