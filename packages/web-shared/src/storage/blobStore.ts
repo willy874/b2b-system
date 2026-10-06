@@ -12,6 +12,8 @@ export interface BlobStore {
   delete(key: string): Promise<void>;
   /** 刪掉存進來超過 `maxAgeMs` 的項目（例：分頁當掉沒來得及清的上傳）。 */
   prune(maxAgeMs: number): Promise<void>;
+  /** 清掉全部：本分頁的記憶體與 IndexedDB（同源的其他分頁也讀不到了）。例：session 結束時的上傳暫存。 */
+  clear(): Promise<void>;
 }
 
 export interface BlobStoreOptions {
@@ -99,6 +101,10 @@ export function createBlobStore(name: string, options: BlobStoreOptions = {}): B
           if (!entry || entry.storedAt < cutoff) await request(store.delete(key));
         }
       });
+    },
+    async clear() {
+      memory.clear();
+      await withStore('readwrite', (store) => request(store.clear()));
     },
   };
 }

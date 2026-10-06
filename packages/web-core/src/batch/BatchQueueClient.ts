@@ -57,6 +57,12 @@ export interface BatchQueueClientOptions {
    * 由這裡經 Channel 宣告，讓其他分頁移除它的工作。
    */
   ownsHost?: boolean;
+  /**
+   * 目前登入的身分（`SessionStore.getIdentity()`）。送出的工作記下它，`getJobs()` 只回傳身分相同的工作：
+   * 同源的佇列是共用的，換人登入後不能看到前一個人的工作（項目名稱含 email、檔名）。
+   * 身分改變時呼叫 `principalChanged()`。不給時不過濾。
+   */
+  principal?: () => string | undefined;
 }
 
 function webLocksHold(): HoldClientLock {
@@ -102,6 +108,9 @@ export class BatchQueueClient {
   private declared = new Set<string>();
   private readonly holdLock: HoldClientLock;
   private readonly ownsHost: boolean;
+  private readonly principal: (() => string | undefined) | undefined;
+  /** 上一次過濾用的身分：沒變就不必重新計算（續期每幾分鐘一次，身分不變）。 */
+  private viewedPrincipal: string | undefined;
   private readonly hosts = new Map<string, { version: number; jobs: readonly BatchJob[] }>();
   private readonly subscribers = new Set<() => void>();
   /** 這個分頁正在處理的項目；佇列要求中止（工作被取消）時用。 */
@@ -121,6 +130,8 @@ export class BatchQueueClient {
     this.stopOperations = this.operations?.subscribe(() => this.declareOperations());
     this.holdLock = options.holdLock ?? webLocksHold();
     this.ownsHost = options.ownsHost ?? false;
+    this.principal = options.principal;
+    this.viewedPrincipal = this.principal?.();
 
     this.port.addEventListener('message', this.onPortMessage);
     this.port.start?.();
@@ -173,7 +184,10 @@ export class BatchQueueClient {
   /** 送進全域佇列，回傳工作 id。項目依序逐筆處理，進度經 `subscribe` 取得。 */
   enqueue(input: BatchJobInput): string {
     const jobId = createInstanceId();
-    this.send({ type: 'enqueue', jobId, input });
+    // 先跟上目前的身分：送出的工作要立刻出現在這個分頁的畫面上
+    this.principalChanged();
+    const principal = this.viewedPrincipal;
+    this.send({ type: 'enqueue', jobId, input, ...(principal !== undefined && { principal }) });
     return jobId;
   }
 
@@ -196,13 +210,29 @@ export class BatchQueueClient {
     this.send({ type: 'clear-finished' });
   }
 
+  /**
+   * session 結束時清空佇列（docs/architecture/frontend/07-ui-system.md §13.2 D12）：中止處理中的項目、移除所有工作
+   * （含已結束的），不彈出結果。之後的每一筆都只會得到 401，留著的結果清單是上一個人的操作紀錄。
+   */
+  reset(): void {
+    this.send({ type: 'reset' });
+  }
+
+  /** 登入的身分可能變了（續期、登出、換人登入）：依新的身分重新過濾 `getJobs()`。 */
+  principalChanged(): void {
+    const next = this.principal?.();
+    if (next === this.viewedPrincipal) return;
+    this.viewedPrincipal = next;
+    this.recompute();
+  }
+
   /** 供 React 以 `useSyncExternalStore` 訂閱。 */
   subscribe = (listener: () => void): (() => void) => {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);
   };
 
-  /** 所有佇列的工作，依建立時間由舊到新；同一個參考直到有變化。 */
+  /** 所有佇列中屬於目前身分的工作，依建立時間由舊到新；同一個參考直到有變化。 */
   getJobs = (): readonly BatchJob[] => this.jobs;
 
   private readonly onPortMessage = (event: MessageEvent) => {
@@ -219,6 +249,8 @@ export class BatchQueueClient {
         this.executions.get(executionKey(message.jobId, message.itemId))?.abort();
         return;
       case 'finished':
+        // 不是目前身分的工作不彈出結果（與 getJobs() 的過濾一致）
+        if (this.principal && message.job.principal !== this.viewedPrincipal) return;
         this.events.emit('finished', message.job);
         return;
       default:
@@ -276,8 +308,10 @@ export class BatchQueueClient {
   }
 
   private recompute(): void {
+    const visible = (job: BatchJob) => !this.principal || job.principal === this.viewedPrincipal;
     this.jobs = [...this.hosts.values()]
       .flatMap((host) => host.jobs)
+      .filter(visible)
       .toSorted((a, b) => a.createdAt - b.createdAt);
     for (const listener of this.subscribers) listener();
   }

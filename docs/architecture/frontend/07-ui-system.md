@@ -1074,7 +1074,10 @@ const batchActions = useUserBatchActions();
 - **AppHeader 的佇列按鈕**（`batch-queue-trigger`，徽章 `batch-queue-count` 是進行中的工作數）打開面板
   （`batch-queue-panel`），新的在上面：取消（`batch-progress-cancel`）、查看失敗項目（`batch-progress-failures`）、
   移除（`batch-progress-dismiss`）、清除已結束（`batch-queue-clear`）。已結束的工作最多保留 30 筆。
-- session 結束時取消所有進行中的工作。
+- session 結束時 **清空佇列**（`BatchQueueClient.reset()`）：中止處理中的項目、移除所有工作（含已結束的），不彈出結果；
+  檔案的上傳暫存（`uploadSources`，記憶體與 IndexedDB）也一併清除。同源的佇列由所有分頁共用，項目名稱（email、檔名）
+  是上一個人的操作紀錄，不能留給下一個登入的人。另外，工作記下送出時的身分（`BatchJob.principal`，租戶＋使用者），
+  每個分頁只顯示目前身分的工作，換人登入的過渡期間也看不到別人的工作。
 - 略過的列（不適用、沒送出）保留勾選，可以接著做別的批次動作。
 - `batch` 提供時由 `batch.selection` 控制勾選欄，不必另外傳 `rowSelection` / `onRowSelectionChange`。
 - 篩選條件（不含排序）改變時頁面呼叫 `selection.clear()`：勾選的列可能已不在結果裡。
@@ -1363,13 +1366,13 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 | D9 | 列表的 UI | 勾選後的操作列（`BatchActionBar`）不變；這張表送出的工作進行中時，**操作列換成進度條**（`BatchProgressBar`），在任何分頁打開這張表都看得到 |
 | D10 | 全域追蹤 | AppHeader 的佇列按鈕（徽章 = 進行中的工作數）隨時打開面板：所有工作的進度、取消、查看失敗、移除／清除已結束 |
 | D11 | 一次的上限 | 不設上限（沒有請求大小的限制了）；逐筆處理，量大只是時間長 |
-| D12 | session 結束 | 取消所有進行中的工作——之後的每一筆都只會得到 401 |
+| D12 | session 結束 | **清空佇列**（`reset`）：中止進行中的工作、移除所有工作（含已結束的），不彈出結果——之後的每一筆都只會得到 401，留著的結果清單是上一個人的操作紀錄（項目名稱含 email、檔名）。上傳暫存一併清除；工作記下送出時的身分，分頁只顯示目前身分的工作 |
 
 **通道**
 
 | 通道 | 方向 | 內容 |
 | ---- | ---- | ---- |
-| port（SharedWorker 的 `MessagePort`、dedicated worker 本身） | 分頁 ⇄ 佇列 | `hello` / `bye`、`enqueue`、`cancel`、`dismiss`；佇列交派 `execute`、分頁回 `result`；結束通知 `finished` |
+| port（SharedWorker 的 `MessagePort`、dedicated worker 本身） | 分頁 ⇄ 佇列 | `hello` / `bye`、`enqueue`（帶送出者的身分 `principal`）、`cancel`、`dismiss`、`reset`（session 結束）；佇列交派 `execute`、分頁回 `result`；結束通知 `finished` |
 | Channel `batch-queue` | 佇列 → 所有分頁 | `snapshot`（帶 `version`，晚到的舊快照略過）；分頁加入時送 `snapshot-request`；dedicated worker 的分頁關閉時送 `host-closed` |
 
 ### 13.3 理由

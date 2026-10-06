@@ -58,6 +58,11 @@ export interface BatchJob {
   scope: string;
   /** 發起分頁的 `CLIENT_ID`：優先由它執行、結束時由它彈出結果。 */
   ownerId: string;
+  /**
+   * 送出時登入的身分（`<租戶>:<使用者>`，`SessionStore.getIdentity()`）；分頁只顯示與目前身分相同的工作
+   * （`BatchQueueClient` 的 `principal`），換人登入後看不到前一個人的工作。不知道身分（例：mock 模式的假 token）時沒有。
+   */
+  principal?: string;
   items: BatchJobItem[];
   status: BatchJobStatus;
   succeeded: string[];
