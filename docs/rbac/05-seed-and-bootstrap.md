@@ -275,19 +275,35 @@ pnpm db:seed:dev
 
 ## 7. 災難復原：忘記 super-admin 密碼
 
-不提供「後門 API」。作法是一支需要 DB 存取權的 CLI：
+前提：super-admin 忘記密碼，而且「忘記密碼」的信寄不到（信箱失效、SMTP 不通）；還有其他 super-admin 時請他在後台重設，不必用這支指令。
+
+不提供「後門 API」。作法是一支需要資料庫存取權的 CLI（`apps/api/src/cli/reset-super-admin.ts`）：
 
 ```bash
-pnpm --filter @b2b-system/api cli:reset-super-admin --email admin@example.com
+# 租戶的 super-admin（--tenant 是租戶代碼）
+pnpm --filter @b2b-system/api cli:reset-super-admin --tenant default --email admin@example.com
+# 平台管理者（apps/platform 的帳號）
+pnpm --filter @b2b-system/api cli:reset-super-admin --platform --email ops@example.com
+# 正式環境：與 migrate 共用映像與環境變數，跑編譯過的版本
+docker compose -f docker-compose.prod.yml run --rm migrate \
+  node dist/src/cli/reset-super-admin.js --tenant <代碼> --email <email>
 ```
 
 它會：
 
-1. 確認該帳號存在且持有 `super-admin`
-2. 產生一次性重設 token（1 小時），印出連結
-3. 寫入 `audit_logs`（`action = 'system.super_admin_reset_requested'`）
+1. 防呆：平台 DB 或租戶 DB 有任何一個不在本機（`localhost`、`127.0.0.1`、`[::1]`、compose 的 `postgres`）時，要加
+   `--confirm <平台 database 名稱>`（`db/script-guard.ts` 的 `remoteRejection`；例：從維運機經 tunnel 連正式環境）。
+   它本來就是給正式環境用的，所以不像 `db:reset` 那樣拒絕 production。
+2. 確認對象：租戶要是 `active`；帳號存在、未刪除、**直接持有** `super-admin`（群組不能持有 super-admin）；平台管理者的角色是 `super-admin`。
+   停用中的帳號拒絕（重設了也不能登入，先由其他 super-admin 啟用）。
+3. 簽發一次性 token（1 小時；同一個人同用途還沒用掉的先作廢），規則與寄信相同（`issueAuthToken()`／`issuePlatformAuthToken()`）：
+   - 一般情況是重設密碼：`<PLATFORM_APP_URL>/reset-password?token=…&tenant=<代碼>`（平台管理者不帶 `tenant`）。
+   - 還沒啟用（`pending`，例：第一位管理員的啟用信沒寄到）改簽啟用連結：`<PLATFORM_APP_URL>/setup?token=…`。
+4. 在同一個交易寫稽核 `system.super_admin_reset_requested`（`actor = system`；租戶寫 `audit_logs`、平台寫 `platform_audit_logs`；
+   `metadata` 有 `purpose` 與到期時間，不含 token）。
+5. 印出連結。交給本人在瀏覽器開啟、設定新密碼；過期或遺失時重新執行，舊的連結隨之作廢。
 
-**不直接改密碼**，而是走與一般使用者相同的重設流程 —— 少一條需要維護的特例路徑。
+**不直接改密碼**，而是走與一般使用者相同的重設流程 —— 少一條需要維護的特例路徑，密碼也不會出現在終端機與 shell 歷史裡。
 
 ---
 

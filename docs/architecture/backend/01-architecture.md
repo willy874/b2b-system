@@ -34,119 +34,85 @@
 
 ## 2. 目錄
 
+只列各資料夾的角色與幾個關鍵檔案；完整內容以程式為準。
+
 ```
 apps/api/src/
-├── main.ts
-├── app.module.ts
+├── main.ts                               內部 api 的程序（:3000）
+├── main.external.ts                      對外 API 的程序（:3001，06-external-api.md）
+├── app.module.ts / external-api.module.ts
+├── swagger.ts                            OpenAPI（內部、對外兩份；03-api-conventions.md §12）
 │
-├── core/                                 ← 不認識任何 module
-│   ├── config/
-│   │   ├── config.module.ts
-│   │   └── env.schema.ts                 Zod 驗證環境變數，缺就啟動失敗
-│   ├── database/
-│   │   ├── database.module.ts            全域 module，提供 PLATFORM_DB（平台 DB 的連線池）
-│   │   ├── database.provider.ts          建立連線池 ＋ drizzle 實例；TENANT_DB / PLATFORM_DB token
+├── core/                                 ← 機制層，不認識任何 module（🔒 layer-dependencies.spec.ts）
+│   ├── config/                           env.schema.ts：Zod 驗證環境變數，缺就啟動失敗
+│   ├── database/                         PLATFORM_DB 連線池與 drizzle 實例（database.provider.ts）
 │   │   ├── delete-in-batches.ts          deleteInBatches()：保留清理的分批刪除（token、通知、webhook 事件）
 │   │   ├── like.ts                       escapeLike()、containsPattern()、prefixPattern()：關鍵字搜尋的跳脫（03-api-conventions.md §2）
 │   │   ├── optimistic-lock.ts            missedUpdate()：樂觀鎖的 UPDATE 沒命中 → 404 或 409（03-api-conventions.md §11）
 │   │   └── transaction.ts                withTransaction()、afterCommit()
-│   ├── tenant/                           依網域決定租戶、每租戶的連線池、TENANT_DB（02-database.md §6）
+│   ├── tenant/                           依網域決定租戶、每租戶的連線池、TENANT_DB（02-database.md §6、05-tenancy.md）
 │   ├── feature-flags/                    feature flag 的目錄與判斷（FeatureFlagService；05-tenancy.md §5.2）
-│   ├── cache/
-│   │   ├── cache.module.ts
-│   │   ├── permission-cache.service.ts   ★ 權限集合快取
-│   │   └── user-cache.service.ts         使用者基本資料快取（給 JwtAuthGuard）
-│   ├── errors/
-│   │   ├── error-code.ts                 轉出 @b2b-system/error-codes（ErrorCode ＋ → HTTP status 對照）
-│   │   ├── app.exception.ts
-│   │   ├── db-error.ts                   資料庫查詢錯誤的不含參數版本（describeDbError、redactDbError）
-│   │   └── http-exception.filter.ts
-│   ├── http/
-│   │   ├── request-id.middleware.ts
-│   │   ├── transform.interceptor.ts      包成 { data: ... }
-│   │   └── pagination.ts                 分頁 DTO 與輔助
-│   ├── logger/
-│   │   ├── logger.module.ts              Pino：存取日誌與應用程式日誌共用（main.ts 以 app.useLogger 接上）、requestId、redact
-│   │   └── redact.ts                     日誌遮蔽：網址與 query 的憑證參數、錯誤裡的查詢參數
-│   ├── validation/
-│   │   ├── zod-validation.pipe.ts
-│   │   └── zod-openapi.ts                Zod schema → OpenAPI schema
-│   ├── storage/
-│   │   ├── object-storage.ts             ★ ObjectStorage 抽象類別（同時是 DI token）
-│   │   ├── s3-object-storage.ts          實作：@aws-sdk/client-s3（見 09-file.md）
-│   │   └── storage.module.ts
-│   ├── image/
-│   │   ├── image-processor.ts            ★ ImageProcessor 抽象類別（同時是 DI token）
-│   │   ├── sharp-image-processor.ts      實作：sharp / libvips（見 09-file.md §5.4）
-│   │   └── image.module.ts
-│   ├── mail/
-│   │   ├── mail-transport.ts             ★ MailTransport 抽象類別（smtp / console，見 11-mail.md）
-│   │   ├── mail.service.ts               範本 → HTML ＋ 純文字 → 傳輸層；信裡的連結
-│   │   └── mail-layout.tsx               所有信共用的外框（React Email）
-│   ├── authz/                            ★ 關係圖權限引擎（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9；rbac/01-domain-model.md §6）
-│   │   ├── authz.model.ts                型別 DSL（direct／computed／from／聯集／交集）、模型驗證、靜態蘊含
-│   │   ├── authz.checker.ts              記憶化判斷器（check／explain／withEdges）
-│   │   ├── authz.types.ts                核心型別 user、role、由權限目錄產生的 tenant
-│   │   ├── authz.registry.ts             業務模組在 onModuleInit 註冊自己的型別（例：file.authz.ts）
-│   │   ├── authz.repository.ts           relation_tuples 查詢、主體閉包遞迴 CTE
-│   │   ├── authz.service.ts              批次解析權限集合、建立判斷器
-│   │   └── authz.revision.ts             關係圖的 revision：寫入後失效整個租戶的權限快取並廣播（05-rbac.md §5.1）
-│   ├── broadcast/
-│   │   └── broadcast.service.ts          程序之間的失效廣播：平台 DB 的 LISTEN／NOTIFY，每個程序一條監聽連線
-│   └── jobs/
-│       ├── job-type.ts                   defineJob()：工作名稱 ＋ 資料型別 ＋ 重試設定
-│       ├── job-queue.ts                  ★ JobQueue：register / enqueue / retry（底層 pg-boss，見 10-jobs.md）
-│       ├── job-store.ts                  管理頁的列表與即時計數
-│       └── jobs.module.ts
+│   ├── cache/                            權限集合、使用者、API token 的快取（★ permission-cache.service.ts）
+│   ├── authz/                            ★ 關係圖權限引擎（rbac/01-domain-model.md §9）：型別 DSL、判斷器、relation_tuples 查詢、revision
+│   ├── broadcast/                        程序之間的失效廣播：平台 DB 的 LISTEN／NOTIFY
+│   ├── events/                           DomainEventBus：領域事件（交易後發佈，訂閱者如推播；08-realtime.md §7）
+│   ├── errors/                           AppException、ErrorCode（轉出 @b2b-system/error-codes）、HttpExceptionFilter、資料庫錯誤的去參數化
+│   ├── http/                             request-context（AsyncLocalStorage）、分頁與排序、游標、對外連線的 SSRF 防護（outbound.ts）
+│   ├── logger/                           Pino：存取日誌與應用程式日誌、redact
+│   ├── validation/                       ZodValidationPipe、Zod → OpenAPI
+│   ├── settings/                         執行期可調的系統設定（12-settings.md）
+│   ├── jobs/                             ★ JobQueue（pg-boss）：defineJob()、register／enqueue（10-jobs.md）
+│   ├── mail/                             ★ MailTransport（smtp／console）、MailService、信的外框（11-mail.md）
+│   ├── storage/                          ★ ObjectStorage（S3 SDK；09-file.md）
+│   ├── image/                            ★ ImageProcessor（sharp；09-file.md §5.4）
+│   ├── crypto/                           SecretBox：租戶連線字串、IdP 密鑰的加密
+│   └── resource/                         RESOURCE_TYPE：跨模組的資源識別字串
 │
-├── common/                               ← 薄；只有 decorator 與 guard
-│   ├── decorators/
-│   │   ├── public.decorator.ts
-│   │   ├── authenticated.decorator.ts
-│   │   ├── require-permissions.decorator.ts
-│   │   ├── require-feature.decorator.ts  @RequireFeature：端點屬於可啟用的 feature（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D11）
-│   │   ├── require-flag.decorator.ts     @RequireFlag：端點還在以 feature flag 試行（[`architecture/05-tenancy.md`](../05-tenancy.md) §11.2 D5）
-│   │   └── current-user.decorator.ts
-│   ├── guards/
-│   │   ├── jwt-auth.guard.ts
-│   │   ├── feature.guard.ts              租戶沒有啟用 → FEATURE_DISABLED（404）
-│   │   └── permissions.guard.ts
-│   └── types/
-│       └── authenticated-request.ts
+├── common/                               ← 薄；decorator、guard、請求上的型別
+│   ├── decorators/                       @Public、@Authenticated、@RequirePermissions、@RequireFeature、@RequireFlag、@ApiSurface、@CurrentUser…
+│   ├── guards/                           SurfaceGuard、RateLimitGuard、JwtAuthGuard、WsAuthGuard、FeatureGuard、PermissionsGuard（§3.1）
+│   ├── auth/                             access token 的驗證（AccessTokenModule）、API token 的格式
+│   ├── types/                            AuthUser、PERMISSION 常數、請求與 socket 的型別
+│   ├── route-audit.ts                    啟動時的路由稽核：沒宣告授權就啟動失敗（05-rbac.md §7）
+│   └── rate-limit.ts                     速率限制的規則（03-api-conventions.md §8）
 │
-├── modules/
-│   ├── auth/
-│   ├── user/
-│   ├── role/
-│   ├── permission/
-│   ├── audit-log/                        含熱 → 冷搬移的排程工作（06-audit-log.md §8）
-│   ├── file/                             files 轉介表 ＋ 直傳上傳、影像變體、維護排程、資料夾授權的讀寫與等級規則（09-file.md）
+├── modules/                              ← 業務模組，一個資料夾一個 Nest module（相依見 §4）
+│   ├── auth/                             登入、續期、登出、SSO 互動、外部 IdP 登入（04-auth.md、04-sso.md）
+│   ├── credential/                       token 的儲存、密碼雜湊與政策、帳號連結信（§4.2）
+│   ├── oidc-provider/                    api 當 OIDC Provider（04-sso.md §12）
+│   ├── identity-provider/                外部 IdP 連線（04-sso.md §12.2 D8–D11）
+│   ├── user/                             使用者管理；登入流程要用的帳號讀寫也由它匯出
+│   ├── role/ · group/ · permission/      角色、群組、權限目錄與權限集合（05-rbac.md、rbac/08-groups.md）
+│   ├── authz-explain/                    「為什麼能做 X」（rbac/09-explain.md）
+│   ├── service-account/ · api-token/     服務帳號與 API token（06-external-api.md）
+│   ├── approval/                         審批的狀態機；handler 由擁有資源的模組登記（rbac/06-approval.md）
+│   ├── file/                             files 轉介表、直傳上傳、影像變體、資料夾與資料夾授權（09-file.md）
+│   ├── trash/ · revision/                回收桶（13-trash.md）、版本歷史（14-revisions.md）
+│   ├── notification/                     站內通知與事件管理（15-notification.md、16-notification-event.md）
+│   ├── webhook/ · tag/ · announcement/   Webhook（17）、標籤（18）、公告（19）
+│   ├── audit-log/                        稽核的寫入、查詢、熱 → 冷搬移（06-audit-log.md）
+│   ├── realtime/                         推播：訂閱領域事件、Socket.io gateway（08-realtime.md）
+│   ├── system/                           系統設定的 API（12-settings.md）
 │   ├── job/                              背景工作的管理 API（10-jobs.md §6）
+│   ├── tenant/                           租戶的公開資訊、平台的租戶管理與佈建（05-tenancy.md）
+│   ├── platform-admin/                   平台管理者、平台的帳號流程與稽核（05-tenancy.md §10.2 D5）
+│   ├── platform-notification/            平台管理者的站內通知（15-notification.md §6.2）
 │   ├── feature-flag/                     feature flag 的平台管理 API（05-tenancy.md §5.2）
 │   └── health/
 │
 ├── db/
-│   ├── schema/
-│   │   ├── users.ts
-│   │   ├── roles.ts
-│   │   ├── permissions.ts
-│   │   ├── relation-tuples.ts            關係圖的邊與 authz_revision；邊的建構函式與查詢條件（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9）
-│   │   ├── refresh-tokens.ts
-│   │   ├── audit-logs.ts
-│   │   ├── auth-tokens.ts                啟用 / 密碼重設 token
-│   │   ├── files.ts                      檔案轉介表（id ↔ 物件儲存的 key）
-│   │   └── index.ts
+│   ├── schema/                           租戶 DB 的表（每租戶一個 database）；soft-delete.ts 的 notDeleted()／isDeleted()
+│   ├── platform/                         平台 DB 的 schema 與 migration、租戶登記
 │   ├── relations.ts
-│   ├── migrations/                       drizzle-kit 產生，進版控
-│   └── seeds/
-│       ├── index.ts
-│       ├── permissions.ts
-│       ├── roles.ts
-│       ├── super-admin.ts
-│       └── dev.ts
+│   ├── migrations/                       租戶 DB 的 migration（drizzle-kit 產生，進版控）
+│   ├── connect.ts · provision.ts         不經 DI 的連線、租戶 DB 的建立與 migration（執行期也用）
+│   ├── bootstrap/                        租戶的初始資料：權限目錄、系統角色、第一位管理員（db:seed 與租戶佈建共用）
+│   ├── seeds/                            db:seed（permissions.ts 是權限鍵的唯一來源）、db:seed:dev、db:seed:e2e
+│   ├── client.ts · script-guard.ts       CLI 的連線（讀 .env、解開租戶連線字串）與防呆（02-database.md §6.1）
+│   └── migrate.ts · reset.ts · archive-audit-logs.ts · drop-tenant.ts
 │
-└── cli/                                  維運指令
-    └── reset-super-admin.ts
+└── cli/                                  維運指令（不經 Nest DI；正式映像也編進去）
+    └── reset-super-admin.ts              災難復原：簽發 super-admin 的一次性重設連結（rbac/05-seed-and-bootstrap.md §7）
 ```
 
 ---
@@ -156,11 +122,16 @@ apps/api/src/
 ```
 HTTP Request
   │
-  ▼ ① RequestIdMiddleware
-     產生 / 沿用 x-request-id，塞進 AsyncLocalStorage（讓 logger 與稽核都能取用）
+  ▼ ① RequestIdMiddleware → TenantMiddleware
+     產生 / 沿用 x-request-id，塞進 AsyncLocalStorage（讓 logger 與稽核都能取用）；
+     依網域決定租戶（05-tenancy.md）
   │
-  ▼ ② ThrottlerGuard (APP_GUARD)
-     速率限制。/auth/login 與 /auth/forgot-password 有更嚴格的獨立設定
+  ▼ ①' SurfaceGuard (APP_GUARD，全域 guard 的第一個)
+     另一個入口的路由回 404 NOT_FOUND：內部 api 的 /v1/*、對外 API 的內部路由（06-external-api.md §9.2 D11）。
+     不驗身分、不限流，就像那條路由不存在
+  │
+  ▼ ② RateLimitGuard (APP_GUARD)
+     速率限制（03-api-conventions.md §8）：已登入以「租戶＋使用者」、未登入以 IP、登入類端點以「帳號＋IP」計數
   │
   ▼ ③ JwtAuthGuard (APP_GUARD)
      @Public → 放行
@@ -205,6 +176,7 @@ HTTP Request
 ```ts
 // app.module.ts
 providers: [
+  { provide: APP_GUARD, useClass: SurfaceGuard },
   { provide: APP_GUARD, useClass: RateLimitGuard },
   { provide: APP_GUARD, useClass: JwtAuthGuard },
   { provide: APP_GUARD, useClass: WsAuthGuard },
@@ -225,26 +197,45 @@ HTTP 由 `JwtAuthGuard`、ws 由 `WsAuthGuard` 認人（[`08-realtime.md`](./08-
 
 ## 4. 模組相依
 
+各 `*.module.ts` 的 `imports`（Nest 的 DI 相依）。🔒 `src/__tests__/module-graph-doc.spec.ts` 拿這張圖與每個 `*.module.ts` 對照，
+新增或拿掉一條 `imports` 而沒有改這裡，測試就失敗。
+
 ```
 app.module
-  ├─ core（global）: Config · Database · Cache · Logger · Events（DomainEventBus）· Jobs · Mail · Settings · Authz …
-  ├─ AuthModule          ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin
-  ├─ TenantModule        ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
-  ├─ OidcProviderModule  ──▶ User · PlatformAdmin
-  ├─ UserModule          ──▶ Credential · Approval · IdentityProvider
-  ├─ FileModule          ──▶ ResourceGrant · Approval
-  ├─ RealtimeModule      ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
-  ├─ 葉節點：Credential · PlatformNotification · IdentityProvider · Approval · ResourceGrant · Role · FeatureFlag · Job · System · Health
-  └─ 全域葉節點（@Global）：Permission · AuditLog · PlatformAdmin
+  ├─ core（global）: Config · Logger · Database · Tenancy · FeatureFlags · Cache · Authz · Broadcast · Settings · Events · Jobs · Storage · Mail · Image · AccessToken
+  ├─ AuthModule            ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin
+  ├─ TenantModule          ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
+  ├─ OidcProviderModule    ──▶ User · PlatformAdmin
+  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Announcement
+  ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag
+  ├─ GroupModule           ──▶ Trash · Announcement
+  ├─ RoleModule            ──▶ Trash · Revision
+  ├─ ApprovalModule        ──▶ Notification · Webhook
+  ├─ AnnouncementModule    ──▶ Notification · Trash
+  ├─ WebhookModule         ──▶ Notification
+  ├─ ServiceAccountModule  ──▶ ApiToken
+  ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
+  ├─ PlatformAdminModule   ──▶ PlatformNotification
+  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · Notification · Permission · PlatformNotification · Revision · System · Tag · Trash
+  └─ @Global：Permission · AuditLog · PlatformAdmin
 ```
 
-全域葉節點不必寫進 `imports` 也注入得到（上圖省略）：`PermissionsGuard` 要用它們
-（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4），部分模組也不經 `imports` 直接注入它們的 service。
+`@Global` 的三個模組不必寫進 `imports` 也注入得到（上圖不畫這些邊）：`PermissionsGuard` 要用它們
+（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4），大部分模組也直接注入 `AuditService`、`PermissionService`。
+只 import 對方的純函式或型別（不經 DI）的依賴也不在圖上，例：`platform-admin` 用 `credential/` 的 `password`、`token-hash`。
+這兩種依賴與圖上的邊一起由 `src/__tests__/layer-dependencies.spec.ts` 檢查：模組之間（以資料夾計）不循環。
+
+圖裡有兩種被依賴的模組：
+
+| 種類 | 模組 | 規則 |
+| --- | --- | --- |
+| 葉節點 | `permission`、`audit-log`、`platform-admin`、`platform-notification`、`credential` | 只依賴彼此（🔒 `layer-dependencies.spec.ts` 的 `LEAF_MODULES`）：`PermissionsGuard` 與依賴 credential 的模組才不會把一整串業務模組帶進來 |
+| 通用模組 | `notification`、`webhook`、`trash`、`revision`、`tag`、`approval`、`announcement` | 不 import 擁有資源的業務模組：擁有者 import 它，在 `onModuleInit`／constructor 登記自己的 handler、事件或資源類型（例：`TrashService.registerHandler()`、`WebhookEventCatalog.register()`），在業務交易內呼叫它 |
 
 規則：
 
 - **跨模組只注入對方 `exports` 的 service**，不注入 repository。
-- 葉節點被很多人依賴，自己不依賴業務模組的 DI（只可以 import 別人的純函式與型別）。
+- 葉節點被很多人依賴，自己不依賴葉節點以外的業務模組（只可以 import 別人的純函式與型別）。
   `PlatformAdminModule` 用 `credential/` 的 `password`、`token-hash`、`refresh-rotation`、`mails/`，
   並 import 同為葉節點的 `PlatformNotificationModule`（換角色時通知本人）。
 - 循環依賴一律用重構解決，**不用 `forwardRef`**。出現循環代表職責畫錯了。
@@ -263,15 +254,17 @@ app.module
   同一個效果不要兩條路都做：訂閱端要能分辨哪些情況已經由直接呼叫處理（例：`OidcProviderService` 訂閱
   `sessions.revoked` 只處理帶 `userIds` 的，租戶層級的由 `endTenantSessions` 直接處理）。
 
-### 4.1 一個實際的循環與它的解法
+### 4.1 一個曾經的循環與它的解法
 
-`UserService.assignRoles()` 需要檢查反提權，也就是需要「某個角色的權限集合」——
-那在 `RoleService` 裡。而 `RoleService.delete()` 需要知道「還有多少使用者持有
-這個角色」——那在 `UserService` 裡。
+`UserService.replaceRoles()` 要做反提權檢查，需要「某個角色的權限集合」；`RoleService.remove()` 要知道「還有多少人持有這個角色」（`ROLE_IN_USE`）。
+直覺的寫法是 `User → Role`（查權限集合）加上 `Role → User`（查持有人數），兩個模組互相依賴。
 
-解法：把「查某角色有多少人持有」放進 `RoleRepository`（它查 `relation_tuples` 上角色的持有者邊
-`role:<id>#holder@user:*`，邊的形狀在 `db/schema/relation-tuples.ts`），`RoleService` 不需要 `UserService`。
-單向依賴：`UserModule → RoleModule`。
+現在兩個模組之間 **沒有任何相依**，兩邊都只往下依賴關係圖：
+
+- 持有者走關係圖：全域葉節點的 `PermissionService.findUserIdsHoldingRole()` 找出持有的人（含經由群組；邊的形狀 `role:<id>#holder@…` 在
+  `db/schema/relation-tuples.ts`），`RoleRepository` 算其中未刪除的人數。`RoleService` 不需要 `UserService`。
+- 反提權也在 `PermissionService`（`assertRolesAssignable()`、`assertCanGrant()`）：使用者、群組、服務帳號指派角色時都呼叫它，
+  `UserService` 不需要 `RoleService`。
 
 ### 4.2 憑證基礎設施與登入流程
 

@@ -14,7 +14,7 @@ import { ApprovalService } from './approval.service';
 import { APPROVAL_WEBHOOK_EVENTS } from './approval.webhooks';
 
 /**
- * 葉節點模組：只依賴 Permission / AuditLog（皆為 @Global）與 Notification、Webhook（通用模組，不依賴業務模組）。
+ * 通用模組：只依賴 Permission / AuditLog（皆為 @Global）與 Notification、Webhook（同為通用模組，不依賴業務模組）。
  * 擁有資源的業務模組 import 它，並以 `ApprovalService.registerHandler()` 登記自己的 `ApprovalHandler`
  * （docs/rbac/06-approval.md §4）。
  */

@@ -1,12 +1,10 @@
-import { randomBytes } from 'node:crypto';
-
-import { and, eq, isNull } from 'drizzle-orm';
+import { isNull } from 'drizzle-orm';
 
 import { generateStrongPassword, hashPassword } from '@/modules/credential/password';
-import { sha256 } from '@/modules/credential/token-hash';
+import { issuePlatformAuthToken } from '@/modules/platform-admin/platform-auth-token-issue';
 
 import type { PlatformScriptDatabase } from '../connect';
-import { platformAdmins, platformAuditLogs, platformAuthTokens } from '../platform/schema';
+import { platformAdmins, platformAuditLogs } from '../platform/schema';
 import type { PlatformAdminRole } from '../platform/schema';
 import { assertSeedPassword } from './seed-password';
 
@@ -110,22 +108,10 @@ async function issueSetupLink(
   if (!base) {
     throw new Error('PLATFORM_APP_URL 未設定：production 的第一位平台管理者要以設定連結啟用');
   }
-  await db
-    .update(platformAuthTokens)
-    .set({ usedAt: new Date() })
-    .where(
-      and(
-        eq(platformAuthTokens.adminId, adminId),
-        eq(platformAuthTokens.purpose, 'activation'),
-        isNull(platformAuthTokens.usedAt),
-      ),
-    );
-  const raw = randomBytes(32).toString('base64url');
-  await db.insert(platformAuthTokens).values({
+  const { raw } = await issuePlatformAuthToken(db, {
     adminId,
     purpose: 'activation',
-    tokenHash: sha256(raw),
-    expiresAt: new Date(Date.now() + BOOTSTRAP_SETUP_TTL_SECONDS * 1000),
+    validSeconds: BOOTSTRAP_SETUP_TTL_SECONDS,
   });
   // 與 MailService.accountLink 相同的組法；平台管理者的連結不帶 ?tenant=
   const link = new URL(`${base}/setup`);

@@ -106,6 +106,8 @@ pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # reset／seed:dev／seed:e2e 拒絕標記為 production 的平台 DB，不在本機的 DB 要加 --confirm <平台 database 名稱>
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出；db:migrate 登記的預設租戶另要 --database <名稱>
+pnpm --filter @b2b-system/api cli:reset-super-admin (--tenant <代碼> | --platform) --email <email>
+                    # 災難復原：super-admin 忘記密碼又收不到信時，簽發一次性的重設連結並寫稽核（docs/rbac/05-seed-and-bootstrap.md §7）；不在本機的 DB 要加 --confirm <平台 database 名稱>
 pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json apps/api/openapi.external.json && pnpm sdk:generate
                     # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
 pnpm storybook      # packages/ui 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
