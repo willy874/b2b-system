@@ -20,14 +20,14 @@
       "confirm": "確定要刪除角色「{{name}}」嗎？角色會移到回收桶，保留期限內可以還原。",
       "success": "角色已刪除。",
       "systemProtected": "系統角色受保護，不可刪除。",
-      "confirmInUse": "角色「{{name}}」目前有 {{count}} 位使用者持有，刪除後他們會立即失去這個角色的權限；在保留期限內還原角色，他們會一起拿回來。若要先確認是誰，請取消並到角色詳情查看持有者。",
-      "force": "仍要刪除（{{count}} 人將失去此角色）",
+      "confirmInUse_other": "角色「{{name}}」目前有 {{count}} 位使用者持有，刪除後他們會立即失去這個角色的權限；在保留期限內還原角色，他們會一起拿回來。若要先確認是誰，請取消並到角色詳情查看持有者。",
+      "force_other": "仍要刪除（{{count}} 人將失去此角色）",
       "undo": "復原"
     },
     "restore": {
       "action": "還原",
       "success": "已還原「{{name}}」。",
-      "successWithHolders": "已還原「{{name}}」，{{count}} 位原本的持有者一併恢復。",
+      "successWithHolders_other": "已還原「{{name}}」，{{count}} 位原本的持有者一併恢復。",
       "escalation": "這個角色帶有你未持有的權限，無法還原。",
       "viewConflicting": "查看該角色"
     },
@@ -35,15 +35,15 @@
       "delete": {
         "action": "刪除",
         "title": "批次刪除角色",
-        "confirm": "確定要刪除 {{count}} 個角色嗎？角色會移到回收桶，保留期限內可以還原。仍有人持有的角色不會被刪除。",
-        "success": "已刪除 {{count}} 個角色。",
+        "confirm_other": "確定要刪除 {{count}} 個角色嗎？角色會移到回收桶，保留期限內可以還原。仍有人持有的角色不會被刪除。",
+        "success_other": "已刪除 {{count}} 個角色。",
         "ineligible": "系統角色與仍有人持有的角色不能批次刪除。"
       }
     },
     "duplicate": {
       "action": "複製為新角色",
       "success": "已複製為「{{name}}」。",
-      "partial": "已複製，但有 {{count}} 個你未持有的權限被略過。"
+      "partial_other": "已複製，但有 {{count}} 個你未持有的權限被略過。"
     },
     "detail": {
       "title": "角色詳情",
@@ -57,7 +57,7 @@
       "revisions": "版本紀錄",
       "directHolders": "直接持有",
       "groupHolders": "經由群組",
-      "groupMemberCount": "{{count}} 個直接成員"
+      "groupMemberCount_other": "{{count}} 個直接成員"
     },
     "permission": {
       "title": "管理角色權限",
@@ -113,7 +113,7 @@
       "empty": "還沒有版本紀錄。之後修改這個角色時會開始記錄。",
       "diff": "版本差異",
       "noChanges": "與比較對象相同",
-      "expandUnchanged": "展開 {{count}} 行未變更",
+      "expandUnchanged_other": "展開 {{count}} 行未變更",
       "previousMissing": "沒有前一版（這是第一版，或前一版已超過保留期限而被清除），差異以整份內容顯示。",
       "compare": {
         "current": "與目前的內容比較",

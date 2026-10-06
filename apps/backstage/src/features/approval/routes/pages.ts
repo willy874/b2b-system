@@ -8,6 +8,7 @@ import { ApprovalSearchQuerySchema, DEFAULT_APPROVAL_SEARCH } from './model';
 export const ApprovalListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/approval',
+  staticData: { titleKey: 'menu.approval' },
   loader: localeScopeLoader(APPROVAL_LOCALE_SCOPE),
   validateSearch: ApprovalSearchQuerySchema,
   // 等於預設值的參數不寫進網址（子路由也套用）

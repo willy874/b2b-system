@@ -17,7 +17,7 @@
       "includes": "包含的子能力",
       "requires": "需要的權限",
       "dependents": "被這些權限包含或依賴",
-      "grants": "持有它就等於持有（{{count}}）",
+      "grants_other": "持有它就等於持有（{{count}}）",
       "standalone": "這個權限不包含、也不被任何權限包含。"
     },
     "filter": {

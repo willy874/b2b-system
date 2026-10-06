@@ -4,7 +4,8 @@ export interface ServiceAccountRowVM {
   id: string;
   name: string;
   status: ServiceAccount['status'];
-  roleNames: string;
+  /** 角色名稱；串接成一句由畫面依語系處理（`formatList`）。 */
+  roleNames: string[];
   activeTokenCount: number;
   createdAt: Date;
 }
@@ -15,7 +16,7 @@ export function toServiceAccountRowVM(dto: ServiceAccount): ServiceAccountRowVM 
     id: dto.id,
     name: dto.name,
     status: dto.status,
-    roleNames: dto.roles.map((role) => role.name).join('、') || '-',
+    roleNames: dto.roles.map((role) => role.name),
     activeTokenCount: dto.activeTokenCount,
     createdAt: new Date(dto.createdAt),
   };

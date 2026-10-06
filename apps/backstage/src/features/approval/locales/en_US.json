@@ -38,15 +38,19 @@
       "approve": {
         "action": "Approve",
         "title": "Approve requests",
-        "confirm": "Approve {{count}} requests? Active accounts will be created without roles or a review comment (open the review dialog to assign roles).",
-        "success": "Approved {{count}} requests.",
+        "confirm_one": "Approve {{count}} request? An active account will be created without roles or a review comment (open the review dialog to assign roles).",
+        "confirm_other": "Approve {{count}} requests? Active accounts will be created without roles or a review comment (open the review dialog to assign roles).",
+        "success_one": "Approved {{count}} request.",
+        "success_other": "Approved {{count}} requests.",
         "ineligible": "Only pending requests can be approved; approving a registration requires the \"Create user\" permission."
       },
       "reject": {
         "action": "Reject",
         "title": "Reject requests",
-        "confirm": "Reject {{count}} requests? No review comment will be attached.",
-        "success": "Rejected {{count}} requests.",
+        "confirm_one": "Reject {{count}} request? No review comment will be attached.",
+        "confirm_other": "Reject {{count}} requests? No review comment will be attached.",
+        "success_one": "Rejected {{count}} request.",
+        "success_other": "Rejected {{count}} requests.",
         "ineligible": "Only pending requests can be rejected."
       }
     },

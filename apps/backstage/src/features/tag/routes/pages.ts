@@ -9,6 +9,7 @@ import { DEFAULT_TAG_SEARCH, TagSearchQuerySchema } from './model';
 export const TagListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/tag',
+  staticData: { titleKey: 'menu.tag' },
   loader: localeScopeLoader(TAG_LOCALE_SCOPE),
   validateSearch: TagSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_TAG_SEARCH)] },

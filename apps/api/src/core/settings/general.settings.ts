@@ -14,8 +14,8 @@ export function isTimeZone(value: string): boolean {
 }
 
 /**
- * 租戶的預設時區（IANA 名稱）：使用者沒有設定時區偏好時用它顯示時間；公告的週期也依它計算
- * （docs/architecture/backend/19-announcement.md §9.2 D11）。公開：前端在登入前就要用它顯示時間。
+ * 租戶的預設時區（IANA 名稱）：公告的週期依它計算（docs/architecture/backend/19-announcement.md §9.2 D11）。
+ * 畫面上的時間用使用者自己的時區偏好，不讀它（docs/architecture/backend/12-settings.md §5.3）。
  * 定義放在 core：登記仍由 `modules/system` 負責，其他模組只讀它的值。
  */
 export const DEFAULT_TIMEZONE_SETTING = defineSetting({

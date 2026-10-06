@@ -9,6 +9,7 @@ import type { RichTablePagination, TableSearchProps } from '@b2b-system/web-core
 import { useTranslation } from '@b2b-system/web-core/locales';
 import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { formatDateTime } from '@b2b-system/web-shared/date';
+import { formatList } from '@b2b-system/web-shared/utils';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
@@ -46,7 +47,7 @@ export function ServiceAccountTable({
   onRetry,
   pagination,
 }: ServiceAccountTableProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const columns = useMemo<Array<TableColumnDef<ServiceAccountRowVM>>>(
     () => [
@@ -80,7 +81,9 @@ export function ServiceAccountTable({
         header: t('serviceAccount.field.roles'),
         enableSorting: false,
         cell: ({ row }) => (
-          <TextEllipsis className="max-w-60">{row.original.roleNames}</TextEllipsis>
+          <TextEllipsis className="max-w-60">
+            {formatList(row.original.roleNames, language) || '-'}
+          </TextEllipsis>
         ),
       },
       {
@@ -113,7 +116,7 @@ export function ServiceAccountTable({
           ),
       },
     ],
-    [canDelete, onDelete, search, t],
+    [canDelete, language, onDelete, search, t],
   );
 
   return (

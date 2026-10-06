@@ -2,7 +2,7 @@
   "file": {
     "title": "檔案",
     "description": "上傳與管理檔案。用資料夾分類，把檔案或資料夾拖到資料夾上即可移動；從電腦拖曳檔案或整個資料夾到下方即可上傳。",
-    "total": "共 {{count}} 個檔案",
+    "total_other": "共 {{count}} 個檔案",
     "refresh": "重新整理",
     "download": "下載",
     "select": "選取「{{name}}」",
@@ -67,8 +67,8 @@
       "summary": "第 {{from}}–{{to}} 個，共 {{total}} 個"
     },
     "selection": {
-      "count": "已選取 {{count}} 個",
-      "selectAll": "選取全部 {{count}} 個",
+      "count_other": "已選取 {{count}} 個",
+      "selectAll_other": "選取全部 {{count}} 個",
       "hint": "點選以選取；按住 Shift／Ctrl 可多選，或在空白處拖曳框選。雙擊開啟，拖到資料夾上移動。"
     },
     "empty": {
@@ -81,8 +81,8 @@
     "upload": {
       "action": "上傳",
       "dropHint": "放開以上傳",
-      "queued": "已將 {{count}} 個檔案加入上傳佇列",
-      "rejected": "{{count}} 個檔案未上傳：「{{name}}」{{reason}}",
+      "queued_other": "已將 {{count}} 個檔案加入上傳佇列",
+      "rejected_other": "{{count}} 個檔案未上傳：「{{name}}」{{reason}}",
       "files": "上傳檔案",
       "directory": "上傳資料夾",
       "dropHintFolder": "放開以上傳到「{{name}}」"
@@ -105,17 +105,17 @@
     "batch": {
       "upload": {
         "title": "上傳檔案",
-        "success": "已上傳 {{count}} 個檔案"
+        "success_other": "已上傳 {{count}} 個檔案"
       },
       "delete": {
         "title": "刪除檔案",
-        "confirm": "確定要刪除 {{count}} 個檔案嗎？刪除會在背景逐一進行，檔案會移到回收桶，保留期限內可以還原。",
-        "success": "已刪除 {{count}} 個檔案"
+        "confirm_other": "確定要刪除 {{count}} 個檔案嗎？刪除會在背景逐一進行，檔案會移到回收桶，保留期限內可以還原。",
+        "success_other": "已刪除 {{count}} 個檔案"
       },
       "deleteFolder": {
         "title": "刪除資料夾",
-        "success": "已刪除 {{count}} 個資料夾",
-        "confirm": "確定要刪除 {{count}} 個項目嗎？選取的資料夾連同其中的檔案與子資料夾都會移到回收桶。刪除會在背景逐一進行，保留期限內可以還原。"
+        "success_other": "已刪除 {{count}} 個資料夾",
+        "confirm_other": "確定要刪除 {{count}} 個項目嗎？選取的資料夾連同其中的檔案與子資料夾都會移到回收桶。刪除會在背景逐一進行，保留期限內可以還原。"
       }
     },
     "preview": {
@@ -134,7 +134,7 @@
     },
     "folder": {
       "label": "資料夾",
-      "subfolders": "{{count}} 個子資料夾",
+      "subfolders_other": "{{count}} 個子資料夾",
       "root": "所有檔案",
       "location": "目前位置",
       "tree": "資料夾",
@@ -156,19 +156,19 @@
       },
       "restore": {
         "success": "已還原「{{name}}」與其中的檔案、子資料夾。",
-        "partial": "已還原「{{name}}」，其中 {{count}} 個檔案的內容已不存在，無法還原。",
+        "partial_other": "已還原「{{name}}」，其中 {{count}} 個檔案的內容已不存在，無法還原。",
         "nameConflict": "同一個位置已有同名的資料夾，請先把它改名或移走再還原。"
       }
     },
     "move": {
       "open": "移動",
-      "title": "移動 {{count}} 個項目到…",
+      "title_other": "移動 {{count}} 個項目到…",
       "action": "移到這裡",
       "target": "目的地資料夾",
       "search": "搜尋資料夾",
       "viewer": "以資料夾樹檢視",
-      "success": "已移動 {{count}} 個項目",
-      "dragLabel": "{{count}} 個項目"
+      "success_other": "已移動 {{count}} 個項目",
+      "dragLabel_other": "{{count}} 個項目"
     },
     "access": {
       "locked": "沒有存取權",

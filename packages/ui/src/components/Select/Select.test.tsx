@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { installFakeListLayout } from '../../testing/fakeLayout';
+import { Field } from '../Field';
 import { Select } from './index';
 import type { SelectOption } from './index';
 
@@ -556,5 +557,64 @@ describe('Select（搜尋）', () => {
     await openSelect('使用者');
     expect(getRow('a')).toHaveAttribute('data-described');
     expect(within(getRow('a')).getByText('alice@example.com')).toBeInTheDocument();
+  });
+});
+
+describe('Select 放在 Field 裡（docs/architecture/frontend/07-ui-system.md §5）', () => {
+  const zones = [
+    { value: 'UTC', label: 'UTC' },
+    { value: 'Asia/Taipei', label: 'Asia/Taipei' },
+  ];
+
+  it('沒有 aria-label 時以 Field 的標籤為名稱（觸發鈕與列表）', async () => {
+    render(
+      <Field label="時區">
+        <Select options={zones} value="UTC" />
+      </Field>,
+    );
+    expect(screen.getByRole('combobox', { name: '時區' })).toBeInTheDocument();
+    await openSelect('時區');
+    expect(screen.getByRole('listbox', { name: '時區' })).toBeInTheDocument();
+  });
+
+  it('Field 的錯誤以 aria-describedby 連到觸發鈕，並標上 aria-invalid', () => {
+    render(
+      <Field label="角色" error="請選擇角色">
+        <Select options={zones} />
+      </Field>,
+    );
+    const trigger = screen.getByRole('combobox', { name: '角色' });
+    expect(trigger).toHaveAccessibleDescription('請選擇角色');
+    expect(trigger).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('Field 的說明也連到 aria-describedby', () => {
+    render(
+      <Field label="時區" description="影響所有日期的顯示">
+        <Select options={zones} />
+      </Field>,
+    );
+    expect(screen.getByRole('combobox', { name: '時區' })).toHaveAccessibleDescription(
+      '影響所有日期的顯示',
+    );
+  });
+
+  it('明確傳入的 aria-label 優先於 Field 的標籤', () => {
+    render(
+      <Field label="時區">
+        <Select options={zones} aria-label="顯示時區" />
+      </Field>,
+    );
+    expect(screen.getByRole('combobox', { name: '顯示時區' })).toBeInTheDocument();
+  });
+
+  it('點 Field 的標籤會聚焦到觸發鈕', async () => {
+    render(
+      <Field label="時區">
+        <Select options={zones} />
+      </Field>,
+    );
+    await userEvent.click(screen.getByText('時區'));
+    expect(screen.getByRole('combobox', { name: '時區' })).toHaveFocus();
   });
 });

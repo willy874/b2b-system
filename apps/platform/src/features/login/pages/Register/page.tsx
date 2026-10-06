@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input, Textarea } from '@b2b-system/ui/Input';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -188,11 +189,7 @@ export default function RegisterPage() {
             )}
           </form.Field>
 
-          {formError && (
-            <p className="m-0 text-sm text-[var(--color-danger-text)]" data-testid="register-error">
-              {formError}
-            </p>
-          )}
+          <FormError data-testid="register-error">{formError}</FormError>
 
           <Button
             type="submit"

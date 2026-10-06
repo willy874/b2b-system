@@ -138,8 +138,9 @@
 
 - 畫面上的字一律走 `t()`，不寫死中英文字串。
   例外：
-  - `@b2b-system/ui` 不能依賴 `@b2b-system/web-core/locales`，元件的預設文案（`emptyTitle`、`labels` 等）可以寫死，
-    但 `features/` 使用時 **必須** 以 `t()` 傳入。
+  - `@b2b-system/ui` 不能依賴 `@b2b-system/web-core/locales`，元件的預設文案（`emptyTitle`、`labels` 等）可以寫死。
+    `ComponentLabelsContext` 涵蓋的文案（[`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) §3.3）由 `ComponentLabelsHost` 跟著語系傳入；
+    其餘的 `features/` 使用時 **必須** 以 `t()` 傳入。
   - 語言選單的語言名稱用該語言本身書寫（`繁體中文`、`English`），不翻譯。
 - key 不得以字串模板組成，見 [`06-literal-strings.md`](./06-literal-strings.md)。
 - 兩個語系檔（`en_US.json`、`zh_TW.json`）同一批修改；🔒 各 `locales.test.ts`／`resources.test.ts` 會比對兩邊鍵集合，並檢查每個錯誤碼（web-core）與權限（各 app）都有翻譯。
@@ -153,4 +154,5 @@
 
 - 可點的東西用 `<button>` / `<a>`，不在 `<div>` 上掛 `onClick`。
 - 只有圖示的按鈕要有 `aria-label`。
+- 表單送出失敗的訊息用 `@b2b-system/ui/FormError`（`role="alert"`），不寫一般的 `<p>`：焦點留在送出鈕上時，報讀器才念得到。
 - 基線見 [`architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §5。

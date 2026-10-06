@@ -1,4 +1,5 @@
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Textarea } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -65,11 +66,7 @@ export function ApprovalReviewForm({ approval, review, roleOptions }: ApprovalRe
           {t('approval.review.missingCreatePermission')}
         </p>
       )}
-      {review.error && (
-        <p className="m-0 text-sm text-[var(--color-danger-text)]" data-testid="approval-error">
-          {review.error}
-        </p>
-      )}
+      <FormError data-testid="approval-error">{review.error}</FormError>
     </section>
   );
 }

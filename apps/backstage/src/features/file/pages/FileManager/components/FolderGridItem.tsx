@@ -52,7 +52,11 @@ export const FolderGridItem = memo(function FolderGridItem({
       data-selected={selected || undefined}
       data-drop-over={dropOver || undefined}
       data-locked={!item.canRead || undefined}
-      title={item.canRead ? item.name : `${item.name}（${t('file.access.locked')}）`}
+      title={
+        item.canRead
+          ? item.name
+          : t('common.withNote', { name: item.name, note: t('file.access.locked') })
+      }
       style={style}
       className={cn(
         'group absolute flex cursor-default flex-col overflow-hidden rounded-md border bg-[var(--color-surface)] select-none',

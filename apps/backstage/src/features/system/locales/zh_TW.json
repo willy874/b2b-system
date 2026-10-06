@@ -13,7 +13,7 @@
     "field": {
       "defaultTimezone": {
         "label": "預設時區",
-        "description": "使用者沒有設定時區偏好時，用這個時區顯示時間；週期公告的發送時間也依這個時區計算。"
+        "description": "週期公告依這個時區計算發送時間。畫面上的時間依每位使用者偏好設定裡的時區顯示（帳號建立時是 Asia/Taipei），不受這個設定影響。"
       },
       "loginMaxAttempts": {
         "label": "登入失敗鎖定次數",

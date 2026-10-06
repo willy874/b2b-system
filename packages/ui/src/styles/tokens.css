@@ -113,6 +113,13 @@
   --color-warning: var(--seed-yellow-600);
   --color-warning-text: var(--seed-yellow-800);
   --color-warning-on: var(--seed-gray-0);
+  /*
+   * 實心按鈕的填色（搭配 -on 的白字）：按鈕文字是一般文字，要 >= 4.5:1。
+   * --color-success／--color-warning 本身白字不到 4.5:1（Chip、Progress 等仍用它們），按鈕改用較深的色階。
+   */
+  --color-danger-fill: var(--seed-red-600);
+  --color-success-fill: var(--seed-green-700);
+  --color-warning-fill: var(--seed-yellow-800);
 
   --radius-sm: var(--seed-radius-sm);
   --radius-md: var(--seed-radius-md);
@@ -163,7 +170,7 @@
   --color-scrollbar-hover: var(--seed-dark-400);
   --color-tooltip-bg: var(--seed-dark-600);
   --color-tooltip-fg: var(--seed-dark-100);
-  /* 狀態填色沿用淺色（搭配白字仍 >= 3:1），只換前景色 */
+  /* 狀態填色（含按鈕的 -fill）沿用淺色（白字 >= 4.5:1），只換前景色 */
   --color-danger-text: var(--seed-red-300);
   --color-success-text: var(--seed-green-300);
   --color-warning-text: var(--seed-yellow-300);
@@ -179,11 +186,22 @@
 :root {
   --button-height-md: 2.25rem;
   --button-padding-x-md: var(--seed-space-4);
-  /* Hover 一律變淡：實心按鈕往表面色混，外框／幽靈按鈕疊一層淡淡的前景色 */
+  /*
+   * Hover 一律變淡：實心按鈕往表面色混，外框／幽靈按鈕疊一層淡淡的前景色。
+   * 混過之後白字仍要 >= 4.5:1（contrast.test.ts 會算出混色結果再比對）
+   */
   --button-primary-hover-bg: color-mix(in srgb, var(--color-brand) 90%, var(--color-surface));
-  --button-danger-hover-bg: color-mix(in srgb, var(--color-danger) 90%, var(--color-surface));
-  --button-success-hover-bg: color-mix(in srgb, var(--color-success) 90%, var(--color-surface));
-  --button-warning-hover-bg: color-mix(in srgb, var(--color-warning) 90%, var(--color-surface));
+  --button-danger-hover-bg: color-mix(in srgb, var(--color-danger-fill) 90%, var(--color-surface));
+  --button-success-hover-bg: color-mix(
+    in srgb,
+    var(--color-success-fill) 90%,
+    var(--color-surface)
+  );
+  --button-warning-hover-bg: color-mix(
+    in srgb,
+    var(--color-warning-fill) 90%,
+    var(--color-surface)
+  );
   --button-subtle-hover-bg: color-mix(in srgb, var(--color-fg) 6%, transparent);
   --field-height-md: 2.25rem;
 }

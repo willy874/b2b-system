@@ -17,6 +17,7 @@ import {
 export const TenantListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/tenant',
+  staticData: { titleKey: 'menu.tenant' },
   loader: localeScopeLoader(TENANT_LOCALE_SCOPE),
   // 分頁、搜尋與狀態篩選放在網址上：重新整理或分享連結都保留；等於預設值的參數不寫進網址
   validateSearch: TenantSearchQuerySchema,
@@ -27,6 +28,7 @@ export const TenantListRoute = createRoute({
 export const TenantDetailRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/tenant/$id',
+  staticData: { titleKey: 'menu.tenant' },
   loader: localeScopeLoader(TENANT_LOCALE_SCOPE),
   // 目前的分頁放在網址上：重新整理或分享連結都停在同一頁；概覽（預設）不寫進網址
   validateSearch: TenantDetailSearchSchema,

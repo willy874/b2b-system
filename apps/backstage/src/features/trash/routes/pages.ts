@@ -14,6 +14,7 @@ export const TRASH_FEATURE = 'trash';
 export const TrashListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/trash',
+  staticData: { titleKey: 'menu.trash' },
   beforeLoad: requireFeature(TRASH_FEATURE),
   loader: trashLocaleLoader(TRASH_LOCALE_SCOPE),
   validateSearch: TrashSearchQuerySchema,

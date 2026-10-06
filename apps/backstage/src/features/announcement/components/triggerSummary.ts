@@ -33,7 +33,7 @@ export function describeTrigger(
       );
       const keys = RECURRENCE_SUMMARY_KEY[trigger.frequency];
       return t(trigger.interval === 1 ? keys.one : keys.many, {
-        count: trigger.interval,
+        interval: trigger.interval,
         time: trigger.time,
         weekdays: new Intl.ListFormat(language, { type: 'conjunction' }).format(weekdays),
         day:

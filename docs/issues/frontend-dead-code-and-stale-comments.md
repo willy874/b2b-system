@@ -35,10 +35,6 @@
 | `apps/backstage/src/features/file/routes/model.ts` L15、`permission/routes/model.ts` L17、`user/routes/model.ts` L19 | `core/router/search.ts` | 已搬到 `packages/web-core/src/router/search.ts` |
 | `packages/web-core/src/theme/theme.ts` L26 | `themes/tokens.css` | 在 `packages/ui/src/styles/tokens.css` |
 
-另一處過時的註解，跟著各自的問題一起修：
-
-- `locales/i18n.ts` L113、`batch/activeQueue.ts` L55「`useTranslation` 只在切換語系時重渲染」：見 [`use-translation-extra-rerenders.md`](./use-translation-extra-rerenders.md)。
-
 ## 影響
 
 - 死碼讓人以為功能還在用。例如依賴圖替不存在的 query 做失效、route context 看起來是在用的機制。

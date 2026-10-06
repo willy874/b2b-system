@@ -17,7 +17,8 @@
       "includes": "Includes",
       "requires": "Requires",
       "dependents": "Included or required by",
-      "grants": "Holding it also grants ({{count}})",
+      "grants_one": "Holding it also grants ({{count}})",
+      "grants_other": "Holding it also grants ({{count}})",
       "standalone": "This permission neither includes nor is included by any other permission."
     },
     "filter": {

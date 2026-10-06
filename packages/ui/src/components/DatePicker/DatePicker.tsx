@@ -1,14 +1,19 @@
 import { cn } from '@b2b-system/web-shared/utils';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
+import { useFieldControl } from '../Field/fieldControl';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
 import type { DateValue } from './calendar-utils';
+import { useDatePickerLabels } from './datePickerLabels';
+import type { DatePickerLabels } from './datePickerLabels';
 
 import styles from './DatePicker.module.css';
+
+export type { DatePickerLabels } from './datePickerLabels';
 
 /**
  * `className` 落在外框，`data-testid` / `aria-label` 落在 `trigger`；
@@ -25,13 +30,15 @@ export interface DatePickerProps extends SlotOverrides<DatePickerSlot> {
   disabled?: boolean;
   invalid?: boolean;
   clearable?: boolean;
+  /** 日曆的語系；沒有傳時用目前的介面語系（`ComponentLabelsContext`）。 */
   locale?: string;
   /** 沒有選取值時初始顯示的月份（`YYYY-MM-DD`）。 */
   defaultMonth?: DateValue;
   className?: string;
   'aria-label'?: string;
   'data-testid'?: string;
-  labels?: { clear: string; open: string };
+  /** 沒有傳的鍵用 `ComponentLabelsContext` 的文案（目前語系）。 */
+  labels?: DatePickerLabels;
 }
 
 /**
@@ -50,15 +57,21 @@ export function DatePicker({
   locale,
   defaultMonth,
   className,
-  labels = { clear: 'clear', open: 'open calendar' },
+  labels: labelsProp,
   classNames,
   styles: styleOverrides,
   testIds,
   ...rest
 }: DatePickerProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  const labels = useDatePickerLabels(labelsProp);
   const [open, setOpen] = useState(false);
   const triggerSlot = slot('trigger', styles.trigger);
+  // 放在 Field 裡、沒有傳 aria-label 時：名稱是 Field 的標籤加上目前的值，說明與錯誤連到 aria-describedby
+  const field = useFieldControl();
+  const valueId = useId();
+  const labelledBy =
+    !rest['aria-label'] && field?.labelId ? `${field.labelId} ${valueId}` : undefined;
 
   return (
     <div className={cn(styles.root, className)}>
@@ -69,14 +82,17 @@ export function DatePicker({
         trigger={
           <button
             type="button"
+            id={field?.controlId}
             {...triggerSlot}
             disabled={disabled}
-            data-invalid={invalid || undefined}
-            aria-label={rest['aria-label'] ?? labels.open}
+            data-invalid={invalid || field?.invalid || undefined}
+            aria-label={labelledBy ? undefined : (rest['aria-label'] ?? labels.open)}
+            aria-labelledby={labelledBy}
+            aria-describedby={field?.describedBy}
             data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
             <Icon name="calendar" size={16} {...slot('icon')} />
-            <span {...slot('value', styles.value)} data-empty={!value || undefined}>
+            <span {...slot('value', styles.value)} id={valueId} data-empty={!value || undefined}>
               {value ?? placeholder}
             </span>
           </button>
@@ -87,6 +103,7 @@ export function DatePicker({
           min={min}
           max={max}
           locale={locale}
+          labels={labels}
           defaultMonth={defaultMonth}
           onSelect={(next) => {
             onValueChange(next);

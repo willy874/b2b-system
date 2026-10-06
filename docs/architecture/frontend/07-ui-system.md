@@ -75,6 +75,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `Skeleton` / `Spinner`           | 純 CSS                                               |
 | `Icon`                           | SVG sprite ＋ `vite-plugin-svgr`                     |
 | `Empty`                          | 版面元件                                             |
+| `FormError`                      | 純自製：表單層級的錯誤（常駐的 `<p role="alert">`，沒有訊息時 `:empty` 隱藏；錯誤碼放 `data-value`） |
 | `Chip` / `Badge`                 | 純自製                                               |
 | `ConfirmDialogProvider` / `useConfirm` | 包在 `AlertDialog` 外的命令式 API（§3.11）       |
 | `FileUpload`                     | 自製（`<input type="file">` ＋ 拖放）                |
@@ -608,7 +609,7 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 畫布 | 點陣背景、拖曳對齊 8px 格線、滾輪縮放（0.2–2 倍）、`showMinimap`（預設顯示）、`height`（預設 `32rem`）。初次顯示與「顯示全部」不放大超過 1 倍 |
 | 唯讀 | `readOnly`：只能平移、縮放、選取；工具列只剩縮放與顯示全部 |
 | 工具列 | `Toolbar`（§3.14），一律只顯示圖示；放不下時從尾端（縮放、顯示全部）收進「更多」，下拉選項是 `menu-item` ＋ 同樣的 `data-value` |
-| 文案 | `labels`（含「更多」的 `more`）；`features/` 以 `t()` 傳入 |
+| 文案 | `labels`（含「更多」的 `more`）；沒有傳的鍵用 `ComponentLabelsContext` 的 `treeEditor`（目前語系，[`08-i18n.md`](./08-i18n.md) §3.3） |
 | slot | `toolbar` / `canvas` / `node` / `group` / `minimap` / `empty`；`className` / `data-testid` 落在最外層 |
 | testid | 工具列 `tree-editor-toolbar`、按鈕 `tree-editor-action` ＋ `data-value`（`add-root` / `add-child` / `delete` / `auto-layout` / `undo` / `redo` / `zoom-in` / `zoom-out` / `fit-view`）、畫布 `tree-editor-canvas`、節點 `tree-editor-item` ＋ `data-value`（節點 id）＋ `data-selected`＋ `data-state` ＋ `data-highlighted`、節點上的 `+` `tree-editor-add-child`、分組背景 `tree-editor-group` ＋ `data-value`（分組 id）、空狀態 `tree-editor-empty` |
 
@@ -803,8 +804,10 @@ seed、尺寸、字型、z-index 與 component 層都沿用淺色。
 
 - 主色與狀態色的 **前景**（`--color-brand`、`--color-*-text`）調亮到在深色 surface 上 ≥ 4.5:1；
   主色調亮後白字不夠，`--color-brand-fg` 改成深色。
-- 狀態色的 **填色**（`--color-danger` 等）沿用淺色，搭配 `-on` 的白字仍 ≥ 3:1。
-  所以危險按鈕的字用 `--color-danger-on`，不要借用 `--color-brand-fg`。
+- 狀態色的 **填色**（`--color-danger` 等）沿用淺色。實心按鈕另有較深的 `--color-danger-fill`／`--color-success-fill`／`--color-warning-fill`：
+  按鈕文字是一般文字，搭配 `-on` 的白字要 ≥ 4.5:1（hover 往表面色混 10% 之後也是），而 `--color-success`、`--color-warning`
+  本身白字不到 4.5:1（Chip、Progress、邊框等不放文字的地方仍用它們）。
+  所以危險按鈕的字用 `--color-danger-on`，不要借用 `--color-brand-fg`。`contrast.test.ts` 會算出 `color-mix` 的 hover 色再比對。
 - 中性填色有自己的 alias：`--color-fill-subtle`（停用欄位、中性標籤）、`--color-fill`（軌道、骨架、頭像）、
   `--color-scrollbar(-hover)`、`--color-tooltip-bg/-fg`。元件不直接引用 `--seed-gray-*`
   （🔒 `design-system.test.ts` 擋 `components/` 的 CSS 引用 seed 色）。
@@ -839,8 +842,8 @@ Base UI 已處理焦點陷阱、roving tabindex、ARIA 角色與鍵盤互動。�
 | -------- | ------------------------------------------------------------------ |
 | 對比度   | 文字 ≥ 4.5:1，大字與圖示 ≥ 3:1；表單控制項的外框用 `--color-border-control`（≥ 3:1，WCAG 1.4.11），裝飾性分隔線才用 `--color-border`（`contrast.test.ts` 驗證） |
 | 焦點可見 | 每個互動元素有 `:focus-visible` 外框，`--ge-color-focus-ring` 2px  |
-| 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤                       |
-| 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素；`Input` 依 Field 的錯誤狀態補 `aria-invalid`；表單層級的錯誤區用 `role="alert"` |
+| 表單標籤 | 一律用 Base UI `Field.Label`，不用純視覺標籤。Base UI 只認得向它登記 id 的控制項（`Input`、`NumberField`、`Checkbox`、`Switch`）；`Select`、`DatePicker`、`DateRangePicker` 的觸發鈕是 `Popover.Trigger`，登記不到，改讀 `Field` 的 `FieldControlContext`（`useFieldControl()`）：沒有 `aria-label` 時以 `aria-labelledby` 指向標籤（日期選擇器另外帶上目前的值）；觸發鈕帶 `controlId`，點標籤時 `Field` 以它聚焦觸發鈕（只聚焦、不打開下拉，同原生 `<select>`）。之後新增的自製控制項照同樣的方式接上 |
+| 錯誤訊息 | `Field.Error` 帶 `aria-describedby` 連到輸入元素；`Input` 依 Field 的錯誤狀態補 `aria-invalid`；自製控制項從 `FieldControlContext` 取得說明與錯誤的 id（`describedBy`）與 `invalid`（`Select` 標上 `aria-invalid`；日期選擇器的觸發鈕是 `button`，不支援 `aria-invalid`，只以 `data-invalid` 改變外觀）；表單層級的錯誤區（送出失敗、伺服器錯誤）一律用 `FormError`（`role="alert"`，常駐渲染：live region 先存在、內容改變時報讀器比較確定會念出；焦點留在送出鈕上也聽得到） |
 | 必填     | `Field` 的 `required` 除了 aria-hidden 的星號，另有給報讀器的「必填」文字（`ComponentLabelsContext`） |
 | 圖示按鈕 | 必須有 `aria-label`                                                |
 | 停用說明 | 原生 `disabled` 的按鈕收不到 hover／focus，提示出不來。`Button` / `IconButton` 的 `focusableWhenDisabled` 改用 `aria-disabled`（仍可聚焦、hover，點擊與 Enter／Space 被擋下）；包在 `Tooltip` 裡的停用按鈕自動打開，「為什麼不能按」一定看得到（[06-permission.md](./06-permission.md) §6.1）；`loading` 一律隱含開啟（送出中焦點不被踢回 `<body>`）。日曆超出 min / max 的日子同樣用 `aria-disabled`（roving tabindex 要能把焦點移過去）。Base UI 的 `Checkbox` 沒有這個開關，停用理由改寫進常駐的 `description`。其他元素用原生 `disabled` 時提示不會顯示 |

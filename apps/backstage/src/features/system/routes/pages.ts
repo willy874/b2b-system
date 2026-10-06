@@ -16,6 +16,7 @@ export const SYSTEM_SETTING_FEATURE = 'systemSetting';
 export const SettingListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/system/settings',
+  staticData: { titleKey: 'menu.setting' },
   beforeLoad: requireFeature(SYSTEM_SETTING_FEATURE),
   loader: localeScopeLoader(SYSTEM_LOCALE_SCOPE),
 });

@@ -8,14 +8,18 @@ export interface TranslationFacade {
   changeLanguage: typeof changeLanguage;
 }
 
-/** 約 30 行的薄封裝：語系變了、或有語系包載入完成時重渲染，不用 react-i18next。 */
+/** 約 30 行的薄封裝：語系變了、或目前語系的語系包載入完成時重渲染，不用 react-i18next。 */
 export function useTranslation(): TranslationFacade {
   const [version, force] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
     i18n.on('languageChanged', force);
-    // 晚到的語系包（可啟用的 feature 安裝後才登記，docs/architecture/frontend/02-plugin-system.md §9）：已經掛上的元件要換成翻譯後的字串
-    const unsubscribe = subscribeLocaleScopeLoaded(force);
+    // 晚到的語系包（可啟用的 feature 安裝後才登記，docs/architecture/frontend/02-plugin-system.md §9）：已經掛上的元件要換成翻譯後的字串。
+    // 只看目前語系的包：切換語系時 changeLanguage() 先補載每個 scope 的新語系版本（此時 i18n.language 還是舊的，
+    // 畫面上的字不會變），最後的 languageChanged 才重渲染一次；每到一包就全部重繪是白做的
+    const unsubscribe = subscribeLocaleScopeLoaded((_scope, language) => {
+      if (language === i18n.language) force();
+    });
     return () => {
       i18n.off('languageChanged', force);
       unsubscribe();

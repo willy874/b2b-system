@@ -152,7 +152,7 @@
   "notification": {
     "label": "通知",
     "trigger": "通知",
-    "triggerUnread": "通知：{{count}} 則未讀"
+    "triggerUnread_other": "通知：{{count}} 則未讀"
   },
   "explain": {
     "everyone": "所有人",
@@ -196,11 +196,11 @@
     },
     "scopes": {
       "all": "跟著帳號的所有權限",
-      "limited": "限縮為 {{count}} 個權限"
+      "limited_other": "限縮為 {{count}} 個權限"
     },
     "neverUsed": "尚未使用",
     "empty": "還沒有 API token",
-    "lifetime": "{{count}} 天",
+    "lifetime_other": "{{count}} 天",
     "revoke": {
       "action": "撤銷",
       "title": "撤銷 API token",

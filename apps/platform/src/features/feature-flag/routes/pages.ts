@@ -12,6 +12,7 @@ import { DEFAULT_FEATURE_FLAG_SEARCH, FeatureFlagSearchQuerySchema } from './mod
 export const FeatureFlagListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/feature-flag',
+  staticData: { titleKey: 'menu.featureFlag' },
   loader: localeScopeLoader(FEATURE_FLAG_LOCALE_SCOPE),
   validateSearch: FeatureFlagSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_FEATURE_FLAG_SEARCH)] },

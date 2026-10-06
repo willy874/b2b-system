@@ -4,6 +4,7 @@ import { NumberField } from '@b2b-system/ui/NumberField';
 import { Select } from '@b2b-system/ui/Select';
 import { Switch } from '@b2b-system/ui/Switch';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { supportedTimeZones } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
 
 import type { SettingFieldError } from '../../../hooks/useSettingDraft';
@@ -15,13 +16,6 @@ const FIELD_ERROR_KEY = {
   integer: 'setting.error.integer',
   range: 'setting.error.range',
 } as const satisfies Record<SettingFieldError, string>;
-
-/** 瀏覽器支援的 IANA 時區；目前的值不在清單裡（例：瀏覽器較舊）時也要選得到。 */
-function timezoneOptions(current: string): Array<{ value: string; label: string }> {
-  const zones = new Set(Intl.supportedValuesOf('timeZone'));
-  zones.add(current);
-  return [...zones].map((zone) => ({ value: zone, label: zone }));
-}
 
 interface SettingFieldProps {
   field: SettingFieldView;
@@ -68,7 +62,10 @@ export function SettingField({
       : undefined;
 
   const timezones = useMemo(
-    () => (field.input === 'timezone' ? timezoneOptions(String(value)) : []),
+    () =>
+      field.input === 'timezone'
+        ? supportedTimeZones(String(value)).map((zone) => ({ value: zone, label: zone }))
+        : [],
     [field.input, value],
   );
 

@@ -13,7 +13,7 @@
     "field": {
       "defaultTimezone": {
         "label": "Default time zone",
-        "description": "Used to display times for users who have not chosen a time zone, and to calculate the send times of recurring announcements."
+        "description": "Used to calculate the send times of recurring announcements. Times on screen use each user's own time zone preference (Asia/Taipei for new accounts) and are not affected by this setting."
       },
       "loginMaxAttempts": {
         "label": "Failed sign-ins before lockout",

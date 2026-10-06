@@ -1,5 +1,6 @@
 import { Field } from '@b2b-system/ui/Field';
 import { Select } from '@b2b-system/ui/Select';
+import { useErrorToast } from '@b2b-system/web-core/errors';
 import { HeaderToolbarSettings } from '@b2b-system/web-core/layout';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useToast } from '@b2b-system/web-core/notify';
@@ -8,14 +9,14 @@ import { useLocaleStore, useThemeStore, useTimezoneStore } from '@b2b-system/web
 import { THEME_OPTIONS } from '@b2b-system/web-core/theme';
 import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
 import type { Language } from '@b2b-system/web-shared/constants';
+import { supportedTimeZones } from '@b2b-system/web-shared/date';
 import { useMutation } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
 import { invalidateResources, selfUpdated } from '@/apis/resources';
 
 import { useChangeLocale } from '../../hooks/useChangeLocale';
-
-const TIMEZONES = ['Asia/Taipei', 'Asia/Tokyo', 'UTC', 'America/Los_Angeles'];
 
 export default function PreferencePage() {
   const { t } = useTranslation();
@@ -27,10 +28,16 @@ export default function PreferencePage() {
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
 
+  const errorToast = useErrorToast();
   const sync = useMutation({
     ...getUpdateProfileMutationOptions(),
     onSuccess: (updated) => invalidateResources([selfUpdated(updated)]),
+    onError: errorToast,
   });
+  const timezoneOptions = useMemo(
+    () => supportedTimeZones(timezone).map((zone) => ({ value: zone, label: zone })),
+    [timezone],
+  );
 
   // feature 或 plugins/features/* 註冊的分頁由 <PreferenceSections /> 渲染；偏好頁不需要認識它們。
   // 晚一步安裝的 feature（docs/architecture/frontend/02-plugin-system.md §9）登記的分頁與列表：補載它們的語系包
@@ -48,10 +55,12 @@ export default function PreferencePage() {
       <Field label={t('account.field.locale')}>
         <Select
           value={locale}
-          onValueChange={(value) => {
-            changeLocale(value as Language);
-            toast.success(t('account.preference.saved'));
-          }}
+          // 「已儲存」等同步到帳號成功才顯示；失敗時 useChangeLocale 顯示錯誤
+          onValueChange={(value) =>
+            changeLocale(value as Language, {
+              onSaved: () => toast.success(t('account.preference.saved')),
+            })
+          }
           options={SUPPORTED_LANGUAGES.map((language) => ({
             value: language,
             label: LANGUAGE_LABELS[language],
@@ -65,10 +74,13 @@ export default function PreferencePage() {
           value={timezone}
           onValueChange={(value) => {
             setTimezone(value);
-            sync.mutate({ params: { preferences: { timezone: value } } });
-            toast.success(t('account.preference.saved'));
+            sync.mutate(
+              { params: { preferences: { timezone: value } } },
+              { onSuccess: () => toast.success(t('account.preference.saved')) },
+            );
           }}
-          options={TIMEZONES.map((zone) => ({ value: zone, label: zone }))}
+          options={timezoneOptions}
+          searchable
           data-testid="preference-timezone"
         />
       </Field>

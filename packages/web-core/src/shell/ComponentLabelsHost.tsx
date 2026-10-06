@@ -10,7 +10,7 @@ import { useTranslation } from '../locales';
  * 切換語系時 `t` 換新，文案跟著更新。
  */
 export function ComponentLabelsHost({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const labels = useMemo<ComponentLabels>(
     () => ({
       required: t('components.required'),
@@ -26,8 +26,27 @@ export function ComponentLabelsHost({ children }: { children: ReactNode }) {
       paginationPrevious: t('common.previous'),
       paginationNext: t('common.next'),
       paginationPage: t('components.pagination.page'),
+      locale: language,
+      loading: t('common.loading'),
+      calendarPreviousMonth: t('components.calendar.previousMonth'),
+      calendarNextMonth: t('components.calendar.nextMonth'),
+      datePickerClear: t('common.clear'),
+      datePickerOpen: t('components.datePicker.open'),
+      treeEditor: {
+        addRoot: t('components.treeEditor.addRoot'),
+        addChild: t('components.treeEditor.addChild'),
+        deleteSelection: t('components.treeEditor.deleteSelection'),
+        autoLayout: t('components.treeEditor.autoLayout'),
+        fitView: t('components.treeEditor.fitView'),
+        zoomIn: t('components.treeEditor.zoomIn'),
+        zoomOut: t('components.treeEditor.zoomOut'),
+        undo: t('components.treeEditor.undo'),
+        redo: t('components.treeEditor.redo'),
+        more: t('common.more'),
+        empty: t('components.treeEditor.empty'),
+      },
     }),
-    [t],
+    [t, language],
   );
   return <ComponentLabelsContext value={labels}>{children}</ComponentLabelsContext>;
 }

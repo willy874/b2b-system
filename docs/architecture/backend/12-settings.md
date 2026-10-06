@@ -71,7 +71,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 
 | key | 範圍 | 預設 | 公開 | 讀取的地方 |
 | --- | --- | --- | --- | --- |
-| `general.defaultTimezone` | IANA 時區 | `Asia/Taipei` | 是 | 使用者沒有時區偏好時的顯示時區（見 §5.3）；週期公告也依它計算（[`19-announcement.md`](./19-announcement.md) §5.1）。定義在 `core/settings/general.settings.ts`（其他模組要讀），由 `modules/system` 登記 |
+| `general.defaultTimezone` | IANA 時區 | `Asia/Taipei` | 是 | 週期公告依它計算（[`19-announcement.md`](./19-announcement.md) §5.1）；公告的週期預覽也回傳它。**不影響** 畫面上的時間（見 §5.3）。定義在 `core/settings/general.settings.ts`（其他模組要讀），由 `modules/system` 登記 |
 | `auth.loginMaxAttempts` | 3–20 | 5 | 否 | `AuthService`：租戶使用者登入失敗的鎖定 |
 | `auth.loginLockoutSeconds` | 60–86400 | 900 | 否 | 同上 |
 | `auth.passwordMinLength` | 12–64 | 12 | 是 | `AuthService`：設定密碼、重設、變更、註冊 |
@@ -140,8 +140,14 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 
 ### 5.3 預設時區
 
-`general.defaultTimezone` 由 `GET /system/settings/public` 提供，但 backstage 目前的日期格式化（`@b2b-system/web-shared/date`）
-一律用常數 `Asia/Taipei`，連使用者的時區偏好也沒有套用。把偏好與租戶預設接進日期顯示是另一件工作。
+畫面上的時間一律用 **使用者自己的時區偏好**（帳號的 `users.timezone`，profile 水合時套用到這台裝置，
+[`../frontend/08-i18n.md`](../frontend/08-i18n.md) §1、§5），`general.defaultTimezone` 只用在週期公告。
+設定頁的說明照實寫（`setting.field.defaultTimezone.description`），不寫「使用者沒有設定時區時用這個時區顯示」。
+
+沒有接成「使用者沒選時區時用租戶的預設」：`users.timezone` 是 `NOT NULL DEFAULT 'Asia/Taipei'`，
+分不出「選了台北」與「從沒選過」。要做得改成可為 `NULL`（既有的 `Asia/Taipei` 也分不出來，只能全部視為沒選）、
+profile 與使用者 DTO 改成可為 `null`、偏好頁加「跟隨租戶預設」、寄信等讀時區的地方補上退回租戶預設，
+成本與風險都不小，等真的需要時再做。
 
 ## 6. 新增一個設定
 

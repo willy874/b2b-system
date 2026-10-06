@@ -1,6 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
@@ -145,14 +146,7 @@ export function CreatePlatformAdminDialog({ open, onClose }: CreatePlatformAdmin
             data-testid="platform-admin-role-select"
           />
         </Field>
-        {error && (
-          <p
-            className="m-0 text-sm text-[var(--color-danger-text)]"
-            data-testid="platform-admin-create-error"
-          >
-            {error}
-          </p>
-        )}
+        <FormError data-testid="platform-admin-create-error">{error}</FormError>
       </form>
     </Dialog>
   );

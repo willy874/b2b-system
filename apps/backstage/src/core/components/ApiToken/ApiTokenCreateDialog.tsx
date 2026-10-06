@@ -1,6 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import type { SelectOption } from '@b2b-system/ui/Select';
@@ -207,9 +208,7 @@ export function ApiTokenCreateDialog({
               />
             </Field>
           )}
-          <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
-            {error}
-          </p>
+          <FormError>{error}</FormError>
         </form>
       )}
     </Dialog>

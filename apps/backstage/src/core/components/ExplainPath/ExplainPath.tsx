@@ -60,7 +60,7 @@ export function ExplainPath({ nodes, 'data-testid': testId = 'explain-path' }: E
       default: {
         const relationKey = RELATION_LABEL_KEY[node.relation];
         const name = node.name ?? '';
-        return relationKey ? `${name}（${t(relationKey)}）` : name;
+        return relationKey ? t('common.withNote', { name, note: t(relationKey) }) : name;
       }
     }
   };

@@ -1,0 +1,12 @@
+@layer components {
+  .root {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-danger-text);
+  }
+
+  /* 沒有訊息時不佔版面（也不產生 flex 的 gap）；元素本身留著，見 FormError.tsx 的說明 */
+  .root:empty {
+    display: none;
+  }
+}

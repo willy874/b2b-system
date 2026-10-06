@@ -3,11 +3,13 @@ import type { Channel, ChannelOptions } from '@b2b-system/web-shared/channel';
 import {
   DEFAULT_LANGUAGE,
   DEFAULT_TIMEZONE,
+  resolveLanguage,
   SUPPORTED_LANGUAGES,
 } from '@b2b-system/web-shared/constants';
 import type { Language } from '@b2b-system/web-shared/constants';
 import { DEFAULT_THEME, SUPPORTED_THEMES } from '@b2b-system/web-shared/constants';
 import type { ThemePreference } from '@b2b-system/web-shared/constants';
+import { isValidTimeZone } from '@b2b-system/web-shared/date';
 import { create } from '@b2b-system/web-shared/hooks';
 import { createDictStorage } from '@b2b-system/web-shared/storage';
 import type { DictStorageMessages } from '@b2b-system/web-shared/storage';
@@ -99,16 +101,63 @@ export const useHeaderToolbarStore = create<HeaderToolbarStore>((set) => ({
   },
 }));
 
-/** render 前水合，避免「先閃英文再變中文」。 */
+/**
+ * 瀏覽器的語系偏好（`navigator.languages`，依序）對到的第一個支援的語系。
+ * 還沒有帳號資料時（登入頁、第一次開啟）用它，再退回預設（docs/architecture/frontend/08-i18n.md §1）。
+ */
+export function detectBrowserLanguage(): Language | undefined {
+  if (typeof navigator === 'undefined') return undefined;
+  const tags = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const tag of tags) {
+    const language = resolveLanguage(tag);
+    if (language) return language;
+  }
+  return undefined;
+}
+
+/**
+ * render 前水合，避免「先閃英文再變中文」。語系：本機存的 → 瀏覽器的語系 → 預設；
+ * 帳號存的偏好在 profile 回來之後由 `applyAccountPreferences()` 蓋過（以帳號為準）。
+ * 本機存的值可能是舊版本或被手動改過的：不合法就略過。
+ */
 export function hydratePreferences(): void {
-  useLocaleStore.setState({ locale: storage.get<Language>(LOCALE_KEY, DEFAULT_LANGUAGE) });
-  useTimezoneStore.setState({ timezone: storage.get(TIMEZONE_KEY, DEFAULT_TIMEZONE) });
+  const locale = storage.get<unknown>(LOCALE_KEY, undefined);
+  useLocaleStore.setState({
+    locale: isLanguage(locale) ? locale : (detectBrowserLanguage() ?? DEFAULT_LANGUAGE),
+  });
+  const timezone = storage.get<unknown>(TIMEZONE_KEY, undefined);
+  useTimezoneStore.setState({
+    timezone:
+      typeof timezone === 'string' && isValidTimeZone(timezone) ? timezone : DEFAULT_TIMEZONE,
+  });
   const theme = storage.get<unknown>(THEME_KEY, DEFAULT_THEME);
   useThemeStore.setState({ theme: isThemePreference(theme) ? theme : DEFAULT_THEME });
   const toolbar = storage.get<unknown>(HEADER_TOOLBAR_KEY, null);
   useHeaderToolbarStore.setState({
     settings: isHeaderToolbarSettings(toolbar) ? toolbar : null,
   });
+}
+
+/** 帳號存的偏好（`GET /auth/profile` 的 `user.preferences`）。 */
+export interface AccountPreferences {
+  locale?: string | null;
+  timezone?: string | null;
+}
+
+/**
+ * 套用帳號存的語系與時區：本機的偏好與帳號不同時以帳號為準（換電腦、換瀏覽器、清掉網站資料之後仍是自己的設定）。
+ * 語系要對得到支援的語系、時區要 `Intl` 認得才套用；有變才寫入（同時存進本機並廣播給其他分頁），
+ * 切換 i18n 與日期格式由 i18n plugin 訂閱 store 處理。
+ */
+export function applyAccountPreferences(preferences: AccountPreferences): void {
+  const locale = resolveLanguage(preferences.locale);
+  if (locale && locale !== useLocaleStore.getState().locale) {
+    useLocaleStore.getState().setLocale(locale);
+  }
+  const { timezone } = preferences;
+  if (timezone && isValidTimeZone(timezone) && timezone !== useTimezoneStore.getState().timezone) {
+    useTimezoneStore.getState().setTimezone(timezone);
+  }
 }
 
 function isLanguage(value: unknown): value is Language {

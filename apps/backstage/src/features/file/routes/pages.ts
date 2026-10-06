@@ -16,6 +16,7 @@ export const FILE_FEATURE = 'file';
 export const FileListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/file',
+  staticData: { titleKey: 'menu.file' },
   // 未啟用 → 404；清單還沒到或安裝中 → 等待，語系包的 loader 要在安裝之後才跑（docs/architecture/frontend/02-plugin-system.md §9.2 D6）
   beforeLoad: requireFeature(FILE_FEATURE),
   loader: localeScopeLoader(FILE_LOCALE_SCOPE),

@@ -23,7 +23,7 @@
     "none": "無",
     "all": "全部",
     "filter": "篩選",
-    "filterActive": "篩選（{{count}} 個條件）",
+    "filterActive_other": "篩選（{{count}} 個條件）",
     "tableSettings": "欄位設定",
     "dragToReorder": "拖曳調整「{{name}}」的順序",
     "clear": "清除",
@@ -45,8 +45,8 @@
     "pinRowTop": "釘選到頂端",
     "pinRowBottom": "釘選到底端",
     "unpinRow": "取消釘選",
-    "pinnedColumnsSummary": "固定 {{count}} 欄",
-    "pinnedRowsSummary": "釘選 {{count}} 列",
+    "pinnedColumnsSummary_other": "固定 {{count}} 欄",
+    "pinnedRowsSummary_other": "釘選 {{count}} 列",
     "clearPinnedRows": "清除釘選列",
     "selectColumn": "勾選",
     "selectAll": "全選本頁",
@@ -54,24 +54,24 @@
     "pinColumn": "釘選",
     "batch": {
       "toolbar": "批次操作",
-      "selected": "已選取 {{count}} 筆",
+      "selected_other": "已選取 {{count}} 筆",
       "clear": "清除選取",
       "noneEligible": "選取的項目都不適用這個操作。",
-      "skipped": "其中 {{count}} 筆不適用，將會略過。",
+      "skipped_other": "其中 {{count}} 筆不適用，將會略過。",
       "queuedNote": "送出後會在背景逐筆處理，可從右上角的佇列查看進度。",
       "progressLabel": "批次處理進度",
       "progress": {
-        "queued": "排隊中（共 {{total}} 筆）",
+        "queued_other": "排隊中（共 {{count}} 筆）",
         "running": "處理中 {{done}} / {{total}}",
         "done": "已完成 {{done}} / {{total}}",
         "cancelled": "已取消，處理了 {{done}} / {{total}}",
-        "failed": "失敗 {{count}} 筆",
+        "failed_other": "失敗 {{count}} 筆",
         "paused": "已達請求上限，稍後自動繼續"
       },
       "queue": {
         "title": "批次處理佇列",
         "trigger": "批次處理佇列",
-        "triggerActive": "批次處理佇列（{{count}} 個進行中）",
+        "triggerActive_other": "批次處理佇列（{{count}} 個進行中）",
         "empty": "目前沒有批次工作。",
         "clearFinished": "清除已結束"
       },
@@ -79,8 +79,8 @@
       "dismiss": "移除",
       "resultTitle": "「{{name}}」有項目未完成",
       "resultSummary": "成功 {{succeeded}} 筆，失敗 {{failed}} 筆。失敗的項目仍保持勾選。",
-      "cancelledToast": "已取消「{{name}}」，完成的 {{count}} 筆不受影響",
-      "doneToast": "「{{name}}」已完成 {{count}} 筆"
+      "cancelledToast_other": "已取消「{{name}}」，完成的 {{count}} 筆不受影響",
+      "doneToast_other": "「{{name}}」已完成 {{count}} 筆"
     },
     "unsaved": {
       "title": "要放棄尚未儲存的變更嗎？",
@@ -93,14 +93,19 @@
     "staleData": "資料沒有更新成功（{{message}}），目前顯示的是先前的結果。",
     "emptyFiltered": "沒有符合條件的結果",
     "clearFilters": "清除篩選",
-    "paginationSummary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆"
+    "paginationSummary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆",
+    "labelValue": "{{label}}：{{value}}",
+    "labelColon": "{{label}}：",
+    "withNote": "{{name}}（{{note}}）",
+    "parenthetical": "（{{text}}）",
+    "withDescription": "{{name}}｜{{description}}"
   },
   "error": {
     "unknown": "發生未預期的錯誤，請稍後再試。",
     "unknown_with_id": "發生未預期的錯誤（代碼 {{requestId}}），請聯絡管理員。",
     "network": "無法連線到伺服器，請檢查網路後再試。",
     "timeout": "請求逾時，請檢查網路連線後再試。",
-    "rate_limited_retry": "操作太頻繁，請在 {{seconds}} 秒後再試。",
+    "rate_limited_retry_other": "操作太頻繁，請在 {{count}} 秒後再試。",
     "aborted": "請求已取消。",
     "permission_changed": "你的權限剛剛變更了，畫面已重新同步。",
     "VALIDATION_FAILED": "輸入內容不正確，請檢查後再試。",
@@ -153,7 +158,7 @@
     "ROLE_NAME_DUPLICATE": "角色名稱重複。",
     "ROLE_SYSTEM_PROTECTED": "系統角色受保護，不可刪除或改名。",
     "ROLE_SUPER_ADMIN_IMMUTABLE": "超級管理員角色不可變更（名稱、說明與權限）。",
-    "ROLE_IN_USE": "仍有 {{userCount}} 位使用者持有這個角色。",
+    "ROLE_IN_USE_other": "仍有 {{count}} 位使用者持有這個角色。",
     "LAST_SUPER_ADMIN": "系統必須保留至少一位可用的超級管理員。",
     "ROLE_SELF_LOCKOUT": "這個變更會讓你失去管理角色所需的權限，請改由其他管理者操作。",
     "ROLE_VERSION_CONFLICT": "這個角色已經被其他人修改，請重新載入後再編輯。",
@@ -169,7 +174,7 @@
     "SERVICE_ACCOUNT_VERSION_CONFLICT": "這個服務帳號已經被其他人修改，請重新載入後再編輯。",
     "SERVICE_ACCOUNT_ROLES_CONFLICT": "這個服務帳號的角色已經被其他人修改，請重新載入後再調整。",
     "API_TOKEN_NOT_FOUND": "找不到這個 API token，可能已被撤銷。",
-    "API_TOKEN_LIFETIME_EXCEEDED": "有效期限超過上限（最多 {{maxDays}} 天）。",
+    "API_TOKEN_LIFETIME_EXCEEDED_other": "有效期限超過上限（最多 {{count}} 天）。",
     "API_TOKEN_LIMIT_REACHED": "這個帳號的 API token 已達上限（{{max}} 個），請先撤銷不用的 token。",
     "WEBHOOK_NOT_FOUND": "找不到這個 webhook，可能已被刪除。",
     "WEBHOOK_VERSION_CONFLICT": "這個 webhook 已經被其他人修改，請重新載入後再編輯。",
@@ -281,6 +286,26 @@
       "first": "第一頁",
       "last": "最後一頁",
       "page": "頁碼"
+    },
+    "calendar": {
+      "previousMonth": "上個月",
+      "nextMonth": "下個月"
+    },
+    "datePicker": {
+      "open": "開啟日曆"
+    },
+    "treeEditor": {
+      "addRoot": "新增根節點",
+      "addChild": "新增子節點",
+      "deleteSelection": "刪除選取",
+      "autoLayout": "自動排版",
+      "fitView": "顯示全部",
+      "zoomIn": "放大",
+      "zoomOut": "縮小",
+      "undo": "復原",
+      "redo": "重做",
+      "more": "更多",
+      "empty": "還沒有任何節點"
     }
   },
   "theme": {
@@ -300,7 +325,8 @@
       "label": "即時連線狀態",
       "connected": "即時連線：已連線",
       "disconnected": "即時連線：未連線，資料改為定期更新",
-      "disabled": "即時連線：未啟用"
+      "disabled": "即時連線：未啟用",
+      "disconnectedShort": "即時更新已中斷"
     }
   },
   "layout": {

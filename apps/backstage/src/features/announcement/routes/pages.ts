@@ -14,6 +14,7 @@ export const ANNOUNCEMENT_FEATURE = 'announcement';
 export const AnnouncementListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/announcement',
+  staticData: { titleKey: 'menu.announcement' },
   beforeLoad: requireFeature(ANNOUNCEMENT_FEATURE),
   loader: localeScopeLoader(ANNOUNCEMENT_LOCALE_SCOPE),
   validateSearch: AnnouncementSearchQuerySchema,
@@ -42,6 +43,7 @@ export const ANNOUNCEMENT_MESSAGE_BASE_PATH = '/announcement/message';
 export const AnnouncementMessageRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: `${ANNOUNCEMENT_MESSAGE_BASE_PATH}/$dispatchId`,
+  staticData: { titleKey: 'menu.announcement' },
   beforeLoad: requireFeature(ANNOUNCEMENT_FEATURE),
   loader: localeScopeLoader(ANNOUNCEMENT_LOCALE_SCOPE),
 });

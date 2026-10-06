@@ -2,6 +2,7 @@ import { Button } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
@@ -204,14 +205,7 @@ export function EditPlatformAdminDialog({ admin, isSelf, onClose }: EditPlatform
             {t('platformAdmin.hint.pending')}
           </p>
         )}
-        {error && (
-          <p
-            className="m-0 text-sm text-[var(--color-danger-text)]"
-            data-testid="platform-admin-edit-error"
-          >
-            {error}
-          </p>
-        )}
+        <FormError data-testid="platform-admin-edit-error">{error}</FormError>
       </form>
     </Dialog>
   );

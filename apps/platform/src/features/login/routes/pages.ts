@@ -18,6 +18,7 @@ import {
 export const LoginRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/login',
+  staticData: { titleKey: 'login.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: LoginSearchSchema,
 });
@@ -26,6 +27,7 @@ export const LoginRoute = createRoute({
 export const SsoCallbackRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/callback',
+  staticData: { titleKey: 'login.callback.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: SsoCallbackSearchSchema,
 });
@@ -37,6 +39,7 @@ export const SsoCallbackRoute = createRoute({
 export const InteractionRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/interaction/$uid',
+  staticData: { titleKey: 'login.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   // 外部 IdP 登入失敗時 api 帶錯誤碼回到這一頁（例：AUTH_SSO_ACCOUNT_NOT_FOUND）
   validateSearch: SsoErrorSearchSchema,
@@ -45,6 +48,7 @@ export const InteractionRoute = createRoute({
 export const SsoErrorRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/error',
+  staticData: { titleKey: 'login.error.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: SsoErrorSearchSchema,
 });
@@ -56,6 +60,7 @@ export const SsoErrorRoute = createRoute({
 export const EnterTenantRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/enter',
+  staticData: { titleKey: 'login.enterTenant.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: TenantSearchSchema,
 });
@@ -66,6 +71,7 @@ export const EnterTenantRoute = createRoute({
 export const ForgotPasswordRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/forgot-password',
+  staticData: { titleKey: 'login.forgotPassword.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: TenantSearchSchema,
 });
@@ -73,6 +79,7 @@ export const ForgotPasswordRoute = createRoute({
 export const ResetPasswordRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/reset-password',
+  staticData: { titleKey: 'login.resetPassword.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: TokenSearchSchema,
 });
@@ -81,6 +88,7 @@ export const ResetPasswordRoute = createRoute({
 export const SetupRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/setup',
+  staticData: { titleKey: 'login.setup.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: TokenSearchSchema,
 });
@@ -89,6 +97,7 @@ export const SetupRoute = createRoute({
 export const RegisterRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/register',
+  staticData: { titleKey: 'login.register.title' },
   loader: localeScopeLoader(LOGIN_LOCALE_SCOPE),
   validateSearch: TenantSearchSchema,
 });

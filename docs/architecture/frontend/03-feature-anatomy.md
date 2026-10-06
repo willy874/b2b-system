@@ -127,6 +127,7 @@ import { RoleSearchQuerySchema } from "./model";
 export const RoleListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: "/role", // ★ 絕對路徑，直掛 RootRoute
+  staticData: { titleKey: "menu.role" }, // 分頁標題「角色 · 產品名」（08-i18n.md §5）
   loader: localeScopeLoader(ROLE_LOCALE_SCOPE),
   validateSearch: RoleSearchQuerySchema,
   context: () => ({
@@ -159,7 +160,8 @@ export const RoleDetailPermissionRoute = createRoute({
 ```
 
 **規則**：feature 的入口 route 必須直掛 `RootRoute` 且用絕對路徑——因為
-`routeBasePath()` 依賴這一點。子路由用相對路徑。
+`routeBasePath()` 依賴這一點。子路由用相對路徑。入口 route 帶 `staticData.titleKey`（完整字面量；
+通常沿用選單的 `menu.*`），子路由（對話框）沒有時沿用上層；各 app 的 `locales.test.ts` 檢查每個 `titleKey` 都有翻譯。
 
 ### 2.4 `hooks/useRolePermission.ts` — 權限 facade
 

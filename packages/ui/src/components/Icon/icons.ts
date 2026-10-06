@@ -60,6 +60,7 @@ import Upload from '../../icons/upload.svg?react';
 import User from '../../icons/user.svg?react';
 import Users from '../../icons/users.svg?react';
 import Warning from '../../icons/warning.svg?react';
+import WifiOff from '../../icons/wifi-off.svg?react';
 import Wifi from '../../icons/wifi.svg?react';
 import ZoomIn from '../../icons/zoom-in.svg?react';
 import ZoomOut from '../../icons/zoom-out.svg?react';
@@ -132,6 +133,7 @@ export const ICONS = {
   users: Users,
   warning: Warning,
   wifi: Wifi,
+  'wifi-off': WifiOff,
   'zoom-in': ZoomIn,
   'zoom-out': ZoomOut,
 } as const;

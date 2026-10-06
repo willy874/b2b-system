@@ -22,7 +22,8 @@ function readThemes(): Record<'light' | 'dark', Tokens> {
       selector === ':root' ? light : selector === ":root[data-theme='dark']" ? darkOverrides : null;
     if (!target) continue;
     for (const match of (block[2] as string).matchAll(/--([\w-]+):\s*([^;]+);/g)) {
-      target.set(`--${match[1] as string}`, (match[2] as string).trim());
+      // 格式化工具會把長的值（例：color-mix）拆成多行：空白一律收成一個
+      target.set(`--${match[1] as string}`, (match[2] as string).trim().replaceAll(/\s+/g, ' '));
     }
   }
   return { light, dark: new Map([...light, ...darkOverrides]) };
@@ -36,16 +37,43 @@ function resolveToken(tokens: Tokens, name: string, depth = 0): string {
   return value;
 }
 
+/** `color-mix(in srgb, var(--a) 90%, var(--b))`：在 gamma 編碼的 sRGB 上線性內插（與瀏覽器相同）。 */
+const COLOR_MIX =
+  /^color-mix\(\s*in srgb,\s*var\((--[\w-]+)\)\s+(\d+(?:\.\d+)?)%,\s*var\((--[\w-]+)\)\s*\)$/;
+
+function toRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '');
+  return [0, 2, 4].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16)) as [
+    number,
+    number,
+    number,
+  ];
+}
+
+/** 解析到十六進位色碼；支援 `var()` 參照與 `color-mix(in srgb, …)`（hover 色）。 */
+function resolveColor(tokens: Tokens, name: string): string {
+  const value = resolveToken(tokens, name);
+  const mix = COLOR_MIX.exec(value);
+  if (!mix) return value;
+  const weight = Number(mix[2]) / 100;
+  const first = toRgb(resolveColor(tokens, mix[1] as string));
+  const second = toRgb(resolveColor(tokens, mix[3] as string));
+  return `#${first
+    .map((channelValue, index) =>
+      Math.round(channelValue * weight + (second[index] as number) * (1 - weight))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
+
 function channel(value: number): number {
   const srgb = value / 255;
   return srgb <= 0.039_28 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
 }
 
 function luminance(hex: string): number {
-  const normalized = hex.replace('#', '');
-  const [r, g, b] = [0, 2, 4].map((offset) =>
-    Number.parseInt(normalized.slice(offset, offset + 2), 16),
-  ) as [number, number, number];
+  const [r, g, b] = toRgb(hex);
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }
 
@@ -116,15 +144,24 @@ describe.each(Object.entries(themes))('Design Token 對比度（WCAG AA）：%s'
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('狀態色作為填色時，其 -on 前景 >= 3:1', () => {
-    for (const tone of ['danger', 'success', 'warning']) {
+  // 按鈕文字是一般文字（14px／13px、字重 500），WCAG AA 要求 4.5:1，不是大字的 3:1
+  for (const tone of ['danger', 'success', 'warning']) {
+    it(`${tone} 按鈕的 -on 前景在 --color-${tone}-fill 上 >= 4.5:1`, () => {
       const ratio = contrast(
         resolveToken(tokens, `--color-${tone}-on`),
-        resolveToken(tokens, `--color-${tone}`),
+        resolveColor(tokens, `--color-${tone}-fill`),
       );
-      expect(ratio, `${tone} fill`).toBeGreaterThanOrEqual(3);
-    }
-  });
+      expect(ratio, `${tone} fill = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${tone} 按鈕 hover 時（--button-${tone}-hover-bg）-on 前景仍 >= 4.5:1`, () => {
+      const ratio = contrast(
+        resolveToken(tokens, `--color-${tone}-on`),
+        resolveColor(tokens, `--button-${tone}-hover-bg`),
+      );
+      expect(ratio, `${tone} hover = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    });
+  }
 });
 
 describe('深色主題的對照表', () => {

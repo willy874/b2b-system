@@ -2,7 +2,8 @@
   "file": {
     "title": "Files",
     "description": "Upload and manage files. Organize them into folders and drag items onto a folder to move them; drag files or whole folders from your computer below to upload.",
-    "total": "{{count}} files",
+    "total_one": "{{count}} file",
+    "total_other": "{{count}} files",
     "refresh": "Refresh",
     "download": "Download",
     "select": "Select “{{name}}”",
@@ -67,8 +68,10 @@
       "summary": "{{from}}–{{to}} of {{total}}"
     },
     "selection": {
-      "count": "{{count}} selected",
-      "selectAll": "Select all {{count}}",
+      "count_one": "{{count}} selected",
+      "count_other": "{{count}} selected",
+      "selectAll_one": "Select all {{count}}",
+      "selectAll_other": "Select all {{count}}",
       "hint": "Click to select; hold Shift/Ctrl to select more, or drag on empty space. Double-click to open; drag onto a folder to move."
     },
     "empty": {
@@ -81,8 +84,10 @@
     "upload": {
       "action": "Upload",
       "dropHint": "Drop to upload",
-      "queued": "Added {{count}} files to the upload queue",
-      "rejected": "{{count}} files were not uploaded: “{{name}}” {{reason}}",
+      "queued_one": "Added {{count}} file to the upload queue",
+      "queued_other": "Added {{count}} files to the upload queue",
+      "rejected_one": "{{count}} file was not uploaded: “{{name}}” {{reason}}",
+      "rejected_other": "{{count}} files were not uploaded: “{{name}}” {{reason}}",
       "files": "Upload files",
       "directory": "Upload folder",
       "dropHintFolder": "Drop to upload into \"{{name}}\""
@@ -105,17 +110,22 @@
     "batch": {
       "upload": {
         "title": "Upload files",
-        "success": "Uploaded {{count}} files"
+        "success_one": "Uploaded {{count}} file",
+        "success_other": "Uploaded {{count}} files"
       },
       "delete": {
         "title": "Delete files",
-        "confirm": "Delete {{count}} files? They are deleted one by one in the background and moved to the trash, where they can be restored within the retention period.",
-        "success": "Deleted {{count}} files"
+        "confirm_one": "Delete {{count}} file? It is deleted in the background and moved to the trash, where it can be restored within the retention period.",
+        "confirm_other": "Delete {{count}} files? They are deleted one by one in the background and moved to the trash, where they can be restored within the retention period.",
+        "success_one": "Deleted {{count}} file",
+        "success_other": "Deleted {{count}} files"
       },
       "deleteFolder": {
         "title": "Delete folders",
-        "success": "Deleted {{count}} folders",
-        "confirm": "Delete {{count}} items? Selected folders will be moved to the trash together with their files and subfolders. Deletion runs in the background, and items can be restored within the retention period."
+        "success_one": "Deleted {{count}} folder",
+        "success_other": "Deleted {{count}} folders",
+        "confirm_one": "Delete {{count}} item? A selected folder is moved to the trash together with its files and subfolders. Deletion runs in the background, and it can be restored within the retention period.",
+        "confirm_other": "Delete {{count}} items? Selected folders will be moved to the trash together with their files and subfolders. Deletion runs in the background, and items can be restored within the retention period."
       }
     },
     "preview": {
@@ -134,7 +144,8 @@
     },
     "folder": {
       "label": "Folder",
-      "subfolders": "{{count}} subfolders",
+      "subfolders_one": "{{count}} subfolder",
+      "subfolders_other": "{{count}} subfolders",
       "root": "All files",
       "location": "Current location",
       "tree": "Folders",
@@ -156,19 +167,23 @@
       },
       "restore": {
         "success": "Restored “{{name}}” with its files and subfolders.",
-        "partial": "Restored “{{name}}”, but the contents of {{count}} files no longer exist and could not be restored.",
+        "partial_one": "Restored “{{name}}”, but the content of {{count}} file no longer exists and could not be restored.",
+        "partial_other": "Restored “{{name}}”, but the contents of {{count}} files no longer exist and could not be restored.",
         "nameConflict": "A folder with the same name already exists here. Rename or move it before restoring."
       }
     },
     "move": {
       "open": "Move",
-      "title": "Move {{count}} items to…",
+      "title_one": "Move {{count}} item to…",
+      "title_other": "Move {{count}} items to…",
       "action": "Move here",
       "target": "Destination folder",
       "search": "Search folders",
       "viewer": "View as folder tree",
-      "success": "Moved {{count}} items",
-      "dragLabel": "{{count}} items"
+      "success_one": "Moved {{count}} item",
+      "success_other": "Moved {{count}} items",
+      "dragLabel_one": "{{count}} item",
+      "dragLabel_other": "{{count}} items"
     },
     "access": {
       "locked": "No access",

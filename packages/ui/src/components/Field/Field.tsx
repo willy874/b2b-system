@@ -1,10 +1,13 @@
 import { cn } from '@b2b-system/web-shared/utils';
 import { Field as BaseField } from '@base-ui/react/field';
+import { useId, useMemo } from 'react';
 import type { ReactNode, Ref } from 'react';
 
 import { useComponentLabels } from '../labels';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
+import { FieldControlContext } from './fieldControl';
+import type { FieldControlContextValue } from './fieldControl';
 
 import styles from './Field.module.css';
 
@@ -47,6 +50,21 @@ export function Field({
 }: FieldProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const labels = useComponentLabels();
+  // 自製控制項（Select、DatePicker）登記不到 Base UI 的 Field，改由 FieldControlContext 交給它們 id
+  const baseId = useId();
+  const labelId = label ? `${baseId}-label` : undefined;
+  const descriptionId = description && !error ? `${baseId}-description` : undefined;
+  const errorId = error ? `${baseId}-error` : undefined;
+  const controlId = `${baseId}-control`;
+  const control = useMemo<FieldControlContextValue>(
+    () => ({
+      controlId,
+      labelId,
+      describedBy: [descriptionId, errorId].filter(Boolean).join(' ') || undefined,
+      invalid: Boolean(error),
+    }),
+    [controlId, labelId, descriptionId, errorId, error],
+  );
   return (
     <BaseField.Root
       name={name}
@@ -56,7 +74,12 @@ export function Field({
       {...rest}
     >
       {label && (
-        <BaseField.Label {...slot('label', styles.label)}>
+        <BaseField.Label
+          {...slot('label', styles.label)}
+          id={labelId}
+          // Base UI 的 <label for> 只指得到向它登記的控制項；自製控制項（帶 controlId）由這裡聚焦
+          onClick={(event) => event.currentTarget.ownerDocument.getElementById(controlId)?.focus()}
+        >
           {label}
           {required && (
             <>
@@ -72,9 +95,9 @@ export function Field({
           )}
         </BaseField.Label>
       )}
-      {children}
+      <FieldControlContext value={control}>{children}</FieldControlContext>
       {description && !error && (
-        <BaseField.Description {...slot('description', styles.description)}>
+        <BaseField.Description {...slot('description', styles.description)} id={descriptionId}>
           {description}
         </BaseField.Description>
       )}
@@ -83,6 +106,7 @@ export function Field({
         <BaseField.Error
           match
           {...slot('error', styles.error, { testId: 'field-error' })}
+          id={errorId}
           data-value={errorCode}
         >
           {error}

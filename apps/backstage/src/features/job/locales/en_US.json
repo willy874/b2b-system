@@ -14,11 +14,16 @@
       "title": "Job types",
       "cron": "Schedule: {{cron}} (UTC)",
       "onDemand": "Queued by the application",
-      "ready": "Waiting {{count}}",
-      "deferred": "Scheduled {{count}}",
-      "active": "Running {{count}}",
-      "completed": "Completed {{count}}",
-      "failed": "{{count}} failed"
+      "ready_one": "Waiting {{count}}",
+      "ready_other": "Waiting {{count}}",
+      "deferred_one": "Scheduled {{count}}",
+      "deferred_other": "Scheduled {{count}}",
+      "active_one": "Running {{count}}",
+      "active_other": "Running {{count}}",
+      "completed_one": "Completed {{count}}",
+      "completed_other": "Completed {{count}}",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed"
     },
     "filter": {
       "allNames": "All jobs",
@@ -51,8 +56,10 @@
       "data": "Job data",
       "output": "Result",
       "noOutput": "No result yet",
-      "arraySummary": "{{count}} items",
-      "objectSummary": "{{count}} fields"
+      "arraySummary_one": "{{count}} item",
+      "arraySummary_other": "{{count}} items",
+      "objectSummary_one": "{{count}} field",
+      "objectSummary_other": "{{count}} fields"
     }
   }
 }

@@ -6,6 +6,7 @@ import type { CSSProperties, KeyboardEvent, Ref } from 'react';
 
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
+import { useComponentLabels } from '../labels';
 import { createSlots } from '../slots';
 import type { SlotOverrides } from '../slots';
 import {
@@ -44,15 +45,22 @@ export interface CalendarProps extends SlotOverrides<CalendarSlot> {
   onSelect: (date: string) => void;
   min?: DateValue;
   max?: DateValue;
+  /** 月份標題與星期的語系；沒有傳時用 `ComponentLabelsContext` 的 `locale`（目前的介面語系）。 */
   locale?: string;
   /** 範圍選取時用來畫出中間區段。 */
   range?: { start: DateValue; end: DateValue };
   /** 沒有選取值時初始顯示的月份（預設為本月）。測試需要它才能不依賴「今天」。 */
   defaultMonth?: DateValue;
-  labels?: { previousMonth: string; nextMonth: string };
+  /** 沒有傳的鍵用 `ComponentLabelsContext` 的文案。 */
+  labels?: CalendarLabels;
   className?: string;
   style?: CSSProperties;
   'data-testid'?: string;
+}
+
+export interface CalendarLabels {
+  previousMonth?: string;
+  nextMonth?: string;
 }
 
 /** 月曆網格。鍵盤操作與 ARIA 由這裡負責（Base UI 沒有日曆元件）。 */
@@ -61,10 +69,10 @@ export function Calendar({
   onSelect,
   min,
   max,
-  locale = 'zh-TW',
+  locale: localeProp,
   range,
   defaultMonth,
-  labels = { previousMonth: 'previous month', nextMonth: 'next month' },
+  labels,
   className,
   classNames,
   styles: styleOverrides,
@@ -72,6 +80,10 @@ export function Calendar({
   ...rest
 }: CalendarProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  const componentLabels = useComponentLabels();
+  const locale = localeProp ?? componentLabels.locale;
+  const previousMonthLabel = labels?.previousMonth ?? componentLabels.calendarPreviousMonth;
+  const nextMonthLabel = labels?.nextMonth ?? componentLabels.calendarNextMonth;
   const firstSelected = parseDate(selected.find(Boolean) ?? null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fallbackMonth = parseDate(defaultMonth ?? null) ?? dayjs();
@@ -139,7 +151,7 @@ export function Calendar({
     <div ref={containerRef} className={cn(styles.root, className)} {...rest}>
       <header {...slot('header', styles.header)}>
         <IconButton
-          aria-label={labels.previousMonth}
+          aria-label={previousMonthLabel}
           size="sm"
           onClick={() => setMonth(month.subtract(1, 'month'))}
           {...slot('previousButton')}
@@ -150,7 +162,7 @@ export function Calendar({
           {monthLabel(month, locale)}
         </span>
         <IconButton
-          aria-label={labels.nextMonth}
+          aria-label={nextMonthLabel}
           size="sm"
           onClick={() => setMonth(month.add(1, 'month'))}
           {...slot('nextButton')}

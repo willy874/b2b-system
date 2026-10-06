@@ -8,6 +8,7 @@ import { DEFAULT_NOTIFICATION_SEARCH, NotificationSearchQuerySchema } from './mo
 export const NotificationListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/notification',
+  staticData: { titleKey: 'notification.title' },
   loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
   validateSearch: NotificationSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_NOTIFICATION_SEARCH)] },

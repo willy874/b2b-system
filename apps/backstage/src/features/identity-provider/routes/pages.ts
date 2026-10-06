@@ -18,6 +18,7 @@ export const IDENTITY_PROVIDER_FEATURE = 'identityProvider';
 export const IdentityProviderListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/identity-provider',
+  staticData: { titleKey: 'menu.identityProvider' },
   beforeLoad: requireFeature(IDENTITY_PROVIDER_FEATURE),
   loader: localeScopeLoader(IDENTITY_PROVIDER_LOCALE_SCOPE),
 });

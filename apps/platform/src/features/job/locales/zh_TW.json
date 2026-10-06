@@ -27,11 +27,11 @@
       "title": "工作種類",
       "cron": "排程：{{cron}}（UTC）",
       "onDemand": "由程式入列",
-      "ready": "等待 {{count}}",
-      "deferred": "排定 {{count}}",
-      "active": "執行中 {{count}}",
-      "completed": "完成 {{count}}",
-      "failed": "失敗 {{count}}"
+      "ready_other": "等待 {{count}}",
+      "deferred_other": "排定 {{count}}",
+      "active_other": "執行中 {{count}}",
+      "completed_other": "完成 {{count}}",
+      "failed_other": "失敗 {{count}}"
     },
     "filter": {
       "allNames": "全部工作",

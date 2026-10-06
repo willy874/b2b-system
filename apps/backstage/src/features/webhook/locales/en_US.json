@@ -23,13 +23,15 @@
       "urlNumber": "URL {{number}}",
       "addUrl": "Add URL",
       "removeUrl": "Remove URL {{number}}",
-      "urlFailures": "{{count}} consecutive failures"
+      "urlFailures_one": "{{count}} consecutive failure",
+      "urlFailures_other": "{{count}} consecutive failures"
     },
     "list": {
       "title": "Webhooks",
       "description": "Notify external systems (CI, chat tools, your own services) with a POST when users, approvals or files change. Payloads only carry ids; receivers look up details with an API token.",
       "searchPlaceholder": "Search name or URL",
-      "moreUrls": "+{{count}}"
+      "moreUrls_one": "+{{count}}",
+      "moreUrls_other": "+{{count}}"
     },
     "create": {
       "action": "Create webhook",
@@ -68,15 +70,18 @@
     },
     "test": {
       "action": "Send test event",
-      "sentAll": "Sent to {{count}} URLs, all succeeded",
-      "failedSome": "{{failed}} of {{count}} URLs failed; see the delivery log"
+      "sentAll_one": "Sent to {{count}} URL successfully",
+      "sentAll_other": "Sent to {{count}} URLs, all succeeded",
+      "failedSome_one": "{{failed}} of {{count}} URL failed; see the delivery log",
+      "failedSome_other": "{{failed}} of {{count}} URLs failed; see the delivery log"
     },
     "detail": {
       "title": "Webhook",
       "settings": "Settings",
       "deliveries": "Deliveries",
       "deliveriesHint": "One entry per attempt, kept for 30 days. Failures are retried automatically (up to 8 times, backing off to 1 hour).",
-      "failingNotice": "Turned off after {{count}} failures in a row. Fix the receiver, send a test event to confirm, then turn it back on.",
+      "failingNotice_one": "Turned off after {{count}} failure in a row. Fix the receiver, send a test event to confirm, then turn it back on.",
+      "failingNotice_other": "Turned off after {{count}} failures in a row. Fix the receiver, send a test event to confirm, then turn it back on.",
       "backToList": "Back to list"
     },
     "delivery": {

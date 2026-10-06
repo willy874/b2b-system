@@ -49,29 +49,29 @@
       "delete": {
         "action": "刪除",
         "title": "批次刪除使用者",
-        "confirm": "確定要刪除 {{count}} 位使用者嗎？帳號會被軟刪除並立即登出。",
-        "success": "已刪除 {{count}} 位使用者。",
+        "confirm_other": "確定要刪除 {{count}} 位使用者嗎？帳號會被軟刪除並立即登出。",
+        "success_other": "已刪除 {{count}} 位使用者。",
         "ineligible": "不能刪除自己的帳號。"
       },
       "unlock": {
         "action": "解鎖",
         "title": "批次解鎖使用者",
-        "confirm": "確定要解鎖 {{count}} 位使用者嗎？",
-        "success": "已解鎖 {{count}} 位使用者。",
+        "confirm_other": "確定要解鎖 {{count}} 位使用者嗎？",
+        "success_other": "已解鎖 {{count}} 位使用者。",
         "ineligible": "只能解鎖被鎖定的使用者。"
       },
       "deactivate": {
         "action": "停用",
         "title": "批次停用使用者",
-        "confirm": "確定要停用 {{count}} 位使用者嗎？他們會立即被登出。",
-        "success": "已停用 {{count}} 位使用者。",
+        "confirm_other": "確定要停用 {{count}} 位使用者嗎？他們會立即被登出。",
+        "success_other": "已停用 {{count}} 位使用者。",
         "ineligible": "選取的使用者都已停用，或是你自己的帳號。"
       },
       "activate": {
         "action": "啟用",
         "title": "批次啟用使用者",
-        "confirm": "確定要啟用 {{count}} 位使用者嗎？",
-        "success": "已啟用 {{count}} 位使用者。",
+        "confirm_other": "確定要啟用 {{count}} 位使用者嗎？",
+        "success_other": "已啟用 {{count}} 位使用者。",
         "ineligible": "只能啟用已停用的使用者，且不能變更自己的帳號。"
       }
     },

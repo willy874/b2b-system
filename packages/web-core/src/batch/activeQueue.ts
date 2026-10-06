@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useReducer, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 
 import { useTranslation } from '../locales';
 import type { BatchQueueClient } from './BatchQueueClient';
@@ -51,22 +51,15 @@ export function useBatchJobFinished(listener: (job: BatchJob) => void): void {
 }
 
 /**
- * 補載這些工作的操作名稱所在的語系 scope，載入後重新渲染。
- * `useTranslation` 只在切換語系時重新渲染，補進語系包不會觸發。
+ * 補載這些工作的操作名稱所在的語系 scope。載入完成時 `useTranslation` 會讓掛著的元件重渲染（目前語系的包），
+ * 這裡不必自己重繪。
  */
 export function useBatchOperationLocales(jobs: readonly BatchJob[]): void {
-  const [, rerender] = useReducer((n: number) => n + 1, 0);
   const { language } = useTranslation();
   const key = [...new Set(jobs.map((job) => job.operation))].toSorted().join('|');
   useEffect(() => {
     if (!key) return;
-    let isCurrent = true;
-    void loadBatchOperationLocales(key.split('|'), language).then(() => {
-      if (isCurrent) rerender();
-    });
-    return () => {
-      isCurrent = false;
-    };
+    void loadBatchOperationLocales(key.split('|'), language);
   }, [key, language]);
 }
 

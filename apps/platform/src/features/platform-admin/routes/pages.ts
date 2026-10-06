@@ -12,6 +12,7 @@ import { DEFAULT_PLATFORM_ADMIN_SEARCH, PlatformAdminSearchQuerySchema } from '.
 export const PlatformAdminListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/admin',
+  staticData: { titleKey: 'menu.platformAdmin' },
   loader: localeScopeLoader(PLATFORM_ADMIN_LOCALE_SCOPE),
   validateSearch: PlatformAdminSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_PLATFORM_ADMIN_SEARCH)] },

@@ -9959,6 +9959,10 @@
             "nullable": true,
             "type": "string"
           },
+          "uiLocales": {
+            "nullable": true,
+            "type": "string"
+          },
           "tenant": {
             "nullable": true,
             "type": "object",
@@ -9974,7 +9978,7 @@
             "additionalProperties": false
           }
         },
-        "required": ["uid", "prompt", "clientId", "clientName", "loginHint", "tenant"],
+        "required": ["uid", "prompt", "clientId", "clientName", "loginHint", "uiLocales", "tenant"],
         "additionalProperties": false
       },
       "SsoRedirect": {

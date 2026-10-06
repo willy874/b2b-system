@@ -1,4 +1,10 @@
-import { LanguageNamespace, SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
+import {
+  DEFAULT_LANGUAGE,
+  HTML_LANG,
+  LanguageNamespace,
+  resolveLanguage,
+  SUPPORTED_LANGUAGES,
+} from '@b2b-system/web-shared/constants';
 import type { Language } from '@b2b-system/web-shared/constants';
 import { setDateTimeDefaults } from '@b2b-system/web-shared/date';
 
@@ -22,6 +28,11 @@ export interface I18nPluginOptions {
   locales: Partial<Record<Language, LocaleImporter>>;
 }
 
+/** `<html lang>` 跟著介面語系（報讀器依它選語音，docs/architecture/frontend/08-i18n.md §5）。 */
+function applyHtmlLang(language: string): void {
+  document.documentElement.lang = HTML_LANG[resolveLanguage(language) ?? DEFAULT_LANGUAGE];
+}
+
 export function i18nPlugin({ locales }: I18nPluginOptions): AppPluginFactory {
   return () => {
     let stopSync: (() => void) | undefined;
@@ -33,6 +44,8 @@ export function i18nPlugin({ locales }: I18nPluginOptions): AppPluginFactory {
       onInit: async () => {
         const { locale } = useLocaleStore.getState();
         await initI18n(locale);
+        applyHtmlLang(i18n.language);
+        i18n.on('languageChanged', applyHtmlLang);
         // 表單驗證訊息（Zod）走語系檔，驗證當下以目前語系翻譯
         configureZodErrorMap((key, options) => i18n.t(key, options ?? {}));
         addResourceBundle(
@@ -66,6 +79,7 @@ export function i18nPlugin({ locales }: I18nPluginOptions): AppPluginFactory {
         );
       },
       onDestroy: () => {
+        i18n.off('languageChanged', applyHtmlLang);
         offLocale?.();
         offTimezone?.();
         stopSync?.();

@@ -945,6 +945,7 @@ export interface SsoInteraction {
   clientId: string;
   clientName: string;
   loginHint: string | null;
+  uiLocales: string | null;
   tenant: {
     code: string;
     name: string;

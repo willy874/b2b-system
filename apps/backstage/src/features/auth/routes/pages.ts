@@ -16,6 +16,7 @@ export const AuthRoute = createRoute({
 export const LoginRoute = createRoute({
   getParentRoute: () => AuthRoute,
   path: 'login',
+  staticData: { titleKey: 'auth.login.title' },
   validateSearch: LoginSearchSchema,
 });
 
@@ -23,5 +24,6 @@ export const LoginRoute = createRoute({
 export const SsoCallbackRoute = createRoute({
   getParentRoute: () => AuthRoute,
   path: 'callback',
+  staticData: { titleKey: 'auth.callback.title' },
   validateSearch: SsoCallbackSearchSchema,
 });

@@ -27,7 +27,8 @@
     },
     "delete": {
       "title": "Delete service account",
-      "confirm": "After deleting \"{{name}}\", its {{count}} active tokens stop working immediately. Deleted service accounts cannot be restored.",
+      "confirm_one": "After deleting \"{{name}}\", its {{count}} active token stops working immediately. Deleted service accounts cannot be restored.",
+      "confirm_other": "After deleting \"{{name}}\", its {{count}} active tokens stop working immediately. Deleted service accounts cannot be restored.",
       "success": "Service account deleted"
     },
     "role": {
@@ -49,7 +50,8 @@
     "deactivate": {
       "action": "Disable",
       "title": "Disable service account",
-      "confirm": "After disabling \"{{name}}\", its {{count}} active tokens stop working immediately and do not come back when it is enabled again. You will need to create new tokens."
+      "confirm_one": "After disabling \"{{name}}\", its {{count}} active token stops working immediately and does not come back when it is enabled again. You will need to create a new token.",
+      "confirm_other": "After disabling \"{{name}}\", its {{count}} active tokens stop working immediately and do not come back when it is enabled again. You will need to create new tokens."
     },
     "activate": {
       "action": "Enable"

@@ -110,8 +110,9 @@ export async function loadLocaleScope(scope: string, language: string): Promise<
 }
 
 /**
- * 某個 scope 的語系包下載完成時通知（含登記後補載的）。`useTranslation` 只在切換語系時重渲染，
- * 在路由之外顯示其他 feature 文字的元件（偏好頁的分頁、頂列工具）以它得知字串到了。回傳取消訂閱。
+ * 某個 scope 的語系包下載完成時通知（含登記後補載的）。`useTranslation` 訂閱它：載入的是目前語系時，
+ * 已經掛上的元件重渲染並拿到新的 `t`——在路由之外顯示其他 feature 文字的元件（偏好頁的分頁、頂列的鈴鐺與批次佇列）
+ * 不必自己重繪。回傳取消訂閱。
  */
 export function subscribeLocaleScopeLoaded(
   listener: (scope: string, language: string) => void,

@@ -1,6 +1,7 @@
 import { cn } from '@b2b-system/web-shared/utils';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
+import { useFieldControl } from '../Field/fieldControl';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
 import { createSlots } from '../slots';
@@ -8,6 +9,8 @@ import type { SlotOverrides } from '../slots';
 import { Calendar } from './Calendar';
 import { formatDate, parseDate } from './calendar-utils';
 import type { DateValue } from './calendar-utils';
+import { useDatePickerLabels } from './datePickerLabels';
+import type { DatePickerLabels } from './datePickerLabels';
 
 import styles from './DatePicker.module.css';
 
@@ -32,13 +35,15 @@ export interface DateRangePickerProps extends SlotOverrides<DateRangePickerSlot>
   placeholder?: string;
   disabled?: boolean;
   clearable?: boolean;
+  /** 日曆的語系；沒有傳時用目前的介面語系（`ComponentLabelsContext`）。 */
   locale?: string;
   /** 沒有選取值時初始顯示的月份（`YYYY-MM-DD`）。 */
   defaultMonth?: DateValue;
   className?: string;
   'aria-label'?: string;
   'data-testid'?: string;
-  labels?: { clear: string; open: string; separator: string };
+  /** 沒有傳的鍵用 `ComponentLabelsContext` 的文案（目前語系）；`separator` 預設 `~`。 */
+  labels?: DatePickerLabels & { separator?: string };
 }
 
 /** 兩段式選取：第一次點選設定起點，第二次設定終點（早於起點時重設起點）。 */
@@ -54,15 +59,22 @@ export function DateRangePicker({
   locale,
   defaultMonth,
   className,
-  labels = { clear: 'clear', open: 'open calendar', separator: '~' },
+  labels: labelsProp,
   classNames,
   styles: styleOverrides,
   testIds,
   ...rest
 }: DateRangePickerProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
+  const labels = useDatePickerLabels(labelsProp);
+  const separator = labelsProp?.separator ?? '~';
   const [open, setOpen] = useState(false);
   const triggerSlot = slot('trigger', styles.trigger);
+  // 放在 Field 裡、沒有傳 aria-label 時：名稱是 Field 的標籤加上目前的值，說明與錯誤連到 aria-describedby
+  const field = useFieldControl();
+  const valueId = useId();
+  const labelledBy =
+    !rest['aria-label'] && field?.labelId ? `${field.labelId} ${valueId}` : undefined;
 
   const handleSelect = (next: string) => {
     const from = parseDate(value.from);
@@ -79,9 +91,7 @@ export function DateRangePicker({
   const effectiveMax = spanLimitedMax(value, max ?? null, maxSpanDays);
 
   const label =
-    value.from && value.to
-      ? `${value.from} ${labels.separator} ${value.to}`
-      : (value.from ?? placeholder);
+    value.from && value.to ? `${value.from} ${separator} ${value.to}` : (value.from ?? placeholder);
 
   return (
     <div className={cn(styles.root, className)}>
@@ -92,13 +102,21 @@ export function DateRangePicker({
         trigger={
           <button
             type="button"
+            id={field?.controlId}
             {...triggerSlot}
             disabled={disabled}
-            aria-label={rest['aria-label'] ?? labels.open}
+            data-invalid={field?.invalid || undefined}
+            aria-label={labelledBy ? undefined : (rest['aria-label'] ?? labels.open)}
+            aria-labelledby={labelledBy}
+            aria-describedby={field?.describedBy}
             data-testid={rest['data-testid'] ?? triggerSlot['data-testid']}
           >
             <Icon name="calendar" size={16} {...slot('icon')} />
-            <span {...slot('value', styles.value)} data-empty={!value.from || undefined}>
+            <span
+              {...slot('value', styles.value)}
+              id={valueId}
+              data-empty={!value.from || undefined}
+            >
               {label}
             </span>
           </button>
@@ -110,6 +128,7 @@ export function DateRangePicker({
           min={min}
           max={effectiveMax}
           locale={locale}
+          labels={labels}
           defaultMonth={defaultMonth}
           onSelect={handleSelect}
           {...slot('calendar', undefined, { testId: 'date-range-picker-calendar' })}

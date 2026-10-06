@@ -1,5 +1,6 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { getErrorMessageKey, isAppError, useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -11,6 +12,7 @@ import { z } from 'zod';
 import { PasswordInput } from '../../components/PasswordInput';
 import { CLIENT_NAME_KEY } from '../../constants';
 import { useAccountPolicy } from '../../hooks/useAccountPolicy';
+import { useRequestedLocale } from '../../hooks/useRequestedLocale';
 import {
   useSsoDiscovery,
   useSsoInteraction,
@@ -49,6 +51,8 @@ export default function InteractionPage() {
   const { uid } = InteractionRoute.useParams();
   const search = InteractionRoute.useSearch();
   const interaction = useSsoInteraction(uid);
+  // 與要求登入的產品用同一個語言（backstage 帶來的 ui_locales）
+  useRequestedLocale(interaction.data?.uiLocales);
   const policy = useAccountPolicy(interaction.data?.tenant?.code);
   const login = useSsoInteractionLoginMutation();
   const abort = useSsoInteractionAbortMutation();
@@ -252,15 +256,13 @@ export default function InteractionPage() {
           </form.Field>
         )}
 
-        {(formError ?? searchError) !== undefined && (
-          <p
-            className="m-0 text-sm text-[var(--color-danger-text)]"
-            data-testid="login-error"
-            data-value={formError === undefined ? searchError : formError.code}
-          >
-            {formError?.message ?? t(searchErrorKey ?? 'login.error.generic')}
-          </p>
-        )}
+        <FormError
+          code={formError === undefined ? searchError : formError.code}
+          data-testid="login-error"
+        >
+          {(formError ?? searchError) !== undefined &&
+            (formError?.message ?? t(searchErrorKey ?? 'login.error.generic'))}
+        </FormError>
 
         {!ssoOnly && (
           <Button

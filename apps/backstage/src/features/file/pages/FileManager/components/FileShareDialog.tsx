@@ -9,8 +9,8 @@ import type { SelectOption } from '@b2b-system/ui/Select';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { Switch } from '@b2b-system/ui/Switch';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { formatDate, todayInZone, zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 
 import { getFileAccessRequestListQueryOptions } from '@/apis/file/get-file-access-requests/query';
@@ -47,11 +47,6 @@ const SUBJECT_TYPES = [
   'group',
   'everyone',
 ] as const satisfies readonly FileGrantSubjectType[];
-
-/** 選的日期當天結束時過期（`YYYY-MM-DD` → 當地時間 23:59:59 的 ISO 字串）。 */
-function endOfDay(date: string): string {
-  return dayjs(date).endOf('day').toISOString();
-}
 
 interface FileShareDialogProps {
   /** 要管理授權的資料夾；`undefined` 時關閉。 */
@@ -262,7 +257,8 @@ function AddGrantRow({ folderId, levelOptions }: AddGrantRowProps) {
             subjectType,
             subjectId: targetId,
             level: selectedLevel,
-            expiresAt: expiresOn ? endOfDay(expiresOn) : null,
+            // 選的日期在偏好時區的那一天結束時過期（與其他畫面顯示的日期一致，不是瀏覽器的時區）
+            expiresAt: expiresOn ? zonedDayBoundary(expiresOn, 'end') : null,
           },
         },
       },
@@ -332,7 +328,7 @@ function AddGrantRow({ folderId, levelOptions }: AddGrantRowProps) {
         placeholder={t('file.share.expiresPlaceholder')}
         value={expiresOn}
         onValueChange={setExpiresOn}
-        min={dayjs().format('YYYY-MM-DD')}
+        min={todayInZone()}
         clearable
         data-testid="file-share-expires"
       />
@@ -412,7 +408,7 @@ function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
       ? t('file.share.inherited', { name: grant.source.folderName })
       : t(FILE_GRANT_SUBJECT_TYPE_LABEL_KEY[grant.subjectType]),
     grant.expiresAt && !grant.isExpired
-      ? t('file.share.expiresUntil', { date: dayjs(grant.expiresAt).format('YYYY-MM-DD') })
+      ? t('file.share.expiresUntil', { date: formatDate(grant.expiresAt) })
       : undefined,
   ].filter(Boolean);
 

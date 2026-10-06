@@ -1,5 +1,5 @@
 import { Checkbox } from '@b2b-system/ui/Checkbox';
-import { DatePicker, formatDate } from '@b2b-system/ui/DatePicker';
+import { DatePicker } from '@b2b-system/ui/DatePicker';
 import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
 import { NumberField } from '@b2b-system/ui/NumberField';
@@ -9,11 +9,11 @@ import { useTranslation } from '@b2b-system/web-core/locales';
 import {
   formatDateTime,
   getDateTimeDefaults,
+  todayInZone,
   toZonedParts,
   zonedDateTime,
 } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 
 import { getAnnouncementTriggerEventsQueryOptions } from '@/apis/announcement/get-announcement-trigger-events/query';
 import { getAnnouncementRecurrencePreviewQueryOptions } from '@/apis/announcement/preview-announcement-recurrence/query';
@@ -176,7 +176,8 @@ export function TriggerField({ value, onChange, allowImmediate, disabled }: Trig
     ? ['immediate', 'once', 'recurring', 'event']
     : ['once', 'recurring', 'event'];
   const patch = (next: Partial<TriggerDraft>) => onChange({ ...value, ...next });
-  const today = formatDate(dayjs());
+  // 「今天」是偏好時區的今天：指定時間以偏好時區輸入（fromTriggerDraft 的 zonedDateTime），不是瀏覽器的時區
+  const today = todayInZone();
 
   return (
     <div className="flex flex-col gap-3" data-testid="announcement-trigger">
@@ -319,6 +320,8 @@ function RecurrenceFields({ value, patch, disabled, today }: RecurrenceFieldsPro
     ...getAnnouncementRecurrencePreviewQueryOptions(recurring ?? PLACEHOLDER_RECURRING),
     enabled: Boolean(recurring),
   });
+  // 週期依租戶時區計算：預覽回來之後以租戶時區的今天為準；之前（或預覽失敗）退回偏好時區的今天
+  const tenantToday = preview.data ? todayInZone(preview.data.timeZone) : today;
 
   return (
     <div className="flex flex-col gap-3" data-testid="announcement-recurrence">
@@ -403,7 +406,7 @@ function RecurrenceFields({ value, patch, disabled, today }: RecurrenceFieldsPro
           <DatePicker
             value={value.endsOn || null}
             onValueChange={(day) => patch({ endsOn: day ?? '' })}
-            min={value.startsOn || today}
+            min={value.startsOn || tenantToday}
             disabled={disabled}
             placeholder={t('announcement.recurrence.noEnd')}
             aria-label={t('announcement.recurrence.endsOn')}

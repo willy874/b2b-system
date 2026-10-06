@@ -1,9 +1,13 @@
 import { AppError } from '@b2b-system/web-core/errors';
+import { i18n } from '@b2b-system/web-core/locales';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { useLocaleStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
 
@@ -56,6 +60,7 @@ const TENANT_INTERACTION = {
   clientId: 'backstage',
   clientName: 'backstage',
   loginHint: null,
+  uiLocales: null,
   tenant: { code: 'acme', name: 'Acme 股份有限公司' },
 };
 const RESUME = `http://localhost:5175/api/oidc/auth/${UID}`;
@@ -102,6 +107,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
+beforeAll(() => initTestI18n());
+
 describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
   it('租戶的互動：帳號流程的連結帶上租戶代碼（docs/architecture/05-tenancy.md §10.2 D8）', async () => {
     renderInteraction();
@@ -130,6 +138,7 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
       clientId: 'auth',
       clientName: 'auth',
       loginHint: null,
+      uiLocales: null,
       tenant: null,
     });
     renderInteraction();
@@ -180,10 +189,56 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
     await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
     fireEvent.click(screen.getByTestId('login-submit'));
 
-    expect(await screen.findByTestId('login-error')).toHaveAttribute(
-      'data-value',
-      'AUTH_ACCOUNT_LOCKED',
+    await waitFor(() =>
+      expect(screen.getByTestId('login-error')).toHaveAttribute(
+        'data-value',
+        'AUTH_ACCOUNT_LOCKED',
+      ),
     );
+  });
+
+  it('密碼錯誤 → 錯誤訊息在 role="alert" 裡，報讀器會立即念出（docs/architecture/frontend/07-ui-system.md §5）', async () => {
+    login.mockRejectedValue(new AppError('AUTH_INVALID_CREDENTIALS', 401));
+    renderInteraction();
+    fireEvent.change(await screen.findByTestId('login-email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { value: 'wrong-123' } });
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('login-submit'));
+
+    await waitFor(() => expect(screen.getByRole('alert')).not.toBeEmptyDOMElement());
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('帳號或密碼錯誤');
+    expect(alert).toHaveAttribute('data-value', 'AUTH_INVALID_CREDENTIALS');
+  });
+
+  describe('產品要求的介面語系（OIDC ui_locales）', () => {
+    afterEach(async () => {
+      useLocaleStore.setState({ locale: 'zh-TW' });
+      await i18n.changeLanguage('zh-TW');
+    });
+
+    it('帶 ui_locales=en-US → 登入頁切成英文，並記在這個瀏覽器', async () => {
+      details.mockResolvedValue({ ...TENANT_INTERACTION, uiLocales: 'en-US' });
+      renderInteraction();
+      await waitFor(() => expect(i18n.language).toBe('en-US'));
+      expect(useLocaleStore.getState().locale).toBe('en-US');
+    });
+
+    it('依序取第一個支援的語系（ja 不支援、en-GB 對到 en-US）', async () => {
+      details.mockResolvedValue({ ...TENANT_INTERACTION, uiLocales: 'ja en-GB' });
+      renderInteraction();
+      await waitFor(() => expect(useLocaleStore.getState().locale).toBe('en-US'));
+    });
+
+    it('沒帶 → 維持這個瀏覽器的語系', async () => {
+      renderInteraction();
+      await screen.findByTestId('login-email');
+      await waitFor(() => expect(details).toHaveBeenCalled());
+      expect(useLocaleStore.getState().locale).toBe('zh-TW');
+      expect(i18n.language).toBe('zh-TW');
+    });
   });
 
   it('取消 → 頂層跳轉到 provider（產品收到 access_denied）', async () => {
@@ -253,8 +308,9 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
 
     it('外部登入失敗帶回的錯誤碼 → 顯示對應訊息', async () => {
       renderInteraction('?error=AUTH_SSO_ACCOUNT_NOT_FOUND');
-      const error = await screen.findByTestId('login-error');
+      const error = await screen.findByRole('alert');
       expect(error).toHaveAttribute('data-value', 'AUTH_SSO_ACCOUNT_NOT_FOUND');
+      expect(error).not.toBeEmptyDOMElement();
     });
   });
 

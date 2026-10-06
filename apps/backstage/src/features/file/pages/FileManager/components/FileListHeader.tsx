@@ -65,7 +65,10 @@ export function FileListHeader({
             className="flex items-center gap-1 text-left hover:text-[var(--color-fg)]"
             aria-label={
               active
-                ? `${label}（${sort.order === 'asc' ? t('common.sortAsc') : t('common.sortDesc')}）`
+                ? t('common.withNote', {
+                    name: label,
+                    note: sort.order === 'asc' ? t('common.sortAsc') : t('common.sortDesc'),
+                  })
                 : label
             }
             onClick={() =>

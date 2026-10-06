@@ -1,6 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input, Textarea } from '@b2b-system/ui/Input';
 import { useErrorMessage, useServerFieldErrors } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -151,10 +152,7 @@ export default function RoleCreatePage() {
           />
         </div>
 
-        {/* role="alert"：送出失敗時報讀器會立即念出 */}
-        <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
-          {formError}
-        </p>
+        <FormError>{formError}</FormError>
       </form>
     </Dialog>
   );

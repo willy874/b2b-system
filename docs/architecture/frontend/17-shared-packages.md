@@ -129,6 +129,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 | `GlobalProvider`（`web-core/shell`） | `profileQueryKey` | 權限與後端不一致時要重抓 profile；profile 的 query 屬於 app 的 `apis/` |
 | `LanguageMenu`（`web-core/layout`） | `onChange` | backstage 切換語系時同步到帳號，apps/platform 不同步；app 的 `app/layouts/LanguageMenu.tsx` 包一層傳入自己的 `useChangeLocale` |
 | `i18nPlugin`（`web-core/plugins/app`） | `locales` | §3.3 |
+| `DocumentTitle`（`web-core/shell`） | `router`、`appNameKey` | 與 `SessionWatcher` 一樣放在 `RouterProvider` 之外；產品名各 app 不同（backstage `app.title`、apps/platform `app.documentTitle`） |
 | `SessionWatcher`（`web-core/shell`） | `router`、`loginPath`、`isPublic`、`loginSearchAfterSessionEnd` | 登入頁的路徑與不需要 session 的頁面各 app 不同（`app/sessionRedirect.ts`）。權限水合等 app 的同步 hook 不當參數傳（React 不允許把 hook 當成值傳遞），由 `app/App.tsx` 的 `ProfileSync` 元件呼叫 |
 
 ### 3.5 app 的門面

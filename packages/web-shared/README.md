@@ -23,7 +23,7 @@ import { createFakeChannelHub } from '@b2b-system/web-shared/testing'; // 只給
 | `registry` | 可訂閱、可反註冊的註冊表（`createRegistry`） |
 | `channel` | 跨分頁／跨裝置的同步頻道、傳輸層、leader 選舉 |
 | `storage` | `localStorage`／dictStorage／IndexedDB（blobStore）封裝 |
-| `date`、`utils`、`constants`、`EventEmitter` | 日期格式化、`cn()` 等工具、語言等常數、事件發射器 |
+| `date`、`utils`、`constants`、`EventEmitter` | 日期格式化（偏好時區的 `todayInZone()`、時區清單 `supportedTimeZones()`）、`cn()`、依語系串接清單的 `formatList()` 等工具、語言等常數（`resolveLanguage()`、`HTML_LANG`）、事件發射器 |
 | `testing` | 測試替身（`fakeChannelHub`） |
 
 狀態與儲存的規格見 [`docs/architecture/frontend/09-state-and-storage.md`](../../docs/architecture/frontend/09-state-and-storage.md)。

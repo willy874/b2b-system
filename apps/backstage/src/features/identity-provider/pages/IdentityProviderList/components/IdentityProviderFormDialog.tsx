@@ -2,6 +2,7 @@ import { Button, IconButton } from '@b2b-system/ui/Button';
 import { Checkbox } from '@b2b-system/ui/Checkbox';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
@@ -355,7 +356,7 @@ export function IdentityProviderFormDialog({
           label={t('identityProvider.field.enabled')}
           data-testid="identity-provider-enabled"
         />
-        {error && <p className="m-0 text-sm text-[var(--color-danger-text)]">{error}</p>}
+        <FormError data-testid="identity-provider-form-error">{error}</FormError>
       </form>
     </Dialog>
   );

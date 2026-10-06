@@ -2,6 +2,7 @@ import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Field } from '@b2b-system/ui/Field';
+import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { Separator } from '@b2b-system/ui/Separator';
 import { sessionStore } from '@b2b-system/web-core/auth';
@@ -242,9 +243,7 @@ export default function ProfilePage() {
             data-testid="profile-confirm-password"
           />
         </Field>
-        <p role="alert" className="m-0 text-sm text-[var(--color-danger-text)] empty:hidden">
-          {passwordError}
-        </p>
+        <FormError>{passwordError}</FormError>
         <div className="flex justify-end">
           <Button
             variant="primary"

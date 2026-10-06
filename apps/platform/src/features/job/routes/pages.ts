@@ -12,6 +12,7 @@ import { DEFAULT_JOB_SEARCH, JobSearchQuerySchema } from './model';
 export const JobListRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/job',
+  staticData: { titleKey: 'menu.job' },
   loader: localeScopeLoader(JOB_LOCALE_SCOPE),
   validateSearch: JobSearchQuerySchema,
   search: { middlewares: [stripSearchParams(DEFAULT_JOB_SEARCH)] },
