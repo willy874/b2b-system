@@ -128,7 +128,7 @@ modules/announcement/
 | `frequency`、`interval` | 每 N 天／週／月（1～99）；週與月的間隔從 `startsOn` 所在的那一週（週日起）、那個月算起 |
 | `weekdays` | `weekly` 必填：0（週日）～6，不重複 |
 | `monthDay` | `monthly` 必填：1～28 或 `last`（不收 29～31：不存在的日期由選項本身排除） |
-| `time` | 當地的 `HH:mm`：依 **租戶時區**（系統設定 `general.defaultTimezone`）換算成時刻，夏令時間依那一天的位移 |
+| `time` | 當地的 `HH:mm`：依 **租戶時區**（系統設定 `general.defaultTimezone`）換算成時刻，夏令時間依那一天的位移；不存在的時段（夏令時間開始時跳過的那一小時）順延（02:30 → 03:30），重複的時段（夏令時間結束）取較早的一次 |
 | `startsOn`、`endsOn` | 第一天與最後一天（含），租戶時區的日曆日 |
 | `maxOccurrences` | 最多發幾次（已建立的發送紀錄數，撤回的也算）；null＝不限 |
 

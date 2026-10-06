@@ -48,7 +48,7 @@ shared/date                            zonedDateTime()、toZonedParts()：偏好
 
 - 建立只存成草稿：送出在詳情頁做，確認框說明立即或排定的時間（`publish` 獨立於 `create`，D15）。
 - 受眾的人數預覽隨選擇即時重抓（key 是排序過的 id 串）；已選但不在搜尋結果裡的使用者另外取名稱，標籤才顯示得出來。
-- 指定時間以使用者偏好的時區輸入並標示時區；送出前換成 ISO。已送出的公告不能改成「立即」。
+- 指定時間以使用者偏好的時區輸入並標示時區；送出前換成 ISO。夏令時間的處理與後端的週期相同（[`backend/19-announcement.md`](../backend/19-announcement.md) §5.1 的 `time`）：不存在的時段順延，重複的時段取較早的一次。已送出的公告不能改成「立即」。
 - 週期：每 N 天／週／月、時間、星期幾（週）、每月哪一天（1～28 或最後一天）、開始與結束日期、最多次數。日期與時間是 **租戶時區**
   的日曆，原樣送出；下方顯示伺服器算的「接下來 5 次」與它用的時區（`POST /announcements/recurrence-preview`，前端不自己算）。
 - 事件點：從 `GET /announcements/trigger-events` 選觸發點（名稱與說明在 `ANNOUNCEMENT_EVENT_LABEL`；不認得的以 `event` 原樣顯示），

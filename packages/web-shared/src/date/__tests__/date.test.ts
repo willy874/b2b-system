@@ -121,6 +121,22 @@ describe('zonedDateTime / toZonedParts（公告排程的日期與時間）', () 
     );
   });
 
+  it('夏令時間開始：不存在的 02:30 順延成 03:30；重複的 01:30 取較早的一次', () => {
+    expect(zonedDateTime('2026-03-08', '02:30', 'America/New_York')).toBe(
+      '2026-03-08T07:30:00.000Z',
+    );
+    expect(zonedDateTime('2026-11-01', '01:30', 'America/New_York')).toBe(
+      '2026-11-01T05:30:00.000Z',
+    );
+  });
+
+  it('午夜就切換的時區：當天的日界線落在 01:00', () => {
+    // 聖地牙哥 2026-09-06 00:00 跳到 01:00
+    expect(zonedDayBoundary('2026-09-06', 'start', 'America/Santiago')).toBe(
+      '2026-09-06T04:00:00.000Z',
+    );
+  });
+
   it('格式不對 → undefined', () => {
     expect(zonedDateTime('2026/10/10', '18:00')).toBeUndefined();
     expect(zonedDateTime('2026-10-10', '6pm')).toBeUndefined();

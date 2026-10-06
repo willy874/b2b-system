@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 夏令時間開始當天，落在不存在時段的公告發送時間會提早一小時（前後端同一套算法） | [`announcement-dst-gap.md`](./announcement-dst-gap.md) | 2026-10-06（補公告的單元測試） |
 | 中 | E2E 在 api 跑著時重灌資料庫：系統資料夾與個人資料夾不會建立，依賴它們的案例時過時不過 | [`e2e-reseed-skips-bootstrap-preparation.md`](./e2e-reseed-skips-bootstrap-preparation.md) | 2026-10-06（補 E2E） |
 | 中 | 稽核明細查無資料時回 400 `VALIDATION_FAILED`，其他資源都是 404 | [`audit-log-detail-not-found-status.md`](./audit-log-detail-not-found-status.md) | 2026-10-06（補稽核的單元測試） |
 | 低 | 改密碼後的登出原因可能被 `session.revoked` 推播搶先，登入頁顯示通用訊息而不是「密碼已變更」 | [`password-change-signout-reason-race.md`](./password-change-signout-reason-race.md) | 2026-10-06（補 E2E） |

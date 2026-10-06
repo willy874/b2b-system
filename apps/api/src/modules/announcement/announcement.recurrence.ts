@@ -3,7 +3,7 @@ import type { AnnouncementRecurringTrigger } from '@/db/schema';
 /**
  * 週期的計算（docs/architecture/backend/19-announcement.md §9.2 D7、D11）：純函式，只在後端算（前端的「接下來幾次」呼叫預覽端點），
  * DST 與月底的邊界只有一份實作。時區換算用 `Intl`（Node 24 沒有 `Temporal`）：先猜 UTC 再以該時刻的位移校正兩次，
- * 與前端 `shared/date` 的 `zonedDateTime` 同一個做法。
+ * 不存在的時段順延（`zonedInstant`），與前端 `shared/date` 的 `zonedDateTime` 同一個做法。
  *
  * 日曆的運算都在「沒有時區的日期」上做（以 UTC 的 00:00 表示一天），最後才換成那一天、那個時間在租戶時區的時刻。
  */
@@ -56,12 +56,19 @@ function offsetOf(instant: number, timeZone: string): number {
   return asUtc - Math.floor(instant / 1000) * 1000;
 }
 
-/** 某一天（UTC 00:00 表示）的 `HH:mm` 在 `timeZone` 是哪一刻。 */
+/**
+ * 某一天（UTC 00:00 表示）的 `HH:mm` 在 `timeZone` 是哪一刻。
+ * 不存在的時段（夏令時間開始時跳過的那一小時）以跳之前的位移換算，順延到跳之後（02:30 → 03:30）；
+ * 重複的時段（夏令時間結束）取較早的一次。同 Temporal 的 `disambiguation: 'compatible'`。
+ */
 function zonedInstant(day: number, time: string, timeZone: string): Date {
   const [hour, minute] = time.split(':').map(Number) as [number, number];
   const guess = day + hour * 60 * 60 * 1000 + minute * 60 * 1000;
   const first = guess - offsetOf(guess, timeZone);
-  return new Date(guess - offsetOf(first, timeZone));
+  const result = guess - offsetOf(first, timeZone);
+  if (result + offsetOf(result, timeZone) === guess) return new Date(result);
+  // 換回當地時間對不上：落在不存在的時段，兩個候選取較晚的那一個（以跳之前的位移換算）
+  return new Date(Math.max(result, guess - offsetOf(result, timeZone)));
 }
 
 function lastDayOfMonth(day: number): number {
