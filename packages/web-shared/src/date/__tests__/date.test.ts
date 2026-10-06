@@ -5,6 +5,7 @@ import {
   formatRelativeTime,
   isValidTimeZone,
   setDateTimeDefaults,
+  todayInZone,
   toZonedParts,
   zonedDateTime,
   zonedDayBoundary,
@@ -152,5 +153,21 @@ describe('zonedDateTime / toZonedParts（公告排程的日期與時間）', () 
       '2026-03-08T07:30:00.000Z',
     );
     expect(toZonedParts('not a date')).toBeUndefined();
+  });
+});
+
+describe('todayInZone（偏好時區的「今天」）', () => {
+  // 2026-10-06T23:30:00Z：台北已經是 10/07，洛杉磯還是 10/06
+  const now = new Date('2026-10-06T23:30:00.000Z');
+
+  it('跨日：同一刻在不同時區是不同的日期', () => {
+    expect(todayInZone('Asia/Taipei', now)).toBe('2026-10-07');
+    expect(todayInZone('America/Los_Angeles', now)).toBe('2026-10-06');
+    expect(todayInZone('UTC', now)).toBe('2026-10-06');
+  });
+
+  it('沒有傳時區時用偏好的時區（setDateTimeDefaults）', () => {
+    setDateTimeDefaults({ timeZone: 'America/Los_Angeles' });
+    expect(todayInZone(undefined, now)).toBe('2026-10-06');
   });
 });

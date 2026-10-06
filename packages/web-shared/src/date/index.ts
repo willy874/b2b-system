@@ -215,3 +215,11 @@ export function toZonedParts(
     time: `${part('hour')}:${part('minute')}`,
   };
 }
+
+/**
+ * 某個時區（預設是使用者偏好的時區）此刻的日期 `YYYY-MM-DD`：日期選擇器的「今天」、最早可選的日期。
+ * 不用 dayjs()／new Date() 的本地日期——那是瀏覽器的時區，出差或電腦設成 UTC 時會差一天。
+ */
+export function todayInZone(timeZone: string = defaults.timeZone, now: Date = new Date()): string {
+  return toZonedParts(now.toISOString(), timeZone)?.day ?? now.toISOString().slice(0, 10);
+}

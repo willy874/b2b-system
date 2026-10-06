@@ -1,6 +1,7 @@
 import { renderWithPermissions } from '@b2b-system/web-core/testing';
+import { setDateTimeDefaults, todayInZone, zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionKey } from '@/core/permission';
 import type { FileFolderGrantList } from '@/shared/api-sdk';
@@ -214,6 +215,59 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
         params: { folderId: 'ui', subjectType: 'everyone', subjectId: everyone },
       }),
     );
+  });
+
+  describe('到期日用偏好的時區，不是瀏覽器的時區（docs/architecture/frontend/08-i18n.md §5）', () => {
+    // 刻意選一個不會是測試機器時區的時區（UTC+14）：瀏覽器時區算出來的結果一定不同
+    const ZONE = 'Pacific/Kiritimati';
+    beforeEach(() => setDateTimeDefaults({ timeZone: ZONE }));
+    afterEach(() => setDateTimeDefaults({ timeZone: 'Asia/Taipei' }));
+
+    it('送出的 expiresAt 是偏好時區那一天的結束', async () => {
+      fetchGrants.mockResolvedValue(grants());
+      renderDialog();
+      await rowOf(ART_TEAM);
+
+      fireEvent.click(screen.getByTestId('file-share-subject-type'));
+      await screen.findByRole('listbox');
+      const everyone = screen
+        .getAllByTestId('select-item')
+        .find((item) => item.getAttribute('data-value') === 'everyone');
+      if (!everyone) throw new Error('找不到「所有人」');
+      fireEvent.click(everyone);
+
+      const day = todayInZone(ZONE);
+      fireEvent.click(screen.getByTestId('file-share-expires'));
+      const cell = await waitFor(() => {
+        const element = document.querySelector<HTMLElement>(
+          `[data-testid="calendar-day"][data-value="${day}"]`,
+        );
+        if (!element) throw new Error(`找不到 ${day}`);
+        return element;
+      });
+      // 偏好時區的今天可以選（最早日期也是偏好時區的今天）
+      expect(cell).not.toHaveAttribute('aria-disabled');
+      fireEvent.click(cell);
+      fireEvent.click(screen.getByTestId('file-share-add'));
+
+      await waitFor(() => expect(setGrant).toHaveBeenCalled());
+      expect(setGrant.mock.calls[0]?.[0].params.body.expiresAt).toBe(
+        zonedDayBoundary(day, 'end', ZONE),
+      );
+    });
+
+    it('顯示的到期日是偏好時區的日期', async () => {
+      const base = grants();
+      const [direct] = base.items;
+      if (!direct) throw new Error('fixture');
+      // 2026-10-07T10:30:00Z 在 UTC+14 已經是 10/8
+      fetchGrants.mockResolvedValue({
+        ...base,
+        items: [{ ...direct, expiresAt: '2026-10-07T10:30:00.000Z' }],
+      });
+      renderDialog();
+      expect(await rowOf(ART_TEAM)).toHaveTextContent('到 2026年10月8日 為止');
+    });
   });
 
   it('移除時按取消：不送出', async () => {
