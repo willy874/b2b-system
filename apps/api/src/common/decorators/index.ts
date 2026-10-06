@@ -2,6 +2,7 @@ export * from './api-surface.decorator';
 export * from './audit.decorator';
 export * from './authenticated.decorator';
 export * from './current-user.decorator';
+export * from './json-body-only.decorator';
 export * from './public.decorator';
 export * from './require-feature.decorator';
 export * from './require-flag.decorator';

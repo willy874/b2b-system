@@ -327,7 +327,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | Access Token  | JWT（HS256 或 RS256），**5 分鐘**，只存記憶體，不進 `localStorage`                                         |
 | Refresh Token | 不透明隨機值，**雜湊後**入庫，7 天，每次使用即輪替，**重用偵測 → 整條家族撤銷**                            |
 | Cookie        | `HttpOnly; Secure; SameSite=Lax; Path=/api/auth`；一律 host-only（不設 `Domain`），不使用跨域 cookie（[`04-sso.md`](./04-sso.md) §2） |
-| CSRF          | refresh 端點是唯一吃 cookie 的端點，額外要求 `x-refresh-request: 1` 自訂標頭（簡單請求無法跨站帶自訂標頭） |
+| CSRF          | refresh 端點是唯一吃 cookie 的端點，額外要求 `x-refresh-request: 1` 自訂標頭（簡單請求無法跨站帶自訂標頭）；會設定 session cookie 的登入、SSO 回呼只接受 JSON（擋登入 CSRF，[`backend/04-auth.md`](./backend/04-auth.md) §2.5） |
 | 暴力破解      | 同帳號連續 5 次失敗鎖定 15 分鐘；登入類端點以「帳號 ＋ IP」與 IP 限流（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8） |
 | 反提權        | 授予權限／指派角色時檢查「操作者是否持有該權限」                                                           |
 | 自我保護      | 使用者不能刪除自己、不能改自己的角色；改自己持有的角色時不能拿掉自己管理角色所需的權限（`ROLE_SELF_LOCKOUT`） |

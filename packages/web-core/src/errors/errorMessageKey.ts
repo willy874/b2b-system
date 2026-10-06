@@ -10,6 +10,7 @@ import type { ErrorCode } from '@b2b-system/error-codes';
 export const ERROR_MESSAGE_KEY = {
   // ── 驗證 ──
   VALIDATION_FAILED: 'error.VALIDATION_FAILED',
+  UNSUPPORTED_MEDIA_TYPE: 'error.UNSUPPORTED_MEDIA_TYPE',
 
   // ── 租戶 ──
   TENANT_NOT_FOUND: 'error.TENANT_NOT_FOUND',

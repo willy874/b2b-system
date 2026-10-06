@@ -168,7 +168,17 @@ Set-Cookie: refresh_token=<value>;
 
 ### 2.5 CSRF
 
-`/auth/refresh` 是唯一靠 cookie 認證的端點，因此是唯一的 CSRF 標的。防護：
+CSRF 的標的有兩種：**靠 cookie 認證** 的端點（`/auth/refresh`），以及會 **設定** session cookie 的公開端點
+（`POST /auth/sso/callback`、`POST /platform/auth/sso/callback`、`POST /auth/login`）。後者的風險是登入 CSRF：
+攻擊者以自己的授權碼（或帳密）組一個自動送出的跨站表單，`SameSite` 只限制「送出」cookie，不限制頂層導覽的回應「設定」cookie，
+受害者的瀏覽器就收下攻擊者的 refresh cookie，之後的操作都落在攻擊者的帳號裡。
+
+會設定 session cookie 的端點標 `@JsonBodyOnly()`：只接受 `Content-Type: application/json`，其他回 `415 UNSUPPORTED_MEDIA_TYPE`。
+跨站的 HTML 表單只能送 urlencoded、multipart、text/plain；跨站的 fetch 帶 `application/json` 要先過 preflight，而 api 不回其他來源的 CORS。
+不全域關掉 urlencoded：`/oidc/token` 依規格要它。前端另有縱深防禦：`SessionStore` 已經有身分時，
+續期（含其他分頁的 `refresh-done`）拿到的 access token 若是另一個身分（`sub`／`tid` 不同），不採用並以 `identity_changed` 結束 session。
+
+`/auth/refresh` 的防護：
 
 1. `SameSite=Lax` — 阻擋跨站的 `POST`
 2. **要求自訂標頭 `x-refresh-request: 1`** — 帶自訂標頭的跨站請求會觸發

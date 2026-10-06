@@ -28,6 +28,27 @@ const REFRESH_LOCK_PREFIX = 'ge:refresh:';
 const STORAGE_NAMESPACE_PREFIX = 'auth:';
 const HAS_SESSION_KEY = 'hasSession';
 
+/**
+ * 新的 access token 屬於另一個身分（`sub`／`tid` 不同）時結束 session 的原因：refresh cookie 被換成別人的
+ * （登入 CSRF），不能無聲地變成別人（docs/architecture/backend/04-auth.md §2.5）。
+ */
+export const IDENTITY_CHANGED_REASON = 'identity_changed';
+
+/** 解出 access token 的身分；不是 JWT（測試的假 token）時回傳 undefined。只比對、不驗簽——簽章由後端驗。 */
+function identityOf(token: string): string | undefined {
+  const payload = token.split('.')[1];
+  if (!payload) return undefined;
+  try {
+    const claims: unknown = JSON.parse(atob(payload.replaceAll('-', '+').replaceAll('_', '/')));
+    if (!claims || typeof claims !== 'object') return undefined;
+    const { sub, tid } = claims as { sub?: unknown; tid?: unknown };
+    return typeof sub === 'string' ? `${typeof tid === 'string' ? tid : ''}:${sub}` : undefined;
+  } catch {
+    // 解不開就無從比對：交給後端的驗證
+    return undefined;
+  }
+}
+
 /** 同一個頻道依序送達：登出之後才到的續期結果一定排在登出之後。 */
 export type SessionMessages = {
   'refresh-done': { accessToken: string; expiresAt: number };
@@ -138,14 +159,24 @@ export class SessionStore {
     this.applyTokens(accessToken, Date.now() + expiresIn * 1000);
   }
 
-  /** 本分頁登入／續期，或其他分頁續期完成時共用：新 token 代表 session 重新開始。 */
-  private applyTokens(accessToken: string, expiresAt: number): void {
+  /**
+   * 本分頁登入／續期，或其他分頁續期完成時共用：新 token 代表 session 重新開始。
+   * 已經有身分、新 token 卻是另一個身分時不採用，改以 `IDENTITY_CHANGED_REASON` 結束 session；回傳是否採用。
+   */
+  private applyTokens(accessToken: string, expiresAt: number): boolean {
+    const current = this.accessToken && identityOf(this.accessToken);
+    const next = identityOf(accessToken);
+    if (current && next && current !== next) {
+      this.endSession(IDENTITY_CHANGED_REASON);
+      return false;
+    }
     this.accessToken = accessToken;
     this.expiresAt = expiresAt;
     this.ended = false;
     this.storage.set(HAS_SESSION_KEY, true);
     this.events.emit('refreshed');
     this.notify();
+    return true;
   }
 
   clear(): void {
@@ -230,7 +261,10 @@ export class SessionStore {
         const tokens = await refreshFn();
         // 續期途中 session 已結束（登出）：丟掉結果，否則會把已登出的頁面救活
         if (epoch !== this.epoch) return undefined;
-        this.setTokens(tokens);
+        // 換成了別的身分：session 已結束，這個 token 不給任何請求用，也不分享給其他分頁
+        if (!this.applyTokens(tokens.accessToken, Date.now() + tokens.expiresIn * 1000)) {
+          return undefined;
+        }
         this.channel.post('refresh-done', {
           accessToken: tokens.accessToken,
           expiresAt: this.expiresAt,

@@ -103,6 +103,7 @@
     "aborted": "The request was cancelled.",
     "permission_changed": "Your permissions just changed; the page has been re-synced.",
     "VALIDATION_FAILED": "Some fields are invalid. Please review and try again.",
+    "UNSUPPORTED_MEDIA_TYPE": "The request format is not supported. Please reload the page and try again.",
     "TENANT_NOT_FOUND": "This address does not belong to any tenant. Check that the URL is correct.",
     "TENANT_UNAVAILABLE": "This tenant is currently unavailable. Contact the platform administrator.",
     "FEATURE_DISABLED": "This feature is not enabled for the current tenant.",

@@ -185,6 +185,7 @@ api 的 `core/errors/error-code.ts` 只是轉出，既有的 import 不必改：
 export const ErrorCode = {
   // ── 驗證 ──
   VALIDATION_FAILED: { status: 400 },
+  UNSUPPORTED_MEDIA_TYPE: { status: 415 }, // 會設定 session cookie 的端點只接受 JSON（04-auth.md §2.5）
 
   // ── 租戶（節錄；完整清單見程式） ──
   TENANT_NOT_FOUND: { status: 404 },
