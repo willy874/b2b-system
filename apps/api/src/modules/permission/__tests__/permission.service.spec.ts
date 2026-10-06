@@ -4,6 +4,7 @@ import type { PermissionKey } from '@/common/types';
 import type { AuthzRevision, AuthzService, TenantPermissions } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
 import { permissionClosure } from '@/db/seeds/permissions';
+import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import type { PermissionRepository } from '../permission.repository';
 import { PermissionService } from '../permission.service';
@@ -40,6 +41,8 @@ function fakeAuthz(
 
 /** 失效與廣播另有整合測試（test/authz-revision.spec.ts）。 */
 const REVISION = { changed: vi.fn() } as unknown as AuthzRevision;
+/** 只用到 `assertHasAll`／`assertHasAny` 的案例另外建自己的稽核假物件。 */
+const NO_AUDIT = {} as AuditService;
 
 const ALL_KEYS = ['user:read', 'user:assignRole', 'system:update'] as PermissionKey[];
 
@@ -51,13 +54,15 @@ function createService(actor: {
   const repo = { findAllPermissionKeys: vi.fn().mockResolvedValue(ALL_KEYS) };
   const cache = { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) };
   const authz = fakeAuthz(() => actor);
+  const audit = { recordSafely: vi.fn(async () => undefined) };
   const service = new PermissionService(
     repo as unknown as PermissionRepository,
     cache as unknown as PermissionCacheService,
     authz as unknown as AuthzService,
     REVISION,
+    audit as unknown as AuditService,
   );
-  return { service, repo, authz };
+  return { service, repo, authz, audit };
 }
 
 const TENANT = { type: 'tenant', id: 'self' };
@@ -135,6 +140,7 @@ function createBatchService(cached: Record<string, { keys: PermissionKey[] }> = 
     cache as unknown as PermissionCacheService,
     authz as unknown as AuthzService,
     REVISION,
+    NO_AUDIT,
   );
   return { service, authz, cache };
 }
@@ -160,6 +166,7 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
       { get: vi.fn(), set: vi.fn(), ticket: vi.fn(() => 0) } as unknown as PermissionCacheService,
       authz as unknown as AuthzService,
       REVISION,
+      NO_AUDIT,
     );
     const { permissions } = await service.getPermissionSet('u1');
     expect([...permissions].toSorted()).toEqual([
@@ -200,6 +207,82 @@ describe('PermissionService.getPermissionSets（批次解析）', () => {
     const batches = authz.tenantPermissionsOf.mock.calls.map(([batch]) => batch.length);
     expect(batches).toEqual([500, 500, 200]);
     expect(sets.size).toBe(1200);
+  });
+});
+
+describe('PermissionService.assertHasAll／assertHasAny（service 層的權限判斷，docs/architecture/backend/05-rbac.md §3.1）', () => {
+  const ACTOR = { id: 'actor', email: 'actor@example.com' };
+  const CONTEXT = { route: 'POST /approvals/:id/approve', metadata: { approvalId: 'a1' } };
+
+  it('全部都有 → 放行，不寫稽核', async () => {
+    const { service, audit } = createService({
+      keys: ['user:read', 'user:assignRole'],
+      isSuperAdmin: false,
+    });
+    await expect(
+      service.assertHasAll(ACTOR, ['user:read', 'user:assignRole'], CONTEXT),
+    ).resolves.toBeUndefined();
+    expect(audit.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('缺少 → 寫 authz.denied（route、required、missing 與呼叫端的 metadata），再拋 AUTHZ_FORBIDDEN { required, missing }', async () => {
+    const { service, audit } = createService({ keys: ['user:read'], isSuperAdmin: false });
+    await expect(
+      service.assertHasAll(ACTOR, ['user:read', 'system:update'], CONTEXT),
+    ).rejects.toMatchObject({
+      code: 'AUTHZ_FORBIDDEN',
+      details: { required: ['user:read', 'system:update'], missing: ['system:update'] },
+    });
+    expect(audit.recordSafely).toHaveBeenCalledWith({
+      action: 'authz.denied',
+      result: 'failure',
+      actorId: 'actor',
+      actorEmail: 'actor@example.com',
+      resourceType: 'authz',
+      errorCode: 'AUTHZ_FORBIDDEN',
+      metadata: {
+        approvalId: 'a1',
+        route: 'POST /approvals/:id/approve',
+        required: ['user:read', 'system:update'],
+        missing: ['system:update'],
+      },
+    });
+  });
+
+  it('super-admin → 放行，不寫稽核', async () => {
+    const { service, audit } = createService({ keys: [], isSuperAdmin: true });
+    await expect(service.assertHasAll(ACTOR, ['system:update'], CONTEXT)).resolves.toBeUndefined();
+    expect(audit.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('依賴樹帶來的鍵也算（user:assignRole 包含 user:read）', async () => {
+    const { service } = createService({ keys: ['user:assignRole'], isSuperAdmin: false });
+    await expect(service.assertHasAll(ACTOR, ['user:read'], CONTEXT)).resolves.toBeUndefined();
+  });
+
+  it('assertHasAny：有任一個就放行；一個都沒有 → missing 是全部', async () => {
+    const reader = createService({ keys: ['user:read'], isSuperAdmin: false });
+    await expect(
+      reader.service.assertHasAny(ACTOR, ['system:update', 'user:read'], CONTEXT),
+    ).resolves.toBeUndefined();
+
+    const nobody = createService({ keys: [], isSuperAdmin: false });
+    await expect(
+      nobody.service.assertHasAny(ACTOR, ['system:update', 'user:read'], CONTEXT),
+    ).rejects.toMatchObject({
+      code: 'AUTHZ_FORBIDDEN',
+      details: {
+        required: ['system:update', 'user:read'],
+        missing: ['system:update', 'user:read'],
+      },
+    });
+    expect(nobody.audit.recordSafely).toHaveBeenCalledTimes(1);
+  });
+
+  it('沒有要求任何權限 → 放行，不查權限', async () => {
+    const { service, authz } = createService({ keys: [], isSuperAdmin: false });
+    await expect(service.assertHasAll(ACTOR, [], CONTEXT)).resolves.toBeUndefined();
+    expect(authz.tenantPermissionsOf).not.toHaveBeenCalled();
   });
 });
 
@@ -299,6 +382,7 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/0
     {} as PermissionCacheService,
     {} as AuthzService,
     REVISION,
+    NO_AUDIT,
   );
 
   it('明確的鍵標 explicit；依賴樹帶出的標 implied 並列出來源，依目錄順序', () => {
@@ -336,6 +420,7 @@ describe('PermissionService.findActiveUserIdsWithPermission（docs/architecture/
       cache as unknown as PermissionCacheService,
       authz as unknown as AuthzService,
       REVISION,
+      NO_AUDIT,
     );
     return { service, authz, repo };
   }

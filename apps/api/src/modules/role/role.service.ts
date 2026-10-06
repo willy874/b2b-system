@@ -565,27 +565,13 @@ export class RoleService {
 
   /**
    * 還原會改變權限鍵時，另外要有 `role:grantPermission`（與 `PATCH /roles/:id/permissions` 的路由宣告相同）。
-   * 拒絕照 `PermissionsGuard` 的形狀：`403 AUTHZ_FORBIDDEN` ＋ `authz.denied` 稽核。
+   * 拒絕照 `PermissionsGuard` 的形狀：`403 AUTHZ_FORBIDDEN` ＋ `authz.denied` 稽核（`PermissionService.assertHasAll`）。
    */
-  private async assertCanGrantPermissions(actor: AuthUser, roleId: string): Promise<void> {
-    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(actor.id);
-    if (isSuperAdmin || permissions.has(PERMISSION.ROLE_GRANT_PERMISSION)) return;
-    const required = [PERMISSION.ROLE_GRANT_PERMISSION];
-    await this.audit.recordSafely({
-      action: 'authz.denied',
-      result: 'failure',
-      actorId: actor.id,
-      actorEmail: actor.email,
-      resourceType: 'authz',
-      errorCode: 'AUTHZ_FORBIDDEN',
-      metadata: {
-        route: 'POST /roles/:id/revisions/:version/revert',
-        roleId,
-        required,
-        missing: required,
-      },
+  private assertCanGrantPermissions(actor: AuthUser, roleId: string): Promise<void> {
+    return this.permissionService.assertHasAll(actor, [PERMISSION.ROLE_GRANT_PERMISSION], {
+      route: 'POST /roles/:id/revisions/:version/revert',
+      metadata: { roleId },
     });
-    throw new AppException('AUTHZ_FORBIDDEN', { required, missing: required });
   }
 
   /** 角色的持有者（含經由群組）與只經由群組持有的人（`RoleHolders`）。角色已刪除時是空的。 */

@@ -308,6 +308,59 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     expect(response.body).toMatchObject({ error: { code: 'AUTHZ_ESCALATION' } });
   });
 
+  it('有 approval:review、沒有 user:create 的審核者核准註冊 → 403 AUTHZ_FORBIDDEN { required, missing }，查得到 authz.denied', async () => {
+    const credentials = {
+      email: 'approval-reviewer@example.com',
+      password: 'ReviewerPassword!2026',
+    };
+    const [role] = await db
+      .insert(roles)
+      .values({ slug: 'approval-reviewer', name: 'approval-reviewer', isSystem: false })
+      .returning();
+    await db.insert(relationTuples).values(rolePermissionTuple(role!.id, 'approval:review'));
+    const { hashPassword } = await import('@/modules/credential/password');
+    const [reviewer] = await db
+      .insert(users)
+      .values({
+        email: credentials.email,
+        displayName: credentials.email,
+        passwordHash: await hashPassword(credentials.password),
+        status: 'active',
+      })
+      .returning();
+    await db.insert(relationTuples).values(roleHolderTuple(role!.id, reviewer!.id));
+    await register('reviewer-target@example.com').expect(202);
+    const { id } = (await pendingRequestOf('reviewer-target@example.com'))!;
+
+    const response = await request(http)
+      .post(`/approvals/${id}/approve`)
+      .set('authorization', `Bearer ${await login(credentials)}`)
+      .send({ roleIds: [] })
+      .expect(403);
+    expect(response.body).toMatchObject({
+      error: {
+        code: 'AUTHZ_FORBIDDEN',
+        details: { required: ['user:create'], missing: ['user:create'] },
+      },
+    });
+    expect((await pendingRequestOf('reviewer-target@example.com'))?.status).toBe('pending');
+
+    const denied = await db.select().from(auditLogs).where(eq(auditLogs.actorId, reviewer!.id));
+    expect(denied).toContainEqual(
+      expect.objectContaining({
+        action: 'authz.denied',
+        result: 'failure',
+        errorCode: 'AUTHZ_FORBIDDEN',
+        metadata: expect.objectContaining({
+          route: 'POST /approvals/:id/approve',
+          approvalId: id,
+          required: ['user:create'],
+          missing: ['user:create'],
+        }),
+      }),
+    );
+  });
+
   it('不存在的請求 → 404 APPROVAL_NOT_FOUND', async () => {
     const token = await login(ADMIN);
     const response = await request(http)

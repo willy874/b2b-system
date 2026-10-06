@@ -6,7 +6,6 @@ import { AuthzService, parseSubjectKey, SUPER_ADMIN_RELATION } from '@/core/auth
 import type { SubjectKey } from '@/core/authz';
 import { AppException } from '@/core/errors';
 import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/seeds/permissions';
-import { AuditService } from '@/modules/audit-log/audit.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { AuthzExplainRepository } from './authz-explain.repository';
@@ -35,7 +34,6 @@ export class AuthzExplainService {
     private readonly repo: AuthzExplainRepository,
     private readonly authz: AuthzService,
     private readonly permissions: PermissionService,
-    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -44,19 +42,10 @@ export class AuthzExplainService {
    */
   async assertCanExplain(actor: AuthUser, targetUserId: string, route: string): Promise<void> {
     if (actor.id === targetUserId) return;
-    const { permissions, isSuperAdmin } = await this.permissions.getPermissionSet(actor.id);
-    if (isSuperAdmin || permissions.has(PERMISSION.AUTHZ_EXPLAIN)) return;
-    const required = [PERMISSION.AUTHZ_EXPLAIN];
-    await this.audit.recordSafely({
-      action: 'authz.denied',
-      result: 'failure',
-      actorId: actor.id,
-      actorEmail: actor.email,
-      resourceType: 'authz',
-      errorCode: 'AUTHZ_FORBIDDEN',
-      metadata: { route, targetUserId, required, missing: required },
+    await this.permissions.assertHasAll(actor, [PERMISSION.AUTHZ_EXPLAIN], {
+      route,
+      metadata: { targetUserId },
     });
-    throw new AppException('AUTHZ_FORBIDDEN', { required, missing: required });
   }
 
   /** 說明的對象必須是存在（未刪除）的使用者。 */

@@ -16,7 +16,7 @@ import type {
 } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { NotificationService } from '@/modules/notification/notification.service';
-import type { PermissionService } from '@/modules/permission/permission.service';
+import { createPermissionChecks } from '@/modules/permission/__tests__/permission-checks.fixture';
 
 import type { AnnouncementAudienceResolver, ResolvedAudience } from '../announcement.audience';
 import type {
@@ -130,9 +130,10 @@ function setup(options: SetupOptions = {}) {
     }),
     markSourceRead: vi.fn(async () => true),
   };
-  const permissions = {
-    getPermissionSet: vi.fn(async () => options.permissionSet ?? PUBLISHER),
-  };
+  // 真的權限判斷（拒絕時寫 authz.denied）；getPermissionSet 回傳這個案例的集合
+  const { service: permissions, audit: denials } = createPermissionChecks(
+    () => options.permissionSet ?? PUBLISHER,
+  );
   const audit = {
     record: vi.fn(async (_entry: object, _tx: unknown) => {
       log.push('audit');
@@ -150,14 +151,26 @@ function setup(options: SetupOptions = {}) {
     repo as unknown as AnnouncementRepository,
     audience as unknown as AnnouncementAudienceResolver,
     notifications as unknown as NotificationService,
-    permissions as unknown as PermissionService,
+    permissions,
     audit as unknown as AuditService,
     jobs as unknown as JobQueue,
     scheduler(settings, jobs),
     catalog(),
     events as unknown as DomainEventBus,
   );
-  return { service, repo, audience, notifications, permissions, audit, jobs, events, tx, log };
+  return {
+    service,
+    repo,
+    audience,
+    notifications,
+    permissions,
+    denials,
+    audit,
+    jobs,
+    events,
+    tx,
+    log,
+  };
 }
 
 function changed(kind: ChangeKind, id = 'ann-1') {
@@ -360,7 +373,7 @@ describe('AnnouncementService.update（docs/architecture/backend/19-announcement
   });
 
   it.each(['scheduled', 'paused'] as const)(
-    '%s 的公告沒有 announcement:publish → 403 AUTHZ_FORBIDDEN（details.missing）',
+    '%s 的公告沒有 announcement:publish → 403 AUTHZ_FORBIDDEN（details.required、missing），寫 authz.denied',
     async (status) => {
       const ctx = setup({
         stored: announcement({ ...scheduledOnce(), status }),
@@ -369,9 +382,24 @@ describe('AnnouncementService.update（docs/architecture/backend/19-announcement
       await expectCode(
         run(() => ctx.service.update('ann-1', { version: 3, title: '新' }, ACTOR)),
         'AUTHZ_FORBIDDEN',
-        { missing: [PERMISSION.ANNOUNCEMENT_PUBLISH] },
+        {
+          required: [PERMISSION.ANNOUNCEMENT_PUBLISH],
+          missing: [PERMISSION.ANNOUNCEMENT_PUBLISH],
+        },
       );
       expect(ctx.permissions.getPermissionSet).toHaveBeenCalledWith(ACTOR.id);
+      expect(ctx.denials.recordSafely).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'authz.denied',
+          actorId: ACTOR.id,
+          metadata: {
+            announcementId: 'ann-1',
+            route: 'PATCH /announcements/:id',
+            required: [PERMISSION.ANNOUNCEMENT_PUBLISH],
+            missing: [PERMISSION.ANNOUNCEMENT_PUBLISH],
+          },
+        }),
+      );
       expect(ctx.repo.update).not.toHaveBeenCalled();
     },
   );

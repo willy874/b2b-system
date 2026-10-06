@@ -99,7 +99,7 @@ export class TagService {
   /** 一個標籤組的標籤：要進得了這個標籤組（D5）。 */
   async list(scope: string, actor: AuthUser): Promise<TagListDto> {
     const definition = this.requireScope(scope);
-    if (!(await definition.canBrowse(actor))) throw new AppException('AUTHZ_FORBIDDEN');
+    await definition.assertCanBrowse(actor, { route: 'GET /tags', metadata: { scope } });
     return { items: (await this.repo.listByScope(scope)).map(toDto) };
   }
 
@@ -219,7 +219,10 @@ export class TagService {
     const definition = this.resources.get(resourceType);
     if (!definition) throw new AppException('TAG_SCOPE_NOT_FOUND', { resourceType });
     this.requireScope(definition.scope);
-    const target = await definition.resolveEditable(actor, resourceId);
+    const target = await definition.resolveEditable(actor, resourceId, {
+      route: 'PUT /tags/assignments/:resourceType/:resourceId',
+      metadata: { resourceType, resourceId },
+    });
     if (dto.tagIds.length > TAG_MAX_PER_RESOURCE) {
       throw new AppException('TAG_LIMIT_REACHED', { max: TAG_MAX_PER_RESOURCE });
     }

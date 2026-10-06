@@ -11,7 +11,7 @@ import type { SettingService } from '@/core/settings';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { AuditService } from '@/modules/audit-log/audit.service';
-import type { PermissionService } from '@/modules/permission/permission.service';
+import { createPermissionChecks } from '@/modules/permission/__tests__/permission-checks.fixture';
 
 import { TRASH_PURGE_JOB, TrashPurgeJob } from '../trash-purge.job';
 import { TRASH_PURGE_BATCH_SIZE } from '../trash.constants';
@@ -76,9 +76,7 @@ describe('TrashService（docs/architecture/backend/13-trash.md）', () => {
     registry = new TrashRegistry();
     grant();
     audit = { record: vi.fn(async () => {}), recordSafely: vi.fn(async () => {}) };
-    const permissions = {
-      getPermissionSet: vi.fn(async () => permissionSet),
-    } as unknown as PermissionService;
+    const { service: permissions } = createPermissionChecks(() => permissionSet, audit);
     const settings = { get: vi.fn(async () => 30) } as unknown as SettingService;
     service = new TrashService(
       db as unknown as Database,
@@ -291,12 +289,10 @@ describe('TrashPurgeJob', () => {
 function buildService(options: { retentionDays?: number; permissions?: PermissionSet } = {}) {
   const registry = new TrashRegistry();
   const audit = { record: vi.fn(async () => {}), recordSafely: vi.fn(async () => {}) };
-  const permissionService = {
-    getPermissionSet: vi.fn(
-      async () =>
-        options.permissions ?? { permissions: new Set<PermissionKey>(), isSuperAdmin: false },
-    ),
-  } as unknown as PermissionService;
+  const { service: permissionService } = createPermissionChecks(
+    () => options.permissions ?? { permissions: new Set<PermissionKey>(), isSuperAdmin: false },
+    audit,
+  );
   const settings = { get: vi.fn(async () => options.retentionDays ?? 30) };
   const service = new TrashService(
     db as unknown as Database,

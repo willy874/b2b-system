@@ -21,6 +21,21 @@ Guard 看不到資源。
 由 `FileAccessService` 判斷。Guard 仍然宣告閘門（`@RequireAnyPermission('file:access', 'file:<動作>')`），
 所以「每個路由都有明確宣告」與「每次拒絕都寫稽核」兩條原則不變——資源層級的拒絕同樣寫 `authz.denied`。
 
+**Service 層的權限鍵判斷**：路由的宣告表達不了的權限（依審批類型而定、依回收桶的類型而定、「自己或有權限」、只在某些狀態才需要、
+標籤組由擁有者決定）由 service 判斷，**一律** 經 `PermissionService.assertHasAll(actor, keys, { route, metadata? })`
+（任一個就好用 `assertHasAny`），不自己比對權限集合。它與 guard 同一個形狀：super-admin 放行；缺少時以 `recordSafely` 寫
+`authz.denied`（`metadata: { route, required, missing, ...metadata }`，`route` 是被拒絕的端點樣板），再拋
+`403 AUTHZ_FORBIDDEN { required, missing }`（§3.1）。稽核不跟著呼叫端的交易：rollback 時拒絕紀錄仍要留下。
+
+| 呼叫端 | 要求 | 為什麼路由擋不了 |
+| --- | --- | --- |
+| `ApprovalService.approve` | 審批類型要求的權限（註冊：`user:create`） | 路由只宣告 `approval:review`，類型在請求本體之外 |
+| `TrashService.list` | 該類型的 `<resource>:delete` | `GET /trash` 宣告「任一種刪除權」，類型在 query |
+| `AuthzExplainService.assertCanExplain` | 查別人時 `authz:explain` | 「自己或有權限」 |
+| `AnnouncementService.update` | 排程中、暫停中的公告另要 `announcement:publish` | 依公告的狀態 |
+| `RoleService.revertToRevision` | 權限鍵會改變時另要 `role:grantPermission` | 依那一版的內容 |
+| 標籤組的 `assertCanBrowse`、使用者的 `resolveEditable` | `user:read`／`user:update`；檔案組是 `file:access` 或 `file:read` | `GET /tags`、`PUT /tags/assignments/…` 只宣告 `@Authenticated()`，由擁有者決定（[`18-tag.md`](./18-tag.md)） |
+
 ---
 
 ## 2. Decorators

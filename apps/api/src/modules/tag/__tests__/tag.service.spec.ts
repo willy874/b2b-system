@@ -8,6 +8,7 @@ import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { TagRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import { createPermissionChecks } from '@/modules/permission/__tests__/permission-checks.fixture';
 
 import { TAG_MAX_PER_RESOURCE, TAG_MAX_PER_SCOPE } from '../tag.constants';
 import type { AssignedTag, TagRepository } from '../tag.repository';
@@ -60,17 +61,17 @@ function setup() {
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
   );
-  const canBrowse = vi.fn(async () => true);
+  const assertCanBrowse = vi.fn(async () => undefined);
   const resolveEditable = vi.fn(async () => ({ name: 'report.pdf' }));
   const afterTagsChanged = vi.fn();
-  service.registerScope({ scope: 'file', feature: 'file', canBrowse });
+  service.registerScope({ scope: 'file', feature: 'file', assertCanBrowse });
   service.registerResource({
     resourceType: 'file',
     scope: 'file',
     resolveEditable,
     afterTagsChanged,
   });
-  return { service, repo, audit, events, tx, canBrowse, resolveEditable, afterTagsChanged };
+  return { service, repo, audit, events, tx, assertCanBrowse, resolveEditable, afterTagsChanged };
 }
 
 function inTenant<T>(fn: () => Promise<T>, features: TenantFeature[] = ['file']) {
@@ -90,9 +91,9 @@ async function expectCode(promise: Promise<unknown>, code: string, details?: obj
 describe('TagService：登記（docs/architecture/backend/18-tag.md §7.2 D1、D7）', () => {
   it('同一個標籤組或資源類型登記兩次讓啟動失敗', () => {
     const { service } = setup();
-    expect(() => service.registerScope({ scope: 'file', canBrowse: async () => true })).toThrow(
-      '重複登記',
-    );
+    expect(() =>
+      service.registerScope({ scope: 'file', assertCanBrowse: async () => undefined }),
+    ).toThrow('重複登記');
     expect(() =>
       service.registerResource({
         resourceType: 'file',
@@ -105,13 +106,44 @@ describe('TagService：登記（docs/architecture/backend/18-tag.md §7.2 D1、D
 });
 
 describe('TagService：定義', () => {
-  it('列表：要進得了標籤組，否則 AUTHZ_FORBIDDEN', async () => {
+  it('列表：要進得了標籤組（登記方判斷，帶上路由與標籤組），否則原樣拋出', async () => {
     const ctx = setup();
     expect((await inTenant(() => ctx.service.list('file', ACTOR))).items).toHaveLength(1);
-    ctx.canBrowse.mockResolvedValue(false);
+    expect(ctx.assertCanBrowse).toHaveBeenCalledWith(ACTOR, {
+      route: 'GET /tags',
+      metadata: { scope: 'file' },
+    });
+    ctx.assertCanBrowse.mockRejectedValue(new AppException('AUTHZ_FORBIDDEN'));
     await expectCode(
       inTenant(() => ctx.service.list('file', ACTOR)),
       'AUTHZ_FORBIDDEN',
+    );
+  });
+
+  it('登記方以 PermissionService 判斷：進不了 → 寫 authz.denied，details 帶 required 與 missing（docs/architecture/backend/05-rbac.md §3.1）', async () => {
+    const ctx = setup();
+    const checks = createPermissionChecks(() => ({ permissions: new Set(), isSuperAdmin: false }));
+    ctx.service.registerScope({
+      scope: 'user',
+      assertCanBrowse: (actor, context) =>
+        checks.service.assertHasAll(actor, ['user:read'], context),
+    });
+    await expectCode(
+      inTenant(() => ctx.service.list('user', ACTOR)),
+      'AUTHZ_FORBIDDEN',
+      { required: ['user:read'], missing: ['user:read'] },
+    );
+    expect(checks.audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'authz.denied',
+        actorId: ACTOR.id,
+        metadata: {
+          scope: 'user',
+          route: 'GET /tags',
+          required: ['user:read'],
+          missing: ['user:read'],
+        },
+      }),
     );
   });
 
@@ -207,7 +239,7 @@ describe('TagService.replaceFor（指派，D7）', () => {
     const result = await inTenant(() =>
       ctx.service.replaceFor('file', 'f1', { tagIds: ['a', 'b'] }, ACTOR),
     );
-    expect(ctx.resolveEditable).toHaveBeenCalledWith(ACTOR, 'f1');
+    expect(ctx.resolveEditable).toHaveBeenCalledWith(ACTOR, 'f1', expect.anything());
     expect(ctx.repo.findInScope).toHaveBeenCalledWith('file', ['a', 'b'], ctx.tx);
     expect(ctx.repo.replace).toHaveBeenCalledWith('file', 'f1', ['a', 'b'], ACTOR.id, ctx.tx);
     expect(ctx.audit.record).toHaveBeenCalledWith(
@@ -247,13 +279,17 @@ describe('TagService.replaceFor（指派，D7）', () => {
     expect(ctx.repo.replace).not.toHaveBeenCalled();
   });
 
-  it('擁有者拒絕（不能改目標）→ 原樣拋出，不寫入', async () => {
+  it('擁有者拒絕（不能改目標）→ 原樣拋出，不寫入；判斷時帶上路由與資源', async () => {
     const ctx = setup();
     ctx.resolveEditable.mockRejectedValue(new AppException('AUTHZ_FORBIDDEN'));
     await expectCode(
       inTenant(() => ctx.service.replaceFor('file', 'f1', { tagIds: [] }, ACTOR)),
       'AUTHZ_FORBIDDEN',
     );
+    expect(ctx.resolveEditable).toHaveBeenCalledWith(ACTOR, 'f1', {
+      route: 'PUT /tags/assignments/:resourceType/:resourceId',
+      metadata: { resourceType: 'file', resourceId: 'f1' },
+    });
     expect(ctx.repo.replace).not.toHaveBeenCalled();
   });
 

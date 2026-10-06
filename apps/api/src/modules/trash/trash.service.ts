@@ -177,21 +177,14 @@ export class TrashService {
     }
   }
 
-  /** 看某一類的回收桶＝能刪除那一類（docs/architecture/backend/14-revisions.md §9.2 D10）；路由只擋了「任一種都不能刪」的人。 */
-  private async assertCanView(handler: TrashHandler, actor: AuthUser): Promise<void> {
-    const { permissions, isSuperAdmin } = await this.permissionService.getPermissionSet(actor.id);
-    if (isSuperAdmin || permissions.has(handler.permission)) return;
-    const required = [handler.permission];
-    // 與 PermissionsGuard 相同的拒絕紀錄：稽核看得到誰試著看哪一類
-    await this.audit.recordSafely({
-      action: 'authz.denied',
-      result: 'failure',
-      actorId: actor.id,
-      actorEmail: actor.email,
-      resourceType: 'authz',
-      errorCode: 'AUTHZ_FORBIDDEN',
-      metadata: { route: 'GET /trash', type: handler.type, required, missing: required },
+  /**
+   * 看某一類的回收桶＝能刪除那一類（docs/architecture/backend/14-revisions.md §9.2 D10）；路由只擋了「任一種都不能刪」的人。
+   * 與 PermissionsGuard 相同的拒絕紀錄：稽核看得到誰試著看哪一類。
+   */
+  private assertCanView(handler: TrashHandler, actor: AuthUser): Promise<void> {
+    return this.permissionService.assertHasAll(actor, [handler.permission], {
+      route: 'GET /trash',
+      metadata: { type: handler.type },
     });
-    throw new AppException('AUTHZ_FORBIDDEN', { required, missing: required });
   }
 }

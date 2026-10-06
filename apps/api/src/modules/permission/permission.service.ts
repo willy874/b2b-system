@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { PermissionKey } from '@/common/types';
+import type { AuthUser, PermissionKey } from '@/common/types';
 import {
   AuthzRevision,
   AuthzService,
@@ -24,6 +24,7 @@ import {
   permissionClosure,
 } from '@/db/seeds/permissions';
 import type { PermissionDependency } from '@/db/seeds/permissions';
+import { AuditService } from '@/modules/audit-log/audit.service';
 
 import { SUPER_ADMIN_SLUG } from './permission.constants';
 import { PermissionRepository } from './permission.repository';
@@ -64,6 +65,17 @@ export interface PermissionCatalog {
   groups: Array<{ resource: string; nameI18nKey: string; keys: string[] }>;
 }
 
+/**
+ * Service 層自己做的權限判斷（`assertHasAll`／`assertHasAny`）被拒絕時，`authz.denied` 稽核要記的情境。
+ * 欄位與 `PermissionsGuard` 的稽核相同（`metadata.route`），稽核頁不必分兩種讀法。
+ */
+export interface PermissionCheckContext {
+  /** 被拒絕的端點，格式同 guard：`<METHOD> <路由樣板>`（例：`POST /approvals/:id/approve`）。 */
+  route: string;
+  /** 另外記進稽核 `metadata` 的資訊（例：`{ roleId }`）；`route`、`required`、`missing` 由這裡填。 */
+  metadata?: Record<string, unknown>;
+}
+
 /** 角色實際持有的一個鍵（docs/rbac/02-permission-catalog.md §9）。 */
 export interface EffectivePermission {
   key: PermissionKey;
@@ -78,6 +90,7 @@ export class PermissionService {
     private readonly cache: PermissionCacheService,
     private readonly authz: AuthzService,
     private readonly revision: AuthzRevision,
+    private readonly audit: AuditService,
   ) {}
 
   async getPermissionSet(userId: string): Promise<PermissionSet> {
@@ -135,6 +148,57 @@ export class PermissionService {
   async getEffectivePermissionKeys(userId: string): Promise<PermissionKey[]> {
     const { permissions, isSuperAdmin } = await this.getPermissionSet(userId);
     return isSuperAdmin ? this.repo.findAllPermissionKeys() : [...permissions];
+  }
+
+  /**
+   * Service 層的權限判斷：`keys` 全部都要有。路由的宣告表達不了的情況用它（依資源類型、依審批類型而定的權限，
+   * 「自己或有權限」，只在某些狀態才需要的權限）。與 `PermissionsGuard` 同一個形狀（docs/architecture/backend/05-rbac.md §3.1）：
+   * super-admin 放行；缺少時以 `recordSafely` 寫 `authz.denied`（`metadata: { route, required, missing, ... }`），
+   * 再拋 `403 AUTHZ_FORBIDDEN`（`details: { required, missing }`）。稽核不跟著呼叫端的交易：rollback 時拒絕紀錄仍要留下。
+   */
+  assertHasAll(
+    actor: Pick<AuthUser, 'id' | 'email'>,
+    keys: readonly PermissionKey[],
+    context: PermissionCheckContext,
+  ): Promise<void> {
+    return this.assertPermissions(actor, keys, 'every', context);
+  }
+
+  /** 同 `assertHasAll`，但 `keys` 有任一個就放行（例：進檔案管理器要 `file:access` 或 `file:read`）。 */
+  assertHasAny(
+    actor: Pick<AuthUser, 'id' | 'email'>,
+    keys: readonly PermissionKey[],
+    context: PermissionCheckContext,
+  ): Promise<void> {
+    return this.assertPermissions(actor, keys, 'some', context);
+  }
+
+  private async assertPermissions(
+    actor: Pick<AuthUser, 'id' | 'email'>,
+    keys: readonly PermissionKey[],
+    match: 'every' | 'some',
+    context: PermissionCheckContext,
+  ): Promise<void> {
+    if (keys.length === 0) return;
+    const { permissions, isSuperAdmin } = await this.getPermissionSet(actor.id);
+    if (isSuperAdmin) return;
+    const granted =
+      match === 'every'
+        ? keys.every((key) => permissions.has(key))
+        : keys.some((key) => permissions.has(key));
+    if (granted) return;
+    const required = [...keys];
+    const missing = keys.filter((key) => !permissions.has(key));
+    await this.audit.recordSafely({
+      action: 'authz.denied',
+      result: 'failure',
+      actorId: actor.id,
+      actorEmail: actor.email,
+      resourceType: 'authz',
+      errorCode: 'AUTHZ_FORBIDDEN',
+      metadata: { ...context.metadata, route: context.route, required, missing },
+    });
+    throw new AppException('AUTHZ_FORBIDDEN', { required, missing });
   }
 
   /**
