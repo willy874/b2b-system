@@ -53,6 +53,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid()
 
 ```ts
 // db/schema/users.ts
+// locked 只是對外顯示的狀態（active 且 locked_until 未到期，04-auth.md §3.3）；保留在列舉給 DTO 用，CHECK 擋住寫入
 export const userStatus = pgEnum("user_status", ["pending", "active", "inactive", "locked"]);
 
 export const users = pgTable(
@@ -101,6 +102,7 @@ export const users = pgTable(
       .on(t.status)
       .where(sql`${t.deletedAt} IS NULL`),
     index("users_created_at_idx").on(t.createdAt.desc()),
+    check("users_status_not_locked", sql`${t.status} <> 'locked'`), // migration 0037
   ],
 );
 ```

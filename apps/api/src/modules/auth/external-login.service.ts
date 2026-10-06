@@ -26,7 +26,7 @@ import type {
   InteractionSummary,
 } from '@/modules/oidc-provider/oidc-provider.service';
 import { MEMBER_SLUG } from '@/modules/permission/permission.constants';
-import { isLoginLocked, UserService } from '@/modules/user/user.service';
+import { UserService } from '@/modules/user/user.service';
 
 import type { SsoDiscoveryDto, SsoRedirectDto } from './dto/auth.dto';
 
@@ -404,14 +404,11 @@ export class ExternalLoginService {
 
   /**
    * 登入失敗的自動鎖定（`locked_until`）不擋外部 IdP：鎖定是擋猜密碼，外部 IdP 已經驗過本人
-   * （docs/architecture/backend/04-auth.md §3.3）。`status = locked` 是舊版鎖定留下的值，視同停用。
+   * （docs/architecture/backend/04-auth.md §3.3）。
    */
   private assertUsable(user: UserRow | undefined): asserts user is UserRow {
     if (!user || user.deletedAt) throw new AppException('AUTH_SSO_ACCOUNT_NOT_FOUND');
     if (user.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
-    if (user.status === 'locked') {
-      throw new AppException(isLoginLocked(user) ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_ACCOUNT_DISABLED');
-    }
     if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
   }
 

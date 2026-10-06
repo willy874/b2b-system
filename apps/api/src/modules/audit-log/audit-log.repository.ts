@@ -3,7 +3,7 @@ import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database } from '@/core/database';
-import { TENANT_DB } from '@/core/database';
+import { prefixPattern, TENANT_DB } from '@/core/database';
 import type { AuditLogRow } from '@/db/schema';
 import { auditLogs, auditLogsArchive } from '@/db/schema';
 
@@ -35,11 +35,6 @@ function fullColumns(table: AuditLogTable) {
   return { ...summaryColumns(table), changes: table.changes, metadata: table.metadata };
 }
 
-/** `LIKE` 的萬用字元要跳脫，使用者輸入的 `_` / `%` 才不會變成比對規則。 */
-function escapeLike(value: string): string {
-  return value.replaceAll(/[\\%_]/g, (char) => `\\${char}`);
-}
-
 @Injectable()
 export class AuditLogRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
@@ -55,7 +50,7 @@ export class AuditLogRepository {
     if (query.action) {
       conditions.push(
         query.action.endsWith('*')
-          ? like(table.action, `${escapeLike(query.action.slice(0, -1))}%`)
+          ? like(table.action, prefixPattern(query.action.slice(0, -1)))
           : eq(table.action, query.action),
       );
     }

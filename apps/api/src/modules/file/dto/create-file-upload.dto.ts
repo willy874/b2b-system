@@ -2,7 +2,12 @@ import { z } from 'zod';
 
 import { defineSchema } from '@/core/validation';
 
-import { THUMBNAIL_CONTENT_TYPES, THUMBNAIL_MAX_SIZE } from '../file.constants';
+import {
+  MAX_PART_COUNT,
+  MAX_PARTS_PER_REQUEST,
+  THUMBNAIL_CONTENT_TYPES,
+  THUMBNAIL_MAX_SIZE,
+} from '../file.constants';
 
 /**
  * 檔名與資料夾名稱不可含的字元（字元類別的內容；docs/architecture/backend/09-file.md §4、§4.2）：
@@ -70,11 +75,11 @@ export type CreateFileUploadDto = z.infer<typeof CreateFileUploadSchema>;
 export const CreateFileUploadPartsSchema = defineSchema(
   'CreateFileUploadPartsRequest',
   z.object({
-    /** 要取得上傳網址的塊號（1 起算）；一次最多 100 塊，邊傳邊要。 */
+    /** 要取得上傳網址的塊號（1 起算）；一次最多 `MAX_PARTS_PER_REQUEST`（100）塊，邊傳邊要。 */
     partNumbers: z
-      .array(z.number().int().min(1).max(10_000))
+      .array(z.number().int().min(1).max(MAX_PART_COUNT))
       .min(1)
-      .max(100)
+      .max(MAX_PARTS_PER_REQUEST)
       .refine((numbers) => new Set(numbers).size === numbers.length, {
         message: 'duplicate part number',
       }),
@@ -90,12 +95,12 @@ export const CompleteFileUploadSchema = defineSchema(
     parts: z
       .array(
         z.object({
-          partNumber: z.number().int().min(1).max(10_000),
+          partNumber: z.number().int().min(1).max(MAX_PART_COUNT),
           etag: z.string().trim().min(1).max(200),
         }),
       )
       .min(1)
-      .max(10_000)
+      .max(MAX_PART_COUNT)
       .optional(),
   }),
 );

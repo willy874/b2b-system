@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   integer,
   pgEnum,
@@ -14,6 +15,10 @@ import {
 
 import { citext } from './custom-types';
 
+/**
+ * `locked` 只是對外顯示的狀態（`active` 且 `locked_until` 還沒到期，docs/architecture/backend/04-auth.md §3.3），
+ * 不寫進 `users.status`：列舉保留它給 DTO 與篩選用，`users_status_not_locked` 擋住寫入。
+ */
 export const userStatus = pgEnum('user_status', ['pending', 'active', 'inactive', 'locked']);
 
 /**
@@ -79,6 +84,8 @@ export const users = pgTable(
     index('users_display_name_trgm_idx')
       .using('gin', sql`${t.displayName} gin_trgm_ops`)
       .where(sql`${t.deletedAt} IS NULL`),
+    // 登入失敗的鎖定只寫 locked_until；舊版的 status = 'locked' 已由 migration 0003 改回 active
+    check('users_status_not_locked', sql`${t.status} <> 'locked'`),
   ],
 );
 

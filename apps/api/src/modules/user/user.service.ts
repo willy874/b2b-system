@@ -490,19 +490,13 @@ export class UserService {
 
   async unlock(id: string, actor: AuthUser): Promise<UserDto> {
     const user = await this.getExisting(id);
-    const locked = user.status === 'locked' || isLoginLocked(user);
-    if (!locked) throw new AppException('USER_NOT_LOCKED');
+    if (!isLoginLocked(user)) throw new AppException('USER_NOT_LOCKED');
     const roles = await this.repo.listRoles(id);
 
     const updated = await withTransaction(this.db, async (tx) => {
       const next = await this.repo.update(
         id,
-        {
-          status: user.status === 'locked' ? 'active' : user.status,
-          lockedUntil: null,
-          failedLoginCount: 0,
-          updatedBy: actor.id,
-        },
+        { lockedUntil: null, failedLoginCount: 0, updatedBy: actor.id },
         tx,
         // 解鎖改變了顯示的狀態：開著的編輯表單要知道自己看到的是舊的
         { bumpVersion: true },
@@ -512,10 +506,6 @@ export class UserService {
         { action: 'user.unlock', resourceType: 'user', resourceId: id, resourceName: next.email },
         tx,
       );
-      // 登入失敗的自動鎖定只寫 locked_until、不改 status：只有 status 真的改變時才是對外的狀態變化
-      if (next.status !== user.status) {
-        await this.emitStatusChanged(id, next.status, user.status, tx);
-      }
       return next;
     });
 

@@ -497,7 +497,7 @@ async login(...) {}
 
 | 實體 | 遞增 | 不遞增 |
 | ---- | ---- | ------ |
-| `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）、重設密碼順帶解除 `locked` 狀態——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用必填的 `expectedRoleIds`） |
+| `users` | `PATCH /users/:id`、解鎖、個人資料（`PATCH /auth/profile`）、啟用（`pending` → `active`）——即 `username`、`displayName`、`status`、`locale`、`timezone`（`USER_VERSIONED_FIELDS`） | 登入（`last_login_at`、失敗計數、`locked_until`）、改密碼、`token_version`、刪除；角色指派（`PUT /users/:id/roles`，關聯，沿用必填的 `expectedRoleIds`） |
 | `roles` | `PATCH /roles/:id`（名稱、說明）、還原到某一版（`POST /roles/:id/revisions/:version/revert`，當成一次更新；[`14-revisions.md`](./14-revisions.md) §4.3） | 權限鍵（`PATCH /roles/:id/permissions`，差異語意）、持有者、刪除 |
 | `files` | 改名（`PATCH /files/:id`） | 上傳流程的狀態、變體、移動（見 09 §6.2） |
 

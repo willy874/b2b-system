@@ -256,7 +256,8 @@ if (!env.SUPER_ADMIN_PASSWORD) {
 
 ```
 pnpm db:seed:dev
-├─ 50 位使用者（狀態分布：active 35 / inactive 8 / pending 5 / locked 2）
+├─ 50 位使用者（顯示的狀態分布：active 35 / inactive 8 / pending 5 / locked 2；
+│    locked 是 status = active ＋ 15 分鐘後到期的 locked_until，到期後恢復 active）
 ├─ 5 個自訂角色（非系統），權限組合各異
 ├─ 隨機的角色指派（role:<id>#holder@user:<id>）
 └─ 300 筆 audit_logs（跨 90 天，涵蓋各種 action 與 result）

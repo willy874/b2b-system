@@ -46,6 +46,8 @@ apps/api/src/
 │   ├── database/
 │   │   ├── database.module.ts            全域 module，提供 PLATFORM_DB（平台 DB 的連線池）
 │   │   ├── database.provider.ts          建立連線池 ＋ drizzle 實例；TENANT_DB / PLATFORM_DB token
+│   │   ├── delete-in-batches.ts          deleteInBatches()：保留清理的分批刪除（token、通知、webhook 事件）
+│   │   ├── like.ts                       escapeLike()、containsPattern()、prefixPattern()：關鍵字搜尋的跳脫（03-api-conventions.md §2）
 │   │   ├── optimistic-lock.ts            missedUpdate()：樂觀鎖的 UPDATE 沒命中 → 404 或 409（03-api-conventions.md §11）
 │   │   └── transaction.ts                withTransaction()、afterCommit()
 │   ├── tenant/                           依網域決定租戶、每租戶的連線池、TENANT_DB（02-database.md §6）

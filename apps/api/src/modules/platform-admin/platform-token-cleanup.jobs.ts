@@ -3,8 +3,9 @@ import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
+import { deleteInBatches } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { deleteInBatches } from '@/modules/credential/delete-in-batches';
+import { TOKEN_CLEANUP_BATCH_SIZE } from '@/modules/credential/credential.constants';
 
 import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
 
@@ -35,8 +36,9 @@ export class PlatformTokenCleanupJobs implements OnModuleInit {
 
   async run(): Promise<{ refreshTokens: number }> {
     const days = this.config.get('AUTH_TOKEN_RETENTION_DAYS', { infer: true });
-    const refreshTokens = await deleteInBatches((size) =>
-      this.refreshTokens.deleteExpiredBatch(days, size),
+    const refreshTokens = await deleteInBatches(
+      (size) => this.refreshTokens.deleteExpiredBatch(days, size),
+      TOKEN_CLEANUP_BATCH_SIZE,
     );
     this.logger.log({ refreshTokens }, '已清除過期的平台 refresh token');
     return { refreshTokens };
