@@ -234,6 +234,11 @@ pathname '/role/abc/permission'
 `/auth/login`、devtools 這些路徑本來就不該有權限規則，強行要求註冊只會製造噪音。
 真正的防線在後端。
 
+**路徑比對分大小寫。** 守衛拿網址上原樣的 `location.pathname` 逐字比對頁面鍵，所以兩個 app 的 `createAppRouter()`
+都設 `caseSensitive: true`，讓 router 用同一套規則：`/USER`、`/User/create` 不命中任何 route，顯示 404。
+router 若不分大小寫，這些網址會命中 `/user` 的頁面、守衛卻查不到頁面鍵（fail-open），沒有權限的人看得到頁面骨架與按鈕。
+所有 route 的靜態路徑與 `registerPagePermission` 的路徑都寫小寫；動態參數（`$userId`、`$uid`）的大小寫不受影響。
+
 ### 4.3 未登入的處理
 
 這一層不是權限守衛的責任，而是 `SessionStore` 的：
