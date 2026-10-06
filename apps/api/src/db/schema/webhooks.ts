@@ -23,11 +23,6 @@ export const webhookSubscriptions = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
-    /**
-     * 已由 `webhook_targets` 取代（docs/architecture/backend/17-webhook.md §10.2 D12）：只為升版期間的舊程式碼
-     * 雙寫第一個網址，讀取一律看 `webhook_targets`。下一次部署刪除（`conventions/03-backend.md` §5）。
-     */
-    url: text('url'),
     /** 訂閱的對外事件名稱（`defineWebhookEvent` 的 `type`）；不認得的名稱讀取時忽略。 */
     events: text('events').array().notNull(),
     /** `active` ｜ `disabled`。 */
@@ -35,10 +30,6 @@ export const webhookSubscriptions = pgTable(
     /** 停用的原因：`manual`（有人停用）｜ `failing`（連續失敗自動停用，D13）；啟用時清空。 */
     disabledReason: text('disabled_reason'),
     secretEncrypted: text('secret_encrypted').notNull(),
-    /**
-     * 已由 `webhook_targets.consecutive_failures` 取代（docs/architecture/backend/17-webhook.md §10.2 D15）：不再更新，與 `url` 一起在下一次部署刪除。
-     */
-    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
     lastDeliveryAt: timestamp('last_delivery_at', { withTimezone: true }),
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

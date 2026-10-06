@@ -17,16 +17,7 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 夏令時間開始當天，落在不存在時段的公告發送時間會提早一小時（前後端同一套算法） | [`announcement-dst-gap.md`](./announcement-dst-gap.md) | 2026-10-06（補公告的單元測試） |
-| 中 | E2E 在 api 跑著時重灌資料庫：系統資料夾與個人資料夾不會建立，依賴它們的案例時過時不過 | [`e2e-reseed-skips-bootstrap-preparation.md`](./e2e-reseed-skips-bootstrap-preparation.md) | 2026-10-06（補 E2E） |
-| 中 | 稽核明細查無資料時回 400 `VALIDATION_FAILED`，其他資源都是 404 | [`audit-log-detail-not-found-status.md`](./audit-log-detail-not-found-status.md) | 2026-10-06（補稽核的單元測試） |
-| 低 | 改密碼後的登出原因可能被 `session.revoked` 推播搶先，登入頁顯示通用訊息而不是「密碼已變更」 | [`password-change-signout-reason-race.md`](./password-change-signout-reason-race.md) | 2026-10-06（補 E2E） |
-| 低 | `nest start --watch` 不會複製新加的 migration 到 `dist`，沒重啟 api 時佈建新租戶失敗 | [`nest-watch-new-migration-assets.md`](./nest-watch-new-migration-assets.md) | 2026-10-06（補 E2E） |
-| 低 | E2E 以錯誤訊息的文字斷言：表單欄位錯誤與登入錯誤沒有帶錯誤碼的 testid | [`e2e-field-error-text-assertions.md`](./e2e-field-error-text-assertions.md) | 2026-10-06（補 E2E） |
-| 低 | 公告每日維護的 `requeued` 計數包含沒有入列的公告 | [`announcement-maintain-requeued-count.md`](./announcement-maintain-requeued-count.md) | 2026-10-06（補公告的單元測試） |
-| 低 | 建立 API token 時，推播早於讀回剛建立的列 | [`api-token-create-publish-before-read.md`](./api-token-create-publish-before-read.md) | 2026-10-06（補 API token 的單元測試） |
-| 低 | 資料夾的繼承設定沒有改變時仍推播一次更新 | [`file-folder-inheritance-noop-publish.md`](./file-folder-inheritance-noop-publish.md) | 2026-10-06（補檔案的單元測試） |
-| 低 | Webhook 訂閱的 `url`、`consecutive_failures` 已由 `webhook_targets` 取代，下一次部署刪除 | [`webhook-legacy-columns.md`](./webhook-legacy-columns.md) | 2026-10-02（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §13） |
+| — | 目前沒有已知問題 | — | — |
 
 嚴重度：
 
@@ -42,7 +33,7 @@
 
 1. 新增 `<kebab-case>.md`，結構：**現況 → 影響 → 修正方式 → 驗證方式**。
    現況要寫到檔案與行號層級，讓處理的人不必重新調查。
-2. 在上方 §1 的表格加一列。
+2. 在上方 §1 的表格加一列（表格只剩「目前沒有已知問題」時取代它）。
 
 ## 3. 處理完之後
 

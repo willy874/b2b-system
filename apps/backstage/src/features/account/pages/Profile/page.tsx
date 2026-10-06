@@ -59,6 +59,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string>();
   const {
     errors: serverErrors,
+    codes: serverErrorCodes,
     report: reportServerError,
     clear: clearServerError,
     formRef: passwordFormRef,
@@ -90,9 +91,12 @@ export default function ProfilePage() {
       tone: 'primary',
       'data-testid': 'profile-change-password-confirm',
       onConfirm: async () => {
+        // 後端撤銷 session 的推播可能比回應先到：先預告原因，登入頁才會說「密碼已變更」
+        const cancelExpectedEnd = sessionStore.expectSessionEnd(PASSWORD_CHANGED_REASON);
         try {
           await changePassword.mutateAsync({ params: { currentPassword, newPassword } });
         } catch (error) {
+          cancelExpectedEnd();
           // 目前密碼錯、新密碼太弱 → 顯示在欄位下方；其他錯誤顯示在表單底部
           if (!reportServerError(error)) setPasswordError(toMessage(error));
           return;
@@ -185,6 +189,7 @@ export default function ProfilePage() {
           label={t('account.field.currentPassword')}
           required
           error={serverErrors.currentPassword}
+          errorCode={serverErrorCodes.currentPassword}
         >
           <Input
             type="password"
@@ -210,6 +215,7 @@ export default function ProfilePage() {
             serverErrors.newPassword ??
             (tooShort ? t('validation.tooShort', { min: PASSWORD_MIN_LENGTH }) : undefined)
           }
+          errorCode={serverErrorCodes.newPassword}
         >
           <Input
             type="password"

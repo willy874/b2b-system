@@ -54,7 +54,12 @@ export default function InteractionPage() {
   const abort = useSsoInteractionAbortMutation();
   const external = useStartExternalLoginMutation();
   const toMessage = useErrorMessage();
-  const [formError, setFormError] = useState<string>();
+  /** 送出失敗的訊息與錯誤碼（錯誤碼給 E2E 以 `data-value` 斷言，不依語系的文字）。 */
+  const [formError, setFormError] = useState<{ message: string; code?: string }>();
+  const fail = (error: unknown) => {
+    setFormError({ message: toMessage(error), code: isAppError(error) ? error.code : undefined });
+    setExpired(isInteractionExpired(error));
+  };
   // 送出時才發現互動已過期：表單再送也沒用，改給「重新開始登入」
   const [expired, setExpired] = useState(false);
   // 網址帶來的錯誤只顯示到使用者再試一次為止
@@ -86,8 +91,7 @@ export default function InteractionPage() {
       try {
         await login.mutateAsync({ params: { uid, ...value } });
       } catch (error) {
-        setFormError(toMessage(error));
-        setExpired(isInteractionExpired(error));
+        fail(error);
       }
     },
   });
@@ -99,8 +103,7 @@ export default function InteractionPage() {
     try {
       await external.mutateAsync({ params: { uid, providerId: provider.id } });
     } catch (error) {
-      setFormError(toMessage(error));
-      setExpired(isInteractionExpired(error));
+      fail(error);
     }
   };
 
@@ -253,9 +256,9 @@ export default function InteractionPage() {
           <p
             className="m-0 text-sm text-[var(--color-danger-text)]"
             data-testid="login-error"
-            data-value={formError === undefined ? searchError : undefined}
+            data-value={formError === undefined ? searchError : formError.code}
           >
-            {formError ?? t(searchErrorKey ?? 'login.error.generic')}
+            {formError?.message ?? t(searchErrorKey ?? 'login.error.generic')}
           </p>
         )}
 

@@ -170,6 +170,22 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
+  it('送出失敗的錯誤碼放在 login-error 的 data-value（E2E 不依語系的文字分辨）', async () => {
+    login.mockRejectedValue(new AppError('AUTH_ACCOUNT_LOCKED', 403));
+    renderInteraction();
+    fireEvent.change(await screen.findByTestId('login-email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { value: 'secret-123' } });
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('login-submit'));
+
+    expect(await screen.findByTestId('login-error')).toHaveAttribute(
+      'data-value',
+      'AUTH_ACCOUNT_LOCKED',
+    );
+  });
+
   it('取消 → 頂層跳轉到 provider（產品收到 access_denied）', async () => {
     renderInteraction();
     await waitFor(() => expect(screen.getByTestId('login-cancel')).not.toBeDisabled());

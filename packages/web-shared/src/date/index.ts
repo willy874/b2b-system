@@ -136,12 +136,23 @@ function offsetOf(instant: number, timeZone: string): number {
   return asUtc - Math.floor(instant / 1000) * 1000;
 }
 
-/** 某時區某一天 00:00 的時刻（UTC 毫秒）；位移在當天變動（夏令時間）時再校正一次。 */
+/**
+ * 當地的日期時間（以同樣數字的 UTC 毫秒表示）在 `timeZone` 是哪一刻；位移在當天變動（夏令時間）時再校正一次。
+ * 不存在的時段（夏令時間開始時跳過的那一段）順延到跳之後（02:30 → 03:30），重複的時段取較早的一次，
+ * 同 Temporal 的 `disambiguation: 'compatible'`；後端公告週期的 `zonedInstant` 是同一個算法。
+ */
+function wallClockToInstant(wallClock: number, timeZone: string): number {
+  const first = wallClock - offsetOf(wallClock, timeZone);
+  const result = wallClock - offsetOf(first, timeZone);
+  if (result + offsetOf(result, timeZone) === wallClock) return result;
+  // 換回當地時間對不上：落在不存在的時段，兩個候選取較晚的那一個（以跳之前的位移換算）
+  return Math.max(result, wallClock - offsetOf(result, timeZone));
+}
+
+/** 某時區某一天 00:00 的時刻（UTC 毫秒）；00:00 不存在（午夜切換夏令時間）時是跳之後的第一刻。 */
 function startOfDay(day: string, timeZone: string): number {
   const [year, month, date] = day.split('-').map(Number) as [number, number, number];
-  const guess = Date.UTC(year, month - 1, date);
-  const first = guess - offsetOf(guess, timeZone);
-  return guess - offsetOf(first, timeZone);
+  return wallClockToInstant(Date.UTC(year, month - 1, date), timeZone);
 }
 
 /**
@@ -162,7 +173,7 @@ export function zonedDayBoundary(
 
 /**
  * 日期（`YYYY-MM-DD`）＋ 時間（`HH:mm`）在使用者偏好的時區裡的那一刻，回傳 ISO 字串；格式不對回 `undefined`。
- * 排程的時間以偏好的時區輸入，與列表顯示的時間一致（夏令時間的位移同 `zonedDayBoundary` 再校正一次）。
+ * 排程的時間以偏好的時區輸入，與列表顯示的時間一致；夏令時間的處理見 `wallClockToInstant`。
  */
 export function zonedDateTime(
   day: string,
@@ -175,9 +186,9 @@ export function zonedDateTime(
   const zone = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
   const [, year, month, date] = dayMatch.map(Number) as [number, number, number, number];
   const [, hour, minute] = timeMatch.map(Number) as [number, number, number];
-  const guess = Date.UTC(year, month - 1, date, hour, minute);
-  const first = guess - offsetOf(guess, zone);
-  return new Date(guess - offsetOf(first, zone)).toISOString();
+  return new Date(
+    wallClockToInstant(Date.UTC(year, month - 1, date, hour, minute), zone),
+  ).toISOString();
 }
 
 /** `zonedDateTime` 的反向：某一刻在偏好時區的日期與時間（編輯排程時帶回表單）。 */

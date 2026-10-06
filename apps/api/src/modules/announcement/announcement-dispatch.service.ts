@@ -42,7 +42,16 @@ const CLEANUP_BATCH_SIZE = 500;
 /** 每日維護的結果（存成背景工作的 `output`）。 */
 export type MaintenanceReport =
   | { skipped: 'featureDisabled' }
-  | { rescheduled: number; requeued: number; retentionDays: number; deletedDispatches: number };
+  | {
+      /** `next_run_at` 有變動並入列的則數（改了租戶時區）。 */
+      rescheduled: number;
+      /** 入列了發送工作的則數（含 `rescheduled`）。 */
+      requeued: number;
+      /** 週期的次數或結束日期已到、改成 `completed` 的則數（不入列）。 */
+      completed: number;
+      retentionDays: number;
+      deletedDispatches: number;
+    };
 
 /** 一次發送的結果（存成背景工作的 `output`）。 */
 export type FanOutReport =
@@ -130,11 +139,13 @@ export class AnnouncementDispatchService {
     if (!isFeatureEnabled()) return { skipped: 'featureDisabled' };
     let rescheduled = 0;
     let requeued = 0;
+    let completed = 0;
     for (const row of await this.repo.listScheduled()) {
       // oxlint-disable-next-line no-await-in-loop -- 每則一個短交易；排程中的公告不多
       const outcome = await this.reconcile(row.id, now);
       if (outcome === 'rescheduled') rescheduled += 1;
-      if (outcome !== 'unchanged') requeued += 1;
+      if (outcome === 'rescheduled' || outcome === 'requeued') requeued += 1;
+      if (outcome === 'completed') completed += 1;
     }
     const retentionDays = await this.settings.get(ANNOUNCEMENT_DISPATCH_RETENTION_DAYS_SETTING);
     const cutoff = new Date(now.getTime() - retentionDays * DAY_MS);
@@ -145,7 +156,7 @@ export class AnnouncementDispatchService {
       deletedDispatches += count;
       if (count < CLEANUP_BATCH_SIZE) break;
     }
-    const report = { rescheduled, requeued, retentionDays, deletedDispatches };
+    const report = { rescheduled, requeued, completed, retentionDays, deletedDispatches };
     this.logger.log(report, '公告的每日維護完成');
     return report;
   }
@@ -154,7 +165,7 @@ export class AnnouncementDispatchService {
   private async reconcile(
     id: string,
     now: Date,
-  ): Promise<'unchanged' | 'requeued' | 'rescheduled'> {
+  ): Promise<'unchanged' | 'requeued' | 'rescheduled' | 'completed'> {
     const outcome = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.lockActive(id, tx);
       // 事件點沒有時間表：只在事件發生時入列
@@ -171,7 +182,7 @@ export class AnnouncementDispatchService {
           : stored;
       if (!expected) {
         await this.repo.setState(row.id, { status: 'completed', nextRunAt: null }, tx);
-        return 'rescheduled' as const;
+        return 'completed' as const;
       }
       if (expected.getTime() !== stored?.getTime()) {
         await this.repo.setState(row.id, { status: 'scheduled', nextRunAt: expected }, tx);
@@ -184,7 +195,7 @@ export class AnnouncementDispatchService {
       await this.scheduler.enqueue(row.id, expected, tx);
       return 'requeued' as const;
     });
-    if (outcome === 'rescheduled') this.publish(id);
+    if (outcome === 'rescheduled' || outcome === 'completed') this.publish(id);
     return outcome;
   }
 

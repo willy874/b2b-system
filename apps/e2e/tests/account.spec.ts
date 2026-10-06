@@ -4,6 +4,7 @@ import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
 import { apiLogin, apiRequest } from '../helpers/api';
 import { PLATFORM_URL, expectIdpLogin, loginAndWaitForHome } from '../helpers/auth';
 import { linkIn, waitForMail } from '../helpers/mailpit';
+import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
@@ -54,8 +55,8 @@ test.describe('改密碼與忘記密碼', () => {
       .getByTestId('alert-dialog-confirm')
       .click();
 
-    // 原因可能被 session.revoked 推播搶先（docs/issues/password-change-signout-reason-race.md）：只斷言已登出
-    await expect(page).toHaveURL(/\/auth\/login\?.*signedOut=true/);
+    // session.revoked 推播比回應先到也一樣是 password_changed（SessionStore.expectSessionEnd）
+    await expect(page).toHaveURL(/\/auth\/login\?.*signedOut=true.*reason=password_changed/);
     await expect(page.getByTestId('login-sso')).toBeVisible();
     await snapshot(page, 'signed-out-after-change');
 
@@ -76,7 +77,13 @@ test.describe('改密碼與忘記密碼', () => {
       .getByTestId('alert-dialog-confirm')
       .click();
 
-    await expect(page.getByTestId('profile-password-form')).toContainText(/密碼不正確|incorrect/i);
+    await expect(
+      getByTestIdAndValue(
+        page.getByTestId('profile-password-form'),
+        'field-error',
+        'AUTH_PASSWORD_MISMATCH',
+      ),
+    ).toBeVisible();
     await expect(page.getByTestId('profile-page')).toBeVisible();
     await snapshot(page, 'current-password-mismatch');
     expect(await loginStatus(ACCOUNTS.passwordTarget, E2E_PASSWORD)).toBe(200);

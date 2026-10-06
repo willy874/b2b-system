@@ -101,7 +101,7 @@ describe('AuditLogService（docs/architecture/backend/06-audit-log.md §7）', (
       await expect(service.findOne('1')).resolves.toMatchObject({ changes: null, metadata: null });
     });
 
-    it.each([['abc'], ['1.5'], ['1e3'], ['12abc']])(
+    it.each([['abc'], ['1.5'], ['1e3'], ['12abc'], [''], ['0x1f'], [' 1'], ['-1']])(
       'id %j 不是整數 → VALIDATION_FAILED（不查詢）',
       async (id) => {
         await expect(service.findOne(id)).rejects.toMatchObject({
@@ -112,12 +112,16 @@ describe('AuditLogService（docs/architecture/backend/06-audit-log.md §7）', (
       },
     );
 
-    it('查無 → VALIDATION_FAILED（fields.id = not found）', async () => {
+    it('查無 → 404 AUDIT_LOG_NOT_FOUND', async () => {
       repo.findById.mockResolvedValueOnce(undefined);
-      await expect(service.findOne('42')).rejects.toMatchObject({
-        code: 'VALIDATION_FAILED',
-        details: { fields: { id: 'not found' } },
+      await expect(service.findOne('42')).rejects.toMatchObject({ code: 'AUDIT_LOG_NOT_FOUND' });
+    });
+
+    it('超出 bigint 範圍 → AUDIT_LOG_NOT_FOUND（不查詢）', async () => {
+      await expect(service.findOne('9223372036854775808')).rejects.toMatchObject({
+        code: 'AUDIT_LOG_NOT_FOUND',
       });
+      expect(repo.findById).not.toHaveBeenCalled();
     });
   });
 });

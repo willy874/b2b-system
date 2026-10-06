@@ -324,6 +324,10 @@ user-status-chip-active
 不拼進 testid：`data-testid="role-permission-node" data-value="user:read"`
 （見 [`conventions/06-literal-strings.md`](../../conventions/06-literal-strings.md) §3.3）。
 
+錯誤訊息也不比對文字，以錯誤碼分辨：`Field` 的欄位錯誤是 `data-testid="field-error"` ＋ `data-value={errorCode}`
+（後端錯誤回填用 `useServerFieldErrors` 的 `codes`），登入頁的 `login-error` 也帶 `data-value={錯誤碼}`：
+`getByTestIdAndValue(form, 'field-error', 'AUTH_PASSWORD_MISMATCH')`。
+
 E2E 需要的 testid 必須在同一個 PR 內加進原始碼，不允許「先寫測試再補」。
 
 ### 4.5 關鍵快照

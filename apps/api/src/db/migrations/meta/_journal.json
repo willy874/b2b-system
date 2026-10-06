@@ -246,6 +246,13 @@
       "when": 1791252455488,
       "tag": "0034_notification_policy_override_check",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791256434150,
+      "tag": "0035_drop_webhook_legacy_columns",
+      "breakpoints": true
     }
   ]
 }

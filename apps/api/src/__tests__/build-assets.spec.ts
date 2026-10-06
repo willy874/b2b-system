@@ -39,9 +39,11 @@ describe('nest build 的 asset（migration 的 SQL 要落在 db/provision.ts 讀
       'dist/src/db/platform/migrations/meta/_journal.json',
     ],
   ])('%s → %s', (source, expected) => {
-    const asset = nest.compilerOptions.assets.find((item) =>
-      posix.matchesGlob(source, posix.join(nest.sourceRoot, item.include)),
-    );
+    // include 是 glob，或是資料夾（Nest CLI 複製底下全部的檔案；監看資料夾才收得到新加的 migration）
+    const asset = nest.compilerOptions.assets.find((item) => {
+      const include = posix.join(nest.sourceRoot, item.include);
+      return posix.matchesGlob(source, include) || source.startsWith(`${include}/`);
+    });
     expect(asset).toBeDefined();
     const fromRootDir = relative(join(API_ROOT, compilerOptions.rootDir), join(API_ROOT, source));
     expect(posix.join(asset!.outDir, fromRootDir.split('\\').join('/'))).toBe(expected);

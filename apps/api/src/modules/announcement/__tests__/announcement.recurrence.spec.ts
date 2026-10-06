@@ -118,7 +118,7 @@ describe('nextOccurrence / upcomingOccurrences 的邊界（docs/architecture/bac
     ]);
   });
 
-  it('夏令時間開始（紐約 03/08）：不存在的 02:30 那天仍發一次，前後兩天不受影響', () => {
+  it('夏令時間開始（紐約 03/08）：不存在的 02:30 順延成 03:30 EDT，前後兩天不受影響', () => {
     const daily = trigger({ time: '02:30', startsOn: '2026-03-07' });
     const [before, gap, after] = upcomingOccurrences(
       daily,
@@ -127,7 +127,7 @@ describe('nextOccurrence / upcomingOccurrences 的邊界（docs/architecture/bac
       3,
     );
     expect(before?.toISOString()).toBe('2026-03-07T07:30:00.000Z');
-    expect(gap?.toISOString().slice(0, 10)).toBe('2026-03-08');
+    expect(gap?.toISOString()).toBe('2026-03-08T07:30:00.000Z'); // 03:30 EDT，不是 01:30 EST
     expect(after?.toISOString()).toBe('2026-03-09T06:30:00.000Z');
   });
 

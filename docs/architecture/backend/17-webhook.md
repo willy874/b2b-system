@@ -42,7 +42,7 @@
 
 | 表 | 欄位 | 說明 |
 | --- | --- | --- |
-| `webhook_subscriptions` | `name`、`events text[]`、`status`（`active`／`disabled`）、`disabled_reason`（`manual`／`failing`）、`secret_encrypted`、`last_delivery_at`、`version`、`created_by`／`updated_by`（→ `users` `SET NULL`）、時間 | 硬刪除、不進回收桶（D7）。部分 GIN 索引 `(events) WHERE status = 'active'` 給 `emit()`。`url`（可為 null）與 `consecutive_failures` 已由 `webhook_targets` 取代：`url` 為升版期間的舊程式碼雙寫第一個網址，兩欄都在下一次部署刪除 |
+| `webhook_subscriptions` | `name`、`events text[]`、`status`（`active`／`disabled`）、`disabled_reason`（`manual`／`failing`）、`secret_encrypted`、`last_delivery_at`、`version`、`created_by`／`updated_by`（→ `users` `SET NULL`）、時間 | 硬刪除、不進回收桶（D7）。部分 GIN 索引 `(events) WHERE status = 'active'` 給 `emit()`。網址與連續失敗次數在 `webhook_targets`（舊欄位 `url`、`consecutive_failures` 已於租戶 migration 0035 刪除） |
 | `webhook_targets` | `subscription_id`（CASCADE）、`url`、`position`、`consecutive_failures`、`last_delivery_at`、`created_at`；`unique(subscription_id, url)` | 一個訂閱 1～10 個網址（§10.2 D12）。修改網址時沒變的列保留（id 與失敗次數不變），移除的刪掉 |
 | `webhook_events` | `type`、`version`、`data jsonb`、`occurred_at` | 只在有訂閱時寫；`data` 只有 id 與列舉值（D3） |
 | `webhook_deliveries` | `subscription_id`（CASCADE）、`event_id`（CASCADE）、`target_id`（→ `webhook_targets` `SET NULL`）、`url`（送出的網址快照）、`attempt`、`trigger`（`auto`／`manual`）、`succeeded`、`response_status`、`duration_ms`、`response_body`（前 1 KB）、`error`、`created_at` | 每一次嘗試一列；索引 `(subscription_id, created_at desc, id)`、`(target_id)`。網址被移除後紀錄保留，`target_id` 是 null |
@@ -308,7 +308,7 @@ API token 與對外 API（[`architecture/06-external-api.md`](../06-external-api
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D12 | **新表 `webhook_targets`**（租戶 migration 0033）：`id`、`subscription_id`（CASCADE）、`url`、`consecutive_failures`、`last_delivery_at`、`position`、`created_at`；`unique(subscription_id, url)`。既有訂閱的 `url` 搬成一筆。`webhook_subscriptions.url` 改成可為 null、繼續寫入第一個網址（雙寫），下一次部署再刪（`conventions/03-backend.md` §5 的破壞性變更拆兩次） | 失敗次數要跟著網址走：一個壞掉的網址不能被另一個正常的網址「歸零」而永遠不停用 |
+| D12 | **新表 `webhook_targets`**（租戶 migration 0033）：`id`、`subscription_id`（CASCADE）、`url`、`consecutive_failures`、`last_delivery_at`、`position`、`created_at`；`unique(subscription_id, url)`。既有訂閱的 `url` 搬成一筆。`webhook_subscriptions.url` 改成可為 null、繼續寫入第一個網址（雙寫），下一次部署再刪（`conventions/03-backend.md` §5 的破壞性變更拆兩次；已於租戶 migration 0035 連同 `consecutive_failures` 刪除） | 失敗次數要跟著網址走：一個壞掉的網址不能被另一個正常的網址「歸零」而永遠不停用 |
 | D13 | **API**：`url` 改成 `urls`（1–10 個、不重複、各自照 D15 檢查），回應的 `targets` 帶每個網址的連續失敗次數與最後投遞時間。修改網址時保留沒變的網址（id 與失敗次數不變），移除的網址刪除（投遞紀錄的 `target_id` 設為 null，保留 `url` 快照） | 一個訂閱 = 一組事件 ＋ 一個密鑰 ＋ 一組網址；要不同的事件或密鑰就建另一個訂閱 |
 | D14 | **投遞**：`emit()` 為每個訂閱的每個網址入列一筆 `webhook.deliver`（`{ subscriptionId, eventId, targetId }`）；`webhook_deliveries` 加 `target_id`（SET NULL）與 `url`。網址已被移除的工作略過。升版前入列、沒有 `targetId` 的工作送到訂閱的第一個網址 | 每個網址獨立重試：一個慢的接收端不會擋住其他網址 |
 | D15 | **自動停用**：失敗次數記在網址上；任何一個網址連續失敗到 50 次，整個訂閱停用（`failing`），通知與稽核帶那個網址。重新啟用時所有網址歸零 | 訂閱的狀態模型不變（只有訂閱能停用）；管理者看得到是哪個網址壞了，移除或修好它再啟用 |
@@ -328,4 +328,4 @@ API token 與對外 API（[`architecture/06-external-api.md`](../06-external-api
 
 | 項目 | 補充 |
 | --- | --- |
-| D12 | `webhook_deliveries.url` 以 migration 回填後設為 NOT NULL；升版期間舊程式碼寫入的投遞紀錄會失敗並由 pg-boss 重試。舊欄位的刪除登記在 [`../../issues/webhook-legacy-columns.md`](../../issues/webhook-legacy-columns.md) |
+| D12 | `webhook_deliveries.url` 以 migration 回填後設為 NOT NULL；升版期間舊程式碼寫入的投遞紀錄會失敗並由 pg-boss 重試。舊欄位 `webhook_subscriptions.url`、`consecutive_failures` 已於租戶 migration 0035 刪除 |

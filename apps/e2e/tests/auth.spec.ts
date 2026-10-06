@@ -10,6 +10,7 @@ import {
   logout,
 } from '../helpers/auth';
 import { openMenuGroup } from '../helpers/menu';
+import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 test.describe('認證流程', () => {
@@ -68,7 +69,7 @@ test.describe('認證流程', () => {
       await expect(page.getByTestId('login-error')).toBeVisible();
     }
     await login(page, 'lockTarget');
-    await expect(page.getByTestId('login-error')).toContainText(/鎖定|locked/i);
+    await expect(getByTestIdAndValue(page, 'login-error', 'AUTH_ACCOUNT_LOCKED')).toBeVisible();
     await snapshot(page, 'account-locked');
   });
 });

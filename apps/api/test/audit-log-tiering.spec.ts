@@ -263,6 +263,19 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
         });
       }
     });
+
+    it('查無 → 404 AUDIT_LOG_NOT_FOUND；不是正整數 → 400 VALIDATION_FAILED', async () => {
+      const missing = await request(http)
+        .get('/audit-logs/999999999999')
+        .set('authorization', `Bearer ${token}`)
+        .expect(404);
+      expect((missing.body as { error: { code: string } }).error.code).toBe('AUDIT_LOG_NOT_FOUND');
+      const malformed = await request(http)
+        .get('/audit-logs/abc')
+        .set('authorization', `Bearer ${token}`)
+        .expect(400);
+      expect((malformed.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+    });
   });
 
   // 放在最後：會多搬一筆到冷表，放前面會影響上面的總數

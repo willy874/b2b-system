@@ -73,4 +73,24 @@ describe('Field', () => {
     );
     expect(screen.getByText('最多 64 字')).toBeInTheDocument();
   });
+
+  it('錯誤訊息預設 data-testid="field-error"，errorCode 放在 data-value', () => {
+    render(
+      <Field label="目前的密碼" error="密碼不正確" errorCode="AUTH_PASSWORD_MISMATCH">
+        <Input />
+      </Field>,
+    );
+    const error = screen.getByTestId('field-error');
+    expect(error).toHaveTextContent('密碼不正確');
+    expect(error).toHaveAttribute('data-value', 'AUTH_PASSWORD_MISMATCH');
+  });
+
+  it('testIds.error 覆寫錯誤訊息的 data-testid', () => {
+    render(
+      <Field label="名稱" error="名稱重複" testIds={{ error: 'role-name-error' }}>
+        <Input />
+      </Field>,
+    );
+    expect(screen.getByTestId('role-name-error')).toHaveTextContent('名稱重複');
+  });
 });

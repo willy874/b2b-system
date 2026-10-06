@@ -83,6 +83,52 @@ describe('SessionStore', () => {
     store.dispose();
   });
 
+  it('expectSessionEnd：之後不論哪個原因先到，都以預期的原因結束', () => {
+    const store = createStore();
+    const listener = vi.fn();
+    store.events.on('ended', listener);
+    store.setTokens({ accessToken: 'token', expiresIn: 300 });
+
+    store.expectSessionEnd('password_changed');
+    // 推播的 session.revoked 或請求的 401 比改密碼的回應先到
+    store.endSession('AUTH_TOKEN_STALE');
+    store.endSession('password_changed');
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith('password_changed');
+    store.dispose();
+  });
+
+  it('expectSessionEnd 取消後（請求失敗）照實際的原因結束', () => {
+    const store = createStore();
+    const listener = vi.fn();
+    store.events.on('ended', listener);
+    store.setTokens({ accessToken: 'token', expiresIn: 300 });
+
+    const cancel = store.expectSessionEnd('password_changed');
+    cancel();
+    store.endSession('AUTH_TOKEN_STALE');
+
+    expect(listener).toHaveBeenCalledWith('AUTH_TOKEN_STALE');
+    store.dispose();
+  });
+
+  it('expectSessionEnd 只用一次：結束後重新登入，下一次結束照實際的原因', () => {
+    const store = createStore();
+    const listener = vi.fn();
+    store.events.on('ended', listener);
+    store.setTokens({ accessToken: 'token', expiresIn: 300 });
+
+    store.expectSessionEnd('password_changed');
+    store.endSession('AUTH_TOKEN_STALE');
+    store.setTokens({ accessToken: 'token-2', expiresIn: 300 });
+    store.endSession('logout');
+
+    expect(listener).toHaveBeenNthCalledWith(1, 'password_changed');
+    expect(listener).toHaveBeenNthCalledWith(2, 'logout');
+    store.dispose();
+  });
+
   it('access token 不進 localStorage（只有「有無 session」的旗標）', () => {
     const store = createStore();
     store.setTokens({ accessToken: 'super-secret-token', expiresIn: 300 });
