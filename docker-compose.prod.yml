@@ -3,10 +3,94 @@
 #                                                         └──────→ file-storage（S3 相容）
 #   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
 # 網路切三段：backstage 碰不到 postgres；file-storage 與 postgres 互不相通。
+#
+# 變數放在獨立的 env 檔，不沿用開發的 .env（README「部署」；範本是 deploy/prod.env.example）：
+#   docker compose --env-file deploy/prod.env -f docker-compose.prod.yml up -d --build
+# 映像都以 digest 釘住：同一個 commit 不論何時建置都拿到同一個基底。更新方式見 docs/architecture/01-system.md §4.2。
+
+# Docker 預設的 json-file 不輪替：日誌會塞滿與 volume 同一顆的磁碟（docs/architecture/01-system.md §4.5）
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '5'
+
+# api 與 external-api 共用的環境變數。external-api 只合併這一份：佈建角色、OIDC／外部 IdP／webhook 的金鑰、SMTP 帳密
+# 只給內部 api（x-api-internal-env；docs/architecture/06-external-api.md §6）
+x-api-common-env: &api-common-env
+  NODE_ENV: production
+  PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+  TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
+  # 連線預算（backend/02-database.md §6.2）：每個租戶的池、閒置關閉、每條連線的逾時
+  TENANT_POOL_MAX: ${TENANT_POOL_MAX:-10}
+  TENANT_POOL_IDLE_TIMEOUT: ${TENANT_POOL_IDLE_TIMEOUT:-30}
+  PLATFORM_POOL_MAX: ${PLATFORM_POOL_MAX:-10}
+  DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-10}
+  DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-15000}
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: ${DB_IDLE_IN_TRANSACTION_TIMEOUT_MS:-30000}
+  # argon2、sharp、DNS 查詢共用 libuv 的執行緒池（預設 4）；依 CPU 數調整
+  UV_THREADPOOL_SIZE: ${UV_THREADPOOL_SIZE:-16}
+  # V8 heap 上限約為容器記憶體上限的 75%，留給 sharp 等原生記憶體與 Buffer
+  NODE_OPTIONS: --max-old-space-size=${API_HEAP_MB:-1536}
+  # external-api 也需要：檔案的縮圖網址以它推導的金鑰簽章，由 api 的影像端點驗證（backend/09-file.md §5.4）
+  JWT_SECRET: ${JWT_SECRET:?required}
+  SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
+  # 只信任 nginx 這一跳：nginx 以 real_ip 驗過前置 LB 之後，把 X-Forwarded-For 覆寫成單一的客戶端 IP
+  # （deploy/nginx-real-ip.sh）。docker 的位址池不在私有網段時改成那個子網路或 1（docs/architecture/01-system.md §4.2）
+  TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
+  # 物件儲存：api 走內網，presigned URL 以瀏覽器看到的位址簽章（backend/09-file.md §3）。
+  # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
+  FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
+  # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（docs/architecture/05-tenancy.md §10.2 D2）
+  FILE_STORAGE_PUBLIC_ENDPOINT: '{tenantOrigin}/storage'
+  FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
+  FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
+  # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結。external-api 只入列、不寄信
+  MAIL_TRANSPORT: smtp
+  MAIL_FROM: ${MAIL_FROM:?required}
+  # 瀏覽器看到的 origin（https、不能是 localhost；production 的環境變數驗證會擋）：信裡的產品連結、presigned 網址的協定、
+  # 第一方 client `backstage` 的 redirect URI 都以它開頭
+  APP_PUBLIC_URL: ${PUBLIC_ORIGIN:?required}
+  # SSO（docs/architecture/04-sso.md）：apps/platform 是獨立的 origin，issuer 在它底下的 /api/oidc。
+  # 帳號流程的信中連結（啟用、重設密碼、邀請）以 PLATFORM_APP_URL 開頭
+  PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
+  OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:?required}/api/oidc
+
+# 只有內部 api 用到的變數與秘密
+x-api-internal-env:
+  &api-internal-env # 佈建新租戶（docs/architecture/05-tenancy.md §10.2 D4、D12）：CREATEDB＋CREATEROLE、不是超級使用者的角色（10-roles.sh）
+  TENANT_PROVISIONING_DATABASE_URL: postgres://b2b_provisioner:${POSTGRES_PROVISIONER_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
+  # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host。wildcard 網域的反向代理在交付順序第 6 步
+  TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-}
+  REFRESH_COOKIE_PATH: /api/auth
+  # 速率限制（次 / 分；backend/03-api-conventions.md §8）：已登入以使用者計，未登入與登入類端點的 IP 桶
+  # 按「整間公司共用一個 NAT 出口 IP」估算
+  DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT:-600}
+  ANONYMOUS_RATE_LIMIT: ${ANONYMOUS_RATE_LIMIT:-3000}
+  AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-10}
+  AUTH_IP_RATE_LIMIT: ${AUTH_IP_RATE_LIMIT:-300}
+  REFRESH_RATE_LIMIT: ${REFRESH_RATE_LIMIT:-30}
+  REFRESH_IP_RATE_LIMIT: ${REFRESH_IP_RATE_LIMIT:-2000}
+  REALTIME_HANDSHAKES_PER_IP: ${REALTIME_HANDSHAKES_PER_IP:-1200}
+  REALTIME_CONNECTIONS_PER_USER: ${REALTIME_CONNECTIONS_PER_USER:-20}
+  # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
+  # 同源（每個租戶自己的網域）一律允許；這裡只需要列出額外允許的 origin
+  REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?required}
+  # MAIL_SMTP_URL 指向 SES、Postmark 等服務商的 SMTP，寄件網域要設好 SPF / DKIM / DMARC
+  MAIL_SMTP_URL: ${MAIL_SMTP_URL:?required}
+  # SMTP 連線池（同時寄出的信）；寄信工作每個程序同時跑 5 筆
+  MAIL_SMTP_POOL_SIZE: ${MAIL_SMTP_POOL_SIZE:-5}
+  OIDC_JWKS: ${OIDC_JWKS:?required}
+  OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
+  IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
+  # Webhook 簽章密鑰的加密金鑰（backend/17-webhook.md §9.2 D14）
+  WEBHOOK_SECRET_KEY: ${WEBHOOK_SECRET_KEY:?required}
+
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     restart: unless-stopped
+    logging: *logging
     environment:
       # 超級使用者只給初始化腳本與人工維運用；api 與 migrate 用 deploy/postgres/10-roles.sh 建立的角色
       # （docs/architecture/05-tenancy.md §7.1）。密碼會放進連線字串，請用 URL 安全的字元（例：openssl rand -hex 24）
@@ -58,6 +142,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: 'no'
+    logging: *logging
     environment:
       # 平台 DB 與預設租戶的 DB 都由 10-roles.sh 建立，擁有者是各自的角色（不是超級使用者；05-tenancy.md §7.1）
       PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
@@ -65,14 +150,14 @@ services:
       # 預設租戶只在平台 DB 一個租戶都沒有（含已刪除的）時登記，也就是第一次部署；之後這三個變數不再有作用，
       # 刪除預設租戶也不會被登記回來（docs/architecture/05-tenancy.md §8）
       DEFAULT_TENANT_DATABASE_URL: postgres://b2b_tenant_default:${POSTGRES_TENANT_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-b2b_system}
-      # 瀏覽器看到的 host（含 port）；apps/platform（:8081）不屬於任何租戶
-      DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:-localhost:8080}
+      # 瀏覽器看到的 host（含 port，例：app.example.com）；apps/platform 的網域不屬於任何租戶
+      DEFAULT_TENANT_DOMAINS: ${DEFAULT_TENANT_DOMAINS:?required}
       # 每個租戶一個 bucket（D16）；預設租戶沿用租戶化之前的 bucket（舊部署設過 FILE_STORAGE_BUCKET 的照舊）
       DEFAULT_TENANT_STORAGE_BUCKET: ${DEFAULT_TENANT_STORAGE_BUCKET:-${FILE_STORAGE_BUCKET:-b2b-system}}
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?required}
       # 留空：第一位平台管理者建成 pending，migrate 的日誌印出一次性的設定連結（不印密碼；rbac/05-seed-and-bootstrap.md §5.1）
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
-      PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
+      PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑。
@@ -88,69 +173,9 @@ services:
     image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
-    # external-api 沿用這一份（YAML merge），只覆寫自己的部分
-    environment: &api-environment
-      NODE_ENV: production
-      PLATFORM_DATABASE_URL: postgres://b2b_platform:${POSTGRES_PLATFORM_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
-      TENANT_SECRET_KEY: ${TENANT_SECRET_KEY:?required}
-      # 佈建新租戶（docs/architecture/05-tenancy.md §10.2 D4、D12）：CREATEDB＋CREATEROLE、不是超級使用者的角色（10-roles.sh）
-      TENANT_PROVISIONING_DATABASE_URL: postgres://b2b_provisioner:${POSTGRES_PROVISIONER_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
-      # 連線預算（backend/02-database.md §6.2）：每個租戶的池、閒置關閉、每條連線的逾時
-      TENANT_POOL_MAX: ${TENANT_POOL_MAX:-10}
-      TENANT_POOL_IDLE_TIMEOUT: ${TENANT_POOL_IDLE_TIMEOUT:-30}
-      PLATFORM_POOL_MAX: ${PLATFORM_POOL_MAX:-10}
-      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-10}
-      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-15000}
-      DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: ${DB_IDLE_IN_TRANSACTION_TIMEOUT_MS:-30000}
-      # argon2、sharp、DNS 查詢共用 libuv 的執行緒池（預設 4）；依 CPU 數調整
-      UV_THREADPOOL_SIZE: ${UV_THREADPOOL_SIZE:-16}
-      # V8 heap 上限約為容器記憶體上限的 75%，留給 sharp 等原生記憶體與 Buffer
-      NODE_OPTIONS: --max-old-space-size=${API_HEAP_MB:-1536}
-      # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host。wildcard 網域的反向代理在交付順序第 6 步
-      TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-}
-      JWT_SECRET: ${JWT_SECRET:?required}
-      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
-      REFRESH_COOKIE_PATH: /api/auth
-      # nginx 在同一個 docker 網路（私有網段）：信任它帶的 X-Forwarded-For，限流才看得到真實 IP
-      TRUST_PROXY: uniquelocal
-      # 速率限制（次 / 分；backend/03-api-conventions.md §8）：已登入以使用者計，未登入與登入類端點的 IP 桶
-      # 按「整間公司共用一個 NAT 出口 IP」估算
-      DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT:-600}
-      ANONYMOUS_RATE_LIMIT: ${ANONYMOUS_RATE_LIMIT:-3000}
-      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-10}
-      AUTH_IP_RATE_LIMIT: ${AUTH_IP_RATE_LIMIT:-300}
-      REFRESH_RATE_LIMIT: ${REFRESH_RATE_LIMIT:-30}
-      REFRESH_IP_RATE_LIMIT: ${REFRESH_IP_RATE_LIMIT:-2000}
-      REALTIME_HANDSHAKES_PER_IP: ${REALTIME_HANDSHAKES_PER_IP:-1200}
-      REALTIME_CONNECTIONS_PER_USER: ${REALTIME_CONNECTIONS_PER_USER:-20}
-      # 瀏覽器看到的 origin；Socket.io handshake 的 Origin 檢查（backend/08-realtime.md §11）
-      # 同源（每個租戶自己的網域）一律允許；這裡只需要列出額外允許的 origin
-      REALTIME_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
-      # 物件儲存：api 走內網，presigned URL 以瀏覽器看到的位址簽章（backend/09-file.md §3）。
-      # 換成真正的 S3 時只改這幾個變數，並拿掉下面的 file-storage 服務。
-      FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
-      # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（docs/architecture/05-tenancy.md §10.2 D2）
-      FILE_STORAGE_PUBLIC_ENDPOINT: '{tenantOrigin}/storage'
-      FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
-      FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
-      # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結；
-      # MAIL_SMTP_URL 指向 SES、Postmark 等服務商的 SMTP，寄件網域要設好 SPF / DKIM / DMARC
-      MAIL_TRANSPORT: smtp
-      MAIL_SMTP_URL: ${MAIL_SMTP_URL:?required}
-      # SMTP 連線池（同時寄出的信）；寄信工作每個程序同時跑 5 筆
-      MAIL_SMTP_POOL_SIZE: ${MAIL_SMTP_POOL_SIZE:-5}
-      MAIL_FROM: ${MAIL_FROM:?required}
-      # 信裡的產品連結以瀏覽器看到的 origin 開頭；也是第一方 client `backstage` 的 redirect URI 開頭
-      APP_PUBLIC_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
-      # SSO（docs/architecture/04-sso.md）：apps/platform 是獨立的 origin，issuer 在它底下的 /api/oidc。
-      # 帳號流程的信中連結（啟用、重設密碼、邀請）以 PLATFORM_APP_URL 開頭
-      PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
-      OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
-      OIDC_JWKS: ${OIDC_JWKS:?required}
-      OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:?required}
-      IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
-      # Webhook 簽章密鑰的加密金鑰（backend/17-webhook.md §9.2 D14）
-      WEBHOOK_SECRET_KEY: ${WEBHOOK_SECRET_KEY:?required}
+    logging: *logging
+    environment:
+      <<: [*api-common-env, *api-internal-env]
     networks: [edge, data, storage]
     mem_limit: ${API_MEM_LIMIT:-2g}
     security_opt: ['no-new-privileges:true']
@@ -167,9 +192,11 @@ services:
     image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
+    logging: *logging
     command: ['node', 'dist/src/main.external.js']
+    # 只有共用的部分（x-api-common-env）：拿不到佈建角色、OIDC／外部 IdP／webhook 的金鑰與 SMTP 帳密
     environment:
-      <<: *api-environment
+      <<: *api-common-env
       # 每個程序都有自己的租戶連線池：連線預算要把這個程序算進去（backend/02-database.md §6.2）
       TENANT_POOL_MAX: ${EXTERNAL_TENANT_POOL_MAX:-5}
       PLATFORM_POOL_MAX: ${EXTERNAL_PLATFORM_POOL_MAX:-5}
@@ -198,19 +225,30 @@ services:
 
   # 對外 API 的網域（例 api.example.com）指到這裡；TLS 一樣在前面的 LB 終結
   external-gateway:
-    image: nginxinc/nginx-unprivileged:1.27-alpine
+    image: nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:15c994d10d6d78658721c3bcafff14cb281fba2a4bdf9d5ba92c416a472516e3
     restart: unless-stopped
+    logging: *logging
+    # 只綁在前置 LB 連得到的介面（EDGE_BIND_ADDRESS；docs/architecture/01-system.md §4.2）
     ports:
-      - '8082:8080'
+      - '${EDGE_BIND_ADDRESS:-127.0.0.1}:8082:8080'
+    environment:
+      # 前置 LB 的來源網段：只採用它們帶來的 X-Forwarded-For（deploy/nginx-real-ip.sh）
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
     volumes:
       - ./deploy/nginx.main.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/nginx.external-api.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
     mem_limit: 128m
     networks: [external]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/_nginx_health']
+      interval: 30s
+      timeout: 3s
+      retries: 3
     depends_on:
       external-api:
         condition: service_healthy
@@ -222,6 +260,7 @@ services:
       context: .
       dockerfile: apps/file-storage/Dockerfile
     restart: unless-stopped
+    logging: *logging
     environment:
       FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
       FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
@@ -242,11 +281,16 @@ services:
       context: .
       dockerfile: apps/backstage/Dockerfile
       args:
-        VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
-        VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
+        VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:?required}/api/oidc
+        VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
     restart: unless-stopped
+    logging: *logging
+    # 只綁在前置 LB 連得到的介面（EDGE_BIND_ADDRESS；docs/architecture/01-system.md §4.2）
     ports:
-      - '8080:8080'
+      - '${EDGE_BIND_ADDRESS:-127.0.0.1}:8080:8080'
+    environment:
+      # 前置 LB 的來源網段：只採用它們帶來的 X-Forwarded-For（deploy/nginx-real-ip.sh）
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
     # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
     read_only: true
     tmpfs: [/tmp]
@@ -267,11 +311,16 @@ services:
       context: .
       dockerfile: apps/platform/Dockerfile
       args:
-        VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}/api/oidc
-        VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:-http://localhost:8081}
+        VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:?required}/api/oidc
+        VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
     restart: unless-stopped
+    logging: *logging
+    # 只綁在前置 LB 連得到的介面（EDGE_BIND_ADDRESS；docs/architecture/01-system.md §4.2）
     ports:
-      - '8081:8080'
+      - '${EDGE_BIND_ADDRESS:-127.0.0.1}:8081:8080'
+    environment:
+      # 前置 LB 的來源網段：只採用它們帶來的 X-Forwarded-For（deploy/nginx-real-ip.sh）
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
     # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
     read_only: true
     tmpfs: [/tmp]

@@ -185,6 +185,10 @@ pnpm dev
                         └─ proxy /api     → http://localhost:3000
 ```
 
+開發用的服務都只聽 loopback：postgres 的帳密是公開的固定值（超級使用者）、Mailpit 的網頁看得到所有啟用與重設密碼的連結，
+`docker-compose.yml` 只綁 `127.0.0.1`；api 與對外 API 的程序在 production 以外只聽 `127.0.0.1`（`LISTEN_HOST`）。
+要從其他機器連（例：手機測試）時在本機覆寫：`LISTEN_HOST=0.0.0.0`、不進版控的 `docker-compose.override.yml`。
+
 外部 IdP 登入的開發與 E2E 另外跑 `pnpm dev:mock-idp`（localhost:4455）；對外 API 另外跑 `pnpm dev:external-api`
 （localhost:3001，以 API token 直接打，不經 Vite proxy；[`06-external-api.md`](./06-external-api.md)）。
 
@@ -217,14 +221,22 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 
 | 服務       | 映像                          | 角色                                                 | 啟動條件                        |
 | ---------- | ----------------------------- | ---------------------------------------------------- | ------------------------------- |
-| `postgres` | `postgres:17-alpine`          | 唯一的狀態儲存：平台 DB ＋ 每個租戶一個 database     | —                               |
+| `postgres` | `postgres:17-alpine`（digest 釘住） | 唯一的狀態儲存：平台 DB ＋ 每個租戶一個 database     | —                               |
 | `migrate`  | `b2b-system-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
 | `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
 | `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
 | `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)） | migrate 成功結束、file-storage healthy |
-| `external-gateway` | `nginxinc/nginx-unprivileged`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
+| `external-gateway` | `nginxinc/nginx-unprivileged:1.30.5-alpine`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
+
+- **變數放在獨立的 env 檔**：`docker compose --env-file deploy/prod.env -f docker-compose.prod.yml …`，範本是 `deploy/prod.env.example`。
+  不要沿用開發的 `.env`：compose 會拿它替換 `${…}`，開發用的帳密與網域會流進正式環境。公開網址（`PUBLIC_ORIGIN`、`PLATFORM_PUBLIC_ORIGIN`、
+  `DEFAULT_TENANT_DOMAINS`）與 `TRUSTED_PROXY_CIDRS` 沒有預設值，漏設時 `docker compose config` 就失敗；api 另外拒絕不是 https 或指向 localhost 的公開網址
+  （[`02-repository-structure.md`](./02-repository-structure.md) §5）。
+- **映像以 digest 釘住**（四個 Dockerfile、兩份 compose、`deploy/check-nginx.sh`）：同一個 commit 不論何時建置都拿到同一個基底。
+  nginx 用仍在維護的 stable 分支並寫明版本。更新時以 `docker buildx imagetools inspect <映像>:<tag>` 取得新的 digest，
+  所有出現的地方一起改，再跑 `sh deploy/check-nginx.sh` 與整套建置。repo 沒有自動提更新的工具，要定期手動檢查。
 
 - **每個租戶一個網域**（[`05-tenancy.md`](./05-tenancy.md) §7）：backstage 的 nginx 是 `server_name _`，任何網域都由它服務，
   `Host` 原樣轉給 api 決定租戶；`*.<TENANT_BASE_DOMAIN>` 要有 wildcard DNS 與憑證。平台管理者在 apps/platform 建立租戶時，
@@ -244,18 +256,27 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 - `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
   （多執行個體時會互搶）。
 - CSP：`default-src 'self'`，不允許 inline script（Vite build 產物符合）；`connect-src 'self'` 同時涵蓋同源的 `wss:`；
-  `form-action 'self'`、`object-src 'none'`。另有 HSTS、`X-Frame-Options`、`nosniff`，全部在 `deploy/nginx.security-headers.conf`
+  `form-action 'self'`、`object-src 'none'`。另有 HSTS、`X-Frame-Options`、`nosniff`、`Permissions-Policy`（相機、麥克風、定位、付款、USB 全關）、
+  `Cross-Origin-Opener-Policy: same-origin`（登入是頂層跳轉，沒有依賴 `window.opener` 的 popup），全部在 `deploy/nginx.security-headers.conf`
   （有自己 `add_header` 的 location 要再 include 一次，nginx 不會繼承）。
 - **nginx 的容量與強化**（`deploy/nginx.main.conf`）：每條 WebSocket 佔兩個連線，`worker_connections 8192`、
   `worker_rlimit_nofile 65535`（compose 的 `ulimits` 同步放寬）；對 api 用 `upstream` ＋ `keepalive`（`/api/` 清掉
   `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`。
   映像是 `nginxinc/nginx-unprivileged`（uid 101、listen 8080），compose 以唯讀根目錄、`cap_drop: [ALL]` 執行。
-  改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭檢查）。
+  三個 nginx 都有 `/_nginx_health`（只接受容器內的連線），前端映像的 `HEALTHCHECK` 與 external-gateway 的 healthcheck 打它，
+  不依賴 api 的狀態。改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭、X-Forwarded-For、健康檢查）。
 - **`X-Forwarded-Host` 一律由 nginx 以 `Host` 覆寫**：api 信任這一跳帶來的 `X-Forwarded-Host`（`requestHost()`），不覆寫的話
   客戶端自帶的值會被拿來決定租戶。nginx 前面若還有 LB，LB 也要覆寫（或清掉）這個標頭。
 - TLS 由前面的 LB / ingress 終結；Socket.io 的 Origin 與連線同源（租戶自己的網域）一律允許，`PUBLIC_ORIGIN` 只是額外的白名單。
-- api 設 `TRUST_PROXY=uniquelocal`：只信任私有網段（nginx）帶來的 `X-Forwarded-For`，
-  HTTP 與 WebSocket 的每 IP 限流才看得到真實客戶端；外部自帶的標頭無法偽造 IP。
+- **客戶端 IP**（登入、refresh、未登入請求的 IP 桶，對外 API 的驗證失敗計數，WebSocket handshake 都以它計數）分兩段判定：
+  1. nginx 只採用前置 LB 帶來的 `X-Forwarded-For`：容器啟動時 `deploy/nginx-real-ip.sh` 依 `TRUSTED_PROXY_CIDRS` 產生
+     `set_real_ip_from`（`real_ip_recursive on`），其他來源自帶的標頭一律忽略。各 location 把 `X-Forwarded-For` **覆寫** 成算出的單一 IP。
+  2. api 只信任 nginx 這一跳（`TRUST_PROXY`，預設 `uniquelocal`）。docker 的位址池不在私有網段（例：100.64.0.0/10）時改成那個子網路或 `1`。
+- **前置 LB 的要求**：必須是 L7、會附加（或覆寫）`X-Forwarded-For` 與 `X-Forwarded-Host`，`TRUSTED_PROXY_CIDRS` 填它連到 nginx 的來源網段
+  （例：同一個 VPC 的 ALB 填 VPC 的網段；同一台主機上的代理填 docker bridge 的閘道）。以 TLS listener 終結、不加標頭的 L4 LB 不適用：
+  所有人會算成 LB 那一個 IP。Cloudflare 之類的 CDN 要改用它提供的真實 IP 標頭與來源網段清單（改 `deploy/nginx-real-ip.sh` 的 `real_ip_header`）。
+- **對外的 port 只綁在 LB 連得到的介面**：8080、8081、8082 綁在 `EDGE_BIND_ADDRESS`（預設 `127.0.0.1`，只有同一台主機上的代理連得到）。
+  LB 在別台主機時設成主機在 LB 那一側的位址，並以防火牆限制只有 LB 能連：直接連 nginx 會繞過 TLS 與 LB 上的防護。
 - **NAT 的設計假設**：企業客戶的上千名員工常共用一個出口 IP。已登入的請求以使用者計、未登入與登入類端點的 IP 桶
   按「整間公司在同一個 IP」估算（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）；
   數值不夠時調環境變數，不必改程式。
@@ -303,6 +324,60 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 - 除了 `authz_revision`，訊息都經 `BroadcastService.channel()` 包上送出的程序 id，**自己送的不會收回來**（本機在送出前已處理過）。
 - **不保證送達**：送出失敗只記 log；監聽連線斷線重連時，每個訂閱者丟掉整份快取。各快取原本的 TTL 是最後防線。
 - 只送 key，不送資料：`NOTIFY` 的 payload 上限 8000 位元組。
+
+### 4.5 備份、還原與日誌
+
+**要保護的東西**
+
+| 資料 | 位置 | 遺失時 |
+| --- | --- | --- |
+| postgres | volume `postgres-data`：平台 DB ＋ 每個租戶的 database ＋ DB 角色 | 全部的資料 |
+| 物件 | volume `file-storage-data`（每個租戶一個 bucket） | 檔案內容；DB 的紀錄還在，但下載與預覽失敗 |
+| 主金鑰 | 環境變數（`deploy/prod.env`）：`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SECRET` | 見下方「主金鑰」 |
+
+無法復原的操作：`trash.purge`（回收桶到期永久刪除）、`pnpm db:drop-tenant --confirm`、`pnpm db:reset`。它們之前的狀態只能從備份拿回來。
+
+**備份**：`sh deploy/backup.sh <輸出目錄>`（在部署目錄執行，排進主機的 cron，例如每天一次），輸出到 `<輸出目錄>/<UTC 時間>/`：
+
+- `globals.sql`：DB 角色與密碼雜湊（`pg_dumpall --globals-only`）。租戶 DB 角色的密碼是佈建時隨機產生的，只存在平台 DB 的加密連線字串裡，
+  所以角色要跟著備份，還原後連線字串才仍然有效。
+- `<database>.dump`：平台 DB 與每個租戶的 database 各一份 `pg_dump -Fc`，對應「每個租戶可以單獨還原」的設計（[`05-tenancy.md`](./05-tenancy.md) §10.2）。
+- `files.tar.gz`：file-storage 的 volume，在 DB 之後才打包。多出來、沒有紀錄的物件由檔案維護排程清掉
+  （[`backend/09-file.md`](./backend/09-file.md) §9 #3）；反過來的話 DB 會指向不存在的物件。
+- 輸出目錄要再複製到主機以外（另一個帳號的物件儲存、加密）。需要時間點還原（PITR）時改用 WAL 封存，這份腳本只做每日的邏輯備份。
+
+**還原**（整台主機重建；同一份 `deploy/prod.env`，金鑰必須相同）：
+
+1. 只啟動 postgres（空的 volume）：`docker compose --env-file deploy/prod.env -f docker-compose.prod.yml up -d postgres`。
+   初始化腳本會建立三個角色與兩個空的 database。
+2. 還原角色：`… exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres' < globals.sql`。已存在的角色會報 `already exists`，
+   接著的 `ALTER ROLE` 仍會把密碼換回備份裡的值。
+3. 每個 dump：初始化腳本已建立的平台 DB 與預設租戶 DB 以 `pg_restore -d <database>` 還原到既有的 database，其他租戶以
+   `pg_restore --create -d postgres` 連同 database 一起建立（以超級使用者執行，擁有者會是原本的租戶角色）。
+4. 還原檔案：`… run --rm --no-deps -T --entrypoint tar file-storage -xzf - -C /data < files.tar.gz`。
+5. `up -d` 啟動其餘服務；`migrate` 照常執行（冪等）。確認平台與至少一個租戶都能登入、檔案能下載。
+
+單獨還原一個租戶：把那個租戶的 database 改名保留（`ALTER DATABASE … RENAME TO …`），以 `pg_restore --create` 還原，再重新啟動 api（清掉連線池）。
+檔案的 bucket 在 `files.tar.gz` 裡是 `<bucket>/` 子目錄，只解開那一個。
+
+**主金鑰**：存進秘密管理服務，與資料備份分開保存（備份外洩時金鑰不一起外洩）。各金鑰遺失的後果：
+
+| 金鑰 | 遺失時 |
+| --- | --- |
+| `TENANT_SECRET_KEY` | 平台 DB 裡所有租戶的連線字串都解不開，所有租戶無法服務。要以超級使用者替每個租戶角色重設密碼，再以新的金鑰加密新的連線字串寫回 `tenants.database_url_encrypted`（沒有現成的工具，要寫一次性的腳本，用 `SecretBox` 的 `TENANT_SECRET_PURPOSE`） |
+| `IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 外部 IdP 的 client secret、webhook 的簽章密鑰解不開：在畫面上重新輸入 client secret、重新產生 webhook 密鑰 |
+| `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SECRET` | 換一把新的即可：已發出的 ID token、IdP session、access token 失效，使用者重新登入 |
+
+**還原演練**：定期在另一台主機照上面的步驟還原一次，記下日期、備份的時間點、花了多久、遇到的問題。
+
+| 日期 | 範圍 | 結果 |
+| --- | --- | --- |
+| 2026-10-06 | 本機 Docker（`docker-compose.prod.yml` 整套）：`deploy/backup.sh` → `down -v` → 步驟 1～5。另建一個模擬佈建的租戶（自己的角色與 database）一起演練 | 平台 DB、預設租戶、模擬租戶的資料與檔案都還原；租戶角色以備份前的密碼登入成功；database 的 ACL（`REVOKE … FROM PUBLIC`）保留；`migrate` 冪等通過、`/health/ready` 正常。沒有從畫面登入驗證；正式環境還沒演練過 |
+
+**日誌**：每個服務都以 `json-file` 輪替（`max-size: 50m`、`max-file: 5`，compose 的 `x-logging`），單一服務最多約 250 MB。
+nginx 的存取日誌與 api 的 pino 日誌每個請求一筆，不輪替會塞滿與 volume 同一顆的磁碟，資料庫也會跟著停擺。
+需要長期保存時送到集中式日誌系統並設定保留期限；`migrate` 的日誌可能有初始平台管理者的一次性設定連結（1 小時有效）。
+`docker inspect <容器> --format '{{.HostConfig.LogConfig}}'` 可以確認設定。
 
 ---
 

@@ -254,14 +254,14 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 | 變數 | 用途 | production |
 | --- | --- | --- |
-| `PLATFORM_APP_URL` | apps/platform 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `PLATFORM_PUBLIC_ORIGIN` 產生） |
-| `APP_PUBLIC_URL` | 預設租戶的 backstage origin；信中連結的協定（各租戶的網域在平台 DB 的 `tenant_domains`） | 必填（`PUBLIC_ORIGIN`） |
+| `PLATFORM_APP_URL` | apps/platform 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `PLATFORM_PUBLIC_ORIGIN` 產生）；https、不能是 localhost |
+| `APP_PUBLIC_URL` | 預設租戶的 backstage origin；信中連結的協定（各租戶的網域在平台 DB 的 `tenant_domains`） | 必填（`PUBLIC_ORIGIN`）；同上 |
 | `PLATFORM_REFRESH_COOKIE_PATH` | 平台管理者的 refresh cookie path | 預設 `/api/platform/auth` |
 | `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | 第一位平台管理者（`db:seed`）；密碼留空時 production 建成 `pending`，印出一次性的設定連結（[`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md) §5.1） | compose 的 migrate 必填 email |
-| `OIDC_ISSUER` | `{PLATFORM_APP_URL}/api/oidc` | 必填 |
-| `OIDC_JWKS` | 簽 ID token 的私鑰（JWKS JSON）；輪替時新舊並存一個 access token TTL | 必填（沒設時啟動時產生臨時金鑰） |
-| `OIDC_COOKIE_KEYS` | 簽 IdP cookie 的金鑰，逗號分隔，第一把用來簽 | 必填 |
-| `IDP_SECRET_KEY` | AES-256-GCM 加密外部 IdP 的 client secret（32 bytes，base64） | 必填（沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用） |
+| `OIDC_ISSUER` | `{PLATFORM_APP_URL}/api/oidc` | 必填；與 `PLATFORM_APP_URL` 同源 |
+| `OIDC_JWKS` | 簽 ID token 的私鑰（JWKS JSON）；輪替時新舊並存一個 access token TTL | 必填，至少一把含私鑰（沒設時啟動時產生臨時金鑰，只給開發用） |
+| `OIDC_COOKIE_KEYS` | 簽 IdP cookie 的金鑰，逗號分隔，第一把用來簽 | 必填，每一把至少 32 字元的隨機值 |
+| `IDP_SECRET_KEY` | AES-256-GCM 加密外部 IdP 的 client secret（32 bytes，base64） | 必填，拒絕低熵的值（沒設時由 `JWT_SECRET` 以 HKDF 推導，只給開發用） |
 | `TENANT_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 加密租戶連線字串、Webhook 簽章密鑰（同上的形狀；[`05-tenancy.md`](./05-tenancy.md) §7、[`backend/17-webhook.md`](./backend/17-webhook.md) §9.2 D14） | 必填（同上） |
 | `OIDC_CLEANUP_CRON` | 清除過期 `oidc_payloads` | 預設 `45 3 * * *` |
 | `VITE_OIDC_ISSUER`、`VITE_PLATFORM_APP_URL` | 前端（backstage、apps/platform）**建置時** 寫進產物 | Dockerfile 的 build arg |

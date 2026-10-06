@@ -8,7 +8,8 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { auditRoutes } from './common/route-audit';
-import type { Env } from './core/config';
+import { listenHostOf } from './core/config/env.schema';
+import type { Env } from './core/config/env.schema';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { setupSwagger } from './swagger';
 
@@ -40,7 +41,12 @@ async function bootstrap(): Promise<void> {
   setupSwagger(app, config.get('NODE_ENV', { infer: true }) !== 'production');
 
   const port = config.get('PORT', { infer: true });
-  await app.listen(port);
+  // 開發環境只聽 127.0.0.1（LISTEN_HOST）；production 聽所有介面，nginx 從另一個容器連進來
+  const host = listenHostOf({
+    NODE_ENV: config.get('NODE_ENV', { infer: true }),
+    LISTEN_HOST: config.get('LISTEN_HOST', { infer: true }),
+  });
+  await (host ? app.listen(port, host) : app.listen(port));
   // nginx 對 api 維持長連線（upstream keepalive_timeout 60 秒，deploy/nginx.conf）：Node 這端要撐得比它久，
   // 否則 Node 先關掉閒置連線、nginx 剛好拿它送請求時會得到 502
   const server = app.getHttpServer();

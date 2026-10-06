@@ -88,14 +88,32 @@ function serviceEnvironment(service: string): Record<string, string> {
 }
 
 describe('docker-compose.prod.yml 給程序的環境變數（防止 production 起不來）', () => {
-  it.each(['api', 'external-api'])(
-    '%s 的 environment 通過 production 的環境變數驗證',
-    (service) => {
-      const env = serviceEnvironment(service);
-      expect(env.NODE_ENV).toBe('production');
-      expect(() => validateEnv(env)).not.toThrow();
-    },
-  );
+  it('api 的 environment 通過 production 的環境變數驗證', () => {
+    const env = serviceEnvironment('api');
+    expect(env.NODE_ENV).toBe('production');
+    expect(() => validateEnv(env)).not.toThrow();
+  });
+
+  it('external-api 的 environment 以對外 API 的範圍通過驗證（API_SURFACE 由 external-process-env.ts 固定）', () => {
+    const env = serviceEnvironment('external-api');
+    expect(env.NODE_ENV).toBe('production');
+    expect(() => validateEnv({ ...env, API_SURFACE: 'external' })).not.toThrow();
+  });
+
+  it('external-api 拿不到只有內部 api 用的秘密（06-external-api.md §6）', () => {
+    const env = serviceEnvironment('external-api');
+    for (const key of [
+      'TENANT_PROVISIONING_DATABASE_URL',
+      'OIDC_JWKS',
+      'OIDC_COOKIE_KEYS',
+      'IDP_SECRET_KEY',
+      'WEBHOOK_SECRET_KEY',
+      'MAIL_SMTP_URL',
+    ]) {
+      expect(env).not.toHaveProperty(key);
+      expect(serviceEnvironment('api')).toHaveProperty(key);
+    }
+  });
 
   it('拿掉任一個 production 必填的金鑰就驗證失敗（這個測試真的會擋）', () => {
     const { WEBHOOK_SECRET_KEY: _removed, ...env } = serviceEnvironment('api');

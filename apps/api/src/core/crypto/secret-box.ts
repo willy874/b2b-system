@@ -32,27 +32,36 @@ export const WEBHOOK_SECRET_PURPOSE: SecretKeyPurpose = {
  * 密文格式 `iv.tag.ciphertext`（各自 base64url）。
  */
 export class SecretBox {
-  private constructor(private readonly key: Buffer) {}
+  private constructor(
+    private readonly key: Buffer | null,
+    private readonly purpose: SecretKeyPurpose,
+  ) {}
 
-  /** 主金鑰（32 bytes，base64）；沒有時由 `fallbackSeed` 以 HKDF 推導（僅開發用，重啟後仍解得開）。 */
+  /**
+   * 主金鑰（32 bytes，base64）；沒有時由 `fallbackSeed` 以 HKDF 推導（僅開發用，重啟後仍解得開）。
+   * `fallbackSeed` 是 `null` 時不推導（production）：沒有金鑰的程序要加解密時才拋錯，不會以推導出的另一把金鑰
+   * 寫出別的程序解不開的密文。對外 API 的程序載入了這些模組，卻不持有金鑰（docs/architecture/06-external-api.md §6）。
+   */
   static fromConfig(
     secretKey: string | undefined,
-    fallbackSeed: string,
+    fallbackSeed: string | null,
     purpose: SecretKeyPurpose,
   ): SecretBox {
     if (secretKey) {
       const key = Buffer.from(secretKey, 'base64');
       if (key.length !== 32) throw new Error(`${purpose.envName} 必須是 32 bytes（base64）`);
-      return new SecretBox(key);
+      return new SecretBox(key, purpose);
     }
+    if (fallbackSeed === null) return new SecretBox(null, purpose);
     return new SecretBox(
       Buffer.from(hkdfSync('sha256', fallbackSeed, 'b2b-system', purpose.info, 32)),
+      purpose,
     );
   }
 
   encrypt(plaintext: string): string {
     const iv = randomBytes(IV_BYTES);
-    const cipher = createCipheriv(ALGORITHM, this.key, iv);
+    const cipher = createCipheriv(ALGORITHM, this.requireKey(), iv);
     const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     return [iv, cipher.getAuthTag(), encrypted].map((part) => part.toString('base64url')).join('.');
   }
@@ -60,8 +69,13 @@ export class SecretBox {
   decrypt(sealed: string): string {
     const [iv, tag, encrypted] = sealed.split('.').map((part) => Buffer.from(part, 'base64url'));
     if (!iv || !tag || !encrypted) throw new Error('密文格式不正確');
-    const decipher = createDecipheriv(ALGORITHM, this.key, iv);
+    const decipher = createDecipheriv(ALGORITHM, this.requireKey(), iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  }
+
+  private requireKey(): Buffer {
+    if (!this.key) throw new Error(`這個程序沒有設定 ${this.purpose.envName}，不能加解密`);
+    return this.key;
   }
 }
