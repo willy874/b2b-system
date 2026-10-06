@@ -52,7 +52,6 @@ features/role/
 │   └── useGrantablePermissions.ts   ← 反提權過濾
 │
 ├── enums/
-│   ├── events.ts              本 feature 的事件名稱
 │   └── role-action.ts         列表列可執行的動作
 │
 └── locales/
@@ -117,10 +116,8 @@ router 建立前是 `undefined`，而 plugin 註冊發生在那之前）。
 
 ```ts
 import { createRoute } from "@tanstack/react-router";
-import { EventEmitter } from "@b2b-system/web-shared/EventEmitter";
 import { localeScopeLoader } from "@b2b-system/web-core/locales";
 import { RootRoute } from "@b2b-system/web-core/router";
-import { RoleEvents } from "../enums/events";
 import { ROLE_LOCALE_SCOPE } from "../locale";
 import { RoleSearchQuerySchema } from "./model";
 
@@ -130,9 +127,6 @@ export const RoleListRoute = createRoute({
   staticData: { titleKey: "menu.role" }, // 分頁標題「角色 · 產品名」（08-i18n.md §5）
   loader: localeScopeLoader(ROLE_LOCALE_SCOPE),
   validateSearch: RoleSearchQuerySchema,
-  context: () => ({
-    eventBus: new EventEmitter<{ [RoleEvents.ROLE_UPDATED]: () => void }>(),
-  }),
 });
 
 export const RoleCreateRoute = createRoute({

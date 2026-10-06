@@ -81,7 +81,7 @@ export type AppPluginFactory = (
 ) => PluginResults<AppPluginProperties, AppPluginHooks>;
 
 export function createAppContext(): AppContext;
-export function getAppContext(): AppContext; // 給 fetcher 等非 React 程式碼用
+// 沒有模組層級的 getter：plugin 經由 ctx.getInstance()、React 經由 useAppContext()（web-core/app/react.tsx）取得
 ```
 
 ### 2.1 Declaration merging：plugin 如何擴充 context 型別
@@ -111,7 +111,7 @@ declare module '../../app/context' { // app 裡寫 '@b2b-system/web-core/app/con
 }
 ```
 
-從此 `getAppContext().addResourceBundle(...)` 在任何地方都有完整型別。
+從此 `ctx.getInstance().addResourceBundle(...)`（plugin）與 `useAppContext().addResourceBundle(...)`（React）都有完整型別。
 **`web-core/app/context.ts` 完全不需要知道有 i18n 這個東西。**
 app 擴充時指向定義的檔案 `@b2b-system/web-core/app/context`；指向 `@b2b-system/web-core/app`（index）不會合併到同一個介面。
 
