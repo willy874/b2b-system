@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
 
 import { FEATURE_FLAG_PAGE } from '../permission';
@@ -6,5 +8,9 @@ import { FEATURE_FLAG_PAGE } from '../permission';
 export function useFeatureFlagPermission() {
   const page = usePagePermission(FEATURE_FLAG_PAGE);
   const { can } = usePermission();
-  return { ...page, canUpdate: can(PermissionKey['featureFlag:update']) };
+  // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
+  return useMemo(
+    () => ({ ...page, canUpdate: can(PermissionKey['featureFlag:update']) }),
+    [page, can],
+  );
 }

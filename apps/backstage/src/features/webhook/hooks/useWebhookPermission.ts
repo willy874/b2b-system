@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { usePagePermission } from '@/core/permission';
 
 import { WEBHOOK_PAGE } from '../permission';
@@ -8,10 +10,14 @@ import { WEBHOOK_PAGE } from '../permission';
  */
 export function useWebhookPermission() {
   const page = usePagePermission(WEBHOOK_PAGE);
-  return {
-    ...page,
-    /** 送測試事件與重送：讓接收端再收一次 */
-    canSend: page.canUpdate,
-    canRotateSecret: page.canUpdate,
-  };
+  // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
+  return useMemo(
+    () => ({
+      ...page,
+      /** 送測試事件與重送：讓接收端再收一次 */
+      canSend: page.canUpdate,
+      canRotateSecret: page.canUpdate,
+    }),
+    [page],
+  );
 }

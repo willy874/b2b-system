@@ -48,9 +48,15 @@ export default function UserListPage() {
     }),
   );
 
+  // 只依賴 adapter 用到的值：與資料、權限、自己是誰無關的重繪不重建列
+  const { canDelete, canUpdate, canUnlock } = permission;
+  const currentUserId = profile.data?.user.id;
   const rows = useMemo(
-    () => (data?.items ?? []).map((user) => toUserRowVM(user, permission, profile.data?.user.id)),
-    [data, permission, profile.data],
+    () =>
+      (data?.items ?? []).map((user) =>
+        toUserRowVM(user, { canDelete, canUpdate, canUnlock }, currentUserId),
+      ),
+    [data, canDelete, canUpdate, canUnlock, currentUserId],
   );
   const selection = useTableSelection(rows, getRowId);
   // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）

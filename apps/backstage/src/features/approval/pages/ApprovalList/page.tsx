@@ -37,9 +37,14 @@ export default function ApprovalListPage() {
     }),
   );
 
+  // 只依賴 adapter 用到的布林值：與資料、這兩個權限無關的重繪不重建列
+  const { canReview, canApproveRegistration } = permission;
   const rows = useMemo(
-    () => (data?.items ?? []).map((item) => toApprovalRowVM(item, permission)),
-    [data, permission],
+    () =>
+      (data?.items ?? []).map((item) =>
+        toApprovalRowVM(item, { canReview, canApproveRegistration }),
+      ),
+    [data, canReview, canApproveRegistration],
   );
   const selection = useTableSelection(rows, getRowId);
   // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）

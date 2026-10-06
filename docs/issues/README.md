@@ -23,7 +23,6 @@
 | 中 | 日期選擇器、TreeEditor、Spinner 的預設文案沒跟著語系 | [`ui-component-default-labels-not-localized.md`](./ui-component-default-labels-not-localized.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 中 | 警告色與成功色按鈕的白字對比不足，測試只要求 3:1 | [`button-color-contrast.md`](./button-color-contrast.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | api 映像帶著 react-email 的 CLI 依賴 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |
-| 低 | usePermission 每次回傳新物件，權限相關的 memo 全部失效 | [`use-permission-unstable-reference.md`](./use-permission-unstable-reference.md) | 2026-10-06（全面檢測：效能） |
 | 低 | useTranslation 在任何語系包載入時都讓所有元件重繪 | [`use-translation-extra-rerenders.md`](./use-translation-extra-rerenders.md) | 2026-10-06（全面檢測：效能） |
 | 低 | 平台列表 offset 無上限、驗證錯誤的 details 有兩種形狀 | [`api-validation-inconsistencies.md`](./api-validation-inconsistencies.md) | 2026-10-06（全面檢測：架構） |
 | 低 | 英文介面：html lang 固定中文、沒有複數形、寫死全形標點 | [`i18n-english-polish.md`](./i18n-english-polish.md) | 2026-10-06（全面檢測：使用者體驗） |

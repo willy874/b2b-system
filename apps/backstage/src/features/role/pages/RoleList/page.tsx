@@ -41,9 +41,11 @@ export default function RoleListPage() {
     }),
   );
 
+  // 只依賴 adapter 用到的布林值：與資料、這兩個權限無關的重繪不重建列（選取、表格的 row model 跟著不變）
+  const { canDelete, canUpdate } = permission;
   const rows = useMemo(
-    () => (data?.items ?? []).map((role) => toRoleRowVM(role, permission)),
-    [data, permission],
+    () => (data?.items ?? []).map((role) => toRoleRowVM(role, { canDelete, canUpdate })),
+    [data, canDelete, canUpdate],
   );
   const selection = useTableSelection(rows, getRowId);
   // 關鍵字改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
