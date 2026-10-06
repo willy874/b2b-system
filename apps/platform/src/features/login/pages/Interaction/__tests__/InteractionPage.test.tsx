@@ -1,5 +1,7 @@
 import { AppError } from '@b2b-system/web-core/errors';
+import { i18n } from '@b2b-system/web-core/locales';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
+import { useLocaleStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -58,6 +60,7 @@ const TENANT_INTERACTION = {
   clientId: 'backstage',
   clientName: 'backstage',
   loginHint: null,
+  uiLocales: null,
   tenant: { code: 'acme', name: 'Acme 股份有限公司' },
 };
 const RESUME = `http://localhost:5175/api/oidc/auth/${UID}`;
@@ -135,6 +138,7 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
       clientId: 'auth',
       clientName: 'auth',
       loginHint: null,
+      uiLocales: null,
       tenant: null,
     });
     renderInteraction();
@@ -207,6 +211,34 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('帳號或密碼錯誤');
     expect(alert).toHaveAttribute('data-value', 'AUTH_INVALID_CREDENTIALS');
+  });
+
+  describe('產品要求的介面語系（OIDC ui_locales）', () => {
+    afterEach(async () => {
+      useLocaleStore.setState({ locale: 'zh-TW' });
+      await i18n.changeLanguage('zh-TW');
+    });
+
+    it('帶 ui_locales=en-US → 登入頁切成英文，並記在這個瀏覽器', async () => {
+      details.mockResolvedValue({ ...TENANT_INTERACTION, uiLocales: 'en-US' });
+      renderInteraction();
+      await waitFor(() => expect(i18n.language).toBe('en-US'));
+      expect(useLocaleStore.getState().locale).toBe('en-US');
+    });
+
+    it('依序取第一個支援的語系（ja 不支援、en-GB 對到 en-US）', async () => {
+      details.mockResolvedValue({ ...TENANT_INTERACTION, uiLocales: 'ja en-GB' });
+      renderInteraction();
+      await waitFor(() => expect(useLocaleStore.getState().locale).toBe('en-US'));
+    });
+
+    it('沒帶 → 維持這個瀏覽器的語系', async () => {
+      renderInteraction();
+      await screen.findByTestId('login-email');
+      await waitFor(() => expect(details).toHaveBeenCalled());
+      expect(useLocaleStore.getState().locale).toBe('zh-TW');
+      expect(i18n.language).toBe('zh-TW');
+    });
   });
 
   it('取消 → 頂層跳轉到 provider（產品收到 access_denied）', async () => {

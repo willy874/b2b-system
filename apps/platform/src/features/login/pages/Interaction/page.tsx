@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { PasswordInput } from '../../components/PasswordInput';
 import { CLIENT_NAME_KEY } from '../../constants';
 import { useAccountPolicy } from '../../hooks/useAccountPolicy';
+import { useRequestedLocale } from '../../hooks/useRequestedLocale';
 import {
   useSsoDiscovery,
   useSsoInteraction,
@@ -50,6 +51,8 @@ export default function InteractionPage() {
   const { uid } = InteractionRoute.useParams();
   const search = InteractionRoute.useSearch();
   const interaction = useSsoInteraction(uid);
+  // 與要求登入的產品用同一個語言（backstage 帶來的 ui_locales）
+  useRequestedLocale(interaction.data?.uiLocales);
   const policy = useAccountPolicy(interaction.data?.tenant?.code);
   const login = useSsoInteractionLoginMutation();
   const abort = useSsoInteractionAbortMutation();

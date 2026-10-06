@@ -94,8 +94,10 @@ backstage /auth/callback
 
 `apps/platform` 的 `/interaction/:uid` 呼叫同一路徑底下的端點（互動 cookie 就是憑證，端點是 `@Public()`）：
 
-1. `GET /oidc-interaction/:uid/details`：client 名稱、`login_hint`、`tenant`（`{ code, name }`；平台管理者的登入是 `null`）
+1. `GET /oidc-interaction/:uid/details`：client 名稱、`login_hint`、`uiLocales`、`tenant`（`{ code, name }`；平台管理者的登入是 `null`）
    （互動無效 → `AUTH_SSO_INTERACTION_INVALID`）。頁面顯示租戶名稱；有租戶時才有「忘記密碼」「申請帳號」（連結帶 `?tenant=`）。
+   `uiLocales` 是 authorize 帶的 OIDC `ui_locales`：backstage 導來登入時帶自己目前的介面語系，互動頁取第一個支援的語系切換
+   （並記在 apps/platform 這個瀏覽器）——兩個網域的 localStorage 不共用，不帶的話登入頁永遠用 apps/platform 自己的設定。
 2. `POST …/:uid/login { email, password }`：有租戶時在那個租戶裡以 `AuthService.verifyCredentials` 檢查
    （鎖定、帳號狀態、只允許 SSO 的網域、稽核）；沒有租戶時以 `PlatformAdminService.verifyCredentials`（寫平台稽核）。
    成功回傳 resume 網址。

@@ -60,6 +60,8 @@ export interface InteractionSummary {
   clientId: string;
   clientName: string;
   loginHint: string | null;
+  /** 產品要求的介面語系（OIDC 的 `ui_locales`，空白分隔的 BCP 47 標籤，依偏好排序）；沒帶時是 `null`。 */
+  uiLocales: string | null;
   /** 這次要登入哪個租戶；沒有時是平台管理者的登入（docs/architecture/05-tenancy.md §10.2 D8）。 */
   tenant: { id: string; code: string; name: string } | null;
 }
@@ -293,6 +295,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     const clientId = String(details.params.client_id ?? '');
     const client = await this.provider.Client.find(clientId);
     const loginHint = details.params.login_hint;
+    const uiLocales = details.params.ui_locales;
     const requested = await this.requestedRealm(details.params, clientId);
     // backstage 的互動一定帶租戶（authorize 已驗證）；找不到代表租戶在這之間被停用或刪除
     if (!requested) return undefined;
@@ -302,6 +305,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       clientId,
       clientName: client?.clientName ?? clientId,
       loginHint: typeof loginHint === 'string' ? loginHint : null,
+      uiLocales: typeof uiLocales === 'string' && uiLocales.trim() ? uiLocales.trim() : null,
       tenant:
         requested.realm === 'tenant'
           ? { id: requested.tenant.id, code: requested.tenant.code, name: requested.tenant.name }

@@ -24,6 +24,19 @@ export function getDateTimeDefaults(): Readonly<Required<DateTimeFormatOptions>>
   return { ...defaults };
 }
 
+/**
+ * 時區下拉的選項：瀏覽器支援的 IANA 時區（`Intl.supportedValuesOf`），再加上 `UTC`
+ * （V8 的清單只有地區時區，沒有 `UTC`）。`current` 不在清單裡（例：瀏覽器較舊）時也放進去，目前的值才選得到。
+ */
+export function supportedTimeZones(current?: string): string[] {
+  const zones = new Set<string>(['UTC']);
+  if (typeof Intl.supportedValuesOf === 'function') {
+    for (const zone of Intl.supportedValuesOf('timeZone')) zones.add(zone);
+  }
+  if (current) zones.add(current);
+  return [...zones];
+}
+
 /** 是不是瀏覽器認得的 IANA 時區（`Asia/Taipei`、`UTC`…）。 */
 export function isValidTimeZone(timeZone: string): boolean {
   try {

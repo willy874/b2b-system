@@ -1608,6 +1608,7 @@ export const SsoInteractionSchema = z.object({
   clientId: z.string(),
   clientName: z.string(),
   loginHint: z.string().nullable(),
+  uiLocales: z.string().nullable(),
   tenant: z
     .object({
       code: z.string(),

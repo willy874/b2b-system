@@ -8,10 +8,10 @@ import { useLocaleStore, useThemeStore, useTimezoneStore } from '@b2b-system/web
 import { THEME_OPTIONS } from '@b2b-system/web-core/theme';
 import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '@b2b-system/web-shared/constants';
 import type { Language } from '@b2b-system/web-shared/constants';
+import { supportedTimeZones } from '@b2b-system/web-shared/date';
+import { useMemo } from 'react';
 
 import { useChangeLocale } from '../../hooks/useChangeLocale';
-
-const TIMEZONES = ['Asia/Taipei', 'Asia/Tokyo', 'UTC', 'America/Los_Angeles'];
 
 /**
  * 偏好設定：結構同 backstage 的偏好頁。平台管理者的帳號沒有存偏好，
@@ -26,6 +26,10 @@ export default function PreferencePage() {
   const setTimezone = useTimezoneStore((state) => state.setTimezone);
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
+  const timezoneOptions = useMemo(
+    () => supportedTimeZones(timezone).map((zone) => ({ value: zone, label: zone })),
+    [timezone],
+  );
 
   // feature 註冊的分頁與列表；偏好頁不需要認識它們
   const sections = usePreferenceSections();
@@ -62,7 +66,8 @@ export default function PreferencePage() {
             setTimezone(value);
             toast.success(t('account.preference.saved'));
           }}
-          options={TIMEZONES.map((zone) => ({ value: zone, label: zone }))}
+          options={timezoneOptions}
+          searchable
           data-testid="preference-timezone"
         />
       </Field>

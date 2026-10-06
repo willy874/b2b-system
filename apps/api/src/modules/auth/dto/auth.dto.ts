@@ -153,6 +153,11 @@ export const SsoInteractionSchema = defineSchema(
     clientName: z.string(),
     loginHint: z.string().nullable(),
     /**
+     * 產品要求的介面語系（OIDC 的 `ui_locales`，空白分隔的 BCP 47 標籤）：互動頁以它切換語系，
+     * 從 backstage 被導來登入時與 backstage 用同一個語言（docs/architecture/04-sso.md §12）。沒帶時是 `null`。
+     */
+    uiLocales: z.string().nullable(),
+    /**
      * 要登入哪個租戶（互動頁顯示它的名稱）；`null` 是平台管理者的登入
      * （docs/architecture/05-tenancy.md §10.2 D8）。
      */

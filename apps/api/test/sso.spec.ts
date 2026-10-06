@@ -561,6 +561,26 @@ describe('SSO（docs/architecture/04-sso.md §12、0020 D5–D10）', () => {
     expect(errorCode(noCookie)).toBe('AUTH_SSO_INTERACTION_INVALID');
   });
 
+  it('authorize 帶的 ui_locales 出現在互動的 details（互動頁以它切換語系）；沒帶是 null', async () => {
+    const detailsOf = async (query: URLSearchParams) => {
+      const jar = new CookieJar();
+      const start = await idp('get', `/oidc/auth?${query.toString()}`);
+      jar.store(start);
+      const uid = new URL(start.headers.location as string).pathname.split('/').pop()!;
+      const details = await idp('get', `/oidc-interaction/${uid}/details`)
+        .set('cookie', jar.header())
+        .expect(200);
+      return (details.body as { data: { uiLocales: string | null } }).data;
+    };
+
+    const withLocale = authorizeQuery(BACKSTAGE, pkce().challenge, 'x');
+    withLocale.set('ui_locales', 'en-US');
+    expect((await detailsOf(withLocale)).uiLocales).toBe('en-US');
+    expect(
+      (await detailsOf(authorizeQuery(BACKSTAGE, pkce().challenge, 'y'))).uiLocales,
+    ).toBeNull();
+  });
+
   describe('平台管理者（apps/platform，D5、D8）', () => {
     it('不帶租戶的登入互動查平台 DB；session 在 /platform/auth，token 沒有 tid', async () => {
       const jar = new CookieJar();

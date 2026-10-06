@@ -5,6 +5,7 @@ import {
   formatRelativeTime,
   isValidTimeZone,
   setDateTimeDefaults,
+  supportedTimeZones,
   todayInZone,
   toZonedParts,
   zonedDateTime,
@@ -169,5 +170,19 @@ describe('todayInZone（偏好時區的「今天」）', () => {
   it('沒有傳時區時用偏好的時區（setDateTimeDefaults）', () => {
     setDateTimeDefaults({ timeZone: 'America/Los_Angeles' });
     expect(todayInZone(undefined, now)).toBe('2026-10-06');
+  });
+});
+
+describe('supportedTimeZones（偏好頁與系統設定的時區下拉）', () => {
+  it('完整的 IANA 清單，另外包含 UTC', () => {
+    const zones = supportedTimeZones();
+    expect(zones).toEqual(expect.arrayContaining(['UTC', 'Asia/Taipei', 'Europe/Berlin']));
+    expect(zones.length).toBeGreaterThan(100);
+  });
+
+  it('目前的值不在清單裡時也放進去，且不重複', () => {
+    expect(supportedTimeZones('Etc/Unknown-Zone')).toContain('Etc/Unknown-Zone');
+    const zones = supportedTimeZones('Asia/Taipei');
+    expect(zones.filter((zone) => zone === 'Asia/Taipei')).toHaveLength(1);
   });
 });
