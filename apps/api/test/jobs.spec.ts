@@ -1,13 +1,13 @@
 import { Injectable, Module } from '@nestjs/common';
 import type { INestApplication, OnModuleInit } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { TENANT_DB, withTransaction } from '@/core/database';
-import type { Database } from '@/core/database';
+import { PLATFORM_DB, TENANT_DB, withTransaction } from '@/core/database';
+import type { Database, PlatformDatabase } from '@/core/database';
 import { defineJob, JobQueue, JobStore } from '@/core/jobs';
 import { auditLogs, jobOutbox, relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 
@@ -364,6 +364,43 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
     } finally {
       await setTestTenantFeatureParams(app, {});
     }
+  });
+
+  it('租戶的工作在 pg-boss 帶 group_id；開始帶之前入列的（group_id 是空的）管理頁照樣看得到（docs/architecture/backend/10-jobs.md §3）', async () => {
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const id = await inTestTenant(app, () => jobs.enqueue(FLAKY_JOB, { label: 'grouped' }));
+    const groupOf = async () =>
+      (
+        await platformDb.execute<{ group_id: string | null }>(
+          sql`SELECT group_id FROM pgboss.job WHERE name = ${FLAKY_JOB.name} AND id = ${id}`,
+        )
+      )[0]?.group_id;
+    expect(await groupOf()).toBe(tenantId);
+    await waitForState(id!, 'failed');
+
+    await platformDb.execute(
+      sql`UPDATE pgboss.job SET group_id = NULL WHERE name = ${FLAKY_JOB.name} AND id = ${id}`,
+    );
+    expect(await groupOf()).toBeNull();
+    expect(await store.find(tenantId, jobs.names(), id!)).toMatchObject({ id, state: 'failed' });
+    expect(
+      (await store.counts(tenantId, [FLAKY_JOB.name])).get(FLAKY_JOB.name)?.failedCount,
+    ).toBeGreaterThan(0);
+  });
+
+  it('高流量工作的佇列只保留 1 天（deleteAfterSeconds）', async () => {
+    const platformDb = app.get<PlatformDatabase>(PLATFORM_DB);
+    const rows = await platformDb.execute<{ name: string; deletion_seconds: number }>(
+      sql`SELECT name, deletion_seconds FROM pgboss.queue
+          WHERE name IN ('webhook.deliver', 'announcement.eventDispatch', 'announcement.fanOut', 'auditLog.archive')
+          ORDER BY name`,
+    );
+    expect(Object.fromEntries(rows.map((row) => [row.name, row.deletion_seconds]))).toEqual({
+      'announcement.eventDispatch': 24 * 60 * 60,
+      'announcement.fanOut': 24 * 60 * 60,
+      'auditLog.archive': 7 * 24 * 60 * 60,
+      'webhook.deliver': 24 * 60 * 60,
+    });
   });
 
   it('租戶同時執行的上限 job.maxConcurrency：超過的放回佇列，不耗重試次數，之後照常完成（docs/architecture/05-tenancy.md §13.3 D9）', async () => {

@@ -30,12 +30,13 @@ function setup() {
 }
 
 describe('WebhookJobs（docs/architecture/backend/17-webhook.md §9.2 D12、D16）', () => {
-  it('投遞：每個租戶各自的工作，重試 8 次、指數退避上限 1 小時', () => {
+  it('投遞：每個租戶各自的工作，重試 8 次、指數退避上限 1 小時；高流量，結束後在佇列只留 1 天', () => {
     expect(WEBHOOK_DELIVER_JOB.options).toMatchObject({
       scope: 'tenant',
       retryLimit: 8,
       retryDelaySeconds: 60,
       retryDelayMaxSeconds: 3600,
+      deleteAfterSeconds: 24 * 60 * 60,
     });
   });
 

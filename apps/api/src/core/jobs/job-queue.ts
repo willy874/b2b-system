@@ -293,6 +293,9 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       singletonKey,
       singletonSeconds: options.throttle?.seconds,
       startAfter: options.startAfter,
+      // 租戶 id 也寫進 pg-boss 的 group_id：同時執行數與管理頁的計數走索引，不解析每一列的 JSON
+      // （JobStore.activeAhead）。worker 沒設 groupConcurrency，group 不影響取工作的順序。
+      group: envelope.tenantId ? { id: envelope.tenantId } : undefined,
     });
   }
 
@@ -363,7 +366,13 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     const tenant = await this.directory.findById(tenantId);
     if (!tenant) return undefined;
     const limit = resolveTenantFeatureParam(JOB_MAX_CONCURRENCY_PARAM, tenant.featureParams);
-    if ((await this.store.activeAhead(tenantId, jobId)) < limit) return undefined;
+    const ahead = await this.store.activeAhead({
+      tenantId,
+      name: type.name,
+      jobId,
+      names: [...this.registrations.keys()],
+    });
+    if (ahead < limit) return undefined;
     const delay = TENANT_BUSY_DELAY_SECONDS + Math.random() * TENANT_BUSY_JITTER_SECONDS;
     const result = await this.store.requeue(type.name, jobId, delay);
     this.logger.debug({ job: type.name, id: jobId, tenantId, limit, result }, '租戶同時執行數已滿');
@@ -379,6 +388,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       retryBackoff: true,
       retryDelayMax: options.retryDelayMaxSeconds,
       expireInSeconds: options.expireInSeconds,
+      deleteAfterSeconds: options.deleteAfterSeconds,
     } satisfies Omit<Queue, 'name'>;
     const existing = await this.boss.getQueue(type.name);
     if (!existing) {

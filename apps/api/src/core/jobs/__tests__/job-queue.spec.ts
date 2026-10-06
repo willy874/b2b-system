@@ -11,7 +11,7 @@ import type { Tenancy, TenantContext, TenantDirectory, TenantRecord } from '../.
 import { JobQueue } from '../job-queue';
 import type { JobContext, JobEnvelope } from '../job-queue';
 import type { JobStore } from '../job-store';
-import { defineJob } from '../job-type';
+import { defineJob, HIGH_VOLUME_RETENTION_SECONDS } from '../job-type';
 
 /**
  * 假的 pg-boss：建構時不連線，記下每個呼叫。測的是 JobQueue 交給 pg-boss 的設定與資料，
@@ -154,7 +154,12 @@ describe('JobQueue：租戶的同時執行上限（docs/architecture/05-tenancy.
     });
     await expect(execute(ENVELOPE)).resolves.toMatchObject({ skipped: 'TENANT_CONCURRENCY' });
     expect(handler).not.toHaveBeenCalled();
-    expect(activeAhead).toHaveBeenCalledWith('t1', 'job-1');
+    expect(activeAhead).toHaveBeenCalledWith({
+      tenantId: 't1',
+      name: 'test.work',
+      jobId: 'job-1',
+      names: expect.arrayContaining(['jobs.outboxSweep']),
+    });
     expect(requeue).toHaveBeenCalledWith('test.work', 'job-1', expect.any(Number));
     const delay = requeue.mock.calls[0]?.[2] ?? 0;
     expect(delay).toBeGreaterThanOrEqual(5);
@@ -387,6 +392,7 @@ describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architectur
       retryBackoff: true,
       retryDelayMax: 3600,
       expireInSeconds: 3600,
+      deleteAfterSeconds: 7 * 24 * 60 * 60,
       policy: 'stately',
     });
   });
@@ -412,7 +418,22 @@ describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architectur
       retryDelay: 300,
       retryBackoff: true,
       expireInSeconds: 3600,
+      deleteAfterSeconds: 7 * 24 * 60 * 60,
     });
+  });
+
+  it('高流量工作的保留期（deleteAfterSeconds）交給 pg-boss：新佇列與既有佇列都同步', async () => {
+    const type = defineJob('test.burst', { deleteAfterSeconds: HIGH_VOLUME_RETENTION_SECONDS });
+    const { queue, boss } = createQueue({ workerEnabled: false });
+    boss.getQueue.mockImplementation(async (name: string) =>
+      name === 'test.burst' ? { name } : null,
+    );
+    queue.register(type, vi.fn());
+    await queue.onApplicationBootstrap();
+    expect(boss.updateQueue).toHaveBeenCalledWith(
+      'test.burst',
+      expect.objectContaining({ deleteAfterSeconds: 24 * 60 * 60 }),
+    );
   });
 
   it('JOBS_WORKER_ENABLED=false → 建立佇列（仍可入列），不啟動 worker、不同步排程', async () => {
@@ -512,6 +533,7 @@ describe('JobQueue.enqueue（docs/architecture/backend/10-jobs.md §4）', () =>
         singletonKey: undefined,
         singletonSeconds: undefined,
         startAfter: undefined,
+        group: undefined,
       },
     );
   });
@@ -532,11 +554,12 @@ describe('JobQueue.enqueue（docs/architecture/backend/10-jobs.md §4）', () =>
     });
   });
 
-  it('租戶工作 → 信封帶目前的租戶 id', async () => {
+  it('租戶工作 → 信封帶目前的租戶 id，pg-boss 的 group 也是租戶 id（計數走 group_id 的索引）', async () => {
     const { queue, boss } = createQueue();
     queue.register(TYPE, vi.fn());
     await inTenant(() => queue.enqueue(TYPE, { id: 'x' }));
     expect(boss.send.mock.calls[0]?.[1]).toEqual({ tenantId: 't1', payload: { id: 'x' } });
+    expect(boss.send.mock.calls[0]?.[2]).toMatchObject({ group: { id: 't1' } });
   });
 
   it('throttle → singletonKey 以租戶區分（<租戶>:<key>）並帶時間窗', async () => {
@@ -645,6 +668,7 @@ describe('JobQueue.enqueue 帶 tx：outbox（docs/architecture/backend/10-jobs.m
         singletonKey: 't1:k',
         singletonSeconds: 60,
         startAfter: new Date('2026-11-01T00:00:00.000Z'),
+        group: { id: 't1' },
       },
     );
     expect(tenant.remove).toHaveBeenCalledOnce();
@@ -815,12 +839,12 @@ describe('JobQueue：worker 執行工作（docs/architecture/backend/10-jobs.md 
       [
         'test.exclusive',
         { tenantId: 't1', payload: {} },
-        expect.objectContaining({ singletonKey: 't1' }),
+        expect.objectContaining({ singletonKey: 't1', group: { id: 't1' } }),
       ],
       [
         'test.exclusive',
         { tenantId: 't2', payload: {} },
-        expect.objectContaining({ singletonKey: 't2' }),
+        expect.objectContaining({ singletonKey: 't2', group: { id: 't2' } }),
       ],
     ]);
   });

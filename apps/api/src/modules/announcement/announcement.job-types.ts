@@ -1,4 +1,4 @@
-import { defineJob } from '@/core/jobs';
+import { defineJob, HIGH_VOLUME_RETENTION_SECONDS } from '@/core/jobs';
 
 /** 排程的時間到了（`startAfter = next_run_at`）；`runAt` 與公告目前的 `next_run_at` 不同就是過時的工作。 */
 export interface AnnouncementDispatchJobData {
@@ -43,6 +43,7 @@ export const ANNOUNCEMENT_FAN_OUT_JOB = defineJob<AnnouncementFanOutJobData>(
     retryLimit: 5,
     retryDelaySeconds: 30,
     expireInSeconds: 15 * 60,
+    deleteAfterSeconds: HIGH_VOLUME_RETENTION_SECONDS,
   },
 );
 
@@ -66,5 +67,6 @@ export const ANNOUNCEMENT_EVENT_DISPATCH_JOB = defineJob<AnnouncementEventDispat
     retryLimit: 5,
     retryDelaySeconds: 30,
     expireInSeconds: 60,
+    deleteAfterSeconds: HIGH_VOLUME_RETENTION_SECONDS,
   },
 );

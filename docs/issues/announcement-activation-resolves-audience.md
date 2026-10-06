@@ -25,7 +25,7 @@
 - 前提：有一則以 `user.activated` 觸發、受眾是群組或角色的公告（典型用法是新人入門指南），而且一次有很多人啟用，例如上線日的 SSO 首次登入、批次建立帳號。
 - N 人啟用、受眾 M 人時，總共處理 O(N × M) 列：1,000 人 × 1,000 人就是 100 萬列。剛建立、還不在任何群組的新帳號也照算一次。
 - 每筆工作持有公告列的鎖，同時另外佔用最多 3 條連線查受眾。工作依序執行，入門公告會晚好幾分鐘才發出。
-- 每筆工作（以及後續的 `announcement.fanOut`）另外再付一次 [`job-active-ahead-full-scan.md`](./job-active-ahead-full-scan.md) 的全表掃描。
+- 每筆工作（以及後續的 `announcement.fanOut`）另外再付一次同時執行數的排名查詢（已改成走索引，見 [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §3）。
 
 ## 修正方式
 

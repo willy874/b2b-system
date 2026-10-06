@@ -53,6 +53,16 @@ export interface JobQueueCounts {
  */
 export type JobOwnerFilter = string | null | undefined;
 
+/** `JobStore.activeAhead()` 的輸入：這一筆工作是哪個租戶的哪一種工作，以及要一起算的佇列。 */
+export interface ActiveAheadQuery {
+  tenantId: string;
+  /** 這一筆的工作名稱：與 id 一起走主鍵 `(name, id)` 找到它。 */
+  name: string;
+  jobId: string;
+  /** 要計數的佇列（已註冊的工作）；同時執行上限跨所有種類計算。 */
+  names: string[];
+}
+
 export interface JobListFilter {
   tenantId: JobOwnerFilter;
   /** 只看這些佇列（已註冊的工作）；pg-boss 內部或死信佇列不列出。 */
@@ -74,7 +84,9 @@ const JOB_COLUMNS = sql`
 /**
  * 讀 pg-boss 的工作表給管理頁用。pg-boss 的 API 只能逐一佇列查、不能分頁，所以直接查表；
  * 表結構屬於 pg-boss，只在這個檔案出現，升級 pg-boss 時對照它的 migration 檢查這裡。
- * 佇列在平台 DB、所有租戶共用，每個查詢都以信封的 `tenantId` 過濾（`JobEnvelope`）；只有平台的監控頁看全部（`JobOwnerFilter`）。
+ * 佇列在平台 DB、所有租戶共用，每個查詢都以租戶過濾；只有平台的監控頁看全部（`JobOwnerFilter`）。
+ * 租戶的工作送出時帶 pg-boss 的 `group`（`group_id` = 租戶 id），過濾與計數用這個欄位，不解析每一列的 JSON
+ * （docs/architecture/backend/10-jobs.md §3）。
  */
 @Injectable()
 export class JobStore {
@@ -143,14 +155,19 @@ export class JobStore {
    * 這個租戶有幾筆 `active` 的工作排在 `jobId` 之前（依 `(started_on, id)`；docs/architecture/05-tenancy.md §13.3 D9）。
    * 每個 worker 都以同一個順序判斷，同時取到的幾筆裡只有排在上限以內的會執行，不必另外上鎖。
    * `jobId` 已不是 `active`（逾時被收回）時回 0：交給 pg-boss 自己處理。
+   *
+   * 每一筆租戶工作開始前都會查，所以兩段都要走索引：這一筆以主鍵 `(name, id)` 找，計數以 pg-boss 內建的
+   * `job_i7 (name, group_id) WHERE state = 'active' AND group_id IS NOT NULL`。成本與表的大小無關。
    */
-  async activeAhead(tenantId: string, jobId: string): Promise<number> {
+  async activeAhead({ tenantId, name, jobId, names }: ActiveAheadQuery): Promise<number> {
+    if (names.length === 0) return 0;
     const [row] = await this.db.execute<{ ahead: number }>(
       sql`WITH me AS (
-            SELECT started_on, id FROM ${JOB_TABLE} WHERE id = ${jobId} AND state = 'active'
+            SELECT started_on, id FROM ${JOB_TABLE}
+            WHERE name = ${name} AND id = ${jobId} AND state = 'active'
           )
           SELECT count(*)::int AS ahead FROM ${JOB_TABLE} j, me
-          WHERE j.state = 'active' AND j.data->>'tenantId' = ${tenantId}
+          WHERE ${inNames(names, sql`j.name`)} AND j.group_id = ${tenantId} AND j.state = 'active'
             AND (j.started_on, j.id) < (me.started_on, me.id)`,
     );
     return row?.ahead ?? 0;
@@ -184,14 +201,18 @@ export class JobStore {
   }
 }
 
+/**
+ * 租戶的工作以 `group_id` 比對（一般欄位，不必解析 JSON）。`group_id` 是空的只有平台工作，
+ * 以及開始帶 `group` 之前入列、還在保留期內的工作：這些才看信封的 `tenantId`。
+ */
 function ofTenant(tenantId: JobOwnerFilter): SQL {
   if (tenantId === undefined) return sql`true`;
-  if (tenantId === null) return sql`data->>'tenantId' IS NULL`;
-  return sql`data->>'tenantId' = ${tenantId}`;
+  if (tenantId === null) return sql`(group_id IS NULL AND data->>'tenantId' IS NULL)`;
+  return sql`(group_id = ${tenantId} OR (group_id IS NULL AND data->>'tenantId' = ${tenantId}))`;
 }
 
-function inNames(names: string[]): SQL {
-  return sql`name IN (${sql.join(
+function inNames(names: string[], column: SQL = sql`name`): SQL {
+  return sql`${column} IN (${sql.join(
     names.map((name) => sql`${name}`),
     sql`, `,
   )})`;
