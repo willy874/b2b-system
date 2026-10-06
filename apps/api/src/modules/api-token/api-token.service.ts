@@ -217,10 +217,10 @@ export class ApiTokenService {
       return { row: inserted, token: raw };
     });
 
-    // 列表的同一個查詢：補上建立者的顯示名稱
-    this.publish(ChangeKind.CREATE, account, row.id);
+    // 列表的同一個查詢：補上建立者的顯示名稱。讀回成功才推播：不推出呼叫端沒拿到的變更（conventions/03-backend.md §1 第 6 條）
     const created = await this.repo.findOne(account.id, row.id);
     if (!created) throw new Error('剛建立的 API token 讀不到');
+    this.publish(ChangeKind.CREATE, account, row.id);
     return { token, apiToken: toDto(created, account, now) };
   }
 

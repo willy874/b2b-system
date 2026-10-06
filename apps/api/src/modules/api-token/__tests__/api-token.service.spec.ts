@@ -510,6 +510,13 @@ describe('ApiTokenService.create 的寫入內容（docs/architecture/06-external
     expect(error).not.toBeInstanceOf(AppException);
   });
 
+  it('剛建立的列讀不到：不推播（呼叫端沒拿到 secret，其他分頁也不該看到這把 token）', async () => {
+    const ctx = setup();
+    ctx.repo.findOne.mockResolvedValue(undefined);
+    await inTenant(() => ctx.service.create(account(), dto(), ALICE)).catch(() => undefined);
+    expect(ctx.events.publish).not.toHaveBeenCalled();
+  });
+
   it('不在租戶脈絡裡呼叫是程式錯誤（token 需要租戶代碼）', async () => {
     const ctx = setup();
     await expect(ctx.service.create(account(), dto(), ALICE)).rejects.toThrow();
