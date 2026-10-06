@@ -28,7 +28,6 @@
 | 低 | 平台列表 offset 無上限、驗證錯誤的 details 有兩種形狀 | [`api-validation-inconsistencies.md`](./api-validation-inconsistencies.md) | 2026-10-06（全面檢測：架構） |
 | 低 | 英文介面：html lang 固定中文、沒有複數形、寫死全形標點 | [`i18n-english-polish.md`](./i18n-english-polish.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | 資料夾授權到期日與公告的「今天」用瀏覽器時區 | [`dates-use-browser-timezone.md`](./dates-use-browser-timezone.md) | 2026-10-06（全面檢測：使用者體驗） |
-| 低 | 頂列的即時連線狀態只靠顏色區分 | [`realtime-status-color-only.md`](./realtime-status-color-only.md) | 2026-10-06（全面檢測：使用者體驗） |
 | 低 | 架構文件過時；記載的 cli:reset-super-admin 不存在 | [`backend-architecture-docs-drift.md`](./backend-architecture-docs-drift.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 服務帳號樂觀鎖未命中時回舊版本／409，判斷複製七份 | [`optimistic-lock-miss-path-duplicated.md`](./optimistic-lock-miss-path-duplicated.md) | 2026-10-06（全面檢測：可讀性） |
 | 低 | 後端殘留：租戶 locked 分支、工具複本、沒人用的匯出 | [`backend-dead-code-and-duplicates.md`](./backend-dead-code-and-duplicates.md) | 2026-10-06（全面檢測：可讀性） |

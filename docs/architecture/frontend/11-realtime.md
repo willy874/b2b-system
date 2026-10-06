@@ -304,6 +304,11 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 所有分頁顯示一致。頂列的連線燈號（`web-core/layout/RealtimeStatusIndicator.tsx`，頂列工具 `realtimeStatus`，
 [02 §4.4](./02-plugin-system.md)）只顯示、不能操作。
 
+燈號不只靠顏色區分（WCAG 1.4.1）：三種狀態的圖示形狀不同——`connected` 是 `wifi`、`disconnected` 是 `warning`、
+`disabled` 是 `wifi-off`（元素的 `data-icon`）；`disconnected` 時另外在頂列直接顯示「即時更新已中斷」
+（`realtime.status.disconnectedShort`），提示框只有滑鼠叫得出來，只用鍵盤的人也要知道列表不會即時更新。
+完整說明在 `sr-only` 的文字裡，`<output>` 會在狀態改變時播報，所以那段可見文字 `aria-hidden`、不重複念。
+
 隱藏的分頁不參與選舉：只開著一個背景分頁時沒有 leader，燈號會是 `disconnected`，這是預期行為。
 
 ---

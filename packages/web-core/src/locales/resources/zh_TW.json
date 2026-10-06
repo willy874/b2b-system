@@ -319,7 +319,8 @@
       "label": "即時連線狀態",
       "connected": "即時連線：已連線",
       "disconnected": "即時連線：未連線，資料改為定期更新",
-      "disabled": "即時連線：未啟用"
+      "disabled": "即時連線：未啟用",
+      "disconnectedShort": "即時更新已中斷"
     }
   },
   "layout": {

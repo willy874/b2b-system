@@ -319,7 +319,8 @@
       "label": "Live connection status",
       "connected": "Live connection: connected",
       "disconnected": "Live connection: offline, data refreshes periodically",
-      "disabled": "Live connection: disabled"
+      "disabled": "Live connection: disabled",
+      "disconnectedShort": "Live updates interrupted"
     }
   },
   "layout": {
