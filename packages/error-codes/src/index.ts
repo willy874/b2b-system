@@ -243,6 +243,8 @@ export const ErrorCode = {
   FILE_UPLOAD_PART_INVALID: { status: 422 },
   FILE_VERSION_CONFLICT: { status: 409 },
   FILE_IMAGE_URL_INVALID: { status: 403 },
+  /** 影像 API 明確指定的格式轉出來超過上限（大圖的原圖轉成 PNG）；`details.maxSize`（位元組）。 */
+  FILE_IMAGE_TOO_LARGE: { status: 422 },
   FILE_FOLDER_NOT_FOUND: { status: 404 },
   FILE_FOLDER_NAME_CONFLICT: { status: 409 },
   FILE_FOLDER_CYCLE: { status: 422 },
