@@ -1,12 +1,7 @@
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { Link } from '@tanstack/react-router';
+import { RouteLink } from '@b2b-system/web-core/route-link';
 
 import type { Group, RoleControllerListUsersResponse } from '@/shared/api-sdk';
-
-import { ExternalRoutes } from '../../../routes';
-
-/** 群組列表的查詢條件（必填）；這裡只是連到詳情，用預設值。 */
-const GROUP_LIST_DEFAULT_SEARCH = { offset: 0, limit: 20, sort: [] };
 
 interface RoleHolderSectionProps {
   /** 直接持有的使用者；沒有 user:read 時是 undefined（不顯示這一段） */
@@ -31,14 +26,13 @@ export function RoleHolderSection({ holders, groups }: RoleHolderSectionProps) {
             {holders.length ? (
               holders.map((holder) => (
                 <li key={holder.id}>
-                  <Link
-                    to={ExternalRoutes.UserDetailRoute.to}
+                  <RouteLink
+                    to="user.detail"
                     params={{ userId: holder.id }}
-                    search={{}}
                     className="text-[var(--color-brand)]"
                   >
                     {holder.displayName}
-                  </Link>
+                  </RouteLink>
                   <span className="ml-2 text-[var(--color-fg-muted)]">{holder.email}</span>
                 </li>
               ))
@@ -60,14 +54,13 @@ export function RoleHolderSection({ holders, groups }: RoleHolderSectionProps) {
             {groups.length ? (
               groups.map((group) => (
                 <li key={group.id} data-testid="role-holder-group" data-value={group.id}>
-                  <Link
-                    to={ExternalRoutes.GroupDetailRoute.to}
+                  <RouteLink
+                    to="group.detail"
                     params={{ groupId: group.id }}
-                    search={GROUP_LIST_DEFAULT_SEARCH}
                     className="text-[var(--color-brand)]"
                   >
                     {group.name}
-                  </Link>
+                  </RouteLink>
                   <span className="ml-2 text-[var(--color-fg-muted)]">
                     {t('role.detail.groupMemberCount', { count: group.memberCount })}
                   </span>

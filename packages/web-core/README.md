@@ -33,7 +33,8 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `permission` | 權限的機制：hooks、頁面權限註冊表、`evaluateAccess`、`buildPermissionKey`；權限目錄由 app 登記（下方） |
 | `plugins/app` | 基礎設施 plugin：cache、event-bus、http-context、i18n、realtime、theme |
 | `plugins/fetcher` | 攔截器：auth 標頭、refresh、retry、client-id、api-adapter |
-| `preference`、`toolbar`、`route-link` | 偏好頁分頁與可自訂欄位的表、頂列工具、route id 的註冊表 |
+| `preference`、`toolbar` | 偏好頁分頁與可自訂欄位的表、頂列工具的註冊表 |
+| `route-link` | route id 的註冊表、`<RouteLink>`（渲染前檢查目標頁的權限）、`useRouteLinkAccess`、`useRouteLinkResolver` |
 | `realtime` | 推播的連線、協調者、`useRealtimeEvent()`；只有 `socketIoTransport.ts` import `socket.io-client` |
 | `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard` |
 | `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost` |

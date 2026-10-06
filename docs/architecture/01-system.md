@@ -69,7 +69,7 @@ features/  ──▶  apis/  ──▶  @b2b-system/web-core/client
 
 app/  ──▶  features/    （只組裝，不實作業務）
 core/、web-core  ✗──▶ features/   （核心永遠不認識功能；web-core 也不認識任何 app）
-features/A  ✗──▶ features/B  （跨 feature 只能經由 routes/external.ts 或事件）
+features/A  ✗──▶ features/B  （跨 feature 只能經由 route id、apis/ 或事件）
 ```
 
 ### 後端

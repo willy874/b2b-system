@@ -101,7 +101,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 1. `apis/<domain>/` 之間只能共用 `apis/<domain>/types.ts`；操作資料夾彼此不 import。
    唯一例外是 `apis/resources.ts`（資源依賴圖）：它可以 import 各操作 `query.ts` 的 key 常數；
    操作資料夾 **不可** 反過來 import 它（會形成循環）。
-2. 只能在自己的 `routes/external.ts` 裡 re-export 對方的 **route 物件**；其他需求走 `apis/` 或 eventBus。
+2. 不可 import 其他 feature；連結用 route id（`@b2b-system/web-core/route-link`，[`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §4.1），其他需求走 `apis/` 或 eventBus。
 3. 只能 import 對方的 `index.tsx`（`@/features/<name>`），不可深入內部檔案。
 4. 只能在 `import.meta.env.VITE_ENABLE_MOCK` 判斷下以動態 `import()` 載入。
 5. 只有 `@b2b-system/web-shared`；app 的 `shared/`（api-sdk、websocket-sdk、env）不在 package 裡，`ui`、`web-core` 碰不到（`web-core` 直接依賴 `@b2b-system/realtime`、`@b2b-system/error-codes`）。
@@ -179,8 +179,8 @@ git grep -nE "from '@b2b-system/web-core" -- packages/ui
 git grep -nE "from '(@b2b-system/api-sdk|@/)" -- packages/web-core
 # app：core 依賴 features / app / apis
 git grep -nE "from '@/(features|app|apis|plugins)" -- apps/backstage/src/core apps/platform/src/core ':!*__tests__*'
-# backstage：feature 深入其他 feature（routes/external.ts 以外）
-git grep -nE "from '@/features/[a-z-]+/" -- apps/backstage/src/features ':!*/routes/external.ts' ':!*__tests__*'
+# backstage：feature import 其他 feature
+git grep -nE "from '@/features/" -- apps/backstage/src/features ':!*__tests__*'
 ```
 
 backstage 補上 `no-restricted-imports`（或比照 api 寫成測試）後，把對應列的強度改成 🔒。

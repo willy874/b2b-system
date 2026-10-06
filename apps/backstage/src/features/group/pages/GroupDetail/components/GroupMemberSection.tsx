@@ -2,6 +2,7 @@ import { Button, IconButton } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Select } from '@b2b-system/ui/Select';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { RouteLink } from '@b2b-system/web-core/route-link';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -11,7 +12,7 @@ import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import type { GroupMember } from '@/shared/api-sdk';
 
 import { useGroupMembersUpdateMutation } from '../../../hooks/useGroupMutations';
-import { ExternalRoutes, GroupDetailRoute, GroupListRoute } from '../../../routes';
+import { GroupDetailRoute, GroupListRoute } from '../../../routes';
 
 /** 使用者搜尋的輸入停頓多久才查詢（與資料夾共用對話框相同）。 */
 const USER_SEARCH_DEBOUNCE_MS = 250;
@@ -64,14 +65,13 @@ export function GroupMemberSection({ groupId, members, total, canEdit }: GroupMe
                   {member.name}
                 </Link>
               ) : (
-                <Link
-                  to={ExternalRoutes.UserDetailRoute.to}
+                <RouteLink
+                  to="user.detail"
                   params={{ userId: member.id }}
-                  search={{}}
                   className="text-[var(--color-brand)]"
                 >
                   {member.name}
-                </Link>
+                </RouteLink>
               )}
               {member.email && <span className="text-[var(--color-fg-muted)]">{member.email}</span>}
               {canEdit && (

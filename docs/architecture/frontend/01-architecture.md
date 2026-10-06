@@ -242,7 +242,7 @@ main.tsx
 | ------------------- | -------------------------------------------------------- |
 | `packages/web-shared`、`packages/ui`、`packages/web-core` | app 的任何程式碼（package 邊界）；下層不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）；`web-core` 不 import `@b2b-system/api-sdk` |
 | `src/core/**`       | `@/features/*`, `@/app/*`                                |
-| `src/features/a/**` | `@/features/b/*`（`routes/external.ts` 除外）            |
+| `src/features/a/**` | `@/features/b/*`                                         |
 | 任何地方            | `../../../*`（三層以上相對路徑）                         |
 
 CI 另有一支腳本檢查 `features/*/index.tsx` 是否都匯出了 `Routes` 與

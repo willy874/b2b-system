@@ -77,7 +77,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 ### 前端
 
 1. app 的 `core/` 與 `@b2b-system/web-core` 不 import `features/`；packages 不 import app（web-core 也不呼叫 app 的 API），下層 package 不 import 上層（`web-shared` ← `ui` ← `web-core`）。
-2. Feature 之間只能經由 `routes/external.ts`（route 物件）、`apis/`、或 eventBus。
+2. Feature 之間只能經由 route id（`<RouteLink to="user.detail">`，`@b2b-system/web-core/route-link`）、`apis/`、或 eventBus。
 3. 頁面權限在 plugin 的 **同步** 階段註冊，語系包在 `onInit`（非同步）階段。
 4. 元件只透過 `apis/<domain>/<operation>/` 與後端對話，不直接 `fetch`。
 5. 設計系統 `@b2b-system/ui`（`packages/ui`）不出現業務名詞；業務元件放 `features/<name>/components/`。
