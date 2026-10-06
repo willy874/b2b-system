@@ -85,7 +85,7 @@ apps/backstage/src/
 │   └── locales/{en_US,zh_TW}.json   這個 app 專屬的全域字串（共用的在 web-core）
 │
 ├── core/                    app 的機制層（不認識任何 feature；共用的在 @b2b-system/web-core）
-│   ├── components/          只有 backstage 用的元件（ErrorPage、ApiToken、ExplainPath、Tag、VersionConflictAlert）
+│   ├── components/          只有 backstage 用的元件（ApiToken、ExplainPath、Tag、VersionConflictAlert）
 │   ├── feature/             執行期啟用 feature（docs/architecture/frontend/02-plugin-system.md §9）
 │   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
 │   ├── permission/          ★ 這個 app 的權限目錄（enums、resources），登記給 web-core；轉出 web-core 的權限機制

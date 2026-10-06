@@ -1,0 +1,79 @@
+/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 app 的 index.html）。 */
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-2);
+  }
+
+  .code,
+  .title,
+  .description {
+    margin: 0;
+  }
+
+  .code,
+  .description {
+    color: var(--color-fg-muted);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--seed-space-2);
+  }
+
+  /* centered：在內容區置中，狀態碼放大（backstage） */
+  .root[data-variant='centered'] {
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: var(--seed-space-8);
+  }
+
+  .root[data-variant='centered'] .code {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .root[data-variant='centered'] .title {
+    font-size: 1.25rem;
+  }
+
+  .root[data-variant='centered'] .description {
+    max-width: 30rem;
+  }
+
+  .root[data-variant='centered'] .actions {
+    justify-content: center;
+    margin-top: var(--seed-space-4);
+  }
+
+  /* compact：靠左、字級與內文相近（apps/platform） */
+  .root[data-variant='compact'] {
+    align-items: flex-start;
+    padding: var(--seed-space-6);
+  }
+
+  .root[data-variant='compact'] .code,
+  .root[data-variant='compact'] .description {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .root[data-variant='compact'] .code,
+  .root[data-variant='compact'] .title {
+    font-weight: 600;
+  }
+
+  .root[data-variant='compact'] .title {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+
+  .root[data-variant='compact'] .actions {
+    margin-top: var(--seed-space-2);
+  }
+}

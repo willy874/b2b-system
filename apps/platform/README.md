@@ -30,7 +30,7 @@ pnpm --filter @b2b-system/platform build
 | `features/home` | `/`：目前登入的平台管理者、各狀態的租戶數 |
 | `features/account` | `/profile`、`/preference`：個人資料（改名、角色與權限、變更密碼）、偏好設定（只存在瀏覽器） |
 | `features/notification` | `/notification` 與頂列的鈴鐺：平台的站內通知（[`backend/15-notification.md`](../../docs/architecture/backend/15-notification.md) §6.2） |
-| `app/` | 自己寫的 App Shell：`App.tsx`（掛上 web-core 的 `SessionWatcher`：沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（403／404、router 的預設錯誤頁與載入中；部署後舊 chunk 載入失敗提示重新整理）、`layouts/`（與 backstage 相同結構的 `DashboardLayout`：分組側欄 `SidebarNav`、頂列工具 `headerTools.ts`） |
+| `app/` | 自己寫的 App Shell：`App.tsx`（掛上 web-core 的 `SessionWatcher`：沒有 session 時導向 `/login`；登出後停在「已登出」頁，帶上結束原因與原本的網址，見 `sessionRedirect.ts`）、`Layout.tsx`（頁面權限守衛；登入相關頁面不套外框）、`ErrorPages.tsx`（把 web-core 的 403／404、router 預設錯誤頁接成 `compact` 版面；載入中的 spinner）、`layouts/`（與 backstage 相同結構的 `DashboardLayout`：分組側欄 `SidebarNav`、頂列工具 `headerTools.ts`） |
 
 有即時推播（平台管理者的連線，[`backend/08-realtime.md`](../../docs/architecture/backend/08-realtime.md) §3.6）。
 沒有批次佇列的畫面、執行期啟用的 feature 與 MSW mock；需要時再從 backstage 帶過來（Storybook 在 `packages/ui`）。

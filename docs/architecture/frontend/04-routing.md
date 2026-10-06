@@ -264,7 +264,7 @@ router 若不分大小寫，這些網址會命中 `/user` 的頁面、守衛卻�
 ### 4.4 404、錯誤頁與載入中
 
 `app/plugin.ts` 的 `createRouter` 設定 `defaultNotFoundComponent: NotFoundPage`、`defaultErrorComponent: RouteErrorPage`、
-`defaultPendingComponent: PageSkeleton`（錯誤頁在 backstage 的 `core/components/ErrorPage`，`PageSkeleton` 在 `web-core/components`）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
+`defaultPendingComponent: PageSkeleton`（都在 `web-core/components`，兩個 app 共用；apps/platform 的 `app/ErrorPages.tsx` 以 `variant="compact"` 的版面接上，載入中改用 spinner）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
 `RouteErrorPage` 提示「系統已更新」並提供重新整理；403／404 有「回首頁」與「返回上一頁」。
 權限水合失敗（`/auth/profile` 5xx、`TENANT_UNAVAILABLE`）時 Layout 顯示原因與重試，不停在骨架屏。
 
