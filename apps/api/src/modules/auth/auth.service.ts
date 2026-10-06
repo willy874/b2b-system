@@ -11,6 +11,7 @@ import type { Env } from '@/core/config';
 import type { Database, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
+import type { ErrorCode } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { FeatureFlagService } from '@/core/feature-flags';
 import { JobQueue } from '@/core/jobs';
@@ -146,13 +147,20 @@ export class AuthService {
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
 
+    // 鎖定中連「密碼正確」也不透露：回應與密碼錯誤相同，否則鎖定期間猜密碼的人看得到哪一個猜中了。
+    // 猜測的節流靠速率限制，鎖定只是輔助（docs/architecture/backend/04-auth.md §3.2、§3.3）
     if (lockedUntil) {
-      throw new AppException('AUTH_ACCOUNT_LOCKED', {
-        retryAfterSeconds: Math.ceil((lockedUntil.getTime() - Date.now()) / 1000),
-      });
+      await this.recordRejectedLogin(user, 'locked', 'AUTH_INVALID_CREDENTIALS');
+      throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
-    if (user.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
-    if (user.status !== 'active') throw new AppException('AUTH_ACCOUNT_DISABLED');
+    if (user.status === 'pending') {
+      await this.recordRejectedLogin(user, 'pending', 'AUTH_ACCOUNT_PENDING');
+      throw new AppException('AUTH_ACCOUNT_PENDING');
+    }
+    if (user.status !== 'active') {
+      await this.recordRejectedLogin(user, 'disabled', 'AUTH_ACCOUNT_DISABLED');
+      throw new AppException('AUTH_ACCOUNT_DISABLED');
+    }
 
     // 鎖定到期後的成功登入也在這裡歸零：計數與到期時間一起清掉
     await this.users.updateAccount(user.id, {
@@ -204,6 +212,27 @@ export class AuthService {
       actorEmail: user.email,
       errorCode: locked ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_INVALID_CREDENTIALS',
       metadata: { failedLoginCount: result.failedLoginCount },
+    });
+  }
+
+  /**
+   * 密碼正確、但帳號不能登入（鎖定中、未啟用、停用）：寫一筆失敗的稽核。鎖定或停用之後還有人拿 **正確** 的密碼來試，
+   * 是憑證外洩的強訊號，要查得到（docs/architecture/backend/04-auth.md §9）。
+   */
+  private async recordRejectedLogin(
+    user: UserRow,
+    reason: 'locked' | 'pending' | 'disabled',
+    errorCode: ErrorCode,
+  ): Promise<void> {
+    await this.audit.recordSafely({
+      action: 'auth.login.failure',
+      resourceType: 'auth',
+      resourceId: user.id,
+      result: 'failure',
+      actorId: user.id,
+      actorEmail: user.email,
+      errorCode,
+      metadata: { reason, credentialsValid: true },
     });
   }
 

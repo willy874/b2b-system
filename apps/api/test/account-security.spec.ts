@@ -72,6 +72,17 @@ async function userOf(email: string) {
   return user!;
 }
 
+/** 密碼正確、但不能登入時留下的稽核（auth.login.failure ＋ credentialsValid）。 */
+async function rejectedLoginsOf(userId: string) {
+  const rows = await db
+    .select()
+    .from(auditLogs)
+    .where(and(eq(auditLogs.action, 'auth.login.failure'), eq(auditLogs.resourceId, userId)));
+  return rows.filter(
+    (row) => (row.metadata as { credentialsValid?: boolean } | null)?.credentialsValid,
+  );
+}
+
 function login(credentials: { email: string; password: string }) {
   return request(http).post('/auth/login').send(credentials);
 }
@@ -155,11 +166,16 @@ describe('帳號安全', () => {
       expect(after.failedLoginCount).toBe(before.failedLoginCount);
     });
 
-    it('鎖定中：正確的密碼才會看到 AUTH_ACCOUNT_LOCKED 與剩餘秒數', async () => {
-      const response = await login(VICTIM).expect(403);
-      expect(response.body).toMatchObject({
-        error: { code: 'AUTH_ACCOUNT_LOCKED', details: { retryAfterSeconds: expect.any(Number) } },
-      });
+    it('鎖定中：正確的密碼也回 AUTH_INVALID_CREDENTIALS（不透露猜中了），並留一筆失敗的稽核', async () => {
+      const victim = await userOf(VICTIM.email);
+      const response = await login(VICTIM).expect(401);
+      expect(errorCode(response)).toBe('AUTH_INVALID_CREDENTIALS');
+      expect(await rejectedLoginsOf(victim.id)).toEqual([
+        expect.objectContaining({
+          errorCode: 'AUTH_INVALID_CREDENTIALS',
+          metadata: expect.objectContaining({ reason: 'locked', credentialsValid: true }),
+        }),
+      ]);
     });
 
     it('鎖定到期後自動解除：正確密碼可以登入，計數與到期時間歸零', async () => {
@@ -242,6 +258,23 @@ describe('帳號安全', () => {
         password: 'InactivePassword!2026',
       }).expect(403);
       expect(errorCode(inactive)).toBe('AUTH_ACCOUNT_DISABLED');
+    });
+
+    it('密碼正確但未啟用、停用：各留一筆失敗的稽核（憑證外洩的訊號要查得到）', async () => {
+      const pending = await userOf('pending-enum@example.com');
+      const inactive = await userOf('inactive-enum@example.com');
+      expect(await rejectedLoginsOf(pending.id)).toContainEqual(
+        expect.objectContaining({
+          errorCode: 'AUTH_ACCOUNT_PENDING',
+          metadata: expect.objectContaining({ reason: 'pending', credentialsValid: true }),
+        }),
+      );
+      expect(await rejectedLoginsOf(inactive.id)).toContainEqual(
+        expect.objectContaining({
+          errorCode: 'AUTH_ACCOUNT_DISABLED',
+          metadata: expect.objectContaining({ reason: 'disabled', credentialsValid: true }),
+        }),
+      );
     });
   });
 

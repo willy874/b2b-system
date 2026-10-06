@@ -20,7 +20,6 @@
 | 高 | 平台端點的網域限制可用大小寫不同的路徑繞過 | [`platform-path-case-insensitive-bypass.md`](./platform-path-case-insensitive-bypass.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 直傳網址未綁定大小、完成後仍可覆寫，繞過上限與容量 | [`presigned-upload-size-not-bound.md`](./presigned-upload-size-not-bound.md) | 2026-10-06（全面檢測：程式資安） |
 | 高 | 外部 IdP 登入的 state／ticket 沒綁定瀏覽器，可被接管成別人的 session | [`external-idp-state-not-bound-to-browser.md`](./external-idp-state-not-bound-to-browser.md) | 2026-10-06（全面檢測：流程資安） |
-| 高 | 鎖定期間登入仍洩漏密碼對錯，且密碼正確但不可登入時不寫稽核 | [`login-lockout-reveals-correct-password.md`](./login-lockout-reveals-correct-password.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 平台管理者改密碼、重設或停用後，IdP session 不會結束 | [`platform-admin-idp-session-survives-credential-change.md`](./platform-admin-idp-session-survives-credential-change.md) | 2026-10-06（全面檢測：流程資安） |
 | 高 | 檔案已用量每次全表加總，上傳登記與檔案變動推播都會觸發 | [`file-storage-usage-full-table-sum.md`](./file-storage-usage-full-table-sum.md) | 2026-10-06（全面檢測：效能） |
 | 高 | 編輯中的草稿以即時資料為基準，會蓋掉別人同時做的變更 | [`edit-drafts-use-live-baseline.md`](./edit-drafts-use-live-baseline.md) | 2026-10-06（全面檢測：使用者體驗） |

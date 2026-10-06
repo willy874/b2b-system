@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import type { ErrorCode } from '@/core/errors';
 import type { PlatformAdminRow } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
 import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
@@ -51,14 +52,20 @@ export class PlatformAdminService {
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
 
+    // 鎖定中連「密碼正確」也不透露（同租戶的 AuthService.verifyCredentials；backend/04-auth.md §3.2）
     if (lockedUntil) {
-      throw new AppException('AUTH_ACCOUNT_LOCKED', {
-        retryAfterSeconds: Math.ceil((lockedUntil.getTime() - Date.now()) / 1000),
-      });
+      await this.recordRejectedLogin(admin, 'locked', 'AUTH_INVALID_CREDENTIALS');
+      throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
-    if (admin.status === 'inactive') throw new AppException('AUTH_ACCOUNT_DISABLED');
+    if (admin.status === 'inactive') {
+      await this.recordRejectedLogin(admin, 'disabled', 'AUTH_ACCOUNT_DISABLED');
+      throw new AppException('AUTH_ACCOUNT_DISABLED');
+    }
     // 由其他平台管理者建立、還沒從啟用信設定密碼
-    if (admin.status === 'pending') throw new AppException('AUTH_ACCOUNT_PENDING');
+    if (admin.status === 'pending') {
+      await this.recordRejectedLogin(admin, 'pending', 'AUTH_ACCOUNT_PENDING');
+      throw new AppException('AUTH_ACCOUNT_PENDING');
+    }
 
     // 鎖定期滿後成功登入：解除鎖定
     await this.repo.update(admin.id, {
@@ -94,6 +101,24 @@ export class PlatformAdminService {
   }
 
   /** 原子遞增失敗次數（併發的錯誤密碼每一次都算數）；上一次鎖定到期後從 1 重新計算。 */
+  /** 密碼正確、但不能登入（鎖定中、停用、未啟用）：留一筆失敗的稽核（同租戶的 AuthService.recordRejectedLogin）。 */
+  private async recordRejectedLogin(
+    admin: PlatformAdminRow,
+    reason: 'locked' | 'pending' | 'disabled',
+    errorCode: ErrorCode,
+  ): Promise<void> {
+    await this.audit.recordSafely({
+      action: 'platformAuth.login.failure',
+      resourceType: 'platformAuth',
+      resourceId: admin.id,
+      result: 'failure',
+      actorId: admin.id,
+      actorEmail: admin.email,
+      errorCode,
+      metadata: { reason, credentialsValid: true },
+    });
+  }
+
   private async registerFailedAttempt(admin: PlatformAdminRow): Promise<void> {
     const result = await this.repo.recordFailedLogin(
       admin.id,
