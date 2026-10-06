@@ -247,9 +247,14 @@ router 若不分大小寫，這些網址會命中 `/user` 的頁面、守衛卻�
 任何請求 → 401 → 續期被伺服器拒絕，或收到終止類錯誤碼
   → 主後端的 SessionStore 判定 session 結束（latched，只觸發一次；網路錯誤、5xx 不算）
   → emit SESSION_ENDED
-  → app 層監聽：清空 permission store、清空 query cache、
-     navigate({ to: '/auth/login', search: { signedOut, reason, redirect: pathname + search } })
+  → SessionWatcher（@b2b-system/web-core/shell，兩個 app 共用）：清掉以使用者身分取得的資料（permission store、query cache…）、
+     navigate({ to: '/auth/login', search: { signedOut, reason, redirect: pathname + search }, ignoreBlocker: true })
 ```
+
+`SessionWatcher` 由 app 的 `app/App.tsx` 掛上，參數是登入頁的路徑（backstage `/auth/login`、apps/platform `/login`）、
+`isPublic()` 與 `loginSearchAfterSessionEnd()`（`app/sessionRedirect.ts`）。導覽帶 `ignoreBlocker`（§2.1）：
+`endSession()` 常在表單的 state 還沒 commit 時同步觸發（改密碼成功後先清空欄位再結束 session），blocker 讀到的仍是 dirty。
+權限水合（`useSyncPermissions`）與 backstage 的 `useSyncFeatures` 不經過它，由 app 自己的 `ProfileSync` 元件呼叫。
 
 登入成功後讀 `search.redirect` 導回原本要去的頁面（含查詢字串）。`reason` 是 `endSession(reason)` 的原因，
 登入頁以 `features/auth/sessionEnd.ts` 對到說明（逾時、帳號停用、憑證重用、密碼已變更…；自己登出不帶）。
