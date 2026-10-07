@@ -162,7 +162,7 @@ export class PlatformTenantService {
   ) {
     this.secrets = SecretBox.fromConfig(
       config.get('TENANT_SECRET_KEY', { infer: true }),
-      config.get('JWT_SECRET', { infer: true }),
+      config.get('JWT_SECRET', { infer: true }) ?? null,
       TENANT_SECRET_PURPOSE,
     );
     this.baseDomain =

@@ -23,6 +23,13 @@ vi.mock('../file.constants', async (importOriginal) => ({
   IMAGE_CONVERSION_MAX_OUTPUT_SIZE: MAX_OUTPUT_SIZE,
 }));
 
+/** 網址的簽章帶租戶（v2）：測試在固定的租戶裡，切換它模擬「換到別的租戶的網域」。 */
+const tenant = vi.hoisted(() => ({ id: 'tenant-1' }));
+vi.mock('@/core/tenant', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/tenant')>()),
+  requireTenant: () => tenant,
+}));
+
 const FILE_ID = '33333333-3333-4333-8333-333333333333';
 const JWT_SECRET = 'x'.repeat(32);
 
@@ -496,6 +503,33 @@ describe('FileImageService：影像 API', () => {
     expect(await codeOf(service.resolve(FILE_ID, 'preview', { ...query, exp: 1 }, undefined))).toBe(
       'FILE_IMAGE_URL_INVALID',
     );
+  });
+
+  it('簽章帶租戶：同一個網址換到別的租戶的網域就驗不過', async () => {
+    const { service } = setup(ready());
+    const query = queryOf(service.signedUrls(ready())?.previewUrl ?? '');
+    expect(query.sig.startsWith('v2.')).toBe(true);
+    tenant.id = 'tenant-2';
+    try {
+      expect(await codeOf(service.resolve(FILE_ID, 'preview', query, undefined))).toBe(
+        'FILE_IMAGE_URL_INVALID',
+      );
+    } finally {
+      tenant.id = 'tenant-1';
+    }
+  });
+
+  it('過渡期：還有 JWT_SECRET 時接受舊格式（v1，沒有前綴）的網址', async () => {
+    const { createHmac } = await import('node:crypto');
+    const { service } = setup(ready());
+    const exp = Math.floor(Date.now() / 1000) + 600;
+    const legacyKey = createHmac('sha256', JWT_SECRET).update('file-image-url/v1').digest();
+    const sig = createHmac('sha256', legacyKey)
+      .update(`${FILE_ID}\npreview\n${exp}`)
+      .digest('base64url');
+    await expect(
+      service.resolve(FILE_ID, 'preview', { exp, sig }, undefined),
+    ).resolves.toBeDefined();
   });
 
   it('檔案已刪除或變體不可用 → FILE_NOT_FOUND', async () => {

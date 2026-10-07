@@ -3,16 +3,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
+import { deriveKey } from '@/core/crypto';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { IMAGE_FORMAT_CONTENT_TYPE, ImageDecodeError, ImageProcessor } from '@/core/image';
 import type { ImageFormat } from '@/core/image';
 import { ObjectStorage, stableSigningDate } from '@/core/storage';
+import { requireTenant } from '@/core/tenant';
 import type { FileRow } from '@/db/schema';
 
 import type { FileImageDto } from './dto/file.dto';
 import type { GetFileImageDto } from './dto/get-file-image.dto';
-import { deriveImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
+import { deriveLegacyImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
 import {
   fileChange,
   IMAGE_CONVERSION_MAX_OUTPUT_SIZE,
@@ -60,7 +62,7 @@ const FORMAT_EXTENSION: Record<ImageFormat, string> = {
 @Injectable()
 export class FileImageService {
   private readonly logger = new Logger(FileImageService.name);
-  private readonly urlKey: Buffer;
+  private readonly urlKeys: { current: Buffer; legacy: Buffer | undefined };
   private readonly urlTtl: number;
   private readonly baseUrl: string;
   private readonly limit = createLimiter(IMAGE_VARIANT_CONCURRENCY);
@@ -78,7 +80,15 @@ export class FileImageService {
     private readonly events: DomainEventBus,
     config: ConfigService<Env, true>,
   ) {
-    this.urlKey = deriveImageUrlKey(config.get('JWT_SECRET', { infer: true }));
+    const secret = config.get('JWT_SECRET', { infer: true });
+    const configured = config.get('FILE_URL_SIGNING_KEY', { infer: true });
+    // production 必填（env.schema.ts）；開發與測試沒設定時由 JWT_SECRET 推導。舊的 v1 金鑰只在還有 JWT_SECRET 時驗證
+    this.urlKeys = {
+      current: configured
+        ? Buffer.from(configured, 'base64')
+        : deriveKey(secret ?? '', 'file-image-url/v2'),
+      legacy: secret ? deriveLegacyImageUrlKey(secret) : undefined,
+    };
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
     this.baseUrl = config.get('API_PUBLIC_BASE_URL', { infer: true });
   }
@@ -136,7 +146,12 @@ export class FileImageService {
     const signedAt = stableSigningDate(Date.now(), this.urlTtl).getTime();
     const expiresAt = Math.floor(signedAt / 1000) + this.urlTtl;
     const [originalUrl, previewUrl, thumbnailUrl] = IMAGE_VARIANTS.map((variant) => {
-      const sig = signImageUrl(this.urlKey, { fileId: file.id, variant, expiresAt });
+      const sig = signImageUrl(this.urlKeys.current, {
+        tenantId: requireTenant().id,
+        fileId: file.id,
+        variant,
+        expiresAt,
+      });
       return `${this.baseUrl}/files/${file.id}/image/${variant}?exp=${expiresAt}&sig=${sig}`;
     }) as [string, string, string];
     return {
@@ -161,8 +176,8 @@ export class FileImageService {
     accept: string | undefined,
   ): Promise<ImageRedirect> {
     const now = Date.now();
-    const claims = { fileId: id, variant, expiresAt: query.exp };
-    if (query.exp * 1000 <= now || !verifyImageUrl(this.urlKey, claims, query.sig)) {
+    const claims = { tenantId: requireTenant().id, fileId: id, variant, expiresAt: query.exp };
+    if (query.exp * 1000 <= now || !verifyImageUrl(this.urlKeys, claims, query.sig)) {
       throw new AppException('FILE_IMAGE_URL_INVALID');
     }
     const file = await this.repo.findById(id);

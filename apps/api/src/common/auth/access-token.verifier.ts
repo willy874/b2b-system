@@ -1,11 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { eq } from 'drizzle-orm';
 
 import { UserCacheService } from '@/core/cache';
 import type { CachedUser } from '@/core/cache';
-import type { Env } from '@/core/config';
 import { PLATFORM_DB, TENANT_DB } from '@/core/database';
 import type { Database, PlatformDatabase } from '@/core/database';
 import type { ErrorCode } from '@/core/errors';
@@ -13,6 +10,7 @@ import { currentTenant } from '@/core/tenant';
 import { platformAdmins } from '@/db/platform/schema';
 import { users } from '@/db/schema';
 
+import { AccessTokenKeys } from './access-token.keys';
 import { API_TOKEN_PREFIX } from './api-token.format';
 
 export interface AccessTokenPayload {
@@ -55,8 +53,7 @@ export type AccessTokenVerifyResult =
 @Injectable()
 export class AccessTokenVerifier {
   constructor(
-    private readonly jwt: JwtService,
-    private readonly config: ConfigService<Env, true>,
+    private readonly keys: AccessTokenKeys,
     private readonly userCache: UserCacheService,
     @Inject(TENANT_DB) private readonly db: Database,
     @Inject(PLATFORM_DB) private readonly platformDb: PlatformDatabase,
@@ -79,18 +76,17 @@ export class AccessTokenVerifier {
     // API token 只在對外 API 有效（docs/architecture/06-external-api.md §9.2 D10）：內部 api 一律不認，不必驗簽
     if (!token || token.startsWith(API_TOKEN_PREFIX)) return undefined;
 
-    let payload: VerifiedAccessTokenPayload;
-    try {
-      payload = await this.jwt.verifyAsync<VerifiedAccessTokenPayload>(token, {
-        secret: this.config.get('JWT_SECRET', { infer: true }),
-      });
-    } catch {
-      return undefined;
-    }
+    // 金鑰也依網域選：租戶網域只用租戶的金鑰環、apps/platform 只用平台的（docs/architecture/backend/04-auth.md §11 D4），
+    // 即使 claims 的比對出錯，另一組金鑰簽的 token 也過不了驗簽
+    const tenant = currentTenant();
+    const payload = await this.keys.verify<VerifiedAccessTokenPayload>(
+      tenant ? 'tenant' : 'platform',
+      token,
+    );
+    if (!payload) return undefined;
 
     // 身分範圍由網域決定：租戶網域只接受那個租戶簽的 token（使用者 id 只在自己的租戶 DB 有意義）；
     // 不屬於任何租戶的網域（apps/platform）只接受平台管理者的 token
-    const tenant = currentTenant();
     const matches = tenant
       ? payload.tid === tenant.id
       : payload.realm === 'platform' && !payload.tid;

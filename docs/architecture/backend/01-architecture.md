@@ -347,7 +347,8 @@ export const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().default(3000),
   PLATFORM_DATABASE_URL: z.string().url(),
-  JWT_SECRET: z.string().min(32),
+  JWT_SECRET: z.string().min(32).optional(), // 開發必填；production 只驗過渡期的舊 token（04-auth.md §11）
+  JWT_SIGNING_KEYS: z.string().optional(),     // 金鑰環；內部 api 的 production 必填
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),
   REFRESH_TOKEN_TTL: z.coerce.number().int().default(604800),
   PERMISSION_CACHE_TTL: z.coerce.number().int().default(60),

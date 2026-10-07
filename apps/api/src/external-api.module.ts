@@ -68,7 +68,8 @@ import { UserModule } from './modules/user/user.module';
     // 檔案的影像處理（上傳完成時排入變體的產生；產生本身在背景工作）
     ImageModule,
     // 驗證 token 時以它檢查帳號（狀態、token_version），與內部 api 同一套規則。它也能驗 JWT，
-    // 需要一個 JwtService；這個程序從不驗 JWT（verifyClaims 自帶 secret、而且一律拒絕），不必設定金鑰
+    // 需要一個 JwtService；這個程序沒有 access token 的金鑰（AccessTokenKeys 在對外的範圍不載入任何金鑰），
+    // verifyClaims 一律拒絕（docs/architecture/backend/04-auth.md §11 D5）
     JwtModule.register({ global: true }),
     AccessTokenModule,
     ThrottlerModule.forRoot([]),

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys';
+
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
 export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
 
@@ -76,7 +78,36 @@ export const EnvSchema = z.object({
     z.string().optional(),
   ),
 
-  JWT_SECRET: z.string().min(32),
+  /**
+   * 舊的單一金鑰（docs/architecture/backend/04-auth.md §11）。開發環境必填：沒設定金鑰環與各種主金鑰時由它推導。
+   * production 只用來驗證 **沒有 `kid`** 的舊 access token 與 v1 的縮圖網址（換成金鑰環的過渡期）；
+   * 過渡期結束（`JWT_ACCESS_TTL` ＋ `FILE_URL_TTL` 之後）從環境拿掉，舊格式就一律被拒。
+   */
+  JWT_SECRET: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().min(32).optional(),
+  ),
+  /**
+   * 租戶 access token 的金鑰環：`<kid>:<base64 金鑰>[,…]`，第一把簽發、全部都能驗證（HS256）。
+   * 開發環境沒設定時由 `JWT_SECRET` 推導；**內部 api 的 production 必填**。對外 API 的程序不需要、也不該有。
+   */
+  JWT_SIGNING_KEYS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** 平台管理者 access token 的金鑰環（格式同 `JWT_SIGNING_KEYS`，必須是不同的金鑰）；**內部 api 的 production 必填**。 */
+  PLATFORM_JWT_SIGNING_KEYS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /**
+   * 檔案縮圖網址的 HMAC 金鑰（32 bytes 以上，base64；docs/architecture/backend/09-file.md §5.4）。
+   * 對外 API 的程序簽、內部 api 驗，所以兩個程序都要有；開發環境沒設定時由 `JWT_SECRET` 推導，**production 必填**。
+   */
+  FILE_URL_SIGNING_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),
   REFRESH_TOKEN_TTL: z.coerce.number().int().default(604800),
   /**
@@ -440,15 +471,60 @@ const PUBLIC_URL_KEYS = ['APP_PUBLIC_URL', 'PLATFORM_APP_URL', 'OIDC_ISSUER'] as
 
 /** production 不接受開發用的預設值：範例或低熵的金鑰、本機的公開網址、`console` 寄信。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
-  if (env.NODE_ENV !== 'production') return;
+  if (env.NODE_ENV !== 'production') {
+    // 開發與測試：金鑰環、縮圖網址與各種主金鑰沒設定時都由它推導
+    if (!env.JWT_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_SECRET'],
+        message: '開發環境必須設定（至少 32 字元）',
+      });
+    }
+    for (const key of ['JWT_SIGNING_KEYS', 'PLATFORM_JWT_SIGNING_KEYS'] as const) {
+      const value = env[key];
+      const parsed = value ? parseSigningKeys(value) : undefined;
+      if (typeof parsed === 'string')
+        ctx.addIssue({ code: 'custom', path: [key], message: parsed });
+    }
+    return;
+  }
   const issue = (key: keyof Env, message: string) =>
     ctx.addIssue({ code: 'custom', path: [key], message });
   // 對外 API 的程序不簽 ID token、不碰外部 IdP 與 webhook 的密鑰：不要求這些金鑰，給了才檢查（06-external-api.md §6）
   const internal = env.API_SURFACE === 'internal';
 
-  for (const key of ['JWT_SECRET', 'FILE_STORAGE_SECRET_ACCESS_KEY'] as const) {
-    if (isWeakSecret(env[key])) issue(key, WEAK_SECRET_MESSAGE);
+  if (env.JWT_SECRET !== undefined && isWeakSecret(env.JWT_SECRET)) {
+    issue('JWT_SECRET', WEAK_SECRET_MESSAGE);
   }
+  if (isWeakSecret(env.FILE_STORAGE_SECRET_ACCESS_KEY)) {
+    issue('FILE_STORAGE_SECRET_ACCESS_KEY', WEAK_SECRET_MESSAGE);
+  }
+  // access token 的金鑰環只給內部 api：對外 API 的程序拿到金鑰環就能簽出任何人的 token（06-external-api.md §6）
+  for (const key of ['JWT_SIGNING_KEYS', 'PLATFORM_JWT_SIGNING_KEYS'] as const) {
+    const value = env[key];
+    if (!internal) {
+      if (value) issue(key, '對外 API 的程序不能持有 access token 的金鑰');
+      continue;
+    }
+    const parsed = value ? parseSigningKeys(value) : 'production 必須設定';
+    if (typeof parsed === 'string') issue(key, parsed);
+  }
+  if (env.JWT_SIGNING_KEYS && env.PLATFORM_JWT_SIGNING_KEYS) {
+    const tenant = parseSigningKeys(env.JWT_SIGNING_KEYS);
+    const platform = parseSigningKeys(env.PLATFORM_JWT_SIGNING_KEYS);
+    if (typeof tenant !== 'string' && typeof platform !== 'string') {
+      const tenantKeys = new Set([...tenant.byKid.values()].map((key) => key.toString('base64')));
+      if ([...platform.byKid.values()].some((key) => tenantKeys.has(key.toString('base64')))) {
+        issue('PLATFORM_JWT_SIGNING_KEYS', '不能與 JWT_SIGNING_KEYS 共用金鑰');
+      }
+    }
+  }
+  const fileUrlProblem = env.FILE_URL_SIGNING_KEY
+    ? Buffer.from(env.FILE_URL_SIGNING_KEY, 'base64').length < MIN_SIGNING_KEY_BYTES
+      ? `解開後至少要 ${MIN_SIGNING_KEY_BYTES} bytes（openssl rand -base64 48）`
+      : undefined
+    : 'production 必須設定';
+  if (fileUrlProblem) issue('FILE_URL_SIGNING_KEY', fileUrlProblem);
   // access key id 不是祕密（常是短的識別字），只擋範例值
   if (EXAMPLE_SECRETS.has(env.FILE_STORAGE_ACCESS_KEY_ID)) {
     issue('FILE_STORAGE_ACCESS_KEY_ID', WEAK_SECRET_MESSAGE);

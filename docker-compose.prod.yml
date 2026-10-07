@@ -32,8 +32,8 @@ x-api-common-env: &api-common-env
   UV_THREADPOOL_SIZE: ${UV_THREADPOOL_SIZE:-16}
   # V8 heap 上限約為容器記憶體上限的 75%，留給 sharp 等原生記憶體與 Buffer
   NODE_OPTIONS: --max-old-space-size=${API_HEAP_MB:-1536}
-  # external-api 也需要：檔案的縮圖網址以它推導的金鑰簽章，由 api 的影像端點驗證（backend/09-file.md §5.4）
-  JWT_SECRET: ${JWT_SECRET:?required}
+  # external-api 也需要：檔案的縮圖網址以它簽章，由 api 的影像端點驗證（backend/09-file.md §5.4）
+  FILE_URL_SIGNING_KEY: ${FILE_URL_SIGNING_KEY:?required}
   SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
   # 只信任 nginx 這一跳：nginx 以 real_ip 驗過前置 LB 之後，把 X-Forwarded-For 覆寫成單一的客戶端 IP
   # （deploy/nginx-real-ip.sh）。docker 的位址池不在私有網段時改成那個子網路或 1（docs/architecture/01-system.md §4.2）
@@ -62,6 +62,12 @@ x-api-internal-env:
   TENANT_PROVISIONING_DATABASE_URL: postgres://b2b_provisioner:${POSTGRES_PROVISIONER_PASSWORD:?required}@postgres:5432/${PLATFORM_POSTGRES_DB:-b2b_platform}
   # 新租戶的預設網域 {code}.<值>；留空 = APP_PUBLIC_URL 的 host。wildcard 網域的反向代理在交付順序第 6 步
   TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-}
+  # access token 的金鑰環（<kid>:<base64>，第一把簽發；backend/04-auth.md §11）：租戶與平台各一組、不同的金鑰。
+  # external-api 拿不到：它只認 API token
+  JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?required}
+  PLATFORM_JWT_SIGNING_KEYS: ${PLATFORM_JWT_SIGNING_KEYS:?required}
+  # 舊的單一金鑰：只用來驗證換成金鑰環之前簽的 token 與縮圖網址。過渡期（一小時）之後從 env 檔拿掉
+  JWT_SECRET: ${JWT_SECRET:-}
   REFRESH_COOKIE_PATH: /api/auth
   # 速率限制（次 / 分；backend/03-api-conventions.md §8）：已登入以使用者計，未登入與登入類端點的 IP 桶
   # 按「整間公司共用一個 NAT 出口 IP」估算

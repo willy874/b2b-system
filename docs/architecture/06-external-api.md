@@ -119,7 +119,8 @@ compose 把環境變數拆成兩份 anchor，external-api 只合併共用的那�
 | | api | external-api | 理由 |
 | --- | --- | --- | --- |
 | `PLATFORM_DATABASE_URL`、`TENANT_SECRET_KEY` | ✓ | ✓ | 要連平台 DB 與每個租戶的 DB |
-| `JWT_SECRET` | ✓ | ✓ | 檔案的縮圖網址以它推導的金鑰簽章，由 api 的影像端點驗證（[`backend/09-file.md`](./backend/09-file.md) §5.4）；這個程序本身從不驗 JWT |
+| `FILE_URL_SIGNING_KEY` | ✓ | ✓ | 檔案的縮圖網址以它簽章，由 api 的影像端點驗證（[`backend/09-file.md`](./backend/09-file.md) §5.4） |
+| `JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS`、`JWT_SECRET` | ✓ | — | access token 的金鑰：拿到就能簽出任何人的 token。這個程序不驗 JWT（`AccessTokenKeys` 在對外的範圍不載入任何金鑰），環境變數驗證也拒絕它拿到金鑰環（[`backend/04-auth.md`](./backend/04-auth.md) §11 D5） |
 | `FILE_STORAGE_*` | ✓ | ✓ | 簽 presigned 網址 |
 | `TENANT_PROVISIONING_DATABASE_URL` | ✓ | — | 佈建角色（`CREATEDB`、`CREATEROLE`）只在平台建立租戶時用 |
 | `OIDC_JWKS`、`OIDC_COOKIE_KEYS` | ✓ | — | 沒有載入 OIDC Provider |
@@ -129,8 +130,7 @@ compose 把環境變數拆成兩份 anchor，external-api 只合併共用的那�
 - 環境變數驗證以 `API_SURFACE=external`（`external-process-env.ts` 固定）檢查：production 不要求上表沒有的金鑰，給了才檢查強度。
 - production 不再由 `JWT_SECRET` 推導 SecretBox 的金鑰：沒有金鑰的程序要加解密時直接拋錯，不會以推導出的另一把金鑰寫出 api 解不開的密文。
 - `prod-compose-env.spec.ts` 守住兩件事：兩個程序的變數都能通過 production 的驗證，external-api 拿不到上表的「—」。
-- 還沒做：金鑰仍以環境變數傳入，看得到 `docker inspect` 與 `/proc/<pid>/environ` 的人就拿得到。改成 Docker secrets（`*_FILE`）掛載要另外處理；
-  縮圖網址的簽章金鑰也可以改成獨立的變數，讓 external-api 不必持有 `JWT_SECRET`。
+- 還沒做：金鑰仍以環境變數傳入，看得到 `docker inspect` 與 `/proc/<pid>/environ` 的人就拿得到。改成 Docker secrets（`*_FILE`）掛載要另外處理。
 
 ## 7. 文件（OpenAPI）
 

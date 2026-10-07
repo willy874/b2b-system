@@ -1,10 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import type { JwtService } from '@nestjs/jwt';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AccessTokenVerifier } from '@/common/auth';
+import type { AccessTokenKeys } from '@/common/auth';
 import { Public } from '@/common/decorators';
 import { BroadcastHub } from '@/core/broadcast/__tests__/broadcast-hub';
 import { UserCacheService } from '@/core/cache';
@@ -62,17 +61,13 @@ function createGuard(
     dbUser?: Partial<typeof activeUser>;
   } = {},
 ) {
-  const jwt = {
-    verifyAsync: vi
+  const keys = {
+    verify: vi
       .fn()
-      .mockImplementation(() =>
-        options.payload
-          ? Promise.resolve({ tid: TENANT.id, ...options.payload })
-          : Promise.reject(new Error('invalid signature')),
+      .mockImplementation(async () =>
+        options.payload ? { tid: TENANT.id, ...options.payload } : undefined,
       ),
-  } as unknown as JwtService;
-
-  const config = { get: () => 'secret' } as unknown as ConfigService<never, true>;
+  } as unknown as AccessTokenKeys;
   const userCache = new UserCacheService(new BroadcastHub().instance());
   const { cached } = options;
   if (cached) runInTenantContext(TENANT, () => userCache.set(cached));
@@ -86,7 +81,7 @@ function createGuard(
 
   const guard = new JwtAuthGuard(
     new Reflector(),
-    new AccessTokenVerifier(jwt, config as never, userCache, db, {} as never),
+    new AccessTokenVerifier(keys, userCache, db, {} as never),
   );
   // 請求都在某個租戶裡（TenantMiddleware）
   return {

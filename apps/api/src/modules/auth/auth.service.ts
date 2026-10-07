@@ -3,9 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { ChangeKind, ChangeSource, SessionRevokedReason } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 
-import { AccessTokenVerifier } from '@/common/auth';
+import { AccessTokenKeys, AccessTokenVerifier } from '@/common/auth';
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
 import type { Env } from '@/core/config';
@@ -92,7 +91,7 @@ export class AuthService {
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly config: ConfigService<Env, true>,
-    private readonly jwt: JwtService,
+    private readonly tokenKeys: AccessTokenKeys,
     private readonly users: UserAccountService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly authTokens: AuthTokenService,
@@ -290,7 +289,8 @@ export class AuthService {
    */
   private async signAccessToken(user: UserRow, idpSessionUid: string | null): Promise<SessionDto> {
     const expiresIn = this.config.get('JWT_ACCESS_TTL', { infer: true });
-    const accessToken = await this.jwt.signAsync(
+    const accessToken = await this.tokenKeys.sign(
+      'tenant',
       {
         sub: user.id,
         ver: user.tokenVersion,
@@ -298,7 +298,7 @@ export class AuthService {
         tid: requireTenant().id,
         ...(idpSessionUid && { sid: idpSessionUid }),
       },
-      { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn },
+      expiresIn,
     );
     return { accessToken, tokenType: 'Bearer', expiresIn };
   }

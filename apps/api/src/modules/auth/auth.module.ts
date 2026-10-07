@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
-import type { Env } from '@/core/config';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { CredentialModule } from '@/modules/credential/credential.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
@@ -26,14 +24,8 @@ import { SsoService } from './sso.service';
     OidcProviderModule,
     IdentityProviderModule,
     PlatformAdminModule,
-    JwtModule.registerAsync({
-      global: true,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => ({
-        secret: config.get('JWT_SECRET', { infer: true }),
-        signOptions: { algorithm: 'HS256' },
-      }),
-    }),
+    // 不設預設金鑰：簽發與驗證一律經 AccessTokenKeys，依 realm 與 kid 選金鑰（docs/architecture/backend/04-auth.md §11）
+    JwtModule.register({ global: true, signOptions: { algorithm: 'HS256' } }),
   ],
   controllers: [AuthController, SsoInteractionController, PlatformAuthController],
   providers: [AuthService, SsoService, ExternalLoginService, PlatformAuthService],

@@ -35,6 +35,9 @@ describe('production 的金鑰與危險預設值', () => {
     NODE_ENV: 'production',
     PLATFORM_DATABASE_URL: 'postgres://u:p@db:5432/platform',
     JWT_SECRET: STRONG,
+    JWT_SIGNING_KEYS: `t1:${randomBytes(48).toString('base64')}`,
+    PLATFORM_JWT_SIGNING_KEYS: `p1:${randomBytes(48).toString('base64')}`,
+    FILE_URL_SIGNING_KEY: randomBytes(48).toString('base64'),
     FILE_STORAGE_ACCESS_KEY_ID: 'prod-access-key',
     FILE_STORAGE_SECRET_ACCESS_KEY: 'x9Kq2mVb7LpR4sTw8YzA',
     MAIL_TRANSPORT: 'smtp',
@@ -61,6 +64,53 @@ describe('production 的金鑰與危險預設值', () => {
     ['FILE_STORAGE_SECRET_ACCESS_KEY', 'b2b-system-dev-secret'],
   ])('%s 是範例值或低熵（%s）→ 啟動失敗', (key, value) => {
     expect(() => validateEnv(production({ [key]: value }))).toThrow(key);
+  });
+
+  it.each(['JWT_SIGNING_KEYS', 'PLATFORM_JWT_SIGNING_KEYS', 'FILE_URL_SIGNING_KEY'])(
+    '%s 沒設定（開發時由 JWT_SECRET 推導）→ 啟動失敗',
+    (key) => {
+      expect(() => validateEnv(production({ [key]: '' }))).toThrow(key);
+    },
+  );
+
+  it('JWT_SECRET 在 production 是選填（只用來驗證過渡期的舊 token）', () => {
+    expect(validateEnv(production({ JWT_SECRET: '' })).JWT_SECRET).toBeUndefined();
+  });
+
+  it.each([
+    ['JWT_SIGNING_KEYS', 'no-kid-here', '格式'],
+    ['JWT_SIGNING_KEYS', `bad kid!:${randomBytes(48).toString('base64')}`, 'kid'],
+    ['JWT_SIGNING_KEYS', `k1:${randomBytes(16).toString('base64')}`, '32 bytes'],
+    [
+      'JWT_SIGNING_KEYS',
+      `k1:${randomBytes(48).toString('base64')},k1:${randomBytes(48).toString('base64')}`,
+      '重複',
+    ],
+    ['FILE_URL_SIGNING_KEY', randomBytes(16).toString('base64'), '32 bytes'],
+  ])('%s 格式不對（%s）→ 啟動失敗', (key, value, message) => {
+    expect(() => validateEnv(production({ [key]: value }))).toThrow(message);
+  });
+
+  it('租戶與平台的金鑰環共用同一把金鑰 → 啟動失敗', () => {
+    const shared = randomBytes(48).toString('base64');
+    expect(() =>
+      validateEnv(
+        production({ JWT_SIGNING_KEYS: `t1:${shared}`, PLATFORM_JWT_SIGNING_KEYS: `p1:${shared}` }),
+      ),
+    ).toThrow('PLATFORM_JWT_SIGNING_KEYS');
+  });
+
+  it('對外 API 的程序拿到 access token 的金鑰環 → 啟動失敗', () => {
+    expect(() =>
+      validateEnv(
+        production({
+          API_SURFACE: 'external',
+          OIDC_JWKS: '',
+          IDP_SECRET_KEY: '',
+          WEBHOOK_SECRET_KEY: '',
+        }),
+      ),
+    ).toThrow('JWT_SIGNING_KEYS');
   });
 
   it.each(['IDP_SECRET_KEY', 'TENANT_SECRET_KEY', 'WEBHOOK_SECRET_KEY'])(
@@ -128,6 +178,8 @@ describe('production 的金鑰與危險預設值', () => {
       OIDC_COOKIE_KEYS: '',
       IDP_SECRET_KEY: '',
       WEBHOOK_SECRET_KEY: '',
+      JWT_SIGNING_KEYS: '',
+      PLATFORM_JWT_SIGNING_KEYS: '',
       ...overrides,
     });
 

@@ -21,7 +21,9 @@ const DEPLOYMENT_ENV: Record<string, string> = {
   POSTGRES_TENANT_PASSWORD: randomBytes(24).toString('hex'),
   POSTGRES_PROVISIONER_PASSWORD: randomBytes(24).toString('hex'),
   TENANT_SECRET_KEY: base64Key(),
-  JWT_SECRET: randomBytes(48).toString('base64'),
+  JWT_SIGNING_KEYS: `t1:${randomBytes(48).toString('base64')}`,
+  PLATFORM_JWT_SIGNING_KEYS: `p1:${randomBytes(48).toString('base64')}`,
+  FILE_URL_SIGNING_KEY: randomBytes(48).toString('base64'),
   SUPER_ADMIN_EMAIL: 'admin@example.com',
   PLATFORM_ADMIN_EMAIL: 'platform@example.com',
   FILE_STORAGE_ACCESS_KEY_ID: randomBytes(12).toString('hex'),
@@ -109,6 +111,10 @@ describe('docker-compose.prod.yml 給程序的環境變數（防止 production �
       'IDP_SECRET_KEY',
       'WEBHOOK_SECRET_KEY',
       'MAIL_SMTP_URL',
+      // access token 的金鑰：拿到就能簽出任何人的 token（backend/04-auth.md §11 D5）
+      'JWT_SIGNING_KEYS',
+      'PLATFORM_JWT_SIGNING_KEYS',
+      'JWT_SECRET',
     ]) {
       expect(env).not.toHaveProperty(key);
       expect(serviceEnvironment('api')).toHaveProperty(key);

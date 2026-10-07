@@ -83,7 +83,7 @@ export class IdentityProviderService implements OnModuleInit {
       // production 不推導：對外 API 的程序不持有這把金鑰（docs/architecture/06-external-api.md §6）
       config.get('NODE_ENV', { infer: true }) === 'production'
         ? null
-        : config.get('JWT_SECRET', { infer: true }),
+        : (config.get('JWT_SECRET', { infer: true }) ?? null),
       IDP_SECRET_PURPOSE,
     );
     const issuer = new URL(config.get('OIDC_ISSUER', { infer: true }));

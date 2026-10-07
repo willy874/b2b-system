@@ -337,7 +337,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | --- | --- | --- |
 | postgres | volume `postgres-data`：平台 DB ＋ 每個租戶的 database ＋ DB 角色 | 全部的資料 |
 | 物件 | volume `file-storage-data`（每個租戶一個 bucket） | 檔案內容；DB 的紀錄還在，但下載與預覽失敗 |
-| 主金鑰 | 環境變數（`deploy/prod.env`）：`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SECRET` | 見下方「主金鑰」 |
+| 主金鑰 | 環境變數（`deploy/prod.env`）：`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS`、`FILE_URL_SIGNING_KEY` | 見下方「主金鑰」 |
 
 無法復原的操作：`trash.purge`（回收桶到期永久刪除）、`pnpm db:drop-tenant --confirm`、`pnpm db:reset`。它們之前的狀態只能從備份拿回來。
 
@@ -370,7 +370,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | --- | --- |
 | `TENANT_SECRET_KEY` | 平台 DB 裡所有租戶的連線字串都解不開，所有租戶無法服務。要以超級使用者替每個租戶角色重設密碼，再以新的金鑰加密新的連線字串寫回 `tenants.database_url_encrypted`（沒有現成的工具，要寫一次性的腳本，用 `SecretBox` 的 `TENANT_SECRET_PURPOSE`） |
 | `IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 外部 IdP 的 client secret、webhook 的簽章密鑰解不開：在畫面上重新輸入 client secret、重新產生 webhook 密鑰 |
-| `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SECRET` | 換一把新的即可：已發出的 ID token、IdP session、access token 失效，使用者重新登入 |
+| `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS`、`FILE_URL_SIGNING_KEY` | 換一把新的即可：已發出的 ID token、IdP session、access token、縮圖網址失效，使用者重新登入 |
 
 **還原演練**：定期在另一台主機照上面的步驟還原一次，記下日期、備份的時間點、花了多久、遇到的問題。
 

@@ -381,7 +381,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 
 | 規則 | 理由 |
 | --- | --- |
-| `@Public()`，以網址上的 **HMAC 簽章**授權（`file-image-url.ts`：簽 `id`、`variant`、`exp`，金鑰由 `JWT_SECRET` 衍生） | `<img src>` 帶不了 access token（只在記憶體）。網址只從 `file:read` 的回應拿得到——與 presigned URL 相同的模型 |
+| `@Public()`，以網址上的 **HMAC 簽章**授權（`file-image-url.ts`：簽 `v2`、租戶 id、`id`、`variant`、`exp`，簽章值以 `v2.` 開頭；金鑰是獨立的 `FILE_URL_SIGNING_KEY`。網址換到別的租戶的網域就驗不過。沒有前綴的 v1（不含租戶、金鑰由 `JWT_SECRET` 衍生）只在還設定 `JWT_SECRET` 的過渡期接受，[`04-auth.md`](./04-auth.md) §11 D5、D7） | `<img src>` 帶不了 access token（只在記憶體）。網址只從 `file:read` 的回應拿得到——與 presigned URL 相同的模型 |
 | `format` 不在簽章內 | 它只決定編碼方式，不擴大能讀到的內容；前端可以自己在網址後面加 |
 | `exp` 取整到 `FILE_URL_TTL / 2` 的時間窗（同 §7.1） | 同一個時間窗內網址不變，`<img>` 與 HTTP 快取直接命中 |
 | 回 **302 轉址** 到物件儲存的 presigned 網址，帶 `Cache-Control: private, max-age=<剩餘秒數>`、`Vary: Accept` | 內容仍由物件儲存送出、不經過 api；轉址本身也被瀏覽器快取 |
