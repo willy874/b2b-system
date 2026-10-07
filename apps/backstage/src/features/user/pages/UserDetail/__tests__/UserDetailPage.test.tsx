@@ -63,9 +63,15 @@ beforeEach(() => {
     items: [
       {
         key: 'file:read',
+        nameI18nKey: 'permission.file.read',
+        resource: 'file',
+        resourceNameI18nKey: 'permission.resource.file',
+        includes: [],
+        requires: [],
         sources: [
           {
             grantedKey: 'file:update',
+            grantedNameI18nKey: 'permission.file.update',
             via: [
               { type: 'user', id: USER_ID, relation: '', name: 'Person', hidden: false },
               { type: 'role', id: 'r1', relation: 'holder', name: 'Editor', hidden: false },
@@ -285,7 +291,7 @@ describe('UserDetailPage', () => {
     expect(fetchGroups).not.toHaveBeenCalled();
   });
 
-  it('看自己：「有效權限」打開對話框才查；清單點一個權限再疊一層看來源（docs/architecture/iam/01-model.md §9 G4b）', async () => {
+  it('看自己：「有效權限」打開對話框才查；清單點一個權限，同一個對話框顯示來源（docs/architecture/iam/08-explain.md §5）', async () => {
     fetchProfile.mockResolvedValue({ user: { id: USER_ID }, permissions: [] });
     renderRoute(routes, PATH, ['user:read'] as PermissionKey[]);
     fireEvent.click(
@@ -294,12 +300,16 @@ describe('UserDetailPage', () => {
     const list = await screen.findByTestId('permission-source-dialog');
     const item = await within(list).findByTestId('permission-source');
     expect(item).toHaveAttribute('data-value', 'file:read');
+    expect(item).toHaveTextContent('檢視檔案');
     expect(item).toHaveTextContent('1 個來源');
+    // 唯一的來源是 file:update：只由依賴帶出
+    expect(item).toHaveTextContent('依賴帶出');
 
     fireEvent.click(item);
-    const viewer = await screen.findByTestId('permission-source-viewer-dialog');
+    expect(item).toHaveAttribute('aria-current', 'true');
+    const viewer = await within(list).findByTestId('permission-source-viewer');
     expect(within(viewer).getByTestId('permission-source-path')).toHaveTextContent(
-      '由 file:update 帶出',
+      '由「編輯檔案」帶出',
     );
     expect(fetchSources.mock.calls[0]![0].params).toEqual({ userId: USER_ID });
   });

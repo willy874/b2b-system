@@ -24,6 +24,8 @@ export const PermissionSourceSchema = defineSchema(
   z.object({
     /** 角色上明確授予的鍵；與 `key` 不同時，`key` 是由它經權限依賴樹帶出的。 */
     grantedKey: z.string(),
+    /** `grantedKey` 的名稱（權限目錄的語系鍵）。 */
+    grantedNameI18nKey: z.string(),
     /** 從使用者本人到持有那個鍵的角色：`user → 群組… → role#holder`。 */
     via: z.array(ExplainNodeSchema),
   }),
@@ -39,6 +41,19 @@ export const PermissionSourcesSchema = defineSchema(
     items: z.array(
       z.object({
         key: z.string(),
+        /**
+         * 權限目錄的名稱與所屬資源（同權限目錄的 `nameI18nKey`、`groups[].nameI18nKey`）：
+         * 查自己不需要 `permission:read`，畫面無法另外查目錄。
+         */
+        nameI18nKey: z.string(),
+        resource: z.string(),
+        resourceNameI18nKey: z.string(),
+        /**
+         * 依賴樹上直接的子能力與依賴（同權限目錄的 `includes`、`requires`），只列這位使用者也持有的鍵：
+         * 畫面以此畫他的權限樹，不多透露目錄的其他部分。
+         */
+        includes: z.array(z.string()),
+        requires: z.array(z.string()),
         sources: z.array(PermissionSourceSchema),
       }),
     ),

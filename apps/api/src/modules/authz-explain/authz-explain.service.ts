@@ -5,7 +5,13 @@ import type { AuthUser, PermissionKey } from '@/common/types';
 import { AuthzService, parseSubjectKey, SUPER_ADMIN_RELATION } from '@/core/authz';
 import type { SubjectKey } from '@/core/authz';
 import { AppException } from '@/core/errors';
-import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/seeds/permissions';
+import {
+  ALL_PERMISSION_KEYS,
+  PERMISSION_DEPENDENCIES,
+  PERMISSION_SEED,
+  permissionClosure,
+} from '@/db/seeds/permissions';
+import type { PermissionDependencyMap } from '@/db/seeds/permissions';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { AuthzExplainRepository } from './authz-explain.repository';
@@ -21,6 +27,14 @@ export type ExplainNodeResolver = (
 
 /** 只有型別、沒有名稱可查、對誰都看得到的節點（租戶、根目錄、所有人）。 */
 const ALWAYS_VISIBLE_TYPES = new Set(['tenant', 'fileRoot']);
+
+/** 權限鍵 → 目錄上的名稱與資源（`PERMISSION_SEED`，與 `GET /permissions` 同一份）。 */
+const CATALOG_NAMES = new Map(
+  PERMISSION_SEED.map(([resource, action, nameI18nKey]) => [
+    `${resource}:${action}`,
+    { resource, nameI18nKey, resourceNameI18nKey: `permission.resource.${resource}` },
+  ]),
+);
 
 /**
  * 「為什麼能做 X」的說明（docs/architecture/iam/01-model.md §9.3 D14、G4b）。
@@ -66,19 +80,30 @@ export class AuthzExplainService {
     const via = (index: number) => nodes[index] ?? [];
 
     const superAdmin = sources.findIndex((source) => source.relation === SUPER_ADMIN_RELATION);
-    const granted = sources
-      .map((source, index) => ({ ...source, index }))
-      .filter((source) => isPermissionKey(source.relation));
+    // 角色上的權限鍵（不在目錄裡的關係不是權限：super-admin 等）
+    const granted = sources.flatMap((source, index) => {
+      const names = CATALOG_NAMES.get(source.relation);
+      return names ? [{ ...source, index, grantedNameI18nKey: names.nameI18nKey }] : [];
+    });
+    const held = permissionClosure(granted.map((source) => source.relation as PermissionKey));
+    const dependencies: PermissionDependencyMap = PERMISSION_DEPENDENCIES;
+    const heldOnly = (keys: readonly PermissionKey[] | undefined) =>
+      (keys ?? []).filter((key) => held.has(key));
     const items = ALL_PERMISSION_KEYS.flatMap((key) => {
       const from = granted.filter((source) =>
         permissionClosure([source.relation as PermissionKey]).has(key),
       );
-      return from.length
+      const names = CATALOG_NAMES.get(key);
+      return from.length && names
         ? [
             {
               key,
+              ...names,
+              includes: heldOnly(dependencies[key]?.includes),
+              requires: heldOnly(dependencies[key]?.requires),
               sources: from.map((source) => ({
                 grantedKey: source.relation,
+                grantedNameI18nKey: source.grantedNameI18nKey,
                 via: via(source.index),
               })),
             },

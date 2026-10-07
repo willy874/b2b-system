@@ -50,7 +50,7 @@ user:alice
 
 | Method | Path | 宣告 | 回應 |
 | --- | --- | --- | --- |
-| GET | `/users/:id/permission-sources` | `@Authenticated`（自己；別人要 `authz:explain`，service 判斷） | `isSuperAdmin`、`superAdminVia`（怎麼成為 super-admin）、`items[]`：每個有效的權限鍵（目錄順序）與所有來源 `{ grantedKey, via[] }`；`grantedKey` 與鍵不同時，鍵是由它經依賴樹帶出的 |
+| GET | `/users/:id/permission-sources` | `@Authenticated`（自己；別人要 `authz:explain`，service 判斷） | `isSuperAdmin`、`superAdminVia`（怎麼成為 super-admin）、`items[]`：每個有效的權限鍵（目錄順序）、目錄上的名稱與資源（`nameI18nKey`、`resource`、`resourceNameI18nKey`）、依賴樹上直接的 `includes`／`requires`（只列這位使用者也持有的鍵，畫面以此畫他的權限樹、不多透露目錄的其他部分）與所有來源 `{ grantedKey, grantedNameI18nKey, via[] }`；`grantedKey` 與鍵不同時，鍵是由它經依賴樹帶出的。名稱隨回應帶出，因為查自己不需要 `permission:read`，畫面無法另外查權限目錄 |
 | GET | `/file-folders/:id/explain?userId=` | `@Authenticated`（同上） | 五個動作（read、create、update、delete、share）各自 `allowed` 與 `path`（不能做時是 null） |
 
 節點的形狀（`ExplainNode`）：`{ type, id, relation, name, hidden }`。路徑的起點 `relation` 是空字串。
@@ -73,7 +73,7 @@ user:alice
 | 位置 | 內容 |
 | --- | --- |
 | `core/components/ExplainPath` | 路徑：圖示 ＋ 名稱，資料夾附等級或動作；讀不到的節點顯示「某個群組」等種類 |
-| `core/components/ExplainPath/PermissionSourceDialog` | 有效權限的兩層對話框：第一層是清單（依資源分組、可搜尋、標出來源數，super-admin 另外說明），點一個權限再疊一層看它的每條來源路徑（依賴樹帶出的標「由 X 帶出」） |
+| `core/components/ExplainPath/PermissionSourceDialog` | 有效權限的對話框（一層，左清單、右來源）：清單依資源分組、每列是權限名稱與鍵、標出來源數，只由依賴樹帶出的標「依賴帶出」；可搜尋名稱或鍵、依帶來權限的角色篩選，摘要列出權限數與角色數；super-admin 另外說明。選一列（點擊或 ↑／↓／Home／End）在右側顯示它的每條來源路徑，每條標「明確授予」或「由 X 帶出」。左欄可切換「清單／樹狀圖」：樹狀圖與權限目錄的樹同一份版面（`core/permission-graph`），只畫持有的權限，明確授予與只由依賴帶出的以不同狀態表示，滑過強調前置路徑；搜尋與角色篩選兩種檢視共用。窄畫面一次只顯示一欄，來源上方有「返回清單」。使用者詳情本身就是對話框，所以不再疊第二層看來源；這個對話框疊在使用者詳情上時逐層關閉（Esc、點遮罩、頁尾「關閉」都只關上層，見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md)） |
 | 個人資料頁「我的有效權限」 | 查自己（不需要權限：沒有 `user:read` 的人也看得到） |
 | 使用者詳情「有效權限」 | 自己，或有 `authz:explain` 時看別人 |
 | 資料夾共用對話框「檢查存取」 | 有 `authz:explain` 時：挑一位使用者，列出每個動作與路徑 |

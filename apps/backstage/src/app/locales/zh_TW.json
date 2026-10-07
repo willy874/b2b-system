@@ -198,16 +198,31 @@
       "can_share": "可共用"
     },
     "superAdmin": "超級管理員：擁有所有權限。",
-    "impliedBy": "由 {{key}} 帶出",
+    "impliedBy": "由「{{name}}」帶出",
     "noPermissions": "沒有任何權限",
     "list": {
       "title": "有效權限",
-      "search": "搜尋權限鍵",
+      "search": "搜尋權限名稱或鍵",
       "noMatch": "沒有符合的權限",
-      "sources_other": "{{count}} 個來源"
+      "sources_other": "{{count}} 個來源",
+      "implied": "依賴帶出",
+      "role": "依角色篩選",
+      "allRoles": "所有角色",
+      "summary_other": "共 {{count}} 個權限，來自 {{roles}} 個角色",
+      "filtered_other": "顯示 {{count}} / {{total}} 個權限"
     },
     "viewer": {
-      "description": "這個權限從哪裡來：每一條是一個來源。"
+      "description_other": "這個權限有 {{count}} 個來源：每一條是一條取得的路徑。",
+      "empty": "在左側選一個權限，查看它從哪裡來",
+      "back": "返回清單"
+    },
+    "granted": "明確授予",
+    "view": {
+      "list": "清單",
+      "tree": "樹狀圖"
+    },
+    "tree": {
+      "hint": "滑過節點可強調它的前置權限；虛線是跨資源的依賴。"
     }
   },
   "apiToken": {

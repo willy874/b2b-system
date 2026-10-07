@@ -8833,6 +8833,9 @@
           "grantedKey": {
             "type": "string"
           },
+          "grantedNameI18nKey": {
+            "type": "string"
+          },
           "via": {
             "type": "array",
             "items": {
@@ -8840,7 +8843,7 @@
             }
           }
         },
-        "required": ["grantedKey", "via"],
+        "required": ["grantedKey", "grantedNameI18nKey", "via"],
         "additionalProperties": false
       },
       "EffectivePermission": {
@@ -11893,6 +11896,27 @@
                 "key": {
                   "type": "string"
                 },
+                "nameI18nKey": {
+                  "type": "string"
+                },
+                "resource": {
+                  "type": "string"
+                },
+                "resourceNameI18nKey": {
+                  "type": "string"
+                },
+                "includes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "requires": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "sources": {
                   "type": "array",
                   "items": {
@@ -11900,7 +11924,15 @@
                   }
                 }
               },
-              "required": ["key", "sources"],
+              "required": [
+                "key",
+                "nameI18nKey",
+                "resource",
+                "resourceNameI18nKey",
+                "includes",
+                "requires",
+                "sources"
+              ],
               "additionalProperties": false
             }
           }

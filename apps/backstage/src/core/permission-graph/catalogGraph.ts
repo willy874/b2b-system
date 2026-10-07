@@ -7,14 +7,33 @@ import type {
   TreeEditorPosition,
 } from '@b2b-system/ui/TreeEditor';
 
-import type { Permission, PermissionGroup } from '@/shared/api-sdk';
-
 /**
  * 權限依賴樹（docs/architecture/iam/02-permission-catalog.md §9）的純邏輯：閉包、前置路徑與畫布版面。
  * 角色權限的技能樹（可勾選）與權限目錄的樹狀圖（唯讀）共用同一份版面。
  */
 
-export type PermissionCatalogGraph = readonly Pick<Permission, 'key' | 'includes' | 'requires'>[];
+/**
+ * 畫樹需要的權限欄位。權限目錄（`Permission`）與有效權限（`PermissionSources` 的 `items`，關係只含持有的鍵）都符合。
+ */
+export interface PermissionTreeItem {
+  key: string;
+  resource: string;
+  nameI18nKey: string;
+  includes: readonly string[];
+  requires: readonly string[];
+}
+
+/** 一個資源的分組（權限目錄的 `PermissionGroup` 符合）。 */
+export interface PermissionTreeGroup {
+  resource: string;
+  nameI18nKey: string;
+  keys: readonly string[];
+}
+
+export type PermissionCatalogGraph = readonly Pick<
+  PermissionTreeItem,
+  'key' | 'includes' | 'requires'
+>[];
 
 function directlyImplied(catalog: PermissionCatalogGraph, key: string): readonly string[] {
   const item = catalog.find((permission) => permission.key === key);
@@ -41,7 +60,7 @@ export function permissionClosure(
 export function dependentKeys(catalog: PermissionCatalogGraph, key: string): string[] {
   return catalog
     .filter((item) => [...item.includes, ...item.requires].some((target) => target === key))
-    .map((item) => item.key as string);
+    .map((item) => item.key);
 }
 
 /** 滑過某個節點時要強調的前置（遞迴，不含自己）與通往它的連線。 */
@@ -99,11 +118,11 @@ const GROUP_GAP_Y = 88;
  * 跨資源的依賴畫成虛線，不參與組內排版。`groupLabel` 把資源的語系鍵換成顯示名稱。
  */
 export function layoutPermissionTree(
-  items: readonly Permission[],
-  groups: readonly PermissionGroup[],
-  groupLabel: (group: PermissionGroup) => string,
+  items: readonly PermissionTreeItem[],
+  groups: readonly PermissionTreeGroup[],
+  groupLabel: (group: PermissionTreeGroup) => string,
 ): PermissionTreeLayout {
-  const byKey = new Map(items.map((item) => [item.key as string, item]));
+  const byKey = new Map(items.map((item) => [item.key, item]));
   const nodes: TreeEditorNode<PermissionNodeData>[] = [];
   const edges: TreeEditorEdge[] = [];
   const treeGroups: TreeEditorGroup[] = [];
@@ -117,14 +136,14 @@ export function layoutPermissionTree(
       return item ? [item] : [];
     });
     if (members.length === 0) continue;
-    const memberKeys = new Set(members.map((item) => item.key as string));
+    const memberKeys = new Set(members.map((item) => item.key));
     const inner: TreeEditorEdge[] = members.flatMap((item) =>
       item.includes
         .filter((target) => memberKeys.has(target))
-        .map((target) => ({ source: target as string, target: item.key as string })),
+        .map((target) => ({ source: target, target: item.key })),
     );
     const positions = computeTreeLayout(
-      { nodes: members.map((item) => ({ id: item.key as string, data: null })), edges: inner },
+      { nodes: members.map((item) => ({ id: item.key, data: null })), edges: inner },
       { direction: 'TB', nodeSize: PERMISSION_NODE_SIZE, nodeGap: 20, rankGap: 40 },
     );
     const placed = [...positions.values()];

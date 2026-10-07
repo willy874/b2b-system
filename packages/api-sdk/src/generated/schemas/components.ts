@@ -801,6 +801,7 @@ export const ExplainNodeSchema = z.object({
 
 export const PermissionSourceSchema = z.object({
   grantedKey: z.string(),
+  grantedNameI18nKey: z.string(),
   via: z.array(ExplainNodeSchema),
 }) satisfies z.ZodType<PermissionSource>;
 
@@ -1974,6 +1975,11 @@ export const PermissionSourcesSchema = z.object({
   items: z.array(
     z.object({
       key: z.string(),
+      nameI18nKey: z.string(),
+      resource: z.string(),
+      resourceNameI18nKey: z.string(),
+      includes: z.array(z.string()),
+      requires: z.array(z.string()),
       sources: z.array(PermissionSourceSchema),
     }),
   ),

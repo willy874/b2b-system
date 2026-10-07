@@ -194,12 +194,50 @@ describe('授權說明（docs/architecture/iam/01-model.md §9 G4b、D14）', ()
         .expect(200);
       const items = response.body.data.items as Array<{
         key: string;
-        sources: Array<{ grantedKey: string }>;
+        sources: Array<{ grantedKey: string; grantedNameI18nKey: string }>;
       }>;
       // admin 明確持有 file:delete，它帶出 file:update
+      const update = items.find((item) => item.key === 'file:update');
+      expect(update?.sources.map((s) => s.grantedKey)).toEqual(
+        expect.arrayContaining(['file:update', 'file:delete']),
+      );
+      expect(update?.sources.find((s) => s.grantedKey === 'file:delete')?.grantedNameI18nKey).toBe(
+        'permission.file.delete',
+      );
+    });
+
+    it('每個鍵附上目錄的名稱與資源（查自己不需要 permission:read）', async () => {
+      const response = await (
+        await as(ADMIN)
+      )
+        .get(`/users/${ids.admin}/permission-sources`)
+        .expect(200);
       expect(
-        items.find((item) => item.key === 'file:update')?.sources.map((s) => s.grantedKey),
-      ).toEqual(expect.arrayContaining(['file:update', 'file:delete']));
+        (response.body.data.items as Array<{ key: string }>).find(
+          (item) => item.key === 'user:read',
+        ),
+      ).toMatchObject({
+        nameI18nKey: 'permission.user.read',
+        resource: 'user',
+        resourceNameI18nKey: 'permission.resource.user',
+      });
+    });
+
+    it('依賴樹的關係只指向他也持有的鍵', async () => {
+      const response = await (
+        await as(ADMIN)
+      )
+        .get(`/users/${ids.admin}/permission-sources`)
+        .expect(200);
+      const items = response.body.data.items as Array<{
+        key: string;
+        includes: string[];
+        requires: string[];
+      }>;
+      const held = new Set(items.map((item) => item.key));
+      const targets = items.flatMap((item) => item.includes.concat(item.requires));
+      expect(targets.length).toBeGreaterThan(0);
+      expect(targets.filter((key) => !held.has(key))).toEqual([]);
     });
 
     it('沒有 authz:explain 查別人 → 403 AUTHZ_FORBIDDEN', async () => {

@@ -361,6 +361,7 @@ export interface Permission {
 
 export interface PermissionSource {
   grantedKey: string;
+  grantedNameI18nKey: string;
   via: Array<ExplainNode>;
 }
 
@@ -1193,6 +1194,11 @@ export interface PermissionSources {
   superAdminVia: Array<ExplainNode> | null;
   items: Array<{
     key: string;
+    nameI18nKey: string;
+    resource: string;
+    resourceNameI18nKey: string;
+    includes: Array<string>;
+    requires: Array<string>;
     sources: Array<PermissionSource>;
   }>;
 }

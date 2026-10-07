@@ -43,9 +43,15 @@ beforeEach(() => {
     items: [
       {
         key: 'auditLog:read',
+        nameI18nKey: 'permission.auditLog.read',
+        resource: 'auditLog',
+        resourceNameI18nKey: 'permission.resource.auditLog',
+        includes: [],
+        requires: [],
         sources: [
           {
             grantedKey: 'auditLog:read',
+            grantedNameI18nKey: 'permission.auditLog.read',
             via: [
               { type: 'user', id: 'me', relation: '', name: 'Me', hidden: false },
               { type: 'group', id: null, relation: 'member', name: null, hidden: true },

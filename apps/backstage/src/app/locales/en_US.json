@@ -199,17 +199,35 @@
       "can_share": "Can share"
     },
     "superAdmin": "Super admin: has every permission.",
-    "impliedBy": "Implied by {{key}}",
+    "impliedBy": "Implied by “{{name}}”",
     "noPermissions": "No permissions",
     "list": {
       "title": "Effective permissions",
-      "search": "Search permission keys",
+      "search": "Search permission names or keys",
       "noMatch": "No matching permissions",
       "sources_one": "{{count}} source",
-      "sources_other": "{{count}} sources"
+      "sources_other": "{{count}} sources",
+      "implied": "Implied",
+      "role": "Filter by role",
+      "allRoles": "All roles",
+      "summary_one": "{{count}} permission from {{roles}} role(s)",
+      "summary_other": "{{count}} permissions from {{roles}} role(s)",
+      "filtered_one": "Showing {{count}} of {{total}} permissions",
+      "filtered_other": "Showing {{count}} of {{total}} permissions"
     },
     "viewer": {
-      "description": "Where this permission comes from: each row is one source."
+      "description_one": "This permission has {{count}} source: each row is one path to it.",
+      "description_other": "This permission has {{count}} sources: each row is one path to it.",
+      "empty": "Select a permission on the left to see where it comes from",
+      "back": "Back to list"
+    },
+    "granted": "Granted directly",
+    "view": {
+      "list": "List",
+      "tree": "Tree"
+    },
+    "tree": {
+      "hint": "Hover a node to highlight its prerequisites; dashed lines are cross-resource dependencies."
     }
   },
   "apiToken": {
