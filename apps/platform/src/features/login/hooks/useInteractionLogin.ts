@@ -1,0 +1,126 @@
+import { getErrorMessageKey, isAppError, useErrorMessage } from '@b2b-system/web-core/errors';
+import { zodFormValidator } from '@b2b-system/web-shared/hooks';
+import { useForm } from '@tanstack/react-form';
+import { useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
+
+import { useAccountPolicy } from './useAccountPolicy';
+import { useRequestedLocale } from './useRequestedLocale';
+import {
+  useSsoDiscovery,
+  useSsoInteraction,
+  useSsoInteractionAbortMutation,
+  useSsoInteractionLoginMutation,
+  useStartExternalLoginMutation,
+} from './useSsoInteraction';
+
+/** 互動過期（登入頁放太久、重複使用）：只能從產品重新開始登入。 */
+const INTERACTION_EXPIRED = 'AUTH_SSO_INTERACTION_INVALID';
+
+function isInteractionExpired(error: unknown): boolean {
+  return isAppError(error) && error.code === INTERACTION_EXPIRED;
+}
+
+const EmailSchema = z.string().trim().min(1).email();
+
+const LoginFormSchema = z.object({
+  email: EmailSchema,
+  password: z.string().min(1),
+});
+
+/** 送出失敗的訊息與錯誤碼（錯誤碼給 E2E 以 `data-value` 斷言，不依語系的文字）。 */
+export interface InteractionFormError {
+  message: string;
+  code?: string;
+}
+
+/**
+ * IdP 登入互動頁的流程（docs/architecture/04-sso.md §12）：載入互動、帶上產品的語言、以 email 探索外部 IdP（D9）、
+ * 密碼登入或改走外部 IdP、取消，以及送出失敗與網址帶回的錯誤（`?error=`）。
+ * 互動過期時改給「重新開始登入」（`expired`）。
+ */
+export function useInteractionLogin(uid: string, searchError: string | undefined) {
+  const interaction = useSsoInteraction(uid);
+  // 與要求登入的產品用同一個語言（backstage 帶來的 ui_locales）
+  useRequestedLocale(interaction.data?.uiLocales);
+  const policy = useAccountPolicy(interaction.data?.tenant?.code);
+  const login = useSsoInteractionLoginMutation();
+  const abort = useSsoInteractionAbortMutation();
+  const external = useStartExternalLoginMutation();
+  const toMessage = useErrorMessage();
+  const [formError, setFormError] = useState<InteractionFormError>();
+  // 送出時才發現互動已過期：表單再送也沒用，改給「重新開始登入」
+  const [expired, setExpired] = useState(false);
+  const fail = (error: unknown) => {
+    setFormError({ message: toMessage(error), code: isAppError(error) ? error.code : undefined });
+    setExpired(isInteractionExpired(error));
+  };
+  // 網址帶來的錯誤只顯示到使用者再試一次為止
+  const [showSearchError, setShowSearchError] = useState(true);
+  /** 拿去查網域的 email：離開欄位（或送出）時才更新，不在每次輸入時查詢。 */
+  const [discoveryEmail, setDiscoveryEmail] = useState<string>();
+  const discovery = useSsoDiscovery(uid, discoveryEmail);
+  const provider = discovery.data?.provider ?? null;
+  const ssoOnly = Boolean(provider && discovery.data?.ssoOnly);
+
+  // 進頁面就把游標放在 Email 欄。欄位在互動載入前就已經顯示，只在掛載時聚焦一次：
+  // 等載入完成才聚焦的話，使用者已經移到密碼欄時會被搶回 Email 欄，接著打的密碼以明文進了 Email 欄
+  const emailRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
+
+  const discover = (email: string) => {
+    const parsed = EmailSchema.safeParse(email);
+    setDiscoveryEmail(parsed.success ? parsed.data : undefined);
+  };
+
+  const form = useForm({
+    defaultValues: { email: '', password: '' },
+    validators: { onSubmit: zodFormValidator(LoginFormSchema) },
+    onSubmit: async ({ value }) => {
+      setFormError(undefined);
+      setShowSearchError(false);
+      try {
+        await login.mutateAsync({ params: { uid, ...value } });
+      } catch (error) {
+        fail(error);
+      }
+    },
+  });
+
+  const startExternal = async () => {
+    if (!provider) return;
+    setFormError(undefined);
+    setShowSearchError(false);
+    try {
+      await external.mutateAsync({ params: { uid, providerId: provider.id } });
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  return {
+    interaction,
+    policy,
+    form,
+    emailRef,
+    discover,
+    provider,
+    ssoOnly,
+    expired,
+    formError,
+    /** 網址帶回、還沒被使用者重試蓋掉的錯誤碼 */
+    searchError: showSearchError ? searchError : undefined,
+    searchErrorKey: searchError ? getErrorMessageKey(searchError) : undefined,
+    /** 已經在跳轉：取消鈕停用 */
+    redirecting: login.isPending || login.isSuccess || external.isPending || external.isSuccess,
+    loggingIn: login.isPending || login.isSuccess,
+    externalPending: external.isPending,
+    externalStarting: external.isPending || external.isSuccess,
+    loginPending: login.isPending,
+    cancelling: abort.isPending,
+    startExternal,
+    cancel: () => abort.mutate({ params: { uid } }),
+  };
+}
