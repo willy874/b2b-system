@@ -4,6 +4,24 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { Dialog } from './index';
 
+function renderNested() {
+  const onOuterChange = vi.fn();
+  const onInnerChange = vi.fn();
+  render(
+    <Dialog open onOpenChange={onOuterChange} title="外層" testIds={{ backdrop: 'outer-backdrop' }}>
+      <Dialog
+        open
+        onOpenChange={onInnerChange}
+        title="內層"
+        testIds={{ backdrop: 'inner-backdrop' }}
+      >
+        <p>內容</p>
+      </Dialog>
+    </Dialog>,
+  );
+  return { onOuterChange, onInnerChange };
+}
+
 describe('Dialog', () => {
   it('open 時渲染標題與內容', () => {
     render(
@@ -99,5 +117,26 @@ describe('Dialog', () => {
       </Dialog>,
     );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  describe('巢狀：逐層關閉', () => {
+    it('內層也有自己的遮罩', () => {
+      renderNested();
+      expect(screen.getByTestId('inner-backdrop')).toBeInTheDocument();
+    });
+
+    it('點內層的遮罩只關內層', async () => {
+      const { onOuterChange, onInnerChange } = renderNested();
+      await userEvent.click(screen.getByTestId('inner-backdrop'));
+      expect(onInnerChange).toHaveBeenCalledWith(false);
+      expect(onOuterChange).not.toHaveBeenCalled();
+    });
+
+    it('按 Esc 只關內層', async () => {
+      const { onOuterChange, onInnerChange } = renderNested();
+      await userEvent.keyboard('{Escape}');
+      expect(onInnerChange).toHaveBeenCalledWith(false);
+      expect(onOuterChange).not.toHaveBeenCalled();
+    });
   });
 });

@@ -18,7 +18,8 @@
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     box-shadow: var(--shadow-dialog);
-    z-index: calc(var(--z-dialog) + 1);
+    /* 與遮罩同一層，由 DOM 順序疊放：巢狀對話框的遮罩才會蓋在下層的彈窗之上 */
+    z-index: var(--z-dialog);
   }
 
   .popup[data-size='sm'] {

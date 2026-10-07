@@ -54,7 +54,8 @@ export function AlertDialog({
   return (
     <BaseAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <BaseAlertDialog.Portal>
-        <BaseAlertDialog.Backdrop {...slot('backdrop', styles.backdrop)} />
+        {/* 開在對話框上時也要有自己的遮罩（Base UI 預設不渲染巢狀的遮罩），下層才會被蓋暗 */}
+        <BaseAlertDialog.Backdrop forceRender {...slot('backdrop', styles.backdrop)} />
         <BaseAlertDialog.Popup className={cn(styles.popup, className)} {...rest}>
           <BaseAlertDialog.Title {...slot('title', styles.title)}>{title}</BaseAlertDialog.Title>
           {description && (

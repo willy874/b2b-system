@@ -71,7 +71,8 @@ export function Dialog({
       disablePointerDismissal={!dismissible}
     >
       <BaseDialog.Portal>
-        <BaseDialog.Backdrop {...slot('backdrop', styles.backdrop)} />
+        {/* 巢狀的對話框也要有自己的遮罩（Base UI 預設不渲染）：點上層之外只關上層，下層也會被蓋暗 */}
+        <BaseDialog.Backdrop forceRender {...slot('backdrop', styles.backdrop)} />
         <BaseDialog.Popup className={cn(styles.popup, className)} data-size={size} {...rest}>
           <header {...slot('header', styles.header)}>
             <BaseDialog.Title {...slot('title', styles.title)}>{title}</BaseDialog.Title>

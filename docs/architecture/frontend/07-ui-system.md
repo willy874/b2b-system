@@ -205,7 +205,7 @@ export function Dialog({
       disablePointerDismissal={!dismissible}
     >
       <BaseDialog.Portal>
-        <BaseDialog.Backdrop className={styles.backdrop} />
+        <BaseDialog.Backdrop forceRender className={styles.backdrop} />
         <BaseDialog.Popup
           className={cn(styles.popup, className)}
           data-size={size}
@@ -237,6 +237,11 @@ export const DialogPrimitive = BaseDialog;
 `dismissible={false}` 同時擋 **點遮罩與 Esc**（對話框內的按鈕照常關閉）。只顯示一次的內容也用它：
 建立 API token、建立 Webhook 與輪替簽章密鑰之後，明文顯示中只剩「我已保存」能關閉，誤按 Esc 不會讓密鑰消失
 （[`06-external-api.md`](../06-external-api.md) §9.2 D7、[`backend/17-webhook.md`](../backend/17-webhook.md) §6）。
+
+**巢狀的對話框逐層關閉**：在對話框裡再開一個對話框（例：使用者詳情 → 有效權限）時，Esc、點遮罩、對話框內的「關閉」都只關最上層，
+焦點回到開啟它的按鈕。Base UI 預設不渲染巢狀對話框的遮罩，點最上層之外會點到下層的遮罩、把兩層一起關掉，
+所以 `Dialog` 與 `AlertDialog` 的遮罩一律 `forceRender`。`Dialog` 的遮罩與彈窗用同一個 `--z-dialog`、由 DOM 順序疊放，
+上層的遮罩才會蓋住下層的彈窗（下層變暗，看得出現在在哪一層）。
 
 ### 3.3 Base UI 的狀態屬性
 
