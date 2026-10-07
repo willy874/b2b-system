@@ -1,6 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useNavigate } from '@tanstack/react-router';
@@ -28,7 +29,15 @@ export default function AnnouncementCreatePage() {
   const formId = useId();
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
   const [formError, setFormError] = useState<string>();
-  useUnsavedChangesGuard(Boolean(draft.title || draft.body));
+  const dirty = Boolean(draft.title || draft.body);
+  useUnsavedChangesGuard(dirty);
+  // session 非自願結束時保留輸入的內容（docs/architecture/frontend/09-state-and-storage.md §4.4）
+  const formDraft = useFormDraft({
+    key: 'announcement.create',
+    values: draft,
+    dirty,
+    onRestore: (saved) => setDraft((current) => ({ ...current, ...saved })),
+  });
 
   const request = toRequest(draft);
   // 取消、Esc、點遮罩都會被 guard 攔下；只有建立成功後的導覽（submit）帶 ignoreBlocker
@@ -76,6 +85,7 @@ export default function AnnouncementCreatePage() {
         </>
       }
     >
+      <FormDraftNotice draft={formDraft} />
       <AnnouncementForm
         id={formId}
         value={draft}

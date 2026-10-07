@@ -4,6 +4,7 @@ import { Field } from '@b2b-system/ui/Field';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
+import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
@@ -49,6 +50,18 @@ export default function WebhookCreatePage() {
         }
       : undefined,
   );
+
+  // session 非自願結束時保留輸入的內容；建立成功之後（顯示密鑰中）不存——密鑰不進任何儲存
+  const formDraft = useFormDraft({
+    key: 'webhook.create',
+    values: { name, urls, selected },
+    dirty: !created && (Boolean(name) || cleanUrls(urls).length > 0 || selected.length > 0),
+    onRestore: (saved) => {
+      if (saved.name !== undefined) setName(saved.name);
+      if (saved.urls) setUrls(saved.urls);
+      if (saved.selected) setSelected(saved.selected);
+    },
+  });
 
   // 取消、Esc、點遮罩都會被 guard 攔下；只有建立成功後按「完成」（openDetail）才略過
   const close = () => void navigate({ to: WebhookListRoute.to, search });
@@ -123,6 +136,7 @@ export default function WebhookCreatePage() {
             void submit();
           }}
         >
+          <FormDraftNotice draft={formDraft} />
           <Field label={t('webhook.field.name')} required>
             <Input
               value={name}

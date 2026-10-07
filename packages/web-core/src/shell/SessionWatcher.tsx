@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import { sessionStore, useHasSession } from '../auth';
 import { queryClient } from '../cache';
+import { handleSessionEndForDrafts, handleSessionStartForDrafts } from '../form';
 import { clearPinnedRowData, usePermissionStore } from '../store';
 import { loginSearchAfterSessionEnd } from './loginSearch';
 
@@ -76,6 +77,10 @@ export function SessionWatcher({ router, loginPath, isPublic }: SessionWatcherPr
   useEffect(
     () =>
       sessionStore.events.on('ended', (reason) => {
+        // 在導走之前：選擇加入的表單以同步取出的內容存成草稿（只有保留的原因；其他原因清掉那個人的草稿）
+        void handleSessionEndForDrafts(reason, sessionStore.getLastIdentity()).catch(
+          () => undefined,
+        );
         clearUserData();
         void router.navigate({
           to: loginPath,
@@ -87,6 +92,15 @@ export function SessionWatcher({ router, loginPath, isPublic }: SessionWatcherPr
         });
       }),
     [isPublic, loginPath, router],
+  );
+
+  // 登入成為某個人：別人的草稿不留給他（docs/architecture/frontend/09-state-and-storage.md §4.4）
+  useEffect(
+    () =>
+      sessionStore.events.on('refreshed', () => {
+        void handleSessionStartForDrafts(sessionStore.getIdentity()).catch(() => undefined);
+      }),
+    [],
   );
 
   return null;

@@ -55,6 +55,11 @@
     "selectAll": "Select all on this page",
     "selectRow": "Select row",
     "pinColumn": "Pin",
+    "formDraft": {
+      "message": "You have unsaved changes from when your session ended ({{time}}).",
+      "restore": "Restore",
+      "discard": "Discard"
+    },
     "batch": {
       "toolbar": "Bulk actions",
       "selected_one": "{{count}} selected",

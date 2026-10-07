@@ -7,6 +7,7 @@ import { Field } from '@b2b-system/ui/Field';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/web-core/errors';
+import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { formatDateTime } from '@b2b-system/web-shared/date';
@@ -80,6 +81,17 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
       cleanUrls(draft.urls).join('\n') !== webhook.targets.map((target) => target.url).join('\n') ||
       draft.events.join(',') !== webhook.events.join(','));
   useUnsavedChangesGuard(dirty);
+  // session 非自願結束時保留編輯中的內容（`Draft` 含開始編輯時的版本）
+  const formDraft = useFormDraft({
+    key: `webhook.detail:${webhook.id}`,
+    values: { draft },
+    dirty,
+    onRestore: (saved) => {
+      if (!saved.draft) return;
+      update.reset();
+      setDraft(saved.draft);
+    },
+  });
 
   const startEditing = (source: Webhook) => {
     update.reset();
@@ -148,6 +160,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
 
   return (
     <section data-testid="webhook-settings-section">
+      {canEdit && !draft && <FormDraftNotice draft={formDraft} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="m-0 text-sm font-semibold">{t('webhook.detail.settings')}</h3>
         {!draft && (
