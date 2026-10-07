@@ -57,7 +57,8 @@
     "view": {
       "label": "Layout",
       "grid": "Icons",
-      "list": "List"
+      "list": "List",
+      "options": "View options"
     },
     "paging": {
       "label": "Browsing mode",
@@ -148,6 +149,7 @@
       "subfolders_other": "{{count}} subfolders",
       "root": "All files",
       "location": "Current location",
+      "collapsed": "More parent folders",
       "tree": "Folders",
       "expand": "Expand",
       "collapse": "Collapse",

@@ -19,7 +19,9 @@ export function FileStorageUsage() {
   const ratio = data.quota > 0 ? data.used / data.quota : 1;
   return (
     <Progress
-      className="shrink-0 border-t border-[var(--color-border)] px-3 py-2"
+      // 畫面太矮、改由外框的主內容捲動時貼在視窗底邊：bottom 抵銷主內容的內距（DashboardShell 的 .content），
+      // 否則內距那一段會露出捲到後面的資料夾樹
+      className="sticky bottom-[calc(-1*var(--seed-space-6))] shrink-0 rounded-b-lg border-t border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2"
       value={Math.min(data.used, data.quota)}
       max={data.quota}
       tone={ratio >= NEARLY_FULL ? 'danger' : 'brand'}

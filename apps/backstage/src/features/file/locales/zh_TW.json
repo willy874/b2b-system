@@ -56,7 +56,8 @@
     "view": {
       "label": "排列方式",
       "grid": "圖示",
-      "list": "列表"
+      "list": "列表",
+      "options": "檢視選項"
     },
     "paging": {
       "label": "閱覽模式",
@@ -137,6 +138,7 @@
       "subfolders_other": "{{count}} 個子資料夾",
       "root": "所有檔案",
       "location": "目前位置",
+      "collapsed": "其他上層資料夾",
       "tree": "資料夾",
       "expand": "展開",
       "collapse": "收合",

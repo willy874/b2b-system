@@ -10,6 +10,7 @@ import type { CollectedUpload } from '../../upload/collectEntries';
 import type { BrowserItemVM } from './adapter';
 import { useFileActions } from './useFileActions';
 import { useFileDialogs } from './useFileDialogs';
+import { useFileFilters } from './useFileFilters';
 import { useFileManagerItems } from './useFileManagerItems';
 import { useFileSearch } from './useFileSearch';
 import { useFileSelection } from './useFileSelection';
@@ -77,6 +78,7 @@ export function useFileManagerPage() {
   const hasFilters = Boolean(search.keyword || search.category || search.tag);
   // 標籤篩選的選項（`file` 標籤組；進得了檔案管理器就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('file'));
+  const filterBar = useFileFilters(search, nav.setFilters, tags.data?.items);
 
   return {
     nav,
@@ -100,6 +102,6 @@ export function useFileManagerPage() {
     onUpload,
     onOpen,
     hasFilters,
-    tags: tags.data?.items,
+    filterBar,
   };
 }

@@ -1,5 +1,8 @@
+import { useTranslation } from '@b2b-system/web-core/locales';
+
 import { isFileItem } from './adapter';
 import { FileAccessRequestDialog } from './components/FileAccessRequestDialog';
+import { FileActions } from './components/FileActions';
 import { FileBatchProgress } from './components/FileBatchProgress';
 import { FileBreadcrumb } from './components/FileBreadcrumb';
 import { FileBrowser } from './components/FileBrowser';
@@ -45,39 +48,50 @@ export default function FileManagerPage() {
     onUpload,
     onOpen,
     hasFilters,
-    tags,
+    filterBar,
   } = useFileManagerPage();
+  const { t } = useTranslation();
   const { setFolder } = nav;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="file-manager-page">
-      <FileManagerHeader total={data.total} />
+      <FileManagerHeader
+        actions={
+          <FileActions
+            canUpload={permission.canUpload}
+            onUpload={onUpload}
+            canCreateFolder={permission.canCreateFolder}
+            onCreateFolder={() => renameTarget.createFolder(folderId)}
+            canShare={permission.canShare}
+            onShare={() => dialogs.share(currentFolder)}
+          />
+        }
+      />
 
       <FileToolbar
-        keyword={search.keyword}
-        category={search.category}
-        tag={search.tag}
-        tags={tags}
-        onFiltersChange={nav.setFilters}
+        filters={filterBar}
+        onKeywordChange={(keyword) => nav.setFilters({ ...filterBar.value, keyword }, true)}
         sort={preference.sort}
         onSortChange={(sort) => preference.update({ sort })}
         viewMode={preference.viewMode}
         onViewModeChange={(viewMode) => preference.update({ viewMode })}
         pagingMode={preference.pagingMode}
         onPagingModeChange={(pagingMode) => preference.update({ pagingMode })}
-        canUpload={permission.canUpload}
-        onUpload={onUpload}
-        canCreateFolder={permission.canCreateFolder}
-        onCreateFolder={() => renameTarget.createFolder(folderId)}
-        canShare={permission.canShare}
-        onShare={() => dialogs.share(currentFolder)}
         onRefresh={() => {
           data.refetch();
           void folders.refetch();
         }}
         refreshing={data.isFetching && !data.isPending}
       />
-      <FileBreadcrumb path={folders.path} onNavigate={setFolder} itemDrag={itemDrag} />
+      <div className="flex items-center gap-3">
+        <FileBreadcrumb path={folders.path} onNavigate={setFolder} itemDrag={itemDrag} />
+        <span
+          className="shrink-0 text-sm whitespace-nowrap text-[var(--color-fg-muted)]"
+          data-testid="file-total"
+        >
+          {t('file.total', { count: data.total })}
+        </span>
+      </div>
 
       {locked && currentFolder && (
         <FileLockedNotice

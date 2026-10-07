@@ -159,7 +159,7 @@ export function FileFolderSidebar(props: Omit<FileFolderTreeProps, 'className' |
       className="hidden w-56 shrink-0 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] lg:flex"
       aria-label={t('file.folder.tree')}
     >
-      {/* 資料夾多時只捲動樹，容量固定在側欄底部 */}
+      {/* 資料夾多時只捲動樹，容量固定在側欄底部；畫面太矮、改由主內容捲動時，容量 sticky 在可視範圍的底部 */}
       <div className="min-h-0 flex-1 overflow-auto p-1">
         <FileFolderTree {...props} data-testid="file-folder-tree" />
       </div>
