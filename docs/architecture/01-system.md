@@ -262,7 +262,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   （有自己 `add_header` 的 location 要再 include 一次，nginx 不會繼承）。
 - **nginx 的容量與強化**（`deploy/nginx.main.conf`）：每條 WebSocket 佔兩個連線，`worker_connections 8192`、
   `worker_rlimit_nofile 65535`（compose 的 `ulimits` 同步放寬）；對 api 用 `upstream` ＋ `keepalive`（`/api/` 清掉
-  `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`。
+  `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`；
+  存取日誌的 `log_format` 記 `$request_method $uri $server_protocol` 而不是 `$request`，不留 query string（OIDC 的 `code`／`state`、重設密碼的 token）。
   映像是 `nginxinc/nginx-unprivileged`（uid 101、listen 8080），compose 以唯讀根目錄、`cap_drop: [ALL]` 執行。
   三個 nginx 都有 `/_nginx_health`（只接受容器內的連線），前端映像的 `HEALTHCHECK` 與 external-gateway 的 healthcheck 打它，
   不依賴 api 的狀態。改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭、X-Forwarded-For、健康檢查）；
