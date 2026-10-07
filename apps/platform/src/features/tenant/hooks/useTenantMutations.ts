@@ -41,6 +41,15 @@ export function useUpdateTenantMutation() {
   });
 }
 
+/** 啟用的功能（docs/architecture/frontend/02-plugin-system.md §9.2 D8）：與改名共用 PATCH，提示不同。 */
+export function useUpdateTenantFeaturesMutation() {
+  const changed = useTenantChange('update', 'tenant.feature.success');
+  return useMutation({
+    ...getUpdateTenantMutationOptions(),
+    onSuccess: (tenant: PlatformTenant) => changed(tenant.id),
+  });
+}
+
 /** 試行開關的租戶層覆寫（docs/architecture/05-tenancy.md §11.2 D7）：列表上「覆寫它的租戶數」也跟著變。 */
 export function useUpdateTenantFlagsMutation() {
   const toast = useToast();

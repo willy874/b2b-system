@@ -23,7 +23,7 @@ import {
   TENANT_FEATURE_PARAM_LABEL_KEY,
   TENANT_FEATURES,
 } from '../../../constants';
-import { useUpdateTenantMutation } from '../../../hooks/useTenantMutations';
+import { useUpdateTenantFeaturesMutation } from '../../../hooks/useTenantMutations';
 import { formatParamValue } from '../../../utils';
 import { TenantFeatureParamDialog } from './TenantFeatureParamDialog';
 
@@ -44,7 +44,7 @@ export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const showError = useErrorToast();
-  const update = useUpdateTenantMutation();
+  const update = useUpdateTenantFeaturesMutation();
   const queryClient = useQueryClient();
   const enabled = new Set(tenant.features);
   /** 不屬於任何 feature、對整個租戶生效的參數（例：登入的速率上限）：另列一區。 */

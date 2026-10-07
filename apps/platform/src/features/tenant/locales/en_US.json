@@ -126,7 +126,8 @@
       "externalApiDisableWarning": "Every integration calling the external API with an API token for {{code}} fails immediately (404), and service accounts and tokens cannot be managed in the backstage (including revoking them) until this is turned back on.",
       "group": "Groups",
       "groupDescription": "Organize users into groups to assign roles, grant folder access, and target announcements. When off, the backstage has no group page and everything granted through groups is suspended; groups, members, and grants are kept and take effect again as soon as it is turned back on.",
-      "groupDisableWarning": "Roles, folder access, and announcement audiences that {{code}} users get through groups stop applying immediately until this is turned back on; anyone whose admin access comes only from a group loses it."
+      "groupDisableWarning": "Roles, folder access, and announcement audiences that {{code}} users get through groups stop applying immediately until this is turned back on; anyone whose admin access comes only from a group loses it.",
+      "success": "Features updated"
     },
     "flag": {
       "title": "Feature flags",
