@@ -29,10 +29,14 @@ const FILE_NAME_PATTERN = new RegExp(`^[^${FORBIDDEN_NAME_CHARS}]+$`);
 /** 一段連續的 `FORBIDDEN_NAME_CHARS`：把外來的字串（例：顯示名稱）清理成合法的名稱時用。 */
 export const FORBIDDEN_NAME_CHARS_RUN = new RegExp(`[${FORBIDDEN_NAME_CHARS}]+`, 'g');
 
-/** 顯示用檔名：不可含路徑分隔字元、控制字元、雙向文字控制與零寬字元（下載時會寫進 Content-Disposition）。 */
+/**
+ * 顯示用檔名：不可含路徑分隔字元、控制字元、雙向文字控制與零寬字元（下載時會寫進 Content-Disposition）。
+ * 一律轉成 NFC：macOS 的瀏覽器送出的檔名常是 NFD，「é」拆成「e」＋組合符號，看起來一樣卻躲得過同層唯一索引。
+ */
 export const FileNameSchema = z
   .string()
   .trim()
+  .normalize('NFC')
   .min(1)
   .max(255)
   .regex(

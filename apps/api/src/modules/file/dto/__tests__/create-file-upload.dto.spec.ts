@@ -54,6 +54,12 @@ describe('檔名與資料夾名稱的字元（docs/architecture/backend/09-file.
     expect(UpdateFileFolderSchema.safeParse({ name: bad }).success).toBe(false);
   });
 
+  it('名稱轉成 NFC：NFD 的「é」與預組字視為同一個名稱', () => {
+    const decomposed = 'Cafe\u0301';
+    expect(FileNameSchema.parse(decomposed)).toBe('Caf\u00e9');
+    expect(FileFolderNameSchema.parse(decomposed)).toBe('Caf\u00e9');
+  });
+
   it('頭尾的 BOM 與空白被 trim 掉，不算違規', () => {
     expect(FileNameSchema.parse('﻿a.txt ')).toBe('a.txt');
   });

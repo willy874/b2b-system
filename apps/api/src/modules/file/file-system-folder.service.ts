@@ -310,11 +310,15 @@ const MAX_FOLDER_NAME_LENGTH = 255;
 const MAX_NUMBERED_NAME = 20;
 
 /**
- * 顯示名稱不經過資料夾名稱的驗證：把資料夾名稱不允許的字元（`/`、`\`、控制字元、雙向文字控制、零寬字元，
- * `FileNameSchema`）換成空白，`.`、`..` 視為沒有名稱。
+ * 顯示名稱不經過資料夾名稱的驗證：與 `FileNameSchema` 一樣轉成 NFC，把資料夾名稱不允許的字元（`/`、`\`、控制字元、
+ * 雙向文字控制、零寬字元）換成空白，`.`、`..` 視為沒有名稱。
  */
 function toFolderName(value: string): string {
-  const cleaned = value.replaceAll(FORBIDDEN_NAME_CHARS_RUN, ' ').replaceAll(/\s+/g, ' ').trim();
+  const cleaned = value
+    .normalize('NFC')
+    .replaceAll(FORBIDDEN_NAME_CHARS_RUN, ' ')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
   return cleaned === '.' || cleaned === '..' ? '' : cleaned;
 }
 

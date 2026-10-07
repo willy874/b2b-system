@@ -128,7 +128,7 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | `id` | uuid | 對外唯一識別 |
-| `name` | text | 顯示用檔名（可改名；不可含 `/`、`\`、Unicode 控制字元 `Cc`（C0、DEL、C1：U+0000–U+001F、U+007F–U+009F）、雙向文字控制（U+061C、U+200E、U+200F、U+202A–U+202E、U+2066–U+2069）、零寬與分隔字元（U+200B、U+2028、U+2029、U+FEFF；頭尾的會先被 trim 掉），≤ 255。保留 ZWNJ／ZWJ（U+200C／U+200D），以 ZWJ 串起來的 emoji 照常可用。雙向文字控制能把 `invoice` ＋ U+202E ＋ `fdp.exe` 顯示成 `invoiceexe.pdf`、零寬字元能做出看起來同名的兩個資料夾，所以一律擋下；規則只套用在新增與改名，既有的名稱不遷移） |
+| `name` | text | 顯示用檔名（可改名；不可含 `/`、`\`、Unicode 控制字元 `Cc`（C0、DEL、C1：U+0000–U+001F、U+007F–U+009F）、雙向文字控制（U+061C、U+200E、U+200F、U+202A–U+202E、U+2066–U+2069）、零寬與分隔字元（U+200B、U+2028、U+2029、U+FEFF；頭尾的會先被 trim 掉），≤ 255。保留 ZWNJ／ZWJ（U+200C／U+200D），以 ZWJ 串起來的 emoji 照常可用。雙向文字控制能把 `invoice` ＋ U+202E ＋ `fdp.exe` 顯示成 `invoiceexe.pdf`、零寬字元能做出看起來同名的兩個資料夾，所以一律擋下；規則只套用在新增與改名，既有的名稱不遷移。名稱一律轉成 NFC：macOS 的瀏覽器送出的檔名常是 NFD（「é」拆成「e」＋組合符號），看起來一樣卻躲得過同層唯一索引；租戶 migration 0038 把既有的 NFD 名稱一併轉換，轉換後會與同層撞名的資料夾保持原樣） |
 | `content_type` | text | 登記時的 MIME，小寫、不含參數 |
 | `size` | bigint | `pending`：登記的大小；`ready`：物件儲存實際大小（兩者必須相同） |
 | `storage_key` | text（unique） | `files/<id>`——只由 id 決定，改名不搬物件，也沒有編碼、重名、路徑穿越問題 |
