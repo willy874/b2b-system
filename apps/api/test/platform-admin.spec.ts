@@ -25,6 +25,7 @@ import type { PlatformTestDatabase, TestDatabase } from './db';
 import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
+import { clearLoginDelay } from './login-throttle';
 import { testTenantContext } from './tenant';
 
 class RecordingMailTransport extends MailTransport {
@@ -417,6 +418,8 @@ describe('平台管理者的管理、稽核、背景工作與外部 IdP 開關�
         await expect(login('pa-lock@example.com', 'Wrong-Harbor-Lantern-1')).rejects.toMatchObject({
           code: 'AUTH_INVALID_CREDENTIALS',
         });
+        // oxlint-disable-next-line no-await-in-loop -- 第 3 次之後的嘗試會先被漸進延遲擋下
+        await clearLoginDelay(app, 'pa-lock@example.com', 'platform');
       }
       const locked = await adminRow(id);
       expect(locked.status).toBe('active');

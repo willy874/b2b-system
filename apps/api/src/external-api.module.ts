@@ -18,6 +18,7 @@ import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
+import { RateLimitModule } from './core/rate-limit';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule } from './core/tenant';
@@ -81,6 +82,8 @@ import { UserModule } from './modules/user/user.module';
     PlatformAdminModule,
     // argon2 的並行上限：全程序共用一個（docs/architecture/backend/04-auth.md §4.1）
     PasswordHasherModule,
+    // 限流與登入延遲的計數（docs/architecture/backend/03-api-conventions.md §8）
+    RateLimitModule,
 
     // 對外的功能（對外的 controller 在各模組的 external/）
     ApiTokenModule,

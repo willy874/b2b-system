@@ -17,6 +17,7 @@ import {
   roleHolderTuple,
   rolePermissionTuple,
   roles,
+  userLoginSources,
   users,
 } from '@/db/schema';
 import { AuthTokenService } from '@/modules/credential/auth-token.service';
@@ -26,6 +27,7 @@ import { heldRoleIds } from './authz';
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
+import { clearLoginDelay } from './login-throttle';
 import { inTestTenant } from './tenant';
 import { currentRoleIds, userVersion } from './versions';
 
@@ -96,6 +98,12 @@ async function tokenOf(credentials: { email: string; password: string }): Promis
   return (response.body as { data: { accessToken: string } }).data.accessToken;
 }
 
+/** 忘掉這個人登入成功過的來源：之後的錯誤密碼才會累計鎖定（docs/architecture/backend/04-auth.md §3.4）。 */
+async function forgetLoginSources(email: string): Promise<void> {
+  const user = await userOf(email);
+  await db.delete(userLoginSources).where(eq(userLoginSources.userId, user.id));
+}
+
 /** 管理者把停用的人改回 active。 */
 async function reactivate(token: string, id: string) {
   return request(http)
@@ -148,11 +156,14 @@ describe('帳號安全', () => {
       await createUser(VICTIM.email, VICTIM.password, { roleSlug: 'member' });
     });
 
-    it('錯滿上限次數後鎖定：status 不變、只寫 locked_until；列表顯示為 locked', async () => {
+    it('從陌生來源錯滿上限次數後鎖定：status 不變、只寫 locked_until；列表顯示為 locked', async () => {
       const token = await tokenOf(VICTIM);
+      await forgetLoginSources(VICTIM.email);
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
         // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
         expect(errorCode(await login(wrong).expect(401))).toBe('AUTH_INVALID_CREDENTIALS');
+        // oxlint-disable-next-line no-await-in-loop -- 第 3 次之後的嘗試會先被漸進延遲擋下
+        await clearLoginDelay(app, VICTIM.email);
       }
       const victim = await userOf(VICTIM.email);
       expect(victim.status).toBe('active');
@@ -201,11 +212,13 @@ describe('帳號安全', () => {
     });
 
     it('鎖定到期後再錯一次不會立刻重鎖（從 1 重新計算）', async () => {
+      await forgetLoginSources(VICTIM.email);
       await db
         .update(users)
         .set({ failedLoginCount: MAX_ATTEMPTS, lockedUntil: new Date(Date.now() - 1000) })
         .where(eq(users.email, VICTIM.email));
       await login(wrong).expect(401);
+      await clearLoginDelay(app, VICTIM.email);
       const victim = await userOf(VICTIM.email);
       expect(victim.failedLoginCount).toBe(1);
       expect(victim.lockedUntil).toBeNull();
@@ -239,6 +252,55 @@ describe('帳號安全', () => {
         .send({ token: raw, newPassword: 'FreshStartPassword!2026' })
         .expect(200);
       await login({ email: VICTIM.email, password: 'FreshStartPassword!2026' }).expect(200);
+    });
+  });
+
+  describe('漸進延遲與已知來源（docs/architecture/backend/04-auth.md §3.4）', () => {
+    it('連續 3 次錯誤後，下一次嘗試（密碼正確也一樣）回 429 RATE_LIMITED 與 Retry-After；不累計失敗次數', async () => {
+      const slow = { email: 'slow@example.com', password: 'SlowPassword!2026' };
+      await createUser(slow.email, slow.password);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
+        await login({ email: slow.email, password: 'WrongPassword!2026' }).expect(401);
+      }
+      const blocked = await login(slow).expect(429);
+      expect(errorCode(blocked)).toBe('RATE_LIMITED');
+      expect(Number(blocked.headers['retry-after'])).toBeGreaterThanOrEqual(1);
+      // 被延遲擋下的嘗試不經過帳密檢查：不計入鎖定
+      expect((await userOf(slow.email)).failedLoginCount).toBe(3);
+
+      // 不存在的 email 一樣被延遲（不透露帳號是否存在）
+      const ghost = { email: 'ghost@example.com', password: 'WrongPassword!2026' };
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
+        await login(ghost).expect(401);
+      }
+      expect(errorCode(await login(ghost).expect(429))).toBe('RATE_LIMITED');
+
+      await clearLoginDelay(app, slow.email);
+      await login(slow).expect(200);
+    });
+
+    it('已知來源的錯誤密碼不累計鎖定：知道 email 的人不能把對方鎖住，對方照常登入', async () => {
+      const regular = { email: 'regular@example.com', password: 'RegularPassword!2026' };
+      const id = await createUser(regular.email, regular.password);
+      await login(regular).expect(200);
+      for (let attempt = 0; attempt < MAX_ATTEMPTS + 1; attempt += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
+        await login({ email: regular.email, password: 'WrongPassword!2026' }).expect(401);
+        // oxlint-disable-next-line no-await-in-loop -- 只看鎖定，不看延遲
+        await clearLoginDelay(app, regular.email);
+      }
+      expect(await userOf(regular.email)).toMatchObject({ failedLoginCount: 0, lockedUntil: null });
+      const failures = await db
+        .select()
+        .from(auditLogs)
+        .where(and(eq(auditLogs.action, 'auth.login.failure'), eq(auditLogs.resourceId, id)));
+      expect(failures).toHaveLength(MAX_ATTEMPTS + 1);
+      expect(
+        failures.every((row) => (row.metadata as { reason?: string }).reason === 'known_source'),
+      ).toBe(true);
+      await login(regular).expect(200);
     });
   });
 

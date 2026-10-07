@@ -1,13 +1,14 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { SkipThrottle, ThrottlerStorageService } from '@nestjs/throttler';
+import { SkipThrottle } from '@nestjs/throttler';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AccessTokenVerifier } from '@/common/auth';
 import { RateLimit } from '@/common/rate-limit';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
+import { MemoryRateLimitStore } from '@/core/rate-limit';
 import { runInTenantContext } from '@/core/tenant';
 
 import { RateLimitGuard } from '../rate-limit.guard';
@@ -33,6 +34,7 @@ const LIMITS: Record<string, number | string> = {
   REFRESH_RATE_LIMIT: 2,
   REFRESH_IP_RATE_LIMIT: 4,
   REFRESH_COOKIE_NAME: 'refresh_token',
+  RATE_LIMIT_EXEMPT_CIDRS: '10.0.0.0/8',
 };
 
 const tenantOf = (id: string) => ({
@@ -62,10 +64,10 @@ interface CallOptions {
   type?: 'http' | 'ws';
 }
 
-const storages: ThrottlerStorageService[] = [];
+const storages: MemoryRateLimitStore[] = [];
 
 function createGuard() {
-  const storage = new ThrottlerStorageService();
+  const storage = new MemoryRateLimitStore();
   storages.push(storage);
   const verifier = {
     verifyClaims: (token: string | undefined) =>
@@ -119,7 +121,7 @@ async function repeat<T>(times: number, call: () => Promise<T>): Promise<T[]> {
 }
 
 afterEach(() => {
-  for (const storage of storages.splice(0)) storage.onApplicationShutdown();
+  for (const storage of storages.splice(0)) storage.onModuleDestroy();
 });
 
 describe('RateLimitGuard（docs/architecture/backend/03-api-conventions.md §8）', () => {
@@ -191,5 +193,31 @@ describe('RateLimitGuard（docs/architecture/backend/03-api-conventions.md §8�
     expect(results.every((result) => result.status === 200)).toBe(true);
     const ws = await repeat(5, () => call('list', { type: 'ws' }));
     expect(ws.every((result) => result.status === 200)).toBe(true);
+  });
+
+  it('豁免的網段（RATE_LIMIT_EXEMPT_CIDRS）只略過 IP 桶：帳號的桶照常計', async () => {
+    const call = createGuard();
+    const anonymous = await repeat(5, () => call('list', { ip: '10.1.2.3' }));
+    expect(anonymous.every((result) => result.status === 200)).toBe(true);
+
+    const login = () => call('login', { ip: '10.1.2.3', body: { email: 'a@example.com' } });
+    await repeat(2, login);
+    expect((await login()).status).toBe(429);
+  });
+
+  it('租戶的白名單（rateLimit.trustedCidrs）：登入的 IP 桶 ×10，其他來源不變', async () => {
+    const call = createGuard();
+    const tenant = {
+      ...tenantOf('acme'),
+      featureParams: { 'rateLimit.trustedCidrs': '198.51.100.0/24' },
+    };
+    const login = (ip: string) =>
+      runInTenantContext(tenant, () =>
+        call('login', { ip, body: { email: `user${Math.random()}@example.com` } }),
+      );
+    const trusted = await repeat(10, () => login('198.51.100.7'));
+    expect(trusted.every((result) => result.status === 200)).toBe(true);
+    const others = await repeat(5, () => login('203.0.113.99'));
+    expect(others.map((result) => result.status)).toEqual([200, 200, 200, 200, 429]);
   });
 });

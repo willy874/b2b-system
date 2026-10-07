@@ -169,8 +169,11 @@
       "success": "已更新參數",
       "rateLimit": {
         "authPerMinute": "登入次數上限",
-        "authPerMinuteDescription": "這個租戶每分鐘所有登入請求合計的上限。被攻擊時只有這個租戶回「操作太頻繁」，不影響其他租戶。"
+        "authPerMinuteDescription": "這個租戶每分鐘所有登入請求合計的上限。被攻擊時只有這個租戶回「操作太頻繁」，不影響其他租戶。",
+        "trustedCidrs": "信任的網段",
+        "trustedCidrsDescription": "客戶公司或 VPN 的網段（CIDR，以逗號或空白分隔，例：203.0.113.0/24）。從這些網段登入時，每個 IP 的上限放寬為 10 倍，整間公司共用一個 NAT 也不會被擋；每個帳號的上限、延遲與鎖定不變。"
       },
+      "empty": "未設定",
       "forever": "永久",
       "foreverHint": "；{{value}} 表示永久"
     },

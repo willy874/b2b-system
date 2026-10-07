@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { LoginThrottle, MemoryRateLimitStore } from '@/core/rate-limit';
 import { hashPassword } from '@/modules/credential/password';
 import { PasswordHasher } from '@/modules/credential/password-hasher';
 
@@ -23,7 +24,7 @@ function passwordHasher(): PasswordHasher {
   return new PasswordHasher({ get: (key: string) => values[key] } as never);
 }
 
-function setup(admin: { status: string; lockedUntil: Date | null }) {
+function setup(admin: { status: string; lockedUntil: Date | null }, knownSource = false) {
   const row = { id: 'a1', email: 'ops@example.com', passwordHash, ...admin };
   const repo = {
     findByEmail: vi.fn(async () => row),
@@ -31,6 +32,10 @@ function setup(admin: { status: string; lockedUntil: Date | null }) {
     update: vi.fn(async () => undefined),
   };
   const audit = { recordSafely: vi.fn(async () => undefined) };
+  const loginSources = {
+    isKnown: vi.fn(async () => knownSource),
+    remember: vi.fn(async () => undefined),
+  };
   const service = new PlatformAdminService(
     repo as never,
     audit as never,
@@ -38,8 +43,10 @@ function setup(admin: { status: string; lockedUntil: Date | null }) {
       get: () => 5,
     } as never,
     passwordHasher(),
+    new LoginThrottle(new MemoryRateLimitStore()),
+    loginSources as never,
   );
-  return { service, repo, audit };
+  return { service, repo, audit, loginSources };
 }
 
 const login = (service: PlatformAdminService, password = PASSWORD) =>
@@ -87,5 +94,40 @@ describe('PlatformAdminService.verifyCredentials（docs/architecture/backend/04-
       code: 'AUTH_INVALID_CREDENTIALS',
     });
     expect(repo.recordFailedLogin).not.toHaveBeenCalled();
+  });
+
+  it('已知來源、密碼錯誤：不累計鎖定，只留稽核（§3.4）', async () => {
+    const { service, repo, audit } = setup({ status: 'active', lockedUntil: null }, true);
+
+    await expect(login(service, 'Wrong-Password-2026')).rejects.toMatchObject({
+      code: 'AUTH_INVALID_CREDENTIALS',
+    });
+    expect(repo.recordFailedLogin).not.toHaveBeenCalled();
+    expect(audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { reason: 'known_source' } }),
+    );
+  });
+
+  it('連續 3 次錯誤後，下一次在驗證密碼前就回 RATE_LIMITED（§3.4）', async () => {
+    const { service, repo } = setup({ status: 'active', lockedUntil: null });
+    for (let i = 0; i < 3; i += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- 依序送出才有確定的次數
+      await expect(login(service, 'Wrong-Password-2026')).rejects.toMatchObject({
+        code: 'AUTH_INVALID_CREDENTIALS',
+      });
+    }
+    repo.findByEmail.mockClear();
+
+    await expect(login(service)).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      details: { retryAfterSeconds: 1 },
+    });
+    expect(repo.findByEmail).not.toHaveBeenCalled();
+  });
+
+  it('成功登入：記住來源', async () => {
+    const { service, loginSources } = setup({ status: 'active', lockedUntil: null });
+    await login(service);
+    expect(loginSources.remember).toHaveBeenCalledWith('a1', expect.any(String));
   });
 });

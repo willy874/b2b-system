@@ -4,13 +4,19 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
+import { getRequestContext } from '@/core/http';
+import { ipPrefixOf, LoginThrottle } from '@/core/rate-limit';
 import type { PlatformAdminRow } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
 import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
 import { PasswordHasher } from '@/modules/credential/password-hasher';
 
+import { PlatformAdminLoginSourceRepository } from './platform-admin-login-source.repository';
 import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';
+
+/** 平台管理者登入的漸進延遲計數範圍（租戶用租戶 id）。 */
+const PLATFORM_THROTTLE_SCOPE = 'platform';
 
 /**
  * 平台管理者的帳號（docs/architecture/05-tenancy.md §10.2 D5、D8）：apps/platform 不帶租戶的登入互動對這裡驗證。
@@ -23,13 +29,19 @@ export class PlatformAdminService {
     private readonly audit: PlatformAuditService,
     private readonly config: ConfigService<Env, true>,
     private readonly passwords: PasswordHasher,
+    private readonly loginThrottle: LoginThrottle,
+    private readonly loginSources: PlatformAdminLoginSourceRepository,
   ) {}
 
   async verifyCredentials(dto: { email: string; password: string }): Promise<PlatformAdminRow> {
+    // 漸進延遲（docs/architecture/backend/04-auth.md §3.4），計數與租戶分開
+    const ipPrefix = ipPrefixOf(getRequestContext()?.ip);
+    await this.loginThrottle.assertAllowed(PLATFORM_THROTTLE_SCOPE, dto.email, ipPrefix);
     const admin = await this.repo.findByEmail(dto.email);
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
     if (!admin) {
       await this.passwords.verifyAgainstDummy(dto.password);
+      await this.loginThrottle.recordFailure(PLATFORM_THROTTLE_SCOPE, dto.email, ipPrefix);
       await this.audit.recordSafely({
         action: 'platformAuth.login.failure',
         resourceType: 'platformAuth',
@@ -48,8 +60,23 @@ export class PlatformAdminService {
     const lockedUntil =
       admin.lockedUntil && admin.lockedUntil.getTime() > Date.now() ? admin.lockedUntil : null;
     if (!ok) {
-      // 鎖定中不計數、不延長鎖定
-      if (!lockedUntil) await this.registerFailedAttempt(admin);
+      await this.loginThrottle.recordFailure(PLATFORM_THROTTLE_SCOPE, dto.email, ipPrefix);
+      // 鎖定中不計數、不延長鎖定；已知來源的錯誤也不累計鎖定（同租戶）
+      if (lockedUntil) throw new AppException('AUTH_INVALID_CREDENTIALS');
+      if (await this.loginSources.isKnown(admin.id, ipPrefix)) {
+        await this.audit.recordSafely({
+          action: 'platformAuth.login.failure',
+          resourceType: 'platformAuth',
+          resourceId: admin.id,
+          result: 'failure',
+          actorId: admin.id,
+          actorEmail: admin.email,
+          errorCode: 'AUTH_INVALID_CREDENTIALS',
+          metadata: { reason: 'known_source' },
+        });
+      } else {
+        await this.registerFailedAttempt(admin);
+      }
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
 
@@ -75,6 +102,8 @@ export class PlatformAdminService {
       lastLoginAt: new Date(),
       status: 'active',
     });
+    await this.loginThrottle.reset(PLATFORM_THROTTLE_SCOPE, dto.email, ipPrefix);
+    await this.loginSources.remember(admin.id, ipPrefix);
     await this.audit.recordSafely({
       action: 'platformAuth.login.success',
       resourceType: 'platformAuth',

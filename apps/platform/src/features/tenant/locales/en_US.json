@@ -172,8 +172,11 @@
       "success": "Parameter updated",
       "rateLimit": {
         "authPerMinute": "Sign-in rate limit",
-        "authPerMinuteDescription": "Maximum sign-in requests per minute across the whole tenant. Under attack, only this tenant gets \"too many requests\"; other tenants are unaffected."
+        "authPerMinuteDescription": "Maximum sign-in requests per minute across the whole tenant. Under attack, only this tenant gets \"too many requests\"; other tenants are unaffected.",
+        "trustedCidrs": "Trusted networks",
+        "trustedCidrsDescription": "The customer's office or VPN ranges (CIDR, separated by commas or spaces, e.g. 203.0.113.0/24). Sign-ins from these networks get 10× the per-IP limit, so a whole company behind one NAT is not throttled; per-account limits, delays and lockout still apply."
       },
+      "empty": "Not set",
       "forever": "Forever",
       "foreverHint": "; {{value}} keeps them forever"
     },

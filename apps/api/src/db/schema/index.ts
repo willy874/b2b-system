@@ -18,6 +18,7 @@ export * from './revisions';
 export * from './roles';
 export * from './soft-delete';
 export * from './system-settings';
+export * from './user-login-sources';
 export * from './users';
 export * from './webhooks';
 export * from './tags';

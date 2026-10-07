@@ -113,6 +113,7 @@ export const TENANT_FEATURE_PARAM_LABEL_KEY = {
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProviders',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrls',
   'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinute',
+  'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrs',
 } as const satisfies Record<TenantFeatureParamKey, string>;
 
 export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
@@ -123,6 +124,7 @@ export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProvidersDescription',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrlsDescription',
   'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinuteDescription',
+  'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrsDescription',
 } as const satisfies Record<TenantFeatureParamKey, string>;
 
 /** 值帶單位的寫法（`{{value}}`）。 */

@@ -8,6 +8,7 @@ import { defineJob, JobQueue } from '@/core/jobs';
 
 import { AuthTokenService } from './auth-token.service';
 import { TOKEN_CLEANUP_BATCH_SIZE } from './credential.constants';
+import { LoginSourceService } from './login-source.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
 
 const CLEANUP_OPTIONS = { exclusive: true, retryLimit: 2, retryDelaySeconds: 300 } as const;
@@ -30,6 +31,7 @@ export class AuthTokenCleanupJobs implements OnModuleInit {
     private readonly jobs: JobQueue,
     private readonly refreshTokens: RefreshTokenRepository,
     private readonly authTokens: AuthTokenService,
+    private readonly loginSources: LoginSourceService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -39,7 +41,7 @@ export class AuthTokenCleanupJobs implements OnModuleInit {
     });
   }
 
-  async run(): Promise<{ refreshTokens: number; authTokens: number }> {
+  async run(): Promise<{ refreshTokens: number; authTokens: number; loginSources: number }> {
     const days = this.config.get('AUTH_TOKEN_RETENTION_DAYS', { infer: true });
     const refreshTokens = await deleteInBatches(
       (size) => this.refreshTokens.deleteExpiredBatch(days, size),
@@ -49,7 +51,12 @@ export class AuthTokenCleanupJobs implements OnModuleInit {
       (size) => this.authTokens.deleteStaleBatch(days, size),
       TOKEN_CLEANUP_BATCH_SIZE,
     );
-    this.logger.log({ refreshTokens, authTokens }, '已清除過期的 token');
-    return { refreshTokens, authTokens };
+    // 超過 30 天沒有成功登入的來源（docs/architecture/backend/04-auth.md §3.4）
+    const loginSources = await deleteInBatches(
+      (size) => this.loginSources.deleteStaleBatch(size),
+      TOKEN_CLEANUP_BATCH_SIZE,
+    );
+    this.logger.log({ refreshTokens, authTokens, loginSources }, '已清除過期的 token');
+    return { refreshTokens, authTokens, loginSources };
   }
 }

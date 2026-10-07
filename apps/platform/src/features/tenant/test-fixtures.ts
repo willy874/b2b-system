@@ -14,6 +14,19 @@ export const FEATURE_PARAMS: readonly TenantFeatureParam[] = [
   integerParam('identityProvider.maxProviders', 'identityProvider', 10, 1, 100, 'count'),
   integerParam('webhook.maxUrls', 'webhook', 1, 1, 500, 'count'),
   integerParam('rateLimit.authPerMinute', null, 1200, 60, 100_000, 'perMinute'),
+  {
+    key: 'rateLimit.trustedCidrs',
+    feature: null,
+    type: 'string',
+    value: '',
+    defaultValue: '',
+    overridden: false,
+    unit: null,
+    min: null,
+    max: null,
+    foreverValue: null,
+    maxLength: 1000,
+  },
 ];
 
 function integerParam(

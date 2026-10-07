@@ -249,6 +249,10 @@ export const authTokens = pgTable(
 );
 ```
 
+`user_login_sources`（登入成功過的來源）：`(user_id, ip_prefix)` 主鍵、`last_success_at`（索引，清理用），`user_id` 隨使用者刪除。
+30 天內成功登入過的來源打錯密碼不累計鎖定（[`04-auth.md`](04-auth.md) §3.4）；過期的列由 `auth.tokenCleanup` 分批清除。
+平台 DB 對平台管理者另有同樣形狀的 `platform_admin_login_sources`。
+
 ### 2.8 `audit_logs` / `audit_logs_archive`（熱表／冷表）
 
 稽核分成兩張欄位完全相同的表，分層理由與搬移流程見
@@ -663,6 +667,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0032_announcement_event_triggers.sql  公告的事件點：trigger_subject_id 與兩種唯一索引、事件查詢索引（純加法，唯一索引改為部分索引）
 ├── 0036_file_storage_usage.sql         檔案已用量的單列計數 file_storage_usage ＋ 手寫：以既有檔案的 SUM(size) 回填
 │                                       （[`backend/09-file.md`](09-file.md) §5.0；純加法）
+├── 0040_user_login_sources.sql         user_login_sources（§2.7 之後，[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
@@ -677,6 +682,7 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 ├── 0009_toggleable_features.sql        回收桶、系統設定、外部 IdP、切換租戶改為可關閉的 feature（[`architecture/05-tenancy.md`](../05-tenancy.md) §12）
 ├── 0010_webhook_feature.sql            features 預設加 webhook，既有租戶啟用（[`backend/17-webhook.md`](17-webhook.md) §9.2 D8）
 ├── 0011_announcement_feature.sql       features 預設加 announcement，既有租戶啟用（[`backend/19-announcement.md`](19-announcement.md) §9.2 D20）
+├── 0016_platform_admin_login_sources.sql  platform_admin_login_sources（[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
 └── …                                   之後的變更接著編號
 ```
 

@@ -213,11 +213,14 @@ async refresh(@Req() req: Request) {
 
 ```ts
 async login(dto: LoginDto, ctx: RequestContext) {
+  // ★ 漸進延遲（§3.4）：在 argon2 之前判斷，等待中的嘗試直接 429
+  await this.loginThrottle.assertAllowed(tenant.id, dto.email, ipPrefix);
   const user = await this.userRepo.findByEmail(dto.email);
 
   // ★ 時序攻擊防護：帳號不存在時也跑一次 argon2，讓回應時間一致
   if (!user) {
     await argon2.verify(DUMMY_HASH, dto.password).catch(() => false);
+    await this.loginThrottle.recordFailure(tenant.id, dto.email, ipPrefix);   // 不存在的 email 一樣計數
     await this.audit.loginFailure(dto.email, 'user_not_found', ctx);
     throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
@@ -229,7 +232,10 @@ async login(dto: LoginDto, ctx: RequestContext) {
   const locked = user.lockedUntil && user.lockedUntil > new Date();
 
   if (!ok) {
-    if (!locked) await this.registerFailedAttempt(user, ctx);   // 鎖定中不計數、不延長
+    await this.loginThrottle.recordFailure(tenant.id, dto.email, ipPrefix);
+    if (locked) {}                                                // 鎖定中不計數、不延長
+    else if (await this.loginSources.isKnown(user.id, ipPrefix)) await this.audit.loginFailure(user, 'known_source', ctx);
+    else await this.registerFailedAttempt(user, ctx);             // 只有陌生來源累計鎖定（§3.4）
     throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
 
@@ -250,6 +256,8 @@ async login(dto: LoginDto, ctx: RequestContext) {
   await this.userRepo.update(user.id, {
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(),
   });
+  await this.loginThrottle.reset(tenant.id, dto.email, ipPrefix);
+  await this.loginSources.remember(user.id, ipPrefix);
   await this.audit.loginSuccess(user, ctx);
 
   return this.issueSession(user, ctx);     // 新 family
@@ -289,8 +297,9 @@ WHERE id = $1 AND (locked_until IS NULL OR locked_until <= now())   -- 鎖定中
 RETURNING failed_login_count, locked_until;
 ```
 
-- **鎖定是輔助，猜測的防線是速率限制**：「帳號 ＋ IP」與每 IP 兩個桶（[`03-api-conventions.md`](./03-api-conventions.md) §8）在鎖定期間照常計數；
+- **鎖定是輔助，猜測的防線是速率限制與漸進延遲**：「帳號 ＋ IP」與每 IP 兩個桶（[`03-api-conventions.md`](./03-api-conventions.md) §8）與 §3.4 的延遲在鎖定期間照常計數；
   鎖定只讓同一個帳號在鎖定期間不能登入，回應與密碼錯誤相同（§3.2）。
+- **只有陌生來源的錯誤累計鎖定**：從已知來源（§3.4）打錯密碼只寫稽核（`metadata.reason: 'known_source'`），不增加 `failed_login_count`。
 - **只寫 `locked_until`，不改 `status`**：鎖定是擋猜密碼，不撤銷既有 session、不推 `session.revoked`。
   否則任何知道 email 的人錯 5 次就能把線上的人（包括最後一位 super-admin）踢下線。API 對外顯示的狀態在
   `locked_until` 還沒到期時是 `locked`（`displayStatusOf`；列表以 `status=locked` 篩選的是 `status = active` 且 `locked_until` 還沒到期，與顯示一致），到期自動回到 `active`。
@@ -308,6 +317,26 @@ RETURNING failed_login_count, locked_until;
 1. 等鎖定時間（預設 15 分鐘）過去，下次成功登入時計數與 `locked_until` 歸零
 2. 「忘記密碼」→ 重設密碼（重設會順帶解鎖；鎖定中的人仍是 `active`，收得到重設信）
 3. 管理員 `POST /users/:id/unlock`（需要 `user:update`）
+
+### 3.4 漸進延遲與已知來源
+
+**漸進延遲**（`core/rate-limit/login-throttle.ts` 的 `LoginThrottle`）：以「租戶 id（平台管理者是 `platform`）× email × IP 前綴（IPv4 完整位址、IPv6 /64）」
+計 **15 分鐘內的密碼錯誤次數**——只算錯誤，不算請求。第 3 次錯誤之後，下一次嘗試要等 `2^(n−3)` 秒（1、2、4…，上限 60 秒）：
+
+- 在查帳號與 argon2 **之前** 判斷，等待中的嘗試回 `429 RATE_LIMITED`（`details.retryAfterSeconds` 與 `Retry-After`），不消耗 argon2，也不計入鎖定。
+  **伺服器不 sleep**：睡著的請求仍佔著連線。
+- 訊息與一般限流相同，前端照樣倒數（不提示「帳號可能被鎖」），不透露這個帳號存在而且正在被延遲；不存在的 email 一樣計數。
+- 成功登入清除。計數經過 `RateLimitStore`（[`03-api-conventions.md`](./03-api-conventions.md) §8），多實例時與限流一起換成共享的實作。
+- 每分鐘 10 次的桶擋不住「每分鐘 9 次、持續一整天」；延遲讓單一來源的猜測成本指數成長，正常使用者打錯兩次不受影響。
+
+**已知來源**：登入成功時記下「使用者 × IP 前綴」（租戶 DB `user_login_sources`、平台 DB `platform_admin_login_sources`，`last_success_at` 每次成功更新）。
+30 天內成功登入過的來源是已知來源（`LOGIN_SOURCE_RETENTION_DAYS`），過期的列由每天的 `auth.tokenCleanup`／`auth.platformTokenCleanup` 分批清除。
+
+- 已知來源的錯誤密碼 **不累計鎖定**，只受延遲限制；陌生來源的錯誤照 §3.3 累計。
+- 解決「知道 email 就能鎖住別人」：受害者從平常的辦公室 IP 仍能登入；分散式撞庫（大量陌生 IP）仍會觸發鎖定。
+- 代價：同一個 NAT 後面的內部人員打錯不會觸發鎖定，但仍受延遲與每分鐘 10 次的桶限制。
+- 上線當下沒有任何已知來源，行為與之前相同；每個人成功登入一次之後才生效。
+- 外部 IdP 登入不經過密碼驗證，不記錄來源。
 
 ---
 
@@ -697,3 +726,32 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 每租戶 HMAC 金鑰（由主金鑰以 HKDF 推導） | 不採用：主金鑰外洩等於全部外洩，只是看起來分開 |
 | 加 `iss`／`aud` claims | 不採用：`tid`／`realm` 已表達受眾 |
 
+---
+
+## 12. 設計決策：登入的容量與速率限制第二版
+
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §3）。共享計數（多實例時上限不變成 N 倍）是 [`../../features/multi-instance.md`](../../features/multi-instance.md) 的範圍；這裡定的是計數什麼、怎麼反應，兩者以 D1 的介面銜接。
+
+### 12.1 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **計數介面 `RateLimitStore`**（`core/rate-limit/`）：`hit(key, windowMs) → { count, resetAt, lastAt }`、`peek(key)`、`reset(key)`；先以記憶體實作（`MemoryRateLimitStore`），全域 guard 不再依賴 `@nestjs/throttler` 的 storage | 第二版不必等多實例；多實例也不必重寫規則。鎖定（`locked_until`）與 D3 的已知來源本來就在 DB，多實例下天生共享 |
+| D2 | **「帳號 × IP」漸進延遲**（§3.4）：15 分鐘內第 3 次錯誤之後等 `2^(n−3)` 秒（上限 60），回 429、伺服器不 sleep，成功清除，未知的 email 一樣計數 | 延遲讓單一來源的猜測成本指數成長；不 sleep 是因為睡著的請求仍佔著連線 |
+| D3 | **已知來源不觸發鎖定**（§3.4）：`user_login_sources`／`platform_admin_login_sources`，保留 30 天，每天清理 | 知道 email 的人不能把別人鎖住；分散式撞庫仍會觸發鎖定 |
+| D4 | **每租戶的登入上限**：`auth` 政策的租戶桶，預設 `AUTH_TENANT_RATE_LIMIT` = 1200/分（平台登入另一個桶），平台以 feature 參數 `rateLimit.authPerMinute` 覆寫（[`../05-tenancy.md`](../05-tenancy.md) §13） | 一個租戶被攻擊時，攻擊流量與它消耗的 argon2 不拖垮其他租戶的登入 |
+| D5 | **IP 白名單是放寬不是豁免**：feature 參數 `rateLimit.trustedCidrs` 讓 `auth`／`authMail` 的 IP 桶 ×10，帳號桶、延遲、租戶桶不變；全平台的 `RATE_LIMIT_EXEMPT_CIDRS` 只給監控與內部服務，豁免以 IP 計的桶 | 企業 NAT 後面整間公司共用一個 IP；帳號層級的保護沒有理由因來源可信而拿掉。由平台設定：放寬會消耗共用的容量 |
+| D6 | **argon2 的並行上限**：所有 hash／verify 經過 `PasswordHasher`（§4.1 的 `ARGON2_MAX_CONCURRENCY`／`ARGON2_MAX_QUEUE`／`ARGON2_QUEUE_TIMEOUT_MS`），滿了回 `503 AUTH_BUSY` ＋ `Retry-After` | 快速失敗比在 threadpool 裡無限排隊好；上限是每程序（CPU 是每台機器的資源） |
+| D7 | **前端**：登入表單遇到 `429`／`503 AUTH_BUSY` 時以 `retryAfterSeconds` 倒數並停用送出鈕；延遲不額外提示 | 不洩漏「這個帳號存在而且正在被延遲」 |
+| D8 | **與 multi-instance 的銜接**：所有計數都經過 D1；N 個實例而還沒換共享實作時，上限實際是 N 倍（[`03-api-conventions.md`](./03-api-conventions.md) §8）。寫入量：延遲只在密碼錯誤時寫、已知來源每次成功登入一次 upsert | 讓 multi-instance 評估 Postgres 計數時有明確的寫入量依據 |
+
+### 12.2 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 伺服器端 sleep 做延遲 | 不採用：見 D2 |
+| CAPTCHA 取代延遲 | 不採用：要引入第三方服務；通用後台的使用者多半在公司網路，延遲已足夠。之後若要做，掛在「延遲超過 N 秒」之後 |
+| 裝置 cookie（記住瀏覽器）取代 IP 前綴當已知來源 | 這一版不採用：登入在 apps/platform 的 OIDC 互動裡，cookie 要跨網域傳遞與輪替；之後與 [`../../features/mfa.md`](../../features/mfa.md) 的「記住這台裝置」一起做 |
+| argon2 每租戶各自一個佇列（公平排程） | 不採用：D4 的租戶桶已限制單一租戶能送進來的量 |
+| 降低 argon2 參數換吞吐 | 不採用：參數是密碼強度的決定（§4.1），不該被容量問題綁架 |
+| 租戶管理者自己設定 IP 白名單 | 不採用：放寬會消耗全平台共用的容量，由平台管理者決定 |

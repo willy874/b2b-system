@@ -390,7 +390,11 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
 
     await expect(
       service.update(TENANT_ID, {
-        featureParams: { 'job.maxConcurrency': 0, 'webhook.maxUrls': 'many' },
+        featureParams: {
+          'job.maxConcurrency': 0,
+          'webhook.maxUrls': 'many',
+          'rateLimit.trustedCidrs': '203.0.113.0/24, not-a-cidr',
+        },
       }),
     ).rejects.toMatchObject({
       code: 'VALIDATION_FAILED',
@@ -398,6 +402,7 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
         fields: {
           'featureParams.job.maxConcurrency': 'must be >= 1',
           'featureParams.webhook.maxUrls': 'must be an integer',
+          'featureParams.rateLimit.trustedCidrs': 'invalid format',
         },
       },
     });
@@ -418,6 +423,7 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       'identityProvider.maxProviders',
       'webhook.maxUrls',
       'rateLimit.authPerMinute',
+      'rateLimit.trustedCidrs',
     ]);
     expect(params.every((param) => !param.overridden)).toBe(true);
   });

@@ -14,7 +14,9 @@ import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { FeatureFlagService } from '@/core/feature-flags';
+import { getRequestContext } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
+import { ipPrefixOf, LoginThrottle } from '@/core/rate-limit';
 import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
@@ -32,6 +34,7 @@ import {
   PASSWORD_MIN_LENGTH_SETTING,
   REGISTRATION_ENABLED_SETTING,
 } from '@/modules/credential/auth.settings';
+import { LoginSourceService } from '@/modules/credential/login-source.service';
 import { containsContext, emailContext } from '@/modules/credential/password';
 import { PasswordHasher } from '@/modules/credential/password-hasher';
 import { secondsUntil } from '@/modules/credential/refresh-rotation';
@@ -101,6 +104,8 @@ export class AuthService {
     private readonly flags: FeatureFlagService,
     private readonly accessTokens: AccessTokenVerifier,
     private readonly passwords: PasswordHasher,
+    private readonly loginThrottle: LoginThrottle,
+    private readonly loginSources: LoginSourceService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -129,11 +134,17 @@ export class AuthService {
     if (await this.identityProviders.isSsoOnly(dto.email)) {
       throw new AppException('AUTH_SSO_REQUIRED');
     }
+    // 漸進延遲（docs/architecture/backend/04-auth.md §3.4）：在 argon2 之前判斷，被延遲的嘗試不消耗它
+    const scope = requireTenant().id;
+    const ipPrefix = ipPrefixOf(getRequestContext()?.ip);
+    await this.loginThrottle.assertAllowed(scope, dto.email, ipPrefix);
     const user = await this.users.findAccountByEmail(dto.email);
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
     if (!user) {
       await this.passwords.verifyAgainstDummy(dto.password);
+      // 未知的 email 一樣計數：延遲不透露帳號是否存在
+      await this.loginThrottle.recordFailure(scope, dto.email, ipPrefix);
       await this.audit.recordSafely({
         action: 'auth.login.failure',
         resourceType: 'auth',
@@ -152,7 +163,12 @@ export class AuthService {
       : await this.passwords.verifyAgainstDummy(dto.password);
     const lockedUntil = isLoginLocked(user) ? user.lockedUntil : null;
     if (!ok) {
+      await this.loginThrottle.recordFailure(scope, dto.email, ipPrefix);
       if (lockedUntil) await this.recordLockedAttempt(user);
+      // 已知來源（登入成功過的使用者 × IP 前綴）的錯誤不累計鎖定，只受漸進延遲限制：
+      // 知道 email 的人不能從陌生的地方把對方鎖住，對方也還能從平常的地方登入（§3.4）
+      else if (await this.loginSources.isKnown(user.id, ipPrefix))
+        await this.recordKnownSourceFailure(user);
       else await this.registerFailedAttempt(user);
       throw new AppException('AUTH_INVALID_CREDENTIALS');
     }
@@ -179,6 +195,8 @@ export class AuthService {
       lastLoginAt: new Date(),
     });
     this.userCache.invalidate(user.id);
+    await this.loginThrottle.reset(scope, dto.email, ipPrefix);
+    await this.loginSources.remember(user.id, ipPrefix);
 
     await this.audit.recordSafely({
       action: 'auth.login.success',
@@ -189,6 +207,20 @@ export class AuthService {
     });
 
     return user;
+  }
+
+  /** 已知來源的密碼錯誤：不累計鎖定，只留一筆失敗的稽核。 */
+  private async recordKnownSourceFailure(user: UserRow): Promise<void> {
+    await this.audit.recordSafely({
+      action: 'auth.login.failure',
+      resourceType: 'auth',
+      resourceId: user.id,
+      result: 'failure',
+      actorId: user.id,
+      actorEmail: user.email,
+      errorCode: 'AUTH_INVALID_CREDENTIALS',
+      metadata: { reason: 'known_source' },
+    });
   }
 
   /**

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys';
+import { isCidrList } from '../rate-limit/ip';
 
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
 export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
@@ -177,6 +178,15 @@ export const EnvSchema = z.object({
    * 1200 足以應付 1000 人的公司集中在上班時間登入。平台可以對個別租戶以 feature 參數 `rateLimit.authPerMinute` 覆寫。
    */
   AUTH_TENANT_RATE_LIMIT: z.coerce.number().int().min(1).default(1200),
+  /**
+   * 豁免以 IP 計的限流的網段（逗號分隔的 IP 或 CIDR）：只給監控探針、內部服務。帳號、身分、租戶層級的限制照常；
+   * 企業 NAT 的放寬改用租戶的 feature 參數 `rateLimit.trustedCidrs`（docs/architecture/backend/03-api-conventions.md §8）。
+   */
+  RATE_LIMIT_EXEMPT_CIDRS: z
+    .string()
+    .trim()
+    .default('')
+    .refine((value) => isCidrList(value), '逗號分隔的 IP 或 CIDR'),
   /** `/auth/refresh`：每個 refresh session。 */
   REFRESH_RATE_LIMIT: z.coerce.number().int().min(1).default(30),
   /** `/auth/refresh`：每個 IP（1000 人每 5 分鐘續期一次 ≈ 200 次 / 分，重啟後會集中）。 */

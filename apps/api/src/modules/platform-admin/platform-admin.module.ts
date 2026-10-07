@@ -4,6 +4,7 @@ import { PlatformNotificationModule } from '@/modules/platform-notification/plat
 
 import { PlatformAccountMailJobs } from './platform-account-mail.jobs';
 import { PlatformAccountService } from './platform-account.service';
+import { PlatformAdminLoginSourceRepository } from './platform-admin-login-source.repository';
 import { PlatformAdminManagementService } from './platform-admin-management.service';
 import { PlatformAdminController } from './platform-admin.controller';
 import { PlatformAdminRepository } from './platform-admin.repository';
@@ -35,6 +36,7 @@ import { PlatformTokenCleanupJobs } from './platform-token-cleanup.jobs';
     PlatformAuditService,
     PlatformAccountMailJobs,
     PlatformRefreshTokenRepository,
+    PlatformAdminLoginSourceRepository,
     PlatformRefreshTokenService,
     PlatformTokenCleanupJobs,
   ],

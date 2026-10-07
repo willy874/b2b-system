@@ -220,7 +220,7 @@ describe('refresh token 輪替的併發（docs/architecture/backend/04-auth.md�
     ]);
 
     const result = await inTestTenant(app, () => app.get(AuthTokenCleanupJobs).run());
-    expect(result).toEqual({ refreshTokens: 1, authTokens: 1 });
+    expect(result).toEqual({ refreshTokens: 1, authTokens: 1, loginSources: 0 });
     const hashes = (await db.select().from(refreshTokens)).map((row) => row.tokenHash);
     expect(hashes).toContain('recent-1');
     expect(hashes).not.toContain('old-1');

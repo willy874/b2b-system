@@ -1390,6 +1390,7 @@ export const TenantFeatureParamKeySchema = z.enum([
   'identityProvider.maxProviders',
   'webhook.maxUrls',
   'rateLimit.authPerMinute',
+  'rateLimit.trustedCidrs',
 ]) satisfies z.ZodType<TenantFeatureParamKey>;
 
 export const TenantFeatureParamSchema = z.object({

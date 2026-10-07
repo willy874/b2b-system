@@ -9427,7 +9427,8 @@
           "job.maxConcurrency",
           "identityProvider.maxProviders",
           "webhook.maxUrls",
-          "rateLimit.authPerMinute"
+          "rateLimit.authPerMinute",
+          "rateLimit.trustedCidrs"
         ]
       },
       "TenantFeatureParam": {

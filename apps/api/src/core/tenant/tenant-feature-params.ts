@@ -1,3 +1,4 @@
+import { isCidrList } from '../rate-limit/ip';
 import { requireTenant } from './tenant-context';
 import type { TenantFeature } from './tenant-features';
 
@@ -37,6 +38,8 @@ export interface TenantStringParam<K extends string = string> extends TenantFeat
   maxLength: number;
   /** 值必須整個符合；沒有就只限長度。 */
   pattern?: RegExp;
+  /** 正規表示式寫不清楚的格式（例：CIDR 清單）。 */
+  validate?: (value: string) => boolean;
 }
 
 export type TenantFeatureParamDefinition<K extends string = string> =
@@ -133,6 +136,19 @@ export const RATE_LIMIT_AUTH_PER_MINUTE_PARAM = {
 } as const satisfies TenantIntegerParam;
 
 /**
+ * 這個租戶信任的來源網段（逗號分隔的 IP 或 CIDR，平台管理者設定）：來自這些網段的登入，以 IP 計的登入上限放寬 10 倍
+ * （企業 NAT 後整間公司共用一個 IP）。只放寬 IP 桶：帳號、漸進延遲、租戶桶不變（docs/architecture/backend/03-api-conventions.md §8）。
+ */
+export const RATE_LIMIT_TRUSTED_CIDRS_PARAM = {
+  key: 'rateLimit.trustedCidrs',
+  feature: null,
+  type: 'string',
+  defaultValue: '',
+  maxLength: 1000,
+  validate: isCidrList,
+} as const satisfies TenantStringParam;
+
+/**
  * 參數的目錄（D1），依 `TENANT_FEATURES` 的順序排。新增一列即可：DTO、平台管理頁、讀取時的驗證都讀這份清單。
  * key 以 `TenantFeatureParamKey` 出現在 OpenAPI，前端以 `satisfies Record<TenantFeatureParamKey, …>` 對照語系。
  */
@@ -145,6 +161,7 @@ export const TENANT_FEATURE_PARAMS = [
   WEBHOOK_MAX_URLS_PARAM,
   // 不屬於 feature 的租戶限制（feature: null）
   RATE_LIMIT_AUTH_PER_MINUTE_PARAM,
+  RATE_LIMIT_TRUSTED_CIDRS_PARAM,
 ] as const satisfies readonly TenantFeatureParamDefinition[];
 
 export type TenantFeatureParamKey = (typeof TENANT_FEATURE_PARAMS)[number]['key'];
@@ -179,6 +196,7 @@ export function tenantFeatureParamProblem(
   if (typeof value !== 'string') return 'must be a string';
   if (value.length > param.maxLength) return `must be at most ${param.maxLength} characters`;
   if (param.pattern && !param.pattern.test(value)) return 'invalid format';
+  if (param.validate && !param.validate(value)) return 'invalid format';
   return null;
 }
 

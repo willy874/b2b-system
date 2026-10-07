@@ -84,6 +84,10 @@ export function rateLimitSettingsOf(env: RateLimitEnv): RateLimitSettings {
 export interface RateLimitSubject {
   /** 客戶端 IP（IPv6 已正規化成子網路）。 */
   ip: string;
+  /** 在 `RATE_LIMIT_EXEMPT_CIDRS` 裡：以 IP 計的桶不計（guard 處理）。 */
+  exempt?: boolean;
+  /** 在租戶的白名單（feature 參數 `rateLimit.trustedCidrs`）裡：登入類的 IP 桶上限 ×10。 */
+  trustedSource?: boolean;
   /** 已驗簽的身分：`t:{tenantId}:{userId}` 或 `p:{adminId}`。 */
   principal?: string;
   /** 登入類端點的帳號：`{tenantId | platform}:{email（小寫）}`。 */
@@ -101,13 +105,16 @@ export interface RateLimitBucket {
   limit: number;
 }
 
+/** 白名單來源的 IP 桶放寬倍數。 */
+export const TRUSTED_SOURCE_IP_MULTIPLIER = 10;
+
 /** 一個請求要計入哪些桶；任何一個超過就回 429。 */
 export function rateLimitBucketsOf(
   policy: RateLimitPolicy | undefined,
   subject: RateLimitSubject,
   settings: RateLimitSettings,
 ): RateLimitBucket[] {
-  const { ip, account, session, principal, tenant } = subject;
+  const { ip, account, session, principal, tenant, trustedSource } = subject;
   switch (policy) {
     case 'auth':
     case 'authMail': {
@@ -115,7 +122,14 @@ export function rateLimitBucketsOf(
         policy === 'auth'
           ? [settings.authAccount, settings.authIp]
           : [settings.authMailAccount, settings.authMailIp];
-      const buckets: RateLimitBucket[] = [{ name: `${policy}-ip`, key: ip, limit: ipLimit }];
+      // 白名單只放寬 IP 桶（企業 NAT 後整間公司共用一個 IP），不是豁免
+      const buckets: RateLimitBucket[] = [
+        {
+          name: `${policy}-ip`,
+          key: ip,
+          limit: trustedSource ? ipLimit * TRUSTED_SOURCE_IP_MULTIPLIER : ipLimit,
+        },
+      ];
       if (account) {
         buckets.push({ name: `${policy}-account`, key: `${account}|${ip}`, limit: accountLimit });
       } else if (principal) {

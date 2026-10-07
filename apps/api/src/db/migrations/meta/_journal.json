@@ -281,6 +281,13 @@
       "when": 1791355347339,
       "tag": "0039_audit_archive_partitions",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791356016363,
+      "tag": "0040_user_login_sources",
+      "breakpoints": true
     }
   ]
 }

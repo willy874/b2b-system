@@ -124,7 +124,7 @@ export function TenantFeatureParamDialog({
       >
         <Field
           label={label}
-          required
+          required={isInteger}
           error={error}
           description={
             isInteger

@@ -215,6 +215,7 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 | `identityProvider.maxProviders` | 10 | 1–100 | 外部 IdP 連線數上限，超過回 `409 IDENTITY_PROVIDER_LIMIT_REACHED` | [`04-sso.md`](./04-sso.md) |
 | `webhook.maxUrls` | 1 | 1–500 | 整個租戶的 webhook 訂閱裡不重複的網址數；超過而且變多回 `409 WEBHOOK_URL_LIMIT_REACHED` | [`backend/17-webhook.md`](./backend/17-webhook.md) §2.1 |
 | `rateLimit.authPerMinute`（全租戶） | 1200（次／分） | 60–100000 | 這個租戶登入類請求每分鐘合計的上限，超過回 `429 RATE_LIMITED`；沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT` | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 |
+| `rateLimit.trustedCidrs`（全租戶） | 空（未設定） | 字串，最長 1000，逗號或空白分隔的 CIDR／位址 | 客戶公司或 VPN 的網段：從這些網段登入時 `auth`／`authMail` 的 IP 桶上限 ×10，帳號桶、延遲、鎖定不變 | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8、[`backend/04-auth.md`](./backend/04-auth.md) §12 D5 |
 
 - **讀取**：`tenantFeatureParam(PARAM)` 取目前租戶的生效值（沒有租戶脈絡時拋 `TENANT_NOT_FOUND`）；以 id 找租戶的地方（背景工作佇列）
   用 `resolveTenantFeatureParam(PARAM, record.featureParams)`；腳本讀 `ScriptTenant.featureParams`。覆寫值隨租戶登記載入

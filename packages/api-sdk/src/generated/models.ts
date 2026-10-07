@@ -788,6 +788,7 @@ export const TenantFeatureParamKey = {
   'identityProvider.maxProviders': 'identityProvider.maxProviders',
   'webhook.maxUrls': 'webhook.maxUrls',
   'rateLimit.authPerMinute': 'rateLimit.authPerMinute',
+  'rateLimit.trustedCidrs': 'rateLimit.trustedCidrs',
 } as const;
 export type TenantFeatureParamKey =
   (typeof TenantFeatureParamKey)[keyof typeof TenantFeatureParamKey];
