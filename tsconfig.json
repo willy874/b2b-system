@@ -11,6 +11,7 @@
     { "path": "./packages/api-sdk/codegen" },
     { "path": "./apps/api" },
     { "path": "./apps/file-storage" },
+    { "path": "./apps/apm-service" },
     { "path": "./apps/backstage" },
     { "path": "./apps/platform" },
     { "path": "./apps/e2e" }

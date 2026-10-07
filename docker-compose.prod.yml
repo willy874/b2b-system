@@ -1,6 +1,7 @@
 # 生產拓撲（docs/architecture/01-system.md §4.2）：
 #   backstage（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
 #                                                         └──────→ file-storage（S3 相容）
+#   backstage／platform 的 nginx 另把 /apm/ 的收件端點轉給 apm-service（模擬 Sentry API，前端錯誤與 Web Vitals）
 #   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
 # 網路切三段：backstage 碰不到 postgres；file-storage 與 postgres 互不相通。
 #
@@ -287,6 +288,32 @@ services:
     # edge：nginx 轉發瀏覽器的直傳／下載；storage：api 的伺服器端呼叫
     networks: [edge, storage]
 
+  # 模擬 Sentry API 的前端錯誤收件（apps/apm-service，docs/architecture/07-apm-service.md）；事件與 sourcemap 在 volume
+  apm-service:
+    image: b2b-system-apm-service
+    build:
+      context: .
+      dockerfile: apps/apm-service/Dockerfile
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      APM_PROJECTS: 1:backstage:${APM_BACKSTAGE_PUBLIC_KEY:?required},2:platform:${APM_PLATFORM_PUBLIC_KEY:?required}
+      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:?required}
+      APM_RETENTION_DAYS: ${APM_RETENTION_DAYS:-30}
+      # 只經 nginx 進來：nginx 以 real_ip 算好的來源放在 X-Real-IP，限流以它計數
+      APM_TRUST_PROXY: 'true'
+    volumes:
+      - apm-data:/data
+    # 上傳 sourcemap、查詢 API 與 /metrics 只開在主機的這個介面（nginx 只轉發收件端點）
+    ports:
+      - '${APM_BIND_ADDRESS:-127.0.0.1}:9100:9100'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: ${APM_MEM_LIMIT:-256m}
+    networks: [edge]
+
   backstage:
     build:
       context: .
@@ -294,6 +321,11 @@ services:
       args:
         VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:?required}/api/oidc
         VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
+        # 前端錯誤回報（docs/architecture/frontend/19-observability.md）：release 是 commit；DSN 在執行時以網域組成
+        APP_RELEASE: ${APP_RELEASE:-unknown}
+        VITE_APM_PROJECT_ID: '1'
+        VITE_APM_PUBLIC_KEY: ${APM_BACKSTAGE_PUBLIC_KEY:?required}
+        VITE_APM_TRACES_SAMPLE_RATE: ${APM_TRACES_SAMPLE_RATE:-0.1}
     restart: unless-stopped
     logging: *logging
     # 只綁在前置 LB 連得到的介面（EDGE_BIND_ADDRESS；docs/architecture/01-system.md §4.2）
@@ -317,6 +349,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      # nginx 啟動時就解析 upstream 的名稱：apm-service 不在時 nginx 起不來
+      apm-service:
+        condition: service_healthy
 
   # 全平台共用的身分與租戶入口（docs/architecture/04-sso.md §12）：獨立的 origin，同樣反向代理到 api
   platform:
@@ -326,6 +361,11 @@ services:
       args:
         VITE_OIDC_ISSUER: ${PLATFORM_PUBLIC_ORIGIN:?required}/api/oidc
         VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
+        # 前端錯誤回報（docs/architecture/frontend/19-observability.md）：release 是 commit；DSN 在執行時以網域組成
+        APP_RELEASE: ${APP_RELEASE:-unknown}
+        VITE_APM_PROJECT_ID: '2'
+        VITE_APM_PUBLIC_KEY: ${APM_PLATFORM_PUBLIC_KEY:?required}
+        VITE_APM_TRACES_SAMPLE_RATE: ${APM_TRACES_SAMPLE_RATE:-0.1}
     restart: unless-stopped
     logging: *logging
     # 只綁在前置 LB 連得到的介面（EDGE_BIND_ADDRESS；docs/architecture/01-system.md §4.2）
@@ -349,6 +389,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      # nginx 啟動時就解析 upstream 的名稱：apm-service 不在時 nginx 起不來
+      apm-service:
+        condition: service_healthy
 
 networks:
   edge:
@@ -360,3 +403,4 @@ networks:
 volumes:
   postgres-data:
   file-storage-data:
+  apm-data:

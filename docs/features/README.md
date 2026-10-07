@@ -21,7 +21,7 @@
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P3 | 權限圖（ReBAC）：專案（G5） | [`permission-graph.md`](./permission-graph.md) | 提案（G0～G4b 已上 main 並歸檔；G5 等專案功能） | 專案功能 |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
-| P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
+| P3 | 可觀測性（後端） | [`observability.md`](./observability.md) | 提案（前端已完成並歸檔，剩 api 的指標與 tracing） | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 
 狀態只有三種：
@@ -43,6 +43,7 @@
   稽核冷表分區與保留期限 [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §10、HTTP 快取 [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §13、
   選取全部符合 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13.7、表單草稿 [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §4.4、
   檔案列表的 `maxPages` [`frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §5；連線池與 PgBouncer 的觸發條件在 [`backend/02-database.md`](../architecture/backend/02-database.md) §6.2
+- `frontend-observability`（apps/apm-service 模擬 Sentry API、錯誤回報與 release、Web Vitals、bundle 預算）：[`frontend/19-observability.md`](../architecture/frontend/19-observability.md) §9、[`07-apm-service.md`](../architecture/07-apm-service.md)
 - `global-search`（命令面板 ⌘K、選單註冊表、全域快捷鍵）：[`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) §7
 - `announcements`（通知總覽、公告的立即／指定時間／週期／事件點發送、撤回）：[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)
 - `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7
@@ -59,7 +60,8 @@
 接下來：
 
 1. `import-export`（大量匯入使用者、匯出稽核日誌），或資源的協作（`comments-watches`；照標籤的登記方式做）。
-2. `permission-graph` G5（專案）等專案功能的提案一起做。
+2. `observability`（後端）：上線前做；`/metrics` 的存取方式可沿用 apps/apm-service 的做法。
+3. `permission-graph` G5（專案）等專案功能的提案一起做。
 
 ### 1.2 撰寫提案時的架構前提
 

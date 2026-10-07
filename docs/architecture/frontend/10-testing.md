@@ -388,6 +388,9 @@ pnpm --filter @b2b-system/e2e tour
 覆蓋率不是目的，但 `permission` 與 `auth` 的 100% / 95% 是硬門檻：
 這兩個模組出錯的後果是安全事件。
 
+bundle 大小另有預算（`pnpm bundle:check`，CI 的 `bundle` job）：超過時先改成動態 `import()`，真的需要才調高各 app 的
+`bundle-budget.json` 並在 PR 說明（[`19-observability.md`](./19-observability.md) §7）。
+
 ---
 
 ## 6. 必測的邊界案例清單

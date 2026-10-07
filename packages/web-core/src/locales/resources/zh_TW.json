@@ -261,6 +261,10 @@
       "backHome": "回首頁",
       "goBack": "返回上一頁",
       "reload": "重新整理",
+      "copyInfo": "複製錯誤資訊",
+      "copied": "已複製，請貼給系統管理員",
+      "copyFailed": "無法寫入剪貼簿，請選取這段文字複製：",
+      "info": "錯誤代碼 {{code}} · 版本 {{release}} · {{time}} · {{route}}",
       "updated": {
         "title": "系統已更新",
         "description": "這個頁面有新版本，請重新整理後再繼續。"

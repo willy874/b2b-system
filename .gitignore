@@ -58,6 +58,8 @@ kubeconfig.*.yaml
 # ─────────────────────────────────────────────
 # apps/file-storage 的本機資料（模擬的 S3 bucket）
 apps/file-storage/.data/
+# apps/apm-service 的本機資料（錯誤事件與 sourcemap）
+apps/apm-service/.data/
 *.sqlite
 *.sqlite-journal
 tmp/

@@ -193,6 +193,8 @@ interface DictStorage {
 前端在 **沒有 session 的期間**（登出、被撤銷、續期失敗之後）一律以 `cache: 'no-store'` 送出（`createHttpCacheInterceptor`，`web-core/plugins/fetcher/http-cache.ts`），
 個別查詢要關掉快取時傳 `HttpRequestDTO.cache: 'no-store'`。
 
+錯誤回報（`@sentry/browser`）的佇列只在記憶體，也不用 sessionStorage 串前一個 trace（[19 §4](./19-observability.md)）。
+
 ### 4.3 Token 的儲存
 
 ```

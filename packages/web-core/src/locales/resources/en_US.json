@@ -277,6 +277,10 @@
       "backHome": "Go to home",
       "goBack": "Go back",
       "reload": "Reload",
+      "copyInfo": "Copy error details",
+      "copied": "Copied. Please send it to your administrator.",
+      "copyFailed": "Could not access the clipboard. Select and copy this text:",
+      "info": "Error code {{code}} · Version {{release}} · {{time}} · {{route}}",
       "updated": {
         "title": "A new version is available",
         "description": "This page has been updated. Reload to continue."

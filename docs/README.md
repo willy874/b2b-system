@@ -87,6 +87,7 @@ docs/
 │   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/platform、外部 IdP、單一登出
 │   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
 │   ├── 06-external-api.md             對外 API：獨立的程序與網域、API token 認證、路由的分界、限流
+│   ├── 07-apm-service.md              apps/apm-service：模擬 Sentry API 的前端錯誤收件、sourcemap、Web Vitals 指標
 │   │
 │   ├── frontend/
 │   │   ├── README.md
@@ -107,7 +108,8 @@ docs/
 │   │   ├── 15-notification.md         站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表（web-core/route-link）、事件管理頁
 │   │   ├── 16-announcement.md         公告：列表、建立、詳情與發送紀錄、收件人看全文
 │   │   ├── 17-shared-packages.md      兩個前端共用的 packages：分層、程式放哪、app 怎麼接上 web-core
-│   │   └── 18-command-palette.md      命令面板（⌘K）：頁面、最近造訪、資料搜尋、動作；選單註冊表；全域快捷鍵
+│   │   ├── 18-command-palette.md      命令面板（⌘K）：頁面、最近造訪、資料搜尋、動作；選單註冊表；全域快捷鍵
+│   │   └── 19-observability.md        可觀測性：錯誤回報（@sentry/browser → apm-service）、release、Web Vitals、bundle 預算
 │   │
 │   └── backend/
 │       ├── README.md

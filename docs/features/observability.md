@@ -1,9 +1,9 @@
-# 可觀測性
+# 可觀測性（後端）
 
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`multi-instance.md`](./multi-instance.md)、
+- 相關：[`frontend/19-observability.md`](../architecture/frontend/19-observability.md)（前端的錯誤回報、Web Vitals、bundle 預算，已完成；由 [`apps/apm-service`](../architecture/07-apm-service.md) 收件）、[`multi-instance.md`](./multi-instance.md)、
   [`../architecture/01-system.md`](../architecture/01-system.md) §5、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §12
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -19,8 +19,11 @@
 | 就緒 | `GET /health/ready`：平台 DB（`select 1`）與物件儲存（`ping`），回 `ok` 或 `degraded` |
 | 即時推播 | 連線、斷線、拒絕的日誌欄位已定（`08-realtime.md` §12） |
 | 背景工作 | 管理頁看得到每個佇列的計數與失敗的工作（backstage 看租戶的、apps/platform 看平台的） |
+| 前端 | **已完成**：錯誤回報、release、Web Vitals、bundle 預算（[`frontend/19-observability.md`](../architecture/frontend/19-observability.md)）；api 的存取日誌已記前端的 `clientRelease` |
+| 指標的前例 | `apps/apm-service` 的 `/metrics` 已輸出 Prometheus 格式（前端的 Web Vitals），只開在主機的內部介面（[`07-apm-service.md`](../architecture/07-apm-service.md) §3.4、§8） |
 
-沒有的：任何指標（沒有 prom-client、OpenTelemetry、event loop 監測）、租戶 DB 與 pg-boss 的健康檢查、前端錯誤回報、bundle 大小預算。
+沒有的：api 的任何指標（沒有 prom-client、OpenTelemetry、event loop 監測）、租戶 DB 與 pg-boss 的健康檢查。
+這份提案只剩後端；前端的部分已另外完成並歸檔。
 
 ## 範圍
 
@@ -31,8 +34,6 @@
 | 快取指標：權限快取、使用者快取、租戶目錄快取的命中率與大小 | |
 | 就緒檢查補上 pg-boss；存活檢查加 event loop lag 門檻 | |
 | OpenTelemetry tracing：HTTP → service → DB（span 帶租戶代碼） | |
-| 前端錯誤回報（未捕捉例外、API 5xx），backstage 與 apps/platform 都要 | |
-| CI 的 bundle 大小預算 | |
 
 ## 初步構想
 
@@ -44,7 +45,9 @@
 ## 開放問題
 
 1. `/metrics` 的存取控制：只開在內網（nginx 不轉發），還是要 token？
+   參考：apps/apm-service 的 `/metrics` 已採「nginx 不轉發、只綁主機的內部介面」，api 照做的話兩個服務的抓取設定一致。
 2. 前端錯誤回報要自建端點（寫進日誌），還是接 Sentry 之類的服務？接外部服務要處理個資與租戶網域的 CSP。
+   **結論**：自建模擬 Sentry API 的 `apps/apm-service`（[`frontend/19-observability.md`](../architecture/frontend/19-observability.md) §9.2 D1）。
 3. 要不要有依租戶的指標（例如每個租戶的請求量）？租戶多時標籤基數會很大，可以只在 tracing 與日誌帶租戶。
 
 ## 歸檔去向

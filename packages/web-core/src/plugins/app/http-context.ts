@@ -12,6 +12,7 @@ import {
 import {
   apiAdapterInterceptor,
   clientIdInterceptor,
+  clientReleaseInterceptor,
   createAuthHeaderInterceptor,
   createHttpCacheInterceptor,
   createRefreshTokenInterceptor,
@@ -59,7 +60,11 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           name: names.base,
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
-          requestInterceptors: [clientIdInterceptor, createHttpCacheInterceptor(session)],
+          requestInterceptors: [
+            clientIdInterceptor,
+            clientReleaseInterceptor,
+            createHttpCacheInterceptor(session),
+          ],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [retryInterceptor],
         }),
@@ -73,6 +78,7 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           // 快取的判斷在認證之後：續期失敗、session 在這一刻結束的請求也是 no-store
           requestInterceptors: [
             clientIdInterceptor,
+            clientReleaseInterceptor,
             createAuthHeaderInterceptor(session),
             createHttpCacheInterceptor(session),
           ],

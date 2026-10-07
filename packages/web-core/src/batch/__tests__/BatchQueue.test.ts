@@ -2,12 +2,19 @@ import { waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '../../errors';
+import type * as TelemetryModule from '../../telemetry';
 import { createFakeBatchQueue } from '../../testing/fakeBatchQueue';
 import { jobProgressAmount, jobProgressRatio } from '../activeQueue';
 import { isGoneError, serializeBatchError, toBatchErrorInstance } from '../errors';
 import { registerBatchOperation, resetBatchOperations } from '../operations';
 import { tagMessage } from '../protocol';
 import type { BatchJob, BatchRunContext } from '../types';
+
+const telemetry = vi.hoisted(() => ({ captureError: vi.fn() }));
+vi.mock('../../telemetry', async (importOriginal) => ({
+  ...(await importOriginal<typeof TelemetryModule>()),
+  captureError: telemetry.captureError,
+}));
 
 /** 可以從外面決定何時完成的 promise：用來驗證「一次只處理一筆」。 */
 function deferred() {
@@ -849,5 +856,29 @@ describe('批次錯誤的序列化', () => {
   it('*_NOT_FOUND 視為已不存在', () => {
     expect(isGoneError(serializeBatchError(new AppError('USER_NOT_FOUND', 404)))).toBe(true);
     expect(isGoneError(serializeBatchError(new AppError('USER_NOT_LOCKED', 409)))).toBe(false);
+  });
+});
+
+describe('批次佇列：worker 的錯誤轉給分頁上報（docs/architecture/frontend/19-observability.md §2）', () => {
+  it('佇列未捕捉的例外交給一個連線中的分頁，以 source=worker 上報', async () => {
+    const capture = telemetry.captureError;
+    capture.mockClear();
+    const tab = queue.openTab('tab-a');
+    await tab.start();
+
+    // 分頁的 hello 經 MessageChannel 非同步到達佇列：佇列認得這個分頁之前的回報會被丟掉
+    await waitFor(() => {
+      queue.host.reportError(new TypeError('boom in worker'));
+      expect(capture).toHaveBeenCalled();
+    });
+    const [error, source, handled] = capture.mock.calls[0] ?? [];
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toMatchObject({ name: 'TypeError', message: 'boom in worker' });
+    expect(source).toBe('worker');
+    expect(handled).toBe(false);
+  });
+
+  it('沒有分頁連著時丟掉', () => {
+    expect(() => queue.host.reportError('nobody listening')).not.toThrow();
   });
 });

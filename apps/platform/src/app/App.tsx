@@ -1,5 +1,6 @@
 import type { AppContext } from '@b2b-system/web-core/app';
 import { DocumentTitle, GlobalProvider, SessionWatcher } from '@b2b-system/web-core/shell';
+import { useTelemetryUser } from '@b2b-system/web-core/telemetry';
 import { RouterProvider } from '@tanstack/react-router';
 
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
@@ -7,9 +8,10 @@ import { useSyncPermissions } from '@/features/login';
 
 import { isPublic } from './sessionRedirect';
 
-/** 整個 app 只有一個權限水合實例。 */
+/** 整個 app 只有一個權限水合實例；錯誤回報的使用者 id 跟著同一個 profile 走。 */
 function ProfileSync() {
-  useSyncPermissions();
+  const { profile } = useSyncPermissions();
+  useTelemetryUser(profile?.admin.id);
   return null;
 }
 

@@ -20,13 +20,29 @@ RUN pnpm install --frozen-lockfile --filter @b2b-system/backstage...
 ARG VITE_OIDC_ISSUER
 ARG VITE_PLATFORM_APP_URL
 ENV VITE_OIDC_ISSUER=$VITE_OIDC_ISSUER VITE_PLATFORM_APP_URL=$VITE_PLATFORM_APP_URL
+# 前端錯誤回報（docs/architecture/frontend/19-observability.md §3）：release 是 commit；DSN 在執行時以網域組成
+ARG APP_RELEASE=unknown
+ARG VITE_APM_PROJECT_ID
+ARG VITE_APM_PUBLIC_KEY
+ARG VITE_APM_TRACES_SAMPLE_RATE=0.1
+ENV APP_RELEASE=$APP_RELEASE VITE_APM_PROJECT_ID=$VITE_APM_PROJECT_ID VITE_APM_PUBLIC_KEY=$VITE_APM_PUBLIC_KEY \
+    VITE_APM_TRACES_SAMPLE_RATE=$VITE_APM_TRACES_SAMPLE_RATE BUILD_SOURCEMAP=hidden
 
 COPY packages ./packages
 COPY apps/backstage ./apps/backstage
+# sourcemap 不進正式映像：建置後搬到 /sourcemaps，由下面的 sourcemaps stage 匯出、上傳到 apm-service
+# （docs/architecture/07-apm-service.md §5）
 RUN pnpm --filter @b2b-system/api-sdk build \
  && pnpm --filter @b2b-system/error-codes build \
  && pnpm --filter @b2b-system/realtime build \
- && pnpm --filter @b2b-system/backstage build
+ && pnpm --filter @b2b-system/backstage build \
+ && mkdir -p /sourcemaps \
+ && cd apps/backstage/dist \
+ && find . -name '*.map' -exec sh -c 'mkdir -p "/sourcemaps/$(dirname "$1")" && mv "$1" "/sourcemaps/$1"' _ {} \;
+
+# ── sourcemaps（docker build --target sourcemaps --output type=local,dest=<資料夾>）────
+FROM scratch AS sourcemaps
+COPY --from=build /sourcemaps /
 
 # ── runtime ──────────────────────────────────────────────────────────
 # 非 root（uid 101）的 nginx：pid 與暫存檔在 /tmp，listen 8080

@@ -6,4 +6,14 @@ export const ENV = {
   OIDC_ISSUER: import.meta.env.VITE_OIDC_ISSUER ?? 'http://localhost:5175/api/oidc',
   /** apps/platform 的網址：帳號流程與租戶管理在那裡。 */
   PLATFORM_APP_URL: import.meta.env.VITE_PLATFORM_APP_URL ?? 'http://localhost:5175',
+  /** 建置時寫進產物的 release（commit）；本機是 `dev`。 */
+  RELEASE: __APP_RELEASE__,
+  /**
+   * 前端錯誤回報（docs/architecture/frontend/19-observability.md §3）：都沒設時不送出、只 console.debug。
+   * `APM_DSN` 是完整的 DSN（接真的 Sentry）；否則以專案 id 與 public key 在執行時組成同源的 DSN。
+   */
+  APM_DSN: import.meta.env.VITE_APM_DSN as string | undefined,
+  APM_PROJECT_ID: import.meta.env.VITE_APM_PROJECT_ID as string | undefined,
+  APM_PUBLIC_KEY: import.meta.env.VITE_APM_PUBLIC_KEY as string | undefined,
+  APM_TRACES_SAMPLE_RATE: Number(import.meta.env.VITE_APM_TRACES_SAMPLE_RATE ?? 0.1),
 } as const;

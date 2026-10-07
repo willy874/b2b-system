@@ -17,6 +17,7 @@ b2b-system/
 │   ├── auth/                    @b2b-system/platform — 全平台共用的身分與租戶入口（React，[`architecture/04-sso.md`](04-sso.md) §12；見該目錄的 README）
 │   ├── api/                     @b2b-system/api — NestJS 後端
 │   ├── file-storage/            @b2b-system/file-storage — S3 相容的本機檔案儲存（見 03-file-storage.md）
+│   ├── apm-service/             @b2b-system/apm-service — 模擬 Sentry API 的前端錯誤收件（見 07-apm-service.md）
 │   └── e2e/                     @b2b-system/e2e — Playwright
 │
 ├── packages/
@@ -381,6 +382,8 @@ VITE_ENABLE_MOCK=false
 # DEV_API_PROXY_TARGET=http://localhost:3100
 ```
 
+`apps/apm-service` 的變數（`APM_*`）見 [`07-apm-service.md`](./07-apm-service.md) §1；前端的 `VITE_APM_*`、`APP_RELEASE` 見
+[`frontend/19-observability.md`](./frontend/19-observability.md) §8。
 `apps/file-storage` 的變數說明見 [`03-file-storage.md`](./03-file-storage.md) §1；api 端的物件儲存變數見
 [`backend/09-file.md`](./backend/09-file.md) §8。
 
