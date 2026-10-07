@@ -410,10 +410,13 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "scheduledAt": "Scheduled for {{time}}",
+    "tabs": {
+      "list": "Jobs",
+      "queues": "Queue overview"
+    },
     "queues": {
       "title": "Job types",
-      "open": "Queue overview",
-      "hint": "Click a card to add it to or remove it from the list filter. You can pick several.",
+      "hint": "Live counts for each job type. To filter jobs by type, use the filter panel on the Jobs tab.",
       "cron": "Schedule: {{cron}} (UTC)",
       "onDemand": "Queued by the application",
       "ready_one": "Waiting {{count}}",

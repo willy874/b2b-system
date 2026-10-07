@@ -393,10 +393,13 @@
     "expand": "展開",
     "collapse": "收合",
     "scheduledAt": "預定 {{time}}",
+    "tabs": {
+      "list": "工作列表",
+      "queues": "佇列概況"
+    },
     "queues": {
       "title": "工作種類",
-      "open": "佇列概況",
-      "hint": "點卡片加入或移出列表的篩選，可以選好幾種。",
+      "hint": "每種工作的即時筆數。要依工作種類篩選列表，請到「工作列表」的篩選面板。",
       "cron": "排程：{{cron}}（UTC）",
       "onDemand": "由程式入列",
       "ready_other": "等待 {{count}}",

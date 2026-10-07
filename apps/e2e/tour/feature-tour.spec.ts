@@ -307,10 +307,11 @@ test('稽核、回收桶、背景工作、設定', async ({ page }) => {
   });
 
   await scene('job', async () => {
-    await open(page, '/job', 'job-page');
+    await open(page, '/job?view=queues', 'job-page');
     await shoot(page, 'job');
   });
   await scene('job-detail', async () => {
+    await open(page, '/job', 'job-page');
     const table = page.getByTestId('job-table');
     await table.scrollIntoViewIfNeeded();
     await page.locator('[data-testid="job-expand"]').first().click();

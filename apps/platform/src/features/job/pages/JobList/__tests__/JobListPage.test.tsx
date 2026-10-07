@@ -71,6 +71,14 @@ async function openFilters(): Promise<HTMLElement> {
   return screen.findByTestId('filter-bar-popup');
 }
 
+function queueTab(): HTMLElement {
+  const tab = document.querySelector<HTMLElement>(
+    '[data-testid="job-view-tab"][data-value="queues"]',
+  );
+  if (!tab) throw new Error('找不到「佇列概況」分頁');
+  return tab;
+}
+
 async function chooseScope(label: string) {
   await userEvent.click(screen.getByRole('combobox', { name: '範圍' }));
   await userEvent.click(await screen.findByRole('option', { name: label }));
@@ -100,12 +108,14 @@ beforeEach(() => {
 });
 
 describe('平台的背景工作監控', () => {
-  it('佇列卡片收在「佇列概況」對話框；按鈕上掛著失敗總數', async () => {
-    renderPage(['platformJob:read']);
+  it('佇列卡片收在「佇列概況」分頁（寫進網址的 view）；分頁上掛著失敗總數', async () => {
+    const router = renderPage(['platformJob:read']);
     await waitFor(() =>
-      expect(screen.getByTestId('job-queue-open-failed')).toHaveAttribute('data-value', '1'),
+      expect(screen.getByTestId('job-queue-tab-failed')).toHaveAttribute('data-value', '1'),
     );
-    fireEvent.click(screen.getByTestId('job-queue-open'));
+    expect(screen.queryByTestId('job-queue-card')).not.toBeInTheDocument();
+    fireEvent.click(queueTab());
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ view: 'queues' }));
     await waitFor(() => expect(screen.getAllByTestId('job-queue-card')).toHaveLength(2));
     expect(
       screen.getAllByTestId('job-queue-card').map((card) => card.getAttribute('data-value')),
@@ -166,19 +176,34 @@ describe('平台的背景工作監控', () => {
     expect(screen.getByRole('textbox', { name: '租戶代碼' })).toHaveValue('');
   });
 
-  it('點佇列卡片 → 加入工作種類的篩選（可以多選）；再點一次移出', async () => {
+  it('佇列卡片只顯示資訊：點了不改篩選', async () => {
     renderPage(['platformJob:read']);
-    fireEvent.click(await screen.findByTestId('job-queue-open'));
+    await screen.findAllByTestId('job-tenant');
+    fireEvent.click(queueTab());
     await waitFor(() => expect(screen.getAllByTestId('job-queue-card')).toHaveLength(2));
+    const calls = listJobs.mock.calls.length;
     fireEvent.click(screen.getAllByTestId('job-queue-card')[0]!);
-    await waitFor(() => expect(lastListParams()).toMatchObject({ name: ['file.maintenance'] }));
-    fireEvent.click(screen.getAllByTestId('job-queue-card')[1]!);
+    expect(screen.getAllByTestId('job-queue-card')[0]).not.toHaveAttribute('aria-pressed');
+    expect(listJobs).toHaveBeenCalledTimes(calls);
+    expect(lastListParams()).toMatchObject({ name: undefined });
+  });
+
+  it('篩選面板的工作種類多選 → 以選到的工作查詢', async () => {
+    renderPage(['platformJob:read']);
+    await screen.findAllByTestId('job-tenant');
+    const panel = await openFilters();
+    const nameField = within(panel)
+      .getAllByTestId('filter-bar-field')
+      .find((field) => field.getAttribute('data-value') === 'name')!;
+    await userEvent.click(within(nameField).getByText('檔案維護'));
+    await userEvent.click(within(nameField).getByText('租戶佈建'));
+    await userEvent.click(screen.getByTestId('filter-bar-submit'));
     await waitFor(() =>
-      expect(lastListParams()).toMatchObject({ name: ['file.maintenance', 'tenant.provision'] }),
+      expect(lastListParams()).toMatchObject({
+        name: ['file.maintenance', 'tenant.provision'],
+        offset: 0,
+      }),
     );
-    expect(screen.getAllByTestId('job-queue-card')[0]).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(screen.getAllByTestId('job-queue-card')[0]!);
-    await waitFor(() => expect(lastListParams()).toMatchObject({ name: ['tenant.provision'] }));
   }, 10_000);
 
   it('有 platformJob:retry → 只有 failed 的工作有重試按鈕', async () => {
