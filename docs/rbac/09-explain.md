@@ -65,7 +65,7 @@ user:alice
 | `modules/authz-explain` | `assertCanExplain`、`describePaths`（查 user／group／role 的名稱、依 §2 遮蔽）、`GET /users/:id/permission-sources` |
 | `modules/file`（`FileAccessExplainService`） | 以目標使用者建立檔案的判斷器取路徑、接上閉包的來歷；資料夾的名稱與可見性以 resolver 交給 `describePaths` |
 
-要說明其他資源（之後的專案、文件等）時照檔案的做法：擁有者模組取路徑，`describePaths` 的 resolver 補上自己的節點；
+要說明其他資源（之後的文件、訂單等）時照檔案的做法：擁有者模組取路徑，`describePaths` 的 resolver 補上自己的節點；
 `authz-explain` 不依賴擁有者模組。
 
 ## 5. 前端

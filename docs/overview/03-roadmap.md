@@ -20,7 +20,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | CI | repo 沒有 CI；pre-commit（lefthook）只跑 oxfmt 與 oxlint，OpenAPI 的 diff 檢查尚未自動化 |
 | 前端層級依賴 | 依賴矩陣（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review |
 | 覆蓋率 | Phase 0 訂的目標（前端 75%、後端 80%，`core/permission`、`common/guards` 100%）沒有寫成測試設定的門檻，也沒有 CI 檢查 |
-| 業務功能 | 沒有，這是骨架；第一個業務功能落地時預期會帶出 `features/` 裡的專案層級授權（G5） |
+| 業務功能 | 沒有，這是骨架 |
 
 ---
 
@@ -71,5 +71,5 @@ Phase 0 的目標是「先把誰能做什麼一次做對」，分六個里程碑
 | M4 | 使用者與角色 | 建角色 → 指派 → 看到選單；移除權限後下一次請求即 403；auditor 打開 `/user/create` 看到 403；反提權；系統角色保護；最後一位 super-admin（E2E `rbac-lifecycle.spec.ts`、`route-guard.spec.ts`） |
 | M5 | 稽核日誌、個人帳號、收尾 | `core/` 不 import `features/`、`modules/`（結構測試）；註解掉任一 feature plugin 仍能啟動；每個錯誤碼與權限鍵都有兩個語系的翻譯（語系測試） |
 
-Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；一般化見 G5 提案）、深色主題（09-25）、服務帳號與 API token（10-01）。
+Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；之後由權限圖一般化，[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）、深色主題（09-25）、服務帳號與 API token（10-01）。
 仍未做的（MFA、匯入匯出、多實例部署等）在 [`features/README.md`](../features/README.md)。

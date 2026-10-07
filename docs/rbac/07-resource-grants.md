@@ -285,15 +285,12 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 ## 10. 延伸
 
-### 10.1 其他資源與「專案」（P3）
+### 10.1 其他資源
 
-檔案之外的資源（之後的專案、文件等業務資源）沿用同一套：
+檔案之外的資源（之後的文件、訂單等業務資源）沿用同一套：
 
 - 關係圖（`core/authz`）是通用的；每種資源在模型裡宣告自己的型別（等級、動作、`from` 上層），並提供結構邊的供應者。
 - 解析由關係圖的判斷器負責（舊的 `resolveHierarchyLevels` 與 `modules/resource-grant` 已在 G3a 刪除）。
-- **專案會成為資料夾的上層**：資料夾掛在專案底下之後，資料夾的上層鏈延伸到專案節點，
-  專案上的授權自然往下繼承到它的資料夾。屆時根目錄的角色由專案取代（每個專案一棵樹）。
-  掛載方式與遷移步驟見 §13.4。
 
 #### 新增一種資源的步驟
 
@@ -306,7 +303,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 5 | 授權管理 API、稽核（`<resource>.grant` / `.revoke`）、推播受眾 | 該資源的 module ＋ `realtime.audience.ts` |
 | 6 | 權限目錄加閘門鍵（`<resource>:access`）與 `<resource>:share` | 權限變更的同步清單（CLAUDE.md） |
 
-「誰能管理授權」「等級蘊含哪些動作」「上層是誰」都在資源自己的 module。上層鏈跨越多種資源時（資料夾 → 專案），
+「誰能管理授權」「等級蘊含哪些動作」「上層是誰」都在資源自己的 module。上層鏈跨越多種資源時（資料夾的上層是另一種資源），
 在模型裡以 `inherits_from` 指向另一種型別即可，判斷器會沿著走。
 
 ### 10.2 何時改用 Zanzibar 類服務
@@ -363,7 +360,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | **P1** | `file:access` / `file:share`、`resource_grants`（對象只有角色）、繼承、擁有者規則、`capabilities`、推播受眾、授權管理 API 與前端「共用」對話框 |
 | **P2** | 授權給個別使用者、中斷繼承（私人資料夾）、授權過期 |
 | **追加** | 沒有權限的資料夾也列出（鎖住）＋ 申請存取（§5.1、§6.5）；系統資料夾與 `everyone` 對象（§12） |
-| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。專案本身還不存在，掛上去的那一步隨專案功能一起做。G3a（[`rbac/01-domain-model.md`](01-domain-model.md) §9）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
+| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。G3a（[`rbac/01-domain-model.md`](01-domain-model.md) §9）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
 
 三個階段都已實作（2026-09-29）。
 
@@ -385,8 +382,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 把某個資料夾交給特定角色或個人管理 | 沒有針對單一資源的授權 |
 | 某個資料夾只給少數人（私人資料夾） | 只有 allow；資料夾授權會一路繼承下去 |
 
-[`rbac/01-domain-model.md`](01-domain-model.md) §8 延後作用域的理由是「主功能還不存在，猜不到作用域的單位」。檔案管理器的資料夾樹是第一個具體的單位，
-而且已知 **未來資料夾會掛在「專案」底下**。後端與前端的對應章節：[`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §11、
+[`rbac/01-domain-model.md`](01-domain-model.md) §8 延後作用域的理由是「主功能還不存在，猜不到作用域的單位」。檔案管理器的資料夾樹是第一個具體的單位。
+後端與前端的對應章節：[`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §11、
 [`../architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §13。
 
 ### 13.2 決定
@@ -401,7 +398,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | D4 | 資料夾授權用 **四個等級**（viewer / contributor / editor / manager），不逐一勾選權限鍵 | 等級是全序、好理解、好比較（取最高者、反提權比大小）；每個等級對應一組權限鍵，鍵的格式不變 |
 | D5 | 授權往下繼承；`inherit_grants = false` 中斷繼承，中斷時複製目前繼承到的授權 | 不引入 deny 規則也能做出私人資料夾（[`rbac/01-domain-model.md`](01-domain-model.md) §8 理由 4）；複製避免中斷當下有人突然失去存取 |
 | D6 | 對項目的操作看它 **所在的位置**；擁有者規則只放寬改名、移動、刪除，前提是能在該位置上傳 | 與 Drive 一致：被分享一個資料夾的人不能刪掉它本身；「操作自己建立的東西」不會變成繞過授權的後門 |
-| D7 | 通用的 `resource_grants` 表與 `modules/resource-grant`，資料夾只是第一個 `resource_type` | 專案、關卡會用同一套；解析函式只認識「節點、上層、是否繼承」（G3a 起改為關係圖上的邊，表與 module 已刪除，見 §10.1） |
+| D7 | 通用的 `resource_grants` 表與 `modules/resource-grant`，資料夾只是第一個 `resource_type` | 其他資源會用同一套；解析函式只認識「節點、上層、是否繼承」（G3a 起改為關係圖上的邊，表與 module 已刪除，見 §10.1） |
 | D8 | 後端回傳 `capabilities`，前端不重算 | 繼承與擁有者規則只在後端有一份 |
 | D9 | 資料夾授權不進權限快取，每個請求重新解析 | 失效時機（角色指派、授權變更、搬移資料夾）太多；一次讀整棵樹在目前規模很便宜 |
 | D10 | 路由宣告 `@RequireAnyPermission('file:access', 'file:<動作>')`，範圍在 service 判斷 | guard 看不到資源（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外）；路由稽核仍然有明確宣告 |
@@ -415,19 +412,14 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | --- | --- |
 | P1 | D1–D4、D6–D10；對象只有角色；繼承（沒有中斷） |
 | P2 | 對象加上個別使用者；中斷繼承（D5）；授權過期 |
-| P3 | 通用解析契約（其他資源、專案作為上層）與 Zanzibar 遷移判準 |
+| P3 | 通用解析契約（其他資源）與 Zanzibar 遷移判準 |
 
 各階段的實際內容與完成狀態見 §11。
 
-### 13.4 延伸：專案成為資料夾的上層
+### 13.4 不做：專案成為資料夾的上層
 
-資料夾會掛在專案底下。屆時：
-
-1. `file_folders` 加 `project_id`（根目錄底下的第一層資料夾必填），或每個專案一個根資料夾。
-2. 資料夾的上層鏈多一個節點：`… → 第一層資料夾 → 專案`。解析不必改，只是節點多了一種型別
-   （決定當時寫的是 `resolveHierarchyLevels` 與 `resource_type`；現在是模型裡的 `inherits_from` 指向專案型別，見 §10.1）。
-3. 專案上的授權自然往下繼承；專案成員角色（例：`project-editor`）就是專案上的 `editor` 授權。
-4. 根目錄的「只由全域權限決定」改成「專案的清單只由全域權限決定」。
+2026-10-07 決定不做（原為權限圖的 G5）：一群人共用一塊空間，用群組加上資料夾授權即可（[`08-groups.md`](./08-groups.md)）；
+根目錄維持只由全域權限決定（§3.1、§12）。
 
 ### 13.5 代價
 
