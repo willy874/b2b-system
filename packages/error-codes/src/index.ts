@@ -1,8 +1,8 @@
 /**
  * 錯誤碼是前後端的穩定契約：api 以 `AppException(ErrorCode.X)` 拋出、`statusOf` 決定 HTTP 狀態；
  * 前端以 `ERROR_MESSAGE_KEY`（`Record<ErrorCode, …>`，漏一個碼就編譯失敗）對到 `error.<CODE>` 的翻譯。
- * 新增一個碼時，同步加上 backstage 與 apps/platform 的 `ERROR_MESSAGE_KEY` 與兩個語系檔的 `error.<CODE>`
- * （`app/__tests__/locales.test.ts` 比對）。
+ * 新增一個碼時，同步加上 web-core 的 `ERROR_MESSAGE_KEY`（`web-core/errors/errorMessageKey.ts`）與 web-core 兩個語系檔的
+ * `error.<CODE>`（`web-core/locales/__tests__/resources.test.ts` 比對）；兩個 app 不必改。
  *
  * 這個 package 只有常數，不依賴任何東西（api 與瀏覽器都會載入）。
  */
