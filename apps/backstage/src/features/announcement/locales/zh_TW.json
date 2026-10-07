@@ -1,7 +1,7 @@
 {
   "announcement": {
     "list": {
-      "title": "公告",
+      "title": "公告管理",
       "description": "寫好訊息，立即或在指定的時間以站內通知發給指定的人、群組、角色或全部的人。",
       "searchPlaceholder": "搜尋標題或內文",
       "allStatuses": "全部狀態"
