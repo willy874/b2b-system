@@ -22,11 +22,11 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | --- | --- |
 | `app` | `AppContext` 型別、`createAppContext()`、React bridge、跨 feature 的事件（`events.ts`） |
 | `audit-log` | 稽核紀錄的列表 `AuditLogTable`（欄位設定、展開列的內容由 app 傳入）與 `AuditLogRowVM` |
-| `auth` | `SessionStore`（token 生命週期、跨分頁單飛續期）、`signOut`（先結束前端、再撤銷後端；回傳後端是否完成）、SSO 的瀏覽器端（`sso.ts`：PKCE、授權網址、end-session 網址） |
+| `auth` | `SessionStore`（token 生命週期、跨分頁單飛續期）、`signOut`（先結束前端、再撤銷後端；回傳後端是否完成）、SSO 的瀏覽器端（`sso.ts`：PKCE、授權網址、end-session 網址）、session 結束的原因（`LOGOUT_REASON`、`PASSWORD_CHANGED_REASON`）與登入頁說明的對照 `sessionEndMessageKey`（三個語系鍵由 app 傳入） |
 | `batch` | 全域批次佇列（SharedWorker 排程、進度條、頂列面板、結果彈出） |
 | `cache` | `queryClient`（`AppQueryClient`）、依賴圖引擎（`resourceGraph`）、跨分頁失效 |
 | `client` | `HttpContext`／`FetcherContext`／`defineFetcher`／攔截器鏈 |
-| `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`ChangePasswordSection`＋`useChangePasswordForm`（個人資料頁的變更密碼；mutation options 與結束 session 的原因由 app 傳入，狀態留在頁面以便合併未儲存提醒）、`PASSWORD_MIN_LENGTH`／`PASSWORD_MAX_LENGTH`、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
+| `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`ChangePasswordSection`＋`useChangePasswordForm`（個人資料頁的變更密碼；mutation options 由 app 傳入，狀態留在頁面以便合併未儲存提醒）、`PASSWORD_MIN_LENGTH`／`PASSWORD_MAX_LENGTH`、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
 | `errors` | `AppError`、`ErrorCodes`、`ERROR_MESSAGE_KEY`、`useErrorMessage()` 等 |
 | `job` | 背景工作的 `JobTable`（`extraColumns` 給 apps/platform 的租戶欄、`onRetryJob`、`renderDetail` 由 app 傳入）、`JobQueueSummary`、`JobRowActions`、`JobDetailView`（JSON 的呈現由 app 傳入）；狀態的清單、語系鍵與色調；view model 型別 |
 | `layout` | 登入後的外框 `DashboardShell`（側欄、頂列、帳號選單；品牌、選單資料與帳號選單的項目由 app 傳入）與分組側欄 `SideNav`；頂列：`HeaderToolbar`、`ThemeMenu`、`LanguageMenu`（`onChange` 由 app 傳入）、`RealtimeStatusIndicator`；偏好頁的 `HeaderToolbarSettings`；選單型別 |
@@ -39,7 +39,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `route-link` | route id 的註冊表、`<RouteLink>`（渲染前檢查目標頁的權限）、`useRouteLinkAccess`、`useRouteLinkResolver` |
 | `realtime` | 推播的連線、協調者、`useRealtimeEvent()`；只有 `socketIoTransport.ts` import `socket.io-client` |
 | `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard`（路由）、`useDialogUnsavedGuard`（以 state 開關的對話框）、路由的 `staticData.titleKey`（`findTitleKey`） |
-| `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`SessionWatcher`（session 結束時清掉使用者的資料並導向登入頁；登入頁路徑與公開頁面由 app 傳入）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost`、`DocumentTitle`（「頁面 · 產品名」，`router` 與產品名的鍵由 app 傳入） |
+| `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`SessionWatcher`（session 結束時清掉使用者的資料並導向登入頁；登入頁路徑與公開頁面由 app 傳入，導向的參數由 `loginSearchAfterSessionEnd` 組成）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost`、`DocumentTitle`（「頁面 · 產品名」，`router` 與產品名的鍵由 app 傳入） |
 | `store` | 全域 store：`permission`、`layout`、`preference`（語系、時區、主題、頂列工具）、`tableColumnSettings` |
 | `theme` | `THEME_OPTIONS`、`resolveTheme()`／`applyTheme()` |
 | `testing` | `renderWithPermissions`／`AllProviders`、`renderRoute`（回傳 `router` 與 `queryClient`）、`renderInRouter`（單一元件放進只有 `/` 的路由）、`fakeBatchQueue`、`initTestI18n`、語系檔的檢查（`localeKeySet`、`pluralProblems`、`hasLocaleKey`、`findFullWidthPunctuation`） |

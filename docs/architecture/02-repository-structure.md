@@ -76,7 +76,7 @@ apps/backstage/src/
 │   ├── plugin.ts            建立 router，掛到 AppContext
 │   ├── features.ts          執行期啟用的 feature 清單
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
-│   ├── sessionRedirect.ts   登出、session 結束後要去哪
+│   ├── sessionRedirect.ts   不需要 session 的頁面（交給 web-core 的 SessionWatcher）
 │   ├── layouts/
 │   │   ├── DashboardLayout.tsx   把品牌、選單、帳號選單交給 web-core 的 DashboardShell（側欄、頂列、主內容）
 │   │   ├── navigation.ts、headerTools.ts   側欄與帳號選單的資料、頂列的內建工具

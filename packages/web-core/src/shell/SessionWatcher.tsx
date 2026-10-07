@@ -4,22 +4,18 @@ import { useEffect, useRef } from 'react';
 import { sessionStore, useHasSession } from '../auth';
 import { queryClient } from '../cache';
 import { clearPinnedRowData, usePermissionStore } from '../store';
+import { loginSearchAfterSessionEnd } from './loginSearch';
 
 export interface SessionWatcherProps {
   /** app 的 router：`SessionWatcher` 放在 `RouterProvider` 之外，以參數傳入。 */
   router: AnyRouter;
   /** 登入頁的路徑（backstage `/auth/login`、apps/platform `/login`）。 */
   loginPath: string;
-  /** 不需要 session 的頁面（登入、SSO callback、帳號流程）：沒有 session 時不導向登入頁。 */
-  isPublic: (pathname: string) => boolean;
   /**
-   * session 中途結束後導向登入頁的查詢參數（app 的 `app/sessionRedirect.ts`）：
-   * `signedOut`（登入頁不自動跳到 IdP）、`reason`、`redirect`。
+   * 不需要 session 的頁面（登入、SSO callback、帳號流程；app 的 `app/sessionRedirect.ts`）：
+   * 沒有 session 時不導向登入頁；session 在這些頁面結束時，重新登入後也不回到這裡。
    */
-  loginSearchAfterSessionEnd: (
-    reason: string,
-    location: { pathname: string; search: string },
-  ) => object;
+  isPublic: (pathname: string) => boolean;
 }
 
 /**
@@ -54,12 +50,7 @@ function currentLocation(router: AnyRouter): { pathname: string; search: string 
  *
  * 權限水合（`useSyncPermissions`）等 app 自己的同步 hook 不經過這裡：app 在旁邊掛自己的元件呼叫它們。
  */
-export function SessionWatcher({
-  router,
-  loginPath,
-  isPublic,
-  loginSearchAfterSessionEnd,
-}: SessionWatcherProps) {
+export function SessionWatcher({ router, loginPath, isPublic }: SessionWatcherProps) {
   const hasSession = useHasSession();
   const hadSession = useRef(hasSession);
 
@@ -88,14 +79,14 @@ export function SessionWatcher({
         clearUserData();
         void router.navigate({
           to: loginPath,
-          search: loginSearchAfterSessionEnd(reason, currentLocation(router)),
+          search: loginSearchAfterSessionEnd(reason, currentLocation(router), isPublic),
           replace: true,
           // session 已經結束：未儲存提醒留不住使用者，直接離開。endSession() 常在表單的 state 還沒 commit 時同步觸發
           // （例：改密碼成功後先清空欄位再結束 session），blocker 讀到的 dirty 仍是 true
           ignoreBlocker: true,
         });
       }),
-    [loginPath, loginSearchAfterSessionEnd, router],
+    [isPublic, loginPath, router],
   );
 
   return null;

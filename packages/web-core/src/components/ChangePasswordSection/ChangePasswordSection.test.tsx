@@ -13,10 +13,7 @@ const NEW_PASSWORD = 'correct horse battery';
 const mutationFn = vi.fn<(request: ChangePasswordRequest) => Promise<unknown>>();
 
 function Harness() {
-  const form = useChangePasswordForm({
-    mutationOptions: { mutationFn },
-    sessionEndReason: 'password_changed',
-  });
+  const form = useChangePasswordForm({ mutationOptions: { mutationFn } });
   return (
     <>
       <ChangePasswordSection form={form} username="me@acme.test" />
@@ -96,7 +93,7 @@ describe('ChangePasswordSection（個人資料頁的變更密碼）', () => {
     expect(dirty).toHaveTextContent('true');
   });
 
-  it('送出前先確認；成功後清空欄位並以傳入的原因結束 session', async () => {
+  it('送出前先確認；成功後清空欄位並以 password_changed 結束 session', async () => {
     const endSession = vi.spyOn(sessionStore, 'endSession').mockImplementation(() => undefined);
     renderSection();
     fill('old password 123', NEW_PASSWORD, NEW_PASSWORD);

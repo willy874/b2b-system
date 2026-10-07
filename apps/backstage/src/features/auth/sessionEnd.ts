@@ -1,28 +1,13 @@
-import { getErrorMessageKey } from '@b2b-system/web-core/errors';
+import { sessionEndMessageKey as coreSessionEndMessageKey } from '@b2b-system/web-core/auth';
 
-/** 使用者自己按登出（`useLogoutMutation`）：網址上不帶原因。 */
-export const LOGOUT_REASON = 'logout';
+/** 登入頁說明 session 為什麼結束的三句話（原因的對照在 web-core 的 `sessionEndMessageKey`）。 */
+const SESSION_END_MESSAGE_KEYS = {
+  signedOut: 'auth.login.signedOut',
+  passwordChanged: 'auth.login.passwordChanged',
+  sessionEnded: 'auth.login.sessionEnded',
+} as const;
 
-/** 變更密碼後結束 session（account 的個人資料頁）：登入頁請使用者用新密碼登入。 */
-export const PASSWORD_CHANGED_REASON = 'password_changed';
-
-/**
- * 這些「原因」其實就是登出：自己登出、同一個 IdP session 的其他產品登出（單一登出回 `AUTH_REFRESH_REVOKED`，
- * docs/architecture/04-sso.md §12.2 D5）、主要 session 結束時一併結束的其他後端 session。
- */
-const SIGNED_OUT_REASONS: ReadonlySet<string> = new Set([
-  LOGOUT_REASON,
-  'AUTH_REFRESH_REVOKED',
-  'main_session_ended',
-]);
-
-/**
- * session 結束的原因（`SessionStore.endSession(reason)`，多半是後端錯誤碼）→ 登入頁顯示的語系鍵。
- * 逾時、帳號停用、偵測到憑證重用、租戶停用各有說明；不認得的原因用通用的「登入狀態已結束」。
- * 對照邏輯與 apps/platform 的 features/login/sessionEnd.ts 相同。
- */
+/** session 結束的原因 → 登入頁顯示的語系鍵。 */
 export function sessionEndMessageKey(reason: string | undefined): string {
-  if (!reason || SIGNED_OUT_REASONS.has(reason)) return 'auth.login.signedOut';
-  if (reason === PASSWORD_CHANGED_REASON) return 'auth.login.passwordChanged';
-  return getErrorMessageKey(reason) ?? 'auth.login.sessionEnded';
+  return coreSessionEndMessageKey(reason, SESSION_END_MESSAGE_KEYS);
 }

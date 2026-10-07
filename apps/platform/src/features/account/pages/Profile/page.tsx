@@ -19,12 +19,6 @@ import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { PLATFORM_ROLE_LABEL_KEY } from '../../constants';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';
 
-/**
- * 變更密碼後結束 session 的原因：登入頁依它說明「密碼已變更，請用新密碼登入」
- * （與 features/login 的 PASSWORD_CHANGED_REASON 相同；feature 之間不直接 import）。
- */
-const PASSWORD_CHANGED_REASON = 'password_changed';
-
 /** 平台管理者自己的資料：名稱、角色與權限（唯讀）、變更密碼。結構同 backstage 的個人資料頁。 */
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -47,10 +41,7 @@ export default function ProfilePage() {
     onError: showError,
   });
 
-  const password = useChangePasswordForm({
-    mutationOptions: getChangePasswordMutationOptions(),
-    sessionEndReason: PASSWORD_CHANGED_REASON,
-  });
+  const password = useChangePasswordForm({ mutationOptions: getChangePasswordMutationOptions() });
 
   const profileDirty = draftDisplayName !== undefined && draftDisplayName !== admin?.displayName;
   // 頁面型表單：換頁與重新整理前提醒未儲存的修改

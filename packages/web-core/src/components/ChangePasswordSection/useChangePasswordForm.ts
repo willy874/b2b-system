@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { RefObject } from 'react';
 
-import { sessionStore } from '../../auth';
+import { PASSWORD_CHANGED_REASON, sessionStore } from '../../auth';
 import type { HttpRequestDTO } from '../../client';
 import { useErrorMessage, useServerFieldErrors } from '../../errors';
 import { useTranslation } from '../../locales';
@@ -25,11 +25,6 @@ export type ChangePasswordRequest = HttpRequestDTO<{
 export interface UseChangePasswordFormOptions {
   /** app 的 `getChangePasswordMutationOptions()`（backstage 打 `/auth/*`，apps/platform 打 `/platform/auth/*`）。 */
   mutationOptions: { mutationFn: (request: ChangePasswordRequest) => Promise<unknown> };
-  /**
-   * 變更成功後結束 session 的原因（各 app 的 `PASSWORD_CHANGED_REASON`）：
-   * 登入頁依它說明「密碼已變更，請用新密碼登入」。
-   */
-  sessionEndReason: string;
 }
 
 export interface ChangePasswordForm {
@@ -60,11 +55,11 @@ export interface ChangePasswordForm {
 
 /**
  * 個人資料頁的「變更密碼」（兩個 app 共用）：欄位狀態、長度與一致性檢查、確認後送出。
- * 成功後所有 refresh token 都被撤銷（包含這一個），以 `sessionEndReason` 結束 session。
+ * 成功後所有 refresh token 都被撤銷（包含這一個），以 `PASSWORD_CHANGED_REASON` 結束 session：
+ * 登入頁依它說明「密碼已變更，請用新密碼登入」。
  */
 export function useChangePasswordForm({
   mutationOptions,
-  sessionEndReason,
 }: UseChangePasswordFormOptions): ChangePasswordForm {
   const { t } = useTranslation();
   const toast = useToast();
@@ -98,7 +93,7 @@ export function useChangePasswordForm({
       'data-testid': 'profile-change-password-confirm',
       onConfirm: async () => {
         // 後端撤銷 session 的推播可能比回應先到：先預告原因，登入頁才會說「密碼已變更」
-        const cancelExpectedEnd = sessionStore.expectSessionEnd(sessionEndReason);
+        const cancelExpectedEnd = sessionStore.expectSessionEnd(PASSWORD_CHANGED_REASON);
         try {
           await changePassword.mutateAsync({ params: { currentPassword, newPassword } });
         } catch (error) {
@@ -112,7 +107,7 @@ export function useChangePasswordForm({
         setNew('');
         setConfirmPassword('');
         // 變更密碼會撤銷所有 refresh token，包含當前這一條
-        sessionStore.endSession(sessionEndReason);
+        sessionStore.endSession(PASSWORD_CHANGED_REASON);
       },
     });
   };

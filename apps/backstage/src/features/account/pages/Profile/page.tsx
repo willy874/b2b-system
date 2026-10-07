@@ -19,12 +19,6 @@ import { invalidateResources, selfUpdated } from '@/apis/resources';
 import { ProfileApiTokenSection } from './components/ProfileApiTokenSection';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';
 
-/**
- * 變更密碼後結束 session 的原因：登入頁依它說明「密碼已變更，請用新密碼登入」
- * （與 features/auth 的 PASSWORD_CHANGED_REASON 相同；feature 之間不直接 import）。
- */
-const PASSWORD_CHANGED_REASON = 'password_changed';
-
 export default function ProfilePage() {
   const { t } = useTranslation();
   const toast = useToast();
@@ -45,10 +39,7 @@ export default function ProfilePage() {
     onError: showError,
   });
 
-  const password = useChangePasswordForm({
-    mutationOptions: getChangePasswordMutationOptions(),
-    sessionEndReason: PASSWORD_CHANGED_REASON,
-  });
+  const password = useChangePasswordForm({ mutationOptions: getChangePasswordMutationOptions() });
 
   const profileDirty =
     draftDisplayName !== undefined && draftDisplayName !== profile.data?.user.displayName;
