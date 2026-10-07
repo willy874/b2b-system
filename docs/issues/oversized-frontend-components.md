@@ -25,7 +25,7 @@
 | --- | --- | --- |
 | `apps/platform/src/features/login/pages/Interaction/page.tsx` | 311 | 4 個 `useState`（L58–68）、以 email 探索 SSO（`useSsoDiscovery`）、登入表單 |
 | `apps/backstage/src/features/account/pages/Profile/page.tsx` | 272 | 兩個 mutation、改密碼的驗證規則、確認流程、`expectSessionEnd` |
-| `apps/platform/src/features/account/pages/Profile/page.tsx` | 269 | 同上（兩份幾乎相同，見 [`duplicated-code-between-apps.md`](./duplicated-code-between-apps.md)） |
+| `apps/platform/src/features/account/pages/Profile/page.tsx` | 269 | 同上（兩份幾乎相同） |
 | `apps/backstage/src/features/file/pages/FileManager/page.tsx` | 247 | 3 個對話框的目標狀態（L71–73）、選取能力的交集、預設資料夾的導向 |
 | `apps/backstage/src/features/user/pages/UserCreate/page.tsx` | 213 | 表單、伺服器欄位錯誤、角色選項 |
 | `apps/platform/src/features/login/pages/Register/page.tsx` | 210 | 表單與註冊流程 |
@@ -42,7 +42,7 @@
 依優先順序：
 
 1. `TriggerField.tsx`：把 `TriggerDraft`、`EMPTY_TRIGGER_DRAFT`、`toTriggerDraft()`、`fromTriggerDraft()` 與輔助函式（L44–162）搬到 `components/triggerDraft.ts`（或併進 `draft.ts`）。元件檔只留 UI。
-2. 兩個 Profile 頁：抽出 `ChangePasswordSection`，把密碼規則、確認、`expectSessionEnd` 都收進去。頁面只組裝。可以與 [`duplicated-code-between-apps.md`](./duplicated-code-between-apps.md) 一起做，放進 web-core 兩邊共用。
+2. 兩個 Profile 頁：抽出 `ChangePasswordSection`，把密碼規則、確認、`expectSessionEnd` 都收進去。頁面只組裝。放進 web-core 兩邊共用。
 3. `Select.tsx`：
    - 拆出 `useSelectModel()`：排序、索引、搜尋、勾選狀態、`rowState`。
    - 拆出 `useSelectActions()`：`commit`、`toggleExpand`、鍵盤。
