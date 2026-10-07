@@ -22,8 +22,8 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
   query；沒有滾動部署的可能。已先做的緩解：前端重連退避 2–30 秒加隨機（`REALTIME_RECONNECTION`）、每 IP 的 handshake 上限可調
   （`REALTIME_HANDSHAKES_PER_IP`，預設 1200/分）。
 - **背景工作與 API 同一個 event loop**：pg-boss worker、排程、稽核封存、檔案維護、寄信都在 api 程序；影像變體更是在請求裡以程序內的
-  limiter（`IMAGE_VARIANT_CONCURRENCY`）處理，不是背景工作。`JOBS_WORKER_ENABLED=false` 已經可以讓程序只入列不執行，**但現在不能拆**：
-  工作裡發佈的領域事件（佈建完成的 `TENANT_ACTIVATED`、停用的 `SESSIONS_REVOKED`）只會送到 worker 自己的 Socket.io，api 上的使用者收不到。
+  limiter（`IMAGE_VARIANT_CONCURRENCY`）處理，不是背景工作。`JOBS_WORKER_ENABLED=false` 已經可以讓程序只入列不執行（對外 API 程序就是這樣跑），
+  工作裡發佈的推播類事件也已經經平台 DB 轉送到其他程序（下表第一列）；還沒拆的原因只剩部署上沒有獨立的 worker 服務。
 
 ### 程序內的狀態
 
@@ -33,11 +33,12 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 | 跨裝置中繼（`channel.relay`） | gateway 只轉給本節點的連線 | 跨節點：adapter 或另一條轉送（只限這個功能；伺服器端推播已經轉送，裝 adapter 的跨節點 emit 會重複） |
 | 權限、使用者、租戶登記、資料夾樹、系統設定的快取 | **已完成**：失效經 `core/broadcast` 跨程序（權限快取隨權限圖 G3a，其餘隨 [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0；頻道見 [`01-system.md`](../architecture/01-system.md) §4.4） | — |
 | feature flag 的全平台快取 | `FeatureFlagService` 本程序失效，其他程序最多晚 `TENANT_CACHE_TTL` 秒 | 接上同一個 `BroadcastService` |
-| HTTP 速率限制 | `RateLimitGuard` 用 `@nestjs/throttler` 的記憶體 storage | 共享 storage（Postgres 實作 `ThrottlerStorage`）；否則上限變成 N 倍 |
+| HTTP 速率限制（api） | `RateLimitGuard` 與登入的漸進延遲（`LoginThrottle`）都經 `RateLimitStore`（`core/rate-limit/`），目前只有記憶體實作 `MemoryRateLimitStore`（[`backend/04-auth.md`](../architecture/backend/04-auth.md) §12 D1、D8） | 加一個共享的 `RateLimitStore` 實作（Postgres），在 `RateLimitModule` 換掉；規則不必改。否則上限變成 N 倍 |
+| HTTP 速率限制（對外 API） | `ExternalRateLimitGuard`、`ApiTokenAuthGuard` 仍直接用 `@nestjs/throttler` 的 `ThrottlerStorage`（`ThrottlerModule.forRoot([])` 的記憶體 storage） | 改走 `RateLimitStore`，與 api 共用同一個共享實作 |
 | WebSocket 的 handshake、每人連線數、訊息限流 | gateway 記憶體（`realtime.rate-limit.ts`） | 共享，或接受「每實例」的語意並把上限除以實例數 |
-| 連線預算 | 每個程序：平台池 ＋ pg-boss 4 條 ＋ 每個活躍租戶 `TENANT_POOL_MAX` | 預算乘上程序數；程序多時在前面加 PgBouncer（[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2） |
+| 連線預算 | 每個程序：平台池 ＋ pg-boss 4 條 ＋ 1 條 `LISTEN`（`core/broadcast`）＋ 每個活躍租戶 `TENANT_POOL_MAX`；對外 API 程序另有自己的上限（`EXTERNAL_*_POOL_MAX`） | 預算乘上程序數；程序多時在前面加 PgBouncer（[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2） |
 | 影像處理 | 請求內、程序內 limiter | 改成背景工作，隨 worker 拆出 |
-| nginx upstream | `api_backend` 固定一台 | 列出每個實例，或 `resolver` ＋ 變數化的 `proxy_pass`；WebSocket 不需要黏著（只用 websocket transport） |
+| nginx upstream | `api_backend`（`deploy/nginx.platform.conf`）、`external_api_backend` 各固定一台 | 列出每個實例，或 `resolver` ＋ 變數化的 `proxy_pass`；WebSocket 不需要黏著（只用 websocket transport） |
 
 ## 範圍
 
@@ -45,7 +46,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 | --- | --- |
 | ~~失效廣播與事件轉送~~（已隨 [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0 完成；剩 feature flag 的全平台快取） | 跨區域部署 |
 | 跨裝置中繼（`channel.relay`）跨實例 | Redis |
-| 速率限制共享計數（Postgres） | |
+| 速率限制共享計數：`RateLimitStore` 的 Postgres 實作；對外 API 的限流改走 `RateLimitStore` | |
 | 影像變體改成背景工作 | |
 | 拆出獨立的 worker 服務（`docker-compose.prod.yml`） | |
 | ~~稽核日誌改成按月分區~~（2026-10-07 只把冷表按月分區，熱表／冷表維持，[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §10） | |
@@ -56,13 +57,14 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
   （best-effort，失敗只記錄），每個程序一條平台 DB 的 `LISTEN` 連線（postgres.js `listen`），重連時呼叫訂閱者的 `onReconnect` 讓它丟棄整個快取。
   自己送出的訊息也會收到，要能忽略或冪等（`AuthzRevision` 以單調遞增的 revision 判斷；其他快取用 `channel()`，信封帶送出的程序，自己送的直接略過）。
 - `NOTIFY` 的 payload 上限 8000 位元組：只送 key，不送資料（`BroadcastService.publish` 超過會拋錯）。
-- 共享速率限制：以 `unlogged table` ＋ `INSERT ... ON CONFLICT DO UPDATE` 計數，視窗到期由排程清理；登入端點的每一次請求多一次寫入，要壓測。
+- 共享速率限制：`RateLimitStore`（`hit`／`peek`／`reset`）的 Postgres 實作，以 `unlogged table` ＋ `INSERT ... ON CONFLICT DO UPDATE` 計數，視窗到期由排程清理；
+  每一次經過限流的請求多一次寫入，要壓測。登入相關的寫入量見 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §12 D8。
 - 驗收：兩個 api 實例 ＋ 一個 worker，E2E 在實例 A 改權限、連在實例 B 的使用者即時收到並失效。
   （快取與推播的部分已由整合測試 `apps/api/test/cross-process.spec.ts` 以同一個測試程序內的兩個 Nest app 驗證。）
 
 ## 開放問題
 
-1. 共享速率限制用 Postgres 撐得住嗎？登入端點在尖峰時的寫入量要先估；撐不住才考慮 Redis。
+1. 共享速率限制用 Postgres 撐得住嗎？全域 guard 對每個請求都計數，尖峰時的寫入量要先估；撐不住才考慮 Redis（只換 `RateLimitStore` 的實作）。
 2. 稽核日誌分區要現在做，還是等熱表真的撐不住？分區會取代現在的熱表／冷表與 `archive_audit_logs()`，也牽涉冷表的保留期限。
    **結論**（2026-10-07）：不把熱表與冷表併成一張分區表；只把冷表按月分區，保留期限以 DROP 整個月份執行（`backend/06-audit-log.md` §10 D1）。
 3. 部署時要滾動更新，前提是 migration 一律對上一版相容（已是規則，[`backend/02-database.md`](../architecture/backend/02-database.md) §5.1「破壞性變更拆成兩次部署」）。要不要在 CI 加檢查？
