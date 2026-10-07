@@ -127,7 +127,9 @@
       "group": "Groups",
       "groupDescription": "Organize users into groups to assign roles, grant folder access, and target announcements. When off, the backstage has no group page and everything granted through groups is suspended; groups, members, and grants are kept and take effect again as soon as it is turned back on.",
       "groupDisableWarning": "Roles, folder access, and announcement audiences that {{code}} users get through groups stop applying immediately until this is turned back on; anyone whose admin access comes only from a group loses it.",
-      "success": "Features updated"
+      "success": "Features updated",
+      "dataTransfer": "Import / export",
+      "dataTransferDescription": "Bulk import data from CSV/XLSX and export lists and audit logs to files. When off, the pages and endpoints disappear; existing export files are removed when they expire."
     },
     "flag": {
       "title": "Feature flags",
@@ -191,7 +193,15 @@
       },
       "empty": "Not set",
       "forever": "Forever",
-      "foreverHint": "; {{value}} keeps them forever"
+      "foreverHint": "; {{value}} keeps them forever",
+      "dataTransfer": {
+        "importMaxRows": "Import row limit",
+        "importMaxRowsDescription": "Maximum rows in one import (one file). Users are asked to split larger files. Controls server load for analysis and applying.",
+        "importMaxSizeMb": "Import file size limit",
+        "importMaxSizeMbDescription": "Maximum size of a file uploaded for analysis; the data submitted for applying may be up to twice this size.",
+        "exportMaxRows": "Export row limit",
+        "exportMaxRowsDescription": "Maximum rows in one export. Users are asked to narrow the filters."
+      }
     },
     "tab": {
       "overview": "Overview",

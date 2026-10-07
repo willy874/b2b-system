@@ -32,6 +32,7 @@ Nest 12 的套件只發 ESM；`apps/api` 仍編譯成 CommonJS，靠 Node 的 `r
 | 19  | [`19-announcement.md`](./19-announcement.md)       | 公告：受眾（反向展開群組與角色）、立即與排程發送（延遲工作、分批寫入）、撤回、收件人讀全文 |
 | 20  | [`20-approval.md`](./20-approval.md)               | 審批：狀態機、類型 handler 的登記、四眼原則、API；使用者註冊與資料夾存取申請 |
 | 21  | [`21-mfa.md`](./21-mfa.md)                         | MFA：`MfaMethod` 介面與註冊表、與方式無關的資料表、登入互動的第二步（`MfaPending`）、TOTP 與 Email、平台的兩級開關、租戶政策、自助與管理員重設 |
+| 22  | [`22-data-transfer.md`](./22-data-transfer.md)     | 匯入／匯出：擁有者登記的欄位定義、匯出工作與三種格式、worker thread 的分析、無狀態的驗證、逐列交易的套用、保留與清理 |
 | 18  | [`18-tag.md`](./18-tag.md)                         | 標籤：標籤組（`TagService.registerScope`）、可貼標籤的資源（`registerResource`）、`tags`／`resource_tags`、`hasAnyTag()` 篩選、永久刪除時清理 |
 
 ## 四條必須記住的規則

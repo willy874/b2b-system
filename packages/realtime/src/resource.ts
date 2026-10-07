@@ -64,6 +64,8 @@ export const ChangeSource = {
    * 發送紀錄的變化（發送中、完成、撤回）也以它宣告（`update`），詳情頁的發送紀錄跟著重抓。
    */
   ANNOUNCEMENT: 'announcement',
+  /** 匯入／匯出的傳輸（docs/architecture/backend/22-data-transfer.md §9.4）：只推給建立者，id 是傳輸 id */
+  DATA_TRANSFER: 'dataTransfer',
   // ── 平台（apps/platform 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
   /** 租戶登記（`id` = 租戶 id）：建立、改名、網域、啟用的 feature、停用與啟用、刪除，以及背景佈建的結果。 */
   PLATFORM_TENANT: 'platformTenant',
@@ -113,6 +115,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.WEBHOOK_DELIVERY,
   ChangeSource.TAG,
   ChangeSource.ANNOUNCEMENT,
+  ChangeSource.DATA_TRANSFER,
   ChangeSource.PLATFORM_TENANT,
   ChangeSource.PLATFORM_ADMIN,
   ChangeSource.PLATFORM_FEATURE_FLAG,

@@ -121,7 +121,9 @@
       "group": "群組",
       "groupDescription": "把使用者編成群組，以群組指派角色、授權資料夾、指定公告受眾。關掉後後台沒有群組頁，群組帶來的授權全部暫停；群組、成員與授權保留，重新打開後立即恢復。",
       "groupDisableWarning": "{{code}} 的使用者經由群組取得的角色、資料夾授權與公告受眾會立刻失效，直到重新打開；只靠群組取得管理權限的人會失去那些權限。",
-      "success": "已更新啟用的功能"
+      "success": "已更新啟用的功能",
+      "dataTransfer": "匯入／匯出",
+      "dataTransferDescription": "以 CSV／XLSX 大量匯入資料、把列表與稽核日誌匯出成檔案。關掉後頁面與端點消失；已產生的匯出檔照保留期限清除。"
     },
     "flag": {
       "title": "試行開關",
@@ -185,7 +187,15 @@
       },
       "empty": "未設定",
       "forever": "永久",
-      "foreverHint": "；{{value}} 表示永久"
+      "foreverHint": "；{{value}} 表示永久",
+      "dataTransfer": {
+        "importMaxRows": "匯入的列數上限",
+        "importMaxRowsDescription": "一次匯入（一個檔案）最多的列數；超過時請使用者分成多個檔案。決定分析與套用時伺服器的負載。",
+        "importMaxSizeMb": "匯入的檔案大小上限",
+        "importMaxSizeMbDescription": "上傳給伺服器分析的檔案大小上限；送出套用的資料最多是它的兩倍。",
+        "exportMaxRows": "匯出的列數上限",
+        "exportMaxRowsDescription": "一次匯出最多的列數；超過時請使用者縮小篩選範圍。"
+      }
     },
     "tab": {
       "overview": "概覽",

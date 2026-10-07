@@ -882,3 +882,14 @@ FileAccessService（modules/file）
 | 每租戶一個檔案子網域 | 不採用為預設（D2）：保留佔位符讓部署端可以選 |
 | api 串流檔案內容、加上 `Content-Disposition` | 不採用：大檔佔用 api 的頻寬與 event loop，與直傳的設計相反 |
 
+---
+
+## 14. 伺服器端的分段上傳與 `transfers/` 前綴
+
+匯出檔由 api 自己產生（[`22-data-transfer.md`](22-data-transfer.md) §6.3）：`ObjectStorage.uploadPart(key, uploadId, partNumber, body)` 讓伺服器端以 multipart
+串流寫入，每累積 8 MiB 上傳一段，整份檔案不放記憶體；整個檔案小於一段時改用 `putObject`。除了最後一段，每段至少 5 MiB（S3 的限制）。
+
+- 物件 key：`transfers/<傳輸 id>/<檔名>`，放在租戶 bucket。
+- `file.maintenance` 只管 `files/`、`thumbnails/`、`variants/`，**不碰 `transfers/`**；到期的匯出檔與沒完成的分段上傳由 `dataTransfer.cleanup` 清除。
+- `transfers/` 的物件不計入 `file.storageQuotaMb`：與縮圖、變體一樣是系統產物，靠保留期限控制。
+- 下載連結與檔案管理相同，走獨立的檔案網域（§13），每次重新簽發。

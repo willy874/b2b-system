@@ -586,6 +586,8 @@ export const ChangeSource = {
   TAG: 'tag',
   /** 公告與發送紀錄（[`backend/19-announcement.md`](19-announcement.md) §9）。 */
   ANNOUNCEMENT: 'announcement',
+  /** 匯入匯出的傳輸：只推給建立者（`perRecipient`），不寫稽核（[`backend/22-data-transfer.md`](22-data-transfer.md) §9.4）。 */
+  DATA_TRANSFER: 'dataTransfer',
   /** 平台的來源：只推給 apps/platform 上平台管理者的連線（§3.6）。 */
   PLATFORM_TENANT: 'platformTenant',
   PLATFORM_ADMIN: 'platformAdmin',

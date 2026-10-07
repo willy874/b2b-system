@@ -139,6 +139,7 @@ await withTransaction(this.db, async (tx) => {
 | `user.rolesChanged` | 被指派或移除角色的人（`PUT /users/:id/roles`）；沒有實際增減時不通知 | `added`、`removed`（角色名稱） | `account.profile`（`{}`） | `UserService.replaceRoles()` 的交易內 |
 | `announcement.published` | 公告受眾解析出的人（不含送出者） | `title` | `announcement.message`（`{ dispatchId }`） | `AnnouncementDispatchService.fanOut()` 每 500 人一個交易（帶 `sourceId`；[`19-announcement.md`](./19-announcement.md) §5） |
 | `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures`、`url`（到達門檻的網址；[`architecture/05-tenancy.md`](../05-tenancy.md) §13 前寫入的沒有） | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
+| `dataTransfer.exportFinished`／`dataTransfer.importFinished` | 匯出或匯入套用完成（或失敗）時，傳輸的建立者 | `status`、`type`、`format`／`mode`、筆數、`errorCode` | `dataTransfer.detail`（`{ transferId }`） | 完成或失敗的交易內（觸發者是系統；[`22-data-transfer.md`](./22-data-transfer.md) §9.3） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
   `user.register` 是申請人填的顯示名稱，`fileFolder.access` 是資料夾名稱。解析不了（舊資料）時是空字串。
@@ -161,6 +162,7 @@ await withTransaction(this.db, async (tx) => {
 | `account.profile` | — | `/profile`（`ProfileRoute`） | `user.rolesChanged` |
 | `announcement.message` | `dispatchId` | `/announcement/message/$dispatchId`（`AnnouncementMessageRoute`，收件人看全文；feature `announcement` 沒啟用時不登記） | `announcement.published` |
 | `webhook.detail` | `webhookId` | `/webhook/$webhookId`（`WebhookDetailRoute`，詳情對話框疊在列表上；feature `webhook` 沒啟用時不登記） | `webhook.disabled` |
+| `dataTransfer.detail` | `transferId` | `/data-transfer?transfer=<id>`（`DataTransferListRoute`；feature `dataTransfer` 沒啟用時不登記） | `dataTransfer.exportFinished`、`dataTransfer.importFinished` |
 
 ---
 

@@ -3,10 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { AppException } from '@/core/errors';
 import type { AuditLogRow } from '@/db/schema';
 
-import { resolveAuditLogRange } from './audit-log.constants';
+import {
+  AUDIT_LOG_EXPORT_MAX_RANGE_DAYS,
+  AUDIT_LOG_EXPORT_MAX_RANGE_MS,
+  resolveAuditLogRange,
+} from './audit-log.constants';
 import { decodeAuditLogCursor, encodeAuditLogCursor } from './audit-log.cursor';
 import { AuditLogRepository } from './audit-log.repository';
-import type { AuditLogSummaryRow } from './audit-log.repository';
+import type { AuditLogExportScope, AuditLogSummaryRow } from './audit-log.repository';
 import type {
   AuditLogDto,
   AuditLogListDto,
@@ -40,6 +44,18 @@ function toDto(row: AuditLogRow): AuditLogDto {
   };
 }
 
+/** 匯出的篩選條件：列表的 query 去掉分頁（docs/architecture/backend/22-data-transfer.md §6.1）。 */
+export type AuditLogExportFilter = Omit<ListAuditLogDto, 'offset' | 'limit' | 'cursor'>;
+
+/** 匯出的範圍（給 `modules/data-transfer` 的 exporter）。 */
+export type AuditLogExportRequest = { filter: AuditLogExportFilter } | { ids: readonly string[] };
+
+export interface AuditLogExportPage {
+  items: AuditLogDto[];
+  /** 下一頁的游標；最後一頁是 null。 */
+  nextCursor: string | null;
+}
+
 @Injectable()
 export class AuditLogService {
   constructor(private readonly repo: AuditLogRepository) {}
@@ -60,6 +76,55 @@ export class AuditLogService {
           ? encodeAuditLogCursor({ occurredAt: last.occurredAtExact, id: last.id.toString() })
           : null,
     };
+  }
+
+  /**
+   * 匯出的時間範圍：與列表相同的預設（沒帶時是最近 90 天），但上限放寬到 366 天；超過回 `VALIDATION_FAILED`（`filter.from`）。
+   */
+  resolveExportRange(filter: AuditLogExportFilter, now = new Date()) {
+    const range = resolveAuditLogRange(filter, now);
+    if (range.from > range.to) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { 'filter.from': 'must be before `to`' },
+      });
+    }
+    if (range.to.getTime() - range.from.getTime() > AUDIT_LOG_EXPORT_MAX_RANGE_MS) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { 'filter.from': `range must not exceed ${AUDIT_LOG_EXPORT_MAX_RANGE_DAYS} days` },
+      });
+    }
+    return range;
+  }
+
+  /** 匯出的一頁（完整欄位，含 changes、metadata），沿用列表的 keyset。 */
+  async exportPage(
+    request: AuditLogExportRequest,
+    cursor: string | null,
+    limit: number,
+  ): Promise<AuditLogExportPage> {
+    const decoded = cursor ? decodeAuditLogCursor(cursor) : undefined;
+    const rows = await this.repo.exportPage(this.exportScope(request), decoded, limit);
+    const last = rows.at(-1);
+    return {
+      items: rows.map(toDto),
+      nextCursor:
+        rows.length === limit && last
+          ? encodeAuditLogCursor({ occurredAt: last.occurredAtExact, id: last.id.toString() })
+          : null,
+    };
+  }
+
+  async exportCount(request: AuditLogExportRequest, cap: number): Promise<number> {
+    return this.repo.exportCount(this.exportScope(request), cap);
+  }
+
+  private exportScope(request: AuditLogExportRequest): AuditLogExportScope {
+    if ('ids' in request) {
+      return {
+        ids: request.ids.filter((id) => /^\d+$/.test(id) && BigInt(id) <= MAX_BIGINT).map(BigInt),
+      };
+    }
+    return { filter: request.filter, range: this.resolveExportRange(request.filter) };
   }
 
   /**

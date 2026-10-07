@@ -10,7 +10,7 @@ import {
   resetBatchOperations,
   setActiveBatchQueue,
 } from '../../batch';
-import type { BatchAction, BatchPageFetcher } from '../../batch';
+import type { BatchAction, BatchPageFetcher, QueuedBatchAction } from '../../batch';
 import { AppError } from '../../errors';
 import { useTableColumnSettingsStore } from '../../store';
 import { createFakeBatchQueue } from '../../testing/fakeBatchQueue';
@@ -33,7 +33,7 @@ const columns: Array<TableColumnDef<Row>> = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ];
 
-function action(overrides: Partial<BatchAction<Row>> = {}): BatchAction<Row> {
+function action(overrides: Partial<QueuedBatchAction<Row>> = {}): QueuedBatchAction<Row> {
   return {
     id: 'unlock',
     label: 'Unlock',
@@ -117,6 +117,16 @@ describe('RichTable 的批次操作（docs/architecture/frontend/07-ui-system.md
   afterEach(() => {
     setActiveBatchQueue(undefined);
     queue.dispose();
+  });
+
+  it('不入佇列的動作（kind: run）直接交給呼叫端，不出確認框、不入列（docs/architecture/backend/22-data-transfer.md §8.2）', async () => {
+    const run = vi.fn();
+    renderHarness([{ kind: 'run', id: 'export', label: 'Export', run }]);
+    await selectRows(0, 1);
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }));
+    expect(run).toHaveBeenCalledWith({ rows: [ROWS[0], ROWS[1]], allMatching: false });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(runItem).not.toHaveBeenCalled();
   });
 
   it('沒有勾選時不顯示操作列；勾選後顯示筆數與動作', async () => {

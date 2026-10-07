@@ -35,7 +35,9 @@
     "preference": "偏好設定",
     "logout": "登出",
     "switchTenant": "切換租戶",
-    "security": "安全性"
+    "security": "安全性",
+    "dataTransfer": "我的匯入匯出",
+    "userImport": "匯入使用者"
   },
   "commandPalette": {
     "command": {
@@ -84,7 +86,8 @@
       "delete": "刪除使用者",
       "assignRole": "指派角色",
       "resetPassword": "重設密碼",
-      "resetMfa": "重設 MFA"
+      "resetMfa": "重設 MFA",
+      "export": "匯出使用者"
     },
     "role": {
       "create": "建立角色",
@@ -97,7 +100,8 @@
       "read": "檢視權限目錄"
     },
     "auditLog": {
-      "read": "檢視稽核日誌"
+      "read": "檢視稽核日誌",
+      "export": "匯出稽核日誌"
     },
     "system": {
       "read": "檢視系統資訊",

@@ -41,3 +41,4 @@ export * from './Tooltip';
 export * from './TreeEditor';
 export * from './Typography';
 export * from './VirtualList';
+export * from './DataGrid';

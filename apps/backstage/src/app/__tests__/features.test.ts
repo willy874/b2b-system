@@ -19,6 +19,7 @@ import {
   ANNOUNCEMENT_PAGE,
 } from '@/features/announcement';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
+import { DATA_TRANSFER_PAGE } from '@/features/data-transfer';
 import { FILE_PAGE } from '@/features/file';
 import { GROUP_CREATE_PAGE, GROUP_PAGE } from '@/features/group';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
@@ -45,6 +46,8 @@ const EXPECTED_PAGES = {
   // 對外 API 在另一個程序，backstage 的頁面是服務帳號
   externalApi: [SERVICE_ACCOUNT_PAGE, SERVICE_ACCOUNT_CREATE_PAGE],
   group: [GROUP_PAGE, GROUP_CREATE_PAGE],
+  // 各資源的匯入頁屬於該資源的 feature（使用者的 USER_IMPORT 常駐登記），這裡只有「我的匯入匯出」
+  dataTransfer: [DATA_TRANSFER_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {

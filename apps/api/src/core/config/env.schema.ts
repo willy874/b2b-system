@@ -494,6 +494,17 @@ export const EnvSchema = z.object({
   /** 版本歷史保留清理的 cron（UTC）；空字串停用。保留條件是系統設定 `revision.keepVersions`、`revision.keepDays`（docs/architecture/backend/14-revisions.md §5）。 */
   REVISION_PRUNE_CRON: z.string().trim().default('45 4 * * *'),
 
+  /**
+   * 匯入匯出的每日清理 cron（UTC）：到期的匯出檔與套用列、超過 90 天的傳輸紀錄；空字串停用。
+   * 保留天數是系統設定 `dataTransfer.retentionDays`（docs/architecture/backend/22-data-transfer.md §10）。
+   */
+  DATA_TRANSFER_CLEANUP_CRON: z.string().trim().default('25 5 * * *'),
+  /**
+   * 匯入分析的 worker thread 數（每程序）：CSV／XLSX 的解析不能卡住 api 的 event loop（docs/architecture/backend/22-data-transfer.md §7.3）。
+   * 都在忙時排隊最多 5 秒，否則回 `503 DATA_TRANSFER_BUSY`。
+   */
+  DATA_TRANSFER_PARSE_WORKERS: z.coerce.number().int().min(1).max(16).default(2),
+
   /** 站內通知保留清理的 cron（UTC）；空字串停用。保留條件是系統設定 `notification.retentionDays`、`notification.maxPerUser`（docs/architecture/backend/15-notification.md §6）。 */
   NOTIFICATION_CLEANUP_CRON: z.string().trim().default('0 5 * * *'),
 

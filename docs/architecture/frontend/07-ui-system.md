@@ -82,6 +82,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
+| `DataGrid`                       | 試算表式的表格（`react-data-grid`）：列與欄虛擬捲動、鍵盤移動、儲存格編輯、貼上 TSV、儲存格狀態（§3.15） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 | `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、§11） |
 | `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
@@ -716,6 +717,12 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 - `BoxEllipsis` 佔滿頂列剩下的寬度並靠右；放不下的工具收進「更多」彈層（`Popover`，`header-toolbar-more` / `header-toolbar-overflow`）。
 - 工具是任意元件（語言、主題本身就是下拉），沒辦法轉成選單項目，所以彈層裡直接渲染被收起的工具元件，行為不變。
 - 渲染成空的工具（例如沒有東西時的批次佇列）不佔位置（`.boxItem:empty`）。
+
+### 3.15 試算表式的表格：`DataGrid`
+
+匯入預覽用的受控表格：列、欄、儲存格狀態（錯誤、警告、有變更、沒有變更、驗證中）都由 props 傳入，編輯與貼上以 `onCellsChange` 回報；
+平常每一格是唯讀的顯示元件，只有正在編輯的那一格掛上輸入元件。底層是 `react-data-grid`（以 Design Token 覆寫它的 CSS 變數），型別不外露。
+行為與鍵盤見 [`21-data-transfer.md`](21-data-transfer.md) §3。
 
 ---
 
@@ -1485,7 +1492,7 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 | D17 | **`RichTable` 的 `batch.selectAllMatching = { total, fetchPage }`**，由列表頁提供；收集回傳 **整列** 而不只是 `{ id, version }`——動作的 `isEligible` 要用到列的旗標 | web-core 不知道各列表的 API（packages 不 import app）；列表頁本來就擁有篩選條件與 adapter |
 | D18 | **先做使用者、角色、審批三個列表**；檔案管理器（資料夾內全選）之後另行評估 | 這三個已有 `RichTable` 的批次；檔案管理器的選取是另一套 |
 
-改成後端批次的觸發條件：單次超過 10 000 筆的需求、或需要關掉分頁仍繼續執行。屆時併入 [`../../features/import-export.md`](../../features/import-export.md) 的背景工作框架，不在這裡另做一套。
+改成後端批次的觸發條件：單次超過 10 000 筆的需求、或需要關掉分頁仍繼續執行。大量的匯出與匯入已由匯入／匯出框架處理（[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md)），不在這裡另做一套；批次列的「匯出選取」是不入佇列的動作（`kind: 'run'`，[`21-data-transfer.md`](21-data-transfer.md) §2）。
 
 評估過的方案：
 

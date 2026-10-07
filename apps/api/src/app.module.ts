@@ -38,6 +38,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthzExplainModule } from './modules/authz-explain/authz-explain.module';
 import { PasswordHasherModule } from './modules/credential/password-hasher';
+import { DataTransferModule } from './modules/data-transfer/data-transfer.module';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
@@ -112,6 +113,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     RevisionModule,
     // 站內通知；通知由擁有者模組在業務交易內寫入（docs/architecture/backend/15-notification.md）
     NotificationModule,
+    // 匯入／匯出；可匯入匯出的資源由擁有者模組登記（docs/architecture/backend/22-data-transfer.md §5.1）
+    DataTransferModule,
 
     // MFA：機制（方式的註冊表）、框架，與各驗證方式（docs/architecture/backend/21-mfa.md §1）
     MfaCoreModule,

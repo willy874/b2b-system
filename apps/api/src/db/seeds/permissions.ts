@@ -13,6 +13,8 @@ export const PERMISSION_SEED = [
   ['user', 'resetPassword', 'permission.user.resetPassword', 105],
   // 重設別人的 MFA：獨立的權限，`user:update` 不包含它（docs/architecture/backend/21-mfa.md §8）
   ['user', 'resetMfa', 'permission.user.resetMfa', 106],
+  // 整批帶走資料的風險高於逐頁閱讀：匯出要獨立的權限（docs/architecture/backend/22-data-transfer.md §12 D11）
+  ['user', 'export', 'permission.user.export', 107],
 
   ['role', 'create', 'permission.role.create', 200],
   ['role', 'read', 'permission.role.read', 201],
@@ -22,6 +24,7 @@ export const PERMISSION_SEED = [
 
   ['permission', 'read', 'permission.permission.read', 300],
   ['auditLog', 'read', 'permission.auditLog.read', 400],
+  ['auditLog', 'export', 'permission.auditLog.export', 401],
   ['system', 'read', 'permission.system.read', 500],
   ['system', 'update', 'permission.system.update', 501],
 
@@ -133,11 +136,14 @@ export const PERMISSION_DEPENDENCIES = {
   'user:resetPassword': { includes: ['user:read'] },
   'user:resetMfa': { includes: ['user:read'] },
   'user:assignRole': { includes: ['user:read'], requires: ['role:read'] },
+  'user:export': { includes: ['user:read'] },
 
   'role:create': { includes: ['role:update'] },
   'role:delete': { includes: ['role:update'] },
   'role:update': { includes: ['role:read'] },
   'role:grantPermission': { includes: ['role:read'], requires: ['permission:read'] },
+
+  'auditLog:export': { includes: ['auditLog:read'] },
 
   'system:update': { includes: ['system:read'] },
   'approval:review': { includes: ['approval:read'] },

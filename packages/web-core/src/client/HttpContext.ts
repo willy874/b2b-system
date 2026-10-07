@@ -52,7 +52,12 @@ export class HttpContext implements HttpClient {
         const response = await fetch(request.url, request.init);
         result = {
           status: response.status,
-          data: parseBody(await response.text()),
+          // 檔案下載（範本、結果報告）：後端以 `Content-Disposition: attachment` 回傳，資料是 Blob；
+          // 錯誤一律是 JSON 信封，仍照常解析
+          data:
+            response.ok && isAttachment(response.headers)
+              ? await response.blob()
+              : parseBody(await response.text()),
           headers: response.headers,
         };
       } catch (error) {
@@ -121,6 +126,10 @@ export class HttpContext implements HttpClient {
 }
 
 /** 空字串 → undefined；非 JSON（例如 proxy 回的 502 HTML）→ undefined，交給狀態碼判斷。 */
+function isAttachment(headers: Headers): boolean {
+  return /^\s*attachment/i.test(headers.get('content-disposition') ?? '');
+}
+
 function parseBody(text: string): unknown {
   if (!text.length) return undefined;
   try {

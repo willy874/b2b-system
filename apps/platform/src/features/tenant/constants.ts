@@ -74,6 +74,7 @@ export const TENANT_FEATURE_LABEL_KEY = {
   announcement: 'tenant.feature.announcement',
   externalApi: 'tenant.feature.externalApi',
   group: 'tenant.feature.group',
+  dataTransfer: 'tenant.feature.dataTransfer',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
@@ -88,6 +89,7 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
   announcement: 'tenant.feature.announcementDescription',
   externalApi: 'tenant.feature.externalApiDescription',
   group: 'tenant.feature.groupDescription',
+  dataTransfer: 'tenant.feature.dataTransferDescription',
 } as const satisfies Record<TenantFeature, string>;
 
 /**
@@ -122,6 +124,9 @@ export const TENANT_FEATURE_PARAM_LABEL_KEY = {
   'job.maxConcurrency': 'tenant.param.job.maxConcurrency',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProviders',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrls',
+  'dataTransfer.importMaxRows': 'tenant.param.dataTransfer.importMaxRows',
+  'dataTransfer.importMaxSizeMb': 'tenant.param.dataTransfer.importMaxSizeMb',
+  'dataTransfer.exportMaxRows': 'tenant.param.dataTransfer.exportMaxRows',
   'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinute',
   'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrs',
 } as const satisfies Record<TenantFeatureParamKey, string>;
@@ -133,6 +138,9 @@ export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
   'job.maxConcurrency': 'tenant.param.job.maxConcurrencyDescription',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProvidersDescription',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrlsDescription',
+  'dataTransfer.importMaxRows': 'tenant.param.dataTransfer.importMaxRowsDescription',
+  'dataTransfer.importMaxSizeMb': 'tenant.param.dataTransfer.importMaxSizeMbDescription',
+  'dataTransfer.exportMaxRows': 'tenant.param.dataTransfer.exportMaxRowsDescription',
   'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinuteDescription',
   'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrsDescription',
 } as const satisfies Record<TenantFeatureParamKey, string>;

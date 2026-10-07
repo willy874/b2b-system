@@ -10,6 +10,7 @@ export const SETTING_CATEGORIES: readonly SettingCategory[] = [
   'trash',
   'revision',
   'notification',
+  'dataTransfer',
 ];
 
 export const SETTING_CATEGORY_LABEL_KEY = {
@@ -19,6 +20,7 @@ export const SETTING_CATEGORY_LABEL_KEY = {
   trash: 'setting.category.trash',
   revision: 'setting.category.revision',
   notification: 'setting.category.notification',
+  dataTransfer: 'setting.category.dataTransfer',
 } as const satisfies Record<SettingCategory, string>;
 
 const MIB = 1024 * 1024;
@@ -106,6 +108,11 @@ export const SETTING_FIELD: Readonly<Partial<Record<string, SettingFieldConfig>>
   'trash.retentionDays': {
     labelKey: 'setting.field.retentionDays.label',
     descriptionKey: 'setting.field.retentionDays.description',
+    unit: UNIT.days,
+  },
+  'dataTransfer.retentionDays': {
+    labelKey: 'setting.field.dataTransferRetentionDays.label',
+    descriptionKey: 'setting.field.dataTransferRetentionDays.description',
     unit: UNIT.days,
   },
   'revision.keepVersions': {

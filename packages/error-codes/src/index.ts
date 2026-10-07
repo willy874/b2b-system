@@ -297,6 +297,30 @@ export const ErrorCode = {
   /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */
   SETTING_NOT_FOUND: { status: 404 },
 
+  // ── 匯入／匯出（docs/architecture/backend/22-data-transfer.md §9.5）──
+  /** 不存在，或不是自己建立的傳輸（不洩漏存在與否）。 */
+  DATA_TRANSFER_NOT_FOUND: { status: 404 },
+  /** 未登記的資源類型，或該資源不支援這個方向或模式。 */
+  DATA_TRANSFER_TYPE_UNSUPPORTED: { status: 400 },
+  /** 傳輸目前的狀態不允許這個操作；`details.status`。 */
+  DATA_TRANSFER_INVALID_STATE: { status: 409 },
+  /** 傳輸的 `version` 不符；`details.current`。 */
+  DATA_TRANSFER_VERSION_CONFLICT: { status: 409 },
+  /** 分析的檔案超過大小上限；`details.maxBytes`。 */
+  DATA_TRANSFER_FILE_TOO_LARGE: { status: 413 },
+  /** 分析的 worker thread 都在忙（帶 `Retry-After`）。 */
+  DATA_TRANSFER_BUSY: { status: 503 },
+  /** `mapping` 對到不存在或不可匯入的欄位，或同一個欄位對了兩次。 */
+  DATA_TRANSFER_MAPPING_INVALID: { status: 400 },
+  /** 超過列數上限；`details.max`、`details.count?`。 */
+  DATA_TRANSFER_TOO_MANY_ROWS: { status: 422 },
+  /** 格式錯誤、加密的 XLSX、沒有標頭或無法解碼；`details.reason`。 */
+  DATA_TRANSFER_FILE_UNREADABLE: { status: 422 },
+  /** 已過保留期限，匯出檔與套用列已清除。 */
+  DATA_TRANSFER_EXPIRED: { status: 410 },
+  /** 同一個人進行中的傳輸超過上限；`details.max`。 */
+  DATA_TRANSFER_LIMIT_EXCEEDED: { status: 429 },
+
   // ── 通用 ──
   /** 路徑不存在（框架層的 404；業務上找不到資源用各自的 `<DOMAIN>_NOT_FOUND`）。 */
   NOT_FOUND: { status: 404 },

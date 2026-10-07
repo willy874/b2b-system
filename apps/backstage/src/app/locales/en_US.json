@@ -35,7 +35,9 @@
     "preference": "Preferences",
     "logout": "Sign out",
     "switchTenant": "Switch tenant",
-    "security": "Security"
+    "security": "Security",
+    "dataTransfer": "My imports & exports",
+    "userImport": "Import users"
   },
   "commandPalette": {
     "command": {
@@ -84,7 +86,8 @@
       "delete": "Delete user",
       "assignRole": "Assign roles",
       "resetPassword": "Reset password",
-      "resetMfa": "Reset MFA"
+      "resetMfa": "Reset MFA",
+      "export": "Export users"
     },
     "role": {
       "create": "Create role",
@@ -97,7 +100,8 @@
       "read": "View permission catalog"
     },
     "auditLog": {
-      "read": "View audit log"
+      "read": "View audit log",
+      "export": "Export audit logs"
     },
     "system": {
       "read": "View system info",

@@ -777,6 +777,21 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/roles/:id/revisions/:version/revert` | `role:update`（權限鍵會改變時 service 另要 `role:grantPermission`） |
 | GET    | `/permissions`              | `permission:read`                |
 | GET    | `/audit-logs`               | `auditLog:read`                  |
+| GET    | `/data-transfers`           | `@Authenticated`（只列自己建立的；匯入匯出的權限依資源而定，service 以 `assertHasAll` 檢查，[`backend/22-data-transfer.md`](22-data-transfer.md) §9.1） |
+| GET    | `/data-transfers/resources` | `@Authenticated`（只列出操作者可以匯出或匯入的資源） |
+| POST   | `/data-transfers/exports`   | `@Authenticated`（service 要該資源的 `<resource>:export`，例：`user:export`、`auditLog:export`） |
+| POST   | `/data-transfers/imports`   | `@Authenticated`（service 要該模式的權限：新增 `user:create`、修改 `user:update`；角色欄另要 `user:assignRole`） |
+| GET    | `/data-transfers/importers/:type` | `@Authenticated`（同上，依 `mode`） |
+| GET    | `/data-transfers/importers/:type/template` | `@Authenticated`（同上，依 `mode`） |
+| GET    | `/data-transfers/importers/:type/columns/:key/options` | `@Authenticated`（該欄位可以匯入） |
+| POST   | `/data-transfers/importers/:type/analyze` | `@Authenticated`（同上，依 `mode`；multipart） |
+| POST   | `/data-transfers/importers/:type/validate` | `@Authenticated`（同上，依 `mode`） |
+| GET    | `/data-transfers/:id`       | `@Authenticated`（只能看自己的，別人的回 404） |
+| POST   | `/data-transfers/:id/cancel` | `@Authenticated`（只能取消自己的） |
+| DELETE | `/data-transfers/:id`       | `@Authenticated`（只能刪除自己的） |
+| POST   | `/data-transfers/:id/download` | `@Authenticated`（自己的，而且 **下載當下** 仍要有該資源的匯出權限） |
+| GET    | `/data-transfers/:id/rows`  | `@Authenticated`（只能看自己的） |
+| GET    | `/data-transfers/:id/report` | `@Authenticated`（只能看自己的） |
 | GET    | `/audit-logs/:id`           | `auditLog:read`                  |
 | GET    | `/health`                   | `@Public`                        |
 | GET    | `/health/ready`             | `@Public`                        |

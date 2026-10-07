@@ -13,7 +13,8 @@
     "resource": {
       "auth": "Auth",
       "authz": "Authorization",
-      "apiToken": "API tokens"
+      "apiToken": "API tokens",
+      "dataTransfer": "Imports & exports"
     },
     "detail": {
       "title": "Record detail",

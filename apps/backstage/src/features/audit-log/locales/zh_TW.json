@@ -13,7 +13,8 @@
     "resource": {
       "auth": "認證",
       "authz": "授權",
-      "apiToken": "API token"
+      "apiToken": "API token",
+      "dataTransfer": "匯入匯出"
     },
     "detail": {
       "title": "紀錄詳情",

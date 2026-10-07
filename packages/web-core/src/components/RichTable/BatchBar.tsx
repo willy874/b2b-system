@@ -62,7 +62,8 @@ function splitTargets<TData>(
 ): BatchTargets<TData> {
   const eligible: TData[] = [];
   const skipped: TData[] = [];
-  for (const row of rows) (action.isEligible(row) ? eligible : skipped).push(row);
+  for (const row of rows)
+    (!action.isEligible || action.isEligible(row) ? eligible : skipped).push(row);
   return { eligible, skipped };
 }
 
@@ -135,6 +136,11 @@ export function BatchBar<TData>({ batch, getRowId, pageRows }: BatchBarProps<TDa
 
   const execute = useCallback(
     async (action: BatchAction<TData>) => {
+      if (action.kind === 'run') {
+        // 不入佇列：「全部符合」也不先收集，交給呼叫端以篩選條件處理
+        action.run({ rows: splitTargets(selection.selectedRows, action).eligible, allMatching });
+        return;
+      }
       if (!queue) return;
       const rows = allMatching ? await collect() : selection.selectedRows;
       // 中止或收集失敗：不送出任何請求
@@ -180,11 +186,12 @@ export function BatchBar<TData>({ batch, getRowId, pageRows }: BatchBarProps<TDa
     ],
   );
 
-  // 佇列沒有啟用（plugin 未註冊）時不提供批次操作
-  if (!queue) return null;
+  // 佇列沒有啟用（plugin 未註冊）時只提供不入佇列的動作
+  const available = queue ? actions : actions.filter((action) => action.kind === 'run');
+  if (available.length === 0) return null;
 
   if (running.length > 0) {
-    return <BatchProgressBar jobs={running} onCancel={(jobId) => queue.cancel(jobId)} />;
+    return <BatchProgressBar jobs={running} onCancel={(jobId) => queue?.cancel(jobId)} />;
   }
 
   if (collecting) {
@@ -211,7 +218,7 @@ export function BatchBar<TData>({ batch, getRowId, pageRows }: BatchBarProps<TDa
     );
   }
 
-  if (count === 0 || actions.length === 0) return null;
+  if (count === 0) return null;
 
   return (
     <div className="flex flex-col gap-2">
@@ -224,7 +231,7 @@ export function BatchBar<TData>({ batch, getRowId, pageRows }: BatchBarProps<TDa
           toolbar: t('common.batch.toolbar'),
         }}
       >
-        {actions.map((action) => {
+        {available.map((action) => {
           // 有權限但當下不能按 → 停用並說明原因（docs/architecture/frontend/06-permission.md §6.1）；
           // 「全部符合」在收集之前不知道哪些適用，一律可按，確認框再告知略過幾筆
           const disabled =

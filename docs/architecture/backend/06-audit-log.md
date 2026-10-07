@@ -432,7 +432,7 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 | 單一分區表取代熱表／冷表（`multi-instance.md` 的原構想） | 不採用：見 D1 |
 | 冷表不分區，以批次 `DELETE` 清理 | 不採用：要拿掉或繞過 `no_delete` trigger；大量 `DELETE` 鎖表、產生 bloat |
 | 等冷表到 1000 萬列再分區 | 不採用：見 D2 |
-| 刪除前自動匯出到物件儲存 | 不在這一版：匯出是 `import-export.md` 的範圍；需要時在 D4 之前插入一步 |
+| 刪除前自動匯出到物件儲存 | 不在這一版：使用者可以用匯入／匯出框架手動匯出（[`22-data-transfer.md`](22-data-transfer.md)，`auditLog:export`，一次最多 366 天）；自動匯出需要時在 D4 之前插入一步 |
 | 保留期限由租戶管理者以系統設定調整 | 不採用：見 D3 |
 
 ### 10.4 遷移

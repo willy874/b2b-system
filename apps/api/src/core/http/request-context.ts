@@ -20,6 +20,11 @@ export interface RequestContext {
    * 不以「沒有租戶」代替：未登記的網域、直接用 IP 連線也沒有租戶（docs/architecture/05-tenancy.md §2）。
    */
   platformHost?: boolean;
+  /**
+   * 這段執行期間每筆稽核都帶上的 metadata：背景工作代替使用者執行業務操作時標出來源，
+   * 例：匯入的套用列寫 `{ via: 'import', transferId }`（docs/architecture/backend/22-data-transfer.md §12 D20）。
+   */
+  auditMetadata?: Readonly<Record<string, unknown>>;
 }
 
 export interface ContextApiToken {

@@ -18,6 +18,11 @@ import {
   auditLogFeaturePlugin,
   Routes as AuditLogRoutes,
 } from '@/features/audit-log';
+import {
+  DATA_TRANSFER_FEATURE,
+  dataTransferFeaturePlugin,
+  Routes as DataTransferRoutes,
+} from '@/features/data-transfer';
 import { FILE_FEATURE, fileFeaturePlugin, Routes as FileRoutes } from '@/features/file';
 import { GROUP_FEATURE, groupFeaturePlugin, Routes as GroupRoutes } from '@/features/group';
 import {
@@ -37,6 +42,7 @@ import {
   systemSettingFeaturePlugin,
 } from '@/features/system';
 import { Routes as TrashRoutes, TRASH_FEATURE, trashFeaturePlugin } from '@/features/trash';
+import { Routes as UserRoutes } from '@/features/user';
 import { Routes as WebhookRoutes, WEBHOOK_FEATURE, webhookFeaturePlugin } from '@/features/webhook';
 import type { Profile } from '@/shared/api-sdk';
 
@@ -93,6 +99,12 @@ export const FEATURE_CATALOG = {
   [SERVICE_ACCOUNT_FEATURE]: {
     plugin: serviceAccountFeaturePlugin(),
     routes: [ServiceAccountRoutes.ServiceAccountListRoute],
+  },
+  // 匯入／匯出（docs/architecture/backend/22-data-transfer.md）：「我的匯入匯出」與各資源的匯入頁；列表頁的匯出、匯入按鈕
+  // 以 `useIsFeatureReady` 決定是否顯示
+  [DATA_TRANSFER_FEATURE]: {
+    plugin: dataTransferFeaturePlugin(),
+    routes: [DataTransferRoutes.DataTransferListRoute, UserRoutes.UserImportRoute],
   },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;

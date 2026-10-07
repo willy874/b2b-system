@@ -20,7 +20,7 @@
 | 前端 UI  | **Base UI**（`@base-ui/react`）＋ 專案自有的設計系統 `@b2b-system/ui`（`packages/ui`）                              |
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
 | 租戶與身分 | 每個租戶一個 database 與網域；`apps/platform` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
-| 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、服務帳號與 API token、稽核日誌、個人帳號、審批、系統設定、檔案、標籤、背景工作、寄信、回收桶、版本歷史、站內通知、公告、Webhook；平台的租戶與 feature 管理 |
+| 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、服務帳號與 API token、稽核日誌、個人帳號、審批、系統設定、檔案、標籤、背景工作、寄信、回收桶、版本歷史、站內通知、公告、Webhook、匯入／匯出；平台的租戶與 feature 管理 |
 | 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [`architecture/iam/06-resource-grants.md`](./architecture/iam/06-resource-grants.md) §13） |
 
 ---
@@ -122,7 +122,8 @@ docs/
 │   │   ├── 17-shared-packages.md      兩個前端共用的 packages：分層、程式放哪、app 怎麼接上 web-core
 │   │   ├── 18-command-palette.md      命令面板（⌘K）：頁面、最近造訪、資料搜尋、動作；選單註冊表；全域快捷鍵
 │   │   ├── 19-observability.md        可觀測性：錯誤回報（@sentry/browser → apm-service）、release、Web Vitals、bundle 預算
-│   │   └── 20-mfa.md                  MFA：web-core/mfa 的方式註冊表與共用元件、第二步、帳號設定、政策與平台開關頁
+│   │   ├── 20-mfa.md                  MFA：web-core/mfa 的方式註冊表與共用元件、第二步、帳號設定、政策與平台開關頁
+│   │   └── 21-data-transfer.md        匯入／匯出：匯出對話框、我的匯入匯出、DataGrid、匯入工作區（預覽、草稿、結果）
 │   │
 │   └── backend/
 │       ├── README.md
@@ -146,7 +147,8 @@ docs/
 │       ├── 18-tag.md                  標籤：標籤組與資源類型的登記、指派、篩選、清理
 │       ├── 19-announcement.md         公告：受眾、立即與排程發送、撤回、讀全文
 │       ├── 20-approval.md             審批：請求 → 核准 → 套用；類型 handler；使用者註冊、資料夾存取申請
-│       └── 21-mfa.md                  MFA：MfaMethod 介面與註冊表、TOTP 與 Email、登入的第二步、平台開關與租戶政策
+│       ├── 21-mfa.md                  MFA：MfaMethod 介面與註冊表、TOTP 與 Email、登入的第二步、平台開關與租戶政策
+│       └── 22-data-transfer.md        匯入／匯出：資源登記、CSV／XLSX／SQL 匯出、分析與驗證、逐列交易的套用、清理
 │
 ├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）

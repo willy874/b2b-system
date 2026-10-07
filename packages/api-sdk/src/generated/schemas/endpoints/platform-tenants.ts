@@ -211,6 +211,7 @@ export const PlatformTenantControllerFeatureImpactSchemas = {
       'announcement',
       'externalApi',
       'group',
+      'dataTransfer',
     ]),
   }),
   responses: {

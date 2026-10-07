@@ -17,7 +17,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 規劃中 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成）、[物件儲存](../architecture/backend/09-file.md)（已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P2 | 組織管理（部門樹、成員、主管；平台可關閉） | [`organization.md`](./organization.md) | 規劃中 | — |
 | P2 | 多階段審批鏈（依序多關、會簽、條件分流；平台可關閉） | [`approval-chains.md`](./approval-chains.md) | 規劃中 | [審批](../architecture/backend/20-approval.md)（已完成）、[`organization.md`](./organization.md)（軟依賴：審核者「主管」） |
@@ -38,6 +37,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `import-export`（匯入／匯出框架：資源登記、CSV／XLSX／SQL 匯出、後端分析＋前端預覽的匯入、逐列交易的套用；第一批是使用者與稽核日誌）：[`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §12、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md)
 - `mfa`（可擴充的驗證方式：TOTP、Email 驗證碼、備用碼；登入互動的第二步、平台兩級開關、租戶政策）：[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §15
 - `observability`（後端的指標與 tracing、就緒檢查、Grafana ＋ Prometheus ＋ Tempo 的部署與告警，apm-service 接進 Grafana）：[`architecture/08-monitoring.md`](../architecture/08-monitoring.md) §9
 - `hardening-followups`（安全與容量的後續強化）：access token 金鑰環 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §11、
@@ -61,7 +61,7 @@
 
 接下來：
 
-1. `import-export`（大量匯入使用者、匯出稽核日誌），或資源的協作（`comments-watches`；照標籤的登記方式做）。
+1. 資源的協作（`comments-watches`；照標籤的登記方式做）。
 2. `organization` ＋ `approval-chains`（組織管理與多階段審批鏈）：兩者以審核者規則的登記解耦，依 [`approval-chains.md`](./approval-chains.md) §18 的切分並行做（O1 ∥ C1 → C2 → O2 ∥ C3 → C4）；`tenant-usage`（租戶用量總覽）與它們互不依賴。
 
 ### 1.2 撰寫提案時的架構前提

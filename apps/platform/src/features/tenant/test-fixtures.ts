@@ -13,6 +13,9 @@ export const FEATURE_PARAMS: readonly TenantFeatureParam[] = [
   integerParam('job.maxConcurrency', 'job', 10, 1, 100, 'count'),
   integerParam('identityProvider.maxProviders', 'identityProvider', 10, 1, 100, 'count'),
   integerParam('webhook.maxUrls', 'webhook', 1, 1, 500, 'count'),
+  integerParam('dataTransfer.importMaxRows', 'dataTransfer', 5000, 100, 20_000, 'count'),
+  integerParam('dataTransfer.importMaxSizeMb', 'dataTransfer', 10, 1, 50, 'megabytes'),
+  integerParam('dataTransfer.exportMaxRows', 'dataTransfer', 100_000, 1000, 1_000_000, 'count'),
   integerParam('rateLimit.authPerMinute', null, 1200, 60, 100_000, 'perMinute'),
   {
     key: 'rateLimit.trustedCidrs',

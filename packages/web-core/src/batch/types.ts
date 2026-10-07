@@ -151,7 +151,9 @@ export interface BatchConfirmContent {
  * 列表頁宣告的一個批次動作（docs/architecture/frontend/07-ui-system.md §6.2）。
  * 資格判斷只是體驗：每筆仍由後端的單筆端點完整檢查。
  */
-export interface BatchAction<TData> {
+export interface QueuedBatchAction<TData> {
+  /** 預設：確認後送進全域佇列。 */
+  kind?: 'queue';
   /** 按鈕的 `data-value`（E2E 用）。 */
   id: string;
   label: string;
@@ -171,3 +173,21 @@ export interface BatchAction<TData> {
   /** 已註冊的操作 id：確認後把適用的列送進全域佇列，逐筆呼叫單筆 API。 */
   operation: string;
 }
+
+/**
+ * 不入佇列的動作（docs/architecture/backend/22-data-transfer.md §8.2）：交給呼叫端自己處理（例：開匯出對話框）。
+ * 「選取全部符合」時不先逐頁收集：`allMatching` 為 true，呼叫端改用目前的篩選條件（D3）。
+ */
+export interface RunBatchAction<TData> {
+  kind: 'run';
+  id: string;
+  label: string;
+  tone?: 'primary' | 'success' | 'warning' | 'danger';
+  hidden?: boolean;
+  /** 省略時每一列都適用。 */
+  isEligible?: (row: TData) => boolean;
+  ineligibleReason?: string;
+  run: (targets: { rows: TData[]; allMatching: boolean }) => void;
+}
+
+export type BatchAction<TData> = QueuedBatchAction<TData> | RunBatchAction<TData>;

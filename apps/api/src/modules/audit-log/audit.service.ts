@@ -35,6 +35,7 @@ export class AuditService {
         ip: ctx?.ip,
         userAgent: ctx?.userAgent,
         requestId: ctx?.requestId,
+        ...ctx?.auditMetadata,
         ...input.metadata,
       },
     });
@@ -62,6 +63,7 @@ export class AuditService {
           ip: ctx?.ip,
           userAgent: ctx?.userAgent,
           requestId: ctx?.requestId,
+          ...ctx?.auditMetadata,
           ...input.metadata,
         },
       })),

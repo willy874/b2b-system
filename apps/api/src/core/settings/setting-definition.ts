@@ -15,6 +15,7 @@ export const SettingCategory = {
   TRASH: 'trash',
   REVISION: 'revision',
   NOTIFICATION: 'notification',
+  DATA_TRANSFER: 'dataTransfer',
 } as const;
 
 export type SettingCategory = (typeof SettingCategory)[keyof typeof SettingCategory];

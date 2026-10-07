@@ -5,6 +5,7 @@ import { Routes as AnnouncementRoutes } from '@/features/announcement';
 import { Routes as ApprovalRoutes } from '@/features/approval';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as AuthRoutes } from '@/features/auth';
+import { Routes as DataTransferRoutes } from '@/features/data-transfer';
 import { Routes as FileRoutes } from '@/features/file';
 import { Routes as GroupRoutes } from '@/features/group';
 import { Routes as HomeRoutes } from '@/features/home';
@@ -32,6 +33,7 @@ export const routeTree = RootRoute.addChildren([
   AuthRoutes.AuthRoute.addChildren([AuthRoutes.LoginRoute, AuthRoutes.SsoCallbackRoute]),
 
   UserRoutes.UserListRoute.addChildren([UserRoutes.UserCreateRoute, UserRoutes.UserDetailRoute]),
+  UserRoutes.UserImportRoute,
 
   RoleRoutes.RoleListRoute.addChildren([
     RoleRoutes.RoleCreateRoute,
@@ -76,4 +78,5 @@ export const routeTree = RootRoute.addChildren([
   NotificationRoutes.NotificationListRoute,
   NotificationRoutes.NotificationEventListRoute,
   NotificationRoutes.NotificationOverviewRoute,
+  DataTransferRoutes.DataTransferListRoute,
 ]);

@@ -1,0 +1,129 @@
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+
+  /* 以 Design Token 覆寫底層表格的 CSS 變數，不寫色碼 */
+  .grid {
+    --rdg-color: var(--color-fg);
+    --rdg-border-color: var(--color-border);
+    --rdg-summary-border-color: var(--color-border);
+    --rdg-background-color: var(--color-surface);
+    --rdg-header-background-color: var(--color-fill-subtle);
+    --rdg-header-draggable-background-color: var(--color-fill);
+    --rdg-row-hover-background-color: var(--color-fill-subtle);
+    --rdg-row-selected-background-color: color-mix(in srgb, var(--color-brand) 10%, transparent);
+    --rdg-row-selected-hover-background-color: color-mix(
+      in srgb,
+      var(--color-brand) 16%,
+      transparent
+    );
+    --rdg-checkbox-focus-color: var(--color-brand);
+    --rdg-selection-color: var(--color-brand);
+    --rdg-font-size: 0.8125rem;
+    flex: 1;
+    min-height: 0;
+    block-size: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color-scheme: light dark;
+  }
+
+  .header {
+    display: inline-flex;
+    gap: var(--seed-space-1);
+    align-items: baseline;
+    font-weight: 600;
+  }
+
+  .required {
+    color: var(--color-danger-text);
+  }
+
+  .srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .rowHeader {
+    color: var(--color-fg-muted);
+    background: var(--color-fill-subtle);
+    font-variant-numeric: tabular-nums;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+
+  .rowHeader.error {
+    box-shadow: inset 3px 0 0 var(--color-danger);
+  }
+
+  .rowHeader.warning {
+    box-shadow: inset 3px 0 0 var(--color-warning);
+  }
+
+  .rowHeader.changed {
+    box-shadow: inset 3px 0 0 var(--color-brand);
+  }
+
+  .value {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 錯誤：紅框＋右上角三角（類似 Excel 的註解標記） */
+  .cell.error {
+    outline: 1px solid var(--color-danger);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  }
+
+  .cell.error::after,
+  .cell.warning::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    border-block-start: 7px solid var(--color-danger);
+    border-inline-start: 7px solid transparent;
+  }
+
+  .cell.warning {
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  }
+
+  .cell.warning::after {
+    border-block-start-color: var(--color-warning);
+  }
+
+  .cell.changed {
+    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+  }
+
+  .cell.unchanged {
+    color: var(--color-fg-muted);
+  }
+
+  .cell.pending {
+    color: var(--color-fg-muted);
+    font-style: italic;
+  }
+
+  .editor {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 100%;
+    padding-inline: 6px;
+    border: 2px solid var(--color-brand);
+    background: var(--color-surface);
+    color: var(--color-fg);
+    font: inherit;
+    outline: none;
+  }
+}
