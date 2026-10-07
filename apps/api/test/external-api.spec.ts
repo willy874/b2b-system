@@ -217,7 +217,7 @@ describe('對外 API（docs/architecture/06-external-api.md §9.2 D9～D17）', 
   });
 
   describe('租戶的 feature 開關（docs/architecture/06-external-api.md §3.1）', () => {
-    it('平台關掉 externalApi → 對外路由一律 404 FEATURE_DISABLED；內部的 token 管理照常；打開後原本的 token 立即可用', async () => {
+    it('平台關掉 externalApi → 對外路由與內部的服務帳號、token 管理一律 404 FEATURE_DISABLED；打開後原本的 token 立即可用', async () => {
       await setTenantFeatures(TENANT_FEATURES.filter((feature) => feature !== 'externalApi'));
       try {
         expect(errorCode(await ext(ids.raw).get('/v1/me').expect(404))).toBe('FEATURE_DISABLED');
@@ -227,8 +227,13 @@ describe('對外 API（docs/architecture/06-external-api.md §9.2 D9～D17）', 
         expect(errorCode(await ext(tampered).get('/v1/me').expect(401))).toBe('AUTH_TOKEN_INVALID');
         // 健康檢查不屬於任何租戶
         await ext().get('/health').expect(200);
-        // 內部 api 的 token 管理不受影響
-        await asAdmin().get(`/service-accounts/${ids.account}/tokens`).expect(200);
+        // 內部 api 的服務帳號與 token 管理一併關閉
+        const managed = await Promise.all(
+          ['/service-accounts', `/service-accounts/${ids.account}/tokens`, '/auth/api-tokens'].map(
+            (path) => asAdmin().get(path).expect(404),
+          ),
+        );
+        expect(managed.map(errorCode)).toEqual(Array(3).fill('FEATURE_DISABLED'));
       } finally {
         await setTenantFeatures(TENANT_FEATURES);
       }

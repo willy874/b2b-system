@@ -401,9 +401,9 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 ## 7. 可啟用的 feature（執行期安裝）
 
 設計決策見 §9。平台管理者對每個租戶開關的 feature
-（目前是 `file`、`auditLog`、`job`、`trash`、`system`（id `systemSetting`）、`identity-provider`（id `identityProvider`）、`webhook`、`announcement`，
-以及沒有頁面的 `tenantSwitch`（只控制帳號選單項目）與 `externalApi`（對外 API 在另一個程序，backstage 只在 API token 列表上提示未開放；
-[`architecture/06-external-api.md`](../06-external-api.md) §3.1）；[`architecture/05-tenancy.md`](../05-tenancy.md) §12），登入後才依 `/auth/profile` 的 `features` 安裝；
+（目前是 `file`、`auditLog`、`job`、`trash`、`system`（id `systemSetting`）、`identity-provider`（id `identityProvider`）、`webhook`、`announcement`、
+`service-account`（id `externalApi`：服務帳號與對外 API 共用一個開關，個人資料與使用者詳情的 API token 區塊以 `useIsFeatureReady` 跟著隱藏；
+[`architecture/06-external-api.md`](../06-external-api.md) §3.1），以及沒有頁面的 `tenantSwitch`（只控制帳號選單項目）；[`architecture/05-tenancy.md`](../05-tenancy.md) §12），登入後才依 `/auth/profile` 的 `features` 安裝；
 清單改變時 api 推播 `resource.changed`（`tenantFeature`），profile 重新取得後自動安裝或卸載。
 
 | 角色 | 位置 | 做什麼 |

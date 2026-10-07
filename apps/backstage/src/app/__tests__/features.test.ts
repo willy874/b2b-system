@@ -22,6 +22,7 @@ import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
+import { SERVICE_ACCOUNT_CREATE_PAGE, SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
 import { SETTING_PAGE } from '@/features/system';
 import { TRASH_PAGE } from '@/features/trash';
 import { WEBHOOK_CREATE_PAGE, WEBHOOK_PAGE } from '@/features/webhook';
@@ -40,8 +41,8 @@ const EXPECTED_PAGES = {
   tenantSwitch: [],
   webhook: [WEBHOOK_PAGE, WEBHOOK_CREATE_PAGE],
   announcement: [ANNOUNCEMENT_PAGE, ANNOUNCEMENT_CREATE_PAGE, ANNOUNCEMENT_MESSAGE_PAGE],
-  // 對外 API 在另一個程序，backstage 只依它顯示 token 列表的提示
-  externalApi: [],
+  // 對外 API 在另一個程序，backstage 的頁面是服務帳號
+  externalApi: [SERVICE_ACCOUNT_PAGE, SERVICE_ACCOUNT_CREATE_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {

@@ -112,9 +112,9 @@
       "announcement": "公告",
       "announcementDescription": "租戶管理者撰寫公告，立即或排程以站內通知發給指定的人、群組、角色或全租戶。",
       "announcementDisableWarning": "{{code}} 已排程的公告會停止發送，期間錯過的時間之後重新打開也不會補發；公告與發送紀錄保留。",
-      "externalApi": "對外 API",
-      "externalApiDescription": "外部系統以 API token 呼叫的對外 API。關掉後所有呼叫回 404；服務帳號與 token 照樣可以在後台管理，重新打開後原本的 token 立即可用。",
-      "externalApiDisableWarning": "{{code}} 所有以 API token 呼叫對外 API 的整合會立刻失敗（回 404），直到重新打開。"
+      "externalApi": "服務帳號與對外 API",
+      "externalApiDescription": "服務帳號、個人 API token，以及外部系統以 API token 呼叫的對外 API。關掉後後台沒有服務帳號頁與 token 區塊、對外 API 的呼叫回 404；服務帳號與 token 保留，重新打開後原本的 token 立即可用。",
+      "externalApiDisableWarning": "{{code}} 所有以 API token 呼叫對外 API 的整合會立刻失敗（回 404），後台也不能管理服務帳號與 token（包括撤銷），直到重新打開。"
     },
     "flag": {
       "title": "試行開關",

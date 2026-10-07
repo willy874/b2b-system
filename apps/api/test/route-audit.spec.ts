@@ -20,7 +20,7 @@ let app: INestApplication;
 /**
  * 路由 → 應標的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11、docs/architecture/05-tenancy.md §12）；
  * 平台的 /platform/jobs 不屬於任何租戶，不標。還原端點屬於回收桶，handler 的 `trash` 排在 class 的之前。
- * 對外 API 的路由（`/v1/*`）一律再加上 `externalApi`（docs/architecture/06-external-api.md §3.1）。
+ * 對外 API 的路由（`/v1/*`）一律再加上 `externalApi`；服務帳號與 API token 的管理也屬於它（docs/architecture/06-external-api.md §3.1）。
  */
 function featuresOf(method: string, path: string): string[] | undefined {
   if (/^\/v\d+(\/|$)/.test(path))
@@ -42,6 +42,8 @@ function internalFeaturesOf(method: string, path: string): string[] | undefined 
   if (path === '/system/settings') return ['systemSetting'];
   if (/^\/identity-providers(\/|$)/.test(path)) return ['identityProvider'];
   if (/^\/webhooks(\/|$)/.test(path)) return ['webhook'];
+  if (/^\/(service-accounts|auth\/api-tokens|users\/:userId\/api-tokens)(\/|$)/.test(path))
+    return ['externalApi'];
   return undefined;
 }
 

@@ -22,7 +22,7 @@ export const TENANT_FEATURES = [
   'webhook',
   // docs/architecture/backend/19-announcement.md §9：公告與排程通知
   'announcement',
-  // docs/architecture/06-external-api.md §3.1：對外 API（以 API token 呼叫的獨立入口）。管理 token 的內部端點不受影響
+  // docs/architecture/06-external-api.md §3.1：服務帳號與對外 API（以 API token 呼叫的獨立入口），連同內部的 token 管理
   'externalApi',
 ] as const;
 

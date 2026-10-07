@@ -16,6 +16,8 @@ import { getChangePasswordMutationOptions } from '@/apis/auth/change-password/mu
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
 import { invalidateResources, selfUpdated } from '@/apis/resources';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { mfaSelfApi } from '../../hooks/mfaSelfApi';
 import { ProfileApiTokenSection } from './components/ProfileApiTokenSection';
@@ -26,6 +28,8 @@ export default function ProfilePage() {
   const toast = useToast();
   const showError = useErrorToast();
   const profile = useQuery(getAuthProfileQueryOptions());
+  // 個人 API token 屬於 `externalApi`（docs/architecture/06-external-api.md §3.1）
+  const hasApiTokens = useIsFeatureReady(TenantFeature.externalApi);
 
   // 草稿為 undefined 時顯示伺服器上的值（不用 effect 同步）
   const [draftDisplayName, setDisplayName] = useState<string>();
@@ -111,8 +115,12 @@ export default function ProfilePage() {
         <>
           <Separator />
           <ProfilePermissionSection userId={profile.data.user.id} />
-          <Separator />
-          <ProfileApiTokenSection />
+          {hasApiTokens && (
+            <>
+              <Separator />
+              <ProfileApiTokenSection />
+            </>
+          )}
         </>
       )}
     </div>

@@ -30,14 +30,3 @@ export function useFeatureGate(pathname: string): FeatureGate {
 export function useIsFeatureReady(id: string): boolean {
   return useStore(featureStore, (state) => state.statuses.get(id) === 'ready');
 }
-
-/**
- * 某個可啟用 feature 是否 **確定** 未啟用：清單到了且不含它。清單還沒到時回 `false`，
- * 給「未啟用時才顯示的提示」用，避免登入後一閃而過（與 `useIsFeatureReady` 的「未確定前視為未安裝」相反）。
- */
-export function useIsFeatureDisabled(id: string): boolean {
-  return useStore(
-    featureStore,
-    (state) => state.resolved && (state.statuses.get(id) ?? 'disabled') === 'disabled',
-  );
-}

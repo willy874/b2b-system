@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Authenticated, CurrentUser } from '@/common/decorators';
+import { Authenticated, CurrentUser, RequireFeature } from '@/common/decorators';
 import type { AuthUser } from '@/common/types';
 import { NoStore } from '@/core/http';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
@@ -25,10 +25,12 @@ import type { CreateApiTokenDto } from './dto/api-token.dto';
 
 /**
  * 自己的個人 API token（docs/architecture/06-external-api.md §9.2 D2、D14）：與 `/auth/profile` 同屬個人範圍，
- * 只要登入。token 只在對外 API 有效，這裡只是管理。
+ * 只要登入。token 只在對外 API 有效，這裡只是管理；租戶沒有啟用 `externalApi` 時一併關閉
+ * （docs/architecture/06-external-api.md §3.1）。
  */
 @ApiTags('api-tokens')
 @Controller('auth/api-tokens')
+@RequireFeature('externalApi')
 @NoStore()
 export class ApiTokenController {
   constructor(private readonly tokens: ApiTokenService) {}

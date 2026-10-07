@@ -10,8 +10,6 @@ import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime, formatRelativeTime } from '@b2b-system/web-shared/date';
 import { useMemo } from 'react';
 
-import { useIsFeatureDisabled } from '@/core/feature';
-import { TenantFeature } from '@/shared/api-sdk';
 import type { ApiToken } from '@/shared/api-sdk';
 
 import { API_TOKEN_STATUS_LABEL_KEY, API_TOKEN_STATUS_TONE } from './constants';
@@ -30,8 +28,8 @@ export interface ApiTokenTableProps {
  * 一個帳號的 API token（docs/architecture/06-external-api.md §9）：服務帳號詳情、個人資料、使用者詳情共用。
  * 只顯示 token 的開頭（`prefix`），完整的 token 只在建立時出現一次。
  *
- * 租戶沒有啟用對外 API（`externalApi`，docs/architecture/06-external-api.md §3.1）時，token 照樣可以建立、撤銷，
- * 只在列表上方提示「目前呼叫不到」——三處 token 區塊都經過這裡，不必各自判斷。
+ * 租戶沒有啟用對外 API（`externalApi`，docs/architecture/06-external-api.md §3.1）時，三處 token 區塊都不顯示
+ * （服務帳號的頁面不安裝，另兩處以 `useIsFeatureReady` 判斷）。
  */
 export function ApiTokenTable({
   tokens,
@@ -42,7 +40,6 @@ export function ApiTokenTable({
 }: ApiTokenTableProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
-  const externalApiDisabled = useIsFeatureDisabled(TenantFeature.externalApi);
 
   const columns = useMemo<Array<TableColumnDef<ApiToken>>>(
     () => [
@@ -137,25 +134,14 @@ export function ApiTokenTable({
   );
 
   return (
-    <>
-      {externalApiDisabled && (
-        <p
-          role="note"
-          className="m-0 text-sm text-[var(--color-warning-text)]"
-          data-testid="api-token-external-api-disabled"
-        >
-          {t('apiToken.externalApiDisabled')}
-        </p>
-      )}
-      <Table
-        data={tokens ?? []}
-        columns={columns}
-        loading={loading}
-        getRowId={getRowId}
-        emptyTitle={t('apiToken.empty')}
-        data-testid={testId}
-      />
-    </>
+    <Table
+      data={tokens ?? []}
+      columns={columns}
+      loading={loading}
+      getRowId={getRowId}
+      emptyTitle={t('apiToken.empty')}
+      data-testid={testId}
+    />
   );
 }
 

@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { CurrentUser, RequirePermissions } from '@/common/decorators';
+import { CurrentUser, RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
 import {
@@ -45,9 +45,13 @@ import type {
 } from './dto/service-account.dto';
 import { ServiceAccountService } from './service-account.service';
 
-/** 服務帳號與它的 API token（docs/architecture/06-external-api.md §9.2 D1、D14）。 */
+/**
+ * 服務帳號與它的 API token（docs/architecture/06-external-api.md §9.2 D1、D14）。服務帳號只能經由對外 API 動作，
+ * 所以與對外 API 同屬 `externalApi`，租戶沒有啟用時一併關閉（docs/architecture/06-external-api.md §3.1）。
+ */
 @ApiTags('service-accounts')
 @Controller('service-accounts')
+@RequireFeature('externalApi')
 export class ServiceAccountController {
   constructor(private readonly accounts: ServiceAccountService) {}
 

@@ -6,6 +6,7 @@ Routes.ServiceAccountCreateRoute.update({ component: Pages.AsyncServiceAccountCr
 Routes.ServiceAccountDetailRoute.update({ component: Pages.AsyncServiceAccountDetailPage });
 
 export { Routes };
+export { SERVICE_ACCOUNT_FEATURE } from './routes';
 export {
   registerServiceAccountPagePermissions,
   SERVICE_ACCOUNT_CREATE_PAGE,

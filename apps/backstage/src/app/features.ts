@@ -26,6 +26,11 @@ import {
 } from '@/features/identity-provider';
 import { JOB_FEATURE, jobFeaturePlugin, Routes as JobRoutes } from '@/features/job';
 import {
+  Routes as ServiceAccountRoutes,
+  SERVICE_ACCOUNT_FEATURE,
+  serviceAccountFeaturePlugin,
+} from '@/features/service-account';
+import {
   Routes as SystemRoutes,
   SYSTEM_SETTING_FEATURE,
   systemSettingFeaturePlugin,
@@ -44,16 +49,6 @@ export const TENANT_SWITCH_FEATURE = 'tenantSwitch';
 
 function tenantSwitchPlugin(): AppDynamicPluginFactory {
   return () => ({ name: 'tenant-switch' });
-}
-
-/**
- * 對外 API（docs/architecture/06-external-api.md §3.1）：在另一個程序，backstage 沒有它的頁面。服務帳號與 API token 的
- * 管理照常可用，只在 token 列表上提示「目前沒有開放」（`core/components/ApiToken`）；同樣登記成空的 plugin。
- */
-export const EXTERNAL_API_FEATURE = 'externalApi';
-
-function externalApiPlugin(): AppDynamicPluginFactory {
-  return () => ({ name: 'external-api' });
 }
 
 /**
@@ -89,7 +84,12 @@ export const FEATURE_CATALOG = {
     plugin: announcementFeaturePlugin(),
     routes: [AnnouncementRoutes.AnnouncementListRoute, AnnouncementRoutes.AnnouncementMessageRoute],
   },
-  [EXTERNAL_API_FEATURE]: { plugin: externalApiPlugin(), routes: [] },
+  // 服務帳號與對外 API（docs/architecture/06-external-api.md §3.1）：對外 API 在另一個程序，backstage 的頁面是服務帳號；
+  // 個人資料與使用者詳情的 API token 區塊以 `useIsFeatureReady` 決定是否顯示
+  [SERVICE_ACCOUNT_FEATURE]: {
+    plugin: serviceAccountFeaturePlugin(),
+    routes: [ServiceAccountRoutes.ServiceAccountListRoute],
+  },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;
 

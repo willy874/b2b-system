@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { USER_PAGE } from '../permission';
 
 export function useUserPermission() {
   const page = usePagePermission(USER_PAGE);
   const { can } = usePermission();
+  const hasApiTokens = useIsFeatureReady(TenantFeature.externalApi);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -23,9 +26,12 @@ export function useUserPermission() {
       canReadGroups: can(PermissionKey['group:read']),
       /** 看別人的有效權限與來源（docs/architecture/iam/01-model.md §9 G4b）；看自己不需要 */
       canExplain: can(PermissionKey['authz:explain']),
-      /** 檢視、撤銷別人的個人 API token（docs/architecture/06-external-api.md §9.2 D14）：與停用同一個層級 */
-      canManageApiTokens: page.canUpdate,
+      /**
+       * 檢視、撤銷別人的個人 API token（docs/architecture/06-external-api.md §9.2 D14）：與停用同一個層級；
+       * 租戶沒有啟用 `externalApi` 時沒有這個區塊（§3.1）
+       */
+      canManageApiTokens: page.canUpdate && hasApiTokens,
     }),
-    [page, can],
+    [page, can, hasApiTokens],
   );
 }

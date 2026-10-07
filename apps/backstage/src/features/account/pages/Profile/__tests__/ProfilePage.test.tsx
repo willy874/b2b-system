@@ -4,13 +4,15 @@ import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
 
 import { registerAccountPagePermissions, Routes } from '../../..';
 import accountZhTW from '../../../locales/zh_TW.json';
 
-const { fetchProfile, changePassword, fetchSources } = vi.hoisted(() => ({
+const { fetchProfile, changePassword, fetchSources, fetchMyTokens } = vi.hoisted(() => ({
+  fetchMyTokens: vi.fn(),
   fetchSources: vi.fn(),
   fetchProfile: vi.fn(),
   changePassword: vi.fn(),
@@ -18,6 +20,9 @@ const { fetchProfile, changePassword, fetchSources } = vi.hoisted(() => ({
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/get-user-permission-sources/fetcher', () => ({
   fetchUserPermissionSourcesQuery: fetchSources,
+}));
+vi.mock('@/apis/api-token/get-my-api-tokens/fetcher', () => ({
+  fetchMyApiTokensQuery: fetchMyTokens,
 }));
 vi.mock('@/apis/auth/change-password/fetcher', () => ({
   fetchChangePasswordMutation: changePassword,
@@ -37,6 +42,7 @@ beforeEach(() => {
     permissions: [],
   });
   changePassword.mockReset().mockResolvedValue(undefined);
+  fetchMyTokens.mockReset().mockResolvedValue({ items: [] });
   fetchSources.mockReset().mockResolvedValue({
     isSuperAdmin: false,
     superAdminVia: null,
@@ -66,6 +72,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetFeatureStore();
 });
 
 async function fillPasswords(current: string, next: string, confirm: string) {
@@ -152,5 +159,22 @@ describe('ProfilePage 的有效權限（docs/architecture/iam/01-model.md §9 G4
     const viewer = await screen.findByTestId('permission-source-viewer');
     expect(within(viewer).getAllByTestId('explain-node')[1]).toHaveAttribute('data-hidden', 'true');
     expect(fetchSources.mock.calls[0]![0].params).toEqual({ userId: 'me' });
+  });
+});
+
+describe('ProfilePage 的個人 API token（docs/architecture/06-external-api.md §3.1）', () => {
+  it('租戶啟用 externalApi → 顯示 token 區塊', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['externalApi', 'ready']]) });
+    renderRoute(routes, '/profile', []);
+    expect(await screen.findByTestId('profile-api-tokens')).toBeInTheDocument();
+    await waitFor(() => expect(fetchMyTokens).toHaveBeenCalled());
+  });
+
+  it('沒有啟用 → 沒有 token 區塊，也不查 token', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['externalApi', 'disabled']]) });
+    renderRoute(routes, '/profile', []);
+    await screen.findByTestId('profile-permission-sources-show');
+    expect(screen.queryByTestId('profile-api-tokens')).toBeNull();
+    expect(fetchMyTokens).not.toHaveBeenCalled();
   });
 });

@@ -24,7 +24,6 @@ import { notificationFeaturePlugin } from '@/features/notification';
 import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
 import { securityFeaturePlugin } from '@/features/security';
-import { serviceAccountFeaturePlugin } from '@/features/service-account';
 import { systemFeaturePlugin } from '@/features/system';
 import { tagFeaturePlugin } from '@/features/tag';
 import { userFeaturePlugin } from '@/features/user';
@@ -99,14 +98,13 @@ async function bootstrap(): Promise<void> {
 
   context
     // 常駐 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限。
-    // 可啟用的 feature（檔案、稽核紀錄、背景工作、回收桶、系統設定、外部 IdP）不在這裡：
+    // 可啟用的 feature（檔案、稽核紀錄、背景工作、回收桶、系統設定、外部 IdP、服務帳號…）不在這裡：
     // 登入後依租戶的啟用清單安裝（app/features.ts）
     .use(authFeaturePlugin())
     .use(homeFeaturePlugin())
     .use(userFeaturePlugin())
     .use(roleFeaturePlugin())
     .use(groupFeaturePlugin())
-    .use(serviceAccountFeaturePlugin())
     .use(tagFeaturePlugin())
     .use(permissionFeaturePlugin())
     .use(approvalFeaturePlugin())

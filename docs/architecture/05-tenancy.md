@@ -138,7 +138,7 @@
 | `tenantSwitch` | backstage 帳號選單沒有「切換租戶」 | apps/platform 的 `/enter` |
 | `announcement` | `/announcements`、`/me/announcement-messages` 回 404；沒有公告頁；已入列的排程與分批寫入略過（期間錯過的時間不補發） | 公告與發送紀錄保留 |
 | `webhook` | `/webhooks` 回 404；沒有 Webhook 頁；`emit()` 不寫事件也不入列，已入列的投遞略過（期間的事件之後不補送） | 訂閱與投遞紀錄保留；`webhook.cleanup` 照常清理 |
-| `externalApi` | 對外 API 的每個路由（`@ExternalApi()`，不必另標）以有效的 API token 呼叫時回 404；無效的 token 照舊 401。backstage 的 API token 列表提示「目前沒有開放」 | 服務帳號與 token 的管理（內部 api 的端點）、token 的期限；重新打開後原本的 token 立即可用。健康檢查不受影響（[`06-external-api.md`](./06-external-api.md) §3.1） |
+| `externalApi` | 服務帳號與對外 API 共用的開關：對外 API 的每個路由（`@ExternalApi()`，不必另標）以有效的 API token 呼叫時回 404，無效的 token 照舊 401；`/service-accounts`、`/auth/api-tokens`、`/users/:userId/api-tokens` 回 404；沒有服務帳號頁，個人資料與使用者詳情沒有 API token 區塊 | 服務帳號（`users` 的列）與它的角色、token 與期限；重新打開後原本的 token 立即可用。健康檢查不受影響（[`06-external-api.md`](./06-external-api.md) §3.1） |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，
   存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
@@ -605,8 +605,10 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 2026-10-07 加入：對外 API 原本對每個租戶常駐，改為平台可關閉（細節見 [`06-external-api.md`](./06-external-api.md) §3.1）。
 
 - 擋在 `FeatureGuard`：`@ExternalApi()` 的路由一律要求 `externalApi`（`requiredFeaturesOf()`），不在每個對外 controller 上標。
-- 內部 api 的服務帳號與 token 管理 **不** 隨開關關閉（停用期間仍要能撤銷外洩的 token）；backstage 只在 token 列表上提示。
 - 平台 migration 0019：預設值加入 `externalApi`，既有租戶全部啟用。
+- 2026-10-08 改為 **服務帳號與對外 API 共用這個開關**：原本內部 api 的服務帳號與 token 管理不隨開關關閉（理由是停用期間仍要能撤銷外洩的 token），
+  backstage 只在 token 列表上提示。改成連同管理一起關閉：停用期間 token 本來就呼叫不到，留著管理頁只會讓租戶以為功能可用；
+  要清理時由平台暫時打開。id 沿用 `externalApi`（不必改平台 DB 的值），apps/platform 的名稱改為「服務帳號與對外 API」。
 
 ## 13. 設計決策：feature 參數（配額與上限）
 

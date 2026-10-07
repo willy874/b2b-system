@@ -1,4 +1,4 @@
-import type { AppPluginFactory } from '@b2b-system/web-core/app';
+import type { AppDynamicPluginFactory } from '@b2b-system/web-core/app';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { SERVICE_ACCOUNT_LOCALE_SCOPE } from './locale';
@@ -7,7 +7,11 @@ import { registerServiceAccountPagePermissions } from './permission';
 import { registerServiceAccountRouteLinks } from './routeLinks';
 import { registerServiceAccountSearch } from './search';
 
-export function appContextPlugin(): AppPluginFactory {
+/**
+ * 可啟用的 feature：與對外 API 同屬 `externalApi`，由 `app/features.ts` 依租戶的啟用清單安裝
+ * （docs/architecture/06-external-api.md §3.1）。
+ */
+export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     // ── 同步階段 ──
     registerServiceAccountPagePermissions();

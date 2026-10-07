@@ -244,7 +244,6 @@
       "all": "跟著帳號的所有權限",
       "limited_other": "限縮為 {{count}} 個權限"
     },
-    "externalApiDisabled": "這個租戶目前沒有開放對外 API：token 照樣可以建立與撤銷，但呼叫對外 API 會失敗（404），直到平台管理者重新打開。",
     "neverUsed": "尚未使用",
     "empty": "還沒有 API token",
     "lifetime_other": "{{count}} 天",
