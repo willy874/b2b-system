@@ -144,8 +144,10 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 
 帳號是 `pending`／停用時回對應的 `AUTH_ACCOUNT_*`；登入失敗的自動鎖定（`locked_until`）不擋外部 IdP 登入。
 
-production 下對外部 IdP 的每個請求都先解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕
-（`AUTH_SSO_PROVIDER_UNAVAILABLE`），逾時 10 秒；解析與連線之間仍有 DNS rebinding 的空窗。
+production 下對外部 IdP 的每個請求（discovery、token、userinfo、JWKS）都以 `pinnedFetch`（`core/http/outbound.ts`）送出：
+連線時解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕（`AUTH_SSO_PROVIDER_UNAVAILABLE`），
+並以通過檢查的位址建立連線，查詢與連線之間沒有 DNS rebinding 的空窗；逾時 10 秒。
+openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lookup` 的 `Agent`（與 webhook 投遞的 `pinnedLookup` 是同一個檢查）。
 
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。

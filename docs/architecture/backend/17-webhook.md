@@ -138,8 +138,9 @@
 | 函式 | 用途 |
 | --- | --- |
 | `isBlockedAddress(address)` | 私有網段、loopback、link-local（含 `169.254.169.254`）、CGNAT、保留位址；IPv6 的 ULA、link-local、multicast、已廢止的 site-local（`fec0::/10`）。內嵌 IPv4 的 IPv6 先取出 IPv4 再以 IPv4 的清單判斷：IPv4-mapped（`::ffff:0:0/96`）、IPv4-translated（`::ffff:0:0:0/96`）、IPv4-compatible（`::/96`）、NAT64 well-known（`64:ff9b::/96`）取最後 32 位元，6to4（`2002::/16`）取第 17～48 位元，Teredo（`2001::/32`）取最後 32 位元與 `0xffffffff` 做 XOR。透過 NAT64 連公開 IPv4 照常可用；NAT64 local-use（`64:ff9b:1::/48`）內嵌的位置依網路而定、取不出來，整段擋下 |
-| `assertPublicDestination(url)` | 解析後 **每一個** 位址都要公開；只檢查不綁定。給「儲存設定時及早告訴使用者」與外部 IdP（openid-client 只接受 fetch）用 |
+| `assertPublicDestination(url)` | 解析後 **每一個** 位址都要公開；只檢查不綁定。給「儲存設定時及早告訴使用者」用 |
 | `pinnedLookup(resolve)` | 給 `http.request` 的 `lookup`：解析、檢查，把通過檢查的位址交給 socket。查詢與連線是同一次解析，DNS rebinding 沒有空窗 |
+| `pinnedFetch(resolve)` | 同樣的綁定，形狀是 `fetch`（undici 的 `fetch` ＋ 帶 `connect.lookup` 的 `Agent`）：給只接受 fetch 的外部 IdP（openid-client 的 `customFetch`）用 |
 | `sendOutboundRequest(input)` | 不跟隨轉址、總逾時、回應只讀前 N 位元組；`blockPrivateNetworks` 時以 `pinnedLookup` 解析，字面 IP 另外檢查 |
 
 - production（`NODE_ENV=production`）：網址只接受 `https`、儲存時檢查 DNS、投遞時綁定已驗證的位址。其他環境允許 `http` 與內網，才能打本機的接收端。
@@ -258,7 +259,7 @@ API token 與對外 API（[`architecture/06-external-api.md`](../06-external-api
 | D12 | **重試**：`webhook.deliver` 失敗就拋出，由 pg-boss 指數退避（8 次、60 秒起、最多 1 小時；合計約 4 小時）。**每次嘗試寫一筆 `webhook_deliveries`**（訂閱、事件、第幾次、觸發方式 `auto`／`manual`、成功或失敗、狀態碼、耗時、回應摘要、錯誤） | 用既有的背景工作就有重試、逾時、管理頁；逐次紀錄讓租戶看得到每一次發生了什麼 |
 | D13 | **連續失敗自動停用**：成功時 `consecutive_failures` 歸零，失敗時加一；到 50 次就改成 `disabled`（`disabled_reason = 'failing'`），寫稽核 `webhook.autoDisable`（沒有操作者），並通知停用當下持有 `webhook:update` 的人（站內通知 `webhook.disabled`，可由事件管理關掉）。之後的投遞看到訂閱已停用就略過 | 壞掉的接收端不該無限佔用佇列；50 次大約是 6 個事件各自用完重試，不會因為一次短暫故障就停 |
 | D14 | **密鑰**：建立與輪替時由伺服器產生（`whsec_` ＋ 32 bytes base64url），**只在回應出現一次**；資料庫以 `SecretBox` 加密存放（新的主金鑰 `WEBHOOK_SECRET_KEY`，沒設定時與 IdP 一樣由 `JWT_SECRET` 推導，只限開發）。輪替立即生效，不保留舊密鑰 | 投遞時要算 HMAC，不能只存雜湊；寬限期要同時送兩個簽章，第一版先不做 |
-| D15 | **SSRF**：連線前解析 DNS，任何一個位址是私有、loopback、link-local、保留位址就拒絕，**並用那個已驗證的位址連線**（`core/http/outbound.ts`，以 `lookup` 選項綁定，查詢與連線之間沒有空窗）。建立與修改時也檢查一次，立即回 `WEBHOOK_URL_NOT_ALLOWED`。production 只接受 `https`；其他環境允許 `http` 與內網（與外部 IdP 的 `blockPrivateNetworks` 相同的判斷），才能打本機的接收端 | 解析與連線分開做會被 DNS rebinding 繞過；外部 IdP 原本的「先查 DNS」搬到同一個檔案，之後改成同一種綁定（`hardening-followups.md`） |
+| D15 | **SSRF**：連線前解析 DNS，任何一個位址是私有、loopback、link-local、保留位址就拒絕，**並用那個已驗證的位址連線**（`core/http/outbound.ts`，以 `lookup` 選項綁定，查詢與連線之間沒有空窗）。建立與修改時也檢查一次，立即回 `WEBHOOK_URL_NOT_ALLOWED`。production 只接受 `https`；其他環境允許 `http` 與內網（與外部 IdP 的 `blockPrivateNetworks` 相同的判斷），才能打本機的接收端 | 解析與連線分開做會被 DNS rebinding 繞過；外部 IdP 也改成同一種綁定（`pinnedFetch`，[`../04-sso.md`](../04-sso.md) §12） |
 | D16 | **保留**：`webhook_events` 與 `webhook_deliveries` 保留 30 天，由每天的 `webhook.cleanup` 刪除 | 投遞紀錄是除錯用的，不是稽核；稽核另外有訂閱的變更 |
 | D17 | **重送**：投遞紀錄頁可以對某個事件手動重送一次（`trigger = 'manual'`），不論訂閱的失敗次數；訂閱停用時不能重送。**送測試事件**：入列一筆 `webhook.ping` | 接收端修好之後要能補送；手動的送出不計入自動停用的門檻以外的任何規則 |
 
