@@ -100,7 +100,8 @@ backstage /auth/callback
    （並記在 apps/platform 這個瀏覽器）——兩個網域的 localStorage 不共用，不帶的話登入頁永遠用 apps/platform 自己的設定。
 2. `POST …/:uid/login { email, password }`：有租戶時在那個租戶裡以 `AuthService.verifyCredentials` 檢查
    （鎖定、帳號狀態、只允許 SSO 的網域、稽核）；沒有租戶時以 `PlatformAdminService.verifyCredentials`（寫平台稽核）。
-   成功回傳 resume 網址。
+   成功回傳 resume 網址。被限流（`429 RATE_LIMITED`，`details.retryAfterSeconds`）時，頁面倒數到可以再試為止：
+   送出鈕停用並顯示剩餘秒數、錯誤訊息跟著更新，數完就收起（`useCountdown`，`@b2b-system/web-shared/hooks`）。
 3. 頁面 **頂層跳轉** 到 resume 網址（fetch 跟隨跳轉時 IdP session cookie 設不起來）。
 4. `POST …/:uid/abort`：取消，產品收到 `error=access_denied`。
 

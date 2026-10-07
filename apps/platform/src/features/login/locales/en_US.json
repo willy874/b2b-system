@@ -2,6 +2,8 @@
   "login": {
     "title": "Sign in",
     "submit": "Sign in",
+    "retryIn_one": "Try again in {{count}} second",
+    "retryIn_other": "Try again in {{count}} seconds",
     "redirecting": "Taking you to the sign-in page…",
     "signedOut": "You are signed out. All products share one sign-in, so the other products are signed out too.",
     "passwordChanged": "Your password was changed and every device was signed out. Sign in again with the new password.",

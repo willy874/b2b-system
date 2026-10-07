@@ -2,6 +2,7 @@
   "login": {
     "title": "登入",
     "submit": "登入",
+    "retryIn_other": "{{count}} 秒後可再試",
     "redirecting": "正在前往登入頁…",
     "signedOut": "你已登出。所有產品共用同一組登入，登出後其他產品也會一起登出。",
     "passwordChanged": "密碼已變更，所有裝置都已登出。請用新密碼重新登入。",

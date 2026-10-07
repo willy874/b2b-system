@@ -35,6 +35,7 @@ export default function InteractionPage() {
     ssoOnly,
     expired,
     formError,
+    retryIn,
     searchError,
     searchErrorKey,
     redirecting,
@@ -147,10 +148,10 @@ export default function InteractionPage() {
             variant="primary"
             block
             loading={loggingIn}
-            disabled={!interaction.data || externalPending}
+            disabled={!interaction.data || externalPending || retryIn > 0}
             data-testid="login-submit"
           >
-            {t('login.submit')}
+            {retryIn > 0 ? t('login.retryIn', { count: retryIn }) : t('login.submit')}
           </Button>
         )}
         {provider && (
