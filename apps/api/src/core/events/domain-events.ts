@@ -13,7 +13,7 @@ export const DomainEvent = {
   RESOURCE_CHANGED: 'resource.changed',
   /**
    * 目前租戶的關係圖變了，任何人的權限集合都可能改變（快取已整個租戶失效）。由 `AuthzRevision` 發佈：
-   * 本機的寫入之後、或收到其他程序的廣播之後（docs/rbac/01-domain-model.md §9.2 D7）。
+   * 本機的寫入之後、或收到其他程序的廣播之後（docs/architecture/iam/01-model.md §9.2 D7）。
    */
   PERMISSIONS_CHANGED: 'permissions.changed',
   /** 這些使用者的 `token_version` 遞增了：既有的 session 全部作廢。 */

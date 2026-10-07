@@ -20,7 +20,7 @@ import { users } from './users';
  * 資料夾只是分類：與物件儲存的 key 無關，移動、改名都不必搬物件。
  */
 /**
- * 資料夾的種類（docs/rbac/07-resource-grants.md §12）：`normal` 是使用者建立的；其他三種是系統維護、
+ * 資料夾的種類（docs/architecture/iam/06-resource-grants.md §12）：`normal` 是使用者建立的；其他三種是系統維護、
  * 不能改名／移動／刪除的系統資料夾——共用資料夾、私人資料夾（容器）、每人一個的個人資料夾。
  */
 export const FILE_FOLDER_KINDS = ['normal', 'shared', 'privateRoot', 'personal'] as const;
@@ -37,7 +37,7 @@ export const fileFolders = pgTable(
       onDelete: 'restrict',
     }),
     // false = 中斷繼承（私人資料夾）：上層的資料夾授權不再流到這裡與子孫；全域權限不受影響
-    // （docs/rbac/07-resource-grants.md §3.3）
+    // （docs/architecture/iam/06-resource-grants.md §3.3）
     inheritGrants: boolean('inherit_grants').notNull().default(true),
     kind: fileFolderKind('kind').notNull().default('normal'),
     /** `personal` 的擁有者；其他種類為 null。 */

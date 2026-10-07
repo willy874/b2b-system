@@ -4,8 +4,8 @@ export type GrantLevel = (typeof GRANT_LEVELS)[number];
 
 /**
  * API 上的授權對象：角色（圖上是 `role:<id>#holder`）、個別使用者（`user:<id>`）、群組（`group:<id>#member`，
- * 含巢狀群組的成員；docs/rbac/01-domain-model.md §9 G4），或 `everyone`（所有能進檔案管理器的人，圖上是 `user:*`；
- * docs/rbac/07-resource-grants.md §6.2）。
+ * 含巢狀群組的成員；docs/architecture/iam/01-model.md §9 G4），或 `everyone`（所有能進檔案管理器的人，圖上是 `user:*`；
+ * docs/architecture/iam/06-resource-grants.md §6.2）。
  */
 export const GRANT_SUBJECT_TYPES = ['role', 'user', 'group', 'everyone'] as const;
 export type GrantSubjectType = (typeof GRANT_SUBJECT_TYPES)[number];
@@ -14,7 +14,7 @@ export type GrantSubjectType = (typeof GRANT_SUBJECT_TYPES)[number];
 export const EVERYONE_SUBJECT_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
- * 資料夾授權的等級規則（docs/rbac/07-resource-grants.md §2、§3.3、§6.1）。
+ * 資料夾授權的等級規則（docs/architecture/iam/06-resource-grants.md §2、§3.3、§6.1）。
  * 「等級蘊含哪些動作」由關係圖的靜態蘊含算出（`FileAccessService.levelActions`），這裡只有等級的全序、
  * 反提權的比對方式與繼承鏈——G3 之前在 `modules/resource-grant`，解析併入關係圖之後只剩檔案管理器用。
  */

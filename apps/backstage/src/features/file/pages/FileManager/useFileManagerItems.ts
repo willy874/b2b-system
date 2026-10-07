@@ -56,7 +56,7 @@ export function useFileManagerItems({
     sort,
     onMissing: onMissingFolder,
   });
-  // 鎖住的資料夾（docs/rbac/07-resource-grants.md §5.1）看得到子資料夾、看不到檔案：不查檔案。
+  // 鎖住的資料夾（docs/architecture/iam/06-resource-grants.md §5.1）看得到子資料夾、看不到檔案：不查檔案。
   // 資料夾清單載入前也先不查，避免對鎖住的資料夾送出一個註定 403 的請求
   const locked = Boolean(folderId) && folders.location?.canRead !== true;
   const data = useFileListData({

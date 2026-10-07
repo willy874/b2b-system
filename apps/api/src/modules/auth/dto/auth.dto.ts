@@ -72,7 +72,7 @@ export const PlatformProfileSchema = defineSchema(
       lastLoginAt: z.string().nullable(),
       role: z.enum(['super-admin', 'operator', 'auditor']),
     }),
-    /** 平台的權限鍵（docs/rbac/02-permission-catalog.md §8）。 */
+    /** 平台的權限鍵（docs/architecture/iam/02-permission-catalog.md §8）。 */
     permissions: z.array(PlatformPermissionKeySchema),
   }),
 );

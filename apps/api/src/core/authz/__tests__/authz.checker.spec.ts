@@ -57,7 +57,7 @@ describe('關係圖的判斷器（core/authz）', () => {
     expect(checker.check(doc('b'), 'editor')).toBe(false);
   });
 
-  it('群組（docs/rbac/01-domain-model.md §9.3 D11）：閉包裡的群組成員可以持有角色、直接取得授權', () => {
+  it('群組（docs/architecture/iam/01-model.md §9.3 D11）：閉包裡的群組成員可以持有角色、直接取得授權', () => {
     // alice ∈ 角色設計 ∈ 美術；美術持有 r1、美術在 folder:f 上是 viewer（閉包由 subjectClosures 算好）
     const snapshot = createSnapshot(
       ['user:alice', 'group:design#member', 'group:art#member', 'role:r1#holder'],
@@ -247,7 +247,7 @@ describe('租戶型別（由權限目錄產生）', () => {
   });
 });
 
-describe('反提權的能力（docs/rbac/01-domain-model.md §9 G4）', () => {
+describe('反提權的能力（docs/architecture/iam/01-model.md §9 G4）', () => {
   const full = createModel([
     USER_TYPE,
     GROUP_TYPE,

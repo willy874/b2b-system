@@ -22,7 +22,7 @@ description: 套用本 repo 的測試規範：決定要寫哪些測試、寫在�
 | `apps/e2e` | 前端 10 §4（範圍、結構、資料隔離、選擇器） |
 | `data-testid`、i18n key | [`docs/coding-standards/06-literal-strings.md`](../../../docs/coding-standards/06-literal-strings.md) §3 |
 | 設計系統元件（`components/`） | [`docs/architecture/frontend/07-ui-system.md`](../../../docs/architecture/frontend/07-ui-system.md) §9（story 與測試） |
-| 權限相關 | [`docs/rbac/02-permission-catalog.md`](../../../docs/rbac/02-permission-catalog.md) |
+| 權限相關 | [`docs/architecture/iam/02-permission-catalog.md`](../../../docs/architecture/iam/02-permission-catalog.md) |
 
 被測功能本身若有架構文件（例：`backend/09-file.md`、`05-tenancy.md`），讀它的「測試」或「必測」段落。
 

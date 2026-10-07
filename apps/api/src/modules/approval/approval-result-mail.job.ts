@@ -25,7 +25,7 @@ interface Recipient {
   locale: MailLocale;
 }
 
-/** 審核結果通知申請人（docs/rbac/06-approval.md §6）。 */
+/** 審核結果通知申請人（docs/architecture/backend/20-approval.md §6）。 */
 @Injectable()
 export class ApprovalResultMailJob implements OnModuleInit {
   private readonly logger = new Logger(ApprovalResultMailJob.name);

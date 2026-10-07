@@ -944,7 +944,7 @@ describe('FileService.list：keyset 游標', () => {
   });
 });
 
-describe('FileService 的資料夾層級授權（docs/rbac/07-resource-grants.md §4、§5.2）', () => {
+describe('FileService 的資料夾層級授權（docs/architecture/iam/06-resource-grants.md §4、§5.2）', () => {
   const FOLDER = '66666666-6666-4666-8666-666666666666';
   const OTHER = '77777777-7777-4777-8777-777777777777';
   const nodes = () => [

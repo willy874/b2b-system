@@ -44,7 +44,7 @@ const PERMISSION_KEYS = [
   ['group', 'delete'],
   ['group', 'assignRole'],
   ['authz', 'explain'],
-  // 平台的權限目錄（docs/rbac/02-permission-catalog.md §8）：apps/platform 的頁面實際用到的是這幾個
+  // 平台的權限目錄（docs/architecture/iam/02-permission-catalog.md §8）：apps/platform 的頁面實際用到的是這幾個
   ['tenant', 'read'],
   ['tenant', 'create'],
   ['tenant', 'update'],

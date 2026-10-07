@@ -63,7 +63,7 @@ describe('DB 層的不變條件（docs/architecture/backend/02-database.md §3�
       );
     });
 
-    it('系統角色的顯示名稱可以改（docs/rbac/01-domain-model.md §5）', async () => {
+    it('系統角色的顯示名稱可以改（docs/architecture/iam/01-model.md §5）', async () => {
       const [role] = await db
         .insert(roles)
         .values({ slug: 'trigger-display', name: 'Trigger Display', isSystem: true })

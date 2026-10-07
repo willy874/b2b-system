@@ -54,7 +54,7 @@ function toDto(row: ApprovalRequestRow): ApprovalRequestDto {
 }
 
 /**
- * 審批請求的狀態機：`pending` → `approved` | `rejected`，只能走一次（docs/rbac/06-approval.md §3）。
+ * 審批請求的狀態機：`pending` → `approved` | `rejected`，只能走一次（docs/architecture/backend/20-approval.md §3）。
  * 「核准之後做什麼」交給各類型的 `ApprovalHandler`；這裡負責權限、交易、稽核與推播。
  */
 @Injectable()

@@ -39,7 +39,7 @@ export interface ApprovalOutcome {
 /**
  * 一種審批類型的業務實作，由擁有該資源的模組提供，並在 `onModuleInit` 以
  * `ApprovalService.registerHandler()` 註冊
- * （docs/rbac/06-approval.md §4）。`ApprovalService` 負責狀態機、交易與稽核，
+ * （docs/architecture/backend/20-approval.md §4）。`ApprovalService` 負責狀態機、交易與稽核，
  * handler 只負責「核准之後真正要做的事」。
  */
 export interface ApprovalHandler {

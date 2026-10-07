@@ -4,7 +4,7 @@ import { defineSchema } from '@/core/validation';
 
 import { GRANT_LEVELS, GRANT_SUBJECT_TYPES } from '../file-grant.levels';
 
-/** 授權對象的種類：角色或個別使用者（docs/rbac/07-resource-grants.md §6.2）。 */
+/** 授權對象的種類：角色或個別使用者（docs/architecture/iam/06-resource-grants.md §6.2）。 */
 export const FILE_GRANT_SUBJECT_TYPES = GRANT_SUBJECT_TYPES;
 
 export const GrantLevelSchema = z.enum(GRANT_LEVELS);
@@ -51,7 +51,7 @@ export const FileFolderGrantListSchema = defineSchema(
     folderId: z.string().uuid(),
     /** false = 中斷繼承（私人資料夾）：清單只有這個資料夾的直接授權。 */
     inheritGrants: z.boolean(),
-    /** 操作者授予得起的等級（反提權，docs/rbac/07-resource-grants.md §6.1）；後端仍會再檢查。 */
+    /** 操作者授予得起的等級（反提權，docs/architecture/iam/06-resource-grants.md §6.1）；後端仍會再檢查。 */
     assignableLevels: z.array(GrantLevelSchema),
     /** 直接授權在前，繼承的依上層由近而遠。 */
     items: z.array(FileFolderGrantSchema),

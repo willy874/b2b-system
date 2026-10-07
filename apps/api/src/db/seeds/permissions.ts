@@ -1,6 +1,6 @@
 /**
  * 權限目錄的程式碼來源。
- * **唯一事實來源是 `docs/rbac/02-permission-catalog.md`**；改這裡必須同時改文件
+ * **唯一事實來源是 `docs/architecture/iam/02-permission-catalog.md`**；改這裡必須同時改文件
  * （有測試比對兩者）。
  */
 export const PERMISSION_SEED = [
@@ -32,7 +32,7 @@ export const PERMISSION_SEED = [
   ['file', 'delete', 'permission.file.delete', 703],
   ['file', 'access', 'permission.file.access', 704],
   ['file', 'share', 'permission.file.share', 705],
-  // 看得到別人的個人資料夾（鎖住、可申請存取）；讀內容另要授權或全域 file:read（docs/rbac/07-resource-grants.md §12）
+  // 看得到別人的個人資料夾（鎖住、可申請存取）；讀內容另要授權或全域 file:read（docs/architecture/iam/06-resource-grants.md §12）
   ['file', 'listPersonal', 'permission.file.listPersonal', 706],
 
   ['job', 'read', 'permission.job.read', 800],
@@ -44,14 +44,14 @@ export const PERMISSION_SEED = [
   ['identityProvider', 'update', 'permission.identityProvider.update', 1102],
   ['identityProvider', 'delete', 'permission.identityProvider.delete', 1103],
 
-  // 群組（docs/rbac/01-domain-model.md §9.3 D11、D12）
+  // 群組（docs/architecture/iam/01-model.md §9.3 D11、D12）
   ['group', 'create', 'permission.group.create', 1200],
   ['group', 'read', 'permission.group.read', 1201],
   ['group', 'update', 'permission.group.update', 1202],
   ['group', 'delete', 'permission.group.delete', 1203],
   ['group', 'assignRole', 'permission.group.assignRole', 1204],
 
-  // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/rbac/01-domain-model.md §9.3 D14）
+  // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/architecture/iam/01-model.md §9.3 D14）
   ['authz', 'explain', 'permission.authz.explain', 1300],
 
   // 服務帳號與它的 API token（docs/architecture/06-external-api.md §9.2 D14）
@@ -103,7 +103,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
   return (ALL_PERMISSION_KEYS as string[]).includes(value);
 }
 
-// ── 權限依賴樹（docs/rbac/02-permission-catalog.md §9、docs/rbac/01-domain-model.md §9.2 D6）──
+// ── 權限依賴樹（docs/architecture/iam/02-permission-catalog.md §9、docs/architecture/iam/01-model.md §9.2 D6）──
 
 /**
  * 一個權限鍵帶來的其他鍵：
@@ -247,7 +247,7 @@ export function implyingPermissions(
 }
 
 /**
- * 依賴樹的不變條件 G1–G4（docs/rbac/02-permission-catalog.md §9.2）；回傳違反的說明，空陣列表示通過。
+ * 依賴樹的不變條件 G1–G4（docs/architecture/iam/02-permission-catalog.md §9.2）；回傳違反的說明，空陣列表示通過。
  * `keys` 是目錄裡的所有鍵：指到目錄外的鍵也算違反。
  */
 export function validatePermissionDependencies(

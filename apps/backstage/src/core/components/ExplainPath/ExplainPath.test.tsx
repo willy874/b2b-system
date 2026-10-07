@@ -17,7 +17,7 @@ const node = (partial: Partial<ExplainNode> & Pick<ExplainNode, 'type'>): Explai
   ...partial,
 });
 
-describe('ExplainPath（docs/rbac/01-domain-model.md §9 G4b、D14）', () => {
+describe('ExplainPath（docs/architecture/iam/01-model.md §9 G4b、D14）', () => {
   it('依序顯示節點：名稱、資料夾的等級與動作、權限鍵', () => {
     render(
       <ExplainPath

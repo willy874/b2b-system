@@ -326,7 +326,7 @@ E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`�
 
 §10.7 的 D2–D5、D8–D18 都建立在「同一個資料庫、同一份帳號」上，所以這份決定整份取代它，而不是修改。
 
-延續 [`backend/04-auth.md`](backend/04-auth.md) §10（app session 不變）、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8（租戶內回到扁平權限）。
+延續 [`backend/04-auth.md`](backend/04-auth.md) §10（app session 不變）、[`iam/01-model.md`](iam/01-model.md) §8（租戶內回到扁平權限）。
 
 ### 10.2 決定
 
@@ -354,7 +354,7 @@ E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`�
 | D2 | **租戶由網域決定**：每個租戶登記一到多個 backstage 網域（`tenants.domains`，例：`acme.backstage.example.com`，或客戶自己的網域）。api 以反向代理傳來的 Host 查租戶登記（快取），放進 `AsyncLocalStorage` 的請求脈絡；找不到租戶的 Host，需要租戶的路由一律 404（`TENANT_NOT_FOUND`），健康檢查等不需要租戶的路由照常。apps/platform 的網域不屬於任何租戶 | 網域就是租戶的邊界，backstage 前端完全不必知道租戶；cookie 本來就是 host-only（[`architecture/04-sso.md`](04-sso.md) §12.2 D6），不同租戶的 app session 天然分開 |
 | D3 | **連線池依租戶建立**：`Tenancy` 在第一次需要時為該租戶建立小型連線池（`max` 小、閒置連線關閉）；repository 注入的 `TENANT_DB` 是一個 Proxy，每次存取都轉到 **目前租戶** 的 `db`，沒有租戶脈絡時拋 `TENANT_NOT_FOUND`（不會退回任何預設 DB）。平台的 repository 注入另一個 token `PLATFORM_DB` | 不用 Nest 的 REQUEST scope（整條 DI 鏈每個請求重建）；沒有脈絡就拋錯，比「靜默用錯 DB」安全。連線數過多時再加 PgBouncer |
 | D4 | **每個租戶有自己的 DB 角色與密碼**：租戶的 **完整連線字串** 以主金鑰（沿用 [`architecture/04-sso.md`](04-sso.md) §12.2 D11 的 AES-GCM，另一把 `TENANT_SECRET_KEY`）加密存在 `tenants.database_url_encrypted`；租戶的 DB 角色只能連自己的 database。建立 database 用另一個有 `CREATEDB` 的佈建角色，只在佈建時使用 | 連線字串外洩只影響一個租戶；api 平常持有的連線沒有能力碰別的租戶 |
-| D5 | **平台管理者與租戶使用者是兩份資料**：平台 DB 的 `platform_admins`（加上平台自己的角色與權限，範圍很小：`tenant:*`、`platformAdmin:*`、`platformAuditLog:read`、`job:*`）；租戶 DB 的 `users`／`roles`／`permissions` 回到 [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的扁平模型，**沒有 `scope`、沒有成員表** | 兩邊的權限目錄不重疊，就不需要 §10.7 D2 的範圍檢查與 route-audit 規則。super-admin 也分兩種：平台的 super-admin 看不到任何租戶的內容（要看就得在該租戶有帳號） |
+| D5 | **平台管理者與租戶使用者是兩份資料**：平台 DB 的 `platform_admins`（加上平台自己的角色與權限，範圍很小：`tenant:*`、`platformAdmin:*`、`platformAuditLog:read`、`job:*`）；租戶 DB 的 `users`／`roles`／`permissions` 回到 [`iam/01-model.md`](iam/01-model.md) §8 的扁平模型，**沒有 `scope`、沒有成員表** | 兩邊的權限目錄不重疊，就不需要 §10.7 D2 的範圍檢查與 route-audit 規則。super-admin 也分兩種：平台的 super-admin 看不到任何租戶的內容（要看就得在該租戶有帳號） |
 | D6 | **OIDC 仍是單一 issuer**（`apps/platform` origin 的 `/api/oidc`），`accountId` 帶上身分所屬：租戶帳號是 `t:{tenantId}:{userId}`、平台管理者是 `p:{adminId}`；ID token 與授權碼帶 `tenant` claim | 一個 issuer 就只有一組 JWKS、一個互動頁；帳號 id 帶前綴就不會把 A 租戶的 user id 誤當成 B 租戶的 |
 | D7 | **authorize 請求帶租戶**：backstage 從自己的網域知道租戶，跳轉時帶額外參數 `tenant={code}`；provider 檢查 `redirect_uri` 的 origin 屬於這個租戶的網域（不一致回協定錯誤）。沒有 `tenant` 參數的授權只給 client `auth`，身分是平台管理者 | 使用者要求「從 backstage 跳到 auth 時攜帶租戶資訊」；只信參數會讓人把 A 的授權碼導到 B 的網域，所以以 redirect URI 交叉驗證 |
 | D8 | **登入互動依租戶選資料來源**：互動頁顯示租戶名稱；密碼、外部 IdP、只允許 SSO 的網域都查 **該租戶的 DB**。沒有租戶時對平台 DB 驗證平台管理者 | 符合「沒有帶租戶就用 auth 管理者的資訊」 |
@@ -460,7 +460,7 @@ platform /login（沒有 tenant）→ 授權（client auth、無 tenant 參數�
 > 原 ADR-0018，2026-09-29 決定，同日被本章（§10）整份取代。
 
 §10.7 在同一個資料庫裡做「工作區」（＝專案，只有一層）：**共用資料表 ＋ `workspace_id` 欄位、由應用層強制隔離**。
-授權是兩層並用——工作區角色決定能做「哪些種類」的事，`resource_grants`（[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §13 的資料夾 ACL）決定在工作區內能碰「哪幾個」資源。主要做法：
+授權是兩層並用——工作區角色決定能做「哪些種類」的事，`resource_grants`（[`iam/06-resource-grants.md`](iam/06-resource-grants.md) §13 的資料夾 ACL）決定在工作區內能碰「哪幾個」資源。主要做法：
 
 - 權限鍵與角色加上範圍（`scope`：`platform` ／ `workspace`），角色定義全域共用、指派分工作區；使用者在工作區 W 的權限 = 全域角色的 platform 鍵 ∪ 他在 W 的工作區角色的 workspace 鍵。
 - 帳號是平台層級、跨工作區共用；成員資格與角色指派是 `workspace_members`、`workspace_member_roles`，以 email 邀請加入。

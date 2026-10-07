@@ -7,7 +7,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * 檔案管理與資料夾授權（docs/architecture/backend/09-file.md、docs/rbac/07-resource-grants.md）：
+ * 檔案管理與資料夾授權（docs/architecture/backend/09-file.md、docs/architecture/iam/06-resource-grants.md）：
  * 上傳經 presigned URL 直傳物件儲存、預覽與下載；別人的資料夾預設鎖住，申請存取 → 擁有者核准 → 看得到；撤銷後又鎖住。
  * 分享用的資料夾由 admin 建在根目錄（只有全域 `file:read` 的人看得到，member 預設鎖住），被分享的人用專用帳號 `shareTarget`。
  * 個人資料夾：global-setup 在 api 跑著時重灌資料庫，種子帳號一開始沒有；第一次打開檔案管理時由 api 補建。

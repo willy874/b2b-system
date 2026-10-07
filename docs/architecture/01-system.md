@@ -133,7 +133,7 @@ repository ✗──▶ service  （單向）
         [api] JwtAuthGuard        驗簽 → 取出 sub → 載入 user（含 status 檢查）
               PermissionsGuard    讀 @RequirePermissions('role:update') metadata
                                   → PermissionService.getPermissionSet(userId)
-                                    （關係圖解析、含權限依賴樹閉包、有快取；[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）
+                                    （關係圖解析、含權限依賴樹閉包、有快取；[`iam/01-model.md`](iam/01-model.md) §9）
                                   → 集合是否包含 'role:update'？否 → 403
               ZodValidationPipe   body 驗證
               RolesController.update

@@ -6,7 +6,7 @@ import { GrantLevelSchema } from './file-folder-grant.dto';
 
 const CommentSchema = z.string().trim().max(500);
 
-/** 申請資料夾存取（docs/rbac/07-resource-grants.md §6.5）。 */
+/** 申請資料夾存取（docs/architecture/iam/06-resource-grants.md §6.5）。 */
 export const CreateFileAccessRequestSchema = defineSchema(
   'CreateFileAccessRequest',
   z.object({

@@ -15,7 +15,7 @@ export const FileFolderNameSchema = FileNameSchema.refine((name) => name !== '.'
 /** 目的地：資料夾 id，或 null 表示根目錄。 */
 const FolderRefSchema = z.string().uuid().nullable();
 
-/** 操作者對資料夾的能力（docs/rbac/07-resource-grants.md §7）；前端只讀旗標，不重算。 */
+/** 操作者對資料夾的能力（docs/architecture/iam/06-resource-grants.md §7）；前端只讀旗標，不重算。 */
 export const FileFolderCapabilitiesSchema = defineSchema(
   'FileFolderCapabilities',
   z.object({
@@ -39,7 +39,7 @@ export const FileFolderSchema = defineSchema(
     name: z.string(),
     /** 上層資料夾；null 是根目錄。 */
     parentId: z.string().uuid().nullable(),
-    /** `normal` 以外是系統資料夾：共用、私人（容器）、個人資料夾（docs/rbac/07-resource-grants.md §12）。 */
+    /** `normal` 以外是系統資料夾：共用、私人（容器）、個人資料夾（docs/architecture/iam/06-resource-grants.md §12）。 */
     kind: z.enum(FILE_FOLDER_KINDS),
     /** false = 中斷繼承（私人資料夾）：上層的資料夾授權不再流到這裡（§3.3）。 */
     inheritGrants: z.boolean(),

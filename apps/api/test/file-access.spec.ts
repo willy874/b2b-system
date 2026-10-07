@@ -175,7 +175,7 @@ function errorCode(response: request.Response): string {
   return (response.body as { error: { code: string } }).error.code;
 }
 
-describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
+describe('資料夾層級授權（docs/architecture/iam/06-resource-grants.md）', () => {
   let artTeam: string;
   let art: FolderBody;
   let artUi: FolderBody;
@@ -584,7 +584,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       .expect(200);
   });
 
-  describe('申請存取（docs/rbac/07-resource-grants.md §6.5）', () => {
+  describe('申請存取（docs/architecture/iam/06-resource-grants.md §6.5）', () => {
     async function pendingRequests(token: string, folderId: string) {
       const response = await api(token)
         .get(`/file-folders/${folderId}/access-requests`)
@@ -677,7 +677,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
     });
   });
 
-  describe('系統資料夾（docs/rbac/07-resource-grants.md §12）', () => {
+  describe('系統資料夾（docs/architecture/iam/06-resource-grants.md §12）', () => {
     const byKind = (items: FolderBody[], kind: string) =>
       items.filter((folder) => folder.kind === kind);
 
@@ -692,7 +692,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       });
       expect(privateRoot).toMatchObject({ name: '私人資料夾', capabilities: { canRead: false } });
 
-      // 別人的個人資料夾不列出（docs/rbac/07-resource-grants.md §12.1）；自己的是預設位置
+      // 別人的個人資料夾不列出（docs/architecture/iam/06-resource-grants.md §12.1）；自己的是預設位置
       const personalFolderId = (list as unknown as { personalFolderId: string }).personalFolderId;
       const personal = byKind(list.items, 'personal').filter((f) => f.id === personalFolderId);
       expect(byKind(list.items, 'personal').map((f) => f.id)).toEqual([personalFolderId]);

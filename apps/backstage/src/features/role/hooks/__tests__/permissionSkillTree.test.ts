@@ -23,7 +23,7 @@ const item = (key: string, includes: string[] = [], requires: string[] = []): Pe
     requires,
   }) as Permission;
 
-/** 與後端依賴樹相同的一小段（docs/rbac/02-permission-catalog.md §9.1）。 */
+/** 與後端依賴樹相同的一小段（docs/architecture/iam/02-permission-catalog.md §9.1）。 */
 const CATALOG = [
   item('file:access'),
   item('file:read', ['file:access']),

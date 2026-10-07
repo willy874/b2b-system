@@ -205,6 +205,41 @@ async refresh(@Req() req: Request) {
 （預設 30 天）就回 `AUTH_REFRESH_EXPIRED`，不論期間續期了幾次；快到期時新 token 與 cookie 的壽命也截短到家族的期限。
 被偷的 refresh cookie 不能靠持續續期永久使用。
 
+### 2.7 跨分頁協調的續期
+
+前端的 `SessionStore`（`packages/web-core`）讓同一瀏覽器的分頁依序續期；後端的判定見 §2.3。
+
+```
+分頁 A                    SessionStore               分頁 B
+  │                           │                        │
+  │─ 需要發請求 ─────────────▶│                        │
+  │                    ┌──────┴──────────────────┐     │
+  │                    │ ensureAccessToken()     │     │
+  │                    │  剩餘壽命 > 30s？        │     │
+  │                    │   是 → 直接回傳          │     │
+  │                    │   否 → 往下              │     │
+  │                    │  已有 in-flight refresh？│     │
+  │                    │   是 → 共用那個 promise  │     │
+  │                    └──────┬──────────────────┘     │
+  │                           │                        │
+  │                           │─ navigator.locks ─────▶│ 取得續期鎖（B 在此排隊）
+  │                           │                        │
+  │                           │─ POST /auth/refresh    │
+  │                           │  Cookie: refresh_token │
+  │                           │  x-refresh-request: 1  │
+  │                           │                        │
+  │                           │◀─ 200 新 accessToken   │
+  │                           │   Set-Cookie 新 refresh│
+  │                           │                        │
+  │                           │─ BroadcastChannel ────▶│ 「新 token 在這」
+  │                           │─ 釋放鎖                │─ 拿到鎖時 token 已新鮮 → 直接採用
+  │◀── accessToken ───────────│                        │
+```
+
+> **為什麼要跨分頁協調**：refresh token 是輪替的。兩個分頁同時拿同一個舊 token
+> 去續期，第二個會被判定為「重用」，整條家族被撤銷，使用者被登出。
+> Web Locks 讓同一瀏覽器的分頁依序續期，後一個拿到鎖時用的已經是新 cookie。
+
 ---
 
 ## 3. 登入
@@ -337,6 +372,81 @@ RETURNING failed_login_count, locked_until;
 - 代價：同一個 NAT 後面的內部人員打錯不會觸發鎖定，但仍受延遲與每分鐘 10 次的桶限制。
 - 上線當下沒有任何已知來源，行為與之前相同；每個人成功登入一次之後才生效。
 - 外部 IdP 登入不經過密碼驗證，不記錄來源。
+
+### 3.5 端到端：從輸入帳密到首頁
+
+錯誤碼的規則見 §3.2、§3.3；外部 IdP 與 apps/platform 的登入入口見 [`../04-sso.md`](../04-sso.md)。
+
+```
+使用者        apps/backstage                 apps/api                      DB
+  │              │                        │                           │
+  │─ 輸入帳密 ──▶│                        │                           │
+  │              │─ POST /auth/login ────▶│                           │
+  │              │                        │─ findByEmail(citext) ────▶│
+  │              │                        │◀── user | null ───────────│
+  │              │                        │                           │
+  │              │                     ┌──┴─────────────────────────┐ │
+  │              │                     │ 1. user 存在？             │ │
+  │              │                     │ 2. locked_until > now？    │ │
+  │              │                     │ 3. status = 'active'？     │ │
+  │              │                     │ 4. argon2.verify(pw)？     │ │
+  │              │                     └──┬─────────────────────────┘ │
+  │              │                        │                           │
+  │              │                    失敗 │─ failed_login_count+1 ──▶│
+  │              │                        │  （達 5 次 → locked 15m） │
+  │              │                        │─ audit(auth.login.failure)│
+  │              │◀── 401 AUTH_INVALID ───│                           │
+  │              │    （訊息不區分帳號不存在/密碼錯）                   │
+  │              │                        │                           │
+  │              │                    成功 │─ failed_login_count = 0 ▶│
+  │              │                        │─ last_login_at = now ────▶│
+  │              │                        │─ INSERT refresh_tokens ──▶│
+  │              │                        │   (family_id = new uuid)  │
+  │              │                        │─ audit(auth.login.success)│
+  │              │◀── 200 + Set-Cookie ───│                           │
+  │              │                        │                           │
+  │              │─ SessionStore.setTokens(accessToken, expiresIn)     │
+  │              │                        │                           │
+  │              │─ GET /auth/profile ───▶│                           │
+  │              │                        │─ 解析權限集合 ───────────▶│
+  │              │◀── { user, roles, permissions[] } ─────────────────│
+  │              │                        │                           │
+  │              │─ usePermissionStore.setPermissions(permissions)     │
+  │              │─ i18n.changeLanguage(user.preferences.locale)       │
+  │              │─ navigate('/')                                      │
+  │◀── 首頁 ─────│                        │                           │
+```
+
+**回應載荷**
+
+```jsonc
+// POST /auth/login → 200
+{
+  "data": {
+    "accessToken": "eyJhbGciOi...",
+    "tokenType": "Bearer",
+    "expiresIn": 300,
+  },
+}
+// Set-Cookie: refresh_token=<opaque>; HttpOnly; Secure; SameSite=Lax; Path=/api/auth; Max-Age=604800
+```
+
+```jsonc
+// GET /auth/profile → 200
+{
+  "data": {
+    "user": {
+      "id": "0192...",
+      "email": "admin@example.com",
+      "displayName": "Admin",
+      "status": "active",
+      "preferences": { "locale": "zh-TW", "timezone": "Asia/Taipei" },
+    },
+    "roles": [{ "id": "...", "slug": "admin", "name": "系統管理員" }],
+    "permissions": ["user:create", "user:read", "role:read", "..."],
+  },
+}
+```
 
 ---
 
@@ -473,6 +583,31 @@ async forgotPassword(@Body(...) dto: ForgotPasswordDto) {
 管理員建立帳號時，啟用信在建立帳號的交易內入列；管理員代為重設時，重設信與稽核在同一個交易內入列
 （[`11-mail.md`](./11-mail.md) §4）。
 
+### 5.3 流程總覽
+
+兩條流程共用同一個 token 機制（單次使用、有期限、雜湊入庫）。
+
+```
+① 管理員建立使用者（status = pending，password_hash = NULL）
+     └─ 產生 activation token（24h）→ 寄信
+② 使用者點連結 {PLATFORM_APP_URL}/setup?token=xxx（apps/platform 的頁面，docs/architecture/04-sso.md §6.2）
+     └─ GET  /auth/setup/verify?token=xxx   → 200 { email } | 400 TOKEN_INVALID
+     └─ POST /auth/setup { token, password }
+           ├─ 密碼強度檢查（≥ 租戶設定的長度 `auth.passwordMinLength`，至少 12 字元；非常見密碼）
+           ├─ argon2 雜湊 → users.password_hash
+           ├─ status: pending → active
+           ├─ 標記 token 已使用
+           └─ audit(user.activate)
+③ 忘記密碼 /auth/forgot-password { email }
+     └─ ★ 不論 email 是否存在都回 200（避免帳號列舉）
+     └─ 存在且 active → 產生 reset token（1h）→ 寄信
+④ POST /auth/reset-password { token, password }
+     ├─ 同上驗證與雜湊
+     ├─ ★ token_version + 1（重設密碼強制所有裝置登出）
+     ├─ 撤銷所有 refresh token
+     └─ audit(auth.password_reset)
+```
+
 ---
 
 ## 6. `JwtAuthGuard`
@@ -604,11 +739,102 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 上限 | 到期天數依系統設定（[`12-settings.md`](./12-settings.md) §3），超過回 `400 API_TOKEN_LIFETIME_EXCEEDED`（`details.maxDays`）；一個帳號同時有效的 token 最多 50 把（`409 API_TOKEN_LIMIT_REACHED`） |
 | 錯誤 | `404 SERVICE_ACCOUNT_NOT_FOUND`、`404 API_TOKEN_NOT_FOUND`；服務帳號的修改必帶 `version`（`409 SERVICE_ACCOUNT_VERSION_CONFLICT`），改角色帶 `expectedRoleIds`（別人已改過時 `409 SERVICE_ACCOUNT_ROLES_CONFLICT`） |
 | 稽核 | `apiToken.create`、`apiToken.revoke`（`metadata.ownerId`、`ownerKind`、`prefix`）；`serviceAccount.create`／`update`／`assignRole`／`delete` |
-| 管理畫面 | backstage 的 `features/service-account`（`/service-account`，詳情頁管角色與 token）；個人 token 在帳號設定（`/profile`）；使用者詳情頁在 `user:update` 時列出並可撤銷他的 token。三處共用 `core/components/ApiToken/`，明文只在建立成功的對話框顯示一次（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §5） |
+| 管理畫面 | backstage 的 `features/service-account`（`/service-account`，詳情頁管角色與 token）；個人 token 在帳號設定（`/profile`）；使用者詳情頁在 `user:update` 時列出並可撤銷他的 token。三處共用 `core/components/ApiToken/`，明文只在建立成功的對話框顯示一次（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §5） |
 | 推播 | `serviceAccount`、`apiToken` 兩個來源（[`08-realtime.md`](./08-realtime.md) §6.1） |
 
 **直接登入**（`POST /auth/login`，§3）：`DIRECT_LOGIN_ENABLED` 沒設定時 production 關閉（回 `404 NOT_FOUND`）、其他環境開啟。
 腳本改用 API token（D15）。登入互動（apps/platform）與 BFF 不受影響。
+
+---
+
+## 8.3 端點
+
+圖例同 [`iam/04-api.md`](../iam/04-api.md)：🔓 `@Public`、🔑 `@Authenticated`、🛡 `@RequirePermissions`。
+
+| Method | Path                    | 授權            | 說明                                |
+| ------ | ----------------------- | --------------- | ----------------------------------- |
+| POST   | `/auth/login`           | 🔓              | 帳密登入                            |
+| POST   | `/auth/refresh`         | 🔓（靠 cookie） | 以 refresh token 續期               |
+| POST   | `/auth/logout`          | 🔓（bearer 或 cookie） | 撤銷當前 refresh token 家族；沒有 bearer 時以 refresh cookie 認人（需 `x-refresh-request: 1`） |
+| GET    | `/auth/profile`         | 🔑              | 取得自己的身分、角色與 **權限集合** |
+| PATCH  | `/auth/profile`         | 🔑              | 修改自己的顯示名稱與偏好設定        |
+| POST   | `/auth/change-password` | 🔑              | 變更自己的密碼（需提供舊密碼）      |
+| POST   | `/auth/register`        | 🔓              | 送出註冊申請（需審批，永遠回 202）  |
+| POST   | `/auth/forgot-password` | 🔓              | 請求密碼重設信                      |
+| POST   | `/auth/reset-password`  | 🔓              | 以 reset token 設定新密碼           |
+| GET    | `/auth/setup/verify`    | 🔓              | 驗證啟用 token 是否有效             |
+| POST   | `/auth/setup`           | 🔓              | 以啟用 token 設定初始密碼           |
+
+### 8.3.1 `POST /auth/login`
+
+```jsonc
+// Request
+{ "email": "admin@example.com", "password": "••••••••" }
+
+// 200
+{
+  "data": { "accessToken": "eyJ...", "tokenType": "Bearer", "expiresIn": 300 }
+}
+// + Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax; Path=/api/auth
+```
+
+速率限制：同 IP 每分鐘 10 次；同 email 連續 5 次失敗鎖定 15 分鐘。
+
+### 8.3.2 `POST /auth/refresh`
+
+必須帶自訂標頭 `x-refresh-request: 1`（CSRF 緩解）。回應同 login。
+
+### 8.3.3 `GET /auth/profile`
+
+```jsonc
+// 200
+{
+  "data": {
+    "user": {
+      "id": "0192b...",
+      "email": "admin@example.com",
+      "username": "admin",
+      "displayName": "系統管理員",
+      "status": "active",
+      "lastLoginAt": "2026-09-19T02:10:00.000Z",
+      "preferences": { "locale": "zh-TW", "timezone": "Asia/Taipei" },
+    },
+    "roles": [{ "id": "...", "slug": "admin", "name": "系統管理員", "isSystem": true }],
+    "permissions": ["user:create", "user:read", "role:read", "permission:read"],
+  },
+}
+```
+
+`permissions` 是 **扁平、已去重、已展開 super-admin、已套用權限依賴樹閉包**（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9）的字串陣列：
+只被授予 `file:delete` 的人，這裡也會有 `file:update`、`file:read`、`file:access`。
+前端 `usePermissionStore` 直接以此建立 `Set`。
+
+### 8.3.4 `PATCH /auth/profile`
+
+```jsonc
+{ "displayName": "Willy", "preferences": { "locale": "en-US", "timezone": "UTC" } }
+```
+
+不可經此端點修改 `email` / `status` / 角色。
+
+---
+
+### 8.3.5 `POST /auth/register`
+
+```jsonc
+// Request
+{ "email": "alice@example.com", "displayName": "Alice", "reason": "新進企劃" }
+
+// 202 — 不論 email 是否已註冊或已在審核中，回應都相同（帳號列舉防護）
+{ "data": { "submitted": true } }
+```
+
+- 租戶關閉了註冊（系統設定 `auth.registrationEnabled`）時回 `404 AUTH_REGISTRATION_DISABLED`。
+- 不建立帳號，只建立一筆 `user.register` 審批請求；核准後建立 **未啟用**（`pending`）、沒有密碼的帳號並寄出啟用信，
+  申請人從信中連結設定密碼（`POST /auth/setup`，套用租戶的 `auth.passwordMinLength`）後才能登入。
+- 不收密碼：舊的用戶端仍送 `password` 時會被忽略，不保存。
+- 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次；同 IP 另有總上限（[`../architecture/backend/03-api-conventions.md`](./03-api-conventions.md) §8）。
+- 流程與規則見 [`backend/20-approval.md`](./20-approval.md) §5。
 
 ---
 

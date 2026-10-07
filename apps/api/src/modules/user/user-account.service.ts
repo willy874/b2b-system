@@ -190,7 +190,7 @@ export class UserAccountService {
 
   /**
    * 實際持有的（未刪除的）角色：直接持有，加上經由群組（含巢狀）持有的——群組 g 持有 r 時，g 的成員都持有 r
-   * （docs/rbac/08-groups.md §1）。取自權限解析的主體閉包（`role:<id>#holder`），不另外維護一份遞迴查詢。
+   * （docs/architecture/iam/07-groups.md §1）。取自權限解析的主體閉包（`role:<id>#holder`），不另外維護一份遞迴查詢。
    */
   async listEffectiveRoles(id: string): Promise<Pick<RoleRow, 'id' | 'slug' | 'isSystem'>[]> {
     const { subjects } = await this.permissionService.getPermissionSet(id);

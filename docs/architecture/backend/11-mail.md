@@ -146,7 +146,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 | `src/core/mail/__tests__/mail.service.spec.ts` | 連結編碼、HTML 與純文字 |
 | `src/core/logger/__tests__/redact.spec.ts` | 網址、`query` 物件與 Referer 的憑證參數遮蔽；經過 pino-http（`pinoHttpOptions()`）的存取日誌找不到原文 |
 | `apps/e2e/tests/mail.spec.ts` | 經 Mailpit：從信箱點啟用連結 → 設定密碼 → 登入；用過的連結顯示失效 |
-| `apps/e2e/tests/approval.spec.ts` | 經 Mailpit：註冊核准後從啟用信設定密碼 → 登入（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §5） |
+| `apps/e2e/tests/approval.spec.ts` | 經 Mailpit：註冊核准後從啟用信設定密碼 → 登入（[`20-approval.md`](20-approval.md) §5） |
 
 ## 9. 設計決策：SMTP（nodemailer）＋ React Email 範本，開發用 Mailpit
 
@@ -155,7 +155,7 @@ handler 執行時才呼叫 `AuthTokenService.issue()`、把原文放進連結、
 ### 9.1 背景
 
 決策當時，啟用與重設密碼的連結寫進伺服器日誌，由維運人員轉交（`auth-token.service.ts` 的 `issue()`；
-流程見 [`04-auth.md`](./04-auth.md) §5）；審批結果也因為沒有郵件而不通知申請人（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §1）。
+流程見 [`04-auth.md`](./04-auth.md) §5）；審批結果也因為沒有郵件而不通知申請人（[`20-approval.md`](20-approval.md) §1）。
 部署是 docker compose 自架，物件儲存採「S3 相容、換服務只改 env」。寄送經背景工作（[`10-jobs.md`](./10-jobs.md)；[`backend/10-jobs.md`](10-jobs.md) §9）。
 
 ### 9.2 決定

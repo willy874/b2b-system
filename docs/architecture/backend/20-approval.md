@@ -1,4 +1,4 @@
-# RBAC 06 — 審批（Approval）
+# 後端 20 — 審批（Approval）
 
 特定的變更不直接生效，而是先建立一筆 **審批請求**，由管理員核准後才套用。
 第一個使用它的流程是 **使用者註冊**（`user.register`）：未登入的人送出申請，
@@ -17,7 +17,7 @@
 | 通用的請求 → 審核 → 套用 狀態機，新類型只需實作 handler    | 多階段／多人會簽、依金額或條件分流的審批鏈        |
 | `user.register`：匿名申請，核准後建立已啟用帳號            | 申請人查詢自己的申請狀態、撤回申請                |
 | 審核時一併指派角色（受反提權限制）                         | 申請人在系統內查看通知（站內通知中心）            |
-| 以郵件通知申請人審核結果（含審核意見；[`backend/11-mail.md`](../architecture/backend/11-mail.md) §4） |                                                   |
+| 以郵件通知申請人審核結果（含審核意見；[`backend/11-mail.md`](11-mail.md) §4） |                                                   |
 | 列表、詳情、核准、駁回；即時推播給審核者                   | 請求逾期自動作廢                                  |
 
 ---
@@ -72,7 +72,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 
 **核准等同代為執行該操作**，所以審核者自己必須做得到——否則 `approval:review` 會變成繞過
 `user:create` 的後門。`user.register` 要求 `user:create`；核准時指派角色再加 `user:assignRole`，
-且角色受反提權限制（[`04-api-spec.md`](./04-api-spec.md) §5）。
+且角色受反提權限制（[`iam/04-api.md`](../iam/04-api.md) §4）。
 
 前端的 `useApprovalPermission()` 同步反映：只有 `approval:review` 時可以駁回，核准鈕停用並說明原因。
 
@@ -98,13 +98,13 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 ④ 發佈 approval update
 ```
 
-與 [`../coding-standards/03-backend.md`](../coding-standards/03-backend.md) §1 規則 6 一致：稽核在交易內，
+與 [`../coding-standards/03-backend.md`](../../coding-standards/03-backend.md) §1 規則 6 一致：稽核在交易內，
 快取失效與事件在交易後。
 
-批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。
+批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13。
 
 送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）在同一個交易內各收到一則站內通知 `approval.pending`
-（[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12.2 D5、D11；[`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §4）。
+（[`backend/15-notification.md`](15-notification.md) §12.2 D5、D11；[`15-notification.md`](15-notification.md) §4）。
 
 ---
 
@@ -129,7 +129,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
    由呼叫端的 service 呼叫 `ApprovalService.submit()`。
 5. 前端：`features/approval/constants.ts` 加類型的語系鍵；`pages/ApprovalDetail/adapter.ts`
    把該類型的 `payload` 收斂成 view model；需要額外權限時擴充 `useApprovalReviewAccess()`。
-6. 更新本文件 §5 之後的類型章節、[`04-api-spec.md`](./04-api-spec.md) §7。
+6. 更新本文件 §5 之後的類型章節、§8（API）。
 
 ---
 
@@ -187,7 +187,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 審批列表   | `/approval`，Page Key `APPROVAL`（`approval:read`），選單「審批」                        |
 | 審核對話框 | `/approval/$approvalId`：申請內容、角色（可搜尋多選）、審核意見；核准／駁回固定在 footer |
 | 快速審核   | 列表「操作」欄：待審列的 ✓ 核准／✗ 駁回，確認後直接送出。**不指派角色、不附意見**；要指派角色改開對話框。沒有 `approval:review` 時整欄不出現；缺類型要求的權限時核准鈕停用並說明原因 |
-| 批次審核   | 勾選後的批次操作列：核准／駁回，語意同快速審核（`useApprovalBatchActions`、`features/approval/batch.ts`）。只送出待審的列，核准另需類型要求的權限；送進全域佇列逐筆呼叫單筆的核准／駁回端點，進度與結果見 [`../architecture/frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §6.2 |
+| 批次審核   | 勾選後的批次操作列：核准／駁回，語意同快速審核（`useApprovalBatchActions`、`features/approval/batch.ts`）。只送出待審的列，核准另需類型要求的權限；送進全域佇列逐筆呼叫單筆的核准／駁回端點，進度與結果見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §6.2 |
 | 權限 facade | `useApprovalPermission()`：`canReview`、`canApproveRegistration`、`canAssignRole`        |
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |
@@ -197,7 +197,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 
 ## 7. `fileFolder.access` — 申請資料夾存取
 
-規格見 [`07-resource-grants.md`](./07-resource-grants.md) §6.5；handler 在
+規格見 [`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §6.5；handler 在
 `apps/api/src/modules/file/file-folder-access.approval.ts`。
 
 | 項目 | 內容 |
@@ -210,3 +210,49 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | `apply()` | 對申請人寫入（或提高到）申請的等級；`fileFolder.grant` 稽核帶 `metadata.approvalId` |
 | 審核入口 | 審批頁（`approval:review`），或檔案管理器的共用對話框（資料夾的管理者，不需要 `approval:*`） |
 
+---
+
+## 8. API
+
+| Method | Path                     | 授權                                    | 說明                         |
+| ------ | ------------------------ | --------------------------------------- | ---------------------------- |
+| GET    | `/approvals`             | 🛡 `approval:read`                      | 列表（分頁／篩選／排序）     |
+| GET    | `/approvals/:id`         | 🛡 `approval:read`                      | 詳情                         |
+| POST   | `/approvals/:id/approve` | 🛡 `approval:review` ＋ 類型要求的權限   | 核准並套用變更               |
+| POST   | `/approvals/:id/reject`  | 🛡 `approval:review`                    | 駁回                         |
+
+**`GET /approvals` Query**
+
+| 參數               | 說明                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| `offset` / `limit` | 分頁                                                          |
+| `keyword`          | 申請人名稱（註冊 = email）部分比對                            |
+| `status`           | `pending` / `approved` / `rejected`，可重複                   |
+| `type`             | `user.register`，可重複                                       |
+| `sort`             | `createdAt` / `reviewedAt`，`-` 前綴為降冪；預設 `-createdAt` |
+
+**`POST /approvals/:id/approve`**
+
+```jsonc
+// Request（皆可省略）
+{ "comment": "歡迎", "roleIds": ["uuid"] }   // roleIds 只對 user.register 有意義
+```
+
+回應為更新後的 `ApprovalRequest`（`status = approved`、`resultResourceId` = 新使用者 id）。
+`private_payload` 永遠不會出現在任何回應中。
+
+**`POST /approvals/:id/reject`**：`{ "comment"?: string }`，回應同上（`status = rejected`）。
+
+| 錯誤                          | 時機                                                            |
+| ----------------------------- | --------------------------------------------------------------- |
+| `404 APPROVAL_NOT_FOUND`      | id 不存在                                                       |
+| `409 APPROVAL_ALREADY_REVIEWED` | 已被審核過（含兩位審核者同時送出時較晚的那位）                |
+| `403 APPROVAL_SELF_REVIEW`    | 審核自己送出的請求                                              |
+| `403 AUTHZ_FORBIDDEN`         | 缺少類型要求的權限（`details.missing`）                         |
+| `403 AUTHZ_ESCALATION`        | 指派的角色超出審核者的權限                                      |
+| `409 USER_EMAIL_DUPLICATE`    | `user.register`：申請後該 email 已被建立（請改為駁回）          |
+
+**批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13。
+
+**站內通知**（[`15-notification.md`](./15-notification.md)）：送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）各收到一則 `approval.pending`；
+核准或駁回時申請人收到 `approval.result`（匿名的註冊沒有收件人，只有結果信）。都與審批的寫入在同一個交易。

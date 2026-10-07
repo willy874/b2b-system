@@ -60,7 +60,7 @@ export function selectionCapabilities(items: readonly FileItemCapabilities[]) {
     canDelete: some && items.every((item) => item.canDelete),
     /** 只選一個資料夾、而且能管理它的授權。 */
     canShare: items.length === 1 && only?.type === 'folder' && only.canShare === true,
-    /** 只選一個鎖住的資料夾：可以申請存取（docs/rbac/07-resource-grants.md §6.5）。 */
+    /** 只選一個鎖住的資料夾：可以申請存取（docs/architecture/iam/06-resource-grants.md §6.5）。 */
     canRequestAccess:
       items.length === 1 &&
       only?.type === 'folder' &&

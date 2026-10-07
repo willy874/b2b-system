@@ -80,7 +80,7 @@ async function pendingRequestOf(email: string) {
   return row;
 }
 
-describe('註冊審批（docs/rbac/06-approval.md）', () => {
+describe('註冊審批（docs/architecture/backend/20-approval.md）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;

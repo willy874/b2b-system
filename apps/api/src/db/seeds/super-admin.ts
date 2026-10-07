@@ -26,7 +26,7 @@ export interface SuperAdminSeedResult {
 }
 
 /**
- * ④ 初始超級管理員：只在不存在任何 super-admin 時建立（docs/rbac/05-seed-and-bootstrap.md §5）。
+ * ④ 初始超級管理員：只在不存在任何 super-admin 時建立（docs/architecture/iam/05-bootstrap.md §5）。
  *
  * - 有 `SUPER_ADMIN_PASSWORD`：以它建成 active（要符合密碼政策）。
  * - 沒有、非 production：隨機密碼、active，印出一次（開發用）。

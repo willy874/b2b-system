@@ -121,7 +121,7 @@ PUT /tags/assignments/:resourceType/:resourceId
 
 每一種資源（檔案、資料夾、使用者；之後的業務資源）都需要分類與依分類篩選。若每個功能各做一套，資料表、管理頁與篩選 UI 都會重複。
 提案把標籤、留言、關注放在一起；這份只決定 **標籤**，留言與關注仍留在提案 [`../../features/comments-watches.md`](../../features/comments-watches.md)。
-相關：[`backend/14-revisions.md`](14-revisions.md) §9.2 D7（多型關聯用 `resource_type` text ＋ 程式常數）、[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9（資料夾的存取判斷）、
+相關：[`backend/14-revisions.md`](14-revisions.md) §9.2 D7（多型關聯用 `resource_type` text ＋ 程式常數）、[`iam/01-model.md`](../iam/01-model.md) §9（資料夾的存取判斷）、
 [`13-trash.md`](./13-trash.md)（永久刪除時的清理）。
 
 2026-10-02 確認的產品決定：

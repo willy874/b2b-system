@@ -11,7 +11,7 @@ import type { PermissionDependencyMap } from '../permissions';
 
 const check = (deps: PermissionDependencyMap) => validatePermissionDependencies(deps);
 
-describe('權限依賴樹（docs/rbac/02-permission-catalog.md §9）', () => {
+describe('權限依賴樹（docs/architecture/iam/02-permission-catalog.md §9）', () => {
   it('目錄內建的依賴樹通過 G1–G4', () => {
     expect(validatePermissionDependencies()).toEqual([]);
     expect(() => assertPermissionDependencies()).not.toThrow();

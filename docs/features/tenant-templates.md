@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：[`import-export.md`](./import-export.md)（產生與套用檔案的機制）
-- 相關：[`05-tenancy.md`](../architecture/05-tenancy.md) §5（佈建）、[`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md)（佈建時的權限目錄與系統角色）、[`tenant-plans.md`](./tenant-plans.md)
+- 相關：[`05-tenancy.md`](../architecture/05-tenancy.md) §5（佈建）、[`iam/05-bootstrap.md`](../architecture/iam/05-bootstrap.md)（佈建時的權限目錄與系統角色）、[`tenant-plans.md`](./tenant-plans.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 

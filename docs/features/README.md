@@ -4,7 +4,7 @@
 它是暫存區，不是規格：功能做完之後，提案文件要 **刪掉**，內容改寫成正式的設計文件，
 歸檔到 `docs/` 的對應分區（見 §4）。
 
-> 為什麼要分開：`architecture/`、`rbac/` 描述的是 **系統現在長什麼樣子**，
+> 為什麼要分開：`architecture/` 描述的是 **系統現在長什麼樣子**，
 > 必須與程式碼同步（[`../README.md`](../README.md) §5）。尚未實作的構想若寫進去，
 > 讀者就分不出哪些是事實、哪些是願望。
 
@@ -19,7 +19,7 @@
 | --- | --- | --- | --- | --- |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
-| P2 | 多階段審批鏈（依序多關、會簽、條件分流） | [`approval-chains.md`](./approval-chains.md) | 提案 | [審批](../rbac/06-approval.md)（已完成） |
+| P2 | 多階段審批鏈（依序多關、會簽、條件分流） | [`approval-chains.md`](./approval-chains.md) | 提案 | [審批](../architecture/backend/20-approval.md)（已完成） |
 | P2 | 自訂欄位 | [`custom-fields.md`](./custom-fields.md) | 提案 | — |
 | P2 | 儲存的檢視（列表的篩選、排序、欄位組合） | [`saved-views.md`](./saved-views.md) | 提案 | — |
 | P2 | 租戶用量總覽 | [`tenant-usage.md`](./tenant-usage.md) | 提案 | — |
@@ -54,7 +54,7 @@
 
 - `observability`（後端的指標與 tracing、就緒檢查、Grafana ＋ Prometheus ＋ Tempo 的部署與告警，apm-service 接進 Grafana）：[`architecture/08-monitoring.md`](../architecture/08-monitoring.md) §9
 - `hardening-followups`（安全與容量的後續強化）：access token 金鑰環 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §11、
-  速率限制第二版與 argon2 上限 §12、獨立的檔案網域 [`backend/09-file.md`](../architecture/backend/09-file.md) §13、個人資料夾 [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §12.1、
+  速率限制第二版與 argon2 上限 §12、獨立的檔案網域 [`backend/09-file.md`](../architecture/backend/09-file.md) §13、個人資料夾 [`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md) §12.1、
   稽核冷表分區與保留期限 [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §10、HTTP 快取 [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §13、
   選取全部符合 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13.7、表單草稿 [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) §4.4、
   檔案列表的 `maxPages` [`frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §5；連線池與 PgBouncer 的觸發條件在 [`backend/02-database.md`](../architecture/backend/02-database.md) §6.2
@@ -64,10 +64,10 @@
 - `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7
 - `webhooks`（對外事件、訂閱、投遞與重試、簽章、SSRF 綁定位址）：[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9
 - `api-tokens`（服務帳號、API token、對外 API 服務）：[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §8.2
-- `permission-graph` G4b（說明：有效權限的來源、資料夾存取的路徑）：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D14、[`rbac/09-explain.md`](../rbac/09-explain.md)
-- `permission-graph` G4a（群組、反提權一般化）：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D10～D16、[`rbac/08-groups.md`](../rbac/08-groups.md)、
+- `permission-graph` G4b（說明：有效權限的來源、資料夾存取的路徑）：[`iam/01-model.md`](../architecture/iam/01-model.md) §9.3 D14、[`iam/08-explain.md`](../architecture/iam/08-explain.md)
+- `permission-graph` G4a（群組、反提權一般化）：[`iam/01-model.md`](../architecture/iam/01-model.md) §9.3 D10～D16、[`iam/07-groups.md`](../architecture/iam/07-groups.md)、
   [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1
-- `permission-graph` G0～G3b：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
+- `permission-graph` G0～G3b：[`iam/01-model.md`](../architecture/iam/01-model.md) §9、[`iam/01-model.md`](../architecture/iam/01-model.md) §6.4、[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2、§5
 - `entity-revisions`：[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9、[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11、[`backend/13-trash.md`](../architecture/backend/13-trash.md)
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
@@ -92,7 +92,7 @@
 | `DomainEventBus` 是程序內、fire-and-forget，**不保證送達**；要可靠就在交易內 `JobQueue.enqueue(..., { tx })`（走 `job_outbox`） | [`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7、[`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4.1 |
 | 通用模組不 import 業務模組：業務模組在 `onModuleInit` 把 handler 註冊進去（審批、背景工作、系統設定） | [`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §3.2 |
 | 前端 feature 之間不共用元件；共用 UI 放 `@b2b-system/ui`、`core/`，或經註冊表注入。註冊在 plugin 同步階段，那時還沒有使用者資料 | [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §3.1、§6 |
-| 軟刪除（`deleted_at` ＋ partial unique index）已是慣例；多型關聯用 `resource_type ＋ resource_id` | [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) |
+| 軟刪除（`deleted_at` ＋ partial unique index）已是慣例；多型關聯用 `resource_type ＋ resource_id` | [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md) |
 | 系統設定是租戶層、只存純量覆寫值 | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
 | 可編輯的實體要有 `version` 欄，更新必須帶 `version`（樂觀鎖，衝突 409） | [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11 |
 | 軟刪除的查詢一律用 `notDeleted()`；要能還原的資源在 `onModuleInit` 註冊 `TrashHandler` 並提供 `POST /<resource>/:id/restore` | [`backend/13-trash.md`](../architecture/backend/13-trash.md) §1、§2 |
@@ -165,9 +165,9 @@
 | 後端模組、資料表、API | `docs/architecture/backend/NN-<主題>.md` |
 | 前端 feature、元件、狀態 | `docs/architecture/frontend/NN-<主題>.md` |
 | 橫跨前後端或部署的系統設計 | `docs/architecture/NN-<主題>.md` |
-| 權限、授權、身分的領域規則 | `docs/rbac/NN-<主題>.md` ＋ `02-permission-catalog.md` |
+| 權限、授權、身分的規則 | `docs/architecture/iam/NN-<主題>.md` ＋ `iam/02-permission-catalog.md` |
 | 寫程式的新規則 | `docs/coding-standards/` |
 | 範圍、里程碑 | `docs/overview/01-overview.md`、`03-roadmap.md` |
 
 一份提案通常會拆成 **一到兩份規格**，設計決策放在其中主要的那份，例如檔案管理器的資料夾授權就是
-[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)（決策在 §13）＋ [`backend/09-file.md`](../architecture/backend/09-file.md) §11。
+[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md)（決策在 §13）＋ [`backend/09-file.md`](../architecture/backend/09-file.md) §11。

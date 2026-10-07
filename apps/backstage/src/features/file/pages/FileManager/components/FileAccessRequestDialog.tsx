@@ -22,7 +22,7 @@ interface FileAccessRequestDialogProps {
 }
 
 /**
- * 申請資料夾存取（docs/rbac/07-resource-grants.md §6.5）：選等級、填理由。
+ * 申請資料夾存取（docs/architecture/iam/06-resource-grants.md §6.5）：選等級、填理由。
  * 送到資料夾的管理者與系統管理員；核准後自動取得申請的等級。
  */
 export function FileAccessRequestDialog({ folder, onClose }: FileAccessRequestDialogProps) {

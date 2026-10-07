@@ -16,7 +16,7 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 /**
- * 關係圖的邊：`物件#關係@主體`（docs/rbac/01-domain-model.md §6.4、docs/architecture/backend/02-database.md §2.10）。
+ * 關係圖的邊：`物件#關係@主體`（docs/architecture/iam/01-model.md §6.4、docs/architecture/backend/02-database.md §2.10）。
  *
  * - 主體是節點（`subject_relation = ''`）、節點的關係（`role:<id>#holder`），或萬用字元（`subject_id = '*'`）。
  * - id 用 text：租戶節點是 `self`、萬用字元是 `*`；多型關聯沒有外鍵，解析時 join 未刪除的節點。
@@ -59,7 +59,7 @@ export type RelationTupleRow = typeof relationTuples.$inferSelect;
 export type RelationTupleInsert = typeof relationTuples.$inferInsert;
 
 /**
- * 關係圖的版本號（單列，docs/rbac/01-domain-model.md §9.2 D7）：`relation_tuples` 的每一條寫入語句
+ * 關係圖的版本號（單列，docs/architecture/iam/01-model.md §9.2 D7）：`relation_tuples` 的每一條寫入語句
  * 由 trigger 在同一個交易內 +1（migration 0009）。寫入之間因此以這一列的鎖排隊，提交順序＝版本順序；
  * 各程序以它判斷收到的失效通知是不是比已知的新。
  */
@@ -72,7 +72,7 @@ export const authzRevision = pgTable(
   (t) => [check('authz_revision_single_row', sql`${t.id}`)],
 );
 
-// ── 核心的邊（docs/rbac/01-domain-model.md §6.4）──────────────────────
+// ── 核心的邊（docs/architecture/iam/01-model.md §6.4）──────────────────────
 // repository、seed、測試共用下面的建構函式與條件，邊的形狀只寫在這裡。
 //
 // 多型的 id 是 text：與 uuid 欄位比較時一律把 uuid 那邊轉成 text（`roles.id::text = object_id`），
@@ -130,7 +130,7 @@ export function superAdminTuple(roleId: string): RelationTupleInsert {
 }
 
 export const GROUP_OBJECT_TYPE = 'group';
-/** 使用者集合「群組的成員」：`group:<id>#member`（docs/rbac/01-domain-model.md §9.3 D11）。 */
+/** 使用者集合「群組的成員」：`group:<id>#member`（docs/architecture/iam/01-model.md §9.3 D11）。 */
 export const GROUP_MEMBER_RELATION = 'member';
 
 /** 群組成員的主體：個別使用者，或另一個群組的成員（巢狀）。 */

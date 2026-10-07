@@ -16,7 +16,7 @@ import { users } from './users';
 export const approvalStatus = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
 
 /**
- * 需要管理員核准才會生效的變更請求（docs/rbac/06-approval.md）。
+ * 需要管理員核准才會生效的變更請求（docs/architecture/backend/20-approval.md）。
  * 請求本身只記錄「想做什麼」；核准時由對應類型的 handler 真正套用。
  */
 export const approvalRequests = pgTable(

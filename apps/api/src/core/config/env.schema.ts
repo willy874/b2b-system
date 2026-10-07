@@ -292,7 +292,7 @@ export const EnvSchema = z.object({
     .default(100 * 1024 * 1024),
   /**
    * presigned 上傳 / 下載網址與影像網址的有效秒數。網址發出後到期前都有效，資料夾授權撤銷、帳號停用也收不回來，
-   * 所以上限是 1 小時：撤銷的延遲不超過這個值（docs/rbac/07-resource-grants.md §9）。
+   * 所以上限是 1 小時：撤銷的延遲不超過這個值（docs/architecture/iam/06-resource-grants.md §9）。
    */
   FILE_URL_TTL: z.coerce.number().int().min(60).max(3600).default(900),
   /**
@@ -458,7 +458,7 @@ export const EnvSchema = z.object({
   ),
 
   SUPER_ADMIN_EMAIL: z.string().email(),
-  // 留空 = 未設定：seed 時隨機產生並印出一次（docs/rbac/05-seed-and-bootstrap.md）。
+  // 留空 = 未設定：seed 時隨機產生並印出一次（docs/architecture/iam/05-bootstrap.md）。
   SUPER_ADMIN_PASSWORD: z.preprocess(
     (value) => (value === '' ? undefined : value),
     z.string().min(12).optional(),

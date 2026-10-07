@@ -112,7 +112,7 @@ export const ErrorCode = {
   /** 還原（`POST /roles/:id/restore`）一個沒有被刪除的角色（docs/architecture/backend/14-revisions.md §9 R3）。 */
   ROLE_NOT_DELETED: { status: 409 },
 
-  // ── 群組（docs/rbac/01-domain-model.md §9.3 D11、D12） ──
+  // ── 群組（docs/architecture/iam/01-model.md §9.3 D11、D12） ──
   GROUP_NOT_FOUND: { status: 404 },
   GROUP_NAME_DUPLICATE: { status: 409 },
   /** 樂觀鎖：送出的 `version` 不是目前的版本（別人已改過）；`details.current` 帶目前版本（docs/architecture/backend/14-revisions.md §9.2 D3）。 */

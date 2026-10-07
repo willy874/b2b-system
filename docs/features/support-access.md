@@ -4,7 +4,7 @@
 - 狀態：提案（**要先推翻既有決定**，見背景）
 - 依賴：—
 - 相關：[`05-tenancy.md`](../architecture/05-tenancy.md) §10.4（「平台管理者無法直接協助租戶內的問題」是刻意的代價）、[`04-sso.md`](../architecture/04-sso.md) §1.1（兩份身分）、
-  [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、[`rbac/06-approval.md`](../rbac/06-approval.md)（同意流程可能借用審批）
+  [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)、[`backend/20-approval.md`](../architecture/backend/20-approval.md)（同意流程可能借用審批）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -59,4 +59,4 @@
 
 ## 歸檔去向
 
-- `docs/architecture/05-tenancy.md`（設計決策）、`docs/rbac/06-approval.md`（新的審批類型）
+- `docs/architecture/05-tenancy.md`（設計決策）、`docs/architecture/backend/20-approval.md`（新的審批類型）

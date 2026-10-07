@@ -93,7 +93,7 @@ export const SetupRoute = createRoute({
   validateSearch: TokenSearchSchema,
 });
 
-/** 註冊申請；核准前不會建立帳號（docs/rbac/06-approval.md §5）。 */
+/** 註冊申請；核准前不會建立帳號（docs/architecture/backend/20-approval.md §5）。 */
 export const RegisterRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: '/register',

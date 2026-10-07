@@ -214,12 +214,12 @@ export const authHandlers = [
 | 12  | 刪除使用者／角色／資料夾 → 提示的「復原」或回收桶還原；角色還原後持有者恢復權限 | 軟刪除、持有者邊與檔案物件跨前後端（[`backend/14-revisions.md`](../backend/14-revisions.md) §9） |
 | 13  | 角色的版本紀錄看差異 → 還原到某一版；兩人同時編輯同一筆 → 後送出的看到衝突提示 | 版本歷史與樂觀鎖（[`backend/14-revisions.md`](../backend/14-revisions.md) §9） |
 | 14  | 註冊申請 → 審核者的鈴鐺（推播）→ 點開到審批詳情並標為已讀；角色被改 → 本人收到通知 → 全部已讀 | 業務交易內寫入、推播到 user room、route id 連結（[`backend/15-notification.md`](../backend/15-notification.md) §12） |
-| 15  | 群組綁角色、加成員 → 成員看得到頁面與權限來源（經群組、遮蔽讀不到的角色）；移出群組或子群組被刪 → 失去權限 | 關係圖的間接授權跨前後端（[`rbac/08-groups.md`](../../rbac/08-groups.md)、[`rbac/09-explain.md`](../../rbac/09-explain.md)） |
+| 15  | 群組綁角色、加成員 → 成員看得到頁面與權限來源（經群組、遮蔽讀不到的角色）；移出群組或子群組被刪 → 失去權限 | 關係圖的間接授權跨前後端（[`iam/07-groups.md`](../iam/07-groups.md)、[`iam/08-explain.md`](../iam/08-explain.md)） |
 | 16  | 改密碼 → 所有裝置登出；忘記密碼 → 重設信 → 新密碼登入（不洩漏帳號是否存在）；重放已輪替的 refresh token → 整條 family 撤銷 | 真實 cookie、Mailpit、跨 origin（[`backend/04-auth.md`](../backend/04-auth.md)） |
 | 17  | 服務帳號發 token（只顯示一次）→ 打對外 API → 撤銷或停用後立刻失效；scopes 收窄權限；個人 token | 兩個程序共用資料與快取失效（[`06-external-api.md`](../06-external-api.md)） |
 | 18  | Webhook 建立 → 測試投遞與真實事件（背景工作）送到接收端、簽章驗得過；接收端 5xx 記成失敗並可重送 | 背景工作、對外 HTTP、只顯示一次的密鑰（[`backend/17-webhook.md`](../backend/17-webhook.md)） |
 | 19  | 公告立即發布 → 收件人的鈴鐺收到、點開看內文；租戶允許個人調整 → 個人關掉後不再收到 | 展開工作、推播、事件管理與個人設定（[`backend/19-announcement.md`](../backend/19-announcement.md)、[`backend/16-notification-event.md`](../backend/16-notification-event.md)） |
-| 20  | 上傳 → 預覽、下載；別人的資料夾鎖住 → 申請存取 → 擁有者核准 → 看得到；撤銷後又鎖住 | presigned URL 直傳物件儲存、資源層級授權（[`backend/09-file.md`](../backend/09-file.md)、[`rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)） |
+| 20  | 上傳 → 預覽、下載；別人的資料夾鎖住 → 申請存取 → 擁有者核准 → 看得到；撤銷後又鎖住 | presigned URL 直傳物件儲存、資源層級授權（[`backend/09-file.md`](../backend/09-file.md)、[`iam/06-resource-grants.md`](../iam/06-resource-grants.md)） |
 | 21  | 建標籤 → 貼到使用者 → 列表以標籤篩選；刪除後一起消失 | 標籤與資源的關聯（[`backend/18-tag.md`](../backend/18-tag.md)） |
 | 22  | super-admin 改設定 → 重新整理後保留 → 稽核日誌看得到差異；admin 只能讀 | 設定與稽核的寫入（[`backend/12-settings.md`](../backend/12-settings.md)） |
 | 23  | 平台關掉租戶的 feature → 停在那頁的人被推播帶回首頁、選單消失、端點 404；再打開後恢復 | 平台 DB → 租戶推播（[`05-tenancy.md`](../05-tenancy.md) §12） |

@@ -408,7 +408,7 @@ export class UserRepository {
 
   /**
    * 交易層級的 advisory lock：所有「可能減少 super-admin」的寫入（停用、刪除、拔角色）在交易內先取得它，
-   * 再計數、再寫入，兩個並行的操作就不會同時看到「還剩一位」（docs/rbac/01-domain-model.md I8）。
+   * 再計數、再寫入，兩個並行的操作就不會同時看到「還剩一位」（docs/architecture/iam/01-model.md I8）。
    * 交易結束自動釋放；每個租戶是自己的 database，不會跨租戶互鎖。
    */
   async lockSuperAdminGuard(tx: DbOrTx): Promise<void> {

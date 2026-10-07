@@ -1,5 +1,5 @@
 /**
- * 各 app 的權限目錄不同（backstage 是租戶的、apps/platform 是平台的，docs/rbac/02-permission-catalog.md），
+ * 各 app 的權限目錄不同（backstage 是租戶的、apps/platform 是平台的，docs/architecture/iam/02-permission-catalog.md），
  * 這個 package 只認得「某個字串型別」。app 以 module augmentation 登記自己的目錄，之後 `usePermission`、
  * `PagePermissionRule` 等型別在那個 app 裡就收斂成它的權限鍵：
  *

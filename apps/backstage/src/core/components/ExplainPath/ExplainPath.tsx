@@ -15,7 +15,7 @@ const NODE_ICON: Record<string, IconName> = {
   fileRoot: 'home',
 };
 
-/** 讀不到的節點只顯示種類（docs/rbac/01-domain-model.md §9.3 D14）。 */
+/** 讀不到的節點只顯示種類（docs/architecture/iam/01-model.md §9.3 D14）。 */
 const HIDDEN_LABEL_KEY: Record<string, string> = {
   user: 'explain.hidden.user',
   group: 'explain.hidden.group',
@@ -42,7 +42,7 @@ interface ExplainPathProps {
 }
 
 /**
- * 「為什麼能做」的路徑（docs/rbac/01-domain-model.md §9 G4b）：從使用者本人出發，經過群組、角色、資料夾繼承，到最後的權限或動作。
+ * 「為什麼能做」的路徑（docs/architecture/iam/01-model.md §9 G4b）：從使用者本人出發，經過群組、角色、資料夾繼承，到最後的權限或動作。
  * 讀不到的節點後端已遮蔽，這裡只顯示它的種類。
  */
 export function ExplainPath({ nodes, 'data-testid': testId = 'explain-path' }: ExplainPathProps) {

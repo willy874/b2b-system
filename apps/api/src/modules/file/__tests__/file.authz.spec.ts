@@ -61,7 +61,7 @@ function checkerFor(tuples: TupleEntry[], withDependencies = false) {
 const can = (checker: ReturnType<typeof checkerFor>, action: string, location: string | null) =>
   checker.check(locationObject(location), `can_${action}`);
 
-describe('檔案管理器的關係模型（docs/rbac/07-resource-grants.md）', () => {
+describe('檔案管理器的關係模型（docs/architecture/iam/06-resource-grants.md）', () => {
   it('全域權限鍵涵蓋所有資料夾與根目錄，含中斷繼承的資料夾', () => {
     const checker = checkerFor([globalKey('file:read')]);
     expect([null, 'art', 'private', 'secret'].map((f) => can(checker, 'read', f))).toEqual([

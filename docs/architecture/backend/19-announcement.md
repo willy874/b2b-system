@@ -92,6 +92,22 @@ modules/announcement/
 每個人的操作都寫稽核：`announcement.create`／`update`／`publish`／`pause`／`resume`／`delete`／`restore`、
 `announcementDispatch.revoke`（內文只記長度）。背景發送不寫稽核，發送紀錄就是紀錄。
 
+```jsonc
+// POST /announcements
+{
+  "title": "系統維護通知",
+  "body": "本週六 22:00～24:00 系統維護。",
+  "audience": { "all": false, "userIds": [], "groupIds": ["uuid"], "roleIds": [] },
+  "trigger": { "kind": "once", "at": "2026-10-10T10:00:00Z" }   // 或 { "kind": "immediate" }
+  // 週期（租戶時區）：{ "kind": "recurring", "frequency": "weekly", "interval": 1, "weekdays": [1, 3],
+  //                    "time": "09:00", "startsOn": "2026-10-01", "endsOn": null, "maxOccurrences": null }
+  // 事件點：{ "kind": "event", "event": "group.memberAdded", "delayMinutes": 1440 }
+}
+// → 201 { "data": { "id": "uuid", "status": "draft", "version": 1, "nextRunAt": null, "lastDispatch": null, … } }
+
+// POST /announcements/:id/publish  { "version": 1 } → 200（status 變成 scheduled 或 completed）
+```
+
 ---
 
 ## 4. 受眾
@@ -241,7 +257,7 @@ modules/announcement/
 
 相關的既有決定：[`backend/15-notification.md`](15-notification.md) §12（站內通知；沿用 D5 的快照、D6 的「每人一筆」，以分批繞過單次上限）、
 [`backend/16-notification-event.md`](16-notification-event.md) §9（事件目錄與租戶政策）、[`backend/10-jobs.md`](10-jobs.md) §9／[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D15（背景工作、交易內入列走 `job_outbox`）、
-[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9（群組與關係圖）、[`backend/14-revisions.md`](14-revisions.md) §9（軟刪除與回收桶）、
+[`iam/01-model.md`](../iam/01-model.md) §9（群組與關係圖）、[`backend/14-revisions.md`](14-revisions.md) §9（軟刪除與回收桶）、
 [`architecture/05-tenancy.md`](../05-tenancy.md) §12（可關閉的 feature）。通知總覽寫在 [`15-notification.md`](./15-notification.md) §6.1，前端見 [`../frontend/16-announcement.md`](../frontend/16-announcement.md)。
 
 ### 9.2 決定

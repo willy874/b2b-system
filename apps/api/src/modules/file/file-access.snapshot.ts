@@ -7,7 +7,7 @@ import { FILE_ROOT_OBJECT } from './file.authz';
 const ROOT_KEY = subjectKey(FILE_ROOT_OBJECT.type, FILE_ROOT_OBJECT.id);
 
 /**
- * 資料夾的結構邊由 `file_folders` 供應，不存進 relation_tuples（docs/rbac/01-domain-model.md §9.2 D3）：
+ * 資料夾的結構邊由 `file_folders` 供應，不存進 relation_tuples（docs/architecture/iam/01-model.md §9.2 D3）：
  * `parent`（頂層資料夾指向根目錄）、`inherits_from`（中斷繼承的沒有）、`owner`（建立者）。
  * 不存在的資料夾沒有任何結構邊（只剩全域權限）。
  */

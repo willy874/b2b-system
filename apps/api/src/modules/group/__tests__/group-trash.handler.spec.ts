@@ -36,7 +36,7 @@ function createHandler() {
   return { handler, trash, repo, permissions, events, order };
 }
 
-describe('GroupTrashHandler（docs/rbac/08-groups.md §4、docs/architecture/backend/14-revisions.md §9.2 D9）', () => {
+describe('GroupTrashHandler（docs/architecture/iam/07-groups.md §4、docs/architecture/backend/14-revisions.md §9.2 D9）', () => {
   it('模組初始化時向回收桶註冊自己；看回收桶要 group:delete，排在角色（40）之後', () => {
     const { handler, trash } = createHandler();
     handler.onModuleInit();

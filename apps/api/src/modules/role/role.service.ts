@@ -60,7 +60,7 @@ function toDto(role: RoleWithCounts): RoleDto {
 }
 
 /**
- * 角色的持有者（docs/rbac/08-groups.md §1：群組 g 持有 r 時，g 的成員都持有 r）。
+ * 角色的持有者（docs/architecture/iam/07-groups.md §1：群組 g 持有 r 時，g 的成員都持有 r）。
  * - `holders`：直接持有的，加上經由群組（含巢狀）持有的。推播的「持有該角色的所有人」與「誰會失去權限」都是它。
  * - `viaGroupsOnly`：只經由群組持有的人。前端以 profile 的角色清單判斷「我是不是持有者」，profile 只列直接持有的角色，
  *   所以這些人另外各推一筆本人的 `userRole update`，profile 才會重抓（docs/architecture/backend/08-realtime.md §6.1）。
@@ -131,7 +131,7 @@ export class RoleService {
     return this.describePermissions(role.id, role.slug === SUPER_ADMIN_SLUG);
   }
 
-  /** 明確授予的權限 ＋ 依賴樹展開後實際持有的鍵（技能樹的「已包含（由 …）」，docs/rbac/02-permission-catalog.md §9）。 */
+  /** 明確授予的權限 ＋ 依賴樹展開後實際持有的鍵（技能樹的「已包含（由 …）」，docs/architecture/iam/02-permission-catalog.md §9）。 */
   private async describePermissions(id: string, isSuperAdmin: boolean): Promise<RolePermissions> {
     const rows = await this.repo.listPermissions(id);
     return {
@@ -195,7 +195,7 @@ export class RoleService {
     if (version !== role.version) {
       throw new AppException('ROLE_VERSION_CONFLICT', { current: role.version });
     }
-    // super-admin 的名稱與說明也不可改；其他系統角色的顯示名稱可改（docs/rbac/01-domain-model.md §5）
+    // super-admin 的名稱與說明也不可改；其他系統角色的顯示名稱可改（docs/architecture/iam/01-model.md §5）
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
     // 只改大小寫（`admin` → `Admin`）不算撞名：唯一性不分大小寫，撞到的是自己
     if (dto.name && dto.name.toLowerCase() !== role.name.toLowerCase()) {

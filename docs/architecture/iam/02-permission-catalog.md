@@ -1,4 +1,4 @@
-# RBAC 02 — 權限目錄
+# 身分與存取 02 — 權限目錄
 
 > 本文件是 **權限的單一事實來源**。任何新增／刪除權限都必須先改這裡，再同步
 > `apps/api/src/db/seeds/permissions.ts`。兩者不一致視為 bug（`db/seeds/__tests__/permission-catalog-doc.spec.ts` 比對 §2 的鍵與 §9 的依賴樹）。
@@ -69,14 +69,14 @@
 | 權限鍵          | 顯示名稱（zh-TW） | 說明                                     |
 | --------------- | ----------------- | ---------------------------------------- |
 | `system:read`   | 檢視系統資訊      | 版本、健康狀態、系統設定頁與事件通知頁（唯讀）       |
-| `system:update` | 變更系統設定      | 修改與還原系統設定（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md)）、開關事件通知（[`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)） |
+| `system:update` | 變更系統設定      | 修改與還原系統設定（[`backend/12-settings.md`](../backend/12-settings.md)）、開關事件通知（[`backend/16-notification-event.md`](../backend/16-notification-event.md)） |
 
 ### 2.6 `approval` — 審批
 
 | 權限鍵            | 顯示名稱（zh-TW） | 說明                                                                                          |
 | ----------------- | ----------------- | --------------------------------------------------------------------------------------------- |
 | `approval:read`   | 檢視審批          | 審批請求列表與詳情                                                                            |
-| `approval:review` | 審核申請          | 核准／駁回。**核准另需該類型要求的權限**（`user.register` = `user:create`），見 [`06-approval.md`](./06-approval.md) §3.2 |
+| `approval:review` | 審核申請          | 核准／駁回。**核准另需該類型要求的權限**（`user.register` = `user:create`），見 [`backend/20-approval.md`](../backend/20-approval.md) §3.2 |
 
 > 為什麼不是 `approval:update`：核准與駁回是具名的「審核」決定，不是修改請求內容；
 > 也讓「能看不能審」（auditor）與「能審」清楚分開。
@@ -91,14 +91,14 @@
 | `file:delete` | 刪除檔案          | **所有資料夾**：軟刪除紀錄並刪除物件儲存中的內容；遞迴刪除資料夾（連同其中的檔案與子資料夾） |
 | `file:access` | 使用檔案管理器    | 進入檔案管理器；能看到、能做什麼 **由資料夾授權決定**（不含任何資料夾） |
 | `file:share`  | 管理檔案授權      | **所有資料夾**：檢視與變更資料夾的授權、中斷繼承。**受反提權限制** |
-| `file:listPersonal` | 看得到別人的個人資料夾 | 別人的個人資料夾在樹裡出現（鎖住、可申請存取）；讀內容另要授權或全域 `file:read`。沒有它時，別人的個人資料夾只在自己或子孫讀得到時出現（[`07-resource-grants.md`](./07-resource-grants.md) §12.1） |
+| `file:listPersonal` | 看得到別人的個人資料夾 | 別人的個人資料夾在樹裡出現（鎖住、可申請存取）；讀內容另要授權或全域 `file:read`。沒有它時，別人的個人資料夾只在自己或子孫讀得到時出現（[`06-resource-grants.md`](./06-resource-grants.md) §12.1） |
 
 > 上面四個 CRUD 鍵是 **全域** 的：持有者對所有資料夾（含中斷繼承的私人資料夾）都有該動作。
 > 一般成員拿 `file:access`，再由資料夾授權（viewer / contributor / editor / manager）決定範圍，
 > 另有「能上傳的人可以改名、移動、刪除自己上傳的東西」的擁有者規則。
-> 模型、等級與解析規則見 [`07-resource-grants.md`](./07-resource-grants.md)（[`rbac/07-resource-grants.md`](07-resource-grants.md) §13）。
+> 模型、等級與解析規則見 [`06-resource-grants.md`](./06-resource-grants.md)（[`06-resource-grants.md`](06-resource-grants.md) §13）。
 > 資料夾沿用同一組權限，不另設 `fileFolder:*`。還在上傳中（`pending`）的檔案只有上傳者本人看得到，見
-> [`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4。
+> [`backend/09-file.md`](../backend/09-file.md) §4。
 
 ### 2.8 `job` — 背景工作
 
@@ -109,19 +109,19 @@
 
 > 工作是系統自己產生的（排程、寄信、匯出），沒有 create / update / delete；
 > 重試是具名動作，理由同 `approval:review`。工作資料不放機密（token、密碼），
-> 因此 `job:read` 不會看到憑證，見 [`../architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4。
+> 因此 `job:read` 不會看到憑證，見 [`backend/10-jobs.md`](../backend/10-jobs.md) §4。
 
 ### 2.9 `identityProvider` — 外部 IdP 連線
 
 | 權限鍵                     | 顯示名稱（zh-TW） | 說明 |
 | -------------------------- | ----------------- | ---- |
 | `identityProvider:create`  | 建立外部 IdP 連線 | 新增 OIDC 連線（issuer、client id／secret、網域、找不到帳號時的處理方式）；寫稽核 `identityProvider.create`（不含 secret） |
-| `identityProvider:read`    | 檢視外部 IdP 連線 | 連線清單、網域與要登記在外部 IdP 的 redirect URI；**client secret 永遠不回傳**（[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D11） |
+| `identityProvider:read`    | 檢視外部 IdP 連線 | 連線清單、網域與要登記在外部 IdP 的 redirect URI；**client secret 永遠不回傳**（[`architecture/04-sso.md`](../04-sso.md) §12.2 D11） |
 | `identityProvider:update`  | 編輯外部 IdP 連線 | 改設定、網域、啟用狀態與輪替 secret；稽核只記「換過 secret」 |
 | `identityProvider:delete`  | 刪除外部 IdP 連線 | 軟刪除並釋出網域；已連結的外部身分留著，但不能再以這個連線登入 |
 
-> 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D9）。
-> 連線屬於租戶（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D18），管理頁在 backstage 的 `/identity-provider`。
+> 網域設為「只允許 SSO」後，那個網域的帳號不能用密碼登入、不能申請重設密碼（[`architecture/04-sso.md`](../04-sso.md) §12.2 D9）。
+> 連線屬於租戶（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D18），管理頁在 backstage 的 `/identity-provider`。
 
 ### 2.10 `group` — 群組
 
@@ -129,7 +129,7 @@
 | ------------------ | ----------------- | ---- |
 | `group:create`     | 建立群組          | 建立群組（名稱、說明） |
 | `group:read`       | 檢視群組          | 群組列表與詳情、成員、群組持有的角色 |
-| `group:update`     | 編輯群組          | 修改名稱與說明；**增減成員**（含把群組加進另一個群組）。加成員等於指派群組持有的角色，受反提權限制（[`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D11） |
+| `group:update`     | 編輯群組          | 修改名稱與說明；**增減成員**（含把群組加進另一個群組）。加成員等於指派群組持有的角色，受反提權限制（[`01-model.md`](01-model.md) §9.3 D11） |
 | `group:delete`     | 刪除群組          | 軟刪除群組；成員與持有角色的邊保留，還原時一起回來 |
 | `group:assignRole` | 讓群組持有角色    | 增減群組持有的角色。**受反提權限制**；super-admin 不能由群組持有（D12） |
 
@@ -141,7 +141,7 @@
 
 | 權限鍵          | 顯示名稱（zh-TW） | 說明 |
 | --------------- | ----------------- | ---- |
-| `authz:explain` | 檢視授權來源      | 查看 **別人** 的有效權限與每個權限的來源、某人為什麼能（不能）存取某個資料夾（[`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D14）。查自己不需要權限 |
+| `authz:explain` | 檢視授權來源      | 查看 **別人** 的有效權限與每個權限的來源、某人為什麼能（不能）存取某個資料夾（[`01-model.md`](01-model.md) §9.3 D14）。查自己不需要權限 |
 
 > 說明的路徑會經過使用者、群組、角色，所以依賴這三種的 `read`；路徑上操作者讀不到的節點（例：讀不到的資料夾）只顯示種類，不顯示名稱。
 
@@ -149,7 +149,7 @@
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
-| `serviceAccount:create` | 建立服務帳號      | 建立租戶內的非人類帳號（[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9.2 D1） |
+| `serviceAccount:create` | 建立服務帳號      | 建立租戶內的非人類帳號（[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D1） |
 | `serviceAccount:read`   | 檢視服務帳號      | 服務帳號列表與詳情、持有的角色、它的 API token（不含 secret） |
 | `serviceAccount:update` | 編輯服務帳號      | 修改名稱、停用與啟用、**增減持有的角色**、**建立與撤銷它的 API token**。角色與 token 都受反提權限制（D4） |
 | `serviceAccount:delete` | 刪除服務帳號      | 軟刪除；它的 token 一併失效，不進回收桶、不能還原 |
@@ -161,7 +161,7 @@
 
 | 權限鍵           | 顯示名稱（zh-TW） | 說明 |
 | ---------------- | ----------------- | ---- |
-| `webhook:create` | 建立 Webhook      | 訂閱對外事件，事件發生時 POST 到指定網址（[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9） |
+| `webhook:create` | 建立 Webhook      | 訂閱對外事件，事件發生時 POST 到指定網址（[`backend/17-webhook.md`](../backend/17-webhook.md) §9） |
 | `webhook:read`   | 檢視 Webhook      | 訂閱列表與詳情、投遞紀錄（狀態碼、耗時、回應開頭）；不含密鑰 |
 | `webhook:update` | 編輯 Webhook      | 修改網址與事件、停用與啟用、**輪替密鑰**、送測試事件、手動重送 |
 | `webhook:delete` | 刪除 Webhook      | 硬刪除；投遞紀錄一併刪除，不進回收桶 |
@@ -173,7 +173,7 @@
 
 | 權限鍵       | 顯示名稱（zh-TW） | 說明 |
 | ------------ | ----------------- | ---- |
-| `tag:create` | 建立標籤          | 在某個標籤組（檔案、使用者）新增標籤定義（[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7.2 D5） |
+| `tag:create` | 建立標籤          | 在某個標籤組（檔案、使用者）新增標籤定義（[`backend/18-tag.md`](../backend/18-tag.md) §7.2 D5） |
 | `tag:update` | 編輯標籤          | 改標籤的名稱與顏色 |
 | `tag:delete` | 刪除標籤          | 硬刪除；所有資源上的這個標籤一併移除 |
 
@@ -184,7 +184,7 @@
 
 | 權限鍵              | 顯示名稱（zh-TW） | 說明 |
 | ------------------- | ----------------- | ---- |
-| `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D1） |
+| `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D1） |
 
 > 每個人看自己的通知不需要這個鍵（§2.17）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
 
@@ -192,7 +192,7 @@
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
-| `announcement:create`   | 建立公告          | 建立草稿（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D15） |
+| `announcement:create`   | 建立公告          | 建立草稿（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D15） |
 | `announcement:read`     | 檢視公告          | 公告列表與詳情、發送紀錄（人數、已讀數） |
 | `announcement:update`   | 編輯公告          | 修改草稿的標題、內文、受眾、時間；預覽受眾人數。排程中、暫停中的公告另要 `announcement:publish` |
 | `announcement:delete`   | 刪除公告          | 軟刪除（進回收桶）與還原；排程中的刪除時改成暫停 |
@@ -207,10 +207,10 @@
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
 - 檢視／修改自己的偏好設定（語系、時區）
-- 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §9.2 D15）
-- 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12.2 D9）
-- 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D4）
-- 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9.2 D14）。
+- 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D15）
+- 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）
+- 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D4）
+- 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`
 - 登出
 
@@ -317,7 +317,7 @@
 | 登入         | `/auth/login`（跳到 apps/platform 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
 | 個人資料     | `/profile`（含個人存取 token） | `PROFILE`   | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
-| 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`../architecture/frontend/15-notification.md`](../architecture/frontend/15-notification.md) §4） | — |
+| 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`frontend/15-notification.md`](../frontend/15-notification.md) §4） | — |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
 | 建立使用者   | `/user/create`             | `USER_CREATE`   | `user:read` ＋ `user:create`     | EVERY |
 | 角色列表     | `/role`                    | `ROLE`          | `role:read`                      | EVERY |
@@ -335,7 +335,7 @@
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
-| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`07-resource-grants.md`](./07-resource-grants.md) §7） | SOME |
+| 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`06-resource-grants.md`](./06-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
 | 系統設定     | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
 | 通知總覽     | `/notification/all`        | `NOTIFICATION_OVERVIEW` | `notification:read`           | EVERY |
@@ -343,14 +343,14 @@
 | 公告列表     | `/announcement`（含 `/announcement/$announcementId` 詳情與發送紀錄） | `ANNOUNCEMENT` | `announcement:read` | EVERY |
 | 建立公告     | `/announcement/create`     | `ANNOUNCEMENT_CREATE` | `announcement:read` ＋ `announcement:create` | EVERY |
 | 公告全文     | `/announcement/message/$dispatchId` | `ANNOUNCEMENT_MESSAGE` | 無（只看得到自己收到的） | — |
-| 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`../architecture/frontend/13-trash.md`](../architecture/frontend/13-trash.md) §3） | SOME |
+| 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`frontend/13-trash.md`](../frontend/13-trash.md) §3） | SOME |
 
-apps/platform 只給平台管理者登入（[`../architecture/04-sso.md`](../architecture/04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
+apps/platform 只給平台管理者登入（[`04-sso.md`](../04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
 平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/platform，未登入可進。
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
-> [`../architecture/frontend/06-permission.md`](../architecture/frontend/06-permission.md)。
+> [`frontend/06-permission.md`](../frontend/06-permission.md)。
 
 ---
 
@@ -432,7 +432,7 @@ Seed 行為：
 
 ## 8. 平台的權限目錄（apps/platform 的平台管理者）
 
-平台管理者（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
+平台管理者（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5）與租戶的使用者是兩份帳號，權限目錄也是兩份：
 上面 §1–§7 是 **租戶** 的目錄（存在每個租戶的 DB）；這一節是 **平台** 的目錄，只在 apps/platform 的網域有效。
 
 - 端點以 `@RequirePlatformPermissions(...)` 宣告（所有鍵都要有），租戶網域上一律 `404 PLATFORM_ONLY`；
@@ -455,7 +455,7 @@ Seed 行為：
 | `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
 | `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（D23）；租戶的後台只看得到自己的 |
 | `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
-| `featureFlag:read`      | 檢視試行開關      | feature flag 的目錄、全平台覆寫、各有幾個租戶覆寫（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §11） |
+| `featureFlag:read`      | 檢視試行開關      | feature flag 的目錄、全平台覆寫、各有幾個租戶覆寫（[`architecture/05-tenancy.md`](../05-tenancy.md) §11） |
 | `featureFlag:update`    | 切換試行開關      | 全平台層的覆寫：全面開放（`on`）、緊急關閉（`off`）、回到預設；寫平台稽核 `featureFlag.update` |
 
 ### 8.2 角色 × 權限
@@ -484,7 +484,7 @@ Seed 行為：
 
 權限鍵之間有包含關係：**沒有 read 的 edit 沒有意義；沒有 edit 的 create、delete 也不合理**。
 持有一個鍵，就同時持有它（遞迴）帶來的鍵——guard、`GET /auth/profile`、反提權看到的都是 **閉包**。
-決策見 [`rbac/01-domain-model.md`](01-domain-model.md) §9.2 D6；程式碼是 `db/seeds/permissions.ts` 的 `PERMISSION_DEPENDENCIES`。
+決策見 [`01-model.md`](01-model.md) §9.2 D6；程式碼是 `db/seeds/permissions.ts` 的 `PERMISSION_DEPENDENCIES`。
 
 | 邊 | 意思 | 範圍 |
 | --- | --- | --- |
@@ -493,7 +493,7 @@ Seed 行為：
 
 - `delete ⇒ update ⇒ read`。
 - 規則 A：`create ⇒ 編輯自己建立的 ⇒ read`。「編輯自己建立的」不是權限鍵，是資源上的關係（檔案的擁有者規則，
-  [`07-resource-grants.md`](./07-resource-grants.md) §4）；沒有擁有者概念的資源（`user`、`role`、`identityProvider`、`group`）退化成 `create ⇒ update`。
+  [`06-resource-grants.md`](./06-resource-grants.md) §4）；沒有擁有者概念的資源（`user`、`role`、`identityProvider`、`group`）退化成 `create ⇒ update`。
 - 角色只儲存 **明確授予** 的鍵，包含的鍵是算出來的；同時是明確與隱含的鍵保持明確。
 
 ### 9.1 清單

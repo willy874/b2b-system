@@ -4,7 +4,7 @@ import { permissionClosure } from '@/core/permission-graph';
 import type { PermissionCatalogGraph } from '@/core/permission-graph';
 
 /**
- * 角色權限技能樹的純邏輯（docs/rbac/02-permission-catalog.md §9 權限依賴樹）：
+ * 角色權限技能樹的純邏輯（docs/architecture/iam/02-permission-catalog.md §9 權限依賴樹）：
  * 狀態與互鎖（點上層自動點亮前置、有上層包含時不能取消前置）；閉包、前置路徑與版面在 `core/permission-graph`。
  */
 

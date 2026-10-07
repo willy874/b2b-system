@@ -190,7 +190,7 @@ apps/platform 的網域（`PLATFORM_APP_URL` 的 host）不屬於任何租戶（
 | 推播 | `resource.changed` 事件依來源 → 受眾表（§6.1） | `platform.changed` 事件：沒指定收件人就推 `platform` room，有 `adminIds` 只推那些人 |
 | 撤銷 | `SESSIONS_REVOKED` 的 `userIds`／`tenantIds` | `SESSIONS_REVOKED` 的 `platformAdminIds`（停用、變更密碼） |
 
-平台的角色只有三種，每一種都有所有平台資源的 `:read`（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §8.2），
+平台的角色只有三種，每一種都有所有平台資源的 `:read`（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8.2），
 所以不分 perm room：平台資源的變更推給所有平台管理者。
 
 平台的來源（`packages/realtime` 的 `ChangeSource`）：
@@ -293,7 +293,7 @@ super-admin 加入自己租戶的所有 perm room。
 | 任何來源（`notification`、`notificationPreference`、`webhookDelivery` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
-- 「持有該角色的所有人」含 **經由群組（含巢狀）持有** 的人（[`rbac/08-groups.md`](../../rbac/08-groups.md) §1），由 service 以
+- 「持有該角色的所有人」含 **經由群組（含巢狀）持有** 的人（[`iam/07-groups.md`](../iam/07-groups.md) §1），由 service 以
   `PermissionService.findUserIdsHoldingRole` 查出（刪除角色時在軟刪除之前、交易內查出；持有者邊保留，[`backend/14-revisions.md`](14-revisions.md) §9.2 D2），
   只用來讓他們的畫面重抓；權限快取的失效與 room 的同步不依賴這份清單（[05 §5.1](./05-rbac.md)）。
 - 前端以 profile 的角色清單判斷「我是不是這個角色的持有者」，而 profile 只列直接持有的角色。所以角色的權限改變、刪除、還原、

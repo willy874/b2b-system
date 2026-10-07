@@ -32,7 +32,7 @@ export const FileImageSchema = defineSchema(
   }),
 );
 
-/** 操作者對檔案的能力（docs/rbac/07-resource-grants.md §7）；前端只讀旗標，不重算。 */
+/** 操作者對檔案的能力（docs/architecture/iam/06-resource-grants.md §7）；前端只讀旗標，不重算。 */
 export const FileCapabilitiesSchema = defineSchema(
   'StoredFileCapabilities',
   z.object({

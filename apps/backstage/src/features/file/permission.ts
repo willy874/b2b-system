@@ -16,7 +16,7 @@ export function registerFilePagePermissions(): void {
     route: routeBasePath(FileListRoute),
     rule: {
       resource: PermissionResource.FILE,
-      // 只有資料夾授權的人（file:access）也進得來；看得到什麼由後端決定（docs/rbac/07-resource-grants.md）
+      // 只有資料夾授權的人（file:access）也進得來；看得到什麼由後端決定（docs/architecture/iam/06-resource-grants.md）
       access: [PermissionKey['file:access'], PermissionKey['file:read']],
       match: PermissionMatch.SOME,
     },

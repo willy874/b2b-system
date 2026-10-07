@@ -203,8 +203,8 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 | `id` | uuid | |
 | `name` | text | 規則同檔名（不可含 `/`、`\`、控制字元、雙向文字控制、零寬與分隔字元，≤ 255；§4 的 `name`），另外不可是 `.`、`..`。上傳資料夾的各層路徑同樣套用 |
 | `parent_id` | uuid（FK → 自己，`ON DELETE RESTRICT`） | 上層；null 是根目錄 |
-| `inherit_grants` | boolean | false = 中斷繼承（私人資料夾，rbac/07 §3.3） |
-| `kind` | `file_folder_kind` | `normal` / `shared` / `privateRoot` / `personal`：系統資料夾（rbac/07 §12） |
+| `inherit_grants` | boolean | false = 中斷繼承（私人資料夾，iam/06 §3.3） |
+| `kind` | `file_folder_kind` | `normal` / `shared` / `privateRoot` / `personal`：系統資料夾（iam/06 §12） |
 | `owner_id` | uuid（FK → users） | `personal` 的擁有者；其他為 null |
 | `deletion_id` | uuid | 一次刪除操作的識別（同 `files.deletion_id`）；索引 `file_folders_deletion_id_idx`（只涵蓋已刪除的列，`0013`） |
 | `created_*` / `updated_*` / `deleted_at` | | 慣例欄位；刪除是軟刪除（移到回收桶） |
@@ -468,6 +468,8 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 `POST /files` 另外可帶 `folderId`（null 或不帶是根目錄；不存在或看不到回 `404 FILE_FOLDER_NOT_FOUND`）。
 
 各端點的權限宣告是閘門 `file:access` 或對應的全域 `file:*`；資料夾範圍的判斷與能力旗標見 §11。
+資源層級的拒絕：看不到的檔案回 `404 FILE_NOT_FOUND`（不透露存在）；資料夾對所有人可見，
+沒有權限（鎖住）或權限不夠回 `403 AUTHZ_FORBIDDEN`（`details: { action, resourceType, resourceId }`）。
 `POST /files/move` 的資料夾不存在回 `FILE_FOLDER_NOT_FOUND`；檔案已刪除、還在上傳中、或本來就在目的地的略過（不讓整批失敗），
 回應的數量只算實際移動的。
 
@@ -558,16 +560,33 @@ LIMIT $limit
 | `FILE_FOLDER_NOT_FOUND` | 404 | 資料夾不存在或已刪除（上傳、建立、改名、移動的目的地或來源） |
 | `FILE_FOLDER_NAME_CONFLICT` | 409 | 同一層已有同名（不分大小寫）的資料夾 |
 | `FILE_FOLDER_CYCLE` | 422 | 把資料夾移到自己或自己的子孫底下（`details.folderIds`） |
-| `FILE_FOLDER_SYSTEM_PROTECTED` | 403 | 改名、移動、刪除系統資料夾（共用、私人、個人資料夾，rbac/07 §12） |
+| `FILE_FOLDER_SYSTEM_PROTECTED` | 403 | 改名、移動、刪除系統資料夾（共用、私人、個人資料夾，iam/06 §12） |
 | `AUTHZ_FORBIDDEN` | 403 | 看得到但沒有該動作的資料夾授權（`details: { action, resourceType, resourceId }`，§11）；遞迴刪除時子樹有別人的東西（`details.reason = 'not-owner'`）或有權限不足的私人資料夾（`details.reason = 'protected-subfolder'`） |
 | `AUTHZ_ESCALATION` | 403 | 授予超過自己在該資料夾能力的等級（`details.missing`） |
 | `FILE_GRANT_SUBJECT_NOT_FOUND` | 404 | 授權對象（角色／使用者）不存在或已刪除 |
-| `FILE_ACCESS_ALREADY_GRANTED` | 409 | 申請的等級已經有了（§11、rbac/07 §6.5） |
+| `FILE_ACCESS_ALREADY_GRANTED` | 409 | 申請的等級已經有了（§11、iam/06 §6.5） |
 | `FILE_ACCESS_REQUEST_NOT_FOUND` | 404 | 存取申請不存在、不是這個資料夾的、或已審核 |
 | `FILE_GRANT_NOT_FOUND` | 404 | 要移除的直接授權不存在（繼承來的要到來源資料夾移除） |
 | `FILE_NOT_DELETED`／`FILE_FOLDER_NOT_DELETED` | 409 | 還原一個沒有被刪除的檔案／資料夾（[`13-trash.md`](./13-trash.md) §7） |
 | `FILE_RESTORE_CONFLICT` | 409 | 還原檔案時所在的資料夾已刪除（`reason: 'parentDeleted'`）或原檔已不在（`'objectMissing'`） |
 | `FILE_FOLDER_RESTORE_CONFLICT` | 409 | 還原資料夾時上層已刪除（`reason: 'parentDeleted'`）；同名沿用 `FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`） |
+
+
+### 6.3 資料夾授權與存取申請
+
+授權的規則（等級、繼承、反提權）見 [`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §6；存取申請走審批類型 `fileFolder.access`（[`20-approval.md`](./20-approval.md) §7）。權限欄的 `A | B` 是閘門：資料夾範圍的判斷見 §11。
+
+| Method | Path | 授權 | 說明 |
+| --- | --- | --- | --- |
+| GET    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 授權清單：直接授權 ＋ 繼承自上層的（標出來源資料夾）；需要 `share` |
+| PUT    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 新增或變更一筆授權（`{ subjectType, subjectId, level, expiresAt? }`）；**受反提權限制** |
+| DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | 🛡 `file:access` \| `file:share` | 移除一筆直接授權；**受反提權限制** |
+| GET    | `/file-folders/:id/grant-subjects` | 🛡 `file:access` \| `file:share` | 授權對象的候選清單（`?subjectType=role\|user&keyword=`，只回 id 與名稱） |
+| POST   | `/file-folders/:id/access-requests` | 🛡 `file:access` \| `file:read` | 申請存取（`{ level, reason? }`，審批類型 `fileFolder.access`）；`202 { submitted }` |
+| GET    | `/file-folders/:id/access-requests` | 🛡 `file:access` \| `file:share` | 這個資料夾的待審申請；需要 `share` |
+| POST   | `/file-folders/:id/access-requests/:requestId/approve` | 🛡 `file:access` \| `file:share` | 核准（`{ comment? }`）＝ 授予申請的等級；**受反提權限制** |
+| POST   | `/file-folders/:id/access-requests/:requestId/reject` | 🛡 `file:access` \| `file:share` | 駁回（`{ comment? }`） |
+| PATCH  | `/file-folders/:id/access` | 🛡 `file:access` \| `file:share` | 中斷／恢復繼承（`{ inheritGrants }`）；中斷時複製目前繼承到的授權 |
 
 ---
 
@@ -710,7 +729,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 ## 11. 存取控制（資料夾層級授權）
 
-規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)；決策：[`rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md) §13。
+規格：[`iam/06-resource-grants.md`](../iam/06-resource-grants.md)；決策：[`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §13。
 這一節只講實作落點。
 
 對外 API 限縮過 scopes 的 token：`contextFor` 讓判斷器的租戶層只有限縮後的權限鍵，資料夾上的授權照舊
@@ -731,7 +750,7 @@ FileAccessService（modules/file）
             └─ FileAccessContext：以 file.authz.ts 的模型判斷 can_* ／ can_rename ／ can_remove（core/authz 的判斷器）
 ```
 
-模型與規則見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md) §2.1。結構邊（上層、繼承、建立者）由
+模型與規則見 [`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §2.1。結構邊（上層、繼承、建立者）由
 `folderEdgeProvider` 從同一份 `FileFolderTree` 節點供應，不存進 `relation_tuples`；檔案項目本身的邊以 `withEdges` 臨時補上。
 
 | 檔案（`modules/file/`） | 內容 |
@@ -748,7 +767,7 @@ FileAccessService（modules/file）
 | 能力旗標 | `toDto` 時由 context 算出 `capabilities`；列表一次算完，不逐筆查詢 |
 | 移動、遞迴刪除 | 在 `writeTree` 的交易（取得樹鎖）**之內** 建立 context：檢查與寫入之間結構不會變 |
 | 授權寫入 | `relation_tuples` 的寫入與稽核在同一個交易，經 `FileFolderTree.write` 序列化；「一個對象在一個資料夾只有一個等級」由 `FileFolderGrantRepository.set` 先刪後插維持（不是 DB 唯一索引）。交易後推 `fileFolder update`；不呼叫 `permissionsChanged`（資料夾授權不在權限快取裡），`authz_revision` 仍 +1 |
-| 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權；改回 `true` 時上層流進來的等級受反提權限制（rbac/07 §3.3） |
+| 中斷繼承 | `file_folders.inherit_grants`；設成 `false` 時在同一個交易內把目前繼承到的授權複製成直接授權；改回 `true` 時上層流進來的等級受反提權限制（iam/06 §3.3） |
 | 授權對象 | 解析與清單都 join 未刪除的 `roles` / `users`：刪除角色或使用者不必清授權列 |
 
 ### 11.1 資料夾結構的快取（`FileFolderTree`）
@@ -770,7 +789,7 @@ FileAccessService（modules/file）
 
 系統資料夾由 `FileSystemFolderService` 維護：`onApplicationBootstrap` 確保共用／私人資料夾存在並補建個人資料夾；
 訂閱 `permissions.changed`，為事件帶的 `userIds`（只在發起寫入的程序上有）中取得檔案管理器權限的人建立個人資料夾；訂閱 `resource.changed` 的 `user delete`，
-擁有者被刪除時把空的個人資料夾軟刪除（rbac/07 §12）。
+擁有者被刪除時把空的個人資料夾軟刪除（iam/06 §12）。
 
 
 ---

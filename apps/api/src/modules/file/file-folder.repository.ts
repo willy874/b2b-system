@@ -127,7 +127,7 @@ export class FileFolderRepository {
     return Boolean(file);
   }
 
-  // ── 系統資料夾（docs/rbac/07-resource-grants.md §12）──────────────
+  // ── 系統資料夾（docs/architecture/iam/06-resource-grants.md §12）──────────────
 
   /** 共用資料夾或私人資料夾（各只有一個）。 */
   async findSingleton(
@@ -595,7 +595,7 @@ export class FileFolderRepository {
 
   /**
    * 回收桶：每一批刪除的根（`BATCH_ROOT`），不列跟著上層一起刪的子孫。系統資料夾（共用、私人、個人）只由系統刪除
-   * （擁有者被刪除時的空個人資料夾），不能還原，不列（rbac/07 §12）。
+   * （擁有者被刪除時的空個人資料夾），不能還原，不列（iam/06 §12）。
    */
   async listDeleted(query: {
     offset: number;

@@ -43,7 +43,7 @@
 | 郵件   | `mail.send`                                                       | 寄出的信；只記範本、收件人、jobId、messageId，不記內容與 token（[`11-mail.md`](./11-mail.md) §5） |
 | 背景工作 | `job.retry`                                                     | 手動重試失敗的工作；`resourceName` 是工作名稱（[`10-jobs.md`](./10-jobs.md) §6） |
 | 系統   | `system.bootstrap`                                                | 初始 super-admin 建立  |
-|        | `system.super_admin_reset_requested`                              | 災難復原的 CLI 簽發了 super-admin 的重設（或啟用）連結；`actorEmail = 'system'`，`metadata.purpose`、`metadata.expiresAt`（[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §7） |
+|        | `system.super_admin_reset_requested`                              | 災難復原的 CLI 簽發了 super-admin 的重設（或啟用）連結；`actorEmail = 'system'`，`metadata.purpose`、`metadata.expiresAt`（[`iam/05-bootstrap.md`](../iam/05-bootstrap.md) §7） |
 |        | `system.seed`                                                     | 權限目錄變更           |
 
 ### 2.2 不記
@@ -186,7 +186,7 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 
 **密碼雜湊絕不進稽核。** 密碼變更只記 `action: 'auth.password_change'`，
 `changes` 為 `null`。審批請求的 `private_payload`（只給 handler 用的內容）同樣不進稽核
-（[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §2）。
+（[`20-approval.md`](20-approval.md) §2）。
 
 ### 5.2 授權變更的 `changes` 形狀
 
@@ -225,6 +225,23 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 ---
 
 ## 7. 查詢
+
+| Method | Path              | 授權              | 說明                          |
+| ------ | ----------------- | ----------------- | ----------------------------- |
+| GET    | `/audit-logs`     | 🛡 `auditLog:read` | 列表（摘要，不含 `changes` / `metadata`） |
+| GET    | `/audit-logs/:id` | 🛡 `auditLog:read` | 單筆詳情（含 `changes` 差異） |
+
+**Query**
+
+| 參數               | 說明                                    |
+| ------------------ | --------------------------------------- |
+| `offset` / `limit` | 分頁（`limit` 上限 100）                |
+| `actorId`          | 操作者                                  |
+| `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
+| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` / `file` / `fileFolder` |
+| `resourceId`       |                                         |
+| `result`           | `success` / `failure`                   |
+| `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |
 
 ```
 GET /audit-logs?offset=0&limit=50   或 ?cursor=<上一頁的 nextCursor>&limit=50

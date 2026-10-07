@@ -139,7 +139,7 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 第 2 步的限制：持 `identityProvider:create`／`update` 的人可以自架 IdP（或把連線的 issuer
 改成它），對任何 email 簽出 `email_verified = true`。不限網域的話，就能把自己的外部身分連到租戶裡任何人（包括 super-admin）的帳號。
 所以 email 網域必須屬於這個連線；持有 super-admin、admin、auditor 的帳號即使網域相符也不自動連結，要由本人以密碼登入（或由管理員處理）。
-「持有」含經由群組（含巢狀）持有的角色（[`../rbac/08-groups.md`](../rbac/08-groups.md) §1），以權限解析的主體閉包判斷。
+「持有」含經由群組（含巢狀）持有的角色（[`iam/07-groups.md`](iam/07-groups.md) §1），以權限解析的主體閉包判斷。
 修改連線的 `issuer` 或 `client_id` 會在同一個交易內刪除它所有的連結（稽核 `metadata.identitiesCleared`、`severity: high`）：
 新的 IdP 發的 `subject` 不代表同一個人。刪除帳號時也一併刪除它的連結（帳號是軟刪除，不會觸發 cascade），同 email 重建的帳號才能再連結。
 
@@ -210,7 +210,7 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 | GET | `/oidc-interaction/:uid/external/complete` | `@Public` | 以 ticket 完成互動 |
 | GET／POST／PATCH／DELETE | `/identity-providers`（`/:id`） | `identityProvider:read／create／update／delete` | 外部 IdP 連線管理（租戶網域，backstage）。建立時連線數不能超過租戶的參數 `identityProvider.maxProviders`（預設 10，`409 IDENTITY_PROVIDER_LIMIT_REACHED`，[`05-tenancy.md`](./05-tenancy.md) §5.3） |
 
-權限見 [`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §2.11；完整端點表見 [`backend/05-rbac.md`](./backend/05-rbac.md) §9。
+權限見 [`iam/02-permission-catalog.md`](iam/02-permission-catalog.md) §2.11；完整端點表見 [`backend/05-rbac.md`](./backend/05-rbac.md) §9。
 
 ## 5. 資料模型
 
@@ -245,7 +245,7 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 | `home` | `/` | 目前登入的平台管理者（角色、權限數）；有 `tenant:read` 時加上各狀態的租戶數 |
 | `account` | `/profile`、`/preference` | 個人資料（改名、角色與權限、變更密碼）與偏好設定（語系、時區、主題、頂列工具；只存在瀏覽器） |
 | `notification` | `/notification` | 平台的站內通知；頂列的鈴鐺（[`backend/15-notification.md`](./backend/15-notification.md) §6.2） |
-| `tenant`、`platform-admin`、`audit-log`、`job`、`feature-flag` | `/tenant`（詳情 `/tenant/$id?tab=overview\|features\|flags`）、`/admin`、`/audit-log`、`/job`、`/feature-flag` | 平台管理：租戶、平台管理者、平台稽核、所有租戶的背景工作、試行開關（權限是平台的目錄，[`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8） |
+| `tenant`、`platform-admin`、`audit-log`、`job`、`feature-flag` | `/tenant`（詳情 `/tenant/$id?tab=overview\|features\|flags`）、`/admin`、`/audit-log`、`/job`、`/feature-flag` | 平台管理：租戶、平台管理者、平台稽核、所有租戶的背景工作、試行開關（權限是平台的目錄，[`iam/02-permission-catalog.md`](iam/02-permission-catalog.md) §8） |
 
 平台管理的頁面套用與 backstage 相同的外框（web-core 的 `DashboardShell`，由 `app/layouts/DashboardLayout` 傳入選單與品牌：可收合的分組側欄、窄螢幕抽屜、頂列工具、帳號選單）
 與頁面寫法（列表用 `RichTable` 的搜尋、篩選、欄位設定與分頁；詳情用麵包屑與分頁）。登入、帳號流程與進入租戶的頁面不套外框。
@@ -269,7 +269,7 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 | `PLATFORM_APP_URL` | apps/platform 的 origin：互動頁、錯誤頁、帳號流程連結；第一方 client `auth` 的 redirect URI 開頭 | 必填（compose 由 `PLATFORM_PUBLIC_ORIGIN` 產生）；https、不能是 localhost |
 | `APP_PUBLIC_URL` | 預設租戶的 backstage origin；信中連結的協定（各租戶的網域在平台 DB 的 `tenant_domains`） | 必填（`PUBLIC_ORIGIN`）；同上 |
 | `PLATFORM_REFRESH_COOKIE_PATH` | 平台管理者的 refresh cookie path | 預設 `/api/platform/auth` |
-| `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | 第一位平台管理者（`db:seed`）；密碼留空時 production 建成 `pending`，印出一次性的設定連結（[`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md) §5.1） | compose 的 migrate 必填 email |
+| `PLATFORM_ADMIN_EMAIL`、`PLATFORM_ADMIN_PASSWORD` | 第一位平台管理者（`db:seed`）；密碼留空時 production 建成 `pending`，印出一次性的設定連結（[`iam/05-bootstrap.md`](iam/05-bootstrap.md) §5.1） | compose 的 migrate 必填 email |
 | `OIDC_ISSUER` | `{PLATFORM_APP_URL}/api/oidc` | 必填；與 `PLATFORM_APP_URL` 同源 |
 | `OIDC_JWKS` | 簽 ID token 的私鑰（JWKS JSON）；輪替時新舊並存一個 access token TTL | 必填，至少一把含私鑰（沒設時啟動時產生臨時金鑰，只給開發用） |
 | `OIDC_COOKIE_KEYS` | 簽 IdP cookie 的金鑰，逗號分隔，第一把用來簽 | 必填，每一把至少 32 字元的隨機值 |
@@ -323,7 +323,7 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 - 找不到帳號時「走審批」沒有做：註冊審批核准後要從啟用信設定密碼才能登入，外部 IdP 登入的人不需要密碼，流程接不上（§12.2 D10）。
 - 網域所有權沒有驗證（DNS TXT）：由平台管理員自行確認。
-- 外部 IdP 的群組不對應到角色或群組：權限圖 G4 的群組只有手動成員，IdP 群組對應另開提案、與 SCIM 一起評估（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D15）；沒有解除外部身分連結的畫面。
+- 外部 IdP 的群組不對應到角色或群組：權限圖 G4 的群組只有手動成員，IdP 群組對應另開提案、與 SCIM 一起評估（[`iam/01-model.md`](iam/01-model.md) §9.3 D15）；沒有解除外部身分連結的畫面。
 - Azure AD 預設不回 `email_verified`：以 email 連結既有帳號不會成立，只能靠 `auto_create` 或已連結的身分。
 - 登入互動預留了第二步（MFA，D15），這一版沒有實作。
 

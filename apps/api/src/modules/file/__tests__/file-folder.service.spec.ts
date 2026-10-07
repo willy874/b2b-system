@@ -241,7 +241,7 @@ function setup(
         new Map(ids.map((id): [string, never[]] => [id, []])),
     ),
   };
-  // 個人資料夾的補建（docs/rbac/07-resource-grants.md §12）：預設補不了（沒有資格），各測試自己指定
+  // 個人資料夾的補建（docs/architecture/iam/06-resource-grants.md §12）：預設補不了（沒有資格），各測試自己指定
   const systemFolders = {
     ensurePersonalFolders: vi.fn(async (_userIds: readonly string[]) => 0),
   };
@@ -548,7 +548,7 @@ describe('FileFolderService.remove', () => {
   });
 });
 
-describe('FileFolderService 的資料夾層級授權（docs/rbac/07-resource-grants.md §4、§5.1）', () => {
+describe('FileFolderService 的資料夾層級授權（docs/architecture/iam/06-resource-grants.md §4、§5.1）', () => {
   /** 只有 `file:access`：沒有任何全域動作，範圍全靠資料夾授權。 */
   function scoped(
     initial: { name: string; parent?: string; createdBy?: string; inherit?: boolean }[],
@@ -872,7 +872,7 @@ function scopedEnv(
   return env;
 }
 
-describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09-file.md §4.2、docs/rbac/07-resource-grants.md §4、§12）', () => {
+describe('FileFolderService 的其他錯誤分支（docs/architecture/backend/09-file.md §4.2、docs/architecture/iam/06-resource-grants.md §4、§12）', () => {
   it('結構寫入撞到唯一索引（鎖以外的競態）→ FILE_FOLDER_NAME_CONFLICT', async () => {
     const { service, repo } = setup();
     repo.create.mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }));

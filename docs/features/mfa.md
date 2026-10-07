@@ -406,7 +406,7 @@ registerMfaMethod({
 
 ### 12. 權限、錯誤碼、稽核、指標
 
-**權限**（同步 `docs/rbac/02-permission-catalog.md`、`db/seeds/permissions.ts`、前端 `permission.ts`、兩個語系檔）：
+**權限**（同步 `docs/architecture/iam/02-permission-catalog.md`、`db/seeds/permissions.ts`、前端 `permission.ts`、兩個語系檔）：
 
 | 鍵 | 範圍 | 預設持有 |
 | --- | --- | --- |
@@ -657,4 +657,4 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.7 的實作
 - `docs/architecture/backend/04-auth.md` §3（第二步與鎖定、延遲的整合）、§8.2（直接登入拒絕）
 - `docs/architecture/05-tenancy.md` §5.1（`tenants.mfa_methods`）
 - `docs/architecture/frontend/` 新章節（`web-core/mfa` 註冊表與元件）、`apps/platform/README.md`
-- `docs/rbac/02-permission-catalog.md`（四個權限）、`docs/overview/01-overview.md` 的範圍表、`CLAUDE.md` 的文件索引
+- `docs/architecture/iam/02-permission-catalog.md`（四個權限）、`docs/overview/01-overview.md` 的範圍表、`CLAUDE.md` 的文件索引

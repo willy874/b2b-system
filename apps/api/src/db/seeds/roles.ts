@@ -106,7 +106,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
     name: '一般成員',
     description: '個人頁面，以及被授權的資料夾。未來功能的權限掛載點。',
     isSystem: true,
-    // 進得了檔案管理器；範圍由資料夾授權決定（docs/rbac/07-resource-grants.md）
+    // 進得了檔案管理器；範圍由資料夾授權決定（docs/architecture/iam/06-resource-grants.md）
     permissions: ['file:access'],
   },
 ] as const;

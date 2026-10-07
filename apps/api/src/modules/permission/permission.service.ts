@@ -78,7 +78,7 @@ export interface PermissionCheckContext {
   tx?: DbOrTx;
 }
 
-/** 角色實際持有的一個鍵（docs/rbac/02-permission-catalog.md §9）。 */
+/** 角色實際持有的一個鍵（docs/architecture/iam/02-permission-catalog.md §9）。 */
 export interface EffectivePermission {
   key: PermissionKey;
   source: 'explicit' | 'implied';
@@ -146,7 +146,7 @@ export class PermissionService {
     return result;
   }
 
-  /** 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/rbac/01-domain-model.md §9）。 */
+  /** 一批人的權限：由關係圖解析，含權限依賴樹的閉包（docs/architecture/iam/01-model.md §9）。 */
   private async loadBatch(
     batch: readonly string[],
     tx?: DbOrTx,
@@ -218,7 +218,7 @@ export class PermissionService {
   }
 
   /**
-   * 反提權的通用入口（docs/rbac/01-domain-model.md §9 G4）：把某個主體放進 `targets` 的每一個
+   * 反提權的通用入口（docs/architecture/iam/01-model.md §9 G4）：把某個主體放進 `targets` 的每一個
    * `物件#關係`，主體取得的租戶能力（`AuthzService.grantedCapabilities`）都要是 actor 持有的。
    * 權限鍵、角色、群組（含上層群組持有的角色）都走這裡；資料夾等級在檔案管理器內以同一份模型比對。
    *
@@ -293,7 +293,7 @@ export class PermissionService {
    * 沒有持有該角色、或本來就沒有那些權限時不擋（docs/architecture/backend/05-rbac.md §8.4）。
    *
    * 「持有」與「剩下的權限」都以 actor 的主體閉包判斷（`PermissionSet.subjects` 裡的 `role:<id>#holder`），
-   * 經由群組（含巢狀）持有的角色與直接持有的一樣算（docs/rbac/08-groups.md §1）：只經由群組持有 R 的人改 R 也會被擋，
+   * 經由群組（含巢狀）持有的角色與直接持有的一樣算（docs/architecture/iam/07-groups.md §1）：只經由群組持有 R 的人改 R 也會被擋，
    * 另外經由群組持有同樣權限的人不會被誤擋。在交易內（鎖住角色列之後）呼叫時傳 `tx`：讀取都走同一個交易。
    */
   async assertNoSelfLockout(
@@ -398,7 +398,7 @@ export class PermissionService {
 
   /**
    * 角色的持有者或角色的權限變了：在寫入的交易 **提交之後** 呼叫。整個租戶的權限快取失效、
-   * 推播重算 room，並廣播給其他程序（docs/rbac/01-domain-model.md §9.2 D7、D8）——
+   * 推播重算 room，並廣播給其他程序（docs/architecture/iam/01-model.md §9.2 D7、D8）——
    * 不必事先查出受影響的人。`userIds` 見 `AuthzRevision.changed`。
    */
   permissionsChanged(userIds?: readonly string[]): Promise<void> {
@@ -407,7 +407,7 @@ export class PermissionService {
 
   /**
    * 持有這個角色的使用者：直接持有的，加上持有它的群組（含巢狀）的成員——群組 g 持有 r 時，g 的成員都持有 r
-   * （docs/rbac/08-groups.md §1）。與權限解析走同一張圖（`AuthzService.usersInSubjectSets`）：過期的邊、已刪除的群組不算；
+   * （docs/architecture/iam/07-groups.md §1）。與權限解析走同一張圖（`AuthzService.usersInSubjectSets`）：過期的邊、已刪除的群組不算；
    * **角色本身已刪除時是空的**，刪除角色要在軟刪除之前（交易內、鎖住角色列之後）查。含已刪除、停用的使用者，
    * 給推播（「持有該角色的所有人」，docs/architecture/backend/08-realtime.md §6.1）與「誰會失去權限」的計數用。
    */

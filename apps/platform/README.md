@@ -55,7 +55,7 @@ package 的原始碼由這個 app 的 Vite 編譯，CSS Module 的 class 前綴�
 
 | 位置 | 說明 |
 | --- | --- |
-| `core/permission/` | `enums.ts`、`resources.ts` 是 **平台** 的權限目錄（api-sdk 的 `PlatformPermissionKey`，[`docs/rbac/02-permission-catalog.md`](../../docs/rbac/02-permission-catalog.md) §8），`index.ts` 以 module augmentation 登記給 web-core；機制在 `@b2b-system/web-core/permission`。權限由 `GET /platform/auth/profile` 的 `permissions` 水合 |
+| `core/permission/` | `enums.ts`、`resources.ts` 是 **平台** 的權限目錄（api-sdk 的 `PlatformPermissionKey`，[`iam/02-permission-catalog.md`](../../docs/architecture/iam/02-permission-catalog.md) §8），`index.ts` 以 module augmentation 登記給 web-core；機制在 `@b2b-system/web-core/permission`。權限由 `GET /platform/auth/profile` 的 `permissions` 水合 |
 | `apis/auth/` | 與 backstage 同結構，端點不同：打 `/platform/auth/*`（平台管理者的 session）。帳號流程（`forgot-password`、`reset-password`、`setup`、`register`）與 `tenant.ts` 的 `X-Tenant` 只在這裡 |
 | `app/` | `App.tsx`、`Layout.tsx`、`ErrorPages.tsx`（把 web-core 的錯誤頁接成 `compact` 版面）、`plugin.ts`、`sessionRedirect.ts`（只有 `isPublic`）、`layouts/`（`DashboardLayout` 的品牌與帳號選單、`headerTools.ts`；選單由 feature 登記、分類在 `core/navigation/`；外框本身是 web-core 的 `DashboardShell`；`LanguageMenu.tsx` 只把切換交給 web-core 的 `LanguageMenu`，不同步到帳號）、`app/locales/*.json`（只有 app 專屬的區段與少數覆寫，例：`changePassword.hint`、`auditLog.expand`／`collapse` 的措辭） |
 | `plugins/app/` | 門面：轉出 web-core 的 plugin，`i18n.ts` 傳入自己的語系包 |

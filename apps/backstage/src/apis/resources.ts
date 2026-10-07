@@ -93,7 +93,7 @@ export const Resource = {
   /** 回收桶（已刪除的項目）；後端沒有這個來源，由各資源的建立（還原）與刪除衍生 */
   TRASH: 'trash',
   /**
-   * 授權的說明：有效權限的來源、資料夾存取的路徑（docs/rbac/01-domain-model.md §9 G4b）。後端沒有這個來源；路徑經過使用者、群組、角色、資料夾，
+   * 授權的說明：有效權限的來源、資料夾存取的路徑（docs/architecture/iam/01-model.md §9 G4b）。後端沒有這個來源；路徑經過使用者、群組、角色、資料夾，
    * 由它們的任何變更衍生。只在展開說明時才查，整批失效的成本小
    */
   AUTHZ_EXPLAIN: 'authzExplain',
@@ -110,7 +110,7 @@ export const Resource = {
   USER_ROLE: 'userRole',
   /** 角色 ↔ 權限（`id` = roleId） */
   ROLE_PERMISSION: 'rolePermission',
-  /** 群組（`id` = 群組 id；名稱、成員、持有的角色都以它宣告，docs/rbac/01-domain-model.md §9.3 D11） */
+  /** 群組（`id` = 群組 id；名稱、成員、持有的角色都以它宣告，docs/architecture/iam/01-model.md §9.3 D11） */
   GROUP: 'group',
   /** 密碼、邀請等不出現在任何畫面上的憑證寫入（`id` = userId） */
   USER_CREDENTIAL: 'userCredential',
@@ -294,7 +294,7 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none', when: selfHoldsRole },
       { from: Resource.ROLE_PERMISSION, id: 'none', when: selfHoldsRole },
       // 群組的成員、持有的角色、刪除與還原都可能改變自己的權限；前端不知道自己（間接）在哪些群組裡，
-      // 一律重抓（伺服器把群組的變更推給群組的所有成員，docs/rbac/01-domain-model.md §9.3 D11）
+      // 一律重抓（伺服器把群組的變更推給群組的所有成員，docs/architecture/iam/01-model.md §9.3 D11）
       { from: Resource.GROUP, id: 'none' },
       // profile 帶著啟用的 feature 清單；重新取得後由 useSyncFeatures 安裝或卸載
       { from: Resource.TENANT_FEATURE, id: 'none' },

@@ -58,7 +58,7 @@ export interface RelationRef {
 }
 
 /**
- * 以關係圖解析權限（docs/rbac/01-domain-model.md §9）。
+ * 以關係圖解析權限（docs/architecture/iam/01-model.md §9）。
  * 資料來自 `relation_tuples`；結構邊（資料夾的上層…）由呼叫端以供應者傳入。
  */
 @Injectable()
@@ -211,7 +211,7 @@ export class AuthzService {
   }
 
   /**
-   * 反提權（docs/rbac/01-domain-model.md §9 G4）：把某個主體放進 `targets` 的每一個 `物件#關係`，
+   * 反提權（docs/architecture/iam/01-model.md §9 G4）：把某個主體放進 `targets` 的每一個 `物件#關係`，
    * 主體因此取得的能力。操作者必須全部都有（呼叫端以自己的判斷器或權限集合比對）。
    *
    * - 關係本身是能力，或靜態蘊含能力（租戶上的權限鍵、資料夾等級）：同一個物件上的那些能力（`capabilitiesOf`）。

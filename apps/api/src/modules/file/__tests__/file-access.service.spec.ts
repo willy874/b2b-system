@@ -51,7 +51,7 @@ describe('FileAccessService.contextFor 在樹鎖的交易內（docs/architecture
   });
 });
 
-describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () => {
+describe('FileAccessContext（docs/architecture/iam/06-resource-grants.md §3、§4）', () => {
   it('全域權限鍵涵蓋所有資料夾與根目錄，不看資料夾授權', async () => {
     const { access } = createFileAccess({ global: ['read', 'update'], nodes: () => NODES });
     const ctx = await access.contextFor(ALICE);
@@ -137,7 +137,7 @@ describe('FileAccessContext（docs/rbac/07-resource-grants.md §3、§4）', () 
       global: ['share'],
       nodes: () => NODES,
     }).access.contextFor(ALICE);
-    // 權限依賴樹：file:share ⇒ file:read（docs/rbac/02-permission-catalog.md §9），所以只給 share 也授予得起 viewer
+    // 權限依賴樹：file:share ⇒ file:read（docs/architecture/iam/02-permission-catalog.md §9），所以只給 share 也授予得起 viewer
     expect(onlyShare.assignableLevels('art')).toEqual(['viewer']);
 
     const readShare = await createFileAccess({
@@ -190,7 +190,7 @@ describe('FileAccessService.assertCan', () => {
   });
 });
 
-describe('FileAccessContext 的其他判斷（docs/rbac/07-resource-grants.md §3.3、§12）', () => {
+describe('FileAccessContext 的其他判斷（docs/architecture/iam/06-resource-grants.md §3.3、§12）', () => {
   it('系統資料夾（共用、私人、個人）即使全域權限齊全也不能改名、刪除；一般資料夾可以', async () => {
     const ctx = await createFileAccess({ nodes: () => NODES }).access.contextFor(ALICE);
     for (const kind of ['shared', 'privateRoot', 'personal'] as const) {
@@ -256,7 +256,7 @@ describe('FileAccessContext 的其他判斷（docs/rbac/07-resource-grants.md §
   });
 });
 
-describe('FileAccessService.deny（docs/rbac/07-resource-grants.md §6.4）', () => {
+describe('FileAccessService.deny（docs/architecture/iam/06-resource-grants.md §6.4）', () => {
   it('回傳 AUTHZ_FORBIDDEN，details 與 authz.denied 的 metadata 帶 reason', async () => {
     const { access, audit } = createFileAccess({ nodes: () => NODES });
     const error = await access.deny(ALICE, 'delete', 'fileFolder', 'art', 'not-owner');

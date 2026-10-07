@@ -14,7 +14,7 @@ beforeEach(() => {
   createRequest.mockReset().mockResolvedValue({ submitted: true });
 });
 
-describe('FileAccessRequestDialog（docs/rbac/07-resource-grants.md §6.5）', () => {
+describe('FileAccessRequestDialog（docs/architecture/iam/06-resource-grants.md §6.5）', () => {
   it('送出資料夾、預設等級 viewer 與理由；成功後關閉', async () => {
     const onClose = vi.fn();
     renderWithPermissions(

@@ -174,7 +174,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 
 所以這份決定包含兩件事：**程式的身分**（服務帳號與 token），以及 **它從哪裡進來**（獨立的對外 API 服務）。
 
-相關的規格：[`backend/04-auth.md`](./backend/04-auth.md) §8.2、[`01-system.md`](./01-system.md) §4、[`05-tenancy.md`](./05-tenancy.md) §2、[`backend/05-rbac.md`](./backend/05-rbac.md) §4.1、§5.1、[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §7、§8、[`../rbac/01-domain-model.md`](../rbac/01-domain-model.md) §7。沿用 [`backend/04-auth.md`](backend/04-auth.md) §10（`token_version` 是唯一的撤銷機制）、[`architecture/05-tenancy.md`](05-tenancy.md) §10（每個租戶一個 DB 與網域）、[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9（關係圖與一般化的反提權）；之後依賴這份決定的有 Webhook（[`backend/17-webhook.md`](backend/17-webhook.md) §9）、[`../features/mfa.md`](../features/mfa.md)、[`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
+相關的規格：[`backend/04-auth.md`](./backend/04-auth.md) §8.2、[`01-system.md`](./01-system.md) §4、[`05-tenancy.md`](./05-tenancy.md) §2、[`backend/05-rbac.md`](./backend/05-rbac.md) §4.1、§5.1、[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §7、§8、[`iam/01-model.md`](iam/01-model.md) §7。沿用 [`backend/04-auth.md`](backend/04-auth.md) §10（`token_version` 是唯一的撤銷機制）、[`architecture/05-tenancy.md`](05-tenancy.md) §10（每個租戶一個 DB 與網域）、[`iam/01-model.md`](iam/01-model.md) §9（關係圖與一般化的反提權）；之後依賴這份決定的有 Webhook（[`backend/17-webhook.md`](backend/17-webhook.md) §9）、[`../features/mfa.md`](../features/mfa.md)、[`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
 
 ### 9.2 決定
 
@@ -182,10 +182,10 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D1 | **服務帳號是 `users` 的一種**：加 `kind`（`human` ｜ `service`，預設 `human`）（提案開放問題 1）。服務帳號沒有密碼，不能走登入互動，不能連結外部身分，不收信。`email` 仍然必填，產生不可投遞的 `svc-<id>@service.invalid`（RFC 2606 保留的 TLD），寄信端另外以 `kind` 擋下。<br>**要排除服務帳號的地方**：backstage 的使用者列表與人數、「最後一位 super-admin」（I8）、登入、忘記密碼、外部 IdP 的自動連結、`approval.pending` 這類以 `approval:review` 找收件人的通知。<br>`rbac/01-domain-model.md` §7 預留的「`service_accounts` 表 ＋ 新的主體型別」不採用 | 角色（`role:r#holder@user:s`）、群組成員、資料夾授權、權限快取（`{tenantId}:{userId}`）、稽核的 `actor_id`、說明（`rbac/09-explain.md`）、反提權全部原樣沿用。<br>另開主體型別的話，關係圖模型、閉包、說明、快取 key 都要多一種主體，等於重做一次 G4a。<br>要排除的地方是有限的，而且都已經有 `status`、`deleted_at` 這一類過濾可以加條件 |
+| D1 | **服務帳號是 `users` 的一種**：加 `kind`（`human` ｜ `service`，預設 `human`）（提案開放問題 1）。服務帳號沒有密碼，不能走登入互動，不能連結外部身分，不收信。`email` 仍然必填，產生不可投遞的 `svc-<id>@service.invalid`（RFC 2606 保留的 TLD），寄信端另外以 `kind` 擋下。<br>**要排除服務帳號的地方**：backstage 的使用者列表與人數、「最後一位 super-admin」（I8）、登入、忘記密碼、外部 IdP 的自動連結、`approval.pending` 這類以 `approval:review` 找收件人的通知。<br>`iam/01-model.md` §7 預留的「`service_accounts` 表 ＋ 新的主體型別」不採用 | 角色（`role:r#holder@user:s`）、群組成員、資料夾授權、權限快取（`{tenantId}:{userId}`）、稽核的 `actor_id`、說明（`iam/08-explain.md`）、反提權全部原樣沿用。<br>另開主體型別的話，關係圖模型、閉包、說明、快取 key 都要多一種主體，等於重做一次 G4a。<br>要排除的地方是有限的，而且都已經有 `status`、`deleted_at` 這一類過濾可以加條件 |
 | D2 | **token 有兩種擁有者，同一張表**：個人 token（`user_id` = 本人）與服務帳號的 token（`user_id` = 服務帳號）。<br>租戶 DB 的 `api_tokens` 表：`id`、`user_id`、`name`、`prefix`、`secret_hash`、`scopes text[]`（null = 跟著帳號）、`account_version`、`expires_at`（必填）、`last_used_at`、`revoked_at`、`created_by`、`created_at` | 兩種 token 的驗證、撤銷、限流完全相同，差別只在擁有者是誰 |
 | D3 | **權限可以縮小，不能放大**（提案開放問題 2）。有效權限 = 帳號的權限集合 ∩ `scopes`。<br>`scopes` 只限制 **租戶層的權限鍵**；資料夾等資源上的能力仍然跟著帳號走。要限制到「只能動某幾個資料夾」，做法是建一個服務帳號，只授權那幾個資料夾 | 最小權限。<br>如果把資源層的能力也放進 scope，就要在關係圖的判斷器裡多一個交集，所有 `can_*` 都得改。服務帳號 ＋ 資料夾授權已經能表達同樣的事 |
-| D4 | **建立 token 時的反提權**：token 取得的有效權限（帳號權限 ∩ scopes）必須 ⊆ 操作者目前的權限。這條也適用於替服務帳號建 token，以 [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9 一般化的反提權判斷（`backend/05-rbac.md` §4.1）。<br>服務帳號的角色、群組、資料夾授權照既有的 `assertGrantable` | 否則只有 `serviceAccount:update` 的人，可以替一個權限很大的服務帳號簽一把 token 帶走 |
+| D4 | **建立 token 時的反提權**：token 取得的有效權限（帳號權限 ∩ scopes）必須 ⊆ 操作者目前的權限。這條也適用於替服務帳號建 token，以 [`iam/01-model.md`](iam/01-model.md) §9 一般化的反提權判斷（`backend/05-rbac.md` §4.1）。<br>服務帳號的角色、群組、資料夾授權照既有的 `assertGrantable` | 否則只有 `serviceAccount:update` 的人，可以替一個權限很大的服務帳號簽一把 token 帶走 |
 | D5 | **撤銷沿用 `token_version`**：token 記下建立當時帳號的 `token_version`（`account_version`），驗證時兩者不相等就失效。<br>因此本人改密碼、被重設密碼、被強制登出、被停用時，個人 token 一律作廢。服務帳號沒有密碼，它的 `token_version` 只在停用或「撤銷全部 token」時遞增。<br>另外每把 token 可以單獨撤銷（`revoked_at`） | `token_version` 是唯一的撤銷機制（[`backend/04-auth.md`](backend/04-auth.md) §10、`04-auth.md` §1.2）。帳號被盜時，管理者重設密碼或強制登出，攻擊者建立的 token 也跟著失效，不必另外記得去撤銷。<br>代價：使用者改密碼後要重建個人 token（見代價） |
 | D6 | **服務帳號屬於租戶，不屬於建立者**（提案開放問題 4）。`created_by` 只是紀錄，建立者被停用或刪除，服務帳號與它的 token 都不受影響。<br>個人 token 跟著本人：本人停用、刪除、`token_version` 遞增時失效（D5） | CI 不應該因為某個人離職就停擺。誰能管理服務帳號由權限決定（D14），不由建立者決定 |
 | D7 | **token 格式**：`b2bt_<租戶代碼>_<tokenId>_<secret>`。<br>`tokenId` 是 `api_tokens.id`（uuid，以 base62 編碼），`secret` 是 32 bytes 隨機值（base62）。以前三個 `_` 切開（租戶代碼的格式 `[a-z][a-z0-9-]` 不含 `_`）。<br>資料庫只存 `SHA-256(secret)`，以定長比較驗證；`prefix` 存前 12 碼供管理頁顯示。<br>token 只在建立時顯示一次 | 開頭固定，GitHub 等平台的 secret scanning 可以登記這個格式，外流時被掃到。<br>前綴帶租戶代碼，對外 API 才知道要去哪個租戶 DB 查（D9）。代碼由客戶端提供，但只是「去哪裡找」的提示：secret 要在那個租戶 DB 比對成功才算數，改代碼不會換到別的租戶。<br>secret 是 256 位元的隨機值，不需要 argon2 這種慢雜湊 |
@@ -221,7 +221,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T2 對外 API 骨架 | `main.external.ts`、`ExternalApiAppModule`、`@ExternalApi()` 與 `SurfaceGuard`、route audit 的擴充（D11）、`ApiTokenGuard` 與從 token 決定租戶（D7、D9）、token 快取（D17）、限流（D13）、`GET /v1/me`、`/health`。`openapi.external.json`、`pnpm dev:external-api`、compose 服務、`deploy/nginx.external-api.conf` | 新服務，不影響既有部署 |
 | T3 第一批 v1 端點 | 檔案與資料夾：資料夾列表、上傳（presign → complete）、下載連結、檔案資訊。使用者：唯讀（見「確認紀錄」1） | 純加法 |
 | T4 backstage 畫面 | `features/service-account`（列表、建立、角色、token 管理）、帳號設定的「個人存取 token」、使用者詳情頁看與撤銷別人的 token | 純加法 |
-| T5 歸檔 | 新規格 `docs/architecture/06-external-api.md`、`backend/04-auth.md` 新章節、`rbac/01-domain-model.md` §7、`02-permission-catalog.md`、`01-system.md` §4、`05-tenancy.md` §2；刪提案 | — |
+| T5 歸檔 | 新規格 `docs/architecture/06-external-api.md`、`backend/04-auth.md` 新章節、`iam/01-model.md` §7、`02-permission-catalog.md`、`01-system.md` §4、`05-tenancy.md` §2；刪提案 | — |
 
 ### 9.4 不做
 
@@ -246,7 +246,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 
 | 方案 | 不採用的理由 |
 | --- | --- |
-| 另開 `service_accounts` 表與 `serviceAccount` 主體型別（`rbac/01-domain-model.md` §7 原本的預留） | 關係圖、閉包、說明、快取 key、反提權都要多一種主體；D1 的排除清單比這個小得多 |
+| 另開 `service_accounts` 表與 `serviceAccount` 主體型別（`iam/01-model.md` §7 原本的預留） | 關係圖、閉包、說明、快取 key、反提權都要多一種主體；D1 的排除清單比這個小得多 |
 | 內部 api 依 token 前綴分流，同時接受 JWT 與 API token（提案原本的構想） | 契約與攻擊面混在一起；整合方的流量和使用者搶同一個程序；內部 API 改欄位會直接打壞外部整合 |
 | 獨立的 app（`apps/external-api`），以 HTTP 呼叫內部 api | 每個請求多一跳，要另外設計程序之間的身分；稽核記到的會是 gateway，不是真正的呼叫者；權限要檢查兩次 |
 | 獨立的 app，直接 import `apps/api` 的模組 | 跨 app import 會破壞 workspace 的邊界；兩個 app 的建置、設定、migration 會互相牽扯 |

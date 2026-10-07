@@ -343,7 +343,7 @@ return <Outlet />;
 | 使用者詳情 · 角色分頁 | `user:read`                      | 編輯角色 → `user:assignRole` ＋ 非自己；可選角色清單受反提權過濾                                                                                             |
 | 角色列表              | `role:read`                      | 建立 → `role:create`；複製 → `role:create`；編輯 → `role:update` ＋ 非系統角色；刪除 → `role:delete` ＋ 非系統角色                                           |
 | 角色詳情 · 權限分頁   | `role:read` ＋ `permission:read` | 入口在角色詳情（系統角色也有，只有 super-admin 沒有）：有 `role:grantPermission` 時是「管理權限」，否則「檢視權限」、進去唯讀；增減權限 → `role:grantPermission` ＋ 非 super-admin；以 **技能樹** 挑選（點上層自動點亮前置、有上層時不能取消前置；未持有的鍵停用，§8） |
-| 權限目錄              | `permission:read`                | 全唯讀；一覽表與 **樹狀圖** 兩種檢視、共用篩選（關鍵字、資源、是否持有），檢視、篩選與選取的權限都放在網址（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9.4） |
+| 權限目錄              | `permission:read`                | 全唯讀；一覽表與 **樹狀圖** 兩種檢視、共用篩選（關鍵字、資源、是否持有），檢視、篩選與選取的權限都放在網址（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9.4） |
 | 稽核日誌              | `auditLog:read`                  | 全唯讀                                                                                                                                                       |
 | 檔案管理器            | `file:access` 或 `file:read`     | 資料夾層級授權：按鈕看後端回傳的 `capabilities`，不看全域權限鍵（[`12-file-manager.md`](./12-file-manager.md) §13）                                           |
 | 個人資料 / 偏好       | 無                               | 全部可用（對象是自己）                                                                                                                                       |
@@ -400,7 +400,7 @@ describe("RoleListToolbar", () => {
 
 ## 8. 權限依賴樹與角色權限的技能樹
 
-- `GET /auth/profile` 的 `permissions` 已套用 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9）：
+- `GET /auth/profile` 的 `permissions` 已套用 **權限依賴樹的閉包**（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9）：
   只被授予 `file:delete` 的人，`can('file:read')` 也是 true。前端不需要自己展開，也不要再寫「有 A 或 B 就顯示」的特判。
 - 角色的權限在 `features/role/components/PermissionSkillTree.tsx` 挑選（建立角色、管理角色權限兩個對話框）：
   - 主要入口是 **樹狀下拉選單**（設計系統的 `Select`，`multiple` ＋ `searchable` ＋ 群組；`data-testid="role-permission-select"`，

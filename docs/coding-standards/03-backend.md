@@ -103,7 +103,7 @@
 
 新增或修改權限時，**同一批** 修改：
 
-1. `docs/rbac/02-permission-catalog.md`
+1. `docs/architecture/iam/02-permission-catalog.md`
 2. `apps/api/src/db/seeds/permissions.ts`
 3. 前端 `features/<name>/permission.ts`
 4. 兩個語系檔的 `permission.<resource>.<action>`

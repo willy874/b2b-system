@@ -234,7 +234,7 @@ describe('會寫入測試資料的腳本的防呆（backend/02-database.md §6.1
   });
 });
 
-describe('第一位平台管理者（rbac/05-seed-and-bootstrap.md §5.1）', () => {
+describe('第一位平台管理者（docs/architecture/iam/05-bootstrap.md §5.1）', () => {
   const PRODUCTION = {
     NODE_ENV: 'production',
     PLATFORM_ADMIN_EMAIL: 'boot@example.com',

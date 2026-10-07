@@ -333,8 +333,8 @@ mutation 成功
 | `user`：`USER_LIST` ／ `USER_DETAIL`、`USER_ROLES`                              | `userRole`（同一人）、`role` 更新／刪除（持有者，未知 → 全部）                        |
 | `role`：`ROLE_LIST`、`ROLE_OPTIONS` ／ `ROLE_DETAIL`、`ROLE_PERMISSIONS`、`ROLE_USERS` | `rolePermission`（同一角色）、`userRole`（新舊角色）、`user`（該使用者持有的角色） |
 | `group`：`GROUP_LIST`、`GROUP_OPTIONS` ／ `GROUP_DETAIL`、`GROUP_MEMBERS`、`GROUP_ROLES` | `user` 更新／刪除（成員清單的名稱，未知 → 全部）、`role` 更新／刪除（持有的角色清單） |
-| `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色）、`group` 的任何變更（前端不知道自己間接在哪些群組；[`../../rbac/08-groups.md`](../../rbac/08-groups.md) §4） |
-| `authzExplain`：`PERMISSION_SOURCES`、`FILE_FOLDER_EXPLAIN`（前端專屬）          | `user` 更新／刪除、`userRole`、`role` 更新／刪除、`rolePermission`、`group`、`fileFolder`：整批（說明只在展開時查；[`../../rbac/09-explain.md`](../../rbac/09-explain.md) §5） |
+| `profile`：`AUTH_PROFILE`                                                      | `user` 更新（自己）、`userRole`（自己）、`role` 更新／刪除與 `rolePermission`（自己持有的角色）、`group` 的任何變更（前端不知道自己間接在哪些群組；[`iam/07-groups.md`](../iam/07-groups.md) §4） |
+| `authzExplain`：`PERMISSION_SOURCES`、`FILE_FOLDER_EXPLAIN`（前端專屬）          | `user` 更新／刪除、`userRole`、`role` 更新／刪除、`rolePermission`、`group`、`fileFolder`：整批（說明只在展開時查；[`iam/08-explain.md`](../iam/08-explain.md) §5） |
 | `auditLog`：`AUDIT_LOG_LIST` ／ `AUDIT_LOG_DETAIL`                              | **任何寫入**（只影響列表；既有紀錄不可變），`notification` 除外（不寫稽核）          |
 | `approval`：`APPROVAL_LIST` ／ `APPROVAL_DETAIL`                                | 無（只有自己的寫入）                                                                  |
 | `file`：`FILE_LIST`、`FILE_INFINITE_LIST` ／ `FILE_DETAIL`                      | `fileFolder` 更新／刪除（全部列表）；檔案內容 `FILE_TEXT` 刻意不列——以 id 為 key、不可變。列表的 key 第二個元素是資料夾（`scopedCollection`）：推播帶 `refs.fileFolder` 時只重抓那個資料夾與不分資料夾的列表 |

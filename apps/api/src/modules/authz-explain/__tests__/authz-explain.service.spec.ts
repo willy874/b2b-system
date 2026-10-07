@@ -40,7 +40,7 @@ function createService(actorKeys: string[], options: { isSuperAdmin?: boolean } 
   return { service, audit };
 }
 
-describe('AuthzExplainService.assertCanExplain（docs/rbac/01-domain-model.md §9 G4b）', () => {
+describe('AuthzExplainService.assertCanExplain（docs/architecture/iam/01-model.md §9 G4b）', () => {
   it('查自己：不需要任何權限', async () => {
     const { service } = createService([]);
     await expect(service.assertCanExplain(ACTOR, 'me', 'route')).resolves.toBeUndefined();

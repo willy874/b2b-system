@@ -29,7 +29,7 @@ export interface PlatformAdminSeedResult {
  *
  * - 提供的 `PLATFORM_ADMIN_PASSWORD` 不符合密碼政策時失敗，不靜默換成隨機密碼。
  * - production 沒有提供密碼：建成 `pending`，**不印密碼**，改印一次性、短效的設定連結（apps/platform 的 `/setup`）；
- *   之後的部署只要這位管理者還是唯一一位、而且還沒設定密碼，就換發新的連結（docs/rbac/05-seed-and-bootstrap.md §5.1）。
+ *   之後的部署只要這位管理者還是唯一一位、而且還沒設定密碼，就換發新的連結（docs/architecture/iam/05-bootstrap.md §5.1）。
  * - 開發環境沒有提供密碼：隨機產生、直接啟用，只印這一次。
  */
 export async function seedPlatformAdmin(

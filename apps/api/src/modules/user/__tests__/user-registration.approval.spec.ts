@@ -66,7 +66,7 @@ describe('userRegistrationRequest', () => {
   });
 });
 
-describe('UserRegistrationApprovalHandler（docs/rbac/06-approval.md §5）', () => {
+describe('UserRegistrationApprovalHandler（docs/architecture/backend/20-approval.md §5）', () => {
   it('啟動時把自己註冊進審批服務', () => {
     const { handler, approvals } = setup();
     handler.onModuleInit();

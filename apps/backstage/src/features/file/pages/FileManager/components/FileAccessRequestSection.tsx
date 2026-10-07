@@ -9,7 +9,7 @@ import type { FileAccessRequest } from '@/shared/api-sdk';
 import { FILE_GRANT_LEVEL_LABEL_KEY } from '../../../constants';
 import { useFileAccessReviewMutation } from '../../../hooks/useFolderGrantMutations';
 
-/** 待審的存取申請（docs/rbac/07-resource-grants.md §6.5）；沒有申請時不顯示。 */
+/** 待審的存取申請（docs/architecture/iam/06-resource-grants.md §6.5）；沒有申請時不顯示。 */
 export function FileAccessRequestSection({ folderId }: { folderId: string }) {
   const { t } = useTranslation();
   const requests = useQuery(getFileAccessRequestListQueryOptions(folderId));

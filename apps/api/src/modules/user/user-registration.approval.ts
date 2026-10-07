@@ -44,7 +44,7 @@ export function userRegistrationRequest(registration: Registration): SubmitAppro
 
 /**
  * `user.register` 的核准：建立 **未啟用**（`pending`）的帳號並指派審核者選的角色，同一個交易內入列啟用信
- * （docs/rbac/06-approval.md §5）。等同審核者代為「建立使用者」，所以要求相同的權限與檢查。
+ * （docs/architecture/backend/20-approval.md §5）。等同審核者代為「建立使用者」，所以要求相同的權限與檢查。
  *
  * 申請時沒有驗證 email：任何人都能以別人的 email 申請（審批頁標示「email 尚未驗證」）。核准後要由那個信箱收到的
  * 啟用信設定密碼才會啟用，證明申請人真的擁有這個 email。申請時不設密碼，帳號在啟用前沒有密碼、不能登入。

@@ -433,7 +433,7 @@ describe('PermissionService.assertNoSelfLockout（docs/architecture/backend/05-r
   });
 });
 
-describe('PermissionService.describeRolePermissions（技能樹用，docs/rbac/02-permission-catalog.md §9）', () => {
+describe('PermissionService.describeRolePermissions（技能樹用，docs/architecture/iam/02-permission-catalog.md §9）', () => {
   const service = new PermissionService(
     {} as PermissionRepository,
     {} as PermissionCacheService,

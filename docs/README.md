@@ -21,7 +21,7 @@
 | 後端     | **NestJS** + **Drizzle ORM** + **PostgreSQL**                                                  |
 | 租戶與身分 | 每個租戶一個 database 與網域；`apps/platform` 是全平台共用的登入入口，`apps/api` 當 OIDC Provider |
 | 已有範圍 | 認證與 SSO、使用者、角色、群組、權限與關係圖、服務帳號與 API token、稽核日誌、個人帳號、審批、系統設定、檔案、標籤、背景工作、寄信、回收桶、版本歷史、站內通知、公告、Webhook；平台的租戶與 feature 管理 |
-| 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [`rbac/07-resource-grants.md`](rbac/07-resource-grants.md) §13、[`rbac/07-resource-grants.md`](./rbac/07-resource-grants.md)） |
+| 不在範圍 | 任何特定領域的業務功能；資源層級作用域目前只用在檔案管理器，新資源沿用同一套（見 [`architecture/iam/06-resource-grants.md`](./architecture/iam/06-resource-grants.md) §13） |
 
 ---
 
@@ -36,7 +36,7 @@
 2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
    （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)；每個租戶一個 database 與網域見 [`architecture/05-tenancy.md`](./architecture/05-tenancy.md)）
-4. [`rbac/01-domain-model.md`](./rbac/01-domain-model.md) — RBAC 領域模型與關係圖（§6.4）
+4. [`iam/01-model.md`](./architecture/iam/01-model.md) — RBAC 領域模型與關係圖（§6.4）
 5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 現況、時間軸、Phase 0 的驗收基準
 
 **開始寫程式之前（所有人）**
@@ -90,6 +90,17 @@ docs/
 │   ├── 07-apm-service.md              apps/apm-service：模擬 Sentry API 的前端錯誤收件、sourcemap、Web Vitals 指標
 │   ├── 08-monitoring.md               監控：api 的指標與 tracing、健康檢查、Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警
 │   │
+│   ├── iam/                           身分與存取：誰是誰、誰能對什麼做什麼（領域規則；各層的實作在 backend/05、frontend/06）
+│   │   ├── README.md                  閱讀順序、與 backend/04-auth、05-rbac、frontend/06-permission 的分工
+│   │   ├── 01-model.md                實體、ER 圖、不變條件、關係圖的組成與模型
+│   │   ├── 02-permission-catalog.md   權限清單（resource × action）、權限依賴樹（§9）
+│   │   ├── 03-flows.md                授權檢查、角色建立與指派、權限變更生效、停用即登出、錯誤路徑
+│   │   ├── 04-api.md                  使用者、角色、權限的 API；反提權規則
+│   │   ├── 05-bootstrap.md            權限目錄與系統角色的種子、第一位 super-admin、災難復原
+│   │   ├── 06-resource-grants.md      資源授權：資料夾層級（等級、繼承、擁有者規則；關係圖上的模型）
+│   │   ├── 07-groups.md               群組：巢狀成員、群組持有角色、反提權、資料夾授權給群組
+│   │   └── 08-explain.md              授權的說明：有效權限的來源、資料夾存取的路徑、遮蔽規則
+│   │
 │   ├── frontend/
 │   │   ├── README.md
 │   │   ├── 01-architecture.md         分層（app / core / features / apis / components / shared / plugins）
@@ -132,18 +143,8 @@ docs/
 │       ├── 16-notification-event.md   事件管理：事件目錄、租戶層的開關、個人的通知設定
 │       ├── 17-webhook.md              Webhook：對外事件的目錄、訂閱、投遞與重試、簽章、SSRF 防護（core/http/outbound）
 │       ├── 18-tag.md                  標籤：標籤組與資源類型的登記、指派、篩選、清理
-│       └── 19-announcement.md         公告：受眾、立即與排程發送、撤回、讀全文
-│
-├── rbac/
-│   ├── 01-domain-model.md             實體、ER 圖、不變條件、關係圖的組成與模型
-│   ├── 02-permission-catalog.md       權限清單（resource × action）、權限依賴樹（§9）
-│   ├── 03-flows.md                    登入、授權檢查、角色指派、權限變更生效
-│   ├── 04-api-spec.md                 RBAC 相關 API 規格
-│   ├── 05-seed-and-bootstrap.md       預設角色與系統初始化
-│   ├── 06-approval.md                 審批：請求 → 核准 → 套用；使用者註冊
-│   ├── 07-resource-grants.md          資源授權：資料夾層級（等級、繼承、擁有者規則；關係圖上的模型）
-│   ├── 08-groups.md                   群組：巢狀成員、群組持有角色、反提權、資料夾授權給群組
-│   └── 09-explain.md                  授權的說明：有效權限的來源、資料夾存取的路徑、遮蔽規則
+│       ├── 19-announcement.md         公告：受眾、立即與排程發送、撤回、讀全文
+│       └── 20-approval.md             審批：請求 → 核准 → 套用；類型 handler；使用者註冊、資料夾存取申請
 │
 ├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）
@@ -167,7 +168,7 @@ docs/
 - 權限一律寫成 `resource:action`（例如 `role:update`）。
 - 使用者故事格式：**「作為 …，我希望 …，以便 …」** ＋ Given / When / Then。
 - 任何「為什麼不選 X」的判斷寫進該規格最後的「設計決策」章節（見本節最後一條），不要散落在規格內文。
-- 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計、`rbac/` 講領域規格、
+- 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計（身分與權限的規則在 `architecture/iam/`）、
   `coding-standards/` 講寫程式規則。新文件依此歸位。
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
@@ -193,6 +194,6 @@ docs/
 
 權限相關的變更額外必須同步：
 
-- `docs/rbac/02-permission-catalog.md`（權限清單）
+- `docs/architecture/iam/02-permission-catalog.md`（權限清單）
 - `apps/api/src/db/seeds/permissions.ts`（權限種子資料）
 - 前端 `features/<name>/permission.ts`（頁面權限註冊）

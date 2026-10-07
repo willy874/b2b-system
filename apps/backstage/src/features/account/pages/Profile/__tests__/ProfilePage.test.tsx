@@ -136,7 +136,7 @@ describe('ProfilePage 的變更密碼', () => {
   });
 });
 
-describe('ProfilePage 的有效權限（docs/rbac/01-domain-model.md §9 G4b）', () => {
+describe('ProfilePage 的有效權限（docs/architecture/iam/01-model.md §9 G4b）', () => {
   it('不需要任何權限：展開才以自己的 id 查，讀不到的節點顯示種類', async () => {
     renderRoute(routes, '/profile', []);
     fireEvent.click(await screen.findByTestId('profile-permission-sources-show'));

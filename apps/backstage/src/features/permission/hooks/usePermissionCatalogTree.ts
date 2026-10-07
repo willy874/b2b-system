@@ -37,7 +37,7 @@ export interface PermissionDetail {
 }
 
 /**
- * 權限目錄的樹狀圖（唯讀，docs/rbac/02-permission-catalog.md §9）：
+ * 權限目錄的樹狀圖（唯讀，docs/architecture/iam/02-permission-catalog.md §9）：
  * 版面與角色的技能樹相同；節點以「你持有／未持有」著色，滑過強調前置路徑，點選在說明面板顯示詳細資訊。
  * 篩選只決定畫哪些節點；點選被篩掉的權限（從說明面板的關係跳過去）仍顯示它的說明。
  */

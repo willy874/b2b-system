@@ -31,7 +31,7 @@ import type { GrantLevel } from './file-grant.levels';
 const SUBJECT_SEARCH_LIMIT = 20;
 
 /**
- * 資料夾授權的管理（docs/rbac/07-resource-grants.md §6）：清單、新增／變更、移除、候選對象。
+ * 資料夾授權的管理（docs/architecture/iam/06-resource-grants.md §6）：清單、新增／變更、移除、候選對象。
  * 需要在該資料夾 `share`；授予或移除的等級受反提權限制（§6.1）。
  * 寫入與稽核在同一個交易、交易後推 `fileFolder update`（能力旗標跟著變）。
  */

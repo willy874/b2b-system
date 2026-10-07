@@ -74,7 +74,7 @@ async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
   return error instanceof AppException ? error.code : undefined;
 }
 
-describe('FileFolderAccessApprovalHandler（docs/rbac/06-approval.md §7）', () => {
+describe('FileFolderAccessApprovalHandler（docs/architecture/backend/20-approval.md §7）', () => {
   it('審核權限是資源層級的：requiredPermissions 為空', () => {
     expect(setup({}).handler.requiredPermissions()).toEqual([]);
   });
@@ -121,7 +121,7 @@ describe('FileFolderAccessApprovalHandler（docs/rbac/06-approval.md §7）', ()
   });
 });
 
-describe('FileFolderAccessApprovalHandler 的前置檢查與副作用（docs/rbac/07-resource-grants.md §6.5）', () => {
+describe('FileFolderAccessApprovalHandler 的前置檢查與副作用（docs/architecture/iam/06-resource-grants.md §6.5）', () => {
   it('模組初始化時向審批模組註冊自己', () => {
     const { handler, approvals } = setup({});
     handler.onModuleInit();

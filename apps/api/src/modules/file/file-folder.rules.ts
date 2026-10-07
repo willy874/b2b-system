@@ -45,7 +45,7 @@ export class FileFolderRules {
     }
   }
 
-  /** 存在（否則 404）而且讀得到（鎖住的資料夾 → 403，docs/rbac/07-resource-grants.md §5.1）。 */
+  /** 存在（否則 404）而且讀得到（鎖住的資料夾 → 403，docs/architecture/iam/06-resource-grants.md §5.1）。 */
   async getReadableOrThrow(
     ctx: FileAccessContext,
     actor: AuthUser,
@@ -53,7 +53,7 @@ export class FileFolderRules {
     tx: DbOrTx,
   ): Promise<FileFolderRow> {
     const folder = await this.getOrThrow(id, tx);
-    // 看不到的（別人的個人資料夾）當作不存在：不以 403 洩漏 id 存在（docs/rbac/07-resource-grants.md §12.1）
+    // 看不到的（別人的個人資料夾）當作不存在：不以 403 洩漏 id 存在（docs/architecture/iam/06-resource-grants.md §12.1）
     if (!ctx.exists(id)) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId: id });
     if (!ctx.can('read', id)) throw await this.access.deny(actor, 'read', 'fileFolder', id);
     return folder;
@@ -83,7 +83,7 @@ export class FileFolderRules {
   }
 
   /**
-   * 刪除一個資料夾子樹的附加條件（docs/rbac/07-resource-grants.md §4）；刪除與還原共用。
+   * 刪除一個資料夾子樹的附加條件（docs/architecture/iam/06-resource-grants.md §4）；刪除與還原共用。
    * 能刪除這個資料夾本身（`can_remove`）之外：只靠擁有者規則時子樹裡不能有別人的東西；子樹裡的私人資料夾
    * （中斷繼承）要另外有刪除權。
    */
@@ -144,7 +144,7 @@ export function folderParentDeleted(parentId: string): AppException {
   });
 }
 
-/** 系統資料夾（共用、私人、個人）不能改名、移動、刪除（docs/rbac/07-resource-grants.md §12）。 */
+/** 系統資料夾（共用、私人、個人）不能改名、移動、刪除（docs/architecture/iam/06-resource-grants.md §12）。 */
 export function assertNotSystem(folders: readonly FileFolderRow[]): void {
   const system = folders.filter((folder) => folder.kind !== 'normal');
   if (system.length > 0) {

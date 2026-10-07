@@ -6,7 +6,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * 系統設定與稽核日誌（docs/architecture/backend/12-settings.md、docs/rbac/02-permission-catalog.md 的 auditLog）：
+ * 系統設定與稽核日誌（docs/architecture/backend/12-settings.md、docs/architecture/iam/02-permission-catalog.md 的 auditLog）：
  * super-admin 改設定 → 重新整理後仍是新值、標示「已覆寫」→ 稽核日誌看得到這次變更與差異。
  * 改的是 `trash.retentionDays`（只影響每天的清除排程），其他並行的 spec 不受影響；結束時還原成預設值。
  */

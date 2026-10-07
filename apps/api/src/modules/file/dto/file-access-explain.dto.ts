@@ -8,7 +8,7 @@ import { FILE_ACTIONS } from '../file-access.context';
 export const FileAccessExplainQuerySchema = z.object({ userId: z.string().uuid() });
 export type FileAccessExplainQueryDto = z.infer<typeof FileAccessExplainQuerySchema>;
 
-/** 某位使用者在這個資料夾上的每個動作：能不能做，能的話經由哪條路徑（docs/rbac/01-domain-model.md §9.3 D14 遮蔽）。 */
+/** 某位使用者在這個資料夾上的每個動作：能不能做，能的話經由哪條路徑（docs/architecture/iam/01-model.md §9.3 D14 遮蔽）。 */
 export const FileAccessExplainSchema = defineSchema(
   'FileAccessExplain',
   z.object({
