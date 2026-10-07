@@ -1,7 +1,7 @@
+import { render } from '@b2b-system/mail-components';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ReactElement } from 'react';
-import { render } from 'react-email';
 
 import type { Env } from '../config';
 import { currentTenant, TenantDirectory } from '../tenant';

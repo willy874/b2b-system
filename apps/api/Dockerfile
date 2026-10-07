@@ -10,15 +10,18 @@ RUN npm pkg delete scripts.prepare
 COPY packages/api-sdk/package.json packages/api-sdk/
 COPY packages/realtime/package.json packages/realtime/
 COPY packages/error-codes/package.json packages/error-codes/
+COPY packages/mail-components/package.json packages/mail-components/
 COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --filter @b2b-system/api...
 
 COPY packages ./packages
 COPY apps/api ./apps/api
 RUN pnpm --filter @b2b-system/error-codes build \
+ && pnpm --filter @b2b-system/mail-components build \
  && pnpm --filter @b2b-system/realtime build \
  && pnpm --filter @b2b-system/api build
-# pnpm 10 的 deploy 預設要求 inject-workspace-packages；--legacy 會把 workspace 依賴（realtime、error-codes）實體複製進去
+# pnpm 10 的 deploy 預設要求 inject-workspace-packages；--legacy 會把 workspace 依賴（realtime、error-codes、mail-components）實體複製進去。
+# mail-components 只帶打包好的 dist/index.cjs：react-email 與它的 CLI 依賴是 devDependencies，不進映像
 RUN pnpm --filter @b2b-system/api deploy --prod --legacy /app
 
 # ── runtime ──────────────────────────────────────────────────────────

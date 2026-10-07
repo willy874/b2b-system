@@ -1,5 +1,14 @@
+import {
+  Body,
+  Container,
+  Head,
+  Hr,
+  Html,
+  Preview,
+  Section,
+  Text,
+} from '@b2b-system/mail-components';
 import type { ReactNode } from 'react';
-import { Body, Container, Head, Hr, Html, Preview, Section, Text } from 'react-email';
 
 import type { MailLocale } from './mail-locale';
 

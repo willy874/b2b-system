@@ -1,0 +1,34 @@
+{
+  "name": "@b2b-system/mail-components",
+  "version": "0.0.0",
+  "private": true,
+  "description": "api 的郵件範本用到的 React Email 元件與 render，建置時打包成單一檔案（不帶 react-email 的 CLI 依賴）",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b && esbuild src/index.ts --bundle --platform=node --format=cjs --target=node24 --external:react --external:react-dom --log-level=warning --outfile=dist/index.cjs",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-email": "^6.11.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}

@@ -1,4 +1,4 @@
-import { Button, Text } from 'react-email';
+import { Button, Text } from '@b2b-system/mail-components';
 
 import { MAIL_FOOTER, MAIL_STYLES, MailLayout } from '@/core/mail';
 import type { MailContent, MailLocale } from '@/core/mail';

@@ -1,6 +1,6 @@
+import { render, Text } from '@b2b-system/mail-components';
 import { createElement } from 'react';
 import type { ComponentProps } from 'react';
-import { render, Text } from 'react-email';
 import { describe, expect, it } from 'vitest';
 
 import { MailLayout } from '../mail-layout';

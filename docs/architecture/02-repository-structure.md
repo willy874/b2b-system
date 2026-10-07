@@ -23,6 +23,7 @@ b2b-system/
 │   ├── api-sdk/                 @b2b-system/api-sdk — 由 OpenAPI 產生：主入口是型別與 URL builder（零 zod），`/schemas` 是 zod schema 與 fetch client
 │   ├── realtime/                @b2b-system/realtime — Socket.io 事件合約（事件名稱、zod schema、型別）
 │   ├── error-codes/             @b2b-system/error-codes — ErrorCode 清單與 → HTTP status 對照（api 與前端共用；需 build）
+│   ├── mail-components/         @b2b-system/mail-components — api 郵件範本用的 React Email 元件與 render（建置時打包，不帶 CLI 依賴；需 build）
 │   ├── web-shared/              @b2b-system/web-shared — 前端的純工具：store、channel、context、registry、storage、date…（只有原始碼）
 │   ├── ui/                      @b2b-system/ui — 設計系統元件、Design Token、圖示、共用的 UnoCSS 設定與 Storybook（只有原始碼）
 │   └── web-core/                @b2b-system/web-core — 兩個前端共用的機制層：AppContext、session、client、快取、權限機制、i18n、外框、測試輔助（只有原始碼）
