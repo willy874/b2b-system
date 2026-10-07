@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { hashPassword } from '@/modules/credential/password';
+import { PasswordHasher } from '@/modules/credential/password-hasher';
 
 import { PlatformAdminService } from '../platform-admin.service';
 
@@ -10,6 +11,17 @@ let passwordHash: string;
 beforeAll(async () => {
   passwordHash = await hashPassword(PASSWORD);
 });
+
+function passwordHasher(): PasswordHasher {
+  const values: Record<string, number> = {
+    ARGON2_MEMORY_COST: 19_456,
+    ARGON2_TIME_COST: 2,
+    ARGON2_MAX_CONCURRENCY: 4,
+    ARGON2_MAX_QUEUE: 32,
+    ARGON2_QUEUE_TIMEOUT_MS: 3000,
+  };
+  return new PasswordHasher({ get: (key: string) => values[key] } as never);
+}
 
 function setup(admin: { status: string; lockedUntil: Date | null }) {
   const row = { id: 'a1', email: 'ops@example.com', passwordHash, ...admin };
@@ -25,6 +37,7 @@ function setup(admin: { status: string; lockedUntil: Date | null }) {
     {
       get: () => 5,
     } as never,
+    passwordHasher(),
   );
   return { service, repo, audit };
 }

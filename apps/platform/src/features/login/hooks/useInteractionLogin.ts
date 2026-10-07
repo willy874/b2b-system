@@ -61,8 +61,9 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
   // 被限流（429）且伺服器給了等待秒數：倒數到可以再試為止，期間停用送出鈕——一直重送只會讓限流持續更久
   const retry = useCountdown();
   const fail = (error: unknown) => {
+    // 限流（429）與密碼驗證的名額已滿（503 AUTH_BUSY）都帶建議的等待秒數
     const retryAfter =
-      isAppError(error) && error.code === ErrorCodes.RATE_LIMITED
+      isAppError(error) && (error.code === ErrorCodes.RATE_LIMITED || error.code === 'AUTH_BUSY')
         ? error.retryAfterSeconds
         : undefined;
     setFailure({
@@ -76,7 +77,13 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
   // 限流的訊息跟著倒數更新；數完就收起來，不留一句「請在 0 秒後再試」
   const formError: InteractionFormError | undefined = failure?.retryable
     ? retry.remaining > 0
-      ? { code: failure.code, message: t('error.rate_limited_retry', { count: retry.remaining }) }
+      ? {
+          code: failure.code,
+          message:
+            failure.code === 'AUTH_BUSY'
+              ? failure.message
+              : t('error.rate_limited_retry', { count: retry.remaining }),
+        }
       : undefined
     : failure && { code: failure.code, message: failure.message };
   // 網址帶來的錯誤只顯示到使用者再試一次為止

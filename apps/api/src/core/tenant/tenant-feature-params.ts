@@ -8,14 +8,17 @@ import type { TenantFeature } from './tenant-features';
  * 目錄在 `core/`：`TenantContext` 與背景工作佇列都要讀，`core/` 不 import `modules/`。參數的效果由各擁有者模組實作，
  * 對照見 docs/architecture/05-tenancy.md §5.3。
  */
-export const TENANT_FEATURE_PARAM_UNITS = ['days', 'megabytes', 'count'] as const;
+export const TENANT_FEATURE_PARAM_UNITS = ['days', 'megabytes', 'count', 'perMinute'] as const;
 export type TenantFeatureParamUnit = (typeof TENANT_FEATURE_PARAM_UNITS)[number];
 
 interface TenantFeatureParamBase<K extends string> {
   /** `<feature>.<名稱>`（camelCase）；上線後不改名：改名等於新參數，既有的覆寫會遺失。 */
   key: K;
-  /** 所屬的 feature：管理頁把參數列在這個 feature 的那一列下。feature 關閉時參數照常生效（D5）。 */
-  feature: TenantFeature;
+  /**
+   * 所屬的 feature：管理頁把參數列在這個 feature 的那一列下。feature 關閉時參數照常生效（D5）。
+   * `null`：不屬於任何可開關的 feature、對整個租戶生效的限制（例：登入的速率），管理頁另列一區。
+   */
+  feature: TenantFeature | null;
 }
 
 export interface TenantIntegerParam<K extends string = string> extends TenantFeatureParamBase<K> {
@@ -99,6 +102,20 @@ export const WEBHOOK_MAX_URLS_PARAM = {
 } as const satisfies TenantIntegerParam;
 
 /**
+ * 這個租戶的登入類請求（`@RateLimit('auth')`）每分鐘合計的上限（docs/architecture/backend/03-api-conventions.md §8）：
+ * 一個租戶被攻擊時，攻擊流量（與它消耗的 argon2）不拖垮其他租戶的登入。沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT`。
+ */
+export const RATE_LIMIT_AUTH_PER_MINUTE_PARAM = {
+  key: 'rateLimit.authPerMinute',
+  feature: null,
+  type: 'integer',
+  defaultValue: 1200,
+  min: 60,
+  max: 100_000,
+  unit: 'perMinute',
+} as const satisfies TenantIntegerParam;
+
+/**
  * 參數的目錄（D1），依 `TENANT_FEATURES` 的順序排。新增一列即可：DTO、平台管理頁、讀取時的驗證都讀這份清單。
  * key 以 `TenantFeatureParamKey` 出現在 OpenAPI，前端以 `satisfies Record<TenantFeatureParamKey, …>` 對照語系。
  */
@@ -108,6 +125,8 @@ export const TENANT_FEATURE_PARAMS = [
   JOB_MAX_CONCURRENCY_PARAM,
   IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM,
   WEBHOOK_MAX_URLS_PARAM,
+  // 不屬於 feature 的租戶限制（feature: null）
+  RATE_LIMIT_AUTH_PER_MINUTE_PARAM,
 ] as const satisfies readonly TenantFeatureParamDefinition[];
 
 export type TenantFeatureParamKey = (typeof TENANT_FEATURE_PARAMS)[number]['key'];

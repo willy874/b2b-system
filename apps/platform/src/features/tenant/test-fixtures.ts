@@ -9,6 +9,7 @@ export const FEATURE_PARAMS: readonly TenantFeatureParam[] = [
   integerParam('job.maxConcurrency', 'job', 10, 1, 100, 'count'),
   integerParam('identityProvider.maxProviders', 'identityProvider', 10, 1, 100, 'count'),
   integerParam('webhook.maxUrls', 'webhook', 1, 1, 500, 'count'),
+  integerParam('rateLimit.authPerMinute', null, 1200, 60, 100_000, 'perMinute'),
 ];
 
 function integerParam(

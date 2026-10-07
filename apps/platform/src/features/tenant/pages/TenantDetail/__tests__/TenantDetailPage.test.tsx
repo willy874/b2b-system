@@ -527,6 +527,13 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
       ).toBeNull();
     });
 
+    it('不屬於 feature 的參數列在「全租戶的限制」，不在任何 feature 底下', async () => {
+      renderPage(tenantFixture(), ALL, FEATURES_TAB);
+      const row = await paramRow('rateLimit.authPerMinute');
+      expect(row.closest('[data-testid="tenant-feature"]')).toBeNull();
+      expect(row.closest('[data-testid="tenant-limits"]')).not.toBeNull();
+    });
+
     it('有 tenant:update → 編輯後只送出這一個參數', async () => {
       const tenant = tenantFixture();
       update.mockResolvedValue(tenant);

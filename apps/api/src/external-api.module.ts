@@ -27,6 +27,7 @@ import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.g
 import { ExternalRateLimitGuard } from './modules/api-token/external/external-rate-limit.guard';
 import { TokenTenantMiddleware } from './modules/api-token/external/token-tenant.middleware';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
@@ -78,6 +79,8 @@ import { UserModule } from './modules/user/user.module';
     PermissionModule,
     AuditLogModule,
     PlatformAdminModule,
+    // argon2 的並行上限：全程序共用一個（docs/architecture/backend/04-auth.md §4.1）
+    PasswordHasherModule,
 
     // 對外的功能（對外的 controller 在各模組的 external/）
     ApiTokenModule,

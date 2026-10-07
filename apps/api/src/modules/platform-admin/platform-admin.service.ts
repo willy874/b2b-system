@@ -7,7 +7,7 @@ import type { ErrorCode } from '@/core/errors';
 import type { PlatformAdminRow } from '@/db/platform/schema';
 import { PLATFORM_ROLE_PERMISSIONS } from '@/db/seeds/platform-permissions';
 import type { PlatformPermissionKey } from '@/db/seeds/platform-permissions';
-import { verifyAgainstDummy, verifyPassword } from '@/modules/credential/password';
+import { PasswordHasher } from '@/modules/credential/password-hasher';
 
 import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';
@@ -22,13 +22,14 @@ export class PlatformAdminService {
     private readonly repo: PlatformAdminRepository,
     private readonly audit: PlatformAuditService,
     private readonly config: ConfigService<Env, true>,
+    private readonly passwords: PasswordHasher,
   ) {}
 
   async verifyCredentials(dto: { email: string; password: string }): Promise<PlatformAdminRow> {
     const admin = await this.repo.findByEmail(dto.email);
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
     if (!admin) {
-      await verifyAgainstDummy(dto.password);
+      await this.passwords.verifyAgainstDummy(dto.password);
       await this.audit.recordSafely({
         action: 'platformAuth.login.failure',
         resourceType: 'platformAuth',
@@ -42,8 +43,8 @@ export class PlatformAdminService {
 
     // 狀態與鎖定在驗證密碼之後才判斷：不知道密碼的人只看得到 AUTH_INVALID_CREDENTIALS（不能藉此列舉帳號）
     const ok = admin.passwordHash
-      ? await verifyPassword(admin.passwordHash, dto.password)
-      : await verifyAgainstDummy(dto.password);
+      ? await this.passwords.verify(admin.passwordHash, dto.password)
+      : await this.passwords.verifyAgainstDummy(dto.password);
     const lockedUntil =
       admin.lockedUntil && admin.lockedUntil.getTime() > Date.now() ? admin.lockedUntil : null;
     if (!ok) {

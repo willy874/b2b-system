@@ -328,6 +328,20 @@ const OPTIONS = {
 
 參數依 OWASP Password Storage Cheat Sheet 的 Argon2id 建議值。
 
+所有雜湊與驗證（登入、帳號不存在時的假驗證、變更／重設／啟用密碼，租戶與平台管理者）都經過 `PasswordHasher`
+（`modules/credential/password-hasher.ts`，全域的 `PasswordHasherModule`；平台管理者原本用預設參數，現在一樣讀 `ARGON2_*`）：
+
+| 環境變數 | 預設 | 作用 |
+| --- | --- | --- |
+| `ARGON2_MAX_CONCURRENCY` | 4 | 同時執行的上限（每程序）。4 個約佔 76 MiB，留下 `UV_THREADPOOL_SIZE` 的其餘執行緒給 sharp、DNS、檔案 I/O |
+| `ARGON2_MAX_QUEUE` | 32 | 等待中的上限；超過立刻回 `503 AUTH_BUSY` |
+| `ARGON2_QUEUE_TIMEOUT_MS` | 3000 | 等待逾時；超過回 `503 AUTH_BUSY` |
+
+argon2 跑在 libuv 的 threadpool，沒有上限時一陣登入尖峰會佔滿整個 threadpool，連帶拖慢影像處理與 webhook 的 DNS 查詢。
+名額滿了快速失敗（`503 AUTH_BUSY`，`details.retryAfterSeconds = 2` 與 `Retry-After`），登入頁倒數後再試；單次驗證約 25–60 ms，
+4 個並行仍有每秒數十次的吞吐，遠高於每租戶的登入上限（[`03-api-conventions.md`](./03-api-conventions.md) §8）。
+限制器（`core/concurrency/limiter.ts`：FIFO、等待上限、逾時）與影像處理的並行上限共用。上限是 **每程序**，多實例時不共享。
+
 ### 4.2 強度要求
 
 ```ts

@@ -15,6 +15,7 @@ const ENV = {
   ANONYMOUS_RATE_LIMIT: 3000,
   AUTH_RATE_LIMIT: 10,
   AUTH_IP_RATE_LIMIT: 300,
+  AUTH_TENANT_RATE_LIMIT: 1200,
   REFRESH_RATE_LIMIT: 30,
   REFRESH_IP_RATE_LIMIT: 2000,
 };
@@ -26,6 +27,7 @@ describe('rateLimitSettingsOf', () => {
       anonymous: 3000,
       authAccount: 10,
       authIp: 300,
+      authTenant: 1200,
       authMailAccount: 3,
       authMailIp: 30,
       refreshSession: 30,
@@ -73,6 +75,24 @@ describe('rateLimitBucketsOf', () => {
       { name: 'auth-ip', key: '1.1.1.1', limit: 300 },
       { name: 'auth-principal', key: 't:a:u', limit: 10 },
     ]);
+  });
+
+  it('登入類帶租戶：多一個租戶合計的桶；租戶有覆寫時用它的上限；寄信類不加', () => {
+    expect(
+      rateLimitBucketsOf('auth', { ip: '1.1.1.1', tenant: { key: 'tenant-a' } }, settings),
+    ).toContainEqual({ name: 'auth-tenant', key: 'tenant-a', limit: 1200 });
+    expect(
+      rateLimitBucketsOf(
+        'auth',
+        { ip: '1.1.1.1', tenant: { key: 'tenant-a', authLimit: 300 } },
+        settings,
+      ),
+    ).toContainEqual({ name: 'auth-tenant', key: 'tenant-a', limit: 300 });
+    expect(
+      rateLimitBucketsOf('authMail', { ip: '1.1.1.1', tenant: { key: 'tenant-a' } }, settings).map(
+        (bucket) => bucket.name,
+      ),
+    ).not.toContain('auth-tenant');
   });
 
   it('續期：IP 桶 ＋ session 桶', () => {

@@ -200,9 +200,10 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 
 決定與理由見 §13。§5.1 的 `features` 決定租戶 **有沒有** 某個 feature；
 參數決定開了之後 **能用多少**。由平台管理者在租戶詳情（apps/platform 的「啟用的功能」，每個 feature 那一列下）設定，租戶管理者不能改。
+不屬於任何可開關的 feature、對整個租戶生效的限制（`feature: null`，key 以 `rateLimit.` 開頭）列在同一頁的「全租戶的限制」。
 
-**目錄**（`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`）：每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`、
-`type`（`integer` ｜ `string`）、`defaultValue`、整數的 `min`／`max`／`unit`（`days`、`megabytes`、`count`）、字串的 `maxLength`／`pattern`。
+**目錄**（`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`）：每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`（或 `null`）、
+`type`（`integer` ｜ `string`）、`defaultValue`、整數的 `min`／`max`／`unit`（`days`、`megabytes`、`count`、`perMinute`）、字串的 `maxLength`／`pattern`。
 key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 
 | key | 預設 | 範圍 | 效果 | 出處 |
@@ -212,6 +213,7 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 | `job.maxConcurrency` | 10 | 1–100 | 租戶所有種類的背景工作同時執行的筆數；超過的放回佇列 | [`backend/10-jobs.md`](./backend/10-jobs.md) §3 |
 | `identityProvider.maxProviders` | 10 | 1–100 | 外部 IdP 連線數上限，超過回 `409 IDENTITY_PROVIDER_LIMIT_REACHED` | [`04-sso.md`](./04-sso.md) |
 | `webhook.maxUrls` | 1 | 1–500 | 整個租戶的 webhook 訂閱裡不重複的網址數；超過而且變多回 `409 WEBHOOK_URL_LIMIT_REACHED` | [`backend/17-webhook.md`](./backend/17-webhook.md) §2.1 |
+| `rateLimit.authPerMinute`（全租戶） | 1200（次／分） | 60–100000 | 這個租戶登入類請求每分鐘合計的上限，超過回 `429 RATE_LIMITED`；沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT` | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 |
 
 - **讀取**：`tenantFeatureParam(PARAM)` 取目前租戶的生效值（沒有租戶脈絡時拋 `TENANT_NOT_FOUND`）；以 id 找租戶的地方（背景工作佇列）
   用 `resolveTenantFeatureParam(PARAM, record.featureParams)`；腳本讀 `ScriptTenant.featureParams`。覆寫值隨租戶登記載入

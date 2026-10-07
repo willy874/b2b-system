@@ -111,6 +111,7 @@ export const TENANT_FEATURE_PARAM_LABEL_KEY = {
   'job.maxConcurrency': 'tenant.param.job.maxConcurrency',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProviders',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrls',
+  'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinute',
 } as const satisfies Record<TenantFeatureParamKey, string>;
 
 export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
@@ -119,6 +120,7 @@ export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
   'job.maxConcurrency': 'tenant.param.job.maxConcurrencyDescription',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProvidersDescription',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrlsDescription',
+  'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinuteDescription',
 } as const satisfies Record<TenantFeatureParamKey, string>;
 
 /** 值帶單位的寫法（`{{value}}`）。 */
@@ -126,4 +128,5 @@ export const TENANT_FEATURE_PARAM_UNIT_KEY = {
   days: 'tenant.param.unit.days',
   megabytes: 'tenant.param.unit.megabytes',
   count: 'tenant.param.unit.count',
+  perMinute: 'tenant.param.unit.perMinute',
 } as const satisfies Record<NonNullable<TenantFeatureParam['unit']>, string>;

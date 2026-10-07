@@ -13,7 +13,7 @@ function setup(
   const service = new AuthService(
     {} as never, // db
     config as never,
-    {} as never, // jwt
+    {} as never, // tokenKeys
     users as never,
     {} as never, // refreshTokens
     {} as never, // authTokens
@@ -28,6 +28,7 @@ function setup(
     {} as never, // settings
     {} as never, // flags
     {} as never, // accessTokens
+    { verifyAgainstDummy: vi.fn(async () => false) } as never, // passwords
   );
   return { service, jobs, users, identityProviders };
 }

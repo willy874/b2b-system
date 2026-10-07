@@ -47,6 +47,8 @@ export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
   const update = useUpdateTenantMutation();
   const queryClient = useQueryClient();
   const enabled = new Set(tenant.features);
+  /** 不屬於任何 feature、對整個租戶生效的參數（例：登入的速率上限）：另列一區。 */
+  const tenantWide = tenant.featureParams.filter((param) => param.feature === null);
   /** 正在查影響的 feature：查詢期間停用開關，避免連點開出兩個確認框。 */
   const [checking, setChecking] = useState<TenantFeature>();
   const [editing, setEditing] = useState<TenantFeatureParam>();
@@ -125,6 +127,15 @@ export function TenantFeatures({ tenant, canUpdate }: TenantFeaturesProps) {
           </li>
         ))}
       </ul>
+      {tenantWide.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1" data-testid="tenant-limits">
+          <h3 className="m-0 text-sm font-medium">{t('tenant.limits.title')}</h3>
+          <p className="m-0 text-sm text-[var(--color-fg-muted)]">
+            {t('tenant.limits.description')}
+          </p>
+          <FeatureParamList params={tenantWide} canUpdate={canUpdate} onEdit={setEditing} />
+        </div>
+      )}
       <TenantFeatureParamDialog
         tenant={tenant}
         param={editing}

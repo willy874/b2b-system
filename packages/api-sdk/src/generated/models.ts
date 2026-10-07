@@ -785,18 +785,19 @@ export const TenantFeatureParamKey = {
   'job.maxConcurrency': 'job.maxConcurrency',
   'identityProvider.maxProviders': 'identityProvider.maxProviders',
   'webhook.maxUrls': 'webhook.maxUrls',
+  'rateLimit.authPerMinute': 'rateLimit.authPerMinute',
 } as const;
 export type TenantFeatureParamKey =
   (typeof TenantFeatureParamKey)[keyof typeof TenantFeatureParamKey];
 
 export interface TenantFeatureParam {
   key: TenantFeatureParamKey;
-  feature: TenantFeature;
+  feature: TenantFeature | null;
   type: 'integer' | 'string';
   value: number | string;
   defaultValue: number | string;
   overridden: boolean;
-  unit: ('days' | 'megabytes' | 'count') | null;
+  unit: ('days' | 'megabytes' | 'count' | 'perMinute') | null;
   min: number | null;
   max: number | null;
   maxLength: number | null;

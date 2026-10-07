@@ -157,7 +157,8 @@
       "unit": {
         "days": "{{value}} days",
         "megabytes": "{{value}} MB",
-        "count": "{{value}}"
+        "count": "{{value}}",
+        "perMinute": "{{value}} per minute"
       },
       "overridden": "Customized",
       "edit": "Edit {{name}}",
@@ -166,12 +167,20 @@
       "rangeHint": "{{min}}–{{max}}, default {{default}}",
       "defaultHint": "Default {{default}}",
       "rangeError": "Enter a whole number from {{min}} to {{max}}",
-      "success": "Parameter updated"
+      "success": "Parameter updated",
+      "rateLimit": {
+        "authPerMinute": "Sign-in rate limit",
+        "authPerMinuteDescription": "Maximum sign-in requests per minute across the whole tenant. Under attack, only this tenant gets \"too many requests\"; other tenants are unaffected."
+      }
     },
     "tab": {
       "overview": "Overview",
       "features": "Features",
       "flags": "Feature flags"
+    },
+    "limits": {
+      "title": "Tenant-wide limits",
+      "description": "Limits that apply to the whole tenant rather than a specific feature."
     }
   }
 }

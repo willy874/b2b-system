@@ -65,7 +65,8 @@ export const TenantFeatureParamSchema = defineSchema(
   'TenantFeatureParam',
   z.object({
     key: TenantFeatureParamKeySchema,
-    feature: TenantFeatureSchema,
+    /** `null`：不屬於任何 feature、對整個租戶生效的限制。 */
+    feature: TenantFeatureSchema.nullable(),
     type: z.enum(['integer', 'string']),
     value: z.union([z.number(), z.string()]),
     defaultValue: z.union([z.number(), z.string()]),

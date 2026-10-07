@@ -2,6 +2,7 @@ import { ChangeKind } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { createLimiter } from '@/core/concurrency';
 import type { Env } from '@/core/config';
 import { deriveKey } from '@/core/crypto';
 import { AppException } from '@/core/errors';
@@ -65,7 +66,7 @@ export class FileImageService {
   private readonly urlKeys: { current: Buffer; legacy: Buffer | undefined };
   private readonly urlTtl: number;
   private readonly baseUrl: string;
-  private readonly limit = createLimiter(IMAGE_VARIANT_CONCURRENCY);
+  private readonly limit = createLimiter({ concurrency: IMAGE_VARIANT_CONCURRENCY });
   /** 排入或執行中的變體產生（檔案 id → 工作）：同一個檔案不重複產生。 */
   private readonly generating = new Map<string, Promise<void>>();
   /** 依請求轉出其他格式（物件 key → 工作）：同時多個請求只轉一次。 */
@@ -399,22 +400,4 @@ function withExtension(name: string, format: ImageFormat): string {
   const dot = name.lastIndexOf('.');
   const base = dot > 0 ? name.slice(0, dot) : name;
   return `${base}.${FORMAT_EXTENSION[format]}`;
-}
-
-/** 最多同時執行 `concurrency` 個工作；其餘依序等待。 */
-function createLimiter(concurrency: number) {
-  let active = 0;
-  const waiting: (() => void)[] = [];
-  return async <T>(task: () => Promise<T>): Promise<T> => {
-    if (active < concurrency) active += 1;
-    else await new Promise<void>((resolve) => waiting.push(resolve));
-    try {
-      return await task();
-    } finally {
-      // 名額直接交給下一個等待者，不讓新來的插隊
-      const next = waiting.shift();
-      if (next) next();
-      else active -= 1;
-    }
-  };
 }

@@ -290,6 +290,9 @@ API_PUBLIC_BASE_URL=/api         # 瀏覽器看到的 api 位址；影像 API �
 
 ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
+ARGON2_MAX_CONCURRENCY=4           # argon2 同時執行的上限（每程序）
+ARGON2_MAX_QUEUE=32                # 等待名額的上限；超過回 503 AUTH_BUSY
+ARGON2_QUEUE_TIMEOUT_MS=3000       # 等待名額的逾時；超過回 503 AUTH_BUSY
 
 PERMISSION_CACHE_TTL=60            # 秒
 # 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）：已登入以使用者計、未登入以 IP 計
@@ -299,6 +302,7 @@ EXTERNAL_RATE_LIMIT=600            # 對外 API：每把 API token 每分鐘
 EXTERNAL_AUTH_FAILURE_RATE_LIMIT=30  # 對外 API：每個 IP 每分鐘驗證失敗的次數，超過回 429
 AUTH_RATE_LIMIT=10                 # 登入類端點：每個「帳號 ＋ IP」（E2E 需調高）；忘記密碼、註冊是 1/3
 AUTH_IP_RATE_LIMIT=300             # 登入類端點：每個 IP；忘記密碼、註冊是 1/10
+AUTH_TENANT_RATE_LIMIT=1200        # 登入類端點：每個租戶合計（平台的登入另一個桶）；租戶可由平台以 feature 參數覆寫
 REFRESH_RATE_LIMIT=30              # /auth/refresh：每個 refresh session
 REFRESH_IP_RATE_LIMIT=2000         # /auth/refresh：每個 IP
 REALTIME_HANDSHAKES_PER_IP=1200    # WebSocket handshake：每個 IP

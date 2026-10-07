@@ -32,14 +32,8 @@ import {
   PASSWORD_MIN_LENGTH_SETTING,
   REGISTRATION_ENABLED_SETTING,
 } from '@/modules/credential/auth.settings';
-import type { Argon2Options } from '@/modules/credential/password';
-import {
-  containsContext,
-  emailContext,
-  hashPassword,
-  verifyAgainstDummy,
-  verifyPassword,
-} from '@/modules/credential/password';
+import { containsContext, emailContext } from '@/modules/credential/password';
+import { PasswordHasher } from '@/modules/credential/password-hasher';
 import { secondsUntil } from '@/modules/credential/refresh-rotation';
 import type { RequestMeta } from '@/modules/credential/refresh-rotation';
 import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
@@ -106,6 +100,7 @@ export class AuthService {
     private readonly settings: SettingService,
     private readonly flags: FeatureFlagService,
     private readonly accessTokens: AccessTokenVerifier,
+    private readonly passwords: PasswordHasher,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -138,7 +133,7 @@ export class AuthService {
 
     // 時序攻擊防護：帳號不存在時也跑一次 argon2
     if (!user) {
-      await verifyAgainstDummy(dto.password, this.argon2Options());
+      await this.passwords.verifyAgainstDummy(dto.password);
       await this.audit.recordSafely({
         action: 'auth.login.failure',
         resourceType: 'auth',
@@ -153,8 +148,8 @@ export class AuthService {
     // 狀態與鎖定都在驗證密碼 **之後** 才判斷：不知道密碼的人一律只看到 AUTH_INVALID_CREDENTIALS，
     // 無法藉「鎖定中／未啟用／停用」的不同錯誤碼列舉帳號（docs/architecture/backend/04-auth.md §3.2）
     const ok = user.passwordHash
-      ? await verifyPassword(user.passwordHash, dto.password)
-      : await verifyAgainstDummy(dto.password, this.argon2Options());
+      ? await this.passwords.verify(user.passwordHash, dto.password)
+      : await this.passwords.verifyAgainstDummy(dto.password);
     const lockedUntil = isLoginLocked(user) ? user.lockedUntil : null;
     if (!ok) {
       if (lockedUntil) await this.recordLockedAttempt(user);
@@ -474,7 +469,7 @@ export class AuthService {
     const user = await this.users.findAccountById(actor.id);
     if (!user?.passwordHash) throw new AppException('AUTH_PASSWORD_MISMATCH');
 
-    const ok = await verifyPassword(user.passwordHash, dto.currentPassword);
+    const ok = await this.passwords.verify(user.passwordHash, dto.currentPassword);
     if (!ok) {
       // 拿到 access token 的人（例：XSS）可以在這裡猜目前的密碼：失敗要查得到（限流見 @RateLimit('auth')）
       await this.audit.recordSafely({
@@ -696,13 +691,6 @@ export class AuthService {
   }
 
   private hash(password: string): Promise<string> {
-    return hashPassword(password, this.argon2Options());
-  }
-
-  private argon2Options(): Argon2Options {
-    return {
-      memoryCost: this.config.get('ARGON2_MEMORY_COST', { infer: true }),
-      timeCost: this.config.get('ARGON2_TIME_COST', { infer: true }),
-    };
+    return this.passwords.hash(password);
   }
 }

@@ -9424,7 +9424,8 @@
           "auditLog.hotRetentionDays",
           "job.maxConcurrency",
           "identityProvider.maxProviders",
-          "webhook.maxUrls"
+          "webhook.maxUrls",
+          "rateLimit.authPerMinute"
         ]
       },
       "TenantFeatureParam": {
@@ -9434,7 +9435,12 @@
             "$ref": "#/components/schemas/TenantFeatureParamKey"
           },
           "feature": {
-            "$ref": "#/components/schemas/TenantFeature"
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantFeature"
+              }
+            ]
           },
           "type": {
             "type": "string",
@@ -9466,7 +9472,7 @@
           "unit": {
             "nullable": true,
             "type": "string",
-            "enum": ["days", "megabytes", "count"]
+            "enum": ["days", "megabytes", "count", "perMinute"]
           },
           "min": {
             "nullable": true,

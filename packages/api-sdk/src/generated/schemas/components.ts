@@ -1387,16 +1387,17 @@ export const TenantFeatureParamKeySchema = z.enum([
   'job.maxConcurrency',
   'identityProvider.maxProviders',
   'webhook.maxUrls',
+  'rateLimit.authPerMinute',
 ]) satisfies z.ZodType<TenantFeatureParamKey>;
 
 export const TenantFeatureParamSchema = z.object({
   key: TenantFeatureParamKeySchema,
-  feature: TenantFeatureSchema,
+  feature: TenantFeatureSchema.nullable(),
   type: z.enum(['integer', 'string']),
   value: z.union([z.number(), z.string()]),
   defaultValue: z.union([z.number(), z.string()]),
   overridden: z.boolean(),
-  unit: z.enum(['days', 'megabytes', 'count']).nullable(),
+  unit: z.enum(['days', 'megabytes', 'count', 'perMinute']).nullable(),
   min: z.number().nullable(),
   max: z.number().nullable(),
   maxLength: z.number().nullable(),

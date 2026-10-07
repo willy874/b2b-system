@@ -10,7 +10,11 @@ import type { Request, Response } from 'express';
 
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
-import { currentTenant } from '@/core/tenant';
+import {
+  currentTenant,
+  RATE_LIMIT_AUTH_PER_MINUTE_PARAM,
+  resolveTenantFeatureParam,
+} from '@/core/tenant';
 
 import { AccessTokenVerifier } from '../auth/access-token.verifier';
 import {
@@ -52,6 +56,7 @@ export class RateLimitGuard implements CanActivate {
       ANONYMOUS_RATE_LIMIT: config.get('ANONYMOUS_RATE_LIMIT', { infer: true }),
       AUTH_RATE_LIMIT: config.get('AUTH_RATE_LIMIT', { infer: true }),
       AUTH_IP_RATE_LIMIT: config.get('AUTH_IP_RATE_LIMIT', { infer: true }),
+      AUTH_TENANT_RATE_LIMIT: config.get('AUTH_TENANT_RATE_LIMIT', { infer: true }),
       REFRESH_RATE_LIMIT: config.get('REFRESH_RATE_LIMIT', { infer: true }),
       REFRESH_IP_RATE_LIMIT: config.get('REFRESH_IP_RATE_LIMIT', { infer: true }),
     });
@@ -98,9 +103,20 @@ export class RateLimitGuard implements CanActivate {
     switch (policy) {
       case 'auth':
       case 'authMail': {
-        const account = accountOf(req.body, currentTenant()?.id ?? 'platform');
-        // 已登入的帳號類端點（改密碼）沒有 email：以身分計（rate-limit.ts 的 rateLimitBucketsOf）
-        return { ip, account, principal: account ? undefined : await this.principalOf(req) };
+        const tenant = currentTenant();
+        const account = accountOf(req.body, tenant?.id ?? 'platform');
+        // 租戶的覆寫（feature 參數）；沒覆寫時用環境變數的預設，平台的登入只用環境變數
+        const authLimit =
+          tenant && RATE_LIMIT_AUTH_PER_MINUTE_PARAM.key in tenant.featureParams
+            ? resolveTenantFeatureParam(RATE_LIMIT_AUTH_PER_MINUTE_PARAM, tenant.featureParams)
+            : undefined;
+        return {
+          ip,
+          account,
+          // 已登入的帳號類端點（改密碼）沒有 email：以身分計（rate-limit.ts 的 rateLimitBucketsOf）
+          principal: account ? undefined : await this.principalOf(req),
+          tenant: { key: tenant?.id ?? 'platform', authLimit },
+        };
       }
       case 'refresh': {
         const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;

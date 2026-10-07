@@ -415,6 +415,7 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       'job.maxConcurrency',
       'identityProvider.maxProviders',
       'webhook.maxUrls',
+      'rateLimit.authPerMinute',
     ]);
     expect(params.every((param) => !param.overridden)).toBe(true);
   });

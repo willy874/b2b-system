@@ -34,6 +34,7 @@ import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthzExplainModule } from './modules/authz-explain/authz-explain.module';
+import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
@@ -88,6 +89,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     AuditLogModule,
     // 平台管理者與平台稽核：全域 PermissionsGuard 判斷平台端點的權限（docs/architecture/05-tenancy.md §10.2 D5）
     PlatformAdminModule,
+    // argon2 的並行上限：全程序共用一個（docs/architecture/backend/04-auth.md §4.1）
+    PasswordHasherModule,
     // 平台管理者的站內通知；由租戶佈建、管理者管理發出（docs/architecture/backend/15-notification.md §6.2）
     PlatformNotificationModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）

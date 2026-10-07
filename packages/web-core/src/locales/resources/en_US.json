@@ -154,6 +154,7 @@
     "AUTH_SSO_LINK_NOT_ALLOWED": "This account cannot be linked to external sign-in automatically. Sign in with your password or ask an administrator for help.",
     "AUTH_SSO_PROVIDER_UNAVAILABLE": "This sign-in option is unavailable right now. Try again later or use another option.",
     "AUTH_SSO_EXTERNAL_FAILED": "External sign-in did not complete. Please sign in again.",
+    "AUTH_BUSY": "Too many sign-ins right now. Please try again shortly.",
     "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
     "AUTHZ_ESCALATION": "You cannot grant permissions you do not hold.",
     "AUTHZ_SELF_MODIFY": "You cannot perform this action on your own account.",

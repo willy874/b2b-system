@@ -140,6 +140,15 @@ export const EnvSchema = z.object({
 
   ARGON2_MEMORY_COST: z.coerce.number().int().default(19456),
   ARGON2_TIME_COST: z.coerce.number().int().default(2),
+  /**
+   * argon2 同時執行的上限（每程序；docs/architecture/backend/04-auth.md §4.1）。4 個並行約佔 76 MiB，
+   * 留下 threadpool（`UV_THREADPOOL_SIZE`）的其餘執行緒給 sharp、DNS、檔案 I/O。
+   */
+  ARGON2_MAX_CONCURRENCY: z.coerce.number().int().min(1).default(4),
+  /** 等待 argon2 名額的上限；超過立刻回 `503 AUTH_BUSY`。 */
+  ARGON2_MAX_QUEUE: z.coerce.number().int().min(0).default(32),
+  /** 等待 argon2 名額的逾時（毫秒）；超過回 `503 AUTH_BUSY`。 */
+  ARGON2_QUEUE_TIMEOUT_MS: z.coerce.number().int().min(1).default(3000),
 
   PERMISSION_CACHE_TTL: z.coerce.number().int().default(60),
   /**
@@ -161,6 +170,11 @@ export const EnvSchema = z.object({
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(10),
   /** 登入類端點：每個 IP（整間公司的早上登入尖峰）。忘記密碼、註冊是它的 1/10。 */
   AUTH_IP_RATE_LIMIT: z.coerce.number().int().min(1).default(300),
+  /**
+   * 登入類端點：每個租戶（與平台的登入各自一個桶）每分鐘合計。一個租戶被攻擊時不拖垮其他租戶的登入；
+   * 1200 足以應付 1000 人的公司集中在上班時間登入。平台可以對個別租戶以 feature 參數 `rateLimit.authPerMinute` 覆寫。
+   */
+  AUTH_TENANT_RATE_LIMIT: z.coerce.number().int().min(1).default(1200),
   /** `/auth/refresh`：每個 refresh session。 */
   REFRESH_RATE_LIMIT: z.coerce.number().int().min(1).default(30),
   /** `/auth/refresh`：每個 IP（1000 人每 5 分鐘續期一次 ≈ 200 次 / 分，重啟後會集中）。 */

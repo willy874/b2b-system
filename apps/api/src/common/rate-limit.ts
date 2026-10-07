@@ -36,6 +36,8 @@ export interface RateLimitSettings {
   authAccount: number;
   /** `auth`：每個 IP。 */
   authIp: number;
+  /** `auth`：每個租戶（或平台）合計；租戶有覆寫時以 `RateLimitSubject.tenant.authLimit` 為準。 */
+  authTenant: number;
   /** `authMail`：每個「帳號 ＋ IP」。 */
   authMailAccount: number;
   /** `authMail`：每個 IP。 */
@@ -52,6 +54,7 @@ export type RateLimitEnv = Pick<
   | 'ANONYMOUS_RATE_LIMIT'
   | 'AUTH_RATE_LIMIT'
   | 'AUTH_IP_RATE_LIMIT'
+  | 'AUTH_TENANT_RATE_LIMIT'
   | 'REFRESH_RATE_LIMIT'
   | 'REFRESH_IP_RATE_LIMIT'
 >;
@@ -69,6 +72,7 @@ export function rateLimitSettingsOf(env: RateLimitEnv): RateLimitSettings {
     anonymous: env.ANONYMOUS_RATE_LIMIT,
     authAccount,
     authIp,
+    authTenant: env.AUTH_TENANT_RATE_LIMIT,
     authMailAccount,
     authMailIp: Math.max(authMailAccount, Math.floor(authIp / 10)),
     refreshSession: env.REFRESH_RATE_LIMIT,
@@ -86,6 +90,8 @@ export interface RateLimitSubject {
   account?: string;
   /** 續期端點的 refresh cookie 雜湊。 */
   session?: string;
+  /** 登入類端點的租戶桶：`key` 是租戶 id 或 `platform`；`authLimit` 是租戶覆寫的上限（沒覆寫時不帶）。 */
+  tenant?: { key: string; authLimit?: number };
 }
 
 export interface RateLimitBucket {
@@ -101,7 +107,7 @@ export function rateLimitBucketsOf(
   subject: RateLimitSubject,
   settings: RateLimitSettings,
 ): RateLimitBucket[] {
-  const { ip, account, session, principal } = subject;
+  const { ip, account, session, principal, tenant } = subject;
   switch (policy) {
     case 'auth':
     case 'authMail': {
@@ -115,6 +121,14 @@ export function rateLimitBucketsOf(
       } else if (principal) {
         // 已登入、body 沒有 email（改密碼）：以身分計，不分 IP——拿到 token 的人換 IP 也一樣受限
         buckets.push({ name: `${policy}-principal`, key: principal, limit: accountLimit });
+      }
+      // 每個租戶合計（只算登入，不算寄信類）：一個租戶被攻擊時，其他租戶的登入不受影響
+      if (policy === 'auth' && tenant) {
+        buckets.push({
+          name: 'auth-tenant',
+          key: tenant.key,
+          limit: tenant.authLimit ?? settings.authTenant,
+        });
       }
       return buckets;
     }

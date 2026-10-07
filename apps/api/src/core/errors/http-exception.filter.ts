@@ -59,6 +59,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const requestId = getRequestId();
 
     if (exception instanceof AppException) {
+      // 429／503 帶建議的等待秒數時一併送標準的 Retry-After（限流、AUTH_BUSY、登入的漸進延遲）
+      const retryAfter = exception.details?.retryAfterSeconds;
+      if (typeof retryAfter === 'number' && retryAfter > 0 && !res.headersSent) {
+        res.setHeader('Retry-After', String(Math.ceil(retryAfter)));
+      }
       this.send(res, statusOf(exception.code), {
         error: {
           code: exception.code,
