@@ -17,6 +17,11 @@
 
 ## 範圍
 
+2026-10-07 已做完的小項目（`feat/hardening-quick-wins`，修法寫在各正式文件）：外部 IdP 改用綁定位址的 `pinnedFetch`（[`04-sso.md`](../architecture/04-sso.md) §3.3）、
+SecLists top 10k 常見密碼（[`backend/04-auth.md`](../architecture/backend/04-auth.md) §4.2）、註冊不收密碼與審批頁的「尚未驗證」（[`rbac/06-approval.md`](../rbac/06-approval.md) §5）、
+nginx 存取日誌不記 query string（[`01-system.md`](../architecture/01-system.md) §4）、登入被限流時倒數（[`04-sso.md`](../architecture/04-sso.md) §3.2）、
+時區偏好的後端驗證（[`backend/12-settings.md`](../architecture/backend/12-settings.md) §5.3）、username 精確比對、檔名與資料夾名稱轉 NFC（[`backend/09-file.md`](../architecture/backend/09-file.md) §4）。
+
 ### 資安
 
 | 項目 | 現況 | 為什麼延後 |
@@ -24,10 +29,6 @@
 | 每個租戶各自的 token 簽章金鑰（`kid`、非對稱簽章） | 租戶與平台的 access token 共用一把 HS256 `JWT_SECRET`（production 已拒絕範例值與低熵金鑰），租戶之間靠 `tid` 與網域比對隔離；OIDC 的 ID token 已是 RS256（`OIDC_JWKS`） | 影響 token 格式與所有驗證端，需另開設計（設計決策） |
 | 使用者上傳檔案改由獨立、不帶 cookie 的網域提供 | `/storage` 與租戶同源，以 `sandbox` CSP、`nosniff`、非白名單一律 attachment 防護 | 需要部署與 DNS 決策 |
 | 「帳號 × IP」計數與漸進延遲、每租戶上限、IP 白名單 | 登入以「email＋IP」與 IP 各一個桶，另有帳號鎖定 | 屬速率限制的第二版設計；共享計數見 multi-instance |
-| 外部 IdP 的 DNS rebinding | production 對 discovery／token／userinfo／JWKS 先查 DNS 擋私有位址（`core/http/outbound.ts` 的 `assertPublicDestination`） | 查詢與連線之間仍有空窗。綁定已驗證位址的 `pinnedLookup` 已隨 webhook 做好（[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §5），但 openid-client 的 `customFetch` 只接受 fetch，要另外接一個帶 `lookup` 的 dispatcher |
-| 完整的常見密碼清單（top-10k） | `common-passwords.ts` 收錄取自常見清單的字根，以字根、前後綴、替換字元、鍵盤序列判斷 | 需要引入外部資料檔 |
-| 註冊表單拿掉密碼欄；審批頁標示「email 尚未驗證」 | 核准後寄啟用信才啟用，申請時的密碼先存著 | apps/platform 與審批頁的 UX 調整 |
-| nginx 的 `log_format` 不記 query string | api 的請求日誌（網址與 `query` 物件）已遮掉 `code`／`state`／`ticket`／`token` 等憑證參數（`core/logger/redact.ts`） | 部署設定，與存取日誌的需求一起決定 |
 
 ### 容量
 
@@ -50,11 +51,8 @@
 | 項目 | 現況 | 為什麼延後 |
 | --- | --- | --- |
 | 列表「選取全部符合的 N 筆」 | 批次只能選本頁 | 需要後端依條件批次處理的 API |
-| 登入被 429 時倒數並停用送出鈕 | 訊息已帶「請在 N 秒後再試」 | 前端表單的小改動 |
 | 平台關閉租戶的外部 IdP（feature `identityProvider`）前顯示受影響的連線數 | 確認對話框已說明影響 | 平台端點要以 `Tenancy.run` 進入那個租戶查連線，是單一租戶的查詢，但目前平台端點都不進租戶 DB |
 | session 結束時保留表單草稿 | 未儲存提醒降低損失 | 需要草稿儲存機制 |
-| 後端驗證 timezone（`Intl.supportedValuesOf`） | 前端遇到不合法時區退回預設 | 小改動，與偏好設定的後端驗證一起做 |
-| `assertUsernameAvailable` 改精確查詢；資料夾名稱 NFC 正規化 | 唯一索引兜底，結果正確 | 小改動 |
 
 ## 開放問題
 
@@ -64,13 +62,14 @@
    **結論**：依規格不可改。`RoleService.update` 對 super-admin 回 `403 ROLE_SUPER_ADMIN_IMMUTABLE`（前端本來就不提供編輯）。**已實作**（`b399ef2`）；規格見 `rbac/01-domain-model.md` §5。
 2. `identityProvider:*` 要不要只給 super-admin？目前 seed 給 `admin` 全部四個、`auditor` 給 `read`；
    自動連結已限定連線登記的網域，並排除持有 `member` 以外系統角色的帳號。
+   **結論**（2026-10-07）：維持現狀。admin 本來就能管理使用者，設定外部 IdP 不會多拿到權限；自動連結的限制已擋住接管系統角色帳號的路徑。
 3. 上傳檔案的獨立網域要用每個租戶一個子網域，還是全平台共用一個？
    **結論**：全平台共用一個（例 `files.example.com`）。檔案網域上沒有 cookie 與登入狀態，內容只能以 presigned 網址讀取，每租戶子網域的隔離效果相同，卻要萬用 DNS 與萬用憑證；
    設定支援 `{tenantCode}` 佔位符，部署端日後要改成每租戶子網域不必改程式。上傳維持同源，只有下載與預覽搬到檔案網域。見「設計決策」§2 D1、D2。
 
 ## 設計決策
 
-> 2026-10-07 起草，**待 review**。只涵蓋上方「範圍」中需要另外設計的十個項目；其他小項目（常見密碼清單、log_format、429 倒數等）照表上的描述直接做，不另寫決策。
+> 2026-10-07 起草，**待 review**。只涵蓋上方「範圍」中需要另外設計的十個項目；不需要設計的小項目已直接做完（見「範圍」開頭）。
 > 每項以「本文件 設計決策 §N Dn」引用（例：`hardening-followups.md 設計決策 §3 D6`）；歸檔時各項搬到「歸檔去向」列出的規格，`D` 編號在新規格接續編號並註明出處。
 > 標示「**待使用者決定**」的地方附上建議；其餘的決定若 review 沒有異議就照做。
 
