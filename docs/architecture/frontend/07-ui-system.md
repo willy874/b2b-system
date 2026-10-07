@@ -570,6 +570,10 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | `JsonEditor/jsonDocument.ts` | 在語法樹上找路徑的位置（`findPathRange`）、依深度摺疊（`foldAtDepth`）、摺疊摘要（`describeFold`） |
 | `JsonEditor/validation.ts` | `JsonValidator` 型別與 `createJsonSchemaValidator`；ajv 在 `ajvValidator.ts`，第一次驗證時才動態載入 |
 | `JsonEditor/useJsonValidation.ts` | 值改變時重新驗證（`useDeferredValue`），丟掉過期的非同步結果 |
+| `JsonEditor/jsonEditorExtensions.ts` | CodeMirror 的 extension 組裝：解析與驗證結果的 `StateField`、linter、摺疊、搜尋面板（交給 React 渲染）、快捷鍵；元件以 `EditorBridge` 把最新的文案與 callback 交給它 |
+| `JsonEditor/jsonSearch.ts` | 搜尋列用的查詢：所有符合的位置、目前是第幾筆、選取並捲到某一筆 |
+| `JsonEditor/jsonEditorLabels.ts`、`jsonEditorToolbar.tsx` | 文案的鍵與預設值；工具列的按鈕 |
+| `JsonEditor/JsonEditor.tsx` | 元件：props、受控的值與 CodeMirror 狀態的同步、搜尋列與驗證清單 |
 
 **Bundle**：CodeMirror（用到的部分）約 120 KB gzip，只被 `JsonEditor` 匯入；沒有頁面用到 `JsonEditor` 時，正式建置不含 CodeMirror。
 預覽一律用 `JsonViewer`。
