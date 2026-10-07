@@ -3,88 +3,30 @@ import { Dialog } from '@b2b-system/ui/Dialog';
 import { Field } from '@b2b-system/ui/Field';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
-import { useErrorMessage, useServerFieldErrors } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
-import { firstError, zodFormValidator } from '@b2b-system/web-shared/hooks';
-import { useForm, useStore } from '@tanstack/react-form';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { useId, useState } from 'react';
-import { z } from 'zod';
-
-import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
+import { firstError } from '@b2b-system/web-shared/hooks';
+import { useId } from 'react';
 
 import { UserRoleSelect } from '../../components/UserRoleSelect';
-import { useUserCreateMutation } from '../../hooks/useUserMutations';
-import { useUserPermission } from '../../hooks/useUserPermission';
-import { UserCreateRoute, UserListRoute } from '../../routes';
+import { useUserCreateForm } from '../../hooks/useUserCreateForm';
 
-const Schema = z.object({
-  email: z.string().trim().email().max(255),
-  displayName: z.string().trim().min(1).max(100),
-  // 選填：空字串或 3–50 字元。不用 union（錯誤訊息只會是「輸入的值不正確」）
-  username: z
-    .string()
-    .trim()
-    .max(50)
-    .refine((value) => value === '' || value.length >= 3, {
-      params: { messageKey: 'validation.usernameTooShort' },
-    }),
-});
-
-const FIELDS = ['email', 'displayName', 'username', 'roleIds'] as const;
-
+/** 新增使用者（對話框即路由）：流程在 `useUserCreateForm`，這裡只渲染。 */
 export default function UserCreatePage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const search = UserCreateRoute.useSearch();
-  const permission = useUserPermission();
-  const createUser = useUserCreateMutation();
-  const toMessage = useErrorMessage();
   const formId = useId();
-  const [roleIds, setRoleIds] = useState<string[]>([]);
-  const [formError, setFormError] = useState<string>();
-  // Email／使用者名稱重複、後端欄位驗證失敗 → 顯示在該欄位下方並聚焦
   const {
-    errors: serverErrors,
-    report: reportServerError,
-    clear: clearServerError,
-    reset: resetServerErrors,
+    form,
+    canAssignRole,
+    roleOptions,
+    roleIds,
+    setRoleIds,
+    serverErrors,
+    clearServerError,
     formRef,
-  } = useServerFieldErrors(FIELDS, {
-    USER_EMAIL_DUPLICATE: 'email',
-    USER_USERNAME_DUPLICATE: 'username',
-  });
-
-  const roles = useQuery({ ...getRoleOptionsQueryOptions(), enabled: permission.canReadRoles });
-  const close = (options?: { ignoreBlocker?: boolean }) =>
-    void navigate({ to: UserListRoute.to, search, ...options });
-
-  const form = useForm({
-    defaultValues: { email: '', displayName: '', username: '' },
-    validators: { onSubmit: zodFormValidator(Schema) },
-    onSubmit: async ({ value }) => {
-      setFormError(undefined);
-      resetServerErrors();
-      try {
-        await createUser.mutateAsync({
-          params: {
-            email: value.email,
-            displayName: value.displayName,
-            username: value.username || undefined,
-            roleIds,
-          },
-        });
-      } catch (error) {
-        if (!reportServerError(error)) setFormError(toMessage(error));
-        return;
-      }
-      close({ ignoreBlocker: true });
-    },
-  });
-  const isFormDirty = useStore(form.store, (state) => state.isDirty);
-  useUnsavedChangesGuard(isFormDirty || roleIds.length > 0);
+    formError,
+    submitting,
+    close,
+  } = useUserCreateForm();
 
   return (
     <Dialog
@@ -103,7 +45,7 @@ export default function UserCreatePage() {
             variant="primary"
             type="submit"
             form={formId}
-            loading={createUser.isPending}
+            loading={submitting}
             data-testid="user-create-submit"
           >
             {t('common.create')}
@@ -186,15 +128,12 @@ export default function UserCreatePage() {
           )}
         </form.Field>
 
-        {permission.canAssignRole && (
+        {canAssignRole && (
           <Field label={t('user.field.roles')} error={serverErrors.roleIds}>
             <UserRoleSelect
-              roles={roles.data?.items}
+              roles={roleOptions}
               value={roleIds}
-              onValueChange={(next) => {
-                clearServerError('roleIds');
-                setRoleIds(next);
-              }}
+              onValueChange={setRoleIds}
               invalid={Boolean(serverErrors.roleIds)}
               data-testid="user-role-select"
             />

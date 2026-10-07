@@ -1,9 +1,10 @@
 import type { FilterBarProps } from '@b2b-system/web-core/components';
+import { JOB_STATE_LABEL_KEY, JOB_STATES } from '@b2b-system/web-core/job';
+import type { JobQueueVM } from '@b2b-system/web-core/job';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
-import { JOB_STATE_LABEL_KEY, JOB_STATES, PLATFORM_TENANT_FILTER } from '../../constants';
+import { PLATFORM_TENANT_FILTER } from '../../constants';
 import type { JobSearchQuery } from '../../routes';
-import type { JobQueueVM } from './adapter';
 import type { useJobSearchFilter } from './useJobSearchFilter';
 
 /**

@@ -9,12 +9,7 @@ import {
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  ForbiddenPage,
-  isChunkLoadError,
-  PageFallback,
-  ROUTER_DEFAULT_COMPONENTS,
-} from '../ErrorPages';
+import { ForbiddenPage, PageFallback, ROUTER_DEFAULT_COMPONENTS } from '../ErrorPages';
 
 const failure = vi.hoisted(() => ({ error: undefined as Error | undefined }));
 
@@ -63,26 +58,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('isChunkLoadError（部署新版後舊 chunk 不見）', () => {
-  it.each([
-    'Failed to fetch dynamically imported module: https://auth.example.com/assets/Page-abc.js',
-    'error loading dynamically imported module',
-    'Importing a module script failed.',
-    'Unable to preload CSS for /assets/Page-abc.css',
-  ])('「%s」是 chunk 載入失敗', (message) => {
-    expect(isChunkLoadError(new TypeError(message))).toBe(true);
-  });
-
-  it('其他錯誤不是', () => {
-    expect(isChunkLoadError(new Error('boom'))).toBe(false);
-    expect(isChunkLoadError('Failed to fetch dynamically imported module')).toBe(false);
-  });
-});
-
+// 錯誤頁本身（含 isChunkLoadError）的行為在 web-core 的 ErrorPage.test.tsx；這裡驗 apps/platform 的接法
 describe('router 的預設 404 與錯誤頁', () => {
-  it('未知網址 → 本地化的 404，可以回首頁', async () => {
+  it('未知網址 → 本地化的 404（compact 版面），可以回首頁', async () => {
     const router = renderAt('/not-exist');
-    expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('not-found-page')).toHaveAttribute('data-variant', 'compact');
     fireEvent.click(screen.getByTestId('error-page-home'));
     expect(await screen.findByTestId('home')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');

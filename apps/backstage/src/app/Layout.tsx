@@ -1,12 +1,15 @@
 import { useHasSession } from '@b2b-system/web-core/auth';
-import { PageSkeleton } from '@b2b-system/web-core/components';
+import {
+  ForbiddenPage,
+  NotFoundPage,
+  PageSkeleton,
+  UnexpectedErrorPage,
+} from '@b2b-system/web-core/components';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useRouterState } from '@tanstack/react-router';
 import { Suspense } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
-// 不經 `@/core/components` 的 barrel（首屏；見 app/plugin.ts）
-import { ForbiddenPage, NotFoundPage, UnexpectedErrorPage } from '@/core/components/ErrorPage';
 import { useFeatureGate } from '@/core/feature';
 import { usePageAccess } from '@/core/permission';
 

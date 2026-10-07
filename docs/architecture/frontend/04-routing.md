@@ -252,19 +252,19 @@ router 若不分大小寫，這些網址會命中 `/user` 的頁面、守衛卻�
 ```
 
 `SessionWatcher` 由 app 的 `app/App.tsx` 掛上，參數是登入頁的路徑（backstage `/auth/login`、apps/platform `/login`）、
-`isPublic()` 與 `loginSearchAfterSessionEnd()`（`app/sessionRedirect.ts`）。導覽帶 `ignoreBlocker`（§2.1）：
+`isPublic()`（`app/sessionRedirect.ts`）；導向登入頁的參數由 web-core 的 `loginSearchAfterSessionEnd()` 組成，兩個 app 相同。導覽帶 `ignoreBlocker`（§2.1）：
 `endSession()` 常在表單的 state 還沒 commit 時同步觸發（改密碼成功後先清空欄位再結束 session），blocker 讀到的仍是 dirty。
 權限水合（`useSyncPermissions`）與 backstage 的 `useSyncFeatures` 不經過它，由 app 自己的 `ProfileSync` 元件呼叫。
 
 登入成功後讀 `search.redirect` 導回原本要去的頁面（含查詢字串）。`reason` 是 `endSession(reason)` 的原因，
-登入頁以 `features/auth/sessionEnd.ts` 對到說明（逾時、帳號停用、憑證重用、密碼已變更…；自己登出不帶）。
-自己觸發的結束（改密碼會撤銷所有 session）在送出請求前呼叫 `sessionStore.expectSessionEnd('password_changed')`：
+登入頁以 `features/auth/sessionEnd.ts` 對到說明（逾時、帳號停用、憑證重用、密碼已變更…；自己登出不帶）：原因的對照在 web-core 的 `sessionEndMessageKey`，app 只傳自己登入頁的三個語系鍵。
+自己觸發的結束（改密碼會撤銷所有 session）在送出請求前呼叫 `sessionStore.expectSessionEnd('password_changed')`（web-core 的 `useChangePasswordForm`；原因是 web-core 的 `PASSWORD_CHANGED_REASON`）：
 後端的 `session.revoked` 推播或其他請求的 `401 AUTH_TOKEN_STALE` 比回應先到時，原因仍是 `password_changed`；請求失敗就呼叫回傳的取消函式。
 
 ### 4.4 404、錯誤頁與載入中
 
 `app/plugin.ts` 的 `createRouter` 設定 `defaultNotFoundComponent: NotFoundPage`、`defaultErrorComponent: RouteErrorPage`、
-`defaultPendingComponent: PageSkeleton`（錯誤頁在 backstage 的 `core/components/ErrorPage`，`PageSkeleton` 在 `web-core/components`）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
+`defaultPendingComponent: PageSkeleton`（都在 `web-core/components`，兩個 app 共用；apps/platform 的 `app/ErrorPages.tsx` 以 `variant="compact"` 的版面接上，載入中改用 spinner）。部署新版後舊分頁 lazy 載入舊 chunk 失敗時，
 `RouteErrorPage` 提示「系統已更新」並提供重新整理；403／404 有「回首頁」與「返回上一頁」。
 權限水合失敗（`/auth/profile` 5xx、`TENANT_UNAVAILABLE`）時 Layout 顯示原因與重試，不停在骨架屏。
 
@@ -362,16 +362,17 @@ feature。
 ## 9. 側邊選單如何依權限過濾
 
 ```tsx
-// app/layouts/SidebarNav.tsx
-const TOP_ITEMS: NavItem[] = [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }];
+// app/layouts/navigation.ts：選單資料（只有 app 認識所有 feature）
+const NAV_TOP_ITEMS: SideNavItem[] = [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }];
 
-const MENU_GROUPS: NavGroup[] = [
+const NAV_GROUPS: SideNavGroup[] = [
   { key: "feature", labelKey: "menu.group.feature", items: [/* 檔案 */] },
   { key: "people", labelKey: "menu.group.people", items: [/* 使用者、角色、權限目錄 */] },
   { key: "system", labelKey: "menu.group.system", items: [/* 稽核日誌、審批、背景工作、外部 IdP */] },
 ];
 
-function useMenuGroups(groups: NavGroup[]) {
+// web-core/layout/SideNav.tsx：渲染與權限過濾，兩個 app 共用（由 DashboardShell 掛上）
+function useMenuGroups(groups: SideNavGroup[]) {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   return useMemo(
     () =>

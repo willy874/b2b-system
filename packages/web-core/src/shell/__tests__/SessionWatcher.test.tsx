@@ -24,14 +24,6 @@ import { SessionWatcher } from '../SessionWatcher';
 
 const LOGIN_PATH = '/login';
 const isPublic = (pathname: string) => pathname === LOGIN_PATH;
-const loginSearchAfterSessionEnd = (
-  reason: string,
-  location: { pathname: string; search: string },
-) => ({
-  signedOut: true,
-  reason: reason === 'logout' ? undefined : reason,
-  redirect: isPublic(location.pathname) ? undefined : `${location.pathname}${location.search}`,
-});
 
 /** 表單一直是 dirty 的頁面：任何離開的導覽都會先問「要放棄變更嗎？」。 */
 function DirtyForm() {
@@ -63,12 +55,7 @@ function renderApp(initialPath: string): AnyRouter {
   });
   render(
     <AllProviders>
-      <SessionWatcher
-        router={router}
-        loginPath={LOGIN_PATH}
-        isPublic={isPublic}
-        loginSearchAfterSessionEnd={loginSearchAfterSessionEnd}
-      />
+      <SessionWatcher router={router} loginPath={LOGIN_PATH} isPublic={isPublic} />
       <RouterProvider router={router} />
     </AllProviders>,
   );

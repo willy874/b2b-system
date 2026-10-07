@@ -244,7 +244,7 @@ production 下對外部 IdP 的每個請求都先解析主機名稱，解析到�
 | `notification` | `/notification` | 平台的站內通知；頂列的鈴鐺（[`backend/15-notification.md`](./backend/15-notification.md) §6.2） |
 | `tenant`、`platform-admin`、`audit-log`、`job`、`feature-flag` | `/tenant`（詳情 `/tenant/$id?tab=overview\|features\|flags`）、`/admin`、`/audit-log`、`/job`、`/feature-flag` | 平台管理：租戶、平台管理者、平台稽核、所有租戶的背景工作、試行開關（權限是平台的目錄，[`../rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8） |
 
-平台管理的頁面套用與 backstage 相同的外框（`app/layouts/DashboardLayout`：可收合的分組側欄、窄螢幕抽屜、頂列工具、帳號選單）
+平台管理的頁面套用與 backstage 相同的外框（web-core 的 `DashboardShell`，由 `app/layouts/DashboardLayout` 傳入選單與品牌：可收合的分組側欄、窄螢幕抽屜、頂列工具、帳號選單）
 與頁面寫法（列表用 `RichTable` 的搜尋、篩選、欄位設定與分頁；詳情用麵包屑與分頁）。登入、帳號流程與進入租戶的頁面不套外框。
 
 帳號流程的信中連結以 `PLATFORM_APP_URL` 開頭並帶 `?tenant=<代碼>`（`MailService.accountLink`，[`backend/11-mail.md`](./backend/11-mail.md)）。

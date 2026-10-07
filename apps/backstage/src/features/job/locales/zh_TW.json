@@ -2,55 +2,16 @@
   "job": {
     "title": "背景工作",
     "description": "伺服器在背景執行的工作：排程（稽核封存、檔案維護）與程式入列的工作。失敗會自動重試，重試用完後停在「失敗」，可在這裡手動重試。完成的工作保留 7 天。",
-    "expand": "展開",
-    "collapse": "收合",
-    "scheduledAt": "預定 {{time}}",
     "name": {
       "auditLogArchive": "稽核日誌封存",
       "fileMaintenance": "檔案維護",
       "tokenCleanup": "過期登入憑證清理"
     },
-    "queues": {
-      "title": "工作種類",
-      "cron": "排程：{{cron}}（UTC）",
-      "onDemand": "由程式入列",
-      "ready_other": "等待 {{count}}",
-      "deferred_other": "排定 {{count}}",
-      "active_other": "執行中 {{count}}",
-      "completed_other": "完成 {{count}}",
-      "failed_other": "失敗 {{count}}"
-    },
     "filter": {
       "allNames": "全部工作",
       "allStates": "全部狀態"
     },
-    "field": {
-      "createdAt": "建立時間",
-      "name": "工作",
-      "state": "狀態",
-      "retries": "重試次數",
-      "completedAt": "結束時間"
-    },
-    "state": {
-      "created": "等待中",
-      "retry": "等待重試",
-      "active": "執行中",
-      "completed": "完成",
-      "cancelled": "已取消",
-      "failed": "失敗"
-    },
-    "retry": {
-      "action": "重試",
-      "title": "重試這筆工作？",
-      "confirm": "「{{name}}」會重新排入佇列，由 worker 再執行一次。",
-      "success": "已重新排入"
-    },
     "detail": {
-      "title": "工作詳情",
-      "error": "失敗原因：{{message}}",
-      "data": "工作資料",
-      "output": "執行結果",
-      "noOutput": "尚無結果",
       "arraySummary_other": "{{count}} 項",
       "objectSummary_other": "{{count}} 個欄位"
     }

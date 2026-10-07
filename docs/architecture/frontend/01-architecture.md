@@ -78,11 +78,12 @@ export * from "@b2b-system/api-sdk";
 | `web-core/app`        | `AppContext` 型別、`createAppContext()`、React context bridge、跨 feature 的事件 |
 | `web-core/batch`      | 全域批次佇列：SharedWorker（不支援時 dedicated worker）逐筆排程、分頁以單筆 API 執行、Channel 廣播進度；`BatchAction` 型別、`registerBatchOperation`、進度條、AppHeader 面板、結束時的彈出（[07 §6.2](./07-ui-system.md)、[`frontend/07-ui-system.md`](07-ui-system.md) §13）；工作內並行、位元組進度、中止（[`frontend/12-file-manager.md`](12-file-manager.md) §14） |
 | `core/file`（backstage） | 檔案類型判斷（圖示）、檔案管理的擴充點：預覽解析器、檔案驗證器、縮圖產生器的註冊表（[12 §6](./12-file-manager.md)） |
+| `web-core/job`、`web-core/audit-log` | 背景工作與稽核紀錄列表的展示元件（`JobTable`、`AuditLogTable`…）與 view model；端點、adapter、明細的取得與 apps/platform 的租戶欄由 app 傳入 |
 | `web-core/auth`       | `SessionStore`：token 生命週期、跨分頁單飛續期、終止判定；SSO 的瀏覽器端（`sso.ts`） |
 | `web-core/cache`      | `queryClient` 實例、跨分頁失效廣播、store 持久化                    |
 | `web-core/client`     | `HttpContext` / `FetcherContext` / `defineFetcher` / 攔截器鏈       |
-| `web-core/components` | 機制性元件：`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，表頭放 `FilterBar` 與 `TableSettings` 兩個下拉面板） |
-| `core/components`（backstage） | 只有 backstage 用的：`ErrorPage`、`ApiToken`、`ExplainPath`、`Tag`、`VersionConflictAlert`。barrel（`@/core/components`）給 feature 的頁面用；首屏的 `app/` 從元件的資料夾匯入（`@/core/components/ErrorPage`），否則整個 barrel 連同 `Table`、`Select` 會進 entry chunk（🔒 `app/__tests__/entry-imports.test.ts`） |
+| `web-core/components` | 機制性元件：錯誤頁（`ErrorPage`、403／404、router 的預設錯誤頁）、`AuthShell`（登入等不套外框的頁面）、`ChangePasswordSection`（個人資料頁的變更密碼）、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable`（列表頁表格：`Table` ＋ `Pagination`，表頭放 `FilterBar` 與 `TableSettings` 兩個下拉面板） |
+| `core/components`（backstage） | 只有 backstage 用的：`ApiToken`、`ExplainPath`、`Tag`、`VersionConflictAlert`。barrel（`@/core/components`）給 feature 的頁面用；首屏的 `app/` 要用時從元件的資料夾匯入（`@/core/components/<元件>`），否則整個 barrel 連同 `Table`、`Select` 會進 entry chunk（🔒 `app/__tests__/entry-imports.test.ts`） |
 | `web-core/errors`     | 錯誤碼常數、`AppError` 型別、`ERROR_MESSAGE_KEY`、`useErrorMessage()` |
 | `web-core/locales`    | i18n scope 註冊與 route loader、共用字串（`locales/resources`）       |
 | `web-core/notify`     | `useToast()`：發 `GlobalEvents.TOAST_SHOW` 到 eventBus，由 `web-core/shell` 的 `ToastHost` 渲染 |

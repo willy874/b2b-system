@@ -4,7 +4,7 @@ import type { Language } from '@b2b-system/web-shared/constants';
 import type { LocaleImporter } from './i18n';
 
 /**
- * 這個 package 自己用到的字串（`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`）。
+ * 這個 package 自己用到的字串（`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`、`job` 與 `auditLog` 的共用部分）。
  * app 的全域語系包與它合併（`mergeLocaleImporters`），app 的同名鍵覆寫這裡的。
  */
 export const CORE_LOCALES: Record<Language, LocaleImporter> = {

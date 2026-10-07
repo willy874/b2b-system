@@ -1,10 +1,8 @@
-import { LOGOUT_INCOMPLETE, signOut } from '@b2b-system/web-core/auth';
+import { LOGOUT_INCOMPLETE, LOGOUT_REASON, signOut } from '@b2b-system/web-core/auth';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 
 import { getLogoutMutationOptions } from '@/apis/auth/logout/mutation';
-
-import { LOGOUT_REASON } from '../sessionEnd';
 
 /**
  * 登出：先結束前端、再撤銷後端（web-core 的 `signOut`，docs/architecture/frontend/09-state-and-storage.md §5.2）。

@@ -333,5 +333,75 @@
     "toggleSidebar": "側邊選單",
     "closeSidebar": "關閉側邊選單",
     "accountMenu": "帳號選單（{{name}}）"
+  },
+  "changePassword": {
+    "title": "變更密碼",
+    "hint": "變更密碼後，所有裝置都會被登出。",
+    "submit": "變更密碼",
+    "changed": "密碼已變更，請重新登入。",
+    "confirmTitle": "要變更密碼嗎？",
+    "lengthHint_other": "至少 {{min}} 個字元（目前 {{count}} 個）。",
+    "currentPassword": "目前密碼",
+    "newPassword": "新密碼",
+    "confirmPassword": "確認新密碼"
+  },
+  "job": {
+    "expand": "展開",
+    "collapse": "收合",
+    "scheduledAt": "預定 {{time}}",
+    "queues": {
+      "title": "工作種類",
+      "cron": "排程：{{cron}}（UTC）",
+      "onDemand": "由程式入列",
+      "ready_other": "等待 {{count}}",
+      "deferred_other": "排定 {{count}}",
+      "active_other": "執行中 {{count}}",
+      "completed_other": "完成 {{count}}",
+      "failed_other": "失敗 {{count}}"
+    },
+    "field": {
+      "createdAt": "建立時間",
+      "name": "工作",
+      "state": "狀態",
+      "retries": "重試次數",
+      "completedAt": "結束時間"
+    },
+    "state": {
+      "created": "等待中",
+      "retry": "等待重試",
+      "active": "執行中",
+      "completed": "完成",
+      "cancelled": "已取消",
+      "failed": "失敗"
+    },
+    "retry": {
+      "action": "重試",
+      "title": "重試這筆工作？",
+      "confirm": "「{{name}}」會重新排入佇列，由 worker 再執行一次。",
+      "success": "已重新排入"
+    },
+    "detail": {
+      "title": "工作詳情",
+      "error": "失敗原因：{{message}}",
+      "data": "工作資料",
+      "output": "執行結果",
+      "noOutput": "尚無結果"
+    }
+  },
+  "auditLog": {
+    "expand": "展開",
+    "collapse": "收合",
+    "highRisk": "高風險",
+    "field": {
+      "occurredAt": "時間",
+      "actor": "操作者",
+      "action": "動作",
+      "resource": "資源",
+      "result": "結果"
+    },
+    "result": {
+      "success": "成功",
+      "failure": "失敗"
+    }
   }
 }

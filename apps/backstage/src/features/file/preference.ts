@@ -82,7 +82,7 @@ function keepSortReference(
     : next;
 }
 
-interface FileViewPreferenceStore extends FileViewPreference {
+export interface FileViewPreferenceStore extends FileViewPreference {
   update: (patch: Partial<FileViewPreference>) => void;
 }
 

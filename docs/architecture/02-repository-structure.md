@@ -76,16 +76,16 @@ apps/backstage/src/
 │   ├── plugin.ts            建立 router，掛到 AppContext
 │   ├── features.ts          執行期啟用的 feature 清單
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
-│   ├── sessionRedirect.ts   登出、session 結束後要去哪
+│   ├── sessionRedirect.ts   不需要 session 的頁面（交給 web-core 的 SessionWatcher）
 │   ├── layouts/
-│   │   ├── DashboardLayout.tsx   側邊選單 ＋ 頂部列 ＋ Outlet（頂列工具在 @b2b-system/web-core/layout）
-│   │   ├── SidebarNav.tsx、headerTools.ts
+│   │   ├── DashboardLayout.tsx   把品牌、選單、帳號選單交給 web-core 的 DashboardShell（側欄、頂列、主內容）
+│   │   ├── navigation.ts、headerTools.ts   側欄與帳號選單的資料、頂列的內建工具
 │   │   ├── LanguageMenu.tsx      把切換交給 web-core 的 LanguageMenu（同步到帳號）
 │   │   └── index.ts
 │   └── locales/{en_US,zh_TW}.json   這個 app 專屬的全域字串（共用的在 web-core）
 │
 ├── core/                    app 的機制層（不認識任何 feature；共用的在 @b2b-system/web-core）
-│   ├── components/          只有 backstage 用的元件（ErrorPage、ApiToken、ExplainPath、Tag、VersionConflictAlert）
+│   ├── components/          只有 backstage 用的元件（ApiToken、ExplainPath、Tag、VersionConflictAlert）
 │   ├── feature/             執行期啟用 feature（docs/architecture/frontend/02-plugin-system.md §9）
 │   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
 │   ├── permission/          ★ 這個 app 的權限目錄（enums、resources），登記給 web-core；轉出 web-core 的權限機制

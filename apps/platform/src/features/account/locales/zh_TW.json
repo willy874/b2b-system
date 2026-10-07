@@ -7,14 +7,6 @@
       "effective": "我的權限",
       "effectiveHint": "平台管理者的權限只來自角色；要調整請找超級管理者換角色。"
     },
-    "password": {
-      "title": "變更密碼",
-      "hint": "變更密碼後，所有裝置都會被登出。",
-      "submit": "變更密碼",
-      "changed": "密碼已變更，請重新登入。",
-      "confirmTitle": "要變更密碼嗎？",
-      "lengthHint_other": "至少 {{min}} 個字元（目前 {{count}} 個）。"
-    },
     "preference": {
       "title": "偏好設定",
       "description": "這些設定只存在這個瀏覽器，不會同步到帳號。",
@@ -29,10 +21,7 @@
       "role": "角色",
       "locale": "語系",
       "timezone": "時區",
-      "currentPassword": "目前密碼",
-      "newPassword": "新密碼",
-      "theme": "主題",
-      "confirmPassword": "確認新密碼"
+      "theme": "主題"
     },
     "role": {
       "superAdmin": "超級管理者",

@@ -2,41 +2,16 @@ import { Button } from '@b2b-system/ui/Button';
 import { Field } from '@b2b-system/ui/Field';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
-import { getErrorMessageKey, isAppError, useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { firstError, zodFormValidator } from '@b2b-system/web-shared/hooks';
-import { useForm } from '@tanstack/react-form';
-import { useEffect, useRef, useState } from 'react';
-import { z } from 'zod';
+import { firstError } from '@b2b-system/web-shared/hooks';
 
 import { PasswordInput } from '../../components/PasswordInput';
 import { CLIENT_NAME_KEY } from '../../constants';
-import { useAccountPolicy } from '../../hooks/useAccountPolicy';
-import { useRequestedLocale } from '../../hooks/useRequestedLocale';
-import {
-  useSsoDiscovery,
-  useSsoInteraction,
-  useSsoInteractionAbortMutation,
-  useSsoInteractionLoginMutation,
-  useStartExternalLoginMutation,
-} from '../../hooks/useSsoInteraction';
+import { useInteractionLogin } from '../../hooks/useInteractionLogin';
 import { InteractionRoute } from '../../routes';
 import { AuthShell } from '../AuthShell';
-import { RestartLogin } from '../RestartLogin';
-
-/** 互動過期（登入頁放太久、重複使用）：只能從產品重新開始登入。 */
-const INTERACTION_EXPIRED = 'AUTH_SSO_INTERACTION_INVALID';
-
-function isInteractionExpired(error: unknown): boolean {
-  return isAppError(error) && error.code === INTERACTION_EXPIRED;
-}
-
-const EmailSchema = z.string().trim().min(1).email();
-
-const LoginFormSchema = z.object({
-  email: EmailSchema,
-  password: z.string().min(1),
-});
+import { InteractionFooter } from './components/InteractionFooter';
+import { InteractionInvalid } from './components/InteractionInvalid';
 
 /**
  * IdP 的登入互動頁（docs/architecture/04-sso.md §12）：產品把使用者導到 IdP，沒有 IdP session 時
@@ -44,114 +19,42 @@ const LoginFormSchema = z.object({
  * 所有產品的密碼登入都在這一頁（帳密檢查與 `POST /auth/login` 同一套）。
  *
  * email 網域有外部 IdP 連線時多一個「使用 X 登入」（D9）；網域只允許 SSO 時不顯示密碼欄。
- * 外部 IdP 登入失敗時 api 帶 `?error=<錯誤碼>` 回到這一頁。
+ * 外部 IdP 登入失敗時 api 帶 `?error=<錯誤碼>` 回到這一頁。流程在 `useInteractionLogin`，這裡只渲染。
  */
 export default function InteractionPage() {
   const { t } = useTranslation();
   const { uid } = InteractionRoute.useParams();
   const search = InteractionRoute.useSearch();
-  const interaction = useSsoInteraction(uid);
-  // 與要求登入的產品用同一個語言（backstage 帶來的 ui_locales）
-  useRequestedLocale(interaction.data?.uiLocales);
-  const policy = useAccountPolicy(interaction.data?.tenant?.code);
-  const login = useSsoInteractionLoginMutation();
-  const abort = useSsoInteractionAbortMutation();
-  const external = useStartExternalLoginMutation();
-  const toMessage = useErrorMessage();
-  /** 送出失敗的訊息與錯誤碼（錯誤碼給 E2E 以 `data-value` 斷言，不依語系的文字）。 */
-  const [formError, setFormError] = useState<{ message: string; code?: string }>();
-  const fail = (error: unknown) => {
-    setFormError({ message: toMessage(error), code: isAppError(error) ? error.code : undefined });
-    setExpired(isInteractionExpired(error));
-  };
-  // 送出時才發現互動已過期：表單再送也沒用，改給「重新開始登入」
-  const [expired, setExpired] = useState(false);
-  // 網址帶來的錯誤只顯示到使用者再試一次為止
-  const [showSearchError, setShowSearchError] = useState(true);
-  /** 拿去查網域的 email：離開欄位（或送出）時才更新，不在每次輸入時查詢。 */
-  const [discoveryEmail, setDiscoveryEmail] = useState<string>();
-  const discovery = useSsoDiscovery(uid, discoveryEmail);
-  const provider = discovery.data?.provider ?? null;
-  const ssoOnly = Boolean(provider && discovery.data?.ssoOnly);
+  const {
+    interaction,
+    policy,
+    form,
+    emailRef,
+    discover,
+    provider,
+    ssoOnly,
+    expired,
+    formError,
+    searchError,
+    searchErrorKey,
+    redirecting,
+    loggingIn,
+    loginPending,
+    externalPending,
+    externalStarting,
+    cancelling,
+    startExternal,
+    cancel,
+  } = useInteractionLogin(uid, search.error);
 
-  // 進頁面就把游標放在 Email 欄。欄位在互動載入前就已經顯示，只在掛載時聚焦一次：
-  // 等載入完成才聚焦的話，使用者已經移到密碼欄時會被搶回 Email 欄，接著打的密碼以明文進了 Email 欄
-  const emailRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    emailRef.current?.focus();
-  }, []);
-
-  const discover = (email: string) => {
-    const parsed = EmailSchema.safeParse(email);
-    setDiscoveryEmail(parsed.success ? parsed.data : undefined);
-  };
-
-  const form = useForm({
-    defaultValues: { email: '', password: '' },
-    validators: { onSubmit: zodFormValidator(LoginFormSchema) },
-    onSubmit: async ({ value }) => {
-      setFormError(undefined);
-      setShowSearchError(false);
-      try {
-        await login.mutateAsync({ params: { uid, ...value } });
-      } catch (error) {
-        fail(error);
-      }
-    },
-  });
-
-  const startExternal = async () => {
-    if (!provider) return;
-    setFormError(undefined);
-    setShowSearchError(false);
-    try {
-      await external.mutateAsync({ params: { uid, providerId: provider.id } });
-    } catch (error) {
-      fail(error);
-    }
-  };
-
-  const searchErrorKey = search.error ? getErrorMessageKey(search.error) : undefined;
-  const searchError = showSearchError ? search.error : undefined;
-  const redirecting =
-    login.isPending || login.isSuccess || external.isPending || external.isSuccess;
-
-  if (interaction.isError) {
-    // 互動已經找不到（過期、重複使用）：不知道是哪個產品或租戶，給「進入租戶」與平台管理者的登入
-    return (
-      <AuthShell title={t('login.title')}>
-        <div className="flex flex-col gap-3">
-          <p
-            className="m-0 text-sm text-[var(--color-danger-text)]"
-            data-testid="interaction-invalid"
-          >
-            {t('error.AUTH_SSO_INTERACTION_INVALID')}
-          </p>
-          <RestartLogin />
-        </div>
-      </AuthShell>
-    );
-  }
+  // 互動已經找不到（過期、重複使用）：不知道是哪個產品或租戶，給「進入租戶」與平台管理者的登入
+  if (interaction.isError) return <InteractionInvalid />;
 
   const client = interaction.data?.clientId;
   // 帶租戶的互動：登入那個租戶的帳號；沒有租戶是平台管理者（docs/architecture/05-tenancy.md §10.2 D8）
   const tenant = interaction.data?.tenant;
-  if (expired) {
-    return (
-      <AuthShell title={t('login.title')}>
-        <div className="flex flex-col gap-3">
-          <p
-            className="m-0 text-sm text-[var(--color-danger-text)]"
-            data-testid="interaction-invalid"
-          >
-            {t('error.AUTH_SSO_INTERACTION_INVALID')}
-          </p>
-          <RestartLogin tenant={tenant?.code} platform={!tenant && client === 'auth'} />
-        </div>
-      </AuthShell>
-    );
-  }
-  const tenantQuery = tenant ? `?${new URLSearchParams({ tenant: tenant.code }).toString()}` : '';
+  if (expired)
+    return <InteractionInvalid tenant={tenant?.code} platform={!tenant && client === 'auth'} />;
   return (
     <AuthShell
       title={t('login.title')}
@@ -166,37 +69,11 @@ export default function InteractionPage() {
           : undefined
       }
       footer={
-        // 帳號流程是租戶帳號的；平台管理者由其他平台管理者建立與重設。
-        // 沒有租戶的互動是平台管理者的登入：走錯地方的租戶使用者從這裡去自己的租戶（D11）
-        tenant ? (
-          <div className="flex justify-between gap-2">
-            <a
-              className="text-[var(--color-brand)]"
-              href={`/forgot-password${tenantQuery}`}
-              data-testid="login-forgot-password-link"
-            >
-              {t('login.interaction.forgotPassword')}
-            </a>
-            {/* 租戶關閉了註冊（auth.registrationEnabled）就不顯示；載入中先不顯示，免得出現後又消失 */}
-            {policy.registrationEnabled && !policy.isLoading && (
-              <a
-                className="text-[var(--color-brand)]"
-                href={`/register${tenantQuery}`}
-                data-testid="login-register-link"
-              >
-                {t('login.interaction.register')}
-              </a>
-            )}
-          </div>
-        ) : (
-          <a
-            className="text-[var(--color-brand)]"
-            href="/enter"
-            data-testid="login-enter-tenant-link"
-          >
-            {t('login.interaction.enterTenant')}
-          </a>
-        )
+        <InteractionFooter
+          tenantCode={tenant?.code}
+          // 租戶關閉了註冊就不顯示；載入中先不顯示，免得出現後又消失
+          showRegister={policy.registrationEnabled && !policy.isLoading}
+        />
       }
     >
       <form
@@ -269,8 +146,8 @@ export default function InteractionPage() {
             type="submit"
             variant="primary"
             block
-            loading={login.isPending || login.isSuccess}
-            disabled={!interaction.data || external.isPending}
+            loading={loggingIn}
+            disabled={!interaction.data || externalPending}
             data-testid="login-submit"
           >
             {t('login.submit')}
@@ -287,8 +164,8 @@ export default function InteractionPage() {
               type={ssoOnly ? 'submit' : 'button'}
               variant={ssoOnly ? 'primary' : 'secondary'}
               block
-              loading={external.isPending || external.isSuccess}
-              disabled={!interaction.data || login.isPending}
+              loading={externalStarting}
+              disabled={!interaction.data || loginPending}
               onClick={ssoOnly ? undefined : () => void startExternal()}
               data-testid="login-external"
               data-value={provider.id}
@@ -300,9 +177,9 @@ export default function InteractionPage() {
         <Button
           variant="ghost"
           block
-          loading={abort.isPending}
+          loading={cancelling}
           disabled={!interaction.data || redirecting}
-          onClick={() => abort.mutate({ params: { uid } })}
+          onClick={cancel}
           data-testid="login-cancel"
         >
           {t('login.interaction.cancel')}

@@ -6,8 +6,8 @@ import type { AnnouncementAudience } from '@/shared/api-sdk';
 
 import { ANNOUNCEMENT_BODY_MAX, ANNOUNCEMENT_TITLE_MAX } from '../constants';
 import { AudiencePicker } from './AudiencePicker';
+import type { TriggerDraft } from './triggerDraft';
 import { TriggerField } from './TriggerField';
-import type { TriggerDraft } from './TriggerField';
 
 /** 表單的草稿（建立與編輯共用）。 */
 export interface AnnouncementDraft {

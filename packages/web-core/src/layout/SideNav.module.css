@@ -1,0 +1,96 @@
+/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 app 的 index.html）。 */
+@layer components {
+  .nav,
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* 父選單：只負責展開／收合子選單，本身不是連結 */
+  .parent {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    margin-top: var(--seed-space-2);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-fg-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  /* 收起來的分類裡有當前頁面。寫在 :hover 之前：兩者特定度相同，滑過時以 :hover 的顏色為準 */
+  .parent[data-active] {
+    color: var(--color-brand);
+  }
+
+  .parent:hover {
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  .parent:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: -2px;
+  }
+
+  .chevron {
+    transform: rotate(-90deg);
+    transition: transform 150ms ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  .chevron[data-open] {
+    transform: none;
+  }
+
+  .children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-inline-start: var(--seed-space-2);
+  }
+
+  /* display: flex 會蓋掉 hidden 屬性的 display: none */
+  .children[hidden] {
+    display: none;
+  }
+
+  /* 收合成圖示欄時沒有父選單，改用分隔線標出分類邊界 */
+  .divider {
+    margin: var(--seed-space-1) var(--seed-space-2);
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    border-radius: var(--radius-md);
+    color: var(--color-fg);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  /* 當前頁面。寫在 :hover 之前：兩者特定度相同，滑過時以 :hover 的底色為準 */
+  .item[data-active] {
+    background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+    color: var(--color-brand);
+    font-weight: 600;
+  }
+
+  .item:hover {
+    background: var(--color-bg);
+  }
+}

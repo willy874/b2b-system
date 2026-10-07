@@ -8,15 +8,6 @@
       "effectiveHint": "Where each of your permissions comes from: through which groups and which role. Groups or roles you cannot see show only their kind; ask an administrator about them.",
       "showEffective": "Show effective permissions and sources"
     },
-    "password": {
-      "title": "Change password",
-      "hint": "Changing your password signs you out of every device.",
-      "submit": "Change password",
-      "changed": "Password changed. Please sign in again.",
-      "confirmTitle": "Change your password?",
-      "lengthHint_one": "At least {{min}} characters ({{count}} so far).",
-      "lengthHint_other": "At least {{min}} characters ({{count}} so far)."
-    },
     "preference": {
       "title": "Preferences",
       "description": "Language and timezone are synced to your account.",
@@ -32,10 +23,7 @@
       "roles": "Roles",
       "locale": "Language",
       "timezone": "Timezone",
-      "currentPassword": "Current password",
-      "newPassword": "New password",
-      "theme": "Theme",
-      "confirmPassword": "Confirm new password"
+      "theme": "Theme"
     },
     "apiToken": {
       "title": "Personal API tokens",

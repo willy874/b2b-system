@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Announcement } from '@/shared/api-sdk';
 
 import { EMPTY_AUDIENCE, EMPTY_DRAFT, toDraft, toRequest } from '../draft';
-import { EMPTY_TRIGGER_DRAFT } from '../TriggerField';
+import { EMPTY_TRIGGER_DRAFT } from '../triggerDraft';
 
 afterEach(() => setDateTimeDefaults({ timeZone: 'Asia/Taipei' }));
 

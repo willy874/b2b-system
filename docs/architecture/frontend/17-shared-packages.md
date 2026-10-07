@@ -48,7 +48,7 @@ zod schema 與 SDK 自己的 fetch client 在 `@b2b-system/api-sdk/schemas`，�
 | --- | --- | --- | --- | --- |
 | `@b2b-system/web-shared` | `packages/web-shared` | 只有原始碼 | 原 `src/shared/*`：`store`、`hooks`、`channel`、`context`、`registry`、`storage`、`date`、`utils`、`constants`、`EventEmitter` | [README](../../../packages/web-shared/README.md) |
 | `@b2b-system/ui` | `packages/ui` | 只有原始碼 | 設計系統元件、`icons/`、`styles/`（token、全域樣式）、`uno.config.ts`、Storybook | [README](../../../packages/ui/README.md)、[`07-ui-system.md`](07-ui-system.md) |
-| `@b2b-system/web-core` | `packages/web-core` | 只有原始碼 | 原 `core/` 兩個 app 共用的模組、`plugins/{fetcher,app}`、`shell`（providers）、`layout`（頂列工具）、共用語系、測試輔助 | [README](../../../packages/web-core/README.md) |
+| `@b2b-system/web-core` | `packages/web-core` | 只有原始碼 | 原 `core/` 兩個 app 共用的模組、`plugins/{fetcher,app}`、`shell`（providers）、`layout`（外框 `DashboardShell`、側欄、頂列工具）、`components`（錯誤頁、`AuthShell`、變更密碼…）、背景工作與稽核列表的展示元件（`job`、`audit-log`）、共用語系、測試輔助 | [README](../../../packages/web-core/README.md) |
 | `@b2b-system/error-codes` | `packages/error-codes` | `tsc` → `dist/` | api 的 `ErrorCode`、`ALL_ERROR_CODES`、`statusOf` | [README](../../../packages/error-codes/README.md) |
 
 匯入一律走子路徑，一個模組一個入口：`@b2b-system/web-shared/store`、`@b2b-system/ui/Button`、`@b2b-system/web-core/permission`。
@@ -116,7 +116,7 @@ declare module '@b2b-system/web-core/app/context' {
 
 ### 3.3 全域語系包（合併）
 
-web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`。
+web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）。
 app 的 `src/app/locales/*.json` 只放自己的區段（`menu`、`app`、`permission`…）與少數覆寫。
 
 app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlugin({ locales })`，兩者以 `mergeLocaleImporters` 深層合併，**app 的鍵優先**。
@@ -130,7 +130,13 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 | `LanguageMenu`（`web-core/layout`） | `onChange` | backstage 切換語系時同步到帳號，apps/platform 不同步；app 的 `app/layouts/LanguageMenu.tsx` 包一層傳入自己的 `useChangeLocale` |
 | `i18nPlugin`（`web-core/plugins/app`） | `locales` | §3.3 |
 | `DocumentTitle`（`web-core/shell`） | `router`、`appNameKey` | 與 `SessionWatcher` 一樣放在 `RouterProvider` 之外；產品名各 app 不同（backstage `app.title`、apps/platform `app.documentTitle`） |
-| `SessionWatcher`（`web-core/shell`） | `router`、`loginPath`、`isPublic`、`loginSearchAfterSessionEnd` | 登入頁的路徑與不需要 session 的頁面各 app 不同（`app/sessionRedirect.ts`）。權限水合等 app 的同步 hook 不當參數傳（React 不允許把 hook 當成值傳遞），由 `app/App.tsx` 的 `ProfileSync` 元件呼叫 |
+| `SessionWatcher`（`web-core/shell`） | `router`、`loginPath`、`isPublic` | 登入頁的路徑與不需要 session 的頁面各 app 不同（`app/sessionRedirect.ts`）；導向登入頁的參數（`loginSearchAfterSessionEnd`）兩個 app 相同，在 web-core。權限水合等 app 的同步 hook 不當參數傳（React 不允許把 hook 當成值傳遞），由 `app/App.tsx` 的 `ProfileSync` 元件呼叫 |
+| `DashboardShell`（`web-core/layout`） | `brand`、`navTopItems`、`navGroups`、`userName`、`accountPages`、`accountActions`、`afterContent` | 選單只有 app 認識所有 feature；品牌下方那一行與帳號選單的項目各 app 不同（`app/layouts/DashboardLayout.tsx`、`navigation.ts`） |
+| `ForbiddenPage` 等錯誤頁（`web-core/components`） | `variant` | 兩個 app 原本的外觀不同：backstage `centered`（預設）、apps/platform `compact`（`app/ErrorPages.tsx`） |
+| `AuthShell`（`web-core/components`） | `brand` | 產品名是 app 的 `app.title`；各 app 的 `pages/AuthShell.tsx` 包一層傳入 |
+| `useChangePasswordForm`（`web-core/components`） | `mutationOptions` | 端點不同（`/auth/*`、`/platform/auth/*`）；狀態留在頁面，未儲存提醒才能與其他表單合成一個 |
+| `sessionEndMessageKey`（`web-core/auth`） | `keys` | 登入頁的字串屬於各 app 的登入 feature（`auth.login.*`、`login.*`） |
+| `JobTable`、`JobDetailView`（`web-core/job`）、`AuditLogTable`（`web-core/audit-log`） | `extraColumns`、`onRetryJob`、`renderDetail`、`renderJson`、`settings` | 端點與明細的取得屬於 app；apps/platform 多一個租戶欄；JSON 的呈現兩邊原本就不同 |
 
 ### 3.5 app 的門面
 
@@ -162,18 +168,25 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 
 ## 5. 仍各自一份的部分
 
-這些不是複製，而是兩個 app 的行為或端點本來就不同：
+這些不是複製，而是兩個 app 的行為或端點本來就不同；app 只留那個不同點，結構與畫面在 web-core：
 
-| 部分 | 差異 |
-| --- | --- |
-| `core/permission/{enums,resources}.ts` | 租戶的權限目錄 vs 平台的權限目錄 |
-| `apis/auth/*` | backstage 打 `/auth/*`，apps/platform 打 `/platform/auth/*`（同樣結構） |
-| `app/`（`App.tsx`、`Layout.tsx`、`layouts/`、`sessionRedirect.ts`） | 選單、品牌、登入頁的路徑與不需要 session 的頁面（`sessionRedirect.ts`）。session 結束的處理本身（清除資料、導向登入頁且不自動跳回 IdP，[`../04-sso.md`](../04-sso.md) §12.2 D5）是 web-core 的 `SessionWatcher`，`App.tsx` 只傳參數 |
-| `features/*` | 各自的頁面；同名的（`account`、`notification`）打不同的端點 |
-| `public/theme-init.js` | Vite 的 public 目錄屬於 app；內容相同，測試在各自的 `app/__tests__/theme-init.test.ts` |
+| 部分 | app 留下的差異 | 共用的部分（web-core） |
+| --- | --- | --- |
+| `core/permission/{enums,resources}.ts` | 租戶的權限目錄 vs 平台的權限目錄 | 權限機制（§3.1） |
+| `apis/auth/*` | backstage 打 `/auth/*`，apps/platform 打 `/platform/auth/*`（同樣結構） | `client`、`auth` |
+| `app/App.tsx`、`app/sessionRedirect.ts` | 登入頁的路徑與不需要 session 的頁面（`isPublic`） | `shell` 的 `SessionWatcher`（清除資料、導向登入頁且不自動跳回 IdP，[`../04-sso.md`](../04-sso.md) §12.2 D5）與 `loginSearchAfterSessionEnd` |
+| `app/layouts/`（`DashboardLayout.tsx`、`navigation.ts`、`headerTools.ts`） | 選單資料、品牌下方那一行（backstage 是目前租戶、apps/platform 是「平台」）、帳號選單的項目（切換租戶／進入租戶）、頂列工具 | `layout` 的 `DashboardShell`、`SideNav`（樣式是 CSS Module） |
+| `app/ErrorPages.tsx`（apps/platform） | 錯誤頁的版面 `compact`、載入中用 spinner（backstage 直接用 web-core 的預設） | `components` 的錯誤頁、`isChunkLoadError` |
+| `features/auth`、`features/login` | SSO client、登入頁的語系鍵（`sessionEnd.ts` 只剩語系鍵的表）、`AuthShell` 的產品名 | `auth` 的 `sessionEndMessageKey`、`LOGOUT_REASON`、`PASSWORD_CHANGED_REASON`；`components` 的 `AuthShell` |
+| `features/account` | 個人資料打不同的端點、資料形狀不同（user／admin）；偏好是否同步到帳號 | `components` 的 `ChangePasswordSection`／`useChangePasswordForm`、`preference` 的分頁 |
+| `features/job`、`features/audit-log` | 端點、adapter、篩選、明細的取得與 JSON 的呈現；apps/platform 的租戶欄 | `job`、`audit-log` 的列表、佇列卡片、列上的操作、明細的版面 |
+| 其他 `features/*` | 各自的頁面；同名的（`notification`）打不同的端點 | — |
+| `public/theme-init.js` | Vite 的 public 目錄屬於 app；內容相同，測試在各自的 `app/__tests__/theme-init.test.ts` | — |
 
 修改上表的安全相關部分（`apis/auth/*`、`sessionRedirect.ts`）時，同一批檢查另一個 app（[`apps/platform/README.md`](../../../apps/platform/README.md)）。
-`SessionWatcher` 已在 `@b2b-system/web-core/shell`，兩個 app 共用一份。
+
+新的複製由 🔒 `packages/web-core/src/__tests__/duplicated-code.test.ts` 擋下：兩個 app 的同名檔案都超過 30 行、行集合相似度超過 0.7 就失敗。
+刻意留著的相似檔案登記在測試的 `KNOWN_SIMILAR`（附理由）；其中登入頁與 SSO 回呼頁只差語系鍵，是下一個可以搬進 web-core 的候選。
 
 ---
 

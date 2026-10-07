@@ -428,7 +428,7 @@ apps/backstage/src/features/session/
 ```
 
 ```diff
-// app/layouts/DashboardLayout.tsx — 選單
+// app/layouts/navigation.ts — 選單
 + { pageKey: SESSION_PAGE, to: SessionRoutes.SessionListRoute.to,
 +   labelKey: 'menu.session', icon: DeviceIcon },
 ```

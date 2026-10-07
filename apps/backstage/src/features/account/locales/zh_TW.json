@@ -8,14 +8,6 @@
       "effectiveHint": "每個權限從哪裡來：經由哪些群組、哪個角色。看不到的群組或角色只顯示種類，可以拿去問管理員。",
       "showEffective": "顯示有效權限與來源"
     },
-    "password": {
-      "title": "變更密碼",
-      "hint": "變更密碼後，所有裝置都會被登出。",
-      "submit": "變更密碼",
-      "changed": "密碼已變更，請重新登入。",
-      "confirmTitle": "要變更密碼嗎？",
-      "lengthHint_other": "至少 {{min}} 個字元（目前 {{count}} 個）。"
-    },
     "preference": {
       "title": "偏好設定",
       "description": "語系與時區會同步到你的帳號。",
@@ -31,10 +23,7 @@
       "roles": "角色",
       "locale": "語系",
       "timezone": "時區",
-      "currentPassword": "目前密碼",
-      "newPassword": "新密碼",
-      "theme": "主題",
-      "confirmPassword": "確認新密碼"
+      "theme": "主題"
     },
     "apiToken": {
       "title": "個人 API token",

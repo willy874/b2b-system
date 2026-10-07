@@ -1,0 +1,164 @@
+/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 app 的 index.html）。 */
+@layer components {
+  /*
+   * 外殼固定為一個視窗高，側邊選單與主內容各自捲動：主內容往下捲時側邊選單留在原位。
+   * 主內容是 flex 欄，頁面根元素給 `flex-1 min-h-0` 就能把剩餘高度交給表格（見 RichTable 的 fillHeight）。
+   */
+  .shell {
+    display: grid;
+    grid-template-columns: 15rem 1fr;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /*
+   * 兩個捲動區都要是定位元素：否則內容裡的 absolute 元素（例如 sr-only）以視窗為包含區塊，
+   * 跳出捲動區撐高整份文件，視窗本身又能捲動、側邊選單跟著被捲走。
+   */
+  .sidebar,
+  .content {
+    position: relative;
+  }
+
+  .shell[data-collapsed] {
+    grid-template-columns: 3.5rem 1fr;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--seed-space-4);
+    padding: var(--seed-space-4) var(--seed-space-2);
+    min-height: 0;
+    overflow-y: auto;
+    border-inline-end: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding-inline: var(--seed-space-2);
+    font-weight: 600;
+  }
+
+  .brandText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .brandContext {
+    overflow: hidden;
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .userName {
+    margin-inline-start: var(--seed-space-2);
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-drawer-scrim);
+    border: 0;
+    padding: 0;
+    background: var(--color-backdrop);
+  }
+
+  .brandMark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--radius-md);
+    background: var(--color-brand);
+    color: var(--color-brand-fg);
+    font-size: 0.75rem;
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    flex-shrink: 0;
+    height: 3rem;
+    padding-inline: var(--seed-space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--seed-space-6);
+    overflow: auto;
+  }
+
+  /*
+   * 窄螢幕（手機直向）：側欄改成覆蓋式抽屜，預設收起，由頂列的選單鈕打開；主內容佔滿寬度、內距縮小
+   * 斷點與 DashboardShell.tsx 的 NARROW_QUERY 一致。
+   */
+  @media (max-width: 767px) {
+    .shell,
+    .shell[data-collapsed] {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      position: fixed;
+      inset-block: 0;
+      inset-inline-start: 0;
+      z-index: var(--z-drawer);
+      width: min(16rem, 85vw);
+      transform: translateX(-100%);
+      visibility: hidden;
+      transition:
+        transform 200ms ease,
+        visibility 200ms;
+    }
+
+    .shell[data-drawer-open] .sidebar {
+      transform: none;
+      visibility: visible;
+    }
+
+    .topbar {
+      padding-inline: var(--seed-space-2);
+    }
+
+    .userName {
+      display: none;
+    }
+
+    .content {
+      padding: var(--seed-space-3);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sidebar {
+        transition: none;
+      }
+    }
+  }
+}

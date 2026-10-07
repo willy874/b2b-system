@@ -1,4 +1,6 @@
 import { QueryError } from '@b2b-system/web-core/components';
+import { JobQueueSummary, JobTable } from '@b2b-system/web-core/job';
+import type { JobRowVM } from '@b2b-system/web-core/job';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
@@ -7,14 +9,17 @@ import { getJobListQueryOptions } from '@/apis/job/get-job-list/query';
 import { getJobQueueListQueryOptions } from '@/apis/job/get-job-queue-list/query';
 
 import { useJobPermission } from '../../hooks/useJobPermission';
+import { useRetryJobMutation } from '../../hooks/useRetryJobMutation';
 import { toJobQueueVM, toJobRowVM } from './adapter';
-import { JobQueueSummary } from './components/JobQueueSummary';
-import { JobTable } from './components/JobTable';
+import { JobDetail } from './components/JobDetail';
 import { useJobFilters } from './useJobFilters';
 import { useJobSearchFilter } from './useJobSearchFilter';
 
 /** 工作在背景持續變化：每 10 秒重新整理一次，不必手動重新載入。 */
 const REFRESH_INTERVAL_MS = 10_000;
+
+/** 展開列的內容：明細在展開當下才向後端取（`JobDetail`）。 */
+const renderDetail = (row: JobRowVM) => <JobDetail id={row.id} />;
 
 export default function JobListPage() {
   const { t } = useTranslation();
@@ -26,6 +31,8 @@ export default function JobListPage() {
     (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
     [],
   );
+  const { mutateAsync: retryJob } = useRetryJobMutation();
+  const onRetryJob = useCallback((id: string) => retryJob({ params: { jobId: id } }), [retryJob]);
 
   const queueQuery = useQuery({
     ...getJobQueueListQueryOptions(),
@@ -80,6 +87,8 @@ export default function JobListPage() {
         onRetry={() => void refetch()}
         expandedId={expanded}
         onToggleExpand={toggleExpand}
+        renderDetail={renderDetail}
+        onRetryJob={onRetryJob}
         filters={filters}
         pagination={{
           offset: search.offset,

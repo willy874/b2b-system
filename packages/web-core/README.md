@@ -21,13 +21,15 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | 子路徑 | 內容 |
 | --- | --- |
 | `app` | `AppContext` 型別、`createAppContext()`、React bridge、跨 feature 的事件（`events.ts`） |
-| `auth` | `SessionStore`（token 生命週期、跨分頁單飛續期）、`signOut`（先結束前端、再撤銷後端；回傳後端是否完成）、SSO 的瀏覽器端（`sso.ts`：PKCE、授權網址、end-session 網址） |
+| `audit-log` | 稽核紀錄的列表 `AuditLogTable`（欄位設定、展開列的內容由 app 傳入）與 `AuditLogRowVM` |
+| `auth` | `SessionStore`（token 生命週期、跨分頁單飛續期）、`signOut`（先結束前端、再撤銷後端；回傳後端是否完成）、SSO 的瀏覽器端（`sso.ts`：PKCE、授權網址、end-session 網址）、session 結束的原因（`LOGOUT_REASON`、`PASSWORD_CHANGED_REASON`）與登入頁說明的對照 `sessionEndMessageKey`（三個語系鍵由 app 傳入） |
 | `batch` | 全域批次佇列（SharedWorker 排程、進度條、頂列面板、結果彈出） |
 | `cache` | `queryClient`（`AppQueryClient`）、依賴圖引擎（`resourceGraph`）、跨分頁失效 |
 | `client` | `HttpContext`／`FetcherContext`／`defineFetcher`／攔截器鏈 |
-| `components` | `PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
+| `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`ChangePasswordSection`＋`useChangePasswordForm`（個人資料頁的變更密碼；mutation options 由 app 傳入，狀態留在頁面以便合併未儲存提醒）、`PASSWORD_MIN_LENGTH`／`PASSWORD_MAX_LENGTH`、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
 | `errors` | `AppError`、`ErrorCodes`、`ERROR_MESSAGE_KEY`、`useErrorMessage()` 等 |
-| `layout` | 頂列：`HeaderToolbar`、`ThemeMenu`、`LanguageMenu`（`onChange` 由 app 傳入）、`RealtimeStatusIndicator`；偏好頁的 `HeaderToolbarSettings`；選單型別 |
+| `job` | 背景工作的 `JobTable`（`extraColumns` 給 apps/platform 的租戶欄、`onRetryJob`、`renderDetail` 由 app 傳入）、`JobQueueSummary`、`JobRowActions`、`JobDetailView`（JSON 的呈現由 app 傳入）；狀態的清單、語系鍵與色調；view model 型別 |
+| `layout` | 登入後的外框 `DashboardShell`（側欄、頂列、帳號選單；品牌、選單資料與帳號選單的項目由 app 傳入）與分組側欄 `SideNav`；頂列：`HeaderToolbar`、`ThemeMenu`、`LanguageMenu`（`onChange` 由 app 傳入）、`RealtimeStatusIndicator`；偏好頁的 `HeaderToolbarSettings`；選單型別 |
 | `locales` | i18n、scope loader、`useTranslation`、Zod 錯誤訊息、`CORE_LOCALES` 與合併工具 |
 | `notify` | `useToast()` |
 | `permission` | 權限的機制：hooks、頁面權限註冊表、`evaluateAccess`、`buildPermissionKey`；權限目錄由 app 登記（下方） |
@@ -37,7 +39,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `route-link` | route id 的註冊表、`<RouteLink>`（渲染前檢查目標頁的權限）、`useRouteLinkAccess`、`useRouteLinkResolver` |
 | `realtime` | 推播的連線、協調者、`useRealtimeEvent()`；只有 `socketIoTransport.ts` import `socket.io-client` |
 | `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard`（路由）、`useDialogUnsavedGuard`（以 state 開關的對話框）、路由的 `staticData.titleKey`（`findTitleKey`） |
-| `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`SessionWatcher`（session 結束時清掉使用者的資料並導向登入頁；登入頁路徑與公開頁面由 app 傳入）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost`、`DocumentTitle`（「頁面 · 產品名」，`router` 與產品名的鍵由 app 傳入） |
+| `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`SessionWatcher`（session 結束時清掉使用者的資料並導向登入頁；登入頁路徑與公開頁面由 app 傳入，導向的參數由 `loginSearchAfterSessionEnd` 組成）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost`、`DocumentTitle`（「頁面 · 產品名」，`router` 與產品名的鍵由 app 傳入） |
 | `store` | 全域 store：`permission`、`layout`、`preference`（語系、時區、主題、頂列工具）、`tableColumnSettings` |
 | `theme` | `THEME_OPTIONS`、`resolveTheme()`／`applyTheme()` |
 | `testing` | `renderWithPermissions`／`AllProviders`、`renderRoute`（回傳 `router` 與 `queryClient`）、`renderInRouter`（單一元件放進只有 `/` 的路由）、`fakeBatchQueue`、`initTestI18n`、語系檔的檢查（`localeKeySet`、`pluralProblems`、`hasLocaleKey`、`findFullWidthPunctuation`） |
@@ -61,7 +63,7 @@ export { PermissionResource } from './resources';
 
 **plugin 屬性**：擴充 `AppPluginProperties` 時指向定義的檔案 `@b2b-system/web-core/app/context`（指向 `/app` 的 index 不會合併）。
 
-**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`；
+**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）；
 app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`，兩者深層合併、app 的鍵優先。
 測試由 app 的 `src/test/i18n.ts` 包一層 `initTestI18n(zhTW, …)`。
 
@@ -71,6 +73,7 @@ app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app
 
 - **不認識任何 app**：不 import `@/…`、`api-sdk` 產生的端點或任何 app 的 API；需要 app 的東西時由參數或 module augmentation 傳入（例：`profileQueryKey`、`LanguageMenu` 的 `onChange`）。
 - **不出現業務名詞**：只放兩個 app 都用的機制；只有一個 app 用的留在該 app 的 `core/`（例：backstage 的 `core/{feature,file,permission-graph,trash}`）。
+  背景工作（`job`）與稽核紀錄（`audit-log`）是骨架本身的維運功能、兩個 app 都有，不算業務名詞；這裡只放它們的展示元件與 view model，端點、adapter 與明細的取得留在 app。
 - 只依賴 `@b2b-system/ui`、`@b2b-system/web-shared`、`@b2b-system/error-codes`、`@b2b-system/realtime` 與第三方套件。
 - 這裡的元件用到的字串放 `src/locales/resources/*.json`，兩個語系一起加。
 - **新增錯誤碼**：碼加在 `@b2b-system/error-codes`；這裡的 `errors/errorMessageKey.ts` 加一列（`satisfies Record<ErrorCode, …>`，漏了編譯失敗）、兩個語系檔加 `error.<CODE>`（🔒 `locales/__tests__/resources.test.ts`）。app 不必改。

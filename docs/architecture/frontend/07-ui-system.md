@@ -460,6 +460,9 @@ Base UI 的 `Select` / `Menu` / `Combobox` 需要 **所有項目都掛在 DOM �
 3. 開啟期間不重排（`pinSelected` 用快照）；勾選、載入更多都不動捲動位置；捲軸以 `scrollbar-gutter: stable` 預留。
 4. 列元件 `memo` ＋ 固定參考的 callback：勾一個項目只重繪狀態改變的列。
 
+**Select 的檔案**：`Select.tsx` 只渲染；資料與狀態（排序、索引、搜尋、受控的已選／展開／開啟、攤平的列與勾選狀態）在 `useSelectModel`，
+作用列、勾選與鍵盤在 `useSelectActions`，計算交給 `selectModel.ts` 的純函式；列元件是 `SelectRowView`，props 型別在 `selectProps.ts`。
+
 ### 3.11 命令式確認：`useConfirm`
 
 `components/ConfirmDialog/`。`AlertDialog` 是宣告式的，每個要確認的地方都得自己維護「待確認項目」的 state
@@ -567,6 +570,10 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | `JsonEditor/jsonDocument.ts` | 在語法樹上找路徑的位置（`findPathRange`）、依深度摺疊（`foldAtDepth`）、摺疊摘要（`describeFold`） |
 | `JsonEditor/validation.ts` | `JsonValidator` 型別與 `createJsonSchemaValidator`；ajv 在 `ajvValidator.ts`，第一次驗證時才動態載入 |
 | `JsonEditor/useJsonValidation.ts` | 值改變時重新驗證（`useDeferredValue`），丟掉過期的非同步結果 |
+| `JsonEditor/jsonEditorExtensions.ts` | CodeMirror 的 extension 組裝：解析與驗證結果的 `StateField`、linter、摺疊、搜尋面板（交給 React 渲染）、快捷鍵；元件以 `EditorBridge` 把最新的文案與 callback 交給它 |
+| `JsonEditor/jsonSearch.ts` | 搜尋列用的查詢：所有符合的位置、目前是第幾筆、選取並捲到某一筆 |
+| `JsonEditor/jsonEditorLabels.ts`、`jsonEditorToolbar.tsx` | 文案的鍵與預設值；工具列的按鈕 |
+| `JsonEditor/JsonEditor.tsx` | 元件：props、受控的值與 CodeMirror 狀態的同步、搜尋列與驗證清單 |
 
 **Bundle**：CodeMirror（用到的部分）約 120 KB gzip，只被 `JsonEditor` 匯入；沒有頁面用到 `JsonEditor` 時，正式建置不含 CodeMirror。
 預覽一律用 `JsonViewer`。
@@ -637,6 +644,11 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | `TreeEditor/layout.ts` | dagre 排版（`computeTreeLayout`、`layoutTree`、`fillMissingPositions`）、新節點的就近位置（`placeChild`、`placeRoot`）與分組背景的範圍（`computeGroupBounds`） |
 | `TreeEditor/useTreeHistory.ts` | 以整份快照記錄的復原／重做 |
 | `TreeEditor/TreeNode.tsx` | 畫布上的節點：外框、狀態、把手、`+`；分組背景（`TreeGroupNode`）；經由 context 取得 `renderNode` 等設定 |
+| `TreeEditor/treeEditorFlow.ts` | 與 React Flow 之間的設定（節點類型、連線樣式、對齊格線、對焦選項）與轉換：畫面上的值 → React Flow 的節點與連線 |
+| `TreeEditor/treeEditorToolbar.tsx` | 工具列的按鈕（依可否編輯、能否新增、排版方式組出） |
+| `TreeEditor/useTreeSelection.ts` | 節點與連線的選取；只留還存在的節點，選取改變時通知 `onSelectionChange` |
+| `TreeEditor/useTreeEditActions.ts` | 編輯動作：拖曳、連線、刪除、新增、自動排版、縮放、復原／重做與 Tab 新增的快捷鍵 |
+| `TreeEditor/TreeEditor.tsx` | 元件：props、受控的值與歷史、把上面幾個接起來並渲染（props 型別在 `treeEditorTypes.ts`） |
 | `TreeEditor/TreeEditor.module.css` | 元件樣式，以及改寫自 `@xyflow/react/dist/base.css` 的必要樣式（`--xy-*` 變數對應到 alias token） |
 
 **樣式**：不 import React Flow 的 `base.css`（不分層的全域 CSS 會蓋過 `@layer components`，而且寫死色碼），
@@ -941,7 +953,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 功能 | 元件 | 說明 |
 | ---- | ---- | ---- |
 | 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()`；第一頁／最後一頁／可輸入頁碼，摘要用千分位；刪到最後一頁沒資料時自動退回最後一頁 |
-| 版面 | `fillHeight`（預設 `true`） | 表格延展填滿剩餘高度、資料多時在表格內捲動，分頁列固定在底部。`DashboardLayout` 的主內容是一個視窗高的 flex 欄（側邊選單與主內容各自捲動），列表頁的根元素給 `flex min-h-0 flex-1 flex-col` 才接得到高度 |
+| 版面 | `fillHeight`（預設 `true`） | 表格延展填滿剩餘高度、資料多時在表格內捲動，分頁列固定在底部。外框（web-core 的 `DashboardShell`）的主內容是一個視窗高的 flex 欄（側邊選單與主內容各自捲動），列表頁的根元素給 `flex min-h-0 flex-1 flex-col` 才接得到高度 |
 | 篩選 | `FilterBar` | 篩選圖示按鈕（`IconButton`，只有圖示，名稱走 `aria-label`）點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
 | 搜尋 | `search` | `search={{ value, onChange, placeholder }}`：表格上方常駐的搜尋框，停止輸入 300ms 或按 Enter 才送出 |
 | 篩選 Chip | `ActiveFilters` | 套用中的篩選（排序除外）以可移除的 Chip 列在表格上方；有篩選卻沒有結果時空狀態改成「沒有符合條件的結果」並提供「清除篩選」 |

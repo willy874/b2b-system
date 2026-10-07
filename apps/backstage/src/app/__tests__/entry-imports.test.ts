@@ -63,9 +63,9 @@ const PAGE_ONLY_PACKAGES = [
 describe('首屏的靜態 import（docs/architecture/frontend/02-plugin-system.md §4.3）', () => {
   const graph = entryGraph(resolve(SRC, 'main.tsx'));
 
-  it('走得到 app、features 的 plugin 與錯誤頁（測試本身有效）', () => {
+  it('走得到 app、features 的 plugin 與外框（測試本身有效）', () => {
     expect(graph.files).toContain('app/plugin.ts');
-    expect(graph.files).toContain('core/components/ErrorPage/ErrorPage.tsx');
+    expect(graph.files).toContain('app/Layout.tsx');
     expect(graph.files).toContain('features/notification/plugin.ts');
   });
 

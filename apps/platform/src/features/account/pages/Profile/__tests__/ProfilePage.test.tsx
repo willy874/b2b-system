@@ -5,7 +5,7 @@ import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isPublic, loginSearchAfterSessionEnd } from '@/app/sessionRedirect';
+import { isPublic } from '@/app/sessionRedirect';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
 
@@ -112,14 +112,7 @@ describe('ProfilePage 的變更密碼', () => {
     sessionStore.setTokens({ accessToken: 'token', expiresIn: 300 });
     const { router } = renderRoute(routes, '/profile', []);
     // 與 app/App.tsx 相同的接法
-    render(
-      <SessionWatcher
-        router={router}
-        loginPath="/login"
-        isPublic={isPublic}
-        loginSearchAfterSessionEnd={loginSearchAfterSessionEnd}
-      />,
-    );
+    render(<SessionWatcher router={router} loginPath="/login" isPublic={isPublic} />);
     await fillPasswords('old password 123', NEW_PASSWORD, NEW_PASSWORD);
     fireEvent.click(screen.getByTestId('profile-change-password'));
     fireEvent.click(

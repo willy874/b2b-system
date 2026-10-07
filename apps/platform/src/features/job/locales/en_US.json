@@ -2,9 +2,6 @@
   "job": {
     "title": "Background jobs",
     "description": "Work the server runs in the background for every tenant and for the platform itself: scheduled jobs (audit log archiving, file maintenance, OIDC cleanup), tenant provisioning, and jobs queued by the application. Failures are retried automatically; once retries run out a job stays failed and can be retried here. Completed jobs are kept for 7 days.",
-    "expand": "Expand",
-    "collapse": "Collapse",
-    "scheduledAt": "Scheduled for {{time}}",
     "name": {
       "auditLogArchive": "Audit log archiving",
       "fileMaintenance": "File maintenance",
@@ -23,21 +20,6 @@
       "tenant": "Per tenant",
       "platform": "Platform"
     },
-    "queues": {
-      "title": "Job types",
-      "cron": "Schedule: {{cron}} (UTC)",
-      "onDemand": "Queued by the application",
-      "ready_one": "Waiting {{count}}",
-      "ready_other": "Waiting {{count}}",
-      "deferred_one": "Scheduled {{count}}",
-      "deferred_other": "Scheduled {{count}}",
-      "active_one": "Running {{count}}",
-      "active_other": "Running {{count}}",
-      "completed_one": "Completed {{count}}",
-      "completed_other": "Completed {{count}}",
-      "failed_one": "{{count}} failed",
-      "failed_other": "{{count}} failed"
-    },
     "filter": {
       "allNames": "All jobs",
       "allStates": "All states",
@@ -48,36 +30,10 @@
       "tenantPlaceholder": "e.g. acme; ignored when \"Platform only\" is selected"
     },
     "field": {
-      "createdAt": "Created",
-      "name": "Job",
-      "tenant": "Tenant",
-      "state": "State",
-      "retries": "Retries",
-      "completedAt": "Finished"
+      "tenant": "Tenant"
     },
     "tenant": {
       "platform": "Platform"
-    },
-    "state": {
-      "created": "Waiting",
-      "retry": "Waiting to retry",
-      "active": "Running",
-      "completed": "Completed",
-      "cancelled": "Cancelled",
-      "failed": "Failed"
-    },
-    "retry": {
-      "action": "Retry",
-      "title": "Retry this job?",
-      "confirm": "\"{{name}}\" will be queued again and run by a worker.",
-      "success": "Queued again"
-    },
-    "detail": {
-      "title": "Job details",
-      "error": "Failure: {{message}}",
-      "data": "Job data",
-      "output": "Result",
-      "noOutput": "No result yet"
     }
   }
 }

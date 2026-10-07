@@ -7,15 +7,6 @@
       "effective": "My permissions",
       "effectiveHint": "Platform admin permissions come only from the role. Ask a super admin to change your role."
     },
-    "password": {
-      "title": "Change password",
-      "hint": "After changing your password, every device will be signed out.",
-      "submit": "Change password",
-      "changed": "Password changed. Please sign in again.",
-      "confirmTitle": "Change your password?",
-      "lengthHint_one": "At least {{min}} characters ({{count}} so far).",
-      "lengthHint_other": "At least {{min}} characters ({{count}} so far)."
-    },
     "preference": {
       "title": "Preferences",
       "description": "These settings are stored in this browser only and are not synced to your account.",
@@ -30,10 +21,7 @@
       "role": "Role",
       "locale": "Language",
       "timezone": "Time zone",
-      "currentPassword": "Current password",
-      "newPassword": "New password",
-      "theme": "Theme",
-      "confirmPassword": "Confirm new password"
+      "theme": "Theme"
     },
     "role": {
       "superAdmin": "Super admin",
