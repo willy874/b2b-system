@@ -1,0 +1,67 @@
+# Grafana 的資料來源（docs/architecture/08-monitoring.md §6.4）。uid 固定：儀表板以 uid 引用。
+# ${...} 由 Grafana 在啟動時以容器的環境變數展開（docker-compose.monitoring.yml、docker-compose.yml 的 monitoring profile）。
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      # 從指標的 exemplar／面板連到 Tempo 的 trace
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      # trace 裡的 span → 同一段時間、同一個服務的指標
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        tags:
+          - { key: service.name, value: job }
+        queries:
+          - name: 該路由的請求量
+            query: sum(rate(http_server_request_duration_seconds_count{$$__tags}[5m]))
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      search:
+        filters:
+          - id: service-name
+            tag: service.name
+            operator: '='
+            scope: resource
+          - id: tenant
+            tag: b2b.tenant
+            operator: '='
+            scope: span
+
+  # apps/apm-service 的查詢 API（Sentry 相容，docs/architecture/07-apm-service.md §3.3）：issues 表與事件的堆疊。
+  # Infinity 外掛在伺服器端發請求：token 只存在 Grafana，瀏覽器拿不到
+  - name: APM
+    uid: apm
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    # 儀表板的查詢只寫路徑（/api/0/...），網址由這裡決定：正式是 apm-service:9100，開發是主機上的 pnpm dev:apm
+    url: ${APM_QUERY_URL}
+    editable: false
+    jsonData:
+      auth_method: bearerToken
+      # 只允許帶 token 連到 apm-service：儀表板的網址打錯也不會把 token 送到別處
+      allowedHosts:
+        - ${APM_QUERY_URL}
+    secureJsonData:
+      bearerToken: ${APM_AUTH_TOKEN}

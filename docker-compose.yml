@@ -30,5 +30,65 @@ services:
       - '127.0.0.1:1025:1025'
       - '127.0.0.1:8025:8025'
 
+  # ── 監控（pnpm monitoring:up；docs/architecture/08-monitoring.md §7）──────────────
+  # 預設不啟動（profile）。api、external-api、apm-service 跑在主機上，Prometheus 經 host.docker.internal 抓指標；
+  # api 要送 trace 時在 .env 設 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318。都只綁 loopback
+  prometheus:
+    image: prom/prometheus:v3.13.4@sha256:87861b8cf91579109319ebc300f3f1060e6da9c05d6ae8ad15a20c879e84e32e
+    container_name: b2b-system-prometheus
+    profiles: [monitoring]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./deploy/monitoring/prometheus.dev.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/rules:/etc/prometheus/rules:ro
+    # Linux 的 Docker 沒有 host.docker.internal；那時 api 要聽 0.0.0.0（LISTEN_HOST）才連得到
+    extra_hosts: ['host.docker.internal:host-gateway']
+    ports:
+      - '127.0.0.1:9090:9090'
+
+  tempo:
+    image: grafana/tempo:2.9.5@sha256:785fd6c81d7f26ff0973208cd7093ac6030e13946c288612ff32f02416941d3a
+    container_name: b2b-system-tempo
+    profiles: [monitoring]
+    command: ['-config.file=/etc/tempo.yaml', '-config.expand-env=true']
+    volumes:
+      - ./deploy/monitoring/tempo.yaml:/etc/tempo.yaml:ro
+    ports:
+      - '127.0.0.1:4318:4318'
+
+  # 開發的 postgres 沒有載入 pg_stat_statements：只收連線數、交易、鎖
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+    container_name: b2b-system-postgres-exporter
+    profiles: [monitoring]
+    environment:
+      DATA_SOURCE_NAME: postgres://b2bsystem:b2bsystem@postgres:5432/postgres?sslmode=disable
+    depends_on: [postgres]
+
+  grafana:
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    container_name: b2b-system-grafana
+    profiles: [monitoring]
+    environment:
+      # 開發用：不必登入就能看儀表板與用 Explore 查 trace（只綁 loopback）。要改儀表板時以 admin／admin 登入
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_USERS_VIEWERS_CAN_EDIT: 'true'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_NEWS_NEWS_FEED_ENABLED: 'false'
+      GF_PLUGINS_PREINSTALL_SYNC: yesoreyeram-infinity-datasource@4.1.1
+      APM_QUERY_URL: http://host.docker.internal:9100
+      # compose 從根目錄的 .env 讀（與 pnpm dev:apm 同一個 token）
+      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:-b2b-system-dev-apm-token}
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    extra_hosts: ['host.docker.internal:host-gateway']
+    ports:
+      - '127.0.0.1:3300:3000'
+    depends_on: [prometheus, tempo]
+
 volumes:
   postgres-data:

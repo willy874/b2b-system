@@ -7,6 +7,7 @@
 # | b2b_platform          | 擁有平台 DB（含 pg-boss 的 schema）           | api、migrate 的 PLATFORM_DATABASE_URL        |
 # | b2b_tenant_default    | 擁有預設租戶的 DB（POSTGRES_DB）              | DEFAULT_TENANT_DATABASE_URL（與佈建出來的租戶相同的模式） |
 # | b2b_provisioner       | CREATEDB、CREATEROLE（NOSUPERUSER）          | TENANT_PROVISIONING_DATABASE_URL、db:drop-tenant |
+# | b2b_monitor           | pg_monitor（只讀統計，讀不到業務資料）       | postgres-exporter（設了 POSTGRES_MONITOR_PASSWORD 才建立；docs/architecture/08-monitoring.md §6.1） |
 #
 # 已經初始化過的資料目錄不會再跑這支腳本；既有部署的切換步驟見 05-tenancy.md §7.1。
 set -eu
@@ -42,4 +43,13 @@ GRANT CONNECT ON DATABASE :"platform_db" TO b2b_provisioner;
 -- 慢查詢統計（shared_preload_libraries 在 compose 的 command 設定）
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 SQL
+
+# 監控用的角色（docker-compose.monitoring.yml 的 postgres-exporter）：沒有啟用監控的部署不建立
+if [ -n "${POSTGRES_MONITOR_PASSWORD:-}" ]; then
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+    -v monitor_password="$POSTGRES_MONITOR_PASSWORD" <<'SQL'
+CREATE ROLE b2b_monitor LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'monitor_password';
+GRANT pg_monitor TO b2b_monitor;
+SQL
+fi
 

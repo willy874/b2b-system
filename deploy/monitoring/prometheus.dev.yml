@@ -1,0 +1,29 @@
+# 本機開發的 Prometheus（pnpm dev:monitoring；docs/architecture/08-monitoring.md §7）：
+# api、external-api、apm-service 跑在主機上（pnpm dev、pnpm dev:external-api、pnpm dev:apm），容器經 host.docker.internal 連回主機。
+# 沒有啟動的目標在 Prometheus 的 Targets 頁顯示 down，不影響其他目標。
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: api
+    static_configs:
+      - targets: ['host.docker.internal:9464']
+  - job_name: external-api
+    static_configs:
+      - targets: ['host.docker.internal:9465']
+  - job_name: apm-service
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+  - job_name: tempo
+    static_configs:
+      - targets: ['tempo:3200']
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

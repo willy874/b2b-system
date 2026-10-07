@@ -1,0 +1,1118 @@
+{
+  "uid": "b2b-frontend",
+  "title": "前端（錯誤與 Web Vitals）",
+  "description": "兩個前端經 apps/apm-service 送來的錯誤與 Web Vitals（docs/architecture/07-apm-service.md、08-monitoring.md §5）",
+  "tags": ["b2b-system", "frontend", "apm"],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "label": "前端",
+        "type": "custom",
+        "query": "backstage,platform",
+        "current": {
+          "text": "backstage",
+          "value": "backstage"
+        },
+        "options": [
+          {
+            "text": "backstage",
+            "value": "backstage",
+            "selected": true
+          },
+          {
+            "text": "platform",
+            "value": "platform",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "period",
+        "label": "issues 期間",
+        "type": "custom",
+        "query": "1h,24h,7d,14d",
+        "current": {
+          "text": "24h",
+          "value": "24h"
+        },
+        "options": [
+          {
+            "text": "1h",
+            "value": "1h",
+            "selected": false
+          },
+          {
+            "text": "24h",
+            "value": "24h",
+            "selected": true
+          },
+          {
+            "text": "7d",
+            "value": "7d",
+            "selected": false
+          },
+          {
+            "text": "14d",
+            "value": "14d",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "issue",
+        "label": "issue id（點 issues 表的列）",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "B2B System",
+      "type": "dashboards",
+      "tags": ["b2b-system"],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "LCP p75",
+      "description": "Google 的門檻：≤ 2500 good、> 4000 poor（p75）。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"lcp\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2500
+              },
+              {
+                "color": "red",
+                "value": 4000
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "id": 1,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "INP p75",
+      "description": "Google 的門檻：≤ 200 good、> 500 poor（p75）。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"inp\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "CLS p75",
+      "description": "Google 的門檻：≤ 0.1 good、> 0.25 poor（p75）。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"cls\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 0.25
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "FCP p75",
+      "description": "Google 的門檻：≤ 1800 good、> 3000 poor（p75）。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"fcp\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1800
+              },
+              {
+                "color": "red",
+                "value": 3000
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "TTFB p75",
+      "description": "Google 的門檻：≤ 800 good、> 1800 poor（p75）。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"ttfb\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 800
+              },
+              {
+                "color": "red",
+                "value": 1800
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      }
+    },
+    {
+      "type": "row",
+      "title": "錯誤",
+      "collapsed": false,
+      "id": 6,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "錯誤事件（依 release）",
+      "description": "只保留每個專案最近 APM_RELEASE_LABEL_LIMIT 個 release。部署後新 release 的錯誤明顯多於舊的就是回歸。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (release) (increase(apm_events_total{project=\"$project\",level=~\"error|fatal\"}[5m]))",
+          "legendFormat": "{{release}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "stacking": {
+              "mode": "normal"
+            },
+            "showPoints": "never"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "收件結果",
+      "description": "rate_limited 多：某個瀏覽器在迴圈裡出錯（APM_RATE_LIMIT_PER_MINUTE）；unauthorized：DSN 的 public key 不對。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (result) (rate(apm_envelopes_total[5m]))",
+          "legendFormat": "{{result}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "stacking": {
+              "mode": "normal"
+            },
+            "showPoints": "never"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      }
+    },
+    {
+      "type": "table",
+      "title": "issues（依最後出現排序）",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "apm"
+      },
+      "description": "來自 apm-service 的查詢 API（同 Sentry 的 issues）。點標題查看最新一筆事件的堆疊。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "apm"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/0/projects/b2b-system/$project/issues/?statsPeriod=$period&limit=100",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "id",
+              "text": "id",
+              "type": "string"
+            },
+            {
+              "selector": "title",
+              "text": "標題",
+              "type": "string"
+            },
+            {
+              "selector": "culprit",
+              "text": "位置",
+              "type": "string"
+            },
+            {
+              "selector": "level",
+              "text": "等級",
+              "type": "string"
+            },
+            {
+              "selector": "count",
+              "text": "次數",
+              "type": "number"
+            },
+            {
+              "selector": "userCount",
+              "text": "人數",
+              "type": "number"
+            },
+            {
+              "selector": "lastRelease",
+              "text": "最後的 release",
+              "type": "string"
+            },
+            {
+              "selector": "firstSeen",
+              "text": "第一次",
+              "type": "timestamp"
+            },
+            {
+              "selector": "lastSeen",
+              "text": "最後一次",
+              "type": "timestamp"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "標題"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "最新事件",
+                    "url": "/d/b2b-frontend?${__url_time_range}&var-project=${project}&var-period=${period}&var-issue=${__data.fields.id}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 420
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "標題": 0,
+              "等級": 1,
+              "次數": 2,
+              "人數": 3,
+              "最後的 release": 4,
+              "最後一次": 5,
+              "第一次": 6,
+              "位置": 7,
+              "id": 8
+            }
+          }
+        }
+      ],
+      "id": 9,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      }
+    },
+    {
+      "type": "table",
+      "title": "最新事件（$issue）",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "apm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "apm"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/0/organizations/b2b-system/issues/$issue/events/latest/",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "title",
+              "text": "標題",
+              "type": "string"
+            },
+            {
+              "selector": "transaction",
+              "text": "頁面",
+              "type": "string"
+            },
+            {
+              "selector": "release.version",
+              "text": "release",
+              "type": "string"
+            },
+            {
+              "selector": "dateCreated",
+              "text": "時間",
+              "type": "timestamp"
+            },
+            {
+              "selector": "user.id",
+              "text": "使用者 id",
+              "type": "string"
+            },
+            {
+              "selector": "eventID",
+              "text": "event id",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "description": "在 issues 表點標題，或在上方的 issue id 欄貼上 id。",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "標題": 0,
+              "頁面": 1,
+              "release": 2,
+              "時間": 3,
+              "使用者 id": 4,
+              "event id": 5
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      }
+    },
+    {
+      "type": "table",
+      "title": "最新事件的堆疊（$issue）",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "apm"
+      },
+      "description": "最內層的呼叫在最下面（Sentry 的順序）。沒有還原：那一版的 sourcemap 沒有上傳（docs/architecture/07-apm-service.md §5）。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "apm"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/0/organizations/b2b-system/issues/$issue/events/latest/",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "entries[type=\"exception\"].data.values.stacktrace.frames",
+          "columns": [
+            {
+              "selector": "function",
+              "text": "函式",
+              "type": "string"
+            },
+            {
+              "selector": "filename",
+              "text": "檔案（sourcemap 還原）",
+              "type": "string"
+            },
+            {
+              "selector": "lineNo",
+              "text": "行",
+              "type": "number"
+            },
+            {
+              "selector": "colNo",
+              "text": "欄",
+              "type": "number"
+            },
+            {
+              "selector": "inApp",
+              "text": "我們的程式",
+              "type": "boolean"
+            },
+            {
+              "selector": "symbolicated",
+              "text": "已還原",
+              "type": "boolean"
+            }
+          ]
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "函式": 0,
+              "檔案（sourcemap 還原）": 1,
+              "行": 2,
+              "欄": 3,
+              "我們的程式": 4,
+              "已還原": 5
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      }
+    },
+    {
+      "type": "row",
+      "title": "Web Vitals",
+      "collapsed": false,
+      "id": 12,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "LCP、FCP、TTFB p75",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (name, le) (rate(apm_web_vital_bucket{project=\"$project\",name=~\"lcp|fcp|ttfb\"}[30m])))",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            },
+            "showPoints": "never"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "INP p75、CLS p75",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"inp\"}[30m])))",
+          "legendFormat": "INP（ms）",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(apm_web_vital_bucket{project=\"$project\",name=\"cls\"}[30m]))) * 1000",
+          "legendFormat": "CLS × 1000",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            },
+            "showPoints": "never"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      }
+    },
+    {
+      "type": "table",
+      "title": "頁面的 p75（期間內）",
+      "description": "route 是頁面的 path 樣板；超過 APM_ROUTE_LABEL_LIMIT 種之後歸 other。navigation 是 SPA 內切換頁面的耗時。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (route, le) (increase(apm_web_vital_bucket{project=\"$project\",name=\"lcp\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (route, le) (increase(apm_web_vital_bucket{project=\"$project\",name=\"inp\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.75, sum by (route, le) (increase(apm_web_vital_bucket{project=\"$project\",name=\"navigation\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "C",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (route) (increase(apm_web_vital_count{project=\"$project\",name=\"lcp\"}[$__range]))",
+          "legendFormat": "",
+          "refId": "D",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*（ms）"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "樣本數"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "route": "頁面",
+              "Value #A": "LCP（ms）",
+              "Value #B": "INP（ms）",
+              "Value #C": "切換頁面（ms）",
+              "Value #D": "樣本數"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "LCP（ms）",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      }
+    }
+  ]
+}

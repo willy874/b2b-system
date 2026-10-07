@@ -1,7 +1,7 @@
 # CI（docs/conventions/05-git.md §2.4）：PR 與 push 到 main 時跑。四個 job 互不依賴、並行：
 #   check   typecheck、lint、format、單元與整合測試（api 的整合測試以 Testcontainers 起 Postgres）、依賴稽核
 #   secrets gitleaks 掃整段 git 歷史（設定在 .gitleaks.toml）
-#   deploy  docker-compose.prod.yml 整套建置啟動（deploy/smoke-test.sh）＋ nginx 設定（deploy/check-nginx.sh）
+#   deploy  docker-compose.prod.yml 整套建置啟動（deploy/smoke-test.sh）＋ nginx 設定（deploy/check-nginx.sh）＋ 監控設定（deploy/check-monitoring.sh）
 #   bundle  兩個前端的 bundle 預算（scripts/check-bundle-budget.mjs；結果寫進 job summary）
 # 第三方 action 與映像都釘 commit SHA／digest：tag 可以被移動，SHA 不行。
 name: CI
@@ -88,3 +88,4 @@ jobs:
           node-version-file: .nvmrc
       - run: sh deploy/smoke-test.sh
       - run: sh deploy/check-nginx.sh
+      - run: sh deploy/check-monitoring.sh
