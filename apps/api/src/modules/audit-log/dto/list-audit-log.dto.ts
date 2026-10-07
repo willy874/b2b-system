@@ -11,6 +11,11 @@ import {
 export const ListAuditLogSchema = z
   .object({
     offset: z.coerce.number().int().min(0).max(AUDIT_LOG_MAX_OFFSET).default(0),
+    /**
+     * keyset 分頁的游標（上一頁回應的 `nextCursor`）：帶了就從那一筆之後取，不再看 `offset`（兩者不能同時帶）。
+     * 翻多深都只讀一頁，不受 `offset` 的上限限制。
+     */
+    cursor: z.string().max(200).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
     actorId: z.string().uuid().optional(),
     action: z.string().trim().max(100).optional(), // 支援前綴比對：`role.*`
@@ -21,7 +26,14 @@ export const ListAuditLogSchema = z
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
   })
-  .superRefine(({ from, to }, ctx) => {
+  .superRefine(({ from, to, cursor, offset }, ctx) => {
+    if (cursor !== undefined && offset > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cursor'],
+        message: 'cannot be combined with `offset`',
+      });
+    }
     if (!from || !to) return;
     if (from > to) {
       ctx.addIssue({ code: 'custom', path: ['from'], message: 'must be before `to`' });
@@ -53,6 +65,23 @@ const AuditLogSummaryShape = z.object({
 export const AuditLogSummarySchema = defineSchema('AuditLogSummary', AuditLogSummaryShape);
 
 export type AuditLogSummaryDto = z.infer<typeof AuditLogSummarySchema>;
+
+/** 列表：除了一般的分頁資訊，另回下一頁的游標（沒有下一頁是 `null`）。 */
+export const AuditLogListSchema = defineSchema(
+  'AuditLogList',
+  z.object({
+    items: z.array(AuditLogSummarySchema),
+    pagination: z.object({
+      offset: z.number().int(),
+      limit: z.number().int(),
+      /** 最多數到 `AUDIT_LOG_COUNT_CAP`。 */
+      total: z.number().int(),
+    }),
+    nextCursor: z.string().nullable(),
+  }),
+);
+
+export type AuditLogListDto = z.infer<typeof AuditLogListSchema>;
 
 export const AuditLogSchema = defineSchema(
   'AuditLog',

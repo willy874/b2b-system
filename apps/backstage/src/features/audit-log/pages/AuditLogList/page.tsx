@@ -4,7 +4,7 @@ import type { TableSettingsConfig } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getAuditLogListQueryOptions } from '@/apis/audit-log/get-audit-log-list/query';
 
@@ -12,6 +12,7 @@ import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
 import { AUDIT_LOG_LIST_DEFAULT_HIDDEN, AUDIT_LOG_LIST_TABLE_ID } from '../../preference';
 import { toAuditLogRowVM } from './adapter';
 import { AuditLogDetail } from './components/AuditLogDetail';
+import { useAuditLogCursor } from './useAuditLogCursor';
 import { useAuditLogFilters } from './useAuditLogFilters';
 import { useAuditLogSearchFilter } from './useAuditLogSearchFilter';
 
@@ -35,10 +36,22 @@ export default function AuditLogListPage() {
     [],
   );
 
-  const { data, isPending, error, refetch } = useQuery(
+  // 篩選條件或每頁筆數改變：記下的游標全部作廢
+  const cursorScope = JSON.stringify([
+    search.limit,
+    search.action,
+    search.resourceType,
+    search.result,
+    search.from,
+    search.to,
+  ]);
+  const { cursor, remember } = useAuditLogCursor(cursorScope, search.offset, search.limit);
+
+  const { data, isPending, isPlaceholderData, error, refetch } = useQuery(
     getAuditLogListQueryOptions({
       params: {
         offset: search.offset,
+        cursor,
         limit: search.limit,
         action: search.action,
         resourceType: search.resourceType,
@@ -50,6 +63,11 @@ export default function AuditLogListPage() {
       },
     }),
   );
+
+  // 佔位資料是上一頁的：它的 nextCursor 不屬於這一頁
+  useEffect(() => {
+    if (data && !isPlaceholderData) remember(search.offset, data.nextCursor);
+  }, [data, isPlaceholderData, remember, search.offset]);
 
   const rows = useMemo(() => (data?.items ?? []).map(toAuditLogRowVM), [data]);
 

@@ -22,6 +22,7 @@ import type {
   ApprovalType,
   ApproveApprovalRequest,
   AuditLog,
+  AuditLogList,
   AuditLogSummary,
   ChangePasswordRequest,
   CompleteFileUploadRequest,
@@ -1035,6 +1036,16 @@ export const AuditLogSummarySchema = z.object({
   result: z.enum(['success', 'failure']),
   errorCode: z.string().nullable(),
 }) satisfies z.ZodType<AuditLogSummary>;
+
+export const AuditLogListSchema = z.object({
+  items: z.array(AuditLogSummarySchema),
+  pagination: z.object({
+    offset: z.int().min(-9007199254740991).max(9007199254740991),
+    limit: z.int().min(-9007199254740991).max(9007199254740991),
+    total: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<AuditLogList>;
 
 export const AuditLogSchema = z.object({
   id: z.string(),

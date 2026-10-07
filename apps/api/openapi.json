@@ -41,31 +41,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AuditLogSummary"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
+                      "$ref": "#/components/schemas/AuditLogList"
                     }
                   }
                 }
@@ -8574,6 +8550,45 @@
           "result",
           "errorCode"
         ],
+        "additionalProperties": false
+      },
+      "AuditLogList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogSummary"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "pagination", "nextCursor"],
         "additionalProperties": false
       },
       "AuditLog": {

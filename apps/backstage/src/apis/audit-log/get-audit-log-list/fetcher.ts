@@ -9,8 +9,14 @@ import type { AuditLogListParams } from '../types';
 export const fetchAuditLogListQuery = defineAuthFetcher<
   HttpRequestDTO<AuditLogListParams>,
   AuditLogControllerListResponse['data']
->((http, request) =>
-  http.request(withQuery(getAuditLogControllerListUrl(), { ...request.params }), {
-    method: 'GET',
-  }),
-);
+>((http, request) => {
+  // 游標與 offset 不能同時帶（api 回 400）：有游標就不送 offset
+  const { cursor, offset, ...filters } = request.params;
+  return http.request(
+    withQuery(
+      getAuditLogControllerListUrl(),
+      cursor ? { ...filters, cursor } : { ...filters, offset },
+    ),
+    { method: 'GET' },
+  );
+});

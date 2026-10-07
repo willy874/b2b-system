@@ -10,21 +10,14 @@ import type {
 } from '../../endpoints/audit-logs';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
-import { AuditLogSchema, AuditLogSummarySchema } from '../components';
+import { AuditLogListSchema, AuditLogSchema } from '../components';
 
 // GET /audit-logs
 
 export const AuditLogControllerListSchemas = {
   responses: {
     200: z.object({
-      data: z.object({
-        items: z.array(AuditLogSummarySchema),
-        pagination: z.object({
-          offset: z.int(),
-          limit: z.int(),
-          total: z.int(),
-        }),
-      }),
+      data: AuditLogListSchema,
     }),
   },
 } satisfies OperationSchemas;

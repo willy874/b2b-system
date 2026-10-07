@@ -226,7 +226,7 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 ## 7. 查詢
 
 ```
-GET /audit-logs?offset=0&limit=50
+GET /audit-logs?offset=0&limit=50   或 ?cursor=<上一頁的 nextCursor>&limit=50
   &actorId=<uuid>
   &action=role.*                 前綴比對
   &resourceType=role
@@ -282,7 +282,13 @@ const actionFilter = query.action?.endsWith("*")
 
 - `offset` 最多 `AUDIT_LOG_MAX_OFFSET`（10,000），超過回 `400 VALIDATION_FAILED`；再往後請縮小範圍或加篩選。
 - `total` 最多數到 `AUDIT_LOG_COUNT_CAP`（10,100，剛好涵蓋能翻到的最後一頁）：`count(*)` 包在 `LIMIT` 子查詢裡，
-  掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」。keyset 分頁延後。
+  掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」。
+
+**keyset 分頁**：回應除了 `pagination`，另有 `nextCursor`（上一頁最後一筆的微秒精度 `occurred_at` ＋ id，沒有下一頁是 `null`；多讀一筆判斷）。
+帶 `cursor` 時以 `(occurred_at, id) < (…)` 取下一頁，不看 `offset`（兩者同時帶回 `400`），兩張表的 `(occurred_at, id)` 索引都用得上，
+翻多深都只讀一頁，也不受 `AUDIT_LOG_MAX_OFFSET` 限制；格式不對的游標回 `400 VALIDATION_FAILED`（`fields.cursor`）。總數不受游標影響。
+backstage 的列表頁仍是頁碼：依序按「下一頁」時，用上一頁回應的 `nextCursor` 取（`useAuditLogCursor`），跳頁、重新整理、從網址進來的頁才用 `offset`；
+篩選條件或每頁筆數改變時，記下的游標全部作廢。平台的稽核列表資料量小，維持 offset。
 
 **查哪張表**：先讀冷表最新一筆的時間（`max(occurred_at)`，只讀時間索引的第一列）；`from` 晚於它時資料一定全在熱表，
 只查熱表；否則熱表與冷表 `UNION ALL`（Postgres 以兩邊的

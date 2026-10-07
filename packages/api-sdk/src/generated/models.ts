@@ -538,6 +538,16 @@ export interface AuditLogSummary {
   errorCode: string | null;
 }
 
+export interface AuditLogList {
+  items: Array<AuditLogSummary>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
+  nextCursor: string | null;
+}
+
 export interface AuditLog {
   id: string;
   occurredAt: string;

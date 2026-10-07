@@ -3,14 +3,10 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { RequireFeature, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
-import { ApiZodListResponse, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
+import { ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import { AuditLogService } from './audit-log.service';
-import {
-  AuditLogSchema,
-  AuditLogSummarySchema,
-  ListAuditLogSchema,
-} from './dto/list-audit-log.dto';
+import { AuditLogSchema, AuditLogListSchema, ListAuditLogSchema } from './dto/list-audit-log.dto';
 import type { ListAuditLogDto } from './dto/list-audit-log.dto';
 
 @ApiTags('audit-logs')
@@ -25,7 +21,7 @@ export class AuditLogController {
     summary:
       '稽核日誌列表（固定 occurred_at DESC；時間範圍預設且最多 90 天；不含 changes / metadata）',
   })
-  @ApiZodListResponse(200, AuditLogSummarySchema)
+  @ApiZodResponse(200, AuditLogListSchema)
   list(@Query(new ZodValidationPipe(ListAuditLogSchema)) query: ListAuditLogDto) {
     return this.auditLogService.list(query);
   }

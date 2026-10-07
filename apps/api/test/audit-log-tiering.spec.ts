@@ -26,6 +26,7 @@ interface ListBody {
   data: {
     items: Array<Record<string, unknown> & { id: string; action: string }>;
     pagination: { total: number };
+    nextCursor: string | null;
   };
 }
 
@@ -60,6 +61,8 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
+    // 游標分頁的測試要逐頁走完上萬筆（一百多個請求）
+    process.env.DEFAULT_RATE_LIMIT = '10000';
 
     const created = createTestDatabase();
     db = created.db;
@@ -86,6 +89,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
   afterAll(async () => {
     await app.close();
     await closeDb();
+    delete process.env.DEFAULT_RATE_LIMIT;
   });
 
   describe('archive_audit_logs()', () => {
@@ -202,6 +206,51 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       ]);
     });
 
+    it('游標分頁跨冷熱：逐頁取到最後一頁，nextCursor 是 null', async () => {
+      const from = daysAgo(130).toISOString();
+      const to = daysAgo(41).toISOString();
+      const first = (await list(`action=tier.*&from=${from}&to=${to}&limit=1`).expect(200))
+        .body as ListBody;
+      expect(first.data.items.map((item) => item.action)).toEqual(['tier.old']);
+      expect(first.data.nextCursor).toEqual(expect.any(String));
+
+      const second = (
+        await list(
+          `action=tier.*&from=${from}&to=${to}&limit=1&cursor=${first.data.nextCursor}`,
+        ).expect(200)
+      ).body as ListBody;
+      expect(second.data.items.map((item) => item.action)).toEqual(['tier.older']);
+      expect(second.data.nextCursor).toBeNull();
+      // 總數不受游標影響
+      expect(second.data.pagination.total).toBe(2);
+    });
+
+    it('同一個時間點的多筆以 id 接續，不重複也不漏', async () => {
+      const at = daysAgo(2);
+      const ids = [];
+      for (let i = 0; i < 3; i += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序寫入，id 遞增
+        ids.push((await insertLog('tier.sameTime', at)).id.toString());
+      }
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      do {
+        const query: string = `action=tier.sameTime&limit=1${cursor ? `&cursor=${cursor}` : ''}`;
+        // oxlint-disable-next-line no-await-in-loop -- 逐頁往下
+        const body = (await list(query).expect(200)).body as ListBody;
+        seen.push(...body.data.items.map((item) => item.id));
+        cursor = body.data.nextCursor;
+      } while (cursor);
+      expect(seen).toEqual(ids.toReversed());
+    });
+
+    it('游標與 offset 不能同時帶；格式不對的游標回 400', async () => {
+      const both = await list('offset=1&cursor=abc').expect(400);
+      expect((both.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+      const invalid = await list('cursor=not-a-cursor').expect(400);
+      expect((invalid.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+    });
+
     it('offset 超過上限回 400（深分頁要掃過 offset 筆）', async () => {
       const response = await list(`offset=${AUDIT_LOG_MAX_OFFSET + 1}`).expect(400);
       expect((response.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
@@ -214,6 +263,20 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
         FROM generate_series(1, ${AUDIT_LOG_COUNT_CAP + 50})`);
       const response = await list('action=cap.*&limit=1').expect(200);
       expect((response.body as ListBody).data.pagination.total).toBe(AUDIT_LOG_COUNT_CAP);
+    });
+
+    it('游標分頁翻得過 offset 的上限：逐頁走完全部紀錄', async () => {
+      let count = 0;
+      let cursor: string | null = null;
+      do {
+        const query: string = `action=cap.*&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        // oxlint-disable-next-line no-await-in-loop -- 逐頁往下
+        const body = (await list(query).expect(200)).body as ListBody;
+        count += body.data.items.length;
+        cursor = body.data.nextCursor;
+      } while (cursor);
+      expect(count).toBe(AUDIT_LOG_COUNT_CAP + 50);
+      expect(count).toBeGreaterThan(AUDIT_LOG_MAX_OFFSET);
     });
 
     it('範圍超過 90 天回 400', async () => {

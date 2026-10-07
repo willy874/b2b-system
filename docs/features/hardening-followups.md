@@ -34,7 +34,6 @@ nginx 存取日誌不記 query string（[`01-system.md`](../architecture/01-syst
 
 | 項目 | 現況 | 為什麼延後 |
 | --- | --- | --- |
-| 稽核列表 keyset 分頁 | offset 上限 10 000、總數最多數到 10 100 | 前端分頁元件要一起改 |
 | 檔案列表無限捲動的 `maxPages` | 推播只重抓相關資料夾，但已載入的頁會全部重抓 | 游標只能往後、列表是虛擬捲動，丟掉前面的頁要有反向游標與捲動錨定 |
 | 列表的 304／ETag | 每次重抓都回完整資料 | 需要內容雜湊或列表層級的版本；單筆可用樂觀鎖的 `version` 產生 `ETag: W/"<version>"`（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D3） |
 | 個人資料夾不出現在別人的資料夾樹 | 依 `rbac/07` §5.1 列出但鎖住，樹的大小隨人數成長 | 產品決策 |
