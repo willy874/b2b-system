@@ -54,6 +54,33 @@
         "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm --filter @b2b-system/ui exec storybook dev -p 6007 --no-open"
       ],
       "port": 6007
+    },
+    {
+      "name": "apm",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm dev:apm"
+      ],
+      "port": 9100
+    },
+    {
+      "name": "external-api",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-c",
+        "unset PORT; export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm dev:external-api"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "mock-idp",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm dev:mock-idp"
+      ],
+      "port": 4455
     }
   ]
 }
