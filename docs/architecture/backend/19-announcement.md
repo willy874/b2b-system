@@ -92,6 +92,22 @@ modules/announcement/
 每個人的操作都寫稽核：`announcement.create`／`update`／`publish`／`pause`／`resume`／`delete`／`restore`、
 `announcementDispatch.revoke`（內文只記長度）。背景發送不寫稽核，發送紀錄就是紀錄。
 
+```jsonc
+// POST /announcements
+{
+  "title": "系統維護通知",
+  "body": "本週六 22:00～24:00 系統維護。",
+  "audience": { "all": false, "userIds": [], "groupIds": ["uuid"], "roleIds": [] },
+  "trigger": { "kind": "once", "at": "2026-10-10T10:00:00Z" }   // 或 { "kind": "immediate" }
+  // 週期（租戶時區）：{ "kind": "recurring", "frequency": "weekly", "interval": 1, "weekdays": [1, 3],
+  //                    "time": "09:00", "startsOn": "2026-10-01", "endsOn": null, "maxOccurrences": null }
+  // 事件點：{ "kind": "event", "event": "group.memberAdded", "delayMinutes": 1440 }
+}
+// → 201 { "data": { "id": "uuid", "status": "draft", "version": 1, "nextRunAt": null, "lastDispatch": null, … } }
+
+// POST /announcements/:id/publish  { "version": 1 } → 200（status 變成 scheduled 或 completed）
+```
+
 ---
 
 ## 4. 受眾

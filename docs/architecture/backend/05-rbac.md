@@ -17,7 +17,7 @@
 super-admin）仍在 service 判斷。那些不是「通用權限」，而是資源狀態相關的規則，
 Guard 看不到資源。
 
-**資源層級授權** 也是這個例外：檔案管理器的資料夾授權（[`../iam/06-resource-grants.md`](../iam/06-resource-grants.md)）
+**資源層級授權** 也是這個例外：檔案管理器的資料夾授權（[`iam/06-resource-grants.md`](../iam/06-resource-grants.md)）
 由 `FileAccessService` 判斷。Guard 仍然宣告閘門（`@RequireAnyPermission('file:access', 'file:<動作>')`），
 所以「每個路由都有明確宣告」與「每次拒絕都寫稽核」兩條原則不變——資源層級的拒絕同樣寫 `authz.denied`。
 
@@ -154,7 +154,7 @@ export class PermissionsGuard implements CanActivate {
 ### 3.2 平台管理者的端點（`@RequirePlatformPermissions`）
 
 apps/platform 的平台管理者與租戶的使用者是兩份帳號（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5），
-權限目錄也是兩份（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8）。平台的端點宣告
+權限目錄也是兩份（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8）。平台的端點宣告
 `@RequirePlatformPermissions('tenant:create')`（所有鍵都要有），同一個 `PermissionsGuard` 判斷：
 
 | 情況 | 結果 |
@@ -174,7 +174,7 @@ guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `Platfor
 
 權限集合由 `core/authz` 的關係圖解析（[`iam/01-model.md`](../iam/01-model.md) §9、§4.2）：
 `AuthzService.tenantPermissionsOf()` 批次解析——主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷。
-`permissions` 是 **權限依賴樹的閉包**（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9），
+`permissions` 是 **權限依賴樹的閉包**（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9），
 並多帶 `subjects`（主體閉包，給 `FileAccessService` 解析資料夾授權時沿用）。反提權因為 actor 的集合已是閉包，
 只要比「明確鍵 ⊆ actor 閉包」；自我鎖定要比「剩下的鍵的閉包」。
 
@@ -315,7 +315,7 @@ export class PermissionService {
 ### 4.2 關係圖引擎（`core/authz`）
 
 通用、不認識任何業務型別；業務模組在 `onModuleInit` 把自己的型別註冊進來（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
-領域上的模型（有哪些型別、關係怎麼定義）見 [`../iam/01-model.md`](../iam/01-model.md) §6.4。
+領域上的模型（有哪些型別、關係怎麼定義）見 [`iam/01-model.md`](../iam/01-model.md) §6.4。
 
 | 檔案 | 職責 |
 | --- | --- |
@@ -335,7 +335,7 @@ export class PermissionService {
 - **判斷的成本**：全域權限在租戶節點上只有一層，閉包算完就是 `Set<PermissionKey>`，guard 仍是 O(1)。
   資料夾是「整棵結構一次載入 ＋ 記憶化」，一次請求建一個判斷器（`FileAccessService.contextFor`）。
 - 說明（為什麼能做 X）：`explain()` 的路徑從主體閉包裡的主體開始，`closurePaths` 記下每個主體是怎麼來的、`withClosurePath` 把兩段接起來；
-  全域權限的所有來源由 `tenantSourcesOf` 列出。API、遮蔽與畫面見 [`../iam/08-explain.md`](../iam/08-explain.md)。
+  全域權限的所有來源由 `tenantSourcesOf` 列出。API、遮蔽與畫面見 [`iam/08-explain.md`](../iam/08-explain.md)。
 
 ## 5. 權限快取
 
@@ -806,13 +806,13 @@ private assertNotSelf(actorId: string, targetId: string): void {
 見 [`./09-file.md`](./09-file.md) §5.4。
 
 ³ `A \| B` 是 `@RequireAnyPermission(A, B)`：guard 只當閘門（能進檔案管理器），哪個資料夾能做什麼由
-`FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../iam/06-resource-grants.md`](../iam/06-resource-grants.md)）。
+`FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`iam/06-resource-grants.md`](../iam/06-resource-grants.md)）。
 路由稽核測試把 SOME 寫成 `a|b`、EVERY 寫成 `a+b`。
 
 ⁴ `@RequireAnyPermission(...TRASH_PERMISSIONS)`：回收桶支援的每一類的 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`）；
 指定的 `type` 再由 `TrashService` 以該類型的權限檢查（[`./13-trash.md`](./13-trash.md) §3）。
 
-**這張表必須與 `docs/architecture/iam/04-api.md` 一致**，且有一支測試從 metadata
+**這張表必須與各模組規格的端點表一致**（使用者、角色、權限在 [`iam/04-api.md`](../iam/04-api.md)，其他在各模組的規格），且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。
 
 ---
@@ -845,7 +845,7 @@ JWT 常見的做法是把使用者的角色或權限寫進 payload，Guard 直�
 那個人手上的 token 在到期前仍然帶著舊權限。
 
 對一個以 RBAC 為核心產品的系統，這個空窗是不可接受的。流程面的說明見
-[`../iam/03-flows.md`](../iam/03-flows.md)。
+[`iam/03-flows.md`](../iam/03-flows.md)。
 
 ### 11.2 決定
 

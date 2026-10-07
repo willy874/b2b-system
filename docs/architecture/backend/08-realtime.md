@@ -190,7 +190,7 @@ apps/platform 的網域（`PLATFORM_APP_URL` 的 host）不屬於任何租戶（
 | 推播 | `resource.changed` 事件依來源 → 受眾表（§6.1） | `platform.changed` 事件：沒指定收件人就推 `platform` room，有 `adminIds` 只推那些人 |
 | 撤銷 | `SESSIONS_REVOKED` 的 `userIds`／`tenantIds` | `SESSIONS_REVOKED` 的 `platformAdminIds`（停用、變更密碼） |
 
-平台的角色只有三種，每一種都有所有平台資源的 `:read`（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8.2），
+平台的角色只有三種，每一種都有所有平台資源的 `:read`（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8.2），
 所以不分 perm room：平台資源的變更推給所有平台管理者。
 
 平台的來源（`packages/realtime` 的 `ChangeSource`）：

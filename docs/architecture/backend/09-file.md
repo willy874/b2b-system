@@ -468,6 +468,8 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 `POST /files` 另外可帶 `folderId`（null 或不帶是根目錄；不存在或看不到回 `404 FILE_FOLDER_NOT_FOUND`）。
 
 各端點的權限宣告是閘門 `file:access` 或對應的全域 `file:*`；資料夾範圍的判斷與能力旗標見 §11。
+資源層級的拒絕：看不到的檔案回 `404 FILE_NOT_FOUND`（不透露存在）；資料夾對所有人可見，
+沒有權限（鎖住）或權限不夠回 `403 AUTHZ_FORBIDDEN`（`details: { action, resourceType, resourceId }`）。
 `POST /files/move` 的資料夾不存在回 `FILE_FOLDER_NOT_FOUND`；檔案已刪除、還在上傳中、或本來就在目的地的略過（不讓整批失敗），
 回應的數量只算實際移動的。
 
@@ -568,6 +570,23 @@ LIMIT $limit
 | `FILE_NOT_DELETED`／`FILE_FOLDER_NOT_DELETED` | 409 | 還原一個沒有被刪除的檔案／資料夾（[`13-trash.md`](./13-trash.md) §7） |
 | `FILE_RESTORE_CONFLICT` | 409 | 還原檔案時所在的資料夾已刪除（`reason: 'parentDeleted'`）或原檔已不在（`'objectMissing'`） |
 | `FILE_FOLDER_RESTORE_CONFLICT` | 409 | 還原資料夾時上層已刪除（`reason: 'parentDeleted'`）；同名沿用 `FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`） |
+
+
+### 6.3 資料夾授權與存取申請
+
+授權的規則（等級、繼承、反提權）見 [`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §6；存取申請走審批類型 `fileFolder.access`（[`20-approval.md`](./20-approval.md) §7）。權限欄的 `A | B` 是閘門：資料夾範圍的判斷見 §11。
+
+| Method | Path | 授權 | 說明 |
+| --- | --- | --- | --- |
+| GET    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 授權清單：直接授權 ＋ 繼承自上層的（標出來源資料夾）；需要 `share` |
+| PUT    | `/file-folders/:id/grants` | 🛡 `file:access` \| `file:share` | 新增或變更一筆授權（`{ subjectType, subjectId, level, expiresAt? }`）；**受反提權限制** |
+| DELETE | `/file-folders/:id/grants/:subjectType/:subjectId` | 🛡 `file:access` \| `file:share` | 移除一筆直接授權；**受反提權限制** |
+| GET    | `/file-folders/:id/grant-subjects` | 🛡 `file:access` \| `file:share` | 授權對象的候選清單（`?subjectType=role\|user&keyword=`，只回 id 與名稱） |
+| POST   | `/file-folders/:id/access-requests` | 🛡 `file:access` \| `file:read` | 申請存取（`{ level, reason? }`，審批類型 `fileFolder.access`）；`202 { submitted }` |
+| GET    | `/file-folders/:id/access-requests` | 🛡 `file:access` \| `file:share` | 這個資料夾的待審申請；需要 `share` |
+| POST   | `/file-folders/:id/access-requests/:requestId/approve` | 🛡 `file:access` \| `file:share` | 核准（`{ comment? }`）＝ 授予申請的等級；**受反提權限制** |
+| POST   | `/file-folders/:id/access-requests/:requestId/reject` | 🛡 `file:access` \| `file:share` | 駁回（`{ comment? }`） |
+| PATCH  | `/file-folders/:id/access` | 🛡 `file:access` \| `file:share` | 中斷／恢復繼承（`{ inheritGrants }`）；中斷時複製目前繼承到的授權 |
 
 ---
 
@@ -710,7 +729,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 
 ## 11. 存取控制（資料夾層級授權）
 
-規格：[`../iam/06-resource-grants.md`](../iam/06-resource-grants.md)；決策：[`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §13。
+規格：[`iam/06-resource-grants.md`](../iam/06-resource-grants.md)；決策：[`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §13。
 這一節只講實作落點。
 
 對外 API 限縮過 scopes 的 token：`contextFor` 讓判斷器的租戶層只有限縮後的權限鍵，資料夾上的授權照舊
@@ -731,7 +750,7 @@ FileAccessService（modules/file）
             └─ FileAccessContext：以 file.authz.ts 的模型判斷 can_* ／ can_rename ／ can_remove（core/authz 的判斷器）
 ```
 
-模型與規則見 [`../iam/06-resource-grants.md`](../iam/06-resource-grants.md) §2.1。結構邊（上層、繼承、建立者）由
+模型與規則見 [`iam/06-resource-grants.md`](../iam/06-resource-grants.md) §2.1。結構邊（上層、繼承、建立者）由
 `folderEdgeProvider` 從同一份 `FileFolderTree` 節點供應，不存進 `relation_tuples`；檔案項目本身的邊以 `withEdges` 臨時補上。
 
 | 檔案（`modules/file/`） | 內容 |

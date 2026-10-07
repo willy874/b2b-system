@@ -136,7 +136,7 @@
 
 ## 5. 核心使用者故事
 
-完整的流程與錯誤碼在 [`iam/03-flows.md`](../architecture/iam/03-flows.md)；E2E 涵蓋的情境在 [`frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1。
+完整的流程與錯誤碼在 [`iam/03-flows.md`](../architecture/iam/03-flows.md)（授權）與 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §3.5、§5.3（登入、啟用）；E2E 涵蓋的情境在 [`frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1。
 
 **作為管理者，我希望調整角色權限後立刻生效，以便快速回應風險。**
 

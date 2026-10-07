@@ -28,7 +28,7 @@ pnpm dev
 平台管理者與租戶的 super-admin 是兩份資料（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5）：
 平台管理者登入 apps/platform，看不到任何租戶的內容；租戶的 super-admin 只在自己的租戶。
 `SUPER_ADMIN_EMAIL` 只用在 `SEED_TENANT`：之後建立的租戶，第一位 super-admin 由 **佈建** 建立（`pending`，寄啟用信），
-營運方共用的帳密不會出現在客戶的租戶（[`../architecture/05-tenancy.md`](../05-tenancy.md) §5）。
+營運方共用的帳密不會出現在客戶的租戶（[`05-tenancy.md`](../05-tenancy.md) §5）。
 
 `db:seed` 設計為 **完全冪等**：重複執行不會產生重複資料、不會覆寫使用者已調整
 的非系統角色權限。
@@ -290,6 +290,6 @@ docker compose -f docker-compose.prod.yml run --rm migrate \
 - [ ] 權限依賴樹多出鍵的角色各有一筆 `role.permissionsImplied`（預設角色只有 auditor：`file:read ⇒ file:access`），重跑不重複
 - [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 25
 
-> seed 直接寫 `relation_tuples`（邊的形狀在 `db/schema/relation-tuples.ts`，[`../architecture/backend/02-database.md`](../backend/02-database.md) §2.10），
+> seed 直接寫 `relation_tuples`（邊的形狀在 `db/schema/relation-tuples.ts`，[`backend/02-database.md`](../backend/02-database.md) §2.10），
 > super-admin 的 `tenant:self#superAdmin` 邊由 `seedRoles` → `ensureSuperAdminTuple`
 > 明確寫入（冪等；角色已存在時也補一次）。seed 在另一個程序執行、不送失效廣播，執行中的 api 以權限快取的 TTL 反映。

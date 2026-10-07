@@ -373,7 +373,7 @@ describe('群組（docs/architecture/iam/01-model.md §9.3 D11、D12）', () => 
     });
   });
 
-  describe('經由群組持有角色的人也算持有者（docs/architecture/backend/05-rbac.md §8.4、docs/architecture/iam/04-api.md §3.4）', () => {
+  describe('經由群組持有角色的人也算持有者（docs/architecture/backend/05-rbac.md §8.4、docs/architecture/iam/04-api.md §2.4）', () => {
     const MANAGEMENT = ['role:read', 'role:update', 'role:grantPermission'];
 
     it('自我鎖定：只經由群組持有 R 的管理者拿掉 R 的 role:grantPermission → 403 ROLE_SELF_LOCKOUT', async () => {

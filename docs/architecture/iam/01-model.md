@@ -239,7 +239,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 guard、`GET /auth/profile`、反提權、即時推播的 room 看到的都是閉包。角色只儲存明確授予的鍵。
 
 權限集合有快取；任何邊的寫入都讓那個租戶的快取整個失效（`authz_revision`，
-[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §5.1）。
+[`backend/05-rbac.md`](../backend/05-rbac.md) §5.1）。
 
 ### 6.2 super-admin 旁路
 
@@ -259,7 +259,7 @@ deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題�
 ### 6.4 關係圖的組成與模型
 
 Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的子集。引擎在 `apps/api/src/core/authz/`
-（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.2），決策見 §9。
+（[`backend/05-rbac.md`](../backend/05-rbac.md) §4.2），決策見 §9。
 
 ```
   user:bob ── holder ──▶ role:editor ── tenant:self#file:update 的主體 ──▶ tenant:self
@@ -304,7 +304,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 
 圖回答「有沒有這條關係」，也回答反提權的「寫入這條邊，主體取得什麼」：模型為每個型別宣告哪些關係是 **能力**
 （租戶上的權限鍵與 `superAdmin`、資料夾上的 `can_*`），引擎沿著邊算出取得的能力，操作者必須全部都有
-（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1、§9.10）。
+（[`backend/05-rbac.md`](../backend/05-rbac.md) §4.1、§9.10）。
 
 **平台管理者不進圖**：`platform_admins.role` 是固定的角色與權限對照，範圍小（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
@@ -321,10 +321,10 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 | **群組**                               | 已實作：巢狀成員、群組持有角色、資料夾授權給群組（[`07-groups.md`](./07-groups.md)、§9.10） |
 | **條件式權限（ABAC）**                 | `relation_tuples` 的邊增加條件欄位（`condition jsonb`），Guard 端加入條件評估器                                 |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
-| **API Token / 服務帳號**               | 已實作（[`architecture/06-external-api.md`](../06-external-api.md) §9）：服務帳號是 `users.kind = 'service'`，與人一樣以 `user:` 主體持有角色、加入群組、被授權資料夾；不另開主體型別。token 的 scopes 只限縮租戶層的權限鍵（[`../architecture/06-external-api.md`](../06-external-api.md) §2） |
+| **API Token / 服務帳號**               | 已實作（[`architecture/06-external-api.md`](../06-external-api.md) §9）：服務帳號是 `users.kind = 'service'`，與人一樣以 `user:` 主體持有角色、加入群組、被授權資料夾；不另開主體型別。token 的 scopes 只限縮租戶層的權限鍵（[`06-external-api.md`](../06-external-api.md) §2） |
 
 多租戶已經做了，方式不是 `tenant_id` 加 RLS，而是 **每個租戶一個 database**：這份領域模型整份存在每個租戶的 DB 裡，
-各租戶各一套權限目錄、角色與使用者（[`../architecture/05-tenancy.md`](../05-tenancy.md)、[`architecture/05-tenancy.md`](../05-tenancy.md) §10）。
+各租戶各一套權限目錄、角色與使用者（[`05-tenancy.md`](../05-tenancy.md)、[`architecture/05-tenancy.md`](../05-tenancy.md) §10）。
 平台管理者另有一份很小的權限目錄與固定角色（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
 延伸時的相容性承諾：**權限鍵的字串格式不會變**，因此既有的
@@ -432,7 +432,7 @@ Phase 0 **只做扁平的全域 RBAC**：
   - G2：讀取改走引擎、依賴閉包生效；寫入仍經舊表（trigger 同步），影子比對繼續。
   - G3a：讀寫只走 tuple、以 revision 失效快取；刪影子比對。舊表與雙寫 trigger 保留——滾動部署期間舊版（G2）程序仍寫舊表，
     由 trigger 同步到 tuple；新版程式不寫舊表，trigger 不會被觸發。
-  - G3b：下一次部署才把舊表、雙寫 trigger 與它們的 schema 定義一起刪掉（破壞性變更拆成兩次部署，[`../architecture/backend/02-database.md`](../backend/02-database.md) §5.1）。
+  - G3b：下一次部署才把舊表、雙寫 trigger 與它們的 schema 定義一起刪掉（破壞性變更拆成兩次部署，[`backend/02-database.md`](../backend/02-database.md) §5.1）。
 - **D7 失效廣播走平台 DB 的單一頻道**：`authz_revision` 由租戶 DB 的 trigger 在同一交易遞增；提交後程式在平台 DB `NOTIFY`
   （payload `{ tenant, revision }`），每個程序一條 LISTEN 連線（`core/broadcast`）。其他程序內的快取之後共用這條頻道。
 - **D8 一個租戶一個 revision**：任何 tuple 寫入都讓整個租戶的閉包失效，重算按需、lazy；有指標顯示壓力再拆。
@@ -527,7 +527,7 @@ Phase 0 **只做扁平的全域 RBAC**：
 與提案不同的地方：
 
 - 雙寫 trigger（migration `0008`，含 `roles_mirror_super_admin`）沒有在 G3a 刪除，保留到 G3b 與舊表一起刪——
-  [`../architecture/backend/02-database.md`](../backend/02-database.md) 要求 migration 與前一版程式相容，滾動部署期間舊版程序仍寫舊表。
+  [`backend/02-database.md`](../backend/02-database.md) 要求 migration 與前一版程式相容，滾動部署期間舊版程序仍寫舊表。
 - 刪除角色是軟刪除並刪掉它的持有者邊；它的權限鍵邊、它作為主體的資料夾授權保留，解析時略過已刪除的角色。
   （[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D2、R3 起改成持有者邊也保留，還原角色時原本的持有者自動回來；永久刪除時才刪。）
 - 「每個主體在一個資料夾只有一個等級」不再是 DB 的唯一索引，由 `FileFolderGrantRepository.set`（先刪後插）維持；
@@ -546,10 +546,10 @@ Phase 0 **只做扁平的全域 RBAC**：
 | 項目 | 位置 |
 | --- | --- |
 | `group:*` 權限鍵、依賴樹、預設角色 | `db/seeds/permissions.ts`、`db/seeds/roles.ts`、[`02-permission-catalog.md`](./02-permission-catalog.md) §2.10 |
-| `groups` 表、`updated_at` 與 revision 的 trigger | migration `0016_groups.sql`、`0017_groups_triggers.sql`；[`../architecture/backend/02-database.md`](../backend/02-database.md) §2.14 |
+| `groups` 表、`updated_at` 與 revision 的 trigger | migration `0016_groups.sql`、`0017_groups_triggers.sql`；[`backend/02-database.md`](../backend/02-database.md) §2.14 |
 | 邊的形狀（`groupMemberTuple`、`groupRoleTuple`、`isGroupMemberTuple()`、`isGroupRoleTuple()`） | `db/schema/relation-tuples.ts` |
 | `group` 型別、`role#holder` 接受群組的成員、主體閉包與反向解析沿 `group#member` 走 | `core/authz/authz.types.ts`、`authz.repository.ts` |
-| 群組 CRUD、成員、持有的角色、還原（D11、D12） | `modules/group/`；端點見 [`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §9 |
+| 群組 CRUD、成員、持有的角色、還原（D11、D12） | `modules/group/`；端點見 [`backend/05-rbac.md`](../backend/05-rbac.md) §9 |
 | 測試 | `modules/group/__tests__/group.service.spec.ts`、`test/groups.spec.ts`、`core/authz/__tests__/authz.checker.spec.ts`（群組） |
 
 與提案不同的地方：

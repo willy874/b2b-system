@@ -99,7 +99,7 @@ export { ALL_PERMISSION_KEYS, PermissionKey } from './enums'; // 具名匯出優
 export { PermissionResource } from './resources';
 ```
 
-app 的程式碼照舊從 `@/core/permission` 匯入。backstage 的目錄是租戶的、apps/platform 的是平台的（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md)）；
+app 的程式碼照舊從 `@/core/permission` 匯入。backstage 的目錄是租戶的、apps/platform 的是平台的（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md)）；
 寫錯鍵或資源名稱在兩個 app 都會編譯失敗。
 
 ### 3.2 plugin 屬性（module augmentation）

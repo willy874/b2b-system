@@ -1,157 +1,13 @@
 # 身分與存取 03 — 流程
 
-本文件用序列圖描述每一條關鍵路徑。所有「檢查」步驟在實作時都必須有對應的測試。
+本文件用序列圖描述授權相關的關鍵路徑。所有「檢查」步驟在實作時都必須有對應的測試。
+
+認證的流程（登入、access token 續期與跨分頁協調、首次啟用與密碼重設）在
+[`backend/04-auth.md`](../backend/04-auth.md) §3.5、§2.7、§5.3；§6 的錯誤路徑總表兩者都列。
 
 ---
 
-## 1. 登入
-
-```
-使用者        apps/backstage                 apps/api                      DB
-  │              │                        │                           │
-  │─ 輸入帳密 ──▶│                        │                           │
-  │              │─ POST /auth/login ────▶│                           │
-  │              │                        │─ findByEmail(citext) ────▶│
-  │              │                        │◀── user | null ───────────│
-  │              │                        │                           │
-  │              │                     ┌──┴─────────────────────────┐ │
-  │              │                     │ 1. user 存在？             │ │
-  │              │                     │ 2. locked_until > now？    │ │
-  │              │                     │ 3. status = 'active'？     │ │
-  │              │                     │ 4. argon2.verify(pw)？     │ │
-  │              │                     └──┬─────────────────────────┘ │
-  │              │                        │                           │
-  │              │                    失敗 │─ failed_login_count+1 ──▶│
-  │              │                        │  （達 5 次 → locked 15m） │
-  │              │                        │─ audit(auth.login.failure)│
-  │              │◀── 401 AUTH_INVALID ───│                           │
-  │              │    （訊息不區分帳號不存在/密碼錯）                   │
-  │              │                        │                           │
-  │              │                    成功 │─ failed_login_count = 0 ▶│
-  │              │                        │─ last_login_at = now ────▶│
-  │              │                        │─ INSERT refresh_tokens ──▶│
-  │              │                        │   (family_id = new uuid)  │
-  │              │                        │─ audit(auth.login.success)│
-  │              │◀── 200 + Set-Cookie ───│                           │
-  │              │                        │                           │
-  │              │─ SessionStore.setTokens(accessToken, expiresIn)     │
-  │              │                        │                           │
-  │              │─ GET /auth/profile ───▶│                           │
-  │              │                        │─ 解析權限集合 ───────────▶│
-  │              │◀── { user, roles, permissions[] } ─────────────────│
-  │              │                        │                           │
-  │              │─ usePermissionStore.setPermissions(permissions)     │
-  │              │─ i18n.changeLanguage(user.preferences.locale)       │
-  │              │─ navigate('/')                                      │
-  │◀── 首頁 ─────│                        │                           │
-```
-
-**回應載荷**
-
-```jsonc
-// POST /auth/login → 200
-{
-  "data": {
-    "accessToken": "eyJhbGciOi...",
-    "tokenType": "Bearer",
-    "expiresIn": 300,
-  },
-}
-// Set-Cookie: refresh_token=<opaque>; HttpOnly; Secure; SameSite=Lax; Path=/auth; Max-Age=604800
-```
-
-```jsonc
-// GET /auth/profile → 200
-{
-  "data": {
-    "user": {
-      "id": "0192...",
-      "email": "admin@example.com",
-      "displayName": "Admin",
-      "status": "active",
-      "preferences": { "locale": "zh-TW", "timezone": "Asia/Taipei" },
-    },
-    "roles": [{ "id": "...", "slug": "admin", "name": "系統管理員" }],
-    "permissions": ["user:create", "user:read", "role:read", "..."],
-  },
-}
-```
-
-**安全要點**
-
-- 帳號不存在與密碼錯誤 **回傳相同的錯誤碼與相同的回應時間**（對不存在的帳號也
-  執行一次 dummy argon2 驗證），避免帳號列舉。
-- `status = 'pending'` 回 `AUTH_ACCOUNT_PENDING`（這個可以區分，因為使用者需要
-  知道要去收啟用信）；`inactive` 回 `AUTH_ACCOUNT_DISABLED`。
-- 登入失敗鎖定中（`locked_until` 未到期）一律回 `AUTH_INVALID_CREDENTIALS`，連密碼正確也一樣：
-  否則鎖定期間猜密碼的人看得到哪一個猜中了（[`architecture/backend/04-auth.md`](../backend/04-auth.md) §3.2）。
-
----
-
-## 2. Access Token 續期（含跨分頁協調）
-
-```
-分頁 A                    SessionStore               分頁 B
-  │                           │                        │
-  │─ 需要發請求 ─────────────▶│                        │
-  │                    ┌──────┴──────────────────┐     │
-  │                    │ ensureAccessToken()     │     │
-  │                    │  剩餘壽命 > 30s？        │     │
-  │                    │   是 → 直接回傳          │     │
-  │                    │   否 → 往下              │     │
-  │                    │  已有 in-flight refresh？│     │
-  │                    │   是 → 共用那個 promise  │     │
-  │                    └──────┬──────────────────┘     │
-  │                           │                        │
-  │                           │─ navigator.locks ─────▶│ 取得續期鎖（B 在此排隊）
-  │                           │                        │
-  │                           │─ POST /auth/refresh    │
-  │                           │  Cookie: refresh_token │
-  │                           │  x-refresh-request: 1  │
-  │                           │                        │
-  │                           │◀─ 200 新 accessToken   │
-  │                           │   Set-Cookie 新 refresh│
-  │                           │                        │
-  │                           │─ BroadcastChannel ────▶│ 「新 token 在這」
-  │                           │─ 釋放鎖                │─ 拿到鎖時 token 已新鮮 → 直接採用
-  │◀── accessToken ───────────│                        │
-```
-
-**後端 `POST /auth/refresh` 的判定**
-
-```
-收到 refresh token
-  │
-  ├─ 雜湊後查 refresh_tokens
-  │    └─ 查無 → 401 AUTH_REFRESH_INVALID
-  │
-  ├─ revoked_at IS NOT NULL，或同家族有任一列已撤銷 → 401 AUTH_REFRESH_REVOKED
-  │
-  ├─ expires_at < now       → 401 AUTH_REFRESH_EXPIRED
-  │
-  ├─ used_at IS NOT NULL    → ★ 重用偵測
-  │    ├─ UPDATE refresh_tokens SET revoked_at = now,
-  │    │         revoked_reason = 'reuse_detected'
-  │    │   WHERE family_id = <該家族>
-  │    ├─ audit(auth.refresh.reuse_detected)  ← 高風險事件
-  │    └─ 401 AUTH_REFRESH_REUSED
-  │
-  └─ 正常 → 交易內：
-       ├─ UPDATE 舊列 SET used_at = now
-       │    WHERE used_at IS NULL AND revoked_at IS NULL
-       │    └─ 0 列（併發請求搶先）→ 已撤銷回 REVOKED，否則同上 ★ 重用偵測
-       ├─ INSERT 新列（同 family_id）
-       ├─ 檢查 user.status 仍為 active、token_version 未變
-       └─ 簽發新 access token
-```
-
-> **為什麼要跨分頁協調**：refresh token 是輪替的。兩個分頁同時拿同一個舊 token
-> 去續期，第二個會被判定為「重用」，整條家族被撤銷，使用者被登出。
-> Web Locks 讓同一瀏覽器的分頁依序續期，後一個拿到鎖時用的已經是新 cookie。
-
----
-
-## 3. 授權檢查（每個受保護請求）
+## 1. 授權檢查（每個受保護請求）
 
 ```
 HTTP Request
@@ -200,12 +56,12 @@ ZodValidationPipe → Controller → Service → Repository
 
 這個「忘記宣告就爆炸」的設計是刻意的：它讓「漏掉權限檢查」在開發期就被發現，
 而不是上線後才變成資安事件。啟動時另有一個 **路由稽核**（見
-[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §7）掃描所有註冊的路由，
+[`backend/05-rbac.md`](../backend/05-rbac.md) §7）掃描所有註冊的路由，
 任何未宣告的路由讓程序啟動失敗。
 
 ---
 
-## 4. 建立角色並授予權限（含反提權）
+## 2. 建立角色並授予權限（含反提權）
 
 ```
 管理員         apps/backstage                       apps/api
@@ -266,11 +122,11 @@ ZodValidationPipe → Controller → Service → Repository
 送出 → 只有明確點選的鍵（POST /roles 的 permissionKeys、PATCH 的 add／remove）
 ```
 
-「有上層就不能取消前置」只是編輯器的互鎖；API 不因此拒絕（[`04-api.md`](./04-api.md) §3.3）。
+「有上層就不能取消前置」只是編輯器的互鎖；API 不因此拒絕（[`04-api.md`](./04-api.md) §2.3）。
 
 ---
 
-## 5. 變更角色權限 → 生效
+## 3. 變更角色權限 → 生效
 
 ```
 管理員 移除角色 R 的 'user:delete'
@@ -309,7 +165,7 @@ PermissionsGuard → cache miss → 重新解析 → 不含 'user:delete' → 40
 
 ---
 
-## 6. 指派角色給使用者
+## 4. 指派角色給使用者
 
 ```
 PUT /users/:id/roles  { roleIds: [...] }    ← 整批取代語意，非增量
@@ -328,7 +184,7 @@ PUT /users/:id/roles  { roleIds: [...] }    ← 整批取代語意，非增量
 
 ---
 
-## 7. 停用 / 刪除使用者 → 強制登出
+## 5. 停用 / 刪除使用者 → 強制登出
 
 ```
 PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
@@ -355,34 +211,7 @@ PATCH /users/:id { status: 'inactive' }   或   DELETE /users/:id
 
 ---
 
-## 8. 首次啟用與密碼重設
-
-兩條流程共用同一個 token 機制（單次使用、有期限、雜湊入庫）。
-
-```
-① 管理員建立使用者（status = pending，password_hash = NULL）
-     └─ 產生 activation token（24h）→ 寄信
-② 使用者點連結 {PLATFORM_APP_URL}/setup?token=xxx（apps/platform 的頁面，docs/architecture/04-sso.md §6.2）
-     └─ GET  /auth/setup/verify?token=xxx   → 200 { email } | 400 TOKEN_INVALID
-     └─ POST /auth/setup { token, password }
-           ├─ 密碼強度檢查（≥ 租戶設定的長度 `auth.passwordMinLength`，至少 12 字元；非常見密碼）
-           ├─ argon2 雜湊 → users.password_hash
-           ├─ status: pending → active
-           ├─ 標記 token 已使用
-           └─ audit(user.activate)
-③ 忘記密碼 /auth/forgot-password { email }
-     └─ ★ 不論 email 是否存在都回 200（避免帳號列舉）
-     └─ 存在且 active → 產生 reset token（1h）→ 寄信
-④ POST /auth/reset-password { token, password }
-     ├─ 同上驗證與雜湊
-     ├─ ★ token_version + 1（重設密碼強制所有裝置登出）
-     ├─ 撤銷所有 refresh token
-     └─ audit(auth.password_reset)
-```
-
----
-
-## 9. 錯誤路徑總表
+## 6. 錯誤路徑總表
 
 | 情境                            | HTTP | 錯誤碼                                         | 前端行為                             |
 | ------------------------------- | ---- | ---------------------------------------------- | ------------------------------------ |

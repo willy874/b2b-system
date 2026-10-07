@@ -69,7 +69,7 @@
 | 權限鍵          | 顯示名稱（zh-TW） | 說明                                     |
 | --------------- | ----------------- | ---------------------------------------- |
 | `system:read`   | 檢視系統資訊      | 版本、健康狀態、系統設定頁與事件通知頁（唯讀）       |
-| `system:update` | 變更系統設定      | 修改與還原系統設定（[`../architecture/backend/12-settings.md`](../backend/12-settings.md)）、開關事件通知（[`../architecture/backend/16-notification-event.md`](../backend/16-notification-event.md)） |
+| `system:update` | 變更系統設定      | 修改與還原系統設定（[`backend/12-settings.md`](../backend/12-settings.md)）、開關事件通知（[`backend/16-notification-event.md`](../backend/16-notification-event.md)） |
 
 ### 2.6 `approval` — 審批
 
@@ -98,7 +98,7 @@
 > 另有「能上傳的人可以改名、移動、刪除自己上傳的東西」的擁有者規則。
 > 模型、等級與解析規則見 [`06-resource-grants.md`](./06-resource-grants.md)（[`06-resource-grants.md`](06-resource-grants.md) §13）。
 > 資料夾沿用同一組權限，不另設 `fileFolder:*`。還在上傳中（`pending`）的檔案只有上傳者本人看得到，見
-> [`../architecture/backend/09-file.md`](../backend/09-file.md) §4。
+> [`backend/09-file.md`](../backend/09-file.md) §4。
 
 ### 2.8 `job` — 背景工作
 
@@ -109,7 +109,7 @@
 
 > 工作是系統自己產生的（排程、寄信、匯出），沒有 create / update / delete；
 > 重試是具名動作，理由同 `approval:review`。工作資料不放機密（token、密碼），
-> 因此 `job:read` 不會看到憑證，見 [`../architecture/backend/10-jobs.md`](../backend/10-jobs.md) §4。
+> 因此 `job:read` 不會看到憑證，見 [`backend/10-jobs.md`](../backend/10-jobs.md) §4。
 
 ### 2.9 `identityProvider` — 外部 IdP 連線
 
@@ -317,7 +317,7 @@
 | 登入         | `/auth/login`（跳到 apps/platform 的 IdP）、`/auth/callback` | 不受管 | 無（未登入可進）   | —     |
 | 個人資料     | `/profile`（含個人存取 token） | `PROFILE`   | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
-| 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`../architecture/frontend/15-notification.md`](../frontend/15-notification.md) §4） | — |
+| 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`frontend/15-notification.md`](../frontend/15-notification.md) §4） | — |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
 | 建立使用者   | `/user/create`             | `USER_CREATE`   | `user:read` ＋ `user:create`     | EVERY |
 | 角色列表     | `/role`                    | `ROLE`          | `role:read`                      | EVERY |
@@ -343,14 +343,14 @@
 | 公告列表     | `/announcement`（含 `/announcement/$announcementId` 詳情與發送紀錄） | `ANNOUNCEMENT` | `announcement:read` | EVERY |
 | 建立公告     | `/announcement/create`     | `ANNOUNCEMENT_CREATE` | `announcement:read` ＋ `announcement:create` | EVERY |
 | 公告全文     | `/announcement/message/$dispatchId` | `ANNOUNCEMENT_MESSAGE` | 無（只看得到自己收到的） | — |
-| 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`../architecture/frontend/13-trash.md`](../frontend/13-trash.md) §3） | SOME |
+| 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`frontend/13-trash.md`](../frontend/13-trash.md) §3） | SOME |
 
-apps/platform 只給平台管理者登入（[`../architecture/04-sso.md`](../04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
+apps/platform 只給平台管理者登入（[`04-sso.md`](../04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
 平台管理者的權限目錄在交付順序第 4 步加上租戶管理時建立。帳號流程（申請帳號、啟用、重設密碼）也在 apps/platform，未登入可進。
 
 > 頁面內的 **按鈕層級** gating 另由 `usePagePermission()` 派生的
 > `canCreate/canRead/canUpdate/canDelete` 決定，見
-> [`../architecture/frontend/06-permission.md`](../frontend/06-permission.md)。
+> [`frontend/06-permission.md`](../frontend/06-permission.md)。
 
 ---
 

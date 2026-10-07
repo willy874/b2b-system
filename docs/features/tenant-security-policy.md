@@ -16,7 +16,7 @@
 - **限制來源 IP**：後台只允許公司網段或 VPN。現在只能在 WAF 做（[`05-tenancy.md`](../architecture/05-tenancy.md) §2、[`06-external-api.md`](../architecture/06-external-api.md) D9），租戶無法自己設定；
   `rateLimit.trustedCidrs` 只放寬限流，不是限制。API token 的 IP 白名單已列為「之後可以在 `api_tokens` 加欄位」。
 - **看得到自己登入了哪些裝置，並能個別登出**：現在只有「登出目前這個 IdP session」（單一登出，不遞增 `token_version`），
-  或重設密碼時 `token_version + 1` 讓 **所有** 裝置登出（[`iam/03-flows.md`](../architecture/iam/03-flows.md)）。沒有裝置清單，也不能只登出某一台。
+  或重設密碼時 `token_version + 1` 讓 **所有** 裝置登出（[`backend/04-auth.md`](../architecture/backend/04-auth.md) §5）。沒有裝置清單，也不能只登出某一台。
 - **閒置逾時**：refresh token 的壽命是固定的；客戶要求「閒置 30 分鐘自動登出」。
 
 ## 範圍

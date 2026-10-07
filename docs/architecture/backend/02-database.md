@@ -327,7 +327,7 @@ export const auditLogsArchive = pgTable(
 
 ### 2.10 `relation_tuples`（關係圖的邊）
 
-權限解析的資料來源（[`iam/01-model.md`](../iam/01-model.md) §9、[`../iam/01-model.md`](../iam/01-model.md) §6）。
+權限解析的資料來源（[`iam/01-model.md`](../iam/01-model.md) §9、[`iam/01-model.md`](../iam/01-model.md) §6）。
 一列是一條 `物件#關係@主體`：
 
 | 欄位 | 說明 |

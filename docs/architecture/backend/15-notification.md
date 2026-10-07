@@ -185,7 +185,7 @@ await withTransaction(this.db, async (tx) => {
 
 ## 6. API（D9）
 
-下表四個端點都是 `@Authenticated()`：只需要登入；每個端點都只看得到、改得到自己的。看所有人的通知是另一個端點（§6.1）。完整格式見 [`../iam/04-api.md`](../iam/04-api.md) §7.3。
+下表四個端點都是 `@Authenticated()`：只需要登入；每個端點都只看得到、改得到自己的。看所有人的通知是另一個端點（§6.1）。回應的形狀見本節最後的範例。
 
 | 方法 | 路徑 | 說明 |
 | --- | --- | --- |
@@ -201,6 +201,32 @@ await withTransaction(this.db, async (tx) => {
   `2026-02-30`、`2026`、`0` 都過得了它，進 SQL 時卻會讓 Postgres 拋錯、回 500。
 - 每筆帶 `actor: { id, name } | null`（`users` 的 left join，被軟刪除的人照樣顯示名字）。
 - 已讀與全部已讀 **不寫稽核**：使用者自己的狀態，量大、沒有稽核價值。
+
+```jsonc
+// GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
+{
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "type": "approval.pending",
+        "params": { "approvalType": "user.register", "requesterName": "a@example.com", "subject": "Alice" },
+        "link": { "route": "approval.detail", "params": { "approvalId": "uuid" } },
+        "actor": null,                    // 觸發的人 { id, name }；系統為 null
+        "readAt": null,
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      }
+    ],
+    "nextCursor": "…"                    // 沒有下一頁時為 null；不計總數
+  }
+}
+
+// GET /notifications/unread-count → 200 { "data": { "count": 3 } }
+// POST /notifications/:id/read → 200 { "data": { /* Notification，readAt 已設定 */ } }
+// POST /notifications/read-all → 200 { "data": { "updated": 3 } }
+// GET /notifications/all?type=approval.pending&recipientId=<uuid>&cursor=… → 200
+//   { "data": { "items": [ { /* Notification */, "recipient": { "id": "uuid", "name": "Alice" } } ], "nextCursor": null } }
+```
 
 ### 6.1 通知總覽（[`backend/19-announcement.md`](19-announcement.md) §9.2 D1、D2）
 

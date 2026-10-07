@@ -173,7 +173,7 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: req
 | GET | `/notification-events` | `system:read` | 目前租戶看得到的事件（目錄的順序）與每個管道的 `enabled`、`defaultEnabled`、`isOverridden`、`allowUserOverride` |
 | PATCH | `/notification-events` | `system:update` | `{ changes: [{ type, channel, enabled?: boolean \| null, allowUserOverride?: boolean }] }`；兩欄至少一個；`enabled: null` = 還原預設；1～100 筆 |
 
-沿用系統設定的權限：事件政策是租戶層的營運設定，關掉通知不提權，安全事件由 `mandatory` 擋住。完整格式見 [`../iam/04-api.md`](../iam/04-api.md) §7.4。
+沿用系統設定的權限：事件政策是租戶層的營運設定，關掉通知不提權，安全事件由 `mandatory` 擋住。範例見 §5 最後。
 
 `PATCH` 的規則（`NotificationPolicyService.update`，形狀與 `PATCH /system/settings` 相同）：
 
@@ -216,6 +216,55 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: req
    （`affectedUserIds`，其他分頁與裝置跟著更新；不推給 `auditLog:read`）。
 
 租戶政策改變時，推播只到 `system:read` 的人；其他使用者在下次打開偏好頁時重抓（前端的依賴圖讓 `notificationPolicy` 也失效個人設定）。
+
+範例：
+
+```jsonc
+// GET /notification-events → 200
+{
+  "data": {
+    "items": [
+      {
+        "type": "approval.result",
+        "category": "approval",
+        "mandatory": false,
+        "channels": [
+          { "channel": "inApp", "enabled": true, "defaultEnabled": true, "isOverridden": false, "allowUserOverride": false, "updatedAt": "2026-10-01T00:00:00.000Z" },
+          { "channel": "email", "enabled": false, "defaultEnabled": true, "isOverridden": true, "allowUserOverride": true, "updatedAt": "2026-10-01T00:00:00.000Z" }
+        ]
+      }
+    ]
+  }
+}
+
+// PATCH /notification-events → 200（回傳同 GET）
+{
+  "changes": [
+    { "type": "approval.result", "channel": "email", "enabled": false },
+    { "type": "approval.result", "channel": "inApp", "allowUserOverride": false },  // 每個人都要收到
+    { "type": "approval.pending", "channel": "inApp", "enabled": null }   // 還原預設
+  ]
+}
+
+// GET /me/notification-preferences → 200
+{
+  "data": {
+    "items": [
+      {
+        "type": "approval.result",
+        "category": "approval",
+        "channels": [
+          { "channel": "inApp", "enabled": true, "isOverridden": false, "lock": "tenantRequired" },
+          { "channel": "email", "enabled": false, "isOverridden": true, "lock": null }
+        ]
+      }
+    ]
+  }
+}
+
+// PATCH /me/notification-preferences → 200（回傳同 GET）
+{ "changes": [{ "type": "approval.result", "channel": "email", "enabled": false }] }
+```
 
 ---
 

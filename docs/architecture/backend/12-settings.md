@@ -107,6 +107,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `GET /system/settings` | `system:read` | 所有設定：`key`、`category`、`type`、生效值、預設值、`isOverridden`、`isPublic`、`minimum`／`maximum`、`updatedAt` |
 | `PATCH /system/settings` | `system:update` | `{ values: { <key>: <值> \| null } }`；`null` = 還原預設；一次最多 50 個 key。回傳同 `GET` |
 | `GET /system/settings/public` | `@Public()` | `{ values: { <key>: <生效值> } }`，只有 `isPublic` 的設定。需要租戶脈絡：租戶網域，或 apps/platform 帶 `X-Tenant` |
+| `GET /system/info` | `system:read` | 版本、建置時間、環境（不受租戶 feature `systemSetting` 影響，[`architecture/05-tenancy.md`](../05-tenancy.md) §12.2 D4） |
 
 `PATCH` 的規則（`SystemSettingService.update`）：
 

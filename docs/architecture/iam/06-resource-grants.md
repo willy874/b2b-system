@@ -91,7 +91,7 @@ level(u, F) = 收集到的授權中最高的等級；沒有就是「無」
 - 授權的過期時間到了就不再計入，不需要排程清除（§6.3）。
 - 角色被刪除（軟刪除）、使用者被刪除：他們的授權不再計入，也不出現在授權清單。
 - 資料夾被刪除（軟刪除，移到回收桶）：它上面的授權邊不刪。刪除的資料夾不在結構裡，授權流不到任何地方；
-  還原後隨之生效，永久刪除時才刪邊（[`../architecture/backend/13-trash.md`](../backend/13-trash.md) §7）。
+  還原後隨之生效，永久刪除時才刪邊（[`backend/13-trash.md`](../backend/13-trash.md) §7）。
 
 ### 3.2 能力
 
@@ -130,7 +130,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | 資料夾 `D` 改名 | `has(update, D 的上層)` ∨（**本人建立** ∧ `has(create, D 的上層)`） |
 | 移動檔案或資料夾到 `T` | 每一個項目都能「改名」（同上）∧ `has(create, T)` |
 | 遞迴刪除資料夾 `D` | `has(delete, D 的上層)` ∨（本人建立 ∧ `has(create, D 的上層)` ∧ **子樹裡全部是本人建立的**）；另外子樹中每個中斷繼承的資料夾 `X` 都要 `has(delete, X)` |
-| 還原刪除的檔案、資料夾 | 與刪除相同（能刪就能復原，[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D10）；資料夾以 **還原之後** 的結構判斷，交易內先還原、不能就 rollback（[`../architecture/backend/13-trash.md`](../backend/13-trash.md) §7.1） |
+| 還原刪除的檔案、資料夾 | 與刪除相同（能刪就能復原，[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D10）；資料夾以 **還原之後** 的結構判斷，交易內先還原、不能就 rollback（[`backend/13-trash.md`](../backend/13-trash.md) §7.1） |
 | 看授權清單、新增／變更／移除授權、中斷繼承 | `has(share, F)` |
 
 **擁有者規則（C）的範圍**：只放寬「改名、移動、刪除」，不放寬「看得到」。
@@ -172,7 +172,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 
 ### 6.1 反提權
 
-比照 `role:grantPermission`（[`04-api.md`](./04-api.md) §5）：
+比照 `role:grantPermission`（[`04-api.md`](./04-api.md) §4）：
 
 - 授予、變更、移除等級 `L` 的授權：操作者必須 `has(share, F)`，而且 **`L` 蘊含的每個動作操作者在 `F` 都有**
   （來源可以是全域權限鍵或資料夾等級）。違反回 `403 AUTHZ_ESCALATION`（`details.missing`）。
@@ -245,7 +245,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 
 ## 8. 資料模型
 
-授權是 `relation_tuples`（[`../architecture/backend/02-database.md`](../backend/02-database.md) §2.10）上的邊，
+授權是 `relation_tuples`（[`backend/02-database.md`](../backend/02-database.md) §2.10）上的邊，
 讀寫集中在 `apps/api/src/modules/file/file-folder-grant.repository.ts`（`FileFolderGrantRepository`）：
 
 ```
@@ -299,7 +299,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 1 | 在模型裡宣告型別：等級、`can_*`、`X from <上層>`（沿用 `fileFolder` 的寫法） | 該資源的 `<resource>.authz.ts`，於 `onModuleInit` 註冊（`AuthzRegistry`） |
 | 2 | 提供結構邊的供應者（上層、繼承、擁有者），從資源自己的表讀，不存進 `relation_tuples` | 同上 |
 | 3 | 授權的讀寫：`<type>:<id>#<等級>@<主體>` 的 repository；「一個對象一個等級」由程式維持（§8） | 該資源的 module（參考 `file-folder-grant.repository.ts`） |
-| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；型別宣告它的能力（`defineType(…, { capabilities })`），等級帶來的能力由 `capabilitiesOf` 算出，反提權用 `missingActions()` / `assignableLevels()`（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1） | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
+| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；型別宣告它的能力（`defineType(…, { capabilities })`），等級帶來的能力由 `capabilitiesOf` 算出，反提權用 `missingActions()` / `assignableLevels()`（[`backend/05-rbac.md`](../backend/05-rbac.md) §4.1） | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
 | 5 | 授權管理 API、稽核（`<resource>.grant` / `.revoke`）、推播受眾 | 該資源的 module ＋ `realtime.audience.ts` |
 | 6 | 權限目錄加閘門鍵（`<resource>:access`）與 `<resource>:share` | 權限變更的同步清單（CLAUDE.md） |
 
@@ -383,8 +383,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 某個資料夾只給少數人（私人資料夾） | 只有 allow；資料夾授權會一路繼承下去 |
 
 [`01-model.md`](01-model.md) §8 延後作用域的理由是「主功能還不存在，猜不到作用域的單位」。檔案管理器的資料夾樹是第一個具體的單位。
-後端與前端的對應章節：[`../architecture/backend/09-file.md`](../backend/09-file.md) §11、
-[`../architecture/frontend/12-file-manager.md`](../frontend/12-file-manager.md) §13。
+後端與前端的對應章節：[`backend/09-file.md`](../backend/09-file.md) §11、
+[`frontend/12-file-manager.md`](../frontend/12-file-manager.md) §13。
 
 ### 13.2 決定
 
@@ -401,7 +401,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | D7 | 通用的 `resource_grants` 表與 `modules/resource-grant`，資料夾只是第一個 `resource_type` | 其他資源會用同一套；解析函式只認識「節點、上層、是否繼承」（G3a 起改為關係圖上的邊，表與 module 已刪除，見 §10.1） |
 | D8 | 後端回傳 `capabilities`，前端不重算 | 繼承與擁有者規則只在後端有一份 |
 | D9 | 資料夾授權不進權限快取，每個請求重新解析 | 失效時機（角色指派、授權變更、搬移資料夾）太多；一次讀整棵樹在目前規模很便宜 |
-| D10 | 路由宣告 `@RequireAnyPermission('file:access', 'file:<動作>')`，範圍在 service 判斷 | guard 看不到資源（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §1 原則 3 的例外）；路由稽核仍然有明確宣告 |
+| D10 | 路由宣告 `@RequireAnyPermission('file:access', 'file:<動作>')`，範圍在 service 判斷 | guard 看不到資源（[`backend/05-rbac.md`](../backend/05-rbac.md) §1 原則 3 的例外）；路由稽核仍然有明確宣告 |
 | D11 | 沒有權限的資料夾仍列出（鎖住），可以申請存取；申請走審批（`fileFolder.access`），由資料夾的管理者或管理員核准 | 使用者需求（2026-09-29）：知道資料夾存在、能自助申請，比「看不到就不知道要找誰」好用。代價是資料夾名稱對能進檔案管理器的人公開；檔案仍不公開 |
 | D12 | 系統建立「共用資料夾」（所有人 editor）、「私人資料夾」與每人一個個人資料夾（本人 manager、不繼承）；取得檔案管理器權限時自動建立；別人的個人資料夾與其他資料夾一致（列出、鎖住）；擁有者被刪除時空的個人資料夾自動刪除。**「別人的個人資料夾也列出」已由 D17 取代** | 使用者需求（2026-09-29）：一般成員不能在根目錄建立，需要現成的共用區與個人區；可見性規則保持一致、沒有例外 |
 | D17 | **別人的個人資料夾分三層可見度**（§12.1，2026-10-07）：一般成員只看得到被分享的路徑、看不到的回 404；新權限 `file:listPersonal` 看得到全部（鎖住、可申請）；全域 `file:read` 讀得到全部 | 1000 人的租戶每個人的樹都有上千個鎖住的個人資料夾，回應與 render 隨人數成長；每個人都看得到全公司的名單，也能對任何人的個人資料夾送申請（騷擾的管道）。D11 的「知道存在才能申請」不適用於以人名命名的資料夾。以權限分層（使用者決定）而不是「只有全域 `file:read` 例外」：需要協助整理個人資料夾、但不該讀到內容的管理層級有自己的權限鍵 |
