@@ -1,29 +1,18 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
-import { Button, IconButton } from '@b2b-system/ui/Button';
-import { Icon } from '@b2b-system/ui/Icon';
-import type { TableColumnDef } from '@b2b-system/ui/Table';
+import { Button } from '@b2b-system/ui/Button';
 import { Tabs } from '@b2b-system/ui/Tabs';
-import { Tooltip } from '@b2b-system/ui/Tooltip';
-import { RichTable } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import type { TagScope } from '@/apis/tag/types';
-import { TagChips } from '@/core/components';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 import type { Tag } from '@/shared/api-sdk';
 
-import {
-  TAG_COLOR_LABEL_KEY,
-  TAG_SCOPE_DESCRIPTION_KEY,
-  TAG_SCOPE_FEATURE,
-  TAG_SCOPE_LABEL_KEY,
-} from '../../constants';
+import { TAG_SCOPE_DESCRIPTION_KEY, TAG_SCOPE_FEATURE, TAG_SCOPE_LABEL_KEY } from '../../constants';
 import {
   useTagCreateMutation,
   useTagDeleteMutation,
@@ -32,6 +21,7 @@ import {
 import { useTagPermission } from '../../hooks/useTagPermission';
 import { TAG_SCOPES, TagListRoute } from '../../routes';
 import { TagFormDialog } from './components/TagFormDialog';
+import { TagTable } from './components/TagTable';
 
 /**
  * 標籤管理（docs/architecture/backend/18-tag.md §7.2 D1、D5）：每個標籤組一個分頁。檔案組跟著 feature `file`，沒啟用時不出現。
@@ -62,65 +52,6 @@ export default function TagListPage() {
     const latest = await queryClient.fetchQuery({ ...getTagListQueryOptions(scope), staleTime: 0 });
     setEditing(latest.items.find((item) => item.id === editing.id));
   };
-
-  const columns = useMemo<Array<TableColumnDef<Tag>>>(
-    () => [
-      {
-        id: 'name',
-        header: t('tagAdmin.field.name'),
-        enableSorting: false,
-        cell: ({ row }) => <TagChips tags={[row.original]} />,
-      },
-      {
-        id: 'color',
-        header: t('tagAdmin.field.color'),
-        enableSorting: false,
-        cell: ({ row }) => t(TAG_COLOR_LABEL_KEY[row.original.color]),
-      },
-      {
-        id: 'updatedAt',
-        header: t('tagAdmin.field.updatedAt'),
-        enableSorting: false,
-        cell: ({ row }) => formatDateTime(row.original.updatedAt),
-      },
-      {
-        id: 'actions',
-        header: t('common.actions'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex gap-1">
-            {permission.canUpdate && (
-              <Tooltip content={t('common.edit')}>
-                <IconButton
-                  size="sm"
-                  aria-label={t('common.edit')}
-                  onClick={() => setEditing(row.original)}
-                  data-testid="tag-edit-button"
-                  data-value={row.original.id}
-                >
-                  <Icon name="edit" size={16} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {permission.canDelete && (
-              <Tooltip content={t('common.delete')}>
-                <IconButton
-                  size="sm"
-                  aria-label={t('common.delete')}
-                  onClick={() => setPendingDelete(row.original)}
-                  data-testid="tag-delete-button"
-                  data-value={row.original.id}
-                >
-                  <Icon name="trash" size={16} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </div>
-        ),
-      },
-    ],
-    [permission.canDelete, permission.canUpdate, setEditing, setPendingDelete, t],
-  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="tag-list-page">
@@ -155,15 +86,15 @@ export default function TagListPage() {
         {t(TAG_SCOPE_DESCRIPTION_KEY[scope])}
       </p>
 
-      <RichTable
-        data={tags.data?.items ?? []}
-        columns={columns}
+      <TagTable
+        items={tags.data?.items ?? []}
         loading={tags.isPending}
-        getRowId={getRowId}
-        enableRowSelection={false}
         error={tags.error}
         onRetry={() => void tags.refetch()}
-        data-testid="tag-table"
+        canUpdate={permission.canUpdate}
+        canDelete={permission.canDelete}
+        onEdit={setEditing}
+        onDelete={setPendingDelete}
       />
 
       <TagFormDialog
@@ -204,5 +135,3 @@ export default function TagListPage() {
     </div>
   );
 }
-
-const getRowId = (row: Tag) => row.id;
