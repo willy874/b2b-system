@@ -46,6 +46,8 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'file:share',
       // member 有 file:access：admin 要持有它才能指派 member（反提權）
       'file:access',
+      // 全域 file:read 已經看得到全部；持有它才能把它指派給自訂角色（反提權）
+      'file:listPersonal',
       'job:read',
       'job:retry',
       'identityProvider:create',

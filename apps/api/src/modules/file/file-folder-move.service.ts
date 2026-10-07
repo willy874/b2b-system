@@ -43,7 +43,10 @@ export class FileFolderMoveService {
         : undefined;
       await this.access.assertCan(ctx, actor, 'create', targetFolderId);
 
-      const folders = await this.repo.findByIds(dto.folderIds, tx);
+      // 看不到的（別人的個人資料夾裡）與不存在的一樣回 404
+      const folders = (await this.repo.findByIds(dto.folderIds, tx)).filter((folder) =>
+        ctx.exists(folder.id),
+      );
       assertNotSystem(folders);
       if (folders.length !== dto.folderIds.length) {
         const found = new Set(folders.map((folder) => folder.id));

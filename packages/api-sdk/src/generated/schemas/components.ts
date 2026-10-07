@@ -713,6 +713,7 @@ export const PermissionKeySchema = z.enum([
   'file:delete',
   'file:access',
   'file:share',
+  'file:listPersonal',
   'job:read',
   'job:retry',
   'identityProvider:create',

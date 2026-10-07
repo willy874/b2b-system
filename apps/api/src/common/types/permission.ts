@@ -35,6 +35,7 @@ export const PERMISSION = {
   FILE_DELETE: 'file:delete',
   FILE_ACCESS: 'file:access',
   FILE_SHARE: 'file:share',
+  FILE_LIST_PERSONAL: 'file:listPersonal',
 
   JOB_READ: 'job:read',
   JOB_RETRY: 'job:retry',

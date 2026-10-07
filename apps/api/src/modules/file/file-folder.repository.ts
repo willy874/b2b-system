@@ -81,6 +81,8 @@ export class FileFolderRepository {
         parentId: fileFolders.parentId,
         inheritGrants: fileFolders.inheritGrants,
         createdBy: fileFolders.createdBy,
+        kind: fileFolders.kind,
+        ownerId: fileFolders.ownerId,
       })
       .from(fileFolders)
       .where(notDeleted(fileFolders));

@@ -91,6 +91,7 @@
 | `file:delete` | 刪除檔案          | **所有資料夾**：軟刪除紀錄並刪除物件儲存中的內容；遞迴刪除資料夾（連同其中的檔案與子資料夾） |
 | `file:access` | 使用檔案管理器    | 進入檔案管理器；能看到、能做什麼 **由資料夾授權決定**（不含任何資料夾） |
 | `file:share`  | 管理檔案授權      | **所有資料夾**：檢視與變更資料夾的授權、中斷繼承。**受反提權限制** |
+| `file:listPersonal` | 看得到別人的個人資料夾 | 別人的個人資料夾在樹裡出現（鎖住、可申請存取）；讀內容另要授權或全域 `file:read`。沒有它時，別人的個人資料夾只在自己或子孫讀得到時出現（[`07-resource-grants.md`](./07-resource-grants.md) §12.1） |
 
 > 上面四個 CRUD 鍵是 **全域** 的：持有者對所有資料夾（含中斷繼承的私人資料夾）都有該動作。
 > 一般成員拿 `file:access`，再由資料夾授權（viewer / contributor / editor / manager）決定範圍，
@@ -267,6 +268,7 @@
 | `file:delete`          |      ✓*       |    ✓    |           |          |
 | `file:access`          |      ✓*       |    ✓    |           |    ✓     |
 | `file:share`           |      ✓*       |    ✓    |           |          |
+| `file:listPersonal`    |      ✓*       |    ✓    |           |          |
 | `job:read`             |      ✓*       |    ✓    |     ✓     |          |
 | `job:retry`            |      ✓*       |    ✓    |           |          |
 | `identityProvider:create` |   ✓*       |    ✓    |           |          |
@@ -514,6 +516,7 @@ Seed 行為：
 | `file:update` | `file:read` | |
 | `file:share` | `file:read` | |
 | `file:read` | `file:access` | |
+| `file:listPersonal` | `file:access` | |
 | `job:retry` | `job:read` | |
 | `identityProvider:create` | `identityProvider:update` | |
 | `identityProvider:delete` | `identityProvider:update` | |

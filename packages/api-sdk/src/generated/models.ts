@@ -311,6 +311,7 @@ export const PermissionKey = {
   'file:delete': 'file:delete',
   'file:access': 'file:access',
   'file:share': 'file:share',
+  'file:listPersonal': 'file:listPersonal',
   'job:read': 'job:read',
   'job:retry': 'job:retry',
   'identityProvider:create': 'identityProvider:create',
