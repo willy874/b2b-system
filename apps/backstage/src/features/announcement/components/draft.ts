@@ -1,7 +1,7 @@
 import type { Announcement, AnnouncementAudience } from '@/shared/api-sdk';
 
 import type { AnnouncementDraft } from './AnnouncementForm';
-import { EMPTY_TRIGGER_DRAFT, fromTriggerDraft, toTriggerDraft } from './TriggerField';
+import { EMPTY_TRIGGER_DRAFT, fromTriggerDraft, toTriggerDraft } from './triggerDraft';
 
 export const EMPTY_AUDIENCE: AnnouncementAudience = {
   all: false,

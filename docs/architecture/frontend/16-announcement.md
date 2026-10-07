@@ -19,6 +19,7 @@ features/announcement/                 可啟用的 feature（`announcement`，a
 │   ├── AnnouncementForm.tsx           標題、內文、受眾、發送時間（建立與編輯共用）
 │   ├── AudiencePicker.tsx             「全部」開關、使用者（伺服器端搜尋）／群組／角色多選、預覽人數
 │   ├── TriggerField.tsx               立即／指定時間（偏好時區的日期 ＋ 時間）／週期（租戶時區；接下來 5 次的預覽）／事件點（觸發點 ＋ 延遲）
+│   ├── triggerDraft.ts                發送時間的草稿 ⇄ API 的觸發方式（純函式）
 │   ├── triggerSummary.ts              觸發方式的一行摘要（列表、詳情、送出的確認）
 │   ├── draft.ts                       表單草稿 ⇄ API
 │   └── AnnouncementRestoreAction.tsx  回收桶的還原按鈕
