@@ -1,3 +1,4 @@
+export * from './mfa-challenge-delivery';
 export * from './mfa-method';
 export * from './mfa-method.registry';
 export * from './mfa-secrets';

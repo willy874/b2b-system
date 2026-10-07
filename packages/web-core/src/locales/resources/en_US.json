@@ -555,6 +555,16 @@
       "resetTitle": "Reset MFA for this account?",
       "resetDescription": "This deletes all verification methods and recovery codes and signs this person out everywhere; they'll be notified by email. They may need to set it up again depending on policy.",
       "resetDone": "MFA has been reset."
+    },
+    "email": {
+      "code": "Verification code",
+      "sentTo": "We sent a code to {{address}}.",
+      "willSend": "We'll send a code to {{address}}.",
+      "send": "Send code",
+      "resend": "Resend",
+      "resendIn_one": "Resend in {{count}} second",
+      "resendIn_other": "Resend in {{count}} seconds",
+      "delayHint": "The email may take up to a minute to arrive. Check your spam folder too."
     }
   }
 }

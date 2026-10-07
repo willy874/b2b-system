@@ -75,6 +75,9 @@ Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_d
 | `api_rate_limited_total` | counter | `bucket` | 被速率限制擋下的 HTTP 請求（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 的桶名稱） | `RateLimitGuard` |
 | `api_limiter_active`、`api_limiter_waiting` | gauge | `limiter`（`argon2`／`image`） | 程序內並行上限的執行中、排隊中數量 | `createLimiter({ name })` |
 | `api_limiter_rejected_total` | counter | `limiter`、`reason`（`queue-full`／`timeout`） | 等待名額已滿或等太久 | 同上 |
+| `api_mfa_verifications_total` | counter | `method`、`purpose`（`login`／`enroll`）、`result`（`ok`／`invalid`／`expired`／`replayed`） | MFA 驗證碼與備用碼的驗證（[`backend/21-mfa.md`](./backend/21-mfa.md) §12） | `MfaService` |
+| `api_mfa_challenges_sent_total` | counter | `method` | 寄出的驗證碼（Email） | `EmailMfaMethod` 的寄信工作 |
+| `api_mfa_email_delivery_seconds` | histogram | — | Email 驗證碼從入列到寄出的秒數（告警 `MfaEmailCodeSlow`） | 同上 |
 
 `route` 是 Express 對到的路由樣板（`/users/:id`），掛在前綴下的子應用程式（OIDC Provider）只取掛載點（`/oidc`）；沒有對到 controller 的請求是 `unmatched`
 （`forRoutes('*')` 的中介軟體留下的 `{/*splat}` 也算），中介軟體直接回應的是 `other`。客戶端在回應前斷線記成 `499`。實作在 `core/metrics/route-label.ts`，
@@ -236,6 +239,7 @@ docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-c
 | `ApiSlowRoute` | 某個路由的 p95 > 2 秒持續 10 分鐘 |
 | `ApiEventLoopLag` | event loop 延遲 p99 > 0.5 秒持續 5 分鐘 |
 | `Argon2Saturated` | 登入的密碼驗證排不到名額（`503 AUTH_BUSY`） |
+| `MfaEmailCodeSlow` | Email 驗證碼從入列到寄出的 p95 > 60 秒持續 10 分鐘（[`backend/21-mfa.md`](./backend/21-mfa.md) §12）；短時間修不好時，平台可以暫時關掉 Email 驗證 |
 | `TenantUnavailable` | 有租戶因 migration 落後或 DB 連不上而暫停服務 |
 | `JobBacklog`、`JobFailures`、`OutboxRelayFailing` | 佇列積壓 > 500 筆 15 分鐘；15 分鐘內失敗 > 10 次；outbox 搬移失敗 |
 | `PostgresDown`、`PostgresConnectionsHigh` | exporter 連不上；連線數超過 `max_connections` 的 70%（考慮 PgBouncer 的時候） |

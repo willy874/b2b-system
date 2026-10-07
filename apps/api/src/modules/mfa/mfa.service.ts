@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { AppException } from '@/core/errors';
@@ -9,12 +10,15 @@ import { mfaVerifications } from '@/core/metrics';
 import {
   generateRecoveryCodes,
   hashRecoveryCode,
+  MfaChallengeDelivery,
   MfaMethodRegistry,
   MfaSecretService,
 } from '@/core/mfa';
 import type {
   MfaAccount,
   MfaAccountContext,
+  MfaDeliver,
+  MfaDeliveryResult,
   MfaChallenge,
   MfaFactor,
   MfaMethod,
@@ -57,7 +61,7 @@ export function methodInfoOf(method: MfaMethod): MfaMethodInfoDto {
  * 帳號與儲存經 `MfaAccountStore`，同一套流程服務租戶與平台（D5）。登入互動的第二步在 `MfaLoginService`。
  */
 @Injectable()
-export class MfaService {
+export class MfaService implements OnModuleInit {
   constructor(
     private readonly registry: MfaMethodRegistry,
     private readonly secrets: MfaSecretService,
@@ -65,7 +69,45 @@ export class MfaService {
     private readonly notifier: MfaNotifier,
     private readonly tenantStore: TenantMfaStore,
     private readonly platformStore: PlatformMfaStore,
+    private readonly delivery: MfaChallengeDelivery,
   ) {}
+
+  onModuleInit(): void {
+    // 方式的背景工作（Email 驗證碼信）經 core 的入口讀寫 challenge，不依賴這個模組（D5）
+    this.delivery.bind((realm, accountId, challengeId, deliver) =>
+      this.deliverChallenge(realm, accountId, challengeId, deliver),
+    );
+  }
+
+  /**
+   * 方式的背景工作寄出 challenge（docs/architecture/backend/21-mfa.md §9.2）：帳號仍可登入、challenge 還有效時，
+   * 由方式產生要存的狀態（碼的 HMAC）、寫回 challenge，再寄出。工作重試時換新的碼，舊的碼跟著失效。
+   * 在帳號的脈絡裡呼叫（租戶的工作已在 `Tenancy.run` 裡）。
+   */
+  private async deliverChallenge(
+    realm: MfaRealm,
+    accountId: string,
+    challengeId: string,
+    deliver: MfaDeliver,
+  ): Promise<MfaDeliveryResult> {
+    const store = this.store(realm);
+    const stored = await store.findAccount(accountId);
+    // 入列到寄出之間帳號被停用、刪除或 MFA 被重設：不寄
+    if (!stored?.active) return { delivered: false, reason: 'account_inactive' };
+    const challenge = await store.repo.findChallenge(accountId, challengeId);
+    if (!challenge) return { delivered: false, reason: 'challenge_not_found' };
+    if (challenge.consumedAt !== null || challenge.expiresAt.getTime() <= Date.now()) {
+      return { delivered: false, reason: 'challenge_closed' };
+    }
+    const factor = await store.repo.findFactor(accountId, challenge.factorId);
+    if (!factor) return { delivered: false, reason: 'factor_not_found' };
+    const { state, send } = await deliver(this.context(store, stored.account), challenge, factor);
+    if (!(await store.repo.updateChallengeState(challenge.id, state))) {
+      return { delivered: false, reason: 'challenge_closed' };
+    }
+    await send();
+    return { delivered: true, challengeAgeMs: Date.now() - challenge.createdAt.getTime() };
+  }
 
   store(realm: MfaRealm): MfaAccountStore {
     return realm === 'tenant' ? this.tenantStore : this.platformStore;

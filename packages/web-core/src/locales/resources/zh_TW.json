@@ -532,6 +532,15 @@
       "resetTitle": "要重設這個帳號的 MFA 嗎？",
       "resetDescription": "會刪除所有驗證方式與備用碼，並登出這個人所有的裝置；本人會收到通知信。之後依政策可能需要重新設定。",
       "resetDone": "已重設 MFA。"
+    },
+    "email": {
+      "code": "驗證碼",
+      "sentTo": "驗證碼已寄到 {{address}}。",
+      "willSend": "按下按鈕後，驗證碼會寄到 {{address}}。",
+      "send": "寄送驗證碼",
+      "resend": "重新寄送",
+      "resendIn_other": "{{count}} 秒後可以重新寄送",
+      "delayHint": "信件可能需要一分鐘才會送達；也請檢查垃圾郵件匣。"
     }
   }
 }

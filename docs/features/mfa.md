@@ -614,6 +614,21 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.7 的實作
     驗證方式與重設放在編輯對話框。web-core 不呼叫 app 的 API：元件收 app 給的函式（`MfaSelfApi`、`start`／`confirm`／`verify`）。`@b2b-system/ui` 加了 `smartphone`、`mail` 圖示。
 13. **管理員重設不能重設自己**（租戶也是，`AUTHZ_SELF_MODIFY`）：自己的在個人資料頁管理。
 
+**M2（2026-10-07）**
+
+1. **方式的背景工作要讀寫 challenge**：Email 驗證碼在寄出當下才產生（工作資料只有 `{ accountId, challengeId }`），要把碼的 HMAC 寫回 challenge，
+   而方式不能直接查 DB（D5），也不該依賴 `modules/mfa`。M1 的介面沒有這條路，所以在 `core/mfa` 加 `MfaChallengeDelivery`（`deliver(realm, accountId, challengeId, fn)`），
+   `MfaService` 在 `onModuleInit` 以 `bind` 接上實作：確認帳號仍可登入、challenge 沒用掉也沒過期 → 方式產生狀態 → 寫回 → 寄出。
+   這是 `modules/mfa` 唯一一處不是通知信的改動（新的進入點，既有的流程與 schema 不變）。
+2. **兩個身分範圍各一種工作**：`mfa.emailCodeMail`（租戶，走 outbox）、`mfa.platformEmailCodeMail`（平台，提交後送出）；通知信同理
+   （`mfa.securityNoticeMail`、`mfa.platformSecurityNoticeMail`）。平台的工作不能在租戶的交易裡入列，`scope` 不同就是不同的佇列。
+3. **`core/jobs` 的 `ignoreTenantConcurrency`**：不受 `job.maxConcurrency` 限制、也不佔它的名額（只等不佔會讓其他工作多等它）。
+   驗證碼信另外把重試縮成 3 次、10 秒起跳：碼 10 分鐘就過期，晚寄到沒用。
+4. **驗證碼信不寫 `mail.send` 稽核**：每次登入都寄，第二步的結果已經在 `auth.login.*`；安全通知信照常寫。
+5. **指標名稱**：`api_mfa_challenges_sent_total`、`api_mfa_email_delivery_seconds`（從 challenge 建立到寄出）；告警 `MfaEmailCodeSlow`（p95 > 60 秒、10 分鐘）。
+6. **平台管理者的可用方式仍寫死 `totp`**（§14.3 第 7 點）：Email 的方式定義含 `platform`，但 `MfaAvailability` 還沒有 `PLATFORM_MFA_METHODS`。
+7. **驗收**：與 M1 的 commit 相比，`modules/mfa` 只有 `mfa-notifier.ts`（通知信的工作與入列）、`mails/mfa-security-notice.mail.tsx`，以及上面第 1 點的 `MfaService.deliverChallenge`；`db/` 沒有變更。
+
 ---
 
 ## 開放問題

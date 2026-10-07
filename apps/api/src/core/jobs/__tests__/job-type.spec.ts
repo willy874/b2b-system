@@ -29,7 +29,7 @@ describe('defineJob（docs/architecture/backend/10-jobs.md §2、§3）', () => 
     expect(() => defineJob(name)).toThrow(/<模組>\.<動作>/);
   });
 
-  it('沒給選項時用預設：重試 5 次、30 秒起跳、最多間隔 1 小時、執行 15 分鐘、保留 7 天、非 exclusive、租戶範圍、並行 1', () => {
+  it('沒給選項時用預設：重試 5 次、30 秒起跳、最多間隔 1 小時、執行 15 分鐘、保留 7 天、非 exclusive、租戶範圍、並行 1、受租戶同時執行上限限制', () => {
     expect(defineJob('test.defaults').options).toEqual({
       retryLimit: 5,
       retryDelaySeconds: 30,
@@ -39,6 +39,7 @@ describe('defineJob（docs/architecture/backend/10-jobs.md §2、§3）', () => 
       exclusive: false,
       scope: 'tenant',
       concurrency: 1,
+      ignoreTenantConcurrency: false,
     });
   });
 

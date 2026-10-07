@@ -43,6 +43,7 @@ import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
+import { MfaEmailModule } from './modules/mfa-email/mfa-email.module';
 import { MfaTotpModule } from './modules/mfa-totp/mfa-totp.module';
 import { MfaModule } from './modules/mfa/mfa.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -116,6 +117,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     MfaCoreModule,
     MfaModule,
     MfaTotpModule,
+    MfaEmailModule,
 
     // 業務模組
     AuthModule,
