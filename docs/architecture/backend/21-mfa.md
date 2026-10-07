@@ -584,5 +584,5 @@ E2E 以 seed 算 TOTP 碼（`apps/e2e/helpers/totp.ts`）；同一個時間步�
 10. **backstage 的 `user.listByMfa` route link**：安全性頁連到「未啟用 MFA」的使用者列表（`?mfa=false`）。
 11. **權限的數量**：租戶目錄 53 → 55（文件的「共 52 項」原本就少算一項，一併改正）；平台 12 → 14。
 12. **重設別人的 MFA 改成獨立的權限**（2026-10）：租戶 `user:resetMfa`、平台 `platformAdmin:resetMfa`，取代原本的 `user:update`／`platformAdmin:update`。
-    `user:update` 不包含它（不是子能力）：重設 MFA 等於拆掉對方的第二道防線，比改名、停用的風險高，要能只給特定的人。預設的 `admin` 角色持有它，行為不變；
+    `user:update` 不包含它（不是子能力）：重設 MFA 等於拆掉對方的第二道防線，比改名、停用的風險高，要能只給特定的人。預設的 `admin` 角色持有它，行為不變（既有租戶由租戶 migration 0043 補上，seed 不同步已存在的系統角色）；
     只有 `user:update` 的自訂角色在升級後失去重設的能力。租戶目錄 55 → 56、平台 14 → 15。

@@ -302,6 +302,13 @@
       "when": 1791370698335,
       "tag": "0042_mfa_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791382699171,
+      "tag": "0043_admin_reset_mfa",
+      "breakpoints": true
     }
   ]
 }
