@@ -9,8 +9,9 @@ import { PERMISSION } from '@/common/types';
 import type { DbOrTx } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { Tenancy } from '@/core/tenant';
-import type { FileFolderRow } from '@/db/schema';
+import type { FileFolderInsert, FileFolderRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { AuditInput } from '@/modules/audit-log/audit.types';
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import { FORBIDDEN_NAME_CHARS_RUN } from './dto/create-file-upload.dto';
@@ -171,19 +172,14 @@ export class FileSystemFolderService
     const created = await this.writeTree(async (tx) => {
       // 排隊之後再查一次：併發的另一個請求可能已經建好了
       const owners = await this.repo.findPersonalOwnerIds(missing, tx);
+      const pending = people.filter((user) => !owners.has(user.id));
+      // 同一層已用的名稱：一次查出來，在記憶體裡挑名稱，不必每人每個候選名稱各查一次
+      const taken = await this.repo.findChildNames(privateRoot.id, tx);
       const rows: FileFolderRow[] = [];
-      for (const person of people.filter((user) => !owners.has(user.id))) {
-        try {
-          // 每人一個 savepoint：一個人失敗（例：名稱在競態下撞到唯一索引）只 rollback 他自己，
-          // 不讓同一批其他人的個人資料夾跟著建不成
-          // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；只有新取得權限的人
-          const row = await tx.transaction((savepoint) =>
-            this.createPersonalFolder(person, privateRoot.id, savepoint),
-          );
-          rows.push(row);
-        } catch (error) {
-          this.logger.warn({ err: error, userId: person.id }, '建立個人資料夾失敗，其他人照常建立');
-        }
+      for (let start = 0; start < pending.length; start += PERSONAL_FOLDER_BATCH) {
+        const batch = pending.slice(start, start + PERSONAL_FOLDER_BATCH);
+        // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；每批一個 savepoint
+        rows.push(...(await this.createPersonalFolders(batch, privateRoot.id, taken, tx)));
       }
       return rows;
     });
@@ -194,9 +190,65 @@ export class FileSystemFolderService
     return created.length;
   }
 
-  /** 一個人的個人資料夾：挑一個同一層沒人用的名稱、授予本人 manager、寫稽核。 */
+  /**
+   * 一批人的個人資料夾：一個 savepoint 內三個多列 INSERT（資料夾、授權、稽核）。角色變更時一次可能是上千人，
+   * 逐人寫入要上千次來回、而且都在資料夾樹鎖裡。
+   * 撞到唯一索引被略過的人（名稱的大小寫比對與 Postgres 的 `lower()` 不一致、或擁有者的競態），
+   * 以及整批失敗時，退回逐人建立：一個人失敗仍只略過他自己。
+   */
+  private async createPersonalFolders(
+    people: readonly PersonalFolderOwner[],
+    parentId: string,
+    taken: Set<string>,
+    tx: DbOrTx,
+  ): Promise<FileFolderRow[]> {
+    const named = people.map((person) => ({ person, name: pickPersonalFolderName(person, taken) }));
+    let rows: FileFolderRow[];
+    try {
+      rows = await tx.transaction(async (savepoint) => {
+        const inserted = await this.repo.createSkippingConflicts(
+          named.map(({ person, name }) => personalFolderValues(person, name, parentId)),
+          savepoint,
+        );
+        await this.grants.createForNewFolders(
+          inserted.map((row) => ({
+            folderId: row.id,
+            subjectType: 'user' as const,
+            subjectId: row.ownerId ?? '',
+            level: 'manager' as const,
+            grantedBy: null,
+          })),
+          savepoint,
+        );
+        await this.audit.recordMany(inserted.map(personalFolderAudit), savepoint);
+        return inserted;
+      });
+    } catch (error) {
+      this.logger.warn(
+        { err: error, count: people.length },
+        '批次建立個人資料夾失敗，改為逐人建立',
+      );
+      rows = [];
+    }
+    const done = new Set(rows.map((row) => row.ownerId));
+    for (const person of people.filter((candidate) => !done.has(candidate.id))) {
+      try {
+        // 每人一個 savepoint：一個人失敗（例：名稱在競態下撞到唯一索引）只 rollback 他自己
+        // oxlint-disable-next-line no-await-in-loop -- 同一個交易依序寫入；只有批次寫不進去的人
+        const row = await tx.transaction((savepoint) =>
+          this.createPersonalFolder(person, parentId, savepoint),
+        );
+        rows.push(row);
+      } catch (error) {
+        this.logger.warn({ err: error, userId: person.id }, '建立個人資料夾失敗，其他人照常建立');
+      }
+    }
+    return rows;
+  }
+
+  /** 一個人的個人資料夾：挑一個同一層沒人用的名稱（逐一查詢）、授予本人 manager、寫稽核。批次寫不進去時用。 */
   private async createPersonalFolder(
-    person: { id: string; displayName: string; email: string },
+    person: PersonalFolderOwner,
     parentId: string,
     tx: DbOrTx,
   ): Promise<FileFolderRow> {
@@ -207,38 +259,14 @@ export class FileSystemFolderService
       if (!(await this.repo.hasSibling(parentId, name, undefined, tx))) break;
       name = personalFolderName(person, attempt);
     }
-    const [row] = await this.repo.create(
-      [
-        {
-          name,
-          parentId,
-          kind: 'personal',
-          ownerId: person.id,
-          inheritGrants: false,
-          createdBy: person.id,
-          updatedBy: person.id,
-        },
-      ],
-      tx,
-    );
+    const [row] = await this.repo.create([personalFolderValues(person, name, parentId)], tx);
     if (!row) throw new Error('建立個人資料夾失敗');
     await this.grants.set(
       { folderId: row.id, subjectType: 'user', subjectId: person.id },
       { level: 'manager', expiresAt: null, grantedBy: null },
       tx,
     );
-    await this.audit.record(
-      {
-        action: 'fileFolder.create',
-        resourceType: 'fileFolder',
-        resourceId: row.id,
-        resourceName: row.name,
-        actorId: null,
-        actorEmail: 'system',
-        changes: { after: { name: row.name, kind: 'personal', ownerId: person.id } },
-      },
-      tx,
-    );
+    await this.audit.record(personalFolderAudit(row), tx);
     return row;
   }
 
@@ -304,6 +332,61 @@ export class FileSystemFolderService
   }
 }
 
+/** 一次寫入的個人資料夾數：每批一個 savepoint、三個多列 INSERT；參數個數遠低於 Postgres 的 65535 上限。 */
+const PERSONAL_FOLDER_BATCH = 500;
+
+interface PersonalFolderOwner {
+  id: string;
+  displayName: string;
+  email: string;
+}
+
+function personalFolderValues(
+  person: PersonalFolderOwner,
+  name: string,
+  parentId: string,
+): FileFolderInsert {
+  return {
+    name,
+    parentId,
+    kind: 'personal',
+    ownerId: person.id,
+    inheritGrants: false,
+    createdBy: person.id,
+    updatedBy: person.id,
+  };
+}
+
+/** 建立個人資料夾的稽核：系統動作，操作者是 system。 */
+function personalFolderAudit(row: FileFolderRow): AuditInput {
+  return {
+    action: 'fileFolder.create',
+    resourceType: 'fileFolder',
+    resourceId: row.id,
+    resourceName: row.name,
+    actorId: null,
+    actorEmail: 'system',
+    changes: { after: { name: row.name, kind: 'personal', ownerId: row.ownerId } },
+  };
+}
+
+/**
+ * 依序試 `personalFolderName` 的候選名稱，挑第一個不在 `taken`（同一層已用、`lower()` 過的名稱）裡的，並把它加進 `taken`：
+ * 同一批的人彼此也不會撞名。最後一個候選帶 user id，一定唯一。
+ */
+export function pickPersonalFolderName(person: PersonalFolderOwner, taken: Set<string>): string {
+  for (let attempt = 0; attempt <= MAX_NUMBERED_NAME; attempt += 1) {
+    const name = personalFolderName(person, attempt);
+    if (!taken.has(name.toLowerCase())) {
+      taken.add(name.toLowerCase());
+      return name;
+    }
+  }
+  const name = personalFolderName(person, MAX_NUMBERED_NAME + 1);
+  taken.add(name.toLowerCase());
+  return name;
+}
+
 /** 資料夾名稱的長度上限（同 `FileFolderNameSchema`）。 */
 const MAX_FOLDER_NAME_LENGTH = 255;
 /** 編號試到這裡還撞名就改用 user id（一定唯一）。 */
@@ -326,10 +409,7 @@ function toFolderName(value: string): string {
  * 個人資料夾的第 `attempt` 個候選名稱：顯示名稱 → 加上 email → 再加編號 → 最後用 user id。
  * 名稱一律符合資料夾名稱的規則（不含路徑分隔字元、控制字元，≤ 255）。
  */
-export function personalFolderName(
-  person: { id: string; displayName: string; email: string },
-  attempt: number,
-): string {
+export function personalFolderName(person: PersonalFolderOwner, attempt: number): string {
   const base = toFolderName(person.displayName) || toFolderName(person.email) || person.id;
   const email = toFolderName(person.email);
   const suffix =

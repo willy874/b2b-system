@@ -829,6 +829,46 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       expect(nameOf(slash.id)).toBe('.. a b');
     });
 
+    it('一批人以多列 INSERT 建立：資料夾、manager 授權與稽核各一筆', async () => {
+      const created = await db
+        .insert(users)
+        .values(
+          Array.from({ length: 3 }, (_, i) => ({
+            email: `batch-owner-${i}@example.com`,
+            displayName: 'Batch Owner',
+            status: 'active' as const,
+          })),
+        )
+        .returning();
+      const ids = created.map((user) => user.id);
+      await inTestTenant(app, () => app.get(FileSystemFolderService).ensurePersonalFolders(ids));
+      const folders = await db
+        .select()
+        .from(fileFolders)
+        .where(and(eq(fileFolders.kind, 'personal'), inArray(fileFolders.ownerId, ids)));
+      // 顯示名稱相同：同一批裡依序加上 email 區分，不撞同層唯一索引
+      expect(folders.map((row) => row.name).toSorted()).toEqual([
+        'Batch Owner',
+        'Batch Owner (batch-owner-1@example.com)',
+        'Batch Owner (batch-owner-2@example.com)',
+      ]);
+      const grants = await db
+        .select()
+        .from(relationTuples)
+        .where(
+          and(
+            eq(relationTuples.objectType, 'fileFolder'),
+            inArray(
+              relationTuples.objectId,
+              folders.map((row) => row.id),
+            ),
+          ),
+        );
+      expect(grants.map((row) => [row.relation, row.subjectId]).toSorted()).toEqual(
+        ids.map((id) => ['manager', id]).toSorted(),
+      );
+    });
+
     it('同一批裡一個人的個人資料夾建立失敗，只 rollback 他自己（savepoint）', async () => {
       const [broken, fine] = await db
         .insert(users)
@@ -840,6 +880,10 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       if (!broken || !fine) throw new Error('建立使用者失敗');
       const repo = app.get(FileFolderRepository);
       const original = repo.create.bind(repo);
+      // 批次寫入整批失敗 → 退回逐人建立；逐人建立時 broken 也失敗
+      const batch = vi
+        .spyOn(repo, 'createSkippingConflicts')
+        .mockRejectedValue(new Error('模擬的批次寫入失敗'));
       const spy = vi.spyOn(repo, 'create').mockImplementation(async (values, tx) => {
         if (values[0]?.ownerId === broken.id) throw new Error('模擬的寫入失敗');
         return original(values, tx);
@@ -850,6 +894,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
         );
       } finally {
         spy.mockRestore();
+        batch.mockRestore();
       }
       const owners = (
         await db.select().from(fileFolders).where(eq(fileFolders.kind, 'personal'))
