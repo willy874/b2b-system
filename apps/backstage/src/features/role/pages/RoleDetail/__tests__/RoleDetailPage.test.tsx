@@ -2,8 +2,9 @@ import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -65,7 +66,11 @@ const routes = [
 
 beforeAll(() => initTestI18n(roleZhTW));
 
+afterEach(() => resetFeatureStore());
+
 beforeEach(() => {
+  // 群組是可啟用的 feature（docs/architecture/iam/07-groups.md §8）：預設已啟用
+  featureStore.setState({ resolved: true, statuses: new Map([['group', 'ready']]) });
   resetPagePermissionRegistry();
   registerRolePagePermissions();
   fetchRole.mockReset().mockResolvedValue(ROLE);
@@ -199,6 +204,18 @@ describe('RoleDetailPage', () => {
 
   it('沒有 group:read → 不查也不顯示經由群組', async () => {
     renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
+    await screen.findByText('Editor');
+    expect(screen.queryByTestId('role-holder-groups')).not.toBeInTheDocument();
+    expect(fetchGroups).not.toHaveBeenCalled();
+  });
+
+  it('租戶沒有啟用 group → 有 group:read 也不查、不顯示經由群組', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['group', 'disabled']]) });
+    renderRoute(routes, `/role/${ROLE_ID}`, [
+      'role:read',
+      'user:read',
+      'group:read',
+    ] as PermissionKey[]);
     await screen.findByText('Editor');
     expect(screen.queryByTestId('role-holder-groups')).not.toBeInTheDocument();
     expect(fetchGroups).not.toHaveBeenCalled();

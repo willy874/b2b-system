@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 
 import { getFileGrantSubjectListQueryOptions } from '@/apis/file/get-file-grant-subjects/query';
 import type { FileGrantLevel, FileGrantSubjectType } from '@/apis/file/types';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import {
   EVERYONE_SUBJECT_ID,
@@ -36,6 +38,9 @@ interface FileGrantAddRowProps {
 export function FileGrantAddRow({ folderId, levelOptions }: FileGrantAddRowProps) {
   const { t } = useTranslation();
   const [subjectType, setSubjectType] = useState<FileGrantSubjectType>('role');
+  // 租戶沒有啟用 `group` 時不能授權給群組（docs/architecture/iam/07-groups.md §8）
+  const hasGroups = useIsFeatureReady(TenantFeature.group);
+  const subjectTypes = hasGroups ? SUBJECT_TYPES : SUBJECT_TYPES.filter((type) => type !== 'group');
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => {
@@ -90,7 +95,7 @@ export function FileGrantAddRow({ folderId, levelOptions }: FileGrantAddRowProps
       <Select
         className="w-28"
         aria-label={t('file.share.subjectTypeLabel')}
-        options={SUBJECT_TYPES.map((type) => ({
+        options={subjectTypes.map((type) => ({
           value: type,
           label: t(FILE_GRANT_SUBJECT_TYPE_LABEL_KEY[type]),
         }))}

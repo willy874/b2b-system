@@ -2,8 +2,9 @@ import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -50,9 +51,13 @@ const routes = [Routes.UserListRoute.addChildren([Routes.UserDetailRoute])];
 
 beforeAll(() => initTestI18n(userZhTW));
 
+afterEach(() => resetFeatureStore());
+
 beforeEach(() => {
   resetPagePermissionRegistry();
   registerUserPagePermissions();
+  // 群組是可啟用的 feature（docs/architecture/iam/07-groups.md §8）：預設已啟用
+  featureStore.setState({ resolved: true, statuses: new Map([['group', 'ready']]) });
   fetchUser.mockReset().mockResolvedValue({ ...base, status: 'active' });
   fetchProfile.mockReset().mockResolvedValue({ user: { id: 'me' }, permissions: [] });
   updateUser.mockReset().mockImplementation(async ({ params }) => ({ ...base, ...params.body }));
@@ -286,6 +291,14 @@ describe('UserDetailPage', () => {
 
   it('沒有 group:read → 不顯示所屬群組', async () => {
     renderRoute(routes, PATH, EDITOR);
+    await screen.findByTestId('user-edit-button', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-group-section')).not.toBeInTheDocument();
+    expect(fetchGroups).not.toHaveBeenCalled();
+  });
+
+  it('租戶沒有啟用 group → 有 group:read 也不顯示所屬群組、不查', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['group', 'disabled']]) });
+    renderRoute(routes, PATH, ['user:read', 'user:update', 'group:read'] as PermissionKey[]);
     await screen.findByTestId('user-edit-button', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('user-group-section')).not.toBeInTheDocument();
     expect(fetchGroups).not.toHaveBeenCalled();

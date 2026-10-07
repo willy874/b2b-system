@@ -5,6 +5,7 @@ import type { AuthUser } from '@/common/types';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { requireTenant } from '@/core/tenant';
 import type { FileFolderRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -29,6 +30,16 @@ import type { GrantLevel } from './file-grant.levels';
 
 /** 授權對象候選清單一次最多幾筆（挑選用，不分頁）。 */
 const SUBJECT_SEARCH_LIMIT = 20;
+
+/**
+ * 授權給群組要租戶啟用 `group`（docs/architecture/iam/07-groups.md §8）：停用時群組的授權不生效，不再新增、也不列候選；
+ * 既有的群組授權照樣列出、可以移除。
+ */
+function assertSubjectTypeEnabled(subjectType: FileGrantSubjectType): void {
+  if (subjectType === 'group' && !requireTenant().features.includes('group')) {
+    throw new AppException('FEATURE_DISABLED', { feature: 'group' });
+  }
+}
 
 /**
  * 資料夾授權的管理（docs/architecture/iam/06-resource-grants.md §6）：清單、新增／變更、移除、候選對象。
@@ -58,6 +69,7 @@ export class FileFolderGrantService {
     dto: SetFileFolderGrantDto,
     actor: AuthUser,
   ): Promise<FileFolderGrantListDto> {
+    assertSubjectTypeEnabled(dto.subjectType);
     const permissions = await this.access.permissionsOf(actor);
     await this.writeGrants(async (tx) => {
       const ctx = await this.access.contextFor(actor, tx, permissions);
@@ -181,6 +193,7 @@ export class FileFolderGrantService {
     query: ListFileGrantSubjectsDto,
     actor: AuthUser,
   ): Promise<FileGrantSubjectListDto> {
+    assertSubjectTypeEnabled(query.subjectType);
     const ctx = await this.access.contextFor(actor);
     await this.assertCanShare(ctx, actor, folderId);
     const rows = await this.grants.searchSubjects(

@@ -73,6 +73,7 @@ export const TENANT_FEATURE_LABEL_KEY = {
   webhook: 'tenant.feature.webhook',
   announcement: 'tenant.feature.announcement',
   externalApi: 'tenant.feature.externalApi',
+  group: 'tenant.feature.group',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
@@ -86,6 +87,7 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
   webhook: 'tenant.feature.webhookDescription',
   announcement: 'tenant.feature.announcementDescription',
   externalApi: 'tenant.feature.externalApiDescription',
+  group: 'tenant.feature.groupDescription',
 } as const satisfies Record<TenantFeature, string>;
 
 /**
@@ -96,6 +98,7 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   webhook: 'tenant.feature.webhookDisableWarning',
   announcement: 'tenant.feature.announcementDisableWarning',
   externalApi: 'tenant.feature.externalApiDisableWarning',
+  group: 'tenant.feature.groupDisableWarning',
 };
 
 /** 關閉 feature 會影響的項目（`GET /platform/tenants/:id/features/:feature/impact`）。 */
@@ -103,6 +106,9 @@ export const TENANT_FEATURE_IMPACT_LABEL_KEY = {
   identityProviderConnections: 'tenant.feature.impact.identityProviderConnections',
   ssoOnlyDomains: 'tenant.feature.impact.ssoOnlyDomains',
   passwordlessExternalUsers: 'tenant.feature.impact.passwordlessExternalUsers',
+  groups: 'tenant.feature.impact.groups',
+  groupMembers: 'tenant.feature.impact.groupMembers',
+  groupRoleGrants: 'tenant.feature.impact.groupRoleGrants',
 } as const satisfies Record<TenantFeatureImpact['items'][number]['key'], string>;
 
 /**

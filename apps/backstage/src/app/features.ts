@@ -19,6 +19,7 @@ import {
   Routes as AuditLogRoutes,
 } from '@/features/audit-log';
 import { FILE_FEATURE, fileFeaturePlugin, Routes as FileRoutes } from '@/features/file';
+import { GROUP_FEATURE, groupFeaturePlugin, Routes as GroupRoutes } from '@/features/group';
 import {
   IDENTITY_PROVIDER_FEATURE,
   identityProviderFeaturePlugin,
@@ -86,6 +87,9 @@ export const FEATURE_CATALOG = {
   },
   // 服務帳號與對外 API（docs/architecture/06-external-api.md §3.1）：對外 API 在另一個程序，backstage 的頁面是服務帳號；
   // 個人資料與使用者詳情的 API token 區塊以 `useIsFeatureReady` 決定是否顯示
+  // 群組（docs/architecture/iam/07-groups.md §8）：其他 feature 裡的群組欄位（角色的持有者、資料夾授權、公告受眾、
+  // 使用者詳情的所屬群組）以 `useIsFeatureReady` 決定是否顯示
+  [GROUP_FEATURE]: { plugin: groupFeaturePlugin(), routes: [GroupRoutes.GroupListRoute] },
   [SERVICE_ACCOUNT_FEATURE]: {
     plugin: serviceAccountFeaturePlugin(),
     routes: [ServiceAccountRoutes.ServiceAccountListRoute],

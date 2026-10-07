@@ -5,11 +5,13 @@ import { ALL_PERMISSION_KEYS, isPermissionKey, permissionClosure } from '@/db/se
 import type { PermissionKey } from '@/db/seeds/permissions';
 
 import type { DbOrTx } from '../database';
+import { requireTenant } from '../tenant';
 import { createChecker, objectKey, subjectKey } from './authz.checker';
 import type { AuthzChecker, ObjectRef, SubjectKey } from './authz.checker';
 import { capabilitiesOf, isUsersetRelation } from './authz.model';
 import { AuthzRegistry } from './authz.registry';
 import { AuthzRepository } from './authz.repository';
+import type { MembershipScope } from './authz.repository';
 import { createSnapshot } from './authz.snapshot';
 import type { EdgeProvider, TupleEntry } from './authz.snapshot';
 import { SUPER_ADMIN_RELATION, TENANT_OBJECT, tenantEdgeProvider } from './authz.types';
@@ -58,6 +60,14 @@ export interface RelationRef {
 }
 
 /**
+ * 目前租戶走哪些成員關係：群組只在啟用 `group` 時算（docs/architecture/iam/07-groups.md §8）。
+ * 停用時群組的成員、群組持有的角色與授權都不進主體閉包，正向、反向解析與說明一致。
+ */
+function membershipScope(): MembershipScope {
+  return { groups: requireTenant().features.includes('group') };
+}
+
+/**
  * 以關係圖解析權限（docs/architecture/iam/01-model.md §9）。
  * 資料來自 `relation_tuples`；結構邊（資料夾的上層…）由呼叫端以供應者傳入。
  */
@@ -82,7 +92,7 @@ export class AuthzService {
     options: ResolveOptions,
   ): Promise<Map<string, TenantPermissions>> {
     const now = options.now ?? new Date();
-    const closures = await this.repo.subjectClosures(userIds, now, options.tx);
+    const closures = await this.repo.subjectClosures(userIds, membershipScope(), now, options.tx);
     const allSubjects = [...new Set([...closures.values()].flat())];
     const tuples = await this.repo.tuplesForSubjects(
       TENANT_OBJECT.type,
@@ -121,7 +131,12 @@ export class AuthzService {
     relations: readonly string[],
     options: { now?: Date; tx?: DbOrTx } = {},
   ): Promise<string[]> {
-    return this.repo.usersWithTenantRelations(relations, options.now ?? new Date(), options.tx);
+    return this.repo.usersWithTenantRelations(
+      relations,
+      membershipScope(),
+      options.now ?? new Date(),
+      options.tx,
+    );
   }
 
   /**
@@ -132,7 +147,12 @@ export class AuthzService {
     sets: ReadonlyArray<{ type: string; id: string; relation: string }>,
     options: { now?: Date; tx?: DbOrTx } = {},
   ): Promise<string[]> {
-    return this.repo.usersInSubjectSets(sets, options.now ?? new Date(), options.tx);
+    return this.repo.usersInSubjectSets(
+      sets,
+      membershipScope(),
+      options.now ?? new Date(),
+      options.tx,
+    );
   }
 
   /**
@@ -174,6 +194,7 @@ export class AuthzService {
   ): Promise<SubjectKey[]> {
     const closures = await this.repo.subjectClosures(
       [userId],
+      membershipScope(),
       options.now ?? new Date(),
       options.tx,
     );
@@ -185,7 +206,7 @@ export class AuthzService {
     userId: string,
     options: { tx?: DbOrTx; now?: Date } = {},
   ): Promise<Map<SubjectKey, SubjectKey[]>> {
-    return this.repo.closurePaths(userId, options.now ?? new Date(), options.tx);
+    return this.repo.closurePaths(userId, membershipScope(), options.now ?? new Date(), options.tx);
   }
 
   /**
@@ -197,7 +218,7 @@ export class AuthzService {
     options: { tx?: DbOrTx; now?: Date } = {},
   ): Promise<Array<{ relation: string; path: SubjectKey[] }>> {
     const now = options.now ?? new Date();
-    const closure = await this.repo.closurePaths(userId, now, options.tx);
+    const closure = await this.repo.closurePaths(userId, membershipScope(), now, options.tx);
     const tuples = await this.repo.tuplesForSubjects(
       TENANT_OBJECT.type,
       [...closure.keys()],
@@ -242,7 +263,12 @@ export class AuthzService {
     }
     if (usersets.length) {
       const now = options.now ?? new Date();
-      const closures = await this.repo.usersetClosures(usersets, now, options.tx);
+      const closures = await this.repo.usersetClosures(
+        usersets,
+        membershipScope(),
+        now,
+        options.tx,
+      );
       const reachable = [...new Set([...closures.values()].flat())];
       const tuples = await this.repo.tuplesForSubjects(
         TENANT_OBJECT.type,

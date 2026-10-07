@@ -24,6 +24,8 @@ export const TENANT_FEATURES = [
   'announcement',
   // docs/architecture/06-external-api.md §3.1：服務帳號與對外 API（以 API token 呼叫的獨立入口），連同內部的 token 管理
   'externalApi',
+  // docs/architecture/iam/07-groups.md §8：群組。停用時群組帶來的授權（成員關係）也暫停
+  'group',
 ] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];

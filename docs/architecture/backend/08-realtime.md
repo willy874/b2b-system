@@ -334,7 +334,7 @@ async refreshAudience(userIds: readonly string[]) {
 
 | 事件（`DomainEvent`）  | payload                                                   | 由誰發佈                         | `realtime.listener` 的動作                  |
 | ---------------------- | --------------------------------------------------------- | -------------------------------- | ------------------------------------------- |
-| `permissions.changed`  | `{ userIds? }`                                            | `AuthzRevision`：本機的權限寫入提交後，或收到其他程序的 revision 廣播後（在那個租戶的脈絡）| 重算這個租戶在本機所有連線的 perm room（§6.2）。`userIds` 只在發起寫入的程序上有、不是完整清單，給檔案模組補建個人資料夾用 |
+| `permissions.changed`  | `{ userIds? }`                                            | `AuthzRevision`：本機的權限寫入提交後、租戶啟用的 feature 變了之後，或收到其他程序的廣播後（在那個租戶的脈絡）| 重算這個租戶在本機所有連線的 perm room（§6.2）。`userIds` 只在發起寫入的程序上有、不是完整清單，給檔案模組補建個人資料夾用 |
 | `resource.changed`     | `{ changes: ResourceChangeWire[], affectedUserIds?, perRecipient? }` | 所有會改變畫面資料的寫入         | 依 §6.1 算出 room，推 `resource.changed`；`perRecipient`（`{ userId, changes }[]`）的每一項另外推一則只有他那幾筆的 `resource.changed` 到他的 user room，不經 perm room（站內通知：一批收件人一則事件，通知 id 不給別人看到） |
 | `sessions.revoked`     | `{ userIds?, idpSessionUids?, tenantIds?, platformAdminIds?, reason }` | 遞增 `token_version` 的寫入      | 推 `session.revoked` 並斷線（§3.5；平台管理者見 §3.6） |
 | `tenant.featuresChanged` | `{ tenantId }`                                          | 平台管理者改了租戶的 `features` 或 feature flag 的租戶覆寫（`PlatformTenantService.update`，`TenantDirectory.invalidate()` 之後）；改了 flag 的全平台覆寫時對每個 `active` 租戶各發一次（`PlatformFeatureFlagService.update`） | 對 `t:{tenantId}` 推 `resource.changed`（`{ resource: 'tenantFeature', kind: 'update' }`，沒有 `origin`）；前端重新取得 profile（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §9.2 D8） |

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { OnModuleInit } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 import { BroadcastService } from '../broadcast';
 import { PermissionCacheService } from '../cache';
@@ -10,15 +10,22 @@ import { AuthzRepository } from './authz.repository';
 /** 平台 DB 上的廣播頻道。 */
 export const AUTHZ_REVISION_CHANNEL = 'authz_revision';
 
-interface RevisionMessage {
-  tenant: string;
-  revision: number;
-}
+/**
+ * 關係圖的 revision 變了；或租戶啟用的 feature 變了（`features: true`，沒有 revision）——
+ * 群組停用時不走群組的成員關係，解析結果跟著變，但關係圖本身沒有寫入（docs/architecture/iam/07-groups.md §8）。
+ */
+type RevisionMessage = { tenant: string; revision: number } | { tenant: string; features: true };
 
 function parse(payload: string): RevisionMessage | null {
   try {
-    const value = JSON.parse(payload) as Partial<RevisionMessage>;
-    return typeof value.tenant === 'string' && typeof value.revision === 'number'
+    const value = JSON.parse(payload) as {
+      tenant?: unknown;
+      revision?: unknown;
+      features?: unknown;
+    };
+    if (typeof value.tenant !== 'string') return null;
+    if (value.features === true) return { tenant: value.tenant, features: true };
+    return typeof value.revision === 'number'
       ? { tenant: value.tenant, revision: value.revision }
       : null;
   } catch {
@@ -34,12 +41,15 @@ function parse(payload: string): RevisionMessage | null {
  *   發 `permissions.changed`（推播換 room），再把 `{ tenant, revision }` 廣播給其他程序。
  * - 收到廣播：只處理比已知新的 revision（自己送的、亂序晚到的都略過），失效那個租戶並在它的脈絡裡發事件。
  * - 監聽連線重連：中間可能漏了，整個權限快取丟掉；TTL 是漏掉廣播時的最後防線。
+ * - 租戶啟用的 feature 變了（`tenant.featuresChanged`，平台的請求發佈）：解析規則可能跟著變（群組），同樣失效整個租戶，
+ *   以同一個頻道廣播。對外 API 不收領域事件的轉送，但收這個頻道。
  */
 @Injectable()
-export class AuthzRevision implements OnModuleInit {
+export class AuthzRevision implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuthzRevision.name);
   /** 每個租戶已處理過的最新 revision；租戶數量級，不設上限。 */
   private readonly known = new Map<string, number>();
+  private unsubscribe?: () => void;
 
   constructor(
     private readonly repo: AuthzRepository,
@@ -54,6 +64,26 @@ export class AuthzRevision implements OnModuleInit {
       onMessage: (payload) => this.onMessage(payload),
       onReconnect: () => this.cache.invalidateAll(),
     });
+    // 只收本機發佈的：其他程序由下面的廣播通知（不重複處理轉送來的同一個事件）
+    this.unsubscribe = this.events.subscribe(DomainEvent.TENANT_FEATURES_CHANGED, ({ tenantId }) =>
+      this.featuresChanged(tenantId),
+    );
+  }
+
+  onModuleDestroy(): void {
+    this.unsubscribe?.();
+  }
+
+  /**
+   * 租戶啟用的 feature 變了（發佈端已失效 `TenantDirectory`）：失效那個租戶的權限快取、在它的脈絡裡發 `permissions.changed`，
+   * 再廣播給其他程序。
+   */
+  async featuresChanged(tenantId: string): Promise<void> {
+    await this.resetTenant(tenantId);
+    await this.broadcast.publish(
+      AUTHZ_REVISION_CHANNEL,
+      JSON.stringify({ tenant: tenantId, features: true } satisfies RevisionMessage),
+    );
   }
 
   /**
@@ -83,15 +113,20 @@ export class AuthzRevision implements OnModuleInit {
 
   private async onMessage(payload: string): Promise<void> {
     const message = parse(payload);
-    if (!message || !this.remember(message.tenant, message.revision)) return;
-    this.cache.invalidateTenant(message.tenant);
+    if (!message) return;
+    if ('revision' in message && !this.remember(message.tenant, message.revision)) return;
+    await this.resetTenant(message.tenant);
+  }
+
+  private async resetTenant(tenantId: string): Promise<void> {
+    this.cache.invalidateTenant(tenantId);
     try {
-      await this.tenancy.run(message.tenant, async () => {
+      await this.tenancy.run(tenantId, async () => {
         this.events.publish(DomainEvent.PERMISSIONS_CHANGED, {});
       });
     } catch (error) {
       // 租戶已停用或正在維護：快取已失效，推播的 room 不必同步（連線也已經或即將被斷掉）
-      this.logger.debug({ err: error, tenant: message.tenant }, '略過推播的 room 同步');
+      this.logger.debug({ err: error, tenant: tenantId }, '略過推播的 room 同步');
     }
   }
 

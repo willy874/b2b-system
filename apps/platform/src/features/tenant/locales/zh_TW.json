@@ -106,7 +106,10 @@
       "impact": {
         "identityProviderConnections_other": "{{count}} 個外部 IdP 連線",
         "ssoOnlyDomains_other": "{{count}} 個只允許 SSO 的網域會改回密碼登入",
-        "passwordlessExternalUsers_other": "{{count}} 位使用者沒有設定密碼、只用外部 IdP 登入，要先重設密碼"
+        "passwordlessExternalUsers_other": "{{count}} 位使用者沒有設定密碼、只用外部 IdP 登入，要先重設密碼",
+        "groups_other": "{{count}} 個群組",
+        "groupMembers_other": "{{count}} 位使用者是群組的成員",
+        "groupRoleGrants_other": "群組持有 {{count}} 個角色指派"
       },
       "disableAction": "關閉",
       "announcement": "公告",
@@ -114,7 +117,10 @@
       "announcementDisableWarning": "{{code}} 已排程的公告會停止發送，期間錯過的時間之後重新打開也不會補發；公告與發送紀錄保留。",
       "externalApi": "服務帳號與對外 API",
       "externalApiDescription": "服務帳號、個人 API token，以及外部系統以 API token 呼叫的對外 API。關掉後後台沒有服務帳號頁與 token 區塊、對外 API 的呼叫回 404；服務帳號與 token 保留，重新打開後原本的 token 立即可用。",
-      "externalApiDisableWarning": "{{code}} 所有以 API token 呼叫對外 API 的整合會立刻失敗（回 404），後台也不能管理服務帳號與 token（包括撤銷），直到重新打開。"
+      "externalApiDisableWarning": "{{code}} 所有以 API token 呼叫對外 API 的整合會立刻失敗（回 404），後台也不能管理服務帳號與 token（包括撤銷），直到重新打開。",
+      "group": "群組",
+      "groupDescription": "把使用者編成群組，以群組指派角色、授權資料夾、指定公告受眾。關掉後後台沒有群組頁，群組帶來的授權全部暫停；群組、成員與授權保留，重新打開後立即恢復。",
+      "groupDisableWarning": "{{code}} 的使用者經由群組取得的角色、資料夾授權與公告受眾會立刻失效，直到重新打開；只靠群組取得管理權限的人會失去那些權限。"
     },
     "flag": {
       "title": "試行開關",

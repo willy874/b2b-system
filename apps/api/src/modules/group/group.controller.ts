@@ -44,8 +44,13 @@ import type {
 } from './dto/update-group.dto';
 import { GroupService } from './group.service';
 
+/**
+ * 群組（docs/architecture/iam/07-groups.md）。可由平台關閉（`group`，§8）：停用時整個 controller 回 404，
+ * 群組帶來的授權也暫停（`AuthzService` 不走群組的成員關係）。
+ */
 @ApiTags('groups')
 @Controller('groups')
+@RequireFeature('group')
 export class GroupController {
   constructor(private readonly groupService: GroupService) {}
 

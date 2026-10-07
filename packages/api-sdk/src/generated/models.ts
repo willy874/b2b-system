@@ -955,6 +955,7 @@ export const TenantFeature = {
   webhook: 'webhook',
   announcement: 'announcement',
   externalApi: 'externalApi',
+  group: 'group',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -1037,7 +1038,13 @@ export interface TenantFeatureImpact {
   feature: TenantFeature;
   available: boolean;
   items: Array<{
-    key: 'identityProviderConnections' | 'ssoOnlyDomains' | 'passwordlessExternalUsers';
+    key:
+      | 'identityProviderConnections'
+      | 'ssoOnlyDomains'
+      | 'passwordlessExternalUsers'
+      | 'groups'
+      | 'groupMembers'
+      | 'groupRoleGrants';
     count: number;
   }>;
 }

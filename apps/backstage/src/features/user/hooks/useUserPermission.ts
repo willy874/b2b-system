@@ -10,6 +10,7 @@ export function useUserPermission() {
   const page = usePagePermission(USER_PAGE);
   const { can } = usePermission();
   const hasApiTokens = useIsFeatureReady(TenantFeature.externalApi);
+  const hasGroups = useIsFeatureReady(TenantFeature.group);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -22,8 +23,11 @@ export function useUserPermission() {
       /** 解鎖與停用共用 user:update */
       canUnlock: page.canUpdate,
       canReadRoles: can(PermissionKey['role:read']),
-      /** 所屬群組（docs/architecture/iam/01-model.md §9 G4）：要能讀群組 */
-      canReadGroups: can(PermissionKey['group:read']),
+      /**
+       * 所屬群組（docs/architecture/iam/01-model.md §9 G4）：要能讀群組；租戶沒有啟用 `group` 時沒有這個區塊
+       * （docs/architecture/iam/07-groups.md §8）
+       */
+      canReadGroups: hasGroups && can(PermissionKey['group:read']),
       /** 看別人的有效權限與來源（docs/architecture/iam/01-model.md §9 G4b）；看自己不需要 */
       canExplain: can(PermissionKey['authz:explain']),
       /**
@@ -32,6 +36,6 @@ export function useUserPermission() {
        */
       canManageApiTokens: page.canUpdate && hasApiTokens,
     }),
-    [page, can, hasApiTokens],
+    [page, can, hasApiTokens, hasGroups],
   );
 }

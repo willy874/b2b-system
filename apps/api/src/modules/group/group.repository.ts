@@ -121,6 +121,38 @@ export class GroupRepository {
     return row;
   }
 
+  /**
+   * 關閉 `group` 會影響的數量（docs/architecture/iam/07-groups.md §8）：未刪除的群組、直接加入它們的（未刪除）使用者、
+   * 它們持有的（未刪除）角色指派。停用時這些成員經由群組拿到的權限都會暫停。
+   */
+  async countImpact(): Promise<{ groups: number; members: number; roleGrants: number }> {
+    const [row] = await this.db.execute<{
+      groups: number;
+      members: number;
+      role_grants: number;
+    }>(sql`
+      SELECT
+        (SELECT count(*)::int FROM ${groups} g WHERE g.deleted_at IS NULL /* notDeleted */) AS groups,
+        (SELECT count(DISTINCT t.subject_id)::int FROM ${relationTuples} t
+          WHERE t.object_type = ${GROUP_OBJECT_TYPE} AND t.relation = ${GROUP_MEMBER_RELATION}
+            AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
+            AND EXISTS (SELECT 1 FROM groups g WHERE g.id::text = t.object_id AND g.deleted_at IS NULL /* notDeleted */)
+            AND EXISTS (SELECT 1 FROM users u WHERE u.id::text = t.subject_id AND u.deleted_at IS NULL /* notDeleted */)
+        ) AS members,
+        (SELECT count(*)::int FROM ${relationTuples} t
+          WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
+            AND t.subject_type = ${GROUP_OBJECT_TYPE} AND t.subject_relation = ${GROUP_MEMBER_RELATION}
+            AND EXISTS (SELECT 1 FROM groups g WHERE g.id::text = t.subject_id AND g.deleted_at IS NULL /* notDeleted */)
+            AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL /* notDeleted */)
+        ) AS role_grants
+    `);
+    return {
+      groups: row?.groups ?? 0,
+      members: row?.members ?? 0,
+      roleGrants: row?.role_grants ?? 0,
+    };
+  }
+
   async withCounts(id: string): Promise<GroupWithCounts | undefined> {
     const group = await this.findById(id);
     if (!group) return undefined;

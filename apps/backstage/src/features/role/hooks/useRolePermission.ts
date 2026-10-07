@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { ROLE_PAGE } from '../permission';
 
@@ -8,6 +10,7 @@ import { ROLE_PAGE } from '../permission';
 export function useRolePermission() {
   const page = usePagePermission(ROLE_PAGE);
   const { can } = usePermission();
+  const hasGroups = useIsFeatureReady(TenantFeature.group);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -21,9 +24,12 @@ export function useRolePermission() {
       /** 是否能授予／移除角色權限 */
       canGrantPermission: can(PermissionKey['role:grantPermission']),
       canViewUsers: can(PermissionKey['user:read']),
-      /** 經由群組持有（docs/architecture/iam/01-model.md §9 G4）：要能讀群組 */
-      canViewGroups: can(PermissionKey['group:read']),
+      /**
+       * 經由群組持有（docs/architecture/iam/01-model.md §9 G4）：要能讀群組；租戶沒有啟用 `group` 時沒有這一欄
+       * （docs/architecture/iam/07-groups.md §8）
+       */
+      canViewGroups: hasGroups && can(PermissionKey['group:read']),
     }),
-    [page, can],
+    [page, can, hasGroups],
   );
 }

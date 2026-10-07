@@ -20,6 +20,7 @@ import {
 } from '@/features/announcement';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { FILE_PAGE } from '@/features/file';
+import { GROUP_CREATE_PAGE, GROUP_PAGE } from '@/features/group';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
 import { SERVICE_ACCOUNT_CREATE_PAGE, SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
@@ -43,6 +44,7 @@ const EXPECTED_PAGES = {
   announcement: [ANNOUNCEMENT_PAGE, ANNOUNCEMENT_CREATE_PAGE, ANNOUNCEMENT_MESSAGE_PAGE],
   // 對外 API 在另一個程序，backstage 的頁面是服務帳號
   externalApi: [SERVICE_ACCOUNT_PAGE, SERVICE_ACCOUNT_CREATE_PAGE],
+  group: [GROUP_PAGE, GROUP_CREATE_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {

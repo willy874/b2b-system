@@ -7442,7 +7442,8 @@
                 "tenantSwitch",
                 "webhook",
                 "announcement",
-                "externalApi"
+                "externalApi",
+                "group"
               ],
               "type": "string"
             }
@@ -11122,7 +11123,8 @@
           "tenantSwitch",
           "webhook",
           "announcement",
-          "externalApi"
+          "externalApi",
+          "group"
         ]
       },
       "TenantFlagOverrides": {
@@ -11388,7 +11390,7 @@
             "maxLength": 100
           },
           "features": {
-            "maxItems": 10,
+            "maxItems": 11,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
@@ -11445,7 +11447,10 @@
                   "enum": [
                     "identityProviderConnections",
                     "ssoOnlyDomains",
-                    "passwordlessExternalUsers"
+                    "passwordlessExternalUsers",
+                    "groups",
+                    "groupMembers",
+                    "groupRoleGrants"
                   ]
                 },
                 "count": {

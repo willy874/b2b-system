@@ -210,6 +210,7 @@ export const PlatformTenantControllerFeatureImpactSchemas = {
       'webhook',
       'announcement',
       'externalApi',
+      'group',
     ]),
   }),
   responses: {

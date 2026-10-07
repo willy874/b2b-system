@@ -18,7 +18,14 @@ function setup(revision = 7) {
     publish: vi.fn(async () => undefined),
   };
   const cache = { invalidateTenant: vi.fn(), invalidateAll: vi.fn() };
-  const events = { publish: vi.fn() };
+  const handlers = new Map<string, (payload: { tenantId: string }) => Promise<void>>();
+  const events = {
+    publish: vi.fn(),
+    subscribe: vi.fn((type: string, handler: (payload: { tenantId: string }) => Promise<void>) => {
+      handlers.set(type, handler);
+      return () => handlers.delete(type);
+    }),
+  };
   const repo = { currentRevision: vi.fn(async () => revision) };
   const tenancy = {
     run: vi.fn(async (id: string, fn: () => Promise<void>) =>
@@ -44,6 +51,7 @@ function setup(revision = 7) {
     tenancy,
     receive,
     subscriber: () => subscriber!,
+    emitLocal: (type: string, payload: { tenantId: string }) => handlers.get(type)!(payload),
   };
 }
 
@@ -120,5 +128,28 @@ describe('AuthzRevision（docs/architecture/iam/01-model.md §9.2 D7、D8）', (
     await inTenant('t1', () => service.changed());
     expect(cache.invalidateTenant).toHaveBeenCalledWith('t1');
     expect(broadcast.publish).not.toHaveBeenCalled();
+  });
+
+  describe('租戶的 feature 變了（docs/architecture/iam/07-groups.md §8）', () => {
+    it('本機的 tenant.featuresChanged：失效那個租戶、在它的脈絡裡發 permissions.changed，再廣播 { tenant, features }', async () => {
+      const { cache, events, tenancy, broadcast, emitLocal } = setup();
+      await emitLocal(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: 't3' });
+
+      expect(cache.invalidateTenant).toHaveBeenCalledWith('t3');
+      expect(tenancy.run).toHaveBeenCalledWith('t3', expect.any(Function));
+      expect(events.publish).toHaveBeenCalledWith(DomainEvent.PERMISSIONS_CHANGED, {});
+      expect(broadcast.publish).toHaveBeenCalledWith(
+        AUTHZ_REVISION_CHANNEL,
+        JSON.stringify({ tenant: 't3', features: true }),
+      );
+    });
+
+    it('收到其他程序的 { tenant, features }：沒有 revision 也失效', async () => {
+      const { cache, events, subscriber } = setup();
+      await subscriber().onMessage(JSON.stringify({ tenant: 't4', features: true }));
+
+      expect(cache.invalidateTenant).toHaveBeenCalledWith('t4');
+      expect(events.publish).toHaveBeenCalledWith(DomainEvent.PERMISSIONS_CHANGED, {});
+    });
   });
 });

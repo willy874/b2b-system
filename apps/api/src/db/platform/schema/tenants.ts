@@ -53,13 +53,14 @@ export const tenants = pgTable(
      * 新租戶與 migration 當下的既有租戶都啟用全部。讀取時濾掉不認得的值，不必加 CHECK 約束。
      * 外部 IdP（`identityProvider`）原本是獨立的 `allow_external_idp` 欄，docs/architecture/05-tenancy.md §12 併進這份清單。
      * `webhook` 由 docs/architecture/backend/17-webhook.md §9 加入，既有租戶由 migration 0010 啟用；`announcement` 由 docs/architecture/backend/19-announcement.md §9 加入（migration 0011）；
-     * `externalApi`（對外 API）由 docs/architecture/06-external-api.md §3.1 加入，既有租戶由 migration 0019 啟用。
+     * `externalApi`（對外 API）由 docs/architecture/06-external-api.md §3.1 加入，既有租戶由 migration 0019 啟用；
+     * `group`（群組）由 docs/architecture/iam/07-groups.md §8 加入，既有租戶由 migration 0020 啟用。
      */
     features: text('features')
       .array()
       .notNull()
       .default(
-        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi}'::text[]`,
+        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group}'::text[]`,
       ),
     /**
      * 租戶層的 feature flag 覆寫（docs/architecture/05-tenancy.md §11.2 D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。

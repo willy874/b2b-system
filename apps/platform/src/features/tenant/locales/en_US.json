@@ -109,7 +109,13 @@
         "ssoOnlyDomains_one": "{{count}} SSO-only domain will fall back to password sign-in",
         "ssoOnlyDomains_other": "{{count}} SSO-only domains will fall back to password sign-in",
         "passwordlessExternalUsers_one": "{{count}} user signs in only through the external IdP and has no password; they must reset it first",
-        "passwordlessExternalUsers_other": "{{count}} users sign in only through the external IdP and have no password; they must reset it first"
+        "passwordlessExternalUsers_other": "{{count}} users sign in only through the external IdP and have no password; they must reset it first",
+        "groups_one": "{{count}} group",
+        "groups_other": "{{count}} groups",
+        "groupMembers_one": "{{count}} user is a member of a group",
+        "groupMembers_other": "{{count}} users are members of groups",
+        "groupRoleGrants_one": "Groups hold {{count}} role assignment",
+        "groupRoleGrants_other": "Groups hold {{count}} role assignments"
       },
       "disableAction": "Turn off",
       "announcement": "Announcements",
@@ -117,7 +123,10 @@
       "announcementDisableWarning": "Scheduled announcements for {{code}} stop sending; times missed while disabled are not sent when re-enabled. Announcements and their history are kept.",
       "externalApi": "Service accounts & external API",
       "externalApiDescription": "Service accounts, personal API tokens, and the external API that outside systems call with API tokens. When off, the backstage has no service account page or token sections and every external API call returns 404; service accounts and tokens are kept, and existing tokens work again as soon as it is turned back on.",
-      "externalApiDisableWarning": "Every integration calling the external API with an API token for {{code}} fails immediately (404), and service accounts and tokens cannot be managed in the backstage (including revoking them) until this is turned back on."
+      "externalApiDisableWarning": "Every integration calling the external API with an API token for {{code}} fails immediately (404), and service accounts and tokens cannot be managed in the backstage (including revoking them) until this is turned back on.",
+      "group": "Groups",
+      "groupDescription": "Organize users into groups to assign roles, grant folder access, and target announcements. When off, the backstage has no group page and everything granted through groups is suspended; groups, members, and grants are kept and take effect again as soon as it is turned back on.",
+      "groupDisableWarning": "Roles, folder access, and announcement audiences that {{code}} users get through groups stop applying immediately until this is turned back on; anyone whose admin access comes only from a group loses it."
     },
     "flag": {
       "title": "Feature flags",

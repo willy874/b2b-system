@@ -1657,6 +1657,7 @@ export const TenantFeatureSchema = z.enum([
   'webhook',
   'announcement',
   'externalApi',
+  'group',
 ]) satisfies z.ZodType<TenantFeature>;
 
 export const TenantFlagOverridesSchema = z.record(
@@ -1756,7 +1757,7 @@ export const CreateTenantRequestSchema = z.object({
 
 export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  features: z.array(TenantFeatureSchema).max(10).optional(),
+  features: z.array(TenantFeatureSchema).max(11).optional(),
   flags: TenantFlagOverridesSchema.optional(),
   mfaMethods: TenantMfaMethodOverridesSchema.optional(),
   featureParams: z
@@ -1769,7 +1770,14 @@ export const TenantFeatureImpactSchema = z.object({
   available: z.boolean(),
   items: z.array(
     z.object({
-      key: z.enum(['identityProviderConnections', 'ssoOnlyDomains', 'passwordlessExternalUsers']),
+      key: z.enum([
+        'identityProviderConnections',
+        'ssoOnlyDomains',
+        'passwordlessExternalUsers',
+        'groups',
+        'groupMembers',
+        'groupRoleGrants',
+      ]),
       count: z.int().min(0).max(9007199254740991),
     }),
   ),

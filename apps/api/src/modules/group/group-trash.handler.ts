@@ -25,6 +25,7 @@ import { GroupRepository } from './group.repository';
 export class GroupTrashHandler implements TrashHandler, OnModuleInit {
   readonly type = RESOURCE_TYPE.GROUP;
   readonly permission = PERMISSION.GROUP_DELETE;
+  readonly feature = 'group' as const;
   /** 沒有外鍵參照群組；排在角色（40）之後。 */
   readonly purgeOrder = 50;
 

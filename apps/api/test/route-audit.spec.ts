@@ -36,6 +36,7 @@ function internalFeaturesOf(method: string, path: string): string[] | undefined 
   if (/^\/announcements(\/|$)/.test(path))
     return restore ? ['trash', 'announcement'] : ['announcement'];
   if (/^\/me\/announcement-messages(\/|$)/.test(path)) return ['announcement'];
+  if (/^\/groups(\/|$)/.test(path)) return restore ? ['trash', 'group'] : ['group'];
   if (restore || /^\/trash(\/|$)/.test(path)) return ['trash'];
   if (/^\/audit-logs(\/|$)/.test(path)) return ['auditLog'];
   if (/^\/jobs(\/|$)/.test(path)) return ['job'];

@@ -11,6 +11,10 @@ export const TENANT_FEATURE_IMPACT_KEYS = [
   'identityProviderConnections',
   'ssoOnlyDomains',
   'passwordlessExternalUsers',
+  // group（docs/architecture/iam/07-groups.md §8）
+  'groups',
+  'groupMembers',
+  'groupRoleGrants',
 ] as const;
 
 export type TenantFeatureImpactKey = (typeof TENANT_FEATURE_IMPACT_KEYS)[number];

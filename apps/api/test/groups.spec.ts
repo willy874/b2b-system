@@ -3,9 +3,13 @@ import { NestFactory } from '@nestjs/core';
 import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AuthzService } from '@/core/authz';
+import { DomainEvent, DomainEventBus } from '@/core/events';
+import { TENANT_FEATURES, TenantDirectory } from '@/core/tenant';
+import type { TenantFeature } from '@/core/tenant';
+import { tenants as platformTenants } from '@/db/platform/schema';
 import {
   authzRevision,
   groupMemberTuple,
@@ -20,9 +24,9 @@ import {
 import { PermissionService } from '@/modules/permission/permission.service';
 
 import type { TestDatabase } from './db';
-import { createTestDatabase, truncateAll } from './db';
+import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
-import { inTestTenant } from './tenant';
+import { inTestTenant, testTenantContext } from './tenant';
 
 let app: INestApplication;
 let http: App;
@@ -104,6 +108,25 @@ async function as(credentials: { email: string; password: string }) {
       request(http).put(path).set('authorization', `Bearer ${token}`).send(body),
     delete: (path: string) => request(http).delete(path).set('authorization', `Bearer ${token}`),
   };
+}
+
+/**
+ * 改測試租戶啟用的 feature，再發 `tenant.featuresChanged`（正式環境由平台的 PATCH 發佈），權限快取隨之失效。
+ * 測試檔之間共用 container：改過之後要以 `TENANT_FEATURES` 還原。
+ */
+async function setTenantFeatures(features: readonly TenantFeature[]): Promise<void> {
+  const { id } = await testTenantContext(app);
+  const platform = createPlatformTestDatabase();
+  try {
+    await platform.db
+      .update(platformTenants)
+      .set({ features: [...features] })
+      .where(eq(platformTenants.id, id));
+  } finally {
+    await platform.client.end();
+  }
+  app.get(TenantDirectory).invalidate();
+  app.get(DomainEventBus).publish(DomainEvent.TENANT_FEATURES_CHANGED, { tenantId: id });
 }
 
 async function revision(): Promise<number> {
@@ -371,6 +394,46 @@ describe('群組（docs/architecture/iam/01-model.md §9.3 D11、D12）', () => 
       relation: 'file:update',
       path: closure.get(`role:${ids.editorRole}#holder`),
     });
+  });
+
+  it('平台關掉 group（docs/architecture/iam/07-groups.md §8）：/groups 404、經由群組的權限暫停、不能授權給群組；打開後恢復', async () => {
+    expect(await permissionsOf(ALICE)).toContain('file:update');
+    const admin = await as(ADMIN);
+    const folder = await admin
+      .post('/file-folders', { name: '群組停用時', parentId: null })
+      .expect(201);
+    const folderId = (folder.body as { data: { id: string } }).data.id;
+
+    await setTenantFeatures(TENANT_FEATURES.filter((feature) => feature !== 'group'));
+    try {
+      const disabled = await admin.get('/groups').expect(404);
+      expect(disabled.body.error.code).toBe('FEATURE_DISABLED');
+      // 快取由 tenant.featuresChanged 失效：不必等 TTL
+      await vi.waitFor(async () => expect(await permissionsOf(ALICE)).not.toContain('file:update'));
+      const closure = await inTestTenant(app, () => app.get(AuthzService).closurePaths(ids.alice!));
+      expect([...closure.keys()].some((key) => key.startsWith('group:'))).toBe(false);
+      // 反向解析（公告受眾、持有者）也不走群組
+      const members = await inTestTenant(app, () =>
+        app
+          .get(AuthzService)
+          .usersInSubjectSets([{ type: 'group', id: ids.art!, relation: 'member' }]),
+      );
+      expect(members).toEqual([]);
+      // 不能新增群組的資料夾授權，也不列群組的候選
+      const grant = await admin
+        .put(`/file-folders/${folderId}/grants`, {
+          subjectType: 'group',
+          subjectId: ids.art,
+          level: 'viewer',
+        })
+        .expect(404);
+      expect(grant.body.error.code).toBe('FEATURE_DISABLED');
+      await admin.get(`/file-folders/${folderId}/grant-subjects?subjectType=group`).expect(404);
+    } finally {
+      await setTenantFeatures(TENANT_FEATURES);
+    }
+    await vi.waitFor(async () => expect(await permissionsOf(ALICE)).toContain('file:update'));
+    await admin.get('/groups').expect(200);
   });
 
   describe('經由群組持有角色的人也算持有者（docs/architecture/backend/05-rbac.md §8.4、docs/architecture/iam/04-api.md §2.4）', () => {

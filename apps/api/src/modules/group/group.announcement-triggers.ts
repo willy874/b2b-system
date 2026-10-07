@@ -7,6 +7,7 @@ import type { AnnouncementTriggerDefinition } from '@/modules/announcement/annou
  */
 export const GROUP_MEMBER_ADDED_TRIGGER = defineAnnouncementTrigger('group.memberAdded', {
   scope: 'group',
+  feature: 'group',
 });
 
 export const GROUP_ANNOUNCEMENT_TRIGGERS: readonly AnnouncementTriggerDefinition[] = [

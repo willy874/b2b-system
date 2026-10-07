@@ -6,6 +6,7 @@ Routes.GroupCreateRoute.update({ component: Pages.AsyncGroupCreatePage });
 Routes.GroupDetailRoute.update({ component: Pages.AsyncGroupDetailPage });
 
 export { Routes };
+export { GROUP_FEATURE } from './routes';
 export { GROUP_CREATE_PAGE, GROUP_PAGE, registerGroupPagePermissions } from './permission';
 export { appContextPlugin as groupFeaturePlugin } from './plugin';
 export { registerGroupNavigation } from './navigation';

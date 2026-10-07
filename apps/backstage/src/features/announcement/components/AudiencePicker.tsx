@@ -10,6 +10,8 @@ import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { AnnouncementAudience } from '@/shared/api-sdk';
 
 /** 使用者搜尋的輸入停頓多久才查詢（與群組成員的搜尋相同）。 */
@@ -39,7 +41,9 @@ export function AudiencePicker({ value, onChange, eventTriggered, disabled }: Au
   const users = useQuery(
     getUserListQueryOptions({ params: { offset: 0, limit: 20, keyword: debounced || undefined } }),
   );
-  const groups = useQuery(getGroupOptionsQueryOptions());
+  // 租戶沒有啟用 `group` 時沒有群組欄（群組的受眾不生效，docs/architecture/iam/07-groups.md §8）
+  const hasGroups = useIsFeatureReady(TenantFeature.group);
+  const groups = useQuery({ ...getGroupOptionsQueryOptions(), enabled: hasGroups });
   const roles = useQuery(getRoleOptionsQueryOptions());
   const preview = useQuery(getAnnouncementAudiencePreviewQueryOptions(value));
 
@@ -88,23 +92,25 @@ export function AudiencePicker({ value, onChange, eventTriggered, disabled }: Au
               data-testid="announcement-audience-users"
             />
           </Field>
-          <Field label={t('announcement.audience.groups')}>
-            <Select
-              multiple
-              options={(groups.data?.items ?? []).map((group) => ({
-                value: group.id,
-                label: group.name,
-              }))}
-              value={value.groupIds}
-              onValueChange={(groupIds) => onChange({ ...value, groupIds })}
-              searchable
-              loading={groups.isFetching}
-              disabled={disabled}
-              placeholder={t('announcement.audience.groupsPlaceholder')}
-              noMatchLabel={t('announcement.audience.noMatch')}
-              data-testid="announcement-audience-groups"
-            />
-          </Field>
+          {hasGroups && (
+            <Field label={t('announcement.audience.groups')}>
+              <Select
+                multiple
+                options={(groups.data?.items ?? []).map((group) => ({
+                  value: group.id,
+                  label: group.name,
+                }))}
+                value={value.groupIds}
+                onValueChange={(groupIds) => onChange({ ...value, groupIds })}
+                searchable
+                loading={groups.isFetching}
+                disabled={disabled}
+                placeholder={t('announcement.audience.groupsPlaceholder')}
+                noMatchLabel={t('announcement.audience.noMatch')}
+                data-testid="announcement-audience-groups"
+              />
+            </Field>
+          )}
           <Field label={t('announcement.audience.roles')}>
             <Select
               multiple

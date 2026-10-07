@@ -18,16 +18,27 @@ import {
 } from './authz.types';
 
 /**
+ * 走哪些「成員」類關係：角色的持有者一律走；群組的成員只在租戶啟用 `group` 時走——停用時群組帶來的授權
+ * （群組持有的角色、群組在資料夾上的授權、以群組指定的公告受眾）全部暫停，邊保留（docs/architecture/iam/07-groups.md §8）。
+ * 是否啟用由呼叫端（`AuthzService`）決定，這一層只把它轉成查詢條件。
+ */
+export interface MembershipScope {
+  groups: boolean;
+}
+
+/**
  * 沿著「成員」類關係走的一步：`t` 是邊、以 `t.object_id` 為那個使用者集合的節點。
  * 已刪除（軟刪除）的角色與群組不算——它們的邊保留（休眠），還原時回來。
  * 與 db/schema 的 isActiveRole()／isActiveGroup()（notDeleted）同一個條件。
  */
-const MEMBERSHIP_STEP = sql`(
-  (t.object_type = 'role' AND t.relation = ${ROLE_HOLDER_RELATION}
-    AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL /* notDeleted */))
+function membershipStep(scope: MembershipScope): SQL {
+  const role = sql`(t.object_type = 'role' AND t.relation = ${ROLE_HOLDER_RELATION}
+    AND EXISTS (SELECT 1 FROM roles r WHERE r.id::text = t.object_id AND r.deleted_at IS NULL /* notDeleted */))`;
+  if (!scope.groups) return role;
+  return sql`(${role}
   OR (t.object_type = ${GROUP_OBJECT_TYPE} AND t.relation = ${GROUP_MEMBER_RELATION}
-    AND EXISTS (SELECT 1 FROM groups g WHERE g.id::text = t.object_id AND g.deleted_at IS NULL /* notDeleted */))
-)`;
+    AND EXISTS (SELECT 1 FROM groups g WHERE g.id::text = t.object_id AND g.deleted_at IS NULL /* notDeleted */)))`;
+}
 
 /** 未過期：`expires_at` 為 null 或晚於 `now`（用 app 端的時間，與舊的解析一致）。 */
 function active(now: Date): SQL | undefined {
@@ -45,6 +56,7 @@ export class AuthzRepository {
    */
   async subjectClosures(
     userIds: readonly string[],
+    scope: MembershipScope,
     now: Date,
     tx?: DbOrTx,
   ): Promise<Map<string, SubjectKey[]>> {
@@ -54,6 +66,7 @@ export class AuthzRepository {
         { root: id, type: 'user', id: '*', rel: '' },
       ]),
       userIds,
+      scope,
       now,
       tx,
     );
@@ -66,6 +79,7 @@ export class AuthzRepository {
    */
   async usersetClosures(
     usersets: readonly SubjectKey[],
+    scope: MembershipScope,
     now: Date,
     tx?: DbOrTx,
   ): Promise<Map<SubjectKey, SubjectKey[]>> {
@@ -75,6 +89,7 @@ export class AuthzRepository {
         return { root: key, type: object.type, id: object.id, rel: relation };
       }),
       usersets,
+      scope,
       now,
       tx,
     );
@@ -88,6 +103,7 @@ export class AuthzRepository {
    */
   async closurePaths(
     userId: string,
+    scope: MembershipScope,
     now: Date,
     tx?: DbOrTx,
   ): Promise<Map<SubjectKey, SubjectKey[]>> {
@@ -107,7 +123,7 @@ export class AuthzRepository {
         JOIN closure c
           ON t.subject_type = c.type AND t.subject_id = c.id AND t.subject_relation = c.rel
         WHERE c.depth < ${MAX_CLOSURE_DEPTH}
-          AND ${MEMBERSHIP_STEP}
+          AND ${membershipStep(scope)}
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
           -- 巢狀的循環由寫入端擋下；這裡再以路徑擋一次，資料異常時也不會無限展開
           AND NOT (t.object_type || ':' || t.object_id || '#' || t.relation) = ANY(c.path)
@@ -123,6 +139,7 @@ export class AuthzRepository {
   private async closures<Root extends string>(
     seeds: ReadonlyArray<{ root: Root; type: string; id: string; rel: string }>,
     roots: readonly Root[],
+    scope: MembershipScope,
     now: Date,
     tx?: DbOrTx,
   ): Promise<Map<Root, SubjectKey[]>> {
@@ -145,7 +162,7 @@ export class AuthzRepository {
         JOIN closure c
           ON t.subject_type = c.type AND t.subject_id = c.id AND t.subject_relation = c.rel
         WHERE c.depth < ${MAX_CLOSURE_DEPTH}
-          AND ${MEMBERSHIP_STEP}
+          AND ${membershipStep(scope)}
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
       )
       SELECT DISTINCT root, type, id, rel FROM closure
@@ -162,6 +179,7 @@ export class AuthzRepository {
    */
   async usersWithTenantRelations(
     relations: readonly string[],
+    scope: MembershipScope,
     now: Date,
     tx?: DbOrTx,
   ): Promise<string[]> {
@@ -183,7 +201,7 @@ export class AuthzRepository {
         FROM ${relationTuples} t
         JOIN holders h ON t.object_type = h.type AND t.object_id = h.id AND t.relation = h.rel
         WHERE h.depth < ${MAX_CLOSURE_DEPTH}
-          AND ${MEMBERSHIP_STEP}
+          AND ${membershipStep(scope)}
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
       )
       SELECT DISTINCT id FROM holders WHERE type = 'user' AND rel = '' AND id <> '*' ORDER BY id
@@ -194,10 +212,11 @@ export class AuthzRepository {
   /**
    * 反向解析：這些使用者集合（`group:<g>#member`、`role:<r>#holder`）裡的使用者 id，沿巢狀群組與群組持有的角色往下展開。
    * 與 `usersWithTenantRelations` 同一個遞迴、同樣的條件（過期的邊、已刪除的角色與群組不算），只是起點是指定的集合，
-   * 不是租戶節點上的關係。起點本身已刪除時沒有結果（`MEMBERSHIP_STEP` 也套用在第一步）。
+   * 不是租戶節點上的關係。起點本身已刪除時沒有結果（`membershipStep` 也套用在第一步）。
    */
   async usersInSubjectSets(
     sets: ReadonlyArray<{ type: string; id: string; relation: string }>,
+    scope: MembershipScope,
     now: Date,
     tx?: DbOrTx,
   ): Promise<string[]> {
@@ -212,14 +231,14 @@ export class AuthzRepository {
         SELECT t.subject_type, t.subject_id, t.subject_relation, 0
         FROM ${relationTuples} t
         WHERE (t.object_type, t.object_id, t.relation) IN (${seeds})
-          AND ${MEMBERSHIP_STEP}
+          AND ${membershipStep(scope)}
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
         UNION
         SELECT t.subject_type, t.subject_id, t.subject_relation, m.depth + 1
         FROM ${relationTuples} t
         JOIN members m ON t.object_type = m.type AND t.object_id = m.id AND t.relation = m.rel
         WHERE m.depth < ${MAX_CLOSURE_DEPTH}
-          AND ${MEMBERSHIP_STEP}
+          AND ${membershipStep(scope)}
           AND (t.expires_at IS NULL OR t.expires_at > ${now.toISOString()}::timestamptz)
       )
       SELECT DISTINCT id FROM members WHERE type = 'user' AND rel = '' AND id <> '*' ORDER BY id

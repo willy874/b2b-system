@@ -120,7 +120,7 @@
 
 | 欄位 | 值 | 效果 | 出處 |
 | --- | --- | --- | --- |
-| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
 | `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | §11.2 D2 |
 | `feature_params` | `jsonb`，預設 `{}` | feature 參數（配額與上限）的覆寫 `{ [key]: number \| string }`，沒列出 = 預設值；見 §5.3 | §13.2 D2 |
 | `mfa_methods` | `jsonb`，預設 `{}` | MFA 驗證方式的租戶層開關 `{ [方式 id]: boolean }`，規則與 `flags` 相同（`resolveToggle`）；在租戶詳情的「多重驗證」分頁設定 | [`backend/21-mfa.md`](backend/21-mfa.md) §5 |
@@ -138,6 +138,7 @@
 | `tenantSwitch` | backstage 帳號選單沒有「切換租戶」 | apps/platform 的 `/enter` |
 | `announcement` | `/announcements`、`/me/announcement-messages` 回 404；沒有公告頁；已入列的排程與分批寫入略過（期間錯過的時間不補發） | 公告與發送紀錄保留 |
 | `webhook` | `/webhooks` 回 404；沒有 Webhook 頁；`emit()` 不寫事件也不入列，已入列的投遞略過（期間的事件之後不補送） | 訂閱與投遞紀錄保留；`webhook.cleanup` 照常清理 |
+| `group` | `/groups` 回 404；沒有群組頁，其他頁面的群組欄位（角色的「經由群組」、使用者的所屬群組、公告受眾、資料夾授權的對象）隱藏；**群組帶來的授權全部暫停**（成員不經由群組取得角色、資料夾授權、公告受眾），不能新增群組的資料夾授權 | 群組、成員與授權的邊（關係圖不寫入）；重新打開後立即恢復（[`iam/07-groups.md`](./iam/07-groups.md) §8） |
 | `externalApi` | 服務帳號與對外 API 共用的開關：對外 API 的每個路由（`@ExternalApi()`，不必另標）以有效的 API token 呼叫時回 404，無效的 token 照舊 401；`/service-accounts`、`/auth/api-tokens`、`/users/:userId/api-tokens` 回 404；沒有服務帳號頁，個人資料與使用者詳情沒有 API token 區塊 | 服務帳號（`users` 的列）與它的角色、token 與期限；重新打開後原本的 token 立即可用。健康檢查不受影響（[`06-external-api.md`](./06-external-api.md) §3.1） |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，

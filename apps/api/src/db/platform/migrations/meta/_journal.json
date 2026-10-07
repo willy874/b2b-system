@@ -141,6 +141,13 @@
       "when": 1791380761816,
       "tag": "0019_external_api_feature",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791395794106,
+      "tag": "0020_group_feature",
+      "breakpoints": true
     }
   ]
 }

@@ -144,7 +144,49 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 | 測試 | 涵蓋 |
 | --- | --- |
 | `apps/api/src/modules/group/__tests__/group.service.spec.ts` | 每條規則與每個錯誤碼：D11 詢問 `group:G#member`、自己、super-admin 目標、循環、層數、D12 |
-| `apps/api/test/groups.spec.ts` | 真 DB：巢狀解析、反向查詢、刪除／還原與 revision、反提權、`?userId=`／`?roleId=`、授權給群組的資料夾、回收桶 |
+| `apps/api/test/groups.spec.ts` | 真 DB：巢狀解析、反向查詢、刪除／還原與 revision、反提權、`?userId=`／`?roleId=`、授權給群組的資料夾、回收桶、平台關掉 `group`（§8） |
+| `apps/api/src/core/authz/__tests__/authz.revision.spec.ts` | `tenant.featuresChanged` 失效整個租戶的權限快取並廣播（§8） |
 | `apps/api/src/core/authz/__tests__/authz.checker.spec.ts` | 判斷器：閉包裡的群組、閉包沒涵蓋時沿 `group#member` 展開、能力的推導 |
 | `apps/api/src/__tests__/relation-tuples-model.spec.ts` | 每一種邊的形狀符合模型 |
 | `apps/backstage/src/features/group/**/__tests__` | 列表三個權限案例與刪除、詳情的成員與角色、`useGroupRoleDraft` |
+| backstage 的角色詳情、使用者詳情、`AudiencePicker` | 租戶沒有啟用 `group` 時不顯示群組的欄位、不查群組（§8） |
+
+---
+
+## 8. 租戶的開關（`group`）
+
+群組是平台管理者可以對每個租戶開關的 feature（[`05-tenancy.md`](../05-tenancy.md) §5.1；id `group`）。新租戶預設啟用；
+平台 migration 0020 把它加進預設值，並讓既有租戶全部啟用（升版不改變行為）。
+
+與其他 feature 不同，關掉的不只是管理頁：**群組帶來的授權也一起暫停**。
+
+| 停用時 | 做法 |
+| --- | --- |
+| `/groups` 回 `404 FEATURE_DISABLED` | `GroupController` 標 `@RequireFeature('group')`；還原端點另有 `trash`（兩者都要啟用） |
+| 成員不再經由群組取得任何東西 | `AuthzService` 依 `requireTenant().features` 決定 `MembershipScope`，`AuthzRepository` 的成員展開（`membershipStep`）只走 `role#holder`、不走 `group#member`。主體閉包裡沒有群組，所以群組持有的角色、群組在資料夾上的授權、`user:*` 以外經由群組的路徑全部不成立；反向解析（角色的持有者、公告受眾、`findActiveUserIdsWithPermission`）與說明（`closurePaths`、有效權限的來源）用同一個條件，結果一致 |
+| 不能新增群組的資料夾授權 | `FileFolderGrantService` 對 `subjectType: 'group'` 的新增與候選搜尋回 `404 FEATURE_DISABLED`；既有的群組授權照樣列出、可以移除 |
+| 公告 | 以群組指定的受眾解析成 0 人；觸發點 `group.memberAdded` 標 `feature: 'group'`，不列出也不觸發 |
+| 回收桶 | `GroupTrashHandler.feature = 'group'`：`GET /trash?type=group` 回 404；到期的群組照樣永久刪除 |
+| backstage | `features/group` 是可啟用的 feature（`FEATURE_CATALOG` 的 `group`，最上層 route `beforeLoad: requireFeature('group')`）；角色詳情的「經由群組」、使用者詳情的「所屬群組」、公告受眾的群組欄、資料夾授權的「群組」對象以 `useIsFeatureReady('group')` 隱藏 |
+
+**照舊**：群組、成員邊、持有角色的邊、資料夾授權都保留（關係圖沒有任何寫入、`authz_revision` 不變）；重新打開後立即恢復。
+
+**快取**：開關不寫關係圖，revision 不變，所以 `AuthzRevision` 另外訂閱本機的 `tenant.featuresChanged`：失效那個租戶的權限快取、
+在它的脈絡裡發 `permissions.changed`（推播換 room、前端重抓 profile），再以同一個頻道廣播 `{ tenant, features: true }` 給其他程序
+（對外 API 不收領域事件的轉送，但收這個頻道）。其他程序的 `TenantDirectory` 經自己的廣播失效；兩則廣播的先後不保證，
+最壞情況是某個程序以舊的 feature 清單重算並快取，最多晚 `PERMISSION_CACHE_TTL` 秒。
+
+**平台的確認框** 列出目前的影響（`TenantFeatureImpacts`）：未刪除的群組數、直接加入群組的使用者數、群組持有的角色指派數，
+並警告只靠群組取得管理權限的人會失去那些權限。
+
+### 8.1 為什麼關掉時暫停授權
+
+評估過兩種語意：
+
+| 方案 | 結果 |
+| --- | --- |
+| 授權照常、只是不能管理（與 `systemSetting` 關掉時「已覆寫的值照樣生效」一致） | 關開關不會讓任何人突然失去權限；但租戶看不到群組，卻有人因群組擁有權限，說明頁的來源也指向看不到的東西 |
+| **暫停群組授權**（採用） | 「沒有群組」就是真的沒有群組：權限、說明與管理畫面一致。代價是只靠群組取得管理權限的人會被鎖在外面，確認框列出影響並明確警告；需要時由平台重新打開 |
+
+暫停放在成員展開這一個地方，而不是過濾群組的 tuple：所有正向、反向解析與說明都經過它，不會有某條路徑漏掉。
+

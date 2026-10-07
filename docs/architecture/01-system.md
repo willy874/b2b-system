@@ -322,7 +322,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 
 | 頻道 | 內容 | 收到時 | 送出的地方 |
 | --- | --- | --- | --- |
-| `authz_revision` | `{ tenant, revision }` | 比已知新才處理：整個租戶的權限快取失效、發 `permissions.changed` | `AuthzRevision`（[`backend/05-rbac.md`](./backend/05-rbac.md) §5.1） |
+| `authz_revision` | `{ tenant, revision }`；`{ tenant, features: true }` | revision 比已知新才處理；`features`（租戶啟用的 feature 變了，解析規則可能跟著變）一律處理：整個租戶的權限快取失效、發 `permissions.changed` | `AuthzRevision`（[`backend/05-rbac.md`](./backend/05-rbac.md) §5.1、[`iam/07-groups.md`](./iam/07-groups.md) §8） |
 | `user_cache` | `{ tenant, users }`（平台管理者 `tenant: null`；一則最多 150 個 id） | 這些人的使用者快取（狀態、`token_version`）失效 | `UserCacheService.invalidate()`；同一輪的多次失效合併送出 |
 | `tenant_directory` | `{}` | 租戶登記整份重新讀（含網域快照） | `TenantDirectory.invalidate()` |
 | `file_folder_tree` | `{ tenant }` | 那個租戶的資料夾結構快取作廢 | `FileFolderTree.invalidate()`（[`backend/09-file.md`](./backend/09-file.md) §11.1） |

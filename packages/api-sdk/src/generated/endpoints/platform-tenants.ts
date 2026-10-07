@@ -158,7 +158,8 @@ export interface PlatformTenantControllerFeatureImpactPathParams {
     | 'tenantSwitch'
     | 'webhook'
     | 'announcement'
-    | 'externalApi';
+    | 'externalApi'
+    | 'group';
 }
 
 export interface PlatformTenantControllerFeatureImpactInput {
