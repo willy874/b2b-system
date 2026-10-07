@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 // ★ 第一個 import 的專案檔：在任何模組讀取設定之前覆寫這個程序固定的環境
 import './external-process-env';
+// tracing 要在 http、express、Nest 被載入之前掛上；在上一行之後，服務名稱才分得出是對外 API（docs/architecture/08-monitoring.md §3）
+import './instrumentation';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -10,6 +12,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { auditRoutes } from './common/route-audit';
 import { listenHostOf } from './core/config/env.schema';
 import type { Env } from './core/config/env.schema';
+import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { ExternalApiModule } from './external-api.module';
 import { setupSwagger } from './swagger';
@@ -32,6 +35,7 @@ async function bootstrap(): Promise<void> {
 
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
   app.disable('x-powered-by');
+  app.use(httpMetricsMiddleware);
   // 不讀 cookie：對外 API 只認 Authorization 標頭（D10）
   app.enableShutdownHooks();
 

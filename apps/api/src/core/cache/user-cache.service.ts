@@ -5,6 +5,7 @@ import type { UserStatus } from '@/db/schema/users';
 
 import { BroadcastService } from '../broadcast';
 import type { BroadcastPublisher } from '../broadcast';
+import { cacheEntries, cacheLookups } from '../metrics';
 import { currentTenant } from '../tenant';
 import { InvalidationTracker } from './invalidation-tracker';
 
@@ -61,7 +62,9 @@ export class UserCacheService implements OnModuleInit {
   private readonly pending = new Map<string, Set<string>>();
   private publish?: BroadcastPublisher<UserCacheMessage>;
 
-  constructor(private readonly broadcast: BroadcastService) {}
+  constructor(private readonly broadcast: BroadcastService) {
+    cacheEntries.observe(this, (report) => report({ cache: 'user' }, this.store.size));
+  }
 
   onModuleInit(): void {
     this.publish = this.broadcast.channel(USER_CACHE_CHANNEL, {
@@ -75,8 +78,10 @@ export class UserCacheService implements OnModuleInit {
 
   get(userId: string): CachedUser | undefined {
     const entry = this.store.get(keyOf(userId));
+    const isFresh = entry !== undefined && entry.expiresAt >= Date.now();
+    cacheLookups.inc({ cache: 'user', result: isFresh ? 'hit' : 'miss' });
     if (!entry) return undefined;
-    if (entry.expiresAt < Date.now()) {
+    if (!isFresh) {
       this.store.delete(keyOf(userId));
       return undefined;
     }

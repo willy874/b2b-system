@@ -32,6 +32,7 @@ export class PasswordHasher {
       timeCost: config.get('ARGON2_TIME_COST', { infer: true }),
     };
     this.limit = createLimiter({
+      name: 'argon2',
       concurrency: config.get('ARGON2_MAX_CONCURRENCY', { infer: true }),
       maxQueue: config.get('ARGON2_MAX_QUEUE', { infer: true }),
       queueTimeoutMs: config.get('ARGON2_QUEUE_TIMEOUT_MS', { infer: true }),

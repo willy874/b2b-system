@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import { rateLimited } from '@/core/metrics';
 import { cidrMatcher, ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
 import {
   currentTenant,
@@ -87,6 +88,7 @@ export class RateLimitGuard implements CanActivate {
       const record = await this.store.hit(`${bucket.name}:${bucket.key}`, RATE_LIMIT_WINDOW_MS);
       if (record.count > bucket.limit) {
         const retryAfterSeconds = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
+        rateLimited.inc({ bucket: bucket.name });
         http.getResponse<Response>().setHeader('Retry-After', String(retryAfterSeconds));
         throw new AppException('RATE_LIMITED', { retryAfterSeconds });
       }

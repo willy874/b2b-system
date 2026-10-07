@@ -32,6 +32,27 @@ export const EnvSchema = z.object({
    */
   EXTERNAL_API_PORT: z.coerce.number().int().default(3001),
   /**
+   * Prometheus 抓 `/metrics` 的 port（docs/architecture/08-monitoring.md §2.1）：另開一個 HTTP server，不經過 Nest 的路由、
+   * 租戶解析與限流，也不在 nginx 轉發的範圍。0 = 不開。對外 API 的程序用 `EXTERNAL_METRICS_PORT`（同 `EXTERNAL_API_PORT`）。
+   */
+  METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(9464),
+  EXTERNAL_METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(9465),
+  /**
+   * 就緒檢查的 event loop 延遲門檻（毫秒；docs/architecture/08-monitoring.md §4）：最近一段時間的 p99 超過它時
+   * `/health/ready` 回 `degraded`。0 = 不檢查。
+   */
+  HEALTH_EVENT_LOOP_LAG_MS: z.coerce.number().int().min(0).default(1000),
+  /**
+   * OpenTelemetry 的 trace 收件位址（OTLP/HTTP，例 `http://tempo:4318`；docs/architecture/08-monitoring.md §3）。
+   * 沒設定 = 不載入 tracing。SDK 在 `src/instrumentation.ts` 讀 `process.env`（要早於任何 import），這裡只做格式驗證。
+   */
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().url().optional(),
+  ),
+  /** trace 的取樣率（0～1）；上游已帶取樣決定時沿用上游的（parent-based）。 */
+  OTEL_TRACES_SAMPLER_ARG: z.coerce.number().min(0).max(1).default(1),
+  /**
    * 平台 DB：租戶登記、IdP 的協定狀態、背景工作佇列（docs/architecture/05-tenancy.md §10.2 D1）。
    * 租戶 DB 的連線字串存在平台 DB 的 `tenants`，不在環境變數。
    */

@@ -1,3 +1,5 @@
+import { limiterActive, limiterRejected, limiterWaiting } from '../metrics';
+
 /** 等待的名額已滿或等太久：呼叫端轉成自己的錯誤（例：`503 AUTH_BUSY`）。 */
 export class LimiterBusyError extends Error {
   constructor(readonly reason: 'queue-full' | 'timeout') {
@@ -12,6 +14,11 @@ export interface LimiterOptions {
   maxQueue?: number;
   /** 等待超過這麼久就放棄（毫秒），拋 `LimiterBusyError('timeout')`。不設 = 一直等。 */
   queueTimeoutMs?: number;
+  /**
+   * 指標的 `limiter` 標籤（docs/architecture/08-monitoring.md §2.2）：有名稱才回報執行中、排隊中與被拒的數量。
+   * 同名的 limiter 數字相加。
+   */
+  name?: string;
 }
 
 export type Limiter = <T>(task: () => Promise<T>) => Promise<T>;
@@ -22,7 +29,7 @@ export type Limiter = <T>(task: () => Promise<T>) => Promise<T>;
  * 連帶拖慢 DNS 查詢與檔案 I/O（docs/architecture/backend/04-auth.md §4.1）。上限是 **每程序**，多實例時不共享。
  */
 export function createLimiter(options: LimiterOptions): Limiter {
-  const { concurrency, maxQueue, queueTimeoutMs } = options;
+  const { concurrency, maxQueue, queueTimeoutMs, name } = options;
   let active = 0;
   const waiting: Array<{ resolve: () => void; timer?: NodeJS.Timeout }> = [];
 
@@ -42,6 +49,7 @@ export function createLimiter(options: LimiterOptions): Limiter {
       return Promise.resolve();
     }
     if (maxQueue !== undefined && waiting.length >= maxQueue) {
+      if (name) limiterRejected.inc({ limiter: name, reason: 'queue-full' });
       return Promise.reject(new LimiterBusyError('queue-full'));
     }
     return new Promise<void>((resolve, reject) => {
@@ -50,6 +58,7 @@ export function createLimiter(options: LimiterOptions): Limiter {
         entry.timer = setTimeout(() => {
           const index = waiting.indexOf(entry);
           if (index >= 0) waiting.splice(index, 1);
+          if (name) limiterRejected.inc({ limiter: name, reason: 'timeout' });
           reject(new LimiterBusyError('timeout'));
         }, queueTimeoutMs);
       }
@@ -57,7 +66,7 @@ export function createLimiter(options: LimiterOptions): Limiter {
     });
   };
 
-  return async <T>(task: () => Promise<T>): Promise<T> => {
+  const limit: Limiter = async <T>(task: () => Promise<T>): Promise<T> => {
     await acquire();
     try {
       return await task();
@@ -65,4 +74,9 @@ export function createLimiter(options: LimiterOptions): Limiter {
       release();
     }
   };
+  if (name) {
+    limiterActive.observe(limit, (report) => report({ limiter: name }, active));
+    limiterWaiting.observe(limit, (report) => report({ limiter: name }, waiting.length));
+  }
+  return limit;
 }

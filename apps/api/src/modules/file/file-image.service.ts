@@ -66,7 +66,10 @@ export class FileImageService {
   private readonly urlKeys: { current: Buffer; legacy: Buffer | undefined };
   private readonly urlTtl: number;
   private readonly baseUrl: string;
-  private readonly limit = createLimiter({ concurrency: IMAGE_VARIANT_CONCURRENCY });
+  private readonly limit = createLimiter({
+    name: 'image',
+    concurrency: IMAGE_VARIANT_CONCURRENCY,
+  });
   /** 排入或執行中的變體產生（檔案 id → 工作）：同一個檔案不重複產生。 */
   private readonly generating = new Map<string, Promise<void>>();
   /** 依請求轉出其他格式（物件 key → 工作）：同時多個請求只轉一次。 */

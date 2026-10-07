@@ -12,6 +12,7 @@ import type { Env } from '../config';
 import { afterCommit, TENANT_DB, withTransaction } from '../database';
 import type { Database, Transaction } from '../database';
 import { AppException, redactDbError } from '../errors';
+import { jobDuration, jobQueueDepth, jobsProcessed, outboxRelayFailures } from '../metrics';
 import {
   JOB_MAX_CONCURRENCY_PARAM,
   requireTenant,
@@ -19,6 +20,7 @@ import {
   Tenancy,
   TenantDirectory,
 } from '../tenant';
+import { inSpan } from '../tracing';
 import { JOB_SCHEMA, JobStore } from './job-store';
 import { defineJob } from './job-type';
 import type { JobType } from './job-type';
@@ -51,6 +53,18 @@ const OUTBOX_INSERT_CHUNK = 1000;
  */
 const TENANT_BUSY_DELAY_SECONDS = 5;
 const TENANT_BUSY_JITTER_SECONDS = 5;
+
+/**
+ * 佇列深度的指標多久重新讀一次（docs/architecture/08-monitoring.md §2.2）：Prometheus 每 15 秒抓一次，
+ * pg-boss 的快照本身也只每分鐘更新。
+ */
+const QUEUE_DEPTH_CACHE_MS = 15_000;
+
+/** handler 的回傳值 → 指標的 `result`：`skipped` 是租戶無法使用、`deferred` 是租戶的同時執行數已滿而放回佇列。 */
+function jobResultOf(output: object | void): 'completed' | 'skipped' | 'deferred' {
+  if (typeof output !== 'object' || output === null || !('skipped' in output)) return 'completed';
+  return output.skipped === 'TENANT_CONCURRENCY' ? 'deferred' : 'skipped';
+}
 
 /** handler 拿到的執行資訊。 */
 export interface JobContext {
@@ -179,6 +193,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       await this.startWorker(registration);
     }
     await this.syncSchedules();
+    this.observeQueueDepth();
     this.logger.log(`背景工作：已啟動 ${this.registrations.size} 種工作的 worker`);
   }
 
@@ -187,6 +202,20 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     // graceful：等執行中的工作結束（最多 30 秒），逾時的由下一個程序在 expireInSeconds 後重試
     await this.boss.stop({ graceful: true, timeout: 30_000 });
     this.started = false;
+  }
+
+  /**
+   * pg-boss 自己的連線池（它用 `pg`，與 api 的平台池分開）連得到平台 DB 嗎（就緒檢查，docs/architecture/08-monitoring.md §4）。
+   * 還沒啟動或已經停止時回 `false`。
+   */
+  async ping(): Promise<boolean> {
+    if (!this.started) return false;
+    try {
+      await this.boss.getQueue(OUTBOX_SWEEP_JOB.name);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -382,6 +411,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     try {
       await this.relayOutbox();
     } catch (error) {
+      outboxRelayFailures.inc();
       this.logger.warn({ err: error }, 'outbox 搬移失敗，等定期清掃');
     }
   }
@@ -513,13 +543,23 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     const options = { batchSize: 1, localConcurrency: type.options.concurrency };
     await this.boss.work<JobEnvelope | null>(type.name, options, async ([job]) => {
       if (!job) return;
+      const end = jobDuration.startTimer({ job: type.name });
       try {
-        return await this.execute(registration, job.data, {
-          id: job.id,
-          retryCount: job.retryCount,
-          signal: job.signal,
-        });
+        // 每一筆工作是一個 trace 的根（docs/architecture/08-monitoring.md §3.2）：進入租戶時標上租戶代碼
+        const output = await inSpan(
+          `job ${type.name}`,
+          { 'b2b.job.name': type.name, 'b2b.job.id': job.id, 'b2b.job.retry': job.retryCount },
+          () =>
+            this.execute(registration, job.data, {
+              id: job.id,
+              retryCount: job.retryCount,
+              signal: job.signal,
+            }),
+        );
+        jobsProcessed.inc({ job: type.name, result: jobResultOf(output) });
+        return output;
       } catch (error) {
+        jobsProcessed.inc({ job: type.name, result: 'failed' });
         // 拋出去 pg-boss 才會記錄失敗並依設定重試；這裡只補一筆帶工作資訊的日誌
         this.logger.warn(
           { err: error, job: { name: type.name, id: job.id, retryCount: job.retryCount } },
@@ -528,6 +568,28 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
         // pg-boss 把拋出的錯誤連同可列舉的屬性存成工作的 output（持有 job:read 的人看得到）：
         // 資料庫的查詢錯誤換成只帶 SQL 與錯誤碼的版本，參數不跟著存下來（docs/architecture/backend/10-jobs.md §6）
         throw redactDbError(error);
+      } finally {
+        end();
+      }
+    });
+  }
+
+  /**
+   * 各佇列的深度（`api_job_queue_depth`）。只在執行工作的程序回報：佇列在平台 DB、所有程序看到的是同一份，
+   * 每個程序都回報會讓加總變成好幾倍。讀 pg-boss 的快照（`getQueues()`，不掃工作表），並快取一小段時間。
+   */
+  private observeQueueDepth(): void {
+    const names = [...this.registrations.keys()];
+    let cached: { at: number; queues: Awaited<ReturnType<PgBoss['getQueues']>> } | undefined;
+    jobQueueDepth.observe(this, async (report) => {
+      if (!cached || Date.now() - cached.at > QUEUE_DEPTH_CACHE_MS) {
+        cached = { at: Date.now(), queues: await this.boss.getQueues(names) };
+      }
+      for (const queue of cached.queues) {
+        report({ job: queue.name, state: 'ready' }, queue.readyCount);
+        report({ job: queue.name, state: 'deferred' }, queue.deferredCount);
+        report({ job: queue.name, state: 'active' }, queue.activeCount);
+        report({ job: queue.name, state: 'failed' }, queue.failedCount);
       }
     });
   }

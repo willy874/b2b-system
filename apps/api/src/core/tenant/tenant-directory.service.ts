@@ -13,6 +13,7 @@ import { SecretBox, TENANT_SECRET_PURPOSE } from '../crypto';
 import { toFeatureFlagOverrides } from '../feature-flags/feature-flags';
 import type { FeatureFlagOverrides } from '../feature-flags/feature-flags';
 import { hostnameOf } from '../http';
+import { cacheEntries, cacheLookups } from '../metrics';
 import { BoundedCache } from './bounded-cache';
 import { toTenantFeatureParamOverrides } from './tenant-feature-params';
 import type { TenantFeatureParamOverrides } from './tenant-feature-params';
@@ -101,6 +102,11 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
       TENANT_SECRET_PURPOSE,
     );
     this.ttlMs = config.get('TENANT_CACHE_TTL', { infer: true }) * 1000;
+    cacheEntries.observe(this, (report) => {
+      report({ cache: 'tenantByHost' }, this.byHost.size);
+      report({ cache: 'tenantById' }, this.byId.size);
+      report({ cache: 'tenantByCode' }, this.byCode.size);
+    });
   }
 
   onModuleInit(): void {
@@ -161,6 +167,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
     const key = code.toLowerCase();
     if (!CODE_LIKE.test(key)) return undefined;
     const cached = this.byCode.get(key);
+    cacheLookups.inc({ cache: 'tenantByCode', result: cached ? 'hit' : 'miss' });
     if (cached) return cached.value;
     const ticket = this.tracker.ticket();
     const row = await this.repo.findByCode(key);
@@ -178,6 +185,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
     const normalized = host.toLowerCase();
     if (!HOST_LIKE.test(normalized)) return undefined;
     const cached = this.byHost.get(normalized);
+    cacheLookups.inc({ cache: 'tenantByHost', result: cached ? 'hit' : 'miss' });
     if (cached) return cached.value;
     // 快照裡沒有的網域一定不屬於任何租戶：不查 DB、也不佔快取（任意 Host 都會轉進來）
     await this.refreshing;
@@ -200,6 +208,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
 
   async findById(id: string): Promise<TenantRecord | undefined> {
     const cached = this.byId.get(id);
+    cacheLookups.inc({ cache: 'tenantById', result: cached ? 'hit' : 'miss' });
     if (cached) return cached.value;
     const ticket = this.tracker.ticket();
     const row = await this.repo.findById(id);

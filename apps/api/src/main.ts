@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+// ★ 第一個 import 的專案檔：tracing 要在 http、express、Nest 被載入之前掛上（docs/architecture/08-monitoring.md §3）
+import './instrumentation';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -10,6 +12,7 @@ import { AppModule } from './app.module';
 import { auditRoutes } from './common/route-audit';
 import { listenHostOf } from './core/config/env.schema';
 import type { Env } from './core/config/env.schema';
+import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { setupSwagger } from './swagger';
 
@@ -30,6 +33,8 @@ async function bootstrap(): Promise<void> {
 
   // 不外露框架；其餘安全標頭由前面的 nginx 加
   app.disable('x-powered-by');
+  // 最先量：被 guard 擋下、路由沒對到的請求也算（docs/architecture/08-monitoring.md §2.2）
+  app.use(httpMetricsMiddleware);
   app.use(cookieParser());
   app.enableShutdownHooks();
 

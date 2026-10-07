@@ -18,10 +18,12 @@ import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
+import { MetricsModule } from './core/metrics';
 import { RateLimitModule } from './core/rate-limit';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule } from './core/tenant';
+import { TracingModule } from './core/tracing';
 import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.guard';
@@ -54,6 +56,9 @@ import { UserModule } from './modules/user/user.module';
     DiscoveryModule, // 路由稽核掃描 controller metadata 用
     ConfigModule,
     LoggerModule,
+    // 給 Prometheus 的 /metrics（獨立的 port）與就緒檢查的 event loop 量測（docs/architecture/08-monitoring.md §2）
+    MetricsModule,
+    TracingModule,
     DatabaseModule,
     TenancyModule,
     FeatureFlagsModule,
