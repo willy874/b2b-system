@@ -37,6 +37,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | `packages/ui` | 設計系統：元件、Design Token、icons、UnoCSS 設定、Storybook |
 | `packages/web-shared` | 框架無關的前端工具：store、channel、registry、date… |
 | `packages/error-codes` | api 與前端共用的錯誤碼（build 到 `dist/`） |
+| `packages/mail-components` | api 郵件範本用的 React Email 元件與 `render`，建置時打包成單一檔案（build 到 `dist/`） |
 | `packages/realtime` | 推播事件的契約（api 與前端共用，build 到 `dist/`） |
 | `packages/api-sdk` | 由 api 的 OpenAPI 產生的前端 SDK（build 到 `dist/`） |
 
@@ -94,7 +95,7 @@ pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
 pnpm dev:mock-idp   # 模擬的外部 IdP（:4455，client b2b-mock／mock-secret）；外部 IdP 登入的開發與 E2E 用
 pnpm dev:external-api  # 對外 API（:3001，只認 API token；docs/architecture/06-external-api.md）
-pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、api-sdk）；拉下新的 main 後先 pnpm install 再跑這個
+pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、api-sdk、mail-components）；拉下新的 main 後先 pnpm install 再跑這個
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）

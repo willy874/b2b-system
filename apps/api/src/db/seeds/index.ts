@@ -81,9 +81,13 @@ export async function recordImpliedPermissions(db: ScriptDatabase): Promise<void
   }
 }
 
-export async function runSeed(db: ScriptDatabase): Promise<void> {
+/** 一個租戶的完整 seed：權限目錄、系統角色、第一位 super-admin（`tenantCode` 用在啟用連結的 `?tenant=`）。 */
+export async function runSeed(
+  db: ScriptDatabase,
+  tenantCode: string = seedTenantCode(),
+): Promise<void> {
   await seedCatalog(db);
-  await seedSuperAdmin(db);
+  await seedSuperAdmin(db, tenantCode);
 }
 
 /** 權限目錄與系統角色（每個租戶都要有；新增權限後 `db:seed` 會補上）。 */
@@ -107,7 +111,7 @@ export async function seedAll(seedTenant = seedTenantCode()): Promise<{ failed: 
     await platform.client.end();
   }
   const failed = await forEachScriptTenant(
-    (db, tenant) => (tenant.code === seedTenant ? runSeed(db) : seedCatalog(db)),
+    (db, tenant) => (tenant.code === seedTenant ? runSeed(db, tenant.code) : seedCatalog(db)),
     {
       includeDisabled: true,
       onError: (tenant, error) => console.error(`租戶 ${tenant.code}：seed 失敗`, error),

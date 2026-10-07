@@ -172,6 +172,7 @@ api 在 production 另外拒絕低熵的金鑰與指向 localhost 的公開網�
 
 `PLATFORM_ADMIN_PASSWORD` 留空時，第一位平台管理者建成 `pending`，`migrate` 的日誌印出一次性的設定連結（1 小時有效，不印密碼）；
 過期時重新部署就會換發新的連結。有提供密碼時它必須符合密碼政策，否則 seed 失敗。
+`SUPER_ADMIN_PASSWORD`（預設租戶的第一位 super-admin）同樣：留空時建成 `pending`，日誌印出帶 `?tenant=` 的一次性啟用連結。
 
 ```bash
 docker compose --env-file deploy/prod.env -f docker-compose.prod.yml up -d --build

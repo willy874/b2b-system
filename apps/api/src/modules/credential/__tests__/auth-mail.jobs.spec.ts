@@ -1,4 +1,4 @@
-import { render } from 'react-email';
+import { render } from '@b2b-system/mail-components';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '@/core/database';

@@ -1,8 +1,9 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   auditLogs,
+  authTokens,
   isRoleHolderTuple,
   isRolePermissionTuple,
   permissions,
@@ -11,12 +12,14 @@ import {
   SUPER_ADMIN_RELATION,
   users,
 } from '@/db/schema';
+import { sha256 } from '@/modules/credential/token-hash';
 
 import type { TestDatabase } from '../../../../test/db';
 import { createTestDatabase, truncateAll } from '../../../../test/db';
-import { runSeed } from '../index';
+import { runSeed, seedCatalog } from '../index';
 import { PERMISSION_SEED } from '../permissions';
 import { ROLE_SEED } from '../roles';
+import { seedSuperAdmin } from '../super-admin';
 
 let db: TestDatabase;
 let close: () => Promise<void>;
@@ -149,6 +152,46 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
       expect(await tableCount(db, 'users')).toBe(0);
     } finally {
       process.env.SUPER_ADMIN_PASSWORD = password;
+    }
+  });
+
+  it('⑪ production 沒有提供密碼：建成 pending、不印密碼，印出帶租戶的一次性啟用連結；重跑換發新連結（§5.1）', async () => {
+    await truncateAll(db);
+    await seedCatalog(db as never);
+    const env = {
+      NODE_ENV: 'production',
+      SUPER_ADMIN_EMAIL: 'first-admin@example.com',
+      PLATFORM_APP_URL: 'https://accounts.example.com/',
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const first = await seedSuperAdmin(db as never, 'acme', env);
+      const [user] = await db.select().from(users).where(eq(users.email, env.SUPER_ADMIN_EMAIL));
+      expect(user?.status).toBe('pending');
+
+      const link = new URL(first.activationLink ?? '');
+      expect(link.origin + link.pathname).toBe('https://accounts.example.com/setup');
+      expect(link.searchParams.get('tenant')).toBe('acme');
+      const token = link.searchParams.get('token') ?? '';
+      const [issued] = await db.select().from(authTokens).where(eq(authTokens.userId, user!.id));
+      expect(issued).toMatchObject({
+        purpose: 'activation',
+        tokenHash: sha256(token),
+        usedAt: null,
+      });
+
+      const printed = warn.mock.calls.flat().join('\n');
+      expect(printed).toContain(first.activationLink);
+      expect(printed).not.toContain('密碼：');
+
+      // 重新部署：仍是唯一一位、還沒啟用 → 換發新的連結，舊的作廢
+      const second = await seedSuperAdmin(db as never, 'acme', env);
+      expect(second.activationLink).not.toBe(first.activationLink);
+      const tokens = await db.select().from(authTokens).where(eq(authTokens.userId, user!.id));
+      expect(tokens.filter((row) => row.usedAt === null)).toHaveLength(1);
+      expect(await tableCount(db, 'users')).toBe(1);
+    } finally {
+      warn.mockRestore();
     }
   });
 });

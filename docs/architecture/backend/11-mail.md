@@ -31,9 +31,12 @@ modules/approval/
 - `core/mail` 不認識任何一封信；範本屬於擁有它的模組（`modules/<name>/mails/*.mail.tsx`），
   和業務一起演進。新增一封信 = 新增範本 ＋ 在該模組宣告並註冊一種工作。
 - `api` 開啟 JSX（`tsconfig.json` 的 `"jsx": "react-jsx"`、`.swcrc` 的 automatic runtime），只有 `*.mail.tsx` 使用。
-- 元件與 `render()` 一律從 `react-email` 匯入。React Email 6 起把元件與轉換工具併進這個套件，
-  `@react-email/components` 與各別的 `@react-email/<元件>` 已停止維護（npm 標為 deprecated）；`@react-email/render`
-  仍在維護但由 `react-email` 重新匯出，不另外直接依賴。`react-dom` 是 `render()` 的 peer 依賴（`react-dom/server`），雖然沒有直接 import 也要保留。
+- 元件與 `render()` 一律從 `@b2b-system/mail-components`（`packages/mail-components`）匯入。它轉出 `react-email` 的元件，
+  在建置時以 esbuild 打包成單一檔案（`dist/index.cjs`）：React Email 6 起把元件、轉換工具與預覽伺服器、CLI 併進同一個套件，
+  直接依賴它會把 esbuild、babel、chokidar、prompts… 一起帶進正式映像；`@react-email/components` 與各別的 `@react-email/<元件>`
+  已停止維護，不能拿來替代。`react-email` 只是那個 package 的 devDependency。
+- 範本要用新的元件時加進 `packages/mail-components/src/index.ts`，再 `pnpm build:packages`。
+- `react`、`react-dom` 由 api 提供（打包時排除）：`react-dom` 是 `render()` 在執行期載入的 `react-dom/server`，雖然沒有直接 import 也要保留。
 
 ## 2. 傳輸層
 

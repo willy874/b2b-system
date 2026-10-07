@@ -1,6 +1,6 @@
+import { Text } from '@b2b-system/mail-components';
 import type { ConfigService } from '@nestjs/config';
 import { createElement } from 'react';
-import { Text } from 'react-email';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
