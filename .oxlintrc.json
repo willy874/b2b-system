@@ -75,7 +75,7 @@
               },
               {
                 "name": "react",
-                "message": "這一層不依賴 React；React 綁定放 web-shared 的 hooks/ 或 core/app/react.tsx。"
+                "message": "這一層不依賴 React；React 綁定放 web-shared 的 hooks/ 或 web-core 的 app/react.tsx。"
               }
             ]
           }
@@ -91,7 +91,7 @@
             "paths": [
               {
                 "name": "react",
-                "message": "這一層不依賴 React；React 綁定放 web-shared 的 hooks/ 或 core/app/react.tsx。"
+                "message": "這一層不依賴 React；React 綁定放 web-shared 的 hooks/ 或 web-core 的 app/react.tsx。"
               }
             ]
           }
