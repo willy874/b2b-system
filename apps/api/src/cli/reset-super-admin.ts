@@ -7,11 +7,18 @@ import {
   loadScriptEnv,
 } from '@/db/client';
 import type { PlatformScriptDatabase, ScriptDatabase } from '@/db/client';
-import { platformAdmins, platformAuditLogs } from '@/db/platform/schema';
+import {
+  platformAdminMfaFactors,
+  platformAdminMfaRecoveryCodes,
+  platformAdmins,
+  platformAuditLogs,
+} from '@/db/platform/schema';
 import {
   auditLogs,
   isHumanUser,
   isRoleHolderTuple,
+  mfaFactors,
+  mfaRecoveryCodes,
   notDeleted,
   relationTuples,
   roles,
@@ -28,6 +35,9 @@ import { issuePlatformAuthToken } from '@/modules/platform-admin/platform-auth-t
  *   pnpm --filter @b2b-system/api cli:reset-super-admin --tenant <租戶代碼> --email <email>
  *   pnpm --filter @b2b-system/api cli:reset-super-admin --platform --email <email>
  *
+ * `--reset-mfa`：唯一的 super-admin 弄丟手機又沒有備用碼時，同一個交易刪除他的 MFA 驗證方式與備用碼
+ * （下一次登入照政策走首次設定；docs/architecture/backend/21-mfa.md §8）。
+ *
  * 不提供後門 API、不直接改密碼：簽發與一般流程相同的 token（`issueAuthToken`／`issuePlatformAuthToken`），
  * 印出連結，由本人在 apps/platform 設定新密碼。還沒啟用（`pending`）的帳號簽發啟用連結。
  * 要動到不在本機的資料庫時加 `--confirm <平台 database 名稱>`（`script-guard.ts` 的 `remoteRejection`）；
@@ -42,7 +52,7 @@ export const SUPER_ADMIN_RESET_ACTION = 'system.super_admin_reset_requested';
 
 const USAGE =
   '用法：cli:reset-super-admin (--tenant <租戶代碼> | --platform) --email <email> ' +
-  '[--confirm <平台 database 名稱>]';
+  '[--reset-mfa] [--confirm <平台 database 名稱>]';
 
 const SUPER_ADMIN_SLUG = 'super-admin';
 
@@ -50,6 +60,8 @@ export interface ResetSuperAdminOptions {
   /** 租戶代碼；`'platform'` 是平台管理者（apps/platform 的帳號）。 */
   target: { tenant: string } | 'platform';
   email: string;
+  /** `--reset-mfa`：一併刪除 MFA 的驗證方式與備用碼。 */
+  resetMfa?: boolean;
   /** `--confirm` 的值：不在本機的資料庫要等於平台 database 名稱。 */
   confirm?: string;
 }
@@ -79,6 +91,7 @@ export function parseResetSuperAdminArgs(argv: readonly string[]): ResetSuperAdm
   return {
     target: tenant ? { tenant } : 'platform',
     email,
+    resetMfa: argv.includes('--reset-mfa'),
     confirm: confirmArgument(argv),
   };
 }
@@ -129,7 +142,7 @@ export async function resetSuperAdmin(
   try {
     if (options.target === 'platform') {
       assertGuarded(platformUrl, [], options.confirm);
-      return await resetPlatformSuperAdmin(platform.db, options.email, base);
+      return await resetPlatformSuperAdmin(platform.db, options.email, base, options.resetMfa);
     }
     const [tenant] = await listScriptTenants(platform.db, { code: options.target.tenant });
     if (!tenant) throw new Error(`找不到租戶 ${options.target.tenant}`);
@@ -139,7 +152,7 @@ export async function resetSuperAdmin(
     assertGuarded(platformUrl, [tenant.databaseUrl], options.confirm);
     const { client, db } = createScriptClient(tenant.databaseUrl);
     try {
-      return await resetTenantSuperAdmin(db, tenant.code, options.email, base);
+      return await resetTenantSuperAdmin(db, tenant.code, options.email, base, options.resetMfa);
     } finally {
       await client.end();
     }
@@ -153,6 +166,7 @@ async function resetTenantSuperAdmin(
   tenantCode: string,
   email: string,
   base: string,
+  resetMfa = false,
 ): Promise<ResetSuperAdminResult> {
   const [user] = await db
     .select({ id: users.id, email: users.email, status: users.status })
@@ -187,6 +201,15 @@ async function resetTenantSuperAdmin(
       purpose,
       validSeconds: RESET_LINK_TTL_SECONDS,
     });
+    if (resetMfa) {
+      await tx.delete(mfaFactors).where(eq(mfaFactors.userId, user.id));
+      await tx.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, user.id));
+      // 既有的 session 一併失效（同管理員重設）
+      await tx
+        .update(users)
+        .set({ mfaEnabled: false, tokenVersion: sql`${users.tokenVersion} + 1` })
+        .where(eq(users.id, user.id));
+    }
     await tx.insert(auditLogs).values({
       action: SUPER_ADMIN_RESET_ACTION,
       actorId: null,
@@ -195,7 +218,12 @@ async function resetTenantSuperAdmin(
       resourceId: user.id,
       resourceName: user.email,
       result: 'success',
-      metadata: { purpose, expiresAt: issued.expiresAt.toISOString(), via: 'cli' },
+      metadata: {
+        purpose,
+        expiresAt: issued.expiresAt.toISOString(),
+        via: 'cli',
+        ...(resetMfa && { mfaReset: true, severity: 'high' }),
+      },
     });
     return issued;
   });
@@ -206,6 +234,7 @@ async function resetPlatformSuperAdmin(
   db: PlatformScriptDatabase,
   email: string,
   base: string,
+  resetMfa = false,
 ): Promise<ResetSuperAdminResult> {
   const [admin] = await db
     .select({
@@ -231,13 +260,28 @@ async function resetPlatformSuperAdmin(
       purpose,
       validSeconds: RESET_LINK_TTL_SECONDS,
     });
+    if (resetMfa) {
+      await tx.delete(platformAdminMfaFactors).where(eq(platformAdminMfaFactors.adminId, admin.id));
+      await tx
+        .delete(platformAdminMfaRecoveryCodes)
+        .where(eq(platformAdminMfaRecoveryCodes.adminId, admin.id));
+      await tx
+        .update(platformAdmins)
+        .set({ mfaEnabled: false, tokenVersion: sql`${platformAdmins.tokenVersion} + 1` })
+        .where(eq(platformAdmins.id, admin.id));
+    }
     await tx.insert(platformAuditLogs).values({
       action: SUPER_ADMIN_RESET_ACTION,
       actorEmail: 'system',
       resourceType: 'platformAdmin',
       resourceId: admin.id,
       result: 'success',
-      metadata: { email: admin.email, purpose, expiresAt: issued.expiresAt.toISOString() },
+      metadata: {
+        email: admin.email,
+        purpose,
+        expiresAt: issued.expiresAt.toISOString(),
+        ...(resetMfa && { mfaReset: true, severity: 'high' }),
+      },
     });
     return issued;
   });
@@ -253,6 +297,9 @@ async function main(): Promise<void> {
     `\n=== ${purpose === 'activation' ? '啟用' : '重設密碼'}連結 ===\n` +
       `  帳號：${options.email}（${options.target === 'platform' ? '平台管理者' : `租戶 ${options.target.tenant}`}）\n` +
       `  以下連結 ${minutes} 分鐘內有效、只能用一次；交給本人在瀏覽器開啟設定新密碼：\n  ${link}\n` +
+      (options.resetMfa
+        ? '  已刪除這個帳號的 MFA 驗證方式與備用碼，既有的 session 已失效。\n'
+        : '') +
       `  已寫入稽核（${SUPER_ADMIN_RESET_ACTION}）。重新執行會作廢這個連結、換發新的。\n`,
   );
 }

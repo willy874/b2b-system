@@ -1,6 +1,7 @@
 import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { queryClient } from '@b2b-system/web-core/cache';
 import { registerCommandPalette } from '@b2b-system/web-core/command-palette';
+import { registerMfaMethod, totpMethod } from '@b2b-system/web-core/mfa';
 import { parseSearch, stringifySearch } from '@b2b-system/web-core/router';
 import { createRouter } from '@tanstack/react-router';
 
@@ -36,6 +37,8 @@ export function appContextPlugin(): AppPluginFactory {
     // 側欄的分類（頁面由各 feature 的 navigation.ts 登記）與命令面板（⌘K、頂列的搜尋按鈕）
     registerNavGroups();
     registerCommandPalette();
+    // MFA 的驗證方式（登入互動、帳號設定共用的 UI，docs/architecture/backend/21-mfa.md §11）
+    registerMfaMethod(totpMethod);
     return { name: 'app', attrs: { router: createAppRouter() } };
   };
 }

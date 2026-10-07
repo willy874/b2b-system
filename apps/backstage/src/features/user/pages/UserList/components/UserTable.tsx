@@ -132,6 +132,20 @@ export function UserTable({
         ),
       },
       {
+        id: 'mfa',
+        header: t('user.field.mfa'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Chip
+            tone={row.original.mfaEnabled ? 'success' : 'neutral'}
+            data-testid="user-mfa"
+            data-value={String(row.original.mfaEnabled)}
+          >
+            {row.original.mfaEnabled ? t('user.mfa.enabled') : t('user.mfa.disabled')}
+          </Chip>
+        ),
+      },
+      {
         id: 'lastLoginAt',
         header: t('user.field.lastLoginAt'),
         cell: ({ row }) => formatDateTime(row.original.lastLoginAt),

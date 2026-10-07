@@ -632,6 +632,7 @@ export interface PlatformAdmin {
   role: 'super-admin' | 'operator' | 'auditor';
   status: 'active' | 'inactive' | 'locked' | 'pending';
   lastLoginAt: string | null;
+  mfaEnabled: boolean;
   createdAt: string;
 }
 
@@ -756,6 +757,7 @@ export interface User {
   timezone: string;
   lastLoginAt: string | null;
   lockedUntil: string | null;
+  mfaEnabled: boolean;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -764,6 +766,113 @@ export interface User {
 export interface UserRoles {
   roles: Array<RoleSummary>;
 }
+
+export interface SsoRedirect {
+  redirectTo: string;
+}
+
+export interface MfaMethodInfo {
+  id: string;
+  challenge: 'none' | 'server';
+  enrollAt: 'anywhere' | 'idp';
+  assurance: 'possession' | 'inbox';
+  maxFactorsPerAccount: number;
+}
+
+export interface MfaFactor {
+  id: string;
+  method: string;
+  label: string | null;
+  hint: string | null;
+  available: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface MfaOverview {
+  factors: Array<MfaFactor>;
+  recoveryCodesRemaining: number;
+  methods: Array<{
+    id: string;
+    challenge: 'none' | 'server';
+    enrollAt: 'anywhere' | 'idp';
+    assurance: 'possession' | 'inbox';
+    maxFactorsPerAccount: number;
+    enrolled: number;
+  }>;
+  required: boolean;
+}
+
+export interface StartMfaEnrollmentRequest {
+  method: string;
+}
+
+export interface MfaChallengeInfo {
+  challengeId: string;
+  hint: string | null;
+  expiresAt: string;
+  resendAvailableAt: string;
+}
+
+export interface MfaEnrollment {
+  factorId: string;
+  method: string;
+  publicData: Record<string, unknown>;
+  challenge: MfaChallengeInfo | null;
+}
+
+export interface ConfirmMfaEnrollmentRequest {
+  challengeId?: string;
+  payload: Record<string, unknown>;
+  label?: string;
+}
+
+export interface MfaEnrollmentResult {
+  factor: MfaFactor;
+  recoveryCodes: Array<string> | null;
+}
+
+export interface MfaPasswordConfirmRequest {
+  password: string;
+}
+
+export interface MfaRecoveryCodes {
+  recoveryCodes: Array<string>;
+}
+
+export interface MfaAccountStatus {
+  enabled: boolean;
+  factors: Array<MfaFactor>;
+  recoveryCodesRemaining: number;
+}
+
+export interface MfaLoginChallengeRequest {
+  factorId: string;
+}
+
+export interface MfaLoginVerifyRequest {
+  factorId: string | 'recovery';
+  challengeId?: string;
+  payload: Record<string, unknown>;
+}
+
+export interface MfaInteractionEnrollmentResult {
+  recoveryCodes: Array<string>;
+  redirectTo: string;
+}
+
+export interface SsoMfaChallengeNext {
+  next: 'mfa';
+  factors: Array<MfaFactor>;
+  recoveryAvailable: boolean;
+}
+
+export interface SsoMfaEnrollNext {
+  next: 'mfaEnroll';
+  methods: Array<MfaMethodInfo>;
+}
+
+export type SsoLoginResult = SsoRedirect | SsoMfaChallengeNext | SsoMfaEnrollNext;
 
 export const TenantFeature = {
   file: 'file',
@@ -973,10 +1082,6 @@ export interface SsoInteraction {
     code: string;
     name: string;
   } | null;
-}
-
-export interface SsoRedirect {
-  redirectTo: string;
 }
 
 export interface SsoDiscovery {

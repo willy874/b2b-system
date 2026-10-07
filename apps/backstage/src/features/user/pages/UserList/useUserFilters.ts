@@ -7,16 +7,20 @@ import { USER_STATUS_LABEL_KEY } from '../../constants';
 import type { UserSearchQuery } from '../../routes';
 import type { useUserSearchFilter } from './useUserSearchFilter';
 
-export type UserFilterValues = Pick<UserSearchQuery, 'keyword' | 'status' | 'tagId' | 'sort'>;
+export type UserFilterValues = Pick<
+  UserSearchQuery,
+  'keyword' | 'status' | 'mfa' | 'tagId' | 'sort'
+>;
 
 const EMPTY_FILTERS: UserFilterValues = {
   keyword: undefined,
   status: undefined,
+  mfa: undefined,
   tagId: undefined,
   sort: [],
 };
 
-/** 篩選面板：關鍵字、狀態、標籤、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
+/** 篩選面板：關鍵字、狀態、MFA、標籤、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
 export function useUserFilters(
   { search, setFilters }: ReturnType<typeof useUserSearchFilter>,
   /** `user` 標籤組的標籤；還沒載入或沒有任何標籤時不顯示標籤篩選。 */
@@ -27,6 +31,7 @@ export function useUserFilters(
     value: {
       keyword: search.keyword,
       status: search.status,
+      mfa: search.mfa,
       tagId: search.tagId,
       sort: search.sort,
     },
@@ -45,6 +50,16 @@ export function useUserFilters(
           { value: 'pending', label: t(USER_STATUS_LABEL_KEY.pending) },
           { value: 'inactive', label: t(USER_STATUS_LABEL_KEY.inactive) },
           { value: 'locked', label: t(USER_STATUS_LABEL_KEY.locked) },
+        ],
+      },
+      {
+        type: 'select',
+        key: 'mfa',
+        label: t('user.field.mfa'),
+        allLabel: t('user.mfa.all'),
+        options: [
+          { value: 'true', label: t('user.mfa.enabled') },
+          { value: 'false', label: t('user.mfa.disabled') },
         ],
       },
       ...(tags.length

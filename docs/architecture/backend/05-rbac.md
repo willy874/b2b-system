@@ -636,6 +636,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/platform/admins` | `@RequirePlatformPermissions('platformAdmin:create')` |
 | PATCH  | `/platform/admins/:id` | `@RequirePlatformPermissions('platformAdmin:update')` |
 | POST   | `/platform/admins/:id/password-link` | `@RequirePlatformPermissions('platformAdmin:update')` |
+| GET    | `/platform/admins/:id/mfa` | `@RequirePlatformPermissions('platformAdmin:read')`（[`backend/21-mfa.md`](21-mfa.md) §8） |
+| POST   | `/platform/admins/:id/mfa/reset` | `@RequirePlatformPermissions('platformAdmin:update')`（不能重設自己） |
 | GET    | `/platform/audit-logs` | `@RequirePlatformPermissions('platformAuditLog:read')` |
 | GET    | `/platform/jobs/queues` | `@RequirePlatformPermissions('platformJob:read')` |
 | GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |
@@ -657,6 +659,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
 | POST   | `/oidc-interaction/:uid/login` | `@Public`                     |
 | POST   | `/oidc-interaction/:uid/abort` | `@Public`                     |
+| POST   | `/oidc-interaction/:uid/mfa/challenge`、`/mfa/verify`、`/mfa/enroll`、`/mfa/enroll/:factorId/challenge`、`/mfa/enroll/:factorId/confirm` | `@Public`（互動 cookie ＋ 密碼步驟留下的 `MfaPending`，[`backend/21-mfa.md`](21-mfa.md) §4） |
 | GET    | `/oidc-interaction/external/callback` | `@Public`（外部 IdP 跳回；state 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D8） |
 | GET    | `/oidc-interaction/:uid/discover` | `@Public`（email 網域 → 外部 IdP 連線） |
 | POST   | `/oidc-interaction/:uid/external` | `@Public`                  |
@@ -665,6 +668,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
 | POST   | `/auth/change-password`     | `@Authenticated`                 |
+| GET    | `/auth/mfa`、`/platform/auth/mfa` | `@Authenticated`（自己的驗證方式，[`backend/21-mfa.md`](21-mfa.md) §7） |
+| POST   | `/auth/mfa/factors`、`…/factors/:id/challenge`、`…/factors/:id/confirm`、`…/recovery-codes`（含 `/platform/auth/mfa/*`） | `@Authenticated` |
+| DELETE | `/auth/mfa/factors/:id`、`/platform/auth/mfa/factors/:id` | `@Authenticated`（要再輸入密碼） |
 | GET    | `/auth/api-tokens`          | `@Authenticated`（自己的個人 API token，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14） |
 | POST   | `/auth/api-tokens`          | `@Authenticated`                 |
 | DELETE | `/auth/api-tokens/:tokenId` | `@Authenticated`                 |
@@ -715,6 +721,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/users/:id/permission-sources` | `@Authenticated`：自己；別人要 `authz:explain`（service 判斷，[`iam/01-model.md`](../iam/01-model.md) §9 G4b） |
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
+| GET    | `/users/:id/mfa`            | `user:read`（[`backend/21-mfa.md`](21-mfa.md) §8） |
+| POST   | `/users/:id/mfa/reset`      | `user:update`（目標持有 super-admin 時操作者也要是 super-admin） |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
 | GET    | `/users/:userId/api-tokens` | `user:update`（別人的個人 API token，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14） |
 | DELETE | `/users/:userId/api-tokens/:tokenId` | `user:update`           |

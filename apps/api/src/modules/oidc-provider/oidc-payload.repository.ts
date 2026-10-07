@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { PlatformDatabase } from '@/core/database';
 import { PLATFORM_DB } from '@/core/database';
@@ -89,13 +89,40 @@ export class OidcPayloadRepository {
       .where(and(eq(oidcPayloads.type, type), eq(oidcPayloads.id, id)));
   }
 
+  /**
+   * payload 裡的整數欄位原子 + 1（未消耗、未過期的列），回傳新值；找不到時回 undefined。
+   * 併發的兩次失敗都會算到（MFA 第二步的失敗次數，docs/architecture/backend/21-mfa.md §4.2）。
+   */
+  async incrementPayloadCounter(
+    type: string,
+    id: string,
+    field: string,
+  ): Promise<number | undefined> {
+    const [row] = await this.db
+      .update(oidcPayloads)
+      .set({
+        payload: sql`jsonb_set(${oidcPayloads.payload}, ${`{${field}}`}::text[], to_jsonb(coalesce((${oidcPayloads.payload}->>${field})::int, 0) + 1))`,
+      })
+      .where(
+        and(
+          eq(oidcPayloads.type, type),
+          eq(oidcPayloads.id, id),
+          isNull(oidcPayloads.consumedAt),
+          gt(oidcPayloads.expiresAt, new Date()),
+        ),
+      )
+      .returning({ value: sql<number>`(${oidcPayloads.payload}->>${field})::int` });
+    return row?.value;
+  }
+
   /** 撤銷一個 grant 底下所有的 token（不分模型）。 */
   async destroyByGrantId(grantId: string): Promise<void> {
     await this.db.delete(oidcPayloads).where(eq(oidcPayloads.grantId, grantId));
   }
 
   /**
-   * 結束這些帳號在 IdP 上的登入狀態：session，以及密碼步驟已完成、還沒 resume 的互動（`result.login.accountId`）。
+   * 結束這些帳號在 IdP 上的登入狀態：session，以及密碼步驟已完成、還沒 resume 的互動（`result.login.accountId`），
+   * 和密碼通過、還在 MFA 第二步的互動（`MfaPending`，docs/architecture/backend/21-mfa.md §4）。
    * 憑證失效（停用、刪除、改密碼、重設密碼）時用：只刪 session 的話，握著 resume 網址的人仍能在互動的 TTL 內
    * 換到授權碼（docs/architecture/04-sso.md §3.5）。回傳刪除筆數。
    */
@@ -113,6 +140,10 @@ export class OidcPayloadRepository {
           and(
             eq(oidcPayloads.type, 'Interaction'),
             inArray(sql<string>`${oidcPayloads.payload}->'result'->'login'->>'accountId'`, ids),
+          ),
+          and(
+            eq(oidcPayloads.type, 'MfaPending'),
+            inArray(sql<string>`${oidcPayloads.payload}->>'accountId'`, ids),
           ),
         ),
       )

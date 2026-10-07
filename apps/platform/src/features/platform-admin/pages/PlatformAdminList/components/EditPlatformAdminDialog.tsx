@@ -5,6 +5,7 @@ import { Field } from '@b2b-system/ui/Field';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
+import { Separator } from '@b2b-system/ui/Separator';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useDialogUnsavedGuard } from '@b2b-system/web-core/router';
@@ -20,6 +21,7 @@ import {
 } from '../../../constants';
 import type { EditablePlatformAdminStatus } from '../../../constants';
 import { useUpdatePlatformAdminMutation } from '../../../hooks/usePlatformAdminMutations';
+import { PlatformAdminMfaSection } from './PlatformAdminMfaSection';
 
 /** 編輯需要的欄位（列表的 VM 與 DTO 都符合）。 */
 type EditablePlatformAdmin = Pick<
@@ -207,6 +209,8 @@ export function EditPlatformAdminDialog({ admin, isSelf, onClose }: EditPlatform
         )}
         <FormError data-testid="platform-admin-edit-error">{error}</FormError>
       </form>
+      <Separator className="my-4" />
+      <PlatformAdminMfaSection adminId={admin.id} isSelf={isSelf} />
     </Dialog>
   );
 }

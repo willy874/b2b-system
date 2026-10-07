@@ -2,7 +2,6 @@ import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 
 import { Public } from '@/common/decorators';
 import { RateLimit } from '@/common/rate-limit';
@@ -10,6 +9,8 @@ import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import { NoStore } from '@/core/http';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
+import { SsoLoginResultSchema } from '@/modules/mfa/dto/mfa.dto';
+import { InteractionUidPipe } from '@/modules/oidc-provider/interaction-uid';
 
 import {
   ExternalCallbackQuerySchema,
@@ -30,9 +31,6 @@ import type {
 } from './dto/auth.dto';
 import { ExternalLoginService } from './external-login.service';
 import { SsoService } from './sso.service';
-
-/** provider 產生的互動 id（nanoid）；只接受這個形狀，才能安全地放進轉址網址。 */
-const InteractionUidPipe = new ZodValidationPipe(z.string().regex(/^[A-Za-z0-9_-]{8,64}$/));
 
 /**
  * IdP 的登入互動（docs/architecture/04-sso.md §12）。
@@ -94,9 +92,11 @@ export class SsoInteractionController {
   @HttpCode(200)
   @Public()
   @RateLimit('auth')
-  @ApiOperation({ summary: '密碼登入；回傳要頂層跳轉的 resume 網址' })
+  @ApiOperation({
+    summary: '密碼登入；不需要 MFA 時回傳要頂層跳轉的 resume 網址，需要時回傳下一步（next）',
+  })
   @ApiZodBody(LoginSchema)
-  @ApiZodResponse(200, SsoRedirectSchema)
+  @ApiZodResponse(200, SsoLoginResultSchema)
   login(
     @Param('uid', InteractionUidPipe) uid: string,
     @Body(new ZodValidationPipe(LoginSchema)) dto: LoginDto,

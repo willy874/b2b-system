@@ -7,7 +7,7 @@ import { getLoginSsoInteractionMutationOptions } from '@/apis/sso-interaction/lo
 import { getStartExternalSsoInteractionMutationOptions } from '@/apis/sso-interaction/start-external-sso-interaction/mutation';
 
 /** IdP 的登入互動：成功後 **頂層跳轉** 到 provider 的 resume 網址，provider 再帶授權碼跳回產品。 */
-function followRedirect({ redirectTo }: { redirectTo: string }): void {
+export function followRedirect({ redirectTo }: { redirectTo: string }): void {
   globalThis.location.assign(redirectTo);
 }
 
@@ -15,9 +15,17 @@ export function useSsoInteraction(uid: string) {
   return useQuery(getSsoInteractionQueryOptions(uid));
 }
 
-/** 錯誤不在這裡吞掉：由登入表單顯示（例：AUTH_INVALID_CREDENTIALS、AUTH_ACCOUNT_LOCKED）。 */
+/**
+ * 錯誤不在這裡吞掉：由登入表單顯示（例：AUTH_INVALID_CREDENTIALS、AUTH_ACCOUNT_LOCKED）。
+ * 需要 MFA 時回應是下一步（`next`）而不是 resume 網址：由呼叫端切到第二步（docs/architecture/backend/21-mfa.md §4）。
+ */
 export function useSsoInteractionLoginMutation() {
-  return useMutation({ ...getLoginSsoInteractionMutationOptions(), onSuccess: followRedirect });
+  return useMutation({
+    ...getLoginSsoInteractionMutationOptions(),
+    onSuccess: (result) => {
+      if ('redirectTo' in result) followRedirect(result);
+    },
+  });
 }
 
 export function useSsoInteractionAbortMutation() {

@@ -1,7 +1,7 @@
 # MFA（多因素驗證）：可擴充的驗證方式
 
 - 優先度：P3
-- 狀態：規劃中（開放問題與執行方式都已定案，§14.0；等使用者下令開工，開工時填 branch `feat/mfa`）
+- 狀態：實作中（branch `feat/mfa`，worktree `../b2b-system-mfa`；2026-10-07 開工）
 - 依賴：—
 - 相關：[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D15（MFA 預留）、§3.2、§3.5；[`backend/04-auth.md`](../architecture/backend/04-auth.md) §3（登入、鎖定、漸進延遲）、§8.2（直接登入）；
   [`05-tenancy.md`](../architecture/05-tenancy.md) §5.1、§5.2、§11（平台層開關與 feature flag，本功能的開關照它做）；[`backend/11-mail.md`](../architecture/backend/11-mail.md) §4（token 在寄出當下簽發）；
@@ -587,6 +587,32 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.7 的實作
 #### 14.7 實作紀錄
 
 （實作時發現提案要改的地方記在這裡，歸檔時搬進正式文件的「實作紀錄」。）
+
+**M1（2026-10-07）**
+
+1. **正式文件是 `backend/21-mfa.md`**：`backend/20` 已是審批（docs/rbac 併入 iam 時改號）。程式註解直接引用 21，實作期間先放一份指向本檔的入口，歸檔時改寫。
+2. **「密碼通過」與「登入成功」分開**：原本 `verifyCredentials` 在密碼正確時就歸零失敗計數、記住來源（已知來源）、寫成功的稽核。
+   有第二步之後這樣會出事——知道密碼的人每輸入一次密碼就把第二步的失敗計數歸零，而且他的 IP 會變成已知來源、之後第二步的錯誤不再累計鎖定。
+   所以拆成「只檢查」與 `completeLogin`（第二步也通過之後才呼叫）：租戶的在 `modules/user/user-login.service.ts`（`UserLoginService`：`verifyPassword`、
+   `recordFailedAttempt`、`completeLogin`），`AuthService.verifyCredentials` 改名 `checkCredentials`；平台的在 `PlatformAdminService`（`verifyPassword`、
+   `recordFailedAttempt`、`completeLogin`，`verifyCredentials` 留給沒有第二步的呼叫端）。放在 `UserModule` 而不是 `AuthModule`：`AuthModule` 依賴 `MfaModule`，
+   `MfaModule` 也要用鎖定的邏輯（§14.2 第 3 點「公開 `registerFailedAttempt` 或抽到共用的地方」選了後者）。
+3. **清理是 MFA 自己的工作**：`mfa.cleanup`（租戶）、`mfa.platformCleanup`（平台），沿用 `AUTH_TOKEN_CLEANUP_CRON`。不加進 `auth.tokenCleanup`：
+   `credential` 是葉節點，不能依賴 `mfa`。
+4. **`mfa_challenges.resend_after`**：重寄的冷卻（§4.2「同一因子 60 秒內不重寄」）要有地方存，M1 就建好，M2 不必 migration。
+5. **12 個錯誤碼在 M1 全部加入**：框架把方式的失敗原因對到錯誤碼（`expired` → `AUTH_MFA_CHALLENGE_EXPIRED`）、政策的判斷（`MFA_METHOD_DISABLED`、`MFA_LAST_FACTOR`）
+   都在 `modules/mfa`，M2 不能改流程，所以先備齊。
+6. **互動中的首次設定（`enroll` 三個端點）M1 就做了**；M3 只在 `requirementFor` 補上「必須啟用」。
+7. **與政策、開關、通知有關的判斷抽成兩個小 service**：`MfaAvailability`（可用的方式、是否必須啟用、能不能移除最後一個因子）、`MfaNotifier`（安全通知信）。
+   M2、M3 只改它們，`MfaService`、`MfaLoginService` 的流程不動。M1 的 `MfaAvailability` 把平台管理者可用的方式寫死成 `totp`。
+8. **介面的補充**：`startChallenge` 多收框架先產生的 challenge id（方式可以把它放進自己入列的工作，與 challenge 同一個交易）；
+   `MfaAccountContext.enqueue`（租戶走 outbox、平台在提交後送出）；`MfaSecrets.hmac`（`SecretBox.deriveKey` 以 HKDF 推導的子金鑰）。
+9. **`SESSIONS_REVOKED` 不另外刪除互動中 pending 的因子**：確認一定要有效的 `MfaPending`，它作廢之後 pending 的因子確認不了，24 小時後清除。
+10. **指標名稱是 `api_mfa_verifications_total`**：沿用 `instruments.ts` 的 `api_` 前綴。
+11. **`SsoRedirect` 的 schema 搬到 `modules/oidc-provider/sso-redirect.dto.ts`**：`mfa` 的互動端點也回傳它，而 `mfa` 不能 import `auth`。
+12. **前端**：backstage 的「兩步驟驗證」是個人資料頁的一個區塊（與 apps/platform 相同的 `MfaSecuritySection`），不是分頁；apps/platform 沒有平台管理者詳情頁，
+    驗證方式與重設放在編輯對話框。web-core 不呼叫 app 的 API：元件收 app 給的函式（`MfaSelfApi`、`start`／`confirm`／`verify`）。`@b2b-system/ui` 加了 `smartphone`、`mail` 圖示。
+13. **管理員重設不能重設自己**（租戶也是，`AUTHZ_SELF_MODIFY`）：自己的在個人資料頁管理。
 
 ---
 

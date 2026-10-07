@@ -1,5 +1,6 @@
 export * from './feature-flags';
 export * from './oidc-payloads';
+export * from './platform-admin-mfa';
 export * from './platform-admin-login-sources';
 export * from './platform-admins';
 export * from './platform-environment';

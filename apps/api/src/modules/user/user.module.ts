@@ -15,6 +15,7 @@ import { WebhookModule } from '@/modules/webhook/webhook.module';
 import { UserExternalController } from './external/user.external.controller';
 import { UserExternalService } from './external/user.external.service';
 import { UserAccountService } from './user-account.service';
+import { UserLoginService } from './user-login.service';
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
 import { UserTagResource } from './user-tag.resource';
 import { UserTrashHandler } from './user-trash.handler';
@@ -41,14 +42,15 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
   providers: [
     UserService,
     UserAccountService,
+    UserLoginService,
     UserRepository,
     UserRegistrationApprovalHandler,
     UserTrashHandler,
     UserTagResource,
     UserExternalService,
   ],
-  // 管理端點（UserService）與登入流程等其他模組用的帳號讀寫（UserAccountService）
-  exports: [UserService, UserAccountService],
+  // 管理端點（UserService）、登入流程等其他模組用的帳號讀寫（UserAccountService）與密碼登入的檢查（UserLoginService）
+  exports: [UserService, UserAccountService, UserLoginService],
 })
 export class UserModule {
   constructor(

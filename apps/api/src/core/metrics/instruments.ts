@@ -120,3 +120,11 @@ export const limiterRejected = new Counter({
   labelNames: ['limiter', 'reason'] as const,
   registers,
 });
+
+/** MFA 的驗證（docs/architecture/backend/21-mfa.md §12）：`purpose` 是 login／enroll，`result` 是 ok 或失敗的原因。 */
+export const mfaVerifications = new Counter({
+  name: 'api_mfa_verifications_total',
+  help: 'MFA 驗證碼的驗證次數（依方式、用途、結果）',
+  labelNames: ['method', 'purpose', 'result'] as const,
+  registers,
+});

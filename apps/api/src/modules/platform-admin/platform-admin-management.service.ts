@@ -44,6 +44,7 @@ function toDto(admin: PlatformAdminRow): PlatformAdminDto {
     role: admin.role,
     status: displayStatusOf(admin),
     lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
+    mfaEnabled: admin.mfaEnabled,
     createdAt: admin.createdAt.toISOString(),
   };
 }

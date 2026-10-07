@@ -27,6 +27,12 @@ export const WEBHOOK_SECRET_PURPOSE: SecretKeyPurpose = {
   info: 'webhook-secret-key',
 };
 
+/** MFA 的 TOTP seed 與 Email 驗證碼的 HMAC 金鑰（docs/architecture/backend/21-mfa.md §3、D13）。 */
+export const MFA_SECRET_PURPOSE: SecretKeyPurpose = {
+  envName: 'MFA_SECRET_KEY',
+  info: 'mfa-secret-key',
+};
+
 /**
  * 以 AES-256-GCM 加密後存資料庫的機密：資料庫外洩時沒有主金鑰就解不開。
  * 密文格式 `iv.tag.ciphertext`（各自 base64url）。
@@ -72,6 +78,13 @@ export class SecretBox {
     const decipher = createDecipheriv(ALGORITHM, this.requireKey(), iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  }
+
+  /**
+   * 由主金鑰以 HKDF 推導另一種用途的子金鑰（例：MFA 驗證碼的 HMAC）：同一把主金鑰不直接用在兩種演算法上。
+   */
+  deriveKey(info: string): Buffer {
+    return Buffer.from(hkdfSync('sha256', this.requireKey(), 'b2b-system', info, 32));
   }
 
   private requireKey(): Buffer {

@@ -1249,386 +1249,9 @@
         "tags": ["trash"]
       }
     },
-    "/auth/login": {
+    "/oidc-interaction/{uid}/mfa/challenge": {
       "post": {
-        "operationId": "AuthController_login",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Session"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "帳密登入",
-        "tags": ["auth"]
-      }
-    },
-    "/auth/refresh": {
-      "post": {
-        "operationId": "AuthController_refresh",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Session"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "以 refresh token 續期（需 x-refresh-request: 1）",
-        "tags": ["auth"]
-      }
-    },
-    "/auth/logout": {
-      "post": {
-        "operationId": "AuthController_logout",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1）",
-        "tags": ["auth"]
-      }
-    },
-    "/auth/profile": {
-      "get": {
-        "operationId": "AuthController_profile",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Profile"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己的身分、角色與扁平化權限集合",
-        "tags": ["auth"]
-      },
-      "patch": {
-        "operationId": "AuthController_updateProfile",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateProfileRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Profile"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": ["auth"]
-      }
-    },
-    "/auth/change-password": {
-      "post": {
-        "operationId": "AuthController_changePassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangePasswordRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": ["auth"]
-      }
-    },
-    "/auth/register": {
-      "post": {
-        "operationId": "AuthController_register",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/RegisterResult"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "送出註冊申請，待管理員審批（永遠回 202）",
-        "tags": ["auth"]
-      }
-    },
-    "/auth/forgot-password": {
-      "post": {
-        "operationId": "AuthController_forgotPassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ForgotPasswordRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "請求密碼重設信（永遠回 200）",
-        "tags": ["auth"]
-      }
-    },
-    "/auth/reset-password": {
-      "post": {
-        "operationId": "AuthController_resetPassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResetPasswordRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": ["auth"]
-      }
-    },
-    "/auth/sso/callback": {
-      "post": {
-        "operationId": "AuthController_ssoCallback",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SsoCallbackRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Session"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/architecture/04-sso.md §12.2 D3）",
-        "tags": ["auth"]
-      }
-    },
-    "/auth/setup/verify": {
-      "get": {
-        "operationId": "AuthController_verifySetup",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": ["auth"]
-      }
-    },
-    "/auth/setup": {
-      "post": {
-        "operationId": "AuthController_setup",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetupRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": ["auth"]
-      }
-    },
-    "/oidc-interaction/external/callback": {
-      "get": {
-        "operationId": "SsoInteractionController_externalCallback",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "外部 IdP 的 redirect URI（固定路徑）：驗證後跳到互動路徑底下完成互動",
-        "tags": ["auth"]
-      }
-    },
-    "/oidc-interaction/{uid}": {
-      "get": {
-        "operationId": "SsoInteractionController_toPage",
-        "parameters": [
-          {
-            "name": "uid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "轉到 apps/platform 的登入互動頁（互動 cookie 已設在這個路徑）",
-        "tags": ["auth"]
-      }
-    },
-    "/oidc-interaction/{uid}/details": {
-      "get": {
-        "operationId": "SsoInteractionController_details",
-        "parameters": [
-          {
-            "name": "uid",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/SsoInteraction"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "登入互動的資訊（哪個產品要求登入）",
-        "tags": ["auth"]
-      }
-    },
-    "/oidc-interaction/{uid}/login": {
-      "post": {
-        "operationId": "SsoInteractionController_login",
+        "operationId": "MfaInteractionController_challenge",
         "parameters": [
           {
             "name": "uid",
@@ -1644,7 +1267,52 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
+                "$ref": "#/components/schemas/MfaLoginChallengeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaChallengeInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "第二步：請伺服器發出驗證碼（Email 之類 challenge = server 的方式）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/mfa/verify": {
+      "post": {
+        "operationId": "MfaInteractionController_verify",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaLoginVerifyRequest"
               }
             }
           }
@@ -1667,16 +1335,69 @@
             }
           }
         },
-        "summary": "密碼登入；回傳要頂層跳轉的 resume 網址",
+        "summary": "第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址",
         "tags": ["auth"]
       }
     },
-    "/oidc-interaction/{uid}/discover": {
-      "get": {
-        "operationId": "SsoInteractionController_discover",
+    "/oidc-interaction/{uid}/mfa/enroll": {
+      "post": {
+        "operationId": "MfaInteractionController_startEnrollment",
         "parameters": [
           {
             "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartMfaEnrollmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaEnrollment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "必須啟用 MFA 而還沒設定：在互動中開始設定一種方式",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/mfa/enroll/{factorId}/challenge": {
+      "post": {
+        "operationId": "MfaInteractionController_resendEnrollment",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "factorId",
             "required": true,
             "in": "path",
             "schema": {
@@ -1694,7 +1415,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/SsoDiscovery"
+                      "$ref": "#/components/schemas/MfaChallengeInfo"
                     }
                   }
                 }
@@ -1702,16 +1423,24 @@
             }
           }
         },
-        "summary": "以 email 網域查詢外部 IdP 連線（home realm discovery）",
+        "summary": "互動中的設定：重寄驗證碼",
         "tags": ["auth"]
       }
     },
-    "/oidc-interaction/{uid}/external": {
+    "/oidc-interaction/{uid}/mfa/enroll/{factorId}/confirm": {
       "post": {
-        "operationId": "SsoInteractionController_startExternal",
+        "operationId": "MfaInteractionController_confirmEnrollment",
         "parameters": [
           {
             "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "factorId",
             "required": true,
             "in": "path",
             "schema": {
@@ -1724,7 +1453,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StartExternalLoginRequest"
+                "$ref": "#/components/schemas/ConfirmMfaEnrollmentRequest"
               }
             }
           }
@@ -1739,7 +1468,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/SsoRedirect"
+                      "$ref": "#/components/schemas/MfaInteractionEnrollmentResult"
                     }
                   }
                 }
@@ -1747,16 +1476,471 @@
             }
           }
         },
-        "summary": "以外部 IdP 登入：回傳要頂層跳轉的外部授權網址",
+        "summary": "互動中的設定：確認驗證碼；回傳備用碼（只出現這一次）與要頂層跳轉的 resume 網址",
         "tags": ["auth"]
       }
     },
-    "/oidc-interaction/{uid}/external/complete": {
+    "/auth/mfa": {
       "get": {
-        "operationId": "SsoInteractionController_completeExternal",
+        "operationId": "MfaSelfController_overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaOverview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "我的驗證方式、剩餘備用碼、可以設定的方式",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/mfa/factors": {
+      "post": {
+        "operationId": "MfaSelfController_startEnrollment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartMfaEnrollmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaEnrollment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "開始設定一種驗證方式（Email 會同時寄出驗證碼）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/mfa/factors/{id}/challenge": {
+      "post": {
+        "operationId": "MfaSelfController_resend",
         "parameters": [
           {
-            "name": "uid",
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaChallengeInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "設定中：重寄驗證碼",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/mfa/factors/{id}/confirm": {
+      "post": {
+        "operationId": "MfaSelfController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMfaEnrollmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaEnrollmentResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "確認設定；第一個因子同時產生備用碼（只出現這一次）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/mfa/factors/{id}": {
+      "delete": {
+        "operationId": "MfaSelfController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaPasswordConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "移除一個驗證方式（要再輸入密碼）；全部移除時備用碼一起刪",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/mfa/recovery-codes": {
+      "post": {
+        "operationId": "MfaSelfController_regenerateRecoveryCodes",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaPasswordConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaRecoveryCodes"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "重新產生備用碼（要再輸入密碼），舊的全部作廢",
+        "tags": ["auth"]
+      }
+    },
+    "/platform/auth/mfa": {
+      "get": {
+        "operationId": "PlatformMfaSelfController_overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaOverview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "我的驗證方式、剩餘備用碼、可以設定的方式",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/mfa/factors": {
+      "post": {
+        "operationId": "PlatformMfaSelfController_startEnrollment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartMfaEnrollmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaEnrollment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "開始設定一種驗證方式（Email 會同時寄出驗證碼）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/mfa/factors/{id}/challenge": {
+      "post": {
+        "operationId": "PlatformMfaSelfController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaChallengeInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "設定中：重寄驗證碼",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/mfa/factors/{id}/confirm": {
+      "post": {
+        "operationId": "PlatformMfaSelfController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMfaEnrollmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaEnrollmentResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "確認設定；第一個因子同時產生備用碼（只出現這一次）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/mfa/factors/{id}": {
+      "delete": {
+        "operationId": "PlatformMfaSelfController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaPasswordConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "移除一個驗證方式（要再輸入密碼）；全部移除時備用碼一起刪",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/mfa/recovery-codes": {
+      "post": {
+        "operationId": "PlatformMfaSelfController_regenerateRecoveryCodes",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaPasswordConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaRecoveryCodes"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "重新產生備用碼（要再輸入密碼），舊的全部作廢",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/users/{id}/mfa": {
+      "get": {
+        "operationId": "UserMfaController_status",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaAccountStatus"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "使用者的驗證方式（不含機密）",
+        "tags": ["users"]
+      }
+    },
+    "/users/{id}/mfa/reset": {
+      "post": {
+        "operationId": "UserMfaController_reset",
+        "parameters": [
+          {
+            "name": "id",
             "required": true,
             "in": "path",
             "schema": {
@@ -1769,16 +1953,16 @@
             "description": ""
           }
         },
-        "summary": "外部 IdP 登入的最後一步（帶得到互動 cookie）：完成互動並跳回 provider",
-        "tags": ["auth"]
+        "summary": "重設 MFA：刪除所有驗證方式與備用碼、結束這個人所有的 session（持有 super-admin 的人只有 super-admin 能重設）",
+        "tags": ["users"]
       }
     },
-    "/oidc-interaction/{uid}/abort": {
-      "post": {
-        "operationId": "SsoInteractionController_abort",
+    "/platform/admins/{id}/mfa": {
+      "get": {
+        "operationId": "PlatformAdminMfaController_status",
         "parameters": [
           {
-            "name": "uid",
+            "name": "id",
             "required": true,
             "in": "path",
             "schema": {
@@ -1796,7 +1980,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/SsoRedirect"
+                      "$ref": "#/components/schemas/MfaAccountStatus"
                     }
                   }
                 }
@@ -1804,225 +1988,30 @@
             }
           }
         },
-        "summary": "取消登入；產品收到 error=access_denied",
-        "tags": ["auth"]
+        "summary": "平台管理者的驗證方式（不含機密）",
+        "tags": ["platform-admins"]
       }
     },
-    "/platform/auth/sso/callback": {
+    "/platform/admins/{id}/mfa/reset": {
       "post": {
-        "operationId": "PlatformAuthController_ssoCallback",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SsoCallbackRequest"
-              }
+        "operationId": "PlatformAdminMfaController_reset",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
             }
           }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Session"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "apps/platform 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/refresh": {
-      "post": {
-        "operationId": "PlatformAuthController_refresh",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Session"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "以 refresh token 續期（需 x-refresh-request: 1）",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/logout": {
-      "post": {
-        "operationId": "PlatformAuthController_logout",
-        "parameters": [],
+        ],
         "responses": {
           "200": {
             "description": ""
           }
         },
-        "summary": "平台管理者登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1）",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/setup/verify": {
-      "get": {
-        "operationId": "PlatformAuthController_verifySetup",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "檢查平台管理者的啟用 token（回傳 email 供畫面顯示）",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/setup": {
-      "post": {
-        "operationId": "PlatformAuthController_setup",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetupRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "平台管理者以啟用信設定密碼",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/reset-password": {
-      "post": {
-        "operationId": "PlatformAuthController_resetPassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResetPasswordRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "平台管理者以重設密碼信設定新密碼（結束所有 session）",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/profile": {
-      "get": {
-        "operationId": "PlatformAuthController_profile",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/PlatformProfile"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "平台管理者自己的身分",
-        "tags": ["platform-auth"]
-      },
-      "patch": {
-        "operationId": "PlatformAuthController_updateProfile",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePlatformProfileRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/PlatformProfile"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "平台管理者改自己的顯示名稱",
-        "tags": ["platform-auth"]
-      }
-    },
-    "/platform/auth/change-password": {
-      "post": {
-        "operationId": "PlatformAuthController_changePassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangePasswordRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "平台管理者以目前的密碼換新密碼（結束所有 session）",
-        "tags": ["platform-auth"]
+        "summary": "重設平台管理者的 MFA（不能重設自己）；結束對方所有的 session",
+        "tags": ["platform-admins"]
       }
     },
     "/users": {
@@ -3276,6 +3265,782 @@
         },
         "summary": "自己收到的公告全文；同時把那則通知標為已讀",
         "tags": ["announcements"]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "帳密登入",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 refresh token 續期（需 x-refresh-request: 1）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "operationId": "AuthController_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Profile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己的身分、角色與扁平化權限集合",
+        "tags": ["auth"]
+      },
+      "patch": {
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Profile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["auth"]
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["auth"]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RegisterResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "送出註冊申請，待管理員審批（永遠回 202）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "請求密碼重設信（永遠回 200）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["auth"]
+      }
+    },
+    "/auth/sso/callback": {
+      "post": {
+        "operationId": "AuthController_ssoCallback",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（docs/architecture/04-sso.md §12.2 D3）",
+        "tags": ["auth"]
+      }
+    },
+    "/auth/setup/verify": {
+      "get": {
+        "operationId": "AuthController_verifySetup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["auth"]
+      }
+    },
+    "/auth/setup": {
+      "post": {
+        "operationId": "AuthController_setup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/external/callback": {
+      "get": {
+        "operationId": "SsoInteractionController_externalCallback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "外部 IdP 的 redirect URI（固定路徑）：驗證後跳到互動路徑底下完成互動",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}": {
+      "get": {
+        "operationId": "SsoInteractionController_toPage",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "轉到 apps/platform 的登入互動頁（互動 cookie 已設在這個路徑）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/details": {
+      "get": {
+        "operationId": "SsoInteractionController_details",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoInteraction"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登入互動的資訊（哪個產品要求登入）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/login": {
+      "post": {
+        "operationId": "SsoInteractionController_login",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoLoginResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "密碼登入；不需要 MFA 時回傳要頂層跳轉的 resume 網址，需要時回傳下一步（next）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/discover": {
+      "get": {
+        "operationId": "SsoInteractionController_discover",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoDiscovery"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 email 網域查詢外部 IdP 連線（home realm discovery）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/external": {
+      "post": {
+        "operationId": "SsoInteractionController_startExternal",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartExternalLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以外部 IdP 登入：回傳要頂層跳轉的外部授權網址",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/external/complete": {
+      "get": {
+        "operationId": "SsoInteractionController_completeExternal",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "外部 IdP 登入的最後一步（帶得到互動 cookie）：完成互動並跳回 provider",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/abort": {
+      "post": {
+        "operationId": "SsoInteractionController_abort",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "取消登入；產品收到 error=access_denied",
+        "tags": ["auth"]
+      }
+    },
+    "/platform/auth/sso/callback": {
+      "post": {
+        "operationId": "PlatformAuthController_ssoCallback",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "apps/platform 的 BFF：授權碼 ＋ PKCE verifier 換平台管理者的 session",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/refresh": {
+      "post": {
+        "operationId": "PlatformAuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以 refresh token 續期（需 x-refresh-request: 1）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/logout": {
+      "post": {
+        "operationId": "PlatformAuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者登出：撤銷 refresh 家族並結束 IdP session。沒有 bearer 時以 refresh cookie 認人（需 x-refresh-request: 1）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/setup/verify": {
+      "get": {
+        "operationId": "PlatformAuthController_verifySetup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "檢查平台管理者的啟用 token（回傳 email 供畫面顯示）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/setup": {
+      "post": {
+        "operationId": "PlatformAuthController_setup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以啟用信設定密碼",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/reset-password": {
+      "post": {
+        "operationId": "PlatformAuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以重設密碼信設定新密碼（結束所有 session）",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/profile": {
+      "get": {
+        "operationId": "PlatformAuthController_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformProfile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台管理者自己的身分",
+        "tags": ["platform-auth"]
+      },
+      "patch": {
+        "operationId": "PlatformAuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformProfile"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台管理者改自己的顯示名稱",
+        "tags": ["platform-auth"]
+      }
+    },
+    "/platform/auth/change-password": {
+      "post": {
+        "operationId": "PlatformAuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "平台管理者以目前的密碼換新密碼（結束所有 session）",
+        "tags": ["platform-auth"]
       }
     },
     "/roles": {
@@ -8926,11 +9691,23 @@
             "nullable": true,
             "type": "string"
           },
+          "mfaEnabled": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string"
           }
         },
-        "required": ["id", "email", "displayName", "role", "status", "lastLoginAt", "createdAt"],
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "role",
+          "status",
+          "lastLoginAt",
+          "mfaEnabled",
+          "createdAt"
+        ],
         "additionalProperties": false
       },
       "PlatformAdminList": {
@@ -9355,6 +10132,9 @@
             "nullable": true,
             "type": "string"
           },
+          "mfaEnabled": {
+            "type": "boolean"
+          },
           "version": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -9379,6 +10159,7 @@
           "timezone",
           "lastLoginAt",
           "lockedUntil",
+          "mfaEnabled",
           "version",
           "createdAt",
           "updatedAt"
@@ -9397,6 +10178,393 @@
         },
         "required": ["roles"],
         "additionalProperties": false
+      },
+      "SsoRedirect": {
+        "type": "object",
+        "properties": {
+          "redirectTo": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["redirectTo"],
+        "additionalProperties": false
+      },
+      "MfaMethodInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "challenge": {
+            "type": "string",
+            "enum": ["none", "server"]
+          },
+          "enrollAt": {
+            "type": "string",
+            "enum": ["anywhere", "idp"]
+          },
+          "assurance": {
+            "type": "string",
+            "enum": ["possession", "inbox"]
+          },
+          "maxFactorsPerAccount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["id", "challenge", "enrollAt", "assurance", "maxFactorsPerAccount"],
+        "additionalProperties": false
+      },
+      "MfaFactor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "method": {
+            "type": "string"
+          },
+          "label": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hint": {
+            "nullable": true,
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["id", "method", "label", "hint", "available", "createdAt", "lastUsedAt"],
+        "additionalProperties": false
+      },
+      "MfaOverview": {
+        "type": "object",
+        "properties": {
+          "factors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MfaFactor"
+            }
+          },
+          "recoveryCodesRemaining": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "challenge": {
+                  "type": "string",
+                  "enum": ["none", "server"]
+                },
+                "enrollAt": {
+                  "type": "string",
+                  "enum": ["anywhere", "idp"]
+                },
+                "assurance": {
+                  "type": "string",
+                  "enum": ["possession", "inbox"]
+                },
+                "maxFactorsPerAccount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "enrolled": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "challenge",
+                "enrollAt",
+                "assurance",
+                "maxFactorsPerAccount",
+                "enrolled"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": ["factors", "recoveryCodesRemaining", "methods", "required"],
+        "additionalProperties": false
+      },
+      "StartMfaEnrollmentRequest": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": ["method"],
+        "additionalProperties": false
+      },
+      "MfaChallengeInfo": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "hint": {
+            "nullable": true,
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "resendAvailableAt": {
+            "type": "string"
+          }
+        },
+        "required": ["challengeId", "hint", "expiresAt", "resendAvailableAt"],
+        "additionalProperties": false
+      },
+      "MfaEnrollment": {
+        "type": "object",
+        "properties": {
+          "factorId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "method": {
+            "type": "string"
+          },
+          "publicData": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "challenge": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MfaChallengeInfo"
+              }
+            ]
+          }
+        },
+        "required": ["factorId", "method", "publicData", "challenge"],
+        "additionalProperties": false
+      },
+      "ConfirmMfaEnrollmentRequest": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": ["payload"],
+        "additionalProperties": false
+      },
+      "MfaEnrollmentResult": {
+        "type": "object",
+        "properties": {
+          "factor": {
+            "$ref": "#/components/schemas/MfaFactor"
+          },
+          "recoveryCodes": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["factor", "recoveryCodes"],
+        "additionalProperties": false
+      },
+      "MfaPasswordConfirmRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": ["password"],
+        "additionalProperties": false
+      },
+      "MfaRecoveryCodes": {
+        "type": "object",
+        "properties": {
+          "recoveryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["recoveryCodes"],
+        "additionalProperties": false
+      },
+      "MfaAccountStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "factors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MfaFactor"
+            }
+          },
+          "recoveryCodesRemaining": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["enabled", "factors", "recoveryCodesRemaining"],
+        "additionalProperties": false
+      },
+      "MfaLoginChallengeRequest": {
+        "type": "object",
+        "properties": {
+          "factorId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["factorId"],
+        "additionalProperties": false
+      },
+      "MfaLoginVerifyRequest": {
+        "type": "object",
+        "properties": {
+          "factorId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "string",
+                "enum": ["recovery"]
+              }
+            ]
+          },
+          "challengeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": ["factorId", "payload"],
+        "additionalProperties": false
+      },
+      "MfaInteractionEnrollmentResult": {
+        "type": "object",
+        "properties": {
+          "recoveryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redirectTo": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["recoveryCodes", "redirectTo"],
+        "additionalProperties": false
+      },
+      "SsoMfaChallengeNext": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "enum": ["mfa"]
+          },
+          "factors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MfaFactor"
+            }
+          },
+          "recoveryAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": ["next", "factors", "recoveryAvailable"],
+        "additionalProperties": false
+      },
+      "SsoMfaEnrollNext": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "enum": ["mfaEnroll"]
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MfaMethodInfo"
+            }
+          }
+        },
+        "required": ["next", "methods"],
+        "additionalProperties": false
+      },
+      "SsoLoginResult": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SsoRedirect"
+          },
+          {
+            "$ref": "#/components/schemas/SsoMfaChallengeNext"
+          },
+          {
+            "$ref": "#/components/schemas/SsoMfaEnrollNext"
+          }
+        ]
       },
       "TenantFeature": {
         "type": "string",
@@ -10095,17 +11263,6 @@
           }
         },
         "required": ["uid", "prompt", "clientId", "clientName", "loginHint", "uiLocales", "tenant"],
-        "additionalProperties": false
-      },
-      "SsoRedirect": {
-        "type": "object",
-        "properties": {
-          "redirectTo": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": ["redirectTo"],
         "additionalProperties": false
       },
       "SsoDiscovery": {

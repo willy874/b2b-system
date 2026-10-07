@@ -12,6 +12,7 @@ import { InteractionRoute } from '../../routes';
 import { AuthShell } from '../AuthShell';
 import { InteractionFooter } from './components/InteractionFooter';
 import { InteractionInvalid } from './components/InteractionInvalid';
+import { MfaStepPanel } from './components/MfaStepPanel';
 
 /**
  * IdP 的登入互動頁（docs/architecture/04-sso.md §12）：產品把使用者導到 IdP，沒有 IdP session 時
@@ -20,6 +21,7 @@ import { InteractionInvalid } from './components/InteractionInvalid';
  *
  * email 網域有外部 IdP 連線時多一個「使用 X 登入」（D9）；網域只允許 SSO 時不顯示密碼欄。
  * 外部 IdP 登入失敗時 api 帶 `?error=<錯誤碼>` 回到這一頁。流程在 `useInteractionLogin`，這裡只渲染。
+ * 帳號需要 MFA 時，密碼通過後換成第二步（`MfaStepPanel`，docs/architecture/backend/21-mfa.md §4）。
  */
 export default function InteractionPage() {
   const { t } = useTranslation();
@@ -46,6 +48,8 @@ export default function InteractionPage() {
     cancelling,
     startExternal,
     cancel,
+    mfaStep,
+    restartMfa,
   } = useInteractionLogin(uid, search.error);
 
   // 互動已經找不到（過期、重複使用）：不知道是哪個產品或租戶，給「進入租戶」與平台管理者的登入
@@ -77,115 +81,124 @@ export default function InteractionPage() {
         />
       }
     >
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (ssoOnly) void startExternal();
-          else void form.handleSubmit();
-        }}
-      >
-        <form.Field name="email">
-          {(field) => (
-            <Field
-              label={t('login.field.email')}
-              required
-              error={firstError(field.state.meta.errors)}
-            >
-              <Input
-                type="email"
-                autoComplete="username"
-                ref={emailRef}
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onBlur={() => {
-                  field.handleBlur();
-                  discover(field.state.value);
-                }}
-                data-testid="login-email"
-              />
-            </Field>
-          )}
-        </form.Field>
-
-        {ssoOnly && provider && (
-          <p className="m-0 text-sm text-[var(--color-fg-muted)]" data-testid="login-sso-only">
-            {t('login.interaction.ssoOnly', { name: provider.name })}
-          </p>
-        )}
-
-        {!ssoOnly && (
-          <form.Field name="password">
+      {mfaStep ? (
+        <MfaStepPanel
+          uid={uid}
+          step={mfaStep}
+          email={form.state.values.email}
+          onRestart={restartMfa}
+        />
+      ) : (
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (ssoOnly) void startExternal();
+            else void form.handleSubmit();
+          }}
+        >
+          <form.Field name="email">
             {(field) => (
               <Field
-                label={t('login.field.password')}
+                label={t('login.field.email')}
                 required
                 error={firstError(field.state.meta.errors)}
               >
-                <PasswordInput
-                  autoComplete="current-password"
+                <Input
+                  type="email"
+                  autoComplete="username"
+                  ref={emailRef}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  data-testid="login-password"
+                  onBlur={() => {
+                    field.handleBlur();
+                    discover(field.state.value);
+                  }}
+                  data-testid="login-email"
                 />
               </Field>
             )}
           </form.Field>
-        )}
 
-        <FormError
-          code={formError === undefined ? searchError : formError.code}
-          data-testid="login-error"
-        >
-          {(formError ?? searchError) !== undefined &&
-            (formError?.message ?? t(searchErrorKey ?? 'login.error.generic'))}
-        </FormError>
+          {ssoOnly && provider && (
+            <p className="m-0 text-sm text-[var(--color-fg-muted)]" data-testid="login-sso-only">
+              {t('login.interaction.ssoOnly', { name: provider.name })}
+            </p>
+          )}
 
-        {!ssoOnly && (
-          <Button
-            type="submit"
-            variant="primary"
-            block
-            loading={loggingIn}
-            disabled={!interaction.data || externalPending || retryIn > 0}
-            data-testid="login-submit"
+          {!ssoOnly && (
+            <form.Field name="password">
+              {(field) => (
+                <Field
+                  label={t('login.field.password')}
+                  required
+                  error={firstError(field.state.meta.errors)}
+                >
+                  <PasswordInput
+                    autoComplete="current-password"
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    data-testid="login-password"
+                  />
+                </Field>
+              )}
+            </form.Field>
+          )}
+
+          <FormError
+            code={formError === undefined ? searchError : formError.code}
+            data-testid="login-error"
           >
-            {retryIn > 0 ? t('login.retryIn', { count: retryIn }) : t('login.submit')}
-          </Button>
-        )}
-        {provider && (
-          <>
-            {!ssoOnly && (
-              <p className="m-0 text-center text-xs text-[var(--color-fg-muted)]">
-                {t('login.interaction.or')}
-              </p>
-            )}
+            {(formError ?? searchError) !== undefined &&
+              (formError?.message ?? t(searchErrorKey ?? 'login.error.generic'))}
+          </FormError>
+
+          {!ssoOnly && (
             <Button
-              type={ssoOnly ? 'submit' : 'button'}
-              variant={ssoOnly ? 'primary' : 'secondary'}
+              type="submit"
+              variant="primary"
               block
-              loading={externalStarting}
-              disabled={!interaction.data || loginPending}
-              onClick={ssoOnly ? undefined : () => void startExternal()}
-              data-testid="login-external"
-              data-value={provider.id}
+              loading={loggingIn}
+              disabled={!interaction.data || externalPending || retryIn > 0}
+              data-testid="login-submit"
             >
-              {t('login.interaction.external', { name: provider.name })}
+              {retryIn > 0 ? t('login.retryIn', { count: retryIn }) : t('login.submit')}
             </Button>
-          </>
-        )}
-        <Button
-          variant="ghost"
-          block
-          loading={cancelling}
-          disabled={!interaction.data || redirecting}
-          onClick={cancel}
-          data-testid="login-cancel"
-        >
-          {t('login.interaction.cancel')}
-        </Button>
-      </form>
+          )}
+          {provider && (
+            <>
+              {!ssoOnly && (
+                <p className="m-0 text-center text-xs text-[var(--color-fg-muted)]">
+                  {t('login.interaction.or')}
+                </p>
+              )}
+              <Button
+                type={ssoOnly ? 'submit' : 'button'}
+                variant={ssoOnly ? 'primary' : 'secondary'}
+                block
+                loading={externalStarting}
+                disabled={!interaction.data || loginPending}
+                onClick={ssoOnly ? undefined : () => void startExternal()}
+                data-testid="login-external"
+                data-value={provider.id}
+              >
+                {t('login.interaction.external', { name: provider.name })}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            block
+            loading={cancelling}
+            disabled={!interaction.data || redirecting}
+            onClick={cancel}
+            data-testid="login-cancel"
+          >
+            {t('login.interaction.cancel')}
+          </Button>
+        </form>
+      )}
     </AuthShell>
   );
 }

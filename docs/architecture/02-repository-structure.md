@@ -346,6 +346,7 @@ AUTH_TOKEN_CLEANUP_CRON=15 4 * * *            # 清除過期 refresh token 與�
 AUTH_TOKEN_RETENTION_DAYS=30                  # 過期或用過的 token 保留天數（安全事件調查用）
 IDP_SECRET_KEY=                               # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 WEBHOOK_SECRET_KEY=                           # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
+MFA_SECRET_KEY=                               # 加密 TOTP seed、Email 驗證碼 HMAC 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填；換金鑰 = 所有人重設 MFA）
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空：開發時隨機產生並印出一次；production 建成 pending，只印一次性的啟用連結
@@ -408,7 +409,7 @@ env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即�
 | `JWT_SECRET`、`FILE_STORAGE_SECRET_ACCESS_KEY` | 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個）；`FILE_STORAGE_ACCESS_KEY_ID` 只擋範例值。`JWT_SECRET` 在 production 是選填（只驗過渡期的舊 token，[`backend/04-auth.md`](./backend/04-auth.md) §11 D7） |
 | `JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS` | 內部 api 必填、對外 API 的程序不能有；格式 `<kid>:<base64>[,…]`，每把至少 32 bytes、`kid` 不重複，兩組不能共用金鑰 |
 | `FILE_URL_SIGNING_KEY` | 必填；base64 解開至少 32 bytes |
-| `TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 必填；base64 解開要是 32 bytes，而且不同的位元組至少 16 個（擋 32 個 0x00 之類手填的值）。以 `openssl rand -base64 32` 產生 |
+| `TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`MFA_SECRET_KEY` | 必填；base64 解開要是 32 bytes，而且不同的位元組至少 16 個（擋 32 個 0x00 之類手填的值）。以 `openssl rand -base64 32` 產生 |
 | `OIDC_COOKIE_KEYS` | 必填；每一把都要至少 32 字元，而且不是低熵字串 |
 | `OIDC_JWKS` | 必填；要是 `{"keys":[…]}`，至少一把含私鑰（`d`） |
 | `APP_PUBLIC_URL`、`PLATFORM_APP_URL`、`OIDC_ISSUER` | 必須是 `https:`，主機不能是 `localhost`、`*.localhost`、`127.*`、`::1`；`OIDC_ISSUER` 要與 `PLATFORM_APP_URL` 同源 |

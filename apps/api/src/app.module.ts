@@ -25,6 +25,7 @@ import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
 import { MetricsModule } from './core/metrics';
+import { MfaCoreModule } from './core/mfa';
 import { RateLimitModule } from './core/rate-limit';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
@@ -42,6 +43,8 @@ import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
+import { MfaTotpModule } from './modules/mfa-totp/mfa-totp.module';
+import { MfaModule } from './modules/mfa/mfa.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
@@ -108,6 +111,11 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     RevisionModule,
     // 站內通知；通知由擁有者模組在業務交易內寫入（docs/architecture/backend/15-notification.md）
     NotificationModule,
+
+    // MFA：機制（方式的註冊表）、框架，與各驗證方式（docs/architecture/backend/21-mfa.md §1）
+    MfaCoreModule,
+    MfaModule,
+    MfaTotpModule,
 
     // 業務模組
     AuthModule,

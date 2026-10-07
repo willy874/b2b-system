@@ -74,6 +74,7 @@ function toDto(user: UserRow, roles: UserRoleSummary[], tags: TagSummaryDto[]): 
     timezone: user.timezone,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     lockedUntil: user.lockedUntil?.toISOString() ?? null,
+    mfaEnabled: user.mfaEnabled,
     version: user.version,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),

@@ -3,6 +3,7 @@
 
 import type {
   CreateUserRequest,
+  MfaAccountStatus,
   PermissionSources,
   ReplaceUserRolesRequest,
   UpdateUserRequest,
@@ -11,6 +12,52 @@ import type {
 } from '../models';
 import type { ApiResponse } from '../runtime';
 import { buildUrl } from '../url';
+
+// GET /users/{id}/mfa
+
+export interface UserMfaControllerStatusPathParams {
+  id: string;
+}
+
+export interface UserMfaControllerStatusInput {
+  path: UserMfaControllerStatusPathParams;
+}
+
+export interface UserMfaControllerStatusResponses {
+  200: {
+    data: MfaAccountStatus;
+  };
+}
+
+export type UserMfaControllerStatusResponse = UserMfaControllerStatusResponses[200];
+
+export type UserMfaControllerStatusResult = ApiResponse<200, UserMfaControllerStatusResponses[200]>;
+
+export function getUserMfaControllerStatusUrl(path: UserMfaControllerStatusPathParams): string {
+  return buildUrl('/users/{id}/mfa', path);
+}
+
+// POST /users/{id}/mfa/reset
+
+export interface UserMfaControllerResetPathParams {
+  id: string;
+}
+
+export interface UserMfaControllerResetInput {
+  path: UserMfaControllerResetPathParams;
+}
+
+export interface UserMfaControllerResetResponses {
+  200: undefined;
+}
+
+export type UserMfaControllerResetResponse = UserMfaControllerResetResponses[200];
+
+export type UserMfaControllerResetResult = ApiResponse<200, UserMfaControllerResetResponses[200]>;
+
+export function getUserMfaControllerResetUrl(path: UserMfaControllerResetPathParams): string {
+  return buildUrl('/users/{id}/mfa/reset', path);
+}
 
 // GET /users
 

@@ -27,6 +27,7 @@ const env = {
   TENANT_SECRET_KEY: base64Key(),
   IDP_SECRET_KEY: base64Key(),
   WEBHOOK_SECRET_KEY: base64Key(),
+  MFA_SECRET_KEY: base64Key(),
   OIDC_COOKIE_KEYS: `${base64Key()},${base64Key()}`,
   OIDC_JWKS: JSON.stringify({
     keys: [{ ...signingKey, alg: 'RS256', use: 'sig', kid: randomUUID() }],

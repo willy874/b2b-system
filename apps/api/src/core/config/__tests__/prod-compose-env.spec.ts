@@ -45,6 +45,7 @@ const DEPLOYMENT_ENV: Record<string, string> = {
   OIDC_COOKIE_KEYS: `${randomBytes(32).toString('base64')},${randomBytes(32).toString('base64')}`,
   IDP_SECRET_KEY: base64Key(),
   WEBHOOK_SECRET_KEY: base64Key(),
+  MFA_SECRET_KEY: base64Key(),
 };
 
 /** compose 的變數替換：`${NAME}`、`${NAME:-預設}`、`${NAME:+有值時的替代}`（可巢狀）、`${NAME:?訊息}`。 */
@@ -124,6 +125,7 @@ describe('docker-compose.prod.yml 給程序的環境變數（防止 production �
       'OIDC_COOKIE_KEYS',
       'IDP_SECRET_KEY',
       'WEBHOOK_SECRET_KEY',
+      'MFA_SECRET_KEY',
       'MAIL_SMTP_URL',
       // access token 的金鑰：拿到就能簽出任何人的 token（backend/04-auth.md §11 D5）
       'JWT_SIGNING_KEYS',

@@ -207,8 +207,9 @@ HTTP 由 `JwtAuthGuard`、ws 由 `WsAuthGuard` 認人（[`08-realtime.md`](./08-
 
 ```
 app.module
-  ├─ core（global）: Config · Logger · Metrics · Tracing · Database · Tenancy · FeatureFlags · Cache · Authz · Broadcast · Settings · Events · Jobs · Storage · Mail · Image · AccessToken
-  ├─ AuthModule            ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin
+  ├─ core（global）: Config · Logger · Metrics · Tracing · Database · Tenancy · FeatureFlags · Cache · Authz · Broadcast · Settings · Events · Jobs · Storage · Mail · Image · AccessToken · MfaCore
+  ├─ AuthModule            ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin · Mfa
+  ├─ MfaModule             ──▶ Credential · User · OidcProvider
   ├─ TenantModule          ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
   ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Announcement
@@ -221,7 +222,7 @@ app.module
   ├─ ServiceAccountModule  ──▶ ApiToken
   ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
   ├─ PlatformAdminModule   ──▶ PlatformNotification
-  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · Notification · Permission · PlatformNotification · Revision · System · Tag · Trash
+  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaTotp · Notification · Permission · PlatformNotification · Revision · System · Tag · Trash
   └─ @Global：Permission · AuditLog · PlatformAdmin
 ```
 
@@ -280,6 +281,11 @@ app.module
 `AuthModule`、`UserModule`、`TenantModule`（停用租戶時撤銷所有 session）都往下依賴它；
 `AuthModule` 只留下流程（登入、續期、SSO、外部 IdP）。平台端同理：平台 DB 的表（含 `platform_refresh_tokens`）
 都歸 `PlatformAdminModule`，平台的登入流程經 `PlatformRefreshTokenService` 存取。
+
+MFA 的第二步（`MfaModule`，[`21-mfa.md`](./21-mfa.md)）也要用密碼登入的失敗計數、鎖定與「登入成功」的副作用，
+而 `AuthModule` 依賴 `MfaModule`（登入互動密碼通過後交給它判斷）。所以這些不放在 `AuthService`：
+租戶的在 `UserModule` 的 `UserLoginService`、平台的在 `PlatformAdminService`，`AuthModule` 與 `MfaModule` 都往下依賴它們。
+驗證方式（`modules/mfa-<id>`）不依賴 `MfaModule`，只依賴 `core/mfa` 的註冊表。
 
 `UserModule` 這一側也分成兩個 service：管理端點在 `UserService`；登入流程、OIDC Provider、註冊審批要的帳號讀寫
 （`findAccountById`、`updateAccount`、`recordFailedLogin`、`createAccount`、`emitStatusChanged`…）在 `UserAccountService`，

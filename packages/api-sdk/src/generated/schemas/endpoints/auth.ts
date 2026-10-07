@@ -24,6 +24,27 @@ import type {
   AuthControllerUpdateProfileInput,
   AuthControllerUpdateProfileResult,
   AuthControllerVerifySetupResult,
+  MfaInteractionControllerChallengeInput,
+  MfaInteractionControllerChallengeResult,
+  MfaInteractionControllerConfirmEnrollmentInput,
+  MfaInteractionControllerConfirmEnrollmentResult,
+  MfaInteractionControllerResendEnrollmentInput,
+  MfaInteractionControllerResendEnrollmentResult,
+  MfaInteractionControllerStartEnrollmentInput,
+  MfaInteractionControllerStartEnrollmentResult,
+  MfaInteractionControllerVerifyInput,
+  MfaInteractionControllerVerifyResult,
+  MfaSelfControllerConfirmInput,
+  MfaSelfControllerConfirmResult,
+  MfaSelfControllerOverviewResult,
+  MfaSelfControllerRegenerateRecoveryCodesInput,
+  MfaSelfControllerRegenerateRecoveryCodesResult,
+  MfaSelfControllerRemoveInput,
+  MfaSelfControllerRemoveResult,
+  MfaSelfControllerResendInput,
+  MfaSelfControllerResendResult,
+  MfaSelfControllerStartEnrollmentInput,
+  MfaSelfControllerStartEnrollmentResult,
   SsoInteractionControllerAbortInput,
   SsoInteractionControllerAbortResult,
   SsoInteractionControllerCompleteExternalInput,
@@ -44,8 +65,18 @@ import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
   ChangePasswordRequestSchema,
+  ConfirmMfaEnrollmentRequestSchema,
   ForgotPasswordRequestSchema,
   LoginRequestSchema,
+  MfaChallengeInfoSchema,
+  MfaEnrollmentResultSchema,
+  MfaEnrollmentSchema,
+  MfaInteractionEnrollmentResultSchema,
+  MfaLoginChallengeRequestSchema,
+  MfaLoginVerifyRequestSchema,
+  MfaOverviewSchema,
+  MfaPasswordConfirmRequestSchema,
+  MfaRecoveryCodesSchema,
   ProfileSchema,
   RegisterRequestSchema,
   RegisterResultSchema,
@@ -55,10 +86,370 @@ import {
   SsoCallbackRequestSchema,
   SsoDiscoverySchema,
   SsoInteractionSchema,
+  SsoLoginResultSchema,
   SsoRedirectSchema,
   StartExternalLoginRequestSchema,
+  StartMfaEnrollmentRequestSchema,
   UpdateProfileRequestSchema,
 } from '../components';
+
+// POST /oidc-interaction/{uid}/mfa/challenge
+
+export const MfaInteractionControllerChallengeSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  body: MfaLoginChallengeRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaChallengeInfoSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaInteractionControllerChallengeOperation: OperationDefinition = {
+  id: 'MfaInteractionController_challenge',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/mfa/challenge',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaInteractionControllerChallengeSchemas,
+};
+
+/** 第二步：請伺服器發出驗證碼（Email 之類 challenge = server 的方式） */
+export function mfaInteractionControllerChallenge(
+  input: MfaInteractionControllerChallengeInput,
+  options?: RequestOptions,
+): Promise<MfaInteractionControllerChallengeResult> {
+  return request<MfaInteractionControllerChallengeResult>(
+    mfaInteractionControllerChallengeOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/mfa/verify
+
+export const MfaInteractionControllerVerifySchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  body: MfaLoginVerifyRequestSchema,
+  responses: {
+    200: z.object({
+      data: SsoRedirectSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaInteractionControllerVerifyOperation: OperationDefinition = {
+  id: 'MfaInteractionController_verify',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/mfa/verify',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaInteractionControllerVerifySchemas,
+};
+
+/** 第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址 */
+export function mfaInteractionControllerVerify(
+  input: MfaInteractionControllerVerifyInput,
+  options?: RequestOptions,
+): Promise<MfaInteractionControllerVerifyResult> {
+  return request<MfaInteractionControllerVerifyResult>(
+    mfaInteractionControllerVerifyOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll
+
+export const MfaInteractionControllerStartEnrollmentSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  body: StartMfaEnrollmentRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaEnrollmentSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaInteractionControllerStartEnrollmentOperation: OperationDefinition = {
+  id: 'MfaInteractionController_startEnrollment',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/mfa/enroll',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaInteractionControllerStartEnrollmentSchemas,
+};
+
+/** 必須啟用 MFA 而還沒設定：在互動中開始設定一種方式 */
+export function mfaInteractionControllerStartEnrollment(
+  input: MfaInteractionControllerStartEnrollmentInput,
+  options?: RequestOptions,
+): Promise<MfaInteractionControllerStartEnrollmentResult> {
+  return request<MfaInteractionControllerStartEnrollmentResult>(
+    mfaInteractionControllerStartEnrollmentOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll/{factorId}/challenge
+
+export const MfaInteractionControllerResendEnrollmentSchemas = {
+  path: z.object({
+    uid: z.string(),
+    factorId: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaChallengeInfoSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaInteractionControllerResendEnrollmentOperation: OperationDefinition = {
+  id: 'MfaInteractionController_resendEnrollment',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/mfa/enroll/{factorId}/challenge',
+  responseTypes: { 200: 'json' },
+  schemas: MfaInteractionControllerResendEnrollmentSchemas,
+};
+
+/** 互動中的設定：重寄驗證碼 */
+export function mfaInteractionControllerResendEnrollment(
+  input: MfaInteractionControllerResendEnrollmentInput,
+  options?: RequestOptions,
+): Promise<MfaInteractionControllerResendEnrollmentResult> {
+  return request<MfaInteractionControllerResendEnrollmentResult>(
+    mfaInteractionControllerResendEnrollmentOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll/{factorId}/confirm
+
+export const MfaInteractionControllerConfirmEnrollmentSchemas = {
+  path: z.object({
+    uid: z.string(),
+    factorId: z.string(),
+  }),
+  body: ConfirmMfaEnrollmentRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaInteractionEnrollmentResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaInteractionControllerConfirmEnrollmentOperation: OperationDefinition = {
+  id: 'MfaInteractionController_confirmEnrollment',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/mfa/enroll/{factorId}/confirm',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaInteractionControllerConfirmEnrollmentSchemas,
+};
+
+/** 互動中的設定：確認驗證碼；回傳備用碼（只出現這一次）與要頂層跳轉的 resume 網址 */
+export function mfaInteractionControllerConfirmEnrollment(
+  input: MfaInteractionControllerConfirmEnrollmentInput,
+  options?: RequestOptions,
+): Promise<MfaInteractionControllerConfirmEnrollmentResult> {
+  return request<MfaInteractionControllerConfirmEnrollmentResult>(
+    mfaInteractionControllerConfirmEnrollmentOperation,
+    input,
+    options,
+  );
+}
+
+// GET /auth/mfa
+
+export const MfaSelfControllerOverviewSchemas = {
+  responses: {
+    200: z.object({
+      data: MfaOverviewSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaSelfControllerOverviewOperation: OperationDefinition = {
+  id: 'MfaSelfController_overview',
+  method: 'GET',
+  path: '/auth/mfa',
+  responseTypes: { 200: 'json' },
+  schemas: MfaSelfControllerOverviewSchemas,
+};
+
+/** 我的驗證方式、剩餘備用碼、可以設定的方式 */
+export function mfaSelfControllerOverview(
+  options?: RequestOptions,
+): Promise<MfaSelfControllerOverviewResult> {
+  return request<MfaSelfControllerOverviewResult>(mfaSelfControllerOverviewOperation, {}, options);
+}
+
+// POST /auth/mfa/factors
+
+export const MfaSelfControllerStartEnrollmentSchemas = {
+  body: StartMfaEnrollmentRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaEnrollmentSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaSelfControllerStartEnrollmentOperation: OperationDefinition = {
+  id: 'MfaSelfController_startEnrollment',
+  method: 'POST',
+  path: '/auth/mfa/factors',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaSelfControllerStartEnrollmentSchemas,
+};
+
+/** 開始設定一種驗證方式（Email 會同時寄出驗證碼） */
+export function mfaSelfControllerStartEnrollment(
+  input: MfaSelfControllerStartEnrollmentInput,
+  options?: RequestOptions,
+): Promise<MfaSelfControllerStartEnrollmentResult> {
+  return request<MfaSelfControllerStartEnrollmentResult>(
+    mfaSelfControllerStartEnrollmentOperation,
+    input,
+    options,
+  );
+}
+
+// POST /auth/mfa/factors/{id}/challenge
+
+export const MfaSelfControllerResendSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaChallengeInfoSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaSelfControllerResendOperation: OperationDefinition = {
+  id: 'MfaSelfController_resend',
+  method: 'POST',
+  path: '/auth/mfa/factors/{id}/challenge',
+  responseTypes: { 200: 'json' },
+  schemas: MfaSelfControllerResendSchemas,
+};
+
+/** 設定中：重寄驗證碼 */
+export function mfaSelfControllerResend(
+  input: MfaSelfControllerResendInput,
+  options?: RequestOptions,
+): Promise<MfaSelfControllerResendResult> {
+  return request<MfaSelfControllerResendResult>(mfaSelfControllerResendOperation, input, options);
+}
+
+// POST /auth/mfa/factors/{id}/confirm
+
+export const MfaSelfControllerConfirmSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: ConfirmMfaEnrollmentRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaEnrollmentResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaSelfControllerConfirmOperation: OperationDefinition = {
+  id: 'MfaSelfController_confirm',
+  method: 'POST',
+  path: '/auth/mfa/factors/{id}/confirm',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaSelfControllerConfirmSchemas,
+};
+
+/** 確認設定；第一個因子同時產生備用碼（只出現這一次） */
+export function mfaSelfControllerConfirm(
+  input: MfaSelfControllerConfirmInput,
+  options?: RequestOptions,
+): Promise<MfaSelfControllerConfirmResult> {
+  return request<MfaSelfControllerConfirmResult>(mfaSelfControllerConfirmOperation, input, options);
+}
+
+// DELETE /auth/mfa/factors/{id}
+
+export const MfaSelfControllerRemoveSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: MfaPasswordConfirmRequestSchema,
+} satisfies OperationSchemas;
+
+const mfaSelfControllerRemoveOperation: OperationDefinition = {
+  id: 'MfaSelfController_remove',
+  method: 'DELETE',
+  path: '/auth/mfa/factors/{id}',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'none' },
+  schemas: MfaSelfControllerRemoveSchemas,
+};
+
+/** 移除一個驗證方式（要再輸入密碼）；全部移除時備用碼一起刪 */
+export function mfaSelfControllerRemove(
+  input: MfaSelfControllerRemoveInput,
+  options?: RequestOptions,
+): Promise<MfaSelfControllerRemoveResult> {
+  return request<MfaSelfControllerRemoveResult>(mfaSelfControllerRemoveOperation, input, options);
+}
+
+// POST /auth/mfa/recovery-codes
+
+export const MfaSelfControllerRegenerateRecoveryCodesSchemas = {
+  body: MfaPasswordConfirmRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaRecoveryCodesSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaSelfControllerRegenerateRecoveryCodesOperation: OperationDefinition = {
+  id: 'MfaSelfController_regenerateRecoveryCodes',
+  method: 'POST',
+  path: '/auth/mfa/recovery-codes',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: MfaSelfControllerRegenerateRecoveryCodesSchemas,
+};
+
+/** 重新產生備用碼（要再輸入密碼），舊的全部作廢 */
+export function mfaSelfControllerRegenerateRecoveryCodes(
+  input: MfaSelfControllerRegenerateRecoveryCodesInput,
+  options?: RequestOptions,
+): Promise<MfaSelfControllerRegenerateRecoveryCodesResult> {
+  return request<MfaSelfControllerRegenerateRecoveryCodesResult>(
+    mfaSelfControllerRegenerateRecoveryCodesOperation,
+    input,
+    options,
+  );
+}
 
 // POST /auth/login
 
@@ -468,7 +859,7 @@ export const SsoInteractionControllerLoginSchemas = {
   body: LoginRequestSchema,
   responses: {
     200: z.object({
-      data: SsoRedirectSchema,
+      data: SsoLoginResultSchema,
     }),
   },
 } satisfies OperationSchemas;
@@ -483,7 +874,7 @@ const ssoInteractionControllerLoginOperation: OperationDefinition = {
   schemas: SsoInteractionControllerLoginSchemas,
 };
 
-/** 密碼登入；回傳要頂層跳轉的 resume 網址 */
+/** 密碼登入；不需要 MFA 時回傳要頂層跳轉的 resume 網址，需要時回傳下一步（next） */
 export function ssoInteractionControllerLogin(
   input: SsoInteractionControllerLoginInput,
   options?: RequestOptions,

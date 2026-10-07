@@ -26,7 +26,7 @@
 | P2 | 方案（feature、參數的組合範本） | [`tenant-plans.md`](./tenant-plans.md) | 提案 | — |
 | P2 | 平台維護公告與租戶唯讀模式 | [`platform-maintenance.md`](./platform-maintenance.md) | 提案 | — |
 | P2 | SCIM 使用者佈建與外部 IdP 的群組對應 | [`scim.md`](./scim.md) | 提案 | — |
-| P3 | MFA（可擴充的驗證方式；第一批 TOTP、Email） | [`mfa.md`](./mfa.md) | 規劃中 | — |
+| P3 | MFA（可擴充的驗證方式；第一批 TOTP、Email） | [`mfa.md`](./mfa.md) | 實作中（`feat/mfa`） | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 | P3 | 租戶安全政策（IP 允許清單、登入中的裝置、閒置逾時） | [`tenant-security-policy.md`](./tenant-security-policy.md) | 提案 | — |
 | P3 | 首頁儀表板（widget 登記） | [`dashboard-widgets.md`](./dashboard-widgets.md) | 提案 | — |

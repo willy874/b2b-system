@@ -6,6 +6,7 @@ import { Separator } from '@b2b-system/ui/Separator';
 import { ChangePasswordSection, useChangePasswordForm } from '@b2b-system/web-core/components';
 import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { MfaSecuritySection } from '@b2b-system/web-core/mfa';
 import { useToast } from '@b2b-system/web-core/notify';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
 import { invalidateResources, selfUpdated } from '@/apis/resources';
 
+import { mfaSelfApi } from '../../hooks/mfaSelfApi';
 import { ProfileApiTokenSection } from './components/ProfileApiTokenSection';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';
 
@@ -100,6 +102,10 @@ export default function ProfilePage() {
       <Separator />
 
       <ChangePasswordSection form={password} username={profile.data?.user.email ?? ''} />
+
+      <Separator />
+
+      <MfaSecuritySection api={mfaSelfApi} account={profile.data?.user.email ?? ''} />
 
       {profile.data && (
         <>

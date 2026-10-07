@@ -98,12 +98,24 @@ backstage /auth/callback
    （互動無效 → `AUTH_SSO_INTERACTION_INVALID`）。頁面顯示租戶名稱；有租戶時才有「忘記密碼」「申請帳號」（連結帶 `?tenant=`）。
    `uiLocales` 是 authorize 帶的 OIDC `ui_locales`：backstage 導來登入時帶自己目前的介面語系，互動頁取第一個支援的語系切換
    （並記在 apps/platform 這個瀏覽器）——兩個網域的 localStorage 不共用，不帶的話登入頁永遠用 apps/platform 自己的設定。
-2. `POST …/:uid/login { email, password }`：有租戶時在那個租戶裡以 `AuthService.verifyCredentials` 檢查
-   （鎖定、帳號狀態、只允許 SSO 的網域、稽核）；沒有租戶時以 `PlatformAdminService.verifyCredentials`（寫平台稽核）。
-   成功回傳 resume 網址。被限流（`429 RATE_LIMITED`，`details.retryAfterSeconds`）時，頁面倒數到可以再試為止：
+2. `POST …/:uid/login { email, password }`：有租戶時在那個租戶裡以 `AuthService.checkCredentials`（`UserLoginService`）檢查
+   （鎖定、帳號狀態、只允許 SSO 的網域、稽核）；沒有租戶時以 `PlatformAdminService.verifyPassword`（寫平台稽核）。
+   通過後交給 MFA 判斷（[`backend/21-mfa.md`](./backend/21-mfa.md) §4.1）：不需要第二步時完成互動、回傳 resume 網址；
+   需要時回傳下一步 `{ next: 'mfa', factors, recoveryAvailable }` 或 `{ next: 'mfaEnroll', methods }`（回應是 `SsoLoginResult` union），
+   密碼通過時 **不** 寫 `result.login`。「登入成功」的副作用（失敗計數歸零、記住來源、成功的稽核）在第二步也通過之後才寫。被限流（`429 RATE_LIMITED`，`details.retryAfterSeconds`）時，頁面倒數到可以再試為止：
    送出鈕停用並顯示剩餘秒數、錯誤訊息跟著更新，數完就收起（`useCountdown`，`@b2b-system/web-shared/hooks`）。
-3. 頁面 **頂層跳轉** 到 resume 網址（fetch 跟隨跳轉時 IdP session cookie 設不起來）。
-4. `POST …/:uid/abort`：取消，產品收到 `error=access_denied`。
+3. 第二步（[`backend/21-mfa.md`](./backend/21-mfa.md) §4）：狀態存 `oidc_payloads` 的 `MfaPending`（id 是互動 uid、10 分鐘），
+   端點同樣在 `/oidc-interaction/:uid/` 底下、`@Public()`：
+
+   | 端點 | 用途 |
+   | --- | --- |
+   | `POST …/:uid/mfa/challenge { factorId }` | 請伺服器發出驗證碼（Email 之類 `challenge = 'server'` 的方式） |
+   | `POST …/:uid/mfa/verify { factorId \| 'recovery', challengeId?, payload }` | 驗證碼或備用碼；成功時完成互動（`amr = ['pwd', 'mfa', <方式>]`），回傳 resume 網址 |
+   | `POST …/:uid/mfa/enroll { method }`、`…/enroll/:factorId/challenge`、`…/enroll/:factorId/confirm` | 必須啟用而還沒設定：在互動中設定；確認後回傳備用碼與 resume 網址 |
+
+   錯誤併入帳號的鎖定與漸進延遲；同一個互動錯 5 次作廢（`AUTH_MFA_TOO_MANY_ATTEMPTS`），要從密碼重新開始。
+4. 頁面 **頂層跳轉** 到 resume 網址（fetch 跟隨跳轉時 IdP session cookie 設不起來）。
+5. `POST …/:uid/abort`：取消，產品收到 `error=access_denied`。
 
 ### 3.3 登入互動：外部 IdP（D8–D10）
 

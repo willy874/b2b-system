@@ -53,6 +53,24 @@ export type ExternalLoginState = z.infer<typeof ExternalLoginStateSchema>;
 
 const EXTERNAL_LOGIN = 'ExternalLogin';
 
+/**
+ * 登入互動的第二步（docs/architecture/backend/21-mfa.md §4、D6）：密碼通過、還沒完成 MFA 時存的狀態，id 是互動的 uid。
+ * 密碼通過時 **不** 寫 `result.login`：握著 resume 網址的人不能跳過第二步。`accountId` 放在 payload 的最上層，
+ * 憑證失效時 `destroySessionsOf` 以它一起作廢。
+ */
+const MfaPendingSchema = z.object({
+  /** IdP 上的帳號 id（`t:{tenantId}:{userId}`、`p:{adminId}`）。 */
+  accountId: z.string(),
+  firstFactor: z.literal('pwd'),
+  /** 第二步要做的事：驗證既有的因子，或必須啟用而先設定一個。 */
+  next: z.enum(['mfa', 'mfaEnroll']),
+  attempts: z.number().int().nonnegative(),
+});
+
+export type MfaPending = z.infer<typeof MfaPendingSchema>;
+
+const MFA_PENDING = 'MfaPending';
+
 /** 互動頁需要的資訊（不含 provider 內部物件）。 */
 export interface InteractionSummary {
   uid: string;
@@ -394,6 +412,49 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
    */
   async consumeExternalLogin(state: string): Promise<boolean> {
     return this.repo.consumeOnce(EXTERNAL_LOGIN, state);
+  }
+
+  // ── MFA 的第二步（docs/architecture/backend/21-mfa.md §4）──────────
+
+  async saveMfaPending(
+    interactionUid: string,
+    value: MfaPending,
+    ttlSeconds: number,
+  ): Promise<void> {
+    await this.repo.upsert({
+      type: MFA_PENDING,
+      id: interactionUid,
+      payload: { ...value },
+      grantId: null,
+      uid: interactionUid,
+      userCode: null,
+      expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+    });
+  }
+
+  /** 找得到、沒過期、沒用過時回傳；否則 undefined。 */
+  async findMfaPending(interactionUid: string): Promise<MfaPending | undefined> {
+    const row = await this.repo.find(MFA_PENDING, interactionUid);
+    if (!row || row.consumedAt || (row.expiresAt && row.expiresAt.getTime() <= Date.now())) {
+      return undefined;
+    }
+    const parsed = MfaPendingSchema.safeParse(row.payload);
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  /** 失敗次數 + 1，回傳新的次數；狀態已不存在（作廢、用掉）時回 undefined。 */
+  async incrementMfaPendingAttempts(interactionUid: string): Promise<number | undefined> {
+    return this.repo.incrementPayloadCounter(MFA_PENDING, interactionUid, 'attempts');
+  }
+
+  /** 第二步通過：條件式消耗，兩個併發的驗證只有一個能完成互動。 */
+  consumeMfaPending(interactionUid: string): Promise<boolean> {
+    return this.repo.consumeOnce(MFA_PENDING, interactionUid);
+  }
+
+  /** 作廢（失敗太多次、帳號已不能登入）：要從密碼重新開始。 */
+  async destroyMfaPending(interactionUid: string): Promise<void> {
+    await this.repo.destroy(MFA_PENDING, interactionUid);
   }
 
   // ── 單一登出（D5）───────────────────────────────────────
