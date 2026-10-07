@@ -120,3 +120,17 @@
   [`architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §5.1。
 - 資料庫錯誤照常以 `{ err: error }` 記錄：Pino 的 `err` serializer 會拿掉查詢參數。錯誤要整個交給別人存下來時
   （例：拋給 pg-boss）先經過 `redactDbError()`（[`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §6）。
+
+---
+
+## 8. 指標與 trace
+
+機制見 [`architecture/08-monitoring.md`](../architecture/08-monitoring.md)。
+
+| 規則 | 理由 | 強度 |
+| --- | --- | --- |
+| 指標只定義在 `core/metrics/instruments.ts`，名稱 `api_<領域>_<量>_<單位>`（counter 加 `_total`） | 一份清單才看得出有哪些指標、會不會重複；儀表板與告警依名稱查詢 | 👀 Review |
+| 標籤只放值域有限、由程式決定的值（路由樣板、快取名稱、工作名稱、錯誤碼）；**不放租戶、使用者、id、網址** | 每個標籤值都是一條新的時間序列；依租戶看用 trace 的 `b2b.tenant`（§2.3） | 👀 Review |
+| 狀態型的量（大小、連線數、佇列深度）用 `ObservedGauge` 在抓取時回報，不在每次變動時 `set()` | 不必在每個寫入點維護數字；擁有者被回收就自動停止回報 | 👀 Review |
+| 手動 span 用 `core/tracing` 的 `inSpan()`；屬性不放查詢參數、請求內容、email | trace 存在 Tempo，看得到的人比看得到日誌的多（§3.3） | 👀 Review |
+| 新的進入點（另一個 `main.*.ts`）第一個 import `./instrumentation`，並 `app.use(httpMetricsMiddleware)` | instrumentation 要早於 http、Nest、pino 被載入；指標要涵蓋被 guard 擋下的請求 | 👀 Review |

@@ -3,7 +3,7 @@
 兩個前端（backstage、apps/platform）把錯誤與效能資料送到 [`apps/apm-service`](../07-apm-service.md)：一個 **模擬 Sentry API** 的小服務。
 前端用官方的 `@sentry/browser`，機制在 `web-core/telemetry`，app 只負責接上（[`17-shared-packages.md`](./17-shared-packages.md)）。
 
-後端的指標與 tracing 不在這份：見 `docs/features/observability.md`（提案）。
+後端的指標與 tracing、Grafana 的儀表板（含這裡的錯誤與 Web Vitals）見 [`../08-monitoring.md`](../08-monitoring.md)。
 
 ---
 
@@ -176,7 +176,7 @@ apps/platform 的登入頁沒有登入狀態且網址可能帶憑證、`web-core
 | D7 | 遮罩兩端都做：SDK 的 `beforeSend`／`beforeBreadcrumb`／`dataCollection` ＋ apm-service 收件時再做一次；使用者只帶 id | 客戶端擋住大部分，伺服器端兜底，防止 SDK 升級或設定錯誤帶出個資；id 本身要查 DB 才對得到人 |
 | D8 | fingerprint ＝ 例外類型 ＋ 正規化後的訊息（數字、UUID、引號內的字串、長 hex 換成佔位）；SDK 帶了 `fingerprint` 就用它；chunk 載入失敗固定一組 | 壓縮後的函式名稱每版不同，不能拿來分組；不分 release，才看得出「同一個錯誤延續到新版」 |
 | D9 | release ＝ commit 前 7 碼，建置時注入；請求帶 `x-client-release`，api 存取日誌記成 `clientRelease` | 錯誤與後端日誌都能對到是哪一版的前端 |
-| D10 | Web Vitals 由 apm-service 彙總成自己的 `/metrics`（標籤 `project`、`route`、`name`），`route` 每個專案最多 200 種；tracing 以動態 `import()` 載入 | 不必等後端的 `core/metrics`（`docs/features/observability.md`）；限制標籤數防止被灌入任意值；首頁不必多載 tracing 的程式 |
+| D10 | Web Vitals 由 apm-service 彙總成自己的 `/metrics`（標籤 `project`、`route`、`name`），`route` 每個專案最多 200 種；tracing 以動態 `import()` 載入 | 不必等後端的 `core/metrics`（當時還是提案；之後做在 [`../08-monitoring.md`](../08-monitoring.md)）；限制標籤數防止被灌入任意值；首頁不必多載 tracing 的程式 |
 | D11 | 沒有設定 DSN 時，SDK 改用只 `console.debug` 的 transport | 開發時看得到會送出什麼，又不必起 apm-service |
 | D12 | bundle 預算用自己的腳本讀 Vite manifest，不引入 `size-limit` | 只需要 manifest 與 gzip，不必多一套設定格式與依賴 |
 

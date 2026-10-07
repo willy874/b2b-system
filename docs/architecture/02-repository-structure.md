@@ -7,7 +7,10 @@ b2b-system/
 ├── package.json                 root scripts、devDependencies
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json           共用 compilerOptions 與 path alias 基準
-├── docker-compose.yml           postgres（本機開發）
+├── docker-compose.yml           postgres、Mailpit（本機開發）；monitoring profile 是本機的監控（08-monitoring.md §7）
+├── docker-compose.prod.yml      正式部署（01-system.md §4.2）
+├── docker-compose.monitoring.yml 監控：疊在正式部署上的 Prometheus、Tempo、Grafana、postgres-exporter（08-monitoring.md §6）
+├── deploy/                      nginx 設定、postgres 的初始化腳本、prod.env.example；monitoring/ 是 Prometheus、Tempo、Grafana 的設定與儀表板
 ├── lefthook.yml                 git hooks
 ├── .oxlintrc.json / .oxfmtrc.jsonc
 ├── .env.example
@@ -48,6 +51,7 @@ packages:
 | `pnpm dev:api` / `pnpm dev:backstage` / `pnpm dev:platform` | 單獨啟動                                                 |
 | `pnpm dev:e2e`                                 | 啟動 Mailpit，以放寬的速率限制、`MAIL_TRANSPORT=smtp` 啟動 api |
 | `pnpm mail:up`                                 | `docker compose up -d mailpit`（SMTP :1025、網頁 :8025） |
+| `pnpm monitoring:up` / `pnpm monitoring:down`  | 本機的監控：Prometheus（:9090）、Tempo（:4318）、postgres-exporter、Grafana（:3300）（[`08-monitoring.md`](./08-monitoring.md) §7） |
 | `pnpm dev:storage`                             | 啟動 `apps/file-storage`（S3 相容，:9000）               |
 | `pnpm dev:mock-idp`                            | 模擬的外部 IdP（:4455）；外部 IdP 登入的開發與 E2E 用（[`04-sso.md`](./04-sso.md) §10） |
 | `pnpm build`                                   | 依序 `api-sdk` → `api` → `backstage` → `platform`                |
@@ -167,6 +171,7 @@ features 見 [`apps/platform/README.md`](../../apps/platform/README.md)；機制
 ```
 apps/api/src/
 ├── main.ts                  bootstrap、Swagger、全域管線
+├── instrumentation.ts       OpenTelemetry tracing；進入點第一個 import（08-monitoring.md §3）
 ├── app.module.ts            匯入 core 與所有 modules，註冊 APP_GUARD/FILTER/INTERCEPTOR
 │
 ├── core/                    機制層（不認識任何 module）
@@ -178,6 +183,8 @@ apps/api/src/
 │   ├── errors/              ErrorCode enum、AppException、HttpExceptionFilter
 │   ├── http/                TransformInterceptor、分頁 DTO、RequestId middleware
 │   ├── logger/              Pino 設定
+│   ├── metrics/             Prometheus 指標（prom-client）、給 Prometheus 的 /metrics server（08-monitoring.md §2）
+│   ├── tracing/             手動 span（inSpan）、span 的租戶屬性、網址的遮蔽（08-monitoring.md §3）
 │   ├── jobs/                背景工作佇列（pg-boss）：JobQueue、defineJob（docs/architecture/backend/10-jobs.md）
 │   ├── mail/                寄信：MailTransport（smtp / console）、MailService（docs/architecture/backend/11-mail.md）
 │   └── validation/          ZodValidationPipe、zod ↔ OpenAPI
@@ -273,6 +280,12 @@ PLATFORM_ADMIN_EMAIL=platform@example.com
 PLATFORM_ADMIN_PASSWORD=                      # 留空：開發時隨機產生並印出一次；production 建成 pending，只印一次性的設定連結
 PORT=3000
 EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；[`architecture/06-external-api.md`](06-external-api.md) §9.2 D9）
+# 監控（docs/architecture/08-monitoring.md）：給 Prometheus 的 /metrics 另開一個 port（0 = 不開）；pnpm monitoring:up 起 Grafana（:3300）
+METRICS_PORT=9464
+EXTERNAL_METRICS_PORT=9465
+HEALTH_EVENT_LOOP_LAG_MS=1000      # /health/ready 的 event loop 延遲門檻（毫秒，p99）；0 = 不檢查
+OTEL_EXPORTER_OTLP_ENDPOINT=       # trace 送到哪裡（OTLP/HTTP）；留空 = 不送。本機 Tempo：http://localhost:4318
+OTEL_TRACES_SAMPLER_ARG=1          # trace 的取樣率（0～1）
 NODE_ENV=development
 LISTEN_HOST=                       # 留空 = 開發只聽 127.0.0.1（同網段連不到）、production 聽所有介面；手機測試時設 0.0.0.0
 

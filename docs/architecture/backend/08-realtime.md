@@ -694,6 +694,8 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 
 `GET /health/ready` 不因推播停擺而失敗：推播不是必要功能（原則 1）。
 
+指標：`api_realtime_connections`（這個程序的連線數）、`api_realtime_handshake_rejected_total{code}`（[`../08-monitoring.md`](../08-monitoring.md) §2.2）。
+
 ---
 
 ## 13. 測試

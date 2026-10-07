@@ -94,13 +94,14 @@
 | 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag | [§6.2](./05-feature-tour.md#62-平台管理者feature-flag-與平台稽核) | [`05-tenancy.md`](../architecture/05-tenancy.md) §11 |
 | 個人帳號 | 個人資料、變更密碼、語系、時區、主題、通知設定 | [§7](./05-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) |
 | 命令面板 | ⌘K／Ctrl+K：跳到頁面、最近造訪、搜尋使用者、角色、群組、檔案等資料、建立的捷徑；依權限過濾，兩個前端都有 | — | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
+| 監控 | api 的指標（Prometheus）與 tracing（OpenTelemetry → Tempo）、就緒檢查；Grafana 的儀表板與告警（api、容量與資料庫、背景工作、前端的錯誤與 Web Vitals） | — | [`08-monitoring.md`](../architecture/08-monitoring.md) |
 | 前端可觀測性 | 兩個前端的錯誤回報（送到模擬 Sentry API 的 apps/apm-service，以 sourcemap 還原堆疊）、錯誤頁的「複製錯誤資訊」、Web Vitals、CI 的 bundle 預算 | — | [`frontend/19-observability.md`](../architecture/frontend/19-observability.md)、[`07-apm-service.md`](../architecture/07-apm-service.md) |
 
 ### 3.5 不在範圍
 
 - 任何特定領域的業務功能——本 repo 只提供骨架。
 - LDAP、SAML（OIDC 的外部 IdP 已支援）。
-- 還沒做、但已有提案的功能（匯入匯出、留言與關注、MFA、後端的可觀測性、多實例部署、專案層級的授權）列在
+- 還沒做、但已有提案的功能（匯入匯出、留言與關注、MFA、多實例部署、專案層級的授權）列在
   [`features/README.md`](../features/README.md)。
 
 ---

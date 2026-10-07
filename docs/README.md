@@ -88,6 +88,7 @@ docs/
 │   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
 │   ├── 06-external-api.md             對外 API：獨立的程序與網域、API token 認證、路由的分界、限流
 │   ├── 07-apm-service.md              apps/apm-service：模擬 Sentry API 的前端錯誤收件、sourcemap、Web Vitals 指標
+│   ├── 08-monitoring.md               監控：api 的指標與 tracing、健康檢查、Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警
 │   │
 │   ├── frontend/
 │   │   ├── README.md

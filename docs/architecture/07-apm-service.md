@@ -8,7 +8,8 @@ DSN 驗證、429 的退避標頭、release 檔案（sourcemap）上傳與查詢 
 - 換成真正的 Sentry 或自架的 GlitchTip 時 **只改 DSN 與 CSP**，前端程式不變。
 
 > 定位：與 [`apps/file-storage`](./03-file-storage.md) 相同，是「模擬外部服務」的小服務。只做 SDK 會呼叫的收件端點與少數查詢端點，
-> 沒有網頁介面、告警與通知（設計決策見 [`frontend/19-observability.md`](./frontend/19-observability.md) §9）。
+> 沒有網頁介面、告警與通知（設計決策見 [`frontend/19-observability.md`](./frontend/19-observability.md) §9）：圖表、issues 列表與告警在 Grafana
+> （[`08-monitoring.md`](./08-monitoring.md) §5），由 Grafana 讀這裡的 `/metrics` 與查詢 API。
 
 ---
 
@@ -37,6 +38,7 @@ pnpm dev:apm      # 單獨啟動（tsx watch），預設 http://127.0.0.1:9100
 | `APM_RATE_LIMIT_PER_MINUTE` | `120` | 每個來源 IP、每個專案、每分鐘可以收幾個 envelope |
 | `APM_TRUST_PROXY` | `false` | 在 nginx 後面時設 `true`：以 `X-Real-IP` 當來源 IP。直接對外時一定要關掉，否則任何人都能偽造來源繞過限流 |
 | `APM_ROUTE_LABEL_LIMIT` | `200` | `/metrics` 的 `route` 標籤每個專案最多幾種，超過的歸 `other` |
+| `APM_RELEASE_LABEL_LIMIT` | `10` | `apm_events_total` 的 `release` 標籤每個專案保留最近幾個；被淘汰的連同時間序列一起刪掉（[`08-monitoring.md`](./08-monitoring.md) §9.2 D13） |
 
 ---
 
@@ -114,7 +116,7 @@ curl -s -H "Authorization: Bearer $APM_AUTH_TOKEN" \
 
 | 端點 | 說明 |
 | --- | --- |
-| `GET /metrics` | Prometheus 文字格式：`apm_envelopes_total{result}`、`apm_items_total{project,type}`、`apm_web_vital{project,route,name}`（histogram；`cls` 無單位，其餘毫秒；`name` 是 `lcp`、`inp`、`cls`、`fcp`、`ttfb`、`navigation`）。不驗證，只開在內部介面 |
+| `GET /metrics` | Prometheus 文字格式：`apm_envelopes_total{result}`、`apm_items_total{project,type}`、`apm_events_total{project,level,release}`（存下的錯誤事件；`release` 只保留最近 `APM_RELEASE_LABEL_LIMIT` 個）、`apm_web_vital{project,route,name}`（histogram；`cls` 無單位，其餘毫秒；`name` 是 `lcp`、`inp`、`cls`、`fcp`、`ttfb`、`navigation`）。不驗證，只開在內部介面；Grafana 的「前端」儀表板與告警用它（[`08-monitoring.md`](./08-monitoring.md) §5） |
 | `GET /_health` | 存活檢查（容器的 HEALTHCHECK） |
 
 ---
