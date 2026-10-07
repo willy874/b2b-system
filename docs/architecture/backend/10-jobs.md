@@ -181,7 +181,7 @@ await withTransaction(this.db, async (tx) => {
 | 端點 | 權限 | 說明 |
 | --- | --- | --- |
 | `GET /jobs/queues` | `job:read` | 已註冊的工作、排程、各狀態的 **即時** 筆數 |
-| `GET /jobs` | `job:read` | 列表（`createdOn DESC`；`name`、`state` 篩選；不含 `data` / `output`） |
+| `GET /jobs` | `job:read` | 列表（`createdOn DESC`；`name`、`state` 篩選，都可以重複表示「其中任一個」：`?state=failed&state=retry`；不含 `data` / `output`） |
 | `GET /jobs/:id` | `job:read` | 詳情（含 `data` 與 `output`；失敗時 `output` 是錯誤的 `message` / `stack`。資料庫的查詢錯誤在交給 pg-boss 之前換成只帶 SQL 本文與錯誤碼的版本，不含參數，[`03-api-conventions.md`](./03-api-conventions.md) §6） |
 | `POST /jobs/:id/retry` | `job:retry` | 只接受 `failed`；重試成功後寫稽核 `job.retry` |
 
@@ -201,7 +201,8 @@ await withTransaction(this.db, async (tx) => {
 | `JOB_NOT_FOUND` | 404 | 沒有這筆工作、已超過保留期被清除，或不屬於已註冊的工作 |
 | `JOB_NOT_RETRYABLE` | 409 | 不是 `failed`（等待、執行中、已完成），或被別人搶先重試 |
 
-前端頁面 `/job`（`features/job`）：工作種類卡片（點卡片篩選）＋ 列表；展開列看資料與結果，
+前端頁面 `/job`（`features/job`）：列表上方的「佇列概況」按鈕（掛著失敗總數）打開工作種類卡片的對話框，點卡片加入或移出篩選；
+列表的篩選面板裡工作種類與狀態都是多選。展開列看資料與結果，
 失敗的列有重試按鈕。工作在背景變化，頁面每 10 秒重新整理；展開中且還沒結束的工作詳情也跟著重取。
 
 ## 7. 設定

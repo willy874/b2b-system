@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { apiLogin, apiRequest } from '../helpers/api';
 import { loginAndWaitForHome } from '../helpers/auth';
+import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
@@ -109,5 +110,22 @@ test.describe('稽核日誌', () => {
     await expect(page.getByTestId('forbidden-page')).toBeVisible();
     await page.goto('/system/settings');
     await expect(page.getByTestId('forbidden-page')).toBeVisible();
+  });
+
+  test('側欄只有一個「系統設定」入口：一般、安全性、事件通知是同一頁的分頁', async ({ page }) => {
+    await loginAndWaitForHome(page, 'superAdmin');
+    await openMenuGroup(page, 'menu-group-system');
+    await expect(page.getByTestId('menu-security')).toHaveCount(0);
+    await expect(page.getByTestId('menu-notification-event')).toHaveCount(0);
+    await page.getByTestId('menu-setting').click();
+
+    // 入口導向第一個分頁
+    await expect(page).toHaveURL(/\/system\/settings$/);
+    const tabs = page.getByTestId('system-settings-tabs');
+    await getByTestIdAndValue(tabs, 'tab', '/system/security').click();
+    await expect(page.getByTestId('security-mfa-page')).toBeVisible();
+    await getByTestIdAndValue(tabs, 'tab', '/system/notification-events').click();
+    await expect(page.getByTestId('notification-event-page')).toBeVisible();
+    await snapshot(page, 'system-settings-tabs');
   });
 });

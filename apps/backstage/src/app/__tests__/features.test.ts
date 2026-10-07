@@ -40,6 +40,8 @@ const EXPECTED_PAGES = {
   tenantSwitch: [],
   webhook: [WEBHOOK_PAGE, WEBHOOK_CREATE_PAGE],
   announcement: [ANNOUNCEMENT_PAGE, ANNOUNCEMENT_CREATE_PAGE, ANNOUNCEMENT_MESSAGE_PAGE],
+  // 對外 API 在另一個程序，backstage 只依它顯示 token 列表的提示
+  externalApi: [],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {

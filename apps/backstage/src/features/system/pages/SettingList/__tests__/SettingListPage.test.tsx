@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 
-import { registerSystemPagePermissions, Routes } from '../../..';
+import { registerSettingPagePermissions, Routes } from '../../..';
 
 const { listSettings, updateSettings } = vi.hoisted(() => ({
   listSettings: vi.fn(),
@@ -88,7 +88,7 @@ function fieldOf(key: string): HTMLElement {
 
 beforeEach(() => {
   resetPagePermissionRegistry();
-  registerSystemPagePermissions();
+  registerSettingPagePermissions();
   listSettings.mockReset().mockResolvedValue({ items: SETTINGS });
   updateSettings.mockReset().mockResolvedValue({ items: SETTINGS });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);

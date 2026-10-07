@@ -21,8 +21,6 @@
       "platform": "平台"
     },
     "filter": {
-      "allNames": "全部工作",
-      "allStates": "全部狀態",
       "scope": "範圍",
       "allScopes": "全部租戶與平台",
       "platformOnly": "只看平台",

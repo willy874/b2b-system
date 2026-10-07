@@ -7,6 +7,7 @@
 #   deploy/nginx.conf／nginx.platform.conf → /etc/nginx/conf.d/default.conf
 #   deploy/nginx-real-ip.sh → /docker-entrypoint.d/15-real-ip.sh
 #   deploy/nginx-file-origin.sh → /docker-entrypoint.d/16-file-origin.sh（backstage 另帶 FILES_SERVER=1）
+#   deploy/nginx-apm.sh → /docker-entrypoint.d/17-apm.sh（APM_ENABLED；關閉、沒有 apm-service 時另外檢查）
 #
 # 前置 LB 以假的 api 容器扮演：TRUSTED_PROXY_CIDRS 只放它的 IP，主機經 port 連進來的請求就是「不受信任的來源」。
 #
@@ -93,6 +94,7 @@ for site in nginx.conf nginx.platform.conf; do
     -v "$DEPLOY_DIR/$site:/etc/nginx/conf.d/default.conf:ro" \
     -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
     -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
+    -v "$DEPLOY_DIR/nginx-apm.sh:/docker-entrypoint.d/17-apm.sh:ro" \
     "$NGINX_IMAGE" >/dev/null
 
   # 等 nginx 開始接受連線
@@ -156,6 +158,39 @@ for site in nginx.conf nginx.platform.conf; do
   echo "✓ $site"
 done
 
+# APM 整套關閉（docs/architecture/07-apm-service.md §8.1）：apm-service 不存在時 nginx 照樣起得來。
+# 假的 api 不再兼任 apm-service；兩個前端的設定各試一次關閉（404）與「開啟但沒有 apm-service」（502，其他路徑不受影響）
+echo "── APM_ENABLED=false／沒有 apm-service"
+docker rm -f "$NETWORK-nginx" "$NETWORK-api" >/dev/null 2>&1 || true
+docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias api \
+  "$NODE_IMAGE" node -e "$ECHO_SERVER" >/dev/null
+# check_container 會覆寫 $site：迴圈變數另取名字
+for conf in nginx.conf nginx.platform.conf; do
+  for apm in false true; do
+    docker rm -f "$NETWORK-nginx" >/dev/null 2>&1 || true
+    docker run -d --name "$NETWORK-nginx" --network "$NETWORK" -p "$PORT:8080" \
+      --read-only --tmpfs /tmp --add-host file-storage:127.0.0.1 -e "APM_ENABLED=$apm" \
+      -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
+      -v "$DEPLOY_DIR/nginx.security-headers.conf:/etc/nginx/snippets/security-headers.conf:ro" \
+      -v "$DEPLOY_DIR/$conf:/etc/nginx/conf.d/default.conf:ro" \
+      -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
+      -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
+      -v "$DEPLOY_DIR/nginx-apm.sh:/docker-entrypoint.d/17-apm.sh:ro" \
+      "$NGINX_IMAGE" >/dev/null
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      curl -s -o /dev/null "http://127.0.0.1:$PORT/api/health" && break
+      sleep 1
+    done
+    check_container "$conf APM_ENABLED=$apm"
+    curl -fsS -o /dev/null "http://127.0.0.1:$PORT/api/health" || fail "$conf APM_ENABLED=$apm：/api 轉不到 api"
+    status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/apm/api/1/envelope/?sentry_key=k")
+    expected=404
+    [ "$apm" = "true" ] && expected=502
+    [ "$status" = "$expected" ] || fail "$conf APM_ENABLED=$apm：收件端點應回 $expected（$status）"
+  done
+  echo "✓ $conf（APM 關閉、沒有 apm-service）"
+done
+
 # ── nginx.external-api.conf：對外 API 的閘道（docs/architecture/06-external-api.md §9.2 D9）。upstream 是 external-api:3001，沒有靜態檔與 /api 前綴
 echo "── nginx.external-api.conf"
 docker rm -f "$NETWORK-nginx" "$NETWORK-api" >/dev/null 2>&1 || true
@@ -192,6 +227,16 @@ docker run --rm --read-only --tmpfs /tmp -e 'TRUSTED_PROXY_CIDRS=10.0.0.0/8;incl
   -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
   "$NGINX_IMAGE" nginx -t >/dev/null 2>&1 && fail "不合法的 TRUSTED_PROXY_CIDRS 沒有讓 nginx 啟動失敗"
 echo "✓ TRUSTED_PROXY_CIDRS"
+
+# APM_ENABLED 不是 true／false 時 nginx 不啟動（不讓值變成任意的 nginx 設定）
+echo "── APM_ENABLED 的格式檢查"
+# real-ip 的腳本也掛上：nginx -t 失敗只會是因為這個值
+docker run --rm --read-only --tmpfs /tmp -e 'APM_ENABLED=true"; include /etc/passwd; "' \
+  -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
+  -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
+  -v "$DEPLOY_DIR/nginx-apm.sh:/docker-entrypoint.d/17-apm.sh:ro" \
+  "$NGINX_IMAGE" nginx -t >/dev/null 2>&1 && fail "不合法的 APM_ENABLED 沒有讓 nginx 啟動失敗"
+echo "✓ APM_ENABLED"
 
 # FILE_DOWNLOAD_ORIGIN 不是 origin 時 nginx 不啟動（不讓值變成任意的 nginx 設定）
 echo "── FILE_DOWNLOAD_ORIGIN 的格式檢查"

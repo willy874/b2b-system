@@ -10,7 +10,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { freshTotp } from '../helpers/totp';
 
 /**
- * 兩步驟驗證（docs/architecture/backend/21-mfa.md §14.5）：驗證器 App 的設定與登入、備用碼、Email 驗證碼（Mailpit）、
+ * 多重驗證（docs/architecture/backend/21-mfa.md §14.5）：驗證器 App 的設定與登入、備用碼、Email 驗證碼（Mailpit）、
  * 政策要求後的首次設定、平台關掉方式之後的出路。驗證方式會被設定與重設，用專用帳號，依序執行並在結束時重設。
  */
 test.describe.configure({ mode: 'serial' });
@@ -69,7 +69,7 @@ async function enrollTotpOnProfile(page: Page) {
   return { secret, counter, recoveryCodes };
 }
 
-test.describe('兩步驟驗證', () => {
+test.describe('多重驗證', () => {
   test('驗證器 App：在個人資料頁設定 → 登出 → 以驗證碼登入；再以備用碼登入一次', async ({
     page,
   }) => {

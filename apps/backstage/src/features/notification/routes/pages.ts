@@ -21,11 +21,11 @@ export const NotificationListRoute = createRoute({
 
 /**
  * 事件管理（`system:read` 檢視、`system:update` 修改；docs/architecture/frontend/15-notification.md §9、docs/architecture/backend/16-notification-event.md §9.2 D12）：
- * 租戶層決定每個事件經由哪些管道送出。
+ * 租戶層決定每個事件經由哪些管道送出。是系統設定的「事件通知」分頁（docs/architecture/frontend/02-plugin-system.md §4.5）。
  */
 export const NotificationEventListRoute = createRoute({
   getParentRoute: () => RootRoute,
-  path: '/notification/events',
+  path: '/system/notification-events',
   staticData: { titleKey: 'menu.notificationEvent' },
   loader: localeScopeLoader(NOTIFICATION_LOCALE_SCOPE),
 });

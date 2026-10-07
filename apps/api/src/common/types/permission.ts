@@ -14,6 +14,7 @@ export const PERMISSION = {
   USER_DELETE: 'user:delete',
   USER_ASSIGN_ROLE: 'user:assignRole',
   USER_RESET_PASSWORD: 'user:resetPassword',
+  USER_RESET_MFA: 'user:resetMfa',
 
   ROLE_CREATE: 'role:create',
   ROLE_READ: 'role:read',

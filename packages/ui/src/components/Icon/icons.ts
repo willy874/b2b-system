@@ -2,6 +2,7 @@ import ArrowDown from '../../icons/arrow-down.svg?react';
 import ArrowUpDown from '../../icons/arrow-up-down.svg?react';
 import ArrowUp from '../../icons/arrow-up.svg?react';
 import Bell from '../../icons/bell.svg?react';
+import Bot from '../../icons/bot.svg?react';
 import Calendar from '../../icons/calendar.svg?react';
 import Check from '../../icons/check.svg?react';
 import ChevronDown from '../../icons/chevron-down.svg?react';
@@ -9,6 +10,7 @@ import ChevronLeft from '../../icons/chevron-left.svg?react';
 import ChevronRight from '../../icons/chevron-right.svg?react';
 import ChevronsDownUp from '../../icons/chevrons-down-up.svg?react';
 import ChevronsUpDown from '../../icons/chevrons-up-down.svg?react';
+import CircleUser from '../../icons/circle-user.svg?react';
 import Close from '../../icons/close.svg?react';
 import Copy from '../../icons/copy.svg?react';
 import Download from '../../icons/download.svg?react';
@@ -25,6 +27,7 @@ import FileText from '../../icons/file-text.svg?react';
 import FileVideo from '../../icons/file-video.svg?react';
 import File from '../../icons/file.svg?react';
 import Filter from '../../icons/filter.svg?react';
+import Flag from '../../icons/flag.svg?react';
 import FolderMove from '../../icons/folder-move.svg?react';
 import FolderPlus from '../../icons/folder-plus.svg?react';
 import FolderUpload from '../../icons/folder-upload.svg?react';
@@ -36,9 +39,11 @@ import Info from '../../icons/info.svg?react';
 import Key from '../../icons/key.svg?react';
 import List from '../../icons/list.svg?react';
 import Lock from '../../icons/lock.svg?react';
+import LogIn from '../../icons/log-in.svg?react';
 import Logout from '../../icons/logout.svg?react';
 import Mail from '../../icons/mail.svg?react';
 import Maximize from '../../icons/maximize.svg?react';
+import Megaphone from '../../icons/megaphone.svg?react';
 import Menu from '../../icons/menu.svg?react';
 import Minus from '../../icons/minus.svg?react';
 import Monitor from '../../icons/monitor.svg?react';
@@ -53,8 +58,10 @@ import Refresh from '../../icons/refresh.svg?react';
 import Search from '../../icons/search.svg?react';
 import Settings from '../../icons/settings.svg?react';
 import Shield from '../../icons/shield.svg?react';
+import Sliders from '../../icons/sliders.svg?react';
 import Smartphone from '../../icons/smartphone.svg?react';
 import Sun from '../../icons/sun.svg?react';
+import Tag from '../../icons/tag.svg?react';
 import Trash from '../../icons/trash.svg?react';
 import Undo from '../../icons/undo.svg?react';
 import Unlock from '../../icons/unlock.svg?react';
@@ -66,7 +73,6 @@ import WifiOff from '../../icons/wifi-off.svg?react';
 import Wifi from '../../icons/wifi.svg?react';
 import ZoomIn from '../../icons/zoom-in.svg?react';
 import ZoomOut from '../../icons/zoom-out.svg?react';
-
 /**
  * 圖示註冊表。元件裡 **不得** 內嵌 `<svg>` 字面量——換一套圖示時
  * 只要換 `src/icons/` 底下的檔案，呼叫端一行都不用改。
@@ -76,6 +82,7 @@ export const ICONS = {
   'arrow-up': ArrowUp,
   'arrow-up-down': ArrowUpDown,
   bell: Bell,
+  bot: Bot,
   calendar: Calendar,
   check: Check,
   'chevron-down': ChevronDown,
@@ -83,6 +90,7 @@ export const ICONS = {
   'chevron-right': ChevronRight,
   'chevrons-down-up': ChevronsDownUp,
   'chevrons-up-down': ChevronsUpDown,
+  'circle-user': CircleUser,
   close: Close,
   copy: Copy,
   download: Download,
@@ -99,6 +107,7 @@ export const ICONS = {
   'file-text': FileText,
   'file-video': FileVideo,
   filter: Filter,
+  flag: Flag,
   folder: Folder,
   'folder-move': FolderMove,
   'folder-plus': FolderPlus,
@@ -110,9 +119,11 @@ export const ICONS = {
   key: Key,
   list: List,
   lock: Lock,
-  mail: Mail,
+  'log-in': LogIn,
   logout: Logout,
+  mail: Mail,
   maximize: Maximize,
+  megaphone: Megaphone,
   menu: Menu,
   minus: Minus,
   monitor: Monitor,
@@ -127,8 +138,10 @@ export const ICONS = {
   search: Search,
   settings: Settings,
   shield: Shield,
+  sliders: Sliders,
   smartphone: Smartphone,
   sun: Sun,
+  tag: Tag,
   trash: Trash,
   undo: Undo,
   unlock: Unlock,

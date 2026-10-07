@@ -22,18 +22,7 @@ import {
   roles,
   users,
 } from '../schema';
-
-/** 固定亂數種子，確保 E2E fixture 可重現。 */
-function mulberry32(seed: number): () => number {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d_2b_79_f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
-  };
-}
+import { createRandom, seedDevFixtures } from './dev-fixtures';
 
 const DEV_PASSWORD = 'Dev!Password123';
 const DEV_DOMAIN = '@dev.local';
@@ -149,7 +138,7 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
     throw new Error('db:seed:dev 不可在 production 執行');
   }
 
-  const random = mulberry32(20_260_920);
+  const random = createRandom(20_260_920);
   const passwordHash = await hashPassword(DEV_PASSWORD);
 
   // ── 5 個自訂角色 ─────────────────────────────────────────
@@ -287,9 +276,19 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
     await db.insert(auditLogs).values(rows);
   }
 
+  // ── 通知、公告、回收桶、Webhook、標籤（dev-fixtures/）──────
+  const fixtureSummary = await seedDevFixtures(db, {
+    userIds: createdUserIds,
+    roleIdBySlug: new Map(
+      [...roleIdBySlug].filter((entry): entry is [string, string] => Boolean(entry[1])),
+    ),
+    groupIdByName,
+  });
+
   console.info(
     `dev seed 完成：${CUSTOM_ROLES.length} 個自訂角色、${STATUS_PLAN.length} 位使用者、${DEV_GROUPS.length} 個群組、稽核日誌 ≥ 300 筆`,
   );
+  for (const line of fixtureSummary) console.info(`  ${line}`);
   console.info(`所有假帳號密碼：${DEV_PASSWORD}（網域 ${DEV_DOMAIN}，不會誤寄信）`);
 }
 

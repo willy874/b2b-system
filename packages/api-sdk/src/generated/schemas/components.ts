@@ -721,6 +721,7 @@ export const PermissionKeySchema = z.enum([
   'user:delete',
   'user:assignRole',
   'user:resetPassword',
+  'user:resetMfa',
   'role:create',
   'role:read',
   'role:update',
@@ -1654,6 +1655,7 @@ export const TenantFeatureSchema = z.enum([
   'tenantSwitch',
   'webhook',
   'announcement',
+  'externalApi',
 ]) satisfies z.ZodType<TenantFeature>;
 
 export const TenantFlagOverridesSchema = z.record(
@@ -1753,7 +1755,7 @@ export const CreateTenantRequestSchema = z.object({
 
 export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  features: z.array(TenantFeatureSchema).max(9).optional(),
+  features: z.array(TenantFeatureSchema).max(10).optional(),
   flags: TenantFlagOverridesSchema.optional(),
   mfaMethods: TenantMfaMethodOverridesSchema.optional(),
   featureParams: z
@@ -1833,6 +1835,7 @@ export const PlatformPermissionKeySchema = z.enum([
   'platformAdmin:read',
   'platformAdmin:create',
   'platformAdmin:update',
+  'platformAdmin:resetMfa',
   'platformAuditLog:read',
   'platformJob:read',
   'platformJob:retry',

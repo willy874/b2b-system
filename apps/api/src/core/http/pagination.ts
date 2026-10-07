@@ -79,3 +79,15 @@ export const SortSchema = <const T extends readonly [string, ...string[]]>(field
         .default([{ sort: fields[0], order: 'desc' }]),
     ),
   });
+
+/**
+ * 可以重複的查詢參數（`?status=a&status=b`）：express 給陣列，只有一個時給字串，統一成陣列。
+ * 用在列表的多選篩選；陣列之間是「其中任一個」。
+ */
+export function QueryArraySchema<T extends z.ZodTypeAny>(
+  schema: T,
+): z.ZodOptional<z.ZodType<Array<z.output<T>>>> {
+  return z
+    .preprocess((value) => (Array.isArray(value) ? value : [value]), z.array(schema).max(50))
+    .optional();
+}

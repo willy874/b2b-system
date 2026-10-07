@@ -32,8 +32,21 @@ export const EnvSchema = z.object({
    */
   EXTERNAL_API_PORT: z.coerce.number().int().default(3001),
   /**
+   * 監控整套的開關（docs/architecture/08-monitoring.md §1.1）。`false` 時不論 `METRICS_PORT`、`OTEL_EXPORTER_OTLP_ENDPOINT`
+   * 怎麼設，都不開 `/metrics`、不量 HTTP 請求與 Node 的標準指標、不載入 tracing；健康檢查照常。留空 = `true`。
+   * `src/instrumentation.ts` 早於 ConfigModule 讀它（`isMonitoringEnabled()`），這裡只做格式驗證。
+   */
+  MONITORING_ENABLED: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+  ),
+  /**
    * Prometheus 抓 `/metrics` 的 port（docs/architecture/08-monitoring.md §2.1）：另開一個 HTTP server，不經過 Nest 的路由、
-   * 租戶解析與限流，也不在 nginx 轉發的範圍。0 = 不開。對外 API 的程序用 `EXTERNAL_METRICS_PORT`（同 `EXTERNAL_API_PORT`）。
+   * 租戶解析與限流，也不在 nginx 轉發的範圍。0 = 不開（`MONITORING_ENABLED=false` 時一律不開）。
+   * 對外 API 的程序用 `EXTERNAL_METRICS_PORT`（同 `EXTERNAL_API_PORT`）。
    */
   METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(9464),
   EXTERNAL_METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(9465),
@@ -44,7 +57,7 @@ export const EnvSchema = z.object({
   HEALTH_EVENT_LOOP_LAG_MS: z.coerce.number().int().min(0).default(1000),
   /**
    * OpenTelemetry 的 trace 收件位址（OTLP/HTTP，例 `http://tempo:4318`；docs/architecture/08-monitoring.md §3）。
-   * 沒設定 = 不載入 tracing。SDK 在 `src/instrumentation.ts` 讀 `process.env`（要早於任何 import），這裡只做格式驗證。
+   * 沒設定（或 `MONITORING_ENABLED=false`）= 不載入 tracing。SDK 在 `src/instrumentation.ts` 讀 `process.env`（要早於任何 import），這裡只做格式驗證。
    */
   OTEL_EXPORTER_OTLP_ENDPOINT: z.preprocess(
     (value) => (value === '' ? undefined : value),

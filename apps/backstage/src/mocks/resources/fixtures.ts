@@ -56,6 +56,13 @@ const PERMISSION_CATALOG = [
     sortOrder: 105,
   },
   {
+    resource: 'user',
+    action: 'resetMfa',
+    key: 'user:resetMfa',
+    nameI18nKey: 'permission.user.resetMfa',
+    sortOrder: 106,
+  },
+  {
     resource: 'role',
     action: 'create',
     key: 'role:create',
@@ -157,6 +164,7 @@ const PERMISSION_DEPENDENCIES: Partial<
   'user:delete': { includes: ['user:update'] },
   'user:update': { includes: ['user:resetPassword', 'user:read'] },
   'user:resetPassword': { includes: ['user:read'] },
+  'user:resetMfa': { includes: ['user:read'] },
   'user:assignRole': { includes: ['user:read'], requires: ['role:read'] },
   'role:create': { includes: ['role:update'] },
   'role:delete': { includes: ['role:update'] },

@@ -73,7 +73,7 @@ user:alice
 | 位置 | 內容 |
 | --- | --- |
 | `core/components/ExplainPath` | 路徑：圖示 ＋ 名稱，資料夾附等級或動作；讀不到的節點顯示「某個群組」等種類 |
-| `core/components/ExplainPath/PermissionSourceList` | 有效權限的清單：每個鍵的所有來源，依賴樹帶出的標「由 X 帶出」，super-admin 另外說明 |
+| `core/components/ExplainPath/PermissionSourceDialog` | 有效權限的兩層對話框：第一層是清單（依資源分組、可搜尋、標出來源數，super-admin 另外說明），點一個權限再疊一層看它的每條來源路徑（依賴樹帶出的標「由 X 帶出」） |
 | 個人資料頁「我的有效權限」 | 查自己（不需要權限：沒有 `user:read` 的人也看得到） |
 | 使用者詳情「有效權限」 | 自己，或有 `authz:explain` 時看別人 |
 | 資料夾共用對話框「檢查存取」 | 有 `authz:explain` 時：挑一位使用者，列出每個動作與路徑 |

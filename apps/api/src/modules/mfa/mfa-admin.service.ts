@@ -42,7 +42,7 @@ export class MfaAdminService {
     return this.mfa.status('platform', adminId);
   }
 
-  /** 平台管理者：不能重設自己（與其他自我修改相同）；平台的權限由角色決定，`platformAdmin:update` 已足夠。 */
+  /** 平台管理者：不能重設自己（與其他自我修改相同）；平台的權限由角色決定，`platformAdmin:resetMfa` 已足夠。 */
   resetPlatformAdmin(actor: AuthUser, adminId: string): Promise<{ success: true }> {
     if (actor.id === adminId) throw new AppException('AUTHZ_SELF_MODIFY');
     return this.mfa.reset('platform', actor, adminId);

@@ -300,7 +300,7 @@ apps/platform /interaction/:uid
 
 ## 6. 租戶的 MFA 政策
 
-backstage 新的常駐 feature `security`（`/security/mfa`；不是可關閉的 feature——安全政策不應該因為平台關掉「系統設定」頁就看不到），
+backstage 新的常駐 feature `security`（系統設定的「安全性」分頁 `/system/security`，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5；不是可關閉的 feature——安全政策不應該因為平台關掉「系統設定」的「一般」分頁就看不到），
 端點 `GET`／`PUT /mfa/policy`（`mfaPolicy:read`／`mfaPolicy:update`）：
 
 | 欄位 | 畫面 | 驗證 |
@@ -332,7 +332,7 @@ backstage 新的常駐 feature `security`（`/security/mfa`；不是可關閉的
 - **不撤銷其他 session**（舊開放問題 5）：新增與移除因子都不遞增 `token_version`；懷疑被盜用時用既有的變更密碼（會結束所有 session）。
 - 每個動作寄 **安全通知信**（`mfa.securityNoticeMail`，工作資料只有 `{ accountId, event }`）：新增、移除、重新產生備用碼、**以備用碼登入**、被管理員重設。
   只偷到密碼的人在「必須啟用卻還沒設定」的帳號綁上自己的裝置時，本人會收到信。
-- 畫面：backstage 與 apps/platform 的 `/profile` 都加「兩步驟驗證」區塊（web-core 的 `MfaSecuritySection`，打哪個端點由 app 給的 `MfaSelfApi` 決定）。
+- 畫面：backstage 與 apps/platform 的 `/profile` 都加「多重驗證」區塊（web-core 的 `MfaSecuritySection`，打哪個端點由 app 給的 `MfaSelfApi` 決定）。
 - `enrollAt: 'idp'` 的方式（之後的 WebAuthn）在 backstage 只顯示「到帳號中心設定」的連結（D14）。
 
 ## 8. 管理員檢視與重設
@@ -340,8 +340,8 @@ backstage 新的常駐 feature `security`（`/security/mfa`；不是可關閉的
 | 端點 | 權限 | 說明 |
 | --- | --- | --- |
 | `GET /users/:id/mfa` | `user:read` | 因子的方式、名稱、設定與最後使用時間；不含機密與 email hint 以外的資訊 |
-| `POST /users/:id/mfa/reset` | `user:update` | 刪除所有因子與備用碼、`token_version + 1`（結束所有 session，發 `SESSIONS_REVOKED`）、寄通知信；稽核 `user.mfa.reset`（`severity: high`） |
-| `GET`／`POST /platform/admins/:id/mfa`、`…/reset` | `platformAdmin:read`／`platformAdmin:update` | 同上；不能重設自己（`AUTHZ_SELF_MODIFY`，與其他自我修改相同） |
+| `POST /users/:id/mfa/reset` | `user:resetMfa` | 刪除所有因子與備用碼、`token_version + 1`（結束所有 session，發 `SESSIONS_REVOKED`）、寄通知信；稽核 `user.mfa.reset`（`severity: high`） |
+| `GET`／`POST /platform/admins/:id/mfa`、`…/reset` | `platformAdmin:read`／`platformAdmin:resetMfa` | 同上；不能重設自己（`AUTHZ_SELF_MODIFY`，與其他自我修改相同） |
 
 - **反提權**：目標持有 super-admin（含經由群組）時，操作者也必須持有 super-admin（與服務帳號的規則相同，[`04-auth.md`](04-auth.md) §8.2）。
   否則 admin 可以拆掉 super-admin 的 MFA，再配合外洩的密碼登入。
@@ -402,8 +402,8 @@ registerMfaMethod({
 - 伺服器回傳註冊表裡沒有的方式 id（例：api 先部署了新方式）時，該因子顯示為「這個版本不支援」、不可選，不讓畫面壞掉。
 - apps/platform `features/login` 的互動頁：密碼步驟 → 依 `next` 切到 `MfaChallengeForm`（選因子、輸入碼、「改用備用碼」、重寄倒數沿用 `useCountdown`）或 `MfaEnrollFlow`（選方式 → 方式的 `Enroll` → `RecoveryCodesDialog`）。
 - 備用碼對話框：顯示、複製、下載 `.txt`；要勾「我已保存」才能關。
-- backstage：`/profile` 的「兩步驟驗證」區塊、`features/user` 的 MFA 欄與篩選（`?mfa=false`，route id `user.listByMfa`）、詳情的驗證方式與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，[`tenant-security-policy.md`](../../features/tenant-security-policy.md) 之後加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁，`features/mfa-method`）、租戶詳情的 `?tab=mfa`、平台管理者的編輯對話框（驗證方式與重設；沒有詳情頁）。
-- 權限：`features/security/permission.ts` 註冊 `/security/mfa` 的 page key（`mfaPolicy:read`）。
+- backstage：`/profile` 的「多重驗證」區塊、`features/user` 的 MFA 欄與篩選（`?mfa=false`，route id `user.listByMfa`）、詳情的驗證方式與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，[`tenant-security-policy.md`](../../features/tenant-security-policy.md) 之後加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁，`features/mfa-method`）、租戶詳情的 `?tab=mfa`、平台管理者的編輯對話框（驗證方式與重設；沒有詳情頁）。
+- 權限：`features/security/permission.ts` 註冊 `/system/security` 的 page key（`mfaPolicy:read`）。
 
 ## 12. 權限、錯誤碼、稽核、指標
 
@@ -549,7 +549,7 @@ E2E 以 seed 算 TOTP 碼（`apps/e2e/helpers/totp.ts`）；同一個時間步�
 9. **`SESSIONS_REVOKED` 不另外刪除互動中 pending 的因子**：確認一定要有效的 `MfaPending`，它作廢之後 pending 的因子確認不了，24 小時後清除。
 10. **指標名稱是 `api_mfa_verifications_total`**：沿用 `instruments.ts` 的 `api_` 前綴。
 11. **`SsoRedirect` 的 schema 搬到 `modules/oidc-provider/sso-redirect.dto.ts`**：`mfa` 的互動端點也回傳它，而 `mfa` 不能 import `auth`。
-12. **前端**：backstage 的「兩步驟驗證」是個人資料頁的一個區塊（與 apps/platform 相同的 `MfaSecuritySection`），不是分頁；apps/platform 沒有平台管理者詳情頁，
+12. **前端**：backstage 的「多重驗證」是個人資料頁的一個區塊（與 apps/platform 相同的 `MfaSecuritySection`），不是分頁；apps/platform 沒有平台管理者詳情頁，
     驗證方式與重設放在編輯對話框。web-core 不呼叫 app 的 API：元件收 app 給的函式（`MfaSelfApi`、`start`／`confirm`／`verify`）。`@b2b-system/ui` 加了 `smartphone`、`mail` 圖示。
 13. **管理員重設不能重設自己**（租戶也是，`AUTHZ_SELF_MODIFY`）：自己的在個人資料頁管理。
 
@@ -583,3 +583,6 @@ E2E 以 seed 算 TOTP 碼（`apps/e2e/helpers/totp.ts`）；同一個時間步�
 9. **apps/platform 的方式名稱用 web-core 的註冊表**（`useMfaMethodUis` 的 `labelKey`），不另外維護 `MFA_METHOD_LABEL_KEY`；關閉前的確認框在 app 的 `core/mfa`（方式頁與租戶詳情共用，影響人數由呼叫端從 `apis/` 取得）。
 10. **backstage 的 `user.listByMfa` route link**：安全性頁連到「未啟用 MFA」的使用者列表（`?mfa=false`）。
 11. **權限的數量**：租戶目錄 53 → 55（文件的「共 52 項」原本就少算一項，一併改正）；平台 12 → 14。
+12. **重設別人的 MFA 改成獨立的權限**（2026-10）：租戶 `user:resetMfa`、平台 `platformAdmin:resetMfa`，取代原本的 `user:update`／`platformAdmin:update`。
+    `user:update` 不包含它（不是子能力）：重設 MFA 等於拆掉對方的第二道防線，比改名、停用的風險高，要能只給特定的人。預設的 `admin` 角色持有它，行為不變；
+    只有 `user:update` 的自訂角色在升級後失去重設的能力。租戶目錄 55 → 56、平台 14 → 15。

@@ -93,7 +93,7 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
     try {
       // ① super-admin：事件管理允許個人調整「公告」的站內通知
       await loginAndWaitForHome(page, 'superAdmin');
-      await page.goto('/notification/events');
+      await page.goto('/system/notification-events');
       const channel = getByTestIdAndValue(
         getByTestIdAndValue(page, 'notification-event-row', ANNOUNCEMENT_TYPE),
         'notification-event-channel',

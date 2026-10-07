@@ -156,10 +156,13 @@ export function FileFolderSidebar(props: Omit<FileFolderTreeProps, 'className' |
   const { t } = useTranslation();
   return (
     <aside
-      className="hidden w-56 shrink-0 overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 lg:block"
+      className="hidden w-56 shrink-0 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] lg:flex"
       aria-label={t('file.folder.tree')}
     >
-      <FileFolderTree {...props} data-testid="file-folder-tree" />
+      {/* 資料夾多時只捲動樹，容量固定在側欄底部 */}
+      <div className="min-h-0 flex-1 overflow-auto p-1">
+        <FileFolderTree {...props} data-testid="file-folder-tree" />
+      </div>
       <FileStorageUsage />
     </aside>
   );

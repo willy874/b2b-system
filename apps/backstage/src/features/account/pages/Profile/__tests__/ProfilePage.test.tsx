@@ -142,7 +142,9 @@ describe('ProfilePage 的有效權限（docs/architecture/iam/01-model.md §9 G4
     fireEvent.click(await screen.findByTestId('profile-permission-sources-show'));
     const item = await screen.findByTestId('permission-source');
     expect(item).toHaveAttribute('data-value', 'auditLog:read');
-    expect(within(item).getAllByTestId('explain-node')[1]).toHaveAttribute('data-hidden', 'true');
+    fireEvent.click(item);
+    const viewer = await screen.findByTestId('permission-source-viewer');
+    expect(within(viewer).getAllByTestId('explain-node')[1]).toHaveAttribute('data-hidden', 'true');
     expect(fetchSources.mock.calls[0]![0].params).toEqual({ userId: 'me' });
   });
 });

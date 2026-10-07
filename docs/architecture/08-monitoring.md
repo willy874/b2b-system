@@ -36,6 +36,24 @@ api 的指標與 tracing、健康檢查，以及把它們和前端的錯誤回�
 | 前端的指標 | `apps/apm-service/src/metrics/` | Web Vitals、錯誤事件數（§5） |
 | 部署 | `docker-compose.monitoring.yml`、`deploy/monitoring/` | 疊在正式的 compose 上；本機是 `docker-compose.yml` 的 `monitoring` profile（§7） |
 
+### 1.1 整套關閉（`MONITORING_ENABLED`）
+
+監控（api 的指標與 tracing ＋ Prometheus、Tempo、Grafana、postgres-exporter）可以整套關閉；前端的 APM 是另一個開關（[`07-apm-service.md`](./07-apm-service.md) §8.1）。
+
+| 環境 | 開啟 | 關閉 |
+| --- | --- | --- |
+| 正式 | 疊上 `-f docker-compose.monitoring.yml`（api、external-api 的 `MONITORING_ENABLED` 預設改成 `true`） | 不疊（`docker-compose.prod.yml` 的預設是 `false`） |
+| 本機 | `MONITORING_ENABLED=true`（`.env.example` 的預設）；要看圖表時 `pnpm monitoring:up` | `.env` 設 `MONITORING_ENABLED=false`；不跑 `pnpm monitoring:up` |
+
+`MONITORING_ENABLED=false`（`core/config/env.schema.ts`）時 api 與 external-api：
+
+- 不開 `/metrics` 的 server，不論 `METRICS_PORT`／`EXTERNAL_METRICS_PORT`（`metricsPortOf()`，`core/metrics/metrics-server.ts`）；
+- 不量 HTTP 請求（`main.ts`、`main.external.ts` 不掛 `httpMetricsMiddleware`），也不登記 Node 的標準指標（`enableDefaultMetrics()` 只在真的開 `/metrics` 時呼叫）；
+- 不載入 tracing，不論 `OTEL_EXPORTER_OTLP_ENDPOINT`（`instrumentation.ts` 以 `tracingEndpointOf()` 判斷，`core/tracing/tracing-endpoint.ts`）。
+
+健康檢查（§4）與就緒檢查的 event loop 量測照常；`instruments.ts` 的計數器仍會累加（記憶體裡的幾個數字，沒有人讀），`ObservedGauge` 只在抓取時才問，不抓就沒有成本。
+`deploy/prod.env` 可以明確設 `MONITORING_ENABLED`（例：沒疊監控、改由外部的 Prometheus 抓 api 時設 `true`）；疊著監控卻設成 `false` 時 `ApiDown` 告警會觸發。
+
 ---
 
 ## 2. 指標
@@ -51,12 +69,12 @@ api 的指標與 tracing、健康檢查，以及把它們和前端的錯誤回�
 
 - 只有 `GET /metrics`（Prometheus 文字格式），其他路徑 404。不經過 Nest 的路由、租戶解析、驗證與限流；不需要 token（§9.2 D2）。
 - 監聽位址同 api（`LISTEN_HOST`；開發只聽 `127.0.0.1`）。正式環境只在 compose 的網路裡連得到：port 不對主機發布，nginx 只轉發 api 的 3000（§6.2）。
-- `0` 不開；port 被占用時只記一筆錯誤、api 照常服務（指標不是 api 的必要功能）。`pnpm dev:e2e` 與測試都設成 `0`。
+- `0` 不開；監控整套關閉（`MONITORING_ENABLED=false`，§1.1）時一律不開。port 被占用時只記一筆錯誤、api 照常服務（指標不是 api 的必要功能）。`pnpm dev:e2e` 與測試都設成 `0`。
 
 ### 2.2 清單
 
 Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_duration_seconds`、`process_cpu_seconds_total`、`process_resident_memory_bytes`…）
-由 `prom-client` 的 `collectDefaultMetrics` 產生。api 自己的：
+由 `prom-client` 的 `collectDefaultMetrics` 產生（`enableDefaultMetrics()`：真的開 `/metrics` 時才登記）。api 自己的：
 
 | 指標 | 類型 | 標籤 | 量什麼 | 在哪裡記 |
 | --- | --- | --- | --- | --- |
@@ -105,7 +123,7 @@ trace 的 `http.route` 也用它。
 
 ### 3.1 啟用
 
-`OTEL_EXPORTER_OTLP_ENDPOINT`（例 `http://tempo:4318`）有值時才載入 OpenTelemetry；沒設定時 `@opentelemetry/api` 是空操作，程式裡的手動 span 幾乎沒有成本。
+`OTEL_EXPORTER_OTLP_ENDPOINT`（例 `http://tempo:4318`）有值、且監控沒有整套關閉（§1.1）時才載入 OpenTelemetry；沒載入時 `@opentelemetry/api` 是空操作，程式裡的手動 span 幾乎沒有成本。
 
 | 環境變數 | 預設 | 說明 |
 | --- | --- | --- |
@@ -200,13 +218,17 @@ docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-c
 ```
 
 `docker-compose.monitoring.yml` 疊在正式的 compose 上（§9.2 D10）：加入 `prometheus`、`tempo`、`postgres-exporter`、`grafana`，把 api、external-api、apm-service 接上
-`monitoring` 網路，並讓 api 把 trace 送到 Tempo。啟用時 `deploy/prod.env` 要多三個值（範本見 `deploy/prod.env.example` 的「監控」）：
+`monitoring` 網路，讓 api 開 `/metrics`（`MONITORING_ENABLED` 預設改成 `true`，§1.1）並把 trace 送到 Tempo。不疊這份檔案就是監控整套關閉。
+啟用時 `deploy/prod.env` 要多兩個值（範本見 `deploy/prod.env.example` 的「監控」）：
 
 | 變數 | 說明 |
 | --- | --- |
 | `GRAFANA_ADMIN_PASSWORD` | Grafana 的 admin 密碼 |
 | `POSTGRES_MONITOR_PASSWORD` | postgres-exporter 用的 `b2b_monitor` 角色（`pg_monitor`，只讀統計、讀不到業務資料） |
-| `APM_AUTH_TOKEN` | 已經是必填；Grafana 用它讀 apm-service 的查詢 API |
+| `APM_AUTH_TOKEN` | APM 開啟時已經是必填；Grafana 用它讀 apm-service 的查詢 API。APM 關閉時可以留空 |
+
+APM 關閉（沒有 `apm` profile，[`07-apm-service.md`](./07-apm-service.md) §8.1）時監控照樣疊得上：apm-service 不存在，Prometheus 的 `apm-service` 目標顯示 down
+（沒有告警盯它）、Grafana 的 APM 資料來源與「前端」儀表板沒有資料，其他儀表板與告警不受影響。
 
 `b2b_monitor` 由 `deploy/postgres/10-roles.sh` 在 **第一次初始化資料目錄時** 建立（設了 `POSTGRES_MONITOR_PASSWORD` 才建）。既有部署要先以超級使用者執行一次
 `deploy/monitoring/create-monitor-role.sql`（檔頭有指令）。
@@ -291,6 +313,7 @@ pnpm monitoring:down
 - api、external-api、apm-service 跑在主機上（`pnpm dev`、`pnpm dev:external-api`、`pnpm dev:apm`），Prometheus 經 `host.docker.internal` 抓
   （`deploy/monitoring/prometheus.dev.yml`）。沒有啟動的目標在 Prometheus 的 Targets 頁顯示 down，不影響其他目標。Linux 的 Docker 要讓 api 聽 `0.0.0.0`（`LISTEN_HOST`）。
 - 要看 trace：`.env` 設 `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`，重啟 api。
+- 不需要監控時 `.env` 設 `MONITORING_ENABLED=false`：api 不開 9464／9465、不量指標也不送 trace（§1.1）。
 - Grafana 不必登入就能看儀表板、用 Explore；要改儀表板以 admin／admin 登入。
 - 開發的 postgres 沒有載入 pg_stat_statements：「最耗時的查詢」是空的。
 
@@ -302,13 +325,15 @@ pnpm monitoring:down
 | --- | --- |
 | `ObservedGauge`（相加、取消登記、一個來源失敗） | `apps/api/src/core/metrics/__tests__/registry.spec.ts` |
 | 路由標籤、HTTP 指標（樣板、掛載點、萬用路由、499） | `apps/api/src/core/metrics/__tests__/http-metrics.spec.ts` |
-| `/metrics` 的輸出與 404 | `apps/api/src/core/metrics/__tests__/metrics-server.spec.ts` |
+| `/metrics` 的輸出與 404；`MONITORING_ENABLED` 關閉時不開 port（`metricsPortOf`） | `apps/api/src/core/metrics/__tests__/metrics-server.spec.ts` |
+| `MONITORING_ENABLED` 關閉時不載入 tracing（`tracingEndpointOf`） | `apps/api/src/core/tracing/__tests__/tracing-endpoint.spec.ts` |
+| 正式 compose 沒疊／疊上監控時 api 的 `MONITORING_ENABLED` | `apps/api/src/core/config/__tests__/prod-compose-env.spec.ts` |
 | 並行上限的指標 | `apps/api/src/core/concurrency/__tests__/limiter-metrics.spec.ts` |
 | trace 的網址遮蔽 | `apps/api/src/core/tracing/__tests__/redact-url.processor.spec.ts` |
 | 就緒檢查（每一項、event loop 門檻、逾時） | `apps/api/src/modules/health/__tests__/health.service.spec.ts` |
 | apm-service 的錯誤事件數與 release 淘汰 | `apps/apm-service/src/metrics/__tests__/apm-metrics.spec.ts`、`apps/apm-service/test/sentry-api.spec.ts` |
 
-部署設定由 `sh deploy/check-monitoring.sh` 檢查（CI 的 deploy job 也跑）：正式 ＋ 監控的 compose 疊加、本機的 `monitoring` profile、Prometheus 的設定與告警規則（`promtool`）、儀表板的 JSON 與資料來源 uid。PromQL 是否查得到資料沒有自動測試：改了儀表板或指標之後以 §7 起一套，確認 Prometheus 的 Targets 與 Rules 頁都是綠的、面板有資料。
+部署設定由 `sh deploy/check-monitoring.sh` 檢查（CI 的 deploy job 也跑）：正式 ＋ 監控的 compose 疊加（APM 開啟與關閉各一次）、沒疊監控的正式 compose、本機的 `monitoring` profile、Prometheus 的設定與告警規則（`promtool`）、儀表板的 JSON 與資料來源 uid。PromQL 是否查得到資料沒有自動測試：改了儀表板或指標之後以 §7 起一套，確認 Prometheus 的 Targets 與 Rules 頁都是綠的、面板有資料。
 
 ---
 

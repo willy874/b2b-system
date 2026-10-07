@@ -281,6 +281,7 @@ PLATFORM_ADMIN_PASSWORD=                      # 留空：開發時隨機產生�
 PORT=3000
 EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；[`architecture/06-external-api.md`](06-external-api.md) §9.2 D9）
 # 監控（docs/architecture/08-monitoring.md）：給 Prometheus 的 /metrics 另開一個 port（0 = 不開）；pnpm monitoring:up 起 Grafana（:3300）
+MONITORING_ENABLED=true            # 監控整套的開關：false = 不開 /metrics、不量指標、不送 trace（不論下面怎麼設）；健康檢查照常
 METRICS_PORT=9464
 EXTERNAL_METRICS_PORT=9465
 HEALTH_EVENT_LOOP_LAG_MS=1000      # /health/ready 的 event loop 延遲門檻（毫秒，p99）；0 = 不檢查
@@ -398,8 +399,9 @@ VITE_ENABLE_MOCK=false
 # DEV_API_PROXY_TARGET=http://localhost:3100
 ```
 
-`apps/apm-service` 的變數（`APM_*`）見 [`07-apm-service.md`](./07-apm-service.md) §1；前端的 `VITE_APM_*`、`APP_RELEASE` 見
-[`frontend/19-observability.md`](./frontend/19-observability.md) §8。
+`apps/apm-service` 的變數（`APM_*`）見 [`07-apm-service.md`](./07-apm-service.md) §1；前端的 `VITE_APM_*`（含整套的開關 `VITE_APM_ENABLED`）、`APP_RELEASE` 見
+[`frontend/19-observability.md`](./frontend/19-observability.md) §8。正式部署的 APM 開關（`APM_ENABLED`、`COMPOSE_PROFILES=apm`）見
+[`07-apm-service.md`](./07-apm-service.md) §8.1。
 `apps/file-storage` 的變數說明見 [`03-file-storage.md`](./03-file-storage.md) §1；api 端的物件儲存變數見
 [`backend/09-file.md`](./backend/09-file.md) §8。
 

@@ -87,6 +87,7 @@ export const ROLE_SEED = [
       "user:delete",
       "user:assignRole",
       "user:resetPassword",
+      "user:resetMfa",
       "role:create",
       "role:read",
       "role:update",
@@ -229,8 +230,27 @@ pnpm db:seed:dev
 │    locked 是 status = active ＋ 15 分鐘後到期的 locked_until，到期後恢復 active）
 ├─ 5 個自訂角色（非系統），權限組合各異
 ├─ 隨機的角色指派（role:<id>#holder@user:<id>）
-└─ 300 筆 audit_logs（跨 90 天，涵蓋各種 action 與 result）
+├─ 9 個群組（含巢狀與持有角色）
+├─ 300 筆 audit_logs（跨 90 天，涵蓋各種 action 與 result）
+└─ dev-fixtures/：讓下面幾頁有資料可看
+   ├─ 回收桶：已刪除的使用者 3、角色 2、群組 2、資料夾 1（內含子資料夾與 4 個檔案）、個別刪除的檔案 3、公告 1
+   │    （刪除時間 1～12 天前，在預設 30 天的保留期內）
+   ├─ 標籤：使用者組 6 個、檔案組 4 個，貼在 dev 使用者與 3 個未刪除的資料夾上
+   ├─ Webhook：5 個訂閱（啟用 3、手動停用 1、連續失敗自動停用 1；其中一個有 2 個網址），
+   │    近 9 天的 27 個對外事件與約 75 筆投遞紀錄（成功、HTTP 錯誤、逾時、重試）
+   ├─ 公告：9 則——已完成 3（其中 1 則的發送已撤回）、排程中 3（指定時間、每週週期、事件點 user.activated）、
+   │    暫停 1、草稿 1、已刪除 1；已發出的有發送紀錄與收件人的 announcement.published 通知
+   └─ 其他站內通知：user.rolesChanged、approval.pending／result、webhook.disabled 共約 19 則（已讀未讀混合）
 ```
+
+假資料以固定 id（`fixtureId(key)`）寫入、`ON CONFLICT DO NOTHING`：重跑不重複，已存在的列（含在畫面上改過的）不覆寫；
+過了保留期被清掉的（回收桶、通知、投遞紀錄）重跑時再補回來。幾點要知道：
+
+- 排程中的公告是真的排程：api 的每日維護會補上延遲工作，時間到了會真的發給 dev 使用者。
+- 回收桶裡的檔案只有資料列，物件儲存裡沒有內容：還原後下載會失敗。
+- Webhook 的網址都是 `example.com`／`example.org`；啟用中的訂閱之後收到真的事件時，api 會真的投遞（會失敗、重試）。
+- 審批的通知沒有連結：seed 不建立審批申請。
+- 名稱避開導覽截圖以 API 建立的示範資料（`apps/e2e/tour/demo-data.ts`），兩者可以先後執行。
 
 用途：
 

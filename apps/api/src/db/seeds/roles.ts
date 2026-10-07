@@ -29,6 +29,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'user:delete',
       'user:assignRole',
       'user:resetPassword',
+      'user:resetMfa',
       'role:create',
       'role:read',
       'role:update',

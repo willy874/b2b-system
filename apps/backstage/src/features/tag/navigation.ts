@@ -11,7 +11,7 @@ export function registerTagNavigation(): void {
     to: '/tag',
     labelKey: 'menu.tag',
     testId: 'menu-tag',
-    icon: 'pin',
+    icon: 'tag',
     group: NavGroupKey.SYSTEM,
     order: 500,
   });

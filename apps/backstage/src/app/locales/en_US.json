@@ -26,6 +26,7 @@
     "identityProvider": "Identity providers",
     "webhook": "Webhooks",
     "setting": "System settings",
+    "settingGeneral": "General",
     "announcement": "Announcements",
     "notificationOverview": "Notification overview",
     "notificationEvent": "Event notifications",
@@ -50,7 +51,11 @@
     "mark": "B2B",
     "subtitle": "RBAC console",
     "featureDisabled": "The feature of this page has been disabled",
-    "featureInstallFailed": "Failed to load a feature. Please reload the page"
+    "featureInstallFailed": "Failed to load a feature. Please reload the page",
+    "systemSettings": {
+      "description": "Tenant settings, security policies and event notifications. Changes take effect immediately and are recorded in the audit log.",
+      "empty": "There are no settings you can view."
+    }
   },
   "permission": {
     "resource": {
@@ -78,7 +83,8 @@
       "update": "Edit user",
       "delete": "Delete user",
       "assignRole": "Assign roles",
-      "resetPassword": "Reset password"
+      "resetPassword": "Reset password",
+      "resetMfa": "Reset MFA"
     },
     "role": {
       "create": "Create role",
@@ -194,7 +200,17 @@
     },
     "superAdmin": "Super admin: has every permission.",
     "impliedBy": "Implied by {{key}}",
-    "noPermissions": "No permissions"
+    "noPermissions": "No permissions",
+    "list": {
+      "title": "Effective permissions",
+      "search": "Search permission keys",
+      "noMatch": "No matching permissions",
+      "sources_one": "{{count}} source",
+      "sources_other": "{{count}} sources"
+    },
+    "viewer": {
+      "description": "Where this permission comes from: each row is one source."
+    }
   },
   "apiToken": {
     "status": {
@@ -216,6 +232,7 @@
       "limited_one": "Limited to {{count}} permission",
       "limited_other": "Limited to {{count}} permissions"
     },
+    "externalApiDisabled": "The external API is currently turned off for this tenant: tokens can still be created and revoked, but calls to the external API fail (404) until a platform admin turns it back on.",
     "neverUsed": "Never used",
     "empty": "No API tokens yet",
     "lifetime_one": "{{count}} day",

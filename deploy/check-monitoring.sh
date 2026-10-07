@@ -1,6 +1,7 @@
 #!/bin/sh
 # 監控設定的檢查（docs/architecture/08-monitoring.md §8；CI 的 deploy job 也跑）：
-#   1. docker-compose.prod.yml 疊上 docker-compose.monitoring.yml 之後的設定是否合法（以一次性的假金鑰）
+#   1. docker-compose.prod.yml 疊上 docker-compose.monitoring.yml 之後的設定是否合法（以一次性的假金鑰；APM 開啟與關閉各一次），
+#      以及沒疊監控（監控關閉）時的設定
 #   2. Prometheus 的設定與告警規則（promtool；正式與本機兩份設定）
 #   3. Grafana 儀表板：JSON 合法、每個查詢都指向有登記的資料來源 uid
 # 需要 Docker。
@@ -20,6 +21,15 @@ node "$ROOT/deploy/fake-prod-env.mjs" > "$WORK/prod.env"
 printf 'GRAFANA_ADMIN_PASSWORD=%s\nPOSTGRES_MONITOR_PASSWORD=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" >> "$WORK/prod.env"
 docker compose --project-directory "$ROOT" --env-file "$WORK/prod.env" \
   -f "$ROOT/docker-compose.prod.yml" -f "$ROOT/docker-compose.monitoring.yml" config --quiet
+# APM 整套關閉（沒有 apm profile、沒有 APM_* 金鑰）時監控照樣能疊上（docs/architecture/08-monitoring.md §1.1）
+node "$ROOT/deploy/fake-prod-env.mjs" --no-apm > "$WORK/prod-no-apm.env"
+printf 'GRAFANA_ADMIN_PASSWORD=%s\nPOSTGRES_MONITOR_PASSWORD=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" >> "$WORK/prod-no-apm.env"
+docker compose --project-directory "$ROOT" --env-file "$WORK/prod-no-apm.env" \
+  -f "$ROOT/docker-compose.prod.yml" -f "$ROOT/docker-compose.monitoring.yml" config --quiet
+# 監控整套關閉 = 不疊 docker-compose.monitoring.yml；APM 開關兩種都要合法
+for env in prod.env prod-no-apm.env; do
+  docker compose --project-directory "$ROOT" --env-file "$WORK/$env" -f "$ROOT/docker-compose.prod.yml" config --quiet
+done
 docker compose --project-directory "$ROOT" -f "$ROOT/docker-compose.yml" --profile monitoring config --quiet
 
 echo '── Prometheus 的設定與告警規則'

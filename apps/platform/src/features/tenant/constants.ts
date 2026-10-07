@@ -72,6 +72,7 @@ export const TENANT_FEATURE_LABEL_KEY = {
   tenantSwitch: 'tenant.feature.tenantSwitch',
   webhook: 'tenant.feature.webhook',
   announcement: 'tenant.feature.announcement',
+  externalApi: 'tenant.feature.externalApi',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
@@ -84,6 +85,7 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
   tenantSwitch: 'tenant.feature.tenantSwitchDescription',
   webhook: 'tenant.feature.webhookDescription',
   announcement: 'tenant.feature.announcementDescription',
+  externalApi: 'tenant.feature.externalApiDescription',
 } as const satisfies Record<TenantFeature, string>;
 
 /**
@@ -93,6 +95,7 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   identityProvider: 'tenant.feature.identityProviderDisableWarning',
   webhook: 'tenant.feature.webhookDisableWarning',
   announcement: 'tenant.feature.announcementDisableWarning',
+  externalApi: 'tenant.feature.externalApiDisableWarning',
 };
 
 /** 關閉 feature 會影響的項目（`GET /platform/tenants/:id/features/:feature/impact`）。 */

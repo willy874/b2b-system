@@ -6,10 +6,10 @@ import type { MailContent, MailLocale } from '@/core/mail';
 const COPY = {
   'zh-TW': {
     subject: (code: string) => `${code} 是你的驗證碼`,
-    preview: '兩步驟驗證的驗證碼',
+    preview: '多重驗證的驗證碼',
     greeting: (name: string) => `${name}，你好：`,
     body: {
-      login: '你正在登入，請輸入以下驗證碼完成兩步驟驗證：',
+      login: '你正在登入，請輸入以下驗證碼完成多重驗證：',
       enroll: '你正在設定以 Email 接收驗證碼，請輸入以下驗證碼確認：',
     },
     expiry: (minutes: number) => `驗證碼 ${minutes} 分鐘內有效，只能使用一次。`,
@@ -18,10 +18,10 @@ const COPY = {
   },
   'en-US': {
     subject: (code: string) => `${code} is your verification code`,
-    preview: 'Your two-step verification code',
+    preview: 'Your multi-factor authentication code',
     greeting: (name: string) => `Hi ${name},`,
     body: {
-      login: 'You are signing in. Enter this code to complete two-step verification:',
+      login: 'You are signing in. Enter this code to complete multi-factor authentication:',
       enroll: 'You are setting up email verification codes. Enter this code to confirm:',
     },
     expiry: (minutes: number) => `The code is valid for ${minutes} minutes and can be used once.`,

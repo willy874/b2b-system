@@ -48,7 +48,7 @@ function renderSection(canReset: boolean) {
   );
 }
 
-describe('使用者詳情的兩步驟驗證（docs/architecture/backend/21-mfa.md §8）', () => {
+describe('使用者詳情的多重驗證（docs/architecture/backend/21-mfa.md §8）', () => {
   it('有 user:update（不是自己）→ 可以重設，先確認再送出', async () => {
     renderSection(true);
     expect(await screen.findByText('iPhone')).toBeInTheDocument();

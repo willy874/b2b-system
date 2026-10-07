@@ -226,9 +226,9 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `migrate`  | `b2b-system-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
 | `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
-| `apm-service` | `apps/apm-service/Dockerfile` | 前端錯誤與 Web Vitals 的收件，模擬 Sentry API（[`07-apm-service.md`](./07-apm-service.md)）；`127.0.0.1:9100` 給上傳 sourcemap、查詢與 `/metrics` | — |
-| `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api、apm-service healthy        |
-| `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api、apm-service healthy |
+| `apm-service` | `apps/apm-service/Dockerfile` | 前端錯誤與 Web Vitals 的收件，模擬 Sentry API（[`07-apm-service.md`](./07-apm-service.md)）；`127.0.0.1:9100` 給上傳 sourcemap、查詢與 `/metrics`。compose 的 `apm` profile：可整套關閉（[`07-apm-service.md`](./07-apm-service.md) §8.1） | — |
+| `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy；APM 開啟時另等 apm-service |
+| `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy；APM 開啟時另等 apm-service |
 | `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)） | migrate 成功結束、file-storage healthy |
 | `external-gateway` | `nginxinc/nginx-unprivileged:1.30.5-alpine`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
 
@@ -286,6 +286,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   LB 在別台主機時設成主機在 LB 那一側的位址，並以防火牆限制只有 LB 能連：直接連 nginx 會繞過 TLS 與 LB 上的防護。
 - **監控**（選用）：`docker compose … -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d` 多出 Prometheus、Tempo、Grafana、postgres-exporter，
   api、external-api、apm-service 接上只有監控服務的 `monitoring` 網路；Grafana 只綁 `MONITORING_BIND_ADDRESS`（預設 `127.0.0.1:3300`）。見 [`08-monitoring.md`](./08-monitoring.md) §6。
+  不疊這份檔案就是監控整套關閉：api 不開 `/metrics`、不送 trace（`MONITORING_ENABLED`，[`08-monitoring.md`](./08-monitoring.md) §1.1）。
 - **NAT 的設計假設**：企業客戶的上千名員工常共用一個出口 IP。已登入的請求以使用者計、未登入與登入類端點的 IP 桶
   按「整間公司在同一個 IP」估算（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）；
   數值不夠時調環境變數，不必改程式。

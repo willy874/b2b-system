@@ -37,7 +37,6 @@
       "unknown": "審批"
     },
     "event": {
-      "title": "事件通知",
       "description": "系統會在這些事件發生時通知相關的人。關掉某個管道後就不再送出；已送出的通知不受影響，重新開啟也不會補發。",
       "recipients": "收件人：{{recipients}}",
       "default": "預設：{{value}}",

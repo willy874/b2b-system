@@ -49,6 +49,7 @@ async function bootstrap(): Promise<void> {
         app: 'platform',
         release: ENV.RELEASE,
         environment: ENV.MODE,
+        enabled: ENV.APM_ENABLED,
         dsn: ENV.APM_DSN,
         projectId: ENV.APM_PROJECT_ID,
         publicKey: ENV.APM_PUBLIC_KEY,

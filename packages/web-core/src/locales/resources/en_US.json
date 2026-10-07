@@ -412,6 +412,8 @@
     "scheduledAt": "Scheduled for {{time}}",
     "queues": {
       "title": "Job types",
+      "open": "Queue overview",
+      "hint": "Click a card to add it to or remove it from the list filter. You can pick several.",
       "cron": "Schedule: {{cron}} (UTC)",
       "onDemand": "Queued by the application",
       "ready_one": "Waiting {{count}}",
@@ -495,7 +497,7 @@
       "back": "Use another method"
     },
     "challenge": {
-      "title": "Two-step verification",
+      "title": "Multi-factor authentication",
       "description": "Complete the second step to sign in.",
       "chooseFactor": "Verification method",
       "verify": "Verify",
@@ -528,7 +530,7 @@
       "label": "Current password"
     },
     "self": {
-      "title": "Two-step verification",
+      "title": "Multi-factor authentication",
       "description": "Enter a verification code in addition to your password when signing in, so a leaked password alone can't get in.",
       "enabled": "On",
       "disabled": "Off",
@@ -541,7 +543,7 @@
       "removed": "Verification method removed.",
       "removeTitle": "Remove verification method",
       "removeDescription": "Enter your current password to confirm. Removing your last method also invalidates your recovery codes.",
-      "removeLastRequired": "Your account requires two-step verification, so you can't remove the last method.",
+      "removeLastRequired": "Your account requires multi-factor authentication, so you can't remove the last method.",
       "recoveryRemaining_one": "{{count}} recovery code left",
       "recoveryRemaining_other": "{{count}} recovery codes left",
       "regenerate": "Regenerate recovery codes",
@@ -549,7 +551,7 @@
       "regenerateDescription": "Enter your current password to confirm. All old recovery codes will stop working."
     },
     "admin": {
-      "title": "Two-step verification",
+      "title": "Multi-factor authentication",
       "none": "No verification methods set up.",
       "reset": "Reset MFA",
       "resetTitle": "Reset MFA for this account?",

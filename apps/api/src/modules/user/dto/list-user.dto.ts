@@ -1,19 +1,12 @@
 import { z } from 'zod';
 
-import { PaginationSchema, SortSchema } from '@/core/http';
+import { PaginationSchema, QueryArraySchema, SortSchema } from '@/core/http';
 import { TagIdsFilterSchema } from '@/modules/tag/dto/tag.dto';
-
-/** 重複 key 的查詢參數（`?status=a&status=b`）在 express 會是陣列。 */
-const multiValue = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess((value) => {
-    if (value === undefined) return undefined;
-    return Array.isArray(value) ? value : [value];
-  }, z.array(schema).optional());
 
 export const ListUserSchema = PaginationSchema.extend({
   keyword: z.string().trim().max(100).optional(),
-  status: multiValue(z.enum(['pending', 'active', 'inactive', 'locked'])),
-  roleId: multiValue(z.string().uuid()),
+  status: QueryArraySchema(z.enum(['pending', 'active', 'inactive', 'locked'])),
+  roleId: QueryArraySchema(z.string().uuid()),
   /** 有沒有設定 MFA（docs/architecture/backend/21-mfa.md §6：找出不符合政策的人）。 */
   mfa: z
     .enum(['true', 'false'])

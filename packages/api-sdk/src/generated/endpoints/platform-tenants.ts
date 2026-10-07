@@ -157,7 +157,8 @@ export interface PlatformTenantControllerFeatureImpactPathParams {
     | 'identityProvider'
     | 'tenantSwitch'
     | 'webhook'
-    | 'announcement';
+    | 'announcement'
+    | 'externalApi';
 }
 
 export interface PlatformTenantControllerFeatureImpactInput {

@@ -129,8 +129,9 @@ test('人員與權限', async ({ page }) => {
   await scene('user-detail-explain', async () => {
     const dialog = await open(page, `/user/${demo.userIds[0]}`, 'user-detail-dialog');
     await dialog.getByTestId('user-permission-sources-show').click();
-    await expect(dialog.getByTestId('permission-source-list')).toBeVisible();
-    await dialog.getByTestId('user-permission-sources').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('permission-source-list')).toBeVisible();
+    await page.getByTestId('permission-source').first().click();
+    await expect(page.getByTestId('permission-source-viewer')).toBeVisible();
     await shoot(page, 'user-detail-explain');
   });
   await scene('user-tag-assign', async () => {
@@ -341,7 +342,7 @@ test('通知、公告、Webhook', async ({ page }) => {
     await shoot(page, 'notification-list');
   });
   await scene('notification-events', async () => {
-    await open(page, '/notification/events', 'notification-event-page');
+    await open(page, '/system/notification-events', 'notification-event-page');
     await shoot(page, 'notification-events');
   });
   await scene('notification-overview', async () => {

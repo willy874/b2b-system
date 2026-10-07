@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 import { usePagePermission } from '@/core/permission';
+import { SystemSettingsLayout } from '@/core/system-settings';
 
 import { useMfaPolicyForm } from '../../hooks/useMfaPolicyForm';
 import { SECURITY_MFA_PAGE } from '../../permission';
@@ -22,8 +23,17 @@ import { SECURITY_MFA_PAGE } from '../../permission';
 /**
  * 租戶的 MFA 政策（docs/architecture/backend/21-mfa.md §6）：允許的方式、全員必須、指定角色必須。
  * 收緊立即生效但不踢人：已登入的人下一次登入才被要求設定。沒有 `mfaPolicy:update` 時唯讀。
+ * 是系統設定的「安全性」分頁（docs/architecture/frontend/02-plugin-system.md §4.5）。
  */
 export default function MfaPolicyPage() {
+  return (
+    <SystemSettingsLayout>
+      <MfaPolicyForm />
+    </SystemSettingsLayout>
+  );
+}
+
+function MfaPolicyForm() {
   const { t } = useTranslation();
   const permission = usePagePermission(SECURITY_MFA_PAGE);
   const canUpdate = permission.hydrated && permission.canUpdate;

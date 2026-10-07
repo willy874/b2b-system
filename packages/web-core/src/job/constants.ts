@@ -37,3 +37,9 @@ export const JOB_STATE_TONE = {
 export function isFinalJobState(state: JobState): boolean {
   return state === 'completed' || state === 'cancelled' || state === 'failed';
 }
+
+/** 工作在背景持續變化：列表與佇列概況每 10 秒重新整理一次，不必手動重新載入。 */
+export const JOB_REFRESH_INTERVAL_MS = 10_000;
+
+/** 列表的每頁筆數選項（兩個 app 相同）。 */
+export const JOB_PAGE_SIZE_OPTIONS = [25, 50, 100];

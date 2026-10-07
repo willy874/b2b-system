@@ -14,6 +14,8 @@ export function useUserPermission() {
       ...page,
       canAssignRole: can(PermissionKey['user:assignRole']),
       canResetPassword: can(PermissionKey['user:resetPassword']),
+      /** 重設別人的 MFA：獨立的權限，`user:update` 不包含它（docs/architecture/backend/21-mfa.md §8） */
+      canResetMfa: can(PermissionKey['user:resetMfa']),
       /** 解鎖與停用共用 user:update */
       canUnlock: page.canUpdate,
       canReadRoles: can(PermissionKey['role:read']),

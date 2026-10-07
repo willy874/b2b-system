@@ -11,7 +11,7 @@ export function registerFeatureFlagNavigation(): void {
     to: '/feature-flag',
     labelKey: 'menu.featureFlag',
     testId: 'menu-feature-flag',
-    icon: 'pin',
+    icon: 'flag',
     group: NavGroupKey.TENANT,
     order: 200,
   });

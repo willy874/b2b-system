@@ -25,6 +25,7 @@ import { permissionFeaturePlugin } from '@/features/permission';
 import { roleFeaturePlugin } from '@/features/role';
 import { securityFeaturePlugin } from '@/features/security';
 import { serviceAccountFeaturePlugin } from '@/features/service-account';
+import { systemFeaturePlugin } from '@/features/system';
 import { tagFeaturePlugin } from '@/features/tag';
 import { userFeaturePlugin } from '@/features/user';
 import {
@@ -61,6 +62,7 @@ async function bootstrap(): Promise<void> {
         app: 'backstage',
         release: ENV.RELEASE,
         environment: ENV.MODE,
+        enabled: ENV.APM_ENABLED,
         dsn: ENV.APM_DSN,
         projectId: ENV.APM_PROJECT_ID,
         publicKey: ENV.APM_PUBLIC_KEY,
@@ -111,6 +113,7 @@ async function bootstrap(): Promise<void> {
     .use(accountFeaturePlugin())
     .use(notificationFeaturePlugin())
     .use(securityFeaturePlugin())
+    .use(systemFeaturePlugin())
     // 擴充 feature 的小外掛：往偏好頁插「表格欄位」分頁
     .use(tableColumnSettingsPlugin())
     // 可啟用 feature 的安裝器（登入後依租戶的啟用清單安裝，docs/architecture/frontend/02-plugin-system.md §9）

@@ -21,8 +21,6 @@
       "platform": "Platform"
     },
     "filter": {
-      "allNames": "All jobs",
-      "allStates": "All states",
       "scope": "Scope",
       "allScopes": "All tenants and platform",
       "platformOnly": "Platform only",

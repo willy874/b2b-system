@@ -549,6 +549,28 @@ describe('MFA（docs/architecture/backend/21-mfa.md）', () => {
       expect(errorCode(self)).toBe('AUTHZ_SELF_MODIFY');
     });
 
+    it('重設要 user:resetMfa：只有 user:update 的人回 AUTHZ_FORBIDDEN', async () => {
+      const targetId = await createUser('mfa-target@example.com');
+      const editorId = await createUser('mfa-editor@example.com');
+      const role = dataOf<{ id: string }>(
+        await request(http)
+          .post('/roles')
+          .set('authorization', `Bearer ${await rootToken()}`)
+          .send({ name: '只能編輯使用者', permissionKeys: ['user:update'] })
+          .expect(201),
+      );
+      await request(http)
+        .put(`/users/${editorId}/roles`)
+        .set('authorization', `Bearer ${await rootToken()}`)
+        .send({ roleIds: [role.id], expectedRoleIds: [] })
+        .expect(200);
+      const denied = await request(http)
+        .post(`/users/${targetId}/mfa/reset`)
+        .set('authorization', `Bearer ${await directToken('mfa-editor@example.com')}`)
+        .expect(403);
+      expect(errorCode(denied)).toBe('AUTHZ_FORBIDDEN');
+    });
+
     it('反提權：admin 不能重設 super-admin 的 MFA', async () => {
       const adminId = await createUser('mfa-admin@example.com');
       const [adminRole] = await db.select().from(roles).where(eq(roles.slug, 'admin'));

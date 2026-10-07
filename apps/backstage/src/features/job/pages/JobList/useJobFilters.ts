@@ -10,7 +10,7 @@ export type JobFilterValues = Pick<JobSearchQuery, 'name' | 'state'>;
 
 const EMPTY_FILTERS: JobFilterValues = { name: undefined, state: undefined };
 
-/** 篩選面板：工作種類（選項來自佇列清單）、狀態。 */
+/** 篩選面板：工作種類（選項來自佇列清單）、狀態，兩者都可以多選。 */
 export function useJobFilters(
   { search, setFilter }: ReturnType<typeof useJobSearchFilter>,
   queues: JobQueueVM[],
@@ -22,20 +22,18 @@ export function useJobFilters(
     onSubmit: setFilter,
     fields: [
       {
-        type: 'select',
+        type: 'multiSelect',
         key: 'name',
         label: t('job.field.name'),
-        allLabel: t('job.filter.allNames'),
         options: queues.map((queue) => ({
           value: queue.name,
           label: queue.labelKey ? t(queue.labelKey) : queue.name,
         })),
       },
       {
-        type: 'select',
+        type: 'multiSelect',
         key: 'state',
         label: t('job.field.state'),
-        allLabel: t('job.filter.allStates'),
         options: JOB_STATES.map((state) => ({
           value: state,
           label: t(JOB_STATE_LABEL_KEY[state]),

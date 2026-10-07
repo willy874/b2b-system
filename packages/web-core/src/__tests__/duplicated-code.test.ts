@@ -32,6 +32,8 @@ const KNOWN_SIMILAR: Readonly<Record<string, string>> = {
     '只差語系鍵與登入頁的路徑；可比照 sessionEndMessageKey 把流程搬進 web-core（待做）',
   'apps/backstage/src/features/auth/pages/SsoCallback/page.tsx ↔ apps/platform/src/features/login/pages/SsoCallback/page.tsx':
     '只差語系鍵；可比照 sessionEndMessageKey 把流程搬進 web-core（待做）',
+  'apps/backstage/src/features/job/pages/JobList/page.tsx ↔ apps/platform/src/features/job/pages/JobList/page.tsx':
+    '標題列、佇列概況、表格、展開狀態都在 web-core/job；剩下的是各 app 的端點、adapter 與 apps/platform 的租戶欄',
   'apps/backstage/src/features/notification/components/NotificationBell.tsx ↔ apps/platform/src/features/notification/components/NotificationBell.tsx':
     '打不同的端點（/notifications、/platform/notifications），未讀數與列表的 hook 各自一份',
 };

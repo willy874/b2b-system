@@ -1,12 +1,10 @@
 import { Button } from '@b2b-system/ui/Button';
-import { Spinner } from '@b2b-system/ui/Spinner';
-import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getUserPermissionSourcesQueryOptions } from '@/apis/user/get-user-permission-sources/query';
-import { PermissionSourceList } from '@/core/components';
+import { PermissionSourceDialog } from '@/core/components';
 
 interface ProfilePermissionSectionProps {
   userId: string;
@@ -14,7 +12,7 @@ interface ProfilePermissionSectionProps {
 
 /**
  * 自己的有效權限與來源（docs/architecture/iam/01-model.md §9 G4b）：查自己不需要任何權限，所以沒有 `user:read` 的人也從這裡看得到。
- * 讀不到的群組與角色只顯示種類（D14）。展開時才查。
+ * 讀不到的群組與角色只顯示種類（D14）。放在對話框裡（清單 → 來源），打開時才查。
  */
 export function ProfilePermissionSection({ userId }: ProfilePermissionSectionProps) {
   const { t } = useTranslation();
@@ -28,22 +26,21 @@ export function ProfilePermissionSection({ userId }: ProfilePermissionSectionPro
         {t('account.profile.effectiveHint')}
       </p>
       <div>
-        {!open ? (
-          <Button
-            size="sm"
-            onClick={() => setOpen(true)}
-            data-testid="profile-permission-sources-show"
-          >
-            {t('account.profile.showEffective')}
-          </Button>
-        ) : sources.isPending ? (
-          <Spinner size={16} />
-        ) : sources.isError ? (
-          <QueryError error={sources.error} onRetry={() => void sources.refetch()} />
-        ) : (
-          <PermissionSourceList data={sources.data} />
-        )}
+        <Button
+          size="sm"
+          onClick={() => setOpen(true)}
+          data-testid="profile-permission-sources-show"
+        >
+          {t('account.profile.showEffective')}
+        </Button>
       </div>
+      <PermissionSourceDialog
+        open={open}
+        onOpenChange={setOpen}
+        data={sources.data}
+        error={sources.error}
+        onRetry={() => void sources.refetch()}
+      />
     </section>
   );
 }

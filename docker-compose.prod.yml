@@ -2,6 +2,8 @@
 #   backstage（nginx：靜態檔 ＋ /api、/api/socket.io、/storage 反向代理）→ api（REST ＋ Socket.io）→ postgres
 #                                                         └──────→ file-storage（S3 相容）
 #   backstage／platform 的 nginx 另把 /apm/ 的收件端點轉給 apm-service（模擬 Sentry API，前端錯誤與 Web Vitals）
+#   apm-service 在 compose 的 `apm` profile：deploy/prod.env 的 COMPOSE_PROFILES=apm 與 APM_ENABLED 一起決定開不開
+#   （docs/architecture/07-apm-service.md §8.1）。監控是另一個疊加檔 docker-compose.monitoring.yml（08-monitoring.md §6）
 #   migrate 是一次性工作：migration ＋ 冪等 seed 跑完才啟動 api。
 # 網路切三段：backstage 碰不到 postgres；file-storage 與 postgres 互不相通。
 #
@@ -36,6 +38,9 @@ x-api-common-env: &api-common-env
   # external-api 也需要：檔案的縮圖網址以它簽章，由 api 的影像端點驗證（backend/09-file.md §5.4）
   FILE_URL_SIGNING_KEY: ${FILE_URL_SIGNING_KEY:?required}
   SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
+  # 監控整套的開關（docs/architecture/08-monitoring.md §1.1）：沒疊 docker-compose.monitoring.yml 時預設關閉（不開 /metrics、
+  # 不量指標、不載入 tracing）；疊上時那份檔案改成預設開啟。都可以在 deploy/prod.env 以 MONITORING_ENABLED 覆寫
+  MONITORING_ENABLED: ${MONITORING_ENABLED:-false}
   # 只信任 nginx 這一跳：nginx 以 real_ip 驗過前置 LB 之後，把 X-Forwarded-For 覆寫成單一的客戶端 IP
   # （deploy/nginx-real-ip.sh）。docker 的位址池不在私有網段時改成那個子網路或 1（docs/architecture/01-system.md §4.2）
   TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
@@ -291,8 +296,11 @@ services:
     # edge：nginx 轉發瀏覽器的直傳／下載；storage：api 的伺服器端呼叫
     networks: [edge, storage]
 
-  # 模擬 Sentry API 的前端錯誤收件（apps/apm-service，docs/architecture/07-apm-service.md）；事件與 sourcemap 在 volume
+  # 模擬 Sentry API 的前端錯誤收件（apps/apm-service，docs/architecture/07-apm-service.md）；事件與 sourcemap 在 volume。
+  # APM 整套的開關（07-apm-service.md §8.1）：只有 COMPOSE_PROFILES 含 apm 時才建置、啟動；關閉時同時設 APM_ENABLED=false，
+  # 前端不初始化錯誤回報、nginx 的 /apm/ 回 404
   apm-service:
+    profiles: [apm]
     image: b2b-system-apm-service
     build:
       context: .
@@ -300,8 +308,9 @@ services:
     restart: unless-stopped
     logging: *logging
     environment:
-      APM_PROJECTS: 1:backstage:${APM_BACKSTAGE_PUBLIC_KEY:?required},2:platform:${APM_PLATFORM_PUBLIC_KEY:?required}
-      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:?required}
+      # 不用 :?required：compose 對不在啟用 profile 裡的服務也做變數替換，APM 關閉時會被擋。開啟時缺值由 apm-service 啟動時的驗證擋下
+      APM_PROJECTS: 1:backstage:${APM_BACKSTAGE_PUBLIC_KEY:-},2:platform:${APM_PLATFORM_PUBLIC_KEY:-}
+      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:-}
       APM_RETENTION_DAYS: ${APM_RETENTION_DAYS:-30}
       # 只經 nginx 進來：nginx 以 real_ip 算好的來源放在 X-Real-IP，限流以它計數
       APM_TRUST_PROXY: 'true'
@@ -326,8 +335,10 @@ services:
         VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
         # 前端錯誤回報（docs/architecture/frontend/19-observability.md）：release 是 commit；DSN 在執行時以網域組成
         APP_RELEASE: ${APP_RELEASE:-unknown}
+        # APM_ENABLED=false：不初始化錯誤回報，什麼都不送（frontend/19-observability.md §8）
+        VITE_APM_ENABLED: ${APM_ENABLED:-true}
         VITE_APM_PROJECT_ID: '1'
-        VITE_APM_PUBLIC_KEY: ${APM_BACKSTAGE_PUBLIC_KEY:?required}
+        VITE_APM_PUBLIC_KEY: ${APM_BACKSTAGE_PUBLIC_KEY:-}
         VITE_APM_TRACES_SAMPLE_RATE: ${APM_TRACES_SAMPLE_RATE:-0.1}
     restart: unless-stopped
     logging: *logging
@@ -339,6 +350,8 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
       # 獨立的檔案網域（選填）：CSP 放行它；backstage 另產生它的 server（docs/architecture/backend/09-file.md §3.2）
       FILE_DOWNLOAD_ORIGIN: ${FILE_DOWNLOAD_ORIGIN:-}
+      # false：/apm/ 回 404，不轉給 apm-service（deploy/nginx-apm.sh）
+      APM_ENABLED: ${APM_ENABLED:-true}
     # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
     read_only: true
     tmpfs: [/tmp]
@@ -352,9 +365,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      # nginx 啟動時就解析 upstream 的名稱：apm-service 不在時 nginx 起不來
+      # APM 開啟時等它起來；apm profile 沒啟用時略過（nginx 以 resolver 在請求時才解析 apm-service，不在也起得來）
       apm-service:
         condition: service_healthy
+        required: false
 
   # 全平台共用的身分與租戶入口（docs/architecture/04-sso.md §12）：獨立的 origin，同樣反向代理到 api
   platform:
@@ -366,8 +380,10 @@ services:
         VITE_PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
         # 前端錯誤回報（docs/architecture/frontend/19-observability.md）：release 是 commit；DSN 在執行時以網域組成
         APP_RELEASE: ${APP_RELEASE:-unknown}
+        # APM_ENABLED=false：不初始化錯誤回報，什麼都不送（frontend/19-observability.md §8）
+        VITE_APM_ENABLED: ${APM_ENABLED:-true}
         VITE_APM_PROJECT_ID: '2'
-        VITE_APM_PUBLIC_KEY: ${APM_PLATFORM_PUBLIC_KEY:?required}
+        VITE_APM_PUBLIC_KEY: ${APM_PLATFORM_PUBLIC_KEY:-}
         VITE_APM_TRACES_SAMPLE_RATE: ${APM_TRACES_SAMPLE_RATE:-0.1}
     restart: unless-stopped
     logging: *logging
@@ -379,6 +395,8 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
       # 獨立的檔案網域（選填）：CSP 放行它；backstage 另產生它的 server（docs/architecture/backend/09-file.md §3.2）
       FILE_DOWNLOAD_ORIGIN: ${FILE_DOWNLOAD_ORIGIN:-}
+      # false：/apm/ 回 404，不轉給 apm-service（deploy/nginx-apm.sh）
+      APM_ENABLED: ${APM_ENABLED:-true}
     # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
     read_only: true
     tmpfs: [/tmp]
@@ -392,9 +410,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      # nginx 啟動時就解析 upstream 的名稱：apm-service 不在時 nginx 起不來
+      # APM 開啟時等它起來；apm profile 沒啟用時略過（nginx 以 resolver 在請求時才解析 apm-service，不在也起得來）
       apm-service:
         condition: service_healthy
+        required: false
 
 networks:
   edge:

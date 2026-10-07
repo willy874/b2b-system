@@ -15,6 +15,8 @@ export const PLATFORM_PERMISSION_SEED = [
   ['platformAdmin', 'read', 'permission.platformAdmin.read'],
   ['platformAdmin', 'create', 'permission.platformAdmin.create'],
   ['platformAdmin', 'update', 'permission.platformAdmin.update'],
+  // 重設別的平台管理者的 MFA：與 `platformAdmin:update` 分開授予（docs/architecture/backend/21-mfa.md §8）
+  ['platformAdmin', 'resetMfa', 'permission.platformAdmin.resetMfa'],
   ['platformAuditLog', 'read', 'permission.platformAuditLog.read'],
   ['platformJob', 'read', 'permission.platformJob.read'],
   ['platformJob', 'retry', 'permission.platformJob.retry'],

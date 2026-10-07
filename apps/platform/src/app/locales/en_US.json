@@ -58,7 +58,8 @@
       "update": "Edit user",
       "delete": "Delete user",
       "assignRole": "Assign roles",
-      "resetPassword": "Reset password"
+      "resetPassword": "Reset password",
+      "resetMfa": "Reset MFA"
     },
     "role": {
       "create": "Create role",
@@ -115,7 +116,8 @@
     "platformAdmin": {
       "read": "View platform administrators",
       "create": "Add platform administrators",
-      "update": "Manage platform administrators"
+      "update": "Manage platform administrators",
+      "resetMfa": "Reset platform admins' MFA"
     },
     "platformAuditLog": {
       "read": "View platform audit log"

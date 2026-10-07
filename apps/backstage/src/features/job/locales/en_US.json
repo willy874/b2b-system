@@ -7,10 +7,6 @@
       "fileMaintenance": "File maintenance",
       "tokenCleanup": "Expired sign-in token cleanup"
     },
-    "filter": {
-      "allNames": "All jobs",
-      "allStates": "All states"
-    },
     "detail": {
       "arraySummary_one": "{{count}} item",
       "arraySummary_other": "{{count}} items",

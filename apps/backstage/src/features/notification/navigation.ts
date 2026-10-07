@@ -1,6 +1,7 @@
 import { registerNavItem } from '@b2b-system/web-core/navigation';
 
 import { NavGroupKey } from '@/core/navigation';
+import { registerSystemSettingsTab } from '@/core/system-settings';
 
 import { NOTIFICATION_EVENT_PAGE, NOTIFICATION_OVERVIEW_PAGE } from './permission';
 
@@ -15,13 +16,15 @@ export function registerNotificationNavigation(): void {
     group: NavGroupKey.SYSTEM,
     order: 1000,
   });
-  registerNavItem({
+}
+
+/** 系統設定的「事件通知」分頁（docs/architecture/frontend/02-plugin-system.md §4.5）；側欄只有「系統設定」一個入口。 */
+export function registerNotificationEventTab(): void {
+  registerSystemSettingsTab({
+    key: 'notification-events',
     pageKey: NOTIFICATION_EVENT_PAGE,
-    to: '/notification/events',
+    to: '/system/notification-events',
     labelKey: 'menu.notificationEvent',
-    testId: 'menu-notification-event',
-    icon: 'bell',
-    group: NavGroupKey.SYSTEM,
-    order: 1100,
+    order: 300,
   });
 }

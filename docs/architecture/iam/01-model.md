@@ -581,7 +581,7 @@ Phase 0 **只做扁平的全域 RBAC**：
 | 帶路徑的主體閉包、全域權限的來源、接上閉包的來歷 | `core/authz`：`AuthzRepository.closurePaths`、`AuthzService.tenantSourcesOf`、`withClosurePath` |
 | 「自己或有權限」、依操作者遮蔽（D14）、權限來源 API | `modules/authz-explain`（`GET /users/:id/permission-sources`） |
 | 資料夾的說明 | `modules/file/file-access-explain.service.ts`（`GET /file-folders/:id/explain?userId=`） |
-| 前端 | `core/components/ExplainPath`（路徑、`PermissionSourceList`）、個人資料頁、使用者詳情、資料夾共用對話框 |
+| 前端 | `core/components/ExplainPath`（路徑、`PermissionSourceDialog`）、個人資料頁、使用者詳情、資料夾共用對話框 |
 | 規格 | [`08-explain.md`](./08-explain.md) |
 
 與提案不同的地方：
@@ -591,5 +591,5 @@ Phase 0 **只做扁平的全域 RBAC**：
 - **全域權限的來源不用判斷器的 `explain()`**：它只回第一條路徑；改以 `tenantSourcesOf` 列出租戶節點上直接取得的每一條邊，依賴樹帶出的鍵由閉包推出，
   一個鍵的所有來源（不同的角色、不同的群組）都列得出來。
 - **個人資料頁也有「我的有效權限」**：提案只寫了使用者詳情；但查自己不需要權限，沒有 `user:read` 的人進不了使用者詳情，
-  所以在個人資料頁另放一份（同一個 `PermissionSourceList`）。
+  所以在個人資料頁另放一份（同一個 `PermissionSourceDialog`）。
 - 「為什麼不能」的最接近缺口沒有做：不能做時只回 `allowed: false`（[`08-explain.md`](./08-explain.md) §6）。

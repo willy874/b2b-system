@@ -101,13 +101,13 @@ describe('PlatformJobService（docs/architecture/backend/10-jobs.md §6、docs/a
     });
 
     it('tenant=<代碼> → 只看那個租戶', async () => {
-      await service.list({ offset: 0, limit: 50, tenant: 'globex', state: 'failed' });
+      await service.list({ offset: 0, limit: 50, tenant: 'globex', state: ['failed'] });
       expect(store.list).toHaveBeenCalledWith({
         tenantId: 't2',
         names: NAMES,
         offset: 0,
         limit: 50,
-        state: 'failed',
+        state: ['failed'],
       });
     });
 

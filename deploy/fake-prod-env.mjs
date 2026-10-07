@@ -1,7 +1,8 @@
 // 一次性的正式環境變數（deploy/smoke-test.sh 用）：每次執行都產生新的隨機金鑰，形狀與 deploy/prod.env.example 相同，
 // 能通過 compose 的必填檢查與 api 的 production 驗證。只拿來測試，不要當成正式環境的值。
 //
-// 用法：node deploy/fake-prod-env.mjs > <檔案>
+// 用法：node deploy/fake-prod-env.mjs [--no-apm] > <檔案>
+//   --no-apm：APM 整套關閉（APM_ENABLED=false、不啟用 apm profile、不給 APM_* 金鑰；docs/architecture/07-apm-service.md §8.1）
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 
 const base64Key = () => randomBytes(32).toString('base64');
@@ -10,6 +11,8 @@ const hex = (bytes) => randomBytes(bytes).toString('hex');
 const signingKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
   format: 'jwk',
 });
+
+const apm = !process.argv.includes('--no-apm');
 
 const env = {
   PUBLIC_ORIGIN: 'https://app.example.com',
@@ -34,9 +37,16 @@ const env = {
   }),
   FILE_STORAGE_ACCESS_KEY_ID: hex(12),
   FILE_STORAGE_SECRET_ACCESS_KEY: base64Key(),
-  APM_BACKSTAGE_PUBLIC_KEY: hex(16),
-  APM_PLATFORM_PUBLIC_KEY: hex(16),
-  APM_AUTH_TOKEN: hex(24),
+  // APM 的開關：兩個值一起改（apm-service 在 compose 的 apm profile）
+  APM_ENABLED: String(apm),
+  ...(apm
+    ? {
+        COMPOSE_PROFILES: 'apm',
+        APM_BACKSTAGE_PUBLIC_KEY: hex(16),
+        APM_PLATFORM_PUBLIC_KEY: hex(16),
+        APM_AUTH_TOKEN: hex(24),
+      }
+    : {}),
   // 不會真的寄信：啟動時不連 SMTP
   MAIL_SMTP_URL: 'smtp://mail.invalid:25',
   MAIL_FROM: 'B2B System <no-reply@example.com>',

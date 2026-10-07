@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { PaginationSchema, SortSchema } from '@/core/http';
+import { PaginationSchema, QueryArraySchema, SortSchema } from '@/core/http';
 import { defineSchema, uniqueItems } from '@/core/validation';
 
 import { APPROVAL_STATUSES, APPROVAL_TYPES } from '../approval.constants';
@@ -30,18 +30,11 @@ export const ApprovalRequestSchema = defineSchema(
   }),
 );
 
-/** 重複 key 的查詢參數（`?status=a&status=b`）在 express 會是陣列。 */
-const multiValue = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess((value) => {
-    if (value === undefined) return undefined;
-    return Array.isArray(value) ? value : [value];
-  }, z.array(schema).optional());
-
 export const ListApprovalSchema = PaginationSchema.extend({
   /** 申請人名稱（註冊 = email）的部分比對。 */
   keyword: z.string().trim().max(100).optional(),
-  status: multiValue(z.enum(APPROVAL_STATUSES)),
-  type: multiValue(z.enum(APPROVAL_TYPES)),
+  status: QueryArraySchema(z.enum(APPROVAL_STATUSES)),
+  type: QueryArraySchema(z.enum(APPROVAL_TYPES)),
 }).extend(SortSchema(['createdAt', 'reviewedAt']).shape);
 
 const CommentSchema = z.string().trim().max(500);

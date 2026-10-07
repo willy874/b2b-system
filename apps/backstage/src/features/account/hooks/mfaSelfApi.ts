@@ -8,7 +8,7 @@ import { fetchRemoveMfaFactorMutation } from '@/apis/mfa/remove-mfa-factor/fetch
 import { fetchResendMfaChallengeMutation } from '@/apis/mfa/resend-mfa-challenge/fetcher';
 import { fetchStartMfaEnrollmentMutation } from '@/apis/mfa/start-mfa-enrollment/fetcher';
 
-/** 帳號設定頁的「兩步驟驗證」打的端點（web-core 的 `MfaSecuritySection`，docs/architecture/backend/21-mfa.md §7）。 */
+/** 帳號設定頁的「多重驗證」打的端點（web-core 的 `MfaSecuritySection`，docs/architecture/backend/21-mfa.md §7）。 */
 export const mfaSelfApi: MfaSelfApi = {
   overviewKey: [MFA_OVERVIEW_QUERY_KEY],
   fetchOverview: (signal) => fetchMfaOverviewQuery({ params: undefined, signal }),

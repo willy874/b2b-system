@@ -1,18 +1,14 @@
-import { registerNavItem } from '@b2b-system/web-core/navigation';
-
-import { NavGroupKey } from '@/core/navigation';
+import { registerSystemSettingsTab } from '@/core/system-settings';
 
 import { SECURITY_MFA_PAGE } from './permission';
 
-/** 側欄的入口；命令面板的「頁面」也列出它（docs/architecture/frontend/18-command-palette.md §2）。 */
+/** 系統設定的「安全性」分頁（docs/architecture/frontend/02-plugin-system.md §4.5）；側欄只有「系統設定」一個入口。 */
 export function registerSecurityNavigation(): void {
-  registerNavItem({
+  registerSystemSettingsTab({
+    key: 'security',
     pageKey: SECURITY_MFA_PAGE,
-    to: '/security/mfa',
+    to: '/system/security',
     labelKey: 'menu.security',
-    testId: 'menu-security',
-    icon: 'shield',
-    group: NavGroupKey.SYSTEM,
-    order: 850,
+    order: 200,
   });
 }

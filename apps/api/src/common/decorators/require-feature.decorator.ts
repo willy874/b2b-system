@@ -1,6 +1,10 @@
 import { SetMetadata } from '@nestjs/common';
+import type { Reflector } from '@nestjs/core';
 
 import type { TenantFeature } from '@/core/tenant';
+
+import { API_SURFACE } from './api-surface.decorator';
+import type { ApiSurface } from './api-surface.decorator';
 
 export const REQUIRED_FEATURE = 'tenancy:requiredFeature';
 
@@ -14,3 +18,20 @@ export const REQUIRED_FEATURE = 'tenancy:requiredFeature';
  */
 export const RequireFeature = (...features: [TenantFeature, ...TenantFeature[]]) =>
   SetMetadata(REQUIRED_FEATURE, features);
+
+/**
+ * 一個路由實際要求的 feature：handler 與 class 的 `@RequireFeature` 合併，**對外 API 的路由（`@ExternalApi()`）一律再加上
+ * `externalApi`**（docs/architecture/06-external-api.md §3.1）。不必在每個對外 controller 上標，新增的對外端點也不會漏掉；
+ * 兩邊都有的路由（`@Surface('both')`，健康檢查）不算對外。
+ *
+ * `FeatureGuard`（擋請求）與 `route-audit`（收集宣告）共用這一份規則。
+ */
+export function requiredFeaturesOf(
+  reflector: Reflector,
+  targets: Parameters<Reflector['getAllAndOverride']>[1],
+): TenantFeature[] {
+  const declared = reflector.getAllAndMerge<TenantFeature[]>(REQUIRED_FEATURE, targets);
+  const surface = reflector.getAllAndOverride<ApiSurface | undefined>(API_SURFACE, targets);
+  if (surface !== 'external' || declared.includes('externalApi')) return declared;
+  return [...declared, 'externalApi'];
+}

@@ -1,9 +1,6 @@
 {
   "security": {
-    "title": "Security",
-    "description": "Security policies for this organization. Changes take effect immediately and are recorded in the audit log.",
     "mfa": {
-      "tab": "Two-step verification",
       "description": "Choose which verification methods people can use and who must turn it on. Tightening the policy doesn't sign anyone out: they're asked to set it up at their next sign-in.",
       "methods": "Allowed verification methods",
       "allowAll": "Allow every method the platform offers",

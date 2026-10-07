@@ -333,7 +333,7 @@ describe('背景工作（docs/architecture/backend/10-jobs.md）', () => {
         const { items } = await store.list({
           tenantId,
           names: [AUDIT_LOG_ARCHIVE_JOB.name],
-          state: 'completed',
+          state: ['completed'],
           offset: 0,
           limit: 10,
         });
