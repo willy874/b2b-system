@@ -7,11 +7,11 @@ export const APPROVAL_PERMISSIONS = {
 
 /**
  * 需要審批的變更類型。新增一種類型 = 在這裡加一個值 ＋ 在負責的模組實作並註冊一個
- * `ApprovalHandler`（docs/rbac/06-approval.md §4）。
+ * `ApprovalHandler`（docs/architecture/backend/20-approval.md §4）。
  */
 export const ApprovalType = {
   USER_REGISTER: 'user.register',
-  /** 申請資料夾存取（docs/rbac/07-resource-grants.md §6.5）；handler 在 modules/file。 */
+  /** 申請資料夾存取（docs/architecture/iam/06-resource-grants.md §6.5）；handler 在 modules/file。 */
   FILE_FOLDER_ACCESS: 'fileFolder.access',
 } as const;
 

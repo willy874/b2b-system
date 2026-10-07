@@ -59,18 +59,18 @@
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
 | 登入與 SSO | apps/platform 的登入互動頁、外部 IdP（OIDC）與網域導向、單一登出、忘記密碼、啟用信、註冊申請 | [§1](./05-feature-tour.md#1-登入) | [`04-sso.md`](../architecture/04-sso.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) |
-| 使用者 | 列表（搜尋、排序、篩選、跨頁選取）、建立、編輯、停用、解鎖、重設密碼、指派角色、批次操作 | [§2.1](./05-feature-tour.md#21-使用者) | [`rbac/04-api-spec.md`](../rbac/04-api-spec.md) |
-| 角色 | 建立、複製、權限技能樹、系統角色保護、版本紀錄與還原 | [§2.2](./05-feature-tour.md#22-角色) | [`rbac/01-domain-model.md`](../rbac/01-domain-model.md) |
-| 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./05-feature-tour.md#23-群組) | [`rbac/08-groups.md`](../rbac/08-groups.md) |
-| 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.4](./05-feature-tour.md#24-權限目錄與有效權限) | [`rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md)、[`rbac/09-explain.md`](../rbac/09-explain.md) |
+| 使用者 | 列表（搜尋、排序、篩選、跨頁選取）、建立、編輯、停用、解鎖、重設密碼、指派角色、批次操作 | [§2.1](./05-feature-tour.md#21-使用者) | [`iam/04-api.md`](../architecture/iam/04-api.md) |
+| 角色 | 建立、複製、權限技能樹、系統角色保護、版本紀錄與還原 | [§2.2](./05-feature-tour.md#22-角色) | [`iam/01-model.md`](../architecture/iam/01-model.md) |
+| 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./05-feature-tour.md#23-群組) | [`iam/07-groups.md`](../architecture/iam/07-groups.md) |
+| 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.4](./05-feature-tour.md#24-權限目錄與有效權限) | [`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md)、[`iam/08-explain.md`](../architecture/iam/08-explain.md) |
 | 服務帳號與 API token | 個人與服務帳號的 token（scopes、到期、撤銷）、對外 API | [§2.5](./05-feature-tour.md#25-服務帳號與-api-token) | [`06-external-api.md`](../architecture/06-external-api.md) |
-| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則 | [§3.2](./05-feature-tour.md#32-審批) | [`rbac/06-approval.md`](../rbac/06-approval.md) |
+| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則 | [§3.2](./05-feature-tour.md#32-審批) | [`backend/20-approval.md`](../architecture/backend/20-approval.md) |
 
 ### 3.2 資料與內容
 
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
-| 檔案 | S3 直傳、分塊上傳、影像變體、檔案管理器、資料夾層級的授權與繼承 | [§3.1](./05-feature-tour.md#31-檔案管理器) | [`backend/09-file.md`](../architecture/backend/09-file.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) |
+| 檔案 | S3 直傳、分塊上傳、影像變體、檔案管理器、資料夾層級的授權與繼承 | [§3.1](./05-feature-tour.md#31-檔案管理器) | [`backend/09-file.md`](../architecture/backend/09-file.md)、[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md) |
 | 標籤 | 依資源類型分開的標籤組、列表依標籤篩選 | [§3.3](./05-feature-tour.md#33-標籤) | [`backend/18-tag.md`](../architecture/backend/18-tag.md) |
 | 稽核日誌 | 所有寫入與授權決策；前後差異；熱冷分層 | [§4.1](./05-feature-tour.md#41-稽核日誌) | [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) |
 | 回收桶與版本歷史 | 樂觀鎖（`version` 必填）、刪除後可還原、到期永久刪除、角色的版本差異與還原 | [§4.2](./05-feature-tour.md#42-回收桶與版本紀錄) | [`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) |
@@ -111,7 +111,7 @@
 ### 4.1 租戶的系統角色
 
 以下四個是 **系統角色（`is_system = true`）**：不可刪除、不可改名。完整的權限清單在
-[`apps/api/src/db/seeds/roles.ts`](../../apps/api/src/db/seeds/roles.ts) 與 [`rbac/05-seed-and-bootstrap.md`](../rbac/05-seed-and-bootstrap.md)。
+[`apps/api/src/db/seeds/roles.ts`](../../apps/api/src/db/seeds/roles.ts) 與 [`iam/05-bootstrap.md`](../architecture/iam/05-bootstrap.md)。
 
 | 角色 | slug | 用途 | 權限 |
 | --- | --- | --- | --- |
@@ -124,7 +124,7 @@
 
 ### 4.2 平台角色
 
-平台管理者的角色固定三種，權限不存資料庫（[`rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §8）：
+平台管理者的角色固定三種，權限不存資料庫（[`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md) §8）：
 
 | 角色 | 用途 |
 | --- | --- |
@@ -136,7 +136,7 @@
 
 ## 5. 核心使用者故事
 
-完整的流程與錯誤碼在 [`rbac/03-flows.md`](../rbac/03-flows.md)；E2E 涵蓋的情境在 [`frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1。
+完整的流程與錯誤碼在 [`iam/03-flows.md`](../architecture/iam/03-flows.md)；E2E 涵蓋的情境在 [`frontend/10-testing.md`](../architecture/frontend/10-testing.md) §4.1。
 
 **作為管理者，我希望調整角色權限後立刻生效，以便快速回應風險。**
 

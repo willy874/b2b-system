@@ -151,7 +151,7 @@
 
 ## 6. API
 
-都標 `@RequireFeature('webhook')`。權限見 [`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §2.13。
+都標 `@RequireFeature('webhook')`。權限見 [`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §2.13。
 
 | 方法 | 路徑 | 權限 | 說明 |
 | --- | --- | --- | --- |

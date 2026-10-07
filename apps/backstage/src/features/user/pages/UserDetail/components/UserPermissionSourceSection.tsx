@@ -13,7 +13,7 @@ interface UserPermissionSourceSectionProps {
 }
 
 /**
- * 有效權限與每個權限的來源（docs/rbac/01-domain-model.md §9 G4b）。看自己不需要權限，看別人要 `authz:explain`（呼叫端決定是否顯示）。
+ * 有效權限與每個權限的來源（docs/architecture/iam/01-model.md §9 G4b）。看自己不需要權限，看別人要 `authz:explain`（呼叫端決定是否顯示）。
  * 內容多，展開時才查。
  */
 export function UserPermissionSourceSection({ userId }: UserPermissionSourceSectionProps) {

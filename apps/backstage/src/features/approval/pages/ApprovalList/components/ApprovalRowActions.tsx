@@ -16,7 +16,7 @@ interface ApprovalRowActionsProps {
 }
 
 /**
- * 列上的快速審核：確認後直接核准或駁回，不開審核對話框（docs/rbac/06-approval.md §6）。
+ * 列上的快速審核：確認後直接核准或駁回，不開審核對話框（docs/architecture/backend/20-approval.md §6）。
  * 快速核准 **不指派角色**、不附意見；要指派角色請開對話框逐筆審。
  */
 export function ApprovalRowActions({ row }: ApprovalRowActionsProps) {

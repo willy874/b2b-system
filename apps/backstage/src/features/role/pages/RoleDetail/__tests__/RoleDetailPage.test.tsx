@@ -186,7 +186,7 @@ describe('RoleDetailPage', () => {
     expect(screen.queryByTestId('role-manage-permission-button')).not.toBeInTheDocument();
   });
 
-  it('有 group:read → 持有者分「直接持有」與「經由群組」，以 roleId 查群組（docs/rbac/01-domain-model.md §9 G4）', async () => {
+  it('有 group:read → 持有者分「直接持有」與「經由群組」，以 roleId 查群組（docs/architecture/iam/01-model.md §9 G4）', async () => {
     renderRoute(routes, `/role/${ROLE_ID}`, [
       'role:read',
       'user:read',

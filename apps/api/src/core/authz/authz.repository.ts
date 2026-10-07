@@ -83,7 +83,7 @@ export class AuthzRepository {
   /**
    * 一位使用者的主體閉包，每個主體附上「怎麼來的」：從使用者本人（或 `user:*`）走到它的鏈，取最短的一條
    * （例：`role:r#holder` ← `[user:u, group:g#member, group:h#member, role:r#holder]`）。
-   * `AuthzChecker.explain()` 的路徑從閉包裡的主體開始，接上這條鏈才是完整的說明（docs/rbac/01-domain-model.md §9.3 D14、G4b）。
+   * `AuthzChecker.explain()` 的路徑從閉包裡的主體開始，接上這條鏈才是完整的說明（docs/architecture/iam/01-model.md §9.3 D14、G4b）。
    * 規則與 `subjectClosures` 相同（只走未刪除的角色與群組、未過期的邊）。
    */
   async closurePaths(

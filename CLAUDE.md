@@ -16,12 +16,12 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的程式在 `packages/`（下方「Monorepo 結構」） |
 | 改兩個前端共用的程式、判斷程式該放 app 還是 package、加第三個前端 | [`docs/architecture/frontend/17-shared-packages.md`](docs/architecture/frontend/17-shared-packages.md)（§2 程式放哪、§3 app 怎麼接上 web-core、§7 常見陷阱）；各 package 的 README |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、部署） |
-| 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19` |
+| 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19`；審批（申請 → 核准 → 套用）看 `20` |
 | 前端錯誤回報、release、Web Vitals、bundle 預算 | [`docs/architecture/frontend/19-observability.md`](docs/architecture/frontend/19-observability.md)（機制在 `web-core/telemetry`）、[`docs/architecture/07-apm-service.md`](docs/architecture/07-apm-service.md)（收件服務） |
 | api 的指標、tracing、健康檢查、Grafana／Prometheus／Tempo 的部署與告警 | [`docs/architecture/08-monitoring.md`](docs/architecture/08-monitoring.md)（指標清單在 `core/metrics/instruments.ts`，§2.4 加指標的方式；tracing 在 `src/instrumentation.ts`） |
 | 對外 API、API token 的驗證 | [`docs/architecture/06-external-api.md`](docs/architecture/06-external-api.md)（獨立的程序；對外的 controller 標 `@ExternalApi()`、放 `modules/<name>/external/`） |
 | 登入、SSO、apps/platform | [`docs/architecture/04-sso.md`](docs/architecture/04-sso.md)（§1.1 租戶與平台的身分範圍）、[`apps/platform/README.md`](apps/platform/README.md)（與 backstage 共用的 packages、刻意各自一份的部分與同步規則） |
-| 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md)；群組看 [`docs/rbac/08-groups.md`](docs/rbac/08-groups.md)；「為什麼能做 X」看 [`docs/rbac/09-explain.md`](docs/rbac/09-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
+| 權限相關 | [`docs/architecture/iam/02-permission-catalog.md`](docs/architecture/iam/02-permission-catalog.md)；群組看 [`docs/architecture/iam/07-groups.md`](docs/architecture/iam/07-groups.md)；「為什麼能做 X」看 [`docs/architecture/iam/08-explain.md`](docs/architecture/iam/08-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
 | 挑下一個要做的功能 | [`docs/features/README.md`](docs/features/README.md)（待製作清單；完成後刪提案、寫正式文件歸檔） |
 | 處理已知問題 | [`docs/issues/README.md`](docs/issues/README.md)（現有程式的問題與技術債；修完刪掉該份文件） |
 | 寫程式規範 | [`docs/coding-standards/`](docs/coding-standards/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
@@ -56,7 +56,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 2. `apps/api/src/modules/<name>/`
 3. `docs/` 對應章節
 
-權限變更額外要同步：`docs/rbac/02-permission-catalog.md`、
+權限變更額外要同步：`docs/architecture/iam/02-permission-catalog.md`、
 `apps/api/src/db/seeds/permissions.ts`、前端 `features/<name>/permission.ts`、
 該 app 兩個語系檔（`app/locales/*.json`）的 `permission.<resource>.<action>`。
 錯誤碼變更：`packages/error-codes` ＋ `packages/web-core` 的 `ERROR_MESSAGE_KEY` 與語系檔 `error.<CODE>`（app 不必改）。
@@ -115,7 +115,7 @@ pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出；db:migrate 登記的預設租戶另要 --database <名稱>
 pnpm --filter @b2b-system/api cli:reset-super-admin (--tenant <代碼> | --platform) --email <email>
-                    # 災難復原：super-admin 忘記密碼又收不到信時，簽發一次性的重設連結並寫稽核（docs/rbac/05-seed-and-bootstrap.md §7）；不在本機的 DB 要加 --confirm <平台 database 名稱>
+                    # 災難復原：super-admin 忘記密碼又收不到信時，簽發一次性的重設連結並寫稽核（docs/architecture/iam/05-bootstrap.md §7）；不在本機的 DB 要加 --confirm <平台 database 名稱>
 pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/openapi.json apps/api/openapi.external.json && pnpm sdk:generate
                     # 改動 controller / DTO／權限鍵之後必跑；openapi.json 不經 oxfmt 會多出整份的格式 diff，pre-commit 也會擋
 pnpm storybook      # packages/ui 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
@@ -128,7 +128,7 @@ pnpm --filter @b2b-system/e2e tour   # 重拍 docs/overview/05-feature-tour.md �
 
 ## 新增一個功能的順序
 
-1. `docs/rbac/02-permission-catalog.md` 加權限 →
+1. `docs/architecture/iam/02-permission-catalog.md` 加權限 →
    `apps/api/src/db/seeds/permissions.ts` 加 seed
 2. 後端：`modules/<name>/`（controller / service / repository / dto）
 3. `pnpm db:seed`，再依上方「常用指令」重新產生 openapi 與 SDK

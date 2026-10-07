@@ -121,7 +121,7 @@ export class FileService {
   /**
    * 帶 `cursor` 是 keyset 分頁（無限捲動），否則是 offset 分頁。兩種都回 `nextCursor` 與 `prevCursor`，
    * 所以 offset 模式的第一頁也能直接接著用游標往下捲；前端丟掉前面的頁之後以 `prevCursor` 往回取。
-   * 只列看得到的資料夾裡的檔案（docs/rbac/07-resource-grants.md §5.2）。
+   * 只列看得到的資料夾裡的檔案（docs/architecture/iam/06-resource-grants.md §5.2）。
    */
   async list(query: ListFileDto, actor: AuthUser): Promise<FileListDto> {
     let after: FileCursor | undefined;
@@ -561,7 +561,7 @@ export class FileService {
 
   /**
    * 改名、刪除只對已完成上傳、看得到的檔案（還在上傳中的視為不存在）；
-   * 能不能做看所在的資料夾與擁有者規則（docs/rbac/07-resource-grants.md §4）。
+   * 能不能做看所在的資料夾與擁有者規則（docs/architecture/iam/06-resource-grants.md §4）。
    */
   private async getModifiable(
     id: string,

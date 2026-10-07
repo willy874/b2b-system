@@ -29,7 +29,7 @@ async function seedPermissionsAndRoles(db: ScriptDatabase): Promise<void> {
 }
 
 /**
- * ④ 權限依賴樹讓角色實際持有的鍵多於明確授予的（docs/rbac/02-permission-catalog.md §9.3）：
+ * ④ 權限依賴樹讓角色實際持有的鍵多於明確授予的（docs/architecture/iam/02-permission-catalog.md §9.3）：
  * 每個多出鍵的角色寫一筆稽核 `role.permissionsImplied`，不靜默改變。冪等：同一個角色、同一組多出的鍵只寫一次。
  */
 export async function recordImpliedPermissions(db: ScriptDatabase): Promise<void> {

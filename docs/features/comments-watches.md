@@ -4,7 +4,7 @@
 - 狀態：提案
 - 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；留言、@提及、關注都要通知）
 - 相關：[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D7（多型關聯的命名）、[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7（標籤：同一種「擁有者登記資源類型」的做法）、
-  [`backend/13-trash.md`](../architecture/backend/13-trash.md)（刪除、還原與永久刪除）、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)
+  [`backend/13-trash.md`](../architecture/backend/13-trash.md)（刪除、還原與永久刪除）、[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 > 原本的提案是「標籤、留言、關注」；標籤已於 2026-10-02 完成並歸檔（[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7），這份只剩留言與關注。

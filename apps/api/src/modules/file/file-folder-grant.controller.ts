@@ -58,7 +58,7 @@ import { FileAccessRequestService } from './file-access-request.service';
 import { FileFolderGrantService } from './file-folder-grant.service';
 
 /**
- * 資料夾授權的管理（docs/rbac/07-resource-grants.md §6）。閘門是 `file:access` 或全域 `file:share`；
+ * 資料夾授權的管理（docs/architecture/iam/06-resource-grants.md §6）。閘門是 `file:access` 或全域 `file:share`；
  * 需要在該資料夾有 share（全域 `file:share` 或 `manager` 等級），由 service 判斷。
  */
 @ApiTags('files')
@@ -174,7 +174,7 @@ export class FileFolderGrantController {
   }
 
   /**
-   * 某位使用者為什麼能（不能）在這個資料夾做每個動作（docs/rbac/01-domain-model.md §9 G4b）。查自己不需要權限；查別人要 `authz:explain`
+   * 某位使用者為什麼能（不能）在這個資料夾做每個動作（docs/architecture/iam/01-model.md §9 G4b）。查自己不需要權限；查別人要 `authz:explain`
    * （service 判斷）。路徑上操作者讀不到的節點只回型別（D14）。
    */
   @Get('explain')

@@ -5,7 +5,7 @@ import { integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-or
 import { notDeleted } from './soft-delete';
 
 /**
- * 群組（docs/rbac/01-domain-model.md §9.3 D11、D12）：純分組，只存名稱與說明。
+ * 群組（docs/architecture/iam/01-model.md §9.3 D11、D12）：純分組，只存名稱與說明。
  * 成員（`group:<id>#member@user:<u>`／`@group:<h>#member`）與群組持有的角色（`role:<r>#holder@group:<id>#member`）
  * 都是 `relation_tuples` 的邊，不另開 `group_members`。
  */

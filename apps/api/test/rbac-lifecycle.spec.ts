@@ -277,7 +277,7 @@ describe('RBAC 生命週期（docs/overview/03-roadmap.md M4 驗收）', () => {
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SUPER_ADMIN_IMMUTABLE' } });
   });
 
-  it('super-admin 角色的名稱與說明不可變更（docs/rbac/01-domain-model.md §5）', async () => {
+  it('super-admin 角色的名稱與說明不可變更（docs/architecture/iam/01-model.md §5）', async () => {
     const token = await login(SUPER_ADMIN);
     const [role] = await db.select().from(roles).where(eq(roles.slug, 'super-admin'));
     const response = await request(http)

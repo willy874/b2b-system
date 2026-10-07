@@ -608,7 +608,7 @@ describe('外部 IdP 登入（docs/architecture/04-sso.md §12.2 D8–D11）', (
         return user!;
       }
 
-      it('只經由群組持有 admin 的帳號也不自動連結（rbac/08-groups.md §1：群組的成員都持有）', async () => {
+      it('只經由群組持有 admin 的帳號也不自動連結（docs/architecture/iam/07-groups.md §1：群組的成員都持有）', async () => {
         await userHoldingViaGroups('group-boss@acme.test', 'admin', ['Admins']);
         external.nextIdentity = {
           subject: 'acme-group-boss',

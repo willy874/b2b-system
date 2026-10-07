@@ -67,7 +67,7 @@ export function useFolderView({
     index,
     path,
     items,
-    /** 自己的個人資料夾（docs/rbac/07-resource-grants.md §12）；清單還沒載入或沒有時 undefined。 */
+    /** 自己的個人資料夾（docs/architecture/iam/06-resource-grants.md §12）；清單還沒載入或沒有時 undefined。 */
     personalFolderId: query.data?.personalFolderId ?? undefined,
     /** 目前位置（資料夾或根目錄）的能力；清單還沒載入時 undefined。 */
     location: query.data

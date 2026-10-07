@@ -370,7 +370,7 @@ useEffect(() => eventBus.on(GlobalEvents.USER_ROLES_CHANGED, refetch), []);
 
 ### Step 1 — 後端先行
 
-1. 在 `docs/rbac/02-permission-catalog.md` 加上權限（`session:read` / `session:delete`）
+1. 在 `docs/architecture/iam/02-permission-catalog.md` 加上權限（`session:read` / `session:delete`）
 2. `apps/api/src/db/seeds/permissions.ts` 加 seed
 3. 實作 `apps/api/src/modules/session/`
 4. `pnpm db:seed && pnpm sdk:generate`
@@ -444,7 +444,7 @@ apps/backstage/src/features/session/
 - [ ] 語系包在進入 `/session` 時才被下載（Network 面板確認）
 - [ ] 註解掉 `main.tsx` 那一行後，app 仍能正常啟動（只是少了這個功能）
 - [ ] 加上 `page.test.tsx` 與 MSW handler
-- [ ] 更新 `docs/rbac/02-permission-catalog.md` §5 的頁面權限表
+- [ ] 更新 `docs/architecture/iam/02-permission-catalog.md` §5 的頁面權限表
 
 ---
 

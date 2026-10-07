@@ -9,7 +9,7 @@ import { currentTenant } from '../tenant';
 import { InvalidationTracker } from './invalidation-tracker';
 
 export interface PermissionSet {
-  /** 持有的權限鍵；由關係圖解析時含權限依賴樹的閉包（docs/rbac/02-permission-catalog.md §9）。 */
+  /** 持有的權限鍵；由關係圖解析時含權限依賴樹的閉包（docs/architecture/iam/02-permission-catalog.md §9）。 */
   permissions: Set<PermissionKey>;
   isSuperAdmin: boolean;
   /**
@@ -91,7 +91,7 @@ export class PermissionCacheService {
   }
 
   /**
-   * 一個租戶的所有人（關係圖的 revision 變了，docs/rbac/01-domain-model.md §9.2 D8）。
+   * 一個租戶的所有人（關係圖的 revision 變了，docs/architecture/iam/01-model.md §9.2 D8）。
    * 收到其他程序的廣播時沒有租戶脈絡，所以以參數指明；省略時是目前的租戶。
    */
   invalidateTenant(tenantId: string = tenantKey()): void {

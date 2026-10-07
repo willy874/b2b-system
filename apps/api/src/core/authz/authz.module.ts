@@ -5,7 +5,7 @@ import { AuthzRepository } from './authz.repository';
 import { AuthzRevision } from './authz.revision';
 import { AuthzService } from './authz.service';
 
-/** 關係圖引擎（docs/rbac/01-domain-model.md §9）；全域，業務模組直接注入註冊表。 */
+/** 關係圖引擎（docs/architecture/iam/01-model.md §9）；全域，業務模組直接注入註冊表。 */
 @Global()
 @Module({
   providers: [AuthzRegistry, AuthzRepository, AuthzService, AuthzRevision],

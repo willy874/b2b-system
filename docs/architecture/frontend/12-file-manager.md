@@ -312,7 +312,7 @@ GET /files?folderId=<目前資料夾 | root>  → 主區塊的檔案（資料夾
 
 ## 13. 權限與共用（資料夾層級授權）
 
-規格：[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)。前端 **不重算** 繼承與擁有者規則，只讀後端的旗標。
+規格：[`../iam/06-resource-grants.md`](../iam/06-resource-grants.md)。前端 **不重算** 繼承與擁有者規則，只讀後端的旗標。
 
 | 資料 | 來源 | 用在 |
 | --- | --- | --- |

@@ -17,7 +17,7 @@
 super-admin）仍在 service 判斷。那些不是「通用權限」，而是資源狀態相關的規則，
 Guard 看不到資源。
 
-**資源層級授權** 也是這個例外：檔案管理器的資料夾授權（[`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）
+**資源層級授權** 也是這個例外：檔案管理器的資料夾授權（[`../iam/06-resource-grants.md`](../iam/06-resource-grants.md)）
 由 `FileAccessService` 判斷。Guard 仍然宣告閘門（`@RequireAnyPermission('file:access', 'file:<動作>')`），
 所以「每個路由都有明確宣告」與「每次拒絕都寫稽核」兩條原則不變——資源層級的拒絕同樣寫 `authz.denied`。
 
@@ -154,7 +154,7 @@ export class PermissionsGuard implements CanActivate {
 ### 3.2 平台管理者的端點（`@RequirePlatformPermissions`）
 
 apps/platform 的平台管理者與租戶的使用者是兩份帳號（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D5），
-權限目錄也是兩份（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §8）。平台的端點宣告
+權限目錄也是兩份（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8）。平台的端點宣告
 `@RequirePlatformPermissions('tenant:create')`（所有鍵都要有），同一個 `PermissionsGuard` 判斷：
 
 | 情況 | 結果 |
@@ -172,9 +172,9 @@ guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `Platfor
 
 ## 4. `PermissionService`
 
-權限集合由 `core/authz` 的關係圖解析（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9、§4.2）：
+權限集合由 `core/authz` 的關係圖解析（[`iam/01-model.md`](../iam/01-model.md) §9、§4.2）：
 `AuthzService.tenantPermissionsOf()` 批次解析——主體閉包一條遞迴 CTE、租戶節點上的邊一條查詢，再在記憶體判斷。
-`permissions` 是 **權限依賴樹的閉包**（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §9），
+`permissions` 是 **權限依賴樹的閉包**（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9），
 並多帶 `subjects`（主體閉包，給 `FileAccessService` 解析資料夾授權時沿用）。反提權因為 actor 的集合已是閉包，
 只要比「明確鍵 ⊆ actor 閉包」；自我鎖定要比「剩下的鍵的閉包」。
 
@@ -249,7 +249,7 @@ export class PermissionService {
 
 ### 4.1 反提權與 super-admin 角色
 
-**規則只有一條**（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4）：把某個主體放進 `物件#關係`，主體因此取得的能力，
+**規則只有一條**（[`iam/01-model.md`](../iam/01-model.md) §9 G4）：把某個主體放進 `物件#關係`，主體因此取得的能力，
 操作者必須全部都有。「取得了什麼」由關係圖算，不是各 service 手寫：
 
 | 寫入的邊 | 取得的能力（`AuthzService.grantedCapabilities`） | 誰比對 |
@@ -266,8 +266,8 @@ export class PermissionService {
   service 的 `can('share')` 擋，錯誤是 `403 AUTHZ_FORBIDDEN`，不併入能力的比對。
 
 `super-admin` 是 **隱含全集**：它沒有任何權限鍵的邊，只有 `tenant:self#superAdmin@role:<id>#holder`
-（[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §4、
-[`rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §4）。
+（[`iam/05-bootstrap.md`](../iam/05-bootstrap.md) §4、
+[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §4）。
 只比對權限鍵會查出空陣列、檢查直接通過——任何持有 `user:assignRole` 或 `user:create` 的人都能把 super-admin 指派給任何人。
 `superAdmin` 因此也是租戶的能力：指派 super-admin 角色取得的是它，只有 super-admin 自己有：
 
@@ -315,7 +315,7 @@ export class PermissionService {
 ### 4.2 關係圖引擎（`core/authz`）
 
 通用、不認識任何業務型別；業務模組在 `onModuleInit` 把自己的型別註冊進來（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
-領域上的模型（有哪些型別、關係怎麼定義）見 [`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6.4。
+領域上的模型（有哪些型別、關係怎麼定義）見 [`../iam/01-model.md`](../iam/01-model.md) §6.4。
 
 | 檔案 | 職責 |
 | --- | --- |
@@ -323,7 +323,7 @@ export class PermissionService {
 | `authz.types.ts` | 核心型別 `user`、`group`（`member`：使用者或另一個群組的成員）、`role`（`holder`：使用者或群組的成員）、`tenant`（由權限目錄產生：一個權限鍵一個關係＝直接授予 ∪ `superAdmin` ∪ 包含它的鍵）；每個物件都有隱含的 `tenant` 邊。`group` 是核心型別而不是由模組註冊：主體閉包的 CTE 要知道哪些關係是成員關係、已刪除的節點看哪張表 |
 | `authz.registry.ts` | `register(type)`：業務型別（例：`modules/file/file.authz.ts` 的 `fileRoot`、`fileFolder`、`file`）；第一次取用時組合並驗證 |
 | `authz.repository.ts` | `relation_tuples` 的讀取：主體閉包與帶路徑的版本（`closurePaths`，說明用）（遞迴 CTE 沿 `group#member`、`role#holder` 走，深度上限 8，排除已刪除的角色與群組）、某種物件上的直接邊（濾掉過期的）、`authz_revision`。群組巢狀的層數由寫入端限制在 `GROUP_MAX_NESTING_DEPTH`（6），閉包永遠走得完 |
-| `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.2 D3） |
+| `authz.snapshot.ts` | 把一次判斷需要的邊載入記憶體；**結構邊供應者**（`EdgeProvider`）補上不存在 tuple 表的邊——資料夾的 `parent`／`inherits_from`／`owner` 由 `file_folders` 供應（[`iam/01-model.md`](../iam/01-model.md) §9.2 D3） |
 | `authz.checker.ts` | `check`／`explain`／`withEdges`：在快照上展開關係定義，同一個 `物件#關係` 只算一次（記憶化），遞迴深度上限 64；未知的型別或關係視為不成立 |
 | `authz.service.ts` | `tenantPermissionsOf`（全域權限）、`checkerFor`（資源：一次載入操作者在這些型別上的邊，交給判斷器）、`grantedCapabilities`（反提權：放進某個 `物件#關係` 取得的能力，§4.1） |
 | `authz.revision.ts` | 寫入後的失效與跨程序廣播（§5.1） |
@@ -335,7 +335,7 @@ export class PermissionService {
 - **判斷的成本**：全域權限在租戶節點上只有一層，閉包算完就是 `Set<PermissionKey>`，guard 仍是 O(1)。
   資料夾是「整棵結構一次載入 ＋ 記憶化」，一次請求建一個判斷器（`FileAccessService.contextFor`）。
 - 說明（為什麼能做 X）：`explain()` 的路徑從主體閉包裡的主體開始，`closurePaths` 記下每個主體是怎麼來的、`withClosurePath` 把兩段接起來；
-  全域權限的所有來源由 `tenantSourcesOf` 列出。API、遮蔽與畫面見 [`../../rbac/09-explain.md`](../../rbac/09-explain.md)。
+  全域權限的所有來源由 `tenantSourcesOf` 列出。API、遮蔽與畫面見 [`../iam/08-explain.md`](../iam/08-explain.md)。
 
 ## 5. 權限快取
 
@@ -363,7 +363,7 @@ export class PermissionCacheService {
 
 ### 5.1 失效時機：以租戶的 revision 為單位
 
-[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.2 D7、D8。角色的持有者、角色的權限鍵、資料夾授權都是
+[`iam/01-model.md`](../iam/01-model.md) §9.2 D7、D8。角色的持有者、角色的權限鍵、資料夾授權都是
 租戶 DB `relation_tuples` 的邊；**任何** 寫入都讓同一個租戶的所有人的權限快取失效，不再逐事件列出「要失效誰」。
 
 ```
@@ -404,7 +404,7 @@ await this.permissionService.permissionsChanged(holders);
 - 還原角色到某一版（`POST /roles/:id/revisions/:version/revert`）照改權限的規則：加回的鍵過 `assertGrantable`、`assertNoSelfLockout`，交易後 `permissionsChanged()`（[`14-revisions.md`](./14-revisions.md) §4.3）。
 - 送出廣播是 best-effort：失敗只記 log；提交之後、送出之前程序結束也會漏一次。其他程序最遲在 TTL（60 秒）後重新解析；
   revision 單調遞增，下一次通知也會補上。
-- 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 [`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.2 D8。
+- 粒度是整個租戶：一次授權變更讓那個租戶的每個人下一次請求重算一次（每人一句 CTE，按需）。拆粒度的條件見 [`iam/01-model.md`](../iam/01-model.md) §9.2 D8。
 
 ### 5.2 為什麼是 in-memory 而不是 Redis
 
@@ -607,7 +607,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 - 只看操作者本人：同一個角色的其他持有者失去權限是正常的業務操作。
 - 沒有持有該角色、或本來就沒有那些權限時不擋。
 - 「持有」與「剩下的權限」都以操作者的 **主體閉包**（`PermissionSet.subjects` 裡的 `role:<id>#holder`）判斷：經由群組（含巢狀）持有的角色
-  與直接持有的一樣算（[`rbac/08-groups.md`](../../rbac/08-groups.md) §1）。只經由群組持有該角色的人一樣會被擋；
+  與直接持有的一樣算（[`iam/07-groups.md`](../iam/07-groups.md) §1）。只經由群組持有該角色的人一樣會被擋；
   經由群組持有另一個提供同樣權限的角色時，不會被誤擋。剩下的鍵是閉包中其他角色的鍵（`PermissionRepository.findPermissionKeysOfRoles`）
   加上變更後的鍵，再套依賴樹的閉包。
 
@@ -712,7 +712,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/users/:id/roles`          | `user:read`                      |
 | PUT    | `/users/:id/roles`          | `user:assignRole`                |
 | GET    | `/users/:id/permissions`    | `user:read`                      |
-| GET    | `/users/:id/permission-sources` | `@Authenticated`：自己；別人要 `authz:explain`（service 判斷，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4b） |
+| GET    | `/users/:id/permission-sources` | `@Authenticated`：自己；別人要 `authz:explain`（service 判斷，[`iam/01-model.md`](../iam/01-model.md) §9 G4b） |
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
@@ -752,7 +752,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/groups/:id`               | `group:read`                     |
 | PATCH  | `/groups/:id`               | `group:update`                   |
 | DELETE | `/groups/:id`               | `group:delete`                   |
-| POST   | `/groups/:id/restore`       | `group:delete`（成員取得的角色受反提權限制，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D11） |
+| POST   | `/groups/:id/restore`       | `group:delete`（成員取得的角色受反提權限制，[`iam/01-model.md`](../iam/01-model.md) §9.3 D11） |
 | GET    | `/groups/:id/members`       | `group:read` ＋ `user:read`（EVERY） |
 | PATCH  | `/groups/:id/members`       | `group:update`（加入的成員取得群組與上層群組的角色：反提權，D11） |
 | GET    | `/groups/:id/roles`         | `group:read` ＋ `role:read`（EVERY） |
@@ -800,19 +800,19 @@ private assertNotSelf(actorId: string, targetId: string): void {
 
 ¹ 路由宣告只有 `approval:review`；核准時 `ApprovalService` 另外檢查該類型 handler 要求的權限
 （`user.register` = `user:create`，指派角色時再加 `user:assignRole`），缺少時同樣回
-`403 AUTHZ_FORBIDDEN` ＋ `details.missing`。見 [`../../rbac/06-approval.md`](../../rbac/06-approval.md) §3.2。
+`403 AUTHZ_FORBIDDEN` ＋ `details.missing`。見 [`20-approval.md`](20-approval.md) §3.2。
 
 ² 影像 API 給 `<img src>` 用，帶不了 access token；以網址上的 HMAC 簽章授權，網址只從看得到該檔案的回應拿得到。
 見 [`./09-file.md`](./09-file.md) §5.4。
 
 ³ `A \| B` 是 `@RequireAnyPermission(A, B)`：guard 只當閘門（能進檔案管理器），哪個資料夾能做什麼由
-`FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../../rbac/07-resource-grants.md`](../../rbac/07-resource-grants.md)）。
+`FileAccessService` 依資料夾授權判斷（§1 原則 3 的例外，見 [`../iam/06-resource-grants.md`](../iam/06-resource-grants.md)）。
 路由稽核測試把 SOME 寫成 `a|b`、EVERY 寫成 `a+b`。
 
 ⁴ `@RequireAnyPermission(...TRASH_PERMISSIONS)`：回收桶支援的每一類的 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`）；
 指定的 `type` 再由 `TrashService` 以該類型的權限檢查（[`./13-trash.md`](./13-trash.md) §3）。
 
-**這張表必須與 `docs/rbac/04-api-spec.md` 一致**，且有一支測試從 metadata
+**這張表必須與 `docs/architecture/iam/04-api.md` 一致**，且有一支測試從 metadata
 產生它並與文件比對（見 §7.1）。
 
 ---
@@ -835,7 +835,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 
 ## 11. 設計決策：權限在伺服器端即時解析，不放進 Token
 
-> 原 ADR-0005，2026-09-19 決定。解析方式後來由 [`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 延伸（改由關係圖解析、權限集合含依賴樹閉包；§4.2），
+> 原 ADR-0005，2026-09-19 決定。解析方式後來由 [`iam/01-model.md`](../iam/01-model.md) §9 延伸（改由關係圖解析、權限集合含依賴樹閉包；§4.2），
 > 「不放進 token、伺服器端即時解析、主動失效快取」不變；失效的粒度也改成整個租戶（§5.1）。
 
 ### 11.1 背景
@@ -845,7 +845,7 @@ JWT 常見的做法是把使用者的角色或權限寫進 payload，Guard 直�
 那個人手上的 token 在到期前仍然帶著舊權限。
 
 對一個以 RBAC 為核心產品的系統，這個空窗是不可接受的。流程面的說明見
-[`../../rbac/03-flows.md`](../../rbac/03-flows.md)。
+[`../iam/03-flows.md`](../iam/03-flows.md)。
 
 ### 11.2 決定
 

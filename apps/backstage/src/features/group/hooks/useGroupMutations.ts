@@ -135,7 +135,7 @@ export function useGroupRestoreMutation() {
   });
 }
 
-/** 增減成員（差異語意）。加入的成員取得群組與上層群組的角色，受反提權限制（docs/rbac/01-domain-model.md §9.3 D11）。 */
+/** 增減成員（差異語意）。加入的成員取得群組與上層群組的角色，受反提權限制（docs/architecture/iam/01-model.md §9.3 D11）。 */
 export function useGroupMembersUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();
@@ -151,7 +151,7 @@ export function useGroupMembersUpdateMutation() {
   });
 }
 
-/** 增減群組持有的角色（差異語意）。受反提權限制；super-admin 一律拒絕（docs/rbac/01-domain-model.md §9.3 D12）。 */
+/** 增減群組持有的角色（差異語意）。受反提權限制；super-admin 一律拒絕（docs/architecture/iam/01-model.md §9.3 D12）。 */
 export function useGroupRolesUpdateMutation() {
   const toast = useToast();
   const { t } = useTranslation();

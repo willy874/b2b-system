@@ -8,7 +8,7 @@ import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
 /**
- * 群組（docs/rbac/08-groups.md）：角色經群組授予成員，成員離開群組就失去權限。
+ * 群組（docs/architecture/iam/07-groups.md）：角色經群組授予成員，成員離開群組就失去權限。
  * 成員用專用帳號 `groupTarget`，它的權限會被增減，不和其他 spec 共用。
  */
 
@@ -36,7 +36,7 @@ async function createGroup(token: string, name: string): Promise<string> {
   return (created.body as Created).data.id;
 }
 
-test.describe('群組（docs/rbac/08-groups.md）', () => {
+test.describe('群組（docs/architecture/iam/07-groups.md）', () => {
   test('admin 建立群組 → 加入成員、綁定角色 → 成員看得到頁面與權限來源；移出群組後失去權限', async ({
     page,
     browser,
@@ -85,7 +85,7 @@ test.describe('群組（docs/rbac/08-groups.md）', () => {
       .getByTestId('explain-path')
       .filter({ hasText: groupName });
     await expect(getByTestIdAndValue(path, 'explain-node', 'group')).toHaveText(groupName);
-    // 成員沒有 role:read：路徑上的角色只顯示種類（docs/rbac/09-explain.md §2 的遮蔽）
+    // 成員沒有 role:read：路徑上的角色只顯示種類（docs/architecture/iam/08-explain.md §2 的遮蔽）
     await expect(getByTestIdAndValue(path, 'explain-node', 'role')).toHaveAttribute(
       'data-hidden',
       'true',

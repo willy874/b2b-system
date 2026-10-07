@@ -2,8 +2,8 @@
 
 - 優先度：P2
 - 狀態：提案
-- 依賴：—（延伸既有的 [`rbac/06-approval.md`](../rbac/06-approval.md)）
-- 相關：[`rbac/06-approval.md`](../rbac/06-approval.md) §1（Phase 0 明列「不做」）、§3（狀態機）、§4（handler）；[`rbac/08-groups.md`](../rbac/08-groups.md)（以群組指定審核者）；
+- 依賴：—（延伸既有的 [`backend/20-approval.md`](../architecture/backend/20-approval.md)）
+- 相關：[`backend/20-approval.md`](../architecture/backend/20-approval.md) §1（Phase 0 明列「不做」）、§3（狀態機）、§4（handler）；[`iam/07-groups.md`](../architecture/iam/07-groups.md)（以群組指定審核者）；
   [`backend/15-notification.md`](../architecture/backend/15-notification.md) §9（待審通知）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -11,7 +11,7 @@
 ## 背景
 
 審批目前是 **一關**：`pending` → `approved` ｜ `rejected`，持有 `approval:review`（以及 handler 要求的權限）的任何一個人都能定案
-（[`rbac/06-approval.md`](../rbac/06-approval.md) §3）。§1 的「不做」明列了「多階段／多人會簽、依金額或條件分流的審批鏈」。
+（[`backend/20-approval.md`](../architecture/backend/20-approval.md) §3）。§1 的「不做」明列了「多階段／多人會簽、依金額或條件分流的審批鏈」。
 
 B2B 的業務功能（採購、請款、合約、價格調整、權限申請）幾乎都需要：
 
@@ -75,5 +75,5 @@ B2B 的業務功能（採購、請款、合約、價格調整、權限申請）�
 
 ## 歸檔去向
 
-- `docs/rbac/06-approval.md`（新增「多階段」章節與設計決策）
+- `docs/architecture/backend/20-approval.md`（新增「多階段」章節與設計決策）
 - 前端：`docs/architecture/frontend/` 審批頁的對應章節

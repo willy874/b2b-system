@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseResetSuperAdminArgs } from '../reset-super-admin';
 
-describe('cli:reset-super-admin 的參數（docs/rbac/05-seed-and-bootstrap.md §7）', () => {
+describe('cli:reset-super-admin 的參數（docs/architecture/iam/05-bootstrap.md §7）', () => {
   it('--tenant ＋ --email → 租戶的 super-admin', () => {
     expect(parseResetSuperAdminArgs(['--tenant', 'acme', '--email', 'root@acme.test'])).toEqual({
       target: { tenant: 'acme' },

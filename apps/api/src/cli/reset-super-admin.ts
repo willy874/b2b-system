@@ -23,7 +23,7 @@ import { issuePlatformAuthToken } from '@/modules/platform-admin/platform-auth-t
 
 /**
  * 災難復原：super-admin 忘記密碼、「忘記密碼」的信又寄不到時（信箱失效、SMTP 不通），
- * 由有資料庫存取權的維運人員簽發一次性連結（docs/rbac/05-seed-and-bootstrap.md §7）。
+ * 由有資料庫存取權的維運人員簽發一次性連結（docs/architecture/iam/05-bootstrap.md §7）。
  *
  *   pnpm --filter @b2b-system/api cli:reset-super-admin --tenant <租戶代碼> --email <email>
  *   pnpm --filter @b2b-system/api cli:reset-super-admin --platform --email <email>

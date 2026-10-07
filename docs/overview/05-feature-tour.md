@@ -62,7 +62,7 @@
 *使用者詳情的「有效權限」。每個權限鍵列出所有來源路徑：Dev User 50 的 `user:read` 同時來自直接持有的「客服」「發佈管理」角色，以及「營運中心」群組持有的「營運專員」角色。
 `approval:read` 後面的「由 approval:review 帶出」是權限依賴樹：持有審核就隱含能檢視。查看者看不到的群組或角色只顯示種類，不洩漏名稱。*
 
-規格：[`rbac/04-api-spec.md`](../rbac/04-api-spec.md)、[`rbac/09-explain.md`](../rbac/09-explain.md)。
+規格：[`iam/04-api.md`](../architecture/iam/04-api.md)、[`iam/08-explain.md`](../architecture/iam/08-explain.md)。
 
 ### 2.2 角色
 
@@ -88,7 +88,7 @@
 
 *建立角色時同樣可以展開技能樹挑權限。*
 
-規格：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)。
+規格：[`iam/01-model.md`](../architecture/iam/01-model.md)、[`architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md)。
 
 ### 2.3 群組
 
@@ -97,7 +97,7 @@
 | *群組列表。群組可以巢狀（全體員工 → 工程部 → 前端組），上限 6 層。* | *群組持有角色，成員（含子群組的成員）都取得這些角色。人員異動時只要改成員，不必一個個改角色。* |
 
 把人加進群組，等於把群組持有的角色給他，所以加成員同樣受反提權限制；群組也不能持有 super-admin。
-寫成員時以 advisory lock 排隊，「A 加進 B」和「B 加進 A」同時送出也不會繞過循環檢查。規格：[`rbac/08-groups.md`](../rbac/08-groups.md)。
+寫成員時以 advisory lock 排隊，「A 加進 B」和「B 加進 A」同時送出也不會繞過循環檢查。規格：[`iam/07-groups.md`](../architecture/iam/07-groups.md)。
 
 ### 2.4 權限目錄與有效權限
 
@@ -110,7 +110,7 @@
 *樹狀圖檢視。基礎權限在上、包含它的在下，虛線是跨資源的依賴。選了「刪除檔案」：它包含「編輯檔案」，持有它就等於持有編輯、檢視與使用檔案管理器（橘框是路徑）。
 受反提權限制的鍵（例如「指派角色」）不能被任何鍵包含，這條規則在程序啟動時驗證。*
 
-規格：[`rbac/02-permission-catalog.md`](../rbac/02-permission-catalog.md) §9。
+規格：[`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md) §9。
 
 ### 2.5 服務帳號與 API token
 
@@ -158,7 +158,7 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 - 影像變體去除 EXIF 的 GPS；`<img>` 用 HMAC 簽章網址授權，同一時間窗網址不變，瀏覽器快取命中。
 - 關掉分頁上傳不會斷：佇列跑在 SharedWorker，其他分頁接手。
 
-規格：[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)。
+規格：[`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md)、[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md)。
 
 ### 3.2 審批
 
@@ -167,7 +167,7 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 | *需要核准才生效的申請：帳號註冊、資料夾存取申請。* | *核准時可以一併指派角色；審核意見記錄在稽核日誌。* |
 
 **核准等同代為執行**：審核者自己必須做得到那個操作（例如核准註冊要能建立使用者、指派的角色要通過反提權），否則 `approval:review` 會變成後門。
-另有四眼原則，不能審自己的申請。規格：[`rbac/06-approval.md`](../rbac/06-approval.md)。
+另有四眼原則，不能審自己的申請。規格：[`backend/20-approval.md`](../architecture/backend/20-approval.md)。
 
 ### 3.3 標籤
 

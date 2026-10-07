@@ -1,4 +1,4 @@
-/** 平台的資源（docs/rbac/02-permission-catalog.md §8）；backstage 的這份是租戶的資源。 */
+/** 平台的資源（docs/architecture/iam/02-permission-catalog.md §8）；backstage 的這份是租戶的資源。 */
 export const PermissionResource = {
   TENANT: 'tenant',
   PLATFORM_ADMIN: 'platformAdmin',

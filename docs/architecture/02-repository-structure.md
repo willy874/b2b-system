@@ -96,7 +96,7 @@ apps/backstage/src/
 │   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
 │   ├── navigation/          側欄的分類（feature 的 navigation.ts 以它指定位置；docs/architecture/frontend/18-command-palette.md §2）
 │   ├── permission/          ★ 這個 app 的權限目錄（enums、resources），登記給 web-core；轉出 web-core 的權限機制
-│   ├── permission-graph/    權限依賴樹的閉包與畫布版面（docs/rbac/02-permission-catalog.md §9）
+│   ├── permission-graph/    權限依賴樹的閉包與畫布版面（docs/architecture/iam/02-permission-catalog.md §9）
 │   └── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）
 │
 ├── features/                ★ 業務功能，每個自給自足
@@ -178,7 +178,7 @@ apps/api/src/
 │   ├── config/              @nestjs/config ＋ Zod 驗證 env
 │   ├── database/            DrizzleModule、DB provider、交易輔助
 │   ├── cache/               PermissionCacheService（in-memory + TTL + 明確失效，可整個租戶失效）
-│   ├── authz/               關係圖權限引擎：模型、判斷器、relation_tuples、revision 失效（../rbac/01-domain-model.md）
+│   ├── authz/               關係圖權限引擎：模型、判斷器、relation_tuples、revision 失效（iam/01-model.md）
 │   ├── broadcast/           程序之間的失效廣播：平台 DB 的 LISTEN／NOTIFY（docs/architecture/backend/05-rbac.md §5.1）
 │   ├── errors/              ErrorCode enum、AppException、HttpExceptionFilter
 │   ├── http/                TransformInterceptor、分頁 DTO、RequestId middleware

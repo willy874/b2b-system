@@ -170,7 +170,7 @@ const FOLDER_UPDATED = {
 /** 只有全域 file:read ＋ file:share：授予得起 viewer，contributor 以上不行（§6.1 的例子）。 */
 const SHARE_ONLY: Omit<AccessFixtureOptions, 'nodes'> = { global: ['read', 'share'] };
 
-describe('FileFolderGrantService.list（docs/rbac/07-resource-grants.md §6）', () => {
+describe('FileFolderGrantService.list（docs/architecture/iam/06-resource-grants.md §6）', () => {
   it('資料夾不存在 → FILE_FOLDER_NOT_FOUND', async () => {
     const { service } = setup();
     expect((await errorOf(service.list(MISSING, ACTOR)))?.code).toBe('FILE_FOLDER_NOT_FOUND');
@@ -267,7 +267,7 @@ describe('FileFolderGrantService.list（docs/rbac/07-resource-grants.md §6）',
   });
 });
 
-describe('FileFolderGrantService.set（docs/rbac/07-resource-grants.md §6.1、§6.4）', () => {
+describe('FileFolderGrantService.set（docs/architecture/iam/06-resource-grants.md §6.1、§6.4）', () => {
   it('對象不存在 → FILE_GRANT_SUBJECT_NOT_FOUND，不寫入', async () => {
     const { service, grants, events } = setup();
     grants.subjectExists.mockResolvedValueOnce(false);
@@ -478,7 +478,7 @@ describe('FileFolderGrantService.set（docs/rbac/07-resource-grants.md §6.1、�
   });
 });
 
-describe('FileFolderGrantService.revoke（docs/rbac/07-resource-grants.md §6.1、§6.4）', () => {
+describe('FileFolderGrantService.revoke（docs/architecture/iam/06-resource-grants.md §6.1、§6.4）', () => {
   it('授權不存在 → FILE_GRANT_NOT_FOUND', async () => {
     const { service, grants } = setup();
     const error = await errorOf(service.revoke(CHILD, 'role', ROLE_A, ACTOR));
@@ -537,7 +537,7 @@ describe('FileFolderGrantService.revoke（docs/rbac/07-resource-grants.md §6.1�
   });
 });
 
-describe('FileFolderGrantService.setInheritance（docs/rbac/07-resource-grants.md §3.3）', () => {
+describe('FileFolderGrantService.setInheritance（docs/architecture/iam/06-resource-grants.md §3.3）', () => {
   it('與目前狀態相同 → 不寫入、不寫稽核、不推播', async () => {
     const { service, folders, audit, grants, events } = setup();
     await service.setInheritance(CHILD, { inheritGrants: true }, ACTOR);
@@ -703,7 +703,7 @@ function brokenChild(seed: SeedGrant[], access = SHARE_ONLY) {
   return context;
 }
 
-describe('FileFolderGrantService.setInheritance：恢復繼承的反提權（docs/rbac/07-resource-grants.md §3.3、§6.1）', () => {
+describe('FileFolderGrantService.setInheritance：恢復繼承的反提權（docs/architecture/iam/06-resource-grants.md §3.3、§6.1）', () => {
   it('上層有 editor：只授予得起 viewer 的人恢復 → AUTHZ_ESCALATION，details.missing 列出缺的權限鍵，不寫入', async () => {
     const { service, folders, audit, events } = brokenChild([
       { folderId: ROOT, subjectType: 'everyone', subjectId: USER_C, level: 'editor' },
@@ -763,7 +763,7 @@ describe('FileFolderGrantService.setInheritance：恢復繼承的反提權（doc
   });
 });
 
-describe('FileFolderGrantService.searchSubjects（docs/rbac/07-resource-grants.md §6.2）', () => {
+describe('FileFolderGrantService.searchSubjects（docs/architecture/iam/06-resource-grants.md §6.2）', () => {
   it('沒有 share → AUTHZ_FORBIDDEN，不查詢', async () => {
     const { service, grants } = setup({ global: ['read'] });
     const error = await errorOf(service.searchSubjects(CHILD, { subjectType: 'role' }, ACTOR));

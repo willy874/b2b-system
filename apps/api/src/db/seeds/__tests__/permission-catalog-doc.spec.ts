@@ -5,7 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 import { ALL_PERMISSION_KEYS, PERMISSION_DEPENDENCIES } from '../permissions';
 
-const CATALOG_DOC = resolve(__dirname, '../../../../../../docs/rbac/02-permission-catalog.md');
+const CATALOG_DOC = resolve(
+  __dirname,
+  '../../../../../../docs/architecture/iam/02-permission-catalog.md',
+);
 
 /** 某個 `## N.` 章節的內容（到下一個同級標題為止）。 */
 function section(markdown: string, number: number): string {
@@ -29,7 +32,7 @@ function keysIn(cell: string): string[] {
   return [...cell.matchAll(/`([A-Za-z]+:[A-Za-z]+)`/g)].map((match) => match[1] as string);
 }
 
-describe('權限目錄的文件與 seed 一致（docs/rbac/02-permission-catalog.md）', () => {
+describe('權限目錄的文件與 seed 一致（docs/architecture/iam/02-permission-catalog.md）', () => {
   const markdown = readFileSync(CATALOG_DOC, 'utf8');
 
   it('§2 列出的權限鍵 = PERMISSION_SEED', () => {

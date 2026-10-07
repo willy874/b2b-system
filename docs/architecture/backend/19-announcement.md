@@ -241,7 +241,7 @@ modules/announcement/
 
 相關的既有決定：[`backend/15-notification.md`](15-notification.md) §12（站內通知；沿用 D5 的快照、D6 的「每人一筆」，以分批繞過單次上限）、
 [`backend/16-notification-event.md`](16-notification-event.md) §9（事件目錄與租戶政策）、[`backend/10-jobs.md`](10-jobs.md) §9／[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D15（背景工作、交易內入列走 `job_outbox`）、
-[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9（群組與關係圖）、[`backend/14-revisions.md`](14-revisions.md) §9（軟刪除與回收桶）、
+[`iam/01-model.md`](../iam/01-model.md) §9（群組與關係圖）、[`backend/14-revisions.md`](14-revisions.md) §9（軟刪除與回收桶）、
 [`architecture/05-tenancy.md`](../05-tenancy.md) §12（可關閉的 feature）。通知總覽寫在 [`15-notification.md`](./15-notification.md) §6.1，前端見 [`../frontend/16-announcement.md`](../frontend/16-announcement.md)。
 
 ### 9.2 決定

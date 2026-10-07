@@ -40,7 +40,7 @@ export interface SkillOptionGroup {
 
 /**
  * 角色權限技能樹的狀態：版面、每個節點的狀態、滑過時的前置路徑、點擊的互鎖
- * （docs/rbac/02-permission-catalog.md §9；規則在 `permissionSkillTree.ts`）。
+ * （docs/architecture/iam/02-permission-catalog.md §9；規則在 `permissionSkillTree.ts`）。
  * 下拉選單與樹狀圖共用這一份狀態：任一邊改動，另一邊同步；在下拉選單選的鍵也會在樹狀圖上強調前置路徑。
  */
 export function usePermissionSkillTree({

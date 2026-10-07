@@ -24,7 +24,7 @@ interface FileShareDialogProps {
 }
 
 /**
- * 資料夾的授權（docs/architecture/frontend/12-file-manager.md §13；規則 docs/rbac/07-resource-grants.md §6）。
+ * 資料夾的授權（docs/architecture/frontend/12-file-manager.md §13；規則 docs/architecture/iam/06-resource-grants.md §6）。
  * - 對象是角色或個別使用者，可以設定期限；過期的仍列出，由管理者移除或延長。
  * - 直接授權可以變更等級或移除；繼承來的只顯示來源（要到那個資料夾改）。
  * - 「繼承上層資料夾的授權」關閉 ＝ 私人資料夾；關閉的當下後端會複製目前繼承到的授權。

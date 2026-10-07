@@ -186,7 +186,7 @@ export const permissions = pgTable(
 | `role_permissions(r, p)` | `tenant:self#<p 的 key>@role:<r>#holder` |
 
 兩張表與 `resource_grants`（[`09-file.md`](./09-file.md)）、migration 0008 的同步 trigger，依 §5.1「破壞性變更拆成兩次部署」
-在 G3a 之後的下一次部署（G3b，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9）以 migration 0010 一起刪除，不可回退。
+在 G3a 之後的下一次部署（G3b，[`iam/01-model.md`](../iam/01-model.md) §9）以 migration 0010 一起刪除，不可回退。
 
 ### 2.6 `refresh_tokens`
 
@@ -327,7 +327,7 @@ export const auditLogsArchive = pgTable(
 
 ### 2.10 `relation_tuples`（關係圖的邊）
 
-權限解析的資料來源（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9、[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6）。
+權限解析的資料來源（[`iam/01-model.md`](../iam/01-model.md) §9、[`../iam/01-model.md`](../iam/01-model.md) §6）。
 一列是一條 `物件#關係@主體`：
 
 | 欄位 | 說明 |
@@ -351,7 +351,7 @@ export const auditLogsArchive = pgTable(
 | `tenant:self#superAdmin@role:<r>#holder` | super-admin 角色（它沒有權限鍵的邊） | seed（`seedRoles` → `ensureSuperAdminTuple`，冪等） |
 | `fileFolder:<id>#<level>@(role:<r>#holder \| user:<u> \| user:*)` | 資料夾授權 | `FileFolderGrantRepository`（[`09-file.md`](./09-file.md)） |
 | `group:<g>#member@(user:<u> \| group:<h>#member)` | 群組的成員；巢狀時主體是另一個群組的成員（§2.14） | `GroupRepository` |
-| `role:<r>#holder@group:<g>#member` | 群組持有角色（不能是 super-admin，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D12） | `GroupRepository` |
+| `role:<r>#holder@group:<g>#member` | 群組持有角色（不能是 super-admin，[`iam/01-model.md`](../iam/01-model.md) §9.3 D12） | `GroupRepository` |
 
 - 刪除角色：只軟刪除角色列，**持有者邊、權限鍵邊、它作為主體的資料夾授權都留著**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D2，R3 起）。
   已刪除角色的持有者邊是 **休眠的邊**：主體閉包、使用者的角色（`HELD_ROLE`）、依角色篩選使用者都 join 未刪除的角色而略過它們，
@@ -413,7 +413,7 @@ G1～G2 期間由舊表上的 trigger 同步寫入這張表（migration 0008，�
 
 ### 2.14 `groups`（群組）
 
-純分組（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D11、D12）：只存名稱與說明，成員與持有的角色都是 `relation_tuples` 的邊（§2.10），不另開 `group_members`。
+純分組（[`iam/01-model.md`](../iam/01-model.md) §9.3 D11、D12）：只存名稱與說明，成員與持有的角色都是 `relation_tuples` 的邊（§2.10），不另開 `group_members`。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
@@ -651,7 +651,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0014_revisions.sql                  revisions 表（§2.12）＋ 手寫：每個既有角色的基準版本（第 1 版，actor null；
 │                                       [`backend/14-revisions.md`](14-revisions.md) §9 R5、14-revisions.md §4.2；純加法）
 ├── 0015_notifications.sql              notifications 表與三個索引（§2.13，[`backend/15-notification.md`](15-notification.md) §12 N1；純加法）
-├── 0016_groups.sql                     groups 表（§2.14，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4a；純加法）
+├── 0016_groups.sql                     groups 表（§2.14，[`iam/01-model.md`](../iam/01-model.md) §9 G4a；純加法）
 ├── 0017_groups_triggers.sql            手寫：groups.deleted_at 改變時 authz_revision +1、updated_at（§2.11、§3.3）
 ├── 0018_groups_system_role_permissions.sql  手寫：既有租戶的 admin 補 group:*、auditor 補 group:read（§6 的規則）
 ├── 0019_authz_explain_system_roles.sql     手寫：既有租戶的 admin、auditor 補 authz:explain（§6 的規則）
@@ -809,7 +809,7 @@ postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connec
 | 要動到的平台或租戶 DB 不在本機（`localhost`、`127.0.0.1`、`::1`、開發用 compose 的 `postgres` 以外） | 要加 `--confirm <平台 database 名稱>` |
 
 所以開發機帶著正式環境的連線字串（開了 tunnel、臨時改過 `.env`）執行 `pnpm db:reset`，也會在清空之前被擋下。
-正式環境本來就要能執行的維運指令（`cli:reset-super-admin`，[`rbac/05-seed-and-bootstrap.md`](../../rbac/05-seed-and-bootstrap.md) §7）只套第三條
+正式環境本來就要能執行的維運指令（`cli:reset-super-admin`，[`iam/05-bootstrap.md`](../iam/05-bootstrap.md) §7）只套第三條
 （`remoteRejection()`）：不在本機的 DB 要 `--confirm`，但不因 production 拒絕。
 E2E 的 global setup 另外要求明確指定 E2E 用的 DB（[`../frontend/10-testing.md`](../frontend/10-testing.md) §4.3）。
 

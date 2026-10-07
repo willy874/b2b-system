@@ -78,7 +78,7 @@ export class RealtimeListener implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 關係圖變了：這個租戶在本機的所有連線重算 room（§6.2）。事件不帶「受影響的人」——
-   * 失效以整個租戶為單位（docs/rbac/01-domain-model.md §9.2 D8），權限快取在發佈前已失效。
+   * 失效以整個租戶為單位（docs/architecture/iam/01-model.md §9.2 D8），權限快取在發佈前已失效。
    */
   async onPermissionsChanged(): Promise<void> {
     await this.audience.refreshAudience(

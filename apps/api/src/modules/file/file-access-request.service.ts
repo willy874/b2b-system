@@ -22,7 +22,7 @@ import { FileFolderGrantService } from './file-folder-grant.service';
 import { FileFolderRepository } from './file-folder.repository';
 
 /**
- * 資料夾的存取申請（docs/rbac/07-resource-grants.md §6.5）：送出、該資料夾管理者的待審清單、核准／駁回。
+ * 資料夾的存取申請（docs/architecture/iam/06-resource-grants.md §6.5）：送出、該資料夾管理者的待審清單、核准／駁回。
  * 狀態機與稽核在審批模組；這裡只把「資料夾管理者」這個資源層級的審核者接上去。
  */
 @Injectable()
@@ -44,7 +44,7 @@ export class FileAccessRequestService {
     const folder = await this.folders.findById(folderId);
     if (!folder) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
     const ctx = await this.access.contextFor(actor);
-    // 看不到的個人資料夾不能申請：分享由擁有者主動做（docs/rbac/07-resource-grants.md §12.1）
+    // 看不到的個人資料夾不能申請：分享由擁有者主動做（docs/architecture/iam/06-resource-grants.md §12.1）
     if (!ctx.exists(folderId)) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
     if (ctx.missingActions([dto.level], folderId).length === 0) {
       throw new AppException('FILE_ACCESS_ALREADY_GRANTED', { level: dto.level });

@@ -10,7 +10,7 @@ interface ProfilePermissionSectionProps {
 }
 
 /**
- * 自己的權限：平台的角色固定三種、每人一個（docs/rbac/02-permission-catalog.md §8.2），
+ * 自己的權限：平台的角色固定三種、每人一個（docs/architecture/iam/02-permission-catalog.md §8.2），
  * 權限只從角色來，所以不像 backstage 列出來源，只列出角色帶來的權限。
  */
 export function ProfilePermissionSection({ permissions }: ProfilePermissionSectionProps) {

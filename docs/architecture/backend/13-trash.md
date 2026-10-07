@@ -213,7 +213,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 權限 `role:delete`（D10）。回應是 `RestoredRole`：還原後的 `Role` ＋ `holdersRestored`（重新取得這個角色的人數，含經由群組持有的；直接持有者的人數是還原後的 `userCount`）。
 
 1. 找已刪除的列；找不到 → 角色存在但沒被刪除 `409 ROLE_NOT_DELETED`，不存在或已被永久刪除 `404 ROLE_NOT_FOUND`。
-   系統角色刪不掉（service 與 DB trigger 都擋，[`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §5），所以不會走到還原。
+   系統角色刪不掉（service 與 DB trigger 都擋，[`../iam/01-model.md`](../iam/01-model.md) §5），所以不會走到還原。
 2. 唯一值（D5）：名稱（不分大小寫）或 slug 已被 **未刪除** 的角色使用 → `409 ROLE_NAME_DUPLICATE`，
    `details: { field: 'name' | 'slug', value, conflictingRoleId }`。slug 建立後不可變：撞 slug 時只能先刪除佔用的角色；撞名稱時也可以先把它改名。
    檢查與寫入之間的競態由 partial unique index 擋下（同一個錯誤碼，不帶 `conflictingRoleId`）。
@@ -244,11 +244,11 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 
 ---
 
-### 6.3 群組（[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9 G4a）
+### 6.3 群組（[`iam/01-model.md`](../iam/01-model.md) §9 G4a）
 
 與角色相同的模式：`DELETE /groups/:id` 軟刪除，成員邊（`group:<id>#member@…`）、上層群組的成員邊（`…@group:<id>#member`）、持有的角色、
 以它為對象的資料夾授權都 **保留**（休眠），主體閉包略過已刪除的群組；`groups.deleted_at` 的改變由 trigger 讓 revision +1（migration 0017）。
-`POST /groups/:id/restore`（`group:delete`）清 `deleted_at`，反提權與加成員相同（`group:G#member` 帶來的租戶能力，[`rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §9.3 D11），
+`POST /groups/:id/restore`（`group:delete`）清 `deleted_at`，反提權與加成員相同（`group:G#member` 帶來的租戶能力，[`iam/01-model.md`](../iam/01-model.md) §9.3 D11），
 並檢查刪除期間結構有沒有變成循環或超過巢狀層數。永久刪除（`GroupTrashHandler`，`purgeOrder` 50）：沒有外鍵參照 `groups`，
 `purge` 刪群組列與以它為物件或主體的 `relation_tuples`；`afterPurge` 呼叫 `permissionsChanged()` 並推 `group` / `delete`。
 

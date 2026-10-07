@@ -94,7 +94,7 @@ export class GroupController {
   }
 
   /**
-   * 還原刪除的群組（能刪就能復原，docs/architecture/backend/14-revisions.md §9.2 D10）。成員與持有的角色一起生效，反提權與加成員相同（docs/rbac/01-domain-model.md §9.3 D11）。
+   * 還原刪除的群組（能刪就能復原，docs/architecture/backend/14-revisions.md §9.2 D10）。成員與持有的角色一起生效，反提權與加成員相同（docs/architecture/iam/01-model.md §9.3 D11）。
    * 名稱已被別的群組使用時 409 `GROUP_NAME_DUPLICATE`（`details.conflictingGroupId`）；沒有被刪除 409 `GROUP_NOT_DELETED`。
    */
   @Post(':id/restore')
@@ -119,7 +119,7 @@ export class GroupController {
   }
 
   /**
-   * 增減成員（差異語意）。加入的成員取得這個群組與它所有上層群組持有的角色，受反提權限制（docs/rbac/01-domain-model.md §9.3 D11）；
+   * 增減成員（差異語意）。加入的成員取得這個群組與它所有上層群組持有的角色，受反提權限制（docs/architecture/iam/01-model.md §9.3 D11）；
    * 形成循環 409 `GROUP_MEMBERSHIP_CYCLE`、巢狀太深 409 `GROUP_NESTING_TOO_DEEP`。
    */
   @Patch(':id/members')
@@ -143,7 +143,7 @@ export class GroupController {
     return this.groupService.listRoles(id);
   }
 
-  /** 增減群組持有的角色（差異語意）。受反提權限制；super-admin 一律拒絕（docs/rbac/01-domain-model.md §9.3 D12）。 */
+  /** 增減群組持有的角色（差異語意）。受反提權限制；super-admin 一律拒絕（docs/architecture/iam/01-model.md §9.3 D12）。 */
   @Patch(':id/roles')
   @RequirePermissions(PERMISSION.GROUP_ASSIGN_ROLE)
   @ApiOperation({ summary: '增減群組持有的角色（差異語意）' })

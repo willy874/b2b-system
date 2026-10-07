@@ -304,7 +304,7 @@ const FOLDER_CREATED = {
   changes: [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE }],
 };
 
-describe('FileSystemFolderService.ensureSystemFolders（docs/rbac/07-resource-grants.md §12）', () => {
+describe('FileSystemFolderService.ensureSystemFolders（docs/architecture/iam/06-resource-grants.md §12）', () => {
   it('都沒有 → 在根目錄建立共用資料夾與私人資料夾，回傳私人資料夾', async () => {
     const { service, live } = systemSetup();
     const privateRoot = await service.ensureSystemFolders();
@@ -397,7 +397,7 @@ describe('FileSystemFolderService.ensureSystemFolders（docs/rbac/07-resource-gr
   });
 });
 
-describe('FileSystemFolderService.ensurePersonalFolders（docs/rbac/07-resource-grants.md §12）', () => {
+describe('FileSystemFolderService.ensurePersonalFolders（docs/architecture/iam/06-resource-grants.md §12）', () => {
   it('在私人資料夾底下建立個人資料夾：本人擁有、不繼承上層', async () => {
     const { service, live, personalOf } = systemSetup();
     await service.ensurePersonalFolders([ALICE.id]);
@@ -578,7 +578,7 @@ function withPersonal(options: Omit<SystemSetupOptions, 'folders'> = {}) {
   return { ...setup, alice, bob };
 }
 
-describe('FileSystemFolderService.removeEmptyPersonalFolders（docs/rbac/07-resource-grants.md §12）', () => {
+describe('FileSystemFolderService.removeEmptyPersonalFolders（docs/architecture/iam/06-resource-grants.md §12）', () => {
   it('空名單 → 不進入寫入', async () => {
     const { service, repo } = withPersonal({ deletedOwners: [ALICE.id] });
     await service.removeEmptyPersonalFolders([]);
@@ -644,7 +644,7 @@ describe('FileSystemFolderService.removeEmptyPersonalFolders（docs/rbac/07-reso
   });
 });
 
-describe('FileSystemFolderService 的生命週期與事件訂閱（docs/rbac/07-resource-grants.md §12）', () => {
+describe('FileSystemFolderService 的生命週期與事件訂閱（docs/architecture/iam/06-resource-grants.md §12）', () => {
   it('啟動時對每個 active 的租戶準備系統資料夾與個人資料夾', async () => {
     const { service, tenancy, live, personalOf } = systemSetup();
     await service.onApplicationBootstrap();

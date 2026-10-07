@@ -1,7 +1,7 @@
-# RBAC 09 — 授權的說明（為什麼能做 X）
+# 身分與存取 08 — 授權的說明（為什麼能做 X）
 
-> 決策見 [`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D14；關係圖見 [`01-domain-model.md`](./01-domain-model.md) §6.4、
-> 群組見 [`08-groups.md`](./08-groups.md)。
+> 決策見 [`01-model.md`](01-model.md) §9.3 D14；關係圖見 [`01-model.md`](./01-model.md) §6.4、
+> 群組見 [`07-groups.md`](./07-groups.md)。
 
 權限會經過群組（含巢狀）、角色、權限依賴樹、資料夾繼承。「這位使用者為什麼能刪除這個資料夾」要能直接回答，
 管理者才知道該拔掉哪一條授權。說明 **只讀**，不改變任何授權。
@@ -79,7 +79,7 @@ user:alice
 | 資料夾共用對話框「檢查存取」 | 有 `authz:explain` 時：挑一位使用者，列出每個動作與路徑 |
 
 說明的 query 只在展開時查。資源依賴圖上歸在前端專屬的 `authzExplain`：使用者（更新、刪除）、指派角色、角色（更新、刪除）、權限鍵、
-群組、資料夾的任何變更都讓它整批失效（[`../architecture/frontend/05-data-layer.md`](../architecture/frontend/05-data-layer.md) §6.2）。
+群組、資料夾的任何變更都讓它整批失效（[`../architecture/frontend/05-data-layer.md`](../frontend/05-data-layer.md) §6.2）。
 
 ## 6. 不在這一版
 

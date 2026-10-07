@@ -112,7 +112,7 @@ function isSubject(key: GrantKey): SQL {
 
 /**
  * 對象必須還存在（未刪除）：多型的邊沒有外鍵，刪除角色或使用者不清授權，在這裡濾掉
- * （docs/rbac/07-resource-grants.md §3.1）。
+ * （docs/architecture/iam/06-resource-grants.md §3.1）。
  */
 const LIVE_SUBJECT = sql`(
   ${relationTuples.subjectId} = ${WILDCARD_SUBJECT_ID}
@@ -160,7 +160,7 @@ function toGrant(row: GrantColumns): FolderGrant | null {
 }
 
 /**
- * 資料夾授權的存取（docs/rbac/07-resource-grants.md §8）：關係圖上 `fileFolder:<id>#<等級>@<對象>` 的邊。
+ * 資料夾授權的存取（docs/architecture/iam/06-resource-grants.md §8）：關係圖上 `fileFolder:<id>#<等級>@<對象>` 的邊。
  * 同一個對象在同一個資料夾只有一個等級——唯一索引含關係、擋不住，由 `set` 先刪後寫維持；
  * 授權的寫入都在資料夾樹的寫入佇列裡（`FileFolderTree.write`），不會並行。
  */

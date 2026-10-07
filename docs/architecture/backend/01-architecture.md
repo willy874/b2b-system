@@ -53,7 +53,7 @@ apps/api/src/
 │   ├── tenant/                           依網域決定租戶、每租戶的連線池、TENANT_DB（02-database.md §6、05-tenancy.md）
 │   ├── feature-flags/                    feature flag 的目錄與判斷（FeatureFlagService；05-tenancy.md §5.2）
 │   ├── cache/                            權限集合、使用者、API token 的快取（★ permission-cache.service.ts）
-│   ├── authz/                            ★ 關係圖權限引擎（rbac/01-domain-model.md §9）：型別 DSL、判斷器、relation_tuples 查詢、revision
+│   ├── authz/                            ★ 關係圖權限引擎（iam/01-model.md §9）：型別 DSL、判斷器、relation_tuples 查詢、revision
 │   ├── broadcast/                        程序之間的失效廣播：平台 DB 的 LISTEN／NOTIFY
 │   ├── events/                           DomainEventBus：領域事件（交易後發佈，訂閱者如推播；08-realtime.md §7）
 │   ├── errors/                           AppException、ErrorCode（轉出 @b2b-system/error-codes）、HttpExceptionFilter、資料庫錯誤的去參數化
@@ -84,10 +84,10 @@ apps/api/src/
 │   ├── oidc-provider/                    api 當 OIDC Provider（04-sso.md §12）
 │   ├── identity-provider/                外部 IdP 連線（04-sso.md §12.2 D8–D11）
 │   ├── user/                             使用者管理（UserService）與登入流程等其他模組用的帳號讀寫（UserAccountService）
-│   ├── role/ · group/ · permission/      角色、群組、權限目錄與權限集合（05-rbac.md、rbac/08-groups.md）
-│   ├── authz-explain/                    「為什麼能做 X」（rbac/09-explain.md）
+│   ├── role/ · group/ · permission/      角色、群組、權限目錄與權限集合（05-rbac.md、iam/07-groups.md）
+│   ├── authz-explain/                    「為什麼能做 X」（iam/08-explain.md）
 │   ├── service-account/ · api-token/     服務帳號與 API token（06-external-api.md）
-│   ├── approval/                         審批的狀態機；handler 由擁有資源的模組登記（rbac/06-approval.md）
+│   ├── approval/                         審批的狀態機；handler 由擁有資源的模組登記（backend/20-approval.md）
 │   ├── file/                             files 轉介表、直傳上傳、影像變體、資料夾與資料夾授權（09-file.md）
 │   ├── trash/ · revision/                回收桶（13-trash.md）、版本歷史（14-revisions.md）
 │   ├── notification/                     站內通知與事件管理（15-notification.md、16-notification-event.md）
@@ -114,7 +114,7 @@ apps/api/src/
 │   └── migrate.ts · reset.ts · archive-audit-logs.ts · drop-tenant.ts
 │
 └── cli/                                  維運指令（不經 Nest DI；正式映像也編進去）
-    └── reset-super-admin.ts              災難復原：簽發 super-admin 的一次性重設連結（rbac/05-seed-and-bootstrap.md §7）
+    └── reset-super-admin.ts              災難復原：簽發 super-admin 的一次性重設連結（iam/05-bootstrap.md §7）
 ```
 
 ---

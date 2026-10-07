@@ -148,7 +148,7 @@ type MockPermissionKey = (typeof PERMISSION_CATALOG)[number]['key'];
 
 /**
  * 權限依賴樹（對應 apps/api/src/db/seeds/permissions.ts 的 PERMISSION_DEPENDENCIES，只取 mock 目錄裡有的鍵；
- * docs/rbac/02-permission-catalog.md §9）。
+ * docs/architecture/iam/02-permission-catalog.md §9）。
  */
 const PERMISSION_DEPENDENCIES: Partial<
   Record<MockPermissionKey, { includes?: MockPermissionKey[]; requires?: MockPermissionKey[] }>

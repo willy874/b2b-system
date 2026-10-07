@@ -1,6 +1,6 @@
-# RBAC 08 — 群組
+# 身分與存取 07 — 群組
 
-> 決策見 [`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D10～D16；關係圖本身見 [`01-domain-model.md`](./01-domain-model.md) §6.4。
+> 決策見 [`01-model.md`](01-model.md) §9.3 D10～D16；關係圖本身見 [`01-model.md`](./01-model.md) §6.4。
 
 群組是 **純分組**：授權給群組、群組持有角色，人員異動時只改群組的成員。群組可以巢狀（成員可以是另一個群組）。
 它沒有自己的權限語意——成員取得的能力全部來自群組持有的角色與群組在資源上的授權。
@@ -17,14 +17,14 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 ```
 
 - `group` 是 `core/authz` 的 **核心型別**（與 `role` 同屬使用者集合），不是由模組註冊：主體閉包的遞迴 CTE 要知道哪些關係是成員關係、
-  已刪除的節點看哪張表（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2）。
+  已刪除的節點看哪張表（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.2）。
 - 主體閉包沿 `group#member` 與 `role#holder` 往上走：使用者 → 所屬群組 → 上層群組 → 這些群組持有的角色。全域權限、資料夾授權都由閉包解析，
   不需要群組專屬的判斷。
 - 以角色為中心的業務規則也把經由群組持有的人算成持有者（`PermissionService.findUserIdsHoldingRole`、操作者的主體閉包）：
-  自我鎖定（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8.4）、刪除角色的 `ROLE_IN_USE`（[`04-api-spec.md`](./04-api-spec.md) §3.4）、
-  角色變更的推播（[`../architecture/backend/08-realtime.md`](../architecture/backend/08-realtime.md) §6.1）。「是不是 super-admin」仍只看直接持有（D12）。
+  自我鎖定（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §8.4）、刪除角色的 `ROLE_IN_USE`（[`04-api.md`](./04-api.md) §3.4）、
+  角色變更的推播（[`../architecture/backend/08-realtime.md`](../backend/08-realtime.md) §6.1）。「是不是 super-admin」仍只看直接持有（D12）。
 - 成員與持有的角色只存在 `relation_tuples`（沒有 `group_members` 表）；`groups` 表只有名稱、說明、樂觀鎖的 `version` 與軟刪除
-  （[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.14）。
+  （[`../architecture/backend/02-database.md`](../backend/02-database.md) §2.14）。
 - 邊的形狀由 `db/schema/relation-tuples.ts` 的 `groupMemberTuple`、`groupRoleTuple` 產生，每一種形狀由測試對完整的模型驗證過
   （`src/__tests__/relation-tuples-model.spec.ts`）。
 
@@ -41,16 +41,16 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 
 ## 2. 授權規則
 
-### 2.1 反提權（[`rbac/01-domain-model.md`](01-domain-model.md) §9.3 D11～D13）
+### 2.1 反提權（[`01-model.md`](01-model.md) §9.3 D11～D13）
 
-寫入一條邊時，主體因此取得的能力，操作者必須全部都有（通用規則見 [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1）：
+寫入一條邊時，主體因此取得的能力，操作者必須全部都有（通用規則見 [`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1）：
 
 | 操作 | 主體取得的能力 | 檢查 |
 | --- | --- | --- |
 | 加成員（使用者或群組）到 G | `group:G#member` 往上閉包在租戶上的能力：G **與它所有上層群組** 持有的角色的權限鍵 | `PermissionService.assertCanGrant`，在交易內、成員的鎖之後 |
 | 讓 G 持有角色 r | r 在租戶上的能力 | `assertRolesAssignable`（同指派角色給使用者） |
 | 還原 G | 同加成員：G 的成員重新取得 G 與上層群組的角色 | 同加成員，另外檢查結構（§1.1） |
-| 還原使用者、把停用的使用者改回 active | 他直接所屬的群組（與上層群組）的角色重新生效 | 對他所屬的每個群組同加成員（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1） |
+| 還原使用者、把停用的使用者改回 active | 他直接所屬的群組（與上層群組）的角色重新生效 | 對他所屬的每個群組同加成員（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1） |
 
 - **D12：群組不能持有 super-admin**，super-admin 一律直接指派給使用者（`403 GROUP_SUPER_ADMIN_FORBIDDEN`，即使操作者是 super-admin）。
   所以「是不是 super-admin」（`hasRoleSlug`、`assertCanManage`、I8 的計數）仍只看直接持有的角色。
@@ -93,7 +93,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 不存在或已刪除的群組（還原以外的端點）回 `404 GROUP_NOT_FOUND`。
 
 資料夾授權的對象多一種 `group`（`PUT /file-folders/:id/grants` 的 `subjectType`、`GET /file-folders/:id/grant-subjects?subjectType=group`；
-[`07-resource-grants.md`](./07-resource-grants.md) §6.2）。
+[`06-resource-grants.md`](./06-resource-grants.md) §6.2）。
 
 ---
 
@@ -101,10 +101,10 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 
 - **刪除**：軟刪除；成員邊、上層群組的成員邊、持有角色的邊、以它為對象的資料夾授權都 **保留**（休眠），主體閉包略過已刪除的群組。
   **還原** 時一起回來。到期由 `GroupTrashHandler`（`purgeOrder` 50）永久刪除群組與以它為物件或主體的邊
-  （[`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §6.3）。
+  （[`../architecture/backend/13-trash.md`](../backend/13-trash.md) §6.3）。
 - `groups.deleted_at` 改變由 trigger 讓 `authz_revision` +1（migration 0017），與角色相同。
 - 會改變誰有什麼權限的寫入（成員、持有的角色、刪除、還原）在交易後呼叫 `permissionsChanged(affected)`：整個租戶失效並廣播
-  （[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）。`affected` 是群組（含巢狀）底下所有未刪除的使用者，
+  （[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §5.1）。`affected` 是群組（含巢狀）底下所有未刪除的使用者，
   寫入前後取聯集，只用來補建個人資料夾與推播。
 - 推播以 `ChangeSource.GROUP` 宣告，受眾是 `group:read` 的人與 `affected` 的 user room。前端收到群組的任何變更都重抓自己的 profile：
   前端不知道自己（間接）在哪些群組裡。
@@ -132,7 +132,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 
 | 項目 | 去向 |
 | --- | --- |
-| 「為什麼能／不能」的說明（explain API、有效權限頁） | 已做（G4b）：[`09-explain.md`](./09-explain.md) |
+| 「為什麼能／不能」的說明（explain API、有效權限頁） | 已做（G4b）：[`08-explain.md`](./08-explain.md) |
 | 角色繼承角色 | 不開放（D10） |
 | 外部 IdP 的群組對應、SCIM | 另開提案（D15） |
 | 群組擁有者自己管成員（下放） | 不做（D16）；要做時先重新評估 D13 |

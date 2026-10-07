@@ -37,7 +37,7 @@ export const RolePermissionsSchema = defineSchema(
   z.object({
     /** 明確授予的權限（角色帶的權限鍵的邊，不含依賴樹帶來的）。 */
     permissions: z.array(PermissionSchema),
-    /** 實際持有的鍵：明確的 ＋ 權限依賴樹帶出的（docs/rbac/02-permission-catalog.md §9）。 */
+    /** 實際持有的鍵：明確的 ＋ 權限依賴樹帶出的（docs/architecture/iam/02-permission-catalog.md §9）。 */
     effective: z.array(EffectivePermissionSchema),
     /** super-admin 角色：隱含全集、不能改權限。 */
     isSuperAdmin: z.boolean(),

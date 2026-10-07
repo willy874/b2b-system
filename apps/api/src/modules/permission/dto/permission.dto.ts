@@ -22,7 +22,7 @@ export const PermissionSchema = defineSchema(
     nameI18nKey: z.string(),
     description: z.string().nullable(),
     sortOrder: z.number().int(),
-    /** 子能力：同資源、這個鍵包含的鍵（docs/rbac/02-permission-catalog.md §9）。 */
+    /** 子能力：同資源、這個鍵包含的鍵（docs/architecture/iam/02-permission-catalog.md §9）。 */
     includes: z.array(PermissionKeySchema),
     /** 依賴：少了它就無法完整操作的 read（可以跨資源）。 */
     requires: z.array(PermissionKeySchema),

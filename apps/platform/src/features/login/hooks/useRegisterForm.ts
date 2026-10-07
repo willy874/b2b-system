@@ -14,7 +14,7 @@ const RegisterFormSchema = z.object({
 });
 
 /**
- * 註冊申請的流程（docs/rbac/06-approval.md §5）：租戶的註冊政策（是否開放）、表單驗證與送出。
+ * 註冊申請的流程（docs/architecture/backend/20-approval.md §5）：租戶的註冊政策（是否開放）、表單驗證與送出。
  * 不填密碼：核准後由寄到這個 email 的啟用信設定（同時證明擁有這個信箱）。
  * 不論 email 是否已存在，後端都回同樣的結果（帳號列舉防護），送出後一律是 `submitted`。
  */

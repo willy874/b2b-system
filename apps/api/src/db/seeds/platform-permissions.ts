@@ -2,7 +2,7 @@ import type { PlatformAdminRole } from '../platform/schema';
 
 /**
  * 平台的權限目錄（docs/architecture/05-tenancy.md §10.2 D5）：apps/platform 的平台管理者用，與租戶的目錄
- * （`permissions.ts`）互不相干。**唯一事實來源是 `docs/rbac/02-permission-catalog.md` §8**；改這裡必須同時改文件。
+ * （`permissions.ts`）互不相干。**唯一事實來源是 `docs/architecture/iam/02-permission-catalog.md` §8**；改這裡必須同時改文件。
  *
  * 平台的權限不寫進資料庫：角色固定三種（`platform_admins.role`），對照表就在這裡。
  */

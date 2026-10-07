@@ -12,7 +12,7 @@ import { invalidateResources, Resource } from '@/apis/resources';
 
 /**
  * 資料夾授權變了：資料夾清單的能力旗標、授權清單、檔案的能力都可能跟著變
- * （後端同樣推 `fileFolder update`，docs/rbac/07-resource-grants.md §9）。
+ * （後端同樣推 `fileFolder update`，docs/architecture/iam/06-resource-grants.md §9）。
  */
 function invalidateFolderAccess(folderId: string): void {
   invalidateResources([{ resource: Resource.FILE_FOLDER, kind: 'update', id: folderId }]);

@@ -15,7 +15,7 @@ function sameIds(left: readonly string[], right: readonly string[]): boolean {
  * 群組持有的角色的選擇草稿。`current` 是伺服器上目前的角色；沒有改動時草稿就是它（推播讓資料重抓時跟著更新）。
  *
  * 第一次改動時記下當時的角色（`base`），差異（`add`／`remove`）對它計算：之後推播讓 `current` 變了，
- * 送出的仍只有自己這次的增減，不會把別人剛拿掉的角色加回來、或拿掉別人剛加上的（docs/rbac/08-groups.md §3、§5）。
+ * 送出的仍只有自己這次的增減，不會把別人剛拿掉的角色加回來、或拿掉別人剛加上的（docs/architecture/iam/07-groups.md §3、§5）。
  * 這時 `isStale` 為 true，頁面提示「資料已被他人修改」，讓使用者決定要不要改用最新的角色。
  */
 export function useGroupRoleDraft(current: readonly string[]) {

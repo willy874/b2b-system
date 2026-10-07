@@ -28,7 +28,7 @@ interface FileAccessExplainSectionProps {
 }
 
 /**
- * 共用對話框的「檢查存取」（docs/rbac/01-domain-model.md §9 G4b）：挑一位使用者，列出每個動作能不能做與經由哪條授權。
+ * 共用對話框的「檢查存取」（docs/architecture/iam/01-model.md §9 G4b）：挑一位使用者，列出每個動作能不能做與經由哪條授權。
  * 看別人要 `authz:explain`（呼叫端決定是否顯示）；路徑上讀不到的節點由後端遮蔽（D14）。
  */
 export function FileAccessExplainSection({ folderId }: FileAccessExplainSectionProps) {

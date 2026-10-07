@@ -10,7 +10,7 @@ interface RoleHolderSectionProps {
   groups: Group[] | undefined;
 }
 
-/** 持有此角色的使用者（連到 user feature 的詳情頁），以及經由群組持有的群組（docs/rbac/01-domain-model.md §9 G4）。 */
+/** 持有此角色的使用者（連到 user feature 的詳情頁），以及經由群組持有的群組（docs/architecture/iam/01-model.md §9 G4）。 */
 export function RoleHolderSection({ holders, groups }: RoleHolderSectionProps) {
   const { t } = useTranslation();
 

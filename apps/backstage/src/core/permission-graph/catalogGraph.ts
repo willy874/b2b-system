@@ -10,7 +10,7 @@ import type {
 import type { Permission, PermissionGroup } from '@/shared/api-sdk';
 
 /**
- * 權限依賴樹（docs/rbac/02-permission-catalog.md §9）的純邏輯：閉包、前置路徑與畫布版面。
+ * 權限依賴樹（docs/architecture/iam/02-permission-catalog.md §9）的純邏輯：閉包、前置路徑與畫布版面。
  * 角色權限的技能樹（可勾選）與權限目錄的樹狀圖（唯讀）共用同一份版面。
  */
 

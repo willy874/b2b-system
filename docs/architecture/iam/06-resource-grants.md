@@ -1,6 +1,6 @@
-# RBAC 07 — 資源授權（資料夾層級）
+# 身分與存取 06 — 資源授權（資料夾層級）
 
-> 全域 RBAC（[`01-domain-model.md`](./01-domain-model.md)）回答「這個人能不能做 X」；
+> 全域 RBAC（[`01-model.md`](./01-model.md)）回答「這個人能不能做 X」；
 > 資源授權回答「這個人能不能對 **這個東西** 做 X」。第一個套用的資源是檔案管理器的資料夾。
 > 決策理由見 §13。
 
@@ -8,7 +8,7 @@
 
 ## 1. 模型：RBAC 閘門 ＋ 資料夾 ACL（繼承）＋ 擁有者規則
 
-三層疊起來，**全部只有 allow、取聯集**（沿用 [`01-domain-model.md`](./01-domain-model.md) §6.3，沒有 deny 規則）：
+三層疊起來，**全部只有 allow、取聯集**（沿用 [`01-model.md`](./01-model.md) §6.3，沒有 deny 規則）：
 
 | 層 | 來源 | 範圍 | 回答 |
 | --- | --- | --- | --- |
@@ -45,10 +45,10 @@
 - 等級是 **全序**：`viewer < contributor < editor < manager`。同一個人從多個來源拿到等級時取最高者。
 - 動作與全域權限鍵一一對應：`read` ↔ `file:read`、`create` ↔ `file:create`、`update` ↔ `file:update`、
   `delete` ↔ `file:delete`、`share` ↔ `file:share`。
-  所以「權限鍵的字串格式不變」（[`rbac/01-domain-model.md`](01-domain-model.md) §8 的承諾）仍然成立：
+  所以「權限鍵的字串格式不變」（[`01-model.md`](01-model.md) §8 的承諾）仍然成立：
   等級只是「在某個範圍內持有哪些權限鍵」的簡寫。
 
-### 2.1 在關係圖上（[`rbac/01-domain-model.md`](01-domain-model.md) §9）
+### 2.1 在關係圖上（[`01-model.md`](01-model.md) §9）
 
 等級、動作與擁有者規則都寫成模型裡的關係（`apps/api/src/modules/file/file.authz.ts`），由 `core/authz` 的判斷器解析：
 
@@ -91,7 +91,7 @@ level(u, F) = 收集到的授權中最高的等級；沒有就是「無」
 - 授權的過期時間到了就不再計入，不需要排程清除（§6.3）。
 - 角色被刪除（軟刪除）、使用者被刪除：他們的授權不再計入，也不出現在授權清單。
 - 資料夾被刪除（軟刪除，移到回收桶）：它上面的授權邊不刪。刪除的資料夾不在結構裡，授權流不到任何地方；
-  還原後隨之生效，永久刪除時才刪邊（[`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7）。
+  還原後隨之生效，永久刪除時才刪邊（[`../architecture/backend/13-trash.md`](../backend/13-trash.md) §7）。
 
 ### 3.2 能力
 
@@ -124,13 +124,13 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | 操作 | 條件 |
 | --- | --- |
 | 看到檔案（`ready`）、下載、預覽 | `has(read, 檔案所在資料夾)` |
-| 看到上傳中（`pending`）的檔案 | 只有上傳者本人（不變，[`09-file.md`](../architecture/backend/09-file.md) §4.1） |
+| 看到上傳中（`pending`）的檔案 | 只有上傳者本人（不變，[`09-file.md`](../backend/09-file.md) §4.1） |
 | 上傳到 `F`、在 `F` 建立子資料夾 | `has(create, F)` |
 | 檔案改名／刪除 | `has(update／delete, 所在資料夾)` ∨（**本人上傳** ∧ `has(create, 所在資料夾)`） |
 | 資料夾 `D` 改名 | `has(update, D 的上層)` ∨（**本人建立** ∧ `has(create, D 的上層)`） |
 | 移動檔案或資料夾到 `T` | 每一個項目都能「改名」（同上）∧ `has(create, T)` |
 | 遞迴刪除資料夾 `D` | `has(delete, D 的上層)` ∨（本人建立 ∧ `has(create, D 的上層)` ∧ **子樹裡全部是本人建立的**）；另外子樹中每個中斷繼承的資料夾 `X` 都要 `has(delete, X)` |
-| 還原刪除的檔案、資料夾 | 與刪除相同（能刪就能復原，[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D10）；資料夾以 **還原之後** 的結構判斷，交易內先還原、不能就 rollback（[`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7.1） |
+| 還原刪除的檔案、資料夾 | 與刪除相同（能刪就能復原，[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D10）；資料夾以 **還原之後** 的結構判斷，交易內先還原、不能就 rollback（[`../architecture/backend/13-trash.md`](../backend/13-trash.md) §7.1） |
 | 看授權清單、新增／變更／移除授權、中斷繼承 | `has(share, F)` |
 
 **擁有者規則（C）的範圍**：只放寬「改名、移動、刪除」，不放寬「看得到」。
@@ -172,7 +172,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 
 ### 6.1 反提權
 
-比照 `role:grantPermission`（[`04-api-spec.md`](./04-api-spec.md) §5）：
+比照 `role:grantPermission`（[`04-api.md`](./04-api.md) §5）：
 
 - 授予、變更、移除等級 `L` 的授權：操作者必須 `has(share, F)`，而且 **`L` 蘊含的每個動作操作者在 `F` 都有**
   （來源可以是全域權限鍵或資料夾等級）。違反回 `403 AUTHZ_ESCALATION`（`details.missing`）。
@@ -185,7 +185,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 | --- | --- | --- |
 | `role` | P1 | 角色；持有者隨角色指派變動，授權自動跟著走 |
 | `user` | P2 | 個別使用者 |
-| `group` | G4（[`rbac/01-domain-model.md`](01-domain-model.md) §9） | 群組的成員，含巢狀群組的成員；人員異動只改群組成員。加成員時不檢查群組在資料夾上的授權（D13）——授予給群組時已由 `can_share` 的人檢查過 |
+| `group` | G4（[`01-model.md`](01-model.md) §9） | 群組的成員，含巢狀群組的成員；人員異動只改群組成員。加成員時不檢查群組在資料夾上的授權（D13）——授予給群組時已由 `can_share` 的人檢查過 |
 | `everyone` | 追加 | 所有能進檔案管理器的人（`subject_id` 固定是全零 uuid）；共用資料夾用它（§12） |
 
 候選清單（`GET /file-folders/:id/grant-subjects`）只回傳 id、名稱：`has(share, F)` 的人不需要 `role:read` / `user:read`
@@ -211,7 +211,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 ### 6.5 申請存取（審批類型 `fileFolder.access`）
 
 沒有權限（或權限不夠）的人可以對資料夾申請一個等級，由 **該資料夾的管理者** 或 **管理員** 核准。
-沿用審批的狀態機（[`06-approval.md`](./06-approval.md) §7）：
+沿用審批的狀態機（[`backend/20-approval.md`](../backend/20-approval.md) §7）：
 
 | 步驟 | 誰 | 做法 |
 | --- | --- | --- |
@@ -245,7 +245,7 @@ has(u, a, F)      = u 有全域 file:a ∨ level(u, F) 蘊含 a
 
 ## 8. 資料模型
 
-授權是 `relation_tuples`（[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.10）上的邊，
+授權是 `relation_tuples`（[`../architecture/backend/02-database.md`](../backend/02-database.md) §2.10）上的邊，
 讀寫集中在 `apps/api/src/modules/file/file-folder-grant.repository.ts`（`FileFolderGrantRepository`）：
 
 ```
@@ -276,8 +276,8 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 | 地方 | 做法 |
 | --- | --- |
-| 路由宣告 | 檔案相關路由改成 `@RequireAnyPermission('file:access', 'file:<動作>')`：guard 只當閘門，範圍由 service 判斷（[`05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外） |
-| 推播 | `file` / `fileFolder` 的受眾加上 `file:access` 的 room。Payload 只有 id（[`08-realtime.md`](../architecture/backend/08-realtime.md) §6.1），看不到的資料夾有變更時只會多重抓一次，不會外洩名稱。授權變更推 `fileFolder update`（id 是該資料夾） |
+| 路由宣告 | 檔案相關路由改成 `@RequireAnyPermission('file:access', 'file:<動作>')`：guard 只當閘門，範圍由 service 判斷（[`05-rbac.md`](../backend/05-rbac.md) §1 原則 3 的例外） |
+| 推播 | `file` / `fileFolder` 的受眾加上 `file:access` 的 room。Payload 只有 id（[`08-realtime.md`](../backend/08-realtime.md) §6.1），看不到的資料夾有變更時只會多重抓一次，不會外洩名稱。授權變更推 `fileFolder update`（id 是該資料夾） |
 | 權限快取 | 資料夾授權 **不進** 權限快取：每個請求重新解析（一次取整棵資料夾結構 ＋ 相關授權）。授權變更不呼叫 `permissionsChanged`（`authz_revision` 仍 +1，其他程序的權限快取跟著失效一次）；資料夾結構本身有程序內快取，由結構的寫入在提交後失效（backend 09 §11.1） |
 | 簽章網址 | 影像 API 與 presigned 下載網址發出後到期前都有效：撤銷授權的延遲上限是網址的 TTL（`FILE_URL_TTL`，預設 15 分鐘，env 最多只接受 1 小時）；列表的網址因簽章時間取整（backend 09 §7.1），實際剩餘效期介於 TTL/2 與 TTL 之間 |
 
@@ -299,7 +299,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 1 | 在模型裡宣告型別：等級、`can_*`、`X from <上層>`（沿用 `fileFolder` 的寫法） | 該資源的 `<resource>.authz.ts`，於 `onModuleInit` 註冊（`AuthzRegistry`） |
 | 2 | 提供結構邊的供應者（上層、繼承、擁有者），從資源自己的表讀，不存進 `relation_tuples` | 同上 |
 | 3 | 授權的讀寫：`<type>:<id>#<等級>@<主體>` 的 repository；「一個對象一個等級」由程式維持（§8） | 該資源的 module（參考 `file-folder-grant.repository.ts`） |
-| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；型別宣告它的能力（`defineType(…, { capabilities })`），等級帶來的能力由 `capabilitiesOf` 算出，反提權用 `missingActions()` / `assignableLevels()`（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1） | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
+| 4 | 能力判斷交給判斷器（`AuthzService.checkerFor`）；型別宣告它的能力（`defineType(…, { capabilities })`），等級帶來的能力由 `capabilitiesOf` 算出，反提權用 `missingActions()` / `assignableLevels()`（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1） | 該資源的 `XxxAccessService`；等級規則目前在 `modules/file/file-grant.levels.ts`，第二種資源出現時再抽出共用 |
 | 5 | 授權管理 API、稽核（`<resource>.grant` / `.revoke`）、推播受眾 | 該資源的 module ＋ `realtime.audience.ts` |
 | 6 | 權限目錄加閘門鍵（`<resource>:access`）與 `<resource>:share` | 權限變更的同步清單（CLAUDE.md） |
 
@@ -311,7 +311,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 目前的 Postgres 實作在以下任一條件成立時改用 OpenFGA / SpiceDB（資料可直接匯出，§8）：
 
 - 需要自建引擎表達不了的關係（排除、條件式權限，或跨資源關係的組合多到遞迴 CTE 撐不住）。群組巢狀已由自建的關係圖支援
-  （[`08-groups.md`](./08-groups.md)，[`rbac/01-domain-model.md`](01-domain-model.md) §9 G4a），不再是觸發條件；
+  （[`07-groups.md`](./07-groups.md)，[`01-model.md`](01-model.md) §9 G4a），不再是觸發條件；
 - 單次請求載入整棵資料夾結構的成本不可接受（資料夾數上萬），且以樹版本號快取仍不夠；
 - 多個服務需要共用同一份授權判斷。
 
@@ -334,7 +334,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | --- | --- |
 | 建立時機 | api 啟動時確保共用資料夾與私人資料夾存在（冪等）；並為每個 **能進檔案管理器** 的使用者（`file:access` 或 `file:read`，或 super-admin）補建個人資料夾 |
 | 自動建立個人資料夾 | 權限改變時（`permissions.changed`：指派角色、角色權限變更、建立帶角色的使用者、核准註冊）檢查受影響的使用者，取得檔案管理器權限而還沒有個人資料夾的就建立。兩者都錯過時（跨程序的廣播不保證送達、資料庫在 api 執行中被重灌），`GET /file-folders` 發現操作者還沒有個人資料夾就當場補建（同樣只限能進檔案管理器的人） |
-| 個人資料夾 | 名稱是顯示名稱（資料夾名稱不允許的字元——`/`、`\`、控制字元、雙向文字控制、零寬字元，[`backend/09-file.md`](../architecture/backend/09-file.md) §4——換成空白；同名時依序加上 email、再加編號，最後退回 user id，一定能建立）；一批建立時每 500 人一個 savepoint，資料夾、授權、稽核各一個多列 INSERT（名稱依同層已用的名稱在記憶體裡挑）；被唯一索引略過的人或整批失敗時退回逐人建立（每人一個 savepoint），一人失敗不影響其他人；`owner_id` 是本人；本人是 `manager`、不繼承上層：只有本人（與全域權限者）讀得到，本人可以自己分享；別人看不看得到見 §12.1 |
+| 個人資料夾 | 名稱是顯示名稱（資料夾名稱不允許的字元——`/`、`\`、控制字元、雙向文字控制、零寬字元，[`backend/09-file.md`](../backend/09-file.md) §4——換成空白；同名時依序加上 email、再加編號，最後退回 user id，一定能建立）；一批建立時每 500 人一個 savepoint，資料夾、授權、稽核各一個多列 INSERT（名稱依同層已用的名稱在記憶體裡挑）；被唯一索引略過的人或整批失敗時退回逐人建立（每人一個 savepoint），一人失敗不影響其他人；`owner_id` 是本人；本人是 `manager`、不繼承上層：只有本人（與全域權限者）讀得到，本人可以自己分享；別人看不看得到見 §12.1 |
 | 保護 | 三種系統資料夾不能改名、移動、刪除（`403 FILE_FOLDER_SYSTEM_PROTECTED`）；也不能把它們移進別處 |
 | 預設位置 | 前端進入檔案管理器、網址沒有指定資料夾時，開在自己的個人資料夾（`FileFolderList.personalFolderId`），管理員也一樣；之後點「所有檔案」仍可回到根目錄 |
 | 使用者被刪除 | 個人資料夾 **是空的**（沒有子資料夾、沒有檔案，含上傳中的）就自動軟刪除（稽核 `fileFolder.delete`，`metadata.reason = owner-deleted`）；有東西的保留，由管理者整理。api 啟動時也會補做服務停機期間刪除的使用者 |
@@ -360,7 +360,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | **P1** | `file:access` / `file:share`、`resource_grants`（對象只有角色）、繼承、擁有者規則、`capabilities`、推播受眾、授權管理 API 與前端「共用」對話框 |
 | **P2** | 授權給個別使用者、中斷繼承（私人資料夾）、授權過期 |
 | **追加** | 沒有權限的資料夾也列出（鎖住）＋ 申請存取（§5.1、§6.5）；系統資料夾與 `everyone` 對象（§12） |
-| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。G3a（[`rbac/01-domain-model.md`](01-domain-model.md) §9）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
+| **P3** | 通用解析函式與 `modules/resource-grant` 的掛載契約；OpenFGA 遷移判準（§10.2）。G3a（[`01-model.md`](01-model.md) §9）起解析改由關係圖負責、`modules/resource-grant` 已刪除，新的掛載步驟見 §10.1 |
 
 三個階段都已實作（2026-09-29）。
 
@@ -368,12 +368,12 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 ## 13. 設計決策：資料夾層級授權（RBAC 閘門 ＋ 繼承式 ACL ＋ 擁有者規則）
 
-> 原 ADR-0015，2026-09-29 決定。部分取代扁平權限（[`01-domain-model.md`](./01-domain-model.md) §8）：檔案不再是扁平範圍，其餘資源不變。
-> 解析方式（`resolveHierarchyLevels`）與 D7 的 `resource_grants`／`modules/resource-grant` 後來由關係圖（[`01-domain-model.md`](./01-domain-model.md) §9）取代，等級與規則不變。
+> 原 ADR-0015，2026-09-29 決定。部分取代扁平權限（[`01-model.md`](./01-model.md) §8）：檔案不再是扁平範圍，其餘資源不變。
+> 解析方式（`resolveHierarchyLevels`）與 D7 的 `resource_grants`／`modules/resource-grant` 後來由關係圖（[`01-model.md`](./01-model.md) §9）取代，等級與規則不變。
 
 ### 13.1 背景
 
-檔案管理器上線後，扁平的 `file:*`（[`rbac/01-domain-model.md`](01-domain-model.md) §8）表達不了實際的分工：
+檔案管理器上線後，扁平的 `file:*`（[`01-model.md`](01-model.md) §8）表達不了實際的分工：
 
 | 需求 | 扁平 RBAC 為什麼做不到 |
 | --- | --- |
@@ -382,9 +382,9 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | 把某個資料夾交給特定角色或個人管理 | 沒有針對單一資源的授權 |
 | 某個資料夾只給少數人（私人資料夾） | 只有 allow；資料夾授權會一路繼承下去 |
 
-[`rbac/01-domain-model.md`](01-domain-model.md) §8 延後作用域的理由是「主功能還不存在，猜不到作用域的單位」。檔案管理器的資料夾樹是第一個具體的單位。
-後端與前端的對應章節：[`../architecture/backend/09-file.md`](../architecture/backend/09-file.md) §11、
-[`../architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §13。
+[`01-model.md`](01-model.md) §8 延後作用域的理由是「主功能還不存在，猜不到作用域的單位」。檔案管理器的資料夾樹是第一個具體的單位。
+後端與前端的對應章節：[`../architecture/backend/09-file.md`](../backend/09-file.md) §11、
+[`../architecture/frontend/12-file-manager.md`](../frontend/12-file-manager.md) §13。
 
 ### 13.2 決定
 
@@ -396,12 +396,12 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | D2 | 新增閘門 `file:access`：可進入檔案管理器，範圍由資料夾授權決定 | 一般成員需要一個權限鍵才進得了頁面與 API；也保留「整個停用某人的檔案功能」的開關 |
 | D3 | 新增 `file:share`：全域管理任何資料夾的授權 | 授權管理是獨立的決定（權限目錄的「一個鍵 ＝ 一個決定」） |
 | D4 | 資料夾授權用 **四個等級**（viewer / contributor / editor / manager），不逐一勾選權限鍵 | 等級是全序、好理解、好比較（取最高者、反提權比大小）；每個等級對應一組權限鍵，鍵的格式不變 |
-| D5 | 授權往下繼承；`inherit_grants = false` 中斷繼承，中斷時複製目前繼承到的授權 | 不引入 deny 規則也能做出私人資料夾（[`rbac/01-domain-model.md`](01-domain-model.md) §8 理由 4）；複製避免中斷當下有人突然失去存取 |
+| D5 | 授權往下繼承；`inherit_grants = false` 中斷繼承，中斷時複製目前繼承到的授權 | 不引入 deny 規則也能做出私人資料夾（[`01-model.md`](01-model.md) §8 理由 4）；複製避免中斷當下有人突然失去存取 |
 | D6 | 對項目的操作看它 **所在的位置**；擁有者規則只放寬改名、移動、刪除，前提是能在該位置上傳 | 與 Drive 一致：被分享一個資料夾的人不能刪掉它本身；「操作自己建立的東西」不會變成繞過授權的後門 |
 | D7 | 通用的 `resource_grants` 表與 `modules/resource-grant`，資料夾只是第一個 `resource_type` | 其他資源會用同一套；解析函式只認識「節點、上層、是否繼承」（G3a 起改為關係圖上的邊，表與 module 已刪除，見 §10.1） |
 | D8 | 後端回傳 `capabilities`，前端不重算 | 繼承與擁有者規則只在後端有一份 |
 | D9 | 資料夾授權不進權限快取，每個請求重新解析 | 失效時機（角色指派、授權變更、搬移資料夾）太多；一次讀整棵樹在目前規模很便宜 |
-| D10 | 路由宣告 `@RequireAnyPermission('file:access', 'file:<動作>')`，範圍在 service 判斷 | guard 看不到資源（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §1 原則 3 的例外）；路由稽核仍然有明確宣告 |
+| D10 | 路由宣告 `@RequireAnyPermission('file:access', 'file:<動作>')`，範圍在 service 判斷 | guard 看不到資源（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §1 原則 3 的例外）；路由稽核仍然有明確宣告 |
 | D11 | 沒有權限的資料夾仍列出（鎖住），可以申請存取；申請走審批（`fileFolder.access`），由資料夾的管理者或管理員核准 | 使用者需求（2026-09-29）：知道資料夾存在、能自助申請，比「看不到就不知道要找誰」好用。代價是資料夾名稱對能進檔案管理器的人公開；檔案仍不公開 |
 | D12 | 系統建立「共用資料夾」（所有人 editor）、「私人資料夾」與每人一個個人資料夾（本人 manager、不繼承）；取得檔案管理器權限時自動建立；別人的個人資料夾與其他資料夾一致（列出、鎖住）；擁有者被刪除時空的個人資料夾自動刪除。**「別人的個人資料夾也列出」已由 D17 取代** | 使用者需求（2026-09-29）：一般成員不能在根目錄建立，需要現成的共用區與個人區；可見性規則保持一致、沒有例外 |
 | D17 | **別人的個人資料夾分三層可見度**（§12.1，2026-10-07）：一般成員只看得到被分享的路徑、看不到的回 404；新權限 `file:listPersonal` 看得到全部（鎖住、可申請）；全域 `file:read` 讀得到全部 | 1000 人的租戶每個人的樹都有上千個鎖住的個人資料夾，回應與 render 隨人數成長；每個人都看得到全公司的名單，也能對任何人的個人資料夾送申請（騷擾的管道）。D11 的「知道存在才能申請」不適用於以人名命名的資料夾。以權限分層（使用者決定）而不是「只有全域 `file:read` 例外」：需要協助整理個人資料夾、但不該讀到內容的管理層級有自己的權限鍵 |
@@ -418,7 +418,7 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 
 ### 13.4 不做：專案成為資料夾的上層
 
-2026-10-07 決定不做（原為權限圖的 G5）：一群人共用一塊空間，用群組加上資料夾授權即可（[`08-groups.md`](./08-groups.md)）；
+2026-10-07 決定不做（原為權限圖的 G5）：一群人共用一塊空間，用群組加上資料夾授權即可（[`07-groups.md`](./07-groups.md)）；
 根目錄維持只由全域權限決定（§3.1、§12）。
 
 ### 13.5 代價
@@ -437,5 +437,5 @@ file_folders.inherit_grants  boolean not null default true        ← P2
 | A. 區域 RBAC（`user_roles` 帶 `scope_*`） | K8s RoleBinding、GCP IAM | 作用域是扁平 id，資料夾樹的繼承仍要自己補；且「把資料夾交給某個角色」要改的是角色指派，不直覺 |
 | **B. 資源 ACL ＋ 繼承** | Google Drive、SharePoint | **採用**：檔案管理器的標準模型 |
 | **C. 擁有者規則** | WordPress、Drupal（own / any） | **採用**，疊在 B 上 |
-| D. ReBAC 服務 | OpenFGA、SpiceDB | 延後：多一個服務與雙寫同步；資料形狀先對齊，將來可匯出（之後改為在 Postgres 上自建關係圖，見 [`rbac/01-domain-model.md`](01-domain-model.md) §9） |
-| E. ABAC／策略引擎 | Cedar、OPA、Casbin | 不採用：沒有條件式需求；[`rbac/01-domain-model.md`](01-domain-model.md) §8 否決的理由仍成立 |
+| D. ReBAC 服務 | OpenFGA、SpiceDB | 延後：多一個服務與雙寫同步；資料形狀先對齊，將來可匯出（之後改為在 Postgres 上自建關係圖，見 [`01-model.md`](01-model.md) §9） |
+| E. ABAC／策略引擎 | Cedar、OPA、Casbin | 不採用：沒有條件式需求；[`01-model.md`](01-model.md) §8 否決的理由仍成立 |

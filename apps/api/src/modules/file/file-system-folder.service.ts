@@ -25,7 +25,7 @@ export const SHARED_FOLDER_NAME = '共用資料夾';
 export const PRIVATE_ROOT_FOLDER_NAME = '私人資料夾';
 
 /**
- * 系統資料夾（docs/rbac/07-resource-grants.md §12）：
+ * 系統資料夾（docs/architecture/iam/06-resource-grants.md §12）：
  * - 共用資料夾：所有人（`everyone`）是 editor；
  * - 私人資料夾：容器，沒有授權；底下每個能進檔案管理器的人一個個人資料夾（本人 manager、不繼承上層）。
  *
@@ -83,7 +83,7 @@ export class FileSystemFolderService
   }
 
   /**
-   * 擁有者已被刪除、而且裡面是空的個人資料夾：軟刪除（docs/rbac/07-resource-grants.md §12）。
+   * 擁有者已被刪除、而且裡面是空的個人資料夾：軟刪除（docs/architecture/iam/06-resource-grants.md §12）。
    * `ownerIds` 不帶時檢查全部。裡面有東西的保留，由管理者整理。
    */
   async removeEmptyPersonalFolders(ownerIds?: readonly string[]): Promise<void> {
@@ -276,7 +276,7 @@ export class FileSystemFolderService
     const sets = await this.permissions.getPermissionSets(userIds);
     return (
       [...sets]
-        // 權限集合是依賴樹的閉包：任何 file:* 都帶來 file:access（docs/rbac/02-permission-catalog.md §9）
+        // 權限集合是依賴樹的閉包：任何 file:* 都帶來 file:access（docs/architecture/iam/02-permission-catalog.md §9）
         .filter(
           ([, { permissions, isSuperAdmin }]) =>
             isSuperAdmin || permissions.has(PERMISSION.FILE_ACCESS),

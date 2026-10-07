@@ -1,8 +1,8 @@
-# RBAC 04 — API 規格
+# 身分與存取 04 — API 規格
 
 所有端點皆在 `/api` 前綴之下（由反向代理／Vite proxy 加上）。
 共用的回應信封、分頁與錯誤格式見
-[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md)。
+[`../architecture/backend/03-api-conventions.md`](../backend/03-api-conventions.md)。
 
 圖例：
 
@@ -96,8 +96,8 @@
 - 不建立帳號，只建立一筆 `user.register` 審批請求；核准後建立 **未啟用**（`pending`）、沒有密碼的帳號並寄出啟用信，
   申請人從信中連結設定密碼（`POST /auth/setup`，套用租戶的 `auth.passwordMinLength`）後才能登入。
 - 不收密碼：舊的用戶端仍送 `password` 時會被忽略，不保存。
-- 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次；同 IP 另有總上限（[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8）。
-- 流程與規則見 [`06-approval.md`](./06-approval.md) §5。
+- 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次；同 IP 另有總上限（[`../architecture/backend/03-api-conventions.md`](../backend/03-api-conventions.md) §8）。
+- 流程與規則見 [`backend/20-approval.md`](../backend/20-approval.md) §5。
 
 ---
 
@@ -128,7 +128,7 @@
 | `keyword`   | string        | —           | 模糊比對 email / username / displayName               |
 | `status`    | enum[]        | —           | 可多值                                                |
 | `roleId`    | uuid[]        | —           | 可多值，取聯集                                        |
-| `sort`      | `<欄位>` \| `-<欄位>`[] | `-createdAt` | `-` 前綴為降冪；可多值，出現順序即優先順序；欄位為 `createdAt` / `email` / `displayName` / `lastLoginAt`，不可重複（見 [`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §2.1） |
+| `sort`      | `<欄位>` \| `-<欄位>`[] | `-createdAt` | `-` 前綴為降冪；可多值，出現順序即優先順序；欄位為 `createdAt` / `email` / `displayName` / `lastLoginAt`，不可重複（見 [`architecture/backend/03-api-conventions.md`](../backend/03-api-conventions.md) §2.1） |
 
 **回應**
 
@@ -176,14 +176,14 @@
 ```
 
 - `version`（必填，樂觀鎖）：編輯開始時的版本；與目前不同回 `409 USER_VERSION_CONFLICT`（`details.current`），
-  不帶 → `400 VALIDATION_FAILED`（[`architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11）。只帶 `version` 沒有其他欄位 → `400`
+  不帶 → `400 VALIDATION_FAILED`（[`architecture/backend/03-api-conventions.md`](../backend/03-api-conventions.md) §11）。只帶 `version` 沒有其他欄位 → `400`
 
 - 改 `status` 為 `inactive` → 撤銷該使用者所有 refresh token 並 `token_version + 1`
-- `pending` 只能靠啟用信離開（收得到信才證明擁有這個 email，[`06-approval.md`](./06-approval.md) §5）：
+- `pending` 只能靠啟用信離開（收得到信才證明擁有這個 email，[`backend/20-approval.md`](../backend/20-approval.md) §5）：
   `pending` → `active` 回 `400 VALIDATION_FAILED`（`fields.status`）；`pending` → `inactive` 照常，但一併清掉註冊申請時存的密碼，
   之後改回 `active` 也只能經「重設密碼」設定密碼
 - `inactive` → `active`：他直接持有的角色與所屬的群組（含上層群組與群組持有的角色）跟著重新生效，
-  反提權與還原相同（§2.5；[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1），actor 給不了 → `403 AUTHZ_ESCALATION`
+  反提權與還原相同（§2.5；[`architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1），actor 給不了 → `403 AUTHZ_ESCALATION`
 - `actorId === :id` → `403 AUTHZ_SELF_MODIFY`
 
 ### 2.4 `PUT /users/:id/roles`
@@ -197,7 +197,7 @@
 ```
 
 `expectedRoleIds`（必填）：編輯開始時的角色（沒有角色時是 `[]`）。與目前的角色不同時回 `409 USER_ROLES_CONFLICT`，不覆寫別人剛做的變更；
-不帶 → `400 VALIDATION_FAILED`（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D4）。
+不帶 → `400 VALIDATION_FAILED`（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D4）。
 
 檢查：反提權（§5；目標持有 super-admin 時只有 super-admin 能改）、`AUTHZ_SELF_MODIFY`、`LAST_SUPER_ADMIN`（交易內加鎖）、`USER_ROLES_CONFLICT`。
 
@@ -207,7 +207,7 @@
 
 ### 2.5 `POST /users/:id/restore`
 
-還原軟刪除的使用者（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D6；能刪就能復原，所以權限是 `user:delete`）。
+還原軟刪除的使用者（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D6；能刪就能復原，所以權限是 `user:delete`）。
 `status` 維持刪除前的值；refresh token、外部身分連結、啟用／重設連結不回復；持有的角色中仍存在的那些、所屬的群組（與群組帶來的角色）跟著生效。
 
 ```jsonc
@@ -222,11 +222,11 @@
 | `409 USER_EMAIL_DUPLICATE`／`USER_USERNAME_DUPLICATE` | email／username 已被未刪除的帳號使用；`details.conflictingUserId` |
 | `403 AUTHZ_ESCALATION` | 他持有的角色、或他所屬的群組帶來的角色中有 actor 給不了的（反提權，§5） |
 
-回收桶的列表是 `GET /trash?type=user`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §4。
+回收桶的列表是 `GET /trash?type=user`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../backend/13-trash.md) §4。
 
 ### 2.6 批次操作
 
-沒有批次端點：批次操作由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。
+沒有批次端點：批次操作由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13。
 
 ---
 
@@ -316,7 +316,7 @@
 3. `add` 的鍵全部存在 → 否則 `400 PERMISSION_UNKNOWN`
 4. 反提權：`add ⊆ actor 權限集合`（actor 的集合已含依賴樹閉包）→ 否則 `403 AUTHZ_ESCALATION`
 5. 自我鎖定：actor 持有這個角色、且變更後（剩下的鍵套上閉包之後）會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
-   （[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §8.4）
+   （[`architecture/backend/05-rbac.md`](../backend/05-rbac.md) §8.4）
 6. 交易（先 `FOR UPDATE` 鎖住角色列）寫入 ＋ 稽核（`before`／`after` 在交易內讀取）→ 失效快取
 
 ### 3.4 `DELETE /roles/:id`
@@ -324,14 +324,14 @@
 - `isSystem` → `403 ROLE_SYSTEM_PROTECTED`（DB trigger 也擋系統角色的軟刪除）
 - actor 持有這個角色、且刪除後會失去管理角色所需的權限 → `403 ROLE_SELF_LOCKOUT`
 - 尚有（未刪除的）使用者持有 → 預設拒絕 `409 ROLE_IN_USE`，帶 `details.userCount`
-  - 持有者含 **經由群組（含巢狀）持有** 的人（[`08-groups.md`](./08-groups.md) §1）：`userCount` 是刪除後會失去這些權限的人數，
+  - 持有者含 **經由群組（含巢狀）持有** 的人（[`07-groups.md`](./07-groups.md) §1）：`userCount` 是刪除後會失去這些權限的人數，
     只由群組持有的角色也算使用中。列表的 `userCount`（§3.1）只算直接持有者，所以前端在收到 `ROLE_IN_USE` 時以 `details.userCount`
     改成「仍要刪除」的確認
   - 可加 `?force=true`（仍需 `role:delete`）強制刪除，持有者立即失去這個角色的權限，
     此時稽核紀錄 `metadata.forced = true`
 - 角色是軟刪除，移到回收桶；它的持有者邊、權限鍵與它作為對象的資料夾授權都留著，解析時略過已刪除的角色。
-  保留期限內還原（§3.6），原本的持有者自動回來（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D2）。
-  交易後整個租戶的權限快取失效（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）
+  保留期限內還原（§3.6），原本的持有者自動回來（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D2）。
+  交易後整個租戶的權限快取失效（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §5.1）
 - 計數與刪除在同一個交易裡、先以 `FOR UPDATE` 鎖住角色列；指派角色以 `FOR SHARE` 鎖住角色列再插入。
   兩者同時發生時，後到的一方看得到先提交的結果（不會留下指向已刪除角色的指派）
 
@@ -346,7 +346,7 @@
 
 ### 3.6 `POST /roles/:id/restore`
 
-還原軟刪除的角色（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D2、R3；能刪就能復原，所以權限是 `role:delete`）。
+還原軟刪除的角色（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D2、R3；能刪就能復原，所以權限是 `role:delete`）。
 刪除時保留的持有者邊、權限鍵、資料夾授權隨之生效：原本的持有者（仍存在的使用者）自動拿回這個角色。
 
 ```jsonc
@@ -363,13 +363,13 @@
 
 - `holdersRestored`：重新取得這個角色的人數，含經由群組持有的人（與 `ROLE_IN_USE` 的 `userCount` 同一個計數；直接持有者的人數是還原後的 `userCount`）。
   R3 之前刪除的角色已經沒有持有者邊，是 0。
-- 回收桶的列表是 `GET /trash?type=role`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §6。
+- 回收桶的列表是 `GET /trash?type=role`（§7.2）。細節見 [`../architecture/backend/13-trash.md`](../backend/13-trash.md) §6。
 
 ### 3.7 版本歷史：`/roles/:id/revisions`
 
-每次建立、複製、改名稱或說明、增減權限鍵、還原到某一版都產生一版（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D1、R5）。
+每次建立、複製、改名稱或說明、增減權限鍵、還原到某一版都產生一版（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D1、R5）。
 快照是 `{ name, description, permissionKeys }`（權限鍵排序過）。版本號是這個角色自己的流水號，與角色的 `version`（樂觀鎖）無關。
-細節見 [`../architecture/backend/14-revisions.md`](../architecture/backend/14-revisions.md) §4。
+細節見 [`../architecture/backend/14-revisions.md`](../backend/14-revisions.md) §4。
 
 ```jsonc
 // GET /roles/:id/revisions?offset=0&limit=20 → 200
@@ -452,7 +452,7 @@
 | `POST /approvals/:id/approve`  | `roleIds`（`user.register`）同上             |
 | `POST /users/:id/restore`      | 他持有的、仍存在的角色（還原會讓它們重新生效） |
 | `POST /roles/:id/revisions/:version/revert` | 那一版比目前多出的權限鍵（加回的部分） |
-| `PUT /file-folders/:id/grants`、`DELETE …/grants/:subjectType/:subjectId` | 該等級蘊含的檔案動作（以操作者 **在該資料夾** 的能力比對，見 [`07-resource-grants.md`](./07-resource-grants.md) §6.1） |
+| `PUT /file-folders/:id/grants`、`DELETE …/grants/:subjectType/:subjectId` | 該等級蘊含的檔案動作（以操作者 **在該資料夾** 的能力比對，見 [`06-resource-grants.md`](./06-resource-grants.md) §6.1） |
 
 規則：`待授予集合 ⊆ actor 的權限集合`，否則 `403 AUTHZ_ESCALATION`，
 `details.missing` 列出超出的鍵。
@@ -482,7 +482,7 @@
 
 排序固定為 `occurred_at DESC, id DESC`（append-only 表，不提供其他排序以確保索引命中）。
 範圍早於 90 天時會連冷表一起查，對呼叫端透明。規則見
-[`architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §7。
+[`architecture/backend/06-audit-log.md`](../backend/06-audit-log.md) §7。
 
 ---
 
@@ -526,7 +526,7 @@
 | `403 AUTHZ_ESCALATION`        | 指派的角色超出審核者的權限                                      |
 | `409 USER_EMAIL_DUPLICATE`    | `user.register`：申請後該 email 已被建立（請改為駁回）          |
 
-**批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。
+**批次**：沒有批次端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13。
 
 **站內通知**（§7.3）：送出請求時，送出當下持有 `approval:review` 的人（不含申請人自己）各收到一則 `approval.pending`；
 核准或駁回時申請人收到 `approval.result`（匿名的註冊沒有收件人，只有結果信）。都與審批的寫入在同一個交易。
@@ -536,7 +536,7 @@
 ## 7.1 Files
 
 檔案相關路由的 guard 只當 **閘門**：宣告 `file:access` 或對應的全域 `file:*` 其中之一（🛡 A|B）；
-範圍（哪個資料夾、哪個檔案）由 service 依資料夾授權判斷，規則見 [`07-resource-grants.md`](./07-resource-grants.md) §4。
+範圍（哪個資料夾、哪個檔案）由 service 依資料夾授權判斷，規則見 [`06-resource-grants.md`](./06-resource-grants.md) §4。
 資源層級的拒絕：看不到的檔案回 `404 FILE_NOT_FOUND`（不透露存在）；資料夾對所有人可見，
 沒有權限（鎖住）或權限不夠回 `403 AUTHZ_FORBIDDEN`（`details: { action, resourceType, resourceId }`）。
 
@@ -571,15 +571,15 @@
 | PATCH  | `/file-folders/:id/access` | 🛡 `file:access` \| `file:share` | 中斷／恢復繼承（`{ inheritGrants }`）；中斷時複製目前繼承到的授權 |
 
 ² `<img src>` 帶不了 access token，所以以網址上的 HMAC 簽章（綁定檔案 id、版本與失效時間）授權，與 presigned URL 相同的模型；
-簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §5.4。
+簽章不符或過期回 `403 FILE_IMAGE_URL_INVALID`。見 [`architecture/backend/09-file.md`](../backend/09-file.md) §5.4。
 撤銷資料夾授權後，已發出的網址在到期前仍有效。
 
-³ 還原＝能刪就能復原（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D10）：所在位置的 `can_delete` 或擁有者規則，與刪除完全相同。
+³ 還原＝能刪就能復原（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D10）：所在位置的 `can_delete` 或擁有者規則，與刪除完全相同。
 所在的資料夾（上層）已刪除回 `409 FILE_RESTORE_CONFLICT`／`FILE_FOLDER_RESTORE_CONFLICT`（`details.reason = 'parentDeleted'`），
 檔案的原檔已不在回 `409 FILE_RESTORE_CONFLICT`（`'objectMissing'`），資料夾同名回 `409 FILE_FOLDER_NAME_CONFLICT`（`details.conflictingId`）。
-回收桶（§7.2）只看全域的 `file:delete`。見 [`architecture/backend/13-trash.md`](../architecture/backend/13-trash.md) §7。
+回收桶（§7.2）只看全域的 `file:delete`。見 [`architecture/backend/13-trash.md`](../backend/13-trash.md) §7。
 
-流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md) §4–§6（資料夾 §4.2、存取控制 §11）。
+流程、欄位與錯誤碼見 [`architecture/backend/09-file.md`](../backend/09-file.md) §4–§6（資料夾 §4.2、存取控制 §11）。
 
 ---
 
@@ -591,7 +591,7 @@
 
 每一列：`id`、`type`、`name`、`description`、`deletedAt`、`deletedBy`（`{ id, name }` 或 `null`）、`purgeAt`。
 還原端點在各資源（`POST /users/:id/restore`、`POST /roles/:id/restore`、`POST /files/:id/restore`、`POST /file-folders/:id/restore`）；永久刪除只由排程 `trash.purge` 執行。
-見 [`../architecture/backend/13-trash.md`](../architecture/backend/13-trash.md)。
+見 [`../architecture/backend/13-trash.md`](../backend/13-trash.md)。
 
 ---
 
@@ -603,9 +603,9 @@
 | GET    | `/notifications/unread-count`  | 🔑 登入即可 | 自己的未讀數 |
 | POST   | `/notifications/:id/read`      | 🔑 登入即可（只能改自己的） | 標為已讀 |
 | POST   | `/notifications/read-all`      | 🔑 登入即可 | 自己所有未讀的標為已讀 |
-| GET    | `/notifications/all`           | `notification:read` | 通知總覽：租戶內所有人的通知；`type`、`recipientId`、`actorId`、`unread`、`from`／`to` 篩選；keyset 分頁（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D1） |
+| GET    | `/notifications/all`           | `notification:read` | 通知總覽：租戶內所有人的通知；`type`、`recipientId`、`actorId`、`unread`、`from`／`to` 篩選；keyset 分頁（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D1） |
 
-看自己的通知只需要登入（[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12.2 D9）；看所有人的通知要 `notification:read`（只預設給 admin，[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9.2 D2）。已讀不寫稽核。
+看自己的通知只需要登入（[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）；看所有人的通知要 `notification:read`（只預設給 admin，[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D2）。已讀不寫稽核。
 
 ```jsonc
 // GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
@@ -638,7 +638,7 @@
 | `404 NOTIFICATION_NOT_FOUND` | 標為已讀的通知不存在或不是自己的（不透露別人的通知是否存在） |
 | `400 VALIDATION_FAILED` | `cursor` 格式不對（`details.field: 'cursor'`）、`limit` 不在 1～100 |
 
-類型、參數、route id 與收件人見 [`../architecture/backend/15-notification.md`](../architecture/backend/15-notification.md) §4。
+類型、參數、route id 與收件人見 [`../architecture/backend/15-notification.md`](../backend/15-notification.md) §4。
 
 ---
 
@@ -651,8 +651,8 @@
 | GET    | `/me/notification-preferences`  | 🔑 登入即可（只看自己的） | 自己的通知設定與能不能調整 |
 | PATCH  | `/me/notification-preferences`  | 🔑 登入即可（只能改自己的） | 開關自己的通知；`enabled: null` 跟著租戶 |
 
-沿用系統設定的權限（[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §9.2 D10）。規則見
-[`../architecture/backend/16-notification-event.md`](../architecture/backend/16-notification-event.md) §4。
+沿用系統設定的權限（[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D10）。規則見
+[`../architecture/backend/16-notification-event.md`](../backend/16-notification-event.md) §4。
 
 ```jsonc
 // GET /notification-events → 200
@@ -712,7 +712,7 @@
 
 ## 7.5 Announcements（公告）
 
-完整的規則見 [`../architecture/backend/19-announcement.md`](../architecture/backend/19-announcement.md) §3（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9）。
+完整的規則見 [`../architecture/backend/19-announcement.md`](../backend/19-announcement.md) §3（[`backend/19-announcement.md`](../backend/19-announcement.md) §9）。
 
 | Method | Path | 授權 | 說明 |
 | ------ | ---- | ---- | ---- |

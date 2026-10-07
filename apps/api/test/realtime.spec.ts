@@ -395,7 +395,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         DomainEvent.PERMISSIONS_CHANGED,
         DomainEvent.RESOURCE_CHANGED,
       ]);
-      // 名單只給逐人處理的訂閱者（個人資料夾）；room 以整個租戶的連線重算（docs/rbac/01-domain-model.md §9.2 D8）
+      // 名單只給逐人處理的訂閱者（個人資料夾）；room 以整個租戶的連線重算（docs/architecture/iam/01-model.md §9.2 D8）
       expect(publish.mock.calls[0]?.[1]).toEqual({ userIds: [holder] });
 
       // 持有者剛拿到 user:read：下一筆使用者變更就會收到（room 已同步）
@@ -468,7 +468,7 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
           { resource: 'userRole', kind: 'update', id: target, refs: { role: [auditorId] } },
         ],
       });
-      // auditor 有 file:read：取得檔案管理器權限，同時建立了個人資料夾（docs/rbac/07-resource-grants.md §12）
+      // auditor 有 file:read：取得檔案管理器權限，同時建立了個人資料夾（docs/architecture/iam/06-resource-grants.md §12）
       expect(got.slice(2).map((event) => event.changes[0]?.resource)).toEqual(['fileFolder']);
 
       // 拿到 role:read（auditor）之後，別人的角色建立也會推過來

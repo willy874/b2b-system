@@ -604,7 +604,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 上限 | 到期天數依系統設定（[`12-settings.md`](./12-settings.md) §3），超過回 `400 API_TOKEN_LIFETIME_EXCEEDED`（`details.maxDays`）；一個帳號同時有效的 token 最多 50 把（`409 API_TOKEN_LIMIT_REACHED`） |
 | 錯誤 | `404 SERVICE_ACCOUNT_NOT_FOUND`、`404 API_TOKEN_NOT_FOUND`；服務帳號的修改必帶 `version`（`409 SERVICE_ACCOUNT_VERSION_CONFLICT`），改角色帶 `expectedRoleIds`（別人已改過時 `409 SERVICE_ACCOUNT_ROLES_CONFLICT`） |
 | 稽核 | `apiToken.create`、`apiToken.revoke`（`metadata.ownerId`、`ownerKind`、`prefix`）；`serviceAccount.create`／`update`／`assignRole`／`delete` |
-| 管理畫面 | backstage 的 `features/service-account`（`/service-account`，詳情頁管角色與 token）；個人 token 在帳號設定（`/profile`）；使用者詳情頁在 `user:update` 時列出並可撤銷他的 token。三處共用 `core/components/ApiToken/`，明文只在建立成功的對話框顯示一次（[`../../rbac/02-permission-catalog.md`](../../rbac/02-permission-catalog.md) §5） |
+| 管理畫面 | backstage 的 `features/service-account`（`/service-account`，詳情頁管角色與 token）；個人 token 在帳號設定（`/profile`）；使用者詳情頁在 `user:update` 時列出並可撤銷他的 token。三處共用 `core/components/ApiToken/`，明文只在建立成功的對話框顯示一次（[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §5） |
 | 推播 | `serviceAccount`、`apiToken` 兩個來源（[`08-realtime.md`](./08-realtime.md) §6.1） |
 
 **直接登入**（`POST /auth/login`，§3）：`DIRECT_LOGIN_ENABLED` 沒設定時 production 關閉（回 `404 NOT_FOUND`）、其他環境開啟。

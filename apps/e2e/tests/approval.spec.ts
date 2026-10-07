@@ -6,7 +6,7 @@ import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
-// 申請時不設密碼：啟用前用任何密碼都登入不了（docs/rbac/06-approval.md §5.1）
+// 申請時不設密碼：啟用前用任何密碼都登入不了（docs/architecture/backend/20-approval.md §5.1）
 const GUESSED_PASSWORD = 'Tq7!vRx#2mLp9w';
 // 密碼政策會擋常見密碼的字根（password）與 email／顯示名稱的片段（modules/credential）
 const ACTIVATED_PASSWORD = 'Kd4$wNz8!qHs3v';
@@ -15,7 +15,7 @@ const ACTIVATION_MAIL_SUBJECT = '啟用你的 B2B System 帳號';
 const API_URL =
   process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;
 
-test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
+test.describe('註冊審批（docs/architecture/backend/20-approval.md）', () => {
   test('申請帳號 → admin 核准並指派角色 → 申請人從啟用信設定密碼後可以登入', async ({
     page,
     browser,

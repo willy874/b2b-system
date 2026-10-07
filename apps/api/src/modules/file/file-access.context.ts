@@ -8,7 +8,7 @@ import { assignableLevels, missingActions } from './file-grant.levels';
 import type { GrantLevel, HierarchyNode, LevelActions } from './file-grant.levels';
 import { itemEdges, locationObject } from './file.authz';
 
-/** 檔案動作；與全域權限鍵 `file:<動作>` 一一對應（docs/rbac/07-resource-grants.md §2）。 */
+/** 檔案動作；與全域權限鍵 `file:<動作>` 一一對應（docs/architecture/iam/06-resource-grants.md §2）。 */
 export const FILE_ACTIONS = ['read', 'create', 'update', 'delete', 'share'] as const;
 export type FileAction = (typeof FILE_ACTIONS)[number];
 
@@ -43,7 +43,7 @@ export interface FileCapabilities {
 }
 
 export interface FolderCapabilities {
-  /** false = 鎖住：看得到資料夾，看不到裡面的檔案（docs/rbac/07-resource-grants.md §5.1）。 */
+  /** false = 鎖住：看得到資料夾，看不到裡面的檔案（docs/architecture/iam/06-resource-grants.md §5.1）。 */
   canRead: boolean;
   /** 在這個資料夾裡上傳、建立子資料夾。 */
   canCreate: boolean;
@@ -59,7 +59,7 @@ export interface FolderCapabilities {
 export type FileLocation = string | null;
 
 /**
- * 一個操作者在一次請求內的檔案存取判斷（docs/rbac/07-resource-grants.md §3、§4）。
+ * 一個操作者在一次請求內的檔案存取判斷（docs/architecture/iam/06-resource-grants.md §3、§4）。
  * 判斷交給關係圖（`file.authz.ts` 的模型）；資料在建構前已載入，方法不查資料庫。
  */
 export class FileAccessContext {
@@ -83,7 +83,7 @@ export class FileAccessContext {
 
   /**
    * `can(action, location)` 成立的一條路徑（從主體閉包裡的主體開始；接上閉包的來歷見 `withClosurePath`）；
-   * 不成立是 null（「為什麼能做」的說明，docs/rbac/01-domain-model.md §9 G4b）。
+   * 不成立是 null（「為什麼能做」的說明，docs/architecture/iam/01-model.md §9 G4b）。
    */
   explain(action: FileAction, location: FileLocation): AuthzPath | null {
     return this.checker.explain(locationObject(location), FILE_ACTION_RELATION[action]);
@@ -116,7 +116,7 @@ export class FileAccessContext {
     id: string;
     parentId: string | null;
     createdBy: string | null;
-    /** 系統資料夾（共用、私人、個人）不能改名、移動、刪除（docs/rbac/07-resource-grants.md §12）。 */
+    /** 系統資料夾（共用、私人、個人）不能改名、移動、刪除（docs/architecture/iam/06-resource-grants.md §12）。 */
     kind?: FileFolderKind;
   }): FolderCapabilities {
     const isSystem = folder.kind !== undefined && folder.kind !== 'normal';
@@ -142,7 +142,7 @@ export class FileAccessContext {
   }
 
   /**
-   * 別人的個人資料夾（與它的子孫）對這個操作者隱藏（docs/rbac/07-resource-grants.md §12.1）：
+   * 別人的個人資料夾（與它的子孫）對這個操作者隱藏（docs/architecture/iam/06-resource-grants.md §12.1）：
    * - 全域 `file:read`（讀得到全部）或 `file:listPersonal`（看得到、鎖住）：都不隱藏；
    * - 否則只有「自己或任一子孫讀得到」的節點出現（本身讀不到的以鎖住的節點出現，才走得到裡面被分享的資料夾）。
    * 一次請求只算一次（由下往上，O(n)）。

@@ -73,7 +73,7 @@ async function createTenantUser(
   return user!.id;
 }
 
-describe('cli:reset-super-admin（docs/rbac/05-seed-and-bootstrap.md §7）', () => {
+describe('cli:reset-super-admin（docs/architecture/iam/05-bootstrap.md §7）', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = ROOT.email;

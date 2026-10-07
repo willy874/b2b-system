@@ -107,7 +107,7 @@ pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/opena
 
 這個後台的用法是：在骨架上加 feature，權限、稽核、回收桶、通知等機制直接沿用。順序是
 
-1. 在 [`docs/rbac/02-permission-catalog.md`](./docs/rbac/02-permission-catalog.md) 定義權限鍵，並加進 `apps/api/src/db/seeds/permissions.ts`
+1. 在 [`docs/architecture/iam/02-permission-catalog.md`](./docs/architecture/iam/02-permission-catalog.md) 定義權限鍵，並加進 `apps/api/src/db/seeds/permissions.ts`
 2. 後端 `apps/api/src/modules/<name>/`（controller / service / repository / dto）
 3. 重新產生 OpenAPI 與 SDK
 4. 前端 `apps/backstage/src/apis/` 與 `apps/backstage/src/features/<name>/`，在 `main.tsx` 掛上 plugin
@@ -115,7 +115,7 @@ pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/opena
 
 完整 SOP 見 [`docs/architecture/frontend/03-feature-anatomy.md`](./docs/architecture/frontend/03-feature-anatomy.md) §5；
 要讓新資源支援資料夾式授權、回收桶、版本歷史或通知，分別看
-[`docs/rbac/07-resource-grants.md`](./docs/rbac/07-resource-grants.md)、
+[`docs/architecture/iam/06-resource-grants.md`](./docs/architecture/iam/06-resource-grants.md)、
 [`docs/architecture/backend/13-trash.md`](./docs/architecture/backend/13-trash.md)、
 [`14-revisions.md`](./docs/architecture/backend/14-revisions.md)、
 [`15-notification.md`](./docs/architecture/backend/15-notification.md)。

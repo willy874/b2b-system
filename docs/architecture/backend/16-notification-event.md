@@ -173,7 +173,7 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: req
 | GET | `/notification-events` | `system:read` | 目前租戶看得到的事件（目錄的順序）與每個管道的 `enabled`、`defaultEnabled`、`isOverridden`、`allowUserOverride` |
 | PATCH | `/notification-events` | `system:update` | `{ changes: [{ type, channel, enabled?: boolean \| null, allowUserOverride?: boolean }] }`；兩欄至少一個；`enabled: null` = 還原預設；1～100 筆 |
 
-沿用系統設定的權限：事件政策是租戶層的營運設定，關掉通知不提權，安全事件由 `mandatory` 擋住。完整格式見 [`../../rbac/04-api-spec.md`](../../rbac/04-api-spec.md) §7.4。
+沿用系統設定的權限：事件政策是租戶層的營運設定，關掉通知不提權，安全事件由 `mandatory` 擋住。完整格式見 [`../iam/04-api.md`](../iam/04-api.md) §7.4。
 
 `PATCH` 的規則（`NotificationPolicyService.update`，形狀與 `PATCH /system/settings` 相同）：
 

@@ -45,7 +45,7 @@ async function login(credentials: { email: string; password: string }): Promise<
   return (response.body as { data: { accessToken: string } }).data.accessToken;
 }
 
-describe('關係圖的 revision 與失效廣播（docs/rbac/01-domain-model.md §9.2 D7、D8）', () => {
+describe('關係圖的 revision 與失效廣播（docs/architecture/iam/01-model.md §9.2 D7、D8）', () => {
   let readerRoleId: string;
 
   beforeAll(async () => {

@@ -9,7 +9,7 @@ interface PermissionSourceListProps {
 }
 
 /**
- * 有效權限與每個權限的來源（docs/rbac/01-domain-model.md §9 G4b）：經由哪些群組、哪個角色、明確授予或由依賴樹帶出。
+ * 有效權限與每個權限的來源（docs/architecture/iam/01-model.md §9 G4b）：經由哪些群組、哪個角色、明確授予或由依賴樹帶出。
  * 資料由呼叫端查（使用者詳情、個人資料頁都用它；core 不碰 `apis/`）。
  */
 export function PermissionSourceList({ data }: PermissionSourceListProps) {

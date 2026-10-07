@@ -1,4 +1,4 @@
-# RBAC 01 — 領域模型
+# 身分與存取 01 — 領域模型
 
 ## 1. 模型選擇
 
@@ -10,7 +10,7 @@
 | Role ↔ Permission 多對多           | ✅         | 權限是預先定義的目錄，不可由使用者自創                                      |
 | 角色階層（Hierarchical RBAC）      | ❌         | 見 §8，用「複製角色」取代繼承 |
 | 職責分離（SoD / Constrained RBAC） | ❌         | Phase 0 不做互斥角色                                                        |
-| 資源作用域（Scoped / ABAC）        | ◐ 檔案     | 檔案管理器的資料夾層級授權，見 [`07-resource-grants.md`](./07-resource-grants.md)；其餘資源見 §7 延伸點 |
+| 資源作用域（Scoped / ABAC）        | ◐ 檔案     | 檔案管理器的資料夾層級授權，見 [`06-resource-grants.md`](./06-resource-grants.md)；其餘資源見 §7 延伸點 |
 | **反提權**                         | ✅（強化） | 授權者不能授予自己沒有的權限                                                |
 | **權限依賴樹**                     | ✅（強化） | 同資源的子能力與只指向 read 的依賴：持有一個鍵就持有它帶來的鍵（[`02-permission-catalog.md`](./02-permission-catalog.md) §9、§9.2 D6） |
 | **系統角色保護**                   | ✅（強化） | `is_system` 角色不可刪除、不可改 `slug`（顯示名稱可改，見 §5）               |
@@ -173,7 +173,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 
 需要管理員核准才生效的變更（第一個類型是使用者註冊）。申請人、審核者的名稱同樣是快照；
 `private_payload`（只給 handler 用的內容）永不回傳、審核後清空。欄位、約束與狀態機見
-[`06-approval.md`](./06-approval.md)。
+[`backend/20-approval.md`](../backend/20-approval.md)。
 
 ---
 
@@ -188,9 +188,9 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 | I3  | 未刪除的 `roles.slug` / `roles.name` 唯一（name 不分大小寫） | partial `UNIQUE INDEX ... WHERE deleted_at IS NULL`（name 用 `lower(name)`） |
 | I4  | 未刪除的 `users.email` / `users.username` 唯一 | 同上                                                 |
 | I5  | 持有角色、角色的權限鍵無重複                   | `relation_tuples` 的六欄唯一索引                     |
-| I6  | 刪除角色時連帶撤銷其指派                       | 角色軟刪除；持有者邊、權限鍵邊與資料夾授權都留著，解析與使用者端的讀取略過已刪除的角色（休眠的邊）。還原角色時原本的持有者自動回來；永久刪除時才刪掉所有邊（[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D2，[`13-trash.md`](../architecture/backend/13-trash.md) §6） |
+| I6  | 刪除角色時連帶撤銷其指派                       | 角色軟刪除；持有者邊、權限鍵邊與資料夾授權都留著，解析與使用者端的讀取略過已刪除的角色（休眠的邊）。還原角色時原本的持有者自動回來；永久刪除時才刪掉所有邊（[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D2，[`13-trash.md`](../backend/13-trash.md) §6） |
 | I7  | **系統角色不可刪除**                           | Service 層檢查 ＋ DB trigger（雙保險；硬刪除與軟刪除 `deleted_at` 都擋） |
-| I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用／拔角色時，Service 在寫入的交易內以 advisory lock 序列化後計數（[`05-rbac.md`](../architecture/backend/05-rbac.md) §8.2）；只有 super-admin 能管理 super-admin；登入失敗的鎖定不改 `status`，不會讓 super-admin 變成不可用 |
+| I8  | **系統中永遠至少有一個可用的 super-admin**     | 刪除／停用／拔角色時，Service 在寫入的交易內以 advisory lock 序列化後計數（[`05-rbac.md`](../backend/05-rbac.md) §8.2）；只有 super-admin 能管理 super-admin；登入失敗的鎖定不改 `status`，不會讓 super-admin 變成不可用 |
 | I9  | 使用者不能修改／刪除自己的帳號狀態與角色       | Service 層檢查（`actorId === targetId` → 403）       |
 | I10 | 授予的權限必須存在於 `permissions`             | Service 層檢查（`assertKeysExist`）；邊沒有外鍵      |
 | I11 | 反提權：授予的權限必須 ⊆ 操作者的權限集合      | Service 層檢查（super-admin 豁免）                   |
@@ -239,7 +239,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 guard、`GET /auth/profile`、反提權、即時推播的 room 看到的都是閉包。角色只儲存明確授予的鍵。
 
 權限集合有快取；任何邊的寫入都讓那個租戶的快取整個失效（`authz_revision`，
-[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.1）。
+[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §5.1）。
 
 ### 6.2 super-admin 旁路
 
@@ -259,7 +259,7 @@ deny 規則會讓「為什麼這個人不能做 X」變成需要推理的問題�
 ### 6.4 關係圖的組成與模型
 
 Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的子集。引擎在 `apps/api/src/core/authz/`
-（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.2），決策見 §9。
+（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.2），決策見 §9。
 
 ```
   user:bob ── holder ──▶ role:editor ── tenant:self#file:update 的主體 ──▶ tenant:self
@@ -278,7 +278,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
   權限鍵的字串格式因此不變。每個權限關係都定義成「直接授予 ∪ `superAdmin` ∪ 包含它的鍵」，
   super-admin 的「隱含全集」與依賴樹（[`02-permission-catalog.md`](./02-permission-catalog.md) §9）都是模型裡的定義，不是程式裡的特判。
 - **資源的動作**：資料夾的等級與 `can_*` 是 `fileFolder` 型別上的關係，以 `file:<動作> from tenant` 接上全域權限
-  （[`07-resource-grants.md`](./07-resource-grants.md) §2.1）。
+  （[`06-resource-grants.md`](./06-resource-grants.md) §2.1）。
 - **結構邊不存**：資料夾的 `parent`、`inherits_from`（中斷繼承時沒有）、`owner` 由 `file_folders` 供應，
   事實來源只有一份（§9.2 D3）。
 - **只有 allow**：模型支援交集，但只用在收窄的組合，例如「擁有者 ∧ 能在上層建立」；不支援排除（§6.3、§9.2 D4）。
@@ -299,12 +299,12 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 **不進圖的規則**：下面這些是資源的狀態，不是關係，所以仍在 service 裡檢查。
 
 - 系統角色保護（§5）、最後一位 super-admin（I8）、不能操作自己（I9）；
-- 遞迴刪除的子樹條件（[`07-resource-grants.md`](./07-resource-grants.md) §4）；
+- 遞迴刪除的子樹條件（[`06-resource-grants.md`](./06-resource-grants.md) §4）；
 - 上傳中的檔案只有本人看得到、系統資料夾不可移動。
 
 圖回答「有沒有這條關係」，也回答反提權的「寫入這條邊，主體取得什麼」：模型為每個型別宣告哪些關係是 **能力**
 （租戶上的權限鍵與 `superAdmin`、資料夾上的 `can_*`），引擎沿著邊算出取得的能力，操作者必須全部都有
-（[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §4.1、§9.10）。
+（[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §4.1、§9.10）。
 
 **平台管理者不進圖**：`platform_admins.role` 是固定的角色與權限對照，範圍小（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
@@ -316,15 +316,15 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 
 | 延伸                                   | 預留方式                                                                                                        |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作，並改由關係圖解析（資料夾的等級是模型裡的關係，沿 `inherits_from` 繼承）。其他資源（文件、訂單等）以同樣方式加入型別，見 [`07-resource-grants.md`](./07-resource-grants.md) §10 |
+| **資源作用域**（「只能編輯自己專案」） | 已由檔案資料夾先行實作，並改由關係圖解析（資料夾的等級是模型裡的關係，沿 `inherits_from` 繼承）。其他資源（文件、訂單等）以同樣方式加入型別，見 [`06-resource-grants.md`](./06-resource-grants.md) §10 |
 | **角色階層**                           | 關係圖上是一種 `role#holder` 包含 `role#holder` 的邊；**不開放**，維持「複製角色」（§9.3 D10） |
-| **群組**                               | 已實作：巢狀成員、群組持有角色、資料夾授權給群組（[`08-groups.md`](./08-groups.md)、§9.10） |
+| **群組**                               | 已實作：巢狀成員、群組持有角色、資料夾授權給群組（[`07-groups.md`](./07-groups.md)、§9.10） |
 | **條件式權限（ABAC）**                 | `relation_tuples` 的邊增加條件欄位（`condition jsonb`），Guard 端加入條件評估器                                 |
 | **MFA**                                | `users.mfa_enabled` / 新表 `user_mfa_secrets`                                                                   |
-| **API Token / 服務帳號**               | 已實作（[`architecture/06-external-api.md`](../architecture/06-external-api.md) §9）：服務帳號是 `users.kind = 'service'`，與人一樣以 `user:` 主體持有角色、加入群組、被授權資料夾；不另開主體型別。token 的 scopes 只限縮租戶層的權限鍵（[`../architecture/06-external-api.md`](../architecture/06-external-api.md) §2） |
+| **API Token / 服務帳號**               | 已實作（[`architecture/06-external-api.md`](../06-external-api.md) §9）：服務帳號是 `users.kind = 'service'`，與人一樣以 `user:` 主體持有角色、加入群組、被授權資料夾；不另開主體型別。token 的 scopes 只限縮租戶層的權限鍵（[`../architecture/06-external-api.md`](../06-external-api.md) §2） |
 
 多租戶已經做了，方式不是 `tenant_id` 加 RLS，而是 **每個租戶一個 database**：這份領域模型整份存在每個租戶的 DB 裡，
-各租戶各一套權限目錄、角色與使用者（[`../architecture/05-tenancy.md`](../architecture/05-tenancy.md)、[`architecture/05-tenancy.md`](../architecture/05-tenancy.md) §10）。
+各租戶各一套權限目錄、角色與使用者（[`../architecture/05-tenancy.md`](../05-tenancy.md)、[`architecture/05-tenancy.md`](../05-tenancy.md) §10）。
 平台管理者另有一份很小的權限目錄與固定角色（[`02-permission-catalog.md`](./02-permission-catalog.md) §8）。
 
 延伸時的相容性承諾：**權限鍵的字串格式不會變**，因此既有的
@@ -335,7 +335,7 @@ Google Zanzibar 的模型（OpenFGA／SpiceDB 用的同一套），只用它的�
 
 ## 8. 設計決策：扁平權限，不做資源作用域與角色階層
 
-> 原 ADR-0006，2026-09-19 決定。檔案的部分後來由資料夾層級授權（[`07-resource-grants.md`](./07-resource-grants.md) §13）取代，其餘資源仍是扁平範圍；
+> 原 ADR-0006，2026-09-19 決定。檔案的部分後來由資料夾層級授權（[`06-resource-grants.md`](./06-resource-grants.md) §13）取代，其餘資源仍是扁平範圍；
 > §8.3「延伸路徑」由關係圖（§9）取代。
 
 ### 8.1 背景
@@ -407,8 +407,8 @@ Phase 0 **只做扁平的全域 RBAC**：
 ## 9. 設計決策：權限改成關係圖（ReBAC），以雙寫＋影子比對逐步切換
 
 > 原 ADR-0024，2026-09-30 決定。G0～G3b 於 2026-09-30 實作並合併（G3a 為 96ae80a）；G4 的決定 D10～D16 於 2026-10-01 確認，
-> G4a（群組、反提權一般化）與 G4b（說明）同日完成；G5（專案）於 2026-10-07 決定不做（[`07-resource-grants.md`](./07-resource-grants.md) §13.4）。延伸 [`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §11（權限在伺服器端解析）；
-> 取代 §8.3 的「延伸路徑」與資料夾層級授權（[`07-resource-grants.md`](./07-resource-grants.md) §13）的解析方式。
+> G4a（群組、反提權一般化）與 G4b（說明）同日完成；G5（專案）於 2026-10-07 決定不做（[`06-resource-grants.md`](./06-resource-grants.md) §13.4）。延伸 [`backend/05-rbac.md`](../backend/05-rbac.md) §11（權限在伺服器端解析）；
+> 取代 §8.3 的「延伸路徑」與資料夾層級授權（[`06-resource-grants.md`](./06-resource-grants.md) §13）的解析方式。
 
 ### 9.1 背景
 
@@ -416,7 +416,7 @@ Phase 0 **只做扁平的全域 RBAC**：
 擁有者規則（寫死在 `FileAccessContext`）。群組、跨資源的繼承、「他為什麼能做 X」都會碰到這三套各自的上限。
 同時，權限鍵之間沒有包含關係：可以授予「刪除」卻不授予「檢視」，角色的權限編輯器也無法互鎖。
 
-相關規格：關係圖的組成見 §6.4；群組見 [`08-groups.md`](./08-groups.md)；說明見 [`09-explain.md`](./09-explain.md)。
+相關規格：關係圖的組成見 §6.4；群組見 [`07-groups.md`](./07-groups.md)；說明見 [`08-explain.md`](./08-explain.md)。
 
 ### 9.2 決定
 
@@ -432,7 +432,7 @@ Phase 0 **只做扁平的全域 RBAC**：
   - G2：讀取改走引擎、依賴閉包生效；寫入仍經舊表（trigger 同步），影子比對繼續。
   - G3a：讀寫只走 tuple、以 revision 失效快取；刪影子比對。舊表與雙寫 trigger 保留——滾動部署期間舊版（G2）程序仍寫舊表，
     由 trigger 同步到 tuple；新版程式不寫舊表，trigger 不會被觸發。
-  - G3b：下一次部署才把舊表、雙寫 trigger 與它們的 schema 定義一起刪掉（破壞性變更拆成兩次部署，[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §5.1）。
+  - G3b：下一次部署才把舊表、雙寫 trigger 與它們的 schema 定義一起刪掉（破壞性變更拆成兩次部署，[`../architecture/backend/02-database.md`](../backend/02-database.md) §5.1）。
 - **D7 失效廣播走平台 DB 的單一頻道**：`authz_revision` 由租戶 DB 的 trigger 在同一交易遞增；提交後程式在平台 DB `NOTIFY`
   （payload `{ tenant, revision }`），每個程序一條 LISTEN 連線（`core/broadcast`）。其他程序內的快取之後共用這條頻道。
 - **D8 一個租戶一個 revision**：任何 tuple 寫入都讓整個租戶的閉包失效，重算按需、lazy；有指標顯示壓力再拆。
@@ -527,9 +527,9 @@ Phase 0 **只做扁平的全域 RBAC**：
 與提案不同的地方：
 
 - 雙寫 trigger（migration `0008`，含 `roles_mirror_super_admin`）沒有在 G3a 刪除，保留到 G3b 與舊表一起刪——
-  [`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) 要求 migration 與前一版程式相容，滾動部署期間舊版程序仍寫舊表。
+  [`../architecture/backend/02-database.md`](../backend/02-database.md) 要求 migration 與前一版程式相容，滾動部署期間舊版程序仍寫舊表。
 - 刪除角色是軟刪除並刪掉它的持有者邊；它的權限鍵邊、它作為主體的資料夾授權保留，解析時略過已刪除的角色。
-  （[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D2、R3 起改成持有者邊也保留，還原角色時原本的持有者自動回來；永久刪除時才刪。）
+  （[`backend/14-revisions.md`](../backend/14-revisions.md) §9.2 D2、R3 起改成持有者邊也保留，還原角色時原本的持有者自動回來；永久刪除時才刪。）
 - 「每個主體在一個資料夾只有一個等級」不再是 DB 的唯一索引，由 `FileFolderGrantRepository.set`（先刪後插）維持；
   授權的寫入經 `FileFolderTree.write` 序列化。
 
@@ -546,10 +546,10 @@ Phase 0 **只做扁平的全域 RBAC**：
 | 項目 | 位置 |
 | --- | --- |
 | `group:*` 權限鍵、依賴樹、預設角色 | `db/seeds/permissions.ts`、`db/seeds/roles.ts`、[`02-permission-catalog.md`](./02-permission-catalog.md) §2.10 |
-| `groups` 表、`updated_at` 與 revision 的 trigger | migration `0016_groups.sql`、`0017_groups_triggers.sql`；[`../architecture/backend/02-database.md`](../architecture/backend/02-database.md) §2.14 |
+| `groups` 表、`updated_at` 與 revision 的 trigger | migration `0016_groups.sql`、`0017_groups_triggers.sql`；[`../architecture/backend/02-database.md`](../backend/02-database.md) §2.14 |
 | 邊的形狀（`groupMemberTuple`、`groupRoleTuple`、`isGroupMemberTuple()`、`isGroupRoleTuple()`） | `db/schema/relation-tuples.ts` |
 | `group` 型別、`role#holder` 接受群組的成員、主體閉包與反向解析沿 `group#member` 走 | `core/authz/authz.types.ts`、`authz.repository.ts` |
-| 群組 CRUD、成員、持有的角色、還原（D11、D12） | `modules/group/`；端點見 [`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §9 |
+| 群組 CRUD、成員、持有的角色、還原（D11、D12） | `modules/group/`；端點見 [`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §9 |
 | 測試 | `modules/group/__tests__/group.service.spec.ts`、`test/groups.spec.ts`、`core/authz/__tests__/authz.checker.spec.ts`（群組） |
 
 與提案不同的地方：
@@ -582,7 +582,7 @@ Phase 0 **只做扁平的全域 RBAC**：
 | 「自己或有權限」、依操作者遮蔽（D14）、權限來源 API | `modules/authz-explain`（`GET /users/:id/permission-sources`） |
 | 資料夾的說明 | `modules/file/file-access-explain.service.ts`（`GET /file-folders/:id/explain?userId=`） |
 | 前端 | `core/components/ExplainPath`（路徑、`PermissionSourceList`）、個人資料頁、使用者詳情、資料夾共用對話框 |
-| 規格 | [`09-explain.md`](./09-explain.md) |
+| 規格 | [`08-explain.md`](./08-explain.md) |
 
 與提案不同的地方：
 
@@ -592,4 +592,4 @@ Phase 0 **只做扁平的全域 RBAC**：
   一個鍵的所有來源（不同的角色、不同的群組）都列得出來。
 - **個人資料頁也有「我的有效權限」**：提案只寫了使用者詳情；但查自己不需要權限，沒有 `user:read` 的人進不了使用者詳情，
   所以在個人資料頁另放一份（同一個 `PermissionSourceList`）。
-- 「為什麼不能」的最接近缺口沒有做：不能做時只回 `allowed: false`（[`09-explain.md`](./09-explain.md) §6）。
+- 「為什麼不能」的最接近缺口沒有做：不能做時只回 `allowed: false`（[`08-explain.md`](./08-explain.md) §6）。

@@ -60,7 +60,7 @@ export function fileFolderAccessRequest(
 }
 
 /**
- * `fileFolder.access` 的核准（docs/rbac/06-approval.md §7）：審核者代為授予申請的等級。
+ * `fileFolder.access` 的核准（docs/architecture/backend/20-approval.md §7）：審核者代為授予申請的等級。
  * 審核權限是資源層級的——審核者要在該資料夾 `share`、授予得起該等級（反提權）——
  * 所以 `requiredPermissions()` 為空，檢查在 `assertApprovable()`。審批頁與檔案管理器兩個入口共用。
  */

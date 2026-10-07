@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：—
-- 相關：[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D15（「IdP 群組對應另開提案，與 SCIM 一起評估」）、[`rbac/08-groups.md`](../rbac/08-groups.md) 的「不做」（外部 IdP 的群組對應、SCIM 另開提案）、
+- 相關：[`iam/01-model.md`](../architecture/iam/01-model.md) §9.3 D15（「IdP 群組對應另開提案，與 SCIM 一起評估」）、[`iam/07-groups.md`](../architecture/iam/07-groups.md) 的「不做」（外部 IdP 的群組對應、SCIM 另開提案）、
   [`04-sso.md`](../architecture/04-sso.md) §12 D10（沒有對應帳號時的 `reject`／`auto_create`）、[`06-external-api.md`](../architecture/06-external-api.md)（對外 API 程序與 API token）、
   [`tenant-security-policy.md`](./tenant-security-policy.md)
 
@@ -15,7 +15,7 @@
 
 - 外部 IdP 登入時，沒有對應帳號就依連線設定 `reject` 或 `auto_create`（建立 **沒有角色** 的帳號，[`04-sso.md`](../architecture/04-sso.md) §12 D10）。
   員工離職時 IdP 停用了帳號，我們這邊的帳號仍是啟用的，只是登不進來（API token 仍然有效）。
-- 群組只有手動成員（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D15）；IdP 的群組沒有對應，角色要由租戶管理者逐一指派。
+- 群組只有手動成員（[`iam/01-model.md`](../architecture/iam/01-model.md) §9.3 D15）；IdP 的群組沒有對應，角色要由租戶管理者逐一指派。
 
 D15 已經寫明這兩件事要一起評估，預設方向是「整個群組由 IdP 管理、不能手動改成員」。SCIM 2.0（RFC 7643／7644）是企業 IdP 推送使用者與群組的標準協定。
 
@@ -65,5 +65,5 @@ D15 已經寫明這兩件事要一起評估，預設方向是「整個群組由 
 
 ## 歸檔去向
 
-- `docs/architecture/04-sso.md`（新增 SCIM 章節）、`docs/rbac/08-groups.md`（由 IdP 管理的群組）
-- 設計決策：`docs/rbac/01-domain-model.md` §9（延續 D15）
+- `docs/architecture/04-sso.md`（新增 SCIM 章節）、`docs/architecture/iam/07-groups.md`（由 IdP 管理的群組）
+- 設計決策：`docs/architecture/iam/01-model.md` §9（延續 D15）

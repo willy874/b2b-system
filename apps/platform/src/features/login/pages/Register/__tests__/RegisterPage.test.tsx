@@ -57,7 +57,7 @@ beforeEach(() => {
 // 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
 beforeAll(() => initTestI18n());
 
-describe('申請帳號頁（docs/rbac/06-approval.md §5）', () => {
+describe('申請帳號頁（docs/architecture/backend/20-approval.md §5）', () => {
   it('不要求密碼（由核准後的啟用信設定）；送出後顯示「已送出」', async () => {
     renderAt('/register?tenant=acme');
     expect(await screen.findByTestId('register-email')).toBeInTheDocument();

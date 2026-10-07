@@ -76,7 +76,7 @@ export const FolderGridItem = memo(function FolderGridItem({
       >
         <Icon name={FILE_FOLDER_KIND_ICON[item.kind]} size={24} className="scale-150" />
         {!item.canRead && (
-          // 鎖住的資料夾：看得到、進得去（子資料夾），看不到檔案（docs/rbac/07-resource-grants.md §5.1）
+          // 鎖住的資料夾：看得到、進得去（子資料夾），看不到檔案（docs/architecture/iam/06-resource-grants.md §5.1）
           <span
             className="absolute right-1.5 bottom-1.5 flex rounded-full bg-[var(--color-surface)] p-1 text-[var(--color-fg-muted)] shadow-[var(--shadow-popover)]"
             data-testid="file-folder-locked"

@@ -79,7 +79,7 @@ Postgres 在這個專案身兼五職，每一項都省掉一個外部服務：
 | 用途 | 做法 | 省掉的元件 |
 | --- | --- | --- |
 | 業務資料 | 每個租戶一個 database（[`architecture/05-tenancy.md`](../architecture/05-tenancy.md)） | — |
-| 權限關係圖 | `relation_tuples` ＋ 遞迴 CTE（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9） | OpenFGA／SpiceDB |
+| 權限關係圖 | `relation_tuples` ＋ 遞迴 CTE（[`iam/01-model.md`](../architecture/iam/01-model.md) §9） | OpenFGA／SpiceDB |
 | 佇列與排程 | pg-boss（[`architecture/backend/10-jobs.md`](../architecture/backend/10-jobs.md)） | Redis ＋ BullMQ |
 | 跨程序廣播 | `LISTEN`／`NOTIFY`（[`architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §5.2） | Redis pub/sub |
 | 稽核不可竄改 | DB 角色只有 INSERT／SELECT ＋ trigger（[`architecture/backend/06-audit-log.md`](../architecture/backend/06-audit-log.md)） | — |

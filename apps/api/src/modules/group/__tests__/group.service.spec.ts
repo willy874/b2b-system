@@ -99,7 +99,7 @@ function createService() {
   return { service, repo, permissions, announcementTriggers, audit, events, order };
 }
 
-describe('GroupService.updateMembers（docs/rbac/01-domain-model.md §9.3 D11）', () => {
+describe('GroupService.updateMembers（docs/architecture/iam/01-model.md §9.3 D11）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -240,7 +240,7 @@ describe('GroupService.updateMembers（docs/rbac/01-domain-model.md §9.3 D11）
   });
 });
 
-describe('GroupService.updateRoles（docs/rbac/01-domain-model.md §9.3 D12）', () => {
+describe('GroupService.updateRoles（docs/architecture/iam/01-model.md §9.3 D12）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -279,7 +279,7 @@ describe('GroupService.updateRoles（docs/rbac/01-domain-model.md §9.3 D12）',
   });
 });
 
-describe('GroupService 讀取（docs/rbac/08-groups.md §3）', () => {
+describe('GroupService 讀取（docs/architecture/iam/07-groups.md §3）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -343,7 +343,7 @@ describe('GroupService 讀取（docs/rbac/08-groups.md §3）', () => {
   });
 });
 
-describe('GroupService.create（docs/rbac/08-groups.md §4）', () => {
+describe('GroupService.create（docs/architecture/iam/07-groups.md §4）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -453,7 +453,7 @@ describe('GroupService.update（docs/architecture/backend/14-revisions.md §9.2 
   });
 });
 
-describe('GroupService.remove（docs/rbac/08-groups.md §4）', () => {
+describe('GroupService.remove（docs/architecture/iam/07-groups.md §4）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -493,7 +493,7 @@ describe('GroupService.remove（docs/rbac/08-groups.md §4）', () => {
   });
 });
 
-describe('GroupService.restore（docs/rbac/08-groups.md §1.1、§4）', () => {
+describe('GroupService.restore（docs/architecture/iam/07-groups.md §1.1、§4）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -586,7 +586,7 @@ describe('GroupService.restore（docs/rbac/08-groups.md §1.1、§4）', () => {
   });
 });
 
-describe('GroupService.updateMembers 其他分支（docs/rbac/08-groups.md §2）', () => {
+describe('GroupService.updateMembers 其他分支（docs/architecture/iam/07-groups.md §2）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {
@@ -701,7 +701,7 @@ describe('GroupService.updateMembers 其他分支（docs/rbac/08-groups.md §2�
   });
 });
 
-describe('GroupService.updateRoles 其他分支（docs/rbac/08-groups.md §2.1、§4）', () => {
+describe('GroupService.updateRoles 其他分支（docs/architecture/iam/07-groups.md §2.1、§4）', () => {
   let ctx: ReturnType<typeof createService>;
 
   beforeEach(() => {

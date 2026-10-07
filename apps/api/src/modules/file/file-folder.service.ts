@@ -58,7 +58,7 @@ export class FileFolderService {
 
   /**
    * 全部的資料夾與操作者對每一個的能力：沒有權限的也列出，`canRead = false`（鎖住），
-   * 申請中的標 `hasPendingAccessRequest`（docs/rbac/07-resource-grants.md §5.1、§6.5）。
+   * 申請中的標 `hasPendingAccessRequest`（docs/architecture/iam/06-resource-grants.md §5.1、§6.5）。
    *
    * 操作者還沒有個人資料夾時當場補建（冪等）：平常由啟動與 `permissions.changed` 建立，但兩者都可能錯過——
    * 廣播不保證送達、資料庫在程序執行中被重灌（E2E 的 global-setup）。補不了（沒有檔案權限）就照實回 null。
@@ -84,7 +84,7 @@ export class FileFolderService {
     );
     return {
       // 資料夾都列出、讀不到的鎖住（§5.1）；別人的個人資料夾例外：只列出自己或子孫讀得到的
-      // （或持有 file:listPersonal、全域 file:read），docs/rbac/07-resource-grants.md §12.1
+      // （或持有 file:listPersonal、全域 file:read），docs/architecture/iam/06-resource-grants.md §12.1
       items: rows
         .filter((row) => ctx.exists(row.id))
         .map((row) => toFolderDto(row, ctx, tags.get(row.id) ?? [], requested.has(row.id))),

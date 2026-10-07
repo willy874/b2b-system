@@ -185,7 +185,7 @@ await withTransaction(this.db, async (tx) => {
 
 ## 6. API（D9）
 
-下表四個端點都是 `@Authenticated()`：只需要登入；每個端點都只看得到、改得到自己的。看所有人的通知是另一個端點（§6.1）。完整格式見 [`../../rbac/04-api-spec.md`](../../rbac/04-api-spec.md) §7.3。
+下表四個端點都是 `@Authenticated()`：只需要登入；每個端點都只看得到、改得到自己的。看所有人的通知是另一個端點（§6.1）。完整格式見 [`../iam/04-api.md`](../iam/04-api.md) §7.3。
 
 | 方法 | 路徑 | 說明 |
 | --- | --- | --- |

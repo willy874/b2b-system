@@ -46,7 +46,7 @@ const ARIA_PRESSED = {
 } as const satisfies Record<SkillState, boolean | 'mixed'>;
 
 /**
- * 角色權限的挑選（docs/rbac/02-permission-catalog.md §9）：
+ * 角色權限的挑選（docs/architecture/iam/02-permission-catalog.md §9）：
  * - 樹狀下拉選單：每個資源一組、組內依技能樹由上而下的順序；勾群組等於勾整組可授予的權限。
  *   已包含（由上層帶出）與無法授予的權限停用，互鎖在選單上直接看得到。
  * - 技能樹（預設收合，展開才掛上畫布）：每個資源一組，基礎權限在上、包含它的在下；

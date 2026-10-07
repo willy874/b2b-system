@@ -101,7 +101,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
     RealtimeModule,
 
-    // 審批的狀態機；各類型的 handler 由擁有資源的業務模組註冊（docs/rbac/06-approval.md §4）
+    // 審批的狀態機；各類型的 handler 由擁有資源的業務模組註冊（docs/architecture/backend/20-approval.md §4）
     ApprovalModule,
     // 回收桶；各資源類型的 handler 由擁有資源的業務模組註冊（docs/architecture/backend/13-trash.md）
     TrashModule,

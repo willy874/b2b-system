@@ -166,7 +166,7 @@ services:
       # 每個租戶一個 bucket（D16）；預設租戶沿用租戶化之前的 bucket（舊部署設過 FILE_STORAGE_BUCKET 的照舊）
       DEFAULT_TENANT_STORAGE_BUCKET: ${DEFAULT_TENANT_STORAGE_BUCKET:-${FILE_STORAGE_BUCKET:-b2b-system}}
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:?required}
-      # 留空：第一位平台管理者建成 pending，migrate 的日誌印出一次性的設定連結（不印密碼；rbac/05-seed-and-bootstrap.md §5.1）
+      # 留空：第一位平台管理者建成 pending，migrate 的日誌印出一次性的設定連結（不印密碼；docs/architecture/iam/05-bootstrap.md §5.1）
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
       PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}

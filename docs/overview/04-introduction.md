@@ -91,13 +91,13 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 4. 權限：伺服器解析、關係圖、可以解釋
 
-權限不進 token。每個請求查一次記憶體快取（命中時小於 1 ms），換來權限變更立即生效（[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §11）。底層是在 Postgres 上自建的 Zanzibar 子集：角色持有、角色的權限鍵、資料夾授權、群組成員，全部是 `relation_tuples` 上的邊（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9）。否決 OpenFGA／SpiceDB 的理由是：稽核和授權寫入必須在同一個交易，外部服務會變成雙寫問題。切換採 trigger 雙寫加影子比對，分 G1～G3b 逐步完成。
+權限不進 token。每個請求查一次記憶體快取（命中時小於 1 ms），換來權限變更立即生效（[`backend/05-rbac.md`](../architecture/backend/05-rbac.md) §11）。底層是在 Postgres 上自建的 Zanzibar 子集：角色持有、角色的權限鍵、資料夾授權、群組成員，全部是 `relation_tuples` 上的邊（[`iam/01-model.md`](../architecture/iam/01-model.md) §9）。否決 OpenFGA／SpiceDB 的理由是：稽核和授權寫入必須在同一個交易，外部服務會變成雙寫問題。切換採 trigger 雙寫加影子比對，分 G1～G3b 逐步完成。
 
-模型刻意沒有 deny。[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §8 的理由是：一旦有 deny，「為什麼不能做 X」就變成需要推理的問題。
+模型刻意沒有 deny。[`iam/01-model.md`](../architecture/iam/01-model.md) §8 的理由是：一旦有 deny，「為什麼不能做 X」就變成需要推理的問題。
 
 ![使用者詳情的有效權限與來源](./images/tour/user-detail-explain.jpg)
 
-*有效權限與來源。每個權限鍵列出所有來源路徑（使用者 → 群組 → 上層群組 → 角色）；路徑上的節點依「查看者」的權限遮蔽，看不到的只顯示種類。見 [`rbac/09-explain.md`](../rbac/09-explain.md)。*
+*有效權限與來源。每個權限鍵列出所有來源路徑（使用者 → 群組 → 上層群組 → 角色）；路徑上的節點依「查看者」的權限遮蔽，看不到的只顯示種類。見 [`iam/08-explain.md`](../architecture/iam/08-explain.md)。*
 
 ![角色權限的技能樹](./images/tour/role-permission.jpg)
 
@@ -171,7 +171,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 7. 檔案：直傳、分塊、同源防護
 
-檔案內容不經過 api，瀏覽器拿 presigned URL 直傳物件儲存（開發用自帶的 S3 相容服務 `apps/file-storage`）。規格見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md)、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md)。
+檔案內容不經過 api，瀏覽器拿 presigned URL 直傳物件儲存（開發用自帶的 S3 相容服務 `apps/file-storage`）。規格見 [`architecture/backend/09-file.md`](../architecture/backend/09-file.md)、[`architecture/frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md)、[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md)。
 
 | 情況 | 怎麼處理 |
 | --- | --- |

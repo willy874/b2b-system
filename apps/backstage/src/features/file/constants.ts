@@ -72,7 +72,7 @@ export const INLINE_PREVIEW_MAX_SIZE = 2 * 1024 * 1024;
 /** 後端 `MAX_FOLDER_PATHS`：上傳資料夾時一次確保的路徑數，超過就分批送。 */
 export const FOLDER_PATHS_PER_REQUEST = 1000;
 
-/** 資料夾授權的等級，由低到高（docs/rbac/07-resource-grants.md §2）。 */
+/** 資料夾授權的等級，由低到高（docs/architecture/iam/06-resource-grants.md §2）。 */
 export const FILE_GRANT_LEVELS = [
   'viewer',
   'contributor',
@@ -142,7 +142,7 @@ export const FILE_GRANT_SUBJECT_COPY_KEY = {
   },
 } as const satisfies Record<FileGrantSubjectType, Record<string, string>>;
 
-/** 系統資料夾的圖示（docs/rbac/07-resource-grants.md §12）；一般資料夾是 `folder`。 */
+/** 系統資料夾的圖示（docs/architecture/iam/06-resource-grants.md §12）；一般資料夾是 `folder`。 */
 export const FILE_FOLDER_KIND_ICON = {
   normal: 'folder',
   shared: 'users',

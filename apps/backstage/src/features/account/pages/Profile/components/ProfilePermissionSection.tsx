@@ -13,7 +13,7 @@ interface ProfilePermissionSectionProps {
 }
 
 /**
- * 自己的有效權限與來源（docs/rbac/01-domain-model.md §9 G4b）：查自己不需要任何權限，所以沒有 `user:read` 的人也從這裡看得到。
+ * 自己的有效權限與來源（docs/architecture/iam/01-model.md §9 G4b）：查自己不需要任何權限，所以沒有 `user:read` 的人也從這裡看得到。
  * 讀不到的群組與角色只顯示種類（D14）。展開時才查。
  */
 export function ProfilePermissionSection({ userId }: ProfilePermissionSectionProps) {

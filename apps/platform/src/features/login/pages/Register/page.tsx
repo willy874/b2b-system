@@ -11,7 +11,7 @@ import { AuthShell } from '../AuthShell';
 import { BackToTenantLogin, TenantRequired } from '../TenantLinks';
 
 /**
- * 註冊申請：送出後由管理員在審批頁核准才會建立帳號（docs/rbac/06-approval.md §5）。
+ * 註冊申請：送出後由管理員在審批頁核准才會建立帳號（docs/architecture/backend/20-approval.md §5）。
  * 不論 email 是否已存在，後端都回同樣的結果（帳號列舉防護），畫面也一律顯示「已送出」。
  * 流程在 `useRegisterForm`，這裡只渲染。
  */

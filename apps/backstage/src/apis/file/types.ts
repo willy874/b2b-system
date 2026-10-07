@@ -28,6 +28,6 @@ export interface FileListParams extends FileListFilters {
   cursor?: string;
 }
 
-/** 資料夾授權的對象種類與等級（docs/rbac/07-resource-grants.md §2、§6.2）。 */
+/** 資料夾授權的對象種類與等級（docs/architecture/iam/06-resource-grants.md §2、§6.2）。 */
 export type FileGrantSubjectType = SetFileFolderGrantRequest['subjectType'];
 export type FileGrantLevel = SetFileFolderGrantRequest['level'];

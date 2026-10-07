@@ -61,7 +61,7 @@ function idsOf(members: readonly GroupMemberSubject[], type: GroupMemberSubject[
 }
 
 /**
- * 群組（docs/rbac/01-domain-model.md §9.3 D11～D13、D16）。
+ * 群組（docs/architecture/iam/01-model.md §9.3 D11～D13、D16）。
  *
  * 群組是純分組：成員與持有的角色都是 `relation_tuples` 的邊，權限由關係圖解析（巢狀、持有的角色都在主體閉包裡）。
  * 會改變誰有什麼權限的寫入（成員、持有的角色、刪除、還原）都在交易後 `permissionsChanged()`。
@@ -384,7 +384,7 @@ export class GroupService {
 
   /**
    * 放進或移出的成員（或被改角色的群組）不能是操作者自己、也不能是操作者所屬（直接或間接）的群組：
-   * 等於改自己的角色（docs/rbac/01-domain-model.md I9 的延伸）。所屬的群組取自操作者的主體閉包。
+   * 等於改自己的角色（docs/architecture/iam/01-model.md I9 的延伸）。所屬的群組取自操作者的主體閉包。
    */
   private async assertNotSelfMembership(
     actor: AuthUser,

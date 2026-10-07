@@ -34,7 +34,7 @@ async function tableCount(
   return Number(row?.total ?? 0);
 }
 
-describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
+describe('db:seed（docs/architecture/iam/05-bootstrap.md §8 驗收清單）', () => {
   beforeAll(async () => {
     process.env.SUPER_ADMIN_EMAIL = 'seed-admin@example.com';
     process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
@@ -143,7 +143,7 @@ describe('db:seed（rbac/05-seed-and-bootstrap.md §8 驗收清單）', () => {
     expect(await implied()).toHaveLength(1);
   });
 
-  it('⑩ SUPER_ADMIN_PASSWORD 不符合密碼政策時失敗，不靜默換成隨機密碼（rbac/05-seed-and-bootstrap.md §5.1）', async () => {
+  it('⑩ SUPER_ADMIN_PASSWORD 不符合密碼政策時失敗，不靜默換成隨機密碼（docs/architecture/iam/05-bootstrap.md §5.1）', async () => {
     await truncateAll(db);
     const password = process.env.SUPER_ADMIN_PASSWORD;
     process.env.SUPER_ADMIN_PASSWORD = 'short-pw';

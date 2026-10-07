@@ -191,7 +191,7 @@ export class UserService {
 
     const statusChanging = dto.status !== undefined && dto.status !== user.status;
     if (statusChanging) {
-      // `pending` 只能靠啟用信離開：收得到信才證明擁有這個 email（docs/rbac/06-approval.md §5），
+      // `pending` 只能靠啟用信離開：收得到信才證明擁有這個 email（docs/architecture/backend/20-approval.md §5），
       // 管理者不能直接改成 active（平台管理者的 nextStatus() 同一條規則）
       if (user.status === 'pending' && dto.status === 'active') {
         throw new AppException('VALIDATION_FAILED', { fields: { status: 'pending' } });
@@ -537,7 +537,7 @@ export class UserService {
   }
 
   /**
-   * 「永遠至少有一位可用的 super-admin」（docs/rbac/01-domain-model.md I8）。在寫入的交易內呼叫：
+   * 「永遠至少有一位可用的 super-admin」（docs/architecture/iam/01-model.md I8）。在寫入的交易內呼叫：
    * 先取得 advisory lock 再計數，兩個並行的停用／刪除／拔角色不會同時看到「還剩一位」。
    * 是不是 super-admin 直接查 DB，不經權限快取。
    */

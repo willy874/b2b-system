@@ -104,7 +104,7 @@ const FOLDER_UPDATED = {
   changes: [{ resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.UPDATE, id: FOLDER }],
 };
 
-describe('FileAccessRequestService.submit（docs/rbac/07-resource-grants.md §6.5）', () => {
+describe('FileAccessRequestService.submit（docs/architecture/iam/06-resource-grants.md §6.5）', () => {
   it('資料夾不存在 → FILE_FOLDER_NOT_FOUND', async () => {
     const { service, approvals } = setup({ global: [] });
     const error = await errorOf(service.submit(MISSING, { level: 'viewer' }, ACTOR));
@@ -219,7 +219,7 @@ describe('FileAccessRequestService.list（資料夾的待審申請）', () => {
   });
 });
 
-describe('FileAccessRequestService.approve / reject（docs/rbac/07-resource-grants.md §6.5）', () => {
+describe('FileAccessRequestService.approve / reject（docs/architecture/iam/06-resource-grants.md §6.5）', () => {
   it('核准：交給審批模組（roleIds 空、帶意見）', async () => {
     const { service, approvals } = setup();
     await service.approve(FOLDER, REQUEST_ID, { comment: '好' }, ACTOR);

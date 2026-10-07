@@ -21,7 +21,7 @@ import { FILE_AUTHZ_TYPES } from './file.authz';
 const FILE_ACCESS_RESOURCE_TYPES = ['fileFolder'] as const;
 
 /**
- * 檔案管理器的資料夾層級授權（docs/rbac/07-resource-grants.md；docs/architecture/backend/09-file.md §11）。
+ * 檔案管理器的資料夾層級授權（docs/architecture/iam/06-resource-grants.md；docs/architecture/backend/09-file.md §11）。
  *
  * Guard 只當閘門（`file:access` 或全域 `file:<動作>`），範圍在這裡判斷——Guard 看不到資源
  * （docs/architecture/backend/05-rbac.md §1 原則 3 的例外）。資料夾授權不進權限快取：
@@ -89,7 +89,7 @@ export class FileAccessService implements OnModuleInit {
 
   /**
    * 每個等級帶來的動作：模型宣告的能力（`can_*`）中，等級靜態蘊含的那些——與群組、角色的反提權是同一個定義
-   * （`capabilitiesOf`，docs/rbac/01-domain-model.md §9 G4）。
+   * （`capabilitiesOf`，docs/architecture/iam/01-model.md §9 G4）。
    */
   private levelActions(): LevelActions<FileAction> {
     const model = this.registry.model(true);
@@ -106,7 +106,7 @@ export class FileAccessService implements OnModuleInit {
   /**
    * 在 `location` 做 `action` 的前提：資料夾不存在 → `404 FILE_FOLDER_NOT_FOUND`；
    * 不能做（含鎖住的資料夾）→ `403 AUTHZ_FORBIDDEN`（寫 `authz.denied`）。
-   * 資料夾對所有能進檔案管理器的人可見（docs/rbac/07-resource-grants.md §5.1），所以不以 404 隱藏。
+   * 資料夾對所有能進檔案管理器的人可見（docs/architecture/iam/06-resource-grants.md §5.1），所以不以 404 隱藏。
    */
   async assertCan(
     ctx: FileAccessContext,

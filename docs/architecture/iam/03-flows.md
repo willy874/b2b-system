@@ -1,4 +1,4 @@
-# RBAC 03 — 流程
+# 身分與存取 03 — 流程
 
 本文件用序列圖描述每一條關鍵路徑。所有「檢查」步驟在實作時都必須有對應的測試。
 
@@ -84,7 +84,7 @@
 - `status = 'pending'` 回 `AUTH_ACCOUNT_PENDING`（這個可以區分，因為使用者需要
   知道要去收啟用信）；`inactive` 回 `AUTH_ACCOUNT_DISABLED`。
 - 登入失敗鎖定中（`locked_until` 未到期）一律回 `AUTH_INVALID_CREDENTIALS`，連密碼正確也一樣：
-  否則鎖定期間猜密碼的人看得到哪一個猜中了（[`architecture/backend/04-auth.md`](../architecture/backend/04-auth.md) §3.2）。
+  否則鎖定期間猜密碼的人看得到哪一個猜中了（[`architecture/backend/04-auth.md`](../backend/04-auth.md) §3.2）。
 
 ---
 
@@ -200,7 +200,7 @@ ZodValidationPipe → Controller → Service → Repository
 
 這個「忘記宣告就爆炸」的設計是刻意的：它讓「漏掉權限檢查」在開發期就被發現，
 而不是上線後才變成資安事件。啟動時另有一個 **路由稽核**（見
-[`../architecture/backend/05-rbac.md`](../architecture/backend/05-rbac.md) §7）掃描所有註冊的路由，
+[`../architecture/backend/05-rbac.md`](../backend/05-rbac.md) §7）掃描所有註冊的路由，
 任何未宣告的路由讓程序啟動失敗。
 
 ---
@@ -266,7 +266,7 @@ ZodValidationPipe → Controller → Service → Repository
 送出 → 只有明確點選的鍵（POST /roles 的 permissionKeys、PATCH 的 add／remove）
 ```
 
-「有上層就不能取消前置」只是編輯器的互鎖；API 不因此拒絕（[`04-api-spec.md`](./04-api-spec.md) §3.3）。
+「有上層就不能取消前置」只是編輯器的互鎖；API 不因此拒絕（[`04-api.md`](./04-api.md) §3.3）。
 
 ---
 
