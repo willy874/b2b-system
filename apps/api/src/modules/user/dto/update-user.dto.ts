@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { TimeZoneSchema } from '@/core/settings';
 import { defineSchema, uniqueItems } from '@/core/validation';
 
 export const UpdateUserSchema = defineSchema(
@@ -11,7 +12,7 @@ export const UpdateUserSchema = defineSchema(
       // `pending` 只能由建立帳號產生、靠啟用信離開：改回 pending 的人沒有啟用 token，再也登入不了
       status: z.enum(['active', 'inactive']).optional(),
       locale: z.string().max(10).optional(),
-      timezone: z.string().max(64).optional(),
+      timezone: TimeZoneSchema.optional(),
       /**
        * 樂觀鎖：編輯開始時看到的 `version`（必填）。與目前版本不同（別人已經改過）回 409 `USER_VERSION_CONFLICT`
        * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（docs/architecture/backend/14-revisions.md §9.2 D3、D4）。

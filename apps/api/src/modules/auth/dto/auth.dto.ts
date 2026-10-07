@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { TimeZoneSchema } from '@/core/settings';
 import { defineSchema } from '@/core/validation';
 import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 import { PasswordSchema } from '@/modules/credential/password';
@@ -90,7 +91,7 @@ export const UpdateProfileSchema = defineSchema(
       preferences: z
         .object({
           locale: z.string().max(10).optional(),
-          timezone: z.string().max(64).optional(),
+          timezone: TimeZoneSchema.optional(),
         })
         .optional(),
     })

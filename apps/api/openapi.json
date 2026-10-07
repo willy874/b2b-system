@@ -9176,6 +9176,7 @@
           },
           "timezone": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 64
           },
           "version": {
@@ -9830,6 +9831,7 @@
               },
               "timezone": {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 64
               }
             },

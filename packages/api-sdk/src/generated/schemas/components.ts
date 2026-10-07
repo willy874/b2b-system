@@ -1276,7 +1276,7 @@ export const UpdateUserRequestSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
-  timezone: z.string().max(64).optional(),
+  timezone: z.string().min(1).max(64).optional(),
   version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateUserRequest>;
 
@@ -1553,7 +1553,7 @@ export const UpdateProfileRequestSchema = z.object({
   preferences: z
     .object({
       locale: z.string().max(10).optional(),
-      timezone: z.string().max(64).optional(),
+      timezone: z.string().min(1).max(64).optional(),
     })
     .optional(),
 }) satisfies z.ZodType<UpdateProfileRequest>;

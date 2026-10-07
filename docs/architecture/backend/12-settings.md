@@ -143,6 +143,8 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 畫面上的時間一律用 **使用者自己的時區偏好**（帳號的 `users.timezone`，profile 水合時套用到這台裝置，
 [`../frontend/08-i18n.md`](../frontend/08-i18n.md) §1、§5），`general.defaultTimezone` 只用在週期公告。
 設定頁的說明照實寫（`setting.field.defaultTimezone.description`），不寫「使用者沒有設定時區時用這個時區顯示」。
+租戶的預設時區與使用者的時區偏好（`PATCH /users/:id`、`PATCH /auth/profile` 的 `preferences.timezone`）共用 `TimeZoneSchema`（`Intl` 認得的 IANA 名稱），
+不合法的值在寫入時回 `400 VALIDATION_FAILED`，不會留到日期計算時才拋 `RangeError`。
 
 沒有接成「使用者沒選時區時用租戶的預設」：`users.timezone` 是 `NOT NULL DEFAULT 'Asia/Taipei'`，
 分不出「選了台北」與「從沒選過」。要做得改成可為 `NULL`（既有的 `Asia/Taipei` 也分不出來，只能全部視為沒選）、
