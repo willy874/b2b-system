@@ -84,6 +84,8 @@ const EnvSchema = z.object({
     .transform((value) => value === 'true'),
   /** `/metrics` 的 route 標籤每個專案最多幾種，超過的歸到 `other`（docs/architecture/frontend/19-observability.md §9.2 D10）。 */
   APM_ROUTE_LABEL_LIMIT: z.coerce.number().int().min(1).max(10_000).default(200),
+  /** `/metrics` 的 `apm_events_total` 每個專案保留最近幾個 release（docs/architecture/08-monitoring.md §5.1）。 */
+  APM_RELEASE_LABEL_LIMIT: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export interface ApmConfig {
@@ -99,6 +101,7 @@ export interface ApmConfig {
   rateLimitPerMinute: number;
   trustProxy: boolean;
   routeLabelLimit: number;
+  releaseLabelLimit: number;
 }
 
 /**
@@ -128,5 +131,6 @@ export function loadConfig(
     rateLimitPerMinute: values.APM_RATE_LIMIT_PER_MINUTE,
     trustProxy: values.APM_TRUST_PROXY,
     routeLabelLimit: values.APM_ROUTE_LABEL_LIMIT,
+    releaseLabelLimit: values.APM_RELEASE_LABEL_LIMIT,
   };
 }

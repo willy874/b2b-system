@@ -62,6 +62,7 @@ export async function ingestEnvelope(context: RequestContext): Promise<void> {
       eventId = event.eventId;
       // oxlint-disable-next-line no-await-in-loop -- 一個 envelope 只有一個事件
       await services.events.append(event);
+      metrics.countEvent(event.project, event.level, event.release);
       log.warn('client error', {
         project: event.project,
         eventId: event.eventId,

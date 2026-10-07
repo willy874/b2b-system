@@ -33,6 +33,13 @@ export class Counter {
     else this.values.set(key, { labels, value: amount });
   }
 
+  /** 刪掉符合條件的時間序列（標籤值被淘汰時，例：太舊的 release）。 */
+  remove(predicate: (labels: Labels) => boolean): void {
+    for (const [key, { labels }] of this.values) {
+      if (predicate(labels)) this.values.delete(key);
+    }
+  }
+
   render(): string {
     const lines = [`# HELP ${this.name} ${this.help}`, `# TYPE ${this.name} counter`];
     for (const { labels, value } of this.values.values()) {

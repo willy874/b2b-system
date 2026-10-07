@@ -25,6 +25,15 @@ export function isVitalName(value: string): value is VitalName {
 export const OTHER_ROUTE = 'other';
 const ROUTE_PATTERN = /^[A-Za-z0-9_./$:-]{1,120}$/;
 
+/** 格式不對的 release。 */
+export const OTHER_RELEASE = 'other';
+/** 事件沒有帶 release（開發、未設定 `APP_RELEASE` 的建置）。 */
+export const UNKNOWN_RELEASE = 'unknown';
+/** 與 release 檔案 API 接受的形狀相同（docs/architecture/07-apm-service.md §3.2）；其他的歸 `other`。 */
+const RELEASE_PATTERN = /^[A-Za-z0-9._+-]{1,100}$/;
+/** 與 Sentry 相同的事件等級；客戶端送別的值時 normalize 已經改成 `error`。 */
+const LEVELS = new Set(['fatal', 'error', 'warning', 'info', 'debug', 'log']);
+
 /**
  * apm-service 自己的 `/metrics`（docs/architecture/frontend/19-observability.md §9.2 D10）。route 標籤是頁面的 path 樣板，來自客戶端，
  * 所以每個專案限制種類數，防止被灌入任意值讓時間序列爆量。
@@ -38,9 +47,54 @@ export class ApmMetrics {
     (labels) => BUCKETS[labels.name as VitalName] ?? MS_BUCKETS,
   );
 
-  private readonly routes = new Map<string, Set<string>>();
+  readonly events = new Counter(
+    'apm_events_total',
+    '存下的錯誤事件數（依專案、等級、release；release 只保留最近的幾個）',
+  );
 
-  constructor(private readonly routeLabelLimit: number) {}
+  private readonly routes = new Map<string, Set<string>>();
+  /** 每個專案最近看到的 release（Map 依插入順序：最後一個是最近的）。 */
+  private readonly releases = new Map<string, Map<string, true>>();
+
+  constructor(
+    private readonly routeLabelLimit: number,
+    private readonly releaseLabelLimit: number = 10,
+  ) {}
+
+  /**
+   * release 標籤：只保留每個專案最近看到的 `releaseLabelLimit` 個（docs/architecture/08-monitoring.md §5.1）。
+   * 每次部署都是新的 release，不淘汰的話時間序列會一直長；被淘汰的 release 連同它的時間序列一起刪掉，
+   * 看舊版本的錯誤數要回到 Prometheus 的歷史資料。
+   */
+  private releaseLabel(project: string, release: string | undefined): string {
+    if (release === undefined) return UNKNOWN_RELEASE;
+    if (!RELEASE_PATTERN.test(release)) return OTHER_RELEASE;
+    let known = this.releases.get(project);
+    if (!known) {
+      known = new Map();
+      this.releases.set(project, known);
+    }
+    known.delete(release);
+    known.set(release, true);
+    if (known.size > this.releaseLabelLimit) {
+      const oldest = known.keys().next();
+      if (!oldest.done) {
+        known.delete(oldest.value);
+        this.events.remove(
+          (labels) => labels.project === project && labels.release === oldest.value,
+        );
+      }
+    }
+    return release;
+  }
+
+  countEvent(project: string, level: string, release: string | undefined): void {
+    this.events.inc({
+      project,
+      level: LEVELS.has(level) ? level : 'error',
+      release: this.releaseLabel(project, release),
+    });
+  }
 
   private routeLabel(project: string, route: string | undefined): string {
     if (route === undefined || !ROUTE_PATTERN.test(route)) return OTHER_ROUTE;
@@ -61,6 +115,6 @@ export class ApmMetrics {
   }
 
   render(): string {
-    return `${[this.envelopes.render(), this.items.render(), this.vitals.render()].join('\n')}\n`;
+    return `${[this.envelopes.render(), this.items.render(), this.events.render(), this.vitals.render()].join('\n')}\n`;
   }
 }
