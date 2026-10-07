@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`multi-instance.md`](./multi-instance.md)、[`hardening-followups.md`](./hardening-followups.md)、
+- 相關：[`multi-instance.md`](./multi-instance.md)、
   [`../architecture/01-system.md`](../architecture/01-system.md) §5、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §12
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。

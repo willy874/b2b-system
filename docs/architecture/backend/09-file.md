@@ -388,6 +388,10 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   - 全螢幕預覽與圖示預覽 **依序** render，尖峰只有一份解碼緩衝；
   - libvips 每張圖最多 2 條執行緒、操作快取 16 MB（`sharp.concurrency` / `sharp.cache`）；
   - 還是在同一個程序：移到獨立 worker 容器要等背景工作能分開部署（見 [`10-jobs.md`](./10-jobs.md) §5），目前以上面的限制壓住尖峰。
+  - **還沒實測**。量測的觸發條件（任一）：要調高 `IMAGE_VARIANT_CONCURRENCY`（程式常數 2）或調低 api 的記憶體上限（`API_MEM_LIMIT` 2g、`--max-old-space-size` 1536）；
+    影像變體移到獨立 worker 時決定它的記憶體規格；正式環境出現 OOM 或 RSS 持續接近上限。
+    量測方式：在與正式相同的容器限制下，以 1 億像素的 PNG、大尺寸漸進式 JPEG、含透明的大圖各跑「並行 = 1、2、4」，記錄 RSS 峰值
+    （`process.memoryUsage().rss` 與 cgroup 的 `memory.peak`）與耗時；同時跑登入壓測，確認與 argon2（[`04-auth.md`](./04-auth.md) §4.1）共用 threadpool 時互不拖累。結果寫回這裡。
 
 #### 影像 API：`GET /files/:id/image/:variant`
 
@@ -833,3 +837,29 @@ FileAccessService（modules/file）
   錯誤碼 `FILE_IMAGE_URL_INVALID`；環境變數 `API_PUBLIC_BASE_URL`、`FILE_PENDING_TTL`、`FILE_MAINTENANCE_INTERVAL`（後來換成 `FILE_MAINTENANCE_CRON`）、`FILE_MAINTENANCE_DRY_RUN`。
 - apps/file-storage：支援 `ListMultipartUploads`。
 - 前端：LightBox 預設顯示全螢幕預覽（`FilePreviewSource.displayUrl`），切到原始大小才載入原圖；`thumbnailUrl` 的來源由後端決定，前端不變。
+
+---
+
+## 13. 設計決策：獨立的檔案網域（下載與預覽）
+
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §2）。規則見 §3.2。
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **下載與預覽由獨立的檔案網域提供，上傳維持同源**：`FILE_STORAGE_DOWNLOAD_ENDPOINT` 只用於 `presignDownload`，上傳與 multipart 仍用 `FILE_STORAGE_PUBLIC_ENDPOINT` | 只有被瀏覽器渲染的回應有風險；上傳維持同源就不必處理跨來源的 multipart（preflight、`ETag` 暴露、每個租戶網域的 CORS 白名單） |
+| D2 | **全平台共用一個檔案網域**；設定支援 `{tenantOrigin}`、`{tenantCode}` 佔位符，部署端日後改成每租戶子網域不必改程式 | 檔案網域上沒有 cookie 與登入狀態，內容只能以 presigned 網址讀取；每租戶子網域要萬用 DNS 與萬用憑證，隔離效果相同 |
+| D3 | **CSP 加上檔案網域**（`img-src`、`media-src`、`connect-src`），由前端映像啟動時的 `deploy/nginx-file-origin.sh` 產生 | 單一網域讓 CSP 仍是一個固定值 |
+| D4 | **檔案網域的 server 只開 `/storage/` 的 `GET`／`HEAD`**，不轉給 api、不轉送 `Cookie`／`Authorization`；`Access-Control-Allow-Origin: *`、`Cross-Origin-Resource-Policy: cross-origin` | 文字預覽的 `fetch` 是跨來源讀取；presigned 網址本身就是憑證，`*` 不會讓沒有網址的人讀到內容 |
+| D5 | **同源時的防護全部保留**：`sandbox` CSP、`nosniff`、類型白名單與 attachment 政策 | 縱深防禦；分離之後才有條件討論「PDF 改 inline」之類的放寬，那是另一個決定 |
+| D6 | **影像 API 留在租戶網域**（要租戶脈絡），302 的目的地是檔案網域 | `<img>` 跟隨跨來源的轉址沒有限制 |
+| D7 | **沒設定時行為不變**（本機與 E2E 照舊同源）；production 沒設時啟動記一次警告，不拒絕啟動 | 小型部署可以不準備第二個網域；警告讓維運知道少了一層保護 |
+
+評估過的方案：
+
+| 方案 | 結論 |
+| --- | --- |
+| 維持同源，只靠 CSP 與類型政策 | 不採用：防護完全依賴設定；換成 S3 時 bucket 不會送 `sandbox` CSP |
+| 上傳與下載都搬到檔案網域 | 不採用：跨來源的 multipart 要 preflight、`ETag` 暴露、每個租戶網域列進 CORS，收益為零 |
+| 每租戶一個檔案子網域 | 不採用為預設（D2）：保留佔位符讓部署端可以選 |
+| api 串流檔案內容、加上 `Content-Disposition` | 不採用：大檔佔用 api 的頻寬與 event loop，與直傳的設計相反 |
+

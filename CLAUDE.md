@@ -33,7 +33,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | `apps/platform` | 全平台共用的登入入口與平台管理（:5175） |
 | `apps/file-storage` | 本機的 S3 相容物件儲存 |
 | `apps/e2e` | Playwright |
-| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框與側欄（選單註冊表）、命令面板與全域快捷鍵、`RichTable`、共用頁面元件（錯誤頁、改密碼、背景工作與稽核列表）、測試輔助 |
+| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框與側欄（選單註冊表）、命令面板與全域快捷鍵、`RichTable`、共用頁面元件（錯誤頁、改密碼、背景工作與稽核列表）、session 結束時的表單草稿（`form/`）、測試輔助 |
 | `packages/ui` | 設計系統：元件、Design Token、icons、UnoCSS 設定、Storybook |
 | `packages/web-shared` | 框架無關的前端工具：store、channel、registry、date… |
 | `packages/error-codes` | api 與前端共用的錯誤碼（build 到 `dist/`） |

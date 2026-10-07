@@ -145,7 +145,7 @@
 
 - production（`NODE_ENV=production`）：網址只接受 `https`、儲存時檢查 DNS、投遞時綁定已驗證的位址。其他環境允許 `http` 與內網，才能打本機的接收端。
 - 網址帶帳密一律拒絕（會出現在畫面與紀錄上；驗證來源請用簽章）。
-- 外部 IdP 仍是「先查 DNS」（openid-client 的 `customFetch` 只能接 fetch），綁定位址是 [`../../features/hardening-followups.md`](../../features/hardening-followups.md) 的待辦。
+- 外部 IdP 也綁定已驗證的位址：`pinnedFetch`（`core/http/outbound.ts`，以 undici 的 `Agent` 包成 fetch，給 openid-client 的 `customFetch`；[`../04-sso.md`](../04-sso.md) §3.3）。
 
 ---
 
@@ -285,7 +285,7 @@ API token 與對外 API（[`architecture/06-external-api.md`](../06-external-api
 | --- | --- |
 | D2 | 加了 `user.restored`：從回收桶還原的使用者若沒有事件，接收端在 `user.deleted` 時做的處理就回不來 |
 | D13 | 通知的對象從「建立者」改成「當下持有 `webhook:update` 的人」：建立者可能已離職或失去權限，能修好它的人才需要知道 |
-| D15 | 位址檢查從 `modules/identity-provider/outbound-guard.ts` 搬到 `core/http/outbound.ts`，新增 `pinnedLookup` 與 `sendOutboundRequest`。外部 IdP 仍只「先查 DNS」：openid-client 的 `customFetch` 只接受 fetch，綁定位址留在 `hardening-followups.md` |
+| D15 | 位址檢查從 `modules/identity-provider/outbound-guard.ts` 搬到 `core/http/outbound.ts`，新增 `pinnedLookup` 與 `sendOutboundRequest`。外部 IdP 當時仍只「先查 DNS」：openid-client 的 `customFetch` 只接受 fetch（2026-10-07 以 `pinnedFetch` 補上綁定位址） |
 | D17 | 手動的失敗不計入自動停用的門檻（使用者正在除錯）；手動的成功一樣歸零 |
 | 其他 | 一個租戶最多 50 個訂閱（`WEBHOOK_LIMIT_REACHED`，建立時鎖表再數）；`webhook.deliver` 並行 10；輪替密鑰不遞增 `version`（不是使用者編輯的欄位） |
 

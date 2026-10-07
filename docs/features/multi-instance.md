@@ -4,8 +4,8 @@
 - 狀態：提案
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.3（擴展前提）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §10.3、
-  [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9（背景工作）、[`observability.md`](./observability.md)、[`hardening-followups.md`](./hardening-followups.md)、
-  [`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 6、7 項、[`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）、
+  [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9（背景工作）、[`observability.md`](./observability.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §12（速率限制第二版與 `RateLimitStore`）、
+  [`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）、
   [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0（對外 API 是第二個程序，D16、D18 會先把其餘快取的失效廣播與事件轉送做掉）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -63,7 +63,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 ## 開放問題
 
 1. 共享速率限制用 Postgres 撐得住嗎？登入端點在尖峰時的寫入量要先估；撐不住才考慮 Redis。
-2. 稽核日誌分區要現在做，還是等熱表真的撐不住？分區會取代現在的熱表／冷表與 `archive_audit_logs()`，也牽涉冷表的保留期限（[`hardening-followups.md`](./hardening-followups.md)）。
+2. 稽核日誌分區要現在做，還是等熱表真的撐不住？分區會取代現在的熱表／冷表與 `archive_audit_logs()`，也牽涉冷表的保留期限。
    **結論**（2026-10-07）：不把熱表與冷表併成一張分區表；只把冷表按月分區，保留期限以 DROP 整個月份執行（`backend/06-audit-log.md` §10 D1）。
 3. 部署時要滾動更新，前提是 migration 一律對上一版相容（已是規則，[`backend/02-database.md`](../architecture/backend/02-database.md) §5.1「破壞性變更拆成兩次部署」）。要不要在 CI 加檢查？
 

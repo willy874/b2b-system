@@ -4,7 +4,7 @@
 - 狀態：提案
 - 依賴：—
 - 相關：[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D15（MFA 預留）、[`../architecture/04-sso.md`](../architecture/04-sso.md) §3、§11、
-  [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`06-external-api.md`](../architecture/06-external-api.md)、[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 3 項
+  [`backend/04-auth.md`](../architecture/backend/04-auth.md)、[`06-external-api.md`](../architecture/06-external-api.md)
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
