@@ -347,6 +347,8 @@ AUTH_TOKEN_RETENTION_DAYS=30                  # 過期或用過的 token 保留�
 IDP_SECRET_KEY=                               # 加密外部 IdP client secret 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 WEBHOOK_SECRET_KEY=                           # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 MFA_SECRET_KEY=                               # 加密 TOTP seed、Email 驗證碼 HMAC 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填；換金鑰 = 所有人重設 MFA）
+PLATFORM_MFA_REQUIRED=                        # 平台管理者必須啟用 MFA；留空 = production true、其他 false（production 不能設 false）
+PLATFORM_MFA_METHODS=                         # 平台管理者可用的 MFA 方式（逗號分隔）；留空 = totp
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空：開發時隨機產生並印出一次；production 建成 pending，只印一次性的啟用連結

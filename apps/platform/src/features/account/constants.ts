@@ -26,4 +26,6 @@ export const PLATFORM_PERMISSION_LABEL_KEY = {
   'platformJob:retry': 'permission.platformJob.retry',
   'featureFlag:read': 'permission.featureFlag.read',
   'featureFlag:update': 'permission.featureFlag.update',
+  'mfaMethod:read': 'permission.mfaMethod.read',
+  'mfaMethod:update': 'permission.mfaMethod.update',
 } as const satisfies Record<PermissionKey, string>;

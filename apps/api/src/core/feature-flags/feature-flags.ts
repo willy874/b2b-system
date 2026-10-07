@@ -34,17 +34,27 @@ export const FEATURE_FLAG_KEY_PATTERN = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * 生效值（D3）：全平台 `off` 一律關（緊急開關，蓋過租戶層）→ 租戶層有值就用它 → 全平台 `on` → 預設值。
+ * 「全平台 ＋ 租戶」兩級覆寫的生效值（D3）：全平台 `off` 一律關（緊急開關，蓋過租戶層）→ 租戶層有值就用它 →
+ * 全平台 `on` → 預設值。feature flag 與 MFA 的方式（docs/architecture/backend/21-mfa.md §5、D4）共用這個規則。
  */
-export function resolveFeatureFlag(
-  definition: Pick<FeatureFlagDefinition, 'defaultEnabled'>,
+export function resolveToggle(
+  defaultEnabled: boolean,
   global: FeatureFlagGlobalState | undefined,
   tenant: boolean | undefined,
 ): boolean {
   if (global === 'off') return false;
   if (tenant !== undefined) return tenant;
   if (global === 'on') return true;
-  return definition.defaultEnabled;
+  return defaultEnabled;
+}
+
+/** flag 的生效值（D3）：`resolveToggle` 的規則。 */
+export function resolveFeatureFlag(
+  definition: Pick<FeatureFlagDefinition, 'defaultEnabled'>,
+  global: FeatureFlagGlobalState | undefined,
+  tenant: boolean | undefined,
+): boolean {
+  return resolveToggle(definition.defaultEnabled, global, tenant);
 }
 
 /**

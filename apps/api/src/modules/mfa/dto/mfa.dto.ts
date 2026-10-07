@@ -190,3 +190,97 @@ export type MfaLoginChallengeDto = z.infer<typeof MfaLoginChallengeSchema>;
 export type MfaLoginVerifyDto = z.infer<typeof MfaLoginVerifySchema>;
 export type SsoMfaChallengeNextDto = z.infer<typeof SsoMfaChallengeNextSchema>;
 export type SsoMfaEnrollNextDto = z.infer<typeof SsoMfaEnrollNextSchema>;
+
+// ── 租戶的 MFA 政策（§6）──────────────────────────────────
+
+const MfaPolicyFieldsSchema = z.object({
+  requireAll: z.boolean(),
+  requiredRoleIds: z.array(z.string().uuid()).max(100),
+  /** null = 平台開放的全部；否則與平台開放的取交集。 */
+  allowedMethods: z.array(z.string().min(1).max(64)).max(20).nullable(),
+});
+
+export const MfaPolicySchema = defineSchema(
+  'MfaPolicy',
+  MfaPolicyFieldsSchema.extend({
+    version: z.number().int(),
+    updatedAt: z.string().nullable(),
+    /** 註冊表裡能給租戶用的方式；`platformEnabled = false` 的是平台沒有開放（勾選框停用）。 */
+    methods: z.array(MfaMethodInfoSchema.extend({ platformEnabled: z.boolean() })),
+    /** 必須啟用卻還沒有任何驗證方式的人數（可以點進使用者列表 `mfa=false`）。 */
+    nonCompliant: z.number().int(),
+  }),
+);
+
+export const UpdateMfaPolicySchema = defineSchema(
+  'UpdateMfaPolicyRequest',
+  MfaPolicyFieldsSchema.extend({ version: z.number().int().min(1) }),
+);
+
+export const MfaPolicyImpactSchema = defineSchema(
+  'MfaPolicyImpact',
+  z.object({
+    /** 套用之後必須啟用卻還沒設定的人數（下一次登入被要求首次設定）。 */
+    nonCompliant: z.number().int(),
+    /** 套用之後只剩不允許的方式、也沒有備用碼的人數：登入時 `AUTH_MFA_UNAVAILABLE`。 */
+    stranded: z.number().int(),
+  }),
+);
+
+export type MfaPolicyDto = z.infer<typeof MfaPolicySchema>;
+export type UpdateMfaPolicyDto = z.infer<typeof UpdateMfaPolicySchema>;
+export type MfaPolicyImpactDto = z.infer<typeof MfaPolicyImpactSchema>;
+
+// ── 平台的方式開關（§5）──────────────────────────────────
+
+export const PlatformMfaMethodSchema = defineSchema(
+  'PlatformMfaMethod',
+  MfaMethodInfoSchema.extend({
+    realms: z.array(z.enum(['tenant', 'platform'])),
+    defaultEnabled: z.boolean(),
+    /** 全平台層的覆寫；`default` = 沒有覆寫。 */
+    globalState: z.enum(['default', 'on', 'off']),
+    /** 沒有租戶層覆寫的租戶看到的值。 */
+    effective: z.boolean(),
+    tenantOverrides: z.object({ on: z.number().int(), off: z.number().int() }),
+    /** 每日統計（`mfa.factorStats`）；還沒統計過是 null。 */
+    stats: z
+      .object({
+        tenantFactors: z.number().int(),
+        tenants: z.number().int(),
+        platformFactors: z.number().int(),
+        computedAt: z.string(),
+      })
+      .nullable(),
+    /** 平台管理者是否可以用（`PLATFORM_MFA_METHODS`）。 */
+    platformAdminEnabled: z.boolean(),
+  }),
+);
+
+export const PlatformMfaMethodListSchema = defineSchema(
+  'PlatformMfaMethodList',
+  z.object({ items: z.array(PlatformMfaMethodSchema) }),
+);
+
+export const UpdatePlatformMfaMethodSchema = defineSchema(
+  'UpdatePlatformMfaMethodRequest',
+  z.object({ state: z.enum(['default', 'on', 'off']) }),
+);
+
+export const MfaMethodImpactQuerySchema = z.object({ tenantId: z.string().uuid().optional() });
+
+export const MfaMethodImpactSchema = defineSchema(
+  'MfaMethodImpact',
+  z.object({
+    /** 關掉之後只剩被關掉的方式、也沒有備用碼的人數。 */
+    stranded: z.number().int(),
+    /** 算了幾個租戶；進不去的租戶（停用、migration 落後）略過。 */
+    tenants: z.number().int(),
+    skippedTenants: z.number().int(),
+  }),
+);
+
+export type PlatformMfaMethodDto = z.infer<typeof PlatformMfaMethodSchema>;
+export type UpdatePlatformMfaMethodDto = z.infer<typeof UpdatePlatformMfaMethodSchema>;
+export type MfaMethodImpactQueryDto = z.infer<typeof MfaMethodImpactQuerySchema>;
+export type MfaMethodImpactDto = z.infer<typeof MfaMethodImpactSchema>;

@@ -2014,6 +2014,208 @@
         "tags": ["platform-admins"]
       }
     },
+    "/mfa/policy": {
+      "get": {
+        "operationId": "MfaPolicyController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaPolicy"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "租戶的 MFA 政策、可選的方式、不符合政策的人數",
+        "tags": ["mfa"]
+      },
+      "put": {
+        "operationId": "MfaPolicyController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMfaPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaPolicy"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "修改 MFA 政策（樂觀鎖；收緊立即生效但不踢人）",
+        "tags": ["mfa"]
+      }
+    },
+    "/mfa/policy/preview": {
+      "post": {
+        "operationId": "MfaPolicyController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMfaPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaPolicyImpact"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "套用前先看影響：不符合政策的人數、會被擋在門外的人數",
+        "tags": ["mfa"]
+      }
+    },
+    "/platform/mfa-methods": {
+      "get": {
+        "operationId": "PlatformMfaMethodController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformMfaMethodList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "驗證方式、全平台狀態、覆寫的租戶數、已設定的因子數",
+        "tags": ["platform-mfa-methods"]
+      }
+    },
+    "/platform/mfa-methods/{id}/impact": {
+      "get": {
+        "operationId": "PlatformMfaMethodController_impact",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaMethodImpact"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "關掉這個方式會被擋在門外的人數（全平台或指定租戶）",
+        "tags": ["platform-mfa-methods"]
+      }
+    },
+    "/platform/mfa-methods/{id}": {
+      "put": {
+        "operationId": "PlatformMfaMethodController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformMfaMethodRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlatformMfaMethod"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "全平台層的開關：on／off（緊急關閉，蓋過租戶層）／default",
+        "tags": ["platform-mfa-methods"]
+      }
+    },
     "/users": {
       "get": {
         "operationId": "UserController_list",
@@ -8563,7 +8765,9 @@
           "announcement:read",
           "announcement:update",
           "announcement:delete",
-          "announcement:publish"
+          "announcement:publish",
+          "mfaPolicy:read",
+          "mfaPolicy:update"
         ]
       },
       "Permission": {
@@ -10566,6 +10770,297 @@
           }
         ]
       },
+      "MfaPolicy": {
+        "type": "object",
+        "properties": {
+          "requireAll": {
+            "type": "boolean"
+          },
+          "requiredRoleIds": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "allowedMethods": {
+            "nullable": true,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "updatedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "challenge": {
+                  "type": "string",
+                  "enum": ["none", "server"]
+                },
+                "enrollAt": {
+                  "type": "string",
+                  "enum": ["anywhere", "idp"]
+                },
+                "assurance": {
+                  "type": "string",
+                  "enum": ["possession", "inbox"]
+                },
+                "maxFactorsPerAccount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "platformEnabled": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "challenge",
+                "enrollAt",
+                "assurance",
+                "maxFactorsPerAccount",
+                "platformEnabled"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nonCompliant": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "requireAll",
+          "requiredRoleIds",
+          "allowedMethods",
+          "version",
+          "updatedAt",
+          "methods",
+          "nonCompliant"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateMfaPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "requireAll": {
+            "type": "boolean"
+          },
+          "requiredRoleIds": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "allowedMethods": {
+            "nullable": true,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["requireAll", "requiredRoleIds", "allowedMethods", "version"],
+        "additionalProperties": false
+      },
+      "MfaPolicyImpact": {
+        "type": "object",
+        "properties": {
+          "nonCompliant": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "stranded": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["nonCompliant", "stranded"],
+        "additionalProperties": false
+      },
+      "PlatformMfaMethod": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "challenge": {
+            "type": "string",
+            "enum": ["none", "server"]
+          },
+          "enrollAt": {
+            "type": "string",
+            "enum": ["anywhere", "idp"]
+          },
+          "assurance": {
+            "type": "string",
+            "enum": ["possession", "inbox"]
+          },
+          "maxFactorsPerAccount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "realms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["tenant", "platform"]
+            }
+          },
+          "defaultEnabled": {
+            "type": "boolean"
+          },
+          "globalState": {
+            "type": "string",
+            "enum": ["default", "on", "off"]
+          },
+          "effective": {
+            "type": "boolean"
+          },
+          "tenantOverrides": {
+            "type": "object",
+            "properties": {
+              "on": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "off": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["on", "off"],
+            "additionalProperties": false
+          },
+          "stats": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "tenantFactors": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "tenants": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "platformFactors": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "computedAt": {
+                "type": "string"
+              }
+            },
+            "required": ["tenantFactors", "tenants", "platformFactors", "computedAt"],
+            "additionalProperties": false
+          },
+          "platformAdminEnabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "challenge",
+          "enrollAt",
+          "assurance",
+          "maxFactorsPerAccount",
+          "realms",
+          "defaultEnabled",
+          "globalState",
+          "effective",
+          "tenantOverrides",
+          "stats",
+          "platformAdminEnabled"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformMfaMethodList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformMfaMethod"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "UpdatePlatformMfaMethodRequest": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": ["default", "on", "off"]
+          }
+        },
+        "required": ["state"],
+        "additionalProperties": false
+      },
+      "MfaMethodImpact": {
+        "type": "object",
+        "properties": {
+          "stranded": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "tenants": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skippedTenants": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["stranded", "tenants", "skippedTenants"],
+        "additionalProperties": false
+      },
       "TenantFeature": {
         "type": "string",
         "enum": [
@@ -10581,6 +11076,12 @@
         ]
       },
       "TenantFlagOverrides": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      },
+      "TenantMfaMethodOverrides": {
         "type": "object",
         "additionalProperties": {
           "type": "boolean"
@@ -10713,6 +11214,9 @@
           "flags": {
             "$ref": "#/components/schemas/TenantFlagOverrides"
           },
+          "mfaMethods": {
+            "$ref": "#/components/schemas/TenantMfaMethodOverrides"
+          },
           "featureParams": {
             "type": "array",
             "items": {
@@ -10747,6 +11251,7 @@
           "storageBucket",
           "features",
           "flags",
+          "mfaMethods",
           "featureParams",
           "adminEmail",
           "provisionError",
@@ -10843,6 +11348,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/TenantFlagOverrides"
+              }
+            ]
+          },
+          "mfaMethods": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantMfaMethodOverrides"
               }
             ]
           },
@@ -11043,7 +11555,9 @@
           "platformJob:read",
           "platformJob:retry",
           "featureFlag:read",
-          "featureFlag:update"
+          "featureFlag:update",
+          "mfaMethod:read",
+          "mfaMethod:update"
         ]
       },
       "PlatformProfile": {

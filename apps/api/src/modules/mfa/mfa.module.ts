@@ -10,9 +10,16 @@ import { MfaAvailability } from './mfa-availability.service';
 import { MfaCleanupJobs } from './mfa-cleanup.jobs';
 import { MfaInteractionController } from './mfa-interaction.controller';
 import { MfaLoginService } from './mfa-login.service';
+import { MfaMethodOverrideRepository } from './mfa-method-override.repository';
+import { MfaMethodOverrideService } from './mfa-method-override.service';
 import { MfaNotifier } from './mfa-notifier';
+import { MfaPolicyController } from './mfa-policy.controller';
+import { MfaPolicyRepository } from './mfa-policy.repository';
+import { MfaPolicyService } from './mfa-policy.service';
 import { MfaSelfController, PlatformMfaSelfController } from './mfa-self.controller';
 import { MfaService } from './mfa.service';
+import { PlatformMfaMethodController } from './platform-mfa-method.controller';
+import { PlatformMfaMethodService } from './platform-mfa-method.service';
 import { PlatformMfaRepository } from './platform-mfa.repository';
 import { PlatformMfaStore } from './platform-mfa.store';
 import { TenantMfaRepository } from './tenant-mfa.repository';
@@ -32,6 +39,8 @@ import { TenantMfaStore } from './tenant-mfa.store';
     PlatformMfaSelfController,
     UserMfaController,
     PlatformAdminMfaController,
+    MfaPolicyController,
+    PlatformMfaMethodController,
   ],
   providers: [
     MfaService,
@@ -44,6 +53,11 @@ import { TenantMfaStore } from './tenant-mfa.store';
     TenantMfaStore,
     PlatformMfaStore,
     MfaCleanupJobs,
+    MfaMethodOverrideRepository,
+    MfaMethodOverrideService,
+    MfaPolicyRepository,
+    MfaPolicyService,
+    PlatformMfaMethodService,
   ],
   exports: [MfaService, MfaLoginService],
 })

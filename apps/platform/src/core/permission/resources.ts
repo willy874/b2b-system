@@ -5,5 +5,6 @@ export const PermissionResource = {
   PLATFORM_AUDIT_LOG: 'platformAuditLog',
   PLATFORM_JOB: 'platformJob',
   FEATURE_FLAG: 'featureFlag',
+  MFA_METHOD: 'mfaMethod',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];

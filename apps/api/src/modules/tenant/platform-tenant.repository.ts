@@ -27,6 +27,7 @@ export type TenantPatch = Partial<
     | 'features'
     | 'flags'
     | 'featureParams'
+    | 'mfaMethods'
   >
 >;
 

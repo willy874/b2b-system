@@ -40,7 +40,7 @@ export interface MfaAccount {
   displayName: string;
   locale: string;
   realm: MfaRealm;
-  /** 租戶的使用者才有；驗證器 App 的 issuer 用租戶名稱（§14.0 #6）。 */
+  /** 租戶的使用者才有；驗證器 App 的 issuer 用租戶名稱（§9.1）。 */
   tenant: { id: string; code: string; name: string } | null;
 }
 

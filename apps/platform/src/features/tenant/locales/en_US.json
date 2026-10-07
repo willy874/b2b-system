@@ -183,11 +183,17 @@
     "tab": {
       "overview": "Overview",
       "features": "Features",
-      "flags": "Feature flags"
+      "flags": "Feature flags",
+      "mfa": "Two-step verification"
     },
     "limits": {
       "title": "Tenant-wide limits",
       "description": "Limits that apply to the whole tenant rather than a specific feature."
+    },
+    "mfa": {
+      "title": "MFA verification methods",
+      "description": "Which two-step verification methods this tenant can use. \"Platform default\" follows the platform-wide setting; methods switched off platform-wide are always off.",
+      "killed": "Switched off platform-wide"
     }
   }
 }

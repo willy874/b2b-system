@@ -66,6 +66,11 @@ export const tenants = pgTable(
      */
     flags: jsonb('flags').$type<Record<string, boolean>>().notNull().default({}),
     /**
+     * MFA 方式的租戶層開關（docs/architecture/backend/21-mfa.md §5）：`{ [方式 id]: boolean }`，沒列出 = 不覆寫。
+     * 判斷規則與 `flags` 相同（`resolveToggle`）；不在註冊表的 id 讀取時忽略。
+     */
+    mfaMethods: jsonb('mfa_methods').$type<Record<string, boolean>>().notNull().default({}),
+    /**
      * feature 參數的覆寫（docs/architecture/05-tenancy.md §13.2 D2）：`{ [key]: number | string }`，
      * 沒列出 = 預設值。key 與範圍在 `core/tenant/tenant-feature-params.ts`；讀取時驗證，不符合的值回到預設。
      */

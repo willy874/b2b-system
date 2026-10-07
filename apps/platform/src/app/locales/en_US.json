@@ -19,7 +19,8 @@
       "system": "System",
       "tenant": "Tenants"
     },
-    "enterTenant": "Enter a tenant"
+    "enterTenant": "Enter a tenant",
+    "mfaMethod": "MFA methods"
   },
   "app": {
     "title": "B2B System",
@@ -48,7 +49,8 @@
       "platformAuditLog": "Platform audit log",
       "platformJob": "Background jobs (all tenants)",
       "featureFlag": "Feature flags",
-      "authz": "Access explanations"
+      "authz": "Access explanations",
+      "mfaMethod": "MFA methods"
     },
     "user": {
       "create": "Create user",
@@ -128,6 +130,10 @@
     },
     "authz": {
       "explain": "View access explanations"
+    },
+    "mfaMethod": {
+      "read": "View MFA methods",
+      "update": "Switch MFA methods"
     }
   },
   "changePassword": {
@@ -136,5 +142,12 @@
   "auditLog": {
     "expand": "Show details",
     "collapse": "Hide details"
+  },
+  "mfaMethodOff": {
+    "title": "Turn off \"{{name}}\"?",
+    "stranded_one": "{{count}} user only has this method and no recovery codes, so they won't be able to sign in until an administrator resets their MFA.",
+    "stranded_other": "{{count}} users only have this method and no recovery codes, so they won't be able to sign in until an administrator resets their MFA.",
+    "noImpact": "No one will be locked out; people who use it switch to another method or a recovery code.",
+    "confirm": "Turn off"
   }
 }

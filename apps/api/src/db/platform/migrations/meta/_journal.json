@@ -127,6 +127,13 @@
       "when": 1791368395210,
       "tag": "0017_platform_admin_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791370698901,
+      "tag": "0018_mfa_method_overrides",
+      "breakpoints": true
     }
   ]
 }

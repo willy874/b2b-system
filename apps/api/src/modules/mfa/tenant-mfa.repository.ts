@@ -4,7 +4,7 @@ import { and, count, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { TENANT_DB } from '@/core/database';
 import type { Database, DbOrTx } from '@/core/database';
 import type { MfaChallenge, MfaFactor } from '@/core/mfa';
-import { mfaChallenges, mfaFactors, mfaRecoveryCodes, users } from '@/db/schema';
+import { mfaChallenges, mfaFactors, mfaRecoveryCodes, notDeleted, users } from '@/db/schema';
 
 import type { MfaRepository, NewMfaChallenge, NewMfaFactor } from './mfa.repository';
 
@@ -172,6 +172,44 @@ export class TenantMfaRepository implements MfaRepository<DbOrTx> {
       .where(eq(mfaFactors.status, 'active'))
       .groupBy(mfaFactors.method);
     return new Map(rows.map((row) => [row.method, row.value]));
+  }
+
+  /**
+   * 關掉方式之後會被擋在門外的人數（§5、§6、D8）：可以登入、有 active 的因子，但每一個都不在 `allowedMethods`，也沒有未用的備用碼。
+   */
+  async countStranded(allowedMethods: readonly string[]): Promise<number> {
+    const allowed = sql`ARRAY[${sql.join(
+      allowedMethods.length ? allowedMethods.map((id) => sql`${id}`) : [sql`NULL`],
+      sql`, `,
+    )}]::text[]`;
+    const [row] = await this.db.execute<{ count: number }>(sql`
+      SELECT count(*)::int AS count FROM (
+        SELECT f.user_id FROM ${mfaFactors} f
+        JOIN ${users} u ON u.id = f.user_id AND u.deleted_at IS NULL /* notDeleted */ AND u.status = 'active'
+        WHERE f.status = 'active'
+        GROUP BY f.user_id
+        HAVING bool_and(NOT (f.method = ANY(${allowed})))
+          AND NOT EXISTS (
+            SELECT 1 FROM ${mfaRecoveryCodes} r WHERE r.user_id = f.user_id AND r.used_at IS NULL
+          )
+      ) stranded`);
+    return row?.count ?? 0;
+  }
+
+  /** 可以登入、還沒有任何 active 因子的人（「不符合政策的人數」的候選）。 */
+  async listActiveUserIdsWithoutMfa(): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.mfaEnabled, false),
+          eq(users.status, 'active'),
+          notDeleted(users),
+          eq(users.kind, 'human'),
+        ),
+      );
+    return rows.map((row) => row.id);
   }
 
   // ── challenge ─────────────────────────────────────────

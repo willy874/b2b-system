@@ -19,7 +19,8 @@
       "system": "系統管理",
       "tenant": "租戶管理"
     },
-    "enterTenant": "進入租戶"
+    "enterTenant": "進入租戶",
+    "mfaMethod": "MFA 驗證方式"
   },
   "app": {
     "title": "B2B System",
@@ -48,7 +49,8 @@
       "platformAuditLog": "平台稽核",
       "platformJob": "背景工作（全平台）",
       "featureFlag": "試行開關",
-      "authz": "授權說明"
+      "authz": "授權說明",
+      "mfaMethod": "MFA 驗證方式"
     },
     "user": {
       "create": "建立使用者",
@@ -128,6 +130,10 @@
     },
     "authz": {
       "explain": "檢視授權來源"
+    },
+    "mfaMethod": {
+      "read": "檢視 MFA 方式",
+      "update": "切換 MFA 方式"
     }
   },
   "changePassword": {
@@ -136,5 +142,11 @@
   "auditLog": {
     "expand": "展開明細",
     "collapse": "收合明細"
+  },
+  "mfaMethodOff": {
+    "title": "關閉「{{name}}」？",
+    "stranded_other": "{{count}} 位使用者只有這種驗證方式、也沒有備用碼，關閉後將無法登入，需要管理員重設他們的 MFA。",
+    "noImpact": "沒有使用者會因此無法登入；只用這種方式的人改用其他方式或備用碼。",
+    "confirm": "關閉"
   }
 }

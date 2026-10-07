@@ -1,0 +1,19 @@
+{
+  "mfaMethod": {
+    "title": "MFA 驗證方式",
+    "description": "兩步驟驗證方式的全平台開關，規則與試行開關相同：全平台關閉時蓋過租戶層；開啟或預設時，租戶層的設定生效（在租戶詳情的「兩步驟驗證」分頁）。平台管理者可用的方式由環境變數 PLATFORM_MFA_METHODS 決定。",
+    "enabled": "開放中",
+    "disabled": "未開放",
+    "killed": "緊急關閉",
+    "platformAdmins": "平台管理者可用",
+    "tenantOverrides": "租戶覆寫：開 {{on}}、關 {{off}}",
+    "stats": "已設定 {{factors}} 個（{{tenants}} 個租戶，統計於 {{time}}）",
+    "noStats": "尚未統計",
+    "saved": "已更新驗證方式的開關。",
+    "state": {
+      "default": "依預設",
+      "on": "全平台開啟",
+      "off": "全平台關閉"
+    }
+  }
+}

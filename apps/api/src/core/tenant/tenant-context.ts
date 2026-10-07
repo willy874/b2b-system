@@ -26,6 +26,11 @@ export interface TenantContext {
    */
   featureParams: TenantFeatureParamOverrides;
   /**
+   * 平台管理者為這個租戶設的 MFA 方式開關（docs/architecture/backend/21-mfa.md §5）：`{ [方式 id]: boolean }`。
+   * 生效值由 MFA 的框架以 `resolveToggle` 合併全平台層算出；沒有（測試建的脈絡）= 不覆寫。
+   */
+  mfaMethods?: FeatureFlagOverrides;
+  /**
    * 這個請求比對到的租戶網域（瀏覽器看到的 `host[:port]`，小寫）；只有 `TenantMiddleware` 以網域找到租戶時才有。
    * 給瀏覽器的絕對網址（presigned）用它，從次要網域（客戶自訂網域）進來的使用者才不會被 CSP 的 `'self'` 擋下
    * （docs/architecture/backend/09-file.md §3）。沒有請求可依據（背景工作、對外 API、apps/platform 以 `X-Tenant` 指定）時

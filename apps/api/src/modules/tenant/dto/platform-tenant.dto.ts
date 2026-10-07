@@ -51,6 +51,17 @@ export const TenantFlagOverridesSchema = defineSchema(
   z.record(z.string().regex(FEATURE_FLAG_KEY_PATTERN).max(100), z.boolean()),
 );
 
+export const TenantMfaMethodOverridesSchema = defineSchema(
+  'TenantMfaMethodOverrides',
+  z.record(
+    z
+      .string()
+      .regex(/^[a-z][a-zA-Z0-9]*$/)
+      .max(64),
+    z.boolean(),
+  ),
+);
+
 /** feature 參數的 key（docs/architecture/05-tenancy.md §13.2 D1）：前端以它對照語系。 */
 export const TenantFeatureParamKeySchema = defineSchema(
   'TenantFeatureParamKey',
@@ -107,6 +118,8 @@ export const PlatformTenantSchema = defineSchema(
     features: z.array(TenantFeatureSchema),
     /** feature flag 的租戶層覆寫（docs/architecture/05-tenancy.md §11.2 D2），只含目錄裡有的 key。 */
     flags: TenantFlagOverridesSchema,
+    /** MFA 方式的租戶層開關（docs/architecture/backend/21-mfa.md §5）：`{ [方式 id]: boolean }`，只含註冊表裡有的方式。 */
+    mfaMethods: TenantMfaMethodOverridesSchema,
     /** feature 參數（docs/architecture/05-tenancy.md §13.2 D3），依目錄的順序，已是生效值。 */
     featureParams: z.array(TenantFeatureParamSchema),
     /** 佈建時建立的第一位管理員；`db:migrate` 登記的租戶沒有。 */
@@ -170,6 +183,8 @@ export const UpdateTenantSchema = defineSchema(
        * `{}` = 全部不覆寫。不在目錄裡的 key 回 `VALIDATION_FAILED`。
        */
       flags: TenantFlagOverridesSchema.optional(),
+      /** MFA 方式開關的 **完整表**（同 `flags`；docs/architecture/backend/21-mfa.md §5）。不在註冊表的方式回 `VALIDATION_FAILED`。 */
+      mfaMethods: TenantMfaMethodOverridesSchema.optional(),
       featureParams: UpdateTenantFeatureParamsSchema.optional(),
     })
     .refine(
@@ -177,6 +192,7 @@ export const UpdateTenantSchema = defineSchema(
         dto.name !== undefined ||
         dto.features !== undefined ||
         dto.flags !== undefined ||
+        dto.mfaMethods !== undefined ||
         dto.featureParams !== undefined,
       'empty',
     ),

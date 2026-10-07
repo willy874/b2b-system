@@ -94,9 +94,12 @@ import type {
   MfaInteractionEnrollmentResult,
   MfaLoginChallengeRequest,
   MfaLoginVerifyRequest,
+  MfaMethodImpact,
   MfaMethodInfo,
   MfaOverview,
   MfaPasswordConfirmRequest,
+  MfaPolicy,
+  MfaPolicyImpact,
   MfaRecoveryCodes,
   MoveFileItemsRequest,
   MoveFileItemsResult,
@@ -128,6 +131,8 @@ import type {
   PlatformJobQueue,
   PlatformJobQueueList,
   PlatformJobSummary,
+  PlatformMfaMethod,
+  PlatformMfaMethodList,
   PlatformNotification,
   PlatformNotificationUnreadCount,
   PlatformPermissionKey,
@@ -185,6 +190,7 @@ import type {
   TenantFlagOverrides,
   TenantLookup,
   TenantLookupQuery,
+  TenantMfaMethodOverrides,
   TrashItem,
   TrashResourceType,
   UpdateAnnouncementRequest,
@@ -196,9 +202,11 @@ import type {
   UpdateGroupRequest,
   UpdateGroupRolesRequest,
   UpdateIdentityProviderRequest,
+  UpdateMfaPolicyRequest,
   UpdateNotificationEventsRequest,
   UpdateNotificationPreferencesRequest,
   UpdatePlatformAdminRequest,
+  UpdatePlatformMfaMethodRequest,
   UpdatePlatformProfileRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
@@ -760,6 +768,8 @@ export const PermissionKeySchema = z.enum([
   'announcement:update',
   'announcement:delete',
   'announcement:publish',
+  'mfaPolicy:read',
+  'mfaPolicy:update',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -1544,6 +1554,96 @@ export const SsoLoginResultSchema = z.union([
   SsoMfaEnrollNextSchema,
 ]) satisfies z.ZodType<SsoLoginResult>;
 
+export const MfaPolicySchema = z.object({
+  requireAll: z.boolean(),
+  requiredRoleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100),
+  allowedMethods: z.array(z.string().min(1).max(64)).max(20).nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  updatedAt: z.string().nullable(),
+  methods: z.array(
+    z.object({
+      id: z.string(),
+      challenge: z.enum(['none', 'server']),
+      enrollAt: z.enum(['anywhere', 'idp']),
+      assurance: z.enum(['possession', 'inbox']),
+      maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+      platformEnabled: z.boolean(),
+    }),
+  ),
+  nonCompliant: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaPolicy>;
+
+export const UpdateMfaPolicyRequestSchema = z.object({
+  requireAll: z.boolean(),
+  requiredRoleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100),
+  allowedMethods: z.array(z.string().min(1).max(64)).max(20).nullable(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateMfaPolicyRequest>;
+
+export const MfaPolicyImpactSchema = z.object({
+  nonCompliant: z.int().min(-9007199254740991).max(9007199254740991),
+  stranded: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaPolicyImpact>;
+
+export const PlatformMfaMethodSchema = z.object({
+  id: z.string(),
+  challenge: z.enum(['none', 'server']),
+  enrollAt: z.enum(['anywhere', 'idp']),
+  assurance: z.enum(['possession', 'inbox']),
+  maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+  realms: z.array(z.enum(['tenant', 'platform'])),
+  defaultEnabled: z.boolean(),
+  globalState: z.enum(['default', 'on', 'off']),
+  effective: z.boolean(),
+  tenantOverrides: z.object({
+    on: z.int().min(-9007199254740991).max(9007199254740991),
+    off: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+  stats: z
+    .object({
+      tenantFactors: z.int().min(-9007199254740991).max(9007199254740991),
+      tenants: z.int().min(-9007199254740991).max(9007199254740991),
+      platformFactors: z.int().min(-9007199254740991).max(9007199254740991),
+      computedAt: z.string(),
+    })
+    .nullable(),
+  platformAdminEnabled: z.boolean(),
+}) satisfies z.ZodType<PlatformMfaMethod>;
+
+export const PlatformMfaMethodListSchema = z.object({
+  items: z.array(PlatformMfaMethodSchema),
+}) satisfies z.ZodType<PlatformMfaMethodList>;
+
+export const UpdatePlatformMfaMethodRequestSchema = z.object({
+  state: z.enum(['default', 'on', 'off']),
+}) satisfies z.ZodType<UpdatePlatformMfaMethodRequest>;
+
+export const MfaMethodImpactSchema = z.object({
+  stranded: z.int().min(-9007199254740991).max(9007199254740991),
+  tenants: z.int().min(-9007199254740991).max(9007199254740991),
+  skippedTenants: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaMethodImpact>;
+
 export const TenantFeatureSchema = z.enum([
   'file',
   'auditLog',
@@ -1560,6 +1660,11 @@ export const TenantFlagOverridesSchema = z.record(
   z.string(),
   z.boolean(),
 ) satisfies z.ZodType<TenantFlagOverrides>;
+
+export const TenantMfaMethodOverridesSchema = z.record(
+  z.string(),
+  z.boolean(),
+) satisfies z.ZodType<TenantMfaMethodOverrides>;
 
 export const TenantFeatureParamKeySchema = z.enum([
   'file.storageQuotaMb',
@@ -1601,6 +1706,7 @@ export const PlatformTenantSchema = z.object({
   storageBucket: z.string(),
   features: z.array(TenantFeatureSchema),
   flags: TenantFlagOverridesSchema,
+  mfaMethods: TenantMfaMethodOverridesSchema,
   featureParams: z.array(TenantFeatureParamSchema),
   adminEmail: z.string().nullable(),
   provisionError: z.string().nullable(),
@@ -1649,6 +1755,7 @@ export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   features: z.array(TenantFeatureSchema).max(9).optional(),
   flags: TenantFlagOverridesSchema.optional(),
+  mfaMethods: TenantMfaMethodOverridesSchema.optional(),
   featureParams: z
     .record(z.string(), z.union([z.number(), z.string().max(1000)]).nullable())
     .optional(),
@@ -1731,6 +1838,8 @@ export const PlatformPermissionKeySchema = z.enum([
   'platformJob:retry',
   'featureFlag:read',
   'featureFlag:update',
+  'mfaMethod:read',
+  'mfaMethod:update',
 ]) satisfies z.ZodType<PlatformPermissionKey>;
 
 export const PlatformProfileSchema = z.object({

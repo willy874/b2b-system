@@ -20,6 +20,9 @@ export const PLATFORM_PERMISSION_SEED = [
   ['platformJob', 'retry', 'permission.platformJob.retry'],
   ['featureFlag', 'read', 'permission.featureFlag.read'],
   ['featureFlag', 'update', 'permission.featureFlag.update'],
+  // MFA 方式的平台開關（docs/architecture/backend/21-mfa.md §5）；update 只有 super-admin
+  ['mfaMethod', 'read', 'permission.mfaMethod.read'],
+  ['mfaMethod', 'update', 'permission.mfaMethod.update'],
 ] as const;
 
 type PlatformSeedRow = (typeof PLATFORM_PERMISSION_SEED)[number];
@@ -50,6 +53,7 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<
     // 緊急關閉 flag 要讓值班的人做得到（docs/architecture/05-tenancy.md §11.2 D8）
     'featureFlag:read',
     'featureFlag:update',
+    'mfaMethod:read',
   ],
   auditor: [
     'tenant:read',
@@ -57,5 +61,6 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<
     'platformAuditLog:read',
     'platformJob:read',
     'featureFlag:read',
+    'mfaMethod:read',
   ],
 };

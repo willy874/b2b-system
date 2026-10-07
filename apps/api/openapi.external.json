@@ -419,7 +419,9 @@
           "announcement:read",
           "announcement:update",
           "announcement:delete",
-          "announcement:publish"
+          "announcement:publish",
+          "mfaPolicy:read",
+          "mfaPolicy:update"
         ]
       },
       "ExternalMe": {

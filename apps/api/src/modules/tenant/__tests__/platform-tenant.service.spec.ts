@@ -7,6 +7,7 @@ import { DomainEvent } from '@/core/events';
 import type { DomainEventBus } from '@/core/events';
 import type { FeatureFlagDefinition, FeatureFlagService } from '@/core/feature-flags';
 import type { JobQueue } from '@/core/jobs';
+import { MfaMethodRegistry } from '@/core/mfa';
 import { TenantFeatureImpacts } from '@/core/tenant';
 import type { Tenancy, TenantDirectory } from '@/core/tenant';
 import type { RefreshTokenService } from '@/modules/credential/refresh-token.service';
@@ -56,6 +57,7 @@ function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomain
     features: ['file', 'auditLog', 'job'],
     flags: {},
     featureParams: {},
+    mfaMethods: {},
     createdAt: at,
     updatedAt: at,
     deletedAt: null,
@@ -115,6 +117,7 @@ function setup(
     audit as unknown as PlatformAuditService,
     flagService,
     options.impacts ?? new TenantFeatureImpacts(),
+    new MfaMethodRegistry(),
     config,
   );
   return { service, repo, audit, directory, events, calls };

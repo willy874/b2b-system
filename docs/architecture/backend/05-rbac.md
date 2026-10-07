@@ -638,6 +638,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/platform/admins/:id/password-link` | `@RequirePlatformPermissions('platformAdmin:update')` |
 | GET    | `/platform/admins/:id/mfa` | `@RequirePlatformPermissions('platformAdmin:read')`（[`backend/21-mfa.md`](21-mfa.md) §8） |
 | POST   | `/platform/admins/:id/mfa/reset` | `@RequirePlatformPermissions('platformAdmin:update')`（不能重設自己） |
+| GET    | `/platform/mfa-methods`、`/platform/mfa-methods/:id/impact` | `@RequirePlatformPermissions('mfaMethod:read')`（[`backend/21-mfa.md`](21-mfa.md) §5） |
+| PUT    | `/platform/mfa-methods/:id` | `@RequirePlatformPermissions('mfaMethod:update')` |
 | GET    | `/platform/audit-logs` | `@RequirePlatformPermissions('platformAuditLog:read')` |
 | GET    | `/platform/jobs/queues` | `@RequirePlatformPermissions('platformJob:read')` |
 | GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |
@@ -723,6 +725,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | GET    | `/users/:id/mfa`            | `user:read`（[`backend/21-mfa.md`](21-mfa.md) §8） |
 | POST   | `/users/:id/mfa/reset`      | `user:update`（目標持有 super-admin 時操作者也要是 super-admin） |
+| GET    | `/mfa/policy`               | `mfaPolicy:read`（[`backend/21-mfa.md`](21-mfa.md) §6） |
+| POST   | `/mfa/policy/preview`       | `mfaPolicy:read`                 |
+| PUT    | `/mfa/policy`               | `mfaPolicy:update`               |
 | POST   | `/users/:id/restore`        | `user:delete`                    |
 | GET    | `/users/:userId/api-tokens` | `user:update`（別人的個人 API token，[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14） |
 | DELETE | `/users/:userId/api-tokens/:tokenId` | `user:update`           |

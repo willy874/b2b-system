@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -95,3 +96,28 @@ export const mfaRecoveryCodes = pgTable(
 
 export type MfaFactorRow = typeof mfaFactors.$inferSelect;
 export type MfaChallengeRow = typeof mfaChallenges.$inferSelect;
+
+/**
+ * 租戶的 MFA 政策（docs/architecture/backend/21-mfa.md §6、D7）：一列（`key = 'default'`）。沒有列時是預設：不要求、允許平台開放的全部方式。
+ * 專門的表與端點（不是系統設定）：「要求啟用」與「允許的方式不可為空」要一起驗證，而且放寬政策比一般設定敏感（D11）。
+ */
+export const mfaPolicy = pgTable(
+  'mfa_policy',
+  {
+    key: text('key').primaryKey().default('default'),
+    requireAll: boolean('require_all').notNull().default(false),
+    /** 持有其中任一角色（含經由群組）的人必須啟用；刪除的角色讀取時濾掉。 */
+    requiredRoleIds: uuid('required_role_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    /** null = 平台開放的全部；否則與平台開放的取交集。 */
+    allowedMethods: text('allowed_methods').array(),
+    version: integer('version').notNull().default(1),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by'),
+  },
+  (t) => [check('mfa_policy_singleton', sql`${t.key} = 'default'`)],
+);
+
+export type MfaPolicyRow = typeof mfaPolicy.$inferSelect;

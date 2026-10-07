@@ -341,6 +341,8 @@ export const PermissionKey = {
   'announcement:update': 'announcement:update',
   'announcement:delete': 'announcement:delete',
   'announcement:publish': 'announcement:publish',
+  'mfaPolicy:read': 'mfaPolicy:read',
+  'mfaPolicy:update': 'mfaPolicy:update',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -874,6 +876,72 @@ export interface SsoMfaEnrollNext {
 
 export type SsoLoginResult = SsoRedirect | SsoMfaChallengeNext | SsoMfaEnrollNext;
 
+export interface MfaPolicy {
+  requireAll: boolean;
+  requiredRoleIds: Array<string>;
+  allowedMethods: Array<string> | null;
+  version: number;
+  updatedAt: string | null;
+  methods: Array<{
+    id: string;
+    challenge: 'none' | 'server';
+    enrollAt: 'anywhere' | 'idp';
+    assurance: 'possession' | 'inbox';
+    maxFactorsPerAccount: number;
+    platformEnabled: boolean;
+  }>;
+  nonCompliant: number;
+}
+
+export interface UpdateMfaPolicyRequest {
+  requireAll: boolean;
+  requiredRoleIds: Array<string>;
+  allowedMethods: Array<string> | null;
+  version: number;
+}
+
+export interface MfaPolicyImpact {
+  nonCompliant: number;
+  stranded: number;
+}
+
+export interface PlatformMfaMethod {
+  id: string;
+  challenge: 'none' | 'server';
+  enrollAt: 'anywhere' | 'idp';
+  assurance: 'possession' | 'inbox';
+  maxFactorsPerAccount: number;
+  realms: Array<'tenant' | 'platform'>;
+  defaultEnabled: boolean;
+  globalState: 'default' | 'on' | 'off';
+  effective: boolean;
+  tenantOverrides: {
+    on: number;
+    off: number;
+  };
+  stats: {
+    tenantFactors: number;
+    tenants: number;
+    platformFactors: number;
+    computedAt: string;
+  } | null;
+  platformAdminEnabled: boolean;
+}
+
+export interface PlatformMfaMethodList {
+  items: Array<PlatformMfaMethod>;
+}
+
+export interface UpdatePlatformMfaMethodRequest {
+  state: 'default' | 'on' | 'off';
+}
+
+export interface MfaMethodImpact {
+  stranded: number;
+  tenants: number;
+  skippedTenants: number;
+}
+
 export const TenantFeature = {
   file: 'file',
   auditLog: 'auditLog',
@@ -888,6 +956,8 @@ export const TenantFeature = {
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
 export type TenantFlagOverrides = Record<string, boolean>;
+
+export type TenantMfaMethodOverrides = Record<string, boolean>;
 
 export const TenantFeatureParamKey = {
   'file.storageQuotaMb': 'file.storageQuotaMb',
@@ -925,6 +995,7 @@ export interface PlatformTenant {
   storageBucket: string;
   features: Array<TenantFeature>;
   flags: TenantFlagOverrides;
+  mfaMethods: TenantMfaMethodOverrides;
   featureParams: Array<TenantFeatureParam>;
   adminEmail: string | null;
   provisionError: string | null;
@@ -955,6 +1026,7 @@ export interface UpdateTenantRequest {
   name?: string;
   features?: Array<TenantFeature>;
   flags?: TenantFlagOverrides;
+  mfaMethods?: TenantMfaMethodOverrides;
   featureParams?: Record<string, (number | string) | null>;
 }
 
@@ -1014,6 +1086,8 @@ export const PlatformPermissionKey = {
   'platformJob:retry': 'platformJob:retry',
   'featureFlag:read': 'featureFlag:read',
   'featureFlag:update': 'featureFlag:update',
+  'mfaMethod:read': 'mfaMethod:read',
+  'mfaMethod:update': 'mfaMethod:update',
 } as const;
 export type PlatformPermissionKey =
   (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];

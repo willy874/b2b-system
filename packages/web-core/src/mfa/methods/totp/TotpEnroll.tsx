@@ -9,7 +9,7 @@ import { useTranslation } from '../../../locales';
 import { CodeInput } from '../../components/CodeInput';
 import type { MfaEnrollProps } from '../../registry';
 
-/** `qrcode` 只在這個元件載入（docs/architecture/backend/21-mfa.md §14.0 #4：不進主要 bundle）。 */
+/** `qrcode` 只在這個元件載入（docs/architecture/backend/21-mfa.md §11：不進主要 bundle）。 */
 function useQrCode(uri: string | undefined): string | undefined {
   const [image, setImage] = useState<{ uri: string; dataUrl: string }>();
   useEffect(() => {

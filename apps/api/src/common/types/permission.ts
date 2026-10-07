@@ -25,6 +25,8 @@ export const PERMISSION = {
   AUDIT_LOG_READ: 'auditLog:read',
   SYSTEM_READ: 'system:read',
   SYSTEM_UPDATE: 'system:update',
+  MFA_POLICY_READ: 'mfaPolicy:read',
+  MFA_POLICY_UPDATE: 'mfaPolicy:update',
 
   APPROVAL_READ: 'approval:read',
   APPROVAL_REVIEW: 'approval:review',

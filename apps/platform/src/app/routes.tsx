@@ -6,6 +6,7 @@ import { Routes as FeatureFlagRoutes } from '@/features/feature-flag';
 import { Routes as HomeRoutes } from '@/features/home';
 import { Routes as JobRoutes } from '@/features/job';
 import { Routes as LoginRoutes } from '@/features/login';
+import { Routes as MfaMethodRoutes } from '@/features/mfa-method';
 import { Routes as NotificationRoutes } from '@/features/notification';
 import { Routes as PlatformAdminRoutes } from '@/features/platform-admin';
 import { Routes as TenantRoutes } from '@/features/tenant';
@@ -26,6 +27,7 @@ export const routeTree = RootRoute.addChildren([
   AuditLogRoutes.AuditLogListRoute,
   JobRoutes.JobListRoute,
   FeatureFlagRoutes.FeatureFlagListRoute,
+  MfaMethodRoutes.MfaMethodListRoute,
   LoginRoutes.LoginRoute,
   LoginRoutes.SsoCallbackRoute,
   LoginRoutes.InteractionRoute,

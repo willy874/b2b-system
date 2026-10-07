@@ -33,7 +33,8 @@
     "profile": "個人資料",
     "preference": "偏好設定",
     "logout": "登出",
-    "switchTenant": "切換租戶"
+    "switchTenant": "切換租戶",
+    "security": "安全性"
   },
   "commandPalette": {
     "command": {
@@ -68,7 +69,8 @@
       "webhook": "Webhook",
       "tag": "標籤",
       "notification": "站內通知",
-      "announcement": "公告"
+      "announcement": "公告",
+      "mfaPolicy": "MFA 政策"
     },
     "user": {
       "create": "建立使用者",
@@ -154,6 +156,10 @@
       "update": "編輯公告",
       "delete": "刪除公告",
       "publish": "發送公告"
+    },
+    "mfaPolicy": {
+      "read": "檢視 MFA 政策",
+      "update": "修改 MFA 政策"
     }
   },
   "validation": {

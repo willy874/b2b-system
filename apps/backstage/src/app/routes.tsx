@@ -13,6 +13,7 @@ import { Routes as JobRoutes } from '@/features/job';
 import { Routes as NotificationRoutes } from '@/features/notification';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
+import { Routes as SecurityRoutes } from '@/features/security';
 import { Routes as ServiceAccountRoutes } from '@/features/service-account';
 import { Routes as SystemRoutes } from '@/features/system';
 import { Routes as TagRoutes } from '@/features/tag';
@@ -67,6 +68,7 @@ export const routeTree = RootRoute.addChildren([
   ]),
   AnnouncementRoutes.AnnouncementMessageRoute,
   SystemRoutes.SettingListRoute,
+  SecurityRoutes.SecurityRoute.addChildren([SecurityRoutes.SecurityMfaRoute]),
   TrashRoutes.TrashListRoute,
   AccountRoutes.ProfileRoute,
   AccountRoutes.PreferenceRoute,
