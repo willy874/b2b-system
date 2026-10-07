@@ -675,7 +675,7 @@ presigned URL 帶簽章時間，每次查詢都重簽就會得到不同的網址
 - **成本**：3 每一輪列出受管理前綴下的所有物件（每頁 1000 個、每 500 個查一次資料庫）；物件數量大到列表變慢時，
   改成把排程間隔拉長，或把 worker 拆到另一個容器（[`10-jobs.md`](./10-jobs.md) §5）。
 - 為什麼是 api 內的工作而不是 `db:archive-audit-logs` 那樣的腳本：清理需要 `ObjectStorage` 與補產生變體的 `ImageProcessor`，
-  腳本只能 import 不依賴 DI 的純函式（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
+  腳本只能 import 不依賴 DI 的純函式（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
 
 ---
 

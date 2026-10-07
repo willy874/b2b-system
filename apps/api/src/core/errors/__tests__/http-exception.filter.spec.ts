@@ -189,7 +189,7 @@ describe('HttpExceptionFilter：回應的 body（docs/architecture/backend/03-ap
     expect(error).toHaveBeenCalledWith({ err: boom, requestId: undefined }, 'Unhandled exception');
   });
 
-  it('未知的資料庫錯誤：仍回 500，記錄的錯誤不含查詢參數（docs/conventions/03-backend.md §7）', () => {
+  it('未知的資料庫錯誤：仍回 500，記錄的錯誤不含查詢參數（docs/coding-standards/03-backend.md §7）', () => {
     const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     const exception = new DrizzleQueryError(
       'update "users" set "password_hash" = $1 where "id" = $2',

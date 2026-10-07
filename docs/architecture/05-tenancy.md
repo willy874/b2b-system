@@ -306,7 +306,7 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 | 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關、關掉 `file` 後 `/files` 回 404 `FEATURE_DISABLED` 與 profile 的 `features`）、`feature-flags.spec.ts`（兩級覆寫的生效值、`@RequireFlag` 端點、權限與稽核）、`route-audit.spec.ts`（`@RequireFeature` 標在哪些端點）、`sso.spec.ts`（OIDC 帶租戶） |
 | E2E（`apps/e2e/tests/tenancy.spec.ts`） | 平台管理者在 apps/platform 建立租戶，第一位管理員從啟用信進入 `{code}.localhost:5173`；同一個 IdP session 換租戶要重新登入；授權碼送到別的租戶的 BFF → `AUTH_SSO_CODE_INVALID`；authorize 的租戶與 redirect URI 不一致 → `invalid_request`、沒有授權碼；停用後網域 503 |
 
-HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../conventions/04-testing.md`](../conventions/04-testing.md) §3）。
+HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../coding-standards/04-testing.md`](../coding-standards/04-testing.md) §3）。
 E2E 會 `db:reset`：跑之前一定要帶暫用 DB 的 `PLATFORM_DATABASE_URL`、`DEFAULT_TENANT_*`。沒有帶（環境變數與 `.env` 的相同）時 global setup 拒絕執行，
 要清空 `.env` 那一個得明確加 `E2E_RESET_CONFIRM=<平台 database 名稱>`（[`frontend/10-testing.md`](./frontend/10-testing.md) §4.3）。
 
@@ -498,7 +498,7 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 前端 `core/feature` 的 store、`FeatureActivator`、`requireFeature`、`useFeatureGate`。
 另有一個沒人用的 `featureFlagPlugin`（`plugins/app/feature-flags.ts`，以 `attrs` 傳靜態值；[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D3 已不允許這種做法）。
 
-相關：§10.2 D22（平台層開關）、[`backend/05-rbac.md`](backend/05-rbac.md) §11（由伺服器判定）、[`backend/03-api-conventions.md`](backend/03-api-conventions.md) §12（id 經 OpenAPI 產進 SDK）；前端與規範見 [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §7.1、[`../conventions/01-general.md`](../conventions/01-general.md) §8。
+相關：§10.2 D22（平台層開關）、[`backend/05-rbac.md`](backend/05-rbac.md) §11（由伺服器判定）、[`backend/03-api-conventions.md`](backend/03-api-conventions.md) §12（id 經 OpenAPI 產進 SDK）；前端與規範見 [`frontend/02-plugin-system.md`](./frontend/02-plugin-system.md) §7.1、[`../coding-standards/01-general.md`](../coding-standards/01-general.md) §8。
 
 ### 11.2 決定
 

@@ -7,7 +7,7 @@ import { FRONTEND_PACKAGES, frontendApps, packageRoot, sourceFiles } from './wor
 import type { FrontendPackage, SourceRoot } from './workspace';
 
 /**
- * 前端的層級依賴（docs/conventions/07-layer-dependencies.md §1、§2）。後端的版本是
+ * 前端的層級依賴（docs/coding-standards/07-layer-dependencies.md §1、§2）。後端的版本是
  * apps/api/src/__tests__/layer-dependencies.spec.ts；這裡掃兩個 app（依賴 web-core 的都算）與三個前端 package。
  */
 
@@ -178,7 +178,7 @@ function exportedNames(source: string): Set<string> {
 
 const apps = frontendApps();
 
-describe('前端的層級依賴（docs/conventions/07-layer-dependencies.md §2）', () => {
+describe('前端的層級依賴（docs/coding-standards/07-layer-dependencies.md §2）', () => {
   it('掃得到依賴 web-core 的 app（測試本身有效）', () => {
     expect(apps.map((app) => app.name)).toContain('apps/backstage');
   });
@@ -308,7 +308,7 @@ const PACKAGE_DEPENDENCIES: Record<FrontendPackage, readonly string[]> = {
   'web-core': ['ui', 'web-shared', 'error-codes', 'realtime'],
 };
 
-describe('前端 package 的層級依賴（docs/conventions/07-layer-dependencies.md §1）', () => {
+describe('前端 package 的層級依賴（docs/coding-standards/07-layer-dependencies.md §1）', () => {
   describe.each(FRONTEND_PACKAGES)('packages/%s', (name) => {
     const edges = importsOf(packageRoot(name));
 

@@ -41,9 +41,9 @@
 
 **開始寫程式之前（所有人）**
 
-1. [`conventions/README.md`](./conventions/README.md) — 寫程式規範總覽
-2. [`conventions/01-general.md`](./conventions/01-general.md) — TypeScript、命名、匯入、錯誤處理
-3. [`conventions/05-git.md`](./conventions/05-git.md) — branch、commit、PR 檢查清單
+1. [`coding-standards/README.md`](./coding-standards/README.md) — 寫程式規範總覽
+2. [`coding-standards/01-general.md`](./coding-standards/01-general.md) — TypeScript、命名、匯入、錯誤處理
+3. [`coding-standards/05-git.md`](./coding-standards/05-git.md) — branch、commit、PR 檢查清單
 
 **要寫前端**
 
@@ -53,7 +53,7 @@
 4. [`architecture/frontend/17-shared-packages.md`](./architecture/frontend/17-shared-packages.md) — 兩個前端共用的 packages、程式該放哪
 5. [`architecture/frontend/03-feature-anatomy.md`](./architecture/frontend/03-feature-anatomy.md) ← 新增 feature 的 SOP
 6. [`architecture/frontend/06-permission.md`](./architecture/frontend/06-permission.md)
-7. [`conventions/02-frontend.md`](./conventions/02-frontend.md)
+7. [`coding-standards/02-frontend.md`](./coding-standards/02-frontend.md)
 
 **要寫後端**
 
@@ -62,7 +62,7 @@
 3. [`architecture/backend/03-api-conventions.md`](./architecture/backend/03-api-conventions.md)
 4. [`architecture/backend/04-auth.md`](./architecture/backend/04-auth.md)
 5. [`architecture/backend/05-rbac.md`](./architecture/backend/05-rbac.md)
-6. [`conventions/03-backend.md`](./conventions/03-backend.md)
+6. [`coding-standards/03-backend.md`](./coding-standards/03-backend.md)
 
 ---
 
@@ -145,7 +145,7 @@ docs/
 │   ├── 08-groups.md                   群組：巢狀成員、群組持有角色、反提權、資料夾授權給群組
 │   └── 09-explain.md                  授權的說明：有效權限的來源、資料夾存取的路徑、遮蔽規則
 │
-├── conventions/                       寫程式時每天要遵守的規則
+├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）
 │   ├── 01-general.md                  TypeScript、命名、匯入、註解、錯誤處理
 │   ├── 02-frontend.md                 前端分層規則、feature / 元件 / hook / 樣式
@@ -168,7 +168,7 @@ docs/
 - 使用者故事格式：**「作為 …，我希望 …，以便 …」** ＋ Given / When / Then。
 - 任何「為什麼不選 X」的判斷寫進該規格最後的「設計決策」章節（見本節最後一條），不要散落在規格內文。
 - 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計、`rbac/` 講領域規格、
-  `conventions/` 講寫程式規則。新文件依此歸位。
+  `coding-standards/` 講寫程式規則。新文件依此歸位。
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
 - 檔案路徑用相對於 repo 根目錄的形式（`apps/backstage/src/...`）。

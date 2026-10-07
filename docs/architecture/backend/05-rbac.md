@@ -166,7 +166,7 @@ apps/platform 的平台管理者與租戶的使用者是兩份帳號（[`archite
 路由稽核（§7）把它算成一種宣告；WebSocket 的處理器不能用它（平台管理者不連 WebSocket）。
 guard 因此注入 `PlatformAdminService`（查管理者的角色）與 `PlatformAuditService`（拒絕時寫平台稽核）；
 `PlatformAdminModule` 與 `PermissionModule`、`AuditLogModule` 一樣是 `@Global` 的葉節點
-（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4）。
+（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2 註 4）。
 
 ---
 
@@ -314,7 +314,7 @@ export class PermissionService {
 
 ### 4.2 關係圖引擎（`core/authz`）
 
-通用、不認識任何業務型別；業務模組在 `onModuleInit` 把自己的型別註冊進來（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
+通用、不認識任何業務型別；業務模組在 `onModuleInit` 把自己的型別註冊進來（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
 領域上的模型（有哪些型別、關係怎麼定義）見 [`../../rbac/01-domain-model.md`](../../rbac/01-domain-model.md) §6.4。
 
 | 檔案 | 職責 |

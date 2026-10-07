@@ -38,7 +38,7 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
 
 - **通知模組不認識業務**（D2）：類型、參數、收件人與連結都由擁有者模組決定，在自己的業務交易內呼叫 `notify()`。
   擁有者 import `NotificationModule` 使用 `NotificationService`，並從 `notification.definition.ts` 取純函式
-  （[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 2；🔒 `layer-dependencies.spec.ts`）。
+  （[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2 註 2；🔒 `layer-dependencies.spec.ts`）。
 - **不訂閱 `DomainEventBus`**：bus 是程序內、fire-and-forget、錯誤吞掉，也沒有「給誰」的語意（[`08-realtime.md`](./08-realtime.md) §7.2）。
   通知與業務寫入在同一個交易：業務成功，通知就一定在；rollback 時一起消失（與稽核同一條規則）。
 - 平台管理者（apps/platform）的通知是另一份：表在平台 DB，規則見 §6.2。
@@ -333,7 +333,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 
 相關的既有決定與規格：[`backend/08-realtime.md`](08-realtime.md) §15（推播只送訊號）、[`backend/10-jobs.md`](10-jobs.md) §9（背景工作與 `job_outbox`）；
 [`08-realtime.md`](./08-realtime.md) §6.1、§7、[`10-jobs.md`](./10-jobs.md)、[`12-settings.md`](./12-settings.md)、
-[`../frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §6、[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2；
+[`../frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §6、[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2；
 前端見 [`../frontend/15-notification.md`](../frontend/15-notification.md)。
 
 ### 12.2 決定

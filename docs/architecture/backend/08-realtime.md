@@ -620,7 +620,7 @@ export interface ClientToServerEvents {
   站內通知、回收桶一批 `MAX_CHANGES_PER_EVENT` 個），讓其他筆仍帶得到 id。
 - 新增事件＝在這裡加名稱與 schema →（需要時）`core/events` 加領域事件 → `realtime.listener` 或 gateway → 前端 `@b2b-system/web-core/realtime` 的處理，**同一批**修改。
 - 依賴規則：`packages/realtime` 只依賴 `zod`，不依賴任何 workspace package，不使用 DOM / Node 專屬 API
-  （[`conventions/07`](../../conventions/07-layer-dependencies.md) §1）。
+  （[`coding-standards/07`](../../coding-standards/07-layer-dependencies.md) §1）。
 
 ---
 

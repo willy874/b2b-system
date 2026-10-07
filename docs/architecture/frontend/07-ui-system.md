@@ -1149,7 +1149,7 @@ Vite 設定是 `packages/ui/vite.config.ts`（UnoCSS、svgr、CSS Module 命名�
 
 - story 放在元件資料夾內，檔名 `Xxx.stories.tsx`，`title: 'Components/<資料夾名>'`。
 - CSF3：`const meta = { … } satisfies Meta<typeof Xxx>; export default meta;`。
-  CSF 規定要 default export，這是 [`conventions/01-general.md`](../../conventions/01-general.md) §2.3 允許的例外。
+  CSF 規定要 default export，這是 [`coding-standards/01-general.md`](../../coding-standards/01-general.md) §2.3 允許的例外。
 - 至少有一個 args 驅動的 `Playground`，另外列出有意義的變體、尺寸與狀態（disabled、invalid、loading、empty…）。
 - 需要狀態的受控示範寫成同檔的具名元件（`function ControlledDemo()`），`render: () => <ControlledDemo />`。
 - 回呼用 `storybook/test` 的 `fn()`，會出現在 Actions 面板。

@@ -6,7 +6,7 @@ import { installFakeListLayout } from '../../testing/fakeLayout';
 import { Button } from '../Button';
 import { Menu } from './index';
 
-/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/coding-standards/06-literal-strings.md §3.3）。 */
 function queryItem(value: string) {
   return document.querySelector<HTMLElement>(`[data-testid="menu-item"][data-value="${value}"]`);
 }

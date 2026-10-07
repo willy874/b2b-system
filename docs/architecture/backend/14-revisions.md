@@ -65,7 +65,7 @@ await this.revisions.record(tx, {
 });
 ```
 
-- **同一個業務交易**（與稽核同一條規則，[`03-backend.md`](../../conventions/03-backend.md) §1 第 6 條）：業務寫入 rollback，版本也不留下。
+- **同一個業務交易**（與稽核同一條規則，[`03-backend.md`](../../coding-standards/03-backend.md) §1 第 6 條）：業務寫入 rollback，版本也不留下。
 - 回傳這一版的版本號。
 
 ### 3.1 版本號：每個資源自己的流水號

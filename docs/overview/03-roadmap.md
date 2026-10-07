@@ -18,7 +18,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 項目 | 狀態 |
 | --- | --- |
 | CI | repo 沒有 CI；pre-commit（lefthook）只跑 oxfmt 與 oxlint，OpenAPI 的 diff 檢查尚未自動化 |
-| 前端層級依賴 | 依賴矩陣（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review |
+| 前端層級依賴 | 依賴矩陣（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review |
 | 覆蓋率 | Phase 0 訂的目標（前端 75%、後端 80%，`core/permission`、`common/guards` 100%）沒有寫成測試設定的門檻，也沒有 CI 檢查 |
 | 業務功能 | 沒有，這是骨架 |
 

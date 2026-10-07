@@ -5,7 +5,7 @@ import type {
 } from '@/shared/api-sdk';
 
 /**
- * 通知句子的 i18n key：依後端的 `type`（與參數）挑選，一律是完整字面量（docs/conventions/06-literal-strings.md §3.1）。
+ * 通知句子的 i18n key：依後端的 `type`（與參數）挑選，一律是完整字面量（docs/coding-standards/06-literal-strings.md §3.1）。
  * 新增一種通知時在這裡加一列、兩個語系檔加句子（docs/architecture/backend/15-notification.md §9）。
  */
 export const NOTIFICATION_MESSAGE_KEY = {

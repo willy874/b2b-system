@@ -6,7 +6,7 @@ import { buildTenantType, GROUP_TYPE, ROLE_TYPE, USER_TYPE } from './authz.types
 
 /**
  * 模型的註冊表：核心型別（user、group、role、tenant）在這裡，業務型別由各模組在 `onModuleInit` 註冊
- * （core 不認識業務，docs/conventions/07-layer-dependencies.md §3.2）。
+ * （core 不認識業務，docs/coding-standards/07-layer-dependencies.md §3.2）。
  * 第一次取用 `model` 時組合並驗證；之後再註冊會讓下一次取用重新組合。
  */
 @Injectable()

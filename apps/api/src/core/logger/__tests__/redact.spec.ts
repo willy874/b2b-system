@@ -28,7 +28,7 @@ function memoryStream(lines: string[]): Writable {
   });
 }
 
-describe('日誌遮蔽（docs/conventions/03-backend.md §7）', () => {
+describe('日誌遮蔽（docs/coding-standards/03-backend.md §7）', () => {
   it('遮掉查詢字串裡的 token，保留其他參數', () => {
     expect(redactUrl('/auth/setup/verify?token=abc_123-XYZ')).toBe(
       '/auth/setup/verify?token=[Redacted]',
@@ -175,7 +175,7 @@ function logError(err: unknown): Record<string, unknown> {
   return JSON.parse(lines[0] ?? '{}') as Record<string, unknown>;
 }
 
-describe('錯誤的 serializer：資料庫錯誤不帶查詢參數（docs/conventions/03-backend.md §7）', () => {
+describe('錯誤的 serializer：資料庫錯誤不帶查詢參數（docs/coding-standards/03-backend.md §7）', () => {
   it('drizzle 的查詢錯誤：輸出找不到參數，SQL 本文與 cause.code 還在', () => {
     const entry = logError(passwordUpdateError());
     expect(JSON.stringify(entry)).not.toContain('secret');

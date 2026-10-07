@@ -4,7 +4,7 @@ import type { ServiceAccount } from '@/shared/api-sdk';
 
 type ServiceAccountStatus = ServiceAccount['status'];
 
-/** 狀態的文字（字面量 key，docs/conventions/06-literal-strings.md）。 */
+/** 狀態的文字（字面量 key，docs/coding-standards/06-literal-strings.md）。 */
 export const SERVICE_ACCOUNT_STATUS_LABEL_KEY = {
   active: 'serviceAccount.status.active',
   inactive: 'serviceAccount.status.inactive',

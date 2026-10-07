@@ -9,7 +9,7 @@
 | E2E（HTTP → DB）          | Vitest ＋ supertest ＋ Testcontainers | ✅               | 中     |
 
 單元與整合是 `apps/api/vitest.config.ts` 的兩個 project（`unit`、`integration`）：只跑單元測試（`pnpm --filter @b2b-system/api test:unit`）
-不需要 Docker，檔案之間並行；整合測試共用一個 container，檔案依序執行（[`../../conventions/04-testing.md`](../../conventions/04-testing.md) §5）。
+不需要 Docker，檔案之間並行；整合測試共用一個 container，檔案依序執行（[`../../coding-standards/04-testing.md`](../../coding-standards/04-testing.md) §5）。
 
 **不用 sqlite 或 mock DB 做整合測試。** 本專案大量依賴 Postgres 特有的能力
 （`citext`、partial unique index、`CHECK`、trigger、`json_agg`），

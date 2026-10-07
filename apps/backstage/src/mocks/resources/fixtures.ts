@@ -10,7 +10,7 @@ import type {
 /**
  * 權限目錄（對應 apps/api/src/db/seeds/permissions.ts）。
  * mocks 不能 import apps/api，所以 key 與語系鍵以完整字面量寫在這裡
- * （docs/conventions/06-literal-strings.md §3.1）。
+ * （docs/coding-standards/06-literal-strings.md §3.1）。
  */
 const PERMISSION_CATALOG = [
   {

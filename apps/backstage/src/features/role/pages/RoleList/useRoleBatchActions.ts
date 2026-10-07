@@ -20,7 +20,7 @@ export function useRoleBatchActions(): Array<BatchAction<RoleRowVM>> {
         id: 'delete',
         label: t('role.batch.delete.action'),
         tone: 'danger',
-        // 權限未水合前不出現操作按鈕（docs/conventions/02-frontend.md §3.2）
+        // 權限未水合前不出現操作按鈕（docs/coding-standards/02-frontend.md §3.2）
         hidden: !permission.hydrated || !permission.canDelete,
         isEligible: (row) => row.canDelete && row.userCount === 0,
         ineligibleReason: t('role.batch.delete.ineligible'),

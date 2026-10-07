@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RadioGroup } from './index';
 
-/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/coding-standards/06-literal-strings.md §3.3）。 */
 function queryOption(value: string) {
   return document.querySelector<HTMLElement>(`[data-testid="radio-option"][data-value="${value}"]`);
 }

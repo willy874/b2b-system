@@ -3,7 +3,7 @@ import type { ChipTone } from '@b2b-system/ui/Chip';
 import type { ApprovalStatus, ApprovalType } from '@/shared/api-sdk';
 
 /**
- * 狀態 → 語系鍵。key 以完整字面量寫在表裡（docs/conventions/06-literal-strings.md §3.1）；
+ * 狀態 → 語系鍵。key 以完整字面量寫在表裡（docs/coding-standards/06-literal-strings.md §3.1）；
  * `satisfies` 讓後端新增狀態或類型時編譯失敗，而不是畫面上出現原始 key。
  */
 export const APPROVAL_STATUS_LABEL_KEY = {

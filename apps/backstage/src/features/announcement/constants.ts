@@ -5,7 +5,7 @@ import type { Announcement, AnnouncementDispatch } from '@/shared/api-sdk';
 type AnnouncementStatus = Announcement['status'];
 type DispatchStatus = AnnouncementDispatch['status'];
 
-/** 狀態的文字（字面量 key，docs/conventions/06-literal-strings.md）。 */
+/** 狀態的文字（字面量 key，docs/coding-standards/06-literal-strings.md）。 */
 export const ANNOUNCEMENT_STATUS_LABEL_KEY = {
   draft: 'announcement.status.draft',
   scheduled: 'announcement.status.scheduled',

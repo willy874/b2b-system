@@ -4,7 +4,7 @@ import type { Webhook, WebhookDelivery } from '@/shared/api-sdk';
 
 type WebhookStatus = Webhook['status'];
 
-/** 狀態的文字（字面量 key，docs/conventions/06-literal-strings.md）。 */
+/** 狀態的文字（字面量 key，docs/coding-standards/06-literal-strings.md）。 */
 export const WEBHOOK_STATUS_LABEL_KEY = {
   active: 'webhook.status.active',
   disabled: 'webhook.status.disabled',

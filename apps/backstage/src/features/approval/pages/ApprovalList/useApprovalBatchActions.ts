@@ -13,7 +13,7 @@ import type { ApprovalRowVM } from './adapter';
 export function useApprovalBatchActions(): Array<BatchAction<ApprovalRowVM>> {
   const { t } = useTranslation();
   const permission = useApprovalPermission();
-  // 權限未水合前不出現操作按鈕（docs/conventions/02-frontend.md §3.2）
+  // 權限未水合前不出現操作按鈕（docs/coding-standards/02-frontend.md §3.2）
   const hidden = !permission.hydrated || !permission.canReview;
 
   return useMemo(

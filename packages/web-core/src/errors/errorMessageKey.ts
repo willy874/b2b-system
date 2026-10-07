@@ -2,7 +2,7 @@ import type { ErrorCode } from '@b2b-system/error-codes';
 
 /**
  * 後端錯誤碼 → 語系鍵。key 以完整字面量寫在表裡，不以 `` `error.${code}` `` 組字串
- * （docs/conventions/06-literal-strings.md §3.1）。
+ * （docs/coding-standards/06-literal-strings.md §3.1）。
  *
  * 錯誤碼的來源是 `@b2b-system/error-codes`（與 api 共用）：`satisfies` 讓漏掉或多出的碼直接編譯失敗；
  * `locales/resources` 兩個語系檔的 `error.<CODE>` 由 `locales/__tests__/resources.test.ts` 比對。

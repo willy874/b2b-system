@@ -33,7 +33,7 @@ const tree: SelectOption[] = [
   { value: 'rice', label: '米' },
 ];
 
-/** 以固定的 `data-testid` ＋ `data-value` 找列（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 以固定的 `data-testid` ＋ `data-value` 找列（docs/coding-standards/06-literal-strings.md §3.3）。 */
 function getRow(value: string) {
   const element = document.querySelector<HTMLElement>(
     `[data-testid="select-item"][data-value="${value}"]`,

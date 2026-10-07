@@ -33,7 +33,7 @@
 
 - `modules/data-transfer/`（名稱待定）：`transfers` 表（租戶 DB）記錄類型、狀態、建立者、檔案 key、筆數、錯誤摘要、到期時間。
 - 註冊：擁有者模組實作 `Exporter`／`Importer` 並在 `onModuleInit` 呼叫 `transfers.register(this)`；
-  `modules/data-transfer` 不 import 其他模組（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §3.2）。
+  `modules/data-transfer` 不 import 其他模組（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §3.2）。
   - `Exporter`：`type`、`requiredPermissions`、`query(filter, actor)`（**以操作者的權限過濾**，逐頁回傳 async iterator）、`columns`
   - `Importer`：`type`、`requiredPermissions`、`schema`（Zod，逐列驗證）、`validate(rows)`（跨列與資料庫的檢查，例如 email 重複）、`apply(row, actor, tx)`
 - 工作：`transfer.export`、`transfer.validateImport`、`transfer.applyImport`（`scope: 'tenant'`）。
@@ -46,7 +46,7 @@
 ### 前端（backstage）
 
 - 列表頁的「匯出」「匯入」按鈕由各 feature 提供；共用的上傳、預覽（逐列錯誤表）、進度 UI 放 `core/` 或 `@b2b-system/ui`
-  （feature 之間不能直接共用元件，[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §2.2）。
+  （feature 之間不能直接共用元件，[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §2.2）。
 - 進度：transfer 的狀態變更經 realtime 推播（新增 `ChangeSource`），不輪詢。
 
 ### 權限與稽核

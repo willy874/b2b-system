@@ -10,7 +10,7 @@ import type { MenuItem } from './menu';
 import styles from './SideNav.module.css';
 
 export interface SideNavItem extends MenuItem {
-  /** 完整字面量（docs/conventions/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
+  /** 完整字面量（docs/coding-standards/06-literal-strings.md §3.3），E2E 以此定位側邊選單項 */
   testId: string;
 }
 

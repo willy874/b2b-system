@@ -119,7 +119,7 @@ pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/opena
 [`docs/architecture/backend/13-trash.md`](./docs/architecture/backend/13-trash.md)、
 [`14-revisions.md`](./docs/architecture/backend/14-revisions.md)、
 [`15-notification.md`](./docs/architecture/backend/15-notification.md)。
-寫程式規範見 [`docs/conventions/`](./docs/conventions/README.md)。
+寫程式規範見 [`docs/coding-standards/`](./docs/coding-standards/README.md)。
 
 ## 測試
 

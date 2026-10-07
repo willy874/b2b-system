@@ -31,7 +31,7 @@
 1. 在本資料夾新增 `NN-<kebab-case>.md`（`NN` 接續最大編號），並加進上方章節表。
 2. 規則檔的結構：**規則 → 為什麼 → 寫法（正反例）→ 檢查方式**；
    規則建立時已有違規而未一次修完，再加 **現況（既有違規）** 一節，清完即刪除。
-3. 不需要修改 `.claude/skills/best-practice/`——skill 會讀取整個 `docs/conventions/` 資料夾。
+3. 不需要修改 `.claude/skills/best-practice/`——skill 會讀取整個 `docs/coding-standards/` 資料夾。
 
 ## 撰寫慣例
 

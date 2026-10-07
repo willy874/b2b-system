@@ -88,7 +88,7 @@ export interface RichTableProps<
 
 /**
  * 列表頁用的表格：把 `Table` 與 `Pagination` 組在一起，並以目前語系補上空狀態與分頁的預設文案。
- * 放在 web-core 而不是 `@b2b-system/ui`，因為它依賴 `locales`（docs/conventions/02-frontend.md §8）。
+ * 放在 web-core 而不是 `@b2b-system/ui`，因為它依賴 `locales`（docs/coding-standards/02-frontend.md §8）。
  * 篩選（`FilterBar`）與欄位設定（`TableSettings`）都是下拉面板，按鈕固定在最後一欄表頭的右側（與標題垂直置中）
  * （`Table` 的 `headerTrailing`），該欄標題被擠壓時裁掉。
  */

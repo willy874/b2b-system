@@ -240,7 +240,7 @@ main.tsx
 ## 5. 測試強制的相依規則
 
 🔒 `packages/web-core/src/__tests__/layer-dependencies.test.ts`（`pnpm test` 會跑，CI 也是）掃每個依賴 web-core 的 app 與三個前端 package，
-完整的矩陣與例外見 [`conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §2.2。重點：
+完整的矩陣與例外見 [`coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §2.2。重點：
 
 | 從                  | 不可 import                                              |
 | ------------------- | -------------------------------------------------------- |

@@ -4,7 +4,7 @@ import type { Tag } from '@/shared/api-sdk';
 
 type TagColor = Tag['color'];
 
-/** 標籤組的分頁名稱（字面量 key，docs/conventions/06-literal-strings.md）。 */
+/** 標籤組的分頁名稱（字面量 key，docs/coding-standards/06-literal-strings.md）。 */
 export const TAG_SCOPE_LABEL_KEY = {
   file: 'tagAdmin.scope.file',
   user: 'tagAdmin.scope.user',

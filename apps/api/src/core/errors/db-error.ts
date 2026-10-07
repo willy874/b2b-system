@@ -77,7 +77,7 @@ function describeQueryError(error: QueryError): DbErrorDescription {
 }
 
 /**
- * 查詢錯誤的不含參數版本（docs/conventions/03-backend.md §7）：只留型別、SQL 本文、堆疊位置與驅動錯誤的
+ * 查詢錯誤的不含參數版本（docs/coding-standards/03-backend.md §7）：只留型別、SQL 本文、堆疊位置與驅動錯誤的
  * `code`／`constraint_name`／`message`。不是查詢錯誤回 `undefined`。
  */
 export function describeDbError(error: unknown): DbErrorDescription | undefined {

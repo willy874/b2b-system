@@ -4,7 +4,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /**
  * 自訂驗證（`.refine()`）的訊息：`params.messageKey` 帶完整的語系鍵，
- * 不寫死英文 `message`（docs/conventions/06-literal-strings.md §3.1）。
+ * 不寫死英文 `message`（docs/coding-standards/06-literal-strings.md §3.1）。
  *
  * ```ts
  * .refine((v) => v.password === v.confirmPassword, {

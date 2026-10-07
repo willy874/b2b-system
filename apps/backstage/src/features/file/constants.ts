@@ -117,7 +117,7 @@ export const FILE_GRANT_DOWNGRADE_CONFIRM_KEY = {
   everyone: 'file.share.downgradeConfirm.everyone',
 } as const satisfies Record<FileGrantSubjectType, string>;
 
-/** 對象種類 → 搜尋框的文案（完整字面量，docs/conventions/06-literal-strings.md）。 */
+/** 對象種類 → 搜尋框的文案（完整字面量，docs/coding-standards/06-literal-strings.md）。 */
 export const FILE_GRANT_SUBJECT_COPY_KEY = {
   role: {
     placeholder: 'file.share.subjectPlaceholder',

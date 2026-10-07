@@ -101,7 +101,7 @@ packages/web-core/src/mfa/                  兩個前端共用
 
 - `core/mfa` 只放介面、註冊表與純函式（TOTP、備用碼、開關判斷），所以 `modules/mfa` 與各方式的模組都可以依賴它，方式之間互不依賴。
 - 方式的模組 **不直接查帳號表**：帳號、因子、challenge 的讀寫一律經 `modules/mfa` 傳入的 context（D5），同一份方式的實作同時服務租戶與平台。
-- `modules/mfa` 不 import 任何方式的模組（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §3.2）；`AppModule` 匯入方式的模組，它們在 `onModuleInit` 登記。
+- `modules/mfa` 不 import 任何方式的模組（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §3.2）；`AppModule` 匯入方式的模組，它們在 `onModuleInit` 登記。
 
 ### 2. 共同抽象：`MfaMethod`
 

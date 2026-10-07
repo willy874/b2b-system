@@ -23,7 +23,7 @@
 **軟刪除的查詢條件**（[`backend/14-revisions.md`](14-revisions.md) §9.2 D8）：`db/schema/soft-delete.ts` 的 `notDeleted(table)`
 （＝`isNull(table.deletedAt)`，也接受 `alias()`），平台 DB 的表從 `@/db/platform/schema` 取得同一個函式。
 該決定寫的位置是 `db/soft-delete.ts`；實作放在 `db/schema/` 底下，因為 `isActiveRole()`（`db/schema/roles.ts`）要用它，
-而 `db/schema/` 只依賴同層（[`conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）。
+而 `db/schema/` 只依賴同層（[`coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
 
 | 情境 | 寫法 |
 | --- | --- |
@@ -815,7 +815,7 @@ E2E 的 global setup 另外要求明確指定 E2E 用的 DB（[`../frontend/10-t
 
 執行期（`core/`、`common/`、`modules/`）只能 import `db/` 底下的 schema、`db/connect.ts`、`db/provision.ts`、`db/bootstrap/`
 （權限目錄、系統角色、第一位管理員；`db:seed` 與租戶佈建共用）與權限目錄的定義，seed 與其他 CLI 腳本不進 api 程序
-（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 1）。
+（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2 註 1）。
 
 ---
 

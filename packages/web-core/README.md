@@ -1,7 +1,7 @@
 # @b2b-system/web-core
 
 backstage 與 apps/platform 共用的 **前端機制層**：AppContext 與 plugin、session、HTTP client 與攔截器、快取、權限機制、i18n、推播、批次佇列、路由、全域 store，
-以及外框（providers、頂列工具）與列表頁的 `RichTable`。在分層裡位於 `@b2b-system/ui` 之上、app 之下（[`docs/conventions/07-layer-dependencies.md`](../../docs/conventions/07-layer-dependencies.md) §2）。
+以及外框（providers、頂列工具）與列表頁的 `RichTable`。在分層裡位於 `@b2b-system/ui` 之上、app 之下（[`docs/coding-standards/07-layer-dependencies.md`](../../docs/coding-standards/07-layer-dependencies.md) §2）。
 整體的設計與決策（為什麼這樣切、程式該放哪、陷阱）見 [`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md)。
 
 只有原始碼、不 build：由各 app 自己的 Vite 編譯。`exports` 是 `"./*": "./src/*/index.ts"`，另外單獨開放
@@ -82,7 +82,7 @@ app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app
 - 這裡的元件用到的字串放 `src/locales/resources/*.json`，兩個語系一起加。
 - **新增錯誤碼**：碼加在 `@b2b-system/error-codes`；這裡的 `errors/errorMessageKey.ts` 加一列（`satisfies Record<ErrorCode, …>`，漏了編譯失敗）、兩個語系檔加 `error.<CODE>`（🔒 `locales/__tests__/resources.test.ts`）。app 不必改。
 - 層級規則與 app 的 `core/` 相同；package 內部用相對路徑。🔒 `src/__tests__/layer-dependencies.test.ts` 檢查這裡與另外兩個前端 package 不 import app（`@/`、跳出 `src/` 的相對路徑）、只依賴宣告的 package，
-  也檢查每個依賴 web-core 的 app 的分層（[`docs/conventions/07-layer-dependencies.md`](../../docs/conventions/07-layer-dependencies.md) §4）；`src/__tests__/comment-paths.test.ts` 檢查註解裡的路徑存在。
+  也檢查每個依賴 web-core 的 app 的分層（[`docs/coding-standards/07-layer-dependencies.md`](../../docs/coding-standards/07-layer-dependencies.md) §4）；`src/__tests__/comment-paths.test.ts` 檢查註解裡的路徑存在。
 
 ## 測試
 

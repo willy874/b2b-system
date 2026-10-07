@@ -164,7 +164,7 @@ HTTP Request
   │
   ▼ ⑥ Controller → Service → Repository → PostgreSQL
      稽核一律由 service 在業務的交易內寫入（與變更同生共死），沒有宣告式的稽核：
-     interceptor 要等 handler 回傳之後才執行，不可能和業務寫入在同一個交易（docs/conventions/03-backend.md §1 第 6 條）
+     interceptor 要等 handler 回傳之後才執行，不可能和業務寫入在同一個交易（docs/coding-standards/03-backend.md §1 第 6 條）
   │
   ▼ ⑦ TransformInterceptor
      回傳值包成 { data: ... }
@@ -226,7 +226,7 @@ app.module
 ```
 
 `@Global` 的三個模組不必寫進 `imports` 也注入得到（上圖不畫這些邊）：`PermissionsGuard` 要用它們
-（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2 註 4），大部分模組也直接注入 `AuditService`、`PermissionService`。
+（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2 註 4），大部分模組也直接注入 `AuditService`、`PermissionService`。
 只 import 對方的純函式或型別（不經 DI）的依賴也不在圖上，例：`platform-admin` 用 `credential/` 的 `password`、`token-hash`。
 這兩種依賴與圖上的邊一起由 `src/__tests__/layer-dependencies.spec.ts` 檢查：模組之間（以資料夾計）不循環。
 

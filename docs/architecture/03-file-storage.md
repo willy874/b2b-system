@@ -220,7 +220,7 @@ Nest 的 JSON 回應包裝、全域 guard / pipe 都用不上，反而要一一�
 ### 8.1 與 `apps/api` 的關係
 
 - `apps/api` **不 import** `apps/file-storage` 的任何程式碼，只透過 S3 HTTP API 溝通
-  （與 `apps/*` 之間永不互相 import 的規則一致，見 [`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §1）。
+  （與 `apps/*` 之間永不互相 import 的規則一致，見 [`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §1）。
 - `apps/api` 以 `@aws-sdk/client-s3` 連線，並用 `files` 資料表把物件包成對前端友善的檔案，
   見 [`backend/09-file.md`](./backend/09-file.md)。正式環境可直接指向真正的 S3。
 

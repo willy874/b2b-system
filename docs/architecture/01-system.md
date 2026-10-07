@@ -271,7 +271,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   三個 nginx 都有 `/_nginx_health`（只接受容器內的連線），前端映像的 `HEALTHCHECK` 與 external-gateway 的 healthcheck 打它，
   不依賴 api 的狀態。改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭、X-Forwarded-For、健康檢查）；
   改 compose 或 Dockerfile 後跑 `sh deploy/smoke-test.sh`（以一次性的假金鑰建置並啟動整套，等每個服務 healthy、經三個 nginx 打到後端）。
-  兩者都在 CI 的 deploy job 裡（[`../conventions/05-git.md`](../conventions/05-git.md) §2.4）。
+  兩者都在 CI 的 deploy job 裡（[`../coding-standards/05-git.md`](../coding-standards/05-git.md) §2.4）。
 - **`X-Forwarded-Host` 一律由 nginx 以 `Host` 覆寫**：api 信任這一跳帶來的 `X-Forwarded-Host`（`requestHost()`），不覆寫的話
   客戶端自帶的值會被拿來決定租戶。nginx 前面若還有 LB，LB 也要覆寫（或清掉）這個標頭。
 - TLS 由前面的 LB / ingress 終結；Socket.io 的 Origin 與連線同源（租戶自己的網域）一律允許，`PUBLIC_ORIGIN` 只是額外的白名單。

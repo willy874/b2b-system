@@ -70,7 +70,7 @@
 | 身分分兩份：租戶的 `users`（backstage）與 `platform_admins`（apps/platform），同一個 email 是兩個帳號 | [`04-sso.md`](../architecture/04-sso.md) §1.1 |
 | 登入在 apps/platform 的 OIDC 登入互動裡，backstage 沒有登入頁；access token 帶 `tid` 或 `realm: 'platform'` | [`04-sso.md`](../architecture/04-sso.md) §3 |
 | `DomainEventBus` 是程序內、fire-and-forget，**不保證送達**；要可靠就在交易內 `JobQueue.enqueue(..., { tx })`（走 `job_outbox`） | [`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7、[`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4.1 |
-| 通用模組不 import 業務模組：業務模組在 `onModuleInit` 把 handler 註冊進去（審批、背景工作、系統設定） | [`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §3.2 |
+| 通用模組不 import 業務模組：業務模組在 `onModuleInit` 把 handler 註冊進去（審批、背景工作、系統設定） | [`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §3.2 |
 | 前端 feature 之間不共用元件；共用 UI 放 `@b2b-system/ui`、`core/`，或經註冊表注入。註冊在 plugin 同步階段，那時還沒有使用者資料 | [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §3.1、§6 |
 | 軟刪除（`deleted_at` ＋ partial unique index）已是慣例；多型關聯用 `resource_type ＋ resource_id` | [`backend/02-database.md`](../architecture/backend/02-database.md) §1、[`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) |
 | 系統設定是租戶層、只存純量覆寫值 | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
@@ -146,7 +146,7 @@
 | 前端 feature、元件、狀態 | `docs/architecture/frontend/NN-<主題>.md` |
 | 橫跨前後端或部署的系統設計 | `docs/architecture/NN-<主題>.md` |
 | 權限、授權、身分的領域規則 | `docs/rbac/NN-<主題>.md` ＋ `02-permission-catalog.md` |
-| 寫程式的新規則 | `docs/conventions/` |
+| 寫程式的新規則 | `docs/coding-standards/` |
 | 範圍、里程碑 | `docs/overview/01-overview.md`、`03-roadmap.md` |
 
 一份提案通常會拆成 **一到兩份規格**，設計決策放在其中主要的那份，例如檔案管理器的資料夾授權就是

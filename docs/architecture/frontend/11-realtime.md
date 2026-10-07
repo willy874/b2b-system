@@ -44,7 +44,7 @@ shared/channel/transports/serverRelay.ts   ★ 跨裝置頻道的傳輸層（經
 shared/websocket-sdk/                      `@b2b-system/realtime` 的唯一匯入點（同 shared/api-sdk）
 ```
 
-依賴方向照 [`conventions/07`](../../conventions/07-layer-dependencies.md) §2：
+依賴方向照 [`coding-standards/07`](../../coding-standards/07-layer-dependencies.md) §2：
 
 - **只有 `web-core/realtime/socketIoTransport.ts` import `socket.io-client`**（🔒 `transport-boundary.test.ts`）。
   `RealtimeClient` 只認得 `RealtimeTransport`，對外也不交出連線本身：feature 用 `useRealtimeEvent()`，

@@ -328,7 +328,7 @@ user-status-chip-active
 
 `variant` 必須是字面量；隨資料變動的部分（權限鍵、id、日期）放 `data-value`，
 不拼進 testid：`data-testid="role-permission-node" data-value="user:read"`
-（見 [`conventions/06-literal-strings.md`](../../conventions/06-literal-strings.md) §3.3）。
+（見 [`coding-standards/06-literal-strings.md`](../../coding-standards/06-literal-strings.md) §3.3）。
 
 錯誤訊息也不比對文字，以錯誤碼分辨：`Field` 的欄位錯誤是 `data-testid="field-error"` ＋ `data-value={errorCode}`
 （後端錯誤回填用 `useServerFieldErrors` 的 `codes`），登入頁的 `login-error` 也帶 `data-value={錯誤碼}`：

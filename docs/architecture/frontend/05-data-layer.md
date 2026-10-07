@@ -448,7 +448,7 @@ export function useErrorMessage() {
       }
       if (isNetworkError(error)) return t("error.network");
       if (!(error instanceof AppError)) return t("error.unknown");
-      // 錯誤碼 → 語系鍵走對照表，不組字串（conventions/06-literal-strings.md §3.1）
+      // 錯誤碼 → 語系鍵走對照表，不組字串（coding-standards/06-literal-strings.md §3.1）
       const key = getErrorMessageKey(error.code);
       const msg = key ? t(key) : undefined;
       return msg && msg !== key

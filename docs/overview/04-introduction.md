@@ -238,7 +238,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 ### 9.3 還沒做到的部分
 
 - repo 沒有 CI。pre-commit（`lefthook.yml`）只跑 `oxfmt` 與 `oxlint`，[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §12 提到的 OpenAPI diff 檢查尚未落地。
-- 前端完整的層級依賴矩陣（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review 與 `git grep` 自查；「識別字串必須是完整字面量」規則（[`conventions/06-literal-strings.md`](../conventions/06-literal-strings.md)）也只靠 review。
+- 前端完整的層級依賴矩陣（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review 與 `git grep` 自查；「識別字串必須是完整字面量」規則（[`coding-standards/06-literal-strings.md`](../coding-standards/06-literal-strings.md)）也只靠 review。
 - 已知問題記錄在 [`issues/`](../issues/README.md)。
 
 ---

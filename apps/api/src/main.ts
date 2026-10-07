@@ -23,7 +23,7 @@ async function bootstrap(): Promise<void> {
   // 不設 global prefix：dev 由 Vite proxy、prod 由反向代理去掉 `/api` 前綴後轉入
   // （docs/architecture/01-system.md §4）。
   // 啟動期間的日誌先暫存，接上 Pino 之後才輸出：`new Logger(Xxx.name)` 的應用程式日誌與 HTTP 存取日誌
-  // 都是同一個 Pino（JSON、帶 requestId、套用 redact；docs/conventions/03-backend.md §7）
+  // 都是同一個 Pino（JSON、帶 requestId、套用 redact；docs/coding-standards/03-backend.md §7）
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   app.useLogger(app.get(PinoLogger));
   const config = app.get(ConfigService<Env, true>);

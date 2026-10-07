@@ -49,7 +49,7 @@ shared/storage/blobStore.ts          Blob 的鍵值儲存（記憶體 ＋ Indexe
 ```
 
 - 擴充點放在 `core/file` 而不是 feature 裡：其他 feature（例如之後的業務功能要預覽自訂格式）只能經由 `core/` 互動
-  （[conventions/07](../../conventions/07-layer-dependencies.md) §2.2）。
+  （[coding-standards/07](../../coding-standards/07-layer-dependencies.md) §2.2）。
 - `page.tsx` 只接線；刪除、下載的編排在 `useFileActions`，資料在 `useFileListData`。
 
 ---
@@ -138,7 +138,7 @@ registerFilePreviewer({
 - `canPreview` 只看中繼資料，不下載內容；`component` 收到 `{ file: FilePreviewSource }`（id、name、contentType、size、url）。
 - 解析器拋錯只換成「無法預覽」（`PreviewBoundary`），不讓 LightBox 或頁面掛掉。
 - 驗證器回 `{ validatorId, messageKey, params }`；`messageKey` 是完整字面量的語系 key
-  （[conventions/06](../../conventions/06-literal-strings.md)）。驗證器自己拋錯視為通過，交給後端把關。
+  （[coding-standards/06](../../coding-standards/06-literal-strings.md)）。驗證器自己拋錯視為通過，交給後端把關。
 - 縮圖產生器產不出來回 `undefined`，不要拋錯；產出的縮圖超過 `maxBytes` 會換下一個產生器。
 
 ### 6.1 LightBox（`FileLightbox`）

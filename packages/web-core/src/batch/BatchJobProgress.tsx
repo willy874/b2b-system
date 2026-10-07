@@ -10,7 +10,7 @@ import type { BatchJob, BatchJobStatus } from './types';
 
 import styles from './BatchQueue.module.css';
 
-/** 狀態文字（完整字面量的語系 key，docs/conventions/06-literal-strings.md §3.1）。 */
+/** 狀態文字（完整字面量的語系 key，docs/coding-standards/06-literal-strings.md §3.1）。 */
 const STATUS_KEY = {
   queued: 'common.batch.progress.queued',
   running: 'common.batch.progress.running',

@@ -10,7 +10,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /**
  * 把早於 `now − retentionDays 天` 的紀錄分批搬到冷表，回傳總筆數。保留天數是租戶的參數
  * `auditLog.hotRetentionDays`（docs/architecture/05-tenancy.md §13.3 D7），由呼叫端讀出傳入。
- * 不依賴 DI：排程工作與 `pnpm db:archive-audit-logs` 共用（docs/conventions/07-layer-dependencies.md §3.2 註 3）。
+ * 不依賴 DI：排程工作與 `pnpm db:archive-audit-logs` 共用（docs/coding-standards/07-layer-dependencies.md §3.2 註 3）。
  *
  * `archive_audit_logs()` 是 `SECURITY DEFINER`，應用程式的 role 不需要 `audit_logs` 的 DELETE 權限
  * （docs/architecture/backend/10-jobs.md §9.2 D8）。

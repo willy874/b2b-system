@@ -12,7 +12,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 
 | 你要做什麼 | 先讀 |
 | --- | --- |
-| 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/conventions/01-general.md`](docs/conventions/01-general.md) |
+| 任何事 | [`docs/README.md`](docs/README.md)、[`docs/architecture/01-system.md`](docs/architecture/01-system.md)、[`docs/coding-standards/01-general.md`](docs/coding-standards/01-general.md) |
 | 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的程式在 `packages/`（下方「Monorepo 結構」） |
 | 改兩個前端共用的程式、判斷程式該放 app 還是 package、加第三個前端 | [`docs/architecture/frontend/17-shared-packages.md`](docs/architecture/frontend/17-shared-packages.md)（§2 程式放哪、§3 app 怎麼接上 web-core、§7 常見陷阱）；各 package 的 README |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、部署） |
@@ -24,7 +24,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md)；群組看 [`docs/rbac/08-groups.md`](docs/rbac/08-groups.md)；「為什麼能做 X」看 [`docs/rbac/09-explain.md`](docs/rbac/09-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
 | 挑下一個要做的功能 | [`docs/features/README.md`](docs/features/README.md)（待製作清單；完成後刪提案、寫正式文件歸檔） |
 | 處理已知問題 | [`docs/issues/README.md`](docs/issues/README.md)（現有程式的問題與技術債；修完刪掉該份文件） |
-| 寫程式規範 | [`docs/conventions/`](docs/conventions/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
+| 寫程式規範 | [`docs/coding-standards/`](docs/coding-standards/README.md)（命名、TS、測試、commit、字面量、層級依賴）；寫或 review 程式碼前用 `best-practice` skill 載入 |
 
 ## Monorepo 結構
 
@@ -63,7 +63,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 
 ## 不可違反的規則
 
-以下是摘要；理由、正反例與哪些由工具強制，見 [`docs/conventions/`](docs/conventions/README.md)。
+以下是摘要；理由、正反例與哪些由工具強制，見 [`docs/coding-standards/`](docs/coding-standards/README.md)。
 
 ### 後端
 

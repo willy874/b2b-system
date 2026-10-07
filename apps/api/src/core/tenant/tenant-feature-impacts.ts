@@ -22,7 +22,7 @@ export type TenantFeatureImpactCounter = () => Promise<
 
 /**
  * feature → 影響的計數。擁有 feature 的模組在 `onModuleInit` 登記（core 不認識業務模組，
- * docs/conventions/07-layer-dependencies.md §3.2）；沒有登記的 feature 沒有數字，確認框只顯示一般的說明。
+ * docs/coding-standards/07-layer-dependencies.md §3.2）；沒有登記的 feature 沒有數字，確認框只顯示一般的說明。
  */
 @Injectable()
 export class TenantFeatureImpacts {

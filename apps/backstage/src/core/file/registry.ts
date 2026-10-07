@@ -46,7 +46,7 @@ export interface FilePreviewer {
   component: ComponentType<FilePreviewerProps>;
 }
 
-/** 驗證結果：`messageKey` 是完整字面量的語系 key（docs/conventions/06-literal-strings.md）。 */
+/** 驗證結果：`messageKey` 是完整字面量的語系 key（docs/coding-standards/06-literal-strings.md）。 */
 export interface FileValidationIssue {
   validatorId: string;
   messageKey: string;

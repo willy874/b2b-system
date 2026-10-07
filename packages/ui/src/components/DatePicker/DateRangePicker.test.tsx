@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Field } from '../Field';
 import { DateRangePicker } from './index';
 
-/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/coding-standards/06-literal-strings.md §3.3）。 */
 function queryDay(value: string) {
   return document.querySelector<HTMLElement>(`[data-testid="calendar-day"][data-value="${value}"]`);
 }

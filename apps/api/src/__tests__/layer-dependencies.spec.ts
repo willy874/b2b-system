@@ -60,7 +60,7 @@ const LEAF_MODULES = new Set([
   'credential',
 ]);
 
-/** `common/guards/permissions.guard.ts` 可以注入的 service（docs/conventions/07-layer-dependencies.md §3.2 註 4）。 */
+/** `common/guards/permissions.guard.ts` 可以注入的 service（docs/coding-standards/07-layer-dependencies.md §3.2 註 4）。 */
 const GUARD_ALLOWED = new Set([
   'modules/permission/permission.service',
   'modules/audit-log/audit.service',
@@ -69,7 +69,7 @@ const GUARD_ALLOWED = new Set([
 ]);
 
 /**
- * 執行期（`core/`、`common/`、`modules/`）可以 import 的 `db/` 檔案（docs/conventions/07-layer-dependencies.md §3.2 註 1）。
+ * 執行期（`core/`、`common/`、`modules/`）可以 import 的 `db/` 檔案（docs/coding-standards/07-layer-dependencies.md §3.2 註 1）。
  * 其餘的 `db/`（seed、migrate、reset 等 CLI）讀 `.env`、用 `console`，改它們不該變成 api 程序的行為。
  * 白名單裡的檔案自己 import 的 `db/` 檔案也要在白名單裡。
  */
@@ -85,7 +85,7 @@ const RUNTIME_DB_ALLOWED = [
 
 const isRuntimeDbAllowed = (path: string) => RUNTIME_DB_ALLOWED.some((rule) => rule.test(path));
 
-describe('後端的層級依賴（docs/conventions/07-layer-dependencies.md §3）', () => {
+describe('後端的層級依賴（docs/coding-standards/07-layer-dependencies.md §3）', () => {
   it('core/ 不 import modules/ 與 common/', () => {
     const offenders = edges.filter(
       ({ from, to }) => from.startsWith('core/') && /^(modules|common)\//.test(to),
@@ -164,7 +164,7 @@ describe('後端的層級依賴（docs/conventions/07-layer-dependencies.md §3�
     expect(cycles, cycles.join('\n')).toEqual([]);
   });
 
-  it('不用 forwardRef（循環代表職責畫錯了，docs/conventions/03-backend.md §1 #8）', () => {
+  it('不用 forwardRef（循環代表職責畫錯了，docs/coding-standards/03-backend.md §1 #8）', () => {
     const offenders = walk(srcDir)
       .filter((full) => /\bforwardRef\(/.test(readFileSync(full, 'utf8')))
       .map((full) => relative(srcDir, full));

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeLayout } from '../../testing/fakeLayout';
 import { Tabs, TabsPanel } from './index';
 
-/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 以固定的 `data-testid` ＋ `data-value` 找元素（docs/coding-standards/06-literal-strings.md §3.3）。 */
 function queryTab(value: string) {
   return document.querySelector<HTMLElement>(`[data-testid="tab"][data-value="${value}"]`);
 }

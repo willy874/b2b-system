@@ -7,7 +7,7 @@ import * as schema from './schema';
 
 /**
  * 不經過 Nest DI 的單一連線：CLI 腳本（migrate／seed／reset）與租戶佈建（連到剛建好的租戶 DB）共用。
- * 這裡不讀 `.env`、不印東西，執行期可以 import（docs/conventions/07-layer-dependencies.md §3.2 註 1）；
+ * 這裡不讀 `.env`、不印東西，執行期可以 import（docs/coding-standards/07-layer-dependencies.md §3.2 註 1）；
  * 讀 `.env` 的部分在 CLI 專用的 `./client`。
  */
 export function createScriptClient(url: string) {

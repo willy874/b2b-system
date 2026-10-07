@@ -11,7 +11,7 @@ export interface NavGroup {
   /** feature 的 `registerNavItem({ group })` 以它指向這個分類；發佈後不改名。 */
   key: string;
   labelKey: string;
-  /** 父選單（展開／收合按鈕）的 testid，完整字面量（docs/conventions/06-literal-strings.md §3.3）。 */
+  /** 父選單（展開／收合按鈕）的 testid，完整字面量（docs/coding-standards/06-literal-strings.md §3.3）。 */
   testId: string;
   /** 數字小的在上；預留間隔，之後插在中間不必改既有的值。 */
   order: number;

@@ -120,7 +120,7 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 
 ## 5. 句子
 
-依 `type` 找 i18n key，key 一律寫在 `constants.ts` 的對照表（[`../../conventions/06-literal-strings.md`](../../conventions/06-literal-strings.md) §3.1），
+依 `type` 找 i18n key，key 一律寫在 `constants.ts` 的對照表（[`../../coding-standards/06-literal-strings.md`](../../coding-standards/06-literal-strings.md) §3.1），
 `adapter.ts` 把參數轉成 `TranslatableMessage`：
 
 | `type` | 句子（`notification.message.*`） | 補充（第二行起） |

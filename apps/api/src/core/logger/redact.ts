@@ -13,7 +13,7 @@ interface SerializedRequest {
 
 /**
  * pino-http 的 `req` serializer：`redact` 只能遮整個欄位，遮不了網址字串中的一段，
- * 所以 URL、`query` 與 Referer 在這裡處理（docs/conventions/03-backend.md §7：日誌不記 token）。
+ * 所以 URL、`query` 與 Referer 在這裡處理（docs/coding-standards/03-backend.md §7：日誌不記 token）。
  * pino-std-serializers 交過來的 `query`、`headers` 是請求本身的物件，所以換成遮好的拷貝，不改到請求。
  */
 export function redactRequest<T extends SerializedRequest>(req: T): T {

@@ -244,7 +244,7 @@ modules/role/
 
 ## 4. 命名與匯入慣例
 
-已移到 [`conventions/01-general.md`](../conventions/01-general.md) §3–4。
+已移到 [`coding-standards/01-general.md`](../coding-standards/01-general.md) §3–4。
 
 ---
 

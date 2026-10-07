@@ -14,7 +14,7 @@ import type { UserRowVM } from './adapter';
 export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
   const { t } = useTranslation();
   const permission = useUserPermission();
-  // 權限未水合前不出現操作按鈕（docs/conventions/02-frontend.md §3.2）
+  // 權限未水合前不出現操作按鈕（docs/coding-standards/02-frontend.md §3.2）
   const ready = permission.hydrated;
 
   return useMemo(

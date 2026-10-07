@@ -204,7 +204,7 @@ apps/apm-service/src/
 ```
 
 依賴只有 `zod` 與 `@jridgewell/trace-mapping`；不依賴任何 workspace package，也不被任何 package import
-（[`conventions/07-layer-dependencies.md`](../conventions/07-layer-dependencies.md) §1）。前端的遮罩規則與 `ingest/scrub.ts` 各一份，改一邊要改另一邊。
+（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §1）。前端的遮罩規則與 `ingest/scrub.ts` 各一份，改一邊要改另一邊。
 
 ---
 

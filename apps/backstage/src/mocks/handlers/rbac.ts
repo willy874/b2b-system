@@ -271,7 +271,7 @@ export const rbacHandlers = [
           { status: 404 },
         );
   }),
-  // 審核：沒有 approval:review 回 403（MSW 要模擬權限行為，docs/conventions/04-testing.md §3）
+  // 審核：沒有 approval:review 回 403（MSW 要模擬權限行為，docs/coding-standards/04-testing.md §3）
   http.post(`${MOCK_API_BASE}/approvals/:id/:decision`, async ({ params, request }) => {
     if (!mockState.permissions.includes('approval:review')) {
       return HttpResponse.json(

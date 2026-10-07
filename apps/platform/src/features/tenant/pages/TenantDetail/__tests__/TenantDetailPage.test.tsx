@@ -79,7 +79,7 @@ function renderPage(
   ).router;
 }
 
-/** 某個 feature 的開關：固定的 testid 在列上，feature id 在 `data-value`（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 某個 feature 的開關：固定的 testid 在列上，feature id 在 `data-value`（docs/coding-standards/06-literal-strings.md §3.3）。 */
 async function featureToggle(feature: string): Promise<HTMLElement> {
   const rows = await screen.findAllByTestId('tenant-feature');
   const row = rows.find((el) => el.dataset.value === feature);

@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path';
 /** monorepo 的根目錄。 */
 export const REPO_ROOT = resolve(__dirname, '../../../..');
 
-/** 只有原始碼、由 app 編譯的 package，由下而上（docs/conventions/07-layer-dependencies.md §1）。 */
+/** 只有原始碼、由 app 編譯的 package，由下而上（docs/coding-standards/07-layer-dependencies.md §1）。 */
 export const FRONTEND_PACKAGES = ['web-shared', 'ui', 'web-core'] as const;
 export type FrontendPackage = (typeof FRONTEND_PACKAGES)[number];
 

@@ -9,7 +9,7 @@
   服務之間只以頂層跳轉（OIDC 授權碼、end-session）溝通；不用 iframe、靜默續期或 `postMessage`（D6）。
 - 架構比照 `apps/backstage`（[`docs/architecture/frontend/`](../../docs/architecture/frontend/README.md)）：
   `main.tsx` 的 plugin chain → `app/` → `features/` → `apis/` → `core/`（權限目錄的門面）→ `@b2b-system/web-core` → `@b2b-system/ui` → `@b2b-system/web-shared`，層級依賴規則相同
-  （[`docs/conventions/07-layer-dependencies.md`](../../docs/conventions/07-layer-dependencies.md) §2）。
+  （[`docs/coding-standards/07-layer-dependencies.md`](../../docs/coding-standards/07-layer-dependencies.md) §2）。
 
 ```bash
 pnpm dev:platform        # 只啟動 apps/platform（:5175）；api 要另外啟動（pnpm dev 會一起啟動）

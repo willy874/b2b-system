@@ -18,7 +18,7 @@
 
 ## 1. 模組
 
-`modules/webhook/`。不 import 任何發出事件的業務模組（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §3.2）；
+`modules/webhook/`。不 import 任何發出事件的業務模組（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）；
 擁有者模組 import `WebhookModule`，在自己的 `*.module.ts` constructor 登記事件、在業務交易內呼叫 `WebhookService.emit()`。
 
 | 檔案 | 內容 |
@@ -235,7 +235,7 @@ API token 與對外 API（[`architecture/06-external-api.md`](../06-external-api
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D1 | **對外事件定義在程式碼**：擁有者模組在 `<name>.webhooks.ts` 以 `defineWebhookEvent<Data>('user.created', { version: 1 })` 宣告，在 `*.module.ts` constructor 以 `WebhookEventCatalog.register([...])` 登記（與通知目錄同一個模式）。重複的名稱讓程序啟動失敗；`emit()` 遇到沒登記的事件拋 `Error` | 通用模組不 import 業務模組（`conventions/07-layer-dependencies.md` §3.2）；訂閱頁的事件清單從目錄來，不會漏列或列出發不出去的事件 |
+| D1 | **對外事件定義在程式碼**：擁有者模組在 `<name>.webhooks.ts` 以 `defineWebhookEvent<Data>('user.created', { version: 1 })` 宣告，在 `*.module.ts` constructor 以 `WebhookEventCatalog.register([...])` 登記（與通知目錄同一個模式）。重複的名稱讓程序啟動失敗；`emit()` 遇到沒登記的事件拋 `Error` | 通用模組不 import 業務模組（`coding-standards/07-layer-dependencies.md` §3.2）；訂閱頁的事件清單從目錄來，不會漏列或列出發不出去的事件 |
 | D2 | **第一批**：`user.created`、`user.statusChanged`、`user.deleted`、`user.restored`、`approval.decided`、`file.uploaded`，另有系統事件 `webhook.ping`（只由「送測試事件」發出，不能訂閱）。<br>提案的 `user.disabled` 改成 `user.statusChanged`（`{ userId, status, previousStatus }`）：停用、啟用、鎖定都需要，分成多個事件只會讓接收端多訂幾個 | 這幾個是現有模組裡「外部系統最常要跟著動」的狀態轉移；`statusChanged` 一個事件涵蓋所有狀態 |
 | D3 | **payload 只帶識別資訊與必要欄位**：信封 `{ id, type, version, occurredAt, tenant: <代碼>, data }`；`data` 只有 id 與列舉值（例：`{ userId }`、`{ approvalId, approvalType, decision }`、`{ fileId, folderId }`），**不帶 email、名稱等個資**。接收端要細節時用 API token 經對外 API 回查 | 回查時套用 token 自己的權限與 scopes，webhook 不必另外做權限過濾（D5）；payload 外洩的影響小 |
 | D4 | **版本**：同一個 `version` 只做相容的變更（加欄位）；不相容的變更改用新的事件名稱，舊事件並行一段時間後下線。訂閱不指定版本 | 一個事件一個版本最好推理；需要並行時兩個名稱就夠，不必在訂閱上加版本協商 |
@@ -309,7 +309,7 @@ API token 與對外 API（[`architecture/06-external-api.md`](../06-external-api
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D12 | **新表 `webhook_targets`**（租戶 migration 0033）：`id`、`subscription_id`（CASCADE）、`url`、`consecutive_failures`、`last_delivery_at`、`position`、`created_at`；`unique(subscription_id, url)`。既有訂閱的 `url` 搬成一筆。`webhook_subscriptions.url` 改成可為 null、繼續寫入第一個網址（雙寫），下一次部署再刪（`conventions/03-backend.md` §5 的破壞性變更拆兩次；已於租戶 migration 0035 連同 `consecutive_failures` 刪除） | 失敗次數要跟著網址走：一個壞掉的網址不能被另一個正常的網址「歸零」而永遠不停用 |
+| D12 | **新表 `webhook_targets`**（租戶 migration 0033）：`id`、`subscription_id`（CASCADE）、`url`、`consecutive_failures`、`last_delivery_at`、`position`、`created_at`；`unique(subscription_id, url)`。既有訂閱的 `url` 搬成一筆。`webhook_subscriptions.url` 改成可為 null、繼續寫入第一個網址（雙寫），下一次部署再刪（`coding-standards/03-backend.md` §5 的破壞性變更拆兩次；已於租戶 migration 0035 連同 `consecutive_failures` 刪除） | 失敗次數要跟著網址走：一個壞掉的網址不能被另一個正常的網址「歸零」而永遠不停用 |
 | D13 | **API**：`url` 改成 `urls`（1–10 個、不重複、各自照 D15 檢查），回應的 `targets` 帶每個網址的連續失敗次數與最後投遞時間。修改網址時保留沒變的網址（id 與失敗次數不變），移除的網址刪除（投遞紀錄的 `target_id` 設為 null，保留 `url` 快照） | 一個訂閱 = 一組事件 ＋ 一個密鑰 ＋ 一組網址；要不同的事件或密鑰就建另一個訂閱 |
 | D14 | **投遞**：`emit()` 為每個訂閱的每個網址入列一筆 `webhook.deliver`（`{ subscriptionId, eventId, targetId }`）；`webhook_deliveries` 加 `target_id`（SET NULL）與 `url`。網址已被移除的工作略過。升版前入列、沒有 `targetId` 的工作送到訂閱的第一個網址 | 每個網址獨立重試：一個慢的接收端不會擋住其他網址 |
 | D15 | **自動停用**：失敗次數記在網址上；任何一個網址連續失敗到 50 次，整個訂閱停用（`failing`），通知與稽核帶那個網址。重新啟用時所有網址歸零 | 訂閱的狀態模型不變（只有訂閱能停用）；管理者看得到是哪個網址壞了，移除或修好它再啟用 |

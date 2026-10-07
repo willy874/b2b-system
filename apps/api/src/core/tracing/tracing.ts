@@ -17,7 +17,7 @@ export function annotateTenant(code: string): void {
 
 /**
  * 在一個新的 span 裡執行 `fn`：拋錯時記下例外並標成錯誤，再原樣拋出。
- * 不放查詢參數、請求內容這類可能含個資的屬性（同日誌的規則，docs/conventions/03-backend.md §7）。
+ * 不放查詢參數、請求內容這類可能含個資的屬性（同日誌的規則，docs/coding-standards/03-backend.md §7）。
  */
 export function inSpan<T>(
   name: string,

@@ -65,7 +65,7 @@ function referencesIn(comment: string, appPathBases: readonly string[]): Referen
   ];
 }
 
-describe('註解引用的路徑（docs/conventions/01-general.md §5）', () => {
+describe('註解引用的路徑（docs/coding-standards/01-general.md §5）', () => {
   const apps = frontendApps();
   const roots = [
     // app 的註解：`core/…` 指自己的 src/（web-core 的寫成 `web-core/…`）

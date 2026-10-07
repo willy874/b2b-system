@@ -12,7 +12,7 @@ description: 套用本 repo 的測試規範：決定要寫哪些測試、寫在�
 
 一律先讀：
 
-1. [`docs/conventions/04-testing.md`](../../../docs/conventions/04-testing.md)：檔案位置與副檔名、寫法、各層測法、**什麼時候一定要寫**。
+1. [`docs/coding-standards/04-testing.md`](../../../docs/coding-standards/04-testing.md)：檔案位置與副檔名、寫法、各層測法、**什麼時候一定要寫**。
 2. 依改動範圍再讀對應的架構文件（策略、helper、必測清單）：
 
 | 改動範圍 | 讀 |
@@ -20,7 +20,7 @@ description: 套用本 repo 的測試規範：決定要寫哪些測試、寫在�
 | `apps/backstage`、`apps/platform` 前端 | [`docs/architecture/frontend/10-testing.md`](../../../docs/architecture/frontend/10-testing.md) |
 | `apps/api` | [`docs/architecture/backend/07-testing.md`](../../../docs/architecture/backend/07-testing.md) |
 | `apps/e2e` | 前端 10 §4（範圍、結構、資料隔離、選擇器） |
-| `data-testid`、i18n key | [`docs/conventions/06-literal-strings.md`](../../../docs/conventions/06-literal-strings.md) §3 |
+| `data-testid`、i18n key | [`docs/coding-standards/06-literal-strings.md`](../../../docs/coding-standards/06-literal-strings.md) §3 |
 | 設計系統元件（`components/`） | [`docs/architecture/frontend/07-ui-system.md`](../../../docs/architecture/frontend/07-ui-system.md) §9（story 與測試） |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](../../../docs/rbac/02-permission-catalog.md) |
 
@@ -101,6 +101,6 @@ source ~/.nvm/nvm.sh && nvm use 24
 
 ## 6. 規則要改的時候
 
-規則寫在 `docs/conventions/04-testing.md` 與兩份測試架構文件；要新增或修改規則就改那裡，
-照 `docs/conventions/README.md` 的「新增規則」一節。本 skill 只在 **流程、指令、環境** 改變時修改
+規則寫在 `docs/coding-standards/04-testing.md` 與兩份測試架構文件；要新增或修改規則就改那裡，
+照 `docs/coding-standards/README.md` 的「新增規則」一節。本 skill 只在 **流程、指令、環境** 改變時修改
 （例：新增 app、測試指令改名、已知失敗修好了要刪掉）。

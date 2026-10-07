@@ -98,7 +98,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 ④ 發佈 approval update
 ```
 
-與 [`../conventions/03-backend.md`](../conventions/03-backend.md) §1 規則 6 一致：稽核在交易內，
+與 [`../coding-standards/03-backend.md`](../coding-standards/03-backend.md) §1 規則 6 一致：稽核在交易內，
 快取失效與事件在交易後。
 
 批次核准／駁回沒有專用端點，由前端逐筆呼叫單筆 API，見 [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13。

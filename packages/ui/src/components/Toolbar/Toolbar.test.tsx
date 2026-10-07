@@ -19,7 +19,7 @@ const ITEMS: ToolbarItem[] = [
   { key: 'delete', label: '刪除', variant: 'danger', onClick: onDelete, align: 'end' },
 ];
 
-/** 以固定的 `data-testid` ＋ `data-value` 找按鈕（docs/conventions/06-literal-strings.md §3.3）。 */
+/** 以固定的 `data-testid` ＋ `data-value` 找按鈕（docs/coding-standards/06-literal-strings.md §3.3）。 */
 function queryItem(key: string) {
   return document.querySelector<HTMLElement>(`[data-testid="toolbar-item"][data-value="${key}"]`);
 }

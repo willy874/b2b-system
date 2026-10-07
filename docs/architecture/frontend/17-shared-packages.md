@@ -42,7 +42,7 @@ zod schema 與 SDK 自己的 fetch client 在 `@b2b-system/api-sdk/schemas`，�
 （[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §12.6）。
 
 依賴只能往下：package 永遠不 import app，`web-shared` 不 import `ui`，`ui` 不 import `web-core`。
-完整矩陣與檢查方式見 [`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §1、§2。
+完整矩陣與檢查方式見 [`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §1、§2。
 
 | Package | 位置 | 編譯 | 內容 | 細則 |
 | --- | --- | --- | --- | --- |
@@ -159,7 +159,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 - **測試**：每個 package 有自己的 `vitest.config.ts`；`pnpm test` 會跑所有 package。只改一個 package 時：`pnpm --filter @b2b-system/<name> test`。
 - **Storybook** 在 `packages/ui`（`pnpm storybook`）。
 - **Lint**：`.oxlintrc.json` 的前端規則也套用到 `packages/{ui,web-core}/src/**`；web-shared 的 `context/`、`store/` 另禁止 import React。
-- **分層**：`packages/web-core/src/__tests__/layer-dependencies.test.ts` 掃三個前端 package 與每個依賴 web-core 的 app（[`../../conventions/07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §4）；
+- **分層**：`packages/web-core/src/__tests__/layer-dependencies.test.ts` 掃三個前端 package 與每個依賴 web-core 的 app（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §4）；
   同一個資料夾的 `comment-paths.test.ts` 檢查註解裡的路徑存在。
 - **Dockerfile**：前端與 api 的映像在 `pnpm install` 之前逐一複製各 package 的 `package.json`；新增 package 時三個 Dockerfile 都要加。
 - **依賴**：app 不重複宣告只在 package 裡用到的套件（例：i18next、socket.io-client、codemirror 由 package 帶進來）。
@@ -197,7 +197,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 3. `src/plugins/app/`：門面與 `i18nPlugin`（§3.5、§3.3）；`src/app/locales/*.json` 放自己的字串。
 4. `src/apis/auth/`：自己的 session 端點；`App.tsx` 以 `GlobalProvider`（`profileQueryKey`）包住 router。
 5. 根目錄 `tsconfig.json`、`pnpm dev` 的 filter、Dockerfile、`.oxlintrc.json` 的路徑加上這個 app。
-   web-core 的分層與註解路徑測試以 `package.json` 依賴 web-core 判斷，自動納入；`src/` 底下的資料夾要是 [`07-layer-dependencies.md`](../../conventions/07-layer-dependencies.md) §2.2 矩陣裡的層。
+   web-core 的分層與註解路徑測試以 `package.json` 依賴 web-core 判斷，自動納入；`src/` 底下的資料夾要是 [`07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §2.2 矩陣裡的層。
 
 ---
 
