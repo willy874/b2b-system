@@ -17,6 +17,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 改兩個前端共用的程式、判斷程式該放 app 還是 package、加第三個前端 | [`docs/architecture/frontend/17-shared-packages.md`](docs/architecture/frontend/17-shared-packages.md)（§2 程式放哪、§3 app 怎麼接上 web-core、§7 常見陷阱）；各 package 的 README |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、部署） |
 | 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19` |
+| 前端錯誤回報、release、Web Vitals、bundle 預算 | [`docs/architecture/frontend/19-observability.md`](docs/architecture/frontend/19-observability.md)（機制在 `web-core/telemetry`）、[`docs/architecture/07-apm-service.md`](docs/architecture/07-apm-service.md)（收件服務） |
 | 對外 API、API token 的驗證 | [`docs/architecture/06-external-api.md`](docs/architecture/06-external-api.md)（獨立的程序；對外的 controller 標 `@ExternalApi()`、放 `modules/<name>/external/`） |
 | 登入、SSO、apps/platform | [`docs/architecture/04-sso.md`](docs/architecture/04-sso.md)（§1.1 租戶與平台的身分範圍）、[`apps/platform/README.md`](apps/platform/README.md)（與 backstage 共用的 packages、刻意各自一份的部分與同步規則） |
 | 權限相關 | [`docs/rbac/02-permission-catalog.md`](docs/rbac/02-permission-catalog.md)；群組看 [`docs/rbac/08-groups.md`](docs/rbac/08-groups.md)；「為什麼能做 X」看 [`docs/rbac/09-explain.md`](docs/rbac/09-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
@@ -32,8 +33,9 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | `apps/backstage` | 租戶的後台（:5173） |
 | `apps/platform` | 全平台共用的登入入口與平台管理（:5175） |
 | `apps/file-storage` | 本機的 S3 相容物件儲存 |
+| `apps/apm-service` | 模擬 Sentry API 的前端錯誤收件（事件、sourcemap、Web Vitals 指標；[`docs/architecture/07-apm-service.md`](docs/architecture/07-apm-service.md)） |
 | `apps/e2e` | Playwright |
-| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框與側欄（選單註冊表）、命令面板與全域快捷鍵、`RichTable`、共用頁面元件（錯誤頁、改密碼、背景工作與稽核列表）、測試輔助 |
+| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框與側欄（選單註冊表）、命令面板與全域快捷鍵、錯誤回報（`@sentry/browser`）、`RichTable`、共用頁面元件（錯誤頁、改密碼、背景工作與稽核列表）、測試輔助 |
 | `packages/ui` | 設計系統：元件、Design Token、icons、UnoCSS 設定、Storybook |
 | `packages/web-shared` | 框架無關的前端工具：store、channel、registry、date… |
 | `packages/error-codes` | api 與前端共用的錯誤碼（build 到 `dist/`） |
@@ -93,6 +95,10 @@ pnpm dev            # 先 build packages/*（build:packages），再起 postgres
 pnpm dev:platform       # 單獨啟動 apps/platform（全平台共用的身分與租戶入口，:5175）；見 apps/platform/README.md
 pnpm dev:e2e        # 以放寬的速率限制、寄信到 Mailpit 啟動 api（跑 E2E 時用）
 pnpm dev:storage    # 單獨啟動 apps/file-storage（S3 相容，:9000）；api 端見 docs/architecture/backend/09-file.md
+pnpm dev:apm        # 單獨啟動 apps/apm-service（模擬 Sentry API，:9100）；前端預設不送出，要送時設 VITE_APM_*（docs/architecture/frontend/19-observability.md §8）
+pnpm --filter @b2b-system/apm-service upload-sourcemaps --project backstage --release <commit> --dir apps/backstage/dist --delete
+                    # 以 BUILD_SOURCEMAP=hidden 建置後把 .map 上傳到 apm-service（docs/architecture/07-apm-service.md §5）
+pnpm bundle:check   # 建置兩個前端並檢查 bundle 預算（apps/*/bundle-budget.json；CI 的 bundle job 也跑）
 pnpm dev:mock-idp   # 模擬的外部 IdP（:4455，client b2b-mock／mock-secret）；外部 IdP 登入的開發與 E2E 用
 pnpm dev:external-api  # 對外 API（:3001，只認 API token；docs/architecture/06-external-api.md）
 pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、api-sdk、mail-components）；拉下新的 main 後先 pnpm install 再跑這個

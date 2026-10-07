@@ -15,6 +15,7 @@ import { EventEmitter } from '@b2b-system/web-shared/EventEmitter';
 
 import type { SessionStore } from '../auth';
 import { ErrorCodes } from '../errors';
+import { addTelemetryBreadcrumb } from '../telemetry';
 import type {
   CreateRealtimeTransport,
   RealtimeHandshakeAuth,
@@ -350,8 +351,12 @@ function readRevokedReason(payload: unknown): string {
     : SessionRevokedReason.TOKEN_STALE;
 }
 
-/** 推播失敗不顯示給使用者（§3.2）；開發環境記一行方便除錯。 */
+/**
+ * 推播失敗不顯示給使用者（§3.2）：記成錯誤回報的 breadcrumb（之後若發生錯誤，看得出推播當時的狀況；
+ * docs/architecture/frontend/19-observability.md §2），開發環境另外記一行方便除錯。
+ */
 function warn(message: string, detail?: unknown): void {
+  addTelemetryBreadcrumb('realtime', message);
   if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
   // oxlint-disable-next-line no-console
   console.warn(`[realtime] ${message}`, detail);

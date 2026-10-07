@@ -17,6 +17,8 @@
 | api 整合（真 DB）   | `apps/api/test/`                                 | `*.spec.ts`     | `apps/api/vitest.config.ts`     |
 | file-storage 單元   | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/file-storage/vitest.config.ts` |
 | file-storage 整合（AWS SDK） | `apps/file-storage/test/`               | `*.spec.ts`     | `apps/file-storage/vitest.config.ts` |
+| apm-service 單元    | 受測檔旁的 `__tests__/`                           | `*.spec.ts`     | `apps/apm-service/vitest.config.ts` |
+| apm-service 整合（Sentry 的 envelope） | `apps/apm-service/test/`     | `*.spec.ts`     | `apps/apm-service/vitest.config.ts` |
 | E2E（瀏覽器）       | `apps/e2e/tests/`                                | `*.spec.ts`     | `apps/e2e/playwright.config.ts` |
 
 - 檔名跟受測對象同名：`useRolePermission.ts` → `__tests__/useRolePermission.test.tsx`。

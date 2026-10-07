@@ -12,6 +12,7 @@ import {
 import {
   apiAdapterInterceptor,
   clientIdInterceptor,
+  clientReleaseInterceptor,
   createAuthHeaderInterceptor,
   createRefreshTokenInterceptor,
   retryInterceptor,
@@ -58,7 +59,7 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           name: names.base,
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
-          requestInterceptors: [clientIdInterceptor],
+          requestInterceptors: [clientIdInterceptor, clientReleaseInterceptor],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [retryInterceptor],
         }),
@@ -69,7 +70,11 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
           // x-client-id：伺服器推播的 origin，讓發起寫入的分頁略過自己的變更
-          requestInterceptors: [clientIdInterceptor, createAuthHeaderInterceptor(session)],
+          requestInterceptors: [
+            clientIdInterceptor,
+            clientReleaseInterceptor,
+            createAuthHeaderInterceptor(session),
+          ],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [createRefreshTokenInterceptor(session), retryInterceptor],
         }),

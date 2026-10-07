@@ -3,6 +3,7 @@ import type { Channel } from '@b2b-system/web-shared/channel';
 import { EventEmitter } from '@b2b-system/web-shared/EventEmitter';
 
 import type { ResourceChange } from '../cache';
+import { captureError } from '../telemetry';
 import { serializeBatchError } from './errors';
 import { batchOperationRegistry, getBatchOperation } from './operations';
 import {
@@ -283,6 +284,13 @@ export class BatchQueueClient {
         if (this.principal && message.job.principal !== this.viewedPrincipal) return;
         this.events.emit('finished', message.job);
         return;
+      case 'worker-error': {
+        const error = new Error(message.message);
+        error.name = message.name;
+        if (message.stack !== undefined) error.stack = message.stack;
+        captureError(error, 'worker', false);
+        return;
+      }
       default:
         return;
     }

@@ -46,4 +46,15 @@ curl -fsS -o /dev/null http://127.0.0.1:8080/api/health/ready || fail "backstage
 curl -fsS -o /dev/null http://127.0.0.1:8081/api/health || fail "platform → api 的 /health 失敗"
 curl -fsS -o /dev/null http://127.0.0.1:8082/health || fail "external-gateway → external-api 的 /health 失敗"
 
+echo "── 經 nginx 送前端錯誤到 apm-service"
+envelope() {
+  printf '{}\n{"type":"event"}\n{"message":"smoke test","platform":"javascript"}\n'
+}
+for target in "8080 1 APM_BACKSTAGE_PUBLIC_KEY" "8081 2 APM_PLATFORM_PUBLIC_KEY"; do
+  set -- $target
+  key=$(grep "^$3=" "$ENV_FILE" | cut -d= -f2)
+  envelope | curl -fsS -o /dev/null -X POST --data-binary @- \
+    "http://127.0.0.1:$1/apm/api/$2/envelope/?sentry_key=$key" || fail "$1 → apm-service 的收件失敗"
+done
+
 echo "✓ docker-compose.prod.yml"

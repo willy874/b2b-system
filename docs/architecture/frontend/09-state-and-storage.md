@@ -185,6 +185,8 @@ interface DictStorage {
 | 跨分頁 leader 選舉的任期 counter（`b2b-system:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
 | 命令面板「最近造訪」的 page key（不存名稱，[18 §3.3](./18-command-palette.md)） |                          |
 
+錯誤回報（`@sentry/browser`）的佇列只在記憶體，也不用 sessionStorage 串前一個 trace（[19 §4](./19-observability.md)）。
+
 ### 4.3 Token 的儲存
 
 ```

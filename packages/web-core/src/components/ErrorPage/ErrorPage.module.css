@@ -23,6 +23,17 @@
     gap: var(--seed-space-2);
   }
 
+  /* 瀏覽器不給寫剪貼簿時，把錯誤資訊直接顯示出來讓使用者自己選取（獨佔一行） */
+  .copyFallback {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+
   /* centered：在內容區置中，狀態碼放大（backstage） */
   .root[data-variant='centered'] {
     align-items: center;

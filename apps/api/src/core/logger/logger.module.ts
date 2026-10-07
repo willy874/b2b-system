@@ -7,6 +7,7 @@ import type { Options } from 'pino-http';
 
 import type { Env } from '../config';
 import { resolveRequestId } from '../http';
+import { clientReleaseOf } from './client-release';
 import { redactRequest, serializeError } from './redact';
 
 /** 開發時多看 debug；測試靜音（整合測試以 `logger: false` 建 app，單元測試不經過這裡）。 */
@@ -33,6 +34,11 @@ export function pinoHttpOptions(nodeEnv: Env['NODE_ENV']): Options {
     redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
     // 資料庫的查詢錯誤不帶參數（密碼雜湊、token、個資）：HTTP 的未知錯誤、IdP 的錯誤、背景工作的失敗都經過這裡
     serializers: { req: redactRequest, err: serializeError },
+    // 前端的 release（x-client-release）：日誌平台可以直接依它篩選
+    customProps: (req: IncomingMessage) => {
+      const clientRelease = clientReleaseOf(req);
+      return clientRelease === undefined ? {} : { clientRelease };
+    },
     autoLogging: {
       ignore: (req: IncomingMessage) => req.url?.startsWith('/health') === true,
     },

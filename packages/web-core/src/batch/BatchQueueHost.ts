@@ -156,6 +156,24 @@ export class BatchQueueHost {
     this.detachers.add(() => port.removeEventListener('message', onMessage));
   }
 
+  /**
+   * worker 裡未捕捉的例外：交給一個連線中的分頁上報（SharedWorker 的錯誤分頁收不到）。
+   * 沒有分頁連著時丟掉：佇列只在有分頁時運作。
+   */
+  reportError(error: unknown): void {
+    const port = this.clients.values().next().value;
+    if (!port) return;
+    const detail =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            ...(error.stack ? { stack: error.stack } : {}),
+          }
+        : { name: 'Error', message: String(error) };
+    port.postMessage(tagMessage<BatchHostMessage>({ type: 'worker-error', ...detail }));
+  }
+
   /** 目前的工作（測試與除錯用）。 */
   getJobs(): readonly BatchJob[] {
     return this.jobs;

@@ -205,6 +205,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
                          │  /api/socket.io/ → api（Upgrade）│
                          │  /api/*          → api（去掉前綴）│
                          │  /storage/*      → file-storage（保留前綴）│
+                         │  /apm/api/<id>/envelope/ → apm-service（去掉前綴）│
                          └──────────────┬───────────────┘
                                         │ edge
                          ┌──────────────▼───────────────┐      ┌──────────────────────────┐
@@ -225,8 +226,9 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `migrate`  | `b2b-system-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
 | `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
-| `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy                     |
-| `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy |
+| `apm-service` | `apps/apm-service/Dockerfile` | 前端錯誤與 Web Vitals 的收件，模擬 Sentry API（[`07-apm-service.md`](./07-apm-service.md)）；`127.0.0.1:9100` 給上傳 sourcemap、查詢與 `/metrics` | — |
+| `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api、apm-service healthy        |
+| `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api、apm-service healthy |
 | `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)） | migrate 成功結束、file-storage healthy |
 | `external-gateway` | `nginxinc/nginx-unprivileged:1.30.5-alpine`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
 
@@ -394,6 +396,8 @@ nginx 的存取日誌與 api 的 pino 日誌每個請求一筆，不輪替會塞
 | 結構化日誌   | Pino（JSON）：HTTP 存取日誌與應用程式日誌（`new Logger(Xxx.name)`，進入點以 `app.useLogger()` 接上）共用同一個 Pino。請求內的每一筆都帶 `requestId`（與回應的 `x-request-id`、稽核紀錄相同），應用程式日誌另有 `context`（類別名稱），存取日誌另有 `req`／`res`／`responseTime`；背景工作的日誌沒有 `requestId`。等級：development `debug`、production `info`、test 靜音 |
 | 授權失敗     | 每一次 403 都寫入 `audit_logs`（`action = 'authz.denied'`），含缺少的權限鍵                                                                                       |
 | 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB ping ＋ 物件儲存 ping，失敗回 `degraded`）                                                                  |
+| 前端錯誤     | 兩個前端以 `@sentry/browser` 送到同源的 `/apm/`，由 `apps/apm-service`（模擬 Sentry API）存檔、以 sourcemap 還原堆疊；錯誤頁可「複製錯誤資訊」（事件 id 或 `requestId`、版本、頁面）。見 [`frontend/19-observability.md`](./frontend/19-observability.md)、[`07-apm-service.md`](./07-apm-service.md) |
+| 前端版本     | 產物帶 release（commit），每個請求帶 `x-client-release`，api 的存取日誌記成 `clientRelease` |
 
 ---
 

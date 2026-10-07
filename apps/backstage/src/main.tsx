@@ -6,6 +6,7 @@ import './index.css';
 
 import { MAIN_BACKEND } from '@b2b-system/web-core/client';
 import { hydratePreferences } from '@b2b-system/web-core/store';
+import { bindTelemetryRouter, telemetryRootOptions } from '@b2b-system/web-core/telemetry';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -32,6 +33,7 @@ import {
   httpContextPlugin,
   i18nPlugin,
   realtimePlugin,
+  telemetryPlugin,
   themePlugin,
 } from '@/plugins/app';
 import { tableColumnSettingsPlugin } from '@/plugins/features';
@@ -52,6 +54,18 @@ async function bootstrap(): Promise<void> {
   }
 
   const context = createAppContext()
+    // 錯誤回報最先：啟動過程中的錯誤也收得到（docs/architecture/frontend/19-observability.md）
+    .use(
+      telemetryPlugin({
+        app: 'backstage',
+        release: ENV.RELEASE,
+        environment: ENV.MODE,
+        dsn: ENV.APM_DSN,
+        projectId: ENV.APM_PROJECT_ID,
+        publicKey: ENV.APM_PUBLIC_KEY,
+        tracesSampleRate: ENV.APM_TRACES_SAMPLE_RATE,
+      }),
+    )
     // 基礎設施，必須最先（順序有隱含相依：httpContext 需要 cache 已建立）
     .use(cachePlugin())
     .use(eventBusPlugin())
@@ -103,11 +117,13 @@ async function bootstrap(): Promise<void> {
     .use(appContextPlugin());
 
   await context.load();
+  // 錯誤與 Web Vitals 以頁面的 path 樣板分組（不是帶 id 的網址）
+  bindTelemetryRouter(context.router);
 
   const container = document.querySelector('#root');
   if (!container) throw new Error('#root not found');
 
-  createRoot(container).render(
+  createRoot(container, telemetryRootOptions()).render(
     <StrictMode>
       <App context={context} />
     </StrictMode>,
