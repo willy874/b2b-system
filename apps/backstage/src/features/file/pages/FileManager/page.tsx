@@ -1,14 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
-
-import { selectionCapabilities, useFilePermission } from '../../hooks/useFilePermission';
-import { useFileUpload } from '../../hooks/useFileUpload';
-import { syncFileViewPreference, useFileViewPreferenceStore } from '../../preference';
-import type { CollectedUpload } from '../../upload/collectEntries';
 import { isFileItem } from './adapter';
-import type { BrowserItemVM } from './adapter';
 import { FileAccessRequestDialog } from './components/FileAccessRequestDialog';
 import { FileBatchProgress } from './components/FileBatchProgress';
 import { FileBreadcrumb } from './components/FileBreadcrumb';
@@ -28,72 +18,35 @@ import { FileShareDialog } from './components/FileShareDialog';
 import { FileTagDialog } from './components/FileTagDialog';
 import { FileToolbar } from './components/FileToolbar';
 import { canCreateIn } from './folderTree';
-import { useFileActions } from './useFileActions';
-import { useFileManagerItems } from './useFileManagerItems';
-import { useFileSearch } from './useFileSearch';
-import { useFileSelection } from './useFileSelection';
-import { draggedItemsOf, useItemDrag } from './useItemDrag';
-import { useRenameTarget } from './useRenameTarget';
+import { useFileManagerPage } from './useFileManagerPage';
+import { draggedItemsOf } from './useItemDrag';
 
+/** 檔案管理器（docs/architecture/frontend/12-file-manager.md）：狀態與流程在 `useFileManagerPage`，這裡只組裝畫面。 */
 export default function FileManagerPage() {
-  const preference = useFileViewPreferenceStore();
-  useEffect(syncFileViewPreference, []);
-  const nav = useFileSearch();
-  const { search, setFolder } = nav;
-  const folderId = search.folder;
-  const onMissingFolder = useCallback(() => setFolder(undefined, { replace: true }), [setFolder]);
-  // 預設位置是自己的個人資料夾（docs/rbac/07-resource-grants.md §12）：只在進入頁面時導一次，
-  // 之後點「所有檔案」仍能回到根目錄
-  const landed = useRef(Boolean(folderId));
-  const { filters, data, folders, items, locked } = useFileManagerItems({
+  const {
+    nav,
+    search,
     folderId,
-    keyword: search.keyword,
-    category: search.category,
-    tag: search.tag,
-    sort: preference.sort,
-    pagingMode: preference.pagingMode,
-    offset: search.offset,
-    pageSize: preference.pageSize,
-    onMissingFolder,
-  });
-  // 按鈕看後端的 capabilities：目前位置、選取的項目（docs/architecture/frontend/12-file-manager.md §13）
-  const permission = useFilePermission(folders.location);
-  const ids = useMemo(() => items.map((item) => item.id), [items]);
-  const { personalFolderId } = folders;
-  useEffect(() => {
-    if (landed.current || !personalFolderId) return;
-    landed.current = true;
-    setFolder(personalFolderId, { replace: true });
-  }, [personalFolderId, setFolder]);
-  const selection = useFileSelection(ids);
-  const selectedItems = items.filter((item) => selection.selected.has(item.id));
-  const selected = selectionCapabilities(selectedItems);
-  const [shareTarget, setShareTarget] = useState<{ id: string; name: string }>();
-  const [requestTarget, setRequestTarget] = useState<{ id: string; name: string }>();
-  const [tagTarget, setTagTarget] = useState<BrowserItemVM>();
-  const currentFolder = folderId ? folders.index.byId.get(folderId) : undefined;
-  const upload = useFileUpload({ enabled: permission.canUpload });
-  const actions = useFileActions();
-  const itemDrag = useItemDrag({
-    enabled: permission.canAccess,
-    folders: folders.index,
-    onMove: actions.dropItems,
-  });
-  const renameTarget = useRenameTarget(data.items);
-
-  const { clear } = selection;
-  // 換資料夾、換條件、換頁、換閱覽模式：原本的選取不在新的結果裡
-  useEffect(clear, [clear, filters, search.offset, preference.pagingMode]);
-
-  const onUpload = useCallback(
-    (collected: CollectedUpload, target?: string) => void upload(collected, target ?? folderId),
-    [folderId, upload],
-  );
-  const onOpen = (item: BrowserItemVM) =>
-    item.type === 'folder' ? setFolder(item.id) : nav.openPreview(item.id);
-  const hasFilters = Boolean(search.keyword || search.category || search.tag);
-  // 標籤篩選的選項（`file` 標籤組；進得了檔案管理器就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
-  const tags = useQuery(getTagListQueryOptions('file'));
+    preference,
+    data,
+    folders,
+    items,
+    locked,
+    permission,
+    currentFolder,
+    selection,
+    selectedItems,
+    selected,
+    dialogs,
+    actions,
+    itemDrag,
+    renameTarget,
+    onUpload,
+    onOpen,
+    hasFilters,
+    tags,
+  } = useFileManagerPage();
+  const { setFolder } = nav;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="file-manager-page">
@@ -103,7 +56,7 @@ export default function FileManagerPage() {
         keyword={search.keyword}
         category={search.category}
         tag={search.tag}
-        tags={tags.data?.items}
+        tags={tags}
         onFiltersChange={nav.setFilters}
         sort={preference.sort}
         onSortChange={(sort) => preference.update({ sort })}
@@ -116,7 +69,7 @@ export default function FileManagerPage() {
         canCreateFolder={permission.canCreateFolder}
         onCreateFolder={() => renameTarget.createFolder(folderId)}
         canShare={permission.canShare}
-        onShare={() => currentFolder && setShareTarget(currentFolder)}
+        onShare={() => dialogs.share(currentFolder)}
         onRefresh={() => {
           data.refetch();
           void folders.refetch();
@@ -128,7 +81,7 @@ export default function FileManagerPage() {
       {locked && currentFolder && (
         <FileLockedNotice
           pending={currentFolder.hasPendingAccessRequest}
-          onRequest={() => setRequestTarget(currentFolder)}
+          onRequest={() => dialogs.requestAccess(currentFolder)}
         />
       )}
       <FileBatchProgress />
@@ -148,10 +101,10 @@ export default function FileManagerPage() {
           onDownload={() => actions.download(selectedItems.filter(isFileItem))}
           onDelete={() => actions.requestDelete(selectedItems)}
           onRename={() => selectedItems[0] && renameTarget.rename(selectedItems[0])}
-          onTag={() => setTagTarget(selectedItems[0])}
+          onTag={() => dialogs.tag(selectedItems[0])}
           onMove={() => actions.requestMove(draggedItemsOf(selectedItems, folderId))}
-          onShare={() => selectedItems[0] && setShareTarget(selectedItems[0])}
-          onRequestAccess={() => selectedItems[0] && setRequestTarget(selectedItems[0])}
+          onShare={() => dialogs.share(selectedItems[0])}
+          onRequestAccess={() => dialogs.requestAccess(selectedItems[0])}
         />
       )}
 
@@ -222,9 +175,9 @@ export default function FileManagerPage() {
       />
       <FileRenameDialog file={renameTarget.file} onClose={renameTarget.closeFile} />
       <FileFolderDialog target={renameTarget.folderDialog} onClose={renameTarget.closeFolder} />
-      <FileShareDialog folder={shareTarget} onClose={() => setShareTarget(undefined)} />
-      <FileTagDialog item={tagTarget} onClose={() => setTagTarget(undefined)} />
-      <FileAccessRequestDialog folder={requestTarget} onClose={() => setRequestTarget(undefined)} />
+      <FileShareDialog folder={dialogs.shareTarget} onClose={dialogs.closeShare} />
+      <FileTagDialog item={dialogs.tagTarget} onClose={dialogs.closeTag} />
+      <FileAccessRequestDialog folder={dialogs.requestTarget} onClose={dialogs.closeRequest} />
       <FileMoveDialog
         items={actions.pendingMove}
         folders={folders.index}
