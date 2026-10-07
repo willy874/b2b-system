@@ -338,9 +338,15 @@ export const PasswordSchema = z
 複雜度規則已被證實會讓使用者選出更好猜的密碼（`Password1!`）。NIST SP 800-63B
 也已移除該建議。
 
-「常見密碼」（`isCommonPassword`）：洩漏清單裡長度 ≥ 12 的密碼幾乎都是「常見字根 ＋ 數字／年份／符號」或鍵盤排列，
-所以不放上萬筆的清單，而是列字根（`common-passwords.ts`），去掉前後的數字與符號、把替換字元換回字母
-（`P@ssw0rd2026!` → `password`）後比對；整串是重複片段或鍵盤／字母順序也算。
+「常見密碼」（`isCommonPassword`）有兩層：
+
+- **洩漏清單**（`common-password-list.ts`）：SecLists 的 `10k-most-common.txt`（MIT）轉小寫、去重、只留長度 ≥ 6 的約 7 700 筆。
+  整串、去掉頭尾符號、去掉尾端的數字與符號、去掉頭尾非字母、把替換字元換回字母、只留字母——任一個版本 **完全等於** 清單裡的一筆就算常見
+  （`Unbelievable`、`Jessica2026!!`、`M@tr1x2026!!`）。只比對長度 ≥ 6 的版本，避免剝成很短的片段後誤判。
+  清單是產生出來的檔案，更新時照檔頭的規則重新產生，不手改。
+- **字根**（`common-passwords.ts`）：洩漏清單裡長度 ≥ 12 的密碼幾乎都是「常見字根 ＋ 數字／年份／符號」或鍵盤排列，
+  清單本身比對不到這些變形；去掉前後的數字與符號、把替換字元換回字母（`P@ssw0rd2026!` → `password`）後比對字根；
+  整串是重複片段或鍵盤／字母順序也算。
 需要脈絡的規則在 service（`assertPasswordPolicy`）：租戶的最短長度（`auth.passwordMinLength`），
 以及密碼不能含 email 的帳號部分、網域名稱或租戶代碼（長度 ≥ 4 的片段）。錯誤形狀與 DTO 驗證相同
 （`VALIDATION_FAILED`，`fields.<欄位> = AUTH_PASSWORD_WEAK`）。

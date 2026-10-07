@@ -1,6 +1,7 @@
 import { hash, verify } from '@node-rs/argon2';
 import { z } from 'zod';
 
+import { COMMON_PASSWORD_LIST } from './common-password-list';
 import { WEAK_PASSWORD_ROOTS } from './common-passwords';
 
 /** OWASP Password Storage Cheat Sheet 的 Argon2id 建議值。 */
@@ -60,6 +61,17 @@ const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   '1qaz2wsx3edc',
 ]);
 
+/** SecLists 的常見密碼（長度 ≥ 6，小寫）：整串或剝掉前後綴之後完全相同就算常見。 */
+const LEAKED_PASSWORDS: ReadonlySet<string> = new Set(
+  COMMON_PASSWORD_LIST.split('\n').filter(Boolean),
+);
+/** 比對洩漏清單的最短長度：與清單的下限一致，避免剝成很短的片段後誤判。 */
+const MIN_LEAKED_LENGTH = 6;
+
+function isLeaked(candidate: string): boolean {
+  return candidate.length >= MIN_LEAKED_LENGTH && LEAKED_PASSWORDS.has(candidate);
+}
+
 /** 鍵盤列與字母順序：整串（或整串反過來）是它們的連續片段就算弱。 */
 const SEQUENCES = ['qwertyuiopasdfghjklzxcvbnm', 'abcdefghijklmnopqrstuvwxyz', '01234567890'];
 
@@ -100,8 +112,9 @@ function isWeakRoot(letters: string): boolean {
 }
 
 /**
- * 常見密碼：在清單裡、整串是重複或連續的字元，或是「常見字根 ＋ 數字／年份／符號」
- * （`Password12345`、`Company2026!!`、`P@ssw0rd2026!`）。docs/architecture/backend/04-auth.md §4.2。
+ * 常見密碼：在清單裡（含 SecLists 的 top 10k，剝掉前後綴後比對）、整串是重複或連續的字元，
+ * 或是「常見字根 ＋ 數字／年份／符號」（`Password12345`、`Company2026!!`、`P@ssw0rd2026!`）。
+ * docs/architecture/backend/04-auth.md §4.2。
  */
 export function isCommonPassword(password: string): boolean {
   const lower = password.toLowerCase();
@@ -115,6 +128,10 @@ export function isCommonPassword(password: string): boolean {
     .join('')
     .replace(/[^a-z]/g, '');
   const letters = lower.replace(/[^a-z]/g, '');
+  // 清單裡的密碼本身常含數字（`abc123456`），所以另外比對只剝掉頭尾符號、或只剝掉尾端數字與符號的版本
+  const trimmed = lower.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+  const withoutSuffix = lower.replace(/[^a-z]+$/, '');
+  if ([lower, trimmed, withoutSuffix, core, unleet, letters].some(isLeaked)) return true;
   return isWeakRoot(unleet) || isWeakRoot(letters);
 }
 

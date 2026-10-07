@@ -1,7 +1,7 @@
 /**
- * 弱密碼的「字根」：常見密碼洩漏清單（SecLists 的 top 10k 等）裡長度 ≥ 12 的密碼，絕大多數是
- * 「常見字根 ＋ 數字／年份／符號」或鍵盤排列。與其放一份上萬筆的清單，這裡列字根，
- * 由 `isCommonPassword` 去掉前後綴後比對（docs/architecture/backend/04-auth.md §4.2）。
+ * 弱密碼的「字根」：常見密碼洩漏清單裡長度 ≥ 12 的密碼，絕大多數是「常見字根 ＋ 數字／年份／符號」或鍵盤排列。
+ * 清單本身（`common-password-list.ts`）只能比對完全相同的字串；這裡列字根，由 `isCommonPassword`
+ * 去掉前後綴、換回替換字元後比對，涵蓋清單沒列到的變形（docs/architecture/backend/04-auth.md §4.2）。
  *
  * 全部小寫；只放字母，數字與符號在比對前會被剝掉。
  */
