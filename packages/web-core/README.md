@@ -29,7 +29,10 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`ChangePasswordSection`＋`useChangePasswordForm`（個人資料頁的變更密碼；mutation options 由 app 傳入，狀態留在頁面以便合併未儲存提醒）、`PASSWORD_MIN_LENGTH`／`PASSWORD_MAX_LENGTH`、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
 | `errors` | `AppError`、`ErrorCodes`、`ERROR_MESSAGE_KEY`、`useErrorMessage()` 等 |
 | `job` | 背景工作的 `JobTable`（`extraColumns` 給 apps/platform 的租戶欄、`onRetryJob`、`renderDetail` 由 app 傳入）、`JobQueueSummary`、`JobRowActions`、`JobDetailView`（JSON 的呈現由 app 傳入）；狀態的清單、語系鍵與色調；view model 型別 |
-| `layout` | 登入後的外框 `DashboardShell`（側欄、頂列、帳號選單；品牌、選單資料與帳號選單的項目由 app 傳入）與分組側欄 `SideNav`；頂列：`HeaderToolbar`、`ThemeMenu`、`LanguageMenu`（`onChange` 由 app 傳入）、`RealtimeStatusIndicator`；偏好頁的 `HeaderToolbarSettings`；選單型別 |
+| `command-palette` | 命令面板（⌘K）：`CommandPalette`、搜尋提供者與動作的註冊表（`registerSearchProvider`、`registerPaletteCommand`）、最近造訪、`registerCommandPalette()`（快捷鍵與頂列的搜尋按鈕，app 在 `app/plugin.ts` 呼叫）；見 [`docs/architecture/frontend/18-command-palette.md`](../../docs/architecture/frontend/18-command-palette.md) |
+| `hotkey` | 全域快捷鍵：`registerHotkey`（同一個實際組合重複登記丟例外）、`useGlobalHotkeys`（`DashboardShell` 掛一次）、`formatHotkey` |
+| `layout` | 登入後的外框 `DashboardShell`（側欄、頂列、帳號選單、命令面板與全域快捷鍵；品牌與帳號選單的動作由 app 傳入，頁面來自 `navigation`）與分組側欄 `SideNav`；頂列：`HeaderToolbar`、`ThemeMenu`、`LanguageMenu`（`onChange` 由 app 傳入）、`RealtimeStatusIndicator`；偏好頁的 `HeaderToolbarSettings`；選單型別 |
+| `navigation` | 選單註冊表：app 登記分類（`registerNavGroup`）、feature 登記頁面的入口（`registerNavItem`，側欄或帳號選單）；`useNavigation`；也是命令面板「頁面」的來源 |
 | `locales` | i18n、scope loader、`useTranslation`、Zod 錯誤訊息、`CORE_LOCALES` 與合併工具 |
 | `notify` | `useToast()` |
 | `permission` | 權限的機制：hooks、頁面權限註冊表、`evaluateAccess`、`buildPermissionKey`；權限目錄由 app 登記（下方） |
@@ -63,7 +66,7 @@ export { PermissionResource } from './resources';
 
 **plugin 屬性**：擴充 `AppPluginProperties` 時指向定義的檔案 `@b2b-system/web-core/app/context`（指向 `/app` 的 index 不會合併）。
 
-**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）；
+**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）；
 app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`，兩者深層合併、app 的鍵優先。
 測試由 app 的 `src/test/i18n.ts` 包一層 `initTestI18n(zhTW, …)`。
 

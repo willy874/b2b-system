@@ -8,4 +8,10 @@ import { FileListRoute } from './routes/pages';
  */
 export function registerFileRouteLinks(): void {
   registerRouteLink('file.folder', { route: FileListRoute, search: { folder: 'folderId' } });
+  // 命令面板的檔案搜尋：打開檔案所在的資料夾並預覽它（根目錄的檔案沒有資料夾參數，所以分成兩個 id）
+  registerRouteLink('file.preview', { route: FileListRoute, search: { preview: 'fileId' } });
+  registerRouteLink('file.folderPreview', {
+    route: FileListRoute,
+    search: { folder: 'folderId', preview: 'fileId' },
+  });
 }

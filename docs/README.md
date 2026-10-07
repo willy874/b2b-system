@@ -105,7 +105,9 @@ docs/
 │   │   ├── 13-trash.md                回收桶頁：類型註冊表、權限、使用者、角色、檔案與資料夾的還原
 │   │   ├── 14-revisions.md            版本紀錄：版本列表、與目前或前一版的差異、還原到某一版（角色）
 │   │   ├── 15-notification.md         站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表（web-core/route-link）、事件管理頁
-│   │   └── 16-announcement.md         公告：列表、建立、詳情與發送紀錄、收件人看全文
+│   │   ├── 16-announcement.md         公告：列表、建立、詳情與發送紀錄、收件人看全文
+│   │   ├── 17-shared-packages.md      兩個前端共用的 packages：分層、程式放哪、app 怎麼接上 web-core
+│   │   └── 18-command-palette.md      命令面板（⌘K）：頁面、最近造訪、資料搜尋、動作；選單註冊表；全域快捷鍵
 │   │
 │   └── backend/
 │       ├── README.md

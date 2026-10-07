@@ -2,11 +2,13 @@ import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { PERMISSION_LOCALE_SCOPE } from './locale';
+import { registerPermissionNavigation } from './navigation';
 import { registerPermissionPagePermissions } from './permission';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     registerPermissionPagePermissions();
+    registerPermissionNavigation(); // 側欄與命令面板的入口
     const app = context.getInstance();
 
     return {

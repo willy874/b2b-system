@@ -116,7 +116,7 @@ declare module '@b2b-system/web-core/app/context' {
 
 ### 3.3 全域語系包（合併）
 
-web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）。
+web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）。
 app 的 `src/app/locales/*.json` 只放自己的區段（`menu`、`app`、`permission`…）與少數覆寫。
 
 app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlugin({ locales })`，兩者以 `mergeLocaleImporters` 深層合併，**app 的鍵優先**。
@@ -131,7 +131,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 | `i18nPlugin`（`web-core/plugins/app`） | `locales` | §3.3 |
 | `DocumentTitle`（`web-core/shell`） | `router`、`appNameKey` | 與 `SessionWatcher` 一樣放在 `RouterProvider` 之外；產品名各 app 不同（backstage `app.title`、apps/platform `app.documentTitle`） |
 | `SessionWatcher`（`web-core/shell`） | `router`、`loginPath`、`isPublic` | 登入頁的路徑與不需要 session 的頁面各 app 不同（`app/sessionRedirect.ts`）；導向登入頁的參數（`loginSearchAfterSessionEnd`）兩個 app 相同，在 web-core。權限水合等 app 的同步 hook 不當參數傳（React 不允許把 hook 當成值傳遞），由 `app/App.tsx` 的 `ProfileSync` 元件呼叫 |
-| `DashboardShell`（`web-core/layout`） | `brand`、`navTopItems`、`navGroups`、`userName`、`accountPages`、`accountActions`、`afterContent` | 選單只有 app 認識所有 feature；品牌下方那一行與帳號選單的項目各 app 不同（`app/layouts/DashboardLayout.tsx`、`navigation.ts`） |
+| `DashboardShell`（`web-core/layout`） | `brand`、`userName`、`accountActions`、`afterContent` | 品牌下方那一行與帳號選單的動作各 app 不同（`app/layouts/DashboardLayout.tsx`）；側欄與帳號選單的頁面不是參數，由 feature 登記到選單註冊表（[`18-command-palette.md`](./18-command-palette.md) §2） |
 | `ForbiddenPage` 等錯誤頁（`web-core/components`） | `variant` | 兩個 app 原本的外觀不同：backstage `centered`（預設）、apps/platform `compact`（`app/ErrorPages.tsx`） |
 | `AuthShell`（`web-core/components`） | `brand` | 產品名是 app 的 `app.title`；各 app 的 `pages/AuthShell.tsx` 包一層傳入 |
 | `useChangePasswordForm`（`web-core/components`） | `mutationOptions` | 端點不同（`/auth/*`、`/platform/auth/*`）；狀態留在頁面，未儲存提醒才能與其他表單合成一個 |
@@ -175,7 +175,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 | `core/permission/{enums,resources}.ts` | 租戶的權限目錄 vs 平台的權限目錄 | 權限機制（§3.1） |
 | `apis/auth/*` | backstage 打 `/auth/*`，apps/platform 打 `/platform/auth/*`（同樣結構） | `client`、`auth` |
 | `app/App.tsx`、`app/sessionRedirect.ts` | 登入頁的路徑與不需要 session 的頁面（`isPublic`） | `shell` 的 `SessionWatcher`（清除資料、導向登入頁且不自動跳回 IdP，[`../04-sso.md`](../04-sso.md) §12.2 D5）與 `loginSearchAfterSessionEnd` |
-| `app/layouts/`（`DashboardLayout.tsx`、`navigation.ts`、`headerTools.ts`） | 選單資料、品牌下方那一行（backstage 是目前租戶、apps/platform 是「平台」）、帳號選單的項目（切換租戶／進入租戶）、頂列工具 | `layout` 的 `DashboardShell`、`SideNav`（樣式是 CSS Module） |
+| `app/layouts/`（`DashboardLayout.tsx`、`headerTools.ts`）、`core/navigation/` | 側欄的分類（頁面的入口由 feature 登記）、品牌下方那一行（backstage 是目前租戶、apps/platform 是「平台」）、帳號選單的項目（切換租戶／進入租戶）、頂列工具 | `layout` 的 `DashboardShell`、`SideNav`（樣式是 CSS Module） |
 | `app/ErrorPages.tsx`（apps/platform） | 錯誤頁的版面 `compact`、載入中用 spinner（backstage 直接用 web-core 的預設） | `components` 的錯誤頁、`isChunkLoadError` |
 | `features/auth`、`features/login` | SSO client、登入頁的語系鍵（`sessionEnd.ts` 只剩語系鍵的表）、`AuthShell` 的產品名 | `auth` 的 `sessionEndMessageKey`、`LOGOUT_REASON`、`PASSWORD_CHANGED_REASON`；`components` 的 `AuthShell` |
 | `features/account` | 個人資料打不同的端點、資料形狀不同（user／admin）；偏好是否同步到帳號 | `components` 的 `ChangePasswordSection`／`useChangePasswordForm`、`preference` 的分頁 |

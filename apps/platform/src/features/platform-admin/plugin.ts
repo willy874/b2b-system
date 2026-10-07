@@ -2,6 +2,7 @@ import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { PLATFORM_ADMIN_LOCALE_SCOPE } from './locale';
+import { registerPlatformAdminNavigation } from './navigation';
 import { registerPlatformAdminPagePermissions } from './permission';
 import { registerPlatformAdminPreferences } from './preference';
 
@@ -9,6 +10,7 @@ export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──
     registerPlatformAdminPagePermissions();
+    registerPlatformAdminNavigation(); // 側欄與命令面板的入口
     registerPlatformAdminPreferences(); // 偏好頁的列表註冊表
     const app = context.getInstance();
 

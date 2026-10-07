@@ -359,6 +359,9 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | 偏好分頁／列表 | `web-core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
 | 回收桶類型 | `core/trash/registry.ts`（backstage） | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
 | 頂列工具 | `web-core/toolbar/registry.ts` | `app/plugin.ts` 或 feature（例：`features/notification` 的鈴鐺） | `useHeaderTools` |
+| 選單（側欄的分類、頁面的入口） | `web-core/navigation/registry.ts` | 分類：app 的 `core/navigation`（`app/plugin.ts` 呼叫）；入口：擁有頁面的 feature 的 `navigation.ts` | `useNavigation`（`DashboardShell`、命令面板；[`18-command-palette.md`](./18-command-palette.md) §2） |
+| 命令面板的資料搜尋、動作 | `web-core/command-palette/registry.ts` | feature 的 `search.ts` | 命令面板（[`18-command-palette.md`](./18-command-palette.md) §3、§4） |
+| 全域快捷鍵 | `web-core/hotkey/registry.ts` | `registerCommandPalette()` 等 web-core 的模組、app | `useGlobalHotkeys`（`DashboardShell`；[`18-command-palette.md`](./18-command-palette.md) §5） |
 | route id（跨 feature 與後端存的連結） | `web-core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `<RouteLink>`、`useRouteLinkAccess`、`useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3、[`03-feature-anatomy.md`](./03-feature-anatomy.md) §4.1） |
 | 批次操作 | `web-core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
 | 檔案預覽／驗證／縮圖 | `core/file/registry.ts`（backstage） | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |
@@ -400,7 +403,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 2. feature 的 `plugin.ts` 改回傳 `AppDynamicPluginFactory`（**不能** 有 `attrs`）。
 3. 最上層 route 加 `beforeLoad: requireFeature(<ID>)`，`<ID>` 以常數從 `routes/pages.ts` 匯出。
 4. `main.tsx` 拿掉它的 `.use()`，加進 `FEATURE_CATALOG`。
-5. 側邊選單不用改：未註冊的頁面 `usePageAccessChecker` 回 `false`，項目自動隱藏。
+5. 側邊選單不用改：入口由 feature 的 `navigation.ts` 在 plugin 裡登記，卸載時跟著撤回（[`18-command-palette.md`](./18-command-palette.md) §2）。
 6. `app/__tests__/features.test.ts` 的 `EXPECTED_PAGES` 加一列。
 
 feature 被停用時：目前頁面屬於它就先導向首頁並 toast（`ignoreBlocker`），再卸載；

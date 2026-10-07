@@ -1,5 +1,11 @@
 import { createAppContext } from '@b2b-system/web-core/app';
 import { resetBatchOperations } from '@b2b-system/web-core/batch';
+import {
+  paletteCommandRegistry,
+  resetCommandPaletteRegistry,
+  searchProviderRegistry,
+} from '@b2b-system/web-core/command-palette';
+import { navItemRegistry, resetNavigationRegistry } from '@b2b-system/web-core/navigation';
 import { getPreferenceTables, resetPreferenceRegistry } from '@b2b-system/web-core/preference';
 import { resetRouteLinkRegistry, routeLinkRegistry } from '@b2b-system/web-core/route-link';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -55,6 +61,8 @@ describe('可啟用 feature 的 catalog', () => {
     resetBatchOperations();
     resetFileRegistry();
     resetRouteLinkRegistry();
+    resetNavigationRegistry();
+    resetCommandPaletteRegistry();
     // 上一個案例最後重新安裝的 feature 沒有卸載：它登記的回收桶類型、route id 要清掉
     resetTrashRegistry();
   });
@@ -68,18 +76,24 @@ describe('可啟用 feature 的 catalog', () => {
       const name = await context.install(definition.plugin);
       expect(new Set(getRegisteredPageKeys())).toEqual(new Set(pages));
 
+      // 側欄與命令面板的入口只指向自己的頁面
+      expect(pages).toEqual(expect.arrayContaining(navItemRegistry.keys()));
+
       context.uninstall(name);
       expect(getRegisteredPageKeys()).toEqual([]);
       expect(getPreferenceTables()).toEqual([]);
+      expect(navItemRegistry.keys()).toEqual([]);
+      expect(searchProviderRegistry.keys()).toEqual([]);
+      expect(paletteCommandRegistry.keys()).toEqual([]);
 
       await expect(context.install(definition.plugin)).resolves.toBe(name);
     },
   );
 
-  it('file：安裝後登記 route id file.folder（通知連到資料夾），卸載後撤回——連結變成不可點（docs/architecture/backend/15-notification.md §12.2 D3）', async () => {
+  it('file：安裝後登記 route id file.folder（通知連到資料夾）與命令面板的預覽連結，卸載後撤回——連結變成不可點（docs/architecture/backend/15-notification.md §12.2 D3）', async () => {
     const context = createContext();
     const name = await context.install(FEATURE_CATALOG.file.plugin);
-    expect(routeLinkRegistry.keys()).toEqual(['file.folder']);
+    expect(routeLinkRegistry.keys()).toEqual(['file.folder', 'file.preview', 'file.folderPreview']);
 
     context.uninstall(name);
     expect(routeLinkRegistry.keys()).toEqual([]);

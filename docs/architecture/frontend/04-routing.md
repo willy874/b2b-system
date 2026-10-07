@@ -361,17 +361,17 @@ feature。
 
 ## 9. 側邊選單如何依權限過濾
 
-```tsx
-// app/layouts/navigation.ts：選單資料（只有 app 認識所有 feature）
-const NAV_TOP_ITEMS: SideNavItem[] = [{ pageKey: HOME_PAGE, to: "/", labelKey: "menu.home", icon: "home" }];
+```ts
+// app/plugin.ts → core/navigation：分類由 app 登記（版面是組裝層的決定）
+registerNavGroup({ key: 'people', labelKey: 'menu.group.people', testId: 'menu-group-people', order: 200 });
 
-const NAV_GROUPS: SideNavGroup[] = [
-  { key: "feature", labelKey: "menu.group.feature", items: [/* 檔案 */] },
-  { key: "people", labelKey: "menu.group.people", items: [/* 使用者、角色、權限目錄 */] },
-  { key: "system", labelKey: "menu.group.system", items: [/* 稽核日誌、審批、背景工作、外部 IdP */] },
-];
+// features/user/navigation.ts：頁面的入口由擁有它的 feature 在 plugin 的同步階段登記
+registerNavItem({
+  pageKey: USER_PAGE, to: '/user', labelKey: 'menu.user', testId: 'menu-user', icon: 'users',
+  group: NavGroupKey.PEOPLE, order: 100,
+});
 
-// web-core/layout/SideNav.tsx：渲染與權限過濾，兩個 app 共用（由 DashboardShell 掛上）
+// web-core/layout/SideNav.tsx：渲染與權限過濾，兩個 app 共用（DashboardShell 以 useNavigation() 讀註冊表）
 function useMenuGroups(groups: SideNavGroup[]) {
   const { hydrated, canAccessPage } = usePageAccessChecker();
   return useMemo(
@@ -401,5 +401,7 @@ function useMenuGroups(groups: SideNavGroup[]) {
 
 **未水合時回空陣列**，而不是顯示全部再消失——那個閃爍會洩漏「系統裡有哪些頁面」。
 
-`MENU` 這張表是 `app/` 層唯一知道所有 feature 的地方，這是可接受的：它本來就是
-組裝層。pageKey 從各 feature 的 `permission.ts` import。
+選單沒有靜態表：分類由 app 的 `core/navigation`（`registerNavGroups()`，在 `app/plugin.ts` 呼叫）登記，
+頁面的入口由各 feature 的 `navigation.ts` 以 `registerNavItem()` 登記，帳號選單的頁面（個人資料、偏好設定）同樣登記、`placement: 'account'`。
+可啟用的 feature 卸載時入口跟著撤回。同一份註冊表也是命令面板的「頁面」與「最近造訪」的來源；
+機制與完整性測試見 [`18-command-palette.md`](./18-command-palette.md) §2。

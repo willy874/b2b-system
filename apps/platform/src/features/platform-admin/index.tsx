@@ -6,3 +6,4 @@ Routes.PlatformAdminListRoute.update({ component: Pages.AsyncPlatformAdminListPa
 export { Routes };
 export { PLATFORM_ADMIN_PAGE, registerPlatformAdminPagePermissions } from './permission';
 export { appContextPlugin as platformAdminFeaturePlugin } from './plugin';
+export { registerPlatformAdminNavigation } from './navigation';

@@ -6,3 +6,4 @@ Routes.TagListRoute.update({ component: Pages.AsyncTagListPage });
 export { Routes };
 export { registerTagPagePermissions, TAG_PAGE } from './permission';
 export { appContextPlugin as tagFeaturePlugin } from './plugin';
+export { registerTagNavigation } from './navigation';

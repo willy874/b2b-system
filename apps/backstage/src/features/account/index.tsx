@@ -9,3 +9,4 @@ export { useChangeLocale } from './hooks/useChangeLocale';
 export { useSyncAccountPreferences } from './hooks/useSyncAccountPreferences';
 export { PREFERENCE_PAGE, PROFILE_PAGE, registerAccountPagePermissions } from './permission';
 export { appContextPlugin as accountFeaturePlugin } from './plugin';
+export { registerAccountNavigation } from './navigation';

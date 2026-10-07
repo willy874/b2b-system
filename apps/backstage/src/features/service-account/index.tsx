@@ -12,3 +12,4 @@ export {
   SERVICE_ACCOUNT_PAGE,
 } from './permission';
 export { appContextPlugin as serviceAccountFeaturePlugin } from './plugin';
+export { registerServiceAccountNavigation } from './navigation';

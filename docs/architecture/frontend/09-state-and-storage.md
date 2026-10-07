@@ -183,6 +183,7 @@ interface DictStorage {
 | 「不要再顯示這個提示」的旗標                       | 權限集合（每次重新取得） |
 | Refresh Token 的 **傳輸方式標記**（非 token 本身） | 任何伺服器資料的複本     |
 | 跨分頁 leader 選舉的任期 counter（`b2b-system:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
+| 命令面板「最近造訪」的 page key（不存名稱，[18 §3.3](./18-command-palette.md)） |                          |
 
 ### 4.3 Token 的儲存
 

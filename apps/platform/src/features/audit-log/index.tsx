@@ -6,3 +6,4 @@ Routes.AuditLogListRoute.update({ component: Pages.AsyncAuditLogListPage });
 export { Routes };
 export { AUDIT_LOG_PAGE, registerAuditLogPagePermissions } from './permission';
 export { appContextPlugin as auditLogFeaturePlugin } from './plugin';
+export { registerAuditLogNavigation } from './navigation';

@@ -18,10 +18,15 @@ const sources = import.meta.glob<string>(
   { eager: true, query: '?raw', import: 'default' },
 );
 
-/** `<RouteLink … to=` 或 `useRouteLinkAccess(` 之後的第一個字元：必須是引號（完整字面量）。 */
+/**
+ * `<RouteLink … to=` 或 `useRouteLinkAccess(` 之後的第一個字元：必須是引號（完整字面量）。
+ * 第三條收集以字面量寫成、格式像 route id 的連結物件（命令面板搜尋結果的 `{ route: 'user.detail', params }`），
+ * 只檢查 id 有沒有登記；`registerRouteLink` 的 `{ route: UserDetailRoute }`、稽核的 `{ route: 'GET /users' }` 不會被收進來。
+ */
 const USAGE_PATTERNS = [
   /<RouteLink\b[\s\S]*?\sto=(.)([^"'\s]*)/g,
   /useRouteLinkAccess\(\s*(.)([^"'\s,]*)/g,
+  /\{\s*route:\s*(['"])([a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+)\1/g,
 ];
 
 interface Usage {

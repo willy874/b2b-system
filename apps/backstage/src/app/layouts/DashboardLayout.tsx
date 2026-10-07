@@ -12,7 +12,6 @@ import { useLogoutMutation } from '@/features/auth';
 import { ENV } from '@/shared/constants/env';
 
 import { TENANT_SWITCH_FEATURE } from '../features';
-import { ACCOUNT_PAGES, NAV_GROUPS, NAV_TOP_ITEMS } from './navigation';
 
 /**
  * 換租戶＝換網域：回到 apps/platform 的「進入租戶」輸入代碼（docs/architecture/05-tenancy.md §10.2 D11）。
@@ -48,10 +47,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         // 目前在哪個租戶：同時管理多個租戶的人才不會在錯的地方刪人
         context: tenantName ? { label: tenantName, testId: 'current-tenant' } : undefined,
       }}
-      navTopItems={NAV_TOP_ITEMS}
-      navGroups={NAV_GROUPS}
       userName={profile.data?.user.displayName ?? ''}
-      accountPages={ACCOUNT_PAGES}
       accountActions={[
         ...switchTenant,
         { key: 'logout', label: t('menu.logout'), tone: 'danger', onSelect: () => logout.mutate() },

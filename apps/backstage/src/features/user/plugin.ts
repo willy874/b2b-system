@@ -3,14 +3,18 @@ import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { registerUserBatchOperations } from './batch';
 import { USER_LOCALE_SCOPE } from './locale';
+import { registerUserNavigation } from './navigation';
 import { registerUserPagePermissions } from './permission';
 import { registerUserPreferences } from './preference';
 import { registerUserRouteLinks } from './routeLinks';
+import { registerUserSearch } from './search';
 import { registerUserTrashType } from './trash';
 
 export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     registerUserPagePermissions();
+    registerUserNavigation(); // 側欄與命令面板的入口
+    registerUserSearch(); // 命令面板的資料搜尋與動作
     registerUserPreferences(); // 偏好頁的列表註冊表
     registerUserBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行
     registerUserTrashType(); // 回收桶的「使用者」分頁

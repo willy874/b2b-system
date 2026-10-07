@@ -40,6 +40,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-02 | Webhook；標籤；公告與排程通知；feature 參數（配額）；ADR 併入各規格 | [`backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) |
 | 10-03 | 平台後台改用 backstage 的外框與頁面，加上個人帳號頁、即時推播與站內通知 | [`apps/platform/README.md`](../../apps/platform/README.md) |
 | 10-04 | `apps/auth` 改名 `apps/platform`；功能導覽與截圖劇本 | [`05-feature-tour.md`](./05-feature-tour.md) |
+| 10-07 | 命令面板（⌘K）、側欄改由 feature 登記的選單註冊表、全域快捷鍵 | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
 
 ### 2.1 推翻過的決定
 

@@ -19,7 +19,6 @@
 | --- | --- | --- | --- | --- |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
-| P2 | 全域搜尋 | [`global-search.md`](./global-search.md) | 提案 | — |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
 | P3 | 權限圖（ReBAC）：專案（G5） | [`permission-graph.md`](./permission-graph.md) | 提案（G0～G4b 已上 main 並歸檔；G5 等專案功能） | 專案功能 |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
@@ -40,6 +39,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `global-search`（命令面板 ⌘K、選單註冊表、全域快捷鍵）：[`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) §7
 - `announcements`（通知總覽、公告的立即／指定時間／週期／事件點發送、撤回）：[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)
 - `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7
 - `webhooks`（對外事件、訂閱、投遞與重試、簽章、SSRF 綁定位址）：[`backend/17-webhook.md`](../architecture/backend/17-webhook.md) §9

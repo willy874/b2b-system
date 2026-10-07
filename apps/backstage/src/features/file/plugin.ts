@@ -9,9 +9,11 @@ import {
 
 import { registerFileBatchOperations } from './batch';
 import { FILE_LOCALE_SCOPE } from './locale';
+import { registerFileNavigation } from './navigation';
 import { registerFilePagePermissions } from './permission';
 import { registerBuiltinFilePreviewers } from './preview/builtins';
 import { registerFileRouteLinks } from './routeLinks';
+import { registerFileSearch } from './search';
 import { registerFileTrashTypes } from './trash';
 import {
   clearUploadSourcesOnSessionEnd,
@@ -24,6 +26,8 @@ import { imageSignatureValidator, maxSizeValidator } from './upload/validators';
 export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     registerFilePagePermissions();
+    registerFileNavigation(); // 側欄與命令面板的入口
+    registerFileSearch(); // 命令面板的檔案搜尋
     // 批次佇列的操作：任何分頁都可能被交派執行（包括接手別的分頁排隊中的上傳）
     registerFileBatchOperations();
     registerFileTrashTypes(); // 回收桶的「檔案」「資料夾」分頁

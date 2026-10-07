@@ -9,6 +9,8 @@ features/role/
 ├── index.tsx                  ★ 對外唯一入口：綁定元件、匯出 Routes 與 plugin
 ├── plugin.ts                  ★ AppContext plugin factory
 ├── permission.ts              ★ 頁面權限宣告與註冊
+├── navigation.ts              （有選單入口時）側欄或帳號選單的入口，也是命令面板的「頁面」（18-command-palette.md §2）
+├── search.ts                  （選用）命令面板的資料搜尋與動作（18-command-palette.md §4）
 ├── locale.ts                  語系 scope 名稱常數
 ├── routeLinks.ts              （選用）把自己的頁面登記成 route id，供別的 feature 與後端連結
 ├── preference.ts              （選用）往偏好頁註冊分頁
@@ -84,7 +86,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | 匯出 | 誰用 | 必要 |
 | --- | --- | --- |
 | `Routes`、`<name>FeaturePlugin` | `app/routes.tsx` 組 route tree、`main.tsx`（或 `app/features.ts` 的可啟用 feature 目錄）安裝 plugin | 🔒 每個 feature 都要有（`layer-dependencies.test.ts`） |
-| 頁面鍵與註冊函式（`ROLE_PAGE`、`registerRolePagePermissions`） | 選單（`app/layouts/`）、完整性測試（`core/permission/__tests__/feature-registration.test.ts`） | 有頁面權限的 feature |
+| 頁面鍵與註冊函式（`ROLE_PAGE`、`registerRolePagePermissions`、`registerRoleNavigation`） | 完整性測試（`core/permission/__tests__/feature-registration.test.ts`）、外框的測試（`app/layouts/__tests__/`） | 有頁面權限的 feature |
 | 可啟用 feature 的代碼（`FILE_FEATURE`） | `app/features.ts` 的目錄（[02 §9](./02-plugin-system.md)） | 可關閉的 feature |
 | app 組裝需要的 hook 與常數（auth 的 `useSyncPermissions`、`useLogoutMutation`，account 的 `useChangeLocale`） | `app/App.tsx`、`app/layouts/` | 視需要 |
 
@@ -388,6 +390,7 @@ apps/backstage/src/features/session/
 ├── index.tsx
 ├── plugin.ts
 ├── permission.ts
+├── navigation.ts
 ├── locale.ts
 ├── routes/{index.ts,pages.ts,model.ts}
 ├── pages/{index.tsx,SessionList/page.tsx}
@@ -403,11 +406,13 @@ apps/backstage/src/features/session/
 | 2    | `routes/model.ts`               | search 參數的 Zod schema                                 |
 | 3    | `routes/pages.ts`               | `SessionListRoute`（`path: '/session'`，直掛 RootRoute） |
 | 4    | `permission.ts`                 | `SESSION_PAGE` ＋ `registerSessionPagePermissions()`     |
-| 5    | `plugin.ts`                     | 同步呼叫註冊；`onInit` 掛語系包                          |
-| 6    | `hooks/useSessionPermission.ts` | 權限 facade                                              |
-| 7    | `pages/SessionList/page.tsx`    | 頁面                                                     |
-| 8    | `pages/index.tsx`               | `lazyRouteComponent` 匯出                                |
-| 9    | `index.tsx`                     | `.update({ component })` ＋ 對外匯出                     |
+| 5    | `navigation.ts`                 | `registerSessionNavigation()`：側欄的入口（分類用 `@/core/navigation` 的 `NavGroupKey`） |
+| 6    | `search.ts`（選用）             | `registerSessionSearch()`：命令面板的資料搜尋、動作      |
+| 7    | `plugin.ts`                     | 同步呼叫註冊；`onInit` 掛語系包                          |
+| 8    | `hooks/useSessionPermission.ts` | 權限 facade                                              |
+| 9    | `pages/SessionList/page.tsx`    | 頁面                                                     |
+| 10   | `pages/index.tsx`               | `lazyRouteComponent` 匯出                                |
+| 11   | `index.tsx`                     | `.update({ component })` ＋ 對外匯出                     |
 
 ### Step 5 — 接上 app
 
@@ -427,16 +432,14 @@ apps/backstage/src/features/session/
   ]);
 ```
 
-```diff
-// app/layouts/navigation.ts — 選單
-+ { pageKey: SESSION_PAGE, to: SessionRoutes.SessionListRoute.to,
-+   labelKey: 'menu.session', icon: DeviceIcon },
-```
+選單不用改 `app/`：`navigation.ts` 在 plugin 裡登記入口（[`18-command-palette.md`](./18-command-palette.md) §2）。
+入口的名稱（`menu.session`）放 app 的全域語系包（`app/locales/*.json`），側欄與命令面板在任何頁面都要讀得到。
 
 ### Step 6 — 驗收清單
 
 - [ ] `pnpm typecheck` 通過
 - [ ] `core/permission/registry.test.ts` 通過（新 page key 已被涵蓋）
+- [ ] `app/__tests__/navigation.test.ts` 通過（入口的分類存在、路徑落在宣告的頁面上）
 - [ ] 無權限的使用者看不到選單項，直接打網址也進不去（顯示 403 頁）
 - [ ] 語系包在進入 `/session` 時才被下載（Network 面板確認）
 - [ ] 註解掉 `main.tsx` 那一行後，app 仍能正常啟動（只是少了這個功能）

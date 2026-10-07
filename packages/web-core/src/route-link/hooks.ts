@@ -1,7 +1,12 @@
 import { useStore } from '@b2b-system/web-shared/hooks';
 import { useCallback } from 'react';
 
-import { usePageAccess } from '../permission';
+import {
+  pagePermissionRegistry,
+  resolvePageKey,
+  usePageAccess,
+  usePageAccessChecker,
+} from '../permission';
 import { resolveRouteLink, routeLinkPathname, routeLinkRegistry } from './registry';
 import type { ResolvedRouteLink, RouteLinkParams, RouteLinkRef } from './registry';
 
@@ -26,6 +31,29 @@ export function useRouteLinkResolver(): (
 export type RouteLinkAccess =
   | { status: 'ready'; link: ResolvedRouteLink }
   | { status: 'unavailable' | 'pending' | 'forbidden' };
+
+/**
+ * 一次判斷很多個連結（命令面板的搜尋結果）：回傳的函式在連結可以點時回傳解析結果，
+ * 解析不出來、目標頁受管而權限未水合或進不了時回 undefined（判斷與 `useRouteLinkAccess` 相同）。
+ * 註冊表或權限改變時換新的參考。
+ */
+export function useRouteLinkChecker(): (
+  link: RouteLinkRef | null | undefined,
+) => ResolvedRouteLink | undefined {
+  const resolve = useRouteLinkResolver();
+  const { hydrated, canAccessPage } = usePageAccessChecker();
+  const registrations = useStore(pagePermissionRegistry.store, (state) => state.entries);
+  return useCallback(
+    (ref) => {
+      const link = resolve(ref);
+      if (!link) return undefined;
+      const page = resolvePageKey(routeLinkPathname(link), registrations);
+      if (!page || registrations.get(page)?.rule.access.length === 0) return link;
+      return hydrated && canAccessPage(page) ? link : undefined;
+    },
+    [canAccessPage, hydrated, registrations, resolve],
+  );
+}
 
 /** 註冊表與權限都訂閱：feature 安裝／卸載、權限變更時重新判斷。`to` 必須寫完整的字面量（完整性測試靠它）。 */
 export function useRouteLinkAccess(to: string, params: RouteLinkParams): RouteLinkAccess {
