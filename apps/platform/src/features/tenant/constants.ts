@@ -1,7 +1,12 @@
 import type { ChipTone } from '@b2b-system/ui/Chip';
 
 import { TenantFeature } from '@/shared/api-sdk';
-import type { PlatformTenant, TenantFeatureParam, TenantFeatureParamKey } from '@/shared/api-sdk';
+import type {
+  PlatformTenant,
+  TenantFeatureImpact,
+  TenantFeatureParam,
+  TenantFeatureParamKey,
+} from '@/shared/api-sdk';
 
 import type { TenantDetailTab } from './routes/model';
 
@@ -88,6 +93,13 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   webhook: 'tenant.feature.webhookDisableWarning',
   announcement: 'tenant.feature.announcementDisableWarning',
 };
+
+/** 關閉 feature 會影響的項目（`GET /platform/tenants/:id/features/:feature/impact`）。 */
+export const TENANT_FEATURE_IMPACT_LABEL_KEY = {
+  identityProviderConnections: 'tenant.feature.impact.identityProviderConnections',
+  ssoOnlyDomains: 'tenant.feature.impact.ssoOnlyDomains',
+  passwordlessExternalUsers: 'tenant.feature.impact.passwordlessExternalUsers',
+} as const satisfies Record<TenantFeatureImpact['items'][number]['key'], string>;
 
 /**
  * feature 參數的名稱與說明（docs/architecture/05-tenancy.md §13.2 D1）。key 來自 api-sdk：

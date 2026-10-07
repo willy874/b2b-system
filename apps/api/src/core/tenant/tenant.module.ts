@@ -4,6 +4,7 @@ import { TENANT_DB } from '../database';
 import { Tenancy } from './tenancy.service';
 import { createTenantDbProxy } from './tenant-db.provider';
 import { TenantDirectory } from './tenant-directory.service';
+import { TenantFeatureImpacts } from './tenant-feature-impacts';
 import { TenantMiddleware } from './tenant.middleware';
 import { TenantRepository } from './tenant.repository';
 
@@ -15,8 +16,9 @@ import { TenantRepository } from './tenant.repository';
     TenantDirectory,
     Tenancy,
     TenantMiddleware,
+    TenantFeatureImpacts,
     { provide: TENANT_DB, useFactory: createTenantDbProxy },
   ],
-  exports: [TenantDirectory, Tenancy, TenantMiddleware, TENANT_DB],
+  exports: [TenantDirectory, Tenancy, TenantMiddleware, TenantFeatureImpacts, TENANT_DB],
 })
 export class TenancyModule {}

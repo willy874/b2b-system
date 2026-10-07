@@ -6428,6 +6428,60 @@
         "tags": ["platform-tenants"]
       }
     },
+    "/platform/tenants/{id}/features/{feature}/impact": {
+      "get": {
+        "operationId": "PlatformTenantController_featureImpact",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "feature",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "file",
+                "auditLog",
+                "job",
+                "trash",
+                "systemSetting",
+                "identityProvider",
+                "tenantSwitch",
+                "webhook",
+                "announcement"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TenantFeatureImpact"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "關閉這個 feature 會影響的數量（關閉前的確認框用）",
+        "tags": ["platform-tenants"]
+      }
+    },
     "/platform/tenants/{id}/provision": {
       "post": {
         "operationId": "PlatformTenantController_retryProvisioning",
@@ -9611,6 +9665,42 @@
             }
           }
         },
+        "additionalProperties": false
+      },
+      "TenantFeatureImpact": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "$ref": "#/components/schemas/TenantFeature"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "identityProviderConnections",
+                    "ssoOnlyDomains",
+                    "passwordlessExternalUsers"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["key", "count"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["feature", "available", "items"],
         "additionalProperties": false
       },
       "AddTenantDomainRequest": {

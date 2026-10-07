@@ -21,13 +21,16 @@ import {
   findTenantFeatureParam,
   resolveTenantFeatureParam,
   Tenancy,
+  TENANT_FEATURE_IMPACT_KEYS,
   TENANT_FEATURE_PARAMS,
   TenantDirectory,
+  TenantFeatureImpacts,
   tenantFeatureParamProblem,
   toTenantFeatureParamOverrides,
   toTenantFeatures,
 } from '@/core/tenant';
 import type {
+  TenantFeature,
   TenantFeatureParamDefinition,
   TenantFeatureParamOverrides,
   TenantFeatureParamValue,
@@ -42,6 +45,7 @@ import type {
   ListPlatformTenantDto,
   PlatformTenantDto,
   PlatformTenantListDto,
+  TenantFeatureImpactDto,
   TenantFeatureParamDto,
   UpdateTenantDto,
 } from './dto/platform-tenant.dto';
@@ -153,6 +157,7 @@ export class PlatformTenantService {
     private readonly events: DomainEventBus,
     private readonly audit: PlatformAuditService,
     private readonly flags: FeatureFlagService,
+    private readonly impacts: TenantFeatureImpacts,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -177,6 +182,32 @@ export class PlatformTenantService {
 
   async get(id: string): Promise<PlatformTenantDto> {
     return toDto(await this.getExisting(id), this.flags.catalog);
+  }
+
+  /**
+   * 關閉 `feature` 會影響的數量：進入那個租戶，以擁有 feature 的模組登記的計數計算（`TenantFeatureImpacts`）。
+   * 不看租戶狀態（停用的租戶也能改 feature）；進不了租戶的 DB 時回 `available: false`，確認框只顯示一般的說明。
+   */
+  async featureImpact(id: string, feature: TenantFeature): Promise<TenantFeatureImpactDto> {
+    await this.getExisting(id);
+    const counter = this.impacts.counterOf(feature);
+    if (!counter) return { feature, available: true, items: [] };
+    try {
+      const counts = await this.tenancy.runForMaintenance(id, counter);
+      return {
+        feature,
+        available: true,
+        items: TENANT_FEATURE_IMPACT_KEYS.flatMap((key) => {
+          const value = counts[key];
+          return value === undefined ? [] : [{ key, count: value }];
+        }),
+      };
+    } catch (error) {
+      if (error instanceof AppException && error.code === 'TENANT_UNAVAILABLE') {
+        return { feature, available: false, items: [] };
+      }
+      throw error;
+    }
   }
 
   /** 登記租戶（`provisioning`）並把佈建交給背景工作；回應時 database 還沒建好。 */

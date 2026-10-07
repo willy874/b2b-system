@@ -583,6 +583,17 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 - **租戶自行開關**：仍只有平台層（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9「原本待決、已定案的事項」1）。
 - **全平台一次關閉**：目前以租戶為單位；單一租戶的部署關掉該租戶即可。要全平台預設不同時，改平台 DB 的預設值。
 
+### 12.5 實作紀錄：關閉前列出受影響的數量
+
+2026-10-07 補上（`hardening-followups.md` 的項目）：確認框除了文字說明，另外列出這個租戶現在受影響的數量。
+
+- `GET /platform/tenants/:id/features/:feature/impact`（`tenant:read`）回 `{ feature, available, items: [{ key, count }] }`。
+  平台端點以 `Tenancy.runForMaintenance` 進入那個租戶計算（不看租戶狀態：停用的租戶也能改 feature）；進不去租戶 DB 時 `available: false`。
+- 計數由擁有 feature 的模組在 `onModuleInit` 向 `core/tenant` 的 `TenantFeatureImpacts` 登記（core 不認識業務模組）；
+  `key` 的清單是 `TENANT_FEATURE_IMPACT_KEYS`，前端以對照表翻譯。沒有登記的 feature 回空清單。
+- 目前只有 `identityProvider`：連線數、只允許 SSO 的網域數、連結了外部身分而自己沒有密碼的使用者數。
+- apps/platform 按下關閉時先查（查詢期間停用開關），數量為 0 的項目不列；查不到時照樣開確認框，只有一般的說明。
+
 ## 13. 設計決策：feature 參數（配額與上限）
 
 > 原 ADR-0033，2026-10-02 決定。Webhook 的多個目標網址（D12～D16）見 [`backend/17-webhook.md`](./backend/17-webhook.md) §10；這裡是 feature 參數（D1～D11）。

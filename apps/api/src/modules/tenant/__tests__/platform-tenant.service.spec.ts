@@ -2,10 +2,12 @@ import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
+import { AppException } from '@/core/errors';
 import { DomainEvent } from '@/core/events';
 import type { DomainEventBus } from '@/core/events';
 import type { FeatureFlagDefinition, FeatureFlagService } from '@/core/feature-flags';
 import type { JobQueue } from '@/core/jobs';
+import { TenantFeatureImpacts } from '@/core/tenant';
 import type { Tenancy, TenantDirectory } from '@/core/tenant';
 import type { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import type { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
@@ -63,7 +65,10 @@ function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomain
 }
 
 /** 依呼叫順序記下副作用，驗證「交易 → 失效 → 發佈」的先後（CLAUDE.md 後端規則 6）。 */
-function setup(initial: TenantWithDomains = tenantRow()) {
+function setup(
+  initial: TenantWithDomains = tenantRow(),
+  options: { tenancy?: Partial<Tenancy>; impacts?: TenantFeatureImpacts } = {},
+) {
   const calls: string[] = [];
   let current = initial;
   const repo = {
@@ -102,17 +107,74 @@ function setup(initial: TenantWithDomains = tenantRow()) {
     repo as unknown as PlatformTenantRepository,
     provisioner as unknown as TenantProvisioner,
     {} as JobQueue,
-    {} as Tenancy,
+    (options.tenancy ?? {}) as Tenancy,
     directory as unknown as TenantDirectory,
     {} as RefreshTokenService,
     {} as OidcProviderService,
     events as unknown as DomainEventBus,
     audit as unknown as PlatformAuditService,
     flagService,
+    options.impacts ?? new TenantFeatureImpacts(),
     config,
   );
   return { service, repo, audit, directory, events, calls };
 }
+
+describe('PlatformTenantService.featureImpact（關閉 feature 前的確認框）', () => {
+  it('進入那個租戶以登記的計數計算，依固定順序列出有值的項目', async () => {
+    const impacts = new TenantFeatureImpacts();
+    impacts.register('identityProvider', async () => ({
+      passwordlessExternalUsers: 3,
+      identityProviderConnections: 1,
+    }));
+    const runForMaintenance = vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn());
+    const { service } = setup(tenantRow(), {
+      impacts,
+      tenancy: { runForMaintenance } as unknown as Partial<Tenancy>,
+    });
+
+    await expect(service.featureImpact(TENANT_ID, 'identityProvider')).resolves.toEqual({
+      feature: 'identityProvider',
+      available: true,
+      items: [
+        { key: 'identityProviderConnections', count: 1 },
+        { key: 'passwordlessExternalUsers', count: 3 },
+      ],
+    });
+    expect(runForMaintenance).toHaveBeenCalledWith(TENANT_ID, expect.any(Function));
+  });
+
+  it('沒有登記計數的 feature → 空清單，不進入租戶', async () => {
+    const runForMaintenance = vi.fn();
+    const { service } = setup(tenantRow(), {
+      tenancy: { runForMaintenance } as unknown as Partial<Tenancy>,
+    });
+    await expect(service.featureImpact(TENANT_ID, 'webhook')).resolves.toEqual({
+      feature: 'webhook',
+      available: true,
+      items: [],
+    });
+    expect(runForMaintenance).not.toHaveBeenCalled();
+  });
+
+  it('進不了租戶的 DB（TENANT_UNAVAILABLE）→ available: false', async () => {
+    const impacts = new TenantFeatureImpacts();
+    impacts.register('identityProvider', async () => ({}));
+    const { service } = setup(tenantRow(), {
+      impacts,
+      tenancy: {
+        runForMaintenance: vi.fn(async () => {
+          throw new AppException('TENANT_UNAVAILABLE', { reason: 'maintenance' });
+        }),
+      } as unknown as Partial<Tenancy>,
+    });
+    await expect(service.featureImpact(TENANT_ID, 'identityProvider')).resolves.toEqual({
+      feature: 'identityProvider',
+      available: false,
+      items: [],
+    });
+  });
+});
 
 describe('PlatformTenantService.update 的 features（docs/architecture/frontend/02-plugin-system.md §9.2 D8）', () => {
   it('關掉 file：寫入完整清單、稽核帶 before/after，失效後發佈 tenant.featuresChanged', async () => {

@@ -211,6 +211,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /platform/jobs/:id/retry': 'platform platformJob:retry',
       'GET /platform/tenants': 'platform tenant:read',
       'GET /platform/tenants/:id': 'platform tenant:read',
+      'GET /platform/tenants/:id/features/:feature/impact': 'platform tenant:read',
       'POST /platform/tenants': 'platform tenant:create',
       'PATCH /platform/tenants/:id': 'platform tenant:update',
       'POST /platform/tenants/:id/provision': 'platform tenant:create',

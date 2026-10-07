@@ -6,6 +6,7 @@ import type {
   CreateTenantRequest,
   PlatformTenant,
   PlatformTenantList,
+  TenantFeatureImpact,
   UpdateTenantRequest,
 } from '../models';
 import type { ApiResponse } from '../runtime';
@@ -141,6 +142,46 @@ export function getPlatformTenantControllerUpdateUrl(
   path: PlatformTenantControllerUpdatePathParams,
 ): string {
   return buildUrl('/platform/tenants/{id}', path);
+}
+
+// GET /platform/tenants/{id}/features/{feature}/impact
+
+export interface PlatformTenantControllerFeatureImpactPathParams {
+  id: string;
+  feature:
+    | 'file'
+    | 'auditLog'
+    | 'job'
+    | 'trash'
+    | 'systemSetting'
+    | 'identityProvider'
+    | 'tenantSwitch'
+    | 'webhook'
+    | 'announcement';
+}
+
+export interface PlatformTenantControllerFeatureImpactInput {
+  path: PlatformTenantControllerFeatureImpactPathParams;
+}
+
+export interface PlatformTenantControllerFeatureImpactResponses {
+  200: {
+    data: TenantFeatureImpact;
+  };
+}
+
+export type PlatformTenantControllerFeatureImpactResponse =
+  PlatformTenantControllerFeatureImpactResponses[200];
+
+export type PlatformTenantControllerFeatureImpactResult = ApiResponse<
+  200,
+  PlatformTenantControllerFeatureImpactResponses[200]
+>;
+
+export function getPlatformTenantControllerFeatureImpactUrl(
+  path: PlatformTenantControllerFeatureImpactPathParams,
+): string {
+  return buildUrl('/platform/tenants/{id}/features/{feature}/impact', path);
 }
 
 // POST /platform/tenants/{id}/provision

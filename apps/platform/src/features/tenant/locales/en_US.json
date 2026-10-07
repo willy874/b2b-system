@@ -102,6 +102,15 @@
       "webhookDisableWarning": "{{code}} webhooks stop sending, and events that occur in the meantime are not sent later when you turn this back on.",
       "disableTitle": "Turn off feature",
       "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
+      "impactTitle": "Currently affected:",
+      "impact": {
+        "identityProviderConnections_one": "{{count}} external IdP connection",
+        "identityProviderConnections_other": "{{count}} external IdP connections",
+        "ssoOnlyDomains_one": "{{count}} SSO-only domain will fall back to password sign-in",
+        "ssoOnlyDomains_other": "{{count}} SSO-only domains will fall back to password sign-in",
+        "passwordlessExternalUsers_one": "{{count}} user signs in only through the external IdP and has no password; they must reset it first",
+        "passwordlessExternalUsers_other": "{{count}} users sign in only through the external IdP and have no password; they must reset it first"
+      },
       "disableAction": "Turn off",
       "announcement": "Announcements",
       "announcementDescription": "Tenant admins write announcements and send them as in-app notifications to selected people, groups, roles, or everyone, immediately or on a schedule.",

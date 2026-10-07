@@ -12,6 +12,8 @@ import type {
   PlatformTenantControllerDisableResult,
   PlatformTenantControllerEnableInput,
   PlatformTenantControllerEnableResult,
+  PlatformTenantControllerFeatureImpactInput,
+  PlatformTenantControllerFeatureImpactResult,
   PlatformTenantControllerGetInput,
   PlatformTenantControllerGetResult,
   PlatformTenantControllerListResult,
@@ -31,6 +33,7 @@ import {
   CreateTenantRequestSchema,
   PlatformTenantListSchema,
   PlatformTenantSchema,
+  TenantFeatureImpactSchema,
   UpdateTenantRequestSchema,
 } from '../components';
 
@@ -186,6 +189,50 @@ export function platformTenantControllerUpdate(
 ): Promise<PlatformTenantControllerUpdateResult> {
   return request<PlatformTenantControllerUpdateResult>(
     platformTenantControllerUpdateOperation,
+    input,
+    options,
+  );
+}
+
+// GET /platform/tenants/{id}/features/{feature}/impact
+
+export const PlatformTenantControllerFeatureImpactSchemas = {
+  path: z.object({
+    id: z.string(),
+    feature: z.enum([
+      'file',
+      'auditLog',
+      'job',
+      'trash',
+      'systemSetting',
+      'identityProvider',
+      'tenantSwitch',
+      'webhook',
+      'announcement',
+    ]),
+  }),
+  responses: {
+    200: z.object({
+      data: TenantFeatureImpactSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformTenantControllerFeatureImpactOperation: OperationDefinition = {
+  id: 'PlatformTenantController_featureImpact',
+  method: 'GET',
+  path: '/platform/tenants/{id}/features/{feature}/impact',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformTenantControllerFeatureImpactSchemas,
+};
+
+/** 關閉這個 feature 會影響的數量（關閉前的確認框用） */
+export function platformTenantControllerFeatureImpact(
+  input: PlatformTenantControllerFeatureImpactInput,
+  options?: RequestOptions,
+): Promise<PlatformTenantControllerFeatureImpactResult> {
+  return request<PlatformTenantControllerFeatureImpactResult>(
+    platformTenantControllerFeatureImpactOperation,
     input,
     options,
   );

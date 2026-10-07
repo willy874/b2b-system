@@ -13,8 +13,9 @@ import { registerTenantPagePermissions, Routes } from '../../..';
 import tenantZhTW from '../../../locales/zh_TW.json';
 import { FEATURE_PARAMS, tenantFixture } from '../../../test-fixtures';
 
-const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags } = vi.hoisted(
-  () => ({
+const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags, featureImpact } =
+  vi.hoisted(() => ({
+    featureImpact: vi.fn(),
     listFlags: vi.fn(),
     update: vi.fn(),
     removeTenant: vi.fn(),
@@ -22,13 +23,21 @@ const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags
     retry: vi.fn(),
     disable: vi.fn(),
     removeDomain: vi.fn(),
-  }),
-);
+  }));
 vi.mock('@/apis/platform-tenant/get-tenant/query', () => ({
   TENANT_DETAIL_QUERY_KEY: 'TENANT_DETAIL_QUERY_KEY',
   getTenantQueryOptions: (id: string) => ({
     queryKey: ['TENANT_DETAIL_QUERY_KEY', id],
     queryFn: () => getTenant(id),
+  }),
+}));
+vi.mock('@/apis/platform-tenant/get-tenant-feature-impact/query', () => ({
+  TENANT_FEATURE_IMPACT_QUERY_KEY: 'TENANT_FEATURE_IMPACT_QUERY_KEY',
+  getTenantFeatureImpactQueryOptions: (id: string, feature: string) => ({
+    queryKey: ['TENANT_FEATURE_IMPACT_QUERY_KEY', id, feature],
+    queryFn: () => featureImpact(id, feature),
+    staleTime: 0,
+    gcTime: 0,
   }),
 }));
 vi.mock('@/apis/platform-feature-flag/get-feature-flag-list/query', () => ({
@@ -114,6 +123,11 @@ function tabValues(): Array<string | undefined> {
 }
 
 beforeEach(() => {
+  featureImpact.mockReset().mockImplementation(async (_id: string, feature: string) => ({
+    feature,
+    available: true,
+    items: [],
+  }));
   listFlags.mockReset().mockResolvedValue({
     items: [
       featureFlagFixture(),
@@ -301,6 +315,39 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     fireEvent.click(await featureToggle('file'));
     expect(await screen.findByTestId('tenant-feature-dialog')).toBeInTheDocument();
     expect(screen.queryByText(/重設密碼/)).toBeNull();
+  });
+
+  it('關閉外部 IdP 前列出目前受影響的數量；數量為 0 的項目不列', async () => {
+    await initI18n('zh-TW');
+    i18n.addResourceBundle('zh-TW', 'translation', tenantZhTW, true, true);
+    featureImpact.mockResolvedValue({
+      feature: 'identityProvider',
+      available: true,
+      items: [
+        { key: 'identityProviderConnections', count: 2 },
+        { key: 'ssoOnlyDomains', count: 0 },
+        { key: 'passwordlessExternalUsers', count: 5 },
+      ],
+    });
+    const tenant = tenantFixture();
+    renderPage(tenant, ALL, FEATURES_TAB);
+    fireEvent.click(await featureToggle('identityProvider'));
+
+    const impact = await screen.findByTestId('tenant-feature-impact');
+    expect(featureImpact).toHaveBeenCalledWith(tenant.id, 'identityProvider');
+    expect(
+      screen.getAllByTestId('tenant-feature-impact-item').map((item) => item.dataset.value),
+    ).toEqual(['identityProviderConnections', 'passwordlessExternalUsers']);
+    expect(impact).toHaveTextContent('2 個外部 IdP 連線');
+    expect(impact).toHaveTextContent('5 位使用者沒有設定密碼');
+  });
+
+  it('查不到影響（例：租戶 DB 暫時進不去）→ 照樣開確認框，只有一般的說明', async () => {
+    featureImpact.mockRejectedValue(new Error('network'));
+    renderPage(tenantFixture(), ALL, FEATURES_TAB);
+    fireEvent.click(await featureToggle('identityProvider'));
+    expect(await screen.findByTestId('tenant-feature-dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('tenant-feature-impact')).toBeNull();
   });
 
   it('啟用的功能：只有 tenant:read → 不能切換', async () => {

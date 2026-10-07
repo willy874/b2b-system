@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { FEATURE_FLAG_KEY_PATTERN } from '@/core/feature-flags';
 import { OffsetSchema } from '@/core/http';
 import {
+  TENANT_FEATURE_IMPACT_KEYS,
   TENANT_FEATURE_PARAM_KEYS,
   TENANT_FEATURE_PARAM_UNITS,
   TENANT_FEATURES,
@@ -178,6 +179,20 @@ export const UpdateTenantSchema = defineSchema(
     ),
 );
 
+/** 關閉一個 feature 會影響的數量（平台管理者關閉前的確認框）。 */
+export const TenantFeatureImpactSchema = defineSchema(
+  'TenantFeatureImpact',
+  z.object({
+    feature: TenantFeatureSchema,
+    /** false = 現在進不了這個租戶的 DB（佈建中、migration 落後、連不上）：只能顯示一般的說明。 */
+    available: z.boolean(),
+    /** 有登記計數的 feature 才有；沒有登記時是空陣列。 */
+    items: z.array(
+      z.object({ key: z.enum(TENANT_FEATURE_IMPACT_KEYS), count: z.number().int().min(0) }),
+    ),
+  }),
+);
+
 export const AddTenantDomainSchema = defineSchema(
   'AddTenantDomainRequest',
   z.object({ domain: TenantDomainSchema }),
@@ -190,3 +205,4 @@ export type ListPlatformTenantDto = z.infer<typeof ListPlatformTenantSchema>;
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof UpdateTenantSchema>;
 export type AddTenantDomainDto = z.infer<typeof AddTenantDomainSchema>;
+export type TenantFeatureImpactDto = z.infer<typeof TenantFeatureImpactSchema>;

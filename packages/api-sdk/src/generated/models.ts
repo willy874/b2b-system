@@ -834,6 +834,15 @@ export interface UpdateTenantRequest {
   featureParams?: Record<string, (number | string) | null>;
 }
 
+export interface TenantFeatureImpact {
+  feature: TenantFeature;
+  available: boolean;
+  items: Array<{
+    key: 'identityProviderConnections' | 'ssoOnlyDomains' | 'passwordlessExternalUsers';
+    count: number;
+  }>;
+}
+
 export interface AddTenantDomainRequest {
   domain: string;
 }

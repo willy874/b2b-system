@@ -102,6 +102,12 @@
       "webhookDisableWarning": "{{code}} 的 webhook 會停止送出，期間發生的事件之後重新打開也不會補送。",
       "disableTitle": "關閉功能",
       "disableConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{feature}}」，正在使用的頁面會被導回首頁。資料保留，重新打開即恢復。",
+      "impactTitle": "目前的影響：",
+      "impact": {
+        "identityProviderConnections_other": "{{count}} 個外部 IdP 連線",
+        "ssoOnlyDomains_other": "{{count}} 個只允許 SSO 的網域會改回密碼登入",
+        "passwordlessExternalUsers_other": "{{count}} 位使用者沒有設定密碼、只用外部 IdP 登入，要先重設密碼"
+      },
       "disableAction": "關閉",
       "announcement": "公告",
       "announcementDescription": "租戶管理者撰寫公告，立即或排程以站內通知發給指定的人、群組、角色或全租戶。",

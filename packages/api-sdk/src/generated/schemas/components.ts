@@ -161,6 +161,7 @@ import type {
   TagList,
   TagSummary,
   TenantFeature,
+  TenantFeatureImpact,
   TenantFeatureParam,
   TenantFeatureParamKey,
   TenantFlagOverrides,
@@ -1457,6 +1458,17 @@ export const UpdateTenantRequestSchema = z.object({
     .record(z.string(), z.union([z.number(), z.string().max(1000)]).nullable())
     .optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
+
+export const TenantFeatureImpactSchema = z.object({
+  feature: TenantFeatureSchema,
+  available: z.boolean(),
+  items: z.array(
+    z.object({
+      key: z.enum(['identityProviderConnections', 'ssoOnlyDomains', 'passwordlessExternalUsers']),
+      count: z.int().min(0).max(9007199254740991),
+    }),
+  ),
+}) satisfies z.ZodType<TenantFeatureImpact>;
 
 export const AddTenantDomainRequestSchema = z.object({
   domain: z
