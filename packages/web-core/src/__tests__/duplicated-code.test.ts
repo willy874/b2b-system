@@ -28,8 +28,6 @@ const KNOWN_SIMILAR: Readonly<Record<string, string>> = {
     '改密碼已在 web-core（ChangePasswordSection）；剩下的名稱表單打不同端點、資料形狀不同（user／admin）',
   'apps/backstage/src/features/audit-log/plugin.ts ↔ apps/platform/src/features/audit-log/plugin.ts':
     'plugin 的樣板（登記頁面權限、選單入口、偏好與語系包）；登記的內容是各 app 自己的頁面與路徑',
-  'apps/backstage/src/features/audit-log/pages/AuditLogList/page.tsx ↔ apps/platform/src/features/audit-log/pages/AuditLogList/page.tsx':
-    '表格已在 web-core（AuditLogTable）；頁面只接自己的端點與篩選',
   'apps/backstage/src/features/auth/pages/Login/page.tsx ↔ apps/platform/src/features/login/pages/Login/page.tsx':
     '只差語系鍵與登入頁的路徑；可比照 sessionEndMessageKey 把流程搬進 web-core（待做）',
   'apps/backstage/src/features/auth/pages/SsoCallback/page.tsx ↔ apps/platform/src/features/login/pages/SsoCallback/page.tsx':
