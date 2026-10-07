@@ -460,6 +460,9 @@ Base UI 的 `Select` / `Menu` / `Combobox` 需要 **所有項目都掛在 DOM �
 3. 開啟期間不重排（`pinSelected` 用快照）；勾選、載入更多都不動捲動位置；捲軸以 `scrollbar-gutter: stable` 預留。
 4. 列元件 `memo` ＋ 固定參考的 callback：勾一個項目只重繪狀態改變的列。
 
+**Select 的檔案**：`Select.tsx` 只渲染；資料與狀態（排序、索引、搜尋、受控的已選／展開／開啟、攤平的列與勾選狀態）在 `useSelectModel`，
+作用列、勾選與鍵盤在 `useSelectActions`，計算交給 `selectModel.ts` 的純函式；列元件是 `SelectRowView`，props 型別在 `selectProps.ts`。
+
 ### 3.11 命令式確認：`useConfirm`
 
 `components/ConfirmDialog/`。`AlertDialog` 是宣告式的，每個要確認的地方都得自己維護「待確認項目」的 state
