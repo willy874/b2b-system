@@ -450,7 +450,7 @@ export class UserRepository {
     return row;
   }
 
-  /** 未刪除、username 相同（不分大小寫，citext）的帳號：還原前找佔用者。 */
+  /** 未刪除、username 相同（不分大小寫，citext）的帳號：改名與還原前找佔用者。 */
   async findByUsername(username: string, tx?: DbOrTx): Promise<UserRow | undefined> {
     const [row] = await (tx ?? this.db)
       .select()

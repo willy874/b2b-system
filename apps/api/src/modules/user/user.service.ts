@@ -605,14 +605,12 @@ export class UserService {
     }
   }
 
+  /**
+   * 精確比對（citext，不分大小寫）。不用列表的關鍵字搜尋：部分比對會先命中較新的 `bobby`，
+   * 漏掉真正佔用的 `bob`，只剩唯一索引兜底（回應沒有 `details`）。
+   */
   private async assertUsernameAvailable(username: string): Promise<void> {
-    const { items } = await this.repo.list({
-      offset: 0,
-      limit: 1,
-      keyword: username,
-      sort: [{ sort: 'createdAt', order: 'desc' }],
-    });
-    if (items.some((item) => item.username?.toLowerCase() === username.toLowerCase())) {
+    if (await this.repo.findByUsername(username)) {
       throw new AppException('USER_USERNAME_DUPLICATE', { field: 'username', value: username });
     }
   }
