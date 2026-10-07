@@ -10,3 +10,4 @@ Routes.RoleDetailRevisionRoute.update({ component: Pages.AsyncRoleDetailRevision
 export { Routes };
 export { ROLE_CREATE_PAGE, ROLE_PAGE, registerRolePagePermissions } from './permission';
 export { appContextPlugin as roleFeaturePlugin } from './plugin';
+export { registerRoleNavigation } from './navigation';

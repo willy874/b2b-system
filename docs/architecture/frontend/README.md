@@ -31,6 +31,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此設計系
 | 15  | [`15-notification.md`](./15-notification.md)           | 站內通知：頂列鈴鐺、列表頁、通知總覽、route id 註冊表、事件管理頁 |
 | 16  | [`16-announcement.md`](./16-announcement.md)           | 公告：列表、建立、詳情與發送紀錄、收件人看全文 |
 | 17  | [`17-shared-packages.md`](./17-shared-packages.md)     | 兩個前端共用的 packages：分層、程式放哪、app 怎麼接上 web-core |
+| 18  | [`18-command-palette.md`](./18-command-palette.md)     | 命令面板（⌘K）、選單註冊表（側欄由 feature 登記）、全域快捷鍵 |
 
 ## 三條必須記住的規則
 

@@ -7,8 +7,6 @@ import type { ReactNode } from 'react';
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { useLogoutMutation } from '@/features/login';
 
-import { ACCOUNT_PAGES, NAV_GROUPS, NAV_TOP_ITEMS } from './navigation';
-
 /**
  * 平台管理的外框：web-core 的 `DashboardShell` 接上這個 app 的選單與帳號選單。品牌下方標示「平台」，
  * 而不是租戶名稱：apps/platform 不屬於任何租戶（docs/architecture/05-tenancy.md §10.2 D2）。
@@ -27,10 +25,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         name: t('app.title'),
         context: { label: t('app.platform'), testId: 'current-realm' },
       }}
-      navTopItems={NAV_TOP_ITEMS}
-      navGroups={NAV_GROUPS}
       userName={profile.data?.admin.displayName ?? ''}
-      accountPages={ACCOUNT_PAGES}
       accountActions={[
         // 平台管理者也常要以租戶的身分看畫面：前往「進入租戶」輸入代碼（docs/architecture/05-tenancy.md §10.2 D11）
         {

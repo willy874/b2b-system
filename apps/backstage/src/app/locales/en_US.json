@@ -35,6 +35,15 @@
     "logout": "Sign out",
     "switchTenant": "Switch tenant"
   },
+  "commandPalette": {
+    "command": {
+      "createUser": "Create user",
+      "createRole": "Create role",
+      "createGroup": "Create group",
+      "createServiceAccount": "Create service account",
+      "createWebhook": "Create webhook"
+    }
+  },
   "app": {
     "title": "B2B System",
     "mark": "B2B",

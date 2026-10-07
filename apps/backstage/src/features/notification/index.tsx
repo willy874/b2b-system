@@ -13,3 +13,4 @@ export {
   registerNotificationPagePermissions,
 } from './permission';
 export { appContextPlugin as notificationFeaturePlugin } from './plugin';
+export { registerNotificationNavigation } from './navigation';

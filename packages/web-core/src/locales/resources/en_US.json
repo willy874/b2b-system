@@ -347,6 +347,23 @@
     "closeSidebar": "Close side menu",
     "accountMenu": "Account menu ({{name}})"
   },
+  "commandPalette": {
+    "title": "Search",
+    "placeholder": "Search pages, actions or data…",
+    "recent": "Recently visited",
+    "pages": "Pages",
+    "commands": "Actions",
+    "searching": "Searching…",
+    "searchFailed": "Search failed. Please try again later.",
+    "noResults": "No matching results.",
+    "trigger": "Search ({{shortcut}})",
+    "toolLabel": "Search",
+    "hint": {
+      "navigate": "↑↓ to select",
+      "open": "Enter to open",
+      "close": "Esc to close"
+    }
+  },
   "changePassword": {
     "title": "Change password",
     "hint": "Changing your password signs you out of every device.",

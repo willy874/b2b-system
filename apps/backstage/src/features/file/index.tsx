@@ -7,3 +7,4 @@ export { Routes };
 export { FILE_FEATURE } from './routes';
 export { FILE_PAGE, registerFilePagePermissions } from './permission';
 export { appContextPlugin as fileFeaturePlugin } from './plugin';
+export { registerFileNavigation } from './navigation';

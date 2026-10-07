@@ -33,7 +33,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | `apps/platform` | 全平台共用的登入入口與平台管理（:5175） |
 | `apps/file-storage` | 本機的 S3 相容物件儲存 |
 | `apps/e2e` | Playwright |
-| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框與側欄、`RichTable`、共用頁面元件（錯誤頁、改密碼、背景工作與稽核列表）、測試輔助 |
+| `packages/web-core` | 兩個前端共用的機制層：AppContext、session、HTTP、快取、權限機制、i18n 與共用字串、推播、批次佇列、外框與側欄（選單註冊表）、命令面板與全域快捷鍵、`RichTable`、共用頁面元件（錯誤頁、改密碼、背景工作與稽核列表）、測試輔助 |
 | `packages/ui` | 設計系統：元件、Design Token、icons、UnoCSS 設定、Storybook |
 | `packages/web-shared` | 框架無關的前端工具：store、channel、registry、date… |
 | `packages/error-codes` | api 與前端共用的錯誤碼（build 到 `dist/`） |
@@ -123,9 +123,9 @@ pnpm --filter @b2b-system/e2e tour   # 重拍 docs/overview/05-feature-tour.md �
 2. 後端：`modules/<name>/`（controller / service / repository / dto）
 3. `pnpm db:seed`，再依上方「常用指令」重新產生 openapi 與 SDK
 4. 前端 API 層：`apis/<domain>/<operation>/`
-5. 前端 feature：`locale.ts` → `routes/` → `permission.ts` → `plugin.ts` →
-   `hooks/` → `pages/` → `index.tsx`
-6. `main.tsx` 加一行 `.use(<name>FeaturePlugin())`；`app/routes.tsx` 接上 route
+5. 前端 feature：`locale.ts` → `routes/` → `permission.ts` → `navigation.ts`（側欄的入口；選用的 `search.ts` 是命令面板的搜尋與動作）→
+   `plugin.ts` → `hooks/` → `pages/` → `index.tsx`
+6. `main.tsx` 加一行 `.use(<name>FeaturePlugin())`；`app/routes.tsx` 接上 route（選單不必改 `app/`）
 7. 測試：feature 的 hook 測試、頁面的三個權限案例、必要時補 E2E
 8. 回頭更新 `docs/`；若功能來自 `docs/features/` 的提案，依該資料夾 README §3.3 歸檔並刪除提案
 

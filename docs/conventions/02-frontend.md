@@ -29,7 +29,7 @@
 ## 2. Feature
 
 - 新增 feature 照 [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §5 的 SOP，
-  檔案順序：`locale.ts` → `routes/` → `permission.ts` → `plugin.ts` → `hooks/` → `pages/` → `index.tsx`。
+  檔案順序：`locale.ts` → `routes/` → `permission.ts` → `navigation.ts`（與選用的 `search.ts`）→ `plugin.ts` → `hooks/` → `pages/` → `index.tsx`。
 - `index.tsx` 是 feature 對外唯一入口：一定匯出 `Routes` 與 `<name>FeaturePlugin`，`app/`、`main.tsx` 只從這裡匯入；其他 feature 完全不 import 它（🔒 測試）。
   可以匯出的東西見 [`architecture/frontend/03-feature-anatomy.md`](../architecture/frontend/03-feature-anatomy.md) §2.1。
 - 業務邏輯放哪裡：

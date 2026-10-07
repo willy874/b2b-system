@@ -6,3 +6,4 @@ Routes.JobListRoute.update({ component: Pages.AsyncJobListPage });
 export { Routes };
 export { JOB_PAGE, registerJobPagePermissions } from './permission';
 export { appContextPlugin as jobFeaturePlugin } from './plugin';
+export { registerJobNavigation } from './navigation';

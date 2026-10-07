@@ -35,6 +35,15 @@
     "logout": "登出",
     "switchTenant": "切換租戶"
   },
+  "commandPalette": {
+    "command": {
+      "createUser": "建立使用者",
+      "createRole": "建立角色",
+      "createGroup": "建立群組",
+      "createServiceAccount": "建立服務帳號",
+      "createWebhook": "建立 Webhook"
+    }
+  },
   "app": {
     "title": "B2B System",
     "mark": "B2B",

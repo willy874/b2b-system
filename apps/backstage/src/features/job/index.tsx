@@ -7,3 +7,4 @@ export { Routes };
 export { JOB_FEATURE } from './routes';
 export { JOB_PAGE, registerJobPagePermissions } from './permission';
 export { appContextPlugin as jobFeaturePlugin } from './plugin';
+export { registerJobNavigation } from './navigation';

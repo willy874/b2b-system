@@ -7,3 +7,4 @@ Routes.ApprovalDetailRoute.update({ component: Pages.AsyncApprovalDetailPage });
 export { Routes };
 export { APPROVAL_PAGE, registerApprovalPagePermissions } from './permission';
 export { appContextPlugin as approvalFeaturePlugin } from './plugin';
+export { registerApprovalNavigation } from './navigation';

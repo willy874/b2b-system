@@ -15,3 +15,4 @@ export {
   registerAnnouncementPagePermissions,
 } from './permission';
 export { appContextPlugin as announcementFeaturePlugin } from './plugin';
+export { registerAnnouncementNavigation } from './navigation';

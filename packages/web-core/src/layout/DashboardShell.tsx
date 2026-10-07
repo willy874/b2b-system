@@ -8,13 +8,14 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { CommandPalette, useRecentPageTracker } from '../command-palette';
+import { useGlobalHotkeys } from '../hotkey';
 import { useTranslation } from '../locales';
+import { useNavigation } from '../navigation';
 import { useLayoutStore } from '../store';
 import { HeaderToolbar } from './HeaderToolbar';
 import { useMenuItems } from './menu';
-import type { MenuItem } from './menu';
 import { SideNav } from './SideNav';
-import type { SideNavGroup, SideNavItem } from './SideNav';
 
 import styles from './DashboardShell.module.css';
 
@@ -35,14 +36,8 @@ export interface DashboardBrand {
 
 export interface DashboardShellProps {
   brand: DashboardBrand;
-  /** 側欄最上方、不屬於任何分類的項目（首頁）。 */
-  navTopItems: SideNavItem[];
-  /** 側欄的分類與頁面。 */
-  navGroups: SideNavGroup[];
   /** 帳號選單按鈕上的名稱。 */
   userName: string;
-  /** 帳號選單的頁面（個人資料、偏好設定）；依頁面權限過濾，選了就換頁。 */
-  accountPages: MenuItem[];
   /** 帳號選單裡接在頁面之後的項目（例：切換租戶、登出）。 */
   accountActions: MenuItemDescriptor[];
   /** 主內容之後的元素（例：backstage 的批次結果彈出）。 */
@@ -51,15 +46,13 @@ export interface DashboardShellProps {
 }
 
 /**
- * 登入後的外框（兩個 app 共用）：可收合的分組側欄（窄螢幕是抽屜）、頂列工具（依偏好排序與隱藏）、帳號選單。
- * 選單、品牌與帳號選單的項目由 app 的 `app/layouts/DashboardLayout.tsx` 傳入。
+ * 登入後的外框（兩個 app 共用）：可收合的分組側欄（窄螢幕是抽屜）、頂列工具（依偏好排序與隱藏）、帳號選單、
+ * 命令面板（⌘K）與全域快捷鍵。側欄與帳號選單的頁面來自選單註冊表（`registerNavItem`）；
+ * 品牌與帳號選單的其他項目由 app 的 `app/layouts/DashboardLayout.tsx` 傳入。
  */
 export function DashboardShell({
   brand,
-  navTopItems,
-  navGroups,
   userName,
-  accountPages,
   accountActions,
   afterContent,
   children,
@@ -71,8 +64,11 @@ export function DashboardShell({
   const toggleSidebar = useLayoutStore((state) => state.toggleSidebar);
   const narrow = useMediaQuery(NARROW_QUERY);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const accountItems = useMenuItems(accountPages);
+  const navigation = useNavigation();
+  const accountItems = useMenuItems(navigation.accountItems);
   const sidebarId = useId();
+  useGlobalHotkeys();
+  useRecentPageTracker();
 
   // 換頁就收起抽屜（以「上一次看到的路徑」判斷，不用 effect 同步）
   const [seenPath, setSeenPath] = useState(pathname);
@@ -107,7 +103,7 @@ export function DashboardShell({
             </span>
           )}
         </div>
-        <SideNav topItems={navTopItems} groups={navGroups} collapsed={iconOnly} />
+        <SideNav topItems={navigation.topItems} groups={navigation.groups} collapsed={iconOnly} />
       </aside>
       {narrow && drawerOpen && (
         <button
@@ -155,6 +151,7 @@ export function DashboardShell({
         <main className={styles.content}>{children}</main>
         {afterContent}
       </div>
+      <CommandPalette />
     </div>
   );
 }

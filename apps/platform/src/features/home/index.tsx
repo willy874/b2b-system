@@ -6,3 +6,4 @@ Routes.HomeRoute.update({ component: Pages.AsyncHomePage });
 export { Routes };
 export { HOME_PAGE, registerHomePagePermissions } from './permission';
 export { appContextPlugin as homeFeaturePlugin } from './plugin';
+export { registerHomeNavigation } from './navigation';

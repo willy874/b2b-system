@@ -9,3 +9,4 @@ export { Routes };
 export { WEBHOOK_FEATURE } from './routes';
 export { registerWebhookPagePermissions, WEBHOOK_CREATE_PAGE, WEBHOOK_PAGE } from './permission';
 export { appContextPlugin as webhookFeaturePlugin } from './plugin';
+export { registerWebhookNavigation } from './navigation';

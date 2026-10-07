@@ -6,3 +6,4 @@ Routes.FeatureFlagListRoute.update({ component: Pages.AsyncFeatureFlagListPage }
 export { Routes };
 export { FEATURE_FLAG_PAGE, registerFeatureFlagPagePermissions } from './permission';
 export { appContextPlugin as featureFlagFeaturePlugin } from './plugin';
+export { registerFeatureFlagNavigation } from './navigation';

@@ -1,7 +1,10 @@
 import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { queryClient } from '@b2b-system/web-core/cache';
+import { registerCommandPalette } from '@b2b-system/web-core/command-palette';
 import { parseSearch, stringifySearch } from '@b2b-system/web-core/router';
 import { createRouter } from '@tanstack/react-router';
+
+import { registerNavGroups } from '@/core/navigation';
 
 import { ROUTER_DEFAULT_COMPONENTS } from './ErrorPages';
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
@@ -30,6 +33,9 @@ export function appContextPlugin(): AppPluginFactory {
   return () => {
     // 同步階段：頂列與偏好頁第一次渲染前工具就已存在
     registerBuiltinHeaderTools();
+    // 側欄的分類（頁面由各 feature 的 navigation.ts 登記）與命令面板（⌘K、頂列的搜尋按鈕）
+    registerNavGroups();
+    registerCommandPalette();
     return { name: 'app', attrs: { router: createAppRouter() } };
   };
 }

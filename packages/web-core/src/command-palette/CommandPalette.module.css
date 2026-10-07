@@ -1,0 +1,172 @@
+/* 放進 components 層，呼叫端的 UnoCSS 工具類才蓋得過（層的順序見 app 的 index.html）。 */
+@layer components {
+  /*
+   * 靠上而不是置中：結果變多變少時輸入框不會跟著上下跳。
+   * 重複 class 提高特定度：與 Dialog 自己的 `.popup` 同層，載入順序不保證
+   */
+  .popup.popup {
+    top: 12vh;
+    transform: translateX(-50%);
+    max-height: 70vh;
+  }
+
+  /* Dialog 的進出場動畫以置中的位移為準，這裡改成只淡入淡出 */
+  .popup.popup[data-open] {
+    animation: paletteIn 120ms ease-out;
+  }
+  .popup.popup[data-closed] {
+    animation: paletteOut 100ms ease-in;
+  }
+
+  @keyframes paletteIn {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes paletteOut {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .popup.popup[data-open],
+    .popup.popup[data-closed] {
+      animation: none;
+    }
+  }
+
+  /* 標題只給報讀器（對話框仍需要可存取的名稱），畫面上由輸入框的提示文字說明用途 */
+  .header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .searchRow {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-3) var(--seed-space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .searchIcon {
+    color: var(--color-fg-muted);
+    flex-shrink: 0;
+  }
+
+  .input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--color-fg);
+    font: inherit;
+    font-size: 0.9375rem;
+  }
+
+  .list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--seed-space-2);
+  }
+
+  .section + .section {
+    margin-top: var(--seed-space-2);
+  }
+
+  .sectionTitle {
+    padding: var(--seed-space-1) var(--seed-space-3);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-3);
+    min-height: 2.25rem;
+    padding: var(--seed-space-1) var(--seed-space-3);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+
+  .option[data-active] {
+    background: var(--color-fill-subtle);
+  }
+
+  .optionIcon {
+    color: var(--color-fg-muted);
+    flex-shrink: 0;
+  }
+
+  .optionText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .optionLabel,
+  .optionDescription {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .optionDescription {
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+  }
+
+  .status,
+  .empty {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+  }
+
+  .empty {
+    justify-content: center;
+    padding: var(--seed-space-6) var(--seed-space-3);
+  }
+
+  .hints {
+    display: flex;
+    gap: var(--seed-space-4);
+    padding: var(--seed-space-2) var(--seed-space-4);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: 767px) {
+    .hints {
+      display: none;
+    }
+  }
+}

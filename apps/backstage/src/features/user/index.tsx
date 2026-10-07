@@ -8,3 +8,4 @@ Routes.UserDetailRoute.update({ component: Pages.AsyncUserDetailPage });
 export { Routes };
 export { USER_CREATE_PAGE, USER_PAGE, registerUserPagePermissions } from './permission';
 export { appContextPlugin as userFeaturePlugin } from './plugin';
+export { registerUserNavigation } from './navigation';

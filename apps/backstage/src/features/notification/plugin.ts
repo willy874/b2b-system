@@ -6,6 +6,7 @@ import { lazy } from 'react';
 
 import { NotificationBell } from './components/NotificationBell';
 import { NOTIFICATION_LOCALE_SCOPE } from './locale';
+import { registerNotificationNavigation } from './navigation';
 import { registerNotificationPagePermissions } from './permission';
 
 // 只有偏好頁會渲染：登記 lazy 元件，本體不進首屏（docs/architecture/frontend/02-plugin-system.md §4.3）
@@ -19,6 +20,7 @@ export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：頁面權限與頂列工具都要在第一次 render 之前存在 ──
     registerNotificationPagePermissions();
+    registerNotificationNavigation(); // 側欄與命令面板的入口
     // 放在內建工具（批次佇列 100 … 主題 300）之後，最靠近帳號選單
     registerHeaderTool({
       key: 'notification',

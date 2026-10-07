@@ -74,13 +74,13 @@ apps/backstage/src/
 ├── app/                     App Shell（只組裝，不實作業務；providers 在 @b2b-system/web-core/shell）
 │   ├── App.tsx              GlobalProvider ＋ SessionWatcher（web-core/shell）＋ 權限水合
 │   ├── Layout.tsx           依 matcher 決定套哪個 layout
-│   ├── plugin.ts            建立 router，掛到 AppContext
+│   ├── plugin.ts            建立 router，掛到 AppContext；登記頂列工具、側欄的分類與命令面板
 │   ├── features.ts          執行期啟用的 feature 清單
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
 │   ├── sessionRedirect.ts   不需要 session 的頁面（交給 web-core 的 SessionWatcher）
 │   ├── layouts/
-│   │   ├── DashboardLayout.tsx   把品牌、選單、帳號選單交給 web-core 的 DashboardShell（側欄、頂列、主內容）
-│   │   ├── navigation.ts、headerTools.ts   側欄與帳號選單的資料、頂列的內建工具
+│   │   ├── DashboardLayout.tsx   把品牌與帳號選單的動作交給 web-core 的 DashboardShell（側欄、頂列、主內容、命令面板）
+│   │   ├── headerTools.ts        頂列的內建工具
 │   │   ├── LanguageMenu.tsx      把切換交給 web-core 的 LanguageMenu（同步到帳號）
 │   │   └── index.ts
 │   └── locales/{en_US,zh_TW}.json   這個 app 專屬的全域字串（共用的在 web-core）
@@ -89,6 +89,7 @@ apps/backstage/src/
 │   ├── components/          只有 backstage 用的元件（ApiToken、ExplainPath、Tag、VersionConflictAlert）
 │   ├── feature/             執行期啟用 feature（docs/architecture/frontend/02-plugin-system.md §9）
 │   ├── file/                檔案類型、預覽解析器／檔案驗證器／縮圖產生器的註冊表
+│   ├── navigation/          側欄的分類（feature 的 navigation.ts 以它指定位置；docs/architecture/frontend/18-command-palette.md §2）
 │   ├── permission/          ★ 這個 app 的權限目錄（enums、resources），登記給 web-core；轉出 web-core 的權限機制
 │   ├── permission-graph/    權限依賴樹的閉包與畫布版面（docs/rbac/02-permission-catalog.md §9）
 │   └── trash/               回收桶的類型註冊表（docs/architecture/frontend/13-trash.md）

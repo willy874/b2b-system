@@ -334,6 +334,23 @@
     "closeSidebar": "關閉側邊選單",
     "accountMenu": "帳號選單（{{name}}）"
   },
+  "commandPalette": {
+    "title": "搜尋",
+    "placeholder": "搜尋頁面、動作或資料…",
+    "recent": "最近造訪",
+    "pages": "頁面",
+    "commands": "動作",
+    "searching": "搜尋中…",
+    "searchFailed": "搜尋失敗，請稍後再試。",
+    "noResults": "沒有符合的結果。",
+    "trigger": "搜尋（{{shortcut}}）",
+    "toolLabel": "搜尋",
+    "hint": {
+      "navigate": "↑↓ 選擇",
+      "open": "Enter 開啟",
+      "close": "Esc 關閉"
+    }
+  },
   "changePassword": {
     "title": "變更密碼",
     "hint": "變更密碼後，所有裝置都會被登出。",

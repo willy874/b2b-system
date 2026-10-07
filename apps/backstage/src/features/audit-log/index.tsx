@@ -7,3 +7,4 @@ export { Routes };
 export { AUDIT_LOG_FEATURE } from './routes';
 export { AUDIT_LOG_PAGE, registerAuditLogPagePermissions } from './permission';
 export { appContextPlugin as auditLogFeaturePlugin } from './plugin';
+export { registerAuditLogNavigation } from './navigation';

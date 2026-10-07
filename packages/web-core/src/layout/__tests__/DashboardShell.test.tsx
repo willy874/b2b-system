@@ -1,7 +1,8 @@
 import { createRoute } from '@tanstack/react-router';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { registerNavGroup, registerNavItem, resetNavigationRegistry } from '../../navigation';
 import {
   definePageKey,
   registerPagePermission,
@@ -15,8 +16,11 @@ import { DashboardShell } from '../DashboardShell';
 import type { DashboardShellProps } from '../DashboardShell';
 
 const PROFILE = definePageKey('profile');
+const USER = definePageKey('user');
 
-const LABELS = { menu: { profile: '個人資料', logout: '登出' } };
+const LABELS = {
+  menu: { profile: '個人資料', logout: '登出', user: '使用者', group: { people: '人員管理' } },
+};
 
 const onLogout = vi.fn();
 
@@ -28,10 +32,7 @@ function renderShell(overrides: Partial<DashboardShellProps> = {}) {
         name: 'B2B System',
         context: { label: 'Acme', testId: 'current-tenant' },
       }}
-      navTopItems={[]}
-      navGroups={[]}
       userName="Mei Lin"
-      accountPages={[{ pageKey: PROFILE, to: '/profile', labelKey: 'menu.profile', icon: 'user' }]}
       accountActions={[{ key: 'logout', label: '登出', tone: 'danger', onSelect: onLogout }]}
       afterContent={<p data-testid="after-content" />}
       {...overrides}
@@ -39,7 +40,7 @@ function renderShell(overrides: Partial<DashboardShellProps> = {}) {
       <p data-testid="page">page</p>
     </DashboardShell>
   );
-  const routes = ['/', '/profile'].map((path) =>
+  const routes = ['/', '/profile', '/user'].map((path) =>
     createRoute({ getParentRoute: () => RootRoute, path, component: shell }),
   );
   return renderRoute(routes, '/', []);
@@ -55,20 +56,45 @@ function emulateNarrow(narrow: boolean) {
   }));
 }
 
-let unregister: () => void = () => undefined;
+let unregister: Array<() => void> = [];
 
 beforeAll(() => initTestI18n(LABELS));
 beforeEach(() => {
   resetPagePermissionRegistry();
-  unregister = registerPagePermission(PROFILE, {
-    route: '/profile',
-    rule: { access: [], match: 'every' },
-  });
+  resetNavigationRegistry();
+  unregister = [
+    registerPagePermission(PROFILE, { route: '/profile', rule: { access: [], match: 'every' } }),
+    registerPagePermission(USER, { route: '/user', rule: { access: [], match: 'every' } }),
+    registerNavGroup({
+      key: 'people',
+      labelKey: 'menu.group.people',
+      testId: 'menu-group-people',
+      order: 100,
+    }),
+    registerNavItem({
+      pageKey: USER,
+      to: '/user',
+      labelKey: 'menu.user',
+      testId: 'menu-user',
+      icon: 'users',
+      group: 'people',
+      order: 100,
+    }),
+    registerNavItem({
+      pageKey: PROFILE,
+      to: '/profile',
+      labelKey: 'menu.profile',
+      testId: 'menu-profile',
+      icon: 'user',
+      placement: 'account',
+      order: 100,
+    }),
+  ];
   onLogout.mockReset();
   useLayoutStore.setState({ sidebarCollapsed: false });
 });
 afterEach(() => {
-  unregister();
+  for (const dispose of unregister) dispose();
   vi.unstubAllGlobals();
 });
 
@@ -108,6 +134,20 @@ describe('DashboardShell（登入後的外框）', () => {
     fireEvent.click(screen.getByTestId('account-menu-trigger'));
     fireEvent.click(await screen.findByRole('menuitem', { name: '個人資料' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/profile'));
+  });
+
+  it('側欄的分類與頁面來自選單註冊表；帳號選單的頁面不出現在側欄', async () => {
+    renderShell();
+    expect(await screen.findByTestId('menu-group-people')).toHaveTextContent('人員管理');
+    expect(screen.getByTestId('menu-user')).toHaveAttribute('href', '/user');
+    expect(screen.queryByTestId('menu-profile')).not.toBeInTheDocument();
+  });
+
+  it('feature 卸載（反註冊）時入口跟著從側欄消失', async () => {
+    renderShell();
+    expect(await screen.findByTestId('menu-user')).toBeInTheDocument();
+    act(() => unregister[3]?.());
+    expect(screen.queryByTestId('menu-user')).not.toBeInTheDocument();
   });
 
   it('桌面：側欄開關切換「收合成圖示欄」的偏好', async () => {

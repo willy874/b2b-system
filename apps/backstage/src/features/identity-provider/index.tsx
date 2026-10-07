@@ -7,3 +7,4 @@ export { Routes };
 export { IDENTITY_PROVIDER_FEATURE } from './routes';
 export { IDENTITY_PROVIDER_PAGE, registerIdentityProviderPagePermissions } from './permission';
 export { appContextPlugin as identityProviderFeaturePlugin } from './plugin';
+export { registerIdentityProviderNavigation } from './navigation';

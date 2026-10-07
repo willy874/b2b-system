@@ -7,3 +7,4 @@ Routes.TenantDetailRoute.update({ component: Pages.AsyncTenantDetailPage });
 export { Routes };
 export { registerTenantPagePermissions, TENANT_PAGE } from './permission';
 export { appContextPlugin as tenantFeaturePlugin } from './plugin';
+export { registerTenantNavigation } from './navigation';
