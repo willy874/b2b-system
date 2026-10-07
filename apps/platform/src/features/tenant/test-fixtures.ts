@@ -6,6 +6,10 @@ import { TENANT_FEATURES } from './constants';
 export const FEATURE_PARAMS: readonly TenantFeatureParam[] = [
   integerParam('file.storageQuotaMb', 'file', 2048, 1, 10_485_760, 'megabytes'),
   integerParam('auditLog.hotRetentionDays', 'auditLog', 90, 7, 3650, 'days'),
+  {
+    ...integerParam('auditLog.retentionDays', 'auditLog', 365, 365, 36_500, 'days'),
+    foreverValue: -1,
+  },
   integerParam('job.maxConcurrency', 'job', 10, 1, 100, 'count'),
   integerParam('identityProvider.maxProviders', 'identityProvider', 10, 1, 100, 'count'),
   integerParam('webhook.maxUrls', 'webhook', 1, 1, 500, 'count'),
@@ -30,6 +34,7 @@ function integerParam(
     unit,
     min,
     max,
+    foreverValue: null,
     maxLength: null,
   };
 }

@@ -6,6 +6,7 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditLogs, auditLogsArchive } from '@/db/schema';
+import { maintainAuditArchive } from '@/modules/audit-log/audit-log.archive';
 import { AUDIT_LOG_COUNT_CAP, AUDIT_LOG_MAX_OFFSET } from '@/modules/audit-log/audit-log.constants';
 
 import type { TestDatabase } from './db';
@@ -381,6 +382,81 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
         .from(auditLogsArchive)
         .where(eq(auditLogsArchive.action, 'tier.limited'));
       expect(cold).toHaveLength(1);
+    });
+
+    it('不是擁有者的 role 不能自己 DROP 或 DETACH 冷表的分區（只能透過 drop_expired_audit_archive_partitions）', async () => {
+      const [partition] = await db.execute<{ name: string }>(sql`
+        SELECT c.relname AS name FROM pg_inherits i
+        JOIN pg_class c ON c.oid = i.inhrelid JOIN pg_class p ON p.oid = i.inhparent
+        WHERE p.relname = 'audit_logs_archive' LIMIT 1`);
+      await expectDbError(
+        asLimitedRole((tx) => tx.execute(sql.raw(`DROP TABLE ${partition!.name}`))),
+        /must be owner|permission denied/,
+      );
+      await expectDbError(
+        asLimitedRole((tx) =>
+          tx.execute(sql.raw(`ALTER TABLE audit_logs_archive DETACH PARTITION ${partition!.name}`)),
+        ),
+        /must be owner|permission denied/,
+      );
+    });
+  });
+
+  // 放在最後：會刪掉冷表裡一年以前的月份（其他測試用到 tier.ancient）
+  describe('冷表的月份分區與保留期限（docs/architecture/backend/06-audit-log.md §10）', () => {
+    const partitionOf = async (id: bigint) => {
+      const [row] = await db.execute<{ partition: string }>(
+        sql`SELECT tableoid::regclass::text AS partition FROM audit_logs_archive WHERE id = ${id.toString()}::bigint`,
+      );
+      return row?.partition;
+    };
+
+    it('搬到冷表時自動建出那個月份的分區', async () => {
+      const old = await insertLog('tier.partitioned', new Date('2023-02-10T00:00:00Z'));
+      await archive(daysAgo(200));
+      expect(await partitionOf(old.id)).toBe('audit_logs_archive_p202302');
+    });
+
+    it('保留天數是 -1（永久）→ 不刪任何分區', async () => {
+      const purged = await maintainAuditArchive(db as never, {
+        retentionDays: -1,
+        hotRetentionDays: 90,
+        foreverValue: -1,
+      });
+      expect(purged).toEqual([]);
+    });
+
+    it('資料庫函式拒絕一年內的 cutoff（應用程式即使被濫用也刪不到）', async () => {
+      await expectDbError(
+        db.execute(sql`SELECT * FROM drop_expired_audit_archive_partitions(current_date - 30)`),
+        /AUDIT_LOG_IMMUTABLE/,
+      );
+    });
+
+    it('依保留天數 DROP 整個月份分區，並寫 auditLog.purge；一年內的分區保留', async () => {
+      const purged = await maintainAuditArchive(db as never, {
+        retentionDays: 365,
+        hotRetentionDays: 90,
+        foreverValue: -1,
+      });
+      expect(purged.map((item) => item.partition)).toContain('audit_logs_archive_p202302');
+      const remaining = await db
+        .select({ action: auditLogsArchive.action })
+        .from(auditLogsArchive)
+        .where(eq(auditLogsArchive.action, 'tier.partitioned'));
+      expect(remaining).toEqual([]);
+      const logs = await db
+        .select({ metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(eq(auditLogs.action, 'auditLog.purge'));
+      expect(logs.length).toBe(purged.length);
+      // 一年內的冷資料（10 天前的 tier.shortRetention）不受影響
+      expect(
+        await db
+          .select()
+          .from(auditLogsArchive)
+          .where(eq(auditLogsArchive.action, 'tier.shortRetention')),
+      ).toHaveLength(1);
     });
   });
 });

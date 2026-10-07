@@ -318,7 +318,7 @@ backstage 的列表頁仍是頁碼：依序按「下一頁」時，用上一頁�
 | 層 | 表 | 內容 | 索引 | 誰會讀 |
 | --- | --- | --- | --- | --- |
 | 熱 | `audit_logs` | 最近 `auditLog.hotRetentionDays` 天（預設 90）；所有寫入都進這裡 | 時間、操作者、資源、動作（pattern ops） | 預設查詢、所有寫入 |
-| 冷 | `audit_logs_archive` | 更早的；`id` 沿用熱表 | 時間、操作者、資源；jsonb 用 lz4 壓縮 | 查詢範圍涵蓋冷表最新的一筆時 |
+| 冷 | `audit_logs_archive` | 更早的；`id` 沿用熱表；**按月 RANGE 分區**（`audit_logs_archive_pYYYYMM`），保留 `auditLog.retentionDays` 天 | 時間、操作者、資源、動作（pattern ops）；jsonb 用 lz4 壓縮；主鍵 `(id, occurred_at)` | 查詢範圍涵蓋冷表最新的一筆時 |
 
 搬移由背景工作 `auditLog.archive` 依 `AUDIT_LOG_ARCHIVE_CRON`（預設每天 03:30 UTC）執行
 （[`10-jobs.md`](./10-jobs.md)），執行結果與失敗原因在背景工作頁看得到。排程出問題時可手動補跑：
@@ -341,10 +341,10 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 
 | 項目         | 決定                                                                       |
 | ------------ | -------------------------------------------------------------------------- |
-| 保留期       | ≥ 365 天（熱表預設 90 天 ＋ 冷表其餘）                                      |
+| 保留期       | 租戶參數 `auditLog.retentionDays`（平台管理者設定）：預設 365 天、最少 365、`-1` 永久；實際至少是熱表的天數（§10） |
 | 熱表大小     | 固定約「保留天數」的量，不隨保留期成長                                       |
-| 冷表分區時機 | 超過約 1000 萬列時按月分區（[`02-database.md`](./02-database.md) §7）       |
-| 清理方式     | 冷表分區化之後用 `DROP TABLE <partition>`；在那之前由維運 role 處理          |
+| 冷表分區     | 按月 RANGE 分區（租戶 migration 0039），不建 default 分區；搬移前 `ensure_audit_archive_partitions()` 建出那批資料的月份，每天另預建下個月 |
+| 清理方式     | 每天的 `auditLog.archive` 以 `drop_expired_audit_archive_partitions(cutoff)` DROP 整個月份（上界 ≤ cutoff），寫稽核 `auditLog.purge`；函式拒絕晚於「現在 − 365 天」的 cutoff |
 | 估算         | 100 位活躍管理員 × 每天 50 次寫入操作 ≈ 180 萬筆/年 → 熱表約 45 萬筆          |
 
 ---
@@ -384,3 +384,41 @@ pnpm db:archive-audit-logs   # 與排程工作呼叫同一個函式（modules/au
 - [ ] 列表不回 `changes` / `metadata`；明細在展開時才取
 - [ ] 範圍在熱表保留期內時不碰冷表
 - [ ] 熱表的列只有在冷表有完全相同副本時才能被刪除
+- [ ] 冷表只以整個月份分區刪除，一年內的分區刪不掉，刪除本身留下 `auditLog.purge`
+
+## 10. 設計決策：冷表的月份分區與保留期限
+
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §5）。
+
+### 10.1 背景
+
+冷表原本沒有分區、永久保留，`audit_logs_archive_no_delete` trigger 禁止刪除；§8 寫了「超過約 1000 萬列時按月分區」「之後用 `DROP TABLE`」但沒有實作，也沒有訂保留年限。
+
+### 10.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **熱表／冷表維持，只把冷表改成按月 RANGE 分區**；不把兩張表併成一張分區表 | 熱表的大小固定在保留天數的量；併成一張要重寫搬移、查詢、刪除保護與熱表參數。冷表才是會無限成長、需要 `DROP` 的那一張 |
+| D2 | **現在就分區**，不等 1000 萬列 | 改造的成本與資料量成正比：現在多數租戶的冷表很小，migration 幾乎瞬間完成 |
+| D3 | **保留期限是平台管理的租戶參數 `auditLog.retentionDays`**：預設 365 天、最少 365、最多 36500，`-1` 永久保留；實際保留至少是熱表的天數。**租戶管理者不能改** | 稽核要能對抗租戶內部的竄改：能縮短保留期的人等於能刪稽核。預設 365 是使用者的決定（2026-10-07），`-1` 讓合約或法規要求長期保存的租戶不受限 |
+| D4 | **刪除只以 `DROP` 整個月份分區執行**：`drop_expired_audit_archive_partitions(cutoff date)`（`SECURITY DEFINER`）只刪上界 ≤ cutoff 的分區，cutoff 晚於「現在 − 365 天」一律拒絕；刪除後在熱表寫 `auditLog.purge`（分區、列數、保留天數） | 瞬間完成、不產生 bloat，也不必拿掉 `no_delete` trigger；硬下限讓應用程式的 role 即使被濫用也刪不到一年內的資料。以月為單位，實際保留會比設定多最多一個月 |
+| D5 | **分區的建立**：`archive_audit_logs` 搬移前呼叫 `ensure_audit_archive_partitions(from, to)` 建出這批資料涵蓋的月份；每天的工作另預建這個月與下個月。**不建 default 分區** | 找不到分區時插入失敗、整批 rollback，工作重試，不會默默丟資料；之後建立新分區也不必掃描 default |
+| D6 | **刪除保護沿用**：`audit_logs_archive_no_update`／`no_delete` 建在分區表上（套用到每個分區）；應用程式的 role 不是擁有者，不能 `DROP`／`DETACH` 分區，只能透過 D4 的函式 | 不可竄改的保證與分區前相同 |
+| D7 | **主鍵改為 `(id, occurred_at)`**（分區表的唯一鍵必須包含分區鍵）；熱表刪除保護的比對帶上 `occurred_at`，只探查那一個分區 | 列表一律帶時間範圍（最多 90 天），只碰到 3–4 個分區；`findById` 探查每個分區的主鍵索引，可接受 |
+| D8 | **`auditLog.archive` 的流程**：搬移 → 預建分區 → 保留期限不是 `-1` 時呼叫 D4。`pnpm db:archive-audit-logs` 做同樣的事。平台的 `platform_audit_logs` 量小，這次不處理 | 沿用既有的排程、重試與背景工作頁 |
+
+### 10.3 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 單一分區表取代熱表／冷表（`multi-instance.md` 的原構想） | 不採用：見 D1 |
+| 冷表不分區，以批次 `DELETE` 清理 | 不採用：要拿掉或繞過 `no_delete` trigger；大量 `DELETE` 鎖表、產生 bloat |
+| 等冷表到 1000 萬列再分區 | 不採用：見 D2 |
+| 刪除前自動匯出到物件儲存 | 不在這一版：匯出是 `import-export.md` 的範圍；需要時在 D4 之前插入一步 |
+| 保留期限由租戶管理者以系統設定調整 | 不採用：見 D3 |
+
+### 10.4 遷移
+
+租戶 migration `0039_audit_archive_partitions.sql` 在同一個交易內：舊表改名 → 建分區表與索引 → 依舊表的 `min(occurred_at)` 到下個月建分區 →
+複製並比對列數 → 刪除舊表 → 重建 trigger 與函式。冷表在這段時間被鎖住，只影響查詢早於熱表保留天數的稽核；大型租戶（百萬列以上）先在備份上量時間。
+

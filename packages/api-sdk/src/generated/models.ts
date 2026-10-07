@@ -783,6 +783,7 @@ export type TenantFlagOverrides = Record<string, boolean>;
 export const TenantFeatureParamKey = {
   'file.storageQuotaMb': 'file.storageQuotaMb',
   'auditLog.hotRetentionDays': 'auditLog.hotRetentionDays',
+  'auditLog.retentionDays': 'auditLog.retentionDays',
   'job.maxConcurrency': 'job.maxConcurrency',
   'identityProvider.maxProviders': 'identityProvider.maxProviders',
   'webhook.maxUrls': 'webhook.maxUrls',
@@ -801,6 +802,7 @@ export interface TenantFeatureParam {
   unit: ('days' | 'megabytes' | 'count' | 'perMinute') | null;
   min: number | null;
   max: number | null;
+  foreverValue: number | null;
   maxLength: number | null;
 }
 

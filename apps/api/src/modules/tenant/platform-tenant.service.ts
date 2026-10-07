@@ -94,6 +94,7 @@ function toFeatureParamDtos(overrides: TenantFeatureParamOverrides): TenantFeatu
       unit: isInteger ? param.unit : null,
       min: isInteger ? param.min : null,
       max: isInteger ? param.max : null,
+      foreverValue: isInteger ? (param.foreverValue ?? null) : null,
       maxLength: isInteger ? null : param.maxLength,
     };
   });

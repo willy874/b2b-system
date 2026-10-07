@@ -108,6 +108,7 @@ export const TENANT_FEATURE_IMPACT_LABEL_KEY = {
 export const TENANT_FEATURE_PARAM_LABEL_KEY = {
   'file.storageQuotaMb': 'tenant.param.file.storageQuotaMb',
   'auditLog.hotRetentionDays': 'tenant.param.auditLog.hotRetentionDays',
+  'auditLog.retentionDays': 'tenant.param.auditLog.retentionDays',
   'job.maxConcurrency': 'tenant.param.job.maxConcurrency',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProviders',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrls',
@@ -117,6 +118,7 @@ export const TENANT_FEATURE_PARAM_LABEL_KEY = {
 export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
   'file.storageQuotaMb': 'tenant.param.file.storageQuotaMbDescription',
   'auditLog.hotRetentionDays': 'tenant.param.auditLog.hotRetentionDaysDescription',
+  'auditLog.retentionDays': 'tenant.param.auditLog.retentionDaysDescription',
   'job.maxConcurrency': 'tenant.param.job.maxConcurrencyDescription',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProvidersDescription',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrlsDescription',

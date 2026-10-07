@@ -1,5 +1,9 @@
-import { AUDIT_LOG_HOT_RETENTION_DAYS_PARAM, resolveTenantFeatureParam } from '@/core/tenant';
-import { archiveAuditLogs } from '@/modules/audit-log/audit-log.archive';
+import {
+  AUDIT_LOG_HOT_RETENTION_DAYS_PARAM,
+  AUDIT_LOG_RETENTION_DAYS_PARAM,
+  resolveTenantFeatureParam,
+} from '@/core/tenant';
+import { archiveAuditLogs, maintainAuditArchive } from '@/modules/audit-log/audit-log.archive';
 
 import { forEachScriptTenant, loadScriptEnv } from './client';
 
@@ -17,6 +21,17 @@ async function main(): Promise<void> {
     );
     const { moved, cutoff } = await archiveAuditLogs(db, retentionDays);
     console.info(`稽核日誌搬移完成：${moved} 筆早於 ${cutoff.toISOString()} 的紀錄已移到冷表`);
+    // 與排程相同：預建冷表分區、依保留期限刪除過期的月份
+    const purged = await maintainAuditArchive(db, {
+      retentionDays: resolveTenantFeatureParam(
+        AUDIT_LOG_RETENTION_DAYS_PARAM,
+        tenant.featureParams,
+      ),
+      hotRetentionDays: retentionDays,
+      foreverValue: AUDIT_LOG_RETENTION_DAYS_PARAM.foreverValue,
+    });
+    for (const item of purged)
+      console.info(`已刪除過期的冷表分區 ${item.partition}（${item.rows} 筆）`);
   });
 }
 

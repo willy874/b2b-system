@@ -137,7 +137,9 @@
       },
       "auditLog": {
         "hotRetentionDays": "熱資料保存天數",
-        "hotRetentionDaysDescription": "超過這個天數的稽核紀錄每天搬到冷表；兩邊都查得到，冷表的查詢較慢。"
+        "hotRetentionDaysDescription": "超過這個天數的稽核紀錄每天搬到冷表；兩邊都查得到，冷表的查詢較慢。",
+        "retentionDays": "冷資料保存天數",
+        "retentionDaysDescription": "冷表的紀錄超過這個天數就以整個月份刪除（每天執行，刪除本身會留下一筆稽核）。最少 365 天，-1 表示永久保留；實際至少保留熱資料的天數。"
       },
       "job": {
         "maxConcurrency": "同時執行的工作數",
@@ -168,7 +170,9 @@
       "rateLimit": {
         "authPerMinute": "登入次數上限",
         "authPerMinuteDescription": "這個租戶每分鐘所有登入請求合計的上限。被攻擊時只有這個租戶回「操作太頻繁」，不影響其他租戶。"
-      }
+      },
+      "forever": "永久",
+      "foreverHint": "；{{value}} 表示永久"
     },
     "tab": {
       "overview": "概覽",

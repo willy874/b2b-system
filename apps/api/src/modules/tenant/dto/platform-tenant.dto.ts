@@ -75,6 +75,8 @@ export const TenantFeatureParamSchema = defineSchema(
     unit: z.enum(TENANT_FEATURE_PARAM_UNITS).nullable(),
     min: z.number().nullable(),
     max: z.number().nullable(),
+    /** 代表「不限（永久）」的特殊值（例：保留期限的 -1）；沒有是 `null`。 */
+    foreverValue: z.number().nullable(),
     maxLength: z.number().nullable(),
   }),
 );

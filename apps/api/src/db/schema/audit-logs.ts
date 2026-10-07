@@ -5,6 +5,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -72,15 +73,18 @@ export const auditLogs = pgTable(
 
 /**
  * 冷資料：由 `archive_audit_logs()` 從熱表搬過來，`id` 沿用熱表的值。
- * 索引與熱表相同：冷表隨保留期一直長（千萬列級），`action` 前綴查詢只靠時間索引過濾會掃過整個 90 天範圍
+ * 索引與熱表相同：冷表隨保留期一直長（千萬列級），`action` 前綴查詢只靠時間索引過濾會掃過整個 90 天範圍。
+ * 依 `occurred_at` 按月 RANGE 分區（租戶 migration 0039；分區與保留期限見 docs/architecture/backend/06-audit-log.md §8）：
+ * Drizzle 表達不了分區，這裡只描述欄位與索引；分區表的唯一鍵必須包含分區鍵，所以主鍵是 `(id, occurred_at)`。
  */
 export const auditLogsArchive = pgTable(
   'audit_logs_archive',
   {
-    id: bigint('id', { mode: 'bigint' }).primaryKey(),
+    id: bigint('id', { mode: 'bigint' }).notNull(),
     ...auditLogColumns(),
   },
   (t) => [
+    primaryKey({ columns: [t.id, t.occurredAt] }),
     index('audit_logs_archive_occurred_idx').on(
       t.occurredAt.desc().nullsFirst(),
       t.id.desc().nullsFirst(),

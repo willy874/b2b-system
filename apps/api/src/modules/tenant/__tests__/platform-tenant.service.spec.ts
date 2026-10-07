@@ -376,6 +376,7 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       unit: 'megabytes',
       min: 1,
       max: 10_485_760,
+      foreverValue: null,
       maxLength: null,
     });
     expect(result.featureParams.find((param) => param.key === 'job.maxConcurrency')).toMatchObject({
@@ -412,6 +413,7 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
     expect(params.map((param) => param.key)).toEqual([
       'file.storageQuotaMb',
       'auditLog.hotRetentionDays',
+      'auditLog.retentionDays',
       'job.maxConcurrency',
       'identityProvider.maxProviders',
       'webhook.maxUrls',

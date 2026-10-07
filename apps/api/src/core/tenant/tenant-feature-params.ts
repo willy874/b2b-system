@@ -27,6 +27,8 @@ export interface TenantIntegerParam<K extends string = string> extends TenantFea
   min: number;
   max: number;
   unit: TenantFeatureParamUnit;
+  /** 代表「不限（永久）」的特殊值，不受 `min`／`max` 限制（例：保留期限的 -1）。沒有就不允許。 */
+  foreverValue?: number;
 }
 
 export interface TenantStringParam<K extends string = string> extends TenantFeatureParamBase<K> {
@@ -55,6 +57,21 @@ export const AUDIT_LOG_HOT_RETENTION_DAYS_PARAM = {
   min: 7,
   max: 3650,
   unit: 'days',
+} as const satisfies TenantIntegerParam;
+
+/**
+ * 稽核冷表的保留天數（docs/architecture/backend/06-audit-log.md §10 D3）：每天的 `auditLog.archive` 以 DROP 整個月份分區刪除早於它的紀錄。
+ * `-1` = 永久保留。最少 365 天（資料庫函式另有同樣的硬下限）；實際至少保留 `auditLog.hotRetentionDays`。只有平台管理者能改。
+ */
+export const AUDIT_LOG_RETENTION_DAYS_PARAM = {
+  key: 'auditLog.retentionDays',
+  feature: 'auditLog',
+  type: 'integer',
+  defaultValue: 365,
+  min: 365,
+  max: 36_500,
+  unit: 'days',
+  foreverValue: -1,
 } as const satisfies TenantIntegerParam;
 
 /** D8：所有檔案的大小合計上限（MB = 1024 × 1024 位元組；含上傳中與回收桶裡的檔案）。 */
@@ -122,6 +139,7 @@ export const RATE_LIMIT_AUTH_PER_MINUTE_PARAM = {
 export const TENANT_FEATURE_PARAMS = [
   FILE_STORAGE_QUOTA_MB_PARAM,
   AUDIT_LOG_HOT_RETENTION_DAYS_PARAM,
+  AUDIT_LOG_RETENTION_DAYS_PARAM,
   JOB_MAX_CONCURRENCY_PARAM,
   IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM,
   WEBHOOK_MAX_URLS_PARAM,
@@ -153,6 +171,7 @@ export function tenantFeatureParamProblem(
 ): string | null {
   if (param.type === 'integer') {
     if (typeof value !== 'number' || !Number.isInteger(value)) return 'must be an integer';
+    if (param.foreverValue !== undefined && value === param.foreverValue) return null;
     if (value < param.min) return `must be >= ${param.min}`;
     if (value > param.max) return `must be <= ${param.max}`;
     return null;

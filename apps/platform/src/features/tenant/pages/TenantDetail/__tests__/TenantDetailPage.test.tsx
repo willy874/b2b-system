@@ -534,6 +534,38 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
       expect(row.closest('[data-testid="tenant-limits"]')).not.toBeNull();
     });
 
+    it('保留期限設成 -1 顯示「永久」；編輯時接受 -1（不受下限限制）', async () => {
+      await initI18n('zh-TW');
+      i18n.addResourceBundle('zh-TW', 'translation', tenantZhTW, true, true);
+      const tenant = tenantFixture({
+        featureParams: FEATURE_PARAMS.map((param) =>
+          param.key === 'auditLog.retentionDays'
+            ? { ...param, value: -1, overridden: true }
+            : param,
+        ),
+      });
+      update.mockResolvedValue(tenant);
+      renderPage(tenant, ALL, FEATURES_TAB);
+      const row = await paramRow('auditLog.retentionDays');
+      expect(within(row).getByTestId('tenant-param-value')).toHaveTextContent('永久');
+
+      fireEvent.click(within(row).getByTestId('tenant-param-edit'));
+      const dialog = await screen.findByTestId('tenant-param-dialog');
+      fireEvent.change(within(dialog).getByTestId('tenant-param-input'), {
+        target: { value: '100' },
+      });
+      fireEvent.click(within(dialog).getByTestId('tenant-param-submit'));
+      expect(update).not.toHaveBeenCalled();
+      fireEvent.change(within(dialog).getByTestId('tenant-param-input'), {
+        target: { value: '-1' },
+      });
+      fireEvent.click(within(dialog).getByTestId('tenant-param-submit'));
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(update.mock.calls[0]?.[0]).toMatchObject({
+        params: { body: { featureParams: { 'auditLog.retentionDays': -1 } } },
+      });
+    });
+
     it('有 tenant:update → 編輯後只送出這一個參數', async () => {
       const tenant = tenantFixture();
       update.mockResolvedValue(tenant);

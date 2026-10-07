@@ -816,17 +816,15 @@ SELECT archive_audit_logs(now() - interval '90 days', 5000);
 - 熱表只有 90 天的量，四個索引都小到能常駐記憶體；寫入與預設查詢只碰熱表。
 - 冷表的量隨保留期成長，但只在查詢範圍早於 90 天時才被讀到（見 `06-audit-log.md` §7.2）。
 
-冷表超過約 1000 萬列時，再把冷表改成按月分區：
+冷表按月分區（租戶 migration 0039；[`06-audit-log.md`](./06-audit-log.md) §10）：
 
 ```sql
-CREATE TABLE audit_logs_archive (...) PARTITION BY RANGE (occurred_at);
-CREATE TABLE audit_logs_archive_2026_09 PARTITION OF audit_logs_archive
-  FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
+CREATE TABLE audit_logs_archive (..., PRIMARY KEY (id, occurred_at)) PARTITION BY RANGE (occurred_at);
+-- 分區由 ensure_audit_archive_partitions(from, to) 建立：audit_logs_archive_p202609 = [2026-09-01, 2026-10-01)
 ```
 
-屆時保留期清理變成 `DROP TABLE audit_logs_archive_2025_09`（瞬間完成、不產生
-bloat），而不是一個會鎖表數分鐘的大 `DELETE`。索引全部以 `occurred_at` 結尾，
-改造時不需要改查詢。
+保留期清理是 `drop_expired_audit_archive_partitions(cutoff)` DROP 整個月份（瞬間完成、不產生 bloat），
+而不是一個會鎖表數分鐘的大 `DELETE`；函式拒絕一年內的 cutoff。索引全部以 `occurred_at` 結尾，查詢不必改。
 
 ---
 

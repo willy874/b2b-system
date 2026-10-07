@@ -6,9 +6,13 @@ import type { Env } from '@/core/config';
 import { TENANT_DB } from '@/core/database';
 import type { Database } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { AUDIT_LOG_HOT_RETENTION_DAYS_PARAM, tenantFeatureParam } from '@/core/tenant';
+import {
+  AUDIT_LOG_HOT_RETENTION_DAYS_PARAM,
+  AUDIT_LOG_RETENTION_DAYS_PARAM,
+  tenantFeatureParam,
+} from '@/core/tenant';
 
-import { archiveAuditLogs } from './audit-log.archive';
+import { archiveAuditLogs, maintainAuditArchive } from './audit-log.archive';
 
 /**
  * 稽核日誌熱 → 冷搬移（docs/architecture/backend/06-audit-log.md §8）。
@@ -39,10 +43,26 @@ export class AuditLogArchiveJob implements OnModuleInit {
     });
   }
 
-  async run(): Promise<{ moved: number; cutoff: string; retentionDays: number }> {
+  async run(): Promise<{
+    moved: number;
+    cutoff: string;
+    retentionDays: number;
+    purgedPartitions: number;
+  }> {
     const retentionDays = tenantFeatureParam(AUDIT_LOG_HOT_RETENTION_DAYS_PARAM);
     const { moved, cutoff } = await archiveAuditLogs(this.db, retentionDays);
-    this.logger.log({ moved, cutoff, retentionDays }, '稽核日誌搬移完成');
-    return { moved, cutoff: cutoff.toISOString(), retentionDays };
+    // 冷表：預建分區、依保留期限刪除過期的月份（docs/architecture/backend/06-audit-log.md §10）
+    const purged = await maintainAuditArchive(this.db, {
+      retentionDays: tenantFeatureParam(AUDIT_LOG_RETENTION_DAYS_PARAM),
+      hotRetentionDays: retentionDays,
+      foreverValue: AUDIT_LOG_RETENTION_DAYS_PARAM.foreverValue,
+    });
+    this.logger.log({ moved, cutoff, retentionDays, purged }, '稽核日誌搬移完成');
+    return {
+      moved,
+      cutoff: cutoff.toISOString(),
+      retentionDays,
+      purgedPartitions: purged.length,
+    };
   }
 }

@@ -9423,6 +9423,7 @@
         "enum": [
           "file.storageQuotaMb",
           "auditLog.hotRetentionDays",
+          "auditLog.retentionDays",
           "job.maxConcurrency",
           "identityProvider.maxProviders",
           "webhook.maxUrls",
@@ -9483,6 +9484,10 @@
             "nullable": true,
             "type": "number"
           },
+          "foreverValue": {
+            "nullable": true,
+            "type": "number"
+          },
           "maxLength": {
             "nullable": true,
             "type": "number"
@@ -9498,6 +9503,7 @@
           "unit",
           "min",
           "max",
+          "foreverValue",
           "maxLength"
         ],
         "additionalProperties": false

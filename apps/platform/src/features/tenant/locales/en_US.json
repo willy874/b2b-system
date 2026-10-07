@@ -140,7 +140,9 @@
       },
       "auditLog": {
         "hotRetentionDays": "Hot data retention",
-        "hotRetentionDaysDescription": "Audit records older than this are moved to the archive table daily. Both remain searchable; archive queries are slower."
+        "hotRetentionDaysDescription": "Audit records older than this are moved to the archive table daily. Both remain searchable; archive queries are slower.",
+        "retentionDays": "Archive retention",
+        "retentionDaysDescription": "Archived records older than this are deleted a whole month at a time (daily; each deletion is itself audited). At least 365 days; -1 keeps them forever. Records are always kept at least as long as the hot retention."
       },
       "job": {
         "maxConcurrency": "Concurrent jobs",
@@ -171,7 +173,9 @@
       "rateLimit": {
         "authPerMinute": "Sign-in rate limit",
         "authPerMinuteDescription": "Maximum sign-in requests per minute across the whole tenant. Under attack, only this tenant gets \"too many requests\"; other tenants are unaffected."
-      }
+      },
+      "forever": "Forever",
+      "foreverHint": "; {{value}} keeps them forever"
     },
     "tab": {
       "overview": "Overview",

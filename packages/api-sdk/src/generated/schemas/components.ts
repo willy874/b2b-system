@@ -1385,6 +1385,7 @@ export const TenantFlagOverridesSchema = z.record(
 export const TenantFeatureParamKeySchema = z.enum([
   'file.storageQuotaMb',
   'auditLog.hotRetentionDays',
+  'auditLog.retentionDays',
   'job.maxConcurrency',
   'identityProvider.maxProviders',
   'webhook.maxUrls',
@@ -1401,6 +1402,7 @@ export const TenantFeatureParamSchema = z.object({
   unit: z.enum(['days', 'megabytes', 'count', 'perMinute']).nullable(),
   min: z.number().nullable(),
   max: z.number().nullable(),
+  foreverValue: z.number().nullable(),
   maxLength: z.number().nullable(),
 }) satisfies z.ZodType<TenantFeatureParam>;
 
