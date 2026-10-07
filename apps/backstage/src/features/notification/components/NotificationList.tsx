@@ -57,9 +57,10 @@ export function NotificationList({
             markRead(notification);
             onNavigate?.();
           }}
+          onMarkRead={markRead}
         />
       )}
-      estimateSize={72}
+      estimateSize={84}
       hasMore={list.hasMore}
       loading={list.isLoadingMore}
       onLoadMore={list.loadMore}
@@ -70,6 +71,8 @@ export function NotificationList({
         />
       }
       aria-label={t('notification.title')}
+      // 分隔線畫在 li 上：最後一則不畫，才不會與 Popover 的頁尾或列表頁的外框疊成兩條
+      classNames={{ item: 'border-b border-[var(--color-border)] last:border-b-0' }}
       className={className}
       data-testid={testId}
     />

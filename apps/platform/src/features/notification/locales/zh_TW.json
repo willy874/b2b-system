@@ -5,7 +5,7 @@
     "description": "平台送給你的通知：租戶佈建的結果、你的角色變更。",
     "trigger": "通知",
     "triggerUnread_other": "通知（{{count}} 則未讀）",
-    "unread": "未讀：",
+    "unreadCount_other": "{{count}} 則未讀",
     "empty": "還沒有通知",
     "emptyUnread": "沒有未讀的通知",
     "viewAll": "查看全部",

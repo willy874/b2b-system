@@ -547,5 +547,9 @@
       "resendIn_other": "{{count}} 秒後可以重新寄送",
       "delayHint": "信件可能需要一分鐘才會送達；也請檢查垃圾郵件匣。"
     }
+  },
+  "notificationRow": {
+    "unread": "未讀：",
+    "markRead": "標為已讀"
   }
 }

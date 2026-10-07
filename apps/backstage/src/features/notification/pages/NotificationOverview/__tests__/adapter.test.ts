@@ -23,7 +23,7 @@ describe('toNotificationOverviewRowVM（通知總覽的一列）', () => {
       eventNameKey: 'notification.event.type.webhookDisabled.name',
       message: {
         key: 'notification.message.webhookDisabled',
-        args: { name: { text: 'CI' }, count: { text: '5' } },
+        args: { name: { text: 'CI' }, count: { count: 5 } },
       },
       actorName: null,
       readAt: null,

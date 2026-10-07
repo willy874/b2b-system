@@ -2,7 +2,7 @@
   "notification": {
     "title": "通知",
     "description": "有事等你處理、你的東西被動了，都會出現在這裡。已讀超過保留期限的通知會自動清除。",
-    "unread": "未讀：",
+    "unreadCount_other": "{{count}} 則未讀",
     "empty": "目前沒有通知",
     "emptyUnread": "沒有未讀的通知",
     "viewAll": "查看全部",

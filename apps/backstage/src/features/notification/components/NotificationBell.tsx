@@ -57,7 +57,14 @@ export function NotificationBell() {
       }
     >
       <div className="flex items-center justify-between gap-2 pb-2">
-        <h2 className="m-0 text-sm font-semibold">{t('notification.title')}</h2>
+        <div className="flex items-baseline gap-2">
+          <h2 className="m-0 text-sm font-semibold">{t('notification.title')}</h2>
+          {count > 0 && (
+            <span className="text-xs text-[var(--color-fg-muted)]">
+              {t('notification.unreadCount', { count })}
+            </span>
+          )}
+        </div>
         <Button
           size="sm"
           variant="ghost"

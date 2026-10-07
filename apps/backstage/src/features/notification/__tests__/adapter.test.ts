@@ -61,7 +61,8 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
     [
       'webhook.disabled：名稱與連續失敗次數（docs/architecture/backend/17-webhook.md §9.2 D13）',
       { ...base, type: 'webhook.disabled', params: { webhookName: 'CI', consecutiveFailures: 50 } },
-      'notification.message.webhookDisabled{"name":"CI","count":"50"}',
+      // count 以數字代入，i18next 才會選到 _one／_other
+      'notification.message.webhookDisabled{"name":"CI","count":50}',
       [],
     ],
     [
@@ -108,6 +109,14 @@ describe('toNotificationVM', () => {
     expect(vm.actorName).toBeNull();
     expect(vm.isRead).toBe(false);
     expect(vm.link).toBeUndefined();
+  });
+
+  it.each([
+    ['approval.pending', 'flag'],
+    ['webhook.disabled', 'warning'],
+    ['future.event', 'bell'],
+  ])('%s 的圖示是 %s（不認得的類型用鈴鐺）', (type, icon) => {
+    expect(toNotificationVM({ ...base, type }, () => undefined).icon).toBe(icon);
   });
 });
 

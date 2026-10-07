@@ -11,10 +11,11 @@ import { registerNotificationPagePermissions, Routes } from '..';
 import { NotificationBell } from '../components/NotificationBell';
 import notificationZhTW from '../locales/zh_TW.json';
 
-const { fetchCount, fetchList, markAll } = vi.hoisted(() => ({
+const { fetchCount, fetchList, markAll, markRead } = vi.hoisted(() => ({
   fetchCount: vi.fn(),
   fetchList: vi.fn(),
   markAll: vi.fn(),
+  markRead: vi.fn(),
 }));
 vi.mock('@/apis/platform-notification/get-notification-unread-count/fetcher', () => ({
   fetchNotificationUnreadCountQuery: fetchCount,
@@ -24,6 +25,9 @@ vi.mock('@/apis/platform-notification/get-notification-list/fetcher', () => ({
 }));
 vi.mock('@/apis/platform-notification/mark-all-notifications-read/fetcher', () => ({
   fetchMarkAllNotificationsReadMutation: markAll,
+}));
+vi.mock('@/apis/platform-notification/mark-notification-read/fetcher', () => ({
+  fetchMarkNotificationReadMutation: markRead,
 }));
 
 beforeAll(() => initTestI18n(notificationZhTW));
@@ -48,6 +52,7 @@ beforeEach(() => {
     pagination: { offset: 0, limit: 10, total: 1 },
   });
   markAll.mockReset().mockResolvedValue({ updated: 3 });
+  markRead.mockReset().mockResolvedValue({});
 });
 
 function renderBell() {
@@ -82,5 +87,17 @@ describe('NotificationBell（頂列的通知）', () => {
     fireEvent.click(screen.getByTestId('notification-bell'));
     fireEvent.click(await screen.findByTestId('notification-mark-all-read'));
     await waitFor(() => expect(markAll).toHaveBeenCalled());
+  });
+
+  it('沒有連結的未讀通知從列尾按鈕標為已讀；標題旁顯示未讀數', async () => {
+    renderBell();
+    await screen.findByTestId('notification-unread-count');
+    fireEvent.click(screen.getByTestId('notification-bell'));
+    const panel = await screen.findByTestId('notification-panel');
+    expect(panel).toHaveTextContent('3 則未讀');
+    fireEvent.click(await screen.findByRole('button', { name: '標為已讀' }));
+    await waitFor(() =>
+      expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n1' }),
+    );
   });
 });

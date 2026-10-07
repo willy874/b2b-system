@@ -12,6 +12,9 @@ web-core/route-link/                        route id → route 的註冊表（�
 ├── hooks.ts                            useRouteLinkResolver()：訂閱註冊表；useRouteLinkAccess()：登記＋頁面權限 → 能不能點
 └── RouteLink.tsx                       <RouteLink to="<route id>" fallback>：前端跨 feature 的連結，不能點時顯示文字或不渲染
 
+web-core/notification/
+└── NotificationRow.tsx                 一則通知的畫面（兩個前端共用，§2.1）：收翻譯好的句子與解析好的連結
+
 features/approval/routeLinks.ts         登記 approval.detail
 features/file/routeLinks.ts             登記 file.folder（可啟用的 feature：沒啟用就沒有登記）
 features/account/routeLinks.ts          登記 account.profile
@@ -21,8 +24,8 @@ features/group/routeLinks.ts            登記 group.detail（同上）
 features/notification/                  只讀註冊表，不 import 其他 feature
 ├── plugin.ts                           頁面權限 ＋ registerHeaderTool('notification')（同步階段）
 ├── permission.ts                       NOTIFICATION_PAGE（只需要登入）、NOTIFICATION_OVERVIEW_PAGE（notification:read）、NOTIFICATION_EVENT_PAGE（system:read）
-├── constants.ts                        句子的 i18n key 對照表、審批類型的名稱
-├── adapter.ts                          DTO → NotificationVM（句子、補充、連結）、translateMessage()
+├── constants.ts                        句子的 i18n key 對照表、審批類型的名稱、類型的圖示
+├── adapter.ts                          DTO → NotificationVM（圖示、句子、補充、連結）、translateMessage()
 ├── hooks/
 │   ├── useNotificationUnreadCount.ts   未讀數（推播不可用時每分鐘重抓）
 │   ├── useNotificationList.ts          keyset 無限捲動 ＋ 解析連結
@@ -37,7 +40,7 @@ features/notification/                  只讀註冊表，不 import 其他 feat
 │   ├── NotificationBell.tsx            頂列工具：徽章 ＋ Popover
 │   ├── NotificationList.tsx            VirtualList（鈴鐺與列表頁共用）
 │   ├── NotificationPreferenceSection.tsx  偏好頁的通知分頁（§10）
-│   └── NotificationItem.tsx            一則通知
+│   └── NotificationItem.tsx            一則通知：翻譯句子後交給 NotificationRow
 ├── pages/NotificationList/             列表頁：全部／未讀、全部已讀
 ├── pages/NotificationOverview/         通知總覽（§4.1）
 └── pages/NotificationEventList/        事件管理頁（§9）
@@ -66,8 +69,9 @@ apis/notification/
 | --- | --- |
 | 徽章 | 未讀數（`GET /notifications/unread-count`）；0 不顯示，超過 99 顯示 `99+`。數量含在按鈕的 `aria-label`（`notification.triggerUnread`），徽章本身 `aria-hidden` |
 | 未讀數的來源 | 只有 query，不存 localStorage（[`09-state-and-storage.md`](./09-state-and-storage.md) §4.2）。沒有 session 時不查詢；推播斷線或沒有推播（mock）時每 60 秒重抓 |
-| Popover | 標題、「全部已讀」（沒有未讀時停用）、最近的通知（`NotificationList`，`filter: all`）、「查看全部」連到列表頁。**打開時才抓列表**（`enabled: open`） |
+| Popover | 標題與未讀數（`notification.unreadCount`，0 不顯示）、「全部已讀」（沒有未讀時停用）、最近的通知（`NotificationList`，`filter: all`）、「查看全部」連到列表頁。**打開時才抓列表**（`enabled: open`） |
 | 點一則 | 未讀的呼叫 `POST /notifications/:id/read`（不等回應；失敗只提示），連結由 `<Link>` 換頁，並關閉 Popover |
+| 標為已讀 | 未讀的列尾有「標為已讀」按鈕：打同一支 API、不換頁、不關 Popover。沒有連結的通知（§3「不可點」）只能靠它標為已讀 |
 | 語系 | 鈴鐺在每一頁都看得到，不經過本 feature 的 route loader：按鈕的字（`notification.label`、`trigger`、`triggerUnread`）放 **全域** 語系包；Popover 的內容在 feature 的 scope，由 `useNotificationLocale()` 在鈴鐺掛上時載入 |
 
 ## 3. 連結：route id 註冊表（`web-core/route-link`）
@@ -97,6 +101,17 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | 改名 | 已發出的 id **不改名**（舊通知靠它）；頁面搬家時只改登記的 `route` |
 
 目前的 route id 與後端的對照見 [`../backend/15-notification.md`](../backend/15-notification.md) §4.1。
+
+### 2.1 一則通知（`web-core/notification` 的 `NotificationRow`）
+
+鈴鐺與列表頁共用，apps/platform 的通知也用同一個元件；app 的 `NotificationItem` 只負責翻譯句子、解析連結。
+
+| 項目 | 規則 |
+| --- | --- |
+| 版面 | 左邊是類型圖示（`NOTIFICATION_ICON`，不認得的類型用 `bell`），右邊依序是句子、補充（各一行、過長截斷）、觸發者 · 相對時間（apps/platform 沒有觸發者，只顯示時間）；列與列之間有分隔線（畫在 `VirtualList` 的 `li` 上，最後一則不畫） |
+| 未讀 | 底色 `--color-fill-subtle`、句子粗體、圖示用 `--color-brand`；報讀靠句子前的 sr-only「未讀：」（`notificationRow.unread`） |
+| 可點 | 有連結的是 `<a>`，hover／focus 底色 `--color-fill`；沒有連結的只是文字 |
+| 標為已讀 | 未讀的列尾 `IconButton`（`check`，`notificationRow.markRead`）。按鈕與連結是兄弟元素，`<a>` 裡不放按鈕 |
 
 ## 4. 列表頁（`/notification`）
 
@@ -164,9 +179,10 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | --- | --- |
 | route id 註冊表：path／search 參數、沒有參數、不可點的各種情況、重複與格式錯誤、params 對不上 path、卸載撤回 | `web-core/route-link/__tests__/registry.test.ts` |
 | 可啟用的檔案 feature 安裝後登記 `file.folder`、卸載後撤回 | `app/__tests__/features.test.ts` |
-| 句子：三種類型、審批類型不認得、空摘要、參數不合預期與不認得的類型退回通用文字、清單依語系 | `features/notification/__tests__/adapter.test.ts` |
+| 句子：三種類型、審批類型不認得、空摘要、參數不合預期與不認得的類型退回通用文字、清單依語系、次數以數字代入（複數形）；類型的圖示 | `features/notification/__tests__/adapter.test.ts` |
+| 一則通知：沒有連結的只顯示文字而能標為已讀、有連結的是 `<a>` 且按鈕不在裡面、已讀沒有按鈕、沒有觸發者只顯示時間 | `web-core/notification/__tests__/NotificationRow.test.tsx` |
 | hook：未讀數（沒有 session 不查）、列表（連結解析、篩選、游標、`enabled`、執行期登記後變可點）、已讀與全部已讀宣告的變更 | `features/notification/hooks/__tests__/*.test.tsx` |
-| 鈴鐺：徽章與可存取名稱、打開前不抓、`99+`、句子與不可點、點了標為已讀並換頁、全部已讀、查看全部、空狀態 | `features/notification/components/__tests__/NotificationBell.test.tsx` |
+| 鈴鐺：徽章與可存取名稱、打開前不抓、`99+`、句子與不可點、點了標為已讀並換頁、沒有連結的從列尾按鈕標為已讀、標題旁的未讀數、全部已讀、查看全部、空狀態 | `features/notification/components/__tests__/NotificationBell.test.tsx` |
 | 列表頁：只需要登入的三個權限案例（沒有權限、有其他權限、未水合）、未讀分頁寫進網址、全部已讀、查詢失敗 | `features/notification/pages/NotificationList/__tests__/NotificationListPage.test.tsx` |
 | 依賴圖：`notification` 的 create／update 只失效通知、不碰稽核；其他寫入不影響通知；`except` 的引擎行為 | `apis/__tests__/resources.test.ts`、`web-core/cache/__tests__/resourceGraph.test.ts` |
 | 通知總覽：三個權限案例（有 `notification:read`、沒有但仍進得了 `/notification`、未水合）、每一列的欄位與不認得的事件、網址的篩選帶進查詢、載入更多以游標接續；adapter | `features/notification/pages/NotificationOverview/__tests__/*` |

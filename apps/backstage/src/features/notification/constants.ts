@@ -1,3 +1,5 @@
+import type { IconName } from '@b2b-system/ui/Icon';
+
 import type {
   ApprovalType,
   NotificationChannel,
@@ -35,6 +37,17 @@ export const APPROVAL_TYPE_LABEL_KEY = {
 
 /** 參數裡的審批類型不認得時（舊通知、後端比前端新）。 */
 export const APPROVAL_TYPE_FALLBACK_KEY = 'notification.approvalType.unknown';
+
+/** 每種通知的圖示（依後端的 `type`）；不認得的類型用鈴鐺。 */
+export const NOTIFICATION_ICON = {
+  'approval.pending': 'flag',
+  'approval.result': 'shield',
+  'user.rolesChanged': 'user',
+  'webhook.disabled': 'warning',
+  'announcement.published': 'megaphone',
+} as const satisfies Record<string, IconName>;
+
+export const NOTIFICATION_FALLBACK_ICON: IconName = 'bell';
 
 /** 每頁幾筆（鈴鐺與列表頁共用同一個 query）。 */
 export const NOTIFICATION_PAGE_SIZE = 20;

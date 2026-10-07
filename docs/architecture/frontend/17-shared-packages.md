@@ -48,7 +48,7 @@ zod schema 與 SDK 自己的 fetch client 在 `@b2b-system/api-sdk/schemas`，�
 | --- | --- | --- | --- | --- |
 | `@b2b-system/web-shared` | `packages/web-shared` | 只有原始碼 | 原 `src/shared/*`：`store`、`hooks`、`channel`、`context`、`registry`、`storage`、`date`、`utils`、`constants`、`EventEmitter` | [README](../../../packages/web-shared/README.md) |
 | `@b2b-system/ui` | `packages/ui` | 只有原始碼 | 設計系統元件、`icons/`、`styles/`（token、全域樣式）、`uno.config.ts`、Storybook | [README](../../../packages/ui/README.md)、[`07-ui-system.md`](07-ui-system.md) |
-| `@b2b-system/web-core` | `packages/web-core` | 只有原始碼 | 原 `core/` 兩個 app 共用的模組、`plugins/{fetcher,app}`、`shell`（providers）、`layout`（外框 `DashboardShell`、側欄、頂列工具）、`components`（錯誤頁、`AuthShell`、變更密碼…）、背景工作與稽核列表的展示元件（`job`、`audit-log`）、共用語系、測試輔助 | [README](../../../packages/web-core/README.md) |
+| `@b2b-system/web-core` | `packages/web-core` | 只有原始碼 | 原 `core/` 兩個 app 共用的模組、`plugins/{fetcher,app}`、`shell`（providers）、`layout`（外框 `DashboardShell`、側欄、頂列工具）、`components`（錯誤頁、`AuthShell`、變更密碼…）、背景工作與稽核列表的展示元件（`job`、`audit-log`）、站內通知的一列（`notification`）、共用語系、測試輔助 | [README](../../../packages/web-core/README.md) |
 | `@b2b-system/error-codes` | `packages/error-codes` | `tsc` → `dist/` | api 的 `ErrorCode`、`ALL_ERROR_CODES`、`statusOf` | [README](../../../packages/error-codes/README.md) |
 
 匯入一律走子路徑，一個模組一個入口：`@b2b-system/web-shared/store`、`@b2b-system/ui/Button`、`@b2b-system/web-core/permission`。
@@ -116,7 +116,7 @@ declare module '@b2b-system/web-core/app/context' {
 
 ### 3.3 全域語系包（合併）
 
-web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）。
+web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）、`notificationRow`。
 app 的 `src/app/locales/*.json` 只放自己的區段（`menu`、`app`、`permission`…）與少數覆寫。
 
 app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlugin({ locales })`，兩者以 `mergeLocaleImporters` 深層合併，**app 的鍵優先**。
@@ -180,7 +180,8 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 | `features/auth`、`features/login` | SSO client、登入頁的語系鍵（`sessionEnd.ts` 只剩語系鍵的表）、`AuthShell` 的產品名 | `auth` 的 `sessionEndMessageKey`、`LOGOUT_REASON`、`PASSWORD_CHANGED_REASON`；`components` 的 `AuthShell` |
 | `features/account` | 個人資料打不同的端點、資料形狀不同（user／admin）；偏好是否同步到帳號 | `components` 的 `ChangePasswordSection`／`useChangePasswordForm`、`preference` 的分頁 |
 | `features/job`、`features/audit-log` | 端點、adapter、篩選、明細的取得與 JSON 的呈現；apps/platform 的租戶欄 | `job`、`audit-log` 的列表、佇列卡片、列上的操作、明細的版面 |
-| 其他 `features/*` | 各自的頁面；同名的（`notification`）打不同的端點 | — |
+| `features/notification` | 端點（`/notifications`、`/platform/notifications`）、未讀數與列表的 hook、adapter（句子、類型的圖示）、鈴鐺 | `notification` 的 `NotificationRow`（一列的版面、未讀樣式、標為已讀按鈕） |
+| 其他 `features/*` | 各自的頁面 | — |
 | `public/theme-init.js` | Vite 的 public 目錄屬於 app；內容相同，測試在各自的 `app/__tests__/theme-init.test.ts` | — |
 
 修改上表的安全相關部分（`apis/auth/*`、`sessionRedirect.ts`）時，同一批檢查另一個 app（[`apps/platform/README.md`](../../../apps/platform/README.md)）。

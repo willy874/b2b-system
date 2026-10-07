@@ -150,6 +150,35 @@ describe('NotificationBell（頂列的通知工具，docs/architecture/backend/1
     await waitFor(() => expect(screen.queryByTestId('notification-panel')).toBeNull());
   });
 
+  it('沒有連結的未讀通知也能從列尾按鈕標為已讀，Popover 不關閉', async () => {
+    const LINKLESS: Notification = { ...PENDING, id: 'n-linkless', link: null };
+    fetchList.mockResolvedValue({ items: [LINKLESS], nextCursor: null });
+    markRead.mockResolvedValue({ ...LINKLESS, readAt: new Date().toISOString() });
+    renderRoute(routes, '/', []);
+    const panel = await openPanel();
+    const [item] = await within(panel).findAllByTestId('notification-item');
+    expect(item?.tagName).not.toBe('A');
+
+    await userEvent.click(within(panel).getByRole('button', { name: '標為已讀' }));
+
+    await waitFor(() =>
+      expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n-linkless' }),
+    );
+    expect(screen.getByTestId('notification-panel')).toBeInTheDocument();
+  });
+
+  it('已讀的通知沒有「標為已讀」按鈕；標題旁顯示未讀數', async () => {
+    renderRoute(routes, '/', []);
+    const panel = await openPanel();
+    await within(panel).findAllByTestId('notification-item');
+    expect(within(panel).getAllByTestId('notification-item-mark-read')).toHaveLength(1);
+    expect(within(panel).getByTestId('notification-item-mark-read')).toHaveAttribute(
+      'data-value',
+      'n-pending',
+    );
+    expect(panel).toHaveTextContent('2 則未讀');
+  });
+
   it('全部已讀：呼叫 API，宣告 notification update 讓未讀數與列表重抓', async () => {
     renderRoute(routes, '/', []);
     const panel = await openPanel();

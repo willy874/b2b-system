@@ -69,6 +69,7 @@ export function NotificationList({
               markRead(notification);
               onNavigate?.();
             }}
+            onMarkRead={markRead}
           />
         </li>
       ))}

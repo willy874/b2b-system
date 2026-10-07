@@ -1,8 +1,11 @@
+import type { IconName } from '@b2b-system/ui/Icon';
 import type { TranslationFacade } from '@b2b-system/web-core/locales';
 
 import type { PlatformNotification } from '@/shared/api-sdk';
 
 import {
+  NOTIFICATION_FALLBACK_ICON,
+  NOTIFICATION_ICON,
   NOTIFICATION_MESSAGE_KEY,
   NOTIFICATION_ROLE_LABEL_KEY,
   NOTIFICATION_UNKNOWN_KEY,
@@ -12,6 +15,8 @@ export interface NotificationVM {
   id: string;
   isRead: boolean;
   createdAt: string;
+  /** 依類型的圖示，讓列表一眼看得出是哪一類事件。 */
+  icon: IconName;
   messageKey: string;
   /** 組句子用的名稱；角色已換成語系鍵（`fromKey`／`toKey`）。 */
   params: Record<string, string>;
@@ -47,6 +52,7 @@ export function toNotificationVM(notification: PlatformNotification): Notificati
     id: notification.id,
     isRead: notification.readAt !== null,
     createdAt: notification.createdAt,
+    icon: NOTIFICATION_ICON[notification.type] ?? NOTIFICATION_FALLBACK_ICON,
     messageKey: NOTIFICATION_MESSAGE_KEY[notification.type] ?? NOTIFICATION_UNKNOWN_KEY,
     params: strings,
     detail: asString(params.reason),

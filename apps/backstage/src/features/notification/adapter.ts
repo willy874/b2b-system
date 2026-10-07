@@ -1,3 +1,4 @@
+import type { IconName } from '@b2b-system/ui/Icon';
 import type { ResolvedRouteLink, RouteLinkRef } from '@b2b-system/web-core/route-link';
 
 import type { Notification } from '@/shared/api-sdk';
@@ -6,14 +7,20 @@ import {
   APPROVAL_TYPE_FALLBACK_KEY,
   APPROVAL_TYPE_LABEL_KEY,
   NOTIFICATION_DETAIL_KEY,
+  NOTIFICATION_FALLBACK_ICON,
+  NOTIFICATION_ICON,
   NOTIFICATION_MESSAGE_KEY,
 } from './constants';
 
 /**
- * 句子裡的一個參數：資料原樣顯示（`text`）、先翻譯再代入（`key`，例：審批類型的名稱）、
- * 或依語系串成清單（`list`，例：角色名稱）。
+ * 句子裡的一個參數：資料原樣顯示（`text`）、數量（`count`，原樣傳給 `t()` 才會選到複數形）、
+ * 先翻譯再代入（`key`，例：審批類型的名稱）、或依語系串成清單（`list`，例：角色名稱）。
  */
-export type MessageArg = { text: string } | { key: string } | { list: string[] };
+export type MessageArg =
+  | { text: string }
+  | { count: number }
+  | { key: string }
+  | { list: string[] };
 
 /** 還沒翻譯的一句話：`t(key, args)`，參數依 `MessageArg` 的種類先轉成字串。 */
 export interface TranslatableMessage {
@@ -25,6 +32,8 @@ export interface TranslatableMessage {
 export interface NotificationVM {
   id: string;
   isRead: boolean;
+  /** 依類型的圖示，讓列表一眼看得出是哪一類事件。 */
+  icon: IconName;
   message: TranslatableMessage;
   /** 第二行起的補充（審批的摘要、增減的角色）；沒有就是空陣列。 */
   details: TranslatableMessage[];
@@ -128,7 +137,7 @@ export function describeNotification(
       return {
         message: {
           key: NOTIFICATION_MESSAGE_KEY.webhookDisabled,
-          args: { name: { text: name }, count: { text: String(failures) } },
+          args: { name: { text: name }, count: { count: failures } },
         },
         details: [],
       };
@@ -156,6 +165,9 @@ export function toNotificationVM(
   return {
     id: notification.id,
     isRead: notification.readAt !== null,
+    icon: Object.hasOwn(NOTIFICATION_ICON, notification.type)
+      ? NOTIFICATION_ICON[notification.type as keyof typeof NOTIFICATION_ICON]
+      : NOTIFICATION_FALLBACK_ICON,
     ...describeNotification(notification),
     actorName: notification.actor?.name ?? null,
     createdAt: notification.createdAt,
@@ -169,9 +181,10 @@ export function translateMessage(
   language: string,
   message: TranslatableMessage,
 ): string {
-  const values: Record<string, string> = {};
+  const values: Record<string, string | number> = {};
   for (const [name, arg] of Object.entries(message.args)) {
     if ('text' in arg) values[name] = arg.text;
+    else if ('count' in arg) values[name] = arg.count;
     else if ('key' in arg) values[name] = t(arg.key);
     else values[name] = formatList(language, arg.list);
   }

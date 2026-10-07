@@ -571,5 +571,9 @@
       "resendIn_other": "Resend in {{count}} seconds",
       "delayHint": "The email may take up to a minute to arrive. Check your spam folder too."
     }
+  },
+  "notificationRow": {
+    "unread": "Unread: ",
+    "markRead": "Mark as read"
   }
 }

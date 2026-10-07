@@ -1,3 +1,5 @@
+import type { IconName } from '@b2b-system/ui/Icon';
+
 import type { PlatformProfile } from '@/shared/api-sdk';
 
 type PlatformRole = PlatformProfile['admin']['role'];
@@ -21,6 +23,15 @@ export const NOTIFICATION_MESSAGE_KEY: Readonly<Record<string, string>> = {
 };
 
 export const NOTIFICATION_UNKNOWN_KEY = 'notification.type.unknown';
+
+/** 每種通知的圖示（同 backstage）；不認得的類型用鈴鐺。 */
+export const NOTIFICATION_ICON: Readonly<Record<string, IconName>> = {
+  'tenant.provisioned': 'check',
+  'tenant.provisionFailed': 'warning',
+  'platformAdmin.roleChanged': 'user',
+};
+
+export const NOTIFICATION_FALLBACK_ICON: IconName = 'bell';
 
 export const NOTIFICATION_ROLE_LABEL_KEY = {
   'super-admin': 'notification.role.superAdmin',

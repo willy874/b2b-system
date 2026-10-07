@@ -28,6 +28,7 @@ vi.mock('@/apis/resources', async (importOriginal) => ({
 const vm = (isRead: boolean): NotificationVM => ({
   id: 'n1',
   isRead,
+  icon: 'bell',
   message: { key: 'notification.message.unknown', args: {} },
   details: [],
   actorName: null,

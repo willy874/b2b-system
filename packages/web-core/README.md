@@ -35,6 +35,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `navigation` | 選單註冊表：app 登記分類（`registerNavGroup`）、feature 登記頁面的入口（`registerNavItem`，側欄或帳號選單）；`useNavigation`；也是命令面板「頁面」的來源 |
 | `locales` | i18n、scope loader、`useTranslation`、Zod 錯誤訊息、`CORE_LOCALES` 與合併工具 |
 | `notify` | `useToast()` |
+| `notification` | 站內通知的一列 `NotificationRow`（鈴鐺與列表頁共用；句子、圖示與連結由 app 傳入；[`docs/architecture/frontend/15-notification.md`](../../docs/architecture/frontend/15-notification.md) §2.1） |
 | `permission` | 權限的機制：hooks、頁面權限註冊表、`evaluateAccess`、`buildPermissionKey`；權限目錄由 app 登記（下方） |
 | `plugins/app` | 基礎設施 plugin：cache、event-bus、http-context、i18n、realtime、telemetry、theme |
 | `plugins/fetcher` | 攔截器：auth 標頭、refresh、retry、client-id、client-release、api-adapter |
@@ -67,7 +68,7 @@ export { PermissionResource } from './resources';
 
 **plugin 屬性**：擴充 `AppPluginProperties` 時指向定義的檔案 `@b2b-system/web-core/app/context`（指向 `/app` 的 index 不會合併）。
 
-**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）；
+**全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）、`notificationRow`；
 app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`，兩者深層合併、app 的鍵優先。
 測試由 app 的 `src/test/i18n.ts` 包一層 `initTestI18n(zhTW, …)`。
 
@@ -77,7 +78,7 @@ app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app
 
 - **不認識任何 app**：不 import `@/…`、`api-sdk` 產生的端點或任何 app 的 API；需要 app 的東西時由參數或 module augmentation 傳入（例：`profileQueryKey`、`LanguageMenu` 的 `onChange`）。
 - **不出現業務名詞**：只放兩個 app 都用的機制；只有一個 app 用的留在該 app 的 `core/`（例：backstage 的 `core/{feature,file,permission-graph,trash}`）。
-  背景工作（`job`）與稽核紀錄（`audit-log`）是骨架本身的維運功能、兩個 app 都有，不算業務名詞；這裡只放它們的展示元件與 view model，端點、adapter 與明細的取得留在 app。
+  背景工作（`job`）、稽核紀錄（`audit-log`）與站內通知（`notification`）是骨架本身的功能、兩個 app 都有，不算業務名詞；這裡只放它們的展示元件與 view model，端點、adapter 與明細的取得留在 app。
 - 只依賴 `@b2b-system/ui`、`@b2b-system/web-shared`、`@b2b-system/error-codes`、`@b2b-system/realtime` 與第三方套件。
 - 這裡的元件用到的字串放 `src/locales/resources/*.json`，兩個語系一起加。
 - **新增錯誤碼**：碼加在 `@b2b-system/error-codes`；這裡的 `errors/errorMessageKey.ts` 加一列（`satisfies Record<ErrorCode, …>`，漏了編譯失敗）、兩個語系檔加 `error.<CODE>`（🔒 `locales/__tests__/resources.test.ts`）。app 不必改。
