@@ -25,7 +25,7 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '../config';
 // 直接取 env.schema：從 `../config` 取值會載入 config.module（`ConfigModule.forRoot` 在載入時就驗證並快取環境變數）
-import { TENANT_ORIGIN_PLACEHOLDER } from '../config/env.schema';
+import { TENANT_CODE_PLACEHOLDER, TENANT_ORIGIN_PLACEHOLDER } from '../config/env.schema';
 import { AppException } from '../errors';
 import { currentTenant, requireTenant, TenantDirectory } from '../tenant';
 import { contentDisposition } from './content-disposition';
@@ -87,6 +87,8 @@ export class S3ObjectStorage
    */
   private readonly presigners = new Map<string, S3Client>();
   private readonly publicEndpoint: string;
+  /** 下載與預覽用的 endpoint；沒設定時等於 `publicEndpoint`（docs/architecture/backend/09-file.md §3.2）。 */
+  private readonly downloadEndpoint: string;
   private readonly appOrigin: URL;
   private readonly presignerConfig: S3ClientConfig;
   /** bucket → 確認（或建立）中的 Promise；失敗時移除，下一次再試。 */
@@ -117,6 +119,14 @@ export class S3ObjectStorage
     });
     this.presignerConfig = common;
     this.publicEndpoint = config.get('FILE_STORAGE_PUBLIC_ENDPOINT', { infer: true });
+    const download = config.get('FILE_STORAGE_DOWNLOAD_ENDPOINT', { infer: true });
+    this.downloadEndpoint = download ?? this.publicEndpoint;
+    if (!download && config.get('NODE_ENV', { infer: true }) === 'production') {
+      // 小型部署可以不準備第二個網域；記一次，讓維運知道少了一層保護
+      this.logger.warn(
+        '沒有設定 FILE_STORAGE_DOWNLOAD_ENDPOINT：使用者上傳的檔案與租戶同源提供，只靠 sandbox CSP 與類型政策防護',
+      );
+    }
     this.appOrigin = new URL(config.get('APP_PUBLIC_URL', { infer: true }));
   }
 
@@ -125,14 +135,17 @@ export class S3ObjectStorage
    * （次要網域、客戶自訂網域也一樣，CSP 的 `'self'` 才放得過；docs/architecture/backend/09-file.md §3）；
    * 沒有請求可依據（背景工作、對外 API）時用主要網域，沒有租戶時（平台）用 `APP_PUBLIC_URL` 的 origin。
    */
-  private async presigner(): Promise<S3Client> {
-    let endpoint = this.publicEndpoint;
+  private async presigner(purpose: 'upload' | 'download' = 'upload'): Promise<S3Client> {
+    let endpoint = purpose === 'download' ? this.downloadEndpoint : this.publicEndpoint;
+    const tenant = currentTenant();
     if (endpoint.includes(TENANT_ORIGIN_PLACEHOLDER)) {
-      const tenant = currentTenant();
       const origin = tenant
         ? `${this.appOrigin.protocol}//${tenant.domain ?? (await this.directory.requirePrimaryDomain(tenant.id))}`
         : this.appOrigin.origin;
       endpoint = endpoint.replace(TENANT_ORIGIN_PLACEHOLDER, origin);
+    }
+    if (endpoint.includes(TENANT_CODE_PLACEHOLDER)) {
+      endpoint = endpoint.replace(TENANT_CODE_PLACEHOLDER, tenant?.code ?? 'platform');
     }
     let client = this.presigners.get(endpoint);
     if (!client) {
@@ -311,8 +324,9 @@ export class S3ObjectStorage
   async presignDownload(key: string, options: PresignDownloadOptions): Promise<PresignedRequest> {
     const signingDate = stableSigningDate(Date.now(), options.expiresIn);
     const expiresAt = new Date(signingDate.getTime() + options.expiresIn * 1000);
+    // 下載與預覽走獨立的檔案網域（有設定時）：瀏覽器會渲染的回應不在租戶網域上（docs/architecture/backend/09-file.md §3.2）
     const url = await getSignedUrl(
-      await this.presigner(),
+      await this.presigner('download'),
       new GetObjectCommand({
         Bucket: this.bucket(),
         Key: key,

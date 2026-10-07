@@ -43,6 +43,8 @@ x-api-common-env: &api-common-env
   FILE_STORAGE_ENDPOINT: http://file-storage:9000/storage
   # {tenantOrigin}：每個租戶在自己的網域，presigned URL 簽成同源的 /storage（docs/architecture/05-tenancy.md §10.2 D2）
   FILE_STORAGE_PUBLIC_ENDPOINT: '{tenantOrigin}/storage'
+  # 下載與預覽改由獨立、不帶 cookie 的檔案網域提供（選填；沒設定 = 同源）。上傳仍走同源的 /storage
+  FILE_STORAGE_DOWNLOAD_ENDPOINT: ${FILE_DOWNLOAD_ORIGIN:+${FILE_DOWNLOAD_ORIGIN}/storage}
   FILE_STORAGE_ACCESS_KEY_ID: ${FILE_STORAGE_ACCESS_KEY_ID:?required}
   FILE_STORAGE_SECRET_ACCESS_KEY: ${FILE_STORAGE_SECRET_ACCESS_KEY:?required}
   # 郵件（backend/11-mail.md）：正式環境一律 smtp，日誌不會出現連結。external-api 只入列、不寄信
@@ -300,6 +302,8 @@ services:
     environment:
       # 前置 LB 的來源網段：只採用它們帶來的 X-Forwarded-For（deploy/nginx-real-ip.sh）
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
+      # 獨立的檔案網域（選填）：CSP 放行它；backstage 另產生它的 server（docs/architecture/backend/09-file.md §3.2）
+      FILE_DOWNLOAD_ORIGIN: ${FILE_DOWNLOAD_ORIGIN:-}
     # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
     read_only: true
     tmpfs: [/tmp]
@@ -330,6 +334,8 @@ services:
     environment:
       # 前置 LB 的來源網段：只採用它們帶來的 X-Forwarded-For（deploy/nginx-real-ip.sh）
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?required}
+      # 獨立的檔案網域（選填）：CSP 放行它；backstage 另產生它的 server（docs/architecture/backend/09-file.md §3.2）
+      FILE_DOWNLOAD_ORIGIN: ${FILE_DOWNLOAD_ORIGIN:-}
     # 非 root 的 nginx（listen 8080）、唯讀的根檔案系統：pid 與暫存檔在 /tmp（deploy/nginx.main.conf）
     read_only: true
     tmpfs: [/tmp]

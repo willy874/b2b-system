@@ -25,7 +25,11 @@ function notFound() {
   });
 }
 
-function setup(existingBuckets: string[] = [], publicEndpoint = 'http://localhost:5173/storage') {
+function setup(
+  existingBuckets: string[] = [],
+  publicEndpoint = 'http://localhost:5173/storage',
+  downloadEndpoint?: string,
+) {
   const config = {
     get: vi.fn(
       (key: string) =>
@@ -36,6 +40,7 @@ function setup(existingBuckets: string[] = [], publicEndpoint = 'http://localhos
           FILE_STORAGE_SECRET_ACCESS_KEY: 'secret-key',
           FILE_STORAGE_ENDPOINT: 'http://127.0.0.1:9000/storage',
           FILE_STORAGE_PUBLIC_ENDPOINT: publicEndpoint,
+          FILE_STORAGE_DOWNLOAD_ENDPOINT: downloadEndpoint,
           APP_PUBLIC_URL: 'https://example.com',
         })[key],
     ),
@@ -146,6 +151,35 @@ describe('S3ObjectStorage：每個租戶一個 bucket（docs/architecture/05-ten
     );
     expect(new URL(upload.url).origin).toBe('https://files.acme-corp.example');
     expect(new URL(download.url).origin).toBe('https://files.acme-corp.example');
+  });
+
+  it('設定了下載用的檔案網域：下載與預覽簽成檔案網域，上傳仍是租戶網域（docs/architecture/backend/09-file.md §3.2）', async () => {
+    const { storage } = setup([], '{tenantOrigin}/storage', 'https://files.example.net/storage');
+    const [upload, download] = await inTenant('acme', () =>
+      Promise.all([
+        storage.presignUpload('a/b', {
+          expiresIn: 60,
+          contentType: 'text/plain',
+          contentLength: 1,
+        }),
+        storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'b' }),
+      ]),
+    );
+    expect(new URL(upload.url).origin).toBe('https://acme.example.com');
+    expect(new URL(download.url).origin).toBe('https://files.example.net');
+    expect(new URL(download.url).pathname).toBe('/storage/acme/a/b');
+  });
+
+  it('下載用的檔案網域含 {tenantCode} → 每個租戶一個子網域', async () => {
+    const { storage } = setup(
+      [],
+      '{tenantOrigin}/storage',
+      'https://{tenantCode}.files.example.net/storage',
+    );
+    const download = await inTenant('acme', () =>
+      storage.presignDownload('a/b', { expiresIn: 60, disposition: 'inline', fileName: 'b' }),
+    );
+    expect(new URL(download.url).origin).toBe('https://acme.files.example.net');
   });
 
   it('沒有請求可依據（背景工作、對外 API）→ 退回租戶的主要網域', async () => {

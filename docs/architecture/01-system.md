@@ -253,6 +253,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   碰不到 `postgres`。
 - `/storage/` 的 location **不去掉前綴、原樣轉發 `Host`**、不緩衝、不限大小：瀏覽器以 presigned URL 直傳／下載，
   簽章涵蓋 host 與完整路徑（[`backend/09-file.md`](./backend/09-file.md) §3）。同源，所以 CSP 不必放寬。
+  設定 `FILE_DOWNLOAD_ORIGIN` 時，下載與預覽改由獨立、不帶 cookie 的檔案網域提供（同一個 backstage 容器的另一個 server，CSP 放行那一個 origin；[`backend/09-file.md`](./backend/09-file.md) §3.2）。
   換成真正的 S3 時拿掉 `file-storage` 服務，改 api 的 `FILE_STORAGE_*` 即可。
 - `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
   （多執行個體時會互搶）。

@@ -47,7 +47,7 @@ const DEPLOYMENT_ENV: Record<string, string> = {
   WEBHOOK_SECRET_KEY: base64Key(),
 };
 
-/** compose 的變數替換：`${NAME}`、`${NAME:-預設}`（可巢狀）、`${NAME:?訊息}`。 */
+/** compose 的變數替換：`${NAME}`、`${NAME:-預設}`、`${NAME:+有值時的替代}`（可巢狀）、`${NAME:?訊息}`。 */
 function interpolate(value: string, env: Record<string, string>): string {
   let result = '';
   let index = 0;
@@ -62,9 +62,10 @@ function interpolate(value: string, env: Record<string, string>): string {
       else if (value[end] === '}' && --depth === 0) break;
     }
     const body = value.slice(start + 2, end);
-    const [, name = '', operator, rest = ''] = /^(\w+)(?::([-?]))?([\s\S]*)$/.exec(body) ?? [];
+    const [, name = '', operator, rest = ''] = /^(\w+)(?::([-?+]))?([\s\S]*)$/.exec(body) ?? [];
     const current = env[name];
     if (operator === '-') result += current || interpolate(rest, env);
+    else if (operator === '+') result += current ? interpolate(rest, env) : '';
     else if (operator === '?') {
       if (!current)
         throw new Error(`compose 要求 ${name}，但測試的部署環境沒有提供：補進 DEPLOYMENT_ENV`);
@@ -75,7 +76,10 @@ function interpolate(value: string, env: Record<string, string>): string {
   return result;
 }
 
-function serviceEnvironment(service: string): Record<string, string> {
+function serviceEnvironment(
+  service: string,
+  deployment: Record<string, string> = DEPLOYMENT_ENV,
+): Record<string, string> {
   const compose = parse(readFileSync(COMPOSE_FILE, 'utf8'), { merge: true }) as {
     services: Record<string, { environment?: Record<string, string | number> }>;
   };
@@ -84,12 +88,22 @@ function serviceEnvironment(service: string): Record<string, string> {
   return Object.fromEntries(
     Object.entries(environment).map(([key, value]) => [
       key,
-      interpolate(String(value), DEPLOYMENT_ENV),
+      interpolate(String(value), deployment),
     ]),
   );
 }
 
 describe('docker-compose.prod.yml 給程序的環境變數（防止 production 起不來）', () => {
+  it('獨立的檔案網域：沒設定時 api 不帶下載用的 endpoint；設定後是 <origin>/storage（docs/architecture/backend/09-file.md §3.2）', () => {
+    expect(serviceEnvironment('api').FILE_STORAGE_DOWNLOAD_ENDPOINT).toBe('');
+    const env = serviceEnvironment('api', {
+      ...DEPLOYMENT_ENV,
+      FILE_DOWNLOAD_ORIGIN: 'https://files.example.com',
+    });
+    expect(env.FILE_STORAGE_DOWNLOAD_ENDPOINT).toBe('https://files.example.com/storage');
+    expect(() => validateEnv(env)).not.toThrow();
+  });
+
   it('api 的 environment 通過 production 的環境變數驗證', () => {
     const env = serviceEnvironment('api');
     expect(env.NODE_ENV).toBe('production');

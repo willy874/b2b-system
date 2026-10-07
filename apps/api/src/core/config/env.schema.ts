@@ -4,6 +4,8 @@ import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys'
 
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
 export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
+/** `FILE_STORAGE_DOWNLOAD_ENDPOINT` 裡代表「目前租戶的代碼」的佔位符（每個租戶一個檔案子網域時用）。 */
+export const TENANT_CODE_PLACEHOLDER = '{tenantCode}';
 
 /**
  * 環境變數是啟動的前置條件：缺少或格式錯誤一律在 bootstrap 階段失敗，
@@ -224,6 +226,27 @@ export const EnvSchema = z.object({
       (value) => URL.canParse(value.replace(TENANT_ORIGIN_PLACEHOLDER, 'http://tenant.test')),
       'url',
     ),
+  /**
+   * 下載與預覽的 presigned 網址用的 endpoint（docs/architecture/backend/09-file.md §3.2）：獨立、不帶 cookie 的檔案網域，
+   * 使用者上傳的內容就不會在租戶網域上被渲染。上傳仍用 `FILE_STORAGE_PUBLIC_ENDPOINT`（同源）。
+   * 可以含 `{tenantOrigin}`、`{tenantCode}`（每個租戶一個子網域：`https://{tenantCode}.files.example.com/storage`）。
+   * 留空 = 與 `FILE_STORAGE_PUBLIC_ENDPOINT` 相同（同源；production 啟動時記一次警告）。
+   */
+  FILE_STORAGE_DOWNLOAD_ENDPOINT: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .refine(
+        (value) =>
+          URL.canParse(
+            value
+              .replace(TENANT_ORIGIN_PLACEHOLDER, 'http://tenant.test')
+              .replace(TENANT_CODE_PLACEHOLDER, 'tenant'),
+          ),
+        'url',
+      )
+      .optional(),
+  ),
   FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),

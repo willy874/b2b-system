@@ -26,6 +26,8 @@ export async function fetchFileText(
   try {
     response = await fetch(params.url, {
       headers: { Range: `bytes=0-${params.maxBytes}` },
+      // 網址可能在獨立的檔案網域（docs/architecture/backend/09-file.md §3.2）：不帶 cookie，檔案網域也不接受 credentials
+      credentials: 'omit',
       signal,
     });
   } catch (error) {

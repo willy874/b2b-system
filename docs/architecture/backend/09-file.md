@@ -108,7 +108,7 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 - 「請求進來的網域」是 `TenantMiddleware` 以網域找到租戶時記在 `TenantContext.domain` 的 `host[:port]`（`S3ObjectStorage.presigner()` 優先用它）。
 - 沒有請求可依據時——背景工作、對外 API（租戶由 token 決定，[`../06-external-api.md`](../06-external-api.md) §3）、apps/platform 以 `X-Tenant` 指定的帳號流程——
   用 **主要網域**（第一個登記的）。影像 API 的網址（`/api/files/:id/image/…`）是相對網址，不受影響。
-- 不放寬 CSP：nginx 的 CSP 是靜態的，列不出每個租戶的網域；放寬成任意網域就失去同源的保護。
+- 不放寬 CSP 到租戶網域：nginx 的 CSP 列不出每個租戶的網域；放寬成任意網域就失去同源的保護。獨立的檔案網域只有一個，見 §3.2。
 
 ### 3.1 每個租戶一個 bucket（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D16）
 
@@ -120,6 +120,24 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
   之後的租戶由佈建（交付順序第 4 步）指定，命名規則由 `isValidBucketName` 檢查。
 
 ---
+
+### 3.2 獨立的檔案網域（下載與預覽）
+
+使用者上傳的檔案若在租戶網域上被渲染，一段腳本就能以同源身分呼叫 `/api/auth/refresh` 拿到 access token。同源時擋住它的是 `sandbox` CSP 與類型政策，
+兩道都在設定裡（換成 S3 時 bucket 不會送 `sandbox`）。設定獨立的檔案網域之後，這個風險在結構上就不存在：
+
+| 設定 | 作用 |
+| --- | --- |
+| `FILE_DOWNLOAD_ORIGIN`（部署） | 例 `https://files.example.com`。compose 由它推導 api 的 `FILE_STORAGE_DOWNLOAD_ENDPOINT`（`<origin>/storage`），並傳給兩個前端的 nginx |
+| `FILE_STORAGE_DOWNLOAD_ENDPOINT`（api） | `presignDownload`（`url`、`downloadUrl`、影像 API 的 302）簽成這個 endpoint；**上傳仍用 `FILE_STORAGE_PUBLIC_ENDPOINT`（同源）**。可含 `{tenantOrigin}`、`{tenantCode}`（每個租戶一個子網域時；nginx 的 server 要自行改成萬用網域）。沒設定時與上傳相同，production 啟動時記一次警告 |
+| `deploy/nginx-file-origin.sh` | 前端映像啟動時產生：CSP 的 `$file_origin`（加進 `img-src`、`media-src`、`connect-src`）；backstage 另產生檔案網域的 server |
+
+檔案網域的 server 只開 `/storage/` 的 `GET`／`HEAD`（preflight 回 204，其他方法 405、其他路徑 404），不轉給 api、不轉送 `Cookie`／`Authorization`、不回 `Set-Cookie`；
+沿用 `sandbox` CSP、`nosniff`，另加 `Cross-Origin-Resource-Policy: cross-origin` 與 `Access-Control-Allow-Origin: *`（presigned 網址本身就是憑證，不帶 credentials）。
+文字預覽的 `fetch` 明確 `credentials: 'omit'`。防護不因網域分離而放寬（類型白名單、非白名單一律 attachment）。上傳維持同源：上傳的回應不會被渲染，
+跨來源的 multipart 反而要處理 preflight、`ETag` 暴露與每個租戶網域的 CORS 白名單。`deploy/check-nginx.sh` 驗證上述標頭與方法限制。
+
+全平台共用一個檔案網域（不是每個租戶一個子網域）：檔案網域上沒有 cookie 與登入狀態，內容只能以 presigned 網址讀取，子網域的隔離效果相同，卻要萬用 DNS 與萬用憑證。
 
 ## 4. 轉介表：`files`
 
