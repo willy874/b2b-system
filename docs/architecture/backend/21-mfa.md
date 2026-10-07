@@ -402,7 +402,7 @@ registerMfaMethod({
 - 伺服器回傳註冊表裡沒有的方式 id（例：api 先部署了新方式）時，該因子顯示為「這個版本不支援」、不可選，不讓畫面壞掉。
 - apps/platform `features/login` 的互動頁：密碼步驟 → 依 `next` 切到 `MfaChallengeForm`（選因子、輸入碼、「改用備用碼」、重寄倒數沿用 `useCountdown`）或 `MfaEnrollFlow`（選方式 → 方式的 `Enroll` → `RecoveryCodesDialog`）。
 - 備用碼對話框：顯示、複製、下載 `.txt`；要勾「我已保存」才能關。
-- backstage：`/profile` 的「多重驗證」區塊、`features/user` 的 MFA 欄與篩選（`?mfa=false`，route id `user.listByMfa`）、詳情的驗證方式與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，[`tenant-security-policy.md`](../../features/tenant-security-policy.md) 之後加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁，`features/mfa-method`）、租戶詳情的 `?tab=mfa`、平台管理者的編輯對話框（驗證方式與重設；沒有詳情頁）。
+- backstage：`/profile` 的「多重驗證」區塊、`features/user` 的 MFA 欄與篩選（`?mfa=false`，route id `user.listByMfa`）、詳情的驗證方式與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，之後的安全政策可以加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁，`features/mfa-method`）、租戶詳情的 `?tab=mfa`、平台管理者的編輯對話框（驗證方式與重設；沒有詳情頁）。
 - 權限：`features/security/permission.ts` 註冊 `/system/security` 的 page key（`mfaPolicy:read`）。
 
 ## 12. 權限、錯誤碼、稽核、指標

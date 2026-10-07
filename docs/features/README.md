@@ -20,22 +20,8 @@
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P2 | 多階段審批鏈（依序多關、會簽、條件分流） | [`approval-chains.md`](./approval-chains.md) | 提案 | [審批](../architecture/backend/20-approval.md)（已完成） |
-| P2 | 自訂欄位 | [`custom-fields.md`](./custom-fields.md) | 提案 | — |
-| P2 | 儲存的檢視（列表的篩選、排序、欄位組合） | [`saved-views.md`](./saved-views.md) | 提案 | — |
 | P2 | 租戶用量總覽 | [`tenant-usage.md`](./tenant-usage.md) | 提案 | — |
-| P2 | 方案（feature、參數的組合範本） | [`tenant-plans.md`](./tenant-plans.md) | 提案 | — |
-| P2 | 平台維護公告與租戶唯讀模式 | [`platform-maintenance.md`](./platform-maintenance.md) | 提案 | — |
-| P2 | SCIM 使用者佈建與外部 IdP 的群組對應 | [`scim.md`](./scim.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
-| P3 | 租戶安全政策（IP 允許清單、登入中的裝置、閒置逾時） | [`tenant-security-policy.md`](./tenant-security-policy.md) | 提案 | — |
-| P3 | 首頁儀表板（widget 登記） | [`dashboard-widgets.md`](./dashboard-widgets.md) | 提案 | — |
-| P3 | 業務編號產生器 | [`sequence-numbers.md`](./sequence-numbers.md) | 提案 | — |
-| P3 | 個資處理：匿名化與個人資料匯出 | [`personal-data.md`](./personal-data.md) | 提案 | [`import-export.md`](./import-export.md) |
-| P3 | 租戶品牌（登入頁與外框） | [`tenant-branding.md`](./tenant-branding.md) | 提案 | — |
-| P3 | 租戶範本與沙盒租戶 | [`tenant-templates.md`](./tenant-templates.md) | 提案 | [`import-export.md`](./import-export.md) |
-| P3 | 稽核日誌串流到 SIEM | [`audit-log-streaming.md`](./audit-log-streaming.md) | 提案 | — |
-| P3 | 租戶自行管理網域（DNS 驗證） | [`tenant-domain-self-service.md`](./tenant-domain-self-service.md) | 提案（要先確認是否放寬「租戶不能改平台層設定」） | — |
-| P3 | 受控的支援存取 | [`support-access.md`](./support-access.md) | 提案（要先決定是否推翻 [`05-tenancy.md`](../architecture/05-tenancy.md) §10.4） | — |
 
 狀態只有三種：
 
@@ -75,10 +61,7 @@
 接下來：
 
 1. `import-export`（大量匯入使用者、匯出稽核日誌），或資源的協作（`comments-watches`；照標籤的登記方式做）。
-   `personal-data`、`tenant-templates` 依賴它，`custom-fields`、`scim` 也會用到同一套「驗證 → 預覽 → 套用」。
-2. 骨架層：`approval-chains` 或 `custom-fields`，看第一個業務功能先需要哪一個。
-3. 平台層：`tenant-usage` → `tenant-plans`（方案的上限要對照用量）；`platform-maintenance` 在第一次正式維護前。
-4. 企業客戶：`scim`、`tenant-security-policy`（MFA 已完成），在第一個企業客戶上線前。
+2. `approval-chains`（多階段審批鏈）、`tenant-usage`（租戶用量總覽），兩者互不依賴。
 
 ### 1.2 撰寫提案時的架構前提
 

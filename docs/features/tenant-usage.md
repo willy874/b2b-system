@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：—
-- 相關：[`tenant-plans.md`](./tenant-plans.md)（方案的上限要對照用量）、[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3（feature 參數）、
+- 相關：[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3（feature 參數）、
   [`08-monitoring.md`](../architecture/08-monitoring.md) §2.3（指標的標籤不帶租戶）、[`06-external-api.md`](../architecture/06-external-api.md)（API 呼叫量）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
