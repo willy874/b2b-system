@@ -418,6 +418,43 @@ export const EnvSchema = z.object({
     z.string().optional(),
   ),
 
+  /**
+   * 加密 TOTP seed、推導 Email 驗證碼 HMAC 金鑰的主金鑰（32 bytes，base64；docs/architecture/backend/21-mfa.md §3、D13）。
+   * 沒設定時（僅開發）由 `JWT_SECRET` 推導；**production 必填**。換金鑰會讓所有 TOTP 解不開（等於所有人重新設定）。
+   */
+  MFA_SECRET_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+
+  /**
+   * 平台管理者必須啟用 MFA（docs/architecture/backend/21-mfa.md §13、D10）。留空時 production 為 true、其他環境 false；
+   * production 設成 false 會啟動失敗：平台管理者的權限最大，不提供執行期放寬的開關。
+   */
+  PLATFORM_MFA_REQUIRED: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value === 'true')),
+  ),
+
+  /**
+   * 平台管理者可用的 MFA 方式，逗號分隔（預設 `totp`；D10、N3）。不能是空的；不在註冊表的 id 在啟動時擋下（`MfaAvailability`）。
+   */
+  PLATFORM_MFA_METHODS: z.preprocess(
+    (value) => (value === '' || value === undefined ? 'totp' : value),
+    z
+      .string()
+      .transform((value) =>
+        value
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.string().regex(/^[a-z][a-zA-Z0-9]*$/)).min(1)),
+  ),
+
   /** webhook 事件與投遞紀錄保留清理的 cron（UTC）；空字串停用（docs/architecture/backend/17-webhook.md §9.2 D16）。 */
   WEBHOOK_CLEANUP_CRON: z.string().trim().default('15 5 * * *'),
 
@@ -597,6 +634,10 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   if (EXAMPLE_SECRETS.has(env.FILE_STORAGE_ACCESS_KEY_ID)) {
     issue('FILE_STORAGE_ACCESS_KEY_ID', WEAK_SECRET_MESSAGE);
   }
+  if (env.PLATFORM_MFA_REQUIRED === false) {
+    issue('PLATFORM_MFA_REQUIRED', 'production 不能關閉平台管理者的 MFA');
+  }
+
   if (env.MAIL_TRANSPORT !== 'smtp') {
     // console 會把能登入的啟用／重設連結寫進日誌
     issue('MAIL_TRANSPORT', 'production 必須是 smtp');
@@ -606,6 +647,7 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
     ['TENANT_SECRET_KEY', true],
     ['IDP_SECRET_KEY', internal],
     ['WEBHOOK_SECRET_KEY', internal],
+    ['MFA_SECRET_KEY', internal],
   ] as const;
   for (const [key, required] of secretKeys) {
     const value = env[key];

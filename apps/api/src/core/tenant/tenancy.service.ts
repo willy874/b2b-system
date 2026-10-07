@@ -163,6 +163,7 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
       features: tenant.features,
       flags: tenant.flags,
       featureParams: tenant.featureParams,
+      mfaMethods: tenant.mfaMethods,
     };
   }
 

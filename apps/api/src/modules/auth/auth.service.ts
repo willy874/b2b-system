@@ -11,12 +11,9 @@ import type { Env } from '@/core/config';
 import type { Database, Transaction } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
-import type { ErrorCode } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { FeatureFlagService } from '@/core/feature-flags';
-import { getRequestContext } from '@/core/http';
 import { JobQueue } from '@/core/jobs';
-import { ipPrefixOf, LoginThrottle } from '@/core/rate-limit';
 import { SettingService } from '@/core/settings';
 import { requireTenant } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
@@ -29,21 +26,20 @@ import {
 } from '@/modules/credential/auth-mail.constants';
 import { AuthTokenService } from '@/modules/credential/auth-token.service';
 import {
-  LOGIN_LOCKOUT_SECONDS_SETTING,
-  LOGIN_MAX_ATTEMPTS_SETTING,
   PASSWORD_MIN_LENGTH_SETTING,
   REGISTRATION_ENABLED_SETTING,
 } from '@/modules/credential/auth.settings';
-import { LoginSourceService } from '@/modules/credential/login-source.service';
 import { containsContext, emailContext } from '@/modules/credential/password';
 import { PasswordHasher } from '@/modules/credential/password-hasher';
 import { secondsUntil } from '@/modules/credential/refresh-rotation';
 import type { RequestMeta } from '@/modules/credential/refresh-rotation';
 import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
+import { MfaLoginService } from '@/modules/mfa/mfa-login.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { UserAccountService } from '@/modules/user/user-account.service';
+import { UserLoginService } from '@/modules/user/user-login.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { isLoginLocked, userUpdated } from '@/modules/user/user.service';
 
@@ -104,8 +100,8 @@ export class AuthService {
     private readonly flags: FeatureFlagService,
     private readonly accessTokens: AccessTokenVerifier,
     private readonly passwords: PasswordHasher,
-    private readonly loginThrottle: LoginThrottle,
-    private readonly loginSources: LoginSourceService,
+    private readonly logins: UserLoginService,
+    private readonly mfa: MfaLoginService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -113,7 +109,22 @@ export class AuthService {
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
     // 直接登入在 production 預設關閉：等同不存在（docs/architecture/06-external-api.md §9.2 D15）
     if (!this.directLoginEnabled()) throw new AppException('NOT_FOUND');
-    const user = await this.verifyCredentials(dto);
+    const user = await this.checkCredentials(dto);
+    // 直接登入沒有第二步：已設定 MFA（或必須啟用）的帳號改用登入互動，腳本改用 API token（docs/architecture/backend/21-mfa.md §10）
+    if (await this.mfa.isRequiredForDirectLogin(user)) {
+      await this.audit.recordSafely({
+        action: 'auth.login.failure',
+        resourceType: 'auth',
+        resourceId: user.id,
+        result: 'failure',
+        actorId: user.id,
+        actorEmail: user.email,
+        errorCode: 'AUTH_MFA_REQUIRED',
+        metadata: { reason: 'mfa_required', credentialsValid: true },
+      });
+      throw new AppException('AUTH_MFA_REQUIRED');
+    }
+    await this.logins.completeLogin(user);
     return this.issueSession(user, meta);
   }
 
@@ -126,170 +137,16 @@ export class AuthService {
   }
 
   /**
-   * 帳密檢查：列舉防護、鎖定、狀態、失敗計數與稽核。密碼直接登入與 IdP 的登入互動共用
-   * （docs/architecture/04-sso.md §12：密碼驗證只有一套）。
+   * 帳密檢查：只允許 SSO 的網域、列舉防護、鎖定、狀態、失敗計數與稽核。密碼直接登入與 IdP 的登入互動共用
+   * （docs/architecture/04-sso.md §12：密碼驗證只有一套）。通過 **不等於** 登入成功：呼叫端在第二步也通過後
+   * 呼叫 `UserLoginService.completeLogin`（docs/architecture/backend/21-mfa.md §4.2）。
    */
-  async verifyCredentials(dto: LoginDto): Promise<UserRow> {
+  async checkCredentials(dto: LoginDto): Promise<UserRow> {
     // 只允許 SSO 的網域（docs/architecture/04-sso.md §12.2 D9）：先於查帳號判斷，回應只透露網域設定、不透露帳號是否存在
     if (await this.identityProviders.isSsoOnly(dto.email)) {
       throw new AppException('AUTH_SSO_REQUIRED');
     }
-    // 漸進延遲（docs/architecture/backend/04-auth.md §3.4）：在 argon2 之前判斷，被延遲的嘗試不消耗它
-    const scope = requireTenant().id;
-    const ipPrefix = ipPrefixOf(getRequestContext()?.ip);
-    await this.loginThrottle.assertAllowed(scope, dto.email, ipPrefix);
-    const user = await this.users.findAccountByEmail(dto.email);
-
-    // 時序攻擊防護：帳號不存在時也跑一次 argon2
-    if (!user) {
-      await this.passwords.verifyAgainstDummy(dto.password);
-      // 未知的 email 一樣計數：延遲不透露帳號是否存在
-      await this.loginThrottle.recordFailure(scope, dto.email, ipPrefix);
-      await this.audit.recordSafely({
-        action: 'auth.login.failure',
-        resourceType: 'auth',
-        result: 'failure',
-        actorEmail: dto.email,
-        errorCode: 'AUTH_INVALID_CREDENTIALS',
-        metadata: { reason: 'user_not_found' },
-      });
-      throw new AppException('AUTH_INVALID_CREDENTIALS');
-    }
-
-    // 狀態與鎖定都在驗證密碼 **之後** 才判斷：不知道密碼的人一律只看到 AUTH_INVALID_CREDENTIALS，
-    // 無法藉「鎖定中／未啟用／停用」的不同錯誤碼列舉帳號（docs/architecture/backend/04-auth.md §3.2）
-    const ok = user.passwordHash
-      ? await this.passwords.verify(user.passwordHash, dto.password)
-      : await this.passwords.verifyAgainstDummy(dto.password);
-    const lockedUntil = isLoginLocked(user) ? user.lockedUntil : null;
-    if (!ok) {
-      await this.loginThrottle.recordFailure(scope, dto.email, ipPrefix);
-      if (lockedUntil) await this.recordLockedAttempt(user);
-      // 已知來源（登入成功過的使用者 × IP 前綴）的錯誤不累計鎖定，只受漸進延遲限制：
-      // 知道 email 的人不能從陌生的地方把對方鎖住，對方也還能從平常的地方登入（§3.4）
-      else if (await this.loginSources.isKnown(user.id, ipPrefix))
-        await this.recordKnownSourceFailure(user);
-      else await this.registerFailedAttempt(user);
-      throw new AppException('AUTH_INVALID_CREDENTIALS');
-    }
-
-    // 鎖定中連「密碼正確」也不透露：回應與密碼錯誤相同，否則鎖定期間猜密碼的人看得到哪一個猜中了。
-    // 猜測的節流靠速率限制，鎖定只是輔助（docs/architecture/backend/04-auth.md §3.2、§3.3）
-    if (lockedUntil) {
-      await this.recordRejectedLogin(user, 'locked', 'AUTH_INVALID_CREDENTIALS');
-      throw new AppException('AUTH_INVALID_CREDENTIALS');
-    }
-    if (user.status === 'pending') {
-      await this.recordRejectedLogin(user, 'pending', 'AUTH_ACCOUNT_PENDING');
-      throw new AppException('AUTH_ACCOUNT_PENDING');
-    }
-    if (user.status !== 'active') {
-      await this.recordRejectedLogin(user, 'disabled', 'AUTH_ACCOUNT_DISABLED');
-      throw new AppException('AUTH_ACCOUNT_DISABLED');
-    }
-
-    // 鎖定到期後的成功登入也在這裡歸零：計數與到期時間一起清掉
-    await this.users.updateAccount(user.id, {
-      failedLoginCount: 0,
-      lockedUntil: null,
-      lastLoginAt: new Date(),
-    });
-    this.userCache.invalidate(user.id);
-    await this.loginThrottle.reset(scope, dto.email, ipPrefix);
-    await this.loginSources.remember(user.id, ipPrefix);
-
-    await this.audit.recordSafely({
-      action: 'auth.login.success',
-      resourceType: 'auth',
-      resourceId: user.id,
-      actorId: user.id,
-      actorEmail: user.email,
-    });
-
-    return user;
-  }
-
-  /** 已知來源的密碼錯誤：不累計鎖定，只留一筆失敗的稽核。 */
-  private async recordKnownSourceFailure(user: UserRow): Promise<void> {
-    await this.audit.recordSafely({
-      action: 'auth.login.failure',
-      resourceType: 'auth',
-      resourceId: user.id,
-      result: 'failure',
-      actorId: user.id,
-      actorEmail: user.email,
-      errorCode: 'AUTH_INVALID_CREDENTIALS',
-      metadata: { reason: 'known_source' },
-    });
-  }
-
-  /**
-   * 密碼錯誤（沒有鎖定中）：原子遞增失敗次數，達到上限就鎖定（docs/architecture/backend/04-auth.md §3.3）。
-   * 鎖定只寫 `locked_until`、不改 `status`，也 **不** 撤銷既有 session：鎖定是擋猜密碼，
-   * 不能讓知道 email 的人藉此把已登入的人踢下線。
-   */
-  private async registerFailedAttempt(user: UserRow): Promise<void> {
-    // 租戶的設定；平台管理者的鎖定仍讀 env（platform-admin.service.ts）
-    const maxAttempts = await this.settings.get(LOGIN_MAX_ATTEMPTS_SETTING);
-    const lockoutSeconds = await this.settings.get(LOGIN_LOCKOUT_SECONDS_SETTING);
-    const result = await this.users.recordFailedLogin(user.id, maxAttempts, lockoutSeconds);
-    // undefined：並行的另一個失敗剛好把帳號鎖上了，這一次不再計數
-    if (!result) return this.recordLockedAttempt(user);
-    const locked = result.lockedUntil !== null;
-
-    if (locked) {
-      // 列表的狀態欄顯示為 locked（`displayStatusOf`）
-      this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-        changes: [userUpdated(user.id, await this.users.listRoleSummaries(user.id))],
-        affectedUserIds: [user.id],
-      });
-    }
-
-    await this.audit.recordSafely({
-      action: locked ? 'auth.account_locked' : 'auth.login.failure',
-      resourceType: 'auth',
-      resourceId: user.id,
-      result: 'failure',
-      actorId: user.id,
-      actorEmail: user.email,
-      errorCode: locked ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_INVALID_CREDENTIALS',
-      metadata: { failedLoginCount: result.failedLoginCount },
-    });
-  }
-
-  /**
-   * 密碼正確、但帳號不能登入（鎖定中、未啟用、停用）：寫一筆失敗的稽核。鎖定或停用之後還有人拿 **正確** 的密碼來試，
-   * 是憑證外洩的強訊號，要查得到（docs/architecture/backend/04-auth.md §9）。
-   */
-  private async recordRejectedLogin(
-    user: UserRow,
-    reason: 'locked' | 'pending' | 'disabled',
-    errorCode: ErrorCode,
-  ): Promise<void> {
-    await this.audit.recordSafely({
-      action: 'auth.login.failure',
-      resourceType: 'auth',
-      resourceId: user.id,
-      result: 'failure',
-      actorId: user.id,
-      actorEmail: user.email,
-      errorCode,
-      metadata: { reason, credentialsValid: true },
-    });
-  }
-
-  /** 鎖定期間的錯誤密碼：不計數、不延長鎖定，只留稽核。 */
-  private async recordLockedAttempt(user: UserRow): Promise<void> {
-    await this.audit.recordSafely({
-      action: 'auth.login.failure',
-      resourceType: 'auth',
-      resourceId: user.id,
-      result: 'failure',
-      actorId: user.id,
-      actorEmail: user.email,
-      errorCode: 'AUTH_INVALID_CREDENTIALS',
-      metadata: { reason: 'locked' },
-    });
+    return this.logins.verifyPassword(dto);
   }
 
   /** 發一條新的 refresh 家族與 access token；`sso` 有值時記下產品與 IdP session。 */

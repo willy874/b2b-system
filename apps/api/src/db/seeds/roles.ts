@@ -77,6 +77,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'announcement:update',
       'announcement:delete',
       'announcement:publish',
+      'mfaPolicy:read',
     ],
   },
   {
@@ -99,6 +100,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'serviceAccount:read',
       'webhook:read',
       'announcement:read',
+      'mfaPolicy:read',
     ],
   },
   {

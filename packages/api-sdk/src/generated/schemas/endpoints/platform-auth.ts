@@ -18,18 +18,232 @@ import type {
   PlatformAuthControllerUpdateProfileInput,
   PlatformAuthControllerUpdateProfileResult,
   PlatformAuthControllerVerifySetupResult,
+  PlatformMfaSelfControllerConfirmInput,
+  PlatformMfaSelfControllerConfirmResult,
+  PlatformMfaSelfControllerOverviewResult,
+  PlatformMfaSelfControllerRegenerateRecoveryCodesInput,
+  PlatformMfaSelfControllerRegenerateRecoveryCodesResult,
+  PlatformMfaSelfControllerRemoveInput,
+  PlatformMfaSelfControllerRemoveResult,
+  PlatformMfaSelfControllerResendInput,
+  PlatformMfaSelfControllerResendResult,
+  PlatformMfaSelfControllerStartEnrollmentInput,
+  PlatformMfaSelfControllerStartEnrollmentResult,
 } from '../../endpoints/platform-auth';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
   ChangePasswordRequestSchema,
+  ConfirmMfaEnrollmentRequestSchema,
+  MfaChallengeInfoSchema,
+  MfaEnrollmentResultSchema,
+  MfaEnrollmentSchema,
+  MfaOverviewSchema,
+  MfaPasswordConfirmRequestSchema,
+  MfaRecoveryCodesSchema,
   PlatformProfileSchema,
   ResetPasswordRequestSchema,
   SessionSchema,
   SetupRequestSchema,
   SsoCallbackRequestSchema,
+  StartMfaEnrollmentRequestSchema,
   UpdatePlatformProfileRequestSchema,
 } from '../components';
+
+// GET /platform/auth/mfa
+
+export const PlatformMfaSelfControllerOverviewSchemas = {
+  responses: {
+    200: z.object({
+      data: MfaOverviewSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaSelfControllerOverviewOperation: OperationDefinition = {
+  id: 'PlatformMfaSelfController_overview',
+  method: 'GET',
+  path: '/platform/auth/mfa',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaSelfControllerOverviewSchemas,
+};
+
+/** 我的驗證方式、剩餘備用碼、可以設定的方式 */
+export function platformMfaSelfControllerOverview(
+  options?: RequestOptions,
+): Promise<PlatformMfaSelfControllerOverviewResult> {
+  return request<PlatformMfaSelfControllerOverviewResult>(
+    platformMfaSelfControllerOverviewOperation,
+    {},
+    options,
+  );
+}
+
+// POST /platform/auth/mfa/factors
+
+export const PlatformMfaSelfControllerStartEnrollmentSchemas = {
+  body: StartMfaEnrollmentRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaEnrollmentSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaSelfControllerStartEnrollmentOperation: OperationDefinition = {
+  id: 'PlatformMfaSelfController_startEnrollment',
+  method: 'POST',
+  path: '/platform/auth/mfa/factors',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaSelfControllerStartEnrollmentSchemas,
+};
+
+/** 開始設定一種驗證方式（Email 會同時寄出驗證碼） */
+export function platformMfaSelfControllerStartEnrollment(
+  input: PlatformMfaSelfControllerStartEnrollmentInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaSelfControllerStartEnrollmentResult> {
+  return request<PlatformMfaSelfControllerStartEnrollmentResult>(
+    platformMfaSelfControllerStartEnrollmentOperation,
+    input,
+    options,
+  );
+}
+
+// POST /platform/auth/mfa/factors/{id}/challenge
+
+export const PlatformMfaSelfControllerResendSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaChallengeInfoSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaSelfControllerResendOperation: OperationDefinition = {
+  id: 'PlatformMfaSelfController_resend',
+  method: 'POST',
+  path: '/platform/auth/mfa/factors/{id}/challenge',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaSelfControllerResendSchemas,
+};
+
+/** 設定中：重寄驗證碼 */
+export function platformMfaSelfControllerResend(
+  input: PlatformMfaSelfControllerResendInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaSelfControllerResendResult> {
+  return request<PlatformMfaSelfControllerResendResult>(
+    platformMfaSelfControllerResendOperation,
+    input,
+    options,
+  );
+}
+
+// POST /platform/auth/mfa/factors/{id}/confirm
+
+export const PlatformMfaSelfControllerConfirmSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: ConfirmMfaEnrollmentRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaEnrollmentResultSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaSelfControllerConfirmOperation: OperationDefinition = {
+  id: 'PlatformMfaSelfController_confirm',
+  method: 'POST',
+  path: '/platform/auth/mfa/factors/{id}/confirm',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaSelfControllerConfirmSchemas,
+};
+
+/** 確認設定；第一個因子同時產生備用碼（只出現這一次） */
+export function platformMfaSelfControllerConfirm(
+  input: PlatformMfaSelfControllerConfirmInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaSelfControllerConfirmResult> {
+  return request<PlatformMfaSelfControllerConfirmResult>(
+    platformMfaSelfControllerConfirmOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /platform/auth/mfa/factors/{id}
+
+export const PlatformMfaSelfControllerRemoveSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: MfaPasswordConfirmRequestSchema,
+} satisfies OperationSchemas;
+
+const platformMfaSelfControllerRemoveOperation: OperationDefinition = {
+  id: 'PlatformMfaSelfController_remove',
+  method: 'DELETE',
+  path: '/platform/auth/mfa/factors/{id}',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'none' },
+  schemas: PlatformMfaSelfControllerRemoveSchemas,
+};
+
+/** 移除一個驗證方式（要再輸入密碼）；全部移除時備用碼一起刪 */
+export function platformMfaSelfControllerRemove(
+  input: PlatformMfaSelfControllerRemoveInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaSelfControllerRemoveResult> {
+  return request<PlatformMfaSelfControllerRemoveResult>(
+    platformMfaSelfControllerRemoveOperation,
+    input,
+    options,
+  );
+}
+
+// POST /platform/auth/mfa/recovery-codes
+
+export const PlatformMfaSelfControllerRegenerateRecoveryCodesSchemas = {
+  body: MfaPasswordConfirmRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaRecoveryCodesSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaSelfControllerRegenerateRecoveryCodesOperation: OperationDefinition = {
+  id: 'PlatformMfaSelfController_regenerateRecoveryCodes',
+  method: 'POST',
+  path: '/platform/auth/mfa/recovery-codes',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaSelfControllerRegenerateRecoveryCodesSchemas,
+};
+
+/** 重新產生備用碼（要再輸入密碼），舊的全部作廢 */
+export function platformMfaSelfControllerRegenerateRecoveryCodes(
+  input: PlatformMfaSelfControllerRegenerateRecoveryCodesInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaSelfControllerRegenerateRecoveryCodesResult> {
+  return request<PlatformMfaSelfControllerRegenerateRecoveryCodesResult>(
+    platformMfaSelfControllerRegenerateRecoveryCodesOperation,
+    input,
+    options,
+  );
+}
 
 // POST /platform/auth/sso/callback
 

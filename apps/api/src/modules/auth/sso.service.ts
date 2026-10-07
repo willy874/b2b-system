@@ -7,11 +7,9 @@ import { AppException } from '@/core/errors';
 import { requireTenant, Tenancy } from '@/core/tenant';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import type { RequestMeta } from '@/modules/credential/refresh-rotation';
-import {
-  parseAccountId,
-  platformAccountId,
-  tenantAccountId,
-} from '@/modules/oidc-provider/oidc-account';
+import { MfaLoginService } from '@/modules/mfa/mfa-login.service';
+import type { SsoLoginResult } from '@/modules/mfa/mfa-login.service';
+import { parseAccountId } from '@/modules/oidc-provider/oidc-account';
 import {
   OidcProviderService,
   OidcRedeemError,
@@ -45,6 +43,7 @@ export class SsoService implements OnModuleInit {
     private readonly platformAdmins: PlatformAdminService,
     private readonly tenancy: Tenancy,
     private readonly audit: AuditService,
+    private readonly mfa: MfaLoginService,
   ) {}
 
   onModuleInit(): void {
@@ -77,7 +76,8 @@ export class SsoService implements OnModuleInit {
   }
 
   /**
-   * 密碼登入：與 `POST /auth/login` 同一套檢查（鎖定、狀態、稽核），通過後完成互動。
+   * 密碼登入：與 `POST /auth/login` 同一套檢查（鎖定、狀態、稽核）。通過後交給 MFA 判斷：不需要第二步時完成互動、
+   * 回傳 resume 網址；需要時回傳下一步（docs/architecture/backend/21-mfa.md §4）。
    * 帶租戶的互動在那個租戶的 DB 驗證；沒有租戶的是平台管理者（docs/architecture/05-tenancy.md §10.2 D8）。
    */
   async login(
@@ -85,16 +85,16 @@ export class SsoService implements OnModuleInit {
     res: ServerResponse,
     uid: string,
     dto: LoginDto,
-  ): Promise<SsoRedirectDto> {
+  ): Promise<SsoLoginResult> {
     const { tenant } = await this.requireInteraction(req, res, uid);
-    const accountId = tenant
-      ? tenantAccountId(
-          tenant.id,
-          (await this.tenancy.run(tenant.id, () => this.auth.verifyCredentials(dto))).id,
-        )
-      : platformAccountId((await this.platformAdmins.verifyCredentials(dto)).id);
-    const redirectTo = await this.oidc.finishInteraction(req, res, { login: { accountId } });
-    return { redirectTo };
+    if (tenant) {
+      return this.tenancy.run(tenant.id, async () => {
+        const user = await this.auth.checkCredentials(dto);
+        return this.mfa.afterPassword(req, res, uid, 'tenant', user.id);
+      });
+    }
+    const admin = await this.platformAdmins.verifyPassword(dto);
+    return this.mfa.afterPassword(req, res, uid, 'platform', admin.id);
   }
 
   private async requireInteraction(

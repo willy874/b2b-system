@@ -171,6 +171,7 @@ export class UserRepository {
             AND t.subject_id = ${users.id}::text AND t.object_id IN ${query.roleId})`,
       );
     }
+    if (query.mfa !== undefined) conditions.push(eq(users.mfaEnabled, query.mfa));
     if (query.tagId?.length) {
       conditions.push(hasAnyTag(RESOURCE_TYPE.USER, users.id, query.tagId));
     }

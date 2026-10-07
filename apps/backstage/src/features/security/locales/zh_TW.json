@@ -1,0 +1,25 @@
+{
+  "security": {
+    "title": "安全性",
+    "description": "租戶的安全政策。修改立即生效並記錄在稽核日誌。",
+    "mfa": {
+      "tab": "兩步驟驗證",
+      "description": "決定使用者可以用哪些驗證方式，以及誰必須啟用。收緊政策不會登出已登入的人：他們下一次登入時才被要求設定。",
+      "methods": "允許的驗證方式",
+      "allowAll": "允許平台開放的所有方式",
+      "allowAllHint": "之後平台開放的新方式也會自動允許。",
+      "inboxAssurance": "與重設密碼同一個信箱",
+      "platformDisabled": "平台未開放",
+      "required": "必須啟用",
+      "requireAll": "所有人都必須啟用",
+      "requiredRoles": "持有這些角色的人必須啟用",
+      "requiredRolesHint": "經由群組持有的角色也算。",
+      "nonCompliant_other": "目前有 {{count}} 位必須啟用卻還沒設定的使用者。",
+      "viewUsers": "查看未啟用的使用者",
+      "confirmTitle": "確定要套用這個政策嗎？",
+      "confirmNonCompliant_other": "{{count}} 位使用者下一次登入時會被要求先設定驗證方式。",
+      "confirmStranded_other": "{{count}} 位使用者只剩不允許的驗證方式、也沒有備用碼，將無法登入，需要管理員重設他們的 MFA。",
+      "saved": "已儲存 MFA 政策。"
+    }
+  }
+}

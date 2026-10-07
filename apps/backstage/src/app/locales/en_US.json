@@ -33,7 +33,8 @@
     "profile": "Profile",
     "preference": "Preferences",
     "logout": "Sign out",
-    "switchTenant": "Switch tenant"
+    "switchTenant": "Switch tenant",
+    "security": "Security"
   },
   "commandPalette": {
     "command": {
@@ -68,7 +69,8 @@
       "webhook": "Webhooks",
       "tag": "Tags",
       "notification": "Notifications",
-      "announcement": "Announcements"
+      "announcement": "Announcements",
+      "mfaPolicy": "MFA policy"
     },
     "user": {
       "create": "Create user",
@@ -154,6 +156,10 @@
       "update": "Edit announcements",
       "delete": "Delete announcements",
       "publish": "Send announcements"
+    },
+    "mfaPolicy": {
+      "read": "View MFA policy",
+      "update": "Change MFA policy"
     }
   },
   "validation": {

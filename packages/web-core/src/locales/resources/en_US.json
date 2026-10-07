@@ -168,6 +168,18 @@
     "AUTH_SSO_PROVIDER_UNAVAILABLE": "This sign-in option is unavailable right now. Try again later or use another option.",
     "AUTH_SSO_EXTERNAL_FAILED": "External sign-in did not complete. Please sign in again.",
     "AUTH_BUSY": "Too many sign-ins right now. Please try again shortly.",
+    "AUTH_MFA_REQUIRED": "This account requires multi-factor authentication. Please sign in from the sign-in page.",
+    "AUTH_MFA_INVALID_CODE": "The verification code is incorrect. Please try again.",
+    "AUTH_MFA_CHALLENGE_EXPIRED": "The verification code has expired. Please request a new one.",
+    "AUTH_MFA_TOO_MANY_ATTEMPTS": "Too many failed attempts. Please sign in again.",
+    "AUTH_MFA_UNAVAILABLE": "Multi-factor authentication is not available for this account. Please contact your administrator.",
+    "AUTH_MFA_PENDING_INVALID": "Your sign-in session has expired. Please enter your password again.",
+    "MFA_METHOD_NOT_FOUND": "This verification method does not exist.",
+    "MFA_METHOD_DISABLED": "This verification method is not available.",
+    "MFA_FACTOR_NOT_FOUND": "Verification method not found.",
+    "MFA_FACTOR_LIMIT_REACHED": "You have reached the limit for this verification method.",
+    "MFA_LAST_FACTOR": "You must keep at least one verification method.",
+    "MFA_POLICY_VERSION_CONFLICT": "The MFA policy was changed by someone else. Please refresh and try again.",
     "AUTHZ_FORBIDDEN": "You do not have permission to do that.",
     "AUTHZ_ESCALATION": "You cannot grant permissions you do not hold.",
     "AUTHZ_SELF_MODIFY": "You cannot perform this action on your own account.",
@@ -456,6 +468,103 @@
     "result": {
       "success": "Success",
       "failure": "Failure"
+    }
+  },
+  "mfa": {
+    "method": {
+      "totp": {
+        "label": "Authenticator app",
+        "description": "Use an authenticator app on your phone (Google Authenticator, 1Password, etc.) to generate 6-digit codes"
+      },
+      "email": {
+        "label": "Email code",
+        "description": "Send a 6-digit code to your account email when you sign in"
+      }
+    },
+    "factor": {
+      "added": "Added {{time}}",
+      "lastUsed": "Last used {{time}}",
+      "neverUsed": "Never used",
+      "unsupported": "Not supported in this version",
+      "disabled": "Currently unavailable"
+    },
+    "enroll": {
+      "choose": "Choose a verification method to set up:",
+      "noMethods": "No verification methods are available.",
+      "confirm": "Confirm and enable",
+      "back": "Use another method"
+    },
+    "challenge": {
+      "title": "Two-step verification",
+      "description": "Complete the second step to sign in.",
+      "chooseFactor": "Verification method",
+      "verify": "Verify",
+      "useRecovery": "Use a recovery code",
+      "useFactor": "Use a verification method",
+      "recoveryCode": "Recovery code",
+      "recoveryHint": "Each recovery code can only be used once."
+    },
+    "totp": {
+      "scan": "Scan the QR code with your authenticator app, then enter the 6-digit code it shows.",
+      "qrAlt": "QR code for setting up an authenticator app",
+      "cantScan": "Can't scan? Enter the key manually",
+      "code": "Verification code",
+      "codeHint": "Open your authenticator app and enter the current 6-digit code.",
+      "label": "Device name",
+      "labelHint": "For example \"iPhone\", to tell your phones apart."
+    },
+    "recovery": {
+      "title": "Recovery codes",
+      "description": "If you lose your phone or can't receive email, sign in with a recovery code. Each code works once, and they are shown only this time.",
+      "copy": "Copy",
+      "download": "Download",
+      "copied": "Recovery codes copied.",
+      "copyFailed": "Couldn't copy. Please write them down.",
+      "confirmSaved": "I have saved my recovery codes somewhere safe",
+      "done": "Done",
+      "fileHeader": "Recovery codes for {{account}} (each can be used once)"
+    },
+    "password": {
+      "label": "Current password"
+    },
+    "self": {
+      "title": "Two-step verification",
+      "description": "Enter a verification code in addition to your password when signing in, so a leaked password alone can't get in.",
+      "enabled": "On",
+      "disabled": "Off",
+      "required": "Required",
+      "noFactors": "No verification methods set up yet.",
+      "add": "Add a verification method",
+      "addTitle": "Add a verification method",
+      "added": "Verification method added.",
+      "remove": "Remove",
+      "removed": "Verification method removed.",
+      "removeTitle": "Remove verification method",
+      "removeDescription": "Enter your current password to confirm. Removing your last method also invalidates your recovery codes.",
+      "removeLastRequired": "Your account requires two-step verification, so you can't remove the last method.",
+      "recoveryRemaining_one": "{{count}} recovery code left",
+      "recoveryRemaining_other": "{{count}} recovery codes left",
+      "regenerate": "Regenerate recovery codes",
+      "regenerateTitle": "Regenerate recovery codes",
+      "regenerateDescription": "Enter your current password to confirm. All old recovery codes will stop working."
+    },
+    "admin": {
+      "title": "Two-step verification",
+      "none": "No verification methods set up.",
+      "reset": "Reset MFA",
+      "resetTitle": "Reset MFA for this account?",
+      "resetDescription": "This deletes all verification methods and recovery codes and signs this person out everywhere; they'll be notified by email. They may need to set it up again depending on policy.",
+      "resetDone": "MFA has been reset."
+    },
+    "email": {
+      "code": "Verification code",
+      "sentTo": "We sent a code to {{address}}.",
+      "willSend": "We'll send a code to {{address}}.",
+      "send": "Send code",
+      "resend": "Resend",
+      "resendIn_one": "Resend in {{count}} second",
+      "resendIn_other": "Resend in {{count}} seconds",
+      "delayHint": "The email may take up to a minute to arrive. Check your spam folder too."
     }
   }
 }

@@ -1,0 +1,19 @@
+{
+  "mfaMethod": {
+    "title": "MFA verification methods",
+    "description": "Platform-wide switches for two-step verification methods. Same rules as feature flags: off overrides every tenant; on or default lets tenant-level settings apply (in the tenant's Two-step verification tab). Methods available to platform admins come from PLATFORM_MFA_METHODS.",
+    "enabled": "Available",
+    "disabled": "Unavailable",
+    "killed": "Switched off",
+    "platformAdmins": "Platform admins",
+    "tenantOverrides": "Tenant overrides: on {{on}}, off {{off}}",
+    "stats": "{{factors}} set up ({{tenants}} tenants, counted {{time}})",
+    "noStats": "Not counted yet",
+    "saved": "Verification method updated.",
+    "state": {
+      "default": "Default",
+      "on": "On everywhere",
+      "off": "Off everywhere"
+    }
+  }
+}

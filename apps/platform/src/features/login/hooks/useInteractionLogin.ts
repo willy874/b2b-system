@@ -10,6 +10,8 @@ import { useForm } from '@tanstack/react-form';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
+import type { SsoMfaChallengeNext, SsoMfaEnrollNext } from '@/shared/api-sdk';
+
 import { useAccountPolicy } from './useAccountPolicy';
 import { useRequestedLocale } from './useRequestedLocale';
 import {
@@ -33,6 +35,9 @@ const LoginFormSchema = z.object({
   email: EmailSchema,
   password: z.string().min(1),
 });
+
+/** 密碼通過之後的下一步（伺服器回傳）。 */
+export type MfaStep = SsoMfaChallengeNext | SsoMfaEnrollNext;
 
 /** 送出失敗的訊息與錯誤碼（錯誤碼給 E2E 以 `data-value` 斷言，不依語系的文字）。 */
 export interface InteractionFormError {
@@ -58,6 +63,8 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
   const [failure, setFailure] = useState<InteractionFormError & { retryable?: boolean }>();
   // 送出時才發現互動已過期：表單再送也沒用，改給「重新開始登入」
   const [expired, setExpired] = useState(false);
+  // 密碼通過、需要 MFA：第二步（docs/architecture/backend/21-mfa.md §4）
+  const [mfaStep, setMfaStep] = useState<MfaStep>();
   // 被限流（429）且伺服器給了等待秒數：倒數到可以再試為止，期間停用送出鈕——一直重送只會讓限流持續更久
   const retry = useCountdown();
   const fail = (error: unknown) => {
@@ -113,7 +120,11 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
       setFailure(undefined);
       setShowSearchError(false);
       try {
-        await login.mutateAsync({ params: { uid, ...value } });
+        const result = await login.mutateAsync({ params: { uid, ...value } });
+        if ('next' in result) {
+          form.setFieldValue('password', '');
+          setMfaStep(result);
+        }
       } catch (error) {
         fail(error);
       }
@@ -133,6 +144,12 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
 
   return {
     interaction,
+    /** 需要 MFA 時的第二步；`restartMfa` 回到密碼（第二步作廢時，帶上原因）。 */
+    mfaStep,
+    restartMfa: (error?: unknown) => {
+      setMfaStep(undefined);
+      if (error !== undefined) fail(error);
+    },
     policy,
     form,
     emailRef,
@@ -147,8 +164,12 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
     searchError: showSearchError ? searchError : undefined,
     searchErrorKey: searchError ? getErrorMessageKey(searchError) : undefined,
     /** 已經在跳轉：取消鈕停用 */
-    redirecting: login.isPending || login.isSuccess || external.isPending || external.isSuccess,
-    loggingIn: login.isPending || login.isSuccess,
+    redirecting:
+      login.isPending ||
+      (login.isSuccess && 'redirectTo' in login.data) ||
+      external.isPending ||
+      external.isSuccess,
+    loggingIn: login.isPending || (login.isSuccess && 'redirectTo' in login.data),
     externalPending: external.isPending,
     externalStarting: external.isPending || external.isSuccess,
     loginPending: login.isPending,

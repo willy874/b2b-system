@@ -42,6 +42,7 @@ export default function UserListPage() {
     limit: search.limit,
     keyword: search.keyword,
     status: search.status ? [search.status] : undefined,
+    mfa: search.mfa,
     tagId: search.tagId,
     sort: search.sort,
   };
@@ -68,6 +69,7 @@ export default function UserListPage() {
         if (
           next.keyword !== search.keyword ||
           next.status !== search.status ||
+          next.mfa !== search.mfa ||
           next.tagId?.join(',') !== search.tagId?.join(',')
         ) {
           selection.clear();

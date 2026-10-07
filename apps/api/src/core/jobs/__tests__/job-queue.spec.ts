@@ -15,6 +15,7 @@ import { JobQueue } from '../job-queue';
 import type { JobContext, JobEnvelope } from '../job-queue';
 import type { JobStore } from '../job-store';
 import { defineJob, HIGH_VOLUME_RETENTION_SECONDS } from '../job-type';
+import type { JobType } from '../job-type';
 
 /**
  * 假的 pg-boss：建構時不連線，記下每個呼叫。測的是 JobQueue 交給 pg-boss 的設定與資料，
@@ -81,19 +82,19 @@ function setupQueue(run: Tenancy['run'] = vi.fn(), deps: QueueDeps = {}) {
 }
 
 /** 只測 handler 的執行規則。 */
-function setup(run: Tenancy['run'], deps: QueueDeps = {}) {
+function setup(run: Tenancy['run'], deps: QueueDeps = {}, type: JobType<{ id: string }> = TYPE) {
   const { queue } = setupQueue(run, deps);
   const handler = vi.fn(async () => ({ done: true }));
   const execute = (envelope: JobEnvelope) =>
     (
       queue as unknown as {
         execute: (
-          registration: { type: typeof TYPE; handler: typeof handler; cron: undefined },
+          registration: { type: JobType<{ id: string }>; handler: typeof handler; cron: undefined },
           envelope: JobEnvelope,
           context: JobContext,
         ) => Promise<object | void>;
       }
-    ).execute({ type: TYPE, handler, cron: undefined }, envelope, CONTEXT);
+    ).execute({ type, handler, cron: undefined }, envelope, CONTEXT);
   return { execute, handler };
 }
 
@@ -195,6 +196,18 @@ describe('JobQueue：租戶的同時執行上限（docs/architecture/05-tenancy.
     await expect(execute(ENVELOPE)).resolves.toEqual({ skipped: 'TENANT_NOT_FOUND' });
     expect(activeAhead).not.toHaveBeenCalled();
   });
+  it('ignoreTenantConcurrency 的工作（驗證碼信）不判斷上限，直接執行（docs/architecture/backend/21-mfa.md §9.2）', async () => {
+    const activeAhead = vi.fn(async () => 99);
+    const { execute, handler } = setup(
+      runInside,
+      { tenant: { featureParams: { 'job.maxConcurrency': 1 } }, store: { activeAhead } },
+      defineJob<{ id: string }>('test.urgent', { ignoreTenantConcurrency: true }),
+    );
+    await expect(execute(ENVELOPE)).resolves.toEqual({ done: true });
+    expect(handler).toHaveBeenCalled();
+    expect(activeAhead).not.toHaveBeenCalled();
+  });
+
   it('exclusive 佇列已有一筆排隊而放不回去 → 以 skipped 結束並帶 conflict，不執行 handler', async () => {
     const { execute, handler } = setup(runInside, {
       tenant: { featureParams: { 'job.maxConcurrency': 1 } },

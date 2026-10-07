@@ -168,10 +168,7 @@ export const SsoInteractionSchema = defineSchema(
 );
 
 /** 互動完成：前端以 **頂層跳轉** 到 `redirectTo`（provider 的 resume 端點），不以 fetch 跟隨。 */
-export const SsoRedirectSchema = defineSchema(
-  'SsoRedirect',
-  z.object({ redirectTo: z.string().url() }),
-);
+export { SsoRedirectSchema } from '@/modules/oidc-provider/sso-redirect.dto';
 
 /** 登入互動頁以 email 查詢網域導向（D9）：有連線時顯示「以 X 登入」；`ssoOnly` 時不顯示密碼欄。 */
 export const SsoDiscoveryQuerySchema = z.object({ email: z.string().trim().email().max(255) });
@@ -219,7 +216,7 @@ export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type SsoInteractionDto = z.infer<typeof SsoInteractionSchema>;
 export type PlatformProfileDto = z.infer<typeof PlatformProfileSchema>;
 export type UpdatePlatformProfileDto = z.infer<typeof UpdatePlatformProfileSchema>;
-export type SsoRedirectDto = z.infer<typeof SsoRedirectSchema>;
+export type { SsoRedirectDto } from '@/modules/oidc-provider/sso-redirect.dto';
 export type SsoCallbackDto = z.infer<typeof SsoCallbackSchema>;
 export type SsoDiscoveryQueryDto = z.infer<typeof SsoDiscoveryQuerySchema>;
 export type SsoDiscoveryDto = z.infer<typeof SsoDiscoverySchema>;

@@ -12,11 +12,16 @@ import type {
   PlatformAdminControllerSendPasswordLinkResult,
   PlatformAdminControllerUpdateInput,
   PlatformAdminControllerUpdateResult,
+  PlatformAdminMfaControllerResetInput,
+  PlatformAdminMfaControllerResetResult,
+  PlatformAdminMfaControllerStatusInput,
+  PlatformAdminMfaControllerStatusResult,
 } from '../../endpoints/platform-admins';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
   CreatePlatformAdminRequestSchema,
+  MfaAccountStatusSchema,
   PlatformAdminListSchema,
   PlatformAdminPasswordLinkSchema,
   PlatformAdminSchema,
@@ -186,6 +191,67 @@ export function platformAdminControllerAuditLogs(
   return request<PlatformAdminControllerAuditLogsResult>(
     platformAdminControllerAuditLogsOperation,
     {},
+    options,
+  );
+}
+
+// GET /platform/admins/{id}/mfa
+
+export const PlatformAdminMfaControllerStatusSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaAccountStatusSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformAdminMfaControllerStatusOperation: OperationDefinition = {
+  id: 'PlatformAdminMfaController_status',
+  method: 'GET',
+  path: '/platform/admins/{id}/mfa',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformAdminMfaControllerStatusSchemas,
+};
+
+/** 平台管理者的驗證方式（不含機密） */
+export function platformAdminMfaControllerStatus(
+  input: PlatformAdminMfaControllerStatusInput,
+  options?: RequestOptions,
+): Promise<PlatformAdminMfaControllerStatusResult> {
+  return request<PlatformAdminMfaControllerStatusResult>(
+    platformAdminMfaControllerStatusOperation,
+    input,
+    options,
+  );
+}
+
+// POST /platform/admins/{id}/mfa/reset
+
+export const PlatformAdminMfaControllerResetSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const platformAdminMfaControllerResetOperation: OperationDefinition = {
+  id: 'PlatformAdminMfaController_reset',
+  method: 'POST',
+  path: '/platform/admins/{id}/mfa/reset',
+  responseTypes: { 200: 'none' },
+  schemas: PlatformAdminMfaControllerResetSchemas,
+};
+
+/** 重設平台管理者的 MFA（不能重設自己）；結束對方所有的 session */
+export function platformAdminMfaControllerReset(
+  input: PlatformAdminMfaControllerResetInput,
+  options?: RequestOptions,
+): Promise<PlatformAdminMfaControllerResetResult> {
+  return request<PlatformAdminMfaControllerResetResult>(
+    platformAdminMfaControllerResetOperation,
+    input,
     options,
   );
 }

@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 52 項）
+## 2. 權限清單（共 55 項）
 
 ### 2.1 `user` — 使用者
 
@@ -186,7 +186,7 @@
 | ------------------- | ----------------- | ---- |
 | `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D1） |
 
-> 每個人看自己的通知不需要這個鍵（§2.17）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
+> 每個人看自己的通知不需要這個鍵（§2.18）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
 
 ### 2.16 `announcement` — 公告
 
@@ -198,14 +198,24 @@
 | `announcement:delete`   | 刪除公告          | 軟刪除（進回收桶）與還原；排程中的刪除時改成暫停 |
 | `announcement:publish`  | 發送公告          | 送出（立即或排程）、暫停與恢復排程、修改已送出的公告、撤回一次發送 |
 
-> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.17）。
+> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.18）。
 
-### 2.17 個人範圍（不需要權限）
+### 2.17 `mfaPolicy` — MFA 政策
+
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `mfaPolicy:read`        | 檢視 MFA 政策     | 允許的方式、全員或指定角色必須啟用、不符合政策的人數；預覽變更的影響（[`backend/21-mfa.md`](../backend/21-mfa.md) §6） |
+| `mfaPolicy:update`      | 修改 MFA 政策     | 修改上述政策（樂觀鎖、稽核 `mfaPolicy.update`）。預設只給 super-admin：放寬 MFA 等於削弱所有人的保護（D11） |
+
+> 自己的驗證方式（設定、移除、備用碼）屬於個人範圍（§2.18）；管理員檢視與重設別人的 MFA 用 `user:read`／`user:update`。
+
+### 2.18 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
+- 管理自己的兩步驟驗證：驗證方式的設定與移除、重新產生備用碼（`/auth/mfa/*`；[`backend/21-mfa.md`](../backend/21-mfa.md) §7）
 - 檢視／修改自己的偏好設定（語系、時區）
 - 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D15）
 - 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）
@@ -238,6 +248,7 @@
 | `tag`             |   ✓    |  —   |   ✓    |   ✓    | —                             |
 | `notification`    |   —    |  ✓   |   —    |   —    | —                             |
 | `announcement`    |   ✓    |  ✓   |   ✓    |   ✓    | `publish`                     |
+| `mfaPolicy`       |   —    |  ✓   |   ✓    |   —    | —                             |
 
 ---
 
@@ -298,6 +309,8 @@
 | `announcement:update`  |      ✓*       |    ✓    |           |          |
 | `announcement:delete`  |      ✓*       |    ✓    |           |          |
 | `announcement:publish` |      ✓*       |    ✓    |           |          |
+| `mfaPolicy:read`       |      ✓*       |    ✓    |     ✓     |          |
+| `mfaPolicy:update`     |      ✓*       |         |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -343,6 +356,7 @@
 | 公告列表     | `/announcement`（含 `/announcement/$announcementId` 詳情與發送紀錄） | `ANNOUNCEMENT` | `announcement:read` | EVERY |
 | 建立公告     | `/announcement/create`     | `ANNOUNCEMENT_CREATE` | `announcement:read` ＋ `announcement:create` | EVERY |
 | 公告全文     | `/announcement/message/$dispatchId` | `ANNOUNCEMENT_MESSAGE` | 無（只看得到自己收到的） | — |
+| 安全性：MFA 政策 | `/security/mfa`（`mfaPolicy:update` 才能修改） | `SECURITY_MFA` | `mfaPolicy:read` | EVERY |
 | 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`frontend/13-trash.md`](../frontend/13-trash.md) §3） | SOME |
 
 apps/platform 只給平台管理者登入（[`04-sso.md`](../04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
@@ -441,7 +455,7 @@ Seed 行為：
   `apps/api/src/db/seeds/platform-permissions.ts`。平台的權限範圍很小，每個管理者一個角色就夠，不提供自訂角色。
 - 前端從 `GET /platform/auth/profile` 的 `permissions` 取得目前管理者的權限。
 
-### 8.1 權限清單（共 12 項）
+### 8.1 權限清單（共 14 項）
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
@@ -457,6 +471,8 @@ Seed 行為：
 | `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
 | `featureFlag:read`      | 檢視試行開關      | feature flag 的目錄、全平台覆寫、各有幾個租戶覆寫（[`architecture/05-tenancy.md`](../05-tenancy.md) §11） |
 | `featureFlag:update`    | 切換試行開關      | 全平台層的覆寫：全面開放（`on`）、緊急關閉（`off`）、回到預設；寫平台稽核 `featureFlag.update` |
+| `mfaMethod:read`        | 檢視 MFA 方式     | MFA 驗證方式的目錄、全平台狀態、覆寫的租戶數、已設定的因子數、關閉的影響人數（[`backend/21-mfa.md`](../backend/21-mfa.md) §5） |
+| `mfaMethod:update`      | 切換 MFA 方式     | 全平台層的開關（`on`／`off`／回到預設）；寫平台稽核 `mfaMethod.update`。租戶層的開關屬於 `tenant:update` |
 
 ### 8.2 角色 × 權限
 
@@ -474,6 +490,8 @@ Seed 行為：
 | `platformJob:retry`     | ✅ | ✅ |    |
 | `featureFlag:read`      | ✅ | ✅ | ✅ |
 | `featureFlag:update`    | ✅ | ✅ |    |
+| `mfaMethod:read`        | ✅ | ✅ | ✅ |
+| `mfaMethod:update`      | ✅ |    |    |
 
 只有 `super-admin` 能管理平台管理者，所以不需要反提權規則（`operator` 不能把自己升成 `super-admin`）。
 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。
@@ -539,6 +557,7 @@ Seed 行為：
 | `announcement:delete` | `announcement:update` | |
 | `announcement:update` | `announcement:read` | `user:read`、`group:read`、`role:read` |
 | `announcement:publish` | `announcement:update` | |
+| `mfaPolicy:update` | `mfaPolicy:read` | `role:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

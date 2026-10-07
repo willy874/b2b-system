@@ -14,5 +14,6 @@ export const PermissionResource = {
   TAG: 'tag',
   NOTIFICATION: 'notification',
   ANNOUNCEMENT: 'announcement',
+  MFA_POLICY: 'mfaPolicy',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];

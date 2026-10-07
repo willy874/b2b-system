@@ -37,6 +37,7 @@ import Key from '../../icons/key.svg?react';
 import List from '../../icons/list.svg?react';
 import Lock from '../../icons/lock.svg?react';
 import Logout from '../../icons/logout.svg?react';
+import Mail from '../../icons/mail.svg?react';
 import Maximize from '../../icons/maximize.svg?react';
 import Menu from '../../icons/menu.svg?react';
 import Minus from '../../icons/minus.svg?react';
@@ -52,6 +53,7 @@ import Refresh from '../../icons/refresh.svg?react';
 import Search from '../../icons/search.svg?react';
 import Settings from '../../icons/settings.svg?react';
 import Shield from '../../icons/shield.svg?react';
+import Smartphone from '../../icons/smartphone.svg?react';
 import Sun from '../../icons/sun.svg?react';
 import Trash from '../../icons/trash.svg?react';
 import Undo from '../../icons/undo.svg?react';
@@ -108,6 +110,7 @@ export const ICONS = {
   key: Key,
   list: List,
   lock: Lock,
+  mail: Mail,
   logout: Logout,
   maximize: Maximize,
   menu: Menu,
@@ -124,6 +127,7 @@ export const ICONS = {
   search: Search,
   settings: Settings,
   shield: Shield,
+  smartphone: Smartphone,
   sun: Sun,
   trash: Trash,
   undo: Undo,

@@ -28,6 +28,12 @@ export interface JobTypeOptions {
    * 吃 CPU 或記憶體的工作（影像、封存）維持 1，免得拖慢同一個程序上的 API。
    */
   concurrency: number;
+  /**
+   * 不受租戶的同時執行上限 `job.maxConcurrency` 限制，也不佔它的名額（docs/architecture/05-tenancy.md §13.3 D9）。
+   * 只給「使用者正在等」而且很快的工作：登入的驗證碼信（docs/architecture/backend/21-mfa.md §9.2）——公告大量寄信時
+   * 不能被放回佇列。一般工作不要開，否則上限就失去意義。
+   */
+  ignoreTenantConcurrency: boolean;
 }
 
 /**
@@ -58,6 +64,7 @@ const DEFAULT_JOB_OPTIONS: JobTypeOptions = {
   exclusive: false,
   scope: 'tenant',
   concurrency: 1,
+  ignoreTenantConcurrency: false,
 };
 
 const JOB_NAME_PATTERN = /^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/;

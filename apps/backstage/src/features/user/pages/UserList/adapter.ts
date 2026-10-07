@@ -9,6 +9,8 @@ export interface UserRowVM {
   roles: Array<{ id: string; name: string; isSystem: boolean }>;
   tags: TagSummary[];
   lastLoginAt: Date | null;
+  /** 有任一已設定的 MFA 驗證方式。 */
+  mfaEnabled: boolean;
   createdAt: Date;
   /** 樂觀鎖版本：批次啟用／停用以它送出（docs/architecture/backend/14-revisions.md §9.2 D4）。 */
   version: number;
@@ -39,6 +41,7 @@ export function toUserRowVM(
     roles: dto.roles,
     tags: dto.tags,
     lastLoginAt: dto.lastLoginAt ? new Date(dto.lastLoginAt) : null,
+    mfaEnabled: dto.mfaEnabled,
     createdAt: new Date(dto.createdAt),
     version: dto.version,
     isSelf,

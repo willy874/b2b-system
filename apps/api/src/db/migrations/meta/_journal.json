@@ -288,6 +288,20 @@
       "when": 1791356016363,
       "tag": "0040_user_login_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791368394691,
+      "tag": "0041_mfa",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791370698335,
+      "tag": "0042_mfa_policy",
+      "breakpoints": true
     }
   ]
 }

@@ -80,6 +80,32 @@ export const ErrorCode = {
    */
   AUTH_BUSY: { status: 503 },
 
+  // ── MFA（docs/architecture/backend/21-mfa.md §12） ──
+  /** 這個帳號已設定 MFA（或必須啟用）：直接登入（`POST /auth/login`）沒有第二步，改用登入互動或 API token（docs/architecture/backend/21-mfa.md §10）。 */
+  AUTH_MFA_REQUIRED: { status: 403 },
+  /** 第二步的驗證碼或備用碼不對（只有通過密碼的人看得到，所以可以區分；§4.2）。`details.attemptsRemaining`：這個互動還能錯幾次。 */
+  AUTH_MFA_INVALID_CODE: { status: 400 },
+  /** 驗證碼已過期、已用過或錯太多次：重新寄一封（Email）。 */
+  AUTH_MFA_CHALLENGE_EXPIRED: { status: 400 },
+  /** 同一個登入互動的第二步錯太多次（5 次），已作廢：要從密碼重新開始。 */
+  AUTH_MFA_TOO_MANY_ATTEMPTS: { status: 400 },
+  /** 已設定的驗證方式都被關掉、也沒有備用碼；或必須啟用卻沒有可用的方式（fail-closed，D8）。請管理員重設 MFA。 */
+  AUTH_MFA_UNAVAILABLE: { status: 403 },
+  /** 登入互動的第二步已作廢或不存在（過期、帳號已停用、MFA 被重設）：要從密碼重新開始。 */
+  AUTH_MFA_PENDING_INVALID: { status: 400 },
+  /** 沒有這種驗證方式（不在伺服器的註冊表）。 */
+  MFA_METHOD_NOT_FOUND: { status: 404 },
+  /** 這種驗證方式目前沒有開放（平台或租戶政策關掉了）。 */
+  MFA_METHOD_DISABLED: { status: 409 },
+  /** 驗證方式（因子）不存在、不屬於這個帳號，或狀態不對（例：已確認過）。 */
+  MFA_FACTOR_NOT_FOUND: { status: 404 },
+  /** 這種方式的數量已達上限（`details.max`）。 */
+  MFA_FACTOR_LIMIT_REACHED: { status: 409 },
+  /** 政策要求必須啟用 MFA：不能移除最後一個可用的驗證方式。 */
+  MFA_LAST_FACTOR: { status: 409 },
+  /** MFA 政策已被別人修改（樂觀鎖）：重新整理後再改。 */
+  MFA_POLICY_VERSION_CONFLICT: { status: 409 },
+
   // ── 授權 ──
   AUTHZ_FORBIDDEN: { status: 403 },
   AUTHZ_ESCALATION: { status: 403 },

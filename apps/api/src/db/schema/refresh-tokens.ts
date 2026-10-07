@@ -57,5 +57,7 @@ export type RevokedReason =
   | 'password_reset'
   /** 平台管理者停用或刪除了租戶（docs/architecture/05-tenancy.md §10.2 D13）。 */
   | 'tenant_disabled'
+  /** 管理員重設了這個人的 MFA（docs/architecture/backend/21-mfa.md §8）。 */
+  | 'mfa_reset'
   /** 寬限期內重送上一張，原本的最新一張被新發的取代；不代表家族被撤銷（04-auth.md §2.3）。 */
   | 'superseded';

@@ -27,17 +27,75 @@ import type {
   UserControllerUnlockResult,
   UserControllerUpdateInput,
   UserControllerUpdateResult,
+  UserMfaControllerResetInput,
+  UserMfaControllerResetResult,
+  UserMfaControllerStatusInput,
+  UserMfaControllerStatusResult,
 } from '../../endpoints/users';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
   CreateUserRequestSchema,
+  MfaAccountStatusSchema,
   PermissionSourcesSchema,
   ReplaceUserRolesRequestSchema,
   UpdateUserRequestSchema,
   UserRolesSchema,
   UserSchema,
 } from '../components';
+
+// GET /users/{id}/mfa
+
+export const UserMfaControllerStatusSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaAccountStatusSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const userMfaControllerStatusOperation: OperationDefinition = {
+  id: 'UserMfaController_status',
+  method: 'GET',
+  path: '/users/{id}/mfa',
+  responseTypes: { 200: 'json' },
+  schemas: UserMfaControllerStatusSchemas,
+};
+
+/** 使用者的驗證方式（不含機密） */
+export function userMfaControllerStatus(
+  input: UserMfaControllerStatusInput,
+  options?: RequestOptions,
+): Promise<UserMfaControllerStatusResult> {
+  return request<UserMfaControllerStatusResult>(userMfaControllerStatusOperation, input, options);
+}
+
+// POST /users/{id}/mfa/reset
+
+export const UserMfaControllerResetSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const userMfaControllerResetOperation: OperationDefinition = {
+  id: 'UserMfaController_reset',
+  method: 'POST',
+  path: '/users/{id}/mfa/reset',
+  responseTypes: { 200: 'none' },
+  schemas: UserMfaControllerResetSchemas,
+};
+
+/** 重設 MFA：刪除所有驗證方式與備用碼、結束這個人所有的 session（持有 super-admin 的人只有 super-admin 能重設） */
+export function userMfaControllerReset(
+  input: UserMfaControllerResetInput,
+  options?: RequestOptions,
+): Promise<UserMfaControllerResetResult> {
+  return request<UserMfaControllerResetResult>(userMfaControllerResetOperation, input, options);
+}
 
 // GET /users
 

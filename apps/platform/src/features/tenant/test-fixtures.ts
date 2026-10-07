@@ -63,6 +63,7 @@ export function tenantFixture(overrides: Partial<PlatformTenant> = {}): Platform
     storageBucket: 'b2b-acme',
     features: [...TENANT_FEATURES],
     flags: {},
+    mfaMethods: {},
     featureParams: [...FEATURE_PARAMS],
     adminEmail: 'owner@acme.test',
     provisionError: null,

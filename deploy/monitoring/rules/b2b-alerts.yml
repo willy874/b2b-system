@@ -52,6 +52,17 @@ groups:
           summary: 登入的密碼驗證排不到名額（503 AUTH_BUSY）
           description: 調高 ARGON2_MAX_CONCURRENCY 與 UV_THREADPOOL_SIZE 之前，先看是否為撞庫攻擊（api_rate_limited_total）。
 
+      - alert: MfaEmailCodeSlow
+        # 驗證碼信從入列到寄出的 p95（docs/architecture/backend/21-mfa.md §12）；使用者正在登入頁等它
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(api_mfa_email_delivery_seconds_bucket[10m]))) > 60
+          and sum(rate(api_mfa_email_delivery_seconds_count[10m])) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Email 驗證碼寄送的 p95 {{ $value | humanizeDuration }}'
+          description: 先看 SMTP 服務商與 mfa.emailCodeMail 的失敗；短時間修不好時，平台管理者可以全平台暫時關掉 Email 驗證（使用者改用驗證器 App 或備用碼）。
+
       - alert: TenantUnavailable
         expr: increase(api_tenant_unavailable_total{reason="maintenance"}[10m]) > 0
         labels: { severity: warning }

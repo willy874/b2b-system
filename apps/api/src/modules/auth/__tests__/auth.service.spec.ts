@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { LoginThrottle, MemoryRateLimitStore } from '@/core/rate-limit';
 import { runInTenantContext } from '@/core/tenant';
+import { UserLoginService } from '@/modules/user/user-login.service';
 
 import { AuthService } from '../auth.service';
 
@@ -13,6 +14,18 @@ function setup(
   const jobs = { enqueue: vi.fn(async () => undefined) };
   const users = { findAccountByEmail: vi.fn(async () => user) };
   const identityProviders = { isSsoOnly: vi.fn(async () => false) };
+  const audit = { recordSafely: vi.fn(async () => undefined) };
+  const passwords = { verifyAgainstDummy: vi.fn(async () => false) };
+  const logins = new UserLoginService(
+    users as never,
+    {} as never, // userCache
+    audit as never,
+    {} as never, // events
+    {} as never, // settings
+    passwords as never,
+    new LoginThrottle(new MemoryRateLimitStore()),
+    { isKnown: vi.fn(async () => false), remember: vi.fn(async () => undefined) } as never, // loginSources
+  );
   const service = new AuthService(
     {} as never, // db
     config as never,
@@ -22,7 +35,7 @@ function setup(
     {} as never, // authTokens
     {} as never, // permissionService
     {} as never, // userCache
-    { recordSafely: vi.fn(async () => undefined) } as never, // audit
+    audit as never,
     {} as never, // events
     {} as never, // approvals
     jobs as never,
@@ -31,9 +44,9 @@ function setup(
     {} as never, // settings
     {} as never, // flags
     {} as never, // accessTokens
-    { verifyAgainstDummy: vi.fn(async () => false) } as never, // passwords
-    new LoginThrottle(new MemoryRateLimitStore()),
-    { isKnown: vi.fn(async () => false), remember: vi.fn(async () => undefined) } as never, // loginSources
+    passwords as never,
+    logins,
+    {} as never, // mfa
   );
   return { service, jobs, users, identityProviders };
 }

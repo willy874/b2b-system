@@ -16,10 +16,15 @@ export function useTenantDetailTab() {
   const navigate = useNavigate();
   const { can } = usePermission();
   const canReadFlags = can(PermissionKey['featureFlag:read']);
+  // MFA 方式的目錄與全平台狀態需要 mfaMethod:read（docs/architecture/backend/21-mfa.md §5）
+  const canReadMfa = can(PermissionKey['mfaMethod:read']);
 
-  const tabs: TenantDetailTab[] = canReadFlags
-    ? ['overview', 'features', 'flags']
-    : ['overview', 'features'];
+  const tabs: TenantDetailTab[] = [
+    'overview',
+    'features',
+    ...(canReadFlags ? (['flags'] as const) : []),
+    ...(canReadMfa ? (['mfa'] as const) : []),
+  ];
   const active: TenantDetailTab = tabs.includes(tab) ? tab : 'overview';
 
   const setTab = useCallback(

@@ -99,7 +99,8 @@
       "roles": "角色",
       "tags": "標籤",
       "lastLoginAt": "上次登入",
-      "createdAt": "建立時間"
+      "createdAt": "建立時間",
+      "mfa": "MFA"
     },
     "status": {
       "all": "全部狀態",
@@ -112,6 +113,11 @@
       "title": "停用使用者",
       "confirm": "確定要停用「{{name}}」嗎？對方會立即被登出。",
       "action": "停用"
+    },
+    "mfa": {
+      "all": "全部",
+      "enabled": "已啟用",
+      "disabled": "未啟用"
     }
   }
 }

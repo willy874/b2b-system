@@ -96,6 +96,9 @@ x-api-internal-env:
   IDP_SECRET_KEY: ${IDP_SECRET_KEY:?required}
   # Webhook 簽章密鑰的加密金鑰（backend/17-webhook.md §9.2 D14）
   WEBHOOK_SECRET_KEY: ${WEBHOOK_SECRET_KEY:?required}
+  # TOTP seed 與 Email 驗證碼的金鑰（backend/21-mfa.md §13）
+  MFA_SECRET_KEY: ${MFA_SECRET_KEY:?required}
+  PLATFORM_MFA_METHODS: ${PLATFORM_MFA_METHODS:-totp}
 
 services:
   postgres:

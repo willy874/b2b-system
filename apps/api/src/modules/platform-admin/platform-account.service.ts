@@ -3,7 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { UserCacheService } from '@/core/cache';
 import { PLATFORM_DB, withTransaction } from '@/core/database';
-import type { PlatformDatabase } from '@/core/database';
+import type { PlatformDatabase, PlatformTransaction } from '@/core/database';
+import { afterCommit } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { PasswordHasher } from '@/modules/credential/password-hasher';
@@ -31,6 +32,29 @@ export class PlatformAccountService {
     private readonly events: DomainEventBus,
     private readonly passwords: PasswordHasher,
   ) {}
+
+  /** 以目前的密碼確認本人（MFA 的敏感自助動作，docs/architecture/backend/21-mfa.md §7）。 */
+  async verifyPassword(adminId: string, password: string): Promise<boolean> {
+    const admin = await this.repo.findById(adminId);
+    if (!admin?.passwordHash) return this.passwords.verifyAgainstDummy(password);
+    return this.passwords.verify(admin.passwordHash, password);
+  }
+
+  /**
+   * 在呼叫端的交易內結束這個人所有的 session（`token_version + 1`、撤銷 refresh 家族）；提交後失效快取並發
+   * `SESSIONS_REVOKED`（即時連線、IdP session 與 MFA 第二步一起結束）。管理員重設 MFA 用（§8）。
+   */
+  async endAllSessions(adminId: string, tx: PlatformTransaction): Promise<void> {
+    await this.repo.incrementTokenVersion(adminId, tx);
+    await this.repo.revokeRefreshTokens(adminId, 'mfa_reset', tx);
+    afterCommit(tx, () => {
+      this.userCache.invalidate(adminId);
+      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+        platformAdminIds: [adminId],
+        reason: SessionRevokedReason.TOKEN_STALE,
+      });
+    });
+  }
 
   async verifySetupToken(raw: string): Promise<{ valid: boolean; email?: string }> {
     const token = await this.tokens.findUsable(raw, 'activation');

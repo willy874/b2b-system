@@ -80,6 +80,10 @@ export const PERMISSION_SEED = [
   ['announcement', 'update', 'permission.announcement.update', 1802],
   ['announcement', 'delete', 'permission.announcement.delete', 1803],
   ['announcement', 'publish', 'permission.announcement.publish', 1804],
+
+  // 租戶的 MFA 政策（docs/architecture/backend/21-mfa.md §6、D11）；update 預設只給 super-admin：放寬 MFA 等於削弱所有人的保護
+  ['mfaPolicy', 'read', 'permission.mfaPolicy.read', 1900],
+  ['mfaPolicy', 'update', 'permission.mfaPolicy.update', 1901],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -181,6 +185,9 @@ export const PERMISSION_DEPENDENCIES = {
     requires: ['user:read', 'group:read', 'role:read'],
   },
   'announcement:publish': { includes: ['announcement:update'] },
+
+  // 「必須啟用的角色」要看得到角色
+  'mfaPolicy:update': { includes: ['mfaPolicy:read'], requires: ['role:read'] },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;

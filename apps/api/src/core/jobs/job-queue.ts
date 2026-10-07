@@ -469,7 +469,9 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     if (type.options.scope === 'platform') return handler(envelope?.payload ?? {}, context);
     // 排程觸發的沒有租戶：展開成每個租戶一筆
     if (!envelope?.tenantId) return this.fanOut(type);
-    const deferred = await this.deferIfTenantBusy(type, envelope.tenantId, context.id);
+    const deferred = type.options.ignoreTenantConcurrency
+      ? undefined
+      : await this.deferIfTenantBusy(type, envelope.tenantId, context.id);
     if (deferred) return deferred;
     try {
       return await this.tenancy.run(envelope.tenantId, () => handler(envelope.payload, context));
@@ -505,7 +507,10 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       tenantId,
       name: type.name,
       jobId,
-      names: [...this.registrations.keys()],
+      // 不受上限限制的工作也不佔名額
+      names: [...this.registrations.values()]
+        .filter((registration) => !registration.type.options.ignoreTenantConcurrency)
+        .map((registration) => registration.type.name),
     });
     if (ahead < limit) return undefined;
     const delay = TENANT_BUSY_DELAY_SECONDS + Math.random() * TENANT_BUSY_JITTER_SECONDS;

@@ -33,6 +33,8 @@ export const UserSchema = defineSchema(
     timezone: z.string(),
     lastLoginAt: z.string().nullable(),
     lockedUntil: z.string().nullable(),
+    /** 有任一已設定的 MFA 驗證方式（docs/architecture/backend/21-mfa.md §8）。 */
+    mfaEnabled: z.boolean(),
     /** 樂觀鎖版本：`PATCH` 時帶上（docs/architecture/backend/14-revisions.md §9.2 D3）。 */
     version: z.number().int(),
     createdAt: z.string(),

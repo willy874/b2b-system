@@ -373,6 +373,11 @@ RETURNING failed_login_count, locked_until;
 - 上線當下沒有任何已知來源，行為與之前相同；每個人成功登入一次之後才生效。
 - 外部 IdP 登入不經過密碼驗證，不記錄來源。
 
+**MFA 的第二步**（[`21-mfa.md`](21-mfa.md) §4.2）：驗證碼錯誤與密碼錯誤 **共用** 漸進延遲的計數與帳號的失敗次數（已知來源同樣不累計）。
+所以「密碼通過」與「登入成功」分開：密碼檢查（`UserLoginService.verifyPassword`、`PlatformAdminService.verifyPassword`）不寫成功的副作用，
+失敗計數歸零、記住來源、`auth.login.success` 稽核（帶 `amr`、`mfaMethod`）在第二步也通過之後才寫（`completeLogin`）——否則知道密碼的人每輸入一次密碼
+就把第二步的失敗次數歸零，而且他的 IP 會變成已知來源。
+
 ### 3.5 端到端：從輸入帳密到首頁
 
 錯誤碼的規則見 §3.2、§3.3；外部 IdP 與 apps/platform 的登入入口見 [`../04-sso.md`](../04-sso.md)。
@@ -743,6 +748,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | 推播 | `serviceAccount`、`apiToken` 兩個來源（[`08-realtime.md`](./08-realtime.md) §6.1） |
 
 **直接登入**（`POST /auth/login`，§3）：`DIRECT_LOGIN_ENABLED` 沒設定時 production 關閉（回 `404 NOT_FOUND`）、其他環境開啟。
+它沒有 MFA 的第二步：已設定 MFA（或政策要求啟用）的帳號回 `403 AUTH_MFA_REQUIRED`（[`21-mfa.md`](21-mfa.md) §10）。
 腳本改用 API token（D15）。登入互動（apps/platform）與 BFF 不受影響。
 
 ---
@@ -977,7 +983,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | --- | --- |
 | 伺服器端 sleep 做延遲 | 不採用：見 D2 |
 | CAPTCHA 取代延遲 | 不採用：要引入第三方服務；通用後台的使用者多半在公司網路，延遲已足夠。之後若要做，掛在「延遲超過 N 秒」之後 |
-| 裝置 cookie（記住瀏覽器）取代 IP 前綴當已知來源 | 這一版不採用：登入在 apps/platform 的 OIDC 互動裡，cookie 要跨網域傳遞與輪替；之後與 [`../../features/mfa.md`](../../features/mfa.md) 的「記住這台裝置」一起做 |
+| 裝置 cookie（記住瀏覽器）取代 IP 前綴當已知來源 | 這一版不採用：登入在 apps/platform 的 OIDC 互動裡，cookie 要跨網域傳遞與輪替；之後與 MFA 的「記住這台裝置」（[`21-mfa.md`](21-mfa.md) 範圍外）一起做 |
 | argon2 每租戶各自一個佇列（公平排程） | 不採用：D4 的租戶桶已限制單一租戶能送進來的量 |
 | 降低 argon2 參數換吞吐 | 不採用：參數是密碼強度的決定（§4.1），不該被容量問題綁架 |
 | 租戶管理者自己設定 IP 白名單 | 不採用：放寬會消耗全平台共用的容量，由平台管理者決定 |

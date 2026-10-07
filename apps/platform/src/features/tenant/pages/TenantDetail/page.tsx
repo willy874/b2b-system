@@ -14,6 +14,7 @@ import type { TenantDetailTab } from '../../routes';
 import { TenantDetailHeader } from './components/TenantDetailHeader';
 import { TenantFeatures } from './components/TenantFeatures';
 import { TenantFlags } from './components/TenantFlags';
+import { TenantMfaMethods } from './components/TenantMfaMethods';
 import { TenantNotices } from './components/TenantNotices';
 import { TenantOverview } from './components/TenantOverview';
 import { useTenantDetailTab } from './useTenantDetailTab';
@@ -71,6 +72,9 @@ export default function TenantDetailPage() {
             <TenantFeatures tenant={tenant} canUpdate={permission.canUpdate} />
           )}
           {active === 'flags' && <TenantFlags tenant={tenant} canUpdate={permission.canUpdate} />}
+          {active === 'mfa' && (
+            <TenantMfaMethods tenant={tenant} canUpdate={permission.canUpdate} />
+          )}
         </div>
       </Tabs>
     </div>

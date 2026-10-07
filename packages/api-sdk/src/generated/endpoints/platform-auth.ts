@@ -3,15 +3,187 @@
 
 import type {
   ChangePasswordRequest,
+  ConfirmMfaEnrollmentRequest,
+  MfaChallengeInfo,
+  MfaEnrollment,
+  MfaEnrollmentResult,
+  MfaOverview,
+  MfaPasswordConfirmRequest,
+  MfaRecoveryCodes,
   PlatformProfile,
   ResetPasswordRequest,
   Session,
   SetupRequest,
   SsoCallbackRequest,
+  StartMfaEnrollmentRequest,
   UpdatePlatformProfileRequest,
 } from '../models';
 import type { ApiResponse } from '../runtime';
 import { buildUrl } from '../url';
+
+// GET /platform/auth/mfa
+
+export interface PlatformMfaSelfControllerOverviewResponses {
+  200: {
+    data: MfaOverview;
+  };
+}
+
+export type PlatformMfaSelfControllerOverviewResponse =
+  PlatformMfaSelfControllerOverviewResponses[200];
+
+export type PlatformMfaSelfControllerOverviewResult = ApiResponse<
+  200,
+  PlatformMfaSelfControllerOverviewResponses[200]
+>;
+
+export function getPlatformMfaSelfControllerOverviewUrl(): string {
+  return buildUrl('/platform/auth/mfa');
+}
+
+// POST /platform/auth/mfa/factors
+
+export type PlatformMfaSelfControllerStartEnrollmentBody = StartMfaEnrollmentRequest;
+
+export interface PlatformMfaSelfControllerStartEnrollmentInput {
+  body: PlatformMfaSelfControllerStartEnrollmentBody;
+}
+
+export interface PlatformMfaSelfControllerStartEnrollmentResponses {
+  200: {
+    data: MfaEnrollment;
+  };
+}
+
+export type PlatformMfaSelfControllerStartEnrollmentResponse =
+  PlatformMfaSelfControllerStartEnrollmentResponses[200];
+
+export type PlatformMfaSelfControllerStartEnrollmentResult = ApiResponse<
+  200,
+  PlatformMfaSelfControllerStartEnrollmentResponses[200]
+>;
+
+export function getPlatformMfaSelfControllerStartEnrollmentUrl(): string {
+  return buildUrl('/platform/auth/mfa/factors');
+}
+
+// POST /platform/auth/mfa/factors/{id}/challenge
+
+export interface PlatformMfaSelfControllerResendPathParams {
+  id: string;
+}
+
+export interface PlatformMfaSelfControllerResendInput {
+  path: PlatformMfaSelfControllerResendPathParams;
+}
+
+export interface PlatformMfaSelfControllerResendResponses {
+  200: {
+    data: MfaChallengeInfo;
+  };
+}
+
+export type PlatformMfaSelfControllerResendResponse = PlatformMfaSelfControllerResendResponses[200];
+
+export type PlatformMfaSelfControllerResendResult = ApiResponse<
+  200,
+  PlatformMfaSelfControllerResendResponses[200]
+>;
+
+export function getPlatformMfaSelfControllerResendUrl(
+  path: PlatformMfaSelfControllerResendPathParams,
+): string {
+  return buildUrl('/platform/auth/mfa/factors/{id}/challenge', path);
+}
+
+// POST /platform/auth/mfa/factors/{id}/confirm
+
+export interface PlatformMfaSelfControllerConfirmPathParams {
+  id: string;
+}
+
+export type PlatformMfaSelfControllerConfirmBody = ConfirmMfaEnrollmentRequest;
+
+export interface PlatformMfaSelfControllerConfirmInput {
+  path: PlatformMfaSelfControllerConfirmPathParams;
+  body: PlatformMfaSelfControllerConfirmBody;
+}
+
+export interface PlatformMfaSelfControllerConfirmResponses {
+  200: {
+    data: MfaEnrollmentResult;
+  };
+}
+
+export type PlatformMfaSelfControllerConfirmResponse =
+  PlatformMfaSelfControllerConfirmResponses[200];
+
+export type PlatformMfaSelfControllerConfirmResult = ApiResponse<
+  200,
+  PlatformMfaSelfControllerConfirmResponses[200]
+>;
+
+export function getPlatformMfaSelfControllerConfirmUrl(
+  path: PlatformMfaSelfControllerConfirmPathParams,
+): string {
+  return buildUrl('/platform/auth/mfa/factors/{id}/confirm', path);
+}
+
+// DELETE /platform/auth/mfa/factors/{id}
+
+export interface PlatformMfaSelfControllerRemovePathParams {
+  id: string;
+}
+
+export type PlatformMfaSelfControllerRemoveBody = MfaPasswordConfirmRequest;
+
+export interface PlatformMfaSelfControllerRemoveInput {
+  path: PlatformMfaSelfControllerRemovePathParams;
+  body: PlatformMfaSelfControllerRemoveBody;
+}
+
+export interface PlatformMfaSelfControllerRemoveResponses {
+  200: undefined;
+}
+
+export type PlatformMfaSelfControllerRemoveResponse = PlatformMfaSelfControllerRemoveResponses[200];
+
+export type PlatformMfaSelfControllerRemoveResult = ApiResponse<
+  200,
+  PlatformMfaSelfControllerRemoveResponses[200]
+>;
+
+export function getPlatformMfaSelfControllerRemoveUrl(
+  path: PlatformMfaSelfControllerRemovePathParams,
+): string {
+  return buildUrl('/platform/auth/mfa/factors/{id}', path);
+}
+
+// POST /platform/auth/mfa/recovery-codes
+
+export type PlatformMfaSelfControllerRegenerateRecoveryCodesBody = MfaPasswordConfirmRequest;
+
+export interface PlatformMfaSelfControllerRegenerateRecoveryCodesInput {
+  body: PlatformMfaSelfControllerRegenerateRecoveryCodesBody;
+}
+
+export interface PlatformMfaSelfControllerRegenerateRecoveryCodesResponses {
+  200: {
+    data: MfaRecoveryCodes;
+  };
+}
+
+export type PlatformMfaSelfControllerRegenerateRecoveryCodesResponse =
+  PlatformMfaSelfControllerRegenerateRecoveryCodesResponses[200];
+
+export type PlatformMfaSelfControllerRegenerateRecoveryCodesResult = ApiResponse<
+  200,
+  PlatformMfaSelfControllerRegenerateRecoveryCodesResponses[200]
+>;
+
+export function getPlatformMfaSelfControllerRegenerateRecoveryCodesUrl(): string {
+  return buildUrl('/platform/auth/mfa/recovery-codes');
+}
 
 // POST /platform/auth/sso/callback
 

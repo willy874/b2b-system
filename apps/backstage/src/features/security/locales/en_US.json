@@ -1,0 +1,28 @@
+{
+  "security": {
+    "title": "Security",
+    "description": "Security policies for this organization. Changes take effect immediately and are recorded in the audit log.",
+    "mfa": {
+      "tab": "Two-step verification",
+      "description": "Choose which verification methods people can use and who must turn it on. Tightening the policy doesn't sign anyone out: they're asked to set it up at their next sign-in.",
+      "methods": "Allowed verification methods",
+      "allowAll": "Allow every method the platform offers",
+      "allowAllHint": "New methods the platform enables later are allowed automatically.",
+      "inboxAssurance": "Same inbox as password reset",
+      "platformDisabled": "Not offered by the platform",
+      "required": "Required",
+      "requireAll": "Everyone must turn it on",
+      "requiredRoles": "People with these roles must turn it on",
+      "requiredRolesHint": "Roles held through groups count too.",
+      "nonCompliant_one": "{{count}} user must turn it on but hasn't set it up yet.",
+      "nonCompliant_other": "{{count}} users must turn it on but haven't set it up yet.",
+      "viewUsers": "View users without MFA",
+      "confirmTitle": "Apply this policy?",
+      "confirmNonCompliant_one": "{{count}} user will be asked to set up a verification method at their next sign-in.",
+      "confirmNonCompliant_other": "{{count}} users will be asked to set up a verification method at their next sign-in.",
+      "confirmStranded_one": "{{count}} user only has methods that are no longer allowed and no recovery codes, so they won't be able to sign in until an administrator resets their MFA.",
+      "confirmStranded_other": "{{count}} users only have methods that are no longer allowed and no recovery codes, so they won't be able to sign in until an administrator resets their MFA.",
+      "saved": "MFA policy saved."
+    }
+  }
+}

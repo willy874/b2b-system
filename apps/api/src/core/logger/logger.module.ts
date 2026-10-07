@@ -31,7 +31,17 @@ export function pinoHttpOptions(nodeEnv: Env['NODE_ENV']): Options {
     genReqId: (req: IncomingMessage) => resolveRequestId(req),
     customAttributeKeys: { reqId: 'requestId' },
     quietReqLogger: true,
-    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+    // MFA 的 seed、otpauth URI、備用碼只出現在設定的回應裡（docs/architecture/backend/21-mfa.md §9.1）：
+    // 存取日誌不記 body，但任何被記下的物件（錯誤的 details、除錯日誌）帶到這些欄位一樣遮掉
+    redact: [
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'res.headers["set-cookie"]',
+      '*.otpauthUri',
+      '*.secret',
+      '*.recoveryCodes',
+      '*.publicData',
+    ],
     // 資料庫的查詢錯誤不帶參數（密碼雜湊、token、個資）：HTTP 的未知錯誤、IdP 的錯誤、背景工作的失敗都經過這裡
     serializers: { req: redactRequest, err: serializeError },
     // 前端的 release（x-client-release）：日誌平台可以直接依它篩選

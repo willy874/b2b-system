@@ -3,8 +3,18 @@
 
 import type {
   ChangePasswordRequest,
+  ConfirmMfaEnrollmentRequest,
   ForgotPasswordRequest,
   LoginRequest,
+  MfaChallengeInfo,
+  MfaEnrollment,
+  MfaEnrollmentResult,
+  MfaInteractionEnrollmentResult,
+  MfaLoginChallengeRequest,
+  MfaLoginVerifyRequest,
+  MfaOverview,
+  MfaPasswordConfirmRequest,
+  MfaRecoveryCodes,
   Profile,
   RegisterRequest,
   RegisterResult,
@@ -14,12 +24,327 @@ import type {
   SsoCallbackRequest,
   SsoDiscovery,
   SsoInteraction,
+  SsoLoginResult,
   SsoRedirect,
   StartExternalLoginRequest,
+  StartMfaEnrollmentRequest,
   UpdateProfileRequest,
 } from '../models';
 import type { ApiResponse } from '../runtime';
 import { buildUrl } from '../url';
+
+// POST /oidc-interaction/{uid}/mfa/challenge
+
+export interface MfaInteractionControllerChallengePathParams {
+  uid: string;
+}
+
+export type MfaInteractionControllerChallengeBody = MfaLoginChallengeRequest;
+
+export interface MfaInteractionControllerChallengeInput {
+  path: MfaInteractionControllerChallengePathParams;
+  body: MfaInteractionControllerChallengeBody;
+}
+
+export interface MfaInteractionControllerChallengeResponses {
+  200: {
+    data: MfaChallengeInfo;
+  };
+}
+
+export type MfaInteractionControllerChallengeResponse =
+  MfaInteractionControllerChallengeResponses[200];
+
+export type MfaInteractionControllerChallengeResult = ApiResponse<
+  200,
+  MfaInteractionControllerChallengeResponses[200]
+>;
+
+export function getMfaInteractionControllerChallengeUrl(
+  path: MfaInteractionControllerChallengePathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/mfa/challenge', path);
+}
+
+// POST /oidc-interaction/{uid}/mfa/verify
+
+export interface MfaInteractionControllerVerifyPathParams {
+  uid: string;
+}
+
+export type MfaInteractionControllerVerifyBody = MfaLoginVerifyRequest;
+
+export interface MfaInteractionControllerVerifyInput {
+  path: MfaInteractionControllerVerifyPathParams;
+  body: MfaInteractionControllerVerifyBody;
+}
+
+export interface MfaInteractionControllerVerifyResponses {
+  200: {
+    data: SsoRedirect;
+  };
+}
+
+export type MfaInteractionControllerVerifyResponse = MfaInteractionControllerVerifyResponses[200];
+
+export type MfaInteractionControllerVerifyResult = ApiResponse<
+  200,
+  MfaInteractionControllerVerifyResponses[200]
+>;
+
+export function getMfaInteractionControllerVerifyUrl(
+  path: MfaInteractionControllerVerifyPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/mfa/verify', path);
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll
+
+export interface MfaInteractionControllerStartEnrollmentPathParams {
+  uid: string;
+}
+
+export type MfaInteractionControllerStartEnrollmentBody = StartMfaEnrollmentRequest;
+
+export interface MfaInteractionControllerStartEnrollmentInput {
+  path: MfaInteractionControllerStartEnrollmentPathParams;
+  body: MfaInteractionControllerStartEnrollmentBody;
+}
+
+export interface MfaInteractionControllerStartEnrollmentResponses {
+  200: {
+    data: MfaEnrollment;
+  };
+}
+
+export type MfaInteractionControllerStartEnrollmentResponse =
+  MfaInteractionControllerStartEnrollmentResponses[200];
+
+export type MfaInteractionControllerStartEnrollmentResult = ApiResponse<
+  200,
+  MfaInteractionControllerStartEnrollmentResponses[200]
+>;
+
+export function getMfaInteractionControllerStartEnrollmentUrl(
+  path: MfaInteractionControllerStartEnrollmentPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/mfa/enroll', path);
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll/{factorId}/challenge
+
+export interface MfaInteractionControllerResendEnrollmentPathParams {
+  uid: string;
+  factorId: string;
+}
+
+export interface MfaInteractionControllerResendEnrollmentInput {
+  path: MfaInteractionControllerResendEnrollmentPathParams;
+}
+
+export interface MfaInteractionControllerResendEnrollmentResponses {
+  200: {
+    data: MfaChallengeInfo;
+  };
+}
+
+export type MfaInteractionControllerResendEnrollmentResponse =
+  MfaInteractionControllerResendEnrollmentResponses[200];
+
+export type MfaInteractionControllerResendEnrollmentResult = ApiResponse<
+  200,
+  MfaInteractionControllerResendEnrollmentResponses[200]
+>;
+
+export function getMfaInteractionControllerResendEnrollmentUrl(
+  path: MfaInteractionControllerResendEnrollmentPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/mfa/enroll/{factorId}/challenge', path);
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll/{factorId}/confirm
+
+export interface MfaInteractionControllerConfirmEnrollmentPathParams {
+  uid: string;
+  factorId: string;
+}
+
+export type MfaInteractionControllerConfirmEnrollmentBody = ConfirmMfaEnrollmentRequest;
+
+export interface MfaInteractionControllerConfirmEnrollmentInput {
+  path: MfaInteractionControllerConfirmEnrollmentPathParams;
+  body: MfaInteractionControllerConfirmEnrollmentBody;
+}
+
+export interface MfaInteractionControllerConfirmEnrollmentResponses {
+  200: {
+    data: MfaInteractionEnrollmentResult;
+  };
+}
+
+export type MfaInteractionControllerConfirmEnrollmentResponse =
+  MfaInteractionControllerConfirmEnrollmentResponses[200];
+
+export type MfaInteractionControllerConfirmEnrollmentResult = ApiResponse<
+  200,
+  MfaInteractionControllerConfirmEnrollmentResponses[200]
+>;
+
+export function getMfaInteractionControllerConfirmEnrollmentUrl(
+  path: MfaInteractionControllerConfirmEnrollmentPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/mfa/enroll/{factorId}/confirm', path);
+}
+
+// GET /auth/mfa
+
+export interface MfaSelfControllerOverviewResponses {
+  200: {
+    data: MfaOverview;
+  };
+}
+
+export type MfaSelfControllerOverviewResponse = MfaSelfControllerOverviewResponses[200];
+
+export type MfaSelfControllerOverviewResult = ApiResponse<
+  200,
+  MfaSelfControllerOverviewResponses[200]
+>;
+
+export function getMfaSelfControllerOverviewUrl(): string {
+  return buildUrl('/auth/mfa');
+}
+
+// POST /auth/mfa/factors
+
+export type MfaSelfControllerStartEnrollmentBody = StartMfaEnrollmentRequest;
+
+export interface MfaSelfControllerStartEnrollmentInput {
+  body: MfaSelfControllerStartEnrollmentBody;
+}
+
+export interface MfaSelfControllerStartEnrollmentResponses {
+  200: {
+    data: MfaEnrollment;
+  };
+}
+
+export type MfaSelfControllerStartEnrollmentResponse =
+  MfaSelfControllerStartEnrollmentResponses[200];
+
+export type MfaSelfControllerStartEnrollmentResult = ApiResponse<
+  200,
+  MfaSelfControllerStartEnrollmentResponses[200]
+>;
+
+export function getMfaSelfControllerStartEnrollmentUrl(): string {
+  return buildUrl('/auth/mfa/factors');
+}
+
+// POST /auth/mfa/factors/{id}/challenge
+
+export interface MfaSelfControllerResendPathParams {
+  id: string;
+}
+
+export interface MfaSelfControllerResendInput {
+  path: MfaSelfControllerResendPathParams;
+}
+
+export interface MfaSelfControllerResendResponses {
+  200: {
+    data: MfaChallengeInfo;
+  };
+}
+
+export type MfaSelfControllerResendResponse = MfaSelfControllerResendResponses[200];
+
+export type MfaSelfControllerResendResult = ApiResponse<200, MfaSelfControllerResendResponses[200]>;
+
+export function getMfaSelfControllerResendUrl(path: MfaSelfControllerResendPathParams): string {
+  return buildUrl('/auth/mfa/factors/{id}/challenge', path);
+}
+
+// POST /auth/mfa/factors/{id}/confirm
+
+export interface MfaSelfControllerConfirmPathParams {
+  id: string;
+}
+
+export type MfaSelfControllerConfirmBody = ConfirmMfaEnrollmentRequest;
+
+export interface MfaSelfControllerConfirmInput {
+  path: MfaSelfControllerConfirmPathParams;
+  body: MfaSelfControllerConfirmBody;
+}
+
+export interface MfaSelfControllerConfirmResponses {
+  200: {
+    data: MfaEnrollmentResult;
+  };
+}
+
+export type MfaSelfControllerConfirmResponse = MfaSelfControllerConfirmResponses[200];
+
+export type MfaSelfControllerConfirmResult = ApiResponse<
+  200,
+  MfaSelfControllerConfirmResponses[200]
+>;
+
+export function getMfaSelfControllerConfirmUrl(path: MfaSelfControllerConfirmPathParams): string {
+  return buildUrl('/auth/mfa/factors/{id}/confirm', path);
+}
+
+// DELETE /auth/mfa/factors/{id}
+
+export interface MfaSelfControllerRemovePathParams {
+  id: string;
+}
+
+export type MfaSelfControllerRemoveBody = MfaPasswordConfirmRequest;
+
+export interface MfaSelfControllerRemoveInput {
+  path: MfaSelfControllerRemovePathParams;
+  body: MfaSelfControllerRemoveBody;
+}
+
+export interface MfaSelfControllerRemoveResponses {
+  200: undefined;
+}
+
+export type MfaSelfControllerRemoveResponse = MfaSelfControllerRemoveResponses[200];
+
+export type MfaSelfControllerRemoveResult = ApiResponse<200, MfaSelfControllerRemoveResponses[200]>;
+
+export function getMfaSelfControllerRemoveUrl(path: MfaSelfControllerRemovePathParams): string {
+  return buildUrl('/auth/mfa/factors/{id}', path);
+}
+
+// POST /auth/mfa/recovery-codes
+
+export type MfaSelfControllerRegenerateRecoveryCodesBody = MfaPasswordConfirmRequest;
+
+export interface MfaSelfControllerRegenerateRecoveryCodesInput {
+  body: MfaSelfControllerRegenerateRecoveryCodesBody;
+}
+
+export interface MfaSelfControllerRegenerateRecoveryCodesResponses {
+  200: {
+    data: MfaRecoveryCodes;
+  };
+}
+
+export type MfaSelfControllerRegenerateRecoveryCodesResponse =
+  MfaSelfControllerRegenerateRecoveryCodesResponses[200];
+
+export type MfaSelfControllerRegenerateRecoveryCodesResult = ApiResponse<
+  200,
+  MfaSelfControllerRegenerateRecoveryCodesResponses[200]
+>;
+
+export function getMfaSelfControllerRegenerateRecoveryCodesUrl(): string {
+  return buildUrl('/auth/mfa/recovery-codes');
+}
 
 // POST /auth/login
 
@@ -356,7 +681,7 @@ export interface SsoInteractionControllerLoginInput {
 
 export interface SsoInteractionControllerLoginResponses {
   200: {
-    data: SsoRedirect;
+    data: SsoLoginResult;
   };
 }
 

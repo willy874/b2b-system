@@ -50,6 +50,7 @@ describe('production 的金鑰與危險預設值', () => {
     IDP_SECRET_KEY: secretKey(),
     TENANT_SECRET_KEY: secretKey(),
     WEBHOOK_SECRET_KEY: secretKey(),
+    MFA_SECRET_KEY: secretKey(),
     ...overrides,
   });
 
@@ -108,12 +109,13 @@ describe('production 的金鑰與危險預設值', () => {
           OIDC_JWKS: '',
           IDP_SECRET_KEY: '',
           WEBHOOK_SECRET_KEY: '',
+          MFA_SECRET_KEY: '',
         }),
       ),
     ).toThrow('JWT_SIGNING_KEYS');
   });
 
-  it.each(['IDP_SECRET_KEY', 'TENANT_SECRET_KEY', 'WEBHOOK_SECRET_KEY'])(
+  it.each(['IDP_SECRET_KEY', 'TENANT_SECRET_KEY', 'WEBHOOK_SECRET_KEY', 'MFA_SECRET_KEY'])(
     '%s 沒設定（開發時由 JWT_SECRET 推導）→ 啟動失敗',
     (key) => {
       expect(() => validateEnv(production({ [key]: '' }))).toThrow(key);
@@ -124,6 +126,7 @@ describe('production 的金鑰與危險預設值', () => {
     ['TENANT_SECRET_KEY', Buffer.alloc(32).toString('base64'), '不同的位元組太少'],
     ['IDP_SECRET_KEY', randomBytes(16).toString('base64'), '32 bytes'],
     ['WEBHOOK_SECRET_KEY', 'webhook-key', '32 bytes'],
+    ['MFA_SECRET_KEY', Buffer.alloc(32).toString('base64'), '不同的位元組太少'],
     ['OIDC_COOKIE_KEYS', 'a', '至少 32 字元'],
     ['OIDC_COOKIE_KEYS', `${secretKey()},secret`, '至少 32 字元'],
     ['OIDC_JWKS', '{"keys":[]}', '私鑰'],
@@ -178,6 +181,7 @@ describe('production 的金鑰與危險預設值', () => {
       OIDC_COOKIE_KEYS: '',
       IDP_SECRET_KEY: '',
       WEBHOOK_SECRET_KEY: '',
+      MFA_SECRET_KEY: '',
       JWT_SIGNING_KEYS: '',
       PLATFORM_JWT_SIGNING_KEYS: '',
       ...overrides,

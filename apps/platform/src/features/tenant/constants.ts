@@ -32,6 +32,7 @@ export const TENANT_DETAIL_TAB_LABEL_KEY = {
   overview: 'tenant.tab.overview',
   features: 'tenant.tab.features',
   flags: 'tenant.tab.flags',
+  mfa: 'tenant.tab.mfa',
 } as const satisfies Record<TenantDetailTab, string>;
 
 export const TENANT_PAGE_SIZE_OPTIONS = [25, 50, 100];

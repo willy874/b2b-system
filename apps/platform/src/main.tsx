@@ -19,6 +19,7 @@ import { featureFlagFeaturePlugin } from '@/features/feature-flag';
 import { homeFeaturePlugin } from '@/features/home';
 import { jobFeaturePlugin } from '@/features/job';
 import { loginFeaturePlugin } from '@/features/login';
+import { mfaMethodFeaturePlugin } from '@/features/mfa-method';
 import { notificationFeaturePlugin } from '@/features/notification';
 import { platformAdminFeaturePlugin } from '@/features/platform-admin';
 import { tenantFeaturePlugin } from '@/features/tenant';
@@ -83,6 +84,7 @@ async function bootstrap(): Promise<void> {
     .use(platformAdminFeaturePlugin())
     .use(auditLogFeaturePlugin())
     .use(featureFlagFeaturePlugin())
+    .use(mfaMethodFeaturePlugin())
     .use(jobFeaturePlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());

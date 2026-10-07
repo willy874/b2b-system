@@ -91,6 +91,12 @@
       "action": "Start signing in again",
       "platform": "Platform admin sign-in"
     },
-    "sessionEnded": "Your session has ended. Please sign in again."
+    "sessionEnded": "Your session has ended. Please sign in again.",
+    "mfa": {
+      "challenge": "To protect your account, complete two-step verification.",
+      "enroll": "Your account requires two-step verification. Set up a verification method first.",
+      "continue": "Continue signing in",
+      "restart": "Sign in with a different account"
+    }
   }
 }

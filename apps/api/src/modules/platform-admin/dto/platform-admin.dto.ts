@@ -19,6 +19,8 @@ export const PlatformAdminSchema = defineSchema(
     role: PlatformAdminRoleSchema,
     status: z.enum(['active', 'inactive', 'locked', 'pending']),
     lastLoginAt: z.string().nullable(),
+    /** 有任一已設定的 MFA 驗證方式（docs/architecture/backend/21-mfa.md §8）。 */
+    mfaEnabled: z.boolean(),
     createdAt: z.string(),
   }),
 );

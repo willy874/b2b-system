@@ -341,6 +341,8 @@ export const PermissionKey = {
   'announcement:update': 'announcement:update',
   'announcement:delete': 'announcement:delete',
   'announcement:publish': 'announcement:publish',
+  'mfaPolicy:read': 'mfaPolicy:read',
+  'mfaPolicy:update': 'mfaPolicy:update',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -632,6 +634,7 @@ export interface PlatformAdmin {
   role: 'super-admin' | 'operator' | 'auditor';
   status: 'active' | 'inactive' | 'locked' | 'pending';
   lastLoginAt: string | null;
+  mfaEnabled: boolean;
   createdAt: string;
 }
 
@@ -756,6 +759,7 @@ export interface User {
   timezone: string;
   lastLoginAt: string | null;
   lockedUntil: string | null;
+  mfaEnabled: boolean;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -763,6 +767,179 @@ export interface User {
 
 export interface UserRoles {
   roles: Array<RoleSummary>;
+}
+
+export interface SsoRedirect {
+  redirectTo: string;
+}
+
+export interface MfaMethodInfo {
+  id: string;
+  challenge: 'none' | 'server';
+  enrollAt: 'anywhere' | 'idp';
+  assurance: 'possession' | 'inbox';
+  maxFactorsPerAccount: number;
+}
+
+export interface MfaFactor {
+  id: string;
+  method: string;
+  label: string | null;
+  hint: string | null;
+  available: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface MfaOverview {
+  factors: Array<MfaFactor>;
+  recoveryCodesRemaining: number;
+  methods: Array<{
+    id: string;
+    challenge: 'none' | 'server';
+    enrollAt: 'anywhere' | 'idp';
+    assurance: 'possession' | 'inbox';
+    maxFactorsPerAccount: number;
+    enrolled: number;
+  }>;
+  required: boolean;
+}
+
+export interface StartMfaEnrollmentRequest {
+  method: string;
+}
+
+export interface MfaChallengeInfo {
+  challengeId: string;
+  hint: string | null;
+  expiresAt: string;
+  resendAvailableAt: string;
+}
+
+export interface MfaEnrollment {
+  factorId: string;
+  method: string;
+  publicData: Record<string, unknown>;
+  challenge: MfaChallengeInfo | null;
+}
+
+export interface ConfirmMfaEnrollmentRequest {
+  challengeId?: string;
+  payload: Record<string, unknown>;
+  label?: string;
+}
+
+export interface MfaEnrollmentResult {
+  factor: MfaFactor;
+  recoveryCodes: Array<string> | null;
+}
+
+export interface MfaPasswordConfirmRequest {
+  password: string;
+}
+
+export interface MfaRecoveryCodes {
+  recoveryCodes: Array<string>;
+}
+
+export interface MfaAccountStatus {
+  enabled: boolean;
+  factors: Array<MfaFactor>;
+  recoveryCodesRemaining: number;
+}
+
+export interface MfaLoginChallengeRequest {
+  factorId: string;
+}
+
+export interface MfaLoginVerifyRequest {
+  factorId: string | 'recovery';
+  challengeId?: string;
+  payload: Record<string, unknown>;
+}
+
+export interface MfaInteractionEnrollmentResult {
+  recoveryCodes: Array<string>;
+  redirectTo: string;
+}
+
+export interface SsoMfaChallengeNext {
+  next: 'mfa';
+  factors: Array<MfaFactor>;
+  recoveryAvailable: boolean;
+}
+
+export interface SsoMfaEnrollNext {
+  next: 'mfaEnroll';
+  methods: Array<MfaMethodInfo>;
+}
+
+export type SsoLoginResult = SsoRedirect | SsoMfaChallengeNext | SsoMfaEnrollNext;
+
+export interface MfaPolicy {
+  requireAll: boolean;
+  requiredRoleIds: Array<string>;
+  allowedMethods: Array<string> | null;
+  version: number;
+  updatedAt: string | null;
+  methods: Array<{
+    id: string;
+    challenge: 'none' | 'server';
+    enrollAt: 'anywhere' | 'idp';
+    assurance: 'possession' | 'inbox';
+    maxFactorsPerAccount: number;
+    platformEnabled: boolean;
+  }>;
+  nonCompliant: number;
+}
+
+export interface UpdateMfaPolicyRequest {
+  requireAll: boolean;
+  requiredRoleIds: Array<string>;
+  allowedMethods: Array<string> | null;
+  version: number;
+}
+
+export interface MfaPolicyImpact {
+  nonCompliant: number;
+  stranded: number;
+}
+
+export interface PlatformMfaMethod {
+  id: string;
+  challenge: 'none' | 'server';
+  enrollAt: 'anywhere' | 'idp';
+  assurance: 'possession' | 'inbox';
+  maxFactorsPerAccount: number;
+  realms: Array<'tenant' | 'platform'>;
+  defaultEnabled: boolean;
+  globalState: 'default' | 'on' | 'off';
+  effective: boolean;
+  tenantOverrides: {
+    on: number;
+    off: number;
+  };
+  stats: {
+    tenantFactors: number;
+    tenants: number;
+    platformFactors: number;
+    computedAt: string;
+  } | null;
+  platformAdminEnabled: boolean;
+}
+
+export interface PlatformMfaMethodList {
+  items: Array<PlatformMfaMethod>;
+}
+
+export interface UpdatePlatformMfaMethodRequest {
+  state: 'default' | 'on' | 'off';
+}
+
+export interface MfaMethodImpact {
+  stranded: number;
+  tenants: number;
+  skippedTenants: number;
 }
 
 export const TenantFeature = {
@@ -779,6 +956,8 @@ export const TenantFeature = {
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
 export type TenantFlagOverrides = Record<string, boolean>;
+
+export type TenantMfaMethodOverrides = Record<string, boolean>;
 
 export const TenantFeatureParamKey = {
   'file.storageQuotaMb': 'file.storageQuotaMb',
@@ -816,6 +995,7 @@ export interface PlatformTenant {
   storageBucket: string;
   features: Array<TenantFeature>;
   flags: TenantFlagOverrides;
+  mfaMethods: TenantMfaMethodOverrides;
   featureParams: Array<TenantFeatureParam>;
   adminEmail: string | null;
   provisionError: string | null;
@@ -846,6 +1026,7 @@ export interface UpdateTenantRequest {
   name?: string;
   features?: Array<TenantFeature>;
   flags?: TenantFlagOverrides;
+  mfaMethods?: TenantMfaMethodOverrides;
   featureParams?: Record<string, (number | string) | null>;
 }
 
@@ -905,6 +1086,8 @@ export const PlatformPermissionKey = {
   'platformJob:retry': 'platformJob:retry',
   'featureFlag:read': 'featureFlag:read',
   'featureFlag:update': 'featureFlag:update',
+  'mfaMethod:read': 'mfaMethod:read',
+  'mfaMethod:update': 'mfaMethod:update',
 } as const;
 export type PlatformPermissionKey =
   (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];
@@ -973,10 +1156,6 @@ export interface SsoInteraction {
     code: string;
     name: string;
   } | null;
-}
-
-export interface SsoRedirect {
-  redirectTo: string;
 }
 
 export interface SsoDiscovery {

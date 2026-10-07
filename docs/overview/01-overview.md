@@ -58,7 +58,7 @@
 
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
-| 登入與 SSO | apps/platform 的登入互動頁、外部 IdP（OIDC）與網域導向、單一登出、忘記密碼、啟用信、註冊申請 | [§1](./05-feature-tour.md#1-登入) | [`04-sso.md`](../architecture/04-sso.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) |
+| 登入與 SSO | apps/platform 的登入互動頁、外部 IdP（OIDC）與網域導向、單一登出、忘記密碼、啟用信、註冊申請；兩步驟驗證（驗證器 App、Email 驗證碼、備用碼；平台開關與租戶政策，[`backend/21-mfa.md`](../architecture/backend/21-mfa.md)） | [§1](./05-feature-tour.md#1-登入) | [`04-sso.md`](../architecture/04-sso.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) |
 | 使用者 | 列表（搜尋、排序、篩選、跨頁選取）、建立、編輯、停用、解鎖、重設密碼、指派角色、批次操作 | [§2.1](./05-feature-tour.md#21-使用者) | [`iam/04-api.md`](../architecture/iam/04-api.md) |
 | 角色 | 建立、複製、權限技能樹、系統角色保護、版本紀錄與還原 | [§2.2](./05-feature-tour.md#22-角色) | [`iam/01-model.md`](../architecture/iam/01-model.md) |
 | 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./05-feature-tour.md#23-群組) | [`iam/07-groups.md`](../architecture/iam/07-groups.md) |
@@ -101,7 +101,7 @@
 
 - 任何特定領域的業務功能——本 repo 只提供骨架。
 - LDAP、SAML（OIDC 的外部 IdP 已支援）。
-- 還沒做、但已有提案的功能（匯入匯出、留言與關注、MFA、多階段審批、自訂欄位、方案與用量、SCIM 等）列在
+- 還沒做、但已有提案的功能（匯入匯出、留言與關注、多階段審批、自訂欄位、方案與用量、SCIM 等）列在
   [`features/README.md`](../features/README.md)。
 
 ---

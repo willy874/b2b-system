@@ -7,6 +7,7 @@ describe('cli:reset-super-admin 的參數（docs/architecture/iam/05-bootstrap.m
     expect(parseResetSuperAdminArgs(['--tenant', 'acme', '--email', 'root@acme.test'])).toEqual({
       target: { tenant: 'acme' },
       email: 'root@acme.test',
+      resetMfa: false,
       confirm: undefined,
     });
   });
@@ -20,7 +21,12 @@ describe('cli:reset-super-admin 的參數（docs/architecture/iam/05-bootstrap.m
         '--confirm',
         'b2b_platform',
       ]),
-    ).toEqual({ target: 'platform', email: 'ops@example.test', confirm: 'b2b_platform' });
+    ).toEqual({
+      target: 'platform',
+      email: 'ops@example.test',
+      resetMfa: false,
+      confirm: 'b2b_platform',
+    });
   });
 
   it.each([

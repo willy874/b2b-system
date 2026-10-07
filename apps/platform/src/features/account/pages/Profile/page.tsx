@@ -6,6 +6,7 @@ import { Separator } from '@b2b-system/ui/Separator';
 import { ChangePasswordSection, useChangePasswordForm } from '@b2b-system/web-core/components';
 import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { MfaSecuritySection } from '@b2b-system/web-core/mfa';
 import { useToast } from '@b2b-system/web-core/notify';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -17,6 +18,7 @@ import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/muta
 import { invalidateResources, selfUpdated } from '@/apis/resources';
 
 import { PLATFORM_ROLE_LABEL_KEY } from '../../constants';
+import { mfaSelfApi } from '../../hooks/mfaSelfApi';
 import { ProfilePermissionSection } from './components/ProfilePermissionSection';
 
 /** 平台管理者自己的資料：名稱、角色與權限（唯讀）、變更密碼。結構同 backstage 的個人資料頁。 */
@@ -99,6 +101,10 @@ export default function ProfilePage() {
       <Separator />
 
       <ChangePasswordSection form={password} username={admin?.email ?? ''} />
+
+      <Separator />
+
+      <MfaSecuritySection api={mfaSelfApi} account={admin?.email ?? ''} />
 
       {profile.data && (
         <>

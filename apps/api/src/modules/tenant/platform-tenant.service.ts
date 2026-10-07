@@ -16,6 +16,7 @@ import {
 } from '@/core/feature-flags';
 import type { FeatureFlagDefinition } from '@/core/feature-flags';
 import { JobQueue } from '@/core/jobs';
+import { MfaMethodRegistry } from '@/core/mfa';
 import { isValidBucketName } from '@/core/storage/object-storage';
 import {
   findTenantFeatureParam,
@@ -56,9 +57,24 @@ import { TENANT_PROVISION_JOB, TenantProvisioner } from './tenant-provisioner';
 /** 新租戶的 bucket：`b2b-{code}`；被用過（含刪除的租戶）就加上序號。 */
 const BUCKET_PREFIX = 'b2b-';
 
+/** 只留註冊表裡能給租戶用的方式，依註冊表的順序（同 `pickKnownOverrides`）。 */
+function knownMfaMethods(
+  overrides: Readonly<Record<string, boolean>>,
+  registry: MfaMethodRegistry,
+): Record<string, boolean> {
+  return Object.fromEntries(
+    registry
+      .list('tenant')
+      .map((method) => method.definition.id)
+      .filter((id) => overrides[id] !== undefined)
+      .map((id) => [id, overrides[id] as boolean]),
+  );
+}
+
 function toDto(
   tenant: TenantWithDomains,
   flagCatalog: readonly FeatureFlagDefinition[],
+  registry: MfaMethodRegistry,
 ): PlatformTenantDto {
   return {
     id: tenant.id,
@@ -69,6 +85,7 @@ function toDto(
     storageBucket: tenant.storageBucket,
     features: toTenantFeatures(tenant.features),
     flags: pickKnownOverrides(toFeatureFlagOverrides(tenant.flags), flagCatalog),
+    mfaMethods: knownMfaMethods(toFeatureFlagOverrides(tenant.mfaMethods), registry),
     featureParams: toFeatureParamDtos(toTenantFeatureParamOverrides(tenant.featureParams)),
     adminEmail: tenant.adminEmail,
     provisionError: tenant.provisionError,
@@ -159,6 +176,7 @@ export class PlatformTenantService {
     private readonly audit: PlatformAuditService,
     private readonly flags: FeatureFlagService,
     private readonly impacts: TenantFeatureImpacts,
+    private readonly mfaMethods: MfaMethodRegistry,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -175,14 +193,14 @@ export class PlatformTenantService {
   async list(query: ListPlatformTenantDto): Promise<PlatformTenantListDto> {
     const { items, total } = await this.repo.list(query);
     return {
-      items: items.map((item) => toDto(item, this.flags.catalog)),
+      items: items.map((item) => toDto(item, this.flags.catalog, this.mfaMethods)),
       pagination: { offset: query.offset, limit: query.limit, total },
       baseDomain: this.baseDomain,
     };
   }
 
   async get(id: string): Promise<PlatformTenantDto> {
-    return toDto(await this.getExisting(id), this.flags.catalog);
+    return toDto(await this.getExisting(id), this.flags.catalog, this.mfaMethods);
   }
 
   /**
@@ -277,8 +295,15 @@ export class PlatformTenantService {
     const flagsChanged = flags !== undefined && !sameOverrides(flags, beforeFlags);
     const beforeParams = toTenantFeatureParamOverrides(before.featureParams);
     const featureParams = dto.featureParams && mergeFeatureParams(beforeParams, dto.featureParams);
+    const beforeMfa = knownMfaMethods(toFeatureFlagOverrides(before.mfaMethods), this.mfaMethods);
+    const mfaMethods = dto.mfaMethods && this.knownMfaMethodOverrides(dto.mfaMethods);
     await this.repo.transaction(async (tx) => {
-      await this.repo.update(id, { name: dto.name, features, flags, featureParams }, undefined, tx);
+      await this.repo.update(
+        id,
+        { name: dto.name, features, flags, featureParams, mfaMethods },
+        undefined,
+        tx,
+      );
       await this.audit.record(
         {
           action: 'tenant.update',
@@ -291,12 +316,14 @@ export class PlatformTenantService {
               features: beforeFeatures,
               flags: beforeFlags,
               featureParams: beforeParams,
+              mfaMethods: beforeMfa,
             },
             after: {
               name: dto.name ?? before.name,
               features: features ?? beforeFeatures,
               flags: flags ?? beforeFlags,
               featureParams: featureParams ?? beforeParams,
+              mfaMethods: mfaMethods ?? beforeMfa,
             },
           },
         },
@@ -326,6 +353,19 @@ export class PlatformTenantService {
       });
     }
     return pickKnownOverrides(overrides, this.flags.catalog);
+  }
+
+  /** MFA 方式的租戶層開關只接受註冊表裡能給租戶用的方式（docs/architecture/backend/21-mfa.md §5）。 */
+  private knownMfaMethodOverrides(overrides: Record<string, boolean>): Record<string, boolean> {
+    const unknown = Object.keys(overrides).filter(
+      (id) => !this.mfaMethods.get(id)?.definition.realms.includes('tenant'),
+    );
+    if (unknown.length) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: Object.fromEntries(unknown.map((id) => [`mfaMethods.${id}`, 'unknown MFA method'])),
+      });
+    }
+    return knownMfaMethods(overrides, this.mfaMethods);
   }
 
   /**
@@ -418,7 +458,7 @@ export class PlatformTenantService {
 
   async addDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
-    if (tenant.domains.includes(domain)) return toDto(tenant, this.flags.catalog);
+    if (tenant.domains.includes(domain)) return toDto(tenant, this.flags.catalog, this.mfaMethods);
     await this.assertDomainsAvailable([domain]);
     await this.repo
       .transaction(async (tx) => {
@@ -447,7 +487,7 @@ export class PlatformTenantService {
 
   async removeDomain(id: string, domain: string): Promise<PlatformTenantDto> {
     const tenant = await this.getExisting(id);
-    if (!tenant.domains.includes(domain)) return toDto(tenant, this.flags.catalog);
+    if (!tenant.domains.includes(domain)) return toDto(tenant, this.flags.catalog, this.mfaMethods);
     // 「至少留一個網域」要在鎖住租戶之後、同一個交易裡數：兩個請求同時各移除一個時，後到的要看到前一個的結果
     await this.repo.transaction(async (tx) => {
       if (!(await this.repo.lock(id, tx))) throw new AppException('TENANT_NOT_FOUND');

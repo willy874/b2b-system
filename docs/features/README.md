@@ -26,7 +26,6 @@
 | P2 | 方案（feature、參數的組合範本） | [`tenant-plans.md`](./tenant-plans.md) | 提案 | — |
 | P2 | 平台維護公告與租戶唯讀模式 | [`platform-maintenance.md`](./platform-maintenance.md) | 提案 | — |
 | P2 | SCIM 使用者佈建與外部 IdP 的群組對應 | [`scim.md`](./scim.md) | 提案 | — |
-| P3 | MFA（可擴充的驗證方式；第一批 TOTP、Email） | [`mfa.md`](./mfa.md) | 規劃中 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 | P3 | 租戶安全政策（IP 允許清單、登入中的裝置、閒置逾時） | [`tenant-security-policy.md`](./tenant-security-policy.md) | 提案 | — |
 | P3 | 首頁儀表板（widget 登記） | [`dashboard-widgets.md`](./dashboard-widgets.md) | 提案 | — |
@@ -52,6 +51,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `mfa`（可擴充的驗證方式：TOTP、Email 驗證碼、備用碼；登入互動的第二步、平台兩級開關、租戶政策）：[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §15
 - `observability`（後端的指標與 tracing、就緒檢查、Grafana ＋ Prometheus ＋ Tempo 的部署與告警，apm-service 接進 Grafana）：[`architecture/08-monitoring.md`](../architecture/08-monitoring.md) §9
 - `hardening-followups`（安全與容量的後續強化）：access token 金鑰環 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §11、
   速率限制第二版與 argon2 上限 §12、獨立的檔案網域 [`backend/09-file.md`](../architecture/backend/09-file.md) §13、個人資料夾 [`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md) §12.1、
@@ -78,7 +78,7 @@
    `personal-data`、`tenant-templates` 依賴它，`custom-fields`、`scim` 也會用到同一套「驗證 → 預覽 → 套用」。
 2. 骨架層：`approval-chains` 或 `custom-fields`，看第一個業務功能先需要哪一個。
 3. 平台層：`tenant-usage` → `tenant-plans`（方案的上限要對照用量）；`platform-maintenance` 在第一次正式維護前。
-4. 企業客戶：`scim`、`mfa`、`tenant-security-policy`，在第一個企業客戶上線前。
+4. 企業客戶：`scim`、`tenant-security-policy`（MFA 已完成），在第一個企業客戶上線前。
 
 ### 1.2 撰寫提案時的架構前提
 

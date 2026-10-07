@@ -36,6 +36,8 @@ export interface TenantRecord {
   flags: FeatureFlagOverrides;
   /** feature 參數的覆寫（docs/architecture/05-tenancy.md §13.2 D2）；不在目錄裡或驗證不過的值已濾掉。 */
   featureParams: TenantFeatureParamOverrides;
+  /** MFA 方式的租戶層開關（docs/architecture/backend/21-mfa.md §5）；非布林的值已濾掉。 */
+  mfaMethods?: FeatureFlagOverrides;
 }
 
 /** 每種查詢最多快取幾筆（租戶數遠小於這個值；上限只是防止被灌爆）。 */
@@ -270,6 +272,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
       features: toTenantFeatures(row.features),
       flags: toFeatureFlagOverrides(row.flags),
       featureParams: toTenantFeatureParamOverrides(row.featureParams),
+      mfaMethods: toFeatureFlagOverrides(row.mfaMethods),
     };
   }
 

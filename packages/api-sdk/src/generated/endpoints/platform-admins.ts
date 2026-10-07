@@ -3,6 +3,7 @@
 
 import type {
   CreatePlatformAdminRequest,
+  MfaAccountStatus,
   PlatformAdmin,
   PlatformAdminList,
   PlatformAdminPasswordLink,
@@ -143,4 +144,61 @@ export type PlatformAdminControllerAuditLogsResult = ApiResponse<
 
 export function getPlatformAdminControllerAuditLogsUrl(): string {
   return buildUrl('/platform/audit-logs');
+}
+
+// GET /platform/admins/{id}/mfa
+
+export interface PlatformAdminMfaControllerStatusPathParams {
+  id: string;
+}
+
+export interface PlatformAdminMfaControllerStatusInput {
+  path: PlatformAdminMfaControllerStatusPathParams;
+}
+
+export interface PlatformAdminMfaControllerStatusResponses {
+  200: {
+    data: MfaAccountStatus;
+  };
+}
+
+export type PlatformAdminMfaControllerStatusResponse =
+  PlatformAdminMfaControllerStatusResponses[200];
+
+export type PlatformAdminMfaControllerStatusResult = ApiResponse<
+  200,
+  PlatformAdminMfaControllerStatusResponses[200]
+>;
+
+export function getPlatformAdminMfaControllerStatusUrl(
+  path: PlatformAdminMfaControllerStatusPathParams,
+): string {
+  return buildUrl('/platform/admins/{id}/mfa', path);
+}
+
+// POST /platform/admins/{id}/mfa/reset
+
+export interface PlatformAdminMfaControllerResetPathParams {
+  id: string;
+}
+
+export interface PlatformAdminMfaControllerResetInput {
+  path: PlatformAdminMfaControllerResetPathParams;
+}
+
+export interface PlatformAdminMfaControllerResetResponses {
+  200: undefined;
+}
+
+export type PlatformAdminMfaControllerResetResponse = PlatformAdminMfaControllerResetResponses[200];
+
+export type PlatformAdminMfaControllerResetResult = ApiResponse<
+  200,
+  PlatformAdminMfaControllerResetResponses[200]
+>;
+
+export function getPlatformAdminMfaControllerResetUrl(
+  path: PlatformAdminMfaControllerResetPathParams,
+): string {
+  return buildUrl('/platform/admins/{id}/mfa/reset', path);
 }

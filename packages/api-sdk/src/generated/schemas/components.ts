@@ -26,6 +26,7 @@ import type {
   AuditLogSummary,
   ChangePasswordRequest,
   CompleteFileUploadRequest,
+  ConfirmMfaEnrollmentRequest,
   CreateAnnouncementRequest,
   CreateApiTokenRequest,
   CreateFileAccessRequest,
@@ -85,6 +86,21 @@ import type {
   JobQueueList,
   JobSummary,
   LoginRequest,
+  MfaAccountStatus,
+  MfaChallengeInfo,
+  MfaEnrollment,
+  MfaEnrollmentResult,
+  MfaFactor,
+  MfaInteractionEnrollmentResult,
+  MfaLoginChallengeRequest,
+  MfaLoginVerifyRequest,
+  MfaMethodImpact,
+  MfaMethodInfo,
+  MfaOverview,
+  MfaPasswordConfirmRequest,
+  MfaPolicy,
+  MfaPolicyImpact,
+  MfaRecoveryCodes,
   MoveFileItemsRequest,
   MoveFileItemsResult,
   Notification,
@@ -115,6 +131,8 @@ import type {
   PlatformJobQueue,
   PlatformJobQueueList,
   PlatformJobSummary,
+  PlatformMfaMethod,
+  PlatformMfaMethodList,
   PlatformNotification,
   PlatformNotificationUnreadCount,
   PlatformPermissionKey,
@@ -151,8 +169,12 @@ import type {
   SsoCallbackRequest,
   SsoDiscovery,
   SsoInteraction,
+  SsoLoginResult,
+  SsoMfaChallengeNext,
+  SsoMfaEnrollNext,
   SsoRedirect,
   StartExternalLoginRequest,
+  StartMfaEnrollmentRequest,
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
@@ -168,6 +190,7 @@ import type {
   TenantFlagOverrides,
   TenantLookup,
   TenantLookupQuery,
+  TenantMfaMethodOverrides,
   TrashItem,
   TrashResourceType,
   UpdateAnnouncementRequest,
@@ -179,9 +202,11 @@ import type {
   UpdateGroupRequest,
   UpdateGroupRolesRequest,
   UpdateIdentityProviderRequest,
+  UpdateMfaPolicyRequest,
   UpdateNotificationEventsRequest,
   UpdateNotificationPreferencesRequest,
   UpdatePlatformAdminRequest,
+  UpdatePlatformMfaMethodRequest,
   UpdatePlatformProfileRequest,
   UpdateProfileRequest,
   UpdateRolePermissionsRequest,
@@ -743,6 +768,8 @@ export const PermissionKeySchema = z.enum([
   'announcement:update',
   'announcement:delete',
   'announcement:publish',
+  'mfaPolicy:read',
+  'mfaPolicy:update',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -1154,6 +1181,7 @@ export const PlatformAdminSchema = z.object({
   role: z.enum(['super-admin', 'operator', 'auditor']),
   status: z.enum(['active', 'inactive', 'locked', 'pending']),
   lastLoginAt: z.string().nullable(),
+  mfaEnabled: z.boolean(),
   createdAt: z.string(),
 }) satisfies z.ZodType<PlatformAdmin>;
 
@@ -1356,6 +1384,7 @@ export const UserSchema = z.object({
   timezone: z.string(),
   lastLoginAt: z.string().nullable(),
   lockedUntil: z.string().nullable(),
+  mfaEnabled: z.boolean(),
   version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -1364,6 +1393,256 @@ export const UserSchema = z.object({
 export const UserRolesSchema = z.object({
   roles: z.array(RoleSummarySchema),
 }) satisfies z.ZodType<UserRoles>;
+
+export const SsoRedirectSchema = z.object({
+  redirectTo: z.url(),
+}) satisfies z.ZodType<SsoRedirect>;
+
+export const MfaMethodInfoSchema = z.object({
+  id: z.string(),
+  challenge: z.enum(['none', 'server']),
+  enrollAt: z.enum(['anywhere', 'idp']),
+  assurance: z.enum(['possession', 'inbox']),
+  maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaMethodInfo>;
+
+export const MfaFactorSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  method: z.string(),
+  label: z.string().nullable(),
+  hint: z.string().nullable(),
+  available: z.boolean(),
+  createdAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+}) satisfies z.ZodType<MfaFactor>;
+
+export const MfaOverviewSchema = z.object({
+  factors: z.array(MfaFactorSchema),
+  recoveryCodesRemaining: z.int().min(-9007199254740991).max(9007199254740991),
+  methods: z.array(
+    z.object({
+      id: z.string(),
+      challenge: z.enum(['none', 'server']),
+      enrollAt: z.enum(['anywhere', 'idp']),
+      assurance: z.enum(['possession', 'inbox']),
+      maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+      enrolled: z.int().min(-9007199254740991).max(9007199254740991),
+    }),
+  ),
+  required: z.boolean(),
+}) satisfies z.ZodType<MfaOverview>;
+
+export const StartMfaEnrollmentRequestSchema = z.object({
+  method: z.string().min(1).max(64),
+}) satisfies z.ZodType<StartMfaEnrollmentRequest>;
+
+export const MfaChallengeInfoSchema = z.object({
+  challengeId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  hint: z.string().nullable(),
+  expiresAt: z.string(),
+  resendAvailableAt: z.string(),
+}) satisfies z.ZodType<MfaChallengeInfo>;
+
+export const MfaEnrollmentSchema = z.object({
+  factorId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  method: z.string(),
+  publicData: z.record(z.string(), z.unknown()),
+  challenge: MfaChallengeInfoSchema.nullable(),
+}) satisfies z.ZodType<MfaEnrollment>;
+
+export const ConfirmMfaEnrollmentRequestSchema = z.object({
+  challengeId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .optional(),
+  payload: z.record(z.string(), z.unknown()),
+  label: z.string().min(1).max(64).optional(),
+}) satisfies z.ZodType<ConfirmMfaEnrollmentRequest>;
+
+export const MfaEnrollmentResultSchema = z.object({
+  factor: MfaFactorSchema,
+  recoveryCodes: z.array(z.string()).nullable(),
+}) satisfies z.ZodType<MfaEnrollmentResult>;
+
+export const MfaPasswordConfirmRequestSchema = z.object({
+  password: z.string().min(1).max(128),
+}) satisfies z.ZodType<MfaPasswordConfirmRequest>;
+
+export const MfaRecoveryCodesSchema = z.object({
+  recoveryCodes: z.array(z.string()),
+}) satisfies z.ZodType<MfaRecoveryCodes>;
+
+export const MfaAccountStatusSchema = z.object({
+  enabled: z.boolean(),
+  factors: z.array(MfaFactorSchema),
+  recoveryCodesRemaining: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaAccountStatus>;
+
+export const MfaLoginChallengeRequestSchema = z.object({
+  factorId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+}) satisfies z.ZodType<MfaLoginChallengeRequest>;
+
+export const MfaLoginVerifyRequestSchema = z.object({
+  factorId: z.union([
+    z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+    z.enum(['recovery']),
+  ]),
+  challengeId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .optional(),
+  payload: z.record(z.string(), z.unknown()),
+}) satisfies z.ZodType<MfaLoginVerifyRequest>;
+
+export const MfaInteractionEnrollmentResultSchema = z.object({
+  recoveryCodes: z.array(z.string()),
+  redirectTo: z.url(),
+}) satisfies z.ZodType<MfaInteractionEnrollmentResult>;
+
+export const SsoMfaChallengeNextSchema = z.object({
+  next: z.enum(['mfa']),
+  factors: z.array(MfaFactorSchema),
+  recoveryAvailable: z.boolean(),
+}) satisfies z.ZodType<SsoMfaChallengeNext>;
+
+export const SsoMfaEnrollNextSchema = z.object({
+  next: z.enum(['mfaEnroll']),
+  methods: z.array(MfaMethodInfoSchema),
+}) satisfies z.ZodType<SsoMfaEnrollNext>;
+
+export const SsoLoginResultSchema = z.union([
+  SsoRedirectSchema,
+  SsoMfaChallengeNextSchema,
+  SsoMfaEnrollNextSchema,
+]) satisfies z.ZodType<SsoLoginResult>;
+
+export const MfaPolicySchema = z.object({
+  requireAll: z.boolean(),
+  requiredRoleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100),
+  allowedMethods: z.array(z.string().min(1).max(64)).max(20).nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  updatedAt: z.string().nullable(),
+  methods: z.array(
+    z.object({
+      id: z.string(),
+      challenge: z.enum(['none', 'server']),
+      enrollAt: z.enum(['anywhere', 'idp']),
+      assurance: z.enum(['possession', 'inbox']),
+      maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+      platformEnabled: z.boolean(),
+    }),
+  ),
+  nonCompliant: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaPolicy>;
+
+export const UpdateMfaPolicyRequestSchema = z.object({
+  requireAll: z.boolean(),
+  requiredRoleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(100),
+  allowedMethods: z.array(z.string().min(1).max(64)).max(20).nullable(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateMfaPolicyRequest>;
+
+export const MfaPolicyImpactSchema = z.object({
+  nonCompliant: z.int().min(-9007199254740991).max(9007199254740991),
+  stranded: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaPolicyImpact>;
+
+export const PlatformMfaMethodSchema = z.object({
+  id: z.string(),
+  challenge: z.enum(['none', 'server']),
+  enrollAt: z.enum(['anywhere', 'idp']),
+  assurance: z.enum(['possession', 'inbox']),
+  maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+  realms: z.array(z.enum(['tenant', 'platform'])),
+  defaultEnabled: z.boolean(),
+  globalState: z.enum(['default', 'on', 'off']),
+  effective: z.boolean(),
+  tenantOverrides: z.object({
+    on: z.int().min(-9007199254740991).max(9007199254740991),
+    off: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+  stats: z
+    .object({
+      tenantFactors: z.int().min(-9007199254740991).max(9007199254740991),
+      tenants: z.int().min(-9007199254740991).max(9007199254740991),
+      platformFactors: z.int().min(-9007199254740991).max(9007199254740991),
+      computedAt: z.string(),
+    })
+    .nullable(),
+  platformAdminEnabled: z.boolean(),
+}) satisfies z.ZodType<PlatformMfaMethod>;
+
+export const PlatformMfaMethodListSchema = z.object({
+  items: z.array(PlatformMfaMethodSchema),
+}) satisfies z.ZodType<PlatformMfaMethodList>;
+
+export const UpdatePlatformMfaMethodRequestSchema = z.object({
+  state: z.enum(['default', 'on', 'off']),
+}) satisfies z.ZodType<UpdatePlatformMfaMethodRequest>;
+
+export const MfaMethodImpactSchema = z.object({
+  stranded: z.int().min(-9007199254740991).max(9007199254740991),
+  tenants: z.int().min(-9007199254740991).max(9007199254740991),
+  skippedTenants: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<MfaMethodImpact>;
 
 export const TenantFeatureSchema = z.enum([
   'file',
@@ -1381,6 +1660,11 @@ export const TenantFlagOverridesSchema = z.record(
   z.string(),
   z.boolean(),
 ) satisfies z.ZodType<TenantFlagOverrides>;
+
+export const TenantMfaMethodOverridesSchema = z.record(
+  z.string(),
+  z.boolean(),
+) satisfies z.ZodType<TenantMfaMethodOverrides>;
 
 export const TenantFeatureParamKeySchema = z.enum([
   'file.storageQuotaMb',
@@ -1422,6 +1706,7 @@ export const PlatformTenantSchema = z.object({
   storageBucket: z.string(),
   features: z.array(TenantFeatureSchema),
   flags: TenantFlagOverridesSchema,
+  mfaMethods: TenantMfaMethodOverridesSchema,
   featureParams: z.array(TenantFeatureParamSchema),
   adminEmail: z.string().nullable(),
   provisionError: z.string().nullable(),
@@ -1470,6 +1755,7 @@ export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   features: z.array(TenantFeatureSchema).max(9).optional(),
   flags: TenantFlagOverridesSchema.optional(),
+  mfaMethods: TenantMfaMethodOverridesSchema.optional(),
   featureParams: z
     .record(z.string(), z.union([z.number(), z.string().max(1000)]).nullable())
     .optional(),
@@ -1552,6 +1838,8 @@ export const PlatformPermissionKeySchema = z.enum([
   'platformJob:retry',
   'featureFlag:read',
   'featureFlag:update',
+  'mfaMethod:read',
+  'mfaMethod:update',
 ]) satisfies z.ZodType<PlatformPermissionKey>;
 
 export const PlatformProfileSchema = z.object({
@@ -1643,10 +1931,6 @@ export const SsoInteractionSchema = z.object({
     })
     .nullable(),
 }) satisfies z.ZodType<SsoInteraction>;
-
-export const SsoRedirectSchema = z.object({
-  redirectTo: z.url(),
-}) satisfies z.ZodType<SsoRedirect>;
 
 export const SsoDiscoverySchema = z.object({
   provider: z

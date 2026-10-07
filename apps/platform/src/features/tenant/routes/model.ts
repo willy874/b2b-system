@@ -16,7 +16,7 @@ export const DEFAULT_TENANT_SEARCH: TenantSearchQuery = {
 };
 
 /** 詳情頁的分頁；不認得的值（舊連結、手打）回到概覽。 */
-export const TENANT_DETAIL_TABS = ['overview', 'features', 'flags'] as const;
+export const TENANT_DETAIL_TABS = ['overview', 'features', 'flags', 'mfa'] as const;
 
 export type TenantDetailTab = (typeof TENANT_DETAIL_TABS)[number];
 

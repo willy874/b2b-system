@@ -6,6 +6,7 @@ import {
   expiredFeatureFlags,
   pickKnownOverrides,
   resolveFeatureFlag,
+  resolveToggle,
   toFeatureFlagOverrides,
 } from '../feature-flags';
 import type { FeatureFlagDefinition, FeatureFlagGlobalState } from '../feature-flags';
@@ -32,6 +33,18 @@ describe('resolveFeatureFlag 的優先順序（docs/architecture/05-tenancy.md �
     ['緊急關閉，蓋過預設值', true, 'off', undefined, false],
   ])('%s', (_name, defaultEnabled, global, tenant, expected) => {
     expect(resolveFeatureFlag({ defaultEnabled }, global, tenant)).toBe(expected);
+  });
+});
+
+describe('resolveToggle：feature flag 與 MFA 方式共用的兩級覆寫（docs/architecture/backend/21-mfa.md §5、D4）', () => {
+  it.each<[FeatureFlagGlobalState | undefined, boolean | undefined, boolean, boolean]>([
+    // 全平台、租戶、預設 → 生效
+    ['off', true, true, false],
+    [undefined, false, true, false],
+    ['on', undefined, false, true],
+    [undefined, undefined, true, true],
+  ])('全平台 %s、租戶 %s、預設 %s → %s', (global, tenant, defaultEnabled, expected) => {
+    expect(resolveToggle(defaultEnabled, global, tenant)).toBe(expected);
   });
 });
 

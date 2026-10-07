@@ -50,7 +50,11 @@ export const users = pgTable(
     locale: text('locale').notNull().default('zh-TW'),
     timezone: text('timezone').notNull().default('Asia/Taipei'),
 
-    mfaEnabled: boolean('mfa_enabled').notNull().default(false), // 預留
+    /**
+     * 衍生欄位：有任一 active 的 MFA 因子時為 true，由 `MfaService` 在新增、移除、重設的同一個交易維護
+     * （docs/architecture/backend/21-mfa.md §3）。使用者列表的「MFA」欄與篩選讀它。
+     */
+    mfaEnabled: boolean('mfa_enabled').notNull().default(false),
 
     // 樂觀鎖：可編輯的欄位（username、displayName、status、locale、timezone）每次寫入遞增；
     // 登入計數、鎖定、密碼、token_version 之類的帳號狀態不遞增（docs/architecture/backend/14-revisions.md §9.2 D3）
