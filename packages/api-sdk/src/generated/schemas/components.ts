@@ -1594,7 +1594,6 @@ export const RegisterRequestSchema = z.object({
       ),
     ),
   displayName: z.string().min(1).max(100),
-  password: z.string().min(12).max(128),
   reason: z.string().max(500).optional(),
 }) satisfies z.ZodType<RegisterRequest>;
 

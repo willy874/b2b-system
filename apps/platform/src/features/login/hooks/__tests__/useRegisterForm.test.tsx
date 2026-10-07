@@ -22,8 +22,6 @@ vi.mock('@/apis/auth/get-public-settings/query', () => ({
   }),
 }));
 
-const PASSWORD = 'NewPassword!2026';
-
 function renderForm(tenant: string | undefined = 'acme') {
   return renderHook(() => useRegisterForm(tenant), { wrapper: AllProviders });
 }
@@ -33,8 +31,6 @@ async function submit(result: { current: ReturnType<typeof useRegisterForm> }, r
   act(() => {
     form.setFieldValue('email', 'alice@example.com');
     form.setFieldValue('displayName', 'Alice');
-    form.setFieldValue('password', PASSWORD);
-    form.setFieldValue('confirmPassword', PASSWORD);
     form.setFieldValue('reason', reason);
   });
   await act(() => form.handleSubmit());
@@ -56,7 +52,7 @@ describe('useRegisterForm（註冊申請的流程）', () => {
     await waitFor(() => expect(result.current.closed).toBe(true));
   });
 
-  it('送出：帶上租戶、理由去掉空白（空的不帶），成功後是 submitted', async () => {
+  it('送出：帶上租戶、理由去掉空白（空的不帶）、不帶密碼，成功後是 submitted', async () => {
     const { result } = renderForm();
     await waitFor(() => expect(result.current.policy.isLoading).toBe(false));
     await submit(result, '  ');
@@ -65,20 +61,20 @@ describe('useRegisterForm（註冊申請的流程）', () => {
         tenant: 'acme',
         email: 'alice@example.com',
         displayName: 'Alice',
-        password: PASSWORD,
         reason: undefined,
       },
     });
     expect(result.current.submitted).toBe(true);
   });
 
-  it('密碼長度跟著租戶的設定；不夠長時不送出', async () => {
-    publicSettings.mockResolvedValue({
-      values: { 'auth.passwordMinLength': 20, 'auth.registrationEnabled': true },
-    });
+  it('email 格式不對時不送出', async () => {
     const { result } = renderForm();
-    await waitFor(() => expect(result.current.policy.passwordMinLength).toBe(20));
-    await submit(result);
+    await waitFor(() => expect(result.current.policy.isLoading).toBe(false));
+    act(() => {
+      result.current.form.setFieldValue('email', 'not-an-email');
+      result.current.form.setFieldValue('displayName', 'Alice');
+    });
+    await act(() => result.current.form.handleSubmit());
     expect(register).not.toHaveBeenCalled();
     expect(result.current.submitted).toBe(false);
   });

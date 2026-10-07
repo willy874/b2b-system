@@ -6,9 +6,9 @@ import { openMenuGroup } from '../helpers/menu';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
+// 申請時不設密碼：啟用前用任何密碼都登入不了（docs/rbac/06-approval.md §5.1）
+const GUESSED_PASSWORD = 'Tq7!vRx#2mLp9w';
 // 密碼政策會擋常見密碼的字根（password）與 email／顯示名稱的片段（modules/credential）
-const APPLICANT_PASSWORD = 'Tq7!vRx#2mLp9w';
-// 啟用時設定的密碼（POST /auth/setup）取代申請時的密碼（docs/rbac/06-approval.md §5.1）
 const ACTIVATED_PASSWORD = 'Kd4$wNz8!qHs3v';
 const ACTIVATION_MAIL_SUBJECT = '啟用你的 B2B System 帳號';
 // 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/architecture/05-tenancy.md §10.2 D2）
@@ -27,8 +27,6 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await page.getByTestId('login-register-link').click();
     await page.getByTestId('register-email').fill(email);
     await page.getByTestId('register-display-name').fill('E2E Applicant');
-    await page.getByTestId('register-password').fill(APPLICANT_PASSWORD);
-    await page.getByTestId('register-confirm-password').fill(APPLICANT_PASSWORD);
     await page.getByTestId('register-reason').fill('E2E 測試');
     await page.getByTestId('register-submit').click();
     await expect(page.getByTestId('register-submitted')).toBeVisible();
@@ -37,7 +35,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     // 核准前不能登入
     await page.goto('/auth/login');
     await page.getByTestId('login-email').fill(email);
-    await page.getByTestId('login-password').fill(APPLICANT_PASSWORD);
+    await page.getByTestId('login-password').fill(GUESSED_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('login-error')).toBeVisible();
 
@@ -72,10 +70,10 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await snapshot(adminPage, 'approved');
     await adminContext.close();
 
-    // ③ 核准後帳號是 pending：啟用前以申請時的密碼登入被擋下（AUTH_ACCOUNT_PENDING）
+    // ③ 核准後帳號是 pending、沒有密碼：啟用前登入被擋下
     await page.goto('/auth/login');
     await page.getByTestId('login-email').fill(email);
-    await page.getByTestId('login-password').fill(APPLICANT_PASSWORD);
+    await page.getByTestId('login-password').fill(GUESSED_PASSWORD);
     await page.getByTestId('login-submit').click();
     await expect(page.getByTestId('login-error')).toBeVisible();
     await snapshot(page, 'login-before-activation');
@@ -102,7 +100,7 @@ test.describe('註冊審批（docs/rbac/06-approval.md）', () => {
     const responses = await Promise.all(
       [approveEmail, rejectEmail].map((email) =>
         request.post(`${API_URL}/auth/register`, {
-          data: { email, displayName: 'E2E Quick', password: APPLICANT_PASSWORD },
+          data: { email, displayName: 'E2E Quick' },
         }),
       ),
     );

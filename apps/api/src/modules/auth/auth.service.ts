@@ -543,8 +543,9 @@ export class AuthService {
 
   /**
    * 送出註冊申請，由管理員在審批頁核准後才建立帳號（docs/rbac/06-approval.md §5）。
-   * email 已註冊或已在審核中都回同樣的結果（帳號列舉防護）；雜湊照算，讓回應時間一致。
-   * 核准後的帳號是 `pending`，要從寄到這個 email 的啟用信完成設定才能登入（email 所有權驗證）。
+   * email 已註冊或已在審核中都回同樣的結果（帳號列舉防護）。
+   * 申請時不設密碼：核准後的帳號是 `pending`、沒有密碼，要從寄到這個 email 的啟用信設定密碼才能登入
+   * （email 所有權驗證）。
    */
   async register(dto: RegisterDto): Promise<{ submitted: true }> {
     if (!(await this.settings.get(REGISTRATION_ENABLED_SETTING))) {
@@ -554,14 +555,13 @@ export class AuthService {
     if (await this.identityProviders.isSsoOnly(dto.email)) {
       throw new AppException('AUTH_SSO_REQUIRED');
     }
-    await this.assertPasswordPolicy(dto.password, 'password', dto.email);
-    const passwordHash = await this.hash(dto.password);
     if (await this.users.findAccountByEmail(dto.email)) return { submitted: true };
     await this.approvals.submit(
-      userRegistrationRequest(
-        { email: dto.email, displayName: dto.displayName, reason: dto.reason },
-        passwordHash,
-      ),
+      userRegistrationRequest({
+        email: dto.email,
+        displayName: dto.displayName,
+        reason: dto.reason,
+      }),
     );
     return { submitted: true };
   }

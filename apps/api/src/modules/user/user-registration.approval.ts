@@ -24,9 +24,6 @@ const RegistrationPayloadSchema = z.object({
   displayName: z.string(),
 });
 
-/** 申請人設定的密碼（argon2 雜湊）；審核後由 `ApprovalRepository.review()` 清空。 */
-const RegistrationSecretSchema = z.object({ passwordHash: z.string() });
-
 export interface Registration {
   email: string;
   displayName: string;
@@ -34,16 +31,12 @@ export interface Registration {
 }
 
 /** 註冊申請 → 一筆 `user.register` 審批請求（`AuthService.register` 用）。 */
-export function userRegistrationRequest(
-  registration: Registration,
-  passwordHash: string,
-): SubmitApprovalInput {
+export function userRegistrationRequest(registration: Registration): SubmitApprovalInput {
   return {
     type: ApprovalType.USER_REGISTER,
     // users.email 是 citext：去重鍵也要不分大小寫
     subjectKey: registration.email.toLowerCase(),
     payload: { email: registration.email, displayName: registration.displayName },
-    privatePayload: { passwordHash },
     requester: { id: null, name: registration.email },
     reason: registration.reason ?? null,
   };
@@ -53,9 +46,9 @@ export function userRegistrationRequest(
  * `user.register` 的核准：建立 **未啟用**（`pending`）的帳號並指派審核者選的角色，同一個交易內入列啟用信
  * （docs/rbac/06-approval.md §5）。等同審核者代為「建立使用者」，所以要求相同的權限與檢查。
  *
- * 申請時沒有驗證 email：任何人都能以別人的 email 申請。核准後要由那個信箱收到的啟用信設定密碼才會啟用，
- * 證明申請人真的擁有這個 email。申請時設定的密碼先存著，
- * 啟用前以它登入會得到 `AUTH_ACCOUNT_PENDING`（提示去收信），而不是「帳密錯誤」。
+ * 申請時沒有驗證 email：任何人都能以別人的 email 申請（審批頁標示「email 尚未驗證」）。核准後要由那個信箱收到的
+ * 啟用信設定密碼才會啟用，證明申請人真的擁有這個 email。申請時不設密碼，帳號在啟用前沒有密碼、不能登入。
+ * 改版前送出的申請在 `privatePayload` 留有密碼雜湊：核准時不再使用，審核後照舊由 `ApprovalRepository.review()` 清空。
  */
 @Injectable()
 export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModuleInit {
@@ -88,12 +81,10 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
     tx: Transaction,
   ): Promise<ApprovalOutcome> {
     const payload = RegistrationPayloadSchema.parse(request.payload);
-    const secret = RegistrationSecretSchema.parse(request.privatePayload);
     const user = await this.users.createAccount(
       {
         email: payload.email,
         displayName: payload.displayName,
-        passwordHash: secret.passwordHash,
         status: 'pending',
         roleIds: options.roleIds,
       },

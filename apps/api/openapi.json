@@ -9918,17 +9918,12 @@
             "minLength": 1,
             "maxLength": 100
           },
-          "password": {
-            "type": "string",
-            "minLength": 12,
-            "maxLength": 128
-          },
           "reason": {
             "type": "string",
             "maxLength": 500
           }
         },
-        "required": ["email", "displayName", "password"],
+        "required": ["email", "displayName"],
         "additionalProperties": false
       },
       "RegisterResult": {

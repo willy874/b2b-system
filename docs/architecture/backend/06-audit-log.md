@@ -185,7 +185,7 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 ```
 
 **密碼雜湊絕不進稽核。** 密碼變更只記 `action: 'auth.password_change'`，
-`changes` 為 `null`。審批請求的 `private_payload`（註冊時的密碼雜湊）同樣不進稽核
+`changes` 為 `null`。審批請求的 `private_payload`（只給 handler 用的內容）同樣不進稽核
 （[`../../rbac/06-approval.md`](../../rbac/06-approval.md) §2）。
 
 ### 5.2 授權變更的 `changes` 形狀
