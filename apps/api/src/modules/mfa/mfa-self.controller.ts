@@ -139,6 +139,11 @@ abstract class MfaSelfEndpoints {
 @NoStore()
 export class MfaSelfController extends MfaSelfEndpoints {
   protected readonly realm = 'tenant' as const;
+
+  // 每個子類別都要宣告建構式：Nest 從被裝飾的類別讀建構式的參數型別，抽象的基底沒有這份 metadata
+  constructor(mfa: MfaService) {
+    super(mfa);
+  }
 }
 
 @ApiTags('platform-auth')
@@ -146,4 +151,8 @@ export class MfaSelfController extends MfaSelfEndpoints {
 @NoStore()
 export class PlatformMfaSelfController extends MfaSelfEndpoints {
   protected readonly realm = 'platform' as const;
+
+  constructor(mfa: MfaService) {
+    super(mfa);
+  }
 }

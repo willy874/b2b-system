@@ -43,6 +43,10 @@ export const E2E_ACCOUNTS = [
   { email: 'e2e-announceme@dev.local', displayName: 'E2E Announce Target', role: 'member' },
   // 專門給資料夾分享的測試用：被授予、撤銷資料夾的存取（tests/file.spec.ts）
   { email: 'e2e-shareme@dev.local', displayName: 'E2E Share Target', role: 'member' },
+  // 專門給 MFA 的測試用：驗證器 App、Email 驗證碼、政策要求的首次設定（tests/mfa.spec.ts；驗證方式會被設定與重設）
+  { email: 'e2e-mfame@dev.local', displayName: 'E2E MFA TOTP', role: 'member' },
+  { email: 'e2e-mfamail@dev.local', displayName: 'E2E MFA Email', role: 'member' },
+  { email: 'e2e-mfapolicy@dev.local', displayName: 'E2E MFA Policy', role: 'member' },
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {

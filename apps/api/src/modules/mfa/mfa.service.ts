@@ -282,6 +282,8 @@ export class MfaService implements OnModuleInit {
         retryAfterSeconds: Math.ceil((latest.resendAfter.getTime() - Date.now()) / 1000),
       });
     }
+    // 同一個因子只留最新的 challenge：重寄之後舊的碼失效（§9.2）
+    if (latest && latest.consumedAt === null) await store.repo.consumeChallenge(latest.id);
     const id = randomUUID();
     const start = await method.startChallenge(this.context(store, account, tx), factor, {
       id,

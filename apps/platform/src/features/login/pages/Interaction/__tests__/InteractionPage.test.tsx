@@ -1,5 +1,6 @@
 import { AppError } from '@b2b-system/web-core/errors';
 import { i18n } from '@b2b-system/web-core/locales';
+import { mfaMethodRegistry, registerMfaMethod, totpMethod } from '@b2b-system/web-core/mfa';
 import { parseSearch, RootRoute, stringifySearch } from '@b2b-system/web-core/router';
 import { useLocaleStore } from '@b2b-system/web-core/store';
 import { AllProviders } from '@b2b-system/web-core/testing';
@@ -11,14 +12,17 @@ import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
 
-const { details, login, abort, discover, startExternal, publicSettings } = vi.hoisted(() => ({
-  publicSettings: vi.fn(),
-  details: vi.fn(),
-  login: vi.fn(),
-  abort: vi.fn(),
-  discover: vi.fn(),
-  startExternal: vi.fn(),
-}));
+const { details, login, abort, discover, startExternal, publicSettings, verifyMfa } = vi.hoisted(
+  () => ({
+    verifyMfa: vi.fn(),
+    publicSettings: vi.fn(),
+    details: vi.fn(),
+    login: vi.fn(),
+    abort: vi.fn(),
+    discover: vi.fn(),
+    startExternal: vi.fn(),
+  }),
+);
 
 vi.mock('@/apis/sso-interaction/get-sso-interaction/query', () => ({
   SSO_INTERACTION_QUERY_KEY: 'SSO_INTERACTION_QUERY_KEY',
@@ -48,6 +52,9 @@ vi.mock('@/apis/sso-interaction/discover-sso-interaction/query', () => ({
     queryFn: () => discover(email),
     retry: false,
   }),
+}));
+vi.mock('@/apis/sso-interaction/verify-mfa-sso-interaction/mutation', () => ({
+  getVerifyMfaSsoInteractionMutationOptions: () => ({ mutationFn: verifyMfa }),
 }));
 vi.mock('@/apis/sso-interaction/start-external-sso-interaction/mutation', () => ({
   getStartExternalSsoInteractionMutationOptions: () => ({ mutationFn: startExternal }),
@@ -108,7 +115,11 @@ afterEach(() => {
 });
 
 // 錯誤訊息要是真的翻譯，才能斷言 role="alert" 裡的文字
-beforeAll(() => initTestI18n());
+beforeAll(async () => {
+  await initTestI18n();
+  mfaMethodRegistry.reset();
+  registerMfaMethod(totpMethod);
+});
 
 describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
   it('租戶的互動：帳號流程的連結帶上租戶代碼（docs/architecture/05-tenancy.md §10.2 D8）', async () => {
@@ -389,5 +400,61 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
     await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
 
     expect(password).toHaveFocus();
+  });
+});
+
+describe('登入互動的第二步（docs/architecture/backend/21-mfa.md §4）', () => {
+  const MFA_NEXT = {
+    next: 'mfa',
+    factors: [
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        method: 'totp',
+        label: 'iPhone',
+        hint: null,
+        available: true,
+        createdAt: '2026-10-07T00:00:00.000Z',
+        lastUsedAt: null,
+      },
+    ],
+    recoveryAvailable: true,
+  };
+
+  async function submitPassword() {
+    renderInteraction();
+    fireEvent.change(await screen.findByTestId('login-email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { value: 'secret-123' } });
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('login-submit'));
+  }
+
+  it('密碼通過、需要 MFA → 不跳轉，換成第二步；驗證成功才頂層跳轉', async () => {
+    login.mockResolvedValue(MFA_NEXT);
+    verifyMfa.mockResolvedValue({ redirectTo: RESUME });
+    await submitPassword();
+    expect(await screen.findByTestId('login-mfa')).toHaveAttribute('data-value', 'mfa');
+    expect(assign).not.toHaveBeenCalled();
+
+    fireEvent.change(await screen.findByTestId('mfa-code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByTestId('mfa-submit'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(RESUME));
+    expect(verifyMfa.mock.calls[0]?.[0]).toEqual({
+      params: { uid: UID, factorId: MFA_NEXT.factors[0]!.id, payload: { code: '123456' } },
+    });
+  });
+
+  it('第二步作廢（錯太多次）→ 回到密碼並顯示原因', async () => {
+    login.mockResolvedValue(MFA_NEXT);
+    verifyMfa.mockRejectedValue(new AppError('AUTH_MFA_TOO_MANY_ATTEMPTS', 400));
+    await submitPassword();
+    fireEvent.change(await screen.findByTestId('mfa-code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByTestId('mfa-submit'));
+    expect(await screen.findByTestId('login-error')).toHaveAttribute(
+      'data-value',
+      'AUTH_MFA_TOO_MANY_ATTEMPTS',
+    );
+    expect(screen.queryByTestId('login-mfa')).not.toBeInTheDocument();
   });
 });

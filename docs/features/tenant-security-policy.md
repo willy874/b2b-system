@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`mfa.md`](./mfa.md)（MFA 另一份提案，兩者都是企業客戶的安全需求）、[`backend/04-auth.md`](../architecture/backend/04-auth.md)（refresh token 家族、`token_version`）、
+- 相關：[`backend/21-mfa.md`](../architecture/backend/21-mfa.md)（MFA，已完成；兩者都是企業客戶的安全需求）、[`backend/04-auth.md`](../architecture/backend/04-auth.md)（refresh token 家族、`token_version`）、
   [`04-sso.md`](../architecture/04-sso.md) §3、§12 D5（單一登出、IdP session）、[`06-external-api.md`](../architecture/06-external-api.md) §9.4（token 的 IP 白名單列為不做）、
   [`backend/12-settings.md`](../architecture/backend/12-settings.md)（帳號政策）、[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3（`rateLimit.trustedCidrs`）
 
@@ -11,7 +11,7 @@
 
 ## 背景
 
-企業客戶上線前的安全問卷，除了 MFA（[`mfa.md`](./mfa.md)）之外，常見的還有：
+企業客戶上線前的安全問卷，除了 MFA（已完成，[`backend/21-mfa.md`](../architecture/backend/21-mfa.md)）之外，常見的還有：
 
 - **限制來源 IP**：後台只允許公司網段或 VPN。現在只能在 WAF 做（[`05-tenancy.md`](../architecture/05-tenancy.md) §2、[`06-external-api.md`](../architecture/06-external-api.md) D9），租戶無法自己設定；
   `rateLimit.trustedCidrs` 只放寬限流，不是限制。API token 的 IP 白名單已列為「之後可以在 `api_tokens` 加欄位」。
@@ -59,8 +59,8 @@
 2. IP 清單放系統設定（租戶自己改）還是 feature 參數（只有平台改）？
 3. 外部 IdP 登入要不要也套用 IP 清單（IdP 自己可能已經有條件式存取）？
 4. 「登入中的裝置」要不要包含 apps/platform 的平台管理者？
-5. 與 [`mfa.md`](./mfa.md) 要不要合成一個「安全政策」設定頁？
-   **結論**（2026-10-07，隨 MFA 規劃決定）：合成一頁。backstage 的 `features/security` 是分頁式容器，MFA 是第一個分頁（`/security/mfa`，[`mfa.md`](./mfa.md) §14.0）；這份提案的 IP 清單、閒置逾時加自己的分頁。
+5. 與 MFA 要不要合成一個「安全政策」設定頁？
+   **結論**（2026-10-07，隨 MFA 規劃決定）：合成一頁。backstage 的 `features/security` 是分頁式容器，MFA 是第一個分頁（`/security/mfa`，[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §6）；這份提案的 IP 清單、閒置逾時加自己的分頁。
 
 ## 設計決策
 

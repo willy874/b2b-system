@@ -14,6 +14,9 @@ export const ACCOUNTS = {
   passwordTarget: 'e2e-passwordme@dev.local',
   announceTarget: 'e2e-announceme@dev.local',
   shareTarget: 'e2e-shareme@dev.local',
+  mfaTotp: 'e2e-mfame@dev.local',
+  mfaEmail: 'e2e-mfamail@dev.local',
+  mfaPolicy: 'e2e-mfapolicy@dev.local',
 } as const;
 
 export type AccountKey = keyof typeof ACCOUNTS;

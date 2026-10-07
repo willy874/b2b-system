@@ -174,7 +174,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 
 所以這份決定包含兩件事：**程式的身分**（服務帳號與 token），以及 **它從哪裡進來**（獨立的對外 API 服務）。
 
-相關的規格：[`backend/04-auth.md`](./backend/04-auth.md) §8.2、[`01-system.md`](./01-system.md) §4、[`05-tenancy.md`](./05-tenancy.md) §2、[`backend/05-rbac.md`](./backend/05-rbac.md) §4.1、§5.1、[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §7、§8、[`iam/01-model.md`](iam/01-model.md) §7。沿用 [`backend/04-auth.md`](backend/04-auth.md) §10（`token_version` 是唯一的撤銷機制）、[`architecture/05-tenancy.md`](05-tenancy.md) §10（每個租戶一個 DB 與網域）、[`iam/01-model.md`](iam/01-model.md) §9（關係圖與一般化的反提權）；之後依賴這份決定的有 Webhook（[`backend/17-webhook.md`](backend/17-webhook.md) §9）、[`../features/mfa.md`](../features/mfa.md)、[`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
+相關的規格：[`backend/04-auth.md`](./backend/04-auth.md) §8.2、[`01-system.md`](./01-system.md) §4、[`05-tenancy.md`](./05-tenancy.md) §2、[`backend/05-rbac.md`](./backend/05-rbac.md) §4.1、§5.1、[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §7、§8、[`iam/01-model.md`](iam/01-model.md) §7。沿用 [`backend/04-auth.md`](backend/04-auth.md) §10（`token_version` 是唯一的撤銷機制）、[`architecture/05-tenancy.md`](05-tenancy.md) §10（每個租戶一個 DB 與網域）、[`iam/01-model.md`](iam/01-model.md) §9（關係圖與一般化的反提權）；之後依賴這份決定的有 Webhook（[`backend/17-webhook.md`](backend/17-webhook.md) §9）、MFA（[`backend/21-mfa.md`](backend/21-mfa.md)）、[`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
 
 ### 9.2 決定
 

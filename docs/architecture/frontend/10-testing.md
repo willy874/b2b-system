@@ -265,7 +265,7 @@ global setup 的 `db:reset` 會 **清空** `PLATFORM_DATABASE_URL` 與它登記�
 會改變帳號狀態（鎖定、停用、整批改寫角色）的案例各有專用帳號（`e2e-lockme`、`e2e-disableme`、`e2e-revokeme`、`e2e-roleholder`、
 `e2e-notifyme`（站內通知：角色被增減、未讀數要精確斷言；同一個案例不能並行跑兩份，`--repeat-each` 要搭配 `--workers=1`）、
 `e2e-groupme`（經群組取得、失去權限）、`e2e-passwordme`（密碼被改掉，案例結束時改回）、`e2e-announceme`（公告的收件人與個人通知設定）、
-`e2e-shareme`（被授予、撤銷資料夾存取），見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
+`e2e-shareme`（被授予、撤銷資料夾存取）、`e2e-mfame`／`e2e-mfamail`／`e2e-mfapolicy`（MFA 的驗證方式會被設定與重設），見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
 
 會動到 **整個租戶** 的設定的案例，挑其他 spec 不碰的對象，並在 `finally` 還原：系統設定改 `trash.retentionDays`、
 平台關閉的 feature 用 `job`、事件管理只改 `announcement.published`（與公告的案例放在同一個檔案、依序執行）。

@@ -17,12 +17,12 @@ export interface ReceivedMail {
 /**
  * 等到寄給 `to` 的信出現，回傳最新一封。寄信在背景工作裡跑，要輪詢。
  * 每個測試用獨一無二的收件地址，就不必清空信箱、也不會互相干擾。
- * 同一個地址會收到多封信（例：註冊核准同時寄審核結果與啟用信）時，以 `subject` 指定要哪一封。
+ * 同一個地址會收到多封信（例：註冊核准同時寄審核結果與啟用信）時，以 `subject` 指定要哪一封（標題含變動的值時給 RegExp，例：驗證碼信）。
  * 固定帳號（例：`passwordTarget`）的信箱會留著之前執行的信（Mailpit 不隨 db:reset 清空）：以 `since` 只看觸發之後收到的。
  */
 export async function waitForMail(
   to: string,
-  subject?: string,
+  subject?: string | RegExp,
   since?: Date,
 ): Promise<ReceivedMail> {
   const context = await request.newContext({ baseURL: MAILPIT_URL });
@@ -36,7 +36,8 @@ export async function waitForMail(
         const body = (await response.json()) as { messages: MailpitSummary[] };
         const matched = body.messages.filter(
           (m) =>
-            (subject === undefined || m.Subject === subject) &&
+            (subject === undefined ||
+              (typeof subject === 'string' ? m.Subject === subject : subject.test(m.Subject))) &&
             (since === undefined || new Date(m.Created) >= since),
         );
         latest = matched[0];
@@ -44,7 +45,7 @@ export async function waitForMail(
       },
       {
         timeout: 20_000,
-        message: `等待寄給 ${to} 的信${subject === undefined ? '' : `「${subject}」`}`,
+        message: `等待寄給 ${to} 的信${subject === undefined ? '' : `「${String(subject)}」`}`,
       },
     )
     .toBeGreaterThan(0);
