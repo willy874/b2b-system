@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
+import { fetchRoleListQuery } from '@/apis/role/get-role-list/fetcher';
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
@@ -30,15 +31,14 @@ export default function RoleListPage() {
   const [pendingDelete, setPendingDelete] = useState<RoleRowVM>();
   const deleteRole = useRoleDeleteMutation();
 
+  const listParams = {
+    offset: search.offset,
+    limit: search.limit,
+    keyword: search.keyword,
+    sort: search.sort,
+  };
   const { data, isPending, error, refetch } = useQuery(
-    getRoleListQueryOptions({
-      params: {
-        offset: search.offset,
-        limit: search.limit,
-        keyword: search.keyword,
-        sort: search.sort,
-      },
-    }),
+    getRoleListQueryOptions({ params: listParams }),
   );
 
   // 只依賴 adapter 用到的布林值：與資料、這兩個權限無關的重繪不重建列（選取、表格的 row model 跟著不變）
@@ -94,7 +94,26 @@ export default function RoleListPage() {
         }}
         error={error}
         onRetry={() => void refetch()}
-        batch={{ scope: ROLE_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
+        batch={{
+          scope: ROLE_LIST_TABLE_ID,
+          selection,
+          actions: batchActions,
+          getRowLabel,
+          // 「選取全部符合」：同樣的篩選與排序逐頁取回（docs/architecture/frontend/07-ui-system.md §13.7）
+          selectAllMatching: {
+            total: data?.pagination.total ?? 0,
+            fetchPage: async (offset, limit, signal) => {
+              const page = await fetchRoleListQuery({
+                params: { ...listParams, offset, limit },
+                signal,
+              });
+              return {
+                items: page.items.map((role) => toRoleRowVM(role, { canDelete, canUpdate })),
+                total: page.pagination.total,
+              };
+            },
+          },
+        }}
         pagination={{
           offset: search.offset,
           limit: search.limit,

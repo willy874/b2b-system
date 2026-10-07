@@ -8,7 +8,9 @@ import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
+import { fetchUserListQuery } from '@/apis/user/get-user-list/fetcher';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
+import type { UserListParams } from '@/apis/user/types';
 
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
 import { useUserPermission } from '../../hooks/useUserPermission';
@@ -35,17 +37,16 @@ export default function UserListPage() {
   // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('user'));
 
+  const listParams: UserListParams = {
+    offset: search.offset,
+    limit: search.limit,
+    keyword: search.keyword,
+    status: search.status ? [search.status] : undefined,
+    tagId: search.tagId,
+    sort: search.sort,
+  };
   const { data, isPending, error, refetch } = useQuery(
-    getUserListQueryOptions({
-      params: {
-        offset: search.offset,
-        limit: search.limit,
-        keyword: search.keyword,
-        status: search.status ? [search.status] : undefined,
-        tagId: search.tagId,
-        sort: search.sort,
-      },
-    }),
+    getUserListQueryOptions({ params: listParams }),
   );
 
   // 只依賴 adapter 用到的值：與資料、權限、自己是誰無關的重繪不重建列
@@ -119,6 +120,22 @@ export default function UserListPage() {
           actions: batchActions,
           getRowLabel,
           getRowVersion,
+          // 「選取全部符合」：同樣的篩選與排序逐頁取回（docs/architecture/frontend/07-ui-system.md §13.7）
+          selectAllMatching: {
+            total: data?.pagination.total ?? 0,
+            fetchPage: async (offset, limit, signal) => {
+              const page = await fetchUserListQuery({
+                params: { ...listParams, offset, limit },
+                signal,
+              });
+              return {
+                items: page.items.map((user) =>
+                  toUserRowVM(user, { canDelete, canUpdate, canUnlock }, currentUserId),
+                ),
+                total: page.pagination.total,
+              };
+            },
+          },
         }}
         pagination={{
           offset: search.offset,

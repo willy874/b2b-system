@@ -1,7 +1,8 @@
+import { setActiveBatchQueue } from '@b2b-system/web-core/batch';
 import { AppError } from '@b2b-system/web-core/errors';
-import { renderRoute } from '@b2b-system/web-core/testing';
+import { createFakeBatchQueue, renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
@@ -126,5 +127,68 @@ describe('UserListPage', () => {
 
     await screen.findByText('Locked Person');
     expect(screen.queryByTestId('user-reset-password-button')).not.toBeInTheDocument();
+  });
+});
+
+describe('UserListPage：選取全部符合的 N 筆（docs/architecture/frontend/07-ui-system.md §13.7）', () => {
+  let queue: ReturnType<typeof createFakeBatchQueue>;
+  const TOTAL = 250;
+
+  beforeEach(async () => {
+    queue = createFakeBatchQueue();
+    const tab = queue.openTab('this-tab');
+    await tab.start();
+    setActiveBatchQueue(tab);
+    // 列表一頁 1 筆（總數 250）；收集時（limit 200）依 offset 回傳那一段
+    fetchUsers.mockImplementation(
+      async ({ params }: { params: { offset: number; limit: number } }) => {
+        if (params.limit !== 200) return { items: [USER], pagination: { total: TOTAL } };
+        const count = Math.max(0, Math.min(params.limit, TOTAL - params.offset));
+        return {
+          items: Array.from({ length: count }, (_, index) => ({
+            ...USER,
+            id: `u${params.offset + index}`,
+            status: 'active',
+          })),
+          pagination: { total: TOTAL },
+        };
+      },
+    );
+  });
+
+  afterEach(() => {
+    setActiveBatchQueue(undefined);
+    queue.dispose();
+  });
+
+  it('整頁勾選 → 選取全部符合；執行時以同樣的篩選逐頁收集，確認的筆數是總數', async () => {
+    renderRoute(routes, '/user?keyword=acme', ADMIN);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+
+    fireEvent.click(screen.getByTestId('table-select-row'));
+    fireEvent.click(await screen.findByTestId('batch-select-all-matching'));
+    expect(screen.getByTestId('batch-action-bar-count')).toHaveAttribute(
+      'data-value',
+      String(TOTAL),
+    );
+
+    const deactivate = screen
+      .getAllByTestId('batch-action')
+      .find((button) => button.getAttribute('data-value') === 'deactivate')!;
+    fireEvent.click(deactivate);
+
+    const dialog = await screen.findByTestId('batch-confirm-dialog');
+    expect(dialog).toHaveTextContent(String(TOTAL));
+    const collectCalls = fetchUsers.mock.calls
+      .map(
+        ([request]) =>
+          (request as { params: { offset: number; limit: number; keyword?: string } }).params,
+      )
+      .filter((params) => params.limit === 200);
+    expect(collectCalls).toEqual([
+      expect.objectContaining({ offset: 0, limit: 200, keyword: 'acme' }),
+      expect.objectContaining({ offset: 200, limit: 200, keyword: 'acme' }),
+    ]);
+    fireEvent.click(within(dialog).getByTestId('alert-dialog-cancel'));
   });
 });

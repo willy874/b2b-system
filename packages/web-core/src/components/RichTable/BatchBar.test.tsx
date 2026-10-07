@@ -10,7 +10,7 @@ import {
   resetBatchOperations,
   setActiveBatchQueue,
 } from '../../batch';
-import type { BatchAction } from '../../batch';
+import type { BatchAction, BatchPageFetcher } from '../../batch';
 import { AppError } from '../../errors';
 import { useTableColumnSettingsStore } from '../../store';
 import { createFakeBatchQueue } from '../../testing/fakeBatchQueue';
@@ -47,9 +47,11 @@ function action(overrides: Partial<BatchAction<Row>> = {}): BatchAction<Row> {
 function Harness({
   actions,
   getRowVersion,
+  selectAllMatching,
 }: {
   actions: Array<BatchAction<Row>>;
   getRowVersion?: (row: Row) => number;
+  selectAllMatching?: { total: number; fetchPage: BatchPageFetcher<Row> };
 }) {
   const selection = useTableSelection(ROWS, getId);
   return (
@@ -58,7 +60,14 @@ function Harness({
         data={ROWS}
         columns={columns}
         getRowId={getId}
-        batch={{ scope: 'rows', selection, actions, getRowLabel: (row) => row.name, getRowVersion }}
+        batch={{
+          scope: 'rows',
+          selection,
+          actions,
+          getRowLabel: (row) => row.name,
+          getRowVersion,
+          selectAllMatching,
+        }}
       />
       <output data-testid="selected">{selection.selectedIds.join(',')}</output>
       <BatchQueueNotifier />
@@ -259,5 +268,105 @@ describe('RichTable 的批次操作（docs/architecture/frontend/07-ui-system.md
     renderHarness([action()]);
     await selectRows(0);
     expect(screen.queryByTestId('batch-action-bar')).not.toBeInTheDocument();
+  });
+});
+
+describe('選取全部符合的 N 筆（docs/architecture/frontend/07-ui-system.md §13.7）', () => {
+  /** 篩選結果共 5 筆：本頁是前 3 筆。 */
+  const MATCHING: Row[] = [
+    ...ROWS,
+    { id: 'd', name: 'Dave', locked: true },
+    { id: 'e', name: 'Eve', locked: false },
+  ];
+  const fetchPage = vi.fn<BatchPageFetcher<Row>>(async (offset, limit) => ({
+    items: MATCHING.slice(offset, offset + limit),
+    total: MATCHING.length,
+  }));
+
+  beforeEach(async () => {
+    resetBatchOperations();
+    runItem = vi.fn(async (_id: string): Promise<unknown> => undefined);
+    fetchPage.mockClear();
+    registerBatchOperation({
+      id: 'row.unlock',
+      labelKey: 'row.unlock',
+      successKey: 'row.unlocked',
+      run: (id) => runItem(id),
+    });
+    queue = createFakeBatchQueue();
+    const tab = queue.openTab('this-tab');
+    await tab.start();
+    setActiveBatchQueue(tab);
+  });
+
+  afterEach(() => {
+    setActiveBatchQueue(undefined);
+    queue.dispose();
+  });
+
+  function renderWithTotal(total: number, fetcher: BatchPageFetcher<Row> = fetchPage) {
+    return render(
+      <Harness actions={[action()]} selectAllMatching={{ total, fetchPage: fetcher }} />,
+      {
+        wrapper: AllProviders,
+      },
+    );
+  }
+
+  it('整頁勾選後才提供；選取後筆數是總數，執行時逐頁收集、只送適用的', async () => {
+    renderWithTotal(MATCHING.length);
+    await selectRows(0, 1);
+    expect(screen.queryByTestId('batch-select-all-matching')).not.toBeInTheDocument();
+
+    await selectRows(2);
+    await userEvent.click(screen.getByTestId('batch-select-all-matching'));
+    expect(screen.getByTestId('batch-action-bar-count')).toHaveAttribute('data-value', '5');
+    expect(screen.getByTestId('batch-all-matching')).toBeInTheDocument();
+    expect(fetchPage).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByTestId('batch-action'));
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('3 rows');
+    await confirmBatch();
+
+    await waitFor(() => expect(runItem.mock.calls.map(([id]) => id)).toEqual(['a', 'c', 'd']));
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('取消勾選任一列 → 回到明確選取', async () => {
+    renderWithTotal(MATCHING.length);
+    await selectRows(0, 1, 2);
+    await userEvent.click(screen.getByTestId('batch-select-all-matching'));
+    await selectRows(1);
+
+    expect(screen.queryByTestId('batch-all-matching')).not.toBeInTheDocument();
+    expect(screen.getByTestId('batch-action-bar-count')).toHaveAttribute('data-value', '2');
+  });
+
+  it('總數超過上限 → 不提供，提示縮小篩選範圍', async () => {
+    renderWithTotal(10_001);
+    await selectRows(0, 1, 2);
+    expect(screen.queryByTestId('batch-select-all-matching')).not.toBeInTheDocument();
+    expect(screen.getByTestId('batch-select-all-too-many')).toBeInTheDocument();
+  });
+
+  it('收集到一半取消 → 不確認、不送出任何請求', async () => {
+    const hanging = vi.fn<BatchPageFetcher<Row>>(
+      (_offset, _limit, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason));
+        }),
+    );
+    renderWithTotal(MATCHING.length, hanging);
+    await selectRows(0, 1, 2);
+    await userEvent.click(screen.getByTestId('batch-select-all-matching'));
+    await userEvent.click(screen.getByTestId('batch-action'));
+
+    expect(await screen.findByTestId('batch-collecting')).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId('batch-collect-cancel'));
+
+    await waitFor(() => expect(screen.queryByTestId('batch-collecting')).not.toBeInTheDocument());
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('batch-collect-error')).not.toBeInTheDocument();
+    expect(runItem).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
+import { fetchApprovalListQuery } from '@/apis/approval/get-approval-list/fetcher';
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
 
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
@@ -24,17 +25,16 @@ export default function ApprovalListPage() {
   const permission = useApprovalPermission();
   const batchActions = useApprovalBatchActions();
 
+  const listParams = {
+    offset: search.offset,
+    limit: search.limit,
+    keyword: search.keyword,
+    status: search.status ? [search.status] : undefined,
+    type: search.type ? [search.type] : undefined,
+    sort: search.sort,
+  };
   const { data, isPending, error, refetch } = useQuery(
-    getApprovalListQueryOptions({
-      params: {
-        offset: search.offset,
-        limit: search.limit,
-        keyword: search.keyword,
-        status: search.status ? [search.status] : undefined,
-        type: search.type ? [search.type] : undefined,
-        sort: search.sort,
-      },
-    }),
+    getApprovalListQueryOptions({ params: listParams }),
   );
 
   // 只依賴 adapter 用到的布林值：與資料、這兩個權限無關的重繪不重建列
@@ -82,7 +82,28 @@ export default function ApprovalListPage() {
           void navigate({ to: ApprovalDetailRoute.to, params: { approvalId: row.id }, search })
         }
         filters={filters}
-        batch={{ scope: APPROVAL_LIST_TABLE_ID, selection, actions: batchActions, getRowLabel }}
+        batch={{
+          scope: APPROVAL_LIST_TABLE_ID,
+          selection,
+          actions: batchActions,
+          getRowLabel,
+          // 「選取全部符合」：同樣的篩選與排序逐頁取回（docs/architecture/frontend/07-ui-system.md §13.7）
+          selectAllMatching: {
+            total: data?.pagination.total ?? 0,
+            fetchPage: async (offset, limit, signal) => {
+              const page = await fetchApprovalListQuery({
+                params: { ...listParams, offset, limit },
+                signal,
+              });
+              return {
+                items: page.items.map((item) =>
+                  toApprovalRowVM(item, { canReview, canApproveRegistration }),
+                ),
+                total: page.pagination.total,
+              };
+            },
+          },
+        }}
         pagination={{
           offset: search.offset,
           limit: search.limit,

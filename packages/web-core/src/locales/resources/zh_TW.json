@@ -59,6 +59,11 @@
       "noneEligible": "選取的項目都不適用這個操作。",
       "skipped_other": "其中 {{count}} 筆不適用，將會略過。",
       "queuedNote": "送出後會在背景逐筆處理，可從右上角的佇列查看進度。",
+      "pageSelected_other": "已選取本頁 {{count}} 筆。",
+      "selectAllMatching_other": "選取全部符合的 {{count}} 筆",
+      "allMatchingSelected_other": "已選取全部符合的 {{count}} 筆（以執行當下的結果為準）。取消勾選任一列即回到逐筆選取。",
+      "tooManyToSelect": "符合的有 {{total}} 筆，超過一次 {{max}} 筆的上限；請先縮小篩選範圍。",
+      "collecting": "正在收集符合的項目 {{collected}} / {{total}}",
       "progressLabel": "批次處理進度",
       "progress": {
         "queued_other": "排隊中（共 {{count}} 筆）",
