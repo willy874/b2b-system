@@ -640,6 +640,11 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | `TreeEditor/layout.ts` | dagre 排版（`computeTreeLayout`、`layoutTree`、`fillMissingPositions`）、新節點的就近位置（`placeChild`、`placeRoot`）與分組背景的範圍（`computeGroupBounds`） |
 | `TreeEditor/useTreeHistory.ts` | 以整份快照記錄的復原／重做 |
 | `TreeEditor/TreeNode.tsx` | 畫布上的節點：外框、狀態、把手、`+`；分組背景（`TreeGroupNode`）；經由 context 取得 `renderNode` 等設定 |
+| `TreeEditor/treeEditorFlow.ts` | 與 React Flow 之間的設定（節點類型、連線樣式、對齊格線、對焦選項）與轉換：畫面上的值 → React Flow 的節點與連線 |
+| `TreeEditor/treeEditorToolbar.tsx` | 工具列的按鈕（依可否編輯、能否新增、排版方式組出） |
+| `TreeEditor/useTreeSelection.ts` | 節點與連線的選取；只留還存在的節點，選取改變時通知 `onSelectionChange` |
+| `TreeEditor/useTreeEditActions.ts` | 編輯動作：拖曳、連線、刪除、新增、自動排版、縮放、復原／重做與 Tab 新增的快捷鍵 |
+| `TreeEditor/TreeEditor.tsx` | 元件：props、受控的值與歷史、把上面幾個接起來並渲染（props 型別在 `treeEditorTypes.ts`） |
 | `TreeEditor/TreeEditor.module.css` | 元件樣式，以及改寫自 `@xyflow/react/dist/base.css` 的必要樣式（`--xy-*` 變數對應到 alias token） |
 
 **樣式**：不 import React Flow 的 `base.css`（不分層的全域 CSS 會蓋過 `@layer components`，而且寫死色碼），
