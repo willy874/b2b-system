@@ -48,7 +48,8 @@ watches    resource_type, resource_id, user_id, created_at        pk(resource_ty
 ## 開放問題
 
 1. 通用的讀取端點要擁有者提供 `canView(actor, id)`；列表上要顯示「留言數」時需要批次版本，要多便宜？
-2. `resource_type` 用 text ＋ 程式常數（已由 [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D7 決定）。
+2. `resource_type` 用 text 還是 enum？
+   **結論**：text ＋ 程式常數（已由 [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §9.2 D7 決定，標籤也照做）。
 3. 第一個接上的資源是檔案嗎？檔案管理器沒有詳情頁，留言面板要放在 LightBox 的資訊欄。
 4. 關注要不要自動加入（例：留言的人、被 @ 的人自動關注）？
 

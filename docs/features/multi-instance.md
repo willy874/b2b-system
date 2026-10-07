@@ -64,7 +64,7 @@ api 目前假設只有一個程序服務所有租戶。[`01-system.md`](../archi
 
 1. 共享速率限制用 Postgres 撐得住嗎？登入端點在尖峰時的寫入量要先估；撐不住才考慮 Redis。
 2. 稽核日誌分區要現在做，還是等熱表真的撐不住？分區會取代現在的熱表／冷表與 `archive_audit_logs()`，也牽涉冷表的保留期限（[`hardening-followups.md`](./hardening-followups.md)）。
-3. 部署時要滾動更新，前提是 migration 一律對上一版相容（已是規則，[`backend/02-database.md`](../architecture/backend/02-database.md) §5.2）。要不要在 CI 加檢查？
+3. 部署時要滾動更新，前提是 migration 一律對上一版相容（已是規則，[`backend/02-database.md`](../architecture/backend/02-database.md) §5.1「破壞性變更拆成兩次部署」）。要不要在 CI 加檢查？
 
 ## 歸檔去向
 
