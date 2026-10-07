@@ -19,7 +19,7 @@
 | --- | --- | --- | --- | --- |
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
-| P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
+| P3 | MFA（可擴充的驗證方式；第一批 TOTP、Email） | [`mfa.md`](./mfa.md) | 規劃中 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 
 狀態只有三種：
