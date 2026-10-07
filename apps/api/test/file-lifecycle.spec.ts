@@ -144,6 +144,8 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
     process.env.FILE_UPLOAD_MAX_SIZE = '1000';
+    // 一個檔案裡的請求數會超過每人每分鐘的預設上限；限流不是這個檔案要測的
+    process.env.DEFAULT_RATE_LIMIT = '10000';
     // 500 以上改用分塊上傳（每塊 8 MiB → 測試裡的檔案都只有一塊）
     process.env.FILE_MULTIPART_THRESHOLD = '500';
 
@@ -173,6 +175,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
     await app.close();
     await closeDb();
     delete process.env.FILE_UPLOAD_MAX_SIZE;
+    delete process.env.DEFAULT_RATE_LIMIT;
     delete process.env.FILE_MULTIPART_THRESHOLD;
   });
 
@@ -548,6 +551,50 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .query({ cursor: first.nextCursor ?? '', sort: 'name' })
       .set('authorization', `Bearer ${token}`)
       .expect(400);
+  });
+
+  it('prevCursor：往回取的頁與當初的一樣；中間有新增與刪除也不重複、不漏（docs/architecture/backend/09-file.md §6.1）', async () => {
+    const token = await login(ADMIN);
+    const uploaded: Record<string, string> = {};
+    for (const name of ['p1.txt', 'p2.txt', 'p3.txt', 'p4.txt', 'p5.txt', 'p6.txt']) {
+      uploaded[name] = (await uploadFile(token, { name, contentType: 'text/x-prev', size: 1 })).id;
+    }
+    const list = async (query: Record<string, string>) =>
+      (
+        (
+          await request(http)
+            .get('/files')
+            .query({ contentType: 'text/x-prev', limit: '2', sort: 'name', ...query })
+            .set('authorization', `Bearer ${token}`)
+            .expect(200)
+        ).body as {
+          data: { items: FileBody[]; nextCursor: string | null; prevCursor: string | null };
+        }
+      ).data;
+    const names = (page: { items: FileBody[] }) => page.items.map((file) => file.name);
+
+    const first = await list({});
+    expect(first.prevCursor).toBeNull();
+    const second = await list({ cursor: first.nextCursor ?? '' });
+    const third = await list({ cursor: second.nextCursor ?? '' });
+    expect(names(third)).toEqual(['p5.txt', 'p6.txt']);
+
+    // 從第三頁往回：與第二頁相同
+    const back = await list({ cursor: third.prevCursor ?? '' });
+    expect(names(back)).toEqual(['p3.txt', 'p4.txt']);
+
+    // 第一頁的一筆被刪、另有一筆插進第一頁的範圍：往回取到最前面時只多那一筆、少被刪的那一筆
+    await request(http)
+      .delete(`/files/${uploaded['p1.txt']}`)
+      .set('authorization', `Bearer ${token}`)
+      .expect(204);
+    await uploadFile(token, { name: 'p0.txt', contentType: 'text/x-prev', size: 1 });
+    const front = await list({ cursor: back.prevCursor ?? '' });
+    expect(names(front)).toEqual(['p0.txt', 'p2.txt']);
+    // 這一頁剛好滿，還看不出是不是最前面：再往前是空的，prevCursor 為 null
+    const beyond = await list({ cursor: front.prevCursor ?? '' });
+    expect(beyond.items).toEqual([]);
+    expect(beyond.prevCursor).toBeNull();
   });
 
   it('游標的值 Postgres 不接受（2 月 30 日）→ 400 VALIDATION_FAILED（docs/architecture/backend/09-file.md §6.1）', async () => {

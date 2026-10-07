@@ -2177,6 +2177,7 @@ export const FileListPageSchema = z.object({
     total: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
   }),
   nextCursor: z.string().nullable(),
+  prevCursor: z.string().nullable(),
 }) satisfies z.ZodType<FileListPage>;
 
 export const FileUploadTargetSchema = z.object({

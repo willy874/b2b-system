@@ -501,7 +501,8 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 ### 6.1 keyset 分頁（`cursor`）
 
 無限捲動用 offset 分頁時，捲動途中有人上傳（插在前面）會讓下一頁重複前一頁的最後幾筆，有人刪除則會漏掉。
-`GET /files` 每一頁都回 `nextCursor`（滿頁時；否則 null）；帶 `cursor` 時取「排在游標那一筆之後」的一頁：
+`GET /files` 每一頁都回 `nextCursor`（滿頁時；否則 null）與 `prevCursor`（前面還有的時候；offset 的第一頁是 null）；
+帶 `cursor` 時取「排在游標那一筆之後」（`nextCursor`）或「之前」（`prevCursor`）的一頁：
 
 ```sql
 WHERE … AND (created_at < $v OR (created_at = $v AND id < $id))
@@ -509,7 +510,11 @@ ORDER BY created_at DESC, id DESC
 LIMIT $limit
 ```
 
-- 游標內容是 `[排序欄位, 方向, 值, id]` 的 base64url JSON；**排序條件寫進游標**，換了排序還拿舊游標回 `400 VALIDATION_FAILED`。
+- 往前取（`prevCursor`）時比較與排序整個反過來（`created_at > $v OR (created_at = $v AND id > $id)`、`ORDER BY created_at ASC, id ASC`），
+  取完再反轉回正常的順序。往前取的頁：滿頁才有 `prevCursor`（不滿就是最前面），`nextCursor` 一定有（游標那一筆還在後面）。
+  前端的無限捲動只保留最近的 10 頁，往回捲時以它把丟掉的頁抓回來（[`../frontend/12-file-manager.md`](../frontend/12-file-manager.md) §5）。
+- 游標內容是 `[排序欄位, 排序方向, 值, id]`（往前取再加一個 `'before'`）的 base64url JSON；沒有第五個元素的舊游標當作往後取。
+  **排序條件寫進游標**，換了排序還拿舊游標回 `400 VALIDATION_FAILED`。
 - 游標的值直接進 SQL，所以解碼時就檢查成 **Postgres 一定接受的值**，否則同樣回 `400 VALIDATION_FAILED`（`details.field: 'cursor'`），
   不讓 Postgres 拋錯變成 500：`createdAt` 只接受 encode 時的格式（UTC、毫秒或微秒，日期與時間的每一欄都存在——V8 的 `Date.parse`
   會把 2 月 30 日進位、也接受 `2026`、`0`；`core/http` 的 `isCursorTimestamp`）；`size` 是非負的安全整數（擋下 `1.5`、`1e400`）；

@@ -7,6 +7,8 @@ import {
   listColumnsFor,
   moveIndex,
   rectFromPoints,
+  rowsTouchRange,
+  withPlaceholders,
 } from '../layout';
 
 describe('computeFileLayout（RWD：由容器寬度決定排版）', () => {
@@ -75,5 +77,32 @@ describe('moveIndex（方向鍵）', () => {
     expect(moveIndex(layout, -1, 'ArrowUp', 10)).toBe(9);
     expect(moveIndex(layout, 3, 'End', 10)).toBe(9);
     expect(moveIndex(layout, 3, 'Home', 10)).toBe(0);
+  });
+});
+
+describe('佔位（無限捲動的 maxPages，docs/architecture/frontend/12-file-manager.md §5）', () => {
+  const layout = computeFileLayout('grid', 800, 100);
+  const folders = ['folder-1', 'folder-2'];
+  const page = (index: number) => Array.from({ length: 7 }, (_, i) => `p${index}-${i}`);
+
+  it('丟掉第一頁（佔位多一頁、項目少一頁）之後，同一個項目的位置不變；抓回來也一樣', () => {
+    const before = withPlaceholders([...folders, ...page(0), ...page(1), ...page(2)], 2, 0);
+    const dropped = withPlaceholders([...folders, ...page(1), ...page(2)], 2, 7);
+    const target = 'p2-3';
+    const rectOf = (slots: ReadonlyArray<string | undefined>) =>
+      itemRect(layout, slots.indexOf(target));
+    expect(rectOf(dropped)).toEqual(rectOf(before));
+    expect(dropped).toHaveLength(before.length);
+    // 資料夾留在最前面
+    expect(dropped.slice(0, 2)).toEqual(folders);
+    expect(dropped[2]).toBeUndefined();
+  });
+
+  it('rowsTouchRange：渲染中的列碰到佔位的格才算', () => {
+    // 4 欄：佔位是格 2～8（第 0 列的後半到第 2 列的第一格）
+    expect(rowsTouchRange([0], 4, 2, 7)).toBe(true);
+    expect(rowsTouchRange([2], 4, 2, 7)).toBe(true);
+    expect(rowsTouchRange([3, 4], 4, 2, 7)).toBe(false);
+    expect(rowsTouchRange([0, 1, 2], 4, 2, 0)).toBe(false);
   });
 });

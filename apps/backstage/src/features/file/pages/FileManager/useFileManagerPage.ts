@@ -30,7 +30,7 @@ export function useFileManagerPage() {
   // 預設位置是自己的個人資料夾（docs/rbac/07-resource-grants.md §12）：只在進入頁面時導一次，
   // 之後點「所有檔案」仍能回到根目錄
   const landed = useRef(Boolean(folderId));
-  const { filters, data, folders, items, locked } = useFileManagerItems({
+  const { filters, data, folders, items, placeholder, locked } = useFileManagerItems({
     folderId,
     keyword: search.keyword,
     category: search.category,
@@ -86,6 +86,7 @@ export function useFileManagerPage() {
     data,
     folders,
     items,
+    placeholder,
     locked,
     permission,
     currentFolder,

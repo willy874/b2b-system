@@ -29,6 +29,7 @@ const EMPTY_FILE_PAGE: FileListPage = {
   items: [],
   pagination: { offset: 0, limit: 60, total: 0 },
   nextCursor: null,
+  prevCursor: null,
 };
 
 const keysOf = (...changes: ResourceChangeEvent[]) =>

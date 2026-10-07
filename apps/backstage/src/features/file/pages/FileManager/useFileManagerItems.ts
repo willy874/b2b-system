@@ -71,5 +71,10 @@ export function useFileManagerItems({
       pagingMode === 'pagination' && offset > 0 ? data.items : [...folders.items, ...data.items],
     [data.items, folders.items, offset, pagingMode],
   );
-  return { filters, data, folders, items, locked };
+  // 無限捲動丟掉的頁：佔位排在資料夾之後、保留的檔案之前
+  const placeholder = useMemo(
+    () => ({ at: folders.items.length, count: data.dropped }),
+    [data.dropped, folders.items.length],
+  );
+  return { filters, data, folders, items, placeholder, locked };
 }

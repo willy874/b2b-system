@@ -17,8 +17,13 @@ export interface BrowserRow {
  * 檔案瀏覽區的列（docs/architecture/frontend/12-file-manager.md §3）：列數多時以 TanStack Virtual 只算看得到的列，
  * 少時全部列出；`scrollToIndex` 把某個項目捲進可視範圍（鍵盤移動焦點時用）。
  */
-export function useBrowserRows(scrollElement: HTMLElement | null, layout: FileLayout) {
-  const virtualize = layout.rowCount > VIRTUAL_THRESHOLD_ROWS;
+export function useBrowserRows(
+  scrollElement: HTMLElement | null,
+  layout: FileLayout,
+  /** 一律虛擬化（例：有佔位時：全部渲染會讓佔位一直「看得到」而不停往回抓）。 */
+  forceVirtual = false,
+) {
+  const virtualize = forceVirtual || layout.rowCount > VIRTUAL_THRESHOLD_ROWS;
   // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual 回傳可變物件；這個元件不依賴 React Compiler 的記憶化
   const virtualizer = useVirtualizer({
     count: layout.rowCount,

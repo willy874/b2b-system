@@ -27,7 +27,7 @@ export const ListFileSchema = PaginationSchema.extend({
   /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tagId: TagIdsFilterSchema,
   /**
-   * keyset 分頁的游標（上一頁回應的 `nextCursor`）：無限捲動用，捲動途中有人新增或刪除也不會重複或漏掉。
+   * keyset 分頁的游標（回應的 `nextCursor` 或 `prevCursor`）：無限捲動用，捲動途中有人新增或刪除也不會重複或漏掉。
    * 帶游標時忽略 `offset`，且只依 `sort` 的第一個條件（＋ id）排序。
    */
   cursor: z.string().trim().max(1000).optional(),

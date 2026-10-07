@@ -76,6 +76,7 @@ beforeEach(() => {
     items: [file('a'), file('b'), file('c')],
     pagination: { offset: 0, limit: 60, total: 3 },
     nextCursor: null,
+    prevCursor: null,
   });
 });
 

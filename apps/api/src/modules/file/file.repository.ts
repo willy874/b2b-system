@@ -116,8 +116,9 @@ export class FileRepository {
 
   /**
    * 只列出 `ready` 的檔案；`pending` 是還沒完成的上傳，不出現在列表。
-   * 有 `after`（keyset 游標）時忽略 offset，只依 `sort[0]` ＋ id 排序，取「排在游標之後」的一頁。
-   * `lastCreatedAt` 是最後一筆的 `created_at`（微秒精度），給下一頁的游標用。
+   * 有游標（keyset）時忽略 offset，只依 `sort[0]` ＋ id 排序，取「排在游標之後」（`after`）或「之前」（`before`）的一頁；
+   * `before` 以反向的排序取最接近游標的幾筆，再反轉回正常的順序。
+   * `firstCreatedAt`／`lastCreatedAt` 是第一筆／最後一筆的 `created_at`（微秒精度），給前後頁的游標用。
    * `scope.folderIds`：只列這些資料夾裡的檔案（根目錄不含在內）；不帶則不限（資料夾層級授權的範圍）。
    */
   async list(
@@ -127,10 +128,16 @@ export class FileRepository {
   ): Promise<{
     items: FileWithUploader[];
     total: number | null;
+    firstCreatedAt: string | undefined;
     lastCreatedAt: string | undefined;
   }> {
     if (scope?.folderIds.length === 0) {
-      return { items: [], total: after ? null : 0, lastCreatedAt: undefined };
+      return {
+        items: [],
+        total: after ? null : 0,
+        firstCreatedAt: undefined,
+        lastCreatedAt: undefined,
+      };
     }
     const conditions: SQL[] = [notDeleted(files), eq(files.status, 'ready')];
     // 讀得到的資料夾可能有上萬個：一個陣列參數，不受參數個數上限影響（docs/architecture/backend/09-file.md §11）
@@ -154,11 +161,13 @@ export class FileRepository {
     const where = and(...conditions);
 
     const sorts = after ? [after.sort] : query.sort;
+    // 往前取：排序整個反過來（id 也是），取完再反轉
+    const backward = after?.direction === 'before';
     // 最後以 id 收尾，讓同值的列在分頁之間順序穩定
     const orderBy = sorts.map(({ sort, order }) =>
-      order === 'asc' ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),
+      (order === 'asc') !== backward ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),
     );
-    const pageWhere = after ? and(where, afterCursor(after)) : where;
+    const pageWhere = after ? and(where, cursorCondition(after)) : where;
 
     const [rows, [counted]] = await Promise.all([
       this.db
@@ -171,7 +180,7 @@ export class FileRepository {
         .from(files)
         .leftJoin(users, eq(users.id, files.createdBy))
         .where(pageWhere)
-        .orderBy(...orderBy, desc(files.id))
+        .orderBy(...orderBy, backward ? asc(files.id) : desc(files.id))
         .limit(query.limit)
         .offset(after ? 0 : query.offset),
       // 帶游標的頁（無限捲動往下捲）不重算總數：前端只用第一頁的 total
@@ -182,10 +191,12 @@ export class FileRepository {
             .from(files)
             .where(where),
     ]);
+    const ordered = backward ? rows.toReversed() : rows;
     return {
-      items: rows.map(FileRepository.toFileWithUploader),
+      items: ordered.map(FileRepository.toFileWithUploader),
       total: after ? null : (counted?.total ?? 0),
-      lastCreatedAt: rows.at(-1)?.createdAtExact,
+      firstCreatedAt: ordered[0]?.createdAtExact,
+      lastCreatedAt: ordered.at(-1)?.createdAtExact,
     };
   }
 
@@ -633,12 +644,14 @@ function ruleCondition(rule: { prefixes: readonly string[]; types: readonly stri
 }
 
 /**
- * keyset：「排在游標那一筆之後」。id 一律降冪收尾（與 `orderBy` 相同），
- * 所以條件是 `col <op> v OR (col = v AND id < cursorId)`，`<op>` 依主排序的方向。
+ * keyset：「排在游標那一筆之後」（`after`）或「之前」（`before`）。正常的順序以 id 降冪收尾（與 `orderBy` 相同），
+ * 所以 `after` 是 `col <op> v OR (col = v AND id < cursorId)`，`<op>` 依主排序的方向；`before` 把兩個比較都反過來。
  */
-function afterCursor(cursor: FileCursor): SQL | undefined {
+function cursorCondition(cursor: FileCursor): SQL | undefined {
   const column = SORT_COLUMNS[cursor.sort.sort];
   const value = cursor.sort.sort === 'createdAt' ? sql`${cursor.value}::timestamptz` : cursor.value;
-  const beyond = cursor.sort.order === 'asc' ? gt(column, value) : lt(column, value);
-  return or(beyond, and(eq(column, value), lt(files.id, cursor.id)));
+  const forward = (cursor.sort.order === 'asc') === (cursor.direction === 'after');
+  const beyond = forward ? gt(column, value) : lt(column, value);
+  const tieBreak = cursor.direction === 'after' ? lt(files.id, cursor.id) : gt(files.id, cursor.id);
+  return or(beyond, and(eq(column, value), tieBreak));
 }

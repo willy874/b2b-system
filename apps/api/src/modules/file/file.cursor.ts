@@ -4,12 +4,16 @@ import type { SortEntry } from '@/core/http';
 export type FileSortField = 'createdAt' | 'name' | 'size';
 
 /**
- * keyset 分頁的游標：上一頁最後一筆的「排序值 ＋ id」。
+ * keyset 分頁的游標：上一頁最後一筆（或這一頁第一筆）的「排序值 ＋ id」＋ 方向。
  *
  * 無限捲動用 offset 會在捲動途中有人上傳或刪除時重複或漏掉項目；游標以「排在這一筆之後」取下一頁，
  * 中間插入或刪除都不影響（docs/architecture/backend/09-file.md §6.1）。
  * 排序條件寫進游標：換了排序還拿舊游標是呼叫端的錯誤，回 400 而不是回一頁錯亂的資料。
+ * 方向：`after` 取排在這一筆之後的一頁（`nextCursor`）、`before` 取排在它之前的一頁（`prevCursor`）——
+ * 前端的無限捲動只保留最近的幾頁（`maxPages`），往回捲時以 `before` 把丟掉的頁抓回來。
  */
+export type FileCursorDirection = 'after' | 'before';
+
 export interface FileCursor {
   sort: SortEntry<FileSortField>;
   /**
@@ -18,10 +22,13 @@ export interface FileCursor {
    */
   value: string | number;
   id: string;
+  direction: FileCursorDirection;
 }
 
 export function encodeFileCursor(cursor: FileCursor): string {
   const payload = [cursor.sort.sort, cursor.sort.order, cursor.value, cursor.id];
+  // `after` 不寫方向：與方向出現之前發出的游標相同
+  if (cursor.direction === 'before') payload.push('before');
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
 
@@ -53,12 +60,13 @@ export function decodeFileCursor(raw: string): FileCursor | undefined {
   } catch {
     return undefined;
   }
-  if (!Array.isArray(payload) || payload.length !== 4) return undefined;
-  const [sort, order, value, id] = payload as unknown[];
+  if (!Array.isArray(payload) || payload.length < 4 || payload.length > 5) return undefined;
+  const [sort, order, value, id, direction = 'after'] = payload as unknown[];
+  if (direction !== 'after' && direction !== 'before') return undefined;
   if (typeof sort !== 'string' || !SORT_FIELDS.has(sort)) return undefined;
   if (order !== 'asc' && order !== 'desc') return undefined;
   if (typeof id !== 'string' || !UUID.test(id)) return undefined;
   const field = sort as FileSortField;
   if (!isValidSortValue(field, value)) return undefined;
-  return { sort: { sort: field, order }, value, id };
+  return { sort: { sort: field, order }, value, id, direction };
 }

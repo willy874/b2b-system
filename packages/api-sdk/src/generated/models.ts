@@ -1267,6 +1267,7 @@ export interface FileListPage {
     total: number | null;
   };
   nextCursor: string | null;
+  prevCursor: string | null;
 }
 
 export interface FileUploadTarget {
