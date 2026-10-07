@@ -1,47 +1,33 @@
 import { Icon } from '@b2b-system/ui/Icon';
-import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { useInfiniteScroll } from '@b2b-system/ui/VirtualList';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { cn } from '@b2b-system/web-shared/utils';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react';
+import { useMemo, useState } from 'react';
+import type { DragEvent, ReactNode } from 'react';
 
 import type { FileSortField } from '@/apis/file/types';
 
 import type { FileViewMode } from '../../../preference';
 import type { CollectedUpload } from '../../../upload/collectEntries';
 import type { BrowserItemVM } from '../adapter';
-import { computeFileLayout, itemRect, moveIndex } from '../layout';
+import { computeFileLayout, itemRect } from '../layout';
+import { useBrowserKeyboard } from '../useBrowserKeyboard';
+import { useBrowserPointer } from '../useBrowserPointer';
+import { useBrowserRows } from '../useBrowserRows';
 import { useElementSize } from '../useElementSize';
 import { useFileDrop } from '../useFileDrop';
 import type { FileSelection } from '../useFileSelection';
-import { draggedItemsOf } from '../useItemDrag';
 import type { ItemDrag } from '../useItemDrag';
 import { useMarqueeSelection } from '../useMarqueeSelection';
-import { FileGridItem } from './FileGridItem';
+import { FileBrowserItem } from './FileBrowserItem';
+import { FileBrowserSkeleton } from './FileBrowserSkeleton';
 import { FileListHeader } from './FileListHeader';
-import { FileListRow } from './FileListRow';
-import { FolderGridItem } from './FolderGridItem';
-import { FolderListRow } from './FolderListRow';
 
-/** 列數在這以下不虛擬化：全部渲染（測試環境沒有版面，也靠它看得到項目）。 */
-const VIRTUAL_THRESHOLD_ROWS = 40;
 /** 無限捲動：離底部多遠（px）就先載下一頁，捲到底時資料多半已經到了。 */
 const LOAD_MORE_THRESHOLD = 600;
-
-type NavigationKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'Home' | 'End';
-const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-  'Home',
-  'End',
-]);
 
 interface FileBrowserProps {
   /** 資料夾在前、檔案在後。 */
@@ -83,7 +69,8 @@ interface FileBrowserProps {
  * - 拖曳項目到資料夾卡片上移動（docs/architecture/frontend/12-file-manager.md §12）
  *
  * 項目的點擊以事件委派處理（listbox 模式：容器可聚焦、以 `aria-activedescendant` 指向焦點項目），
- * 不在每一格掛 handler。
+ * 不在每一格掛 handler。列與虛擬捲動在 `useBrowserRows`、鍵盤在 `useBrowserKeyboard`、
+ * 點擊與拖曳在 `useBrowserPointer`；這裡只組裝與渲染。
  */
 export function FileBrowser({
   items,
@@ -116,42 +103,16 @@ export function FileBrowser({
     [items.length, viewMode, width],
   );
   const ids = useMemo(() => items.map((item) => item.id), [items]);
-  const [focusIndex, setFocusIndex] = useState(-1);
-  // 換資料夾：焦點不留在新資料夾的同一個位置上（render 期間調整 state，不經過 effect）
-  const [focusFolder, setFocusFolder] = useState(currentFolderId);
-  if (focusFolder !== currentFolderId) {
-    setFocusFolder(currentFolderId);
-    setFocusIndex(-1);
-  }
-  const focused = items[focusIndex];
-
-  const virtualize = layout.rowCount > VIRTUAL_THRESHOLD_ROWS;
-  // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual 回傳可變物件；這個元件不依賴 React Compiler 的記憶化
-  const virtualizer = useVirtualizer({
-    count: layout.rowCount,
-    getScrollElement: () => scrollElement,
-    estimateSize: () => layout.rowStride,
-    paddingStart: layout.padding,
-    paddingEnd: layout.padding,
-    overscan: 3,
-    enabled: virtualize,
-    // 預設以 flushSync 更新，會在我們於 layout effect 裡呼叫 measure() 時觸發 React 警告；捲動時的非同步更新夠快
-    useFlushSync: false,
+  const { rows, contentHeight, scrollToIndex } = useBrowserRows(scrollElement, layout);
+  const { focusIndex, focused, setFocusIndex, onKeyDown } = useBrowserKeyboard({
+    items,
+    layout,
+    selection,
+    currentFolderId,
+    onOpen,
+    onDeleteSelected,
+    scrollToIndex,
   });
-  // 欄數或列高隨寬度改變：丟掉舊的量測，重新以新的列高計算
-  useLayoutEffect(() => {
-    virtualizer.measure();
-  }, [layout.rowStride, layout.columns, virtualizer]);
-
-  const rows = virtualize
-    ? virtualizer.getVirtualItems().map((row) => ({ index: row.index, start: row.start }))
-    : Array.from({ length: layout.rowCount }, (_, index) => ({
-        index,
-        start: layout.padding + index * layout.rowStride,
-      }));
-  const contentHeight = virtualize
-    ? virtualizer.getTotalSize()
-    : layout.padding * 2 + layout.rowCount * layout.rowStride - layout.gap;
 
   const { marquee, onPointerDown: onMarqueeDown } = useMarqueeSelection({
     scrollElement,
@@ -159,6 +120,16 @@ export function FileBrowser({
     ids,
     selection,
     enabled: !loading,
+  });
+  const { onPointerDown, onClick, onDoubleClick, onDragStart, onToggle } = useBrowserPointer({
+    items,
+    selection,
+    setFocusIndex,
+    onOpen,
+    onMarqueeDown,
+    currentFolderId,
+    itemDrag,
+    canMove,
   });
 
   const {
@@ -199,139 +170,6 @@ export function FileBrowser({
     onLoadMore,
     threshold: LOAD_MORE_THRESHOLD,
   });
-
-  const lastPointerType = useRef<string>('mouse');
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    lastPointerType.current = event.pointerType;
-    onMarqueeDown(event);
-  };
-
-  const itemFromEvent = (event: MouseEvent) => {
-    const element = (event.target as Element).closest<HTMLElement>('[data-file-item]');
-    const id = element?.dataset.id;
-    return id ? { id, index: ids.indexOf(id) } : undefined;
-  };
-
-  // 勾選框由它自己的 onCheckedChange 切換；以 ref 保持參考穩定，選取改變時項目不必全部重新渲染
-  const toggleRef = useRef(selection.click);
-  useLayoutEffect(() => {
-    toggleRef.current = selection.click;
-  });
-  const onToggle = useCallback((id: string) => toggleRef.current(id, { toggle: true }), []);
-
-  const onClick = (event: MouseEvent<HTMLDivElement>) => {
-    const hit = itemFromEvent(event);
-    if (!hit) return;
-    setFocusIndex(hit.index);
-    // 勾選框（含 Base UI 轉發給隱藏 input 的第二次 click）已由 onToggle 處理
-    if ((event.target as Element).closest('[data-file-checkbox]')) return;
-    // 觸控：還沒有選取時點一下就打開（沒有雙擊）；進入選取後點一下是切換
-    if (lastPointerType.current === 'touch') {
-      if (selection.selected.size === 0) openAt(hit.index);
-      else selection.click(hit.id, { toggle: true });
-      return;
-    }
-    selection.click(hit.id, { shift: event.shiftKey, toggle: event.metaKey || event.ctrlKey });
-  };
-
-  const openAt = (index: number) => {
-    const item = items[index];
-    if (item) onOpen(item);
-  };
-
-  const onDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
-    const hit = itemFromEvent(event);
-    if (hit && !(event.target as Element).closest('[data-file-checkbox]')) openAt(hit.index);
-  };
-
-  // 拖曳已選取的項目 → 整批一起拖；拖曳沒選取的項目 → 只拖它（不改變選取，同作業系統的檔案總管）
-  const onDragStart = (event: DragEvent<HTMLDivElement>) => {
-    const hit = itemFromEvent(event);
-    if (!hit) return;
-    const draggedIds = selection.selected.has(hit.id) ? selection.selected : new Set([hit.id]);
-    const dragged = items.filter((item) => draggedIds.has(item.id));
-    // 批次移動不做一半：其中有不能移動的就整批不拖
-    if (!canMove || dragged.some((item) => !item.canUpdate)) {
-      event.preventDefault();
-      return;
-    }
-    const [only] = dragged;
-    itemDrag.startDrag(
-      event,
-      draggedItemsOf(dragged, currentFolderId),
-      dragged.length === 1 && only
-        ? only.name
-        : t('file.move.dragLabel', { count: dragged.length }),
-    );
-  };
-
-  const scrollToIndex = useCallback(
-    (index: number) => {
-      if (!scrollElement) return;
-      const row = Math.floor(index / layout.columns);
-      if (virtualize) {
-        virtualizer.scrollToIndex(row, { align: 'auto' });
-        return;
-      }
-      const rect = itemRect(layout, index);
-      const top = scrollElement.scrollTop;
-      if (rect.top < top) scrollElement.scrollTop = rect.top - layout.padding;
-      else if (rect.top + rect.height > top + scrollElement.clientHeight) {
-        scrollElement.scrollTop =
-          rect.top + rect.height + layout.padding - scrollElement.clientHeight;
-      }
-    },
-    [layout, scrollElement, virtualize, virtualizer],
-  );
-
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (NAVIGATION_KEYS.has(event.key)) {
-      event.preventDefault();
-      const next = moveIndex(layout, focusIndex, event.key as NavigationKey, items.length);
-      const id = ids[next];
-      if (id === undefined) return;
-      setFocusIndex(next);
-      scrollToIndex(next);
-      if (event.shiftKey) selection.click(id, { shift: true });
-      else if (!(event.metaKey || event.ctrlKey)) selection.click(id);
-      return;
-    }
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
-      event.preventDefault();
-      selection.selectAll();
-      return;
-    }
-    switch (event.key) {
-      case ' ':
-        if (focused) {
-          event.preventDefault();
-          selection.click(focused.id, { toggle: true });
-        }
-        return;
-      case 'Enter':
-        if (focused) {
-          event.preventDefault();
-          onOpen(focused);
-        }
-        return;
-      case 'Escape':
-        if (selection.selected.size > 0) {
-          event.preventDefault();
-          selection.clear();
-        }
-        return;
-      case 'Delete':
-      case 'Backspace':
-        if (selection.selected.size > 0) {
-          event.preventDefault();
-          onDeleteSelected();
-        }
-        return;
-      default:
-        return;
-    }
-  };
 
   const selecting = selection.selected.size > 0;
   const showEmpty = !loading && items.length === 0;
@@ -382,62 +220,25 @@ export function FileBrowser({
                 const item = items[index];
                 if (!item) return null;
                 const rect = itemRect(layout, index);
-                const style = {
-                  left: rect.left,
-                  top: row.start,
-                  width: rect.width,
-                  height: rect.height,
-                };
-                const isSelected = selection.selected.has(item.id);
-                if (item.type === 'folder') {
-                  const dropOver = itemDrag.isOver(item.id) || overFolder === item.id;
-                  return viewMode === 'grid' ? (
-                    <FolderGridItem
-                      key={item.id}
-                      item={item}
-                      selected={isSelected}
-                      focused={index === focusIndex}
-                      selecting={selecting}
-                      dropOver={dropOver}
-                      draggable={canMove && item.canUpdate}
-                      style={style}
-                      onToggle={onToggle}
-                    />
-                  ) : (
-                    <FolderListRow
-                      key={item.id}
-                      item={item}
-                      columns={layout.listColumns}
-                      selected={isSelected}
-                      focused={index === focusIndex}
-                      dropOver={dropOver}
-                      draggable={canMove && item.canUpdate}
-                      style={style}
-                      onToggle={onToggle}
-                    />
-                  );
-                }
-                return viewMode === 'grid' ? (
-                  <FileGridItem
+                return (
+                  <FileBrowserItem
                     key={item.id}
                     item={item}
-                    selected={isSelected}
+                    viewMode={viewMode}
+                    columns={layout.listColumns}
+                    selected={selection.selected.has(item.id)}
                     focused={index === focusIndex}
                     selecting={selecting}
+                    dropOver={
+                      item.type === 'folder' && (itemDrag.isOver(item.id) || overFolder === item.id)
+                    }
                     draggable={canMove && item.canUpdate}
-                    style={style}
-                    onStaleUrl={onStaleUrl}
-                    onToggle={onToggle}
-                  />
-                ) : (
-                  <FileListRow
-                    key={item.id}
-                    item={item}
-                    columns={layout.listColumns}
-                    selected={isSelected}
-                    focused={index === focusIndex}
-                    draggable={canMove && item.canUpdate}
-                    style={style}
+                    style={{
+                      left: rect.left,
+                      top: row.start,
+                      width: rect.width,
+                      height: rect.height,
+                    }}
                     onStaleUrl={onStaleUrl}
                     onToggle={onToggle}
                   />
@@ -489,22 +290,6 @@ export function FileBrowser({
           </span>
         </div>
       )}
-    </div>
-  );
-}
-
-function FileBrowserSkeleton({ viewMode }: { viewMode: FileViewMode }) {
-  return viewMode === 'grid' ? (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3 p-3" aria-hidden>
-      {Array.from({ length: 12 }, (_, index) => (
-        <Skeleton key={index} height="11rem" />
-      ))}
-    </div>
-  ) : (
-    <div className="flex flex-col gap-2 p-3" aria-hidden>
-      {Array.from({ length: 10 }, (_, index) => (
-        <Skeleton key={index} height="2.25rem" />
-      ))}
     </div>
   );
 }

@@ -165,6 +165,8 @@ registerFilePreviewer({
 - 主區塊是 WAI-ARIA listbox（`aria-multiselectable`、`aria-activedescendant`），項目是 `role="option"`：
   點擊以事件委派處理，一萬個項目也不必各掛一組 handler。勾選框由自己的 `onCheckedChange` 切換
   （Base UI 會把 click 轉發給隱藏的 input，委派處理會看到兩次）。
+  `FileBrowser` 只組裝：列與虛擬捲動在 `useBrowserRows`、焦點與鍵盤在 `useBrowserKeyboard`、點擊／觸控／拖曳的委派在 `useBrowserPointer`，
+  一格的渲染是 `FileBrowserItem`。
 - 選取列常駐（沒有選取時顯示操作提示）：框選途中它若突然出現，主區塊會被往下推、框跟著跳動。
 - 多選的刪除送進全域佇列逐筆處理（檔案 `file.delete`、資料夾 `file.deleteFolder` 各一個工作）；單一項目直接呼叫單筆 API。
   資料夾是遞迴刪除，確認對話框明講「其中的檔案與子資料夾一併移到回收桶」。

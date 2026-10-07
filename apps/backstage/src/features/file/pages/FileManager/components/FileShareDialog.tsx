@@ -1,52 +1,21 @@
 import { Button } from '@b2b-system/ui/Button';
-import { Chip } from '@b2b-system/ui/Chip';
-import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
-import { DatePicker } from '@b2b-system/ui/DatePicker';
 import { Dialog } from '@b2b-system/ui/Dialog';
-import { Icon } from '@b2b-system/ui/Icon';
-import { Select } from '@b2b-system/ui/Select';
 import type { SelectOption } from '@b2b-system/ui/Select';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { Switch } from '@b2b-system/ui/Switch';
 import { useTranslation } from '@b2b-system/web-core/locales';
-import { formatDate, todayInZone, zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
-import { getFileAccessRequestListQueryOptions } from '@/apis/file/get-file-access-requests/query';
 import { getFileFolderGrantListQueryOptions } from '@/apis/file/get-file-folder-grants/query';
-import { getFileGrantSubjectListQueryOptions } from '@/apis/file/get-file-grant-subjects/query';
-import type { FileGrantLevel, FileGrantSubjectType } from '@/apis/file/types';
-import type { FileAccessRequest, FileFolderGrant } from '@/shared/api-sdk';
+import type { FileGrantLevel } from '@/apis/file/types';
 
-import {
-  EVERYONE_SUBJECT_ID,
-  FILE_GRANT_DOWNGRADE_CONFIRM_KEY,
-  FILE_GRANT_LEVEL_HINT_KEY,
-  FILE_GRANT_LEVEL_LABEL_KEY,
-  FILE_GRANT_LEVELS,
-  FILE_GRANT_REMOVE_CONFIRM_KEY,
-  FILE_GRANT_SUBJECT_COPY_KEY,
-  FILE_GRANT_SUBJECT_TYPE_LABEL_KEY,
-} from '../../../constants';
+import { FILE_GRANT_LEVEL_HINT_KEY, FILE_GRANT_LEVEL_LABEL_KEY } from '../../../constants';
 import { useFileExplainPermission } from '../../../hooks/useFileExplainPermission';
-import {
-  useFileAccessReviewMutation,
-  useFolderGrantDeleteMutation,
-  useFolderGrantSetMutation,
-  useFolderInheritanceMutation,
-} from '../../../hooks/useFolderGrantMutations';
+import { useFolderInheritanceMutation } from '../../../hooks/useFolderGrantMutations';
 import { FileAccessExplainSection } from './FileAccessExplainSection';
-
-/** 對象搜尋的去抖動：每打一個字就查一次太多。 */
-const SUBJECT_SEARCH_DEBOUNCE_MS = 250;
-
-const SUBJECT_TYPES = [
-  'role',
-  'user',
-  'group',
-  'everyone',
-] as const satisfies readonly FileGrantSubjectType[];
+import { FileAccessRequestSection } from './FileAccessRequestSection';
+import { FileGrantAddRow } from './FileGrantAddRow';
+import { FileGrantRow } from './FileGrantRow';
 
 interface FileShareDialogProps {
   /** 要管理授權的資料夾；`undefined` 時關閉。 */
@@ -111,9 +80,9 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
               </span>
             </div>
           )}
-          <AccessRequestSection folderId={folder.id} />
+          <FileAccessRequestSection folderId={folder.id} />
           {assignable.length > 0 && (
-            <AddGrantRow key={folder.id} folderId={folder.id} levelOptions={levelOptions} />
+            <FileGrantAddRow key={folder.id} folderId={folder.id} levelOptions={levelOptions} />
           )}
           <section className="flex flex-col gap-2" aria-label={t('file.share.list')}>
             <h3 className="text-sm font-medium text-[var(--color-fg-muted)]">
@@ -124,7 +93,7 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
             ) : grants.data?.items.length ? (
               <ul className="flex flex-col divide-y divide-[var(--color-border)]">
                 {grants.data.items.map((grant) => (
-                  <GrantRow
+                  <FileGrantRow
                     key={`${grant.source?.folderId ?? 'direct'}:${grant.subjectType}:${grant.subjectId}`}
                     folderId={folder.id}
                     grant={grant}
@@ -143,322 +112,5 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
         </div>
       )}
     </Dialog>
-  );
-}
-
-/** 待審的存取申請（docs/rbac/07-resource-grants.md §6.5）；沒有申請時不顯示。 */
-function AccessRequestSection({ folderId }: { folderId: string }) {
-  const { t } = useTranslation();
-  const requests = useQuery(getFileAccessRequestListQueryOptions(folderId));
-  const items = requests.data?.items ?? [];
-  if (items.length === 0) return null;
-  return (
-    <section className="flex flex-col gap-2" aria-label={t('file.access.requests')}>
-      <h3 className="text-sm font-medium text-[var(--color-fg-muted)]">
-        {t('file.access.requests')}
-      </h3>
-      <ul className="flex flex-col divide-y divide-[var(--color-border)] rounded-md border border-[var(--color-border)] px-3">
-        {items.map((request) => (
-          <AccessRequestRow key={request.id} folderId={folderId} request={request} />
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function AccessRequestRow({ folderId, request }: { folderId: string; request: FileAccessRequest }) {
-  const { t } = useTranslation();
-  const review = useFileAccessReviewMutation();
-  const decide = (decision: 'approve' | 'reject') =>
-    review.mutate({ params: { folderId, requestId: request.id, decision, body: {} } });
-  return (
-    <li
-      className="flex flex-wrap items-center gap-2 py-2"
-      data-testid="file-access-request"
-      data-value={request.id}
-    >
-      <Icon name="user" size={16} className="text-[var(--color-fg-muted)]" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm">{request.requesterName}</span>
-        <span className="text-xs text-[var(--color-fg-muted)]">
-          {[
-            t('file.access.requestedLevel', {
-              level: t(FILE_GRANT_LEVEL_LABEL_KEY[request.level]),
-            }),
-            request.reason,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </span>
-      </div>
-      <Button
-        size="sm"
-        variant="primary"
-        disabled={review.isPending}
-        onClick={() => decide('approve')}
-        data-testid="file-access-request-approve"
-      >
-        {t('file.access.approve')}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={review.isPending}
-        onClick={() => decide('reject')}
-        data-testid="file-access-request-reject"
-      >
-        {t('file.access.reject')}
-      </Button>
-    </li>
-  );
-}
-
-interface AddGrantRowProps {
-  folderId: string;
-  levelOptions: Array<SelectOption<FileGrantLevel>>;
-}
-
-/** 新增一筆授權：對象種類 ＋ 搜尋對象（伺服器端搜尋）＋ 等級 ＋ 期限（可不填）。 */
-function AddGrantRow({ folderId, levelOptions }: AddGrantRowProps) {
-  const { t } = useTranslation();
-  const [subjectType, setSubjectType] = useState<FileGrantSubjectType>('role');
-  const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(keyword.trim()), SUBJECT_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [level, setLevel] = useState<FileGrantLevel | null>(null);
-  const [expiresOn, setExpiresOn] = useState<string | null>(null);
-  const isEveryone = subjectType === 'everyone';
-  const subjects = useQuery({
-    ...getFileGrantSubjectListQueryOptions({
-      folderId,
-      subjectType,
-      keyword: debounced || undefined,
-    }),
-    // 所有人不必挑選對象
-    enabled: !isEveryone,
-  });
-  const setGrant = useFolderGrantSetMutation();
-  const selectedLevel = level ?? levelOptions[0]?.value ?? null;
-  const copy = FILE_GRANT_SUBJECT_COPY_KEY[subjectType];
-
-  const targetId = isEveryone ? EVERYONE_SUBJECT_ID : subjectId;
-
-  const submit = () => {
-    if (!targetId || !selectedLevel) return;
-    setGrant.mutate(
-      {
-        params: {
-          folderId,
-          body: {
-            subjectType,
-            subjectId: targetId,
-            level: selectedLevel,
-            // 選的日期在偏好時區的那一天結束時過期（與其他畫面顯示的日期一致，不是瀏覽器的時區）
-            expiresAt: expiresOn ? zonedDayBoundary(expiresOn, 'end') : null,
-          },
-        },
-      },
-      {
-        onSuccess: () => {
-          setSubjectId(null);
-          setExpiresOn(null);
-        },
-      },
-    );
-  };
-
-  return (
-    <div className="flex flex-wrap items-end gap-2">
-      <Select
-        className="w-28"
-        aria-label={t('file.share.subjectTypeLabel')}
-        options={SUBJECT_TYPES.map((type) => ({
-          value: type,
-          label: t(FILE_GRANT_SUBJECT_TYPE_LABEL_KEY[type]),
-        }))}
-        value={subjectType}
-        onValueChange={(type) => {
-          setSubjectType(type);
-          setSubjectId(null);
-          setKeyword('');
-        }}
-        data-testid="file-share-subject-type"
-      />
-      {isEveryone ? (
-        <span className="min-w-48 flex-1 self-center text-sm text-[var(--color-fg-muted)]">
-          {t('file.share.everyone')}
-        </span>
-      ) : (
-        <Select
-          className="min-w-48 flex-1"
-          aria-label={t('file.share.subject')}
-          placeholder={t(copy.placeholder)}
-          options={(subjects.data?.items ?? []).map((subject) => ({
-            value: subject.id,
-            label: subject.name,
-            description: subject.hint ?? undefined,
-          }))}
-          value={subjectId}
-          onValueChange={setSubjectId}
-          searchable
-          searchValue={keyword}
-          onSearchChange={setKeyword}
-          filterOption={false}
-          searchPlaceholder={t(copy.search)}
-          noMatchLabel={t(copy.noMatch)}
-          loading={subjects.isFetching}
-          data-testid="file-share-subject"
-        />
-      )}
-      <Select
-        className="w-36"
-        aria-label={t('file.share.level')}
-        options={levelOptions}
-        value={selectedLevel}
-        onValueChange={setLevel}
-        data-testid="file-share-level"
-      />
-      <DatePicker
-        className="w-40"
-        aria-label={t('file.share.expiresAt')}
-        placeholder={t('file.share.expiresPlaceholder')}
-        value={expiresOn}
-        onValueChange={setExpiresOn}
-        min={todayInZone()}
-        clearable
-        data-testid="file-share-expires"
-      />
-      <Button
-        variant="primary"
-        disabled={!targetId || !selectedLevel}
-        loading={setGrant.isPending}
-        onClick={submit}
-        data-testid="file-share-add"
-      >
-        {t('file.share.add')}
-      </Button>
-    </div>
-  );
-}
-
-interface GrantRowProps {
-  folderId: string;
-  grant: FileFolderGrant;
-  levelOptions: Array<SelectOption<FileGrantLevel>>;
-  /** 直接授權、而且操作者授予得起它的等級。 */
-  editable: boolean;
-}
-
-function GrantRow({ folderId, grant, levelOptions, editable }: GrantRowProps) {
-  const { t } = useTranslation();
-  const confirm = useConfirm();
-  const setGrant = useFolderGrantSetMutation();
-  const removeGrant = useFolderGrantDeleteMutation();
-  const subject = { subjectType: grant.subjectType, subjectId: grant.subjectId };
-  // `everyone` 沒有名稱（後端回空字串）：以語系顯示
-  const subjectName =
-    grant.subjectType === 'everyone' ? t('file.share.everyone') : grant.subjectName;
-
-  // 移除立即生效、對象可能是一群人：先說明影響再送出
-  const remove = () =>
-    void confirm({
-      title: t('file.share.removeTitle'),
-      description: t(FILE_GRANT_REMOVE_CONFIRM_KEY[grant.subjectType], { name: subjectName }),
-      confirmLabel: t('file.share.remove'),
-      tone: 'danger',
-      onConfirm: () => removeGrant.mutateAsync({ params: { folderId, ...subject } }),
-      'data-testid': 'file-share-remove-confirm',
-    });
-
-  const changeLevel = (level: FileGrantLevel) => {
-    if (level === grant.level) return;
-    const request = {
-      params: {
-        folderId,
-        // 變更等級時保留期限；已過期的改等級等於重新授予（不過期）
-        body: { ...subject, level, expiresAt: grant.isExpired ? null : grant.expiresAt },
-      },
-    };
-    // 降級會拿走較高等級才有的操作，先確認；升級與已過期的（重新授予）直接送出
-    const isDowngrade =
-      !grant.isExpired && FILE_GRANT_LEVELS.indexOf(level) < FILE_GRANT_LEVELS.indexOf(grant.level);
-    if (!isDowngrade) {
-      setGrant.mutate(request);
-      return;
-    }
-    void confirm({
-      title: t('file.share.downgradeTitle'),
-      description: t(FILE_GRANT_DOWNGRADE_CONFIRM_KEY[grant.subjectType], {
-        name: subjectName,
-        from: t(FILE_GRANT_LEVEL_LABEL_KEY[grant.level]),
-        to: t(FILE_GRANT_LEVEL_LABEL_KEY[level]),
-      }),
-      confirmLabel: t('file.share.downgradeAction'),
-      tone: 'danger',
-      onConfirm: () => setGrant.mutateAsync(request),
-      'data-testid': 'file-share-downgrade-confirm',
-    });
-  };
-  const details = [
-    grant.source
-      ? t('file.share.inherited', { name: grant.source.folderName })
-      : t(FILE_GRANT_SUBJECT_TYPE_LABEL_KEY[grant.subjectType]),
-    grant.expiresAt && !grant.isExpired
-      ? t('file.share.expiresUntil', { date: formatDate(grant.expiresAt) })
-      : undefined,
-  ].filter(Boolean);
-
-  return (
-    <li
-      className="flex flex-wrap items-center gap-2 py-2"
-      data-testid="file-share-grant"
-      data-value={grant.subjectId}
-      data-subject-type={grant.subjectType}
-      data-source={grant.source?.folderId}
-      data-expired={grant.isExpired || undefined}
-    >
-      <Icon
-        name={grant.subjectType === 'user' ? 'user' : 'users'}
-        size={16}
-        className="text-[var(--color-fg-muted)]"
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm">{subjectName}</span>
-        <span className="text-xs text-[var(--color-fg-muted)]">{details.join(' · ')}</span>
-      </div>
-      {grant.isExpired && <Chip tone="warning">{t('file.share.expired')}</Chip>}
-      {editable ? (
-        <>
-          <Select
-            size="sm"
-            className="w-36"
-            aria-label={t('file.share.level')}
-            options={levelOptions}
-            value={grant.level}
-            disabled={setGrant.isPending}
-            onValueChange={changeLevel}
-            data-testid="file-share-grant-level"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            loading={removeGrant.isPending}
-            aria-label={t('file.share.removeLabel', { name: subjectName })}
-            onClick={remove}
-            data-testid="file-share-grant-remove"
-          >
-            {t('file.share.remove')}
-          </Button>
-        </>
-      ) : (
-        <Chip tone={grant.source ? 'neutral' : 'brand'}>
-          {t(FILE_GRANT_LEVEL_LABEL_KEY[grant.level])}
-        </Chip>
-      )}
-    </li>
   );
 }
