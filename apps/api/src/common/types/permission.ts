@@ -15,6 +15,7 @@ export const PERMISSION = {
   USER_ASSIGN_ROLE: 'user:assignRole',
   USER_RESET_PASSWORD: 'user:resetPassword',
   USER_RESET_MFA: 'user:resetMfa',
+  USER_EXPORT: 'user:export',
 
   ROLE_CREATE: 'role:create',
   ROLE_READ: 'role:read',
@@ -24,6 +25,7 @@ export const PERMISSION = {
 
   PERMISSION_READ: 'permission:read',
   AUDIT_LOG_READ: 'auditLog:read',
+  AUDIT_LOG_EXPORT: 'auditLog:export',
   SYSTEM_READ: 'system:read',
   SYSTEM_UPDATE: 'system:update',
   MFA_POLICY_READ: 'mfaPolicy:read',

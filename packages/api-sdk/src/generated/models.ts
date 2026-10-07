@@ -295,6 +295,7 @@ export const PermissionKey = {
   'user:assignRole': 'user:assignRole',
   'user:resetPassword': 'user:resetPassword',
   'user:resetMfa': 'user:resetMfa',
+  'user:export': 'user:export',
   'role:create': 'role:create',
   'role:read': 'role:read',
   'role:update': 'role:update',
@@ -302,6 +303,7 @@ export const PermissionKey = {
   'role:grantPermission': 'role:grantPermission',
   'permission:read': 'permission:read',
   'auditLog:read': 'auditLog:read',
+  'auditLog:export': 'auditLog:export',
   'system:read': 'system:read',
   'system:update': 'system:update',
   'approval:read': 'approval:read',
@@ -673,6 +675,216 @@ export interface PlatformAuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export interface DataTransfer {
+  id: string;
+  direction: 'export' | 'import';
+  type: string;
+  mode: ('create' | 'update') | null;
+  format: 'csv' | 'xlsx' | 'sql';
+  status: 'queued' | 'running' | 'applying' | 'completed' | 'failed' | 'cancelled' | 'expired';
+  scopeKind: ('ids' | 'filter') | null;
+  columns: Array<string>;
+  sourceName: string | null;
+  outputName: string | null;
+  outputSize: number | null;
+  totalRows: number;
+  processedRows: number;
+  succeededRows: number;
+  failedRows: number;
+  skippedRows: number;
+  errorCode: string | null;
+  errorDetails: Record<string, unknown> | null;
+  version: number;
+  expiresAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CancelDataTransferRequest {
+  version: number;
+}
+
+export interface DataTransferDownload {
+  url: string;
+  expiresAt: string;
+  fileName: string;
+}
+
+export interface DataTransferOption {
+  value: string;
+  label: string;
+}
+
+export interface DataTransferExportColumn {
+  key: string;
+  label: string;
+  kind: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'reference' | 'json';
+}
+
+export interface DataTransferResource {
+  type: string;
+  label: string;
+  export: {
+    formats: Array<'csv' | 'xlsx' | 'sql'>;
+    columns: Array<DataTransferExportColumn>;
+    orderHint: string | null;
+  } | null;
+  importModes: Array<'create' | 'update'>;
+}
+
+export interface DataTransferResourceList {
+  items: Array<DataTransferResource>;
+}
+
+export interface DataTransferImportColumn {
+  key: string;
+  label: string;
+  kind: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'reference' | 'json';
+  required: boolean;
+  multiple: boolean;
+  matchKey: number | null;
+  unique: boolean;
+  nullable: boolean;
+  hint: string | null;
+  options: Array<DataTransferOption> | null;
+  transitions: Record<string, Array<string>> | null;
+}
+
+export interface DataTransferImportColumnList {
+  items: Array<DataTransferImportColumn>;
+  readOnly: Array<{
+    key: string;
+    label: string;
+  }>;
+}
+
+export interface DataTransferReferenceOptionList {
+  items: Array<{
+    id: string;
+    label: string;
+  }>;
+}
+
+export interface DataTransferRowIssue {
+  column: string | null;
+  code: string;
+  params?: Record<string, unknown>;
+  severity: 'error' | 'warning';
+}
+
+export interface DataTransferImportTarget {
+  id: string;
+  label: string;
+  version: number;
+  current: Record<string, string>;
+  expected?: Record<string, unknown>;
+}
+
+export interface DataTransferRowValidation {
+  rowNo: number;
+  issues: Array<DataTransferRowIssue>;
+  target?: DataTransferImportTarget;
+  changed?: Array<string>;
+}
+
+export interface DataTransferImportRow {
+  rowNo: number;
+  sourceRow: number | null;
+  cells: Record<string, string>;
+}
+
+export type DataTransferImportAnalysis =
+  | {
+      status: 'needsMapping';
+      fileName: string;
+      headers: Array<{
+        index: number;
+        text: string;
+        suggestion: string | null;
+      }>;
+      samples: Array<Array<string>>;
+      ignored: Array<{
+        index: number;
+        header: string;
+        reason: 'readOnly' | 'forbidden';
+      }>;
+      columns: Array<DataTransferImportColumn>;
+      sheets?: Array<string>;
+    }
+  | {
+      status: 'ok';
+      fileName: string;
+      columns: Array<DataTransferImportColumn>;
+      ignored: Array<{
+        header: string;
+        reason: 'readOnly' | 'forbidden' | 'unmapped';
+      }>;
+      rows: Array<DataTransferImportRow>;
+      results: Array<DataTransferRowValidation>;
+      sheets?: Array<string>;
+    };
+
+export interface ValidateImportRequest {
+  mode: 'create' | 'update';
+  rows: Array<{
+    rowNo: number;
+    cells: Record<string, string>;
+  }>;
+}
+
+export interface ValidateImportResult {
+  rows: Array<DataTransferRowValidation>;
+}
+
+export interface CreateImportRequest {
+  type: string;
+  mode: 'create' | 'update';
+  fileName?: string;
+  skipInvalid: boolean;
+  rows: Array<{
+    rowNo: number;
+    sourceRow?: number | null;
+    cells: Record<string, string>;
+    target?: {
+      id: string;
+      version: number;
+      expected?: Record<string, unknown>;
+    };
+  }>;
+}
+
+export interface CreateExportRequest {
+  type: string;
+  format: 'csv' | 'xlsx' | 'sql';
+  scope:
+    | {
+        kind: 'ids';
+        ids: Array<string>;
+      }
+    | {
+        kind: 'filter';
+        filter: Record<string, unknown>;
+      };
+  columns?: Array<string>;
+}
+
+export interface DataTransferApplyRow {
+  rowNo: number;
+  sourceRow: number | null;
+  cells: Record<string, string>;
+  outcome: 'pending' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
+  error: Record<string, unknown> | null;
+  changes: Record<string, Array<string | string>> | null;
+  resultId: string | null;
+}
+
+export interface DataTransferApplyRowList {
+  items: Array<DataTransferApplyRow>;
+  nextRowNo: number | null;
+}
+
 export interface TagSummary {
   id: string;
   name: string;
@@ -956,6 +1168,7 @@ export const TenantFeature = {
   announcement: 'announcement',
   externalApi: 'externalApi',
   group: 'group',
+  dataTransfer: 'dataTransfer',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -970,6 +1183,9 @@ export const TenantFeatureParamKey = {
   'job.maxConcurrency': 'job.maxConcurrency',
   'identityProvider.maxProviders': 'identityProvider.maxProviders',
   'webhook.maxUrls': 'webhook.maxUrls',
+  'dataTransfer.importMaxRows': 'dataTransfer.importMaxRows',
+  'dataTransfer.importMaxSizeMb': 'dataTransfer.importMaxSizeMb',
+  'dataTransfer.exportMaxRows': 'dataTransfer.exportMaxRows',
   'rateLimit.authPerMinute': 'rateLimit.authPerMinute',
   'rateLimit.trustedCidrs': 'rateLimit.trustedCidrs',
 } as const;
@@ -1796,7 +2012,7 @@ export interface ServiceAccountRoles {
 
 export interface SystemSetting {
   key: string;
-  category: 'general' | 'auth' | 'file' | 'trash' | 'revision' | 'notification';
+  category: 'general' | 'auth' | 'file' | 'trash' | 'revision' | 'notification' | 'dataTransfer';
   type: 'string' | 'number' | 'boolean';
   value: string | number | boolean;
   defaultValue: string | number | boolean;

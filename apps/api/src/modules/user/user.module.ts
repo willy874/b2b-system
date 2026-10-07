@@ -4,6 +4,7 @@ import { AnnouncementTriggerCatalog } from '@/modules/announcement/announcement-
 import { AnnouncementModule } from '@/modules/announcement/announcement.module';
 import { ApprovalModule } from '@/modules/approval/approval.module';
 import { CredentialModule } from '@/modules/credential/credential.module';
+import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
 import { NotificationEventCatalog } from '@/modules/notification/notification-event.catalog';
 import { NotificationModule } from '@/modules/notification/notification.module';
@@ -24,6 +25,7 @@ import { UserController } from './user.controller';
 import { USER_NOTIFICATIONS } from './user.notifications';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
+import { UserTransferResource } from './user.transfer';
 import { USER_WEBHOOK_EVENTS } from './user.webhooks';
 
 @Module({
@@ -36,6 +38,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     WebhookModule,
     TagModule,
     AnnouncementModule,
+    DataTransferModule,
   ],
   // 對外 API 的 controller 也在這裡，另一邊由 SurfaceGuard 回 404（docs/architecture/06-external-api.md §9.2 D11）
   controllers: [UserController, UserExternalController],
@@ -48,6 +51,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     UserTrashHandler,
     UserTagResource,
     UserExternalService,
+    UserTransferResource,
   ],
   // 管理端點（UserService）、登入流程等其他模組用的帳號讀寫（UserAccountService）與密碼登入的檢查（UserLoginService）
   exports: [UserService, UserAccountService, UserLoginService],

@@ -1,16 +1,13 @@
-# 匯入／匯出框架
+# 後端 22 — 匯入／匯出（data transfer）
 
-- 優先度：P2
-- 狀態：規劃中
-- 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；完成通知）、背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）、
-  物件儲存（已完成，[`backend/09-file.md`](../architecture/backend/09-file.md)）
-- 相關：[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13（前端批次佇列；§13.7 超過 10 000 筆時改走本框架）、
-  [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §10（不提供批次端點）、§11（樂觀鎖）
+把資源整批匯出成 CSV／XLSX／SQL、從 CSV／XLSX 整批新增或修改。重點不在第一批的兩種資源（使用者、稽核日誌），而是 **共同的框架**：
+擁有者模組登記一份欄位定義（`TransferResource`），匯出與匯入共用；檔案的解析、驗證、套用都在伺服器端，預覽與編輯在前端。
 
-> 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
->
-> 本文的設計參考了另一個專案已上線的前端批次匯入（以下稱「參考實作」）。它的做法、量測到的問題與這裡的取捨，
-> 都已寫進本文（§12 設計決策的「評估過的方案」），不需要回頭查那份程式。
+> 程式碼：後端 `apps/api/src/modules/data-transfer/`（框架：登記表、API、工作、寫檔器與讀檔器、驗證器）、
+> `apps/api/src/modules/user/user.transfer.ts`（使用者）、`apps/api/src/modules/data-transfer/resources/audit-log.transfer.ts`（稽核日誌，D27）；
+> 前端見 [`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md)。
+> 相關：[`10-jobs.md`](10-jobs.md)（背景工作）、[`09-file.md`](09-file.md) §14（伺服器端的分段上傳、`transfers/` 前綴）、
+> [`15-notification.md`](15-notification.md)（完成通知）、[`../05-tenancy.md`](../05-tenancy.md) §5（feature 與參數）、[`03-api-conventions.md`](03-api-conventions.md) §10（不提供批次端點的例外）。
 
 ---
 
@@ -23,13 +20,11 @@
 5. 欄位定義：匯入與匯出共用的一份
 6. 匯出
 7. 匯入
-8. 前端
+8. 前端（見 frontend/21）
 9. 權限、稽核、通知、推播、指標
 10. 上限與保留期限
-11. 開放問題（皆已有結論）
-12. 設計決策
-13. 實作分期與驗收
-14. 歸檔去向
+11. 程式碼地圖
+12. 設計決策：匯入／匯出
 
 ---
 
@@ -38,7 +33,7 @@
 大量建立使用者、把稽核日誌交給外部稽核、之後業務資料的搬移，都需要匯入匯出。現在：
 
 - **沒有任何匯出**：稽核日誌只有 `GET /audit-logs`、`GET /audit-logs/:id`。整個 api 沒有產生 CSV 的地方，也沒有 CSV／XLSX 套件。
-- **前端批次佇列不適合大量**（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13）：
+- **前端批次佇列不適合大量**（[`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13）：
   - 它逐筆呼叫單筆 API、全域一次一筆，而且需要至少一個分頁開著。
   - 「選取全部符合」的上限是 10 000 筆（`BATCH_SELECT_ALL_MAX`），送出前要先把每一頁抓回瀏覽器。
   - 幾百筆的狀態切換沒問題；幾萬筆的匯出、需要整批驗證的匯入就不行。
@@ -154,7 +149,7 @@
 
 ### 4.1 資料模型（租戶 DB）
 
-傳輸是業務資料，含個資，所以放在 **租戶 DB**（[`05-tenancy.md`](../architecture/05-tenancy.md) §1）。
+傳輸是業務資料，含個資，所以放在 **租戶 DB**（[`05-tenancy.md`](../05-tenancy.md) §1）。
 
 ```
 data_transfers
@@ -195,6 +190,7 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
   raw              jsonb not null         -- { columnKey: 原始字串 }：前端送來的 JSON 列
   target_id        uuid null              -- 修改模式：預覽時比對到的紀錄（套用時以權限重新確認）
   target_version   int null               -- 修改模式：預覽時的 version，套用時用於樂觀鎖
+  target_expected  jsonb null             -- 修改模式：比對當下的關聯欄（例：roleIds），套用時的樂觀鎖輸入（D29）
   outcome          text not null default 'pending'  -- pending | succeeded | failed | skipped | cancelled
   outcome_error    jsonb null             -- { code, details } 或 { code: 'VALIDATION_FAILED', issues }
   changes          jsonb null             -- 修改模式：{ columnKey: [原值, 新值] }，在套用的交易內記下，結果報告用
@@ -250,7 +246,7 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
 
 ### 5.1 登記
 
-擁有者模組在 `onModuleInit` 登記；`modules/data-transfer` 不 import 業務模組（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §3.2）。
+擁有者模組在 `onModuleInit` 登記；`modules/data-transfer` 不 import 業務模組（[`coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
 
 ```ts
 // modules/user/user.transfer.ts
@@ -405,7 +401,7 @@ interface TransferContext {
 | `concurrency` | 2（每程序）；另受租戶的 `job.maxConcurrency` 限制 |
 | `retryLimit` | 2；每次重試從頭產生並覆寫同一個物件 key |
 | `expireInSeconds` | 3600 |
-| 工作資料 | `{ transferId }`；不放篩選條件、不放個資（`job:read` 看得到，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §4） |
+| 工作資料 | `{ transferId }`；不放篩選條件、不放個資（`job:read` 看得到，[`backend/10-jobs.md`](10-jobs.md) §4） |
 | 輸出 | `{ rows, bytes }` |
 
 步驟：
@@ -435,7 +431,7 @@ POST /data-transfers/:id/cancel  { version } → 200 DataTransfer
 下載：
 
 - 每次呼叫都重新簽發（`presignDownload(key, { disposition: 'attachment', fileName, expiresIn: FILE_URL_TTL })`）。檔案保留數天，連結最多 1 小時（§12 D12）。
-- 走獨立的檔案網域（`FILE_STORAGE_DOWNLOAD_ENDPOINT`），與檔案管理相同（[`backend/09-file.md`](../architecture/backend/09-file.md) §13）。
+- 走獨立的檔案網域（`FILE_STORAGE_DOWNLOAD_ENDPOINT`），與檔案管理相同（[`backend/09-file.md`](09-file.md) §13）。
 - 只有建立者能下載，而且 **下載當下** 仍要有該資源的匯出權限。被拿掉權限的人不能下載先前產生的檔案。
 - 寫稽核 `dataTransfer.download`。用 `POST` 是因為它有寫入。
 - 回應帶 `@NoStore()`。
@@ -526,7 +522,7 @@ COMMIT;
 
 代價：
 
-- 預覽中的資料只在這個瀏覽器。重新整理靠 IndexedDB 草稿接續（§8.3）；換一台電腦就要重新上傳。
+- 預覽中的資料只在這個瀏覽器。重新整理靠 IndexedDB 草稿接續（[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §4）；換一台電腦就要重新上傳。
 - 套用前送出的 JSON 是客戶端資料，所以套用工作 **一定重新驗證全部列**，不信任前端的驗證結果（§7.6）。
 
 ### 7.2 匯入頁面
@@ -543,7 +539,7 @@ COMMIT;
 | 3. 上傳 | 拖放區（`@b2b-system/ui/FileUpload`），接受 `.csv`、`.xlsx`，在前端先檢查大小與副檔名（§10）。進階選項：編碼（自動／UTF-8／Big5／UTF-16）、工作表（XLSX 有多個工作表時）。另有「不上傳，直接輸入」：前端直接建立 20 列空白的 JSON |
 | 4. 分析 | 上傳並等待 `analyze` 回應，顯示「正在分析… 」與檔名。5 000 列以內通常數秒 |
 | 5. 對應欄位（必要時） | `analyze` 回傳 `needsMapping` 時才出現（§7.3）：左邊是檔案的標頭與前 5 列樣本，右邊選要對應的欄位或「忽略」。確認後 **以記憶體中的同一個檔案** 加上 `mapping` 再送一次 `analyze`，不必重新選檔 |
-| 6. 預覽與修正 | 類似 Excel 的表格（§8.3），資料是前端持有的 JSON |
+| 6. 預覽與修正 | 類似 Excel 的表格（[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §4），資料是前端持有的 JSON |
 | 7. 套用 | 確認對話框 → 送出 JSON → 進度條（可取消）；之後可以離開頁面，完成時收到通知 |
 | 8. 結果 | 計數、逐列結果表、下載結果報告、以失敗的列重新匯入 |
 
@@ -703,11 +699,11 @@ type AfterCommitEffect =
 **對既有 service 的要求**：
 
 - `create`／`update` 必須 **使用傳入的交易**，這樣「業務寫入」與「這一列的結果」在同一個交易提交（§7.6）。
-- 既有的 `UserService.create` 自己開交易，交易後再做 `permissionsChanged`、推播。實作時要把它拆成兩層：
+- `UserService.create` 原本自己開交易，交易後再做 `permissionsChanged`、推播；現在拆成兩層：
   - 交易內的 `createInTx(dto, actor, tx): { user, after }`；
-  - API 用的 `create()` 變成「開交易 → `createInTx` → 交易後執行 `after`」。
+  - API 用的 `create()` 是「開交易 → `createInTx` → 交易後 `runAfterCommit(after)`」。
 - 業務規則（email 重複、反提權、角色存在、最後一位 super-admin）只在 `createInTx` 裡寫一次，API 與匯入共用。
-- `update`、`replaceRoles` 照同樣方式拆。
+- `updateInTx`、`replaceRolesInTx` 照同樣方式。匯入把 `after` 轉成可合併的副作用（`user.transfer.ts` 的 `toEffects`）。
 
 ### 7.5 修改模式
 
@@ -726,7 +722,7 @@ type AfterCommitEffect =
 
 - 比對成功時，回應帶目標的 `version`，以及 **檔案中有的欄位** 目前的值（`target.current`）。前端把它存在該列。
 - 預覽顯示「原值 → 新值」靠它（參考實作在送出前看不到差異）。
-- 套用時前端把 `target.id`、`target.version`、`target.expected` 原樣送回；工作以這個 `version` 更新（[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §11）：
+- 套用時前端把 `target.id`、`target.version`、`target.expected` 原樣送回；工作以這個 `version` 更新（[`backend/03-api-conventions.md`](03-api-conventions.md) §11）：
   - 預覽之後別人改過的紀錄 → 該列失敗 `USER_VERSION_CONFLICT`，**不會蓋掉別人的修改**。
   - 前端送來的 `target` 只是「樂觀鎖的輸入」，不是授權：工作仍以建立者的權限重新查詢這筆紀錄，看不到就失敗。竄改 `version` 只會讓自己的那一列衝突。
 - 預覽放了很久的話，可以按「重新比對」：前端把所有列分批送 `validate`（每批 1 000 列），換成最新的目前值與 version，已編輯的內容保留。
@@ -848,143 +844,11 @@ POST /data-transfers/imports
 
 ## 8. 前端
 
-### 8.1 程式放哪
+畫面與元件（`@b2b-system/ui/DataGrid`、web-core 的 `data-transfer`／`data-import`、backstage 的「我的匯入匯出」與匯入頁）見
+[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md)。後端與前端之間的約定只有兩個：
 
-| 位置 | 內容 |
-| --- | --- |
-| `packages/ui/src/components/DataGrid/` | **通用** 的試算表式表格（§8.3），不含業務名詞；Storybook 有完整的故事 |
-| `packages/web-core/src/data-transfer/` | 機制層：`ExportDialog`、`useExportTransfer`、`ImportWorkspace`（步驟 2～8 的整頁元件，持有預覽的 JSON 狀態）、`importDraftStore`（預覽草稿）、`TransferTable`（我的匯入匯出列表）、`issueMessage()`（問題代碼的翻譯）、`downloadFromUrl()` |
-| `packages/web-core/src/data-transfer/locales` | 共用字串：步驟、按鈕、問題代碼的訊息（`dataTransfer.issue.<code>`）、狀態 |
-| `apps/backstage/src/apis/data-transfer/<operation>/` | 每支 API 一個資料夾（`create-export`、`download-transfer`、`analyze-import`、`validate-import-rows`、`create-import`、`get-transfer-rows`…）。`analyze-import` 以 `FormData` 送出，是這個 app 第一個 multipart 的 fetcher |
-| `apps/backstage/src/features/data-transfer/` | 「我的匯入匯出」頁（`/data-transfer`）、route link `dataTransfer.detail`（通知的連結）、`Resource.DATA_TRANSFER` 與推播的對應 |
-| `apps/backstage/src/features/user/pages/UserImport/` | 使用者匯入頁：把 `apis/data-transfer` 的 fetcher 與 `type: 'user'` 交給 `ImportWorkspace` |
-| `apps/backstage/src/features/user/pages/UserList/` | 頁首的「匯出」「匯入」按鈕、批次列的「匯出選取」 |
-| `apps/backstage/src/features/audit-log/` | 頁首的「匯出」按鈕 |
-
-- web-core 不呼叫 app 的 API（[`CLAUDE.md`](../../CLAUDE.md) 前端規則 1）：`ImportWorkspace`、`ExportDialog` 以 props 接收一組 fetcher。
-  - 這與 web-core 的背景工作頁、稽核日誌頁是同一個做法。
-- 欄位名稱、選項、說明都由 `GET /data-transfers/importers/:type` 回傳，依請求的語系。
-  - 前端不為每個資源寫欄位定義，也不需要參考實作那種每個 feature 複製一份的比對編輯器。
-- 匯入頁屬於各資源的 feature，所以頁面權限與麵包屑是靜態的。各 feature 的頁面只有幾十行。
-
-### 8.2 匯出
-
-**入口**
-
-- 列表頁首的「匯出」按鈕：範圍預設為「符合目前篩選的全部」。
-- 批次列（`BatchBar`）的「匯出選取」：範圍預設為「已勾選」。
-  - `BatchBar` 目前只接受走批次佇列的動作，要加一種 **不入佇列** 的動作：`{ kind: 'run', run(targets) }`。
-- 沒有該資源的匯出權限時兩個入口都不顯示。
-
-**`ExportDialog`**
-
-| 項目 | 內容 |
-| --- | --- |
-| 範圍 | 「已勾選 120 筆」／「符合目前篩選的全部，約 3 400 筆」，有勾選時預設前者 |
-| 格式 | CSV（預設）、XLSX、SQL；各附一句說明（「Excel 開啟」「匯入其他資料庫」） |
-| 欄位 | 預設全選；可取消勾選。上次的選擇存在偏好（`localStorage`，以資源類型為鍵） |
-| 送出後 | 對話框變成進度：「正在匯出… 1 500／3 400」，可「在背景繼續」關閉對話框，或取消 |
-
-**`useExportTransfer` 的流程**
-
-1. `POST /exports`，得到傳輸。
-2. 等推播：`Resource.DATA_TRANSFER` 讓 `transfer(id)` 的查詢失效並重抓。推播斷線時以 5 秒輪詢補上。
-3. 狀態變成 `completed`：`POST /:id/download` 取得連結，再 `downloadFromUrl(url, fileName)`：
-   - 建立 `<a href download rel="noopener">`，`.click()` 後移除。
-   - 與檔案管理的下載相同；這次抽成 web-core 的共用 helper。
-4. 對話框已關閉（在背景繼續）時不自動下載。完成時會收到站內通知，點通知到「我的匯入匯出」下載。
-   - 不自動下載是因為使用者可能已經在做別的事，突然跳出下載會很突兀。
-5. 0 筆：顯示「沒有符合的資料」，不下載。
-
-### 8.3 `DataGrid`（`@b2b-system/ui/DataGrid`）
-
-**選型**
-
-- 以 `react-data-grid` 為底層（§12 D14）：MIT 授權、列與欄都虛擬捲動、內建鍵盤移動與儲存格編輯、可凍結欄。
-- 樣式以 Design Token 覆寫它的 CSS 變數，不寫色碼。
-- 外面包一層 ui 自己的 API，app 不直接 import 底層套件；之後要換實作只動 ui。
-
-**功能**
-
-| 功能 | 行為 |
-| --- | --- |
-| 凍結欄 | 列號、狀態（錯誤／警告／無變更圖示）固定在左側；修改模式另有「比對目標」欄（目標的名稱，連到詳情） |
-| 表頭 | 欄名、必填 `*`、類型圖示；滑過顯示 `hint`、格式與選項 |
-| 儲存格狀態 | 錯誤：紅框＋右上角三角（類似 Excel 的註解標記），`aria-invalid`，滑過或聚焦時顯示訊息；警告：琥珀色；修改模式有變更：品牌色底，滑過顯示「原值：…」；沒有變更：淡化 |
-| 鍵盤 | 方向鍵、Tab、Home／End、Ctrl＋方向鍵跳到邊界；Enter 或 F2 編輯、Esc 取消、Delete 清空；F8 跳到下一個錯誤 |
-| 編輯器 | 依欄位類型：文字、數字、布林（下拉）、日期（DatePicker）、`enum`（Select，修改模式只列可轉移的狀態）、`reference`（可搜尋的 Select，呼叫 `options` 端點）、多值（可搜尋的多選） |
-| 複製貼上 | 選取範圍以 Ctrl＋C 複製成 TSV；Ctrl＋V 把 TSV 貼到以目前儲存格為左上角的範圍，可以直接從 Excel 貼過來。一次貼上合併成一次 `validate` |
-| 復原 | Ctrl＋Z／Ctrl＋Shift＋Z，記最近 50 次編輯；在前端的 JSON 上還原後，被還原的列重新送 `validate` |
-| 篩選 | 全部／錯誤／警告／有變更／無變更；摘要列顯示各自的數量 |
-| 建議 | 錯誤附有建議值時，儲存格的選單有「改成『財務管理員』」與「全部套用（N 列）」 |
-| 列 | 新增列（列尾）；選取列後「從匯入中移除」 |
-
-**狀態與請求**
-
-`DataGrid` 本身只是受控元件（列、欄、儲存格狀態都由 props 傳入）；預覽的狀態在 web-core 的 `ImportWorkspace`：
-
-```ts
-interface ImportWorkspaceState {
-  phase: 'idle' | 'analyzing' | 'mapping' | 'preview' | 'submitting';
-  mode: 'create' | 'update';
-  fileName: string | null;
-  columns: readonly ImportColumnView[];              // analyze 回傳
-  rows: readonly ImportRow[];                        // 前端持有的 JSON；編輯就是改這裡的 cells
-  results: ReadonlyMap<number, RowValidation>;       // rowNo → 後端的驗證結果
-  localIssues: ReadonlyMap<number, readonly RowIssue[]>;  // 檔案內重複、同一個目標多次（前端計算）
-  pending: ReadonlySet<number>;                      // 已修改、驗證中的列
-  history: { undo: readonly Edit[]; redo: readonly Edit[] };
-}
-```
-
-- 以 reducer 管理，每個動作（編輯、貼上、套用建議、新增列、移除列、復原）都是純函式，可以單獨測試。
-  參考實作把解析、驗證、比對、送出全塞在一個上千行的 hook 裡，靠一堆 ref 串起來；這裡解析與驗證都在後端，前端只剩狀態轉移。
-- 編輯：
-  - 改完儲存格（Enter、離開儲存格、貼上、套用建議）立即更新 `rows`，該列進入 `pending`，顯示「驗證中」的淡色。
-  - 300 ms 內的修改合併成一個 `validate` 請求（最多 1 000 列）；回來後換掉這些列的 `results`。
-  - 回應回來時若該列又被改過（比對列的修改序號），丟棄這次結果，等下一次。
-  - 每次 `rows` 改變後重算 `localIssues`（5 000 列的字串比對在數毫秒內完成）。
-  - 編輯在 Enter、離開儲存格或貼上時才算數，不是每打一個字一次。參考實作每打一個字就對整批重新驗證。
-- 套用按鈕在 `pending` 不為空時停用，顯示「驗證中…」。
-- 篩選（只看錯誤列等）在前端做。
-
-**草稿與離開頁面**
-
-- 預覽中的資料只在前端，所以：
-  - 有未套用的資料時，以 `useUnsavedChangesGuard` 擋住離開頁面與關閉分頁。
-  - 每次修改後（節流 2 秒）把 `{ type, mode, fileName, columns, rows, results }` 存進 IndexedDB 草稿，重新整理後顯示「接續上次未完成的匯入（檔名、N 列、儲存時間）」。
-- 草稿存在 web-core 的 `importDraftStore`，與表單草稿（`useFormDraft`）用同一套加密（AES-GCM、金鑰不落地），但規則不同：
-  | 項目 | 表單草稿 | 匯入草稿 |
-  | --- | --- | --- |
-  | 何時存 | 只在 session 非自願結束時 | 每次修改後（節流） |
-  | 單筆上限 | 256 KiB | 20 MiB（5 000 列 × 15 欄的 JSON 約數 MB） |
-  | 數量 | 20 | 每個「身分 × 資源 × 模式」一份 |
-  | 期限 | 24 小時 | 24 小時 |
-  | 清除 | 恢復或放棄時 | 套用送出成功、放棄、登出、身分改變時 |
-- 草稿恢復後，`results` 可能已過時（資料庫變了），所以恢復時自動把全部列重新 `validate` 一次。
-
-**效能**
-
-- 5 000 列 × 15 欄靠虛擬捲動只渲染可見的部分。
-- 儲存格平常是唯讀的顯示元件，**只有正在編輯的那一格** 掛上輸入元件。參考實作每一格都是常駐的輸入元件。
-
-**Bundle**
-
-- 匯入頁以 `lazyRouteComponent` 載入，`DataGrid` 跟著拆成獨立的 chunk。
-- 實作時以 `pnpm bundle:check` 確認 chunk 低於 `maxChunkKb`（backstage 215 KB gzip）。
-
-### 8.4 「我的匯入匯出」（`/data-transfer`）
-
-- 只列出自己的傳輸：方向、資源、模式、格式、狀態、筆數（成功／失敗）、建立時間、到期時間。
-- 每一列的動作依狀態而定：
-  - 匯出完成 → 下載；
-  - 進行中 → 取消；
-  - 匯入已完成 → 查看結果（到該資源的匯入頁，帶 `transfer`）。
-- 匯入在 **送出套用之後** 才會出現在這裡。預覽中、還沒送出的匯入只存在瀏覽器的草稿，不在列表上。
-- 進度靠推播即時更新，不輪詢。
-- 側欄入口放在「個人」群組，所有登入的人都看得到，沒有額外的權限。
-
----
+- 欄位名稱、選項、說明都由 `GET /data-transfers/importers/:type` 依請求的語系（`Accept-Language`）回傳，前端不為每個資源寫欄位定義。
+- 預覽中的 JSON 一律是原始字串（D24）；問題以「代碼＋參數」回傳，前端翻譯（§9.5）。
 
 ## 9. 權限、稽核、通知、推播、指標
 
@@ -1038,7 +902,7 @@ interface ImportWorkspaceState {
 | `dataTransfer.importFinished` | 套用完成或失敗 | `dataTransfer.detail` |
 
 - `actorId` 傳 `null`（系統）。`notify()` 對「actor 就是收件人」不建立通知，而這裡的收件人一定是建立者本人。
-- 使用者可以在個人通知設定關掉（[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)）。
+- 使用者可以在個人通知設定關掉（[`backend/16-notification-event.md`](16-notification-event.md)）。
 
 ### 9.4 推播
 
@@ -1063,13 +927,12 @@ interface ImportWorkspaceState {
 | `DATA_TRANSFER_MAPPING_INVALID` | 400 | `mapping` 對到不存在或不可匯入的欄位，或同一個欄位對了兩次 |
 | `DATA_TRANSFER_TOO_MANY_ROWS` | 422 | 超過列數上限（`details: { max, count? }`） |
 | `DATA_TRANSFER_FILE_UNREADABLE` | 422 | 格式錯誤、加密的 XLSX、沒有標頭、無法解碼 |
-| `DATA_TRANSFER_HAS_INVALID_ROWS` | 409 | 有錯誤列又沒有勾選略過 |
 | `DATA_TRANSFER_EXPIRED` | 410 | 已過保留期限，匯出檔與套用列已清除 |
 | `DATA_TRANSFER_LIMIT_EXCEEDED` | 429 | 同一個人進行中的傳輸超過上限（§10） |
 
 **問題代碼**（`RowValidation.issues[].code`）不是錯誤碼，翻譯在 web-core 的 `dataTransfer.issue.<code>`：
 
-- 型別與格式：`required`、`invalidNumber`、`invalidBoolean`、`invalidDate`、`invalidDateTime`、`invalidEnum`、`tooShort`、`tooLong`、`invalidFormat`、`tooManyValues`、`notNullable`、`formulaWithoutValue`
+- 型別與格式：`required`、`invalidNumber`、`invalidBoolean`、`invalidDate`、`invalidDateTime`、`invalidEnum`、`tooShort`、`tooLong`、`tooSmall`、`tooLarge`（數字欄）、`invalidFormat`、`tooManyValues`、`notNullable`、`formulaWithoutValue`
 - 參照：`referenceNotFound`、`ambiguousReference`
 - 唯一值：`duplicateInFile`、`alreadyExists`
 - 修改模式的比對：`matchKeyRequired`、`targetNotFound`、`ambiguousMatch`、`duplicateTarget`、`transitionNotAllowed`、`noChanges`（警告）
@@ -1086,8 +949,9 @@ interface ImportWorkspaceState {
 
 - `api_data_transfer_rows_total{direction, type, result}`：counter；`result` 是 `succeeded|failed|skipped`；`type` 是登記的資源類型，數量有限。
 - `api_data_transfer_bytes_total{direction, format}`：counter。
+- `api_data_transfer_parse_duration_seconds{format}`：histogram，分析時在 worker thread 解析檔案的秒數。
 
-工作的耗時與成敗已由 `JobQueue` 依工作名稱記錄，不重複。標籤不帶租戶（[`08-monitoring.md`](../architecture/08-monitoring.md) §2.3）。
+工作的耗時與成敗已由 `JobQueue` 依工作名稱記錄，不重複。標籤不帶租戶（[`08-monitoring.md`](../08-monitoring.md) §2.3）。
 
 ---
 
@@ -1104,7 +968,7 @@ interface ImportWorkspaceState {
 | `validate` 一次的列數 | 1 000 | 固定 |
 | 匯出檔與套用列的保留 | 7 天 | 租戶系統設定 `dataTransfer.retentionDays`（1～30，新類別 `dataTransfer`）；從完成時起算 |
 | 匯入的原始檔 | 不保存 | 只在分析請求期間存在於記憶體 |
-| 預覽草稿（瀏覽器） | 24 小時 | 固定；套用、放棄、登出時清除（§8.3） |
+| 預覽草稿（瀏覽器） | 24 小時 | 固定；套用、放棄、登出時清除（[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §4） |
 | 傳輸紀錄（摘要）的保留 | 90 天 | 固定；過期後連同紀錄刪除，稽核日誌另有保留 |
 | 下載連結 | `FILE_URL_TTL`（≤ 1 小時） | 每次下載重新簽發 |
 
@@ -1122,54 +986,68 @@ interface ImportWorkspaceState {
 
 ---
 
-## 11. 開放問題（皆已有結論）
+## 10. 上限與保留期限
 
-1. 小量匯入（例如 50 筆以內）要不要直接走前端批次佇列，只有大量才走後端？兩套 UI 會讓使用者困惑。
-   **結論**：
-   - 不分流，匯入一律走本框架。
-   - 前端批次佇列繼續負責「列表勾選後的狀態操作」（啟用、停用、刪除），那是不同的動作，不是匯入（§12 D18）。
-2. 匯出檔案保留多久？下載連結最長 1 小時，過期要重新取得連結，檔案本身要保留幾天？
-   **結論**：
-   - 匯出檔與匯入的套用列保留 7 天，租戶可調整為 1～30 天；匯入的原始檔不保存。
-   - 下載連結每次重新簽發（§10、§12 D12）。
-3. 匯出要不要獨立權限（例如 `auditLog:export`）？能看列表不代表可以整批帶走。
-   **結論**：要。新增 `user:export`、`auditLog:export`，之後每個可匯出的資源各一個（§9.1、§12 D11）。
-4. 匯入的使用者要寄啟用信嗎？大量寄信要限速（寄信工作並行 5）。
-   **結論**：
-   - 一律寄，不提供關閉。
-   - 由寄信工作的並行上限與重試自然限速（§12 D13）。
-5. 預覽表格自己做，還是用套件？
-   **結論**：
-   - 以 `react-data-grid` 包成 `@b2b-system/ui/DataGrid`（§12 D14）。
-   - 實作第一步先量 bundle 與鍵盤、無障礙的表現；不符合時改以 TanStack Table＋TanStack Virtual 自己做（評估過的方案見 D14）。
-6. SQL 匯出的內容是什麼？
-   **結論**：
-   - PostgreSQL 的 `CREATE TABLE IF NOT EXISTS` 加多列 `INSERT`。
-   - 表名是 `<資源>_export`，欄位是資源的對外欄位，不是內部資料表的傾印。
-   - 不提供 SQL 匯入（§6.5、§12 D6）。
-7. 要不要讓 data-transfer 成為租戶可關閉的 feature？
-   **結論**：
-   - 要，新增 `dataTransfer`，預設啟用。
-   - 平台可以對特定租戶關閉，三個上限參數也掛在它下面（§12 D17）。
-8. 匯入時，檔案轉成 JSON 之後，預覽與修改的資料放在哪裡、由誰驗證？（2026-10-08 需求調整：匯入先交給後端分析，把 CSV、XLSX 等格式統一轉成 JSON 再做預覽）
-   **結論**：
-   - 前端持有 JSON，驗證由後端的無狀態端點負責（`analyze` 一次全驗、`validate` 驗改過的列）。
-   - 伺服器在送出套用前不保存任何資料；套用時才把 JSON 寫進 `data_transfer_rows`，工作重新驗證全部列（§7.1、§12 D21）。
-9. 檔案要怎麼交給後端分析？
-   **結論**：
-   - 直接以 multipart 上傳給 api 的 `analyze` 端點，同步回傳 JSON；原始檔不落地、不進 bucket。
-   - 解析在 worker thread 執行，避免卡住 event loop（§7.3、§12 D22）。
+| 項目 | 預設 | 設定方式 |
+| --- | --- | --- |
+| 匯入的列數 | 5 000 | 租戶 feature 參數 `dataTransfer.importMaxRows`（平台設定，100～20 000）。上限決定伺服器的負載，由平台控制，不讓租戶自己調高 |
+| 匯入的檔案大小 | 10 MiB | 同上，`dataTransfer.importMaxSizeMb`（1～50）；`presignUpload` 簽入 `contentLength` |
+| 匯出的列數 | 100 000 | 同上，`dataTransfer.exportMaxRows`（1 000～1 000 000） |
+| 勾選範圍的 id 數 | 10 000 | 固定，與 `BATCH_SELECT_ALL_MAX` 一致 |
+| 每人同時進行的傳輸 | 3 | 固定；指 `queued`、`running`、`applying` |
+| 分析的並行 | 每程序 2 個 worker thread | env `DATA_TRANSFER_PARSE_WORKERS`（1～16）；排隊最多 5 秒，否則 `503 DATA_TRANSFER_BUSY` |
+| `validate` 一次的列數 | 1 000 | 固定 |
+| 匯出檔與套用列的保留 | 7 天 | 租戶系統設定 `dataTransfer.retentionDays`（1～30，新類別 `dataTransfer`）；從完成時起算 |
+| 匯入的原始檔 | 不保存 | 只在分析請求期間存在於記憶體 |
+| 預覽草稿（瀏覽器） | 24 小時 | 固定；套用、放棄、登出時清除（[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §4） |
+| 傳輸紀錄（摘要）的保留 | 90 天 | 固定；過期後連同紀錄刪除，稽核日誌另有保留 |
+| 下載連結 | `FILE_URL_TTL`（≤ 1 小時） | 每次下載重新簽發 |
+
+清理工作 `dataTransfer.cleanup`（env `DATA_TRANSFER_CLEANUP_CRON`，預設每天 05:25 UTC）：
+
+- 每天執行，租戶範圍，`exclusive`。
+- 到期的傳輸：刪除 `transfers/<id>/` 下的物件（匯出檔）、刪除套用列、`status = expired`。
+- 摘要超過 90 天：刪除紀錄。
+- 刪除物件失敗只記錄，下一輪再試。
+- 超過一天還沒完成的分段上傳（工作在上傳途中被殺掉）放棄（`abortMultipartUpload`）。
+
+**容量**
+
+- 套用列在租戶 DB，5 000 列 × 每列約 1 KB，約 5 MB。7 天後清除。預覽期間伺服器端沒有任何資料。
+- `transfers/` 的物件不計入 `file.storageQuotaMb`：與縮圖、變體一樣是系統產物，靠保留期限控制。
 
 ---
 
-## 12. 設計決策
+## 11. 程式碼地圖
+
+| 位置（`apps/api/src/modules/data-transfer/`） | 內容 |
+| --- | --- |
+| `data-transfer.types.ts`、`data-transfer.definition.ts` | `TransferResource`、欄位、exporter、importer 的型別；`defineTransferResource()` |
+| `data-transfer-registry.service.ts` | `DataTransferRegistry`：登記時檢查定義（欄位 key、enum／reference、修改模式要有比對鍵…），寫錯就啟動失敗；依租戶的 feature 過濾 |
+| `data-transfer.values.ts` | 值的雙向格式（§5.3）：文字表示、XLSX 儲存格、SQL 字面量、解析與時區 |
+| `data-transfer.columns.ts` | 欄位層級的權限：可讀、可匯入、唯讀、沒有權限 |
+| `data-transfer.context.ts` | `TransferContext`（操作者、語系、時區、權限）；工作以建立者的身分執行（`runAs`，D20） |
+| `data-transfer.service.ts` | 列表、詳情、取消、刪除、下載、資源清單、建立匯出、套用列 |
+| `data-transfer.lifecycle.ts` | 保留期限、失敗、完成通知、推播 |
+| `export/` | `CsvExportWriter`／`XlsxExportWriter`／`SqlExportWriter`、`MultipartSink`（每 8 MiB 一段）、`dataTransfer.export` |
+| `import/sheet-reader.ts` | 讀檔器（編碼偵測、分隔字元、XLSX）；在 worker thread 執行，不 import 專案內的檔案 |
+| `import/parse-pool.ts` | worker thread 池（`DATA_TRANSFER_PARSE_WORKERS`、排隊 5 秒） |
+| `import/header-mapping.ts`、`import/import-validator.ts` | 標頭對應；驗證器（`analyze`、`validate`、套用工作共用） |
+| `import/data-transfer-import.service.ts` | 欄位、範本、參照搜尋、分析、驗證、送出套用、結果報告 |
+| `import/data-transfer-apply.service.ts` | `dataTransfer.applyImport`：重新驗證、逐列交易、交易後副作用的合併（D10） |
+| `data-transfer-cleanup.service.ts` | `dataTransfer.cleanup` |
+| `data-transfer.http.ts` | multipart（`ImportUploadInterceptor`）、套用路由的 JSON 上限（`registerDataTransferBodyParser`，`main.ts` 呼叫） |
+| `resources/audit-log.transfer.ts` | 稽核日誌的匯出（D27） |
+
+加一種資源：在擁有者模組寫 `<name>.transfer.ts`（以 `UserTransferResource` 為範本），`onModuleInit` 登記；
+需要套用的寫入要有交易內的版本（`createInTx` 這類，§7.4「對既有 service 的要求」）。前端只要在該資源的列表加入口、寫一個幾十行的匯入頁。
+
+## 12. 設計決策：匯入／匯出
 
 ### 12.1 背景
 
-既有的匯入能力只有前端批次佇列，它是為「勾選幾百筆做同一個動作」設計的。參考實作把同樣的模式延伸到匯入：
-
-- 在瀏覽器解析與驗證，逐列呼叫單筆 API，以跨分頁的 SharedWorker 協調執行權。
-- 那份實作上線後累積了十幾個問題（下表「評估過的方案」逐條引用）。
+既有的匯入能力只有前端批次佇列，它是為「勾選幾百筆做同一個動作」設計的。參考實作（另一個專案已上線的前端批次匯入）把同樣的模式延伸到匯入：
+在瀏覽器解析與驗證，逐列呼叫單筆 API，以跨分頁的 SharedWorker 協調執行權。那份實作上線後累積了十幾個問題（「評估過的方案」逐條引用）。
 
 這份設計的主軸：**解析、驗證、套用都在伺服器端，預覽與編輯在前端**。後端把各種格式統一轉成 JSON，前端持有 JSON 編輯、把改過的列交給後端驗證；送出後才成為可重試、可取消的伺服器端工作（D21）。
 
@@ -1194,13 +1072,20 @@ interface ImportWorkspaceState {
 | D15 | 匯入不支援刪除；預覽中的「從匯入中移除」只影響前端的 JSON | 刪除需要逐筆確認與回收桶，已經由列表的批次刪除提供。檔案中的一列被誤刪，後果遠比被誤改嚴重 |
 | D16 | CSV 匯出對字串欄前置 `'` 防公式注入，匯入字串欄時去掉；XLSX 以字串儲存格寫出，不加前置 | 防注入與來回不變形兩者都要 |
 | D17 | 新增租戶 feature `dataTransfer`（預設啟用），上限是它的 feature 參數 | 平台可以對特定租戶關閉或調整上限；與 `job`、`file` 的做法一致 |
-| D18 | 本框架是「非同步的傳輸資源」，不是 [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §10 禁止的批次端點；§10 歸檔時補一句例外 | §10 禁止的是「同步一次改多筆」的 CRUD 端點。這裡每列仍走單筆的 service 與稽核，執行是可觀察、可取消的背景工作 |
+| D18 | 本框架是「非同步的傳輸資源」，不是 [`backend/03-api-conventions.md`](03-api-conventions.md) §10 禁止的批次端點；§10 歸檔時補一句例外 | §10 禁止的是「同步一次改多筆」的 CRUD 端點。這裡每列仍走單筆的 service 與稽核，執行是可觀察、可取消的背景工作 |
 | D19 | 失敗的列以「重新匯入」帶回匯入頁的預覽（取回原始 `cells` 後重新驗證），修正後成為新的傳輸，不必下載後重新上傳 | 失敗多半是 version 衝突或唯一值，修正後就能送出 |
 | D20 | 背景工作以建立者的身分執行：以 `created_by` 重建 `AuthUser` 放進 request context；業務稽核的 actor 是建立者，metadata 標記 `via: 'import'` | 稽核要能回答「是誰匯入的」，而不是 `system` |
 | D21 | 匯入分三段：後端 **分析**（各種格式 → 標準化的 JSON＋驗證結果）→ 前端 **持有 JSON** 預覽與修改（改過的列送無狀態的 `validate`）→ 送出套用時才寫入伺服器，工作 **重新驗證全部列** 後套用。取代 D1 的伺服器端暫存 | 格式的差異只存在於後端的讀檔器，前端只認一種 JSON，之後加格式不動前端；編輯是本機操作、沒有往返延遲；伺服器在預覽期間零狀態，沒有暫存列的清理、併發修改（`revision`）與保留期限問題。代價：預覽只在這個瀏覽器（以 IndexedDB 草稿補重新整理）；JSON 是客戶端資料，套用時必須重新驗證 |
 | D22 | `analyze` 以 multipart 直接上傳給 api、同步回應；檔案只在記憶體；解析放在 worker thread 池 | 上限是 10 MiB／5 000 列，同步回應數秒內完成，省掉「上傳到 bucket → 入列 → 推播 → 取回」的往返與原始檔的清理。這是 api 第一個 multipart 端點，例外於「上傳一律瀏覽器直傳 bucket」的慣例；CPU 密集的解析不能放在主執行緒，否則同一個程序的所有請求都會被卡住 |
 | D23 | 檔案內重複、同一個目標多次，由前端在整份 JSON 上計算；套用工作再算一次 | `validate` 只收到被改的列，看不到整份資料；這兩條規則只是正規化後的字串比對，規則的依據（唯一欄、比對鍵）來自後端的欄位定義 |
 | D24 | 預覽中的 JSON 只是 **原始字串**（`cells`），型別轉換的結果不回傳給前端 | 前後端不會對「`是` 算不算 true」「`2026/1/2` 是哪一天」各有一套判斷；前端只顯示與編輯字串 |
+
+| D25 | **套用路由不在請求當下驗證**，所以不提供原本規劃的 `DATA_TRANSFER_HAS_INVALID_ROWS`：有錯誤又沒勾選略過時，由前端擋下送出；竄改過的請求在工作的重新驗證時逐列失敗 | 「有沒有錯誤」要跑完整驗證才知道（數秒），而且工作本來就一定重新驗證；同一件事不在兩個地方判斷 |
+| D26 | **`dataTransfer.applyImport` 不設 `exclusive`** | `exclusive` 以租戶為 singleton key：同一個租戶第三個排隊的套用會被 pg-boss 丟掉。同一個傳輸只會有一個工作，開始時以條件式更新轉移狀態，不會被兩個 worker 同時處理 |
+| D27 | **稽核日誌的匯出登記在 `modules/data-transfer/resources/`**，經由 `AuditLogService` 公開的 `exportPage`／`exportCount` 讀取 | 稽核日誌是葉節點模組（全域 guard 要注入 `AuditService`），只能依賴其他葉節點，不能 import 本模組；「擁有者登記」的例外，讀取仍只經過它公開的 service |
+| D28 | **業務稽核的 `via: 'import'` 由 request context 的 `auditMetadata` 帶入**（`AuditService` 合併進每筆稽核） | 不必為每個 `*InTx` 方法加 metadata 參數；之後別的背景工作代替使用者操作時同一個機制可用 |
+| D29 | **`data_transfer_rows` 多一欄 `target_expected`**：修改模式比對當下的關聯欄（`roleIds`），套用時原樣當成 `expectedRoleIds` | 多值欄整組取代要沿用 `PUT /users/:id/roles` 的衝突檢查；前端送回的值存下來才能讓工作在重試時一致 |
+| D30 | **結果報告的「錯誤」欄寫錯誤碼與問題代碼**（例：`email: alreadyExists`），不翻譯 | 後端沒有語系檔；畫面上的結果表由前端翻譯，報告是給人修正後重新上傳的，代碼足以辨識。報告多出的「列號」「結果」「錯誤」三欄，重新上傳時自動視為唯讀欄 |
 
 ### 12.3 評估過的方案
 
@@ -1214,7 +1099,7 @@ interface ImportWorkspaceState {
   - 沒有離開頁面的保護、沒有草稿，重新整理就失去所有編輯。
   - 執行中無法取消；卸載後還繼續送請求；沒有 429 退避。
   - 上限 500 列，再多就卡住主執行緒與網路。
-- 同時保留兩條路徑（小量在前端、大量在後端）：兩套 UI 與兩份規則，不選（§11 Q1）。
+- 同時保留兩條路徑（小量在前端、大量在後端）：兩套 UI 與兩份規則，不選。
 
 **D2：小匯出同步回傳檔案**
 
@@ -1249,7 +1134,7 @@ interface ImportWorkspaceState {
 **D6：XLSX 用 SheetJS**
 
 - npm 上的版本已停止更新（新版只從官方 CDN 發佈），而且社群版的串流寫入有限。不選。
-- 實作時要再確認 `exceljs` 的維護狀態與已知問題。若有阻礙，改用 SheetJS 的官方發佈版，只換寫檔器與讀檔器的實作。
+- `exceljs` 的維護狀態見 §12.4；若有阻礙，改用 SheetJS 的官方發佈版，只換寫檔器與讀檔器的實作。
 
 **D6：SQL 匯出內部資料表**
 
@@ -1332,46 +1217,25 @@ interface ImportWorkspaceState {
 
 - 10 MiB 的 XLSX 解壓與解析可能要數秒，期間同一個程序的所有請求都會停住。不選。
 
-### 12.4 實作前要先驗證的假設
+### 12.4 實作前的假設與驗證結果
 
-| 假設 | 驗證方式 | 不成立時 |
-| --- | --- | --- |
-| `react-data-grid` 的 chunk 低於 215 KB gzip，鍵盤與螢幕閱讀器可用 | 先做 `DataGrid` 的 Storybook，跑 `bundle:check` 與 axe | 改用 D14 的備案 |
-| `exceljs` 串流讀寫 10 萬列的記憶體穩定 | 匯出工作的整合測試量記憶體峰值 | 改用 SheetJS 官方版 |
-| Node 的 `TextDecoder` 支援 `big5`（官方建置含完整 ICU） | 單元測試 | 加 `iconv-lite` |
-| api 的 HTTP 層可以只在 `analyze` 這條路由收 multipart、串流檢查大小，並只對 `POST /imports` 放寬 body 上限 | 先做這兩條路由的整合測試 | 視框架改用對應的 multipart 套件 |
-| worker thread 池在 Nest 的生命週期內可以乾淨地啟動與關閉（測試與熱重載不留下執行緒） | 整合測試的 teardown 檢查 | 改用 `piscina` 之類的現成池 |
-| 5 000 列的 `analyze` 回應（gzip 後）與前端的 reducer 在一般筆電上順暢 | 以 5 000 列 × 15 欄的檔案量測：回應時間、前端記憶體、編輯的延遲 | 前端把 `rows` 改成以 rowNo 為鍵的可變結構，減少整份複製 |
-| `UserService.create`／`update`／`replaceRoles` 可以拆出「交易內」的版本，而不改變 API 的行為 | 拆完先跑既有的使用者整合測試 | — |
-| 工作裡建立的 request context 能讓 `AuditService`、`permissionService` 取得建立者 | 整合測試檢查 `user.create` 稽核的 actor | 在 `AuditInput` 明確傳入 actor |
+| 假設 | 結果 |
+| --- | --- |
+| `react-data-grid` 的 chunk 低於 215 KB gzip，鍵盤與螢幕閱讀器可用 | 成立：7.0.0-beta.61，JS 約 23 KB gzip；`grid`／`gridcell` 角色、方向鍵與 Enter 編輯內建（[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §3） |
+| `exceljs` 串流讀寫穩定 | 匯出用 `stream.xlsx.WorkbookWriter`，分析用一般的 `Workbook.load`（上限 50 MB，在 worker thread）。注意：npm 上最新版 4.4.0 發佈於 2024-12，之後若有阻礙，依 D6 改用 SheetJS 官方版（只換寫檔器與讀檔器） |
+| Node 的 `TextDecoder` 支援 `big5` | 成立（Node 24 官方建置含完整 ICU）；不需要 `iconv-lite` |
+| 只在 `analyze` 收 multipart、只對 `POST /imports` 放寬 body 上限 | 成立：multer 以攔截器逐請求建立（上限是租戶的參數）；JSON 上限以 `registerDataTransferBodyParser` 在 Nest 預設的 parser 之前註冊（D31） |
+| worker thread 池在 Nest 的生命週期內可以乾淨地啟動與關閉 | 成立：第一次使用才建立、`onModuleDestroy` 結束；閒置的 worker `unref()`。測試直接跑原始碼時 Node 以型別剝除執行 `sheet-reader.ts` |
+| `UserService.create`／`update`／`replaceRoles` 可以拆出交易內的版本 | 成立：`createInTx`／`updateInTx`／`replaceRolesInTx` ＋ `runAfterCommit`，既有的使用者整合測試全部通過 |
+| 工作裡建立的 request context 能讓稽核取得建立者 | 成立（`DataTransferContextFactory.runAs`），整合測試檢查 `user.create` 的 actor 與 `via` |
 
 ### 12.5 實作紀錄
 
-（實作時填寫）
-
----
-
-## 13. 實作分期與驗收
-
-每一期都可以單獨合併；branch 是 `feat/data-transfer`，也可以依期拆分。
-
-| 期 | 內容 | 驗收 |
-| --- | --- | --- |
-| X1 | 後端框架：`data_transfers`、`data_transfer_rows`（租戶 migration 用下一個可用編號，撰寫時為 0045）、`DataTransferRegistry`、`ObjectStorage.uploadPart`、清理工作、權限、feature 與參數、錯誤碼、通知類型、`ChangeSource` | 整合測試：建立與取消傳輸、只能看到自己的、過期清理 |
-| X2 | 匯出：CSV、XLSX、SQL 寫檔器；使用者與稽核日誌的 exporter；下載端點 | 單元測試：三種格式的跳脫與型別（含公式注入、引號、換行、NULL、多值）。整合測試：勾選與篩選範圍、權限過濾、上限、下載重新檢查權限 |
-| X3 | 前端匯出：`ExportDialog`、`downloadFromUrl`、`BatchBar` 的 `run` 動作、使用者與稽核日誌的入口、「我的匯入匯出」頁 | 元件測試：三個權限案例。E2E：匯出 CSV 並檢查下載的內容 |
-| X4 | 匯入後端：`analyze`（multipart、worker thread、CSV 編碼、XLSX、標頭對應）、`validate`、`POST /imports`（套用列寫入＋工作的重新驗證與套用，新增模式）、套用列與結果報告；`UserService` 拆出交易內的版本 | 單元測試：讀檔器（BOM、Big5、分隔字元、XLSX 日期與公式）。整合測試：每種問題代碼至少一例；送出竄改過的 JSON 時工作的重新驗證會擋下；套用中途讓工作失敗後重試，確認不重複建立；version 衝突；反提權；分析時 event loop 不被卡住（同時打一支輕量 API 量延遲） |
-| X5 | `DataGrid`（ui）、`ImportWorkspace`（reducer、草稿、離開頁面的保護）與匯入頁（新增模式） | reducer 的單元測試（編輯、貼上、復原、檔案內重複、過時的驗證結果被丟棄）；Storybook 互動測試：鍵盤、貼上、復原。E2E：上傳有錯誤的檔案 → 在表格修正 → 重新整理後從草稿接續 → 套用 → 結果報告 |
-| X6 | 修改模式：比對、快照、差異顯示、重新比對、多值整組取代、狀態轉移 | 整合測試：空白不變更、`\N` 清空、無變更略過、預覽後被修改。E2E：匯出 → 修改 → 匯回 |
-| X7 | 歸檔（§14） | `grep -rn "features/import-export.md" docs CLAUDE.md` 為空 |
-
----
-
-## 14. 歸檔去向
-
-- `docs/architecture/backend/22-data-transfer.md`：模組、資料表、API、工作、上限，**設計決策** 放這份的最後一章。
-- `docs/architecture/frontend/20-data-transfer.md`：`ExportDialog`、`ImportWorkspace`、匯入頁的步驟、「我的匯入匯出」。
-- `docs/architecture/frontend/07-ui-system.md`：新增 `DataGrid` 一節；§13.7 的「改走匯入匯出框架」改成指向正式文件。
-- `docs/architecture/backend/03-api-conventions.md` §10：補上 D18 的例外說明。
-- `docs/architecture/backend/09-file.md`：`ObjectStorage.uploadPart`、`transfers/` 前綴不由 `file.maintenance` 管理。
-- 權限目錄（`iam/02-permission-catalog.md`）、`overview/01-overview.md` 的範圍表、`overview/03-roadmap.md`、`CLAUDE.md` 的文件索引。
+- **D31：套用路由的 JSON 上限。** Nest 以函式名稱 `jsonParser` 判斷 JSON parser 是否已經註冊；直接 `app.use(path, json())` 會讓它略過全域的 parser，
+  所以包一層匿名函式。上限是參數最大值（50 MB）× 2，租戶的實際上限由 service 依 `Content-Length` 檢查。nginx 另有 `/api/data-transfers/` 的 location（`client_max_body_size 101m`、`proxy_read_timeout 120s`）。
+- **匯出檔的列序與註解。** SQL 檔的筆數寫在檔尾的註解（`-- N rows`）：寫檔時才知道實際筆數。
+- **範本。** XLSX 範本多一個「欄位說明」工作表（欄位、必填、格式、選項、說明）。
+- **XLSX 的日期時間。** 讀檔時沒有時差的牆上時間轉成 `YYYY-MM-DDTHH:mm:ss`，由驗證器以建立者的時區解讀；匯出時以匯出者時區的牆上時間寫入。
+- **新的問題代碼。** 數字欄的範圍用 `tooSmall`／`tooLarge`（字串是 `tooShort`／`tooLong`）。
+- **稽核日誌的筆數。** `exportCount` 最多數到「上限 ＋ 1」，超過上限時不必數完。
+- **前端的實作差異** 見 [`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §7。

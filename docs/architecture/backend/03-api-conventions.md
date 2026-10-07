@@ -524,6 +524,9 @@ async login(...) {}
 `<RESOURCE>_VERSION_CONFLICT` 逐筆失敗、列在結果對話框（[`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13.6），不會蓋掉別人的變更。
 `version` 必填：批次拿不到列的版本時那一筆失敗，不改成先讀最新的版本（那等於後寫者勝）。
 
+例外：匯入／匯出（`/data-transfers`，[`22-data-transfer.md`](22-data-transfer.md) §12 D18）不是這裡禁止的「同步一次改多筆」的批次端點，
+而是非同步的傳輸資源——每列仍走單筆的 service 與稽核，執行是可觀察、可取消的背景工作。
+
 ---
 
 ## 11. 樂觀鎖（`version`）

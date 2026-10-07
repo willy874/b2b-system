@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 56 項）
+## 2. 權限清單（共 58 項）
 
 ### 2.1 `user` — 使用者
 
@@ -42,6 +42,7 @@
 | `user:assignRole`    | 指派角色          | 增減使用者持有的角色。**受反提權限制** |
 | `user:resetPassword` | 重設密碼          | 代使用者觸發密碼重設流程               |
 | `user:resetMfa`      | 重設 MFA          | 刪除別人的所有驗證方式與備用碼、結束他的 session（[`backend/21-mfa.md`](../backend/21-mfa.md) §8）。獨立授予：`user:update` 不包含它 |
+| `user:export`        | 匯出使用者        | 把使用者整批匯出成 CSV／XLSX／SQL（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §9.1）。能逐頁看不代表能整批帶走，所以獨立授予；匯入沿用 `user:create`／`user:update` |
 
 ### 2.2 `role` — 角色
 
@@ -64,6 +65,7 @@
 | 權限鍵          | 顯示名稱（zh-TW） | 說明               |
 | --------------- | ----------------- | ------------------ |
 | `auditLog:read` | 檢視稽核日誌      | 稽核日誌列表與篩選 |
+| `auditLog:export` | 匯出稽核日誌    | 把稽核日誌整批匯出（一次最多 366 天，[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §6.2） |
 
 ### 2.5 `system` — 系統
 
@@ -233,10 +235,10 @@
 
 | resource \ action | create | read | update | delete | 具名動作                      |
 | ----------------- | :----: | :--: | :----: | :----: | ----------------------------- |
-| `user`            |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`, `resetPassword`, `resetMfa` |
+| `user`            |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`, `resetPassword`, `resetMfa`, `export` |
 | `role`            |   ✓    |  ✓   |   ✓    |   ✓    | `grantPermission`             |
 | `permission`      |   —    |  ✓   |   —    |   —    | —                             |
-| `auditLog`        |   —    |  ✓   |   —    |   —    | —                             |
+| `auditLog`        |   —    |  ✓   |   —    |   —    | `export`                      |
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
 | `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
 | `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
@@ -264,6 +266,7 @@
 | `user:assignRole`      |      ✓*       |    ✓    |           |          |
 | `user:resetPassword`   |      ✓*       |    ✓    |           |          |
 | `user:resetMfa`        |      ✓*       |    ✓    |           |          |
+| `user:export`          |      ✓*       |    ✓    |           |          |
 | `role:create`          |      ✓*       |    ✓    |           |          |
 | `role:read`            |      ✓*       |    ✓    |     ✓     |          |
 | `role:update`          |      ✓*       |    ✓    |           |          |
@@ -271,6 +274,7 @@
 | `role:grantPermission` |      ✓*       |    ✓    |           |          |
 | `permission:read`      |      ✓*       |    ✓    |     ✓     |          |
 | `auditLog:read`        |      ✓*       |    ✓    |     ✓     |          |
+| `auditLog:export`      |      ✓*       |    ✓    |     ✓     |          |
 | `system:read`          |      ✓*       |    ✓    |     ✓     |          |
 | `system:update`        |      ✓*       |         |           |          |
 | `approval:read`        |      ✓*       |    ✓    |     ✓     |          |
@@ -333,8 +337,10 @@
 | 個人資料     | `/profile`（含個人存取 token） | `PROFILE`   | 無                               | —     |
 | 偏好設定     | `/preference`              | `PREFERENCE`    | 無                               | —     |
 | 通知         | `/notification`（`?filter=unread`） | `NOTIFICATION` | 無（只看得到自己的；[`frontend/15-notification.md`](../frontend/15-notification.md) §4） | — |
+| 我的匯入匯出 | `/data-transfer`（`?transfer=<id>`） | `DATA_TRANSFER` | 無（只看得到自己建立的；下載當下另看該資源的匯出權限，[`frontend/21-data-transfer.md`](../frontend/21-data-transfer.md)） | — |
 | 使用者列表   | `/user`                    | `USER`          | `user:read`                      | EVERY |
 | 建立使用者   | `/user/create`             | `USER_CREATE`   | `user:read` ＋ `user:create`     | EVERY |
+| 匯入使用者   | `/user/import`（`?mode=create\|update`；頁內依權限決定可以切換的模式，新增模式要 `user:create`） | `USER_IMPORT` | `user:read` ＋ `user:update` | EVERY |
 | 角色列表     | `/role`                    | `ROLE`          | `role:read`                      | EVERY |
 | 建立角色     | `/role/create`             | `ROLE_CREATE`   | `role:read` ＋ `role:create`     | EVERY |
 | 角色權限管理 | `/role/$roleId/permission` | （沿用 `ROLE`） | `role:read` ＋ `permission:read` | EVERY |
@@ -530,6 +536,8 @@ Seed 行為：
 | `user:resetPassword` | `user:read` | |
 | `user:resetMfa` | `user:read` | |
 | `user:assignRole` | `user:read` | `role:read` |
+| `user:export` | `user:read` | |
+| `auditLog:export` | `auditLog:read` | |
 | `role:create` | `role:update` | |
 | `role:delete` | `role:update` | |
 | `role:update` | `role:read` | |

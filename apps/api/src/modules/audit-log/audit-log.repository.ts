@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, like, lte, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database } from '@/core/database';
@@ -46,6 +46,19 @@ function fullColumns(table: AuditLogTable) {
   return { ...summaryColumns(table), changes: table.changes, metadata: table.metadata };
 }
 
+/** 匯出：完整欄位加上給 keyset 用的微秒時間。 */
+function exportColumns(table: AuditLogTable) {
+  return { ...fullColumns(table), occurredAtExact: listColumns(table).occurredAtExact };
+}
+
+/** 匯出的一列：完整欄位（含 changes、metadata）與給 keyset 用的微秒時間。 */
+export type AuditLogExportRow = AuditLogRow & { occurredAtExact: string };
+
+/** 匯出的範圍：篩選條件（含時間範圍），或勾選的 id（docs/architecture/backend/22-data-transfer.md §6.1）。 */
+export type AuditLogExportScope =
+  | { filter: Omit<ListAuditLogDto, 'offset' | 'limit' | 'cursor'>; range: AuditLogRange }
+  | { ids: readonly bigint[] };
+
 @Injectable()
 export class AuditLogRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
@@ -76,6 +89,67 @@ export class AuditLogRepository {
       );
     }
     return and(...conditions);
+  }
+
+  private exportWhere(table: AuditLogTable, scope: AuditLogExportScope, cursor?: AuditLogCursor) {
+    if ('ids' in scope) {
+      const conditions: SQL[] = [inArray(table.id, [...scope.ids])];
+      if (cursor) {
+        conditions.push(
+          sql`(${table.occurredAt}, ${table.id}) < (${cursor.occurredAt}::timestamptz, ${cursor.id}::bigint)`,
+        );
+      }
+      return and(...conditions);
+    }
+    return this.buildFilters(table, scope.filter as ListAuditLogDto, scope.range, cursor);
+  }
+
+  /**
+   * 匯出的一頁：沿用列表的 keyset（`occurred_at DESC, id DESC`），熱表與冷表一起讀（§6.2）。勾選的 id 不限時間範圍，
+   * 所以一律兩表都讀。
+   */
+  async exportPage(
+    scope: AuditLogExportScope,
+    cursor: AuditLogCursor | undefined,
+    limit: number,
+  ): Promise<AuditLogExportRow[]> {
+    const hot = this.db
+      .select(exportColumns(auditLogs))
+      .from(auditLogs)
+      .where(this.exportWhere(auditLogs, scope, cursor));
+    const readsArchive = 'ids' in scope || (await this.archiveReaches(scope.range.from));
+    const query = readsArchive
+      ? hot.unionAll(
+          this.db
+            .select(exportColumns(auditLogsArchive))
+            .from(auditLogsArchive)
+            .where(this.exportWhere(auditLogsArchive, scope, cursor)),
+        )
+      : hot;
+    const rows = await query.orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id)).limit(limit);
+    return rows as AuditLogExportRow[];
+  }
+
+  /** 匯出的筆數，最多數到 `cap`（只掃過那麼多列就停）。 */
+  async exportCount(scope: AuditLogExportScope, cap: number): Promise<number> {
+    const countOf = (table: AuditLogTable) => {
+      const capped = this.db
+        .select({ one: sql`1`.as('one') })
+        .from(table)
+        .where(this.exportWhere(table, scope))
+        .limit(cap)
+        .as('capped');
+      return this.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(capped)
+        .then(([row]) => row?.total ?? 0);
+    };
+    const readsArchive = 'ids' in scope || (await this.archiveReaches(scope.range.from));
+    const [hot, cold] = await Promise.all([
+      countOf(auditLogs),
+      readsArchive ? countOf(auditLogsArchive) : Promise.resolve(0),
+    ]);
+    return Math.min(hot + cold, cap);
   }
 
   /** 最多數到 `AUDIT_LOG_COUNT_CAP`：只掃過那麼多列就停。 */

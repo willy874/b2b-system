@@ -143,6 +143,17 @@ export abstract class ObjectStorage {
   ): Promise<PresignedRequest>;
 
   /**
+   * api 自己上傳第 `partNumber` 塊（伺服器端的串流寫檔，例：匯出檔；docs/architecture/backend/22-data-transfer.md §12 D6），回傳 ETag。
+   * 除了最後一塊，每塊至少 5 MiB（S3 的限制）。
+   */
+  abstract uploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    body: Buffer,
+  ): Promise<string>;
+
+  /**
    * 組合各塊成為一個物件。塊不存在、ETag 不符、順序錯誤、非最後一塊太小、uploadId 不存在時
    * 拋 `FILE_UPLOAD_INCOMPLETE`（前端重新上傳）；其他失敗拋 `FILE_STORAGE_UNAVAILABLE`。
    */

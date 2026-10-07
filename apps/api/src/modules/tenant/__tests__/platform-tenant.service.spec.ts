@@ -425,6 +425,9 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       'job.maxConcurrency',
       'identityProvider.maxProviders',
       'webhook.maxUrls',
+      'dataTransfer.importMaxRows',
+      'dataTransfer.importMaxSizeMb',
+      'dataTransfer.exportMaxRows',
       'rateLimit.authPerMinute',
       'rateLimit.trustedCidrs',
     ]);

@@ -104,6 +104,18 @@ export interface FailedLoginResult {
   lockedUntil: Date | null;
 }
 
+/** 列表與匯出共用的篩選條件（列表的 query 去掉分頁與排序）。 */
+export type UserFilter = Pick<ListUserDto, 'keyword' | 'status' | 'roleId' | 'mfa' | 'tagId'>;
+
+/** 匯出的範圍：勾選的 id，或列表的篩選條件（docs/architecture/backend/22-data-transfer.md §6.1）。 */
+export type UserExportScope = { ids: readonly string[] } | { filter: UserFilter };
+
+/** 匯出的 keyset：`(created_at, id)`，排序固定，匯出途中有資料新增也不會跳過或重複（§6.2）。 */
+export interface UserExportCursor {
+  createdAt: Date;
+  id: string;
+}
+
 /** 這位使用者持有角色的邊。 */
 function heldBy(userId: string): SQL | undefined {
   return and(isRoleHolderTuple(), eq(relationTuples.subjectId, userId));
@@ -143,7 +155,7 @@ export class UserRepository {
     return row ? { ...row.user, roles: row.roles } : undefined;
   }
 
-  private buildFilters(query: ListUserDto): SQL | undefined {
+  private buildFilters(query: UserFilter): SQL | undefined {
     // 服務帳號有自己的列表（modules/service-account）
     const conditions: SQL[] = [notDeleted(users), isHumanUser()];
     if (query.keyword) {
@@ -214,6 +226,124 @@ export class UserRepository {
       items: rows.map((row) => ({ ...row.user, roles: row.roles })),
       total: counted?.total ?? 0,
     };
+  }
+
+  private exportWhere(scope: UserExportScope): SQL | undefined {
+    if ('ids' in scope) {
+      return and(notDeleted(users), isHumanUser(), inArray(users.id, [...scope.ids]));
+    }
+    return this.buildFilters(scope.filter);
+  }
+
+  /** 匯出的一頁（含持有的角色），依 `(created_at, id)` 遞增。 */
+  async exportPage(
+    scope: UserExportScope,
+    after: UserExportCursor | null,
+    limit: number,
+  ): Promise<UserWithRoles[]> {
+    const where = and(
+      this.exportWhere(scope),
+      after
+        ? sql`(${users.createdAt}, ${users.id}) > (${after.createdAt.toISOString()}::timestamptz, ${after.id}::uuid)`
+        : undefined,
+    );
+    const page = this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(where)
+      .orderBy(asc(users.createdAt), asc(users.id))
+      .limit(limit)
+      .as('page');
+    const rows = await this.db
+      .select({ user: users, roles: ROLE_AGGREGATE })
+      .from(page)
+      .innerJoin(users, eq(users.id, page.id))
+      .leftJoin(relationTuples, HELD_BY_USER)
+      .leftJoin(roles, HELD_ROLE)
+      .groupBy(users.id)
+      .orderBy(asc(users.createdAt), asc(users.id));
+    return rows.map((row) => ({ ...row.user, roles: row.roles }));
+  }
+
+  async exportCount(scope: UserExportScope): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(users)
+      .where(this.exportWhere(scope));
+    return row?.total ?? 0;
+  }
+
+  /**
+   * 匯入：已經被使用的 email 或 username（小寫）。唯一索引只看未刪除的列、而且涵蓋服務帳號，這裡同樣的範圍。
+   */
+  async findTakenValues(
+    column: 'email' | 'username',
+    values: readonly string[],
+  ): Promise<Set<string>> {
+    if (!values.length) return new Set();
+    const target = column === 'email' ? users.email : users.username;
+    const rows = await this.db
+      .select({ value: sql<string>`lower(${target}::text)` })
+      .from(users)
+      .where(
+        and(
+          notDeleted(users),
+          sql`lower(${target}::text) IN ${values.map((value) => value.toLowerCase())}`,
+        ),
+      );
+    return new Set(rows.map((row) => row.value));
+  }
+
+  /** 匯入的修改模式：以 id 或 email（不分大小寫）找使用者，含持有的角色。 */
+  async findForImport(column: 'id' | 'email', values: readonly string[]): Promise<UserWithRoles[]> {
+    if (!values.length) return [];
+    const match =
+      column === 'id'
+        ? inArray(users.id, [...values])
+        : sql`lower(${users.email}::text) IN ${values.map((value) => value.toLowerCase())}`;
+    const rows = await this.db
+      .select({ user: users, roles: ROLE_AGGREGATE })
+      .from(users)
+      .leftJoin(relationTuples, HELD_BY_USER)
+      .leftJoin(roles, HELD_ROLE)
+      .where(and(match, notDeleted(users), isHumanUser()))
+      .groupBy(users.id);
+    return rows.map((row) => ({ ...row.user, roles: row.roles }));
+  }
+
+  /** 匯入的角色欄：以名稱、代碼（slug）或 id 找未刪除的角色（不分大小寫）。 */
+  async findActiveRolesByNames(names: readonly string[]): Promise<RoleRow[]> {
+    if (!names.length) return [];
+    const lowered = names.map((name) => name.toLowerCase());
+    return this.db
+      .select()
+      .from(roles)
+      .where(
+        and(
+          isActiveRole(),
+          or(
+            sql`lower(${roles.name}) IN ${lowered}`,
+            sql`lower(${roles.slug}) IN ${lowered}`,
+            sql`${roles.id}::text IN ${lowered}`,
+          ),
+        ),
+      );
+  }
+
+  /** 匯入預覽的角色下拉選單。 */
+  async searchActiveRoles(keyword: string, limit: number): Promise<RoleRow[]> {
+    const conditions = [isActiveRole()];
+    if (keyword) {
+      const pattern = containsPattern(keyword);
+      const matched = or(ilike(roles.name, pattern), ilike(roles.slug, pattern));
+      if (matched) conditions.push(matched);
+    }
+    return this.db
+      .select()
+      .from(roles)
+      .where(and(...conditions))
+      .orderBy(asc(roles.name))
+      .limit(limit);
   }
 
   async create(values: UserInsert, tx?: DbOrTx): Promise<UserRow> {

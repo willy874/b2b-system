@@ -96,6 +96,9 @@ Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_d
 | `api_mfa_verifications_total` | counter | `method`、`purpose`（`login`／`enroll`）、`result`（`ok`／`invalid`／`expired`／`replayed`） | MFA 驗證碼與備用碼的驗證（[`backend/21-mfa.md`](./backend/21-mfa.md) §12） | `MfaService` |
 | `api_mfa_challenges_sent_total` | counter | `method` | 寄出的驗證碼（Email） | `EmailMfaMethod` 的寄信工作 |
 | `api_mfa_email_delivery_seconds` | histogram | — | Email 驗證碼從入列到寄出的秒數（告警 `MfaEmailCodeSlow`） | 同上 |
+| `api_data_transfer_rows_total` | counter | `direction`、`type`、`result`（`succeeded`／`failed`／`skipped`） | 匯入匯出處理的列數（[`backend/22-data-transfer.md`](./backend/22-data-transfer.md) §9.6） | 匯出與套用工作 |
+| `api_data_transfer_bytes_total` | counter | `direction`、`format` | 匯出寫出、分析讀進的位元組數 | 同上、`analyze` |
+| `api_data_transfer_parse_duration_seconds` | histogram | `format` | 分析時在 worker thread 解析檔案的秒數 | `ParsePool` |
 
 `route` 是 Express 對到的路由樣板（`/users/:id`），掛在前綴下的子應用程式（OIDC Provider）只取掛載點（`/oidc`）；沒有對到 controller 的請求是 `unmatched`
 （`forRoutes('*')` 的中介軟體留下的 `{/*splat}` 也算），中介軟體直接回應的是 `other`。客戶端在回應前斷線記成 `499`。實作在 `core/metrics/route-label.ts`，

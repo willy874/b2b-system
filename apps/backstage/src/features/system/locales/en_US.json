@@ -7,7 +7,8 @@
       "file": "Files",
       "trash": "Trash",
       "revision": "Version history",
-      "notification": "Notifications"
+      "notification": "Notifications",
+      "dataTransfer": "Import / export"
     },
     "field": {
       "defaultTimezone": {
@@ -77,6 +78,10 @@
       "announcementDispatchRetentionDays": {
         "label": "Announcement send history retention",
         "description": "Finished sends older than this are deleted by the daily job; recipients can no longer open the full text from old notifications."
+      },
+      "dataTransferRetentionDays": {
+        "label": "Keep exports and import results for",
+        "description": "How long exported files and per-row import results are kept after completion (1–30 days). Summaries are kept for 90 days."
       }
     },
     "unit": {

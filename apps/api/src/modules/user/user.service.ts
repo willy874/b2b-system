@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
 import { UserCacheService } from '@/core/cache';
-import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
 import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -99,6 +99,18 @@ function sameIds(roles: readonly Pick<UserRoleSummary, 'id'>[], ids: readonly st
   return roles.length === expected.size && roles.every((role) => expected.has(role.id));
 }
 
+/** 使用者寫入在交易提交後要做的事（`runAfterCommit`）。 */
+export interface UserAfterCommit {
+  /** 帳號狀態變了：使用者快取與權限快取失效。 */
+  invalidateAccount?: string;
+  /** 關係圖變了：整個租戶的權限失效（規則 7）。 */
+  permissionsChanged?: readonly string[];
+  /** 停用：踢掉這些人的連線。 */
+  sessionsRevoked?: readonly string[];
+  changes: ResourceChangeWire[];
+  affectedUserIds?: readonly string[];
+}
+
 /** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
 const USER_LOCK_CODES = {
   notFound: 'USER_NOT_FOUND',
@@ -159,30 +171,65 @@ export class UserService {
   }
 
   async create(dto: CreateUserDto, actor: AuthUser): Promise<UserDto> {
+    const { user, after } = await withTransaction(this.db, (tx) => this.createInTx(dto, actor, tx));
+    await this.runAfterCommit(after);
+    return toDto(user, await this.repo.listRoles(user.id), []);
+  }
+
+  /**
+   * 建立的業務規則與寫入，在呼叫端的交易內（API 與匯入共用，docs/architecture/backend/22-data-transfer.md §7.4）。
+   * 交易提交後要做的事（權限失效、推播）放在 `after`，由呼叫端執行：API 立即執行，匯入由框架合併後執行。
+   */
+  async createInTx(
+    dto: CreateUserDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ user: UserRow; after: UserAfterCommit }> {
     await this.accounts.assertCreatable(dto.email, dto.roleIds, actor);
-
-    const created = await withTransaction(this.db, async (tx) => {
-      const account = await this.accounts.createAccount(
-        {
-          email: dto.email,
-          username: dto.username ?? null,
-          displayName: dto.displayName,
-          status: 'pending', // 不接受 password：一律走啟用信流程
-          roleIds: dto.roleIds,
-        },
-        actor,
-        tx,
-      );
-      // 與帳號同生共死：建立失敗就不會寄出啟用信（docs/architecture/backend/11-mail.md §4）
-      await this.jobs.enqueue(ACTIVATION_MAIL_JOB, { userId: account.id }, { tx });
-      return account;
-    });
-
-    await this.accounts.publishCreated(created.id, dto.roleIds);
-    return toDto(created, await this.repo.listRoles(created.id), []);
+    const account = await this.accounts.createAccount(
+      {
+        email: dto.email,
+        username: dto.username ?? null,
+        displayName: dto.displayName,
+        status: 'pending', // 不接受 password：一律走啟用信流程
+        roleIds: dto.roleIds,
+      },
+      actor,
+      tx,
+    );
+    // 與帳號同生共死：建立失敗就不會寄出啟用信（docs/architecture/backend/11-mail.md §4）
+    await this.jobs.enqueue(ACTIVATION_MAIL_JOB, { userId: account.id }, { tx });
+    return {
+      user: account,
+      after: {
+        permissionsChanged: dto.roleIds.length ? [account.id] : undefined,
+        changes: [
+          {
+            resource: ChangeSource.USER,
+            kind: ChangeKind.CREATE,
+            id: account.id,
+            refs: { [ChangeSource.ROLE]: [...dto.roleIds] },
+          },
+        ],
+      },
+    };
   }
 
   async update(id: string, dto: UpdateUserDto, actor: AuthUser): Promise<UserDto> {
+    const { user, after } = await withTransaction(this.db, (tx) =>
+      this.updateInTx(id, dto, actor, tx),
+    );
+    await this.runAfterCommit(after);
+    return toDto(user, await this.repo.listRoles(id), await this.tagsFor(id));
+  }
+
+  /** 編輯的業務規則與寫入，在呼叫端的交易內（與 `createInTx` 同一個做法）。 */
+  async updateInTx(
+    id: string,
+    dto: UpdateUserDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ user: UserRow; after: UserAfterCommit }> {
     const { version, ...fields } = dto;
     const user = await this.getExisting(id);
     // 讀到時就不同：別人已經改過，不必再做後面的檢查（docs/architecture/backend/14-revisions.md §9.2 D3）
@@ -209,56 +256,49 @@ export class UserService {
     const changes = diff(user, dto, [...USER_AUDIT_FIELDS]);
     const deactivating = dto.status !== undefined && dto.status !== 'active';
 
-    const updated = await withTransaction(this.db, async (tx) => {
-      if (statusChanging && deactivating) await this.assertNotLastSuperAdmin(id, tx);
-      // 還沒啟用就停用：一併清掉註冊申請時存的密碼。否則之後改回 active，申請人不必收信就能以那組密碼登入；
-      // 清掉之後只能經「重設密碼」設定，仍要證明擁有這個 email
-      const discardPassword = statusChanging && user.status === 'pending';
-      const next = await this.repo.update(
-        id,
-        { ...fields, ...(discardPassword ? { passwordHash: null } : {}), updatedBy: actor.id },
-        tx,
-        { expectedVersion: version, bumpVersion: true },
-      );
-      // 讀到之後、寫入之前被別人改過（版本變了）或刪除
-      if (!next) throw await missedUpdate(() => this.repo.findVersion(id, tx), USER_LOCK_CODES);
+    if (statusChanging && deactivating) await this.assertNotLastSuperAdmin(id, tx);
+    // 還沒啟用就停用：一併清掉註冊申請時存的密碼。否則之後改回 active，申請人不必收信就能以那組密碼登入；
+    // 清掉之後只能經「重設密碼」設定，仍要證明擁有這個 email
+    const discardPassword = statusChanging && user.status === 'pending';
+    const next = await this.repo.update(
+      id,
+      { ...fields, ...(discardPassword ? { passwordHash: null } : {}), updatedBy: actor.id },
+      tx,
+      { expectedVersion: version, bumpVersion: true },
+    );
+    // 讀到之後、寫入之前被別人改過（版本變了）或刪除
+    if (!next) throw await missedUpdate(() => this.repo.findVersion(id, tx), USER_LOCK_CODES);
 
-      if (deactivating) {
-        // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
-        // 否則還沒啟用的人可以用啟用信把自己改回 active
-        await this.repo.incrementTokenVersion(id, tx);
-        await this.refreshTokens.revokeAllForUser(id, 'user_disabled', tx);
-        await this.authTokens.revokeUnused(id, tx);
-      }
-
-      await this.audit.record(
-        {
-          action: 'user.update',
-          resourceType: 'user',
-          resourceId: id,
-          resourceName: next.email,
-          changes,
-        },
-        tx,
-      );
-      if (statusChanging) await this.accounts.emitStatusChanged(id, next.status, user.status, tx);
-      return next;
-    });
-
-    this.invalidateAccount(id);
-
-    const roles = await this.repo.listRoles(id);
     if (deactivating) {
-      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
-        userIds: [id],
-        reason: SessionRevokedReason.ACCOUNT_DISABLED,
-      });
+      // 停用：撤銷所有 refresh token 並讓既存 access token 失效；已寄出的啟用／重設連結一併作廢，
+      // 否則還沒啟用的人可以用啟用信把自己改回 active
+      await this.repo.incrementTokenVersion(id, tx);
+      await this.refreshTokens.revokeAllForUser(id, 'user_disabled', tx);
+      await this.authTokens.revokeUnused(id, tx);
     }
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [userUpdated(id, roles)],
-      affectedUserIds: [id],
-    });
-    return toDto(updated, roles, await this.tagsFor(id));
+
+    await this.audit.record(
+      {
+        action: 'user.update',
+        resourceType: 'user',
+        resourceId: id,
+        resourceName: next.email,
+        changes,
+      },
+      tx,
+    );
+    if (statusChanging) await this.accounts.emitStatusChanged(id, next.status, user.status, tx);
+
+    const roles = await this.repo.listRoles(id, tx);
+    return {
+      user: next,
+      after: {
+        invalidateAccount: id,
+        sessionsRevoked: deactivating ? [id] : undefined,
+        changes: [userUpdated(id, roles)],
+        affectedUserIds: [id],
+      },
+    };
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
@@ -366,6 +406,20 @@ export class UserService {
     dto: ReplaceUserRolesDto,
     actor: AuthUser,
   ): Promise<{ roles: UserRoleSummary[] }> {
+    const { after } = await withTransaction(this.db, (tx) =>
+      this.replaceRolesInTx(id, dto, actor, tx),
+    );
+    await this.runAfterCommit(after);
+    return { roles: await this.repo.listRoles(id) };
+  }
+
+  /** 整批取代角色的業務規則與寫入，在呼叫端的交易內（與 `createInTx` 同一個做法）。 */
+  async replaceRolesInTx(
+    id: string,
+    dto: ReplaceUserRolesDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ before: UserRoleSummary[]; after: UserAfterCommit }> {
     const user = await this.getExisting(id);
     this.assertNotSelf(actor.id, id);
     await this.assertCanManage(actor, id);
@@ -373,77 +427,99 @@ export class UserService {
     await this.accounts.assertRolesExist(dto.roleIds);
     const roles = await this.repo.findActiveRolesByIds(dto.roleIds);
 
-    const before = await withTransaction(this.db, async (tx) => {
-      // 同一個人的並行指派依序執行；`current` 在鎖內讀，稽核與衝突判斷才是真正被取代的那一份
-      await this.repo.lockForUpdate(id, tx);
-      const current = await this.repo.listRoles(id, tx);
-      if (!sameIds(current, dto.expectedRoleIds)) {
-        // 送出的草稿是以舊的角色為基礎：別人剛改過，整批取代會把那次變更蓋掉
-        throw new AppException('USER_ROLES_CONFLICT', {
-          currentRoleIds: current.map((role) => role.id),
-        });
-      }
-      const losingSuperAdmin =
-        current.some((role) => role.slug === SUPER_ADMIN_SLUG) &&
-        !roles.some((role) => role.slug === SUPER_ADMIN_SLUG);
-      if (losingSuperAdmin) await this.assertNotLastSuperAdmin(id, tx);
+    // 同一個人的並行指派依序執行；`current` 在鎖內讀，稽核與衝突判斷才是真正被取代的那一份
+    await this.repo.lockForUpdate(id, tx);
+    const current = await this.repo.listRoles(id, tx);
+    if (!sameIds(current, dto.expectedRoleIds)) {
+      // 送出的草稿是以舊的角色為基礎：別人剛改過，整批取代會把那次變更蓋掉
+      throw new AppException('USER_ROLES_CONFLICT', {
+        currentRoleIds: current.map((role) => role.id),
+      });
+    }
+    const losingSuperAdmin =
+      current.some((role) => role.slug === SUPER_ADMIN_SLUG) &&
+      !roles.some((role) => role.slug === SUPER_ADMIN_SLUG);
+    if (losingSuperAdmin) await this.assertNotLastSuperAdmin(id, tx);
 
-      await this.repo.replaceRoles(id, dto.roleIds, actor.id, tx);
-      await this.audit.record(
-        {
-          action: 'user.assignRole',
-          resourceType: 'user',
-          resourceId: id,
-          resourceName: user.email,
-          changes: {
-            before: { roles: current.map((role) => role.slug) },
-            after: { roles: roles.map((role) => role.slug) },
-          },
+    await this.repo.replaceRoles(id, dto.roleIds, actor.id, tx);
+    await this.audit.record(
+      {
+        action: 'user.assignRole',
+        resourceType: 'user',
+        resourceId: id,
+        resourceName: user.email,
+        changes: {
+          before: { roles: current.map((role) => role.slug) },
+          after: { roles: roles.map((role) => role.slug) },
         },
+      },
+      tx,
+    );
+    // 通知被改的那個人（docs/architecture/backend/15-notification.md §12.2 D11）；沒有實際增減（例：只是重送同一組）就不通知
+    const currentIds = new Set(current.map((role) => role.id));
+    const nextIds = new Set(roles.map((role) => role.id));
+    const added = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.name);
+    const removed = current.filter((role) => !nextIds.has(role.id)).map((role) => role.name);
+    const addedRoleIds = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.id);
+    if (addedRoleIds.length) {
+      await this.announcementTriggers.fire(
+        USER_ROLE_ASSIGNED_TRIGGER,
+        { userIds: [id], roleIds: addedRoleIds },
         tx,
       );
-      // 通知被改的那個人（docs/architecture/backend/15-notification.md §12.2 D11）；沒有實際增減（例：只是重送同一組）就不通知
-      const currentIds = new Set(current.map((role) => role.id));
-      const nextIds = new Set(roles.map((role) => role.id));
-      const added = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.name);
-      const removed = current.filter((role) => !nextIds.has(role.id)).map((role) => role.name);
-      const addedRoleIds = roles.filter((role) => !currentIds.has(role.id)).map((role) => role.id);
-      if (addedRoleIds.length) {
-        await this.announcementTriggers.fire(
-          USER_ROLE_ASSIGNED_TRIGGER,
-          { userIds: [id], roleIds: addedRoleIds },
-          tx,
-        );
-      }
-      if (added.length || removed.length) {
-        await this.notifications.notify(
-          notification(USER_ROLES_CHANGED_NOTIFICATION, {
-            recipientId: id,
-            actorId: actor.id,
-            params: { added, removed },
-            link: ACCOUNT_PROFILE_LINK,
-          }),
-          tx,
-        );
-      }
-      return current;
-    });
+    }
+    if (added.length || removed.length) {
+      await this.notifications.notify(
+        notification(USER_ROLES_CHANGED_NOTIFICATION, {
+          recipientId: id,
+          actorId: actor.id,
+          params: { added, removed },
+          link: ACCOUNT_PROFILE_LINK,
+        }),
+        tx,
+      );
+    }
 
-    await this.permissionService.permissionsChanged([id]);
     // 新舊角色都要通知：兩邊的 userCount 與持有者清單都變了
-    const roleIds = [...new Set([...before.map((role) => role.id), ...dto.roleIds])];
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [
-        {
-          resource: ChangeSource.USER_ROLE,
-          kind: ChangeKind.UPDATE,
-          id,
-          refs: { [ChangeSource.ROLE]: roleIds },
-        },
-      ],
-      affectedUserIds: [id],
-    });
-    return { roles: await this.repo.listRoles(id) };
+    const roleIds = [...new Set([...current.map((role) => role.id), ...dto.roleIds])];
+    return {
+      before: current,
+      after: {
+        permissionsChanged: [id],
+        changes: [
+          {
+            resource: ChangeSource.USER_ROLE,
+            kind: ChangeKind.UPDATE,
+            id,
+            refs: { [ChangeSource.ROLE]: roleIds },
+          },
+        ],
+        affectedUserIds: [id],
+      },
+    };
+  }
+
+  /**
+   * 交易提交後的副作用（規則 6、7：先失效再發佈）。API 在交易後立即呼叫；匯入的套用工作把它拆成可合併的副作用
+   * （`UserTransferResource`），每 100 列才做一次全租戶的權限失效（docs/architecture/backend/22-data-transfer.md §12 D10）。
+   */
+  async runAfterCommit(after: UserAfterCommit): Promise<void> {
+    if (after.invalidateAccount) this.invalidateAccount(after.invalidateAccount);
+    if (after.permissionsChanged?.length) {
+      await this.permissionService.permissionsChanged(after.permissionsChanged);
+    }
+    if (after.sessionsRevoked?.length) {
+      this.events.publish(DomainEvent.SESSIONS_REVOKED, {
+        userIds: [...after.sessionsRevoked],
+        reason: SessionRevokedReason.ACCOUNT_DISABLED,
+      });
+    }
+    if (after.changes.length) {
+      this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+        changes: after.changes,
+        ...(after.affectedUserIds?.length ? { affectedUserIds: [...after.affectedUserIds] } : {}),
+      });
+    }
   }
 
   /**

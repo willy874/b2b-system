@@ -43,6 +43,7 @@ function internalFeaturesOf(method: string, path: string): string[] | undefined 
   if (path === '/system/settings') return ['systemSetting'];
   if (/^\/identity-providers(\/|$)/.test(path)) return ['identityProvider'];
   if (/^\/webhooks(\/|$)/.test(path)) return ['webhook'];
+  if (/^\/data-transfers(\/|$)/.test(path)) return ['dataTransfer'];
   if (/^\/(service-accounts|auth\/api-tokens|users\/:userId\/api-tokens)(\/|$)/.test(path))
     return ['externalApi'];
   return undefined;
@@ -378,6 +379,22 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /roles/:id/revisions/:version/revert': 'role:update',
       'GET /permissions': 'permission:read',
       'GET /audit-logs': 'auditLog:read',
+      // 匯入匯出：只要登入，依資源而定的權限在 service 檢查（docs/architecture/backend/22-data-transfer.md §9.1）
+      'GET /data-transfers': 'authenticated',
+      'GET /data-transfers/resources': 'authenticated',
+      'POST /data-transfers/exports': 'authenticated',
+      'POST /data-transfers/imports': 'authenticated',
+      'GET /data-transfers/importers/:type': 'authenticated',
+      'GET /data-transfers/importers/:type/template': 'authenticated',
+      'GET /data-transfers/importers/:type/columns/:key/options': 'authenticated',
+      'POST /data-transfers/importers/:type/analyze': 'authenticated',
+      'POST /data-transfers/importers/:type/validate': 'authenticated',
+      'GET /data-transfers/:id': 'authenticated',
+      'POST /data-transfers/:id/cancel': 'authenticated',
+      'DELETE /data-transfers/:id': 'authenticated',
+      'POST /data-transfers/:id/download': 'authenticated',
+      'GET /data-transfers/:id/rows': 'authenticated',
+      'GET /data-transfers/:id/report': 'authenticated',
       'GET /audit-logs/:id': 'auditLog:read',
       'GET /health': 'public',
       'GET /health/ready': 'public',

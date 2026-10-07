@@ -111,6 +111,8 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `revision.prune` | `modules/revision` | `REVISION_PRUNE_CRON` | `45 4 * * *`（每天 04:45 UTC；版本歷史的保留清理，保留條件是系統設定 `revision.keepVersions`／`revision.keepDays`，[`14-revisions.md`](./14-revisions.md) §5） |
 | `notification.cleanup` | `modules/notification` | `NOTIFICATION_CLEANUP_CRON` | `0 5 * * *`（每天 05:00 UTC；站內通知的保留清理：已讀超過 `notification.retentionDays` 天、每人超過 `notification.maxPerUser` 則的最舊通知，[`15-notification.md`](./15-notification.md) §8） |
 | `webhook.cleanup` | `modules/webhook` | `WEBHOOK_CLEANUP_CRON` | `15 5 * * *`（每天 05:15 UTC；刪除超過 30 天的對外事件，投遞紀錄隨之刪除，[`17-webhook.md`](./17-webhook.md) §4） |
+| `dataTransfer.cleanup` | `modules/data-transfer` | `DATA_TRANSFER_CLEANUP_CRON` | `25 5 * * *`（每天 05:25 UTC；到期的匯出檔與套用列、90 天前的傳輸紀錄，[`22-data-transfer.md`](./22-data-transfer.md) §10） |
+| `dataTransfer.export`、`dataTransfer.applyImport` | `modules/data-transfer` | — | 由程式入列（建立匯出、送出套用時；[`22-data-transfer.md`](./22-data-transfer.md) §6.3、§7.6） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/platform、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |
@@ -216,6 +218,7 @@ await withTransaction(this.db, async (tx) => {
 | `TRASH_PURGE_CRON` | `30 4 * * *` | 回收桶到期永久刪除的排程（UTC）；空字串停用 |
 | `REVISION_PRUNE_CRON` | `45 4 * * *` | 版本歷史保留清理的排程（UTC）；空字串停用 |
 | `ANNOUNCEMENT_MAINTENANCE_CRON` | `20 5 * * *` | 公告的每日維護（補排程、發送紀錄保留清理）的排程（UTC）；空字串停用 |
+| `DATA_TRANSFER_CLEANUP_CRON` | `25 5 * * *` | 匯入匯出的清理排程（UTC）；空字串停用 |
 
 資料庫權限：pg-boss 啟動時要能在 `pgboss` schema 建表（第一次部署或升級 pg-boss 時）。
 應用程式與維運拆成不同 role 的部署，先以有權限的 role 啟動一次，或用 `getConstructionPlans()`

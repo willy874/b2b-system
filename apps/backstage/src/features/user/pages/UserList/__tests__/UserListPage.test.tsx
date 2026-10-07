@@ -4,6 +4,7 @@ import { createFakeBatchQueue, renderRoute } from '@b2b-system/web-core/testing'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -48,6 +49,39 @@ beforeEach(() => {
   fetchProfile.mockReset().mockResolvedValue({ user: { id: 'me' }, permissions: [] });
   resetPassword.mockReset().mockResolvedValue(undefined);
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+});
+
+describe('UserListPage 的匯出、匯入入口（docs/architecture/backend/22-data-transfer.md §8.2）', () => {
+  beforeEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+  });
+
+  it('有 user:export、user:update → 顯示「匯出」「匯入」', async () => {
+    renderRoute(routes, '/user', [...ADMIN, 'user:export'] as PermissionKey[]);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(screen.getByTestId('user-export-button')).toBeInTheDocument();
+    expect(screen.getByTestId('user-import-button')).toBeInTheDocument();
+  });
+
+  it('只有 user:read → 兩個入口都不顯示', async () => {
+    renderRoute(routes, '/user', ['user:read'] as PermissionKey[]);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-export-button')).toBeNull();
+    expect(screen.queryByTestId('user-import-button')).toBeNull();
+  });
+
+  it('租戶沒有啟用 dataTransfer → 有權限也不顯示', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+    renderRoute(routes, '/user', [...ADMIN, 'user:export'] as PermissionKey[]);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-export-button')).toBeNull();
+  });
+
+  it('權限未水合 → 不閃現', async () => {
+    renderRoute(routes, '/user', 'unhydrated');
+    expect(screen.queryByTestId('user-export-button')).toBeNull();
+    expect(screen.queryByTestId('user-import-button')).toBeNull();
+  });
 });
 
 describe('UserListPage', () => {

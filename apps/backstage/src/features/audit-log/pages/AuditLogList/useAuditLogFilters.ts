@@ -60,6 +60,7 @@ export function useAuditLogFilters({
           { value: 'apiToken', label: t('auditLog.resource.apiToken') },
           { value: 'webhook', label: t('permission.resource.webhook') },
           { value: 'tag', label: t('permission.resource.tag') },
+          { value: 'dataTransfer', label: t('auditLog.resource.dataTransfer') },
         ],
       },
       {

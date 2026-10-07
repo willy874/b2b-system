@@ -9,6 +9,7 @@ export * from './endpoints/api-tokens';
 export * from './endpoints/approvals';
 export * from './endpoints/audit-logs';
 export * from './endpoints/auth';
+export * from './endpoints/data-transfers';
 export * from './endpoints/files';
 export * from './endpoints/groups';
 export * from './endpoints/health';

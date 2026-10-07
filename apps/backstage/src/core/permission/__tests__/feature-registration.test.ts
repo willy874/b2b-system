@@ -17,7 +17,12 @@ import {
 import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/permission';
 import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
 import { registerTrashPagePermissions, TRASH_PAGE } from '@/features/trash';
-import { registerUserPagePermissions, USER_CREATE_PAGE, USER_PAGE } from '@/features/user';
+import {
+  registerUserPagePermissions,
+  USER_CREATE_PAGE,
+  USER_IMPORT_PAGE,
+  USER_PAGE,
+} from '@/features/user';
 
 import { getRegisteredPageKeys, resetPagePermissionRegistry, resolvePageKey } from '..';
 
@@ -44,6 +49,7 @@ describe('註冊表完整性', () => {
         HOME_PAGE,
         USER_PAGE,
         USER_CREATE_PAGE,
+        USER_IMPORT_PAGE,
         ROLE_PAGE,
         ROLE_CREATE_PAGE,
         PERMISSION_PAGE,

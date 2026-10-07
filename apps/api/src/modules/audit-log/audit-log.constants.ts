@@ -23,6 +23,10 @@ export const AUDIT_LOG_COUNT_CAP = AUDIT_LOG_MAX_OFFSET + 100;
 
 export const AUDIT_LOG_MAX_RANGE_MS = AUDIT_LOG_MAX_RANGE_DAYS * DAY_MS;
 
+/** 匯出放寬的時間範圍（docs/architecture/backend/22-data-transfer.md §6.2）：一季、半年的稽核要能一次交出去。 */
+export const AUDIT_LOG_EXPORT_MAX_RANGE_DAYS = 366;
+export const AUDIT_LOG_EXPORT_MAX_RANGE_MS = AUDIT_LOG_EXPORT_MAX_RANGE_DAYS * DAY_MS;
+
 export interface AuditLogRange {
   from: Date;
   to: Date;

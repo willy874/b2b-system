@@ -45,6 +45,28 @@ describe('HttpContext', () => {
     vi.useRealTimers();
   });
 
+  it('附件（Content-Disposition: attachment）的回應是 Blob；錯誤仍解析成 JSON', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response('a,b\r\n', {
+          status: 200,
+          headers: { 'content-disposition': 'attachment; filename="x.csv"' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'X' } }), {
+          status: 404,
+          headers: { 'content-disposition': 'attachment; filename="x.csv"' },
+        }),
+      );
+    const http = new HttpContext({ name: 'test', baseUrl: '' });
+    const file = await http.request<Blob>('/file');
+    expect(file.data).toBeInstanceOf(Blob);
+    expect(await file.data.text()).toBe('a,b\r\n');
+    const failed = await http.request('/file');
+    expect(failed.data).toEqual({ error: { code: 'X' } });
+  });
+
   it('每次送出（含重放）都重跑請求攔截器', async () => {
     let token = 'old';
     const addToken: RequestInterceptor = async (request) => ({

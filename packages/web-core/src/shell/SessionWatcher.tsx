@@ -3,7 +3,12 @@ import { useEffect, useRef } from 'react';
 
 import { sessionStore, useHasSession } from '../auth';
 import { queryClient } from '../cache';
-import { handleSessionEndForDrafts, handleSessionStartForDrafts } from '../form';
+import {
+  handleSessionEndForDrafts,
+  handleSessionEndForImportDrafts,
+  handleSessionStartForDrafts,
+  handleSessionStartForImportDrafts,
+} from '../form';
 import { clearPinnedRowData, usePermissionStore } from '../store';
 import { loginSearchAfterSessionEnd } from './loginSearch';
 
@@ -81,6 +86,10 @@ export function SessionWatcher({ router, loginPath, isPublic }: SessionWatcherPr
         void handleSessionEndForDrafts(reason, sessionStore.getLastIdentity()).catch(
           () => undefined,
         );
+        // 匯入預覽的草稿同一套規則（docs/architecture/backend/22-data-transfer.md §8.3）
+        void handleSessionEndForImportDrafts(reason, sessionStore.getLastIdentity()).catch(
+          () => undefined,
+        );
         clearUserData();
         void router.navigate({
           to: loginPath,
@@ -99,6 +108,7 @@ export function SessionWatcher({ router, loginPath, isPublic }: SessionWatcherPr
     () =>
       sessionStore.events.on('refreshed', () => {
         void handleSessionStartForDrafts(sessionStore.getIdentity()).catch(() => undefined);
+        void handleSessionStartForImportDrafts(sessionStore.getIdentity()).catch(() => undefined);
       }),
     [],
   );

@@ -14,6 +14,7 @@ import { listenHostOf } from './core/config/env.schema';
 import type { Env } from './core/config/env.schema';
 import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
+import { registerDataTransferBodyParser } from './modules/data-transfer/data-transfer.http';
 import { setupSwagger } from './swagger';
 
 /** 要大於反向代理對 upstream 的 keepalive_timeout（60 秒）。 */
@@ -36,6 +37,8 @@ async function bootstrap(): Promise<void> {
   // 最先量：被 guard 擋下、路由沒對到的請求也算（docs/architecture/08-monitoring.md §2.2）；監控整套關閉時不量
   if (config.get('MONITORING_ENABLED', { infer: true })) app.use(httpMetricsMiddleware);
   app.use(cookieParser());
+  // 匯入的套用請求本體比一般 API 大：只對那一條路由放寬，要在 Nest 預設的 body parser 之前註冊
+  registerDataTransferBodyParser(app);
   app.enableShutdownHooks();
 
   // ★ 路由稽核：任何未宣告授權的路由讓程序啟動失敗（預設拒絕的守門員）

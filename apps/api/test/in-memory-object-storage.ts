@@ -124,6 +124,24 @@ export class InMemoryObjectStorage extends ObjectStorage {
     };
   }
 
+  /** api 自己上傳的塊的內容（uploadId → 塊號 → 內容）；組合時接成物件的內容。 */
+  readonly partBodies = new Map<string, Map<number, Buffer>>();
+
+  async uploadPart(
+    _key: string,
+    uploadId: string,
+    partNumber: number,
+    body: Buffer,
+  ): Promise<string> {
+    const upload = this.uploads.get(uploadId);
+    if (!upload) throw new AppException('FILE_UPLOAD_INCOMPLETE');
+    upload.parts.set(partNumber, body.length);
+    const bodies = this.partBodies.get(uploadId) ?? new Map<number, Buffer>();
+    bodies.set(partNumber, body);
+    this.partBodies.set(uploadId, bodies);
+    return `etag-${uploadId}-${partNumber}`;
+  }
+
   async completeMultipartUpload(
     key: string,
     uploadId: string,
@@ -138,11 +156,21 @@ export class InMemoryObjectStorage extends ObjectStorage {
       etag: `etag-${key}-${parts.length}`,
       contentType: upload.contentType,
     });
+    const bodies = this.partBodies.get(uploadId);
+    if (bodies) {
+      this.contents.set(
+        key,
+        Buffer.concat(parts.map((part) => bodies.get(part.partNumber) ?? Buffer.alloc(0))),
+      );
+      this.partBodies.delete(uploadId);
+    }
+    this.modifiedAt.set(key, new Date());
     this.uploads.delete(uploadId);
   }
 
   async abortMultipartUpload(_key: string, uploadId: string): Promise<void> {
     this.uploads.delete(uploadId);
+    this.partBodies.delete(uploadId);
   }
 
   /** 從 presigned URL 取出 key，模擬瀏覽器照著網址 PUT（分塊網址則記下那一塊）。 */

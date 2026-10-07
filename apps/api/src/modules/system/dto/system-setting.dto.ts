@@ -22,6 +22,7 @@ export const SystemSettingSchema = defineSchema(
       SettingCategory.TRASH,
       SettingCategory.REVISION,
       SettingCategory.NOTIFICATION,
+      SettingCategory.DATA_TRANSFER,
     ]),
     type: z.enum(['string', 'number', 'boolean']),
     /** 生效值：有覆寫就是覆寫值，否則是預設值。 */

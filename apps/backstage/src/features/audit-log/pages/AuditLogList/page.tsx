@@ -1,14 +1,21 @@
+import { Button } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
 import { AuditLogTable } from '@b2b-system/web-core/audit-log';
 import type { AuditLogRowVM } from '@b2b-system/web-core/audit-log';
 import type { TableSettingsConfig } from '@b2b-system/web-core/components';
+import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getAuditLogListQueryOptions } from '@/apis/audit-log/get-audit-log-list/query';
+import { useIsFeatureReady } from '@/core/feature';
+import { PermissionKey, usePermission } from '@/core/permission';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
+import { auditLogExportApi } from '../../hooks/auditLogExportApi';
 import { AUDIT_LOG_LIST_DEFAULT_HIDDEN, AUDIT_LOG_LIST_TABLE_ID } from '../../preference';
 import { toAuditLogRowVM } from './adapter';
 import { AuditLogDetail } from './components/AuditLogDetail';
@@ -31,6 +38,11 @@ export default function AuditLogListPage() {
   const { search, setPage } = searchFilter;
   const filters = useAuditLogFilters(searchFilter);
   const [expanded, setExpanded] = useState<string>();
+  const [exporting, setExporting] = useState(false);
+  const { can, hydrated } = usePermission();
+  const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
+  // 匯出要獨立的 auditLog:export（docs/architecture/backend/22-data-transfer.md §12 D11）
+  const canExport = hydrated && hasDataTransfer && can(PermissionKey['auditLog:export']);
   const toggleExpand = useCallback(
     (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
     [],
@@ -47,20 +59,22 @@ export default function AuditLogListPage() {
   ]);
   const { cursor, remember } = useAuditLogCursor(cursorScope, search.offset, search.limit);
 
+  // 列表與匯出共用的篩選條件（匯出的就是列表 API 的同一個物件，去掉分頁）
+  const filter = useMemo(
+    () => ({
+      action: search.action,
+      resourceType: search.resourceType,
+      result: search.result,
+      // 網址上的日期是使用者當地的日曆日：起日取當天 00:00、迄日取 23:59:59
+      // 日界線用偏好的時區，與列表顯示的時間一致
+      from: search.from ? zonedDayBoundary(search.from, 'start') : undefined,
+      to: search.to ? zonedDayBoundary(search.to, 'end') : undefined,
+    }),
+    [search.action, search.from, search.resourceType, search.result, search.to],
+  );
   const { data, isPending, isPlaceholderData, error, refetch } = useQuery(
     getAuditLogListQueryOptions({
-      params: {
-        offset: search.offset,
-        cursor,
-        limit: search.limit,
-        action: search.action,
-        resourceType: search.resourceType,
-        result: search.result,
-        // 網址上的日期是使用者當地的日曆日：起日取當天 00:00、迄日取 23:59:59
-        // 日界線用偏好的時區，與列表顯示的時間一致
-        from: search.from ? zonedDayBoundary(search.from, 'start') : undefined,
-        to: search.to ? zonedDayBoundary(search.to, 'end') : undefined,
-      },
+      params: { offset: search.offset, cursor, limit: search.limit, ...filter },
     }),
   );
 
@@ -73,12 +87,34 @@ export default function AuditLogListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="audit-log-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('auditLog.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('auditLog.description', { days: AUDIT_LOG_MAX_RANGE_DAYS })}
-        </p>
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="m-0 text-xl font-semibold">{t('auditLog.title')}</h1>
+          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+            {t('auditLog.description', { days: AUDIT_LOG_MAX_RANGE_DAYS })}
+          </p>
+        </div>
+        {canExport && (
+          <Button
+            variant="secondary"
+            startIcon={<Icon name="download" size={16} />}
+            onClick={() => setExporting(true)}
+            data-testid="audit-log-export-button"
+          >
+            {t('dataTransfer.export.action')}
+          </Button>
+        )}
       </header>
+
+      <ExportDialog
+        open={exporting}
+        onOpenChange={setExporting}
+        api={auditLogExportApi}
+        type="auditLog"
+        filter={filter}
+        matchingTotal={data?.pagination.total ?? 0}
+        data-testid="audit-log-export-dialog"
+      />
 
       <AuditLogTable
         items={rows}

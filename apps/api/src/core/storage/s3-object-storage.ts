@@ -382,6 +382,29 @@ export class S3ObjectStorage
     };
   }
 
+  async uploadPart(
+    key: string,
+    uploadId: string,
+    partNumber: number,
+    body: Buffer,
+  ): Promise<string> {
+    try {
+      const result = await this.client.send(
+        new UploadPartCommand({
+          Bucket: this.bucket(),
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: partNumber,
+          Body: body,
+          ContentLength: body.length,
+        }),
+      );
+      return stripQuotes(result.ETag);
+    } catch (error) {
+      throw this.unavailable(error, 'uploadPart');
+    }
+  }
+
   async completeMultipartUpload(
     key: string,
     uploadId: string,

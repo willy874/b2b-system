@@ -144,3 +144,31 @@ export const mfaEmailDeliverySeconds = new Histogram({
   buckets: [1, 2, 5, 10, 20, 30, 60, 120, 300],
   registers,
 });
+
+/**
+ * 匯入匯出處理的列數（docs/architecture/backend/22-data-transfer.md §9.6）：`direction` 是 export／import，
+ * `type` 是登記的資源類型（數量有限），`result` 是 succeeded／failed／skipped。
+ */
+export const dataTransferRows = new Counter({
+  name: 'api_data_transfer_rows_total',
+  help: '匯入匯出處理的列數（依方向、資源類型、結果）',
+  labelNames: ['direction', 'type', 'result'] as const,
+  registers,
+});
+
+/** 匯出寫出、匯入分析讀進的位元組數。 */
+export const dataTransferBytes = new Counter({
+  name: 'api_data_transfer_bytes_total',
+  help: '匯出寫出與匯入分析讀進的位元組數（依方向、格式）',
+  labelNames: ['direction', 'format'] as const,
+  registers,
+});
+
+/** 匯入分析在 worker thread 解析檔案的秒數（§7.3）。 */
+export const dataTransferParseDuration = new Histogram({
+  name: 'api_data_transfer_parse_duration_seconds',
+  help: '匯入分析解析檔案的秒數（依格式）',
+  labelNames: ['format'] as const,
+  buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30],
+  registers,
+});

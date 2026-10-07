@@ -72,6 +72,8 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     includesSubject: false,
     recordsAudit: false,
   },
+  // 只推給建立者（呼叫端以 `perRecipient` 帶入）；進度推播不寫稽核（docs/architecture/backend/22-data-transfer.md §9.4）
+  [ChangeSource.DATA_TRANSFER]: { perms: () => [], includesSubject: false, recordsAudit: false },
   // 服務帳號的列表與詳情（docs/architecture/06-external-api.md §9.2 D14）
   [ChangeSource.SERVICE_ACCOUNT]: {
     perms: () => [PERMISSION.SERVICE_ACCOUNT_READ],

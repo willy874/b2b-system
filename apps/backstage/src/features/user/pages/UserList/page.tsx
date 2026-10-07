@@ -1,6 +1,9 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
-import { ButtonLink } from '@b2b-system/ui/Button';
+import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
 import { useTableSelection } from '@b2b-system/ui/Table';
+import type { BatchAction } from '@b2b-system/web-core/batch';
+import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
@@ -12,10 +15,11 @@ import { fetchUserListQuery } from '@/apis/user/get-user-list/fetcher';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import type { UserListParams } from '@/apis/user/types';
 
+import { userExportApi } from '../../hooks/userTransferApi';
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
 import { useUserPermission } from '../../hooks/useUserPermission';
 import { USER_LIST_TABLE_ID } from '../../preference';
-import { UserCreateRoute, UserDetailRoute } from '../../routes';
+import { UserCreateRoute, UserDetailRoute, UserImportRoute } from '../../routes';
 import { toUserRowVM } from './adapter';
 import type { UserRowVM } from './adapter';
 import { UserTable } from './components/UserTable';
@@ -31,6 +35,8 @@ export default function UserListPage() {
   const { search, setSort, setPage } = searchFilter;
   const batchActions = useUserBatchActions();
   const [pendingDelete, setPendingDelete] = useState<UserRowVM>();
+  /** 匯出對話框：開啟時的範圍（docs/architecture/backend/22-data-transfer.md §8.2）。 */
+  const [exporting, setExporting] = useState<{ ids: string[]; allMatching: boolean } | null>(null);
 
   const profile = useQuery(getAuthProfileQueryOptions());
   const deleteUser = useUserDeleteMutation();
@@ -61,6 +67,31 @@ export default function UserListPage() {
     [data, canDelete, canUpdate, canUnlock, currentUserId],
   );
   const selection = useTableSelection(rows, getRowId);
+  // 批次列的「匯出選取」：不入佇列，開匯出對話框；「選取全部符合」時以篩選條件匯出（D3）
+  const actions = useMemo<Array<BatchAction<UserRowVM>>>(
+    () => [
+      ...batchActions,
+      {
+        kind: 'run',
+        id: 'export',
+        label: t('dataTransfer.export.selectedAction'),
+        hidden: !permission.hydrated || !permission.canExport,
+        run: ({ rows: targets, allMatching }) =>
+          setExporting({ ids: targets.map((target) => target.id), allMatching }),
+      },
+    ],
+    [batchActions, permission.canExport, permission.hydrated, t],
+  );
+  /** 匯出的篩選條件：列表 API 的同一個物件，去掉分頁與排序（匯出固定依建立時間排序）。 */
+  const exportFilter = useMemo(
+    () => ({
+      keyword: search.keyword,
+      status: listParams.status,
+      mfa: search.mfa,
+      tagId: search.tagId,
+    }),
+    [listParams.status, search.keyword, search.mfa, search.tagId],
+  );
   // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
   const filters = useUserFilters(
     {
@@ -87,16 +118,39 @@ export default function UserListPage() {
           <h1 className="m-0 text-xl font-semibold">{t('user.list.title')}</h1>
           <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('user.list.description')}</p>
         </div>
-        {permission.canCreate && (
-          <ButtonLink
-            variant="primary"
-            to={UserCreateRoute.to}
-            search={search}
-            data-testid="user-create-button"
-          >
-            {t('user.create.action')}
-          </ButtonLink>
-        )}
+        <div className="flex items-center gap-2">
+          {permission.canExport && (
+            <Button
+              variant="secondary"
+              startIcon={<Icon name="download" size={16} />}
+              onClick={() => setExporting({ ids: [], allMatching: false })}
+              data-testid="user-export-button"
+            >
+              {t('dataTransfer.export.action')}
+            </Button>
+          )}
+          {permission.canImport && (
+            <ButtonLink
+              variant="secondary"
+              to={UserImportRoute.to}
+              search={{ mode: 'create' }}
+              startIcon={<Icon name="upload" size={16} />}
+              data-testid="user-import-button"
+            >
+              {t('dataTransfer.import.action')}
+            </ButtonLink>
+          )}
+          {permission.canCreate && (
+            <ButtonLink
+              variant="primary"
+              to={UserCreateRoute.to}
+              search={search}
+              data-testid="user-create-button"
+            >
+              {t('user.create.action')}
+            </ButtonLink>
+          )}
+        </div>
       </header>
 
       <UserTable
@@ -119,7 +173,7 @@ export default function UserListPage() {
         batch={{
           scope: USER_LIST_TABLE_ID,
           selection,
-          actions: batchActions,
+          actions,
           getRowLabel,
           getRowVersion,
           // 「選取全部符合」：同樣的篩選與排序逐頁取回（docs/architecture/frontend/07-ui-system.md §13.7）
@@ -145,6 +199,18 @@ export default function UserListPage() {
           total: data?.pagination.total ?? 0,
           onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
+      />
+
+      <ExportDialog
+        open={exporting !== null}
+        onOpenChange={(open) => !open && setExporting(null)}
+        api={userExportApi}
+        type="user"
+        selectedIds={exporting?.ids}
+        allMatchingSelected={exporting?.allMatching}
+        filter={exportFilter}
+        matchingTotal={data?.pagination.total ?? 0}
+        data-testid="user-export-dialog"
       />
 
       <AlertDialog

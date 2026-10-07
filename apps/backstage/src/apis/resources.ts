@@ -23,6 +23,9 @@ import { APPROVAL_LIST_QUERY_KEY } from '@/apis/approval/get-approval-list/query
 import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { DATA_TRANSFER_LIST_QUERY_KEY } from '@/apis/data-transfer/get-transfer-list/query';
+import { DATA_TRANSFER_ROWS_QUERY_KEY } from '@/apis/data-transfer/get-transfer-rows/query';
+import { DATA_TRANSFER_DETAIL_QUERY_KEY } from '@/apis/data-transfer/get-transfer/query';
 import { FILE_ACCESS_REQUEST_LIST_QUERY_KEY } from '@/apis/file/get-file-access-requests/query';
 import { FILE_DETAIL_QUERY_KEY } from '@/apis/file/get-file-detail/query';
 import { FILE_FOLDER_EXPLAIN_QUERY_KEY } from '@/apis/file/get-file-folder-explain/query';
@@ -146,6 +149,10 @@ export const Resource = {
    */
   ANNOUNCEMENT: 'announcement',
   /**
+   * 匯入匯出的傳輸（`id` = 傳輸 id；docs/architecture/backend/22-data-transfer.md §9.4）：只推給建立者，進度推播不寫稽核
+   */
+  DATA_TRANSFER: 'dataTransfer',
+  /**
    * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/platform 的連線
    * （docs/architecture/backend/08-realtime.md §3.6），backstage 永遠收不到；列在這裡只為了滿足 `ServerChangeSource` 的檢查。
    */
@@ -236,7 +243,13 @@ const graph = createResourceGraph<Resource>({
     // 收到自己的通知、標為已讀時不重抓稽核列表
     // 已用量（前端自己的宣告）也不是寫入
     derivesFromAnyChange: {
-      except: [Resource.NOTIFICATION, Resource.WEBHOOK_DELIVERY, Resource.FILE_STORAGE_USAGE],
+      // 匯入匯出的進度推播只給建立者、不寫稽核（後端的 recordsAudit: false）
+      except: [
+        Resource.NOTIFICATION,
+        Resource.WEBHOOK_DELIVERY,
+        Resource.FILE_STORAGE_USAGE,
+        Resource.DATA_TRANSFER,
+      ],
     },
   },
   [Resource.APPROVAL]: {
@@ -387,6 +400,11 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.WEBHOOK_DELIVERY]: {},
+  [Resource.DATA_TRANSFER]: {
+    collection: [DATA_TRANSFER_LIST_QUERY_KEY],
+    // 套用列的 key 第二個元素是傳輸 id：進度與結果跟著重抓
+    entity: [DATA_TRANSFER_DETAIL_QUERY_KEY, DATA_TRANSFER_ROWS_QUERY_KEY],
+  },
   [Resource.ANNOUNCEMENT]: {
     collection: [ANNOUNCEMENT_LIST_QUERY_KEY],
     // 發送紀錄的 key 第二個元素是公告 id：刪除時一併移除

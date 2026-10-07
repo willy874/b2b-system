@@ -63,6 +63,13 @@ const PERMISSION_CATALOG = [
     sortOrder: 106,
   },
   {
+    resource: 'user',
+    action: 'export',
+    key: 'user:export',
+    nameI18nKey: 'permission.user.export',
+    sortOrder: 107,
+  },
+  {
     resource: 'role',
     action: 'create',
     key: 'role:create',
@@ -110,6 +117,13 @@ const PERMISSION_CATALOG = [
     key: 'auditLog:read',
     nameI18nKey: 'permission.auditLog.read',
     sortOrder: 400,
+  },
+  {
+    resource: 'auditLog',
+    action: 'export',
+    key: 'auditLog:export',
+    nameI18nKey: 'permission.auditLog.export',
+    sortOrder: 401,
   },
   {
     resource: 'system',
@@ -165,6 +179,8 @@ const PERMISSION_DEPENDENCIES: Partial<
   'user:update': { includes: ['user:resetPassword', 'user:read'] },
   'user:resetPassword': { includes: ['user:read'] },
   'user:resetMfa': { includes: ['user:read'] },
+  'user:export': { includes: ['user:read'] },
+  'auditLog:export': { includes: ['auditLog:read'] },
   'user:assignRole': { includes: ['user:read'], requires: ['role:read'] },
   'role:create': { includes: ['role:update'] },
   'role:delete': { includes: ['role:update'] },

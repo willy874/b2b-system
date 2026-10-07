@@ -26,6 +26,8 @@ export const TENANT_FEATURES = [
   'externalApi',
   // docs/architecture/iam/07-groups.md §8：群組。停用時群組帶來的授權（成員關係）也暫停
   'group',
+  // docs/architecture/backend/22-data-transfer.md：匯入／匯出
+  'dataTransfer',
 ] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];

@@ -37,6 +37,11 @@ export interface DraftStoreOptions {
   maxEntries?: number;
   /** 預設 256 KiB（序列化後的 UTF-8 位元組）。 */
   maxBytes?: number;
+  /**
+   * IndexedDB 的名稱，預設表單草稿的那一個。規則不同的草稿（例：匯入預覽，數量與大小上限不同）用自己的資料庫：
+   * 筆數上限的淘汰與 `removeOwner`／`keepOnlyOwner` 只作用在同一個資料庫。
+   */
+  dbName?: string;
 }
 
 export const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -71,8 +76,8 @@ function request<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
-async function openIndexedDb(factory: IDBFactory): Promise<Backend> {
-  const open = factory.open(DB_NAME, 1);
+async function openIndexedDb(factory: IDBFactory, name: string): Promise<Backend> {
+  const open = factory.open(name, 1);
   open.addEventListener('upgradeneeded', () => {
     for (const name of [DRAFTS, META]) {
       if (!open.result.objectStoreNames.contains(name)) open.result.createObjectStore(name);
@@ -140,7 +145,7 @@ export function createDraftStore(options: DraftStoreOptions = {}): DraftStore {
     // 沒有 WebCrypto 就不寫 IndexedDB：不在磁碟上留明文
     backend ??=
       factory && subtle
-        ? openIndexedDb(factory).catch(() => memoryBackend())
+        ? openIndexedDb(factory, options.dbName ?? DB_NAME).catch(() => memoryBackend())
         : Promise.resolve(memoryBackend());
     return backend;
   };

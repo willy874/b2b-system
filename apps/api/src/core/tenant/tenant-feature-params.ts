@@ -122,6 +122,42 @@ export const WEBHOOK_MAX_URLS_PARAM = {
 } as const satisfies TenantIntegerParam;
 
 /**
+ * 匯入一次的列數上限（docs/architecture/backend/22-data-transfer.md §10）：決定分析與套用的伺服器負載，
+ * 由平台控制，不讓租戶自己調高。
+ */
+export const DATA_TRANSFER_IMPORT_MAX_ROWS_PARAM = {
+  key: 'dataTransfer.importMaxRows',
+  feature: 'dataTransfer',
+  type: 'integer',
+  defaultValue: 5000,
+  min: 100,
+  max: 20_000,
+  unit: 'count',
+} as const satisfies TenantIntegerParam;
+
+/** 匯入分析的檔案大小上限（MB）；`POST /data-transfers/imports` 的請求本體上限是它的兩倍。 */
+export const DATA_TRANSFER_IMPORT_MAX_SIZE_MB_PARAM = {
+  key: 'dataTransfer.importMaxSizeMb',
+  feature: 'dataTransfer',
+  type: 'integer',
+  defaultValue: 10,
+  min: 1,
+  max: 50,
+  unit: 'megabytes',
+} as const satisfies TenantIntegerParam;
+
+/** 匯出一次的列數上限。 */
+export const DATA_TRANSFER_EXPORT_MAX_ROWS_PARAM = {
+  key: 'dataTransfer.exportMaxRows',
+  feature: 'dataTransfer',
+  type: 'integer',
+  defaultValue: 100_000,
+  min: 1000,
+  max: 1_000_000,
+  unit: 'count',
+} as const satisfies TenantIntegerParam;
+
+/**
  * 這個租戶的登入類請求（`@RateLimit('auth')`）每分鐘合計的上限（docs/architecture/backend/03-api-conventions.md §8）：
  * 一個租戶被攻擊時，攻擊流量（與它消耗的 argon2）不拖垮其他租戶的登入。沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT`。
  */
@@ -159,6 +195,9 @@ export const TENANT_FEATURE_PARAMS = [
   JOB_MAX_CONCURRENCY_PARAM,
   IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM,
   WEBHOOK_MAX_URLS_PARAM,
+  DATA_TRANSFER_IMPORT_MAX_ROWS_PARAM,
+  DATA_TRANSFER_IMPORT_MAX_SIZE_MB_PARAM,
+  DATA_TRANSFER_EXPORT_MAX_ROWS_PARAM,
   // 不屬於 feature 的租戶限制（feature: null）
   RATE_LIMIT_AUTH_PER_MINUTE_PARAM,
   RATE_LIMIT_TRUSTED_CIDRS_PARAM,

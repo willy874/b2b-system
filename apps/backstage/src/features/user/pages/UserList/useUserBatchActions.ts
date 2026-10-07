@@ -1,4 +1,4 @@
-import type { BatchAction } from '@b2b-system/web-core/batch';
+import type { QueuedBatchAction } from '@b2b-system/web-core/batch';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
 
@@ -11,7 +11,7 @@ import type { UserRowVM } from './adapter';
  * 資格沿用 adapter 算好的列旗標：
  * 不能動自己（`canUpdate` / `canDelete` 已排除），解鎖只對被鎖定的人。
  */
-export function useUserBatchActions(): Array<BatchAction<UserRowVM>> {
+export function useUserBatchActions(): Array<QueuedBatchAction<UserRowVM>> {
   const { t } = useTranslation();
   const permission = useUserPermission();
   // 權限未水合前不出現操作按鈕（docs/coding-standards/02-frontend.md §3.2）

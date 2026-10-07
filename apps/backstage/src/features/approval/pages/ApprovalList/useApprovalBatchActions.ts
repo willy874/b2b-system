@@ -1,4 +1,4 @@
-import type { BatchAction } from '@b2b-system/web-core/batch';
+import type { QueuedBatchAction } from '@b2b-system/web-core/batch';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
 
@@ -10,7 +10,7 @@ import type { ApprovalRowVM } from './adapter';
  * 審批列表的批次動作（docs/architecture/frontend/07-ui-system.md §13）：逐筆的「快速核准／快速駁回」——不指派角色、不附意見；
  * 要指派角色請開審核對話框逐筆審。資格沿用 adapter 算好的列旗標。
  */
-export function useApprovalBatchActions(): Array<BatchAction<ApprovalRowVM>> {
+export function useApprovalBatchActions(): Array<QueuedBatchAction<ApprovalRowVM>> {
   const { t } = useTranslation();
   const permission = useApprovalPermission();
   // 權限未水合前不出現操作按鈕（docs/coding-standards/02-frontend.md §3.2）
