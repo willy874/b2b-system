@@ -76,6 +76,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     findOwn: ReturnType<typeof vi.fn>;
     markRead: ReturnType<typeof vi.fn>;
     markAllRead: ReturnType<typeof vi.fn>;
+    deleteOwn: ReturnType<typeof vi.fn>;
     deleteReadBefore: ReturnType<typeof vi.fn>;
     deleteBeyondPerRecipient: ReturnType<typeof vi.fn>;
     listAll: ReturnType<typeof vi.fn>;
@@ -106,6 +107,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       findOwn: vi.fn(),
       markRead: vi.fn(async () => true),
       markAllRead: vi.fn(async () => 0),
+      deleteOwn: vi.fn(async () => true),
       deleteReadBefore: vi.fn(async () => 0),
       deleteBeyondPerRecipient: vi.fn(async () => 0),
       listAll: vi.fn(async () => ({ items: [], lastCreatedAt: undefined })),
@@ -354,6 +356,25 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
       await expect(service.markAllRead(ME)).resolves.toEqual({ updated: 3 });
       expect(events.publish).toHaveBeenCalledWith('resource.changed', {
         changes: [{ resource: 'notification', kind: 'update' }],
+        affectedUserIds: [ME.id],
+      });
+    });
+  });
+
+  describe('刪除自己的通知', () => {
+    it('不是自己的或不存在 → NOTIFICATION_NOT_FOUND，不推播', async () => {
+      repo.deleteOwn.mockResolvedValueOnce(false);
+      await expect(service.remove(recipient(9), ME)).rejects.toMatchObject({
+        code: 'NOTIFICATION_NOT_FOUND',
+      });
+      expect(events.publish).not.toHaveBeenCalled();
+    });
+
+    it('刪掉 → 推給自己的其他裝置（notification delete）', async () => {
+      await service.remove(recipient(9), ME);
+      expect(repo.deleteOwn).toHaveBeenCalledWith(recipient(9), ME.id);
+      expect(events.publish).toHaveBeenCalledWith('resource.changed', {
+        changes: [{ resource: 'notification', kind: 'delete', id: recipient(9) }],
         affectedUserIds: [ME.id],
       });
     });

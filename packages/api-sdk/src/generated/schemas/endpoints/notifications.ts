@@ -8,6 +8,8 @@ import type {
   NotificationControllerReadAllResult,
   NotificationControllerReadInput,
   NotificationControllerReadResult,
+  NotificationControllerRemoveInput,
+  NotificationControllerRemoveResult,
   NotificationControllerUnreadCountResult,
   NotificationEventControllerListResult,
   NotificationEventControllerUpdateInput,
@@ -146,6 +148,34 @@ export function notificationControllerRead(
 ): Promise<NotificationControllerReadResult> {
   return request<NotificationControllerReadResult>(
     notificationControllerReadOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /notifications/{id}
+
+export const NotificationControllerRemoveSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const notificationControllerRemoveOperation: OperationDefinition = {
+  id: 'NotificationController_remove',
+  method: 'DELETE',
+  path: '/notifications/{id}',
+  responseTypes: { 204: 'none' },
+  schemas: NotificationControllerRemoveSchemas,
+};
+
+/** 刪除一則自己的通知 */
+export function notificationControllerRemove(
+  input: NotificationControllerRemoveInput,
+  options?: RequestOptions,
+): Promise<NotificationControllerRemoveResult> {
+  return request<NotificationControllerRemoveResult>(
+    notificationControllerRemoveOperation,
     input,
     options,
   );

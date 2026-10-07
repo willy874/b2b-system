@@ -550,6 +550,32 @@
   },
   "notificationRow": {
     "unread": "未讀：",
-    "markRead": "標為已讀"
+    "markRead": "標為已讀",
+    "followLink": "前往",
+    "select": "選取：{{message}}",
+    "delete": "刪除"
+  },
+  "notificationBatch": {
+    "selectAll_other": "全選這裡的 {{count}} 則",
+    "markRead": {
+      "action": "標為已讀",
+      "title": "批次標為已讀",
+      "confirm_other": "將 {{count}} 則通知標為已讀？",
+      "success_other": "已將 {{count}} 則通知標為已讀",
+      "ineligible": "選取的通知都已讀"
+    },
+    "delete": {
+      "action": "刪除",
+      "title": "批次刪除通知",
+      "confirm_other": "刪除 {{count}} 則通知？刪除後無法復原。",
+      "success_other": "已刪除 {{count}} 則通知"
+    }
+  },
+  "notificationDetail": {
+    "actor": "觸發者",
+    "time": "時間",
+    "relativeTime": "（{{time}}）",
+    "followLink": "前往",
+    "delete": "刪除"
   }
 }

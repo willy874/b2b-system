@@ -1,4 +1,13 @@
-import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Authenticated, CurrentUser } from '@/common/decorators';
@@ -56,5 +65,14 @@ export class PlatformNotificationController {
   @ApiOperation({ summary: '標為已讀（已讀過的再標一次不算錯）' })
   markRead(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     return this.notifications.markRead(actor.id, id);
+  }
+
+  /** 自己刪掉一則（不進回收桶）；別人的或不存在的一律 404。 */
+  @Delete(':id')
+  @HttpCode(204)
+  @Authenticated()
+  @ApiOperation({ summary: '刪除一則自己的通知' })
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    await this.notifications.remove(actor.id, id);
   }
 }

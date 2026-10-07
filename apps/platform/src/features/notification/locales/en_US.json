@@ -1,11 +1,11 @@
 {
   "notification": {
-    "label": "Notifications",
-    "title": "Notifications",
+    "label": "Notification center",
+    "title": "Notification center",
     "description": "Notifications from the platform: tenant provisioning results and changes to your role.",
-    "trigger": "Notifications",
-    "triggerUnread_one": "Notifications ({{count}} unread)",
-    "triggerUnread_other": "Notifications ({{count}} unread)",
+    "trigger": "Notification center",
+    "triggerUnread_one": "Notification center ({{count}} unread)",
+    "triggerUnread_other": "Notification center ({{count}} unread)",
     "unreadCount_one": "{{count}} unread",
     "unreadCount_other": "{{count}} unread",
     "empty": "No notifications yet",
@@ -16,6 +16,7 @@
       "success_one": "Marked {{count}} as read.",
       "success_other": "Marked {{count}} as read."
     },
+    "delete": { "success": "Notification deleted" },
     "filter": { "all": "All", "unread": "Unread" },
     "type": {
       "tenantProvisioned": "Tenant \"{{name}}\" ({{code}}) is provisioned and ready to use.",

@@ -1,3 +1,4 @@
+export * from './batch-queue';
 export * from './cache';
 export * from './event-bus';
 export * from './http-context';

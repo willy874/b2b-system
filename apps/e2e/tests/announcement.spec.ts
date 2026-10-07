@@ -66,7 +66,7 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
     ).toBeVisible({ timeout: 20_000 });
     await snapshot(page, 'announcement-sent');
 
-    // ③ 收件人：鈴鐺的未讀 → 點開通知 → 公告頁
+    // ③ 收件人：鈴鐺的未讀 → 通知的快速連結 → 公告頁
     await expect(recipient.getByTestId('notification-unread-count')).toBeVisible();
     await recipient.getByTestId('notification-bell').click();
     const item = recipient
@@ -75,7 +75,7 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
       .filter({ hasText: title });
     await expect(item).toHaveAttribute('data-state', 'unread');
     await snapshot(recipient, 'recipient-bell');
-    await item.click();
+    await item.getByTestId('notification-item-link').click();
     await expect(recipient.getByTestId('announcement-message-page')).toBeVisible();
     await expect(recipient.getByTestId('announcement-message-title')).toHaveText(title);
     await expect(recipient.getByTestId('announcement-message-body')).toContainText(body);

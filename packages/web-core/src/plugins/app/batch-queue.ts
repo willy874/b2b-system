@@ -1,13 +1,9 @@
-import type { AppPluginFactory } from '@b2b-system/web-core/app';
-import { getSessionStore } from '@b2b-system/web-core/auth';
-import {
-  BatchQueueClient,
-  connectBatchQueue,
-  setActiveBatchQueue,
-} from '@b2b-system/web-core/batch';
-import type { BatchQueueConnection } from '@b2b-system/web-core/batch';
-import type { ResourceChange } from '@b2b-system/web-core/cache';
-import { CLIENT_ID } from '@b2b-system/web-core/realtime';
+import type { AppPluginFactory } from '../../app';
+import { getSessionStore } from '../../auth';
+import { BatchQueueClient, connectBatchQueue, setActiveBatchQueue } from '../../batch';
+import type { BatchQueueConnection } from '../../batch';
+import type { ResourceChange } from '../../cache';
+import { CLIENT_ID } from '../../realtime';
 
 export interface BatchQueuePluginOptions {
   /** 佇列要跟著哪個後端的 session：session 結束時清空佇列，畫面只顯示目前身分的工作。 */
@@ -16,13 +12,13 @@ export interface BatchQueuePluginOptions {
   connect?: () => BatchQueueConnection;
   /**
    * 操作以 `BatchRunContext.invalidate` 宣告的變更，合併後交給它（`apis/resources.ts` 的 `invalidateResources`）。
-   * 由 `main.tsx` 注入：plugin 不能 import `apis/`。方法語法的理由見 `BatchQueueClientOptions.invalidate`。
+   * 由 app 的 `main.tsx` 注入：web-core 不能 import app 的 `apis/`。方法語法的理由見 `BatchQueueClientOptions.invalidate`。
    */
   invalidate?(changes: readonly ResourceChange[]): void;
 }
 
 /**
- * 全域批次佇列（docs/architecture/frontend/07-ui-system.md §13、docs/architecture/frontend/07-ui-system.md §6.2）。
+ * 全域批次佇列（docs/architecture/frontend/07-ui-system.md §13、docs/architecture/frontend/07-ui-system.md §6.2）。兩個前端共用。
  *
  * | 時機                    | 動作                                                        |
  * | ----------------------- | ----------------------------------------------------------- |
@@ -82,7 +78,7 @@ export function batchQueuePlugin(options: BatchQueuePluginOptions): AppPluginFac
   };
 }
 
-declare module '@b2b-system/web-core/app/context' {
+declare module '../../app/context' {
   interface AppPluginProperties {
     batchQueue?: BatchQueueClient;
   }

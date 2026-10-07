@@ -1,3 +1,4 @@
+import { BatchQueueNotifier } from '@b2b-system/web-core/batch';
 import { DashboardShell } from '@b2b-system/web-core/layout';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
@@ -40,6 +41,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           onSelect: () => logout.mutate(),
         },
       ]}
+      // 批次工作結束時彈出結果（佇列只通知發起的分頁）
+      afterContent={<BatchQueueNotifier />}
     >
       {children}
     </DashboardShell>

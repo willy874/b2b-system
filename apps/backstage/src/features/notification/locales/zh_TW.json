@@ -1,6 +1,6 @@
 {
   "notification": {
-    "title": "通知",
+    "title": "通知中心",
     "description": "有事等你處理、你的東西被動了，都會出現在這裡。已讀超過保留期限的通知會自動清除。",
     "unreadCount_other": "{{count}} 則未讀",
     "empty": "目前沒有通知",
@@ -13,6 +13,9 @@
     "markAllRead": {
       "action": "全部已讀",
       "success_other": "已將 {{count}} 則通知標為已讀"
+    },
+    "delete": {
+      "success": "已刪除通知"
     },
     "actor": {
       "system": "系統"

@@ -10,7 +10,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
-import { applyResourceChanges } from '@/apis/resources';
+import { applyResourceChanges, invalidateResources } from '@/apis/resources';
 import { App } from '@/app/App';
 import { appContextPlugin } from '@/app/plugin';
 import { accountFeaturePlugin } from '@/features/account';
@@ -24,6 +24,7 @@ import { notificationFeaturePlugin } from '@/features/notification';
 import { platformAdminFeaturePlugin } from '@/features/platform-admin';
 import { tenantFeaturePlugin } from '@/features/tenant';
 import {
+  batchQueuePlugin,
   cachePlugin,
   eventBusPlugin,
   httpContextPlugin,
@@ -36,7 +37,7 @@ import { ENV } from '@/shared/constants';
 
 /**
  * apps/platform：全平台共用、不分工作區的身分與租戶入口（docs/architecture/04-sso.md §12.2 D1）。
- * plugin chain 與 apps/backstage 相同；沒有批次佇列與執行期啟用的 feature。
+ * plugin chain 與 apps/backstage 相同；沒有執行期啟用的 feature。
  */
 async function bootstrap(): Promise<void> {
   // 偏好在 render 前水合，避免「先閃英文再變中文」
@@ -74,6 +75,8 @@ async function bootstrap(): Promise<void> {
         },
       ]),
     )
+    // 全域批次佇列（同 backstage）：要用 httpContext 建立的 session；變更經這個 app 的依賴圖失效
+    .use(batchQueuePlugin({ backend: MAIN_BACKEND, invalidate: invalidateResources }))
     // 平台管理者的即時推播（docs/architecture/backend/08-realtime.md §3.6）：要用 httpContext 建立的 session
     .use(realtimePlugin({ backend: MAIN_BACKEND, onResourceChanged: applyResourceChanges }))
     // 每個 feature 的 plugin factory —— ★ 在此「同步」註冊頁面權限

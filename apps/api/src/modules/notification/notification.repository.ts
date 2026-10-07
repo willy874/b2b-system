@@ -226,6 +226,15 @@ export class NotificationRepository {
     return rows.length > 0;
   }
 
+  /** 刪除某人自己的一則；不是他的或不存在回 false。 */
+  async deleteOwn(id: string, recipientId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(notifications)
+      .where(and(eq(notifications.id, id), ownedBy(recipientId)))
+      .returning({ id: notifications.id });
+    return rows.length > 0;
+  }
+
   /** 某人所有未讀的通知標為已讀，回傳筆數。 */
   async markAllRead(recipientId: string, now: Date): Promise<number> {
     const rows = await this.db

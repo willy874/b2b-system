@@ -1,10 +1,10 @@
 {
   "notification": {
-    "label": "通知",
-    "title": "通知",
+    "label": "通知中心",
+    "title": "通知中心",
     "description": "平台送給你的通知：租戶佈建的結果、你的角色變更。",
-    "trigger": "通知",
-    "triggerUnread_other": "通知（{{count}} 則未讀）",
+    "trigger": "通知中心",
+    "triggerUnread_other": "通知中心（{{count}} 則未讀）",
     "unreadCount_other": "{{count}} 則未讀",
     "empty": "還沒有通知",
     "emptyUnread": "沒有未讀的通知",
@@ -13,6 +13,7 @@
       "action": "全部標為已讀",
       "success_other": "已將 {{count}} 則標為已讀。"
     },
+    "delete": { "success": "已刪除通知" },
     "filter": { "all": "全部", "unread": "未讀" },
     "type": {
       "tenantProvisioned": "租戶「{{name}}」（{{code}}）佈建完成，可以使用了。",

@@ -97,3 +97,31 @@ export function getPlatformNotificationControllerMarkReadUrl(
 ): string {
   return buildUrl('/platform/notifications/{id}/read', path);
 }
+
+// DELETE /platform/notifications/{id}
+
+export interface PlatformNotificationControllerRemovePathParams {
+  id: string;
+}
+
+export interface PlatformNotificationControllerRemoveInput {
+  path: PlatformNotificationControllerRemovePathParams;
+}
+
+export interface PlatformNotificationControllerRemoveResponses {
+  204: undefined;
+}
+
+export type PlatformNotificationControllerRemoveResponse =
+  PlatformNotificationControllerRemoveResponses[204];
+
+export type PlatformNotificationControllerRemoveResult = ApiResponse<
+  204,
+  PlatformNotificationControllerRemoveResponses[204]
+>;
+
+export function getPlatformNotificationControllerRemoveUrl(
+  path: PlatformNotificationControllerRemovePathParams,
+): string {
+  return buildUrl('/platform/notifications/{id}', path);
+}

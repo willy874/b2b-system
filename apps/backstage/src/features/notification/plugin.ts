@@ -4,6 +4,7 @@ import { registerHeaderTool } from '@b2b-system/web-core/toolbar';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 import { lazy } from 'react';
 
+import { registerNotificationBatchOperations } from './batch';
 import { NotificationBell } from './components/NotificationBell';
 import { NOTIFICATION_LOCALE_SCOPE } from './locale';
 import { registerNotificationEventTab, registerNotificationNavigation } from './navigation';
@@ -22,6 +23,7 @@ export function appContextPlugin(): AppPluginFactory {
     registerNotificationPagePermissions();
     registerNotificationNavigation(); // 側欄與命令面板的入口
     registerNotificationEventTab(); // 系統設定的分頁
+    registerNotificationBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行
     // 放在內建工具（批次佇列 100 … 主題 300）之後，最靠近帳號選單
     registerHeaderTool({
       key: 'notification',

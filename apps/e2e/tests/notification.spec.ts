@@ -101,7 +101,7 @@ test.describe('站內通知（docs/architecture/frontend/15-notification.md、do
       .poll(async () => (await badgeCount(page)) === (await unreadCount(adminToken)))
       .toBe(true);
 
-    // ③ 打開鈴鐺，點這一則 → 審批詳情（審核對話框疊在列表上）
+    // ③ 打開鈴鐺，點這一則 → 詳細內容的對話框 →「前往」審批詳情（審核對話框疊在列表上）
     await page.getByTestId('notification-bell').click();
     const panel = page.getByTestId('notification-panel');
     const item = getByTestIdAndValue(panel, 'notification-item', notification.id);
@@ -110,7 +110,12 @@ test.describe('站內通知（docs/architecture/frontend/15-notification.md、do
     await expect(item).toContainText(displayName);
     await snapshot(page, 'bell-open');
 
-    await item.click();
+    await item.getByTestId('notification-item-open').click();
+    const detail = page.getByTestId('notification-detail-dialog');
+    await expect(detail).toContainText(email);
+    await expect(panel).toBeHidden();
+    await snapshot(page, 'notification-detail');
+    await detail.getByTestId('notification-detail-link').click();
     await expect(page).toHaveURL(new RegExp(`/approval/${approvalId}$`));
     await expect(page.getByTestId('approval-detail-dialog')).toContainText(email);
     await expect(panel).toBeHidden();
@@ -144,14 +149,14 @@ test.describe('站內通知（docs/architecture/frontend/15-notification.md、do
     await toggleAuditorRole(adminToken);
     await expect(page.getByTestId('notification-unread-count')).toHaveAttribute('data-value', '1');
 
-    // ② 點開這一則 → 個人資料頁，徽章消失
+    // ② 列尾的快速連結 → 直接到個人資料頁，徽章消失
     await page.getByTestId('notification-bell').click();
     const panel = page.getByTestId('notification-panel');
     const first = panel.getByTestId('notification-item').first();
     await expect(first).toHaveAttribute('data-state', 'unread');
     await expect(first).toContainText('稽核人員');
     await snapshot(page, 'roles-changed');
-    await first.click();
+    await first.getByTestId('notification-item-link').click();
     await expect(page).toHaveURL(/\/profile$/);
     await expect(page.getByTestId('notification-unread-count')).toHaveCount(0);
 

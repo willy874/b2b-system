@@ -90,6 +90,16 @@ export class PlatformNotificationRepository {
     return rows.length > 0;
   }
 
+  async deleteOwn(recipientId: string, id: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(platformNotifications)
+      .where(
+        and(eq(platformNotifications.id, id), eq(platformNotifications.recipientId, recipientId)),
+      )
+      .returning({ id: platformNotifications.id });
+    return rows.length > 0;
+  }
+
   async exists(recipientId: string, id: string): Promise<boolean> {
     const [row] = await this.db
       .select({ id: platformNotifications.id })

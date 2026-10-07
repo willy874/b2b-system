@@ -67,10 +67,10 @@ describe('NotificationBell（頂列的通知）', () => {
       'data-value',
       '3',
     );
-    expect(screen.getByRole('button', { name: '通知（3 則未讀）' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '通知中心（3 則未讀）' })).toBeInTheDocument();
   });
 
-  it('打開才抓列表；route id 沒登記時只顯示文字、不可點', async () => {
+  it('打開才抓列表；route id 沒登記時沒有快速連結', async () => {
     renderBell();
     await screen.findByTestId('notification-unread-count');
     expect(fetchList).not.toHaveBeenCalled();
@@ -78,7 +78,20 @@ describe('NotificationBell（頂列的通知）', () => {
     const item = await screen.findByTestId('notification-item');
     expect(item).toHaveTextContent('租戶「Acme」（acme）佈建完成，可以使用了。');
     expect(item).toHaveAttribute('data-state', 'unread');
-    expect(item).not.toHaveAttribute('data-link');
+    expect(screen.queryByTestId('notification-item-link')).toBeNull();
+  });
+
+  it('點一則：關閉 Popover、打開詳細內容並標為已讀', async () => {
+    renderBell();
+    await screen.findByTestId('notification-unread-count');
+    fireEvent.click(screen.getByTestId('notification-bell'));
+    fireEvent.click(await screen.findByTestId('notification-item-open'));
+    const dialog = await screen.findByTestId('notification-detail-dialog');
+    expect(dialog).toHaveTextContent('租戶「Acme」（acme）佈建完成，可以使用了。');
+    await waitFor(() =>
+      expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n1' }),
+    );
+    await waitFor(() => expect(screen.queryByTestId('notification-panel')).toBeNull());
   });
 
   it('全部標為已讀', async () => {

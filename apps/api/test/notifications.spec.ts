@@ -382,14 +382,32 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
       expect((await notificationsOf(other))[0]!.readAt).toBeNull();
     });
 
-    it('已讀不寫稽核', async () => {
+    it('刪除：204，之後列表與未讀數都不含它；別人的或不存在的 → 404，別人的通知不被刪', async () => {
+      const headers = await auth(me);
+      await request(http).delete(`/notifications/${mine[3]!.id}`).set(headers).expect(204);
+      const response = await request(http).get('/notifications').set(headers).expect(200);
+      expect((response.body as PageBody).data.items.map((item) => item.id)).not.toContain(
+        mine[3]!.id,
+      );
+      const count = await request(http).get('/notifications/unread-count').set(headers).expect(200);
+      expect(count.body).toEqual({ data: { count: 3 } });
+
+      const notMine = await request(http)
+        .delete(`/notifications/${theirs.id}`)
+        .set(headers)
+        .expect(404);
+      expect(notMine.body).toMatchObject({ error: { code: 'NOTIFICATION_NOT_FOUND' } });
+      await request(http).delete(`/notifications/${mine[3]!.id}`).set(headers).expect(404);
+      expect(await notificationsOf(theirs.recipientId)).toHaveLength(1);
+    });
+
+    it('已讀與刪除不寫稽核', async () => {
       const before = await db.execute<{ total: number }>(
         sql`SELECT count(*)::int AS total FROM audit_logs`,
       );
-      await request(http)
-        .post('/notifications/read-all')
-        .set(await auth(me))
-        .expect(200);
+      const headers = await auth(me);
+      await request(http).post('/notifications/read-all').set(headers).expect(200);
+      await request(http).delete(`/notifications/${mine[1]!.id}`).set(headers).expect(204);
       const after = await db.execute<{ total: number }>(
         sql`SELECT count(*)::int AS total FROM audit_logs`,
       );

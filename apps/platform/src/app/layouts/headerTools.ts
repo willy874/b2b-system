@@ -1,3 +1,4 @@
+import { BatchQueueIndicator } from '@b2b-system/web-core/batch';
 import { RealtimeStatusIndicator } from '@b2b-system/web-core/layout';
 import { ThemeMenu } from '@b2b-system/web-core/layout';
 import { registerHeaderTool } from '@b2b-system/web-core/toolbar';
@@ -10,6 +11,14 @@ import { LanguageMenu } from './LanguageMenu';
  * `order` 與 backstage 相同的間隔，之後插在中間不必改既有的值。
  */
 export function registerBuiltinHeaderTools(): void {
+  // 關掉只是不顯示佇列按鈕；批次結束的結果仍由 BatchQueueNotifier 彈出
+  registerHeaderTool({
+    key: 'batchQueue',
+    order: 100,
+    labelI18nKey: 'common.batch.queue.title',
+    icon: 'upload',
+    Component: BatchQueueIndicator,
+  });
   registerHeaderTool({
     key: 'realtimeStatus',
     order: 150,

@@ -123,6 +123,12 @@ export class PlatformNotificationService {
     return { success: true };
   }
 
+  /** 別人的或不存在的一律 404（不透露別人的通知存在）。 */
+  async remove(adminId: string, id: string): Promise<void> {
+    if (!(await this.repo.deleteOwn(adminId, id))) throw new AppException('NOTIFICATION_NOT_FOUND');
+    this.changedFor(adminId);
+  }
+
   async markAllRead(adminId: string): Promise<{ updated: number }> {
     const updated = await this.repo.markAllRead(adminId);
     if (updated) this.changedFor(adminId);

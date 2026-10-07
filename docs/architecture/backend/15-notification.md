@@ -26,7 +26,7 @@ modules/notification/                    通用模組：不 import 任何業務�
 ├── notification.cursor.ts              keyset 游標的編碼與解碼
 ├── notification.repository.ts          批次寫入、列表、未讀數、已讀、保留清理的一批
 ├── notification.service.ts             NotificationService：notify()、list()、unreadCount()、markRead()、markAllRead()、cleanup()
-├── notification.controller.ts          GET /notifications、GET /notifications/unread-count、POST /notifications/:id/read、POST /notifications/read-all
+├── notification.controller.ts          GET /notifications、GET /notifications/unread-count、POST /notifications/:id/read、POST /notifications/read-all、DELETE /notifications/:id
 ├── notification-overview.controller.ts GET /notifications/all（通知總覽，`notification:read`；§6.1）
 ├── notification-cleanup.job.ts         notification.cleanup 背景工作
 ├── notification.settings.ts            notification.retentionDays、notification.maxPerUser
@@ -53,7 +53,7 @@ modules/user/user.notifications.ts           user.rolesChanged 的宣告與參�
 | `recipient_id` | `uuid` → `users.id` `ON DELETE CASCADE` | 收件人。使用者只會軟刪除；被永久刪除（`trash.purge`）時通知一起刪掉 |
 | `type` | `text` | `<模組>.<事件>`（camelCase，與 `defineJob` 同一種命名）；text ＋ 擁有者模組的常數，不用 Postgres enum（[`02-database.md`](./02-database.md) §1） |
 | `params` | `jsonb` | 組句子用的名稱快照（純量與字串陣列，序列化後 ≤ 4 KiB）；不存整份資料，也不存權限相關的東西 |
-| `link` | `jsonb NULL` | `{ route, params }`：前端的 route id ＋ 參數（D3，§4.1）；null＝只顯示文字 |
+| `link` | `jsonb NULL` | `{ route, params }`：前端的 route id ＋ 參數（D3，§4.1）；null＝沒有快速連結（通知照樣可以點開詳細內容，[`frontend/15-notification.md`](../frontend/15-notification.md) §2.2） |
 | `actor_id` | `uuid NULL` → `users.id` `ON DELETE SET NULL` | 觸發的人；null＝系統（匿名的註冊申請也是 null）。觸發者被永久刪除時通知保留、觸發者變成 null（與 `revisions.actor_id`、`created_by` 同一個規則，[`13-trash.md`](./13-trash.md) §4.2） |
 | `read_at` | `timestamptz NULL` | 已讀時間；null＝未讀 |
 | `source_id` | `uuid NULL`（無外鍵） | 產生它的來源：公告的發送紀錄（[`19-announcement.md`](./19-announcement.md) §2.3）；程式發出的通知為 null。`(source_id, recipient_id)` 部分唯一：同一個來源對同一個人只有一筆，`notify()` 遇到重複時略過（`ON CONFLICT DO NOTHING`） |
@@ -152,7 +152,7 @@ await withTransaction(this.db, async (tx) => {
 
 `link.route` 是前端的 route id（`<feature>.<頁面>`，可再多層；格式由 `notify()` 驗證）。前端的 feature 在 plugin 的 **同步階段**
 以 `registerRouteLink()` 把 route id 登記成 route（`features/<name>/routeLinks.ts`，[`../frontend/15-notification.md`](../frontend/15-notification.md) §3）；
-找不到的只顯示文字、不可點（D3）。已發出的 route id **不改名**：舊通知靠它連結。
+找不到的沒有快速連結，只能點開詳細內容（D3）。已發出的 route id **不改名**：舊通知靠它連結。
 
 | route id | 參數 | 前端的頁面 | 由誰使用 |
 | --- | --- | --- | --- |
@@ -193,6 +193,7 @@ await withTransaction(this.db, async (tx) => {
 | GET | `/notifications/unread-count` | `{ count }` |
 | POST | `/notifications/:id/read` | 標為已讀（已讀過的保留原本的時間），回傳該則通知；不是自己的與不存在的一樣回 `404 NOTIFICATION_NOT_FOUND` |
 | POST | `/notifications/read-all` | 自己所有未讀的標為已讀，回 `{ updated }` |
+| DELETE | `/notifications/:id` | 刪除自己的一則（不進回收桶），`204`；不是自己的與不存在的一樣回 `404 NOTIFICATION_NOT_FOUND`。推 `notification delete` 給自己。公告的通知刪掉後就看不到全文、發送紀錄的人數與已讀率少算這一則——與保留清理刪除時相同 |
 
 - **keyset 而非 offset**（[`03-api-conventions.md`](./03-api-conventions.md) §2 的例外，與檔案列表同理）：通知會在捲動途中不斷新增在最前面，
   offset 會讓下一頁重複前一頁的最後幾筆。游標是上一頁最後一筆的 `created_at`（微秒精度，由資料庫格式化）＋ id，
@@ -200,7 +201,7 @@ await withTransaction(this.db, async (tx) => {
   （UTC、毫秒或微秒，日期與時間的每一欄都存在；`core/http` 的 `isCursorTimestamp`）：V8 的 `Date.parse` 比 Postgres 寬鬆，
   `2026-02-30`、`2026`、`0` 都過得了它，進 SQL 時卻會讓 Postgres 拋錯、回 500。
 - 每筆帶 `actor: { id, name } | null`（`users` 的 left join，被軟刪除的人照樣顯示名字）。
-- 已讀與全部已讀 **不寫稽核**：使用者自己的狀態，量大、沒有稽核價值。
+- 已讀、全部已讀與刪除 **不寫稽核**：使用者自己的狀態，量大、沒有稽核價值。
 
 ```jsonc
 // GET /notifications?limit=20&unread=true&cursor=<上一頁的 nextCursor> → 200
@@ -224,6 +225,7 @@ await withTransaction(this.db, async (tx) => {
 // GET /notifications/unread-count → 200 { "data": { "count": 3 } }
 // POST /notifications/:id/read → 200 { "data": { /* Notification，readAt 已設定 */ } }
 // POST /notifications/read-all → 200 { "data": { "updated": 3 } }
+// DELETE /notifications/:id → 204
 // GET /notifications/all?type=approval.pending&recipientId=<uuid>&cursor=… → 200
 //   { "data": { "items": [ { /* Notification */, "recipient": { "id": "uuid", "name": "Alice" } } ], "nextCursor": null } }
 ```
@@ -260,7 +262,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 | 類型 | `tenant.provisioned`、`tenant.provisionFailed`（收件人：角色有 `tenant:create` 的啟用中管理者；佈建在背景工作裡跑，建立的人多半已離開那一頁）；`platformAdmin.roleChanged`（收件人：被換角色的本人） |
 | 寫入時機 | 業務完成 **之後**，失敗只記錄、不讓業務失敗：佈建已經完成，不能因為通知寫不進去而回報失敗。租戶的通知在業務交易內寫入（§3.2），平台的寫入點（背景工作、管理者管理）沒有共同的交易可以加入 |
 | 欄位 | 沒有 `actor_id`、`source_id`：平台的通知都是系統發出的，也沒有公告 |
-| API | `GET /platform/notifications?offset=&limit=&unread=`（**offset** 分頁、回 `{ items, pagination }`）、`GET /platform/notifications/unread-count`、`POST /platform/notifications/:id/read`（已讀過的不算錯；別人的與不存在的一樣 `404 NOTIFICATION_NOT_FOUND`）、`POST /platform/notifications/read-all`。都是 `@Authenticated()`，只在 apps/platform 的網域有效（`/platform/*`） |
+| API | `GET /platform/notifications?offset=&limit=&unread=`（**offset** 分頁、回 `{ items, pagination }`）、`GET /platform/notifications/unread-count`、`POST /platform/notifications/:id/read`（已讀過的不算錯；別人的與不存在的一樣 `404 NOTIFICATION_NOT_FOUND`）、`POST /platform/notifications/read-all`、`DELETE /platform/notifications/:id`（`204`；別人的與不存在的一樣 404）。都是 `@Authenticated()`，只在 apps/platform 的網域有效（`/platform/*`） |
 | 分頁 | offset 而非 keyset：平台的通知只有佈建結果與換角色，一個人一年不到幾百則，捲動途中新增造成的重複可以接受 |
 | 推播 | `platform.changed`（`platformNotification`，`adminIds` 是收件人），只推給收件人在 apps/platform 上的連線（[`08-realtime.md`](./08-realtime.md) §3.6） |
 | 偏好 | 沒有事件管理與個人設定（[`16-notification-event.md`](./16-notification-event.md)）：類型少，都是要處理的事 |
@@ -332,7 +334,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 
 | 對象 | 檔案 |
 | --- | --- |
-| 收件人（super-admin、依賴樹、排除沒有權限／停用／未啟用／刪除的人、已刪除的角色、過期的邊）；`notify` 與業務同一個交易（rollback 不留下）、略過自己；端點（只看自己的、新的在前、keyset 分頁不重複不漏且不受新通知影響、`unread` 篩選、未讀數、已讀保留原本的時間、別人的與不存在的 404、全部已讀、已讀不寫稽核、未登入 401）；三個寫入點（匿名註冊通知審核者且沒有結果通知、申請人有審核權限時不通知自己、駁回通知申請人、指派角色帶增減名稱、送同一組不通知）；保留清理依設定；外鍵（收件人刪除 CASCADE、觸發者 SET NULL） | `test/notifications.spec.ts` |
+| 收件人（super-admin、依賴樹、排除沒有權限／停用／未啟用／刪除的人、已刪除的角色、過期的邊）；`notify` 與業務同一個交易（rollback 不留下）、略過自己；端點（只看自己的、新的在前、keyset 分頁不重複不漏且不受新通知影響、`unread` 篩選、未讀數、已讀保留原本的時間、別人的與不存在的 404、全部已讀、刪除（之後列表與未讀數不含它，別人的 404 且不被刪）、已讀與刪除不寫稽核、未登入 401）；三個寫入點（匿名註冊通知審核者且沒有結果通知、申請人有審核權限時不通知自己、駁回通知申請人、指派角色帶增減名稱、送同一組不通知）；保留清理依設定；外鍵（收件人刪除 CASCADE、觸發者 SET NULL） | `test/notifications.spec.ts` |
 | 推播只到收件人的 user room、payload 是通知 id、稽核的讀者收不到；指派角色時通知早於 `userRole` | `test/realtime.spec.ts` |
 | 受眾表：`notification` 只有 user room、不加 `auditLog:read` | `src/modules/realtime/__tests__/realtime.audience.spec.ts` |
 | `notify` 在交易提交後才推播、rollback 不推、一批一則事件（500 人也是一則、每人只帶自己的 id）、全部略過時不寫、截斷與 warn、超過 100 則的推播、不是 `withTransaction` 的交易拋錯；游標錯誤、404、已讀的推播；清理的分批與設定、排程註冊 | `src/modules/notification/__tests__/notification.service.spec.ts` |
@@ -424,3 +426,13 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 | N2 | 推播不可用時（D12） | 未讀數在推播斷線或停用時每 60 秒重抓一次 |
 | N2 | 語系包（D12） | 鈴鐺在每一頁都看得到：按鈕的字放全域語系包，Popover 的內容由鈴鐺掛上時自己載入 feature 的 scope |
 | N2 | 列表頁 | `/notification` 只需要登入（`access: []`），沒有側邊選單項目，入口是鈴鐺的「查看全部」 |
+
+## 13. 設計決策：詳細內容、刪除與批次操作
+
+> 2026-10-08 決定。前端見 [`../frontend/15-notification.md`](../frontend/15-notification.md) §2、§4。
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **每一則都可以點，點了打開詳細內容的對話框**；連結改成列尾另外的快速連結（「前往」），對話框頁尾也有。取代 §12.2 D3「找不到 route id 時只顯示文字、不可點」的畫面部分（route id 的存法不變） | 沒有連結的通知（審批申請、舊資料）原本點不動；補充在列上會截斷，要有地方看完整內容。打開詳細內容就算讀過 |
+| D2 | **使用者可以刪除自己的通知**：`DELETE /notifications/:id`、`DELETE /platform/notifications/:id`，`@Authenticated()`、只能刪自己的（別人的與不存在的一樣 404），**直接刪除**（不軟刪除、不進回收桶、不寫稽核），推 `delete` 給自己 | 與保留清理（§12.2 D10）同一種刪除，不必為「隱藏」加欄位與 migration；代價是公告的通知刪掉後看不到全文、發送紀錄的人數與已讀率少算——保留清理本來就會造成同樣的結果 |
+| D3 | **批次標為已讀與刪除不另開後端端點**：前端經全域批次佇列逐筆呼叫單筆端點（[`../frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13）。兩個前端都有：apps/platform 也接上了 web-core 的批次佇列（`batchQueuePlugin` 搬進 web-core） | 沿用專案「後端不提供批次端點」的決定；「全部已讀」照舊是一支端點 |

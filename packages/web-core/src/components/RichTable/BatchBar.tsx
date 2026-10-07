@@ -70,6 +70,7 @@ function splitTargets<TData>(
  * 表格上方的批次區：勾選後是操作列（`BatchActionBar`），確認後把適用的列送進全域佇列
  * （`batch`，由 worker 逐筆呼叫單筆 API），這張表的工作進行中時換成進度條。
  * 工作結束時（發起的分頁）成功與已不存在的列移出選取，失敗的保留勾選以便重試。
+ * 不是表格的列表（例：通知列表的虛擬捲動）也直接用它，勾選狀態一樣來自 `useTableSelection`。
  */
 export function BatchBar<TData>({ batch, getRowId, pageRows }: BatchBarProps<TData>) {
   const { t } = useTranslation();

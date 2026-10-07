@@ -219,7 +219,7 @@
 - 管理自己的多重驗證：驗證方式的設定與移除、重新產生備用碼（`/auth/mfa/*`；[`backend/21-mfa.md`](../backend/21-mfa.md) §7）
 - 檢視／修改自己的偏好設定（語系、時區）
 - 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D15）
-- 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）
+- 檢視自己的站內通知、標為已讀、刪除（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`、`DELETE /notifications/:id`；[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）
 - 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D4）
 - 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`

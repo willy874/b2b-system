@@ -106,7 +106,7 @@ describe('NotificationBell（頂列的通知工具，docs/architecture/backend/1
     renderRoute(routes, '/', []);
     const badge = await screen.findByTestId('notification-unread-count');
     expect(badge).toHaveTextContent('2');
-    expect(screen.getByTestId('notification-bell')).toHaveAccessibleName('通知：2 則未讀');
+    expect(screen.getByTestId('notification-bell')).toHaveAccessibleName('通知中心：2 則未讀');
     expect(fetchList).not.toHaveBeenCalled();
   });
 
@@ -124,7 +124,7 @@ describe('NotificationBell（頂列的通知工具，docs/architecture/backend/1
     expect(await screen.findByTestId('notification-unread-count')).toHaveTextContent('99+');
   });
 
-  it('打開後列出句子、觸發者；不認得的類型顯示通用文字且不可點', async () => {
+  it('打開後列出句子、觸發者；有連結的有快速連結，不認得的類型顯示通用文字且沒有快速連結', async () => {
     renderRoute(routes, '/', []);
     const panel = await openPanel();
     const items = await within(panel).findAllByTestId('notification-item');
@@ -133,21 +133,42 @@ describe('NotificationBell（頂列的通知工具，docs/architecture/backend/1
     expect(items[0]).toHaveTextContent('Carol');
     expect(items[0]).toHaveTextContent('系統 · 5 分鐘前');
     expect(items[0]).toHaveAttribute('data-state', 'unread');
-    expect(items[0]?.tagName).toBe('A');
+    expect(within(items[0]!).getByTestId('notification-item-link')).toHaveAttribute(
+      'href',
+      '/approval/a1',
+    );
     expect(items[1]).toHaveTextContent('你有一則新通知');
     expect(items[1]).toHaveTextContent('Admin');
-    expect(items[1]?.tagName).not.toBe('A');
+    expect(within(items[1]!).queryByTestId('notification-item-link')).toBeNull();
   });
 
-  it('點有連結的一則：標為已讀、換到該頁並關閉 Popover', async () => {
+  it('點一則：標為已讀、關閉 Popover、打開詳細內容；「前往」換到該頁', async () => {
     const { router } = renderRoute(routes, '/', []);
     const panel = await openPanel();
     const [item] = await within(panel).findAllByTestId('notification-item');
-    await userEvent.click(item!);
+    await userEvent.click(within(item!).getByTestId('notification-item-open'));
+
+    const dialog = await screen.findByTestId('notification-detail-dialog');
+    expect(dialog).toHaveTextContent('carol@example.com 送出了帳號註冊申請，等待審核');
+    expect(dialog).toHaveTextContent('Carol');
+    expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n-pending' });
+    await waitFor(() => expect(screen.queryByTestId('notification-panel')).toBeNull());
+    expect(router.state.location.pathname).toBe('/');
+
+    await userEvent.click(within(dialog).getByTestId('notification-detail-link'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approval/a1'));
+  });
+
+  it('列尾的快速連結：標為已讀、直接換到該頁並關閉 Popover', async () => {
+    const { router } = renderRoute(routes, '/', []);
+    const panel = await openPanel();
+    const [item] = await within(panel).findAllByTestId('notification-item');
+    await userEvent.click(within(item!).getByTestId('notification-item-link'));
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/approval/a1'));
     expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n-pending' });
     await waitFor(() => expect(screen.queryByTestId('notification-panel')).toBeNull());
+    expect(screen.queryByTestId('notification-detail-dialog')).toBeNull();
   });
 
   it('沒有連結的未讀通知也能從列尾按鈕標為已讀，Popover 不關閉', async () => {
@@ -157,7 +178,7 @@ describe('NotificationBell（頂列的通知工具，docs/architecture/backend/1
     renderRoute(routes, '/', []);
     const panel = await openPanel();
     const [item] = await within(panel).findAllByTestId('notification-item');
-    expect(item?.tagName).not.toBe('A');
+    expect(within(item!).queryByTestId('notification-item-link')).toBeNull();
 
     await userEvent.click(within(panel).getByRole('button', { name: '標為已讀' }));
 

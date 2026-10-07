@@ -7,7 +7,7 @@ import { NOTIFICATION_FIXTURES } from '../resources/fixtures';
 
 /**
  * 站內通知（docs/architecture/backend/15-notification.md §6）：只需要登入、只看得到自己的，所以不檢查權限
- * （沒有 403 的情境）。已讀會改變狀態：mock 模式下點了通知，鈴鐺的未讀數跟著減少；重新整理就還原。
+ * （沒有 403 的情境）。已讀與刪除會改變狀態：mock 模式下點了通知，鈴鐺的未讀數跟著減少；重新整理就還原。
  */
 let notifications: Notification[] = structuredClone(NOTIFICATION_FIXTURES);
 
@@ -70,5 +70,15 @@ export const notificationHandlers = [
     }
     target.readAt ??= new Date().toISOString();
     return HttpResponse.json({ data: target });
+  }),
+  http.delete(`${MOCK_API_BASE}/notifications/:id`, ({ params }) => {
+    if (!notifications.some((item) => item.id === params.id)) {
+      return HttpResponse.json(
+        { error: { code: 'NOTIFICATION_NOT_FOUND', message: 'NOTIFICATION_NOT_FOUND' } },
+        { status: 404 },
+      );
+    }
+    notifications = notifications.filter((item) => item.id !== params.id);
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

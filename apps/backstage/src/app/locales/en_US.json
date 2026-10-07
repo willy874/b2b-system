@@ -172,10 +172,10 @@
     "usernameTooShort": "Must be at least 3 characters"
   },
   "notification": {
-    "label": "Notifications",
-    "trigger": "Notifications",
-    "triggerUnread_one": "Notifications: {{count}} unread",
-    "triggerUnread_other": "Notifications: {{count}} unread"
+    "label": "Notification center",
+    "trigger": "Notification center",
+    "triggerUnread_one": "Notification center: {{count}} unread",
+    "triggerUnread_other": "Notification center: {{count}} unread"
   },
   "explain": {
     "everyone": "Everyone",

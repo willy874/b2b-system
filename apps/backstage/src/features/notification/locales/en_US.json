@@ -1,6 +1,6 @@
 {
   "notification": {
-    "title": "Notifications",
+    "title": "Notification center",
     "description": "Things waiting for you and changes to your account show up here. Read notifications are removed after the retention period.",
     "unreadCount_one": "{{count}} unread",
     "unreadCount_other": "{{count}} unread",
@@ -15,6 +15,9 @@
       "action": "Mark all as read",
       "success_one": "Marked {{count}} notification as read",
       "success_other": "Marked {{count}} notifications as read"
+    },
+    "delete": {
+      "success": "Notification deleted"
     },
     "actor": {
       "system": "System"

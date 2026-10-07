@@ -8,6 +8,8 @@ import type {
   PlatformNotificationControllerMarkAllReadResult,
   PlatformNotificationControllerMarkReadInput,
   PlatformNotificationControllerMarkReadResult,
+  PlatformNotificationControllerRemoveInput,
+  PlatformNotificationControllerRemoveResult,
   PlatformNotificationControllerUnreadCountResult,
 } from '../../endpoints/platform-notifications';
 import { request } from '../../runtime';
@@ -125,6 +127,34 @@ export function platformNotificationControllerMarkRead(
 ): Promise<PlatformNotificationControllerMarkReadResult> {
   return request<PlatformNotificationControllerMarkReadResult>(
     platformNotificationControllerMarkReadOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /platform/notifications/{id}
+
+export const PlatformNotificationControllerRemoveSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const platformNotificationControllerRemoveOperation: OperationDefinition = {
+  id: 'PlatformNotificationController_remove',
+  method: 'DELETE',
+  path: '/platform/notifications/{id}',
+  responseTypes: { 204: 'none' },
+  schemas: PlatformNotificationControllerRemoveSchemas,
+};
+
+/** 刪除一則自己的通知 */
+export function platformNotificationControllerRemove(
+  input: PlatformNotificationControllerRemoveInput,
+  options?: RequestOptions,
+): Promise<PlatformNotificationControllerRemoveResult> {
+  return request<PlatformNotificationControllerRemoveResult>(
+    platformNotificationControllerRemoveOperation,
     input,
     options,
   );

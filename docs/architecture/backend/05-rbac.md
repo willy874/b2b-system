@@ -690,6 +690,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/notifications/unread-count` | `@Authenticated`               |
 | POST   | `/notifications/read-all`   | `@Authenticated`                 |
 | POST   | `/notifications/:id/read`   | `@Authenticated`（不是自己的回 404） |
+| DELETE | `/notifications/:id`        | `@Authenticated`（不是自己的回 404） |
 | GET    | `/notifications/all`        | `notification:read`（通知總覽，[`backend/19-announcement.md`](19-announcement.md) §9.2 D1） |
 | GET    | `/notification-events`      | `system:read`（[`backend/16-notification-event.md`](16-notification-event.md) §9.2 D10）    |
 | PATCH  | `/notification-events`      | `system:update`                  |

@@ -1,10 +1,10 @@
-import type { AppPluginFactory } from '@b2b-system/web-core/app';
-import { sessionStore } from '@b2b-system/web-core/auth';
-import { getActiveBatchQueue } from '@b2b-system/web-core/batch';
-import type { BatchPort } from '@b2b-system/web-core/batch';
-import { MAIN_BACKEND } from '@b2b-system/web-core/client';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { AppPluginFactory } from '../../../app';
+import { sessionStore } from '../../../auth';
+import { getActiveBatchQueue } from '../../../batch';
+import type { BatchPort } from '../../../batch';
+import { MAIN_BACKEND } from '../../../client';
 import { batchQueuePlugin } from '../batch-queue';
 
 /** 記下分頁送給佇列的指令（不起 worker，也沒有佇列在另一端）。 */

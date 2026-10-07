@@ -88,7 +88,7 @@ async function signPlatformToken(email: string): Promise<string> {
     );
 }
 
-function as(token: string, method: 'get' | 'post' | 'patch', path: string) {
+function as(token: string, method: 'get' | 'post' | 'patch' | 'delete', path: string) {
   return request(http)[method](path).set('Host', AUTH_HOST).set('authorization', `Bearer ${token}`);
 }
 
@@ -264,6 +264,19 @@ describe('平台管理者的即時推播與站內通知（docs/architecture/back
     expect(
       itemsOf(await as(operator, 'get', '/platform/notifications?unread=true').expect(200)),
     ).toHaveLength(0);
+
+    // 刪除：別人的不透露存在；自己的刪掉後列表不含它
+    expect(
+      errorCodeOf(
+        await as(auditor, 'delete', `/platform/notifications/${list[0]!.id}`).expect(404),
+      ),
+    ).toBe('NOTIFICATION_NOT_FOUND');
+    await as(operator, 'delete', `/platform/notifications/${list[0]!.id}`).expect(204);
+    expect(
+      itemsOf<{ id: string }>(await as(operator, 'get', '/platform/notifications').expect(200)).map(
+        (item) => item.id,
+      ),
+    ).not.toContain(list[0]!.id);
   });
 
   it('換角色：通知本人；停用：推 session.revoked 並斷線', async () => {

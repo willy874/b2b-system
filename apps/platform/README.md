@@ -65,7 +65,7 @@ package 的原始碼由這個 app 的 Vite 編譯，CSS Module 的 class 前綴�
 | `test/` | `setup.ts`；`i18n.ts` 包 web-core 的 `initTestI18n`，加上自己的 `app/locales/zh_TW.json` |
 
 `core/feature`（執行期啟用 feature）、`core/file`、`core/trash` 等只在 backstage：apps/platform 沒有可啟用的 feature、檔案與回收桶。
-web-core 的批次佇列在這裡沒有接上（沒有 `batchQueuePlugin`），平台的列表沒有批次操作。
+web-core 的批次佇列（`batchQueuePlugin`、頂列的佇列按鈕、`BatchQueueNotifier`）與 backstage 相同；目前只有通知列表有批次操作（標為已讀、刪除）。佇列以 origin 區分，與 backstage 的佇列互不相通。
 
 ### 同步規則
 

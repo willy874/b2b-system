@@ -574,6 +574,37 @@
   },
   "notificationRow": {
     "unread": "Unread: ",
-    "markRead": "Mark as read"
+    "markRead": "Mark as read",
+    "followLink": "Go to",
+    "select": "Select: {{message}}",
+    "delete": "Delete"
+  },
+  "notificationBatch": {
+    "selectAll_one": "Select the {{count}} notification here",
+    "selectAll_other": "Select all {{count}} here",
+    "markRead": {
+      "action": "Mark as read",
+      "title": "Mark notifications as read",
+      "confirm_one": "Mark {{count}} notification as read?",
+      "confirm_other": "Mark {{count}} notifications as read?",
+      "success_one": "Marked {{count}} notification as read",
+      "success_other": "Marked {{count}} notifications as read",
+      "ineligible": "All selected notifications are already read"
+    },
+    "delete": {
+      "action": "Delete",
+      "title": "Delete notifications",
+      "confirm_one": "Delete {{count}} notification? This can't be undone.",
+      "confirm_other": "Delete {{count}} notifications? This can't be undone.",
+      "success_one": "Deleted {{count}} notification",
+      "success_other": "Deleted {{count}} notifications"
+    }
+  },
+  "notificationDetail": {
+    "actor": "Triggered by",
+    "time": "Time",
+    "relativeTime": "({{time}})",
+    "followLink": "Go to",
+    "delete": "Delete"
   }
 }

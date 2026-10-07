@@ -388,6 +388,28 @@
         "tags": ["platform-notifications"]
       }
     },
+    "/platform/notifications/{id}": {
+      "delete": {
+        "operationId": "PlatformNotificationController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除一則自己的通知",
+        "tags": ["platform-notifications"]
+      }
+    },
     "/approvals": {
       "get": {
         "operationId": "ApprovalController_list",
@@ -672,6 +694,28 @@
           }
         },
         "summary": "一則通知標為已讀",
+        "tags": ["notifications"]
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "operationId": "NotificationController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除一則自己的通知",
         "tags": ["notifications"]
       }
     },

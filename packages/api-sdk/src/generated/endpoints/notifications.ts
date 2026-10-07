@@ -102,6 +102,33 @@ export function getNotificationControllerReadUrl(
   return buildUrl('/notifications/{id}/read', path);
 }
 
+// DELETE /notifications/{id}
+
+export interface NotificationControllerRemovePathParams {
+  id: string;
+}
+
+export interface NotificationControllerRemoveInput {
+  path: NotificationControllerRemovePathParams;
+}
+
+export interface NotificationControllerRemoveResponses {
+  204: undefined;
+}
+
+export type NotificationControllerRemoveResponse = NotificationControllerRemoveResponses[204];
+
+export type NotificationControllerRemoveResult = ApiResponse<
+  204,
+  NotificationControllerRemoveResponses[204]
+>;
+
+export function getNotificationControllerRemoveUrl(
+  path: NotificationControllerRemovePathParams,
+): string {
+  return buildUrl('/notifications/{id}', path);
+}
+
 // GET /notifications/all
 
 export interface NotificationOverviewControllerListAllResponses {

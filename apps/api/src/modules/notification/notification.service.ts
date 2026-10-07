@@ -205,17 +205,27 @@ export class NotificationService {
     const row = await this.repo.findOwn(id, actor.id);
     // 標完之後到讀回之間被清理工作刪掉：結果等同不存在
     if (!row) throw new AppException('NOTIFICATION_NOT_FOUND');
-    this.publishRead(actor.id, [
+    this.publishToSelf(actor.id, [
       { resource: ChangeSource.NOTIFICATION, kind: ChangeKind.UPDATE, id },
     ]);
     return toDto(row);
+  }
+
+  /** 刪除自己的一則；推 `delete` 給自己的其他分頁（未讀數、列表跟著更新）。 */
+  async remove(id: string, actor: AuthUser): Promise<void> {
+    if (!(await this.repo.deleteOwn(id, actor.id))) {
+      throw new AppException('NOTIFICATION_NOT_FOUND');
+    }
+    this.publishToSelf(actor.id, [
+      { resource: ChangeSource.NOTIFICATION, kind: ChangeKind.DELETE, id },
+    ]);
   }
 
   /** 自己所有未讀的通知標為已讀。 */
   async markAllRead(actor: AuthUser): Promise<{ updated: number }> {
     const updated = await this.repo.markAllRead(actor.id, new Date());
     if (updated > 0) {
-      this.publishRead(actor.id, [
+      this.publishToSelf(actor.id, [
         { resource: ChangeSource.NOTIFICATION, kind: ChangeKind.UPDATE },
       ]);
     }
@@ -242,7 +252,7 @@ export class NotificationService {
     const result = await this.repo.markSourceRead(sourceId, recipientId, new Date());
     if (!result) return false;
     if (result.wasUnread) {
-      this.publishRead(recipientId, [
+      this.publishToSelf(recipientId, [
         { resource: ChangeSource.NOTIFICATION, kind: ChangeKind.UPDATE, id: result.id },
       ]);
     }
@@ -342,7 +352,7 @@ export class NotificationService {
     });
   }
 
-  private publishRead(userId: string, changes: ResourceChangeWire[]): void {
+  private publishToSelf(userId: string, changes: ResourceChangeWire[]): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, { changes, affectedUserIds: [userId] });
   }
 }
