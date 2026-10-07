@@ -41,7 +41,6 @@ nginx 存取日誌不記 query string（[`01-system.md`](../architecture/01-syst
 | 登入端點的 argon2 並行上限 | `UV_THREADPOOL_SIZE=16` | 要搭配限流的第二版一起決定排隊行為 |
 | 每個租戶覆寫連線池大小、PgBouncer | 連線預算公式在 `backend/02-database.md` §6.2 | 公式寫明了何時需要 |
 | 稽核冷表的保留期限（按月分區、DROP PARTITION） | 冷表無限保留 | 要先訂法規上的保留年限；與 multi-instance 的「稽核日誌分區」一起做 |
-| 使用者列表「先分頁再聚合角色」 | 聚合後再分頁 | 目前規模下不必要 |
 | 影像處理的記憶體實測 | 原圖串流到暫存檔、逐列解碼、兩個版本依序 render | 需要壓測環境 |
 
 ### 邊際操作與體驗

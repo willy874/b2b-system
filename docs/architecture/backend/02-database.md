@@ -568,6 +568,16 @@ async findUserIdsByRole(roleId: string): Promise<string[]> {
 ### 4.4 使用者列表（含角色，避免 N+1）
 
 ```ts
+// 先在 users 上篩選、排序、分頁，只對這一頁的人 join 角色並聚合
+const page = this.db
+  .select({ id: users.id })
+  .from(users)
+  .where(and(notDeleted(users), ...filters))
+  .orderBy(desc(users.createdAt), desc(users.id))
+  .limit(limit)
+  .offset(offset)
+  .as('page');
+
 const rows = await this.db
   .select({
     user: users,
@@ -578,18 +588,17 @@ const rows = await this.db
         '[]'
       )`,
   })
-  .from(users)
+  .from(page)
+  .innerJoin(users, eq(users.id, page.id))
   // 持有角色的邊：role:<r>#holder@user:<users.id>（多型 id 是 text，uuid 那邊轉成 text）
   .leftJoin(relationTuples, and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`)))
   .leftJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
-  .where(and(notDeleted(users), ...filters))
   .groupBy(users.id)
-  .orderBy(desc(users.createdAt))
-  .limit(limit)
-  .offset(offset);
+  .orderBy(desc(users.createdAt), desc(users.id));
 ```
 
 一次查詢帶回使用者與其角色。**不要** 先查使用者再逐一查角色。
+先分頁再聚合：聚合只涵蓋這一頁的人，不必替 offset 之前的每一個人 join 角色；排序欄都在 `users` 上、依角色篩選用 `EXISTS`，所以不需要先聚合。
 
 ---
 
