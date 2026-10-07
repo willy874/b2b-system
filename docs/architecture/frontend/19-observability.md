@@ -139,6 +139,7 @@ pnpm bundle:check   # BUILD_MANIFEST=true 建置兩個前端，再跑 scripts/ch
 
 | 變數（建置時，`VITE_` 進產物） | 說明 |
 | --- | --- |
+| `VITE_APM_ENABLED` | APM 整套的開關；`false` 時 `telemetryPlugin` 不初始化 SDK（`TelemetryOptions.enabled`）：不送出、也不 `console.debug`，`captureError` 等函式都是空操作。沒設 = 開啟 |
 | `VITE_APM_PROJECT_ID`、`VITE_APM_PUBLIC_KEY` | apm-service 的專案 id 與 public key；DSN 在執行時組成 `<協定>//<key>@<location.host>/apm/<id>` |
 | `VITE_APM_DSN` | 完整的 DSN（接真的 Sentry 或 GlitchTip）；有值時優先 |
 | `VITE_APM_TRACES_SAMPLE_RATE` | Web Vitals 的取樣率，預設 `0.1` |
@@ -147,6 +148,9 @@ pnpm bundle:check   # BUILD_MANIFEST=true 建置兩個前端，再跑 scripts/ch
 - **開發**：都沒設時不送出，SDK 照常處理事件，最後由只 `console.debug` 的 transport 印出要送的內容（D11）。要在本機收事件：
   `pnpm dev:apm`，並以 shell 設 `VITE_APM_PROJECT_ID=1 VITE_APM_PUBLIC_KEY=<.env 的 APM_PROJECTS 裡那一把>` 再起前端。
 - **正式**：`docker-compose.prod.yml` 以建置參數帶入（backstage 是專案 1、apps/platform 是 2），見 [`../07-apm-service.md`](../07-apm-service.md) §8。
+- **整套關閉**：`deploy/prod.env` 設 `APM_ENABLED=false` 並拿掉 `COMPOSE_PROFILES` 的 `apm`（[`../07-apm-service.md`](../07-apm-service.md) §8.1），
+  `VITE_APM_ENABLED` 由它帶入；開發時以 shell 設 `VITE_APM_ENABLED=false`。`@sentry/browser` 仍在產物裡（`captureError` 等是靜態 import），
+  只是不初始化：bundle 大小與開啟時相同，不會超出 §7 的預算。
 - **換成真正的 Sentry**：設 `VITE_APM_DSN`、把 Sentry 的收件網域加進 CSP 的 `connect-src`（`deploy/nginx.security-headers.conf`），
   sourcemap 改用 `sentry-cli` 上傳；前端程式不必改。
 - **加第三個前端**：在 `APM_PROJECTS` 加一個專案，app 的 `main.tsx` 照 backstage 接上 `telemetryPlugin`、`telemetryRootOptions`、`bindTelemetryRouter`，

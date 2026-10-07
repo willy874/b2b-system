@@ -44,6 +44,11 @@ export type TelemetrySource =
   | 'manual';
 
 export interface TelemetryOptions {
+  /**
+   * APM 整套的開關（`VITE_APM_ENABLED`；docs/architecture/frontend/19-observability.md §8）。`false` 時完全不初始化 SDK：
+   * 不送出、也不印到 console，`captureError` 等函式都是空操作。預設 `true`。
+   */
+  enabled?: boolean | undefined;
   /** 哪個前端：tag `app`，也是查詢時分辨專案的依據之一。 */
   app: string;
   /** 建置時注入的 commit（`__APP_RELEASE__`）。 */
@@ -240,7 +245,7 @@ function consoleTransport(options: Parameters<typeof createTransport>[0]) {
  * 不用 SDK 的預設整合清單：DOM 點擊、console、history 的 breadcrumb 會帶出畫面文字與真實網址。
  */
 export function initTelemetry(options: TelemetryOptions): void {
-  if (state.enabled) return;
+  if (state.enabled || options.enabled === false) return;
   const dsn = resolveDsn(options);
   const tracesSampleRate = dsn ? (options.tracesSampleRate ?? DEFAULT_TRACES_SAMPLE_RATE) : 0;
   const integrations: Integration[] = [

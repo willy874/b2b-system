@@ -35,7 +35,8 @@ async function bootstrap(): Promise<void> {
 
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
   app.disable('x-powered-by');
-  app.use(httpMetricsMiddleware);
+  // 同 main.ts：監控整套關閉時不量 HTTP 請求（docs/architecture/08-monitoring.md §1.1）
+  if (config.get('MONITORING_ENABLED', { infer: true })) app.use(httpMetricsMiddleware);
   // 不讀 cookie：對外 API 只認 Authorization 標頭（D10）
   app.enableShutdownHooks();
 

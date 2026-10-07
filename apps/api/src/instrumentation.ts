@@ -24,6 +24,7 @@ import { parse } from 'dotenv';
 
 import { routeLabelOf } from './core/metrics/route-label';
 import { RedactUrlProcessor } from './core/tracing/redact-url.processor';
+import { tracingEndpointOf } from './core/tracing/tracing-endpoint';
 
 /**
  * OpenTelemetry tracing（docs/architecture/08-monitoring.md §3）。
@@ -32,7 +33,8 @@ import { RedactUrlProcessor } from './core/tracing/redact-url.processor';
  * 所以進入點第一個 import 它（`main.external.ts` 在 `external-process-env` 之後，名稱才分得出是哪個程序）。
  * 這時 ConfigModule 還沒載入：照 `@nestjs/config` 的優先順序自己讀環境變數與 `.env`；格式驗證仍在 `env.schema.ts`。
  *
- * `OTEL_EXPORTER_OTLP_ENDPOINT` 沒設定時什麼都不載入：`@opentelemetry/api` 維持空操作，手動 span 也沒有成本。
+ * `OTEL_EXPORTER_OTLP_ENDPOINT` 沒設定、或監控整套關閉（`MONITORING_ENABLED=false`）時什麼都不載入：
+ * `@opentelemetry/api` 維持空操作，手動 span 也沒有成本。
  */
 
 /** 與 `ConfigModule` 的 `envFilePath` 相同：先找 app 目錄，再找 repo 根目錄。 */
@@ -113,5 +115,5 @@ function startTracing(endpoint: string): void {
   });
 }
 
-const endpoint = envValue('OTEL_EXPORTER_OTLP_ENDPOINT');
+const endpoint = tracingEndpointOf(envValue);
 if (endpoint) startTracing(endpoint);

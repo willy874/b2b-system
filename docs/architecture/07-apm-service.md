@@ -219,12 +219,35 @@ pnpm --filter @b2b-system/apm-service build   # esbuild 打成單一檔案 dist/
 | 設定 | 值 |
 | --- | --- |
 | `APM_PROJECTS` | `1:backstage:${APM_BACKSTAGE_PUBLIC_KEY},2:platform:${APM_PLATFORM_PUBLIC_KEY}` |
-| `APM_AUTH_TOKEN` | `deploy/prod.env` 必填 |
+| `APM_AUTH_TOKEN` | APM 開啟時必填（沒填啟動失敗，見 §8.1） |
 | `APM_TRUST_PROXY` | `true`（只經 nginx 進來；nginx 以 real_ip 算好的來源放在 `X-Real-IP`） |
 | 網路 | `edge`（兩個前端的 nginx 轉發收件端點） |
 | 埠 | `${APM_BIND_ADDRESS:-127.0.0.1}:9100`：上傳 sourcemap、查詢 API、Prometheus 抓 `/metrics` |
 
-兩個前端的 nginx 啟動時就解析 upstream 的名稱，所以 compose 讓它們等 apm-service healthy。`deploy/smoke-test.sh` 經兩個 nginx 各送一個 envelope。
+兩個前端的 nginx 以變數 `proxy_pass` 轉發收件端點，apm-service 的名稱在請求時才解析（resolver 由 `deploy/nginx-apm.sh` 取自容器的
+`/etc/resolv.conf`）；compose 在 APM 開啟時讓它們等 apm-service healthy（`depends_on` 標 `required: false`）。`deploy/smoke-test.sh` 經兩個 nginx 各送一個 envelope。
+
+### 8.1 整套關閉（`APM_ENABLED`）
+
+APM（apm-service ＋ 兩個前端的錯誤回報與 Web Vitals）可以整套關閉。開關在 `deploy/prod.env`，**兩行一起改**：
+
+| 開啟（預設） | 關閉 |
+| --- | --- |
+| `APM_ENABLED=true`、`COMPOSE_PROFILES=apm` | `APM_ENABLED=false`，`COMPOSE_PROFILES` 拿掉 `apm` |
+
+| 位置 | 關閉時 |
+| --- | --- |
+| apm-service | 在 compose 的 `apm` profile：不建置、不啟動；`APM_BACKSTAGE_PUBLIC_KEY`、`APM_PLATFORM_PUBLIC_KEY`、`APM_AUTH_TOKEN` 可以留空 |
+| 前端 | 建置參數 `VITE_APM_ENABLED=false`：`telemetryPlugin` 不初始化 SDK，什麼都不送（[`frontend/19-observability.md`](./frontend/19-observability.md) §8） |
+| nginx | `APM_ENABLED=false`（`deploy/nginx-apm.sh` 產生 `$apm_enabled`）：`/apm/…/envelope/` 回 404 |
+| 監控 | Prometheus 的 `apm-service` 目標顯示 down、Grafana 的 APM 資料來源與「前端」儀表板沒有資料；其他照常（[`08-monitoring.md`](./08-monitoring.md) §1.1） |
+
+- compose 對 **不在啟用 profile 裡的服務也做變數替換**，所以 APM 的金鑰不能用 `${…:?required}`；開啟時缺值改由 apm-service 啟動時的驗證（§1）擋下，
+  `deploy/smoke-test.sh` 也會因收件失敗而失敗。
+- 兩行不一致時：`APM_ENABLED=true` 但沒有 `apm` profile → 前端照常送、nginx 回 502（站台其他部分不受影響）；反過來 → apm-service 空轉、前端不送。
+- 開發：`pnpm dev` 本來就不起 apm-service；前端要連 `console.debug` 都不要時，以 shell 設 `VITE_APM_ENABLED=false` 再起前端。
+- 檢查：`sh deploy/smoke-test.sh --no-apm` 以關閉的設定起整套（沒有 apm-service、`/apm/` 回 404）；`deploy/check-nginx.sh` 驗證關閉（404）與「開啟但沒有 apm-service」（502）時 nginx 照樣起得來；
+  `deploy/check-monitoring.sh` 驗證 APM 關閉時監控照樣疊得上。
 
 ---
 

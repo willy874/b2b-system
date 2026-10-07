@@ -12,6 +12,8 @@ export const ENV = {
    * 前端錯誤回報（docs/architecture/frontend/19-observability.md §3）：都沒設時不送出、只 console.debug。
    * `APM_DSN` 是完整的 DSN（接真的 Sentry）；否則以專案 id 與 public key 在執行時組成同源的 DSN。
    */
+  /** APM 整套的開關：`VITE_APM_ENABLED=false` 時不初始化錯誤回報（下面的值都不看）；沒設 = 開啟。 */
+  APM_ENABLED: import.meta.env.VITE_APM_ENABLED !== 'false',
   APM_DSN: import.meta.env.VITE_APM_DSN as string | undefined,
   APM_PROJECT_ID: import.meta.env.VITE_APM_PROJECT_ID as string | undefined,
   APM_PUBLIC_KEY: import.meta.env.VITE_APM_PUBLIC_KEY as string | undefined,

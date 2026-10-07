@@ -1,3 +1,4 @@
+import { getClient } from '@sentry/browser';
 import type { ErrorEvent, StreamedSpanJSON, TransactionEvent } from '@sentry/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -9,8 +10,10 @@ import {
   beforeSendSpan,
   beforeSendTransaction,
   bindTelemetryRouter,
+  captureError,
   CHUNK_LOAD_FINGERPRINT,
   getTelemetryContext,
+  initTelemetry,
   isExpectedError,
   resetTelemetryStateForTest,
   resolveDsn,
@@ -275,5 +278,21 @@ describe('beforeSendSpan（v11 的 span streaming）', () => {
       span('button', { 'browser.web_vital.inp.value': 50, 'sentry.segment.name': '/role' }),
     );
     expect(inp.attributes['sentry.segment.name']).toBe('/role');
+  });
+});
+
+describe('initTelemetry({ enabled: false })（APM 整套關閉，docs/architecture/frontend/19-observability.md §8）', () => {
+  it('不初始化 SDK：沒有 client，上報是空操作', () => {
+    initTelemetry({
+      enabled: false,
+      app: 'backstage',
+      release: 'r1',
+      environment: 'production',
+      projectId: '1',
+      publicKey: 'b2bsystemdevbackstage0000',
+    });
+    expect(getClient()).toBeUndefined();
+    expect(captureError(new Error('boom'), 'manual')).toBeUndefined();
+    expect(getTelemetryContext().eventId).toBeUndefined();
   });
 });

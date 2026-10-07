@@ -22,11 +22,13 @@ ARG VITE_PLATFORM_APP_URL
 ENV VITE_OIDC_ISSUER=$VITE_OIDC_ISSUER VITE_PLATFORM_APP_URL=$VITE_PLATFORM_APP_URL
 # 前端錯誤回報（docs/architecture/frontend/19-observability.md §3）：release 是 commit；DSN 在執行時以網域組成
 ARG APP_RELEASE=unknown
+# VITE_APM_ENABLED=false：APM 整套關閉，不初始化錯誤回報（docs/architecture/07-apm-service.md §8.1）
+ARG VITE_APM_ENABLED=true
 ARG VITE_APM_PROJECT_ID
 ARG VITE_APM_PUBLIC_KEY
 ARG VITE_APM_TRACES_SAMPLE_RATE=0.1
-ENV APP_RELEASE=$APP_RELEASE VITE_APM_PROJECT_ID=$VITE_APM_PROJECT_ID VITE_APM_PUBLIC_KEY=$VITE_APM_PUBLIC_KEY \
-    VITE_APM_TRACES_SAMPLE_RATE=$VITE_APM_TRACES_SAMPLE_RATE BUILD_SOURCEMAP=hidden
+ENV APP_RELEASE=$APP_RELEASE VITE_APM_ENABLED=$VITE_APM_ENABLED VITE_APM_PROJECT_ID=$VITE_APM_PROJECT_ID \
+    VITE_APM_PUBLIC_KEY=$VITE_APM_PUBLIC_KEY VITE_APM_TRACES_SAMPLE_RATE=$VITE_APM_TRACES_SAMPLE_RATE BUILD_SOURCEMAP=hidden
 
 COPY packages ./packages
 COPY apps/backstage ./apps/backstage
@@ -54,6 +56,8 @@ COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --chmod=755 deploy/nginx-real-ip.sh /docker-entrypoint.d/15-real-ip.sh
 # 獨立的檔案網域：CSP 放行它、產生檔案網域的 server（FILE_DOWNLOAD_ORIGIN；docs/architecture/backend/09-file.md §3.2）
 COPY --chmod=755 deploy/nginx-file-origin.sh /docker-entrypoint.d/16-file-origin.sh
+# APM 的開關與解析 apm-service 的 resolver（APM_ENABLED；docs/architecture/07-apm-service.md §8.1）
+COPY --chmod=755 deploy/nginx-apm.sh /docker-entrypoint.d/17-apm.sh
 ENV FILES_SERVER=1
 COPY --from=build /repo/apps/backstage/dist /usr/share/nginx/html
 EXPOSE 8080

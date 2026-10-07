@@ -236,3 +236,19 @@ describe('FILE_URL_TTL（撤銷授權的延遲上限）', () => {
     expect(ttl.safeParse('604800').success).toBe(false);
   });
 });
+
+describe('MONITORING_ENABLED（監控整套的開關，docs/architecture/08-monitoring.md §1.1）', () => {
+  const flag = EnvSchema.shape.MONITORING_ENABLED;
+
+  it('沒設定或留空時開啟', () => {
+    expect(flag.parse(undefined)).toBe(true);
+    expect(flag.parse('')).toBe(true);
+  });
+
+  it('true／false 之外的值啟動失敗', () => {
+    expect(flag.parse('false')).toBe(false);
+    expect(flag.parse('true')).toBe(true);
+    expect(flag.safeParse('0').success).toBe(false);
+    expect(flag.safeParse('off').success).toBe(false);
+  });
+});

@@ -5,6 +5,9 @@
 #   api／external-api ──OTLP（4318）──▶ tempo
 #   grafana（127.0.0.1:3300）──▶ prometheus、tempo、apm-service 的查詢 API
 #
+# 監控整套的開關（§1.1）：疊上這份檔案 = 開啟（api 的 MONITORING_ENABLED 預設改成 true）；不疊 = 關閉。
+# APM 關閉（沒有 apm profile）時 apm-service 不存在：Prometheus 的 apm-service 目標顯示 down、Grafana 的 APM 面板沒有資料，其他照常。
+#
 # 指標與 OTLP 的 port 都只在 monitoring 網路裡，不對主機發布；Grafana 只綁 MONITORING_BIND_ADDRESS（預設 127.0.0.1），
 # 從外面看要經 SSH tunnel 或前置 LB（加上 TLS 與存取控制），不經過租戶的 nginx。
 # 映像都以 digest 釘住（同 docker-compose.prod.yml）。
@@ -20,6 +23,7 @@ services:
   api:
     networks: [monitoring]
     environment:
+      MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
       APP_RELEASE: ${APP_RELEASE:-unknown}
@@ -27,10 +31,12 @@ services:
   external-api:
     networks: [monitoring]
     environment:
+      MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
       APP_RELEASE: ${APP_RELEASE:-unknown}
 
+  # 只在 apm profile 啟用時存在（docker-compose.prod.yml）；這裡的設定合併進去，profile 照舊
   apm-service:
     networks: [monitoring]
 
@@ -114,7 +120,8 @@ services:
       # apm-service 的查詢 API（Infinity 外掛）；啟動時從 grafana.com 下載並固定版本
       GF_PLUGINS_PREINSTALL_SYNC: yesoreyeram-infinity-datasource@4.1.1
       APM_QUERY_URL: http://apm-service:9100
-      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:?required}
+      # APM 關閉時可以不設：資料來源照樣登記，只是查不到東西
+      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:-}
     volumes:
       - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro

@@ -7,8 +7,18 @@ import type { GaugeConfiguration } from 'prom-client';
  */
 export const metricsRegistry = new Registry();
 
-// Node 的標準指標（event loop 延遲、heap、GC、CPU、開著的 handle）；名稱照 prom-client 的慣例，社群的儀表板直接可用
-collectDefaultMetrics({ register: metricsRegistry });
+let defaultMetricsEnabled = false;
+
+/**
+ * Node 的標準指標（event loop 延遲、heap、GC、CPU、開著的 handle）；名稱照 prom-client 的慣例，社群的儀表板直接可用。
+ * 不在載入時就開：它會掛上 GC 的 observer 與 event loop 的量測，只在真的提供 `/metrics` 時才值得（`MetricsServer`）。
+ * 重複呼叫不會重複登記。
+ */
+export function enableDefaultMetrics(): void {
+  if (defaultMetricsEnabled) return;
+  defaultMetricsEnabled = true;
+  collectDefaultMetrics({ register: metricsRegistry });
+}
 
 type Labels<T extends string> = Partial<Record<T, string | number>>;
 

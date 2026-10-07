@@ -8,6 +8,10 @@ import { parse } from 'yaml';
 import { validateEnv } from '../env.schema';
 
 const COMPOSE_FILE = resolve(__dirname, '../../../../../../docker-compose.prod.yml');
+const MONITORING_COMPOSE_FILE = resolve(
+  __dirname,
+  '../../../../../../docker-compose.monitoring.yml',
+);
 
 const base64Key = () => randomBytes(32).toString('base64');
 
@@ -77,14 +81,26 @@ function interpolate(value: string, env: Record<string, string>): string {
   return result;
 }
 
+type ComposeFile = {
+  services: Record<string, { environment?: Record<string, string | number> }>;
+};
+
+/** `overlays`：疊在 docker-compose.prod.yml 上的檔案（compose 的 `-f`，後面的 environment 覆寫前面的）。 */
 function serviceEnvironment(
   service: string,
   deployment: Record<string, string> = DEPLOYMENT_ENV,
+  overlays: readonly string[] = [],
 ): Record<string, string> {
-  const compose = parse(readFileSync(COMPOSE_FILE, 'utf8'), { merge: true }) as {
-    services: Record<string, { environment?: Record<string, string | number> }>;
-  };
-  const environment = compose.services[service]?.environment;
+  const files = [COMPOSE_FILE, ...overlays].map(
+    (file) => parse(readFileSync(file, 'utf8'), { merge: true }) as ComposeFile,
+  );
+  const environment = files.reduce<Record<string, string | number> | undefined>(
+    (merged, compose) => {
+      const next = compose.services[service]?.environment;
+      return next ? { ...merged, ...next } : merged;
+    },
+    undefined,
+  );
   if (!environment) throw new Error(`docker-compose.prod.yml 沒有 ${service} 的 environment`);
   return Object.fromEntries(
     Object.entries(environment).map(([key, value]) => [
@@ -134,6 +150,22 @@ describe('docker-compose.prod.yml 給程序的環境變數（防止 production �
     ]) {
       expect(env).not.toHaveProperty(key);
       expect(serviceEnvironment('api')).toHaveProperty(key);
+    }
+  });
+
+  it('監控整套的開關：沒疊 docker-compose.monitoring.yml 時關閉，疊上時開啟；deploy/prod.env 可覆寫（08-monitoring.md §1.1）', () => {
+    for (const service of ['api', 'external-api']) {
+      const surface = service === 'api' ? 'internal' : 'external';
+      const without = serviceEnvironment(service);
+      expect(validateEnv({ ...without, API_SURFACE: surface }).MONITORING_ENABLED).toBe(false);
+      const withOverlay = serviceEnvironment(service, DEPLOYMENT_ENV, [MONITORING_COMPOSE_FILE]);
+      expect(validateEnv({ ...withOverlay, API_SURFACE: surface }).MONITORING_ENABLED).toBe(true);
+      const forcedOff = serviceEnvironment(
+        service,
+        { ...DEPLOYMENT_ENV, MONITORING_ENABLED: 'false' },
+        [MONITORING_COMPOSE_FILE],
+      );
+      expect(validateEnv({ ...forcedOff, API_SURFACE: surface }).MONITORING_ENABLED).toBe(false);
     }
   });
 
