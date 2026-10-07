@@ -18,7 +18,6 @@
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
 | 低 | api 映像帶著 react-email 的 CLI 依賴 | [`docker-image-and-context-hygiene.md`](./docker-image-and-context-hygiene.md) | 2026-10-06（全面檢測：部署） |
-| 低 | 超過 400 行的元件與超過 200 行的 page.tsx | [`oversized-frontend-components.md`](./oversized-frontend-components.md) | 2026-10-06（全面檢測：可讀性） |
 
 嚴重度：
 
