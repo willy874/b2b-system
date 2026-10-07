@@ -8,6 +8,7 @@ import { Public } from '@/common/decorators';
 import { RateLimit } from '@/common/rate-limit';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import { NoStore } from '@/core/http';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import {
@@ -40,6 +41,7 @@ const InteractionUidPipe = new ZodValidationPipe(z.string().regex(/^[A-Za-z0-9_-
  */
 @ApiTags('auth')
 @Controller('oidc-interaction')
+@NoStore()
 export class SsoInteractionController {
   constructor(
     private readonly sso: SsoService,

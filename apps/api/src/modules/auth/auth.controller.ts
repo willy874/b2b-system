@@ -9,6 +9,7 @@ import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import { CLEAR_SITE_DATA_CACHE, NoStore } from '@/core/http';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import { AuthService } from './auth.service';
@@ -41,6 +42,8 @@ import { SsoService } from './sso.service';
 
 @ApiTags('auth')
 @Controller('auth')
+// 自己的身分、權限與 session：登出後不留在瀏覽器的磁碟快取（docs/architecture/backend/03-api-conventions.md §9.1）
+@NoStore()
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -107,6 +110,8 @@ export class AuthController {
       refreshRequested: req.header('x-refresh-request') === '1',
     });
     res.clearCookie(this.cookieName, { path: this.cookiePath });
+    // 清掉這個網域的 HTTP 快取：共用電腦上不留上一個人的回應（docs/architecture/backend/03-api-conventions.md §9.1）
+    res.setHeader('Clear-Site-Data', CLEAR_SITE_DATA_CACHE);
     return result;
   }
 

@@ -13,7 +13,13 @@ import { DatabaseModule } from './core/database';
 import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
 import { FeatureFlagsModule } from './core/feature-flags';
-import { RequestIdMiddleware, TransformInterceptor } from './core/http';
+import {
+  CACHE_CONTROL_DEFAULT,
+  CACHE_CONTROL_NO_STORE,
+  CacheControlInterceptor,
+  RequestIdMiddleware,
+  TransformInterceptor,
+} from './core/http';
 import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
@@ -104,6 +110,9 @@ import { UserModule } from './modules/user/user.module';
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+    // 對外 API 一律不快取（同 deploy/nginx.external-api.conf）
+    { provide: CACHE_CONTROL_DEFAULT, useValue: CACHE_CONTROL_NO_STORE },
+    { provide: APP_INTERCEPTOR, useClass: CacheControlInterceptor },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

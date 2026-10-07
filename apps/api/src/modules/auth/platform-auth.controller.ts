@@ -9,6 +9,7 @@ import { RateLimit } from '@/common/rate-limit';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
+import { CLEAR_SITE_DATA_CACHE, NoStore } from '@/core/http';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import type { IssuedSession } from './auth.service';
@@ -38,6 +39,8 @@ import { PlatformAuthService } from './platform-auth.service';
  */
 @ApiTags('platform-auth')
 @Controller('platform/auth')
+// 同租戶的 AuthController：不進瀏覽器的磁碟快取
+@NoStore()
 export class PlatformAuthController {
   constructor(
     private readonly platformAuth: PlatformAuthService,
@@ -98,6 +101,7 @@ export class PlatformAuthController {
       refreshRequested: req.header('x-refresh-request') === '1',
     });
     res.clearCookie(this.cookieName, { path: this.cookiePath });
+    res.setHeader('Clear-Site-Data', CLEAR_SITE_DATA_CACHE);
     return result;
   }
 

@@ -185,6 +185,11 @@ interface DictStorage {
 | 跨分頁 leader 選舉的任期 counter（`b2b-system:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
 | 命令面板「最近造訪」的 page key（不存名稱，[18 §3.3](./18-command-palette.md)） |                          |
 
+瀏覽器的 **HTTP 快取** 也是伺服器資料的複本：api 對一般 `GET` 回 `private, no-cache`（存著但每次重新驗證），身分、憑證、稽核回 `no-store`，
+登出的回應以 `Clear-Site-Data: "cache"` 清掉整個網域的 HTTP 快取（[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §9.1）。
+前端在 **沒有 session 的期間**（登出、被撤銷、續期失敗之後）一律以 `cache: 'no-store'` 送出（`createHttpCacheInterceptor`，`web-core/plugins/fetcher/http-cache.ts`），
+個別查詢要關掉快取時傳 `HttpRequestDTO.cache: 'no-store'`。
+
 ### 4.3 Token 的儲存
 
 ```

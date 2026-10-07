@@ -475,6 +475,25 @@ async login(...) {}
 | 版本         | Phase 0 不加 `/v1` 前綴。需要時用標頭協商或新增前綴，不破壞既有路徑 |
 | CORS         | 同源部署，不啟用。開發時由 Vite proxy 處理                          |
 
+### 9.1 HTTP 快取
+
+每個 controller 的回應都有明確的 `Cache-Control`（`core/http/cache-control.ts` 的 `CacheControlInterceptor`，全域；在 handler **之前** 設定）：
+
+| 回應 | `Cache-Control` | 說明 |
+| --- | --- | --- |
+| 一般的 `GET`／`HEAD` | `private, no-cache` | 瀏覽器可以存，但每次都向伺服器確認；Express 預設的弱 ETag（回應內容的雜湊）讓沒變的回應是 `304`，省下傳輸 |
+| `@NoStore()` 的端點 | `no-store` | 不進瀏覽器的磁碟快取：`/auth/*`、`/platform/auth/*`、OIDC 互動頁、自己與服務帳號的 API token、稽核（`/audit-logs`、`/platform/admins/audit-logs`） |
+| 其他方法（寫入） | `no-store` | |
+| 對外 API 的程序 | `no-store`（`CACHE_CONTROL_DEFAULT`） | 同 `deploy/nginx.external-api.conf` |
+| 自己寫標頭的端點 | 照自己的 | 影像 API 的 302 是 `private, max-age=<網址的有效期>`（[`09-file.md`](./09-file.md) §5.4） |
+
+- **登出**（`POST /auth/logout`、`/platform/auth/logout`）另帶 `Clear-Site-Data: "cache"`：清掉這個網域的 HTTP 快取（不動 cookie 與 storage），共用電腦上不留上一個人的回應。
+  session 被撤銷、續期失敗時沒有登出的回應可以帶它；這時前端在沒有 session 的期間一律 `cache: 'no-store'`（[`../frontend/09-state-and-storage.md`](../frontend/09-state-and-storage.md) §4.2）。
+- 前端可以逐請求關掉 HTTP 快取：`HttpRequestDTO.cache`（例：`fetchX({ params, signal, cache: 'no-store' })`），由 `defineXxxFetcher` 交給 `fetch`。
+- 新增端點時：回應含憑證、session、個人或稽核資料，且 **登出後不該留在共用電腦上** 的，標 `@NoStore()`（controller 或方法）。
+- 不做列表層級的版本（在查詢之前判斷「沒變」）：ETag 要含權限、使用者與查詢參數，漏掉任何一個就會回出過時或別人的資料，目前的收益不值得這個風險。
+  觸發條件與屆時的設計見 §13。
+
 ---
 
 ## 10. 批次操作
@@ -620,3 +639,39 @@ zod 與 TS 的輸出由產生器自己寫，才能掌握 `$ref` → 具名 schem
 
 **支援範圍**：OpenAPI 3.0 / 3.1 的 JSON spec，只接受文件內的 `$ref`（外部檔案請先 bundle）。
 cookie 參數不產生；`prefixItems`（tuple）以一般陣列表示——這些情況 CLI 會印出警告。
+
+---
+
+## 13. 設計決策：HTTP 快取
+
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §9）。規則見 §9.1。
+
+### 13.1 背景
+
+api 沒有關掉 Express 的 ETag（Express 5 預設 `etag: 'weak'`），JSON 的 `GET` 回應本來就帶「內容雜湊」的弱 ETag，帶 `If-None-Match` 且相同時回 `304`；
+但回應沒有 `Cache-Control`，瀏覽器以啟發式規則決定要不要存進磁碟，登出後可能留在共用電腦上。304 省下的是傳輸，不是伺服器的工作：
+查詢、權限計算、序列化每次都做完才算雜湊。
+
+### 13.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **不做列表層級的版本**。觸發條件：量測顯示重新驗證的尖峰（部署後重連、推播失效）以資料庫時間為主要成本，且快取命中率高 | 正確性的風險（ETag 漏掉權限或使用者）大於目前可見的收益；租戶連線池與查詢逾時已有保護 |
+| D2 | **回應明確設定 `Cache-Control`**：一般 `GET` 是 `private, no-cache`（保留 Express 的弱 ETag 與 304），寫入與 `@NoStore()` 的端點是 `no-store`，對外 API 整個程序 `no-store`；自己寫標頭的端點（影像 API）照舊 | 一般資料保留 304 的傳輸節省；身分、憑證、稽核這類登出後不該留下的資料不進磁碟。行為明確，不依賴瀏覽器的啟發式規則 |
+| D3 | **登出帶 `Clear-Site-Data: "cache"`**；前端在沒有 session 的期間一律 `cache: 'no-store'`，並可逐請求以 `HttpRequestDTO.cache` 關掉快取 | `private, no-cache` 的回應仍在磁碟；登出時整個網域的 HTTP 快取一起清掉。沒有登出回應的情況（被撤銷、續期失敗）至少不再存新的回應 |
+| D4 | **單筆資源也不加 `ETag: W/"<version>"`**（[`14-revisions.md`](./14-revisions.md) §9.2 D3 留下的選項） | 與 D1 同理；樂觀鎖的 `version` 走 body 已足夠 |
+| D5 | **屆時（D1 觸發）的設計**：每個「租戶 × 資源類型」一個單調遞增的 revision（寫入的交易提交後遞增，經 `core/broadcast` 跨程序同步，同 `AuthzRevision`）；ETag = `hash(資源 revision, authz revision, 使用者 id, 正規化的查詢參數)`；guard 之後、查詢之前比對 `If-None-Match`；只對「回應只依賴該資源與權限」的列表啟用，逐一宣告 | 判斷放在查詢之前才省得到工作；逐一宣告避免把依賴其他資源的列表（例：使用者列表帶角色名稱）誤判為沒變 |
+
+### 13.3 代價
+
+- `private, no-cache` 的回應仍會存在瀏覽器的磁碟快取，直到登出清掉；被撤銷或續期失敗而沒有登出的人，殘留到瀏覽器自己淘汰為止。
+- `Clear-Site-Data: "cache"` 清的是整個網域：前端的靜態檔（檔名帶雜湊）下次載入要重新下載。
+
+### 13.4 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 維持現狀（Express 預設 ETag、沒有 `Cache-Control`） | 不採用：磁碟快取的行為不明確 |
+| 全部 `no-store` ＋ 關掉 Express ETag | 不採用：失去一般列表的 304；敏感的端點以 `@NoStore()` 個別處理已足夠 |
+| 列表層級版本（D5） | 延後，見 D1 |
+

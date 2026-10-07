@@ -73,6 +73,16 @@ describe('HttpContext', () => {
     expect(authorizationOf(1)).toBe('new');
   });
 
+  it('bind 的快取模式交給 fetch；init 有給時以它為準', async () => {
+    fetchMock.mockImplementation(async () => json(200, 1));
+    const context = new HttpContext({ name: 'cache-test', baseUrl: '' });
+    await context.bind(undefined, 'no-store').request('/a');
+    await context.bind(undefined, 'no-store').request('/b', { cache: 'reload' });
+    await context.bind(undefined).request('/c');
+    const modes = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).cache);
+    expect(modes).toEqual(['no-store', 'reload', undefined]);
+  });
+
   it('fetch 的傳輸層失敗換成 NetworkError（保留原始錯誤於 cause）', async () => {
     const cause = new TypeError('Failed to fetch');
     fetchMock.mockRejectedValueOnce(cause);
