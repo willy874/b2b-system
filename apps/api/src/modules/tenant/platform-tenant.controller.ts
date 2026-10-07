@@ -10,9 +10,11 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
 import { RequirePlatformPermissions } from '@/common/decorators';
+import { TENANT_FEATURES } from '@/core/tenant';
+import type { TenantFeature } from '@/core/tenant';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import {
@@ -22,6 +24,8 @@ import {
   PlatformTenantListSchema,
   PlatformTenantSchema,
   TenantDomainSchema,
+  TenantFeatureImpactSchema,
+  TenantFeatureSchema,
   UpdateTenantSchema,
 } from './dto/platform-tenant.dto';
 import type {
@@ -78,6 +82,18 @@ export class PlatformTenantController {
     @Body(new ZodValidationPipe(UpdateTenantSchema)) dto: UpdateTenantDto,
   ) {
     return this.tenants.update(id, dto);
+  }
+
+  @Get(':id/features/:feature/impact')
+  @RequirePlatformPermissions('tenant:read')
+  @ApiOperation({ summary: '關閉這個 feature 會影響的數量（關閉前的確認框用）' })
+  @ApiParam({ name: 'feature', enum: TENANT_FEATURES })
+  @ApiZodResponse(200, TenantFeatureImpactSchema)
+  featureImpact(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('feature', new ZodValidationPipe(TenantFeatureSchema)) feature: TenantFeature,
+  ) {
+    return this.tenants.featureImpact(id, feature);
   }
 
   @Post(':id/provision')

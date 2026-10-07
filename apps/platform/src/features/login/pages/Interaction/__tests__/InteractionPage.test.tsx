@@ -213,6 +213,27 @@ describe('IdP 的登入互動頁（docs/architecture/04-sso.md §12）', () => {
     expect(alert).toHaveAttribute('data-value', 'AUTH_INVALID_CREDENTIALS');
   });
 
+  it('被限流（429）→ 倒數期間停用送出鈕並顯示剩餘秒數，數完恢復、訊息收起', async () => {
+    login.mockRejectedValue(new AppError('RATE_LIMITED', 429, { retryAfterSeconds: 1 }));
+    renderInteraction();
+    fireEvent.change(await screen.findByTestId('login-email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { value: 'secret-123' } });
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('login-submit'));
+
+    // 這裡沒有載入 login 的語系包（按鈕是原始 key）；剩餘秒數以 web-core 的限流訊息斷言
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('請在 1 秒後再試'));
+    expect(screen.getByTestId('login-submit')).toBeDisabled();
+
+    // 真的等倒數走完（約 1 秒），測試的上限比預設的 5 秒寬一些
+    await waitFor(() => expect(screen.getByTestId('login-submit')).not.toBeDisabled(), {
+      timeout: 3000,
+    });
+    expect(screen.getByRole('alert')).toBeEmptyDOMElement();
+  }, 10_000);
+
   describe('產品要求的介面語系（OIDC ui_locales）', () => {
     afterEach(async () => {
       useLocaleStore.setState({ locale: 'zh-TW' });

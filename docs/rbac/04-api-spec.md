@@ -86,16 +86,16 @@
 
 ```jsonc
 // Request
-{ "email": "alice@example.com", "displayName": "Alice", "password": "…≥12 字元…", "reason": "新進企劃" }
+{ "email": "alice@example.com", "displayName": "Alice", "reason": "新進企劃" }
 
 // 202 — 不論 email 是否已註冊或已在審核中，回應都相同（帳號列舉防護）
 { "data": { "submitted": true } }
 ```
 
-- 租戶關閉了註冊（系統設定 `auth.registrationEnabled`）時回 `404 AUTH_REGISTRATION_DISABLED`；
-  密碼短於租戶的 `auth.passwordMinLength` 時回 `400 VALIDATION_FAILED`（[`../architecture/backend/12-settings.md`](../architecture/backend/12-settings.md) §3）。
-- 不建立帳號，只建立一筆 `user.register` 審批請求；核准後才以這組 email 與密碼建立 **已啟用** 的帳號。
-- 密碼在送出時就雜湊，只存在請求的 `private_payload`，審核後清空。
+- 租戶關閉了註冊（系統設定 `auth.registrationEnabled`）時回 `404 AUTH_REGISTRATION_DISABLED`。
+- 不建立帳號，只建立一筆 `user.register` 審批請求；核准後建立 **未啟用**（`pending`）、沒有密碼的帳號並寄出啟用信，
+  申請人從信中連結設定密碼（`POST /auth/setup`，套用租戶的 `auth.passwordMinLength`）後才能登入。
+- 不收密碼：舊的用戶端仍送 `password` 時會被忽略，不保存。
 - 速率限制：同一個 email ＋ IP 每分鐘 `max(3, AUTH_RATE_LIMIT / 3)` 次；同 IP 另有總上限（[`../architecture/backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §8）。
 - 流程與規則見 [`06-approval.md`](./06-approval.md) §5。
 

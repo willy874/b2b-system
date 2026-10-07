@@ -6,6 +6,7 @@
 #   deploy/nginx.security-headers.conf → /etc/nginx/snippets/security-headers.conf
 #   deploy/nginx.conf／nginx.platform.conf → /etc/nginx/conf.d/default.conf
 #   deploy/nginx-real-ip.sh → /docker-entrypoint.d/15-real-ip.sh
+#   deploy/nginx-file-origin.sh → /docker-entrypoint.d/16-file-origin.sh（backstage 另帶 FILES_SERVER=1）
 #
 # 前置 LB 以假的 api 容器扮演：TRUSTED_PROXY_CIDRS 只放它的 IP，主機經 port 連進來的請求就是「不受信任的來源」。
 #
@@ -18,6 +19,7 @@ NGINX_IMAGE=nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:15c994d10d6d7865872
 NODE_IMAGE=node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
 NETWORK=b2b-nginx-check-$$
 PORT=18080
+FILE_ORIGIN=https://files.example.test
 
 cleanup() {
   docker rm -f "$NETWORK-nginx" "$NETWORK-api" >/dev/null 2>&1 || true
@@ -81,12 +83,16 @@ LB_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{en
 for site in nginx.conf nginx.platform.conf; do
   echo "── $site"
   docker rm -f "$NETWORK-nginx" >/dev/null 2>&1 || true
+  files_server=0
+  [ "$site" = "nginx.conf" ] && files_server=1
   docker run -d --name "$NETWORK-nginx" --network "$NETWORK" -p "$PORT:8080" \
     --read-only --tmpfs /tmp --add-host file-storage:127.0.0.1 -e "TRUSTED_PROXY_CIDRS=$LB_IP/32" \
+    -e "FILE_DOWNLOAD_ORIGIN=$FILE_ORIGIN" -e "FILES_SERVER=$files_server" \
     -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
     -v "$DEPLOY_DIR/nginx.security-headers.conf:/etc/nginx/snippets/security-headers.conf:ro" \
     -v "$DEPLOY_DIR/$site:/etc/nginx/conf.d/default.conf:ro" \
     -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
+    -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
     "$NGINX_IMAGE" >/dev/null
 
   # 等 nginx 開始接受連線
@@ -101,7 +107,8 @@ for site in nginx.conf nginx.platform.conf; do
     headers=$(curl -s -D - -o /dev/null "http://127.0.0.1:$PORT$path")
     for expected in "content-security-policy: .*form-action 'self'" "content-security-policy: .*object-src 'none'" \
       "strict-transport-security: max-age=31536000" "x-frame-options: DENY" "x-content-type-options: nosniff" \
-      "permissions-policy: camera=()" "cross-origin-opener-policy: same-origin"; do
+      "permissions-policy: camera=()" "cross-origin-opener-policy: same-origin" \
+      "content-security-policy: .*img-src 'self' data: $FILE_ORIGIN" "content-security-policy: .*connect-src 'self' $FILE_ORIGIN"; do
       echo "$headers" | grep -qi "$expected" || fail "$site $path：缺少 $expected"
     done
     echo "$headers" | grep -qi '^server: nginx/' && fail "$site $path：外露 nginx 版本"
@@ -127,6 +134,24 @@ for site in nginx.conf nginx.platform.conf; do
   echo "$body" | grep -q '"url"' && fail "$site：查詢 API 不應該經 nginx 對外（$body）"
   body=$(curl -s "http://127.0.0.1:$PORT/apm/metrics")
   echo "$body" | grep -q '"url"' && fail "$site：/metrics 不應該經 nginx 對外（$body）"
+
+  # 獨立的檔案網域（docs/architecture/backend/09-file.md §3.2）：只有 backstage 有它的 server
+  if [ "$site" = "nginx.conf" ]; then
+    files_host=${FILE_ORIGIN#https://}
+    headers=$(curl -s -D - -o /dev/null -H "Host: $files_host" "http://127.0.0.1:$PORT/storage/b2b-acme/x")
+    for expected in "content-security-policy: .*sandbox" "x-content-type-options: nosniff" \
+      "access-control-allow-origin: \\*" "cross-origin-resource-policy: cross-origin"; do
+      echo "$headers" | grep -qi "$expected" || fail "檔案網域：缺少 $expected"
+    done
+    echo "$headers" | grep -qi '^set-cookie:' && fail "檔案網域：回應帶了 Set-Cookie"
+    status=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H "Host: $files_host" "http://127.0.0.1:$PORT/storage/b2b-acme/x")
+    [ "$status" = "405" ] || fail "檔案網域：PUT 沒有回 405（$status）"
+    status=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS -H "Host: $files_host" "http://127.0.0.1:$PORT/storage/b2b-acme/x")
+    [ "$status" = "204" ] || fail "檔案網域：preflight 沒有回 204（$status）"
+    status=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $files_host" "http://127.0.0.1:$PORT/api/health")
+    [ "$status" = "404" ] || fail "檔案網域：/api 沒有回 404（$status）"
+    echo "✓ 檔案網域"
+  fi
 
   echo "✓ $site"
 done
@@ -167,3 +192,11 @@ docker run --rm --read-only --tmpfs /tmp -e 'TRUSTED_PROXY_CIDRS=10.0.0.0/8;incl
   -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
   "$NGINX_IMAGE" nginx -t >/dev/null 2>&1 && fail "不合法的 TRUSTED_PROXY_CIDRS 沒有讓 nginx 啟動失敗"
 echo "✓ TRUSTED_PROXY_CIDRS"
+
+# FILE_DOWNLOAD_ORIGIN 不是 origin 時 nginx 不啟動（不讓值變成任意的 nginx 設定）
+echo "── FILE_DOWNLOAD_ORIGIN 的格式檢查"
+docker run --rm --read-only --tmpfs /tmp -e 'FILE_DOWNLOAD_ORIGIN=https://x.test; include /etc/passwd' \
+  -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
+  -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
+  "$NGINX_IMAGE" nginx -t >/dev/null 2>&1 && fail "不合法的 FILE_DOWNLOAD_ORIGIN 沒有讓 nginx 啟動失敗"
+echo "✓ FILE_DOWNLOAD_ORIGIN"

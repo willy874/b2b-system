@@ -32,6 +32,8 @@ export const PERMISSION_SEED = [
   ['file', 'delete', 'permission.file.delete', 703],
   ['file', 'access', 'permission.file.access', 704],
   ['file', 'share', 'permission.file.share', 705],
+  // 看得到別人的個人資料夾（鎖住、可申請存取）；讀內容另要授權或全域 file:read（docs/rbac/07-resource-grants.md §12）
+  ['file', 'listPersonal', 'permission.file.listPersonal', 706],
 
   ['job', 'read', 'permission.job.read', 800],
   ['job', 'retry', 'permission.job.retry', 801],
@@ -138,6 +140,7 @@ export const PERMISSION_DEPENDENCIES = {
   'file:update': { includes: ['file:read'] },
   'file:share': { includes: ['file:read'] },
   'file:read': { includes: ['file:access'] },
+  'file:listPersonal': { includes: ['file:access'] },
 
   'job:retry': { includes: ['job:read'] },
 

@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import * as client from 'openid-client';
 
-import { guardedFetch, systemLookup } from '@/core/http';
-import type { HostLookup } from '@/core/http';
+import { pinnedFetch, systemLookup } from '@/core/http';
+import type { HostLookup, PinnedFetch } from '@/core/http';
 
 /** 連線到外部 IdP 需要的設定（client secret 已解密）。 */
 export interface ExternalProviderConfig {
@@ -65,9 +65,14 @@ export class OpenIdExternalOidcClient extends ExternalOidcClient {
    * key 不放 secret 原文；有上限，換 secret 之後舊的 entry 會被擠掉。
    */
   private readonly configs = new Map<string, Promise<client.Configuration>>();
+  /** 所有 IdP 共用一個綁定位址的 fetch（一個連線池）；只在 `blockPrivateNetworks` 時建立。 */
+  private readonly fetch: PinnedFetch | undefined;
 
   constructor(private readonly options: OpenIdExternalOidcClientOptions) {
     super();
+    this.fetch = options.blockPrivateNetworks
+      ? pinnedFetch(options.resolve ?? systemLookup)
+      : undefined;
   }
 
   async authorizationUrl(
@@ -126,9 +131,7 @@ export class OpenIdExternalOidcClient extends ExternalOidcClient {
     const config = client
       .discovery(new URL(provider.issuer), provider.clientId, provider.clientSecret, undefined, {
         timeout: REQUEST_TIMEOUT_SECONDS,
-        ...(this.options.blockPrivateNetworks && {
-          [client.customFetch]: guardedFetch(this.options.resolve ?? systemLookup),
-        }),
+        ...(this.fetch && { [client.customFetch]: this.fetch }),
         ...(this.options.allowInsecureIssuer && { execute: [client.allowInsecureRequests] }),
       })
       .catch((error: unknown) => {

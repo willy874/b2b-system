@@ -2,17 +2,20 @@ import { ChangeKind } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { createLimiter } from '@/core/concurrency';
 import type { Env } from '@/core/config';
+import { deriveKey } from '@/core/crypto';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { IMAGE_FORMAT_CONTENT_TYPE, ImageDecodeError, ImageProcessor } from '@/core/image';
 import type { ImageFormat } from '@/core/image';
 import { ObjectStorage, stableSigningDate } from '@/core/storage';
+import { requireTenant } from '@/core/tenant';
 import type { FileRow } from '@/db/schema';
 
 import type { FileImageDto } from './dto/file.dto';
 import type { GetFileImageDto } from './dto/get-file-image.dto';
-import { deriveImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
+import { deriveLegacyImageUrlKey, signImageUrl, verifyImageUrl } from './file-image-url';
 import {
   fileChange,
   IMAGE_CONVERSION_MAX_OUTPUT_SIZE,
@@ -60,10 +63,10 @@ const FORMAT_EXTENSION: Record<ImageFormat, string> = {
 @Injectable()
 export class FileImageService {
   private readonly logger = new Logger(FileImageService.name);
-  private readonly urlKey: Buffer;
+  private readonly urlKeys: { current: Buffer; legacy: Buffer | undefined };
   private readonly urlTtl: number;
   private readonly baseUrl: string;
-  private readonly limit = createLimiter(IMAGE_VARIANT_CONCURRENCY);
+  private readonly limit = createLimiter({ concurrency: IMAGE_VARIANT_CONCURRENCY });
   /** 排入或執行中的變體產生（檔案 id → 工作）：同一個檔案不重複產生。 */
   private readonly generating = new Map<string, Promise<void>>();
   /** 依請求轉出其他格式（物件 key → 工作）：同時多個請求只轉一次。 */
@@ -78,7 +81,15 @@ export class FileImageService {
     private readonly events: DomainEventBus,
     config: ConfigService<Env, true>,
   ) {
-    this.urlKey = deriveImageUrlKey(config.get('JWT_SECRET', { infer: true }));
+    const secret = config.get('JWT_SECRET', { infer: true });
+    const configured = config.get('FILE_URL_SIGNING_KEY', { infer: true });
+    // production 必填（env.schema.ts）；開發與測試沒設定時由 JWT_SECRET 推導。舊的 v1 金鑰只在還有 JWT_SECRET 時驗證
+    this.urlKeys = {
+      current: configured
+        ? Buffer.from(configured, 'base64')
+        : deriveKey(secret ?? '', 'file-image-url/v2'),
+      legacy: secret ? deriveLegacyImageUrlKey(secret) : undefined,
+    };
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
     this.baseUrl = config.get('API_PUBLIC_BASE_URL', { infer: true });
   }
@@ -136,7 +147,12 @@ export class FileImageService {
     const signedAt = stableSigningDate(Date.now(), this.urlTtl).getTime();
     const expiresAt = Math.floor(signedAt / 1000) + this.urlTtl;
     const [originalUrl, previewUrl, thumbnailUrl] = IMAGE_VARIANTS.map((variant) => {
-      const sig = signImageUrl(this.urlKey, { fileId: file.id, variant, expiresAt });
+      const sig = signImageUrl(this.urlKeys.current, {
+        tenantId: requireTenant().id,
+        fileId: file.id,
+        variant,
+        expiresAt,
+      });
       return `${this.baseUrl}/files/${file.id}/image/${variant}?exp=${expiresAt}&sig=${sig}`;
     }) as [string, string, string];
     return {
@@ -161,8 +177,8 @@ export class FileImageService {
     accept: string | undefined,
   ): Promise<ImageRedirect> {
     const now = Date.now();
-    const claims = { fileId: id, variant, expiresAt: query.exp };
-    if (query.exp * 1000 <= now || !verifyImageUrl(this.urlKey, claims, query.sig)) {
+    const claims = { tenantId: requireTenant().id, fileId: id, variant, expiresAt: query.exp };
+    if (query.exp * 1000 <= now || !verifyImageUrl(this.urlKeys, claims, query.sig)) {
       throw new AppException('FILE_IMAGE_URL_INVALID');
     }
     const file = await this.repo.findById(id);
@@ -384,22 +400,4 @@ function withExtension(name: string, format: ImageFormat): string {
   const dot = name.lastIndexOf('.');
   const base = dot > 0 ? name.slice(0, dot) : name;
   return `${base}.${FORMAT_EXTENSION[format]}`;
-}
-
-/** 最多同時執行 `concurrency` 個工作；其餘依序等待。 */
-function createLimiter(concurrency: number) {
-  let active = 0;
-  const waiting: (() => void)[] = [];
-  return async <T>(task: () => Promise<T>): Promise<T> => {
-    if (active < concurrency) active += 1;
-    else await new Promise<void>((resolve) => waiting.push(resolve));
-    try {
-      return await task();
-    } finally {
-      // 名額直接交給下一個等待者，不讓新來的插隊
-      const next = waiting.shift();
-      if (next) next();
-      else active -= 1;
-    }
-  };
 }

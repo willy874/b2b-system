@@ -3,9 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 
-import { AccessTokenVerifier } from '@/common/auth';
+import { AccessTokenKeys, AccessTokenVerifier } from '@/common/auth';
 import type { AuthUser } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
@@ -48,7 +47,7 @@ export class PlatformAuthService implements OnModuleInit {
 
   constructor(
     private readonly config: ConfigService<Env, true>,
-    private readonly jwt: JwtService,
+    private readonly tokenKeys: AccessTokenKeys,
     private readonly refreshTokens: PlatformRefreshTokenService,
     private readonly admins: PlatformAdminService,
     private readonly audit: PlatformAuditService,
@@ -243,7 +242,8 @@ export class PlatformAuthService implements OnModuleInit {
 
   private async signAccessToken(admin: PlatformAdminRow, idpSessionUid: string | null) {
     const expiresIn = this.config.get('JWT_ACCESS_TTL', { infer: true });
-    const accessToken = await this.jwt.signAsync(
+    const accessToken = await this.tokenKeys.sign(
+      'platform',
       {
         sub: admin.id,
         ver: admin.tokenVersion,
@@ -251,7 +251,7 @@ export class PlatformAuthService implements OnModuleInit {
         realm: 'platform',
         ...(idpSessionUid && { sid: idpSessionUid }),
       },
-      { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn },
+      expiresIn,
     );
     return { accessToken, tokenType: 'Bearer' as const, expiresIn };
   }

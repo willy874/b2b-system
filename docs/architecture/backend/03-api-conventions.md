@@ -436,7 +436,7 @@ async login(...) {}
 | -------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
 | 一般端點，已登入                       | 每個使用者，所有端點合計                                 | `DEFAULT_RATE_LIMIT`（600）                        |
 | 一般端點，未登入（或 token 無效）      | 每個 IP，所有未登入請求合計                              | `ANONYMOUS_RATE_LIMIT`（3000）                     |
-| `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設（含 `GET /auth/setup/verify`）、外部 IdP、租戶代碼查詢、改密碼（`/auth/change-password`、`/platform/auth/change-password`） | 每個「email ＋ IP」（body 有 `email` 時；已登入、沒有 email 的改密碼以 **身分** 計、不分 IP）＋ 每個 IP | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300） |
+| `@RateLimit('auth')`：登入、SSO 回呼、啟用／重設（含 `GET /auth/setup/verify`）、外部 IdP、租戶代碼查詢、改密碼（`/auth/change-password`、`/platform/auth/change-password`） | 每個「email ＋ IP」（body 有 `email` 時；已登入、沒有 email 的改密碼以 **身分** 計、不分 IP）＋ 每個 IP ＋ 每個租戶（平台的登入另一個桶）合計 | `AUTH_RATE_LIMIT`（10）、`AUTH_IP_RATE_LIMIT`（300）、`AUTH_TENANT_RATE_LIMIT`（1200；租戶可由平台以 feature 參數 `rateLimit.authPerMinute` 覆寫） |
 | `@RateLimit('authMail')`：忘記密碼、註冊 | 每個「email ＋ IP」＋ 每個 IP                            | 上一列的 1/3（至少 3）、1/10                       |
 | `@RateLimit('refresh')`：`/auth/refresh`、`/platform/auth/refresh`、登出（`/auth/logout`、`/platform/auth/logout`；大批次用光每人的一般額度時登出不被 429 擋下） | 每個 refresh session（cookie 的雜湊）＋ 每個 IP | `REFRESH_RATE_LIMIT`（30）、`REFRESH_IP_RATE_LIMIT`（2000） |
 | `@SkipThrottle()`（影像 API）           | 不計                                                     | —                                                  |
@@ -446,8 +446,17 @@ async login(...) {}
   帳號層級的暴力破解另有帳號鎖定（連續失敗 N 次）；「帳號 ＋ IP」桶讓攻擊者無法用大量請求鎖住整間公司的 IP。
   改密碼要驗目前的密碼：拿到 access token 的人（例：XSS）能在那裡猜密碼，所以以身分限流，密碼不符也寫失敗的稽核。
 - IP 桶不會比帳號桶嚴格（`AUTH_IP_RATE_LIMIT` 小於 `AUTH_RATE_LIMIT` 時取後者），E2E 只要調高 `AUTH_RATE_LIMIT`。
+- 租戶桶：一個租戶被攻擊時，攻擊流量與它消耗的 argon2 不拖垮其他租戶的登入；超過時只有那個租戶回 429。1200/分足以應付 1000 人集中在上班時間登入。
+  一般 API 不加租戶桶：每人 600/分與租戶的連線池已是自然上限。寄信類（`authMail`）也不算進租戶桶。
 - 超過回 `429 RATE_LIMITED`，帶 `Retry-After` 標頭與 `details.retryAfterSeconds`（前端顯示「請在 N 秒後再試」）。
-- 計數在程序記憶體（`@nestjs/throttler` 的 storage）：單一執行個體的假設；多實例要換共享儲存（[`../../features/multi-instance.md`](../../features/multi-instance.md)）。
+  任何帶 `details.retryAfterSeconds` 的錯誤（含 `503 AUTH_BUSY`）都由例外過濾器一併送 `Retry-After`。
+- **放寬與豁免**：平台管理者可為租戶設定信任的網段（feature 參數 `rateLimit.trustedCidrs`，[`../05-tenancy.md`](../05-tenancy.md) §13）——從這些網段登入該租戶時，`auth`／`authMail` 的 **IP 桶** 上限 ×10（`TRUSTED_SOURCE_IP_MULTIPLIER`），帳號桶、租戶桶與登入的漸進延遲不變：
+  企業 NAT 後面整間公司共用一個 IP，放寬 IP 桶就夠了，帳號層級的保護沒有理由因來源可信而拿掉。全平台的環境變數 `RATE_LIMIT_EXEMPT_CIDRS`（預設空）只給監控探針與內部服務，
+  豁免所有 **以 IP 計** 的桶（未登入的一般端點、`auth`／`refresh` 的 IP 桶），不豁免任何帳號、身分、session 或租戶層級的限制。
+- 登入另有 **漸進延遲**（同一個「租戶 × email × IP 前綴」15 分鐘內第 3 次錯誤之後）與已知來源不累計鎖定，見 [`04-auth.md`](./04-auth.md) §3.4；延遲同樣回 `429 RATE_LIMITED`。
+- 計數存在 `RateLimitStore`（`core/rate-limit/`；固定時間窗，`hit`／`peek`／`reset`）。目前的實作是程序記憶體（`MemoryRateLimitStore`）：單一執行個體的假設；
+  多實例時換成共享的實作（[`../../features/multi-instance.md`](../../features/multi-instance.md)）只要換掉這個 provider，guard 與登入延遲的規則不必改。
+  `@nestjs/throttler` 只剩對外 API 的程序使用（與它的 `normalizeIp`）。
 - 客戶端 IP 依 `TRUST_PROXY` 判定（見 [`../01-system.md`](../01-system.md) §4.2）；IPv6 以 /64 子網路計。
 - WebSocket 不經過這個 guard：handshake 每 IP 與每使用者連線數見 [`08-realtime.md`](./08-realtime.md) §11。
 

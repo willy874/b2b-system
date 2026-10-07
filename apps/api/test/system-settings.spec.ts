@@ -185,7 +185,7 @@ describe('系統設定（docs/architecture/backend/12-settings.md）', () => {
     await patchSettings({ 'auth.registrationEnabled': false }, 200);
     const response = await request(http)
       .post('/auth/register')
-      .send({ email: 'newbie@example.com', displayName: 'Newbie', password: 'NewbiePassword!2026' })
+      .send({ email: 'newbie@example.com', displayName: 'Newbie' })
       .expect(404);
     expect(response.body).toMatchObject({ error: { code: 'AUTH_REGISTRATION_DISABLED' } });
     await patchSettings({ 'auth.registrationEnabled': null }, 200);
@@ -194,13 +194,14 @@ describe('系統設定（docs/architecture/backend/12-settings.md）', () => {
   it('調高密碼最短長度 → 較短的密碼被擋，錯誤形狀與 DTO 驗證相同', async () => {
     await patchSettings({ 'auth.passwordMinLength': 20 }, 200);
     const response = await request(http)
-      .post('/auth/register')
-      .send({ email: 'short@example.com', displayName: 'Short', password: 'ShortPassword!26' })
+      .post('/auth/change-password')
+      .set('authorization', `Bearer ${await login(ADMIN)}`)
+      .send({ currentPassword: ADMIN.password, newPassword: 'ShortPassword!26' })
       .expect(400);
     expect(response.body).toMatchObject({
       error: {
         code: 'VALIDATION_FAILED',
-        details: { fields: { password: 'AUTH_PASSWORD_WEAK' }, minLength: 20 },
+        details: { fields: { newPassword: 'AUTH_PASSWORD_WEAK' }, minLength: 20 },
       },
     });
     await patchSettings({ 'auth.passwordMinLength': null }, 200);

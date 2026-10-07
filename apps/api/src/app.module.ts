@@ -1,6 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
-import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AccessTokenModule } from './common/auth';
 import {
@@ -25,6 +24,7 @@ import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
+import { RateLimitModule } from './core/rate-limit';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule, TenantMiddleware } from './core/tenant';
@@ -34,6 +34,7 @@ import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthzExplainModule } from './modules/authz-explain/authz-explain.module';
+import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
@@ -80,14 +81,16 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // 影像處理的抽象層（ImageProcessor）；實作是 sharp（docs/architecture/backend/09-file.md §5.4）
     ImageModule,
     AccessTokenModule,
-    // 只借用 @nestjs/throttler 的記憶體計數；規則在 RateLimitGuard（common/rate-limit.ts）
-    ThrottlerModule.forRoot([]),
 
     // 葉節點模組（被很多人依賴）
     PermissionModule,
     AuditLogModule,
     // 平台管理者與平台稽核：全域 PermissionsGuard 判斷平台端點的權限（docs/architecture/05-tenancy.md §10.2 D5）
     PlatformAdminModule,
+    // argon2 的並行上限：全程序共用一個（docs/architecture/backend/04-auth.md §4.1）
+    PasswordHasherModule,
+    // 限流與登入延遲的計數（docs/architecture/backend/03-api-conventions.md §8）
+    RateLimitModule,
     // 平台管理者的站內通知；由租戶佈建、管理者管理發出（docs/architecture/backend/15-notification.md §6.2）
     PlatformNotificationModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）

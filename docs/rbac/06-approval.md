@@ -32,7 +32,7 @@
 | `status`                            | `pending` → `approved` \| `rejected`                                              |
 | `subject_key`                       | 去重鍵（註冊 = 小寫 email）：同類型同對象同時只能有一筆待審                       |
 | `payload`                           | 審核者看得到的內容（註冊 = `{ email, displayName }`）                              |
-| `private_payload`                   | 只給 handler 用的內容（註冊 = 密碼雜湊）。**永不回傳、不進稽核，審核後清空**      |
+| `private_payload`                   | 只給 handler 用的內容（目前沒有類型使用；改版前的註冊申請存過密碼雜湊）。**永不回傳、不進稽核，審核後清空** |
 | `requester_id` / `requester_name`   | 申請人；匿名申請（註冊）`requester_id = null`，名稱快照為 email                   |
 | `reason`                            | 申請理由                                                                          |
 | `reviewer_id` / `reviewer_name`     | 審核者（名稱快照：審核者之後被刪除仍可讀）                                        |
@@ -140,14 +140,13 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 ```
 申請人（未登入）                     API                                   管理員
   │ POST /auth/register ─────────────▶│ 只允許 SSO 的網域？→ 403 AUTH_SSO_REQUIRED
-  │ { email, displayName,             │ 雜湊密碼（不論結果都算，耗時一致）
-  │                                   │ email 已是使用者？→ 不建立請求
-  │   password, reason? }             │ 同 email 已有待審？→ 不建立請求
+  │ { email, displayName, reason? }   │ email 已是使用者？→ 不建立請求
+  │                                   │ 同 email 已有待審？→ 不建立請求
   │                                   │ 否則建立 user.register（pending）
   │◀──── 202 { submitted: true } ─────│ 推播 approval create ──────────────▶│ 列表更新
   │                                   │                                     │
   │                                   │◀── POST /approvals/:id/approve ─────│ { roleIds?, comment? }
-  │                                   │ 建立 status=pending 的帳號（先存申請時的密碼）
+  │                                   │ 建立 status=pending、沒有密碼的帳號
   │                                   │ 指派角色、清空 private_payload、入列啟用信
   │◀──── 啟用信（寄到申請的 email）───│
   │ POST /auth/setup { token, password } ─▶│ pending → active
@@ -161,8 +160,8 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | ---------------------------------------------------------------- | -------------------------------------------------------------- |
 | 回應永遠是 `202 { submitted: true }`，不透露 email 是否已存在    | 帳號列舉防護（同 `forgot-password`）                            |
 | 已存在的使用者、已在審核中的 email 都不建立新請求                | 避免重複；去重不分大小寫（`users.email` 是 citext）             |
-| 密碼在申請時就雜湊，只存在 `private_payload`，審核後清空         | 審核者看不到、稽核不記、資料庫不長期保留                       |
-| 核准後帳號是 `pending`，寄啟用信；從信中連結設定密碼後才是 `active` | 申請時沒有驗證 email：任何人都能用別人的 email 申請，審核者看到熟悉的名字就核准。收得到信才證明擁有這個 email。啟用前以申請時的密碼登入回 `AUTH_ACCOUNT_PENDING`（提示去收信） |
+| 申請時不設密碼（舊的用戶端送來的 `password` 會被忽略）           | 申請時的密碼從來沒有證明過 email 的所有權，存著只是多一份要保護的秘密；密碼一律在啟用信的連結裡設定 |
+| 核准後帳號是 `pending`、沒有密碼，寄啟用信；從信中連結設定密碼後才是 `active` | 申請時沒有驗證 email：任何人都能用別人的 email 申請，審核者看到熟悉的名字就核准（審批頁在 email 旁標示「尚未驗證」）。收得到信才證明擁有這個 email。啟用前沒有密碼，登入一律 `AUTH_INVALID_CREDENTIALS` |
 | 只允許 SSO 的網域不接受申請（`403 AUTH_SSO_REQUIRED`，不建立請求） | 那些帳號應由外部 IdP 建立或連結；與密碼登入的回應相同，不多透露什麼 |
 | 核准或駁回都寄信通知申請人（`approval.resultMail`，審核的交易內入列） | 申請人不必一直試著登入才知道結果；駁回時附上審核意見           |
 | 申請後 email 被管理員直接建立 → 核准回 `409 USER_EMAIL_DUPLICATE`，請求保持 `pending` | 由審核者決定駁回；不自動改狀態                       |
@@ -192,7 +191,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 權限 facade | `useApprovalPermission()`：`canReview`、`canApproveRegistration`、`canAssignRole`        |
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |
-| E2E        | `apps/e2e/tests/approval.spec.ts`：申請 → 核准並指派角色 → 啟用前以申請時的密碼登入被擋 → 從 Mailpit 的啟用信設定密碼 → 登入；快速審核；auditor 唯讀、member 403 |
+| E2E        | `apps/e2e/tests/approval.spec.ts`：申請 → 核准並指派角色 → 啟用前登入被擋 → 從 Mailpit 的啟用信設定密碼 → 登入；快速審核；auditor 唯讀、member 403 |
 
 ---
 

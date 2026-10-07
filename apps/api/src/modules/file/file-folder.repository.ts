@@ -81,6 +81,8 @@ export class FileFolderRepository {
         parentId: fileFolders.parentId,
         inheritGrants: fileFolders.inheritGrants,
         createdBy: fileFolders.createdBy,
+        kind: fileFolders.kind,
+        ownerId: fileFolders.ownerId,
       })
       .from(fileFolders)
       .where(notDeleted(fileFolders));
@@ -344,6 +346,22 @@ export class FileFolderRepository {
     if (values.length === 0) return [];
     const db = tx ?? this.db;
     return db.insert(fileFolders).values(values).returning();
+  }
+
+  /** 同 `create`，但撞到唯一索引（同層同名、個人資料夾的擁有者）的列直接略過；回傳實際寫入的列。 */
+  async createSkippingConflicts(values: FileFolderInsert[], tx: DbOrTx): Promise<FileFolderRow[]> {
+    if (values.length === 0) return [];
+    return tx.insert(fileFolders).values(values).onConflictDoNothing().returning();
+  }
+
+  /** 某一層底下未刪除的資料夾名稱（`lower()` 之後，與同層唯一索引的比對方式相同）。 */
+  async findChildNames(parentId: string, tx?: DbOrTx): Promise<Set<string>> {
+    const db = tx ?? this.db;
+    const rows = await db
+      .select({ name: sql<string>`lower(${fileFolders.name})` })
+      .from(fileFolders)
+      .where(and(eq(fileFolders.parentId, parentId), notDeleted(fileFolders)));
+    return new Set(rows.map((row) => row.name));
   }
 
   async rename(

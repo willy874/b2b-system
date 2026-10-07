@@ -311,6 +311,7 @@ export const PermissionKey = {
   'file:delete': 'file:delete',
   'file:access': 'file:access',
   'file:share': 'file:share',
+  'file:listPersonal': 'file:listPersonal',
   'job:read': 'job:read',
   'job:retry': 'job:retry',
   'identityProvider:create': 'identityProvider:create',
@@ -536,6 +537,16 @@ export interface AuditLogSummary {
   resourceName: string | null;
   result: 'success' | 'failure';
   errorCode: string | null;
+}
+
+export interface AuditLogList {
+  items: Array<AuditLogSummary>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
+  nextCursor: string | null;
 }
 
 export interface AuditLog {
@@ -772,23 +783,27 @@ export type TenantFlagOverrides = Record<string, boolean>;
 export const TenantFeatureParamKey = {
   'file.storageQuotaMb': 'file.storageQuotaMb',
   'auditLog.hotRetentionDays': 'auditLog.hotRetentionDays',
+  'auditLog.retentionDays': 'auditLog.retentionDays',
   'job.maxConcurrency': 'job.maxConcurrency',
   'identityProvider.maxProviders': 'identityProvider.maxProviders',
   'webhook.maxUrls': 'webhook.maxUrls',
+  'rateLimit.authPerMinute': 'rateLimit.authPerMinute',
+  'rateLimit.trustedCidrs': 'rateLimit.trustedCidrs',
 } as const;
 export type TenantFeatureParamKey =
   (typeof TenantFeatureParamKey)[keyof typeof TenantFeatureParamKey];
 
 export interface TenantFeatureParam {
   key: TenantFeatureParamKey;
-  feature: TenantFeature;
+  feature: TenantFeature | null;
   type: 'integer' | 'string';
   value: number | string;
   defaultValue: number | string;
   overridden: boolean;
-  unit: ('days' | 'megabytes' | 'count') | null;
+  unit: ('days' | 'megabytes' | 'count' | 'perMinute') | null;
   min: number | null;
   max: number | null;
+  foreverValue: number | null;
   maxLength: number | null;
 }
 
@@ -832,6 +847,15 @@ export interface UpdateTenantRequest {
   features?: Array<TenantFeature>;
   flags?: TenantFlagOverrides;
   featureParams?: Record<string, (number | string) | null>;
+}
+
+export interface TenantFeatureImpact {
+  feature: TenantFeature;
+  available: boolean;
+  items: Array<{
+    key: 'identityProviderConnections' | 'ssoOnlyDomains' | 'passwordlessExternalUsers';
+    count: number;
+  }>;
 }
 
 export interface AddTenantDomainRequest {
@@ -931,7 +955,6 @@ export interface SetupRequest {
 export interface RegisterRequest {
   email: string;
   displayName: string;
-  password: string;
   reason?: string;
 }
 

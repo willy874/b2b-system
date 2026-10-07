@@ -6,6 +6,7 @@ import { AuthMailJobs } from './auth-mail.jobs';
 import { AuthTokenCleanupJobs } from './auth-token-cleanup.jobs';
 import { AuthTokenService } from './auth-token.service';
 import { AUTH_SETTINGS } from './auth.settings';
+import { LoginSourceService } from './login-source.service';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { RefreshTokenService } from './refresh-token.service';
 
@@ -24,8 +25,9 @@ import { RefreshTokenService } from './refresh-token.service';
     RefreshTokenRepository,
     AuthMailJobs,
     AuthTokenCleanupJobs,
+    LoginSourceService,
   ],
-  exports: [AuthTokenService, RefreshTokenService],
+  exports: [AuthTokenService, RefreshTokenService, LoginSourceService],
 })
 export class CredentialModule {
   // 帳號政策的設定在這裡登記：`UserModule` 只匯入這個模組、不匯入 `AuthModule`，也要讀得到

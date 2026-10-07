@@ -19,7 +19,7 @@
     "quickApprove": {
       "action": "快速核准",
       "title": "核准註冊申請",
-      "confirm": "確定核准「{{name}}」的申請嗎？會建立已啟用的帳號，不指派角色（之後可在使用者頁調整，或改開審核對話框逐筆指派）。"
+      "confirm": "確定核准「{{name}}」的申請嗎？會建立帳號並寄出啟用信，申請人從信中設定密碼後才能登入；不指派角色（之後可在使用者頁調整，或改開審核對話框逐筆指派）。"
     },
     "quickReject": {
       "action": "快速駁回",
@@ -70,7 +70,8 @@
       "comment": "審核意見",
       "reason": "申請理由",
       "email": "Email",
-      "displayName": "顯示名稱"
+      "displayName": "顯示名稱",
+      "emailUnverified": "尚未驗證"
     },
     "status": {
       "all": "全部狀態",

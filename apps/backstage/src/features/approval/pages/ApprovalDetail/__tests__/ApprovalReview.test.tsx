@@ -14,6 +14,7 @@ import { registerApprovalPagePermissions } from '../../../permission';
 import type { ApprovalDetailVM } from '../adapter';
 import { ApprovalReviewActions } from '../components/ApprovalReviewActions';
 import { ApprovalReviewForm } from '../components/ApprovalReviewForm';
+import { ApprovalSummary } from '../components/ApprovalSummary';
 import type { ApprovalReviewState } from '../useApprovalReview';
 
 const { fetchDetail, approve, reject } = vi.hoisted(() => ({
@@ -103,6 +104,28 @@ describe('審核操作（UI gating 的三個案例）', () => {
     renderUnhydrated(review());
     expect(screen.queryByTestId('approval-review-form')).not.toBeInTheDocument();
     expect(screen.queryByTestId('approval-reject-button')).not.toBeInTheDocument();
+  });
+});
+
+describe('申請內容', () => {
+  it('註冊申請的 email 標示「尚未驗證」：核准後才由啟用信驗證', () => {
+    renderWithPermissions(<ApprovalSummary approval={PENDING} />, REVIEWER);
+    expect(screen.getByTestId('approval-email-unverified')).toHaveTextContent('尚未驗證');
+  });
+
+  it('資料夾存取申請沒有 email，不標示', () => {
+    renderWithPermissions(
+      <ApprovalSummary
+        approval={{
+          ...PENDING,
+          type: 'fileFolder.access',
+          registration: null,
+          folderAccess: { folderName: '設計稿', level: 'viewer' },
+        }}
+      />,
+      REVIEWER,
+    );
+    expect(screen.queryByTestId('approval-email-unverified')).not.toBeInTheDocument();
   });
 });
 

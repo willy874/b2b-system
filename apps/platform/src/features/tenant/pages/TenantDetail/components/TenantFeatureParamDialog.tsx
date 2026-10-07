@@ -74,7 +74,8 @@ export function TenantFeatureParamDialog({
     const value = Number(draft);
     const min = param.min ?? Number.MIN_SAFE_INTEGER;
     const max = param.max ?? Number.MAX_SAFE_INTEGER;
-    if (!draft.trim() || !Number.isInteger(value) || value < min || value > max) {
+    const forever = param.foreverValue !== null && value === param.foreverValue;
+    if (!draft.trim() || !Number.isInteger(value) || (!forever && (value < min || value > max))) {
       setError(t('tenant.param.rangeError', { min, max }));
       return;
     }
@@ -123,15 +124,19 @@ export function TenantFeatureParamDialog({
       >
         <Field
           label={label}
-          required
+          required={isInteger}
           error={error}
           description={
             isInteger
-              ? t('tenant.param.rangeHint', {
+              ? `${t('tenant.param.rangeHint', {
                   min: param.min,
                   max: param.max,
                   default: formatParamValue(t, param, param.defaultValue),
-                })
+                })}${
+                  param.foreverValue === null
+                    ? ''
+                    : t('tenant.param.foreverHint', { value: param.foreverValue })
+                }`
               : t('tenant.param.defaultHint', {
                   default: formatParamValue(t, param, param.defaultValue),
                 })
@@ -140,7 +145,7 @@ export function TenantFeatureParamDialog({
           <Input
             type={isInteger ? 'number' : 'text'}
             inputMode={isInteger ? 'numeric' : undefined}
-            min={param.min ?? undefined}
+            min={param.foreverValue ?? param.min ?? undefined}
             max={param.max ?? undefined}
             maxLength={param.maxLength ?? undefined}
             value={draft}

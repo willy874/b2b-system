@@ -97,7 +97,7 @@ export class TenantDirectory implements OnModuleInit, OnApplicationBootstrap, On
   ) {
     this.secrets = SecretBox.fromConfig(
       config.get('TENANT_SECRET_KEY', { infer: true }),
-      config.get('JWT_SECRET', { infer: true }),
+      config.get('JWT_SECRET', { infer: true }) ?? null,
       TENANT_SECRET_PURPOSE,
     );
     this.ttlMs = config.get('TENANT_CACHE_TTL', { infer: true }) * 1000;

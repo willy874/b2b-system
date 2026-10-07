@@ -44,6 +44,8 @@ export class FileAccessRequestService {
     const folder = await this.folders.findById(folderId);
     if (!folder) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
     const ctx = await this.access.contextFor(actor);
+    // 看不到的個人資料夾不能申請：分享由擁有者主動做（docs/rbac/07-resource-grants.md §12.1）
+    if (!ctx.exists(folderId)) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
     if (ctx.missingActions([dto.level], folderId).length === 0) {
       throw new AppException('FILE_ACCESS_ALREADY_GRANTED', { level: dto.level });
     }

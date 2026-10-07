@@ -19,7 +19,7 @@
     "quickApprove": {
       "action": "Quick approve",
       "title": "Approve registration",
-      "confirm": "Approve the request from \"{{name}}\"? An active account will be created without roles (assign them later on the user page, or open the review dialog instead)."
+      "confirm": "Approve the request from \"{{name}}\"? An account will be created and an activation email sent; the applicant can sign in after setting a password from that email. No roles will be assigned (assign them later on the user page, or open the review dialog instead)."
     },
     "quickReject": {
       "action": "Quick reject",
@@ -74,7 +74,8 @@
       "comment": "Review comment",
       "reason": "Reason",
       "email": "Email",
-      "displayName": "Display name"
+      "displayName": "Display name",
+      "emailUnverified": "Not verified"
     },
     "status": {
       "all": "All statuses",

@@ -8,9 +8,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   assertPublicDestination,
   BlockedDestinationError,
-  guardedFetch,
   isBlockedAddress,
   OutboundRequestError,
+  pinnedFetch,
   pinnedLookup,
   sendOutboundRequest,
 } from '../outbound';
@@ -86,22 +86,33 @@ describe('對外連線的位址檢查（docs/architecture/backend/17-webhook.md 
     ).resolves.toBeUndefined();
   });
 
-  it('被擋下的請求不會送出', async () => {
-    const fetchSpy = vi.fn(async () => new Response('{}'));
-    vi.stubGlobal('fetch', fetchSpy);
-    const guarded = guardedFetch(resolvesTo('169.254.169.254'));
-    await expect(
-      guarded('https://metadata.example.com/latest', { method: 'GET' }),
-    ).rejects.toBeInstanceOf(BlockedDestinationError);
-    expect(fetchSpy).not.toHaveBeenCalled();
+  it('外部 IdP 的 fetch：主機名稱解析到私有位址時不建立連線（DNS rebinding 也一樣，連線時才解析）', async () => {
+    const server = createServer((_req, res) => res.end('{}'));
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    let hits = 0;
+    server.on('request', () => (hits += 1));
+    try {
+      const pinned = pinnedFetch(resolvesTo('127.0.0.1'));
+      const error = await pinned(
+        `http://idp.example.com:${port}/.well-known/openid-configuration`,
+        {
+          method: 'GET',
+        },
+      ).catch((caught: unknown) => caught);
+      // undici 把 lookup 的錯誤包成 TypeError('fetch failed')，原因在 cause
+      expect((error as Error).cause).toBeInstanceOf(BlockedDestinationError);
+      expect(hits).toBe(0);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 
-  it('通過檢查的請求照常送出', async () => {
-    const fetchSpy = vi.fn(async () => new Response('{}'));
-    vi.stubGlobal('fetch', fetchSpy);
-    const guarded = guardedFetch(resolvesTo('93.184.216.34'));
-    await guarded('https://login.example.com/token', { method: 'POST' });
-    expect(fetchSpy).toHaveBeenCalledWith('https://login.example.com/token', { method: 'POST' });
+  it('外部 IdP 的 fetch：字面的私有 IP 直接擋下', async () => {
+    const pinned = pinnedFetch(resolvesTo('93.184.216.34'));
+    await expect(
+      pinned('http://169.254.169.254/latest/meta-data', { method: 'GET' }),
+    ).rejects.toBeInstanceOf(BlockedDestinationError);
   });
 });
 

@@ -7,8 +7,6 @@ import { loginAndWaitForHome } from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
-// 密碼政策會擋常見密碼的字根與 email／顯示名稱的片段（modules/credential）
-const APPLICANT_PASSWORD = 'Wm3#pLq8!zRt6v';
 // 經過 backstage 的 /api 代理：api 以網域決定租戶（docs/architecture/05-tenancy.md §10.2 D2）
 const API_URL =
   process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api`;
@@ -79,7 +77,7 @@ test.describe('站內通知（docs/architecture/frontend/15-notification.md、do
 
     // ① 匿名送出註冊申請（approval.pending 給所有持有 approval:review 的人）
     const registered = await request.post(`${API_URL}/auth/register`, {
-      data: { email, displayName, password: APPLICANT_PASSWORD, reason: 'E2E 通知' },
+      data: { email, displayName, reason: 'E2E 通知' },
     });
     expect(registered.status()).toBe(202);
 

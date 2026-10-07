@@ -32,7 +32,7 @@ describe('AuditLogService（docs/architecture/backend/06-audit-log.md §7）', (
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);
     repo = {
-      list: vi.fn(async () => ({ items: [], total: 0 })),
+      list: vi.fn(async () => ({ items: [], hasMore: false, total: 0 })),
       findById: vi.fn(async () => ROW),
     };
     service = new AuditLogService(repo as unknown as AuditLogRepository);
@@ -46,10 +46,11 @@ describe('AuditLogService（docs/architecture/backend/06-audit-log.md §7）', (
     it('沒帶時間範圍 → 以現在往前 90 天查詢', async () => {
       const query: ListAuditLogDto = { offset: 0, limit: 50 };
       await service.list(query);
-      expect(repo.list).toHaveBeenCalledWith(query, {
-        from: new Date(NOW.getTime() - 90 * DAY),
-        to: NOW,
-      });
+      expect(repo.list).toHaveBeenCalledWith(
+        query,
+        { from: new Date(NOW.getTime() - 90 * DAY), to: NOW },
+        undefined,
+      );
     });
 
     it('帶了範圍 → 原樣交給 repository', async () => {
@@ -58,12 +59,16 @@ describe('AuditLogService（docs/architecture/backend/06-audit-log.md §7）', (
         to: new Date('2026-09-30T00:00:00.000Z'),
       };
       await service.list({ offset: 0, limit: 50, ...range });
-      expect(repo.list).toHaveBeenCalledWith(expect.anything(), range);
+      expect(repo.list).toHaveBeenCalledWith(expect.anything(), range, undefined);
     });
 
     it('回摘要：bigint id 轉字串（不失精度）、時間轉 ISO，不含 changes / metadata', async () => {
       const { changes: _changes, metadata: _metadata, ...summary } = ROW;
-      repo.list.mockResolvedValueOnce({ items: [summary], total: 1 });
+      repo.list.mockResolvedValueOnce({
+        items: [{ ...summary, occurredAtExact: '2026-10-05T12:00:00.000000Z' }],
+        hasMore: false,
+        total: 1,
+      });
       const result = await service.list({ offset: 0, limit: 50 });
       expect(result).toEqual({
         items: [
@@ -81,7 +86,45 @@ describe('AuditLogService（docs/architecture/backend/06-audit-log.md §7）', (
           },
         ],
         pagination: { offset: 0, limit: 50, total: 1 },
+        nextCursor: null,
       });
+    });
+
+    it('還有下一頁 → nextCursor 帶最後一筆的微秒時間與 id；帶回來時解成游標交給 repository', async () => {
+      const { changes: _changes, metadata: _metadata, ...summary } = ROW;
+      repo.list.mockResolvedValueOnce({
+        items: [{ ...summary, occurredAtExact: '2026-10-05T12:00:00.123456Z' }],
+        hasMore: true,
+        total: 3,
+      });
+      const first = await service.list({ offset: 0, limit: 1 });
+      expect(first.nextCursor).toEqual(expect.any(String));
+
+      await service.list({ offset: 0, limit: 1, cursor: first.nextCursor ?? '' });
+      expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), {
+        occurredAt: '2026-10-05T12:00:00.123456Z',
+        id: '9007199254740993',
+      });
+    });
+
+    it.each([
+      ['不是 base64 的 JSON', 'not-a-cursor'],
+      ['時間格式不對', Buffer.from(JSON.stringify(['2026-02-30', '1'])).toString('base64url')],
+      [
+        'id 不是正整數',
+        Buffer.from(JSON.stringify(['2026-10-05T12:00:00.000Z', '0x1'])).toString('base64url'),
+      ],
+      [
+        'id 超出 bigint',
+        Buffer.from(JSON.stringify(['2026-10-05T12:00:00.000Z', '9223372036854775808'])).toString(
+          'base64url',
+        ),
+      ],
+    ])('游標格式不對（%s）→ 400 VALIDATION_FAILED，不查詢', async (_name, cursor) => {
+      await expect(service.list({ offset: 0, limit: 50, cursor })).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+      });
+      expect(repo.list).not.toHaveBeenCalled();
     });
   });
 

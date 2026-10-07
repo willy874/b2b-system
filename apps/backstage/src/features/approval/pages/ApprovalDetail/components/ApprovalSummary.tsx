@@ -30,7 +30,15 @@ export function ApprovalSummary({ approval }: ApprovalSummaryProps) {
       </Row>
       {approval.registration && (
         <>
-          <Row label={t('approval.field.email')}>{approval.registration.email}</Row>
+          <Row label={t('approval.field.email')}>
+            <span className="inline-flex flex-wrap items-center gap-2">
+              {approval.registration.email}
+              {/* 申請時沒有驗證 email：核准後由寄到這個信箱的啟用信驗證（docs/rbac/06-approval.md §5） */}
+              <Chip tone="warning" data-testid="approval-email-unverified">
+                {t('approval.field.emailUnverified')}
+              </Chip>
+            </span>
+          </Row>
           <Row label={t('approval.field.displayName')}>{approval.registration.displayName}</Row>
         </>
       )}

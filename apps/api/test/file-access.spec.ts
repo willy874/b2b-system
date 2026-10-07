@@ -692,15 +692,10 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       });
       expect(privateRoot).toMatchObject({ name: '私人資料夾', capabilities: { canRead: false } });
 
-      // 別人的個人資料夾也列出但鎖住；自己的是預設位置
+      // 別人的個人資料夾不列出（docs/rbac/07-resource-grants.md §12.1）；自己的是預設位置
       const personalFolderId = (list as unknown as { personalFolderId: string }).personalFolderId;
       const personal = byKind(list.items, 'personal').filter((f) => f.id === personalFolderId);
-      expect(byKind(list.items, 'personal').length).toBeGreaterThan(1);
-      expect(
-        byKind(list.items, 'personal')
-          .filter((f) => f.id !== personalFolderId)
-          .every((f) => !f.capabilities.canRead),
-      ).toBe(true);
+      expect(byKind(list.items, 'personal').map((f) => f.id)).toEqual([personalFolderId]);
       expect(personal[0]).toMatchObject({
         name: ARTIST.email,
         parentId: privateRoot?.id,
@@ -718,6 +713,58 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       // 個人資料夾：別人看不到裡面的檔案
       const mine = await uploadFile(artist, 'mine.txt', personal[0]?.id ?? null);
       await api(outsider).get(`/files/${mine.id}`).expect(404);
+    });
+
+    it('別人的個人資料夾分三層：一般成員只看得到被分享的路徑；file:listPersonal 看得到全部（鎖住）；全域 file:read 讀得到', async () => {
+      const admin = await login(ADMIN);
+      const artist = await login(ARTIST);
+      const outsider = await login(OUTSIDER);
+      const personalOf = async (email: string) =>
+        byKind((await listFolders(admin)).items, 'personal').find((f) => f.name === email);
+      const artistPersonal = await personalOf(ARTIST.email);
+      const sharerPersonal = await personalOf(SHARER.email);
+      if (!artistPersonal || !sharerPersonal) throw new Error('個人資料夾還沒建立');
+
+      // artist 在自己的個人資料夾裡分享一個子資料夾給 outsider
+      const sub = await createFolder(artist, 'tiers-shared', artistPersonal.id);
+      const outsiderId = (await db.select().from(users).where(eq(users.email, OUTSIDER.email)))[0]!
+        .id;
+      await api(artist)
+        .put(`/file-folders/${sub.id}/grants`, {
+          subjectType: 'user',
+          subjectId: outsiderId,
+          level: 'viewer',
+        })
+        .expect(200);
+
+      // 一般成員：看得到通往被分享資料夾的路徑（父層鎖住），看不到其他人的個人資料夾
+      const seen = (await listFolders(outsider)).items;
+      expect(seen.find((f) => f.id === artistPersonal.id)?.capabilities.canRead).toBe(false);
+      expect(seen.find((f) => f.id === sub.id)?.capabilities.canRead).toBe(true);
+      expect(seen.find((f) => f.id === sharerPersonal.id)).toBeUndefined();
+
+      // 看不到的一律 404（不以 403 洩漏存在）
+      expect(
+        errorCode(await api(outsider).get(`/files?folderId=${sharerPersonal.id}`).expect(404)),
+      ).toBe('FILE_FOLDER_NOT_FOUND');
+      await api(outsider)
+        .post(`/file-folders/${sharerPersonal.id}/access-requests`, { level: 'viewer' })
+        .expect(404);
+      await api(outsider).get(`/file-folders/${sharerPersonal.id}/grants`).expect(404);
+
+      // file:listPersonal：每個人的個人資料夾都列出、但鎖住，可以申請存取
+      const lister = { email: 'access-lister@example.com', password: 'ListerPassword!2026' };
+      await createActiveUser(lister, [await createRole('personal-lister', ['file:listPersonal'])]);
+      const listerToken = await login(lister);
+      const listed = (await listFolders(listerToken)).items;
+      const others = byKind(listed, 'personal').filter((f) => f.name !== lister.email);
+      expect(others.map((f) => f.id)).toEqual(
+        expect.arrayContaining([artistPersonal.id, sharerPersonal.id]),
+      );
+      expect(others.every((f) => !f.capabilities.canRead)).toBe(true);
+      await api(listerToken)
+        .post(`/file-folders/${sharerPersonal.id}/access-requests`, { level: 'viewer' })
+        .expect(202);
     });
 
     it('系統資料夾不能改名、移動、刪除（管理員也一樣）', async () => {
@@ -829,6 +876,46 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       expect(nameOf(slash.id)).toBe('.. a b');
     });
 
+    it('一批人以多列 INSERT 建立：資料夾、manager 授權與稽核各一筆', async () => {
+      const created = await db
+        .insert(users)
+        .values(
+          Array.from({ length: 3 }, (_, i) => ({
+            email: `batch-owner-${i}@example.com`,
+            displayName: 'Batch Owner',
+            status: 'active' as const,
+          })),
+        )
+        .returning();
+      const ids = created.map((user) => user.id);
+      await inTestTenant(app, () => app.get(FileSystemFolderService).ensurePersonalFolders(ids));
+      const folders = await db
+        .select()
+        .from(fileFolders)
+        .where(and(eq(fileFolders.kind, 'personal'), inArray(fileFolders.ownerId, ids)));
+      // 顯示名稱相同：同一批裡依序加上 email 區分，不撞同層唯一索引
+      expect(folders.map((row) => row.name).toSorted()).toEqual([
+        'Batch Owner',
+        'Batch Owner (batch-owner-1@example.com)',
+        'Batch Owner (batch-owner-2@example.com)',
+      ]);
+      const grants = await db
+        .select()
+        .from(relationTuples)
+        .where(
+          and(
+            eq(relationTuples.objectType, 'fileFolder'),
+            inArray(
+              relationTuples.objectId,
+              folders.map((row) => row.id),
+            ),
+          ),
+        );
+      expect(grants.map((row) => [row.relation, row.subjectId]).toSorted()).toEqual(
+        ids.map((id) => ['manager', id]).toSorted(),
+      );
+    });
+
     it('同一批裡一個人的個人資料夾建立失敗，只 rollback 他自己（savepoint）', async () => {
       const [broken, fine] = await db
         .insert(users)
@@ -840,6 +927,10 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
       if (!broken || !fine) throw new Error('建立使用者失敗');
       const repo = app.get(FileFolderRepository);
       const original = repo.create.bind(repo);
+      // 批次寫入整批失敗 → 退回逐人建立；逐人建立時 broken 也失敗
+      const batch = vi
+        .spyOn(repo, 'createSkippingConflicts')
+        .mockRejectedValue(new Error('模擬的批次寫入失敗'));
       const spy = vi.spyOn(repo, 'create').mockImplementation(async (values, tx) => {
         if (values[0]?.ownerId === broken.id) throw new Error('模擬的寫入失敗');
         return original(values, tx);
@@ -850,6 +941,7 @@ describe('資料夾層級授權（docs/rbac/07-resource-grants.md）', () => {
         );
       } finally {
         spy.mockRestore();
+        batch.mockRestore();
       }
       const owners = (
         await db.select().from(fileFolders).where(eq(fileFolders.kind, 'personal'))

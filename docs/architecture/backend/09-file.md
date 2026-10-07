@@ -108,7 +108,7 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 - 「請求進來的網域」是 `TenantMiddleware` 以網域找到租戶時記在 `TenantContext.domain` 的 `host[:port]`（`S3ObjectStorage.presigner()` 優先用它）。
 - 沒有請求可依據時——背景工作、對外 API（租戶由 token 決定，[`../06-external-api.md`](../06-external-api.md) §3）、apps/platform 以 `X-Tenant` 指定的帳號流程——
   用 **主要網域**（第一個登記的）。影像 API 的網址（`/api/files/:id/image/…`）是相對網址，不受影響。
-- 不放寬 CSP：nginx 的 CSP 是靜態的，列不出每個租戶的網域；放寬成任意網域就失去同源的保護。
+- 不放寬 CSP 到租戶網域：nginx 的 CSP 列不出每個租戶的網域；放寬成任意網域就失去同源的保護。獨立的檔案網域只有一個，見 §3.2。
 
 ### 3.1 每個租戶一個 bucket（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D16）
 
@@ -121,6 +121,24 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 
 ---
 
+### 3.2 獨立的檔案網域（下載與預覽）
+
+使用者上傳的檔案若在租戶網域上被渲染，一段腳本就能以同源身分呼叫 `/api/auth/refresh` 拿到 access token。同源時擋住它的是 `sandbox` CSP 與類型政策，
+兩道都在設定裡（換成 S3 時 bucket 不會送 `sandbox`）。設定獨立的檔案網域之後，這個風險在結構上就不存在：
+
+| 設定 | 作用 |
+| --- | --- |
+| `FILE_DOWNLOAD_ORIGIN`（部署） | 例 `https://files.example.com`。compose 由它推導 api 的 `FILE_STORAGE_DOWNLOAD_ENDPOINT`（`<origin>/storage`），並傳給兩個前端的 nginx |
+| `FILE_STORAGE_DOWNLOAD_ENDPOINT`（api） | `presignDownload`（`url`、`downloadUrl`、影像 API 的 302）簽成這個 endpoint；**上傳仍用 `FILE_STORAGE_PUBLIC_ENDPOINT`（同源）**。可含 `{tenantOrigin}`、`{tenantCode}`（每個租戶一個子網域時；nginx 的 server 要自行改成萬用網域）。沒設定時與上傳相同，production 啟動時記一次警告 |
+| `deploy/nginx-file-origin.sh` | 前端映像啟動時產生：CSP 的 `$file_origin`（加進 `img-src`、`media-src`、`connect-src`）；backstage 另產生檔案網域的 server |
+
+檔案網域的 server 只開 `/storage/` 的 `GET`／`HEAD`（preflight 回 204，其他方法 405、其他路徑 404），不轉給 api、不轉送 `Cookie`／`Authorization`、不回 `Set-Cookie`；
+沿用 `sandbox` CSP、`nosniff`，另加 `Cross-Origin-Resource-Policy: cross-origin` 與 `Access-Control-Allow-Origin: *`（presigned 網址本身就是憑證，不帶 credentials）。
+文字預覽的 `fetch` 明確 `credentials: 'omit'`。防護不因網域分離而放寬（類型白名單、非白名單一律 attachment）。上傳維持同源：上傳的回應不會被渲染，
+跨來源的 multipart 反而要處理 preflight、`ETag` 暴露與每個租戶網域的 CORS 白名單。`deploy/check-nginx.sh` 驗證上述標頭與方法限制。
+
+全平台共用一個檔案網域（不是每個租戶一個子網域）：檔案網域上沒有 cookie 與登入狀態，內容只能以 presigned 網址讀取，子網域的隔離效果相同，卻要萬用 DNS 與萬用憑證。
+
 ## 4. 轉介表：`files`
 
 對外只用 `files.id`；物件儲存的 key 只在後端出現。
@@ -128,7 +146,7 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | `id` | uuid | 對外唯一識別 |
-| `name` | text | 顯示用檔名（可改名；不可含 `/`、`\`、Unicode 控制字元 `Cc`（C0、DEL、C1：U+0000–U+001F、U+007F–U+009F）、雙向文字控制（U+061C、U+200E、U+200F、U+202A–U+202E、U+2066–U+2069）、零寬與分隔字元（U+200B、U+2028、U+2029、U+FEFF；頭尾的會先被 trim 掉），≤ 255。保留 ZWNJ／ZWJ（U+200C／U+200D），以 ZWJ 串起來的 emoji 照常可用。雙向文字控制能把 `invoice` ＋ U+202E ＋ `fdp.exe` 顯示成 `invoiceexe.pdf`、零寬字元能做出看起來同名的兩個資料夾，所以一律擋下；規則只套用在新增與改名，既有的名稱不遷移） |
+| `name` | text | 顯示用檔名（可改名；不可含 `/`、`\`、Unicode 控制字元 `Cc`（C0、DEL、C1：U+0000–U+001F、U+007F–U+009F）、雙向文字控制（U+061C、U+200E、U+200F、U+202A–U+202E、U+2066–U+2069）、零寬與分隔字元（U+200B、U+2028、U+2029、U+FEFF；頭尾的會先被 trim 掉），≤ 255。保留 ZWNJ／ZWJ（U+200C／U+200D），以 ZWJ 串起來的 emoji 照常可用。雙向文字控制能把 `invoice` ＋ U+202E ＋ `fdp.exe` 顯示成 `invoiceexe.pdf`、零寬字元能做出看起來同名的兩個資料夾，所以一律擋下；規則只套用在新增與改名，既有的名稱不遷移。名稱一律轉成 NFC：macOS 的瀏覽器送出的檔名常是 NFD（「é」拆成「e」＋組合符號），看起來一樣卻躲得過同層唯一索引；租戶 migration 0038 把既有的 NFD 名稱一併轉換，轉換後會與同層撞名的資料夾保持原樣） |
 | `content_type` | text | 登記時的 MIME，小寫、不含參數 |
 | `size` | bigint | `pending`：登記的大小；`ready`：物件儲存實際大小（兩者必須相同） |
 | `storage_key` | text（unique） | `files/<id>`——只由 id 決定，改名不搬物件，也沒有編碼、重名、路徑穿越問題 |
@@ -381,7 +399,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
 
 | 規則 | 理由 |
 | --- | --- |
-| `@Public()`，以網址上的 **HMAC 簽章**授權（`file-image-url.ts`：簽 `id`、`variant`、`exp`，金鑰由 `JWT_SECRET` 衍生） | `<img src>` 帶不了 access token（只在記憶體）。網址只從 `file:read` 的回應拿得到——與 presigned URL 相同的模型 |
+| `@Public()`，以網址上的 **HMAC 簽章**授權（`file-image-url.ts`：簽 `v2`、租戶 id、`id`、`variant`、`exp`，簽章值以 `v2.` 開頭；金鑰是獨立的 `FILE_URL_SIGNING_KEY`。網址換到別的租戶的網域就驗不過。沒有前綴的 v1（不含租戶、金鑰由 `JWT_SECRET` 衍生）只在還設定 `JWT_SECRET` 的過渡期接受，[`04-auth.md`](./04-auth.md) §11 D5、D7） | `<img src>` 帶不了 access token（只在記憶體）。網址只從 `file:read` 的回應拿得到——與 presigned URL 相同的模型 |
 | `format` 不在簽章內 | 它只決定編碼方式，不擴大能讀到的內容；前端可以自己在網址後面加 |
 | `exp` 取整到 `FILE_URL_TTL / 2` 的時間窗（同 §7.1） | 同一個時間窗內網址不變，`<img>` 與 HTTP 快取直接命中 |
 | 回 **302 轉址** 到物件儲存的 presigned 網址，帶 `Cache-Control: private, max-age=<剩餘秒數>`、`Vary: Accept` | 內容仍由物件儲存送出、不經過 api；轉址本身也被瀏覽器快取 |

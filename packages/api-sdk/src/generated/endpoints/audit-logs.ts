@@ -1,7 +1,7 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
-import type { AuditLog, AuditLogSummary } from '../models';
+import type { AuditLog, AuditLogList } from '../models';
 import type { ApiResponse } from '../runtime';
 import { buildUrl } from '../url';
 
@@ -9,14 +9,7 @@ import { buildUrl } from '../url';
 
 export interface AuditLogControllerListResponses {
   200: {
-    data: {
-      items: Array<AuditLogSummary>;
-      pagination: {
-        offset: number;
-        limit: number;
-        total: number;
-      };
-    };
+    data: AuditLogList;
   };
 }
 

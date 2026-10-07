@@ -1,3 +1,4 @@
+import { isCidrList } from '../rate-limit/ip';
 import { requireTenant } from './tenant-context';
 import type { TenantFeature } from './tenant-features';
 
@@ -8,14 +9,17 @@ import type { TenantFeature } from './tenant-features';
  * 目錄在 `core/`：`TenantContext` 與背景工作佇列都要讀，`core/` 不 import `modules/`。參數的效果由各擁有者模組實作，
  * 對照見 docs/architecture/05-tenancy.md §5.3。
  */
-export const TENANT_FEATURE_PARAM_UNITS = ['days', 'megabytes', 'count'] as const;
+export const TENANT_FEATURE_PARAM_UNITS = ['days', 'megabytes', 'count', 'perMinute'] as const;
 export type TenantFeatureParamUnit = (typeof TENANT_FEATURE_PARAM_UNITS)[number];
 
 interface TenantFeatureParamBase<K extends string> {
   /** `<feature>.<名稱>`（camelCase）；上線後不改名：改名等於新參數，既有的覆寫會遺失。 */
   key: K;
-  /** 所屬的 feature：管理頁把參數列在這個 feature 的那一列下。feature 關閉時參數照常生效（D5）。 */
-  feature: TenantFeature;
+  /**
+   * 所屬的 feature：管理頁把參數列在這個 feature 的那一列下。feature 關閉時參數照常生效（D5）。
+   * `null`：不屬於任何可開關的 feature、對整個租戶生效的限制（例：登入的速率），管理頁另列一區。
+   */
+  feature: TenantFeature | null;
 }
 
 export interface TenantIntegerParam<K extends string = string> extends TenantFeatureParamBase<K> {
@@ -24,6 +28,8 @@ export interface TenantIntegerParam<K extends string = string> extends TenantFea
   min: number;
   max: number;
   unit: TenantFeatureParamUnit;
+  /** 代表「不限（永久）」的特殊值，不受 `min`／`max` 限制（例：保留期限的 -1）。沒有就不允許。 */
+  foreverValue?: number;
 }
 
 export interface TenantStringParam<K extends string = string> extends TenantFeatureParamBase<K> {
@@ -32,6 +38,8 @@ export interface TenantStringParam<K extends string = string> extends TenantFeat
   maxLength: number;
   /** 值必須整個符合；沒有就只限長度。 */
   pattern?: RegExp;
+  /** 正規表示式寫不清楚的格式（例：CIDR 清單）。 */
+  validate?: (value: string) => boolean;
 }
 
 export type TenantFeatureParamDefinition<K extends string = string> =
@@ -52,6 +60,21 @@ export const AUDIT_LOG_HOT_RETENTION_DAYS_PARAM = {
   min: 7,
   max: 3650,
   unit: 'days',
+} as const satisfies TenantIntegerParam;
+
+/**
+ * 稽核冷表的保留天數（docs/architecture/backend/06-audit-log.md §10 D3）：每天的 `auditLog.archive` 以 DROP 整個月份分區刪除早於它的紀錄。
+ * `-1` = 永久保留。最少 365 天（資料庫函式另有同樣的硬下限）；實際至少保留 `auditLog.hotRetentionDays`。只有平台管理者能改。
+ */
+export const AUDIT_LOG_RETENTION_DAYS_PARAM = {
+  key: 'auditLog.retentionDays',
+  feature: 'auditLog',
+  type: 'integer',
+  defaultValue: 365,
+  min: 365,
+  max: 36_500,
+  unit: 'days',
+  foreverValue: -1,
 } as const satisfies TenantIntegerParam;
 
 /** D8：所有檔案的大小合計上限（MB = 1024 × 1024 位元組；含上傳中與回收桶裡的檔案）。 */
@@ -99,15 +122,46 @@ export const WEBHOOK_MAX_URLS_PARAM = {
 } as const satisfies TenantIntegerParam;
 
 /**
+ * 這個租戶的登入類請求（`@RateLimit('auth')`）每分鐘合計的上限（docs/architecture/backend/03-api-conventions.md §8）：
+ * 一個租戶被攻擊時，攻擊流量（與它消耗的 argon2）不拖垮其他租戶的登入。沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT`。
+ */
+export const RATE_LIMIT_AUTH_PER_MINUTE_PARAM = {
+  key: 'rateLimit.authPerMinute',
+  feature: null,
+  type: 'integer',
+  defaultValue: 1200,
+  min: 60,
+  max: 100_000,
+  unit: 'perMinute',
+} as const satisfies TenantIntegerParam;
+
+/**
+ * 這個租戶信任的來源網段（逗號分隔的 IP 或 CIDR，平台管理者設定）：來自這些網段的登入，以 IP 計的登入上限放寬 10 倍
+ * （企業 NAT 後整間公司共用一個 IP）。只放寬 IP 桶：帳號、漸進延遲、租戶桶不變（docs/architecture/backend/03-api-conventions.md §8）。
+ */
+export const RATE_LIMIT_TRUSTED_CIDRS_PARAM = {
+  key: 'rateLimit.trustedCidrs',
+  feature: null,
+  type: 'string',
+  defaultValue: '',
+  maxLength: 1000,
+  validate: isCidrList,
+} as const satisfies TenantStringParam;
+
+/**
  * 參數的目錄（D1），依 `TENANT_FEATURES` 的順序排。新增一列即可：DTO、平台管理頁、讀取時的驗證都讀這份清單。
  * key 以 `TenantFeatureParamKey` 出現在 OpenAPI，前端以 `satisfies Record<TenantFeatureParamKey, …>` 對照語系。
  */
 export const TENANT_FEATURE_PARAMS = [
   FILE_STORAGE_QUOTA_MB_PARAM,
   AUDIT_LOG_HOT_RETENTION_DAYS_PARAM,
+  AUDIT_LOG_RETENTION_DAYS_PARAM,
   JOB_MAX_CONCURRENCY_PARAM,
   IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM,
   WEBHOOK_MAX_URLS_PARAM,
+  // 不屬於 feature 的租戶限制（feature: null）
+  RATE_LIMIT_AUTH_PER_MINUTE_PARAM,
+  RATE_LIMIT_TRUSTED_CIDRS_PARAM,
 ] as const satisfies readonly TenantFeatureParamDefinition[];
 
 export type TenantFeatureParamKey = (typeof TENANT_FEATURE_PARAMS)[number]['key'];
@@ -134,6 +188,7 @@ export function tenantFeatureParamProblem(
 ): string | null {
   if (param.type === 'integer') {
     if (typeof value !== 'number' || !Number.isInteger(value)) return 'must be an integer';
+    if (param.foreverValue !== undefined && value === param.foreverValue) return null;
     if (value < param.min) return `must be >= ${param.min}`;
     if (value > param.max) return `must be <= ${param.max}`;
     return null;
@@ -141,6 +196,7 @@ export function tenantFeatureParamProblem(
   if (typeof value !== 'string') return 'must be a string';
   if (value.length > param.maxLength) return `must be at most ${param.maxLength} characters`;
   if (param.pattern && !param.pattern.test(value)) return 'invalid format';
+  if (param.validate && !param.validate(value)) return 'invalid format';
   return null;
 }
 

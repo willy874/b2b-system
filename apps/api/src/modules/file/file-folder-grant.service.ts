@@ -286,7 +286,8 @@ export class FileFolderGrantService {
     tx?: DbOrTx,
   ): Promise<FileFolderRow> {
     const folder = await this.folders.findById(folderId, tx);
-    if (!folder) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
+    if (!folder || !ctx.exists(folderId))
+      throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId });
     if (!ctx.can('share', folderId)) {
       throw await this.access.deny(actor, 'share', 'fileFolder', folderId);
     }

@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 
+import { AccessTokenKeys } from './access-token.keys';
 import { AccessTokenVerifier } from './access-token.verifier';
 
 /**
@@ -8,7 +9,7 @@ import { AccessTokenVerifier } from './access-token.verifier';
  */
 @Global()
 @Module({
-  providers: [AccessTokenVerifier],
-  exports: [AccessTokenVerifier],
+  providers: [AccessTokenKeys, AccessTokenVerifier],
+  exports: [AccessTokenKeys, AccessTokenVerifier],
 })
 export class AccessTokenModule {}

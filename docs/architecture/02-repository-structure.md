@@ -276,7 +276,10 @@ EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-ap
 NODE_ENV=development
 LISTEN_HOST=                       # 留空 = 開發只聽 127.0.0.1（同網段連不到）、production 聽所有介面；手機測試時設 0.0.0.0
 
-JWT_SECRET=change-me-in-production-min-32-chars
+JWT_SECRET=change-me-in-production-min-32-chars   # 開發必填：下面的金鑰環與各種主金鑰沒設時由它推導；production 只驗過渡期的舊 token（選填）
+JWT_SIGNING_KEYS=                  # 租戶 access token 的金鑰環 <kid>:<base64>[,…]，第一把簽發；留空 = 由 JWT_SECRET 推導（production 必填）
+PLATFORM_JWT_SIGNING_KEYS=         # 平台管理者 access token 的金鑰環（與上面不同的金鑰）；留空 = 由 JWT_SECRET 推導（production 必填）
+FILE_URL_SIGNING_KEY=              # 縮圖網址的 HMAC 金鑰（base64，≥ 32 bytes）；留空 = 由 JWT_SECRET 推導（production 必填）
 JWT_ACCESS_TTL=300                 # 秒
 REFRESH_TOKEN_TTL=604800           # 秒（7 天）
 REFRESH_FAMILY_MAX_AGE=2592000     # session 的絕對壽命（秒，30 天）：從登入起算，超過就要重新登入
@@ -288,6 +291,9 @@ API_PUBLIC_BASE_URL=/api         # 瀏覽器看到的 api 位址；影像 API �
 
 ARGON2_MEMORY_COST=19456
 ARGON2_TIME_COST=2
+ARGON2_MAX_CONCURRENCY=4           # argon2 同時執行的上限（每程序）
+ARGON2_MAX_QUEUE=32                # 等待名額的上限；超過回 503 AUTH_BUSY
+ARGON2_QUEUE_TIMEOUT_MS=3000       # 等待名額的逾時；超過回 503 AUTH_BUSY
 
 PERMISSION_CACHE_TTL=60            # 秒
 # 速率限制（次 / 分；docs/architecture/backend/03-api-conventions.md §8）：已登入以使用者計、未登入以 IP 計
@@ -297,6 +303,8 @@ EXTERNAL_RATE_LIMIT=600            # 對外 API：每把 API token 每分鐘
 EXTERNAL_AUTH_FAILURE_RATE_LIMIT=30  # 對外 API：每個 IP 每分鐘驗證失敗的次數，超過回 429
 AUTH_RATE_LIMIT=10                 # 登入類端點：每個「帳號 ＋ IP」（E2E 需調高）；忘記密碼、註冊是 1/3
 AUTH_IP_RATE_LIMIT=300             # 登入類端點：每個 IP；忘記密碼、註冊是 1/10
+AUTH_TENANT_RATE_LIMIT=1200        # 登入類端點：每個租戶合計（平台的登入另一個桶）；租戶可由平台以 feature 參數覆寫
+RATE_LIMIT_EXEMPT_CIDRS=           # 監控探針、內部服務的網段（逗號分隔的 CIDR）：豁免以 IP 計的限流，帳號層級的限制照常
 REFRESH_RATE_LIMIT=30              # /auth/refresh：每個 refresh session
 REFRESH_IP_RATE_LIMIT=2000         # /auth/refresh：每個 IP
 REALTIME_HANDSHAKES_PER_IP=1200    # WebSocket handshake：每個 IP
@@ -352,6 +360,7 @@ FILE_STORAGE_MAX_OBJECT_SIZE=134217728       # 位元組（128 MiB，與 api 的
 # ── apps/api 連物件儲存（上面兩個 KEY 共用）─────────────────
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage          # api 自己連線用
 FILE_STORAGE_PUBLIC_ENDPOINT={tenantOrigin}/storage   # 瀏覽器看到的位址（presigned URL 以它簽章）；{tenantOrigin} = 目前租戶的網域
+FILE_STORAGE_DOWNLOAD_ENDPOINT=    # 下載與預覽改由獨立的檔案網域提供（例 https://files.example.com/storage）；留空 = 同上（同源）
 FILE_UPLOAD_MAX_SIZE=104857600     # 單一檔案上限（位元組，預設 100 MiB）；也是系統設定 file.uploadMaxSize 的上限與預設值
 FILE_URL_TTL=900                   # presigned 上傳／下載網址的有效秒數（60–3600；也是撤銷授權的延遲上限）
 FILE_MULTIPART_THRESHOLD=16777216  # 超過這個大小改用分塊上傳（位元組，預設 16 MiB）
@@ -383,7 +392,9 @@ env 由 `core/config` 以 Zod schema 驗證，**缺少必要變數時啟動即�
 
 | 變數 | production 的檢查 |
 | --- | --- |
-| `JWT_SECRET`、`FILE_STORAGE_SECRET_ACCESS_KEY` | 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個）；`FILE_STORAGE_ACCESS_KEY_ID` 只擋範例值 |
+| `JWT_SECRET`、`FILE_STORAGE_SECRET_ACCESS_KEY` | 不能是上面的範例值或低熵字串（含 `change-me`、不同字元少於 10 個）；`FILE_STORAGE_ACCESS_KEY_ID` 只擋範例值。`JWT_SECRET` 在 production 是選填（只驗過渡期的舊 token，[`backend/04-auth.md`](./backend/04-auth.md) §11 D7） |
+| `JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS` | 內部 api 必填、對外 API 的程序不能有；格式 `<kid>:<base64>[,…]`，每把至少 32 bytes、`kid` 不重複，兩組不能共用金鑰 |
+| `FILE_URL_SIGNING_KEY` | 必填；base64 解開至少 32 bytes |
 | `TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 必填；base64 解開要是 32 bytes，而且不同的位元組至少 16 個（擋 32 個 0x00 之類手填的值）。以 `openssl rand -base64 32` 產生 |
 | `OIDC_COOKIE_KEYS` | 必填；每一把都要至少 32 字元，而且不是低熵字串 |
 | `OIDC_JWKS` | 必填；要是 `{"keys":[…]}`，至少一把含私鑰（`d`） |

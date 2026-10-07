@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { TimeZoneSchema } from '@/core/settings';
 import { defineSchema } from '@/core/validation';
 import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 import { PasswordSchema } from '@/modules/credential/password';
@@ -90,7 +91,7 @@ export const UpdateProfileSchema = defineSchema(
       preferences: z
         .object({
           locale: z.string().max(10).optional(),
-          timezone: z.string().max(64).optional(),
+          timezone: TimeZoneSchema.optional(),
         })
         .optional(),
     })
@@ -127,7 +128,8 @@ export const RegisterSchema = defineSchema(
   z.object({
     email: z.string().trim().email().max(255),
     displayName: z.string().trim().min(1).max(100),
-    password: PasswordSchema,
+    // 不收密碼：核准後由寄到這個 email 的啟用信設定，申請時的密碼從來沒有被驗證過擁有者
+    // （舊的用戶端仍送 `password` 時，z.object 預設會丟掉不認得的欄位）
     /** 給審核者看的申請理由。 */
     reason: z.string().trim().max(500).optional(),
   }),

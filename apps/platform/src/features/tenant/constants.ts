@@ -1,7 +1,12 @@
 import type { ChipTone } from '@b2b-system/ui/Chip';
 
 import { TenantFeature } from '@/shared/api-sdk';
-import type { PlatformTenant, TenantFeatureParam, TenantFeatureParamKey } from '@/shared/api-sdk';
+import type {
+  PlatformTenant,
+  TenantFeatureImpact,
+  TenantFeatureParam,
+  TenantFeatureParamKey,
+} from '@/shared/api-sdk';
 
 import type { TenantDetailTab } from './routes/model';
 
@@ -89,6 +94,13 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   announcement: 'tenant.feature.announcementDisableWarning',
 };
 
+/** 關閉 feature 會影響的項目（`GET /platform/tenants/:id/features/:feature/impact`）。 */
+export const TENANT_FEATURE_IMPACT_LABEL_KEY = {
+  identityProviderConnections: 'tenant.feature.impact.identityProviderConnections',
+  ssoOnlyDomains: 'tenant.feature.impact.ssoOnlyDomains',
+  passwordlessExternalUsers: 'tenant.feature.impact.passwordlessExternalUsers',
+} as const satisfies Record<TenantFeatureImpact['items'][number]['key'], string>;
+
 /**
  * feature 參數的名稱與說明（docs/architecture/05-tenancy.md §13.2 D1）。key 來自 api-sdk：
  * api 新增一個參數時，下面的 `satisfies` 會讓編譯失敗。
@@ -96,17 +108,23 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
 export const TENANT_FEATURE_PARAM_LABEL_KEY = {
   'file.storageQuotaMb': 'tenant.param.file.storageQuotaMb',
   'auditLog.hotRetentionDays': 'tenant.param.auditLog.hotRetentionDays',
+  'auditLog.retentionDays': 'tenant.param.auditLog.retentionDays',
   'job.maxConcurrency': 'tenant.param.job.maxConcurrency',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProviders',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrls',
+  'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinute',
+  'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrs',
 } as const satisfies Record<TenantFeatureParamKey, string>;
 
 export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
   'file.storageQuotaMb': 'tenant.param.file.storageQuotaMbDescription',
   'auditLog.hotRetentionDays': 'tenant.param.auditLog.hotRetentionDaysDescription',
+  'auditLog.retentionDays': 'tenant.param.auditLog.retentionDaysDescription',
   'job.maxConcurrency': 'tenant.param.job.maxConcurrencyDescription',
   'identityProvider.maxProviders': 'tenant.param.identityProvider.maxProvidersDescription',
   'webhook.maxUrls': 'tenant.param.webhook.maxUrlsDescription',
+  'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinuteDescription',
+  'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrsDescription',
 } as const satisfies Record<TenantFeatureParamKey, string>;
 
 /** 值帶單位的寫法（`{{value}}`）。 */
@@ -114,4 +132,5 @@ export const TENANT_FEATURE_PARAM_UNIT_KEY = {
   days: 'tenant.param.unit.days',
   megabytes: 'tenant.param.unit.megabytes',
   count: 'tenant.param.unit.count',
+  perMinute: 'tenant.param.unit.perMinute',
 } as const satisfies Record<NonNullable<TenantFeatureParam['unit']>, string>;

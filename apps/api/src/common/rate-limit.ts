@@ -36,6 +36,8 @@ export interface RateLimitSettings {
   authAccount: number;
   /** `auth`：每個 IP。 */
   authIp: number;
+  /** `auth`：每個租戶（或平台）合計；租戶有覆寫時以 `RateLimitSubject.tenant.authLimit` 為準。 */
+  authTenant: number;
   /** `authMail`：每個「帳號 ＋ IP」。 */
   authMailAccount: number;
   /** `authMail`：每個 IP。 */
@@ -52,6 +54,7 @@ export type RateLimitEnv = Pick<
   | 'ANONYMOUS_RATE_LIMIT'
   | 'AUTH_RATE_LIMIT'
   | 'AUTH_IP_RATE_LIMIT'
+  | 'AUTH_TENANT_RATE_LIMIT'
   | 'REFRESH_RATE_LIMIT'
   | 'REFRESH_IP_RATE_LIMIT'
 >;
@@ -69,6 +72,7 @@ export function rateLimitSettingsOf(env: RateLimitEnv): RateLimitSettings {
     anonymous: env.ANONYMOUS_RATE_LIMIT,
     authAccount,
     authIp,
+    authTenant: env.AUTH_TENANT_RATE_LIMIT,
     authMailAccount,
     authMailIp: Math.max(authMailAccount, Math.floor(authIp / 10)),
     refreshSession: env.REFRESH_RATE_LIMIT,
@@ -80,12 +84,18 @@ export function rateLimitSettingsOf(env: RateLimitEnv): RateLimitSettings {
 export interface RateLimitSubject {
   /** 客戶端 IP（IPv6 已正規化成子網路）。 */
   ip: string;
+  /** 在 `RATE_LIMIT_EXEMPT_CIDRS` 裡：以 IP 計的桶不計（guard 處理）。 */
+  exempt?: boolean;
+  /** 在租戶的白名單（feature 參數 `rateLimit.trustedCidrs`）裡：登入類的 IP 桶上限 ×10。 */
+  trustedSource?: boolean;
   /** 已驗簽的身分：`t:{tenantId}:{userId}` 或 `p:{adminId}`。 */
   principal?: string;
   /** 登入類端點的帳號：`{tenantId | platform}:{email（小寫）}`。 */
   account?: string;
   /** 續期端點的 refresh cookie 雜湊。 */
   session?: string;
+  /** 登入類端點的租戶桶：`key` 是租戶 id 或 `platform`；`authLimit` 是租戶覆寫的上限（沒覆寫時不帶）。 */
+  tenant?: { key: string; authLimit?: number };
 }
 
 export interface RateLimitBucket {
@@ -95,13 +105,16 @@ export interface RateLimitBucket {
   limit: number;
 }
 
+/** 白名單來源的 IP 桶放寬倍數。 */
+export const TRUSTED_SOURCE_IP_MULTIPLIER = 10;
+
 /** 一個請求要計入哪些桶；任何一個超過就回 429。 */
 export function rateLimitBucketsOf(
   policy: RateLimitPolicy | undefined,
   subject: RateLimitSubject,
   settings: RateLimitSettings,
 ): RateLimitBucket[] {
-  const { ip, account, session, principal } = subject;
+  const { ip, account, session, principal, tenant, trustedSource } = subject;
   switch (policy) {
     case 'auth':
     case 'authMail': {
@@ -109,12 +122,27 @@ export function rateLimitBucketsOf(
         policy === 'auth'
           ? [settings.authAccount, settings.authIp]
           : [settings.authMailAccount, settings.authMailIp];
-      const buckets: RateLimitBucket[] = [{ name: `${policy}-ip`, key: ip, limit: ipLimit }];
+      // 白名單只放寬 IP 桶（企業 NAT 後整間公司共用一個 IP），不是豁免
+      const buckets: RateLimitBucket[] = [
+        {
+          name: `${policy}-ip`,
+          key: ip,
+          limit: trustedSource ? ipLimit * TRUSTED_SOURCE_IP_MULTIPLIER : ipLimit,
+        },
+      ];
       if (account) {
         buckets.push({ name: `${policy}-account`, key: `${account}|${ip}`, limit: accountLimit });
       } else if (principal) {
         // 已登入、body 沒有 email（改密碼）：以身分計，不分 IP——拿到 token 的人換 IP 也一樣受限
         buckets.push({ name: `${policy}-principal`, key: principal, limit: accountLimit });
+      }
+      // 每個租戶合計（只算登入，不算寄信類）：一個租戶被攻擊時，其他租戶的登入不受影響
+      if (policy === 'auth' && tenant) {
+        buckets.push({
+          name: 'auth-tenant',
+          key: tenant.key,
+          limit: tenant.authLimit ?? settings.authTenant,
+        });
       }
       return buckets;
     }

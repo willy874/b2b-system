@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '@/core/errors';
-import { paginated } from '@/core/http';
 import type { AuditLogRow } from '@/db/schema';
 
 import { resolveAuditLogRange } from './audit-log.constants';
+import { decodeAuditLogCursor, encodeAuditLogCursor } from './audit-log.cursor';
 import { AuditLogRepository } from './audit-log.repository';
 import type { AuditLogSummaryRow } from './audit-log.repository';
-import type { AuditLogDto, AuditLogSummaryDto, ListAuditLogDto } from './dto/list-audit-log.dto';
+import type {
+  AuditLogDto,
+  AuditLogListDto,
+  AuditLogSummaryDto,
+  ListAuditLogDto,
+} from './dto/list-audit-log.dto';
 
 /** `audit_logs.id` 是 Postgres 的 bigint（有號 64 位元）。 */
 const MAX_BIGINT = 9_223_372_036_854_775_807n;
@@ -39,10 +44,22 @@ function toDto(row: AuditLogRow): AuditLogDto {
 export class AuditLogService {
   constructor(private readonly repo: AuditLogRepository) {}
 
-  async list(query: ListAuditLogDto) {
+  async list(query: ListAuditLogDto): Promise<AuditLogListDto> {
+    const cursor = query.cursor === undefined ? undefined : decodeAuditLogCursor(query.cursor);
+    if (query.cursor !== undefined && !cursor) {
+      throw new AppException('VALIDATION_FAILED', { fields: { cursor: 'invalid cursor' } });
+    }
     const range = resolveAuditLogRange(query, new Date());
-    const { items, total } = await this.repo.list(query, range);
-    return paginated(items.map(toSummaryDto), total, query);
+    const { items, hasMore, total } = await this.repo.list(query, range, cursor);
+    const last = items.at(-1);
+    return {
+      items: items.map(toSummaryDto),
+      pagination: { offset: cursor ? 0 : query.offset, limit: query.limit, total },
+      nextCursor:
+        hasMore && last
+          ? encodeAuditLogCursor({ occurredAt: last.occurredAtExact, id: last.id.toString() })
+          : null,
+    };
   }
 
   /**

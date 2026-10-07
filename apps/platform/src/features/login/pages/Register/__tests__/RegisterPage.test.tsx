@@ -24,8 +24,6 @@ vi.mock('@/apis/auth/get-public-settings/query', () => ({
   }),
 }));
 
-const PASSWORD = 'NewPassword!2026';
-
 function renderAt(url: string) {
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.RegisterRoute]),
@@ -45,10 +43,6 @@ async function fillAndSubmit() {
     target: { value: 'alice@example.com' },
   });
   fireEvent.change(screen.getByTestId('register-display-name'), { target: { value: 'Alice' } });
-  fireEvent.change(screen.getByTestId('register-password'), { target: { value: PASSWORD } });
-  fireEvent.change(screen.getByTestId('register-confirm-password'), {
-    target: { value: PASSWORD },
-  });
   fireEvent.click(screen.getByTestId('register-submit'));
 }
 
@@ -64,8 +58,10 @@ beforeEach(() => {
 beforeAll(() => initTestI18n());
 
 describe('申請帳號頁（docs/rbac/06-approval.md §5）', () => {
-  it('送出後顯示「已送出」', async () => {
+  it('不要求密碼（由核准後的啟用信設定）；送出後顯示「已送出」', async () => {
     renderAt('/register?tenant=acme');
+    expect(await screen.findByTestId('register-email')).toBeInTheDocument();
+    expect(screen.queryByTestId('register-password')).not.toBeInTheDocument();
     await fillAndSubmit();
     await waitFor(() => expect(register).toHaveBeenCalled());
     expect(register.mock.calls[0]?.[0]).toMatchObject({

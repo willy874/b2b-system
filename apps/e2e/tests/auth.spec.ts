@@ -85,12 +85,22 @@ test.describe('認證流程', () => {
   });
 
   // ② 錯誤密碼 5 次 → 帳號鎖定：鎖定中連正確的密碼也不能登入，而且不透露密碼對錯（backend/04-auth.md §3.2）
+  // 第 3 次錯誤之後有漸進延遲（§3.4）：被延遲擋下的嘗試（429）不計入鎖定，等 Retry-After 之後重送
   test('連續 5 次錯誤密碼後帳號被鎖定', async ({ page }) => {
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      await login(page, 'lockTarget', 'WrongPassword!1');
+    const attempt = async (password?: string) => {
+      for (;;) {
+        const response = page.waitForResponse((res) => res.url().endsWith('/auth/login'));
+        await login(page, 'lockTarget', password);
+        const res = await response;
+        if (res.status() !== 429) return;
+        await page.waitForTimeout(Number(res.headers()['retry-after'] ?? '1') * 1000);
+      }
+    };
+    for (let count = 1; count <= 5; count += 1) {
+      await attempt('WrongPassword!1');
       await expect(page.getByTestId('login-error')).toBeVisible();
     }
-    await login(page, 'lockTarget');
+    await attempt();
     await expect(
       getByTestIdAndValue(page, 'login-error', 'AUTH_INVALID_CREDENTIALS'),
     ).toBeVisible();

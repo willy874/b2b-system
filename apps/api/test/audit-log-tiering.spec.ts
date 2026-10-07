@@ -6,6 +6,7 @@ import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { auditLogs, auditLogsArchive } from '@/db/schema';
+import { maintainAuditArchive } from '@/modules/audit-log/audit-log.archive';
 import { AUDIT_LOG_COUNT_CAP, AUDIT_LOG_MAX_OFFSET } from '@/modules/audit-log/audit-log.constants';
 
 import type { TestDatabase } from './db';
@@ -26,6 +27,7 @@ interface ListBody {
   data: {
     items: Array<Record<string, unknown> & { id: string; action: string }>;
     pagination: { total: number };
+    nextCursor: string | null;
   };
 }
 
@@ -60,6 +62,8 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
     process.env.JWT_SECRET = 'test-secret-that-is-long-enough-32ch';
     process.env.SUPER_ADMIN_EMAIL = SUPER_ADMIN.email;
     process.env.SUPER_ADMIN_PASSWORD = SUPER_ADMIN.password;
+    // 游標分頁的測試要逐頁走完上萬筆（一百多個請求）
+    process.env.DEFAULT_RATE_LIMIT = '10000';
 
     const created = createTestDatabase();
     db = created.db;
@@ -86,6 +90,7 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
   afterAll(async () => {
     await app.close();
     await closeDb();
+    delete process.env.DEFAULT_RATE_LIMIT;
   });
 
   describe('archive_audit_logs()', () => {
@@ -202,6 +207,51 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
       ]);
     });
 
+    it('游標分頁跨冷熱：逐頁取到最後一頁，nextCursor 是 null', async () => {
+      const from = daysAgo(130).toISOString();
+      const to = daysAgo(41).toISOString();
+      const first = (await list(`action=tier.*&from=${from}&to=${to}&limit=1`).expect(200))
+        .body as ListBody;
+      expect(first.data.items.map((item) => item.action)).toEqual(['tier.old']);
+      expect(first.data.nextCursor).toEqual(expect.any(String));
+
+      const second = (
+        await list(
+          `action=tier.*&from=${from}&to=${to}&limit=1&cursor=${first.data.nextCursor}`,
+        ).expect(200)
+      ).body as ListBody;
+      expect(second.data.items.map((item) => item.action)).toEqual(['tier.older']);
+      expect(second.data.nextCursor).toBeNull();
+      // 總數不受游標影響
+      expect(second.data.pagination.total).toBe(2);
+    });
+
+    it('同一個時間點的多筆以 id 接續，不重複也不漏', async () => {
+      const at = daysAgo(2);
+      const ids = [];
+      for (let i = 0; i < 3; i += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- 依序寫入，id 遞增
+        ids.push((await insertLog('tier.sameTime', at)).id.toString());
+      }
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      do {
+        const query: string = `action=tier.sameTime&limit=1${cursor ? `&cursor=${cursor}` : ''}`;
+        // oxlint-disable-next-line no-await-in-loop -- 逐頁往下
+        const body = (await list(query).expect(200)).body as ListBody;
+        seen.push(...body.data.items.map((item) => item.id));
+        cursor = body.data.nextCursor;
+      } while (cursor);
+      expect(seen).toEqual(ids.toReversed());
+    });
+
+    it('游標與 offset 不能同時帶；格式不對的游標回 400', async () => {
+      const both = await list('offset=1&cursor=abc').expect(400);
+      expect((both.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+      const invalid = await list('cursor=not-a-cursor').expect(400);
+      expect((invalid.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+    });
+
     it('offset 超過上限回 400（深分頁要掃過 offset 筆）', async () => {
       const response = await list(`offset=${AUDIT_LOG_MAX_OFFSET + 1}`).expect(400);
       expect((response.body as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
@@ -214,6 +264,20 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
         FROM generate_series(1, ${AUDIT_LOG_COUNT_CAP + 50})`);
       const response = await list('action=cap.*&limit=1').expect(200);
       expect((response.body as ListBody).data.pagination.total).toBe(AUDIT_LOG_COUNT_CAP);
+    });
+
+    it('游標分頁翻得過 offset 的上限：逐頁走完全部紀錄', async () => {
+      let count = 0;
+      let cursor: string | null = null;
+      do {
+        const query: string = `action=cap.*&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        // oxlint-disable-next-line no-await-in-loop -- 逐頁往下
+        const body = (await list(query).expect(200)).body as ListBody;
+        count += body.data.items.length;
+        cursor = body.data.nextCursor;
+      } while (cursor);
+      expect(count).toBe(AUDIT_LOG_COUNT_CAP + 50);
+      expect(count).toBeGreaterThan(AUDIT_LOG_MAX_OFFSET);
     });
 
     it('範圍超過 90 天回 400', async () => {
@@ -318,6 +382,81 @@ describe('稽核日誌冷熱分層（docs/architecture/backend/06-audit-log.md �
         .from(auditLogsArchive)
         .where(eq(auditLogsArchive.action, 'tier.limited'));
       expect(cold).toHaveLength(1);
+    });
+
+    it('不是擁有者的 role 不能自己 DROP 或 DETACH 冷表的分區（只能透過 drop_expired_audit_archive_partitions）', async () => {
+      const [partition] = await db.execute<{ name: string }>(sql`
+        SELECT c.relname AS name FROM pg_inherits i
+        JOIN pg_class c ON c.oid = i.inhrelid JOIN pg_class p ON p.oid = i.inhparent
+        WHERE p.relname = 'audit_logs_archive' LIMIT 1`);
+      await expectDbError(
+        asLimitedRole((tx) => tx.execute(sql.raw(`DROP TABLE ${partition!.name}`))),
+        /must be owner|permission denied/,
+      );
+      await expectDbError(
+        asLimitedRole((tx) =>
+          tx.execute(sql.raw(`ALTER TABLE audit_logs_archive DETACH PARTITION ${partition!.name}`)),
+        ),
+        /must be owner|permission denied/,
+      );
+    });
+  });
+
+  // 放在最後：會刪掉冷表裡一年以前的月份（其他測試用到 tier.ancient）
+  describe('冷表的月份分區與保留期限（docs/architecture/backend/06-audit-log.md §10）', () => {
+    const partitionOf = async (id: bigint) => {
+      const [row] = await db.execute<{ partition: string }>(
+        sql`SELECT tableoid::regclass::text AS partition FROM audit_logs_archive WHERE id = ${id.toString()}::bigint`,
+      );
+      return row?.partition;
+    };
+
+    it('搬到冷表時自動建出那個月份的分區', async () => {
+      const old = await insertLog('tier.partitioned', new Date('2023-02-10T00:00:00Z'));
+      await archive(daysAgo(200));
+      expect(await partitionOf(old.id)).toBe('audit_logs_archive_p202302');
+    });
+
+    it('保留天數是 -1（永久）→ 不刪任何分區', async () => {
+      const purged = await maintainAuditArchive(db as never, {
+        retentionDays: -1,
+        hotRetentionDays: 90,
+        foreverValue: -1,
+      });
+      expect(purged).toEqual([]);
+    });
+
+    it('資料庫函式拒絕一年內的 cutoff（應用程式即使被濫用也刪不到）', async () => {
+      await expectDbError(
+        db.execute(sql`SELECT * FROM drop_expired_audit_archive_partitions(current_date - 30)`),
+        /AUDIT_LOG_IMMUTABLE/,
+      );
+    });
+
+    it('依保留天數 DROP 整個月份分區，並寫 auditLog.purge；一年內的分區保留', async () => {
+      const purged = await maintainAuditArchive(db as never, {
+        retentionDays: 365,
+        hotRetentionDays: 90,
+        foreverValue: -1,
+      });
+      expect(purged.map((item) => item.partition)).toContain('audit_logs_archive_p202302');
+      const remaining = await db
+        .select({ action: auditLogsArchive.action })
+        .from(auditLogsArchive)
+        .where(eq(auditLogsArchive.action, 'tier.partitioned'));
+      expect(remaining).toEqual([]);
+      const logs = await db
+        .select({ metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(eq(auditLogs.action, 'auditLog.purge'));
+      expect(logs.length).toBe(purged.length);
+      // 一年內的冷資料（10 天前的 tier.shortRetention）不受影響
+      expect(
+        await db
+          .select()
+          .from(auditLogsArchive)
+          .where(eq(auditLogsArchive.action, 'tier.shortRetention')),
+      ).toHaveLength(1);
     });
   });
 });

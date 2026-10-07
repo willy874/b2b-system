@@ -48,6 +48,7 @@ import { USER_ROLES_CHANGED_NOTIFICATION } from '@/modules/user/user.notificatio
 import type { TestDatabase } from './db';
 import { createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
+import { clearLoginDelay } from './login-throttle';
 import { inTestTenant, testTenantContext } from './tenant';
 import { currentRoleIds, roleVersion, userVersion } from './versions';
 
@@ -760,6 +761,8 @@ describe('即時推播（docs/architecture/backend/08-realtime.md §13）', () =
         // 依序送出：每次失敗都要讀到上一次寫入的累計次數
         // oxlint-disable-next-line no-await-in-loop
         await request(http).post('/auth/login').send({ email, password: 'WrongPassword!2026' });
+        // oxlint-disable-next-line no-await-in-loop -- 第 3 次之後的嘗試會先被漸進延遲擋下
+        await clearLoginDelay(app, email);
       }
       const [locked] = await db.select().from(users).where(eq(users.id, user!.id));
       expect(locked!.lockedUntil!.getTime()).toBeGreaterThan(Date.now());

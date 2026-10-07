@@ -14,10 +14,14 @@ import type { TenantStringParam } from '../tenant-feature-params';
 import { TENANT_FEATURES } from '../tenant-features';
 
 describe('feature 參數的目錄（docs/architecture/05-tenancy.md §13.2 D1）', () => {
-  it('key 是 <feature>.<名稱>、不重複，所屬 feature 在 TENANT_FEATURES 裡', () => {
+  it('key 是 <feature>.<名稱>、不重複，所屬 feature 在 TENANT_FEATURES 裡；不屬於 feature 的以 rateLimit. 開頭', () => {
     const keys = TENANT_FEATURE_PARAMS.map((param) => param.key);
     expect(new Set(keys).size).toBe(keys.length);
     for (const param of TENANT_FEATURE_PARAMS) {
+      if (param.feature === null) {
+        expect(param.key.startsWith('rateLimit.')).toBe(true);
+        continue;
+      }
       expect(param.key.startsWith(`${param.feature}.`)).toBe(true);
       expect(TENANT_FEATURES).toContain(param.feature);
     }

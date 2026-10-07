@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { and, asc, count, countDistinct, eq, isNull, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
@@ -9,6 +9,7 @@ import {
   identityProviders,
   notDeleted,
   userIdentities,
+  users,
 } from '@/db/schema';
 
 export interface ProviderDomain {
@@ -55,6 +56,37 @@ export class IdentityProviderRepository {
       .where(and(eq(identityProviders.id, id), notDeleted(identityProviders)))
       .limit(1);
     return row && { ...row.provider, domains: row.domains };
+  }
+
+  /**
+   * 關閉 feature `identityProvider` 會影響的數量（平台管理者的確認框）：連線、只允許 SSO 的網域，
+   * 以及連結了外部身分、自己沒有密碼的使用者——他們之後要先重設密碼才能登入。
+   */
+  async countImpact(): Promise<{
+    connections: number;
+    ssoOnlyDomains: number;
+    passwordlessUsers: number;
+  }> {
+    const [connections] = await this.db
+      .select({ total: count() })
+      .from(identityProviders)
+      .where(notDeleted(identityProviders));
+    const [domains] = await this.db
+      .select({ total: count() })
+      .from(identityProviderDomains)
+      .innerJoin(identityProviders, eq(identityProviders.id, identityProviderDomains.providerId))
+      .where(and(eq(identityProviderDomains.ssoOnly, true), notDeleted(identityProviders)));
+    const [passwordless] = await this.db
+      .select({ total: countDistinct(userIdentities.userId) })
+      .from(userIdentities)
+      .innerJoin(identityProviders, eq(identityProviders.id, userIdentities.providerId))
+      .innerJoin(users, eq(users.id, userIdentities.userId))
+      .where(and(notDeleted(identityProviders), notDeleted(users), isNull(users.passwordHash)));
+    return {
+      connections: connections?.total ?? 0,
+      ssoOnlyDomains: domains?.total ?? 0,
+      passwordlessUsers: passwordless?.total ?? 0,
+    };
   }
 
   /**

@@ -41,31 +41,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AuditLogSummary"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
+                      "$ref": "#/components/schemas/AuditLogList"
                     }
                   }
                 }
@@ -6428,6 +6404,60 @@
         "tags": ["platform-tenants"]
       }
     },
+    "/platform/tenants/{id}/features/{feature}/impact": {
+      "get": {
+        "operationId": "PlatformTenantController_featureImpact",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "feature",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "file",
+                "auditLog",
+                "job",
+                "trash",
+                "systemSetting",
+                "identityProvider",
+                "tenantSwitch",
+                "webhook",
+                "announcement"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TenantFeatureImpact"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "關閉這個 feature 會影響的數量（關閉前的確認框用）",
+        "tags": ["platform-tenants"]
+      }
+    },
     "/platform/tenants/{id}/provision": {
       "post": {
         "operationId": "PlatformTenantController_retryProvisioning",
@@ -7739,6 +7769,7 @@
           "file:delete",
           "file:access",
           "file:share",
+          "file:listPersonal",
           "job:read",
           "job:retry",
           "identityProvider:create",
@@ -8522,6 +8553,45 @@
         ],
         "additionalProperties": false
       },
+      "AuditLogList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogSummary"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "pagination", "nextCursor"],
+        "additionalProperties": false
+      },
       "AuditLog": {
         "type": "object",
         "properties": {
@@ -9176,6 +9246,7 @@
           },
           "timezone": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 64
           },
           "version": {
@@ -9352,9 +9423,12 @@
         "enum": [
           "file.storageQuotaMb",
           "auditLog.hotRetentionDays",
+          "auditLog.retentionDays",
           "job.maxConcurrency",
           "identityProvider.maxProviders",
-          "webhook.maxUrls"
+          "webhook.maxUrls",
+          "rateLimit.authPerMinute",
+          "rateLimit.trustedCidrs"
         ]
       },
       "TenantFeatureParam": {
@@ -9364,7 +9438,12 @@
             "$ref": "#/components/schemas/TenantFeatureParamKey"
           },
           "feature": {
-            "$ref": "#/components/schemas/TenantFeature"
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TenantFeature"
+              }
+            ]
           },
           "type": {
             "type": "string",
@@ -9396,13 +9475,17 @@
           "unit": {
             "nullable": true,
             "type": "string",
-            "enum": ["days", "megabytes", "count"]
+            "enum": ["days", "megabytes", "count", "perMinute"]
           },
           "min": {
             "nullable": true,
             "type": "number"
           },
           "max": {
+            "nullable": true,
+            "type": "number"
+          },
+          "foreverValue": {
             "nullable": true,
             "type": "number"
           },
@@ -9421,6 +9504,7 @@
           "unit",
           "min",
           "max",
+          "foreverValue",
           "maxLength"
         ],
         "additionalProperties": false
@@ -9610,6 +9694,42 @@
             }
           }
         },
+        "additionalProperties": false
+      },
+      "TenantFeatureImpact": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "$ref": "#/components/schemas/TenantFeature"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "identityProviderConnections",
+                    "ssoOnlyDomains",
+                    "passwordlessExternalUsers"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["key", "count"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["feature", "available", "items"],
         "additionalProperties": false
       },
       "AddTenantDomainRequest": {
@@ -9830,6 +9950,7 @@
               },
               "timezone": {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 64
               }
             },
@@ -9916,17 +10037,12 @@
             "minLength": 1,
             "maxLength": 100
           },
-          "password": {
-            "type": "string",
-            "minLength": 12,
-            "maxLength": 128
-          },
           "reason": {
             "type": "string",
             "maxLength": 500
           }
         },
-        "required": ["email", "displayName", "password"],
+        "required": ["email", "displayName"],
         "additionalProperties": false
       },
       "RegisterResult": {

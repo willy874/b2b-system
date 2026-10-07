@@ -67,7 +67,6 @@ function register(email: string, overrides: Record<string, unknown> = {}) {
     .send({
       email,
       displayName: `Applicant ${email}`,
-      password: 'ApplicantPassword!2026',
       reason: '加入企劃團隊',
       ...overrides,
     });
@@ -111,7 +110,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     await closeDb();
   });
 
-  it('送出註冊 → 202，建立一筆待審請求；密碼只以雜湊存在 private_payload', async () => {
+  it('送出註冊 → 202，建立一筆待審請求；申請時不設密碼', async () => {
     const response = await register('alice@example.com').expect(202);
     expect(response.body).toEqual({ data: { submitted: true } });
 
@@ -124,9 +123,7 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
       reason: '加入企劃團隊',
       payload: { email: 'alice@example.com', displayName: 'Applicant alice@example.com' },
     });
-    const secret = row!.privatePayload as { passwordHash: string };
-    expect(secret.passwordHash).toMatch(/^\$argon2id\$/);
-    expect(JSON.stringify(row!.payload)).not.toContain('ApplicantPassword');
+    expect(row!.privatePayload).toBeNull();
 
     // 還沒核准：帳號不存在
     expect(await db.select().from(users).where(eq(users.email, 'alice@example.com'))).toEqual([]);
@@ -146,9 +143,11 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     expect(await pendingRequestOf(MEMBER.email)).toBeUndefined();
   });
 
-  it('弱密碼 → 400 VALIDATION_FAILED', async () => {
-    const response = await register('weak@example.com', { password: 'short' }).expect(400);
-    expect(response.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+  it('舊的用戶端仍送 password → 202，密碼被忽略、不保存', async () => {
+    await register('legacy@example.com', { password: 'ApplicantPassword!2026' }).expect(202);
+    const row = await pendingRequestOf('legacy@example.com');
+    expect(row!.privatePayload).toBeNull();
+    expect(JSON.stringify(row)).not.toContain('ApplicantPassword');
   });
 
   it('auditor 看得到列表，但不能核准', async () => {
@@ -158,8 +157,9 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
       .set('authorization', `Bearer ${token}`)
       .expect(200);
     const body = list.body as { data: { items: Array<Record<string, unknown>> } };
-    expect(body.data.items).toHaveLength(1);
-    expect(body.data.items[0]).not.toHaveProperty('privatePayload');
+    const alice = body.data.items.find((item) => item.requesterName === 'alice@example.com');
+    expect(alice).toBeDefined();
+    expect(alice).not.toHaveProperty('privatePayload');
 
     const { id } = (await pendingRequestOf('alice@example.com'))!;
     const response = await request(http)
@@ -194,21 +194,21 @@ describe('註冊審批（docs/rbac/06-approval.md）', () => {
     });
 
     const [user] = await db.select().from(users).where(eq(users.email, 'alice@example.com'));
-    // email 還沒驗證：申請人不一定真的擁有這個信箱
-    expect(user).toMatchObject({ status: 'pending', displayName: 'Applicant alice@example.com' });
+    // email 還沒驗證：申請人不一定真的擁有這個信箱；啟用前沒有密碼
+    expect(user).toMatchObject({
+      status: 'pending',
+      displayName: 'Applicant alice@example.com',
+      passwordHash: null,
+    });
     expect(approved.resultResourceId).toBe(user!.id);
     expect(await heldRoleIds(db, user!.id)).toEqual([await roleIdOf('member')]);
 
-    // 審核後不再保留密碼雜湊
-    const [row] = await db.select().from(approvalRequests).where(eq(approvalRequests.id, id));
-    expect(row!.privatePayload).toBeNull();
-
-    // 啟用前以申請時的密碼登入：提示去收信，而不是「帳密錯誤」
+    // 啟用前沒有密碼：任何密碼都只得到「帳密錯誤」，不透露帳號存在
     const pending = await request(http)
       .post('/auth/login')
       .send({ email: 'alice@example.com', password: 'ApplicantPassword!2026' })
       .expect(401);
-    expect(pending.body).toMatchObject({ error: { code: 'AUTH_ACCOUNT_PENDING' } });
+    expect(pending.body).toMatchObject({ error: { code: 'AUTH_INVALID_CREDENTIALS' } });
 
     // 啟用信的連結（寄信工作在寄出當下才簽發 token；這裡直接簽一張）→ 設定密碼 → 可以登入
     const { AuthTokenService } = await import('@/modules/credential/auth-token.service');

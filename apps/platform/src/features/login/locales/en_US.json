@@ -2,6 +2,8 @@
   "login": {
     "title": "Sign in",
     "submit": "Sign in",
+    "retryIn_one": "Try again in {{count}} second",
+    "retryIn_other": "Try again in {{count}} seconds",
     "redirecting": "Taking you to the sign-in page…",
     "signedOut": "You are signed out. All products share one sign-in, so the other products are signed out too.",
     "passwordChanged": "Your password was changed and every device was signed out. Sign in again with the new password.",
@@ -61,11 +63,11 @@
     },
     "register": {
       "title": "Request an account",
-      "description": "An administrator will review your request. Once approved, sign in with this email and password.",
+      "description": "An administrator will review your request. Once approved, we will email you an activation link to set your password.",
       "reason": "Reason",
       "reasonPlaceholder": "e.g. your team and what you need access to (optional)",
       "submit": "Submit request",
-      "submitted": "Request submitted. Once an administrator approves it, you can sign in with the email and password you just set.",
+      "submitted": "Request submitted. Once an administrator approves it, check your inbox for the activation email to set your password.",
       "closed": "This tenant is not accepting registration requests. Ask an administrator to create an account for you."
     },
     "password": {

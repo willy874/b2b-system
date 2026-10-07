@@ -100,7 +100,8 @@ backstage /auth/callback
    （並記在 apps/platform 這個瀏覽器）——兩個網域的 localStorage 不共用，不帶的話登入頁永遠用 apps/platform 自己的設定。
 2. `POST …/:uid/login { email, password }`：有租戶時在那個租戶裡以 `AuthService.verifyCredentials` 檢查
    （鎖定、帳號狀態、只允許 SSO 的網域、稽核）；沒有租戶時以 `PlatformAdminService.verifyCredentials`（寫平台稽核）。
-   成功回傳 resume 網址。
+   成功回傳 resume 網址。被限流（`429 RATE_LIMITED`，`details.retryAfterSeconds`）時，頁面倒數到可以再試為止：
+   送出鈕停用並顯示剩餘秒數、錯誤訊息跟著更新，數完就收起（`useCountdown`，`@b2b-system/web-shared/hooks`）。
 3. 頁面 **頂層跳轉** 到 resume 網址（fetch 跟隨跳轉時 IdP session cookie 設不起來）。
 4. `POST …/:uid/abort`：取消，產品收到 `error=access_denied`。
 
@@ -144,8 +145,10 @@ GET …/:uid/external/complete?ticket=   （這個路徑帶得到互動 cookie�
 
 帳號是 `pending`／停用時回對應的 `AUTH_ACCOUNT_*`；登入失敗的自動鎖定（`locked_until`）不擋外部 IdP 登入。
 
-production 下對外部 IdP 的每個請求都先解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕
-（`AUTH_SSO_PROVIDER_UNAVAILABLE`），逾時 10 秒；解析與連線之間仍有 DNS rebinding 的空窗。
+production 下對外部 IdP 的每個請求（discovery、token、userinfo、JWKS）都以 `pinnedFetch`（`core/http/outbound.ts`）送出：
+連線時解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕（`AUTH_SSO_PROVIDER_UNAVAILABLE`），
+並以通過檢查的位址建立連線，查詢與連線之間沒有 DNS rebinding 的空窗；逾時 10 秒。
+openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lookup` 的 `Agent`（與 webhook 投遞的 `pinnedLookup` 是同一個檢查）。
 
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。
@@ -318,7 +321,7 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 ## 11. 已知限制
 
-- 找不到帳號時「走審批」沒有做：現有審批以密碼建立帳號，SSO 帳號沒有密碼（§12.2 D10）。
+- 找不到帳號時「走審批」沒有做：註冊審批核准後要從啟用信設定密碼才能登入，外部 IdP 登入的人不需要密碼，流程接不上（§12.2 D10）。
 - 網域所有權沒有驗證（DNS TXT）：由平台管理員自行確認。
 - 外部 IdP 的群組不對應到角色或群組：權限圖 G4 的群組只有手動成員，IdP 群組對應另開提案、與 SCIM 一起評估（[`rbac/01-domain-model.md`](../rbac/01-domain-model.md) §9.3 D15）；沒有解除外部身分連結的畫面。
 - Azure AD 預設不回 `email_verified`：以 email 連結既有帳號不會成立，只能靠 `auto_create` 或已連結的身分。

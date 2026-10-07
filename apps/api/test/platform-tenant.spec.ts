@@ -4,7 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import request from 'supertest';
@@ -19,7 +19,16 @@ import type { MailMessage, SentMail } from '@/core/mail';
 import { ObjectStorage } from '@/core/storage';
 import { oidcPayloads, platformAdmins, tenants } from '@/db/platform/schema';
 import type { PlatformAdminRole } from '@/db/platform/schema';
-import { fileFolders, permissions, refreshTokens, roles, users } from '@/db/schema';
+import {
+  fileFolders,
+  identityProviderDomains,
+  identityProviders,
+  permissions,
+  refreshTokens,
+  roles,
+  userIdentities,
+  users,
+} from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 import { PROVISION_STALE_MS, TenantProvisioner } from '@/modules/tenant/tenant-provisioner';
@@ -178,6 +187,76 @@ describe('租戶的建立與佈建（docs/architecture/05-tenancy.md §10.2 D12�
       .set('authorization', `Bearer ${tokens.get('super-admin')}`)
       .expect(404);
     expect(errorCodeOf(onTenant)).toBe('PLATFORM_ONLY');
+  });
+
+  it('關閉 feature 前的影響：外部 IdP 的連線、只允許 SSO 的網域、沒有密碼的外部登入者', async () => {
+    const [home] = await platformDb.select().from(tenants).where(eq(tenants.code, 'test'));
+    if (!home) throw new Error('找不到測試租戶');
+    const { db, close } = await tenantDb(home.id);
+    try {
+      const [provider] = await db
+        .insert(identityProviders)
+        .values({
+          name: 'Impact IdP',
+          issuer: 'https://impact.example.com',
+          clientId: 'impact',
+          clientSecretEncrypted: 'x',
+        })
+        .returning();
+      await db.insert(identityProviderDomains).values([
+        { domain: 'impact-sso.example.com', providerId: provider!.id, ssoOnly: true },
+        { domain: 'impact-mixed.example.com', providerId: provider!.id, ssoOnly: false },
+      ]);
+      const people = await db
+        .insert(users)
+        .values([
+          { email: 'impact-ext@example.com', displayName: 'Ext', status: 'active' },
+          {
+            email: 'impact-pwd@example.com',
+            displayName: 'Pwd',
+            status: 'active',
+            passwordHash: 'x',
+          },
+        ])
+        .returning();
+      await db.insert(userIdentities).values(
+        people.map((person, i) => ({
+          userId: person.id,
+          providerId: provider!.id,
+          subject: `s${i}`,
+        })),
+      );
+
+      const response = await platform(
+        'get',
+        `/platform/tenants/${home.id}/features/identityProvider/impact`,
+        'auditor',
+      ).expect(200);
+      expect(dataOf(response)).toEqual({
+        feature: 'identityProvider',
+        available: true,
+        items: [
+          { key: 'identityProviderConnections', count: 1 },
+          { key: 'ssoOnlyDomains', count: 1 },
+          { key: 'passwordlessExternalUsers', count: 1 },
+        ],
+      });
+
+      // 沒有登記計數的 feature：空清單
+      const plain = await platform(
+        'get',
+        `/platform/tenants/${home.id}/features/webhook/impact`,
+      ).expect(200);
+      expect(dataOf(plain)).toEqual({ feature: 'webhook', available: true, items: [] });
+      // 不認得的 feature
+      await platform('get', `/platform/tenants/${home.id}/features/nope/impact`).expect(400);
+    } finally {
+      await db.delete(identityProviders).where(eq(identityProviders.name, 'Impact IdP'));
+      await db
+        .delete(users)
+        .where(inArray(users.email, ['impact-ext@example.com', 'impact-pwd@example.com']));
+      await close();
+    }
   });
 
   it('建立 → 背景佈建 → 啟用信 → 第一位管理員設定密碼後在租戶網域登入', async () => {

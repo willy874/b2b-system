@@ -231,7 +231,7 @@ export function RichTable<TData extends RowData, TFilters extends Record<string,
           {filters && <ActiveFilters filters={filters} />}
         </div>
       )}
-      {batch && selectable && <BatchBar batch={batch} getRowId={rowId} />}
+      {batch && selectable && <BatchBar batch={batch} getRowId={rowId} pageRows={pin.data} />}
       {hasError && pin.data.length > 0 && (
         // 有舊資料（keepPreviousData）時保留表格，只提示這次沒有更新成功
         <div

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { FEATURE_FLAG_KEY_PATTERN } from '@/core/feature-flags';
 import { OffsetSchema } from '@/core/http';
 import {
+  TENANT_FEATURE_IMPACT_KEYS,
   TENANT_FEATURE_PARAM_KEYS,
   TENANT_FEATURE_PARAM_UNITS,
   TENANT_FEATURES,
@@ -64,7 +65,8 @@ export const TenantFeatureParamSchema = defineSchema(
   'TenantFeatureParam',
   z.object({
     key: TenantFeatureParamKeySchema,
-    feature: TenantFeatureSchema,
+    /** `null`：不屬於任何 feature、對整個租戶生效的限制。 */
+    feature: TenantFeatureSchema.nullable(),
     type: z.enum(['integer', 'string']),
     value: z.union([z.number(), z.string()]),
     defaultValue: z.union([z.number(), z.string()]),
@@ -73,6 +75,8 @@ export const TenantFeatureParamSchema = defineSchema(
     unit: z.enum(TENANT_FEATURE_PARAM_UNITS).nullable(),
     min: z.number().nullable(),
     max: z.number().nullable(),
+    /** 代表「不限（永久）」的特殊值（例：保留期限的 -1）；沒有是 `null`。 */
+    foreverValue: z.number().nullable(),
     maxLength: z.number().nullable(),
   }),
 );
@@ -178,6 +182,20 @@ export const UpdateTenantSchema = defineSchema(
     ),
 );
 
+/** 關閉一個 feature 會影響的數量（平台管理者關閉前的確認框）。 */
+export const TenantFeatureImpactSchema = defineSchema(
+  'TenantFeatureImpact',
+  z.object({
+    feature: TenantFeatureSchema,
+    /** false = 現在進不了這個租戶的 DB（佈建中、migration 落後、連不上）：只能顯示一般的說明。 */
+    available: z.boolean(),
+    /** 有登記計數的 feature 才有；沒有登記時是空陣列。 */
+    items: z.array(
+      z.object({ key: z.enum(TENANT_FEATURE_IMPACT_KEYS), count: z.number().int().min(0) }),
+    ),
+  }),
+);
+
 export const AddTenantDomainSchema = defineSchema(
   'AddTenantDomainRequest',
   z.object({ domain: TenantDomainSchema }),
@@ -190,3 +208,4 @@ export type ListPlatformTenantDto = z.infer<typeof ListPlatformTenantSchema>;
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof UpdateTenantSchema>;
 export type AddTenantDomainDto = z.infer<typeof AddTenantDomainSchema>;
+export type TenantFeatureImpactDto = z.infer<typeof TenantFeatureImpactSchema>;

@@ -103,7 +103,7 @@ function notificationsOf(recipientId: string, type: string) {
 async function submitAs(requester: string, email: string) {
   return inTestTenant(app, () =>
     app.get(ApprovalService).submit({
-      ...userRegistrationRequest({ email, displayName: email }, 'hash'),
+      ...userRegistrationRequest({ email, displayName: email }),
       requester: { id: requester, name: email },
     }),
   );
@@ -331,7 +331,6 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、do
         .send({
           email: 'events-newcomer-1@example.com',
           displayName: '申請人甲',
-          password: 'ApplicantPassword!2026',
         })
         .expect(202);
       expect(await notificationsOf(reviewer, 'approval.pending')).toEqual([]);
@@ -342,7 +341,6 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、do
         .send({
           email: 'events-newcomer-2@example.com',
           displayName: '申請人乙',
-          password: 'ApplicantPassword!2026',
         })
         .expect(202);
       expect(await notificationsOf(reviewer, 'approval.pending')).toEqual([
@@ -355,10 +353,10 @@ describe('事件管理（docs/architecture/backend/16-notification-event.md、do
       const reviewer = await createUser('events-other-reviewer@example.com', ['admin']);
       const created = await inTestTenant(app, () =>
         app.get(ApprovalService).submit({
-          ...userRegistrationRequest(
-            { email: 'events-invited@example.com', displayName: '被推薦的人' },
-            'hash',
-          ),
+          ...userRegistrationRequest({
+            email: 'events-invited@example.com',
+            displayName: '被推薦的人',
+          }),
           requester: { id: requester, name: 'events-requester@example.com' },
         }),
       );

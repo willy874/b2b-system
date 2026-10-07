@@ -9,11 +9,15 @@ import { auditLogs, auditLogsArchive } from '@/db/schema';
 
 import { AUDIT_LOG_COUNT_CAP } from './audit-log.constants';
 import type { AuditLogRange } from './audit-log.constants';
+import type { AuditLogCursor } from './audit-log.cursor';
 import type { ListAuditLogDto } from './dto/list-audit-log.dto';
 
 type AuditLogTable = typeof auditLogs | typeof auditLogsArchive;
 
 export type AuditLogSummaryRow = Omit<AuditLogRow, 'changes' | 'metadata'>;
+
+/** 列表的一列：另帶微秒精度的 `occurred_at`，給下一頁的游標用。 */
+export type AuditLogListRow = AuditLogSummaryRow & { occurredAtExact: string };
 
 /** 列表的投影：不讀 `changes` / `metadata`，省下 jsonb 的 detoast 與傳輸。 */
 function summaryColumns(table: AuditLogTable) {
@@ -31,6 +35,13 @@ function summaryColumns(table: AuditLogTable) {
   };
 }
 
+function listColumns(table: AuditLogTable) {
+  return {
+    ...summaryColumns(table),
+    occurredAtExact: sql<string>`to_char(${table.occurredAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+  };
+}
+
 function fullColumns(table: AuditLogTable) {
   return { ...summaryColumns(table), changes: table.changes, metadata: table.metadata };
 }
@@ -43,6 +54,7 @@ export class AuditLogRepository {
     table: AuditLogTable,
     query: ListAuditLogDto,
     range: AuditLogRange,
+    cursor?: AuditLogCursor,
   ): SQL | undefined {
     // 時間範圍永遠存在：每個索引都以 occurred_at 結尾，範圍條件讓掃描有上下界
     const conditions: SQL[] = [gte(table.occurredAt, range.from), lte(table.occurredAt, range.to)];
@@ -57,6 +69,12 @@ export class AuditLogRepository {
     if (query.resourceType) conditions.push(eq(table.resourceType, query.resourceType));
     if (query.resourceId) conditions.push(eq(table.resourceId, query.resourceId));
     if (query.result) conditions.push(eq(table.result, query.result));
+    // 游標：排在上一頁最後一筆之後（與排序 occurred_at DESC, id DESC 一致，兩表的 (occurred_at, id) 索引都用得上）
+    if (cursor) {
+      conditions.push(
+        sql`(${table.occurredAt}, ${table.id}) < (${cursor.occurredAt}::timestamptz, ${cursor.id}::bigint)`,
+      );
+    }
     return and(...conditions);
   }
 
@@ -77,40 +95,48 @@ export class AuditLogRepository {
   /**
    * 範圍的起點晚於冷表最新的一筆時只查熱表；否則熱表與冷表 `UNION ALL`，
    * Postgres 會以兩邊的 `(occurred_at, id)` 索引做 Merge Append，只讀到 offset + limit 筆就停。
+   * 帶游標時以游標取代 offset（只讀 limit 筆）。多讀一筆判斷有沒有下一頁；總數不受游標影響，仍是整個條件的筆數。
    */
   async list(
     query: ListAuditLogDto,
     range: AuditLogRange,
-  ): Promise<{ items: AuditLogSummaryRow[]; total: number }> {
+    cursor?: AuditLogCursor,
+  ): Promise<{ items: AuditLogListRow[]; hasMore: boolean; total: number }> {
+    const offset = cursor ? 0 : query.offset;
     const hotWhere = this.buildFilters(auditLogs, query, range);
-    const hot = this.db.select(summaryColumns(auditLogs)).from(auditLogs).where(hotWhere);
+    const hotPage = this.buildFilters(auditLogs, query, range, cursor);
+    const hot = this.db.select(listColumns(auditLogs)).from(auditLogs).where(hotPage);
 
     if (!(await this.archiveReaches(range.from))) {
-      const [items, total] = await Promise.all([
+      const [rows, total] = await Promise.all([
         hot
           .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id))
-          .limit(query.limit)
-          .offset(query.offset),
+          .limit(query.limit + 1)
+          .offset(offset),
         this.count(auditLogs, hotWhere),
       ]);
-      return { items, total };
+      return { items: rows.slice(0, query.limit), hasMore: rows.length > query.limit, total };
     }
 
     const coldWhere = this.buildFilters(auditLogsArchive, query, range);
     const cold = this.db
-      .select(summaryColumns(auditLogsArchive))
+      .select(listColumns(auditLogsArchive))
       .from(auditLogsArchive)
-      .where(coldWhere);
-    const [items, hotTotal, coldTotal] = await Promise.all([
+      .where(this.buildFilters(auditLogsArchive, query, range, cursor));
+    const [rows, hotTotal, coldTotal] = await Promise.all([
       hot
         .unionAll(cold)
         .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id))
-        .limit(query.limit)
-        .offset(query.offset),
+        .limit(query.limit + 1)
+        .offset(offset),
       this.count(auditLogs, hotWhere),
       this.count(auditLogsArchive, coldWhere),
     ]);
-    return { items, total: Math.min(hotTotal + coldTotal, AUDIT_LOG_COUNT_CAP) };
+    return {
+      items: rows.slice(0, query.limit),
+      hasMore: rows.length > query.limit,
+      total: Math.min(hotTotal + coldTotal, AUDIT_LOG_COUNT_CAP),
+    };
   }
 
   /**

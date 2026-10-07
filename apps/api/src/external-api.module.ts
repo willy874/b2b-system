@@ -18,6 +18,7 @@ import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
+import { RateLimitModule } from './core/rate-limit';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule } from './core/tenant';
@@ -27,6 +28,7 @@ import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.g
 import { ExternalRateLimitGuard } from './modules/api-token/external/external-rate-limit.guard';
 import { TokenTenantMiddleware } from './modules/api-token/external/token-tenant.middleware';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
@@ -68,7 +70,8 @@ import { UserModule } from './modules/user/user.module';
     // 檔案的影像處理（上傳完成時排入變體的產生；產生本身在背景工作）
     ImageModule,
     // 驗證 token 時以它檢查帳號（狀態、token_version），與內部 api 同一套規則。它也能驗 JWT，
-    // 需要一個 JwtService；這個程序從不驗 JWT（verifyClaims 自帶 secret、而且一律拒絕），不必設定金鑰
+    // 需要一個 JwtService；這個程序沒有 access token 的金鑰（AccessTokenKeys 在對外的範圍不載入任何金鑰），
+    // verifyClaims 一律拒絕（docs/architecture/backend/04-auth.md §11 D5）
     JwtModule.register({ global: true }),
     AccessTokenModule,
     ThrottlerModule.forRoot([]),
@@ -77,6 +80,10 @@ import { UserModule } from './modules/user/user.module';
     PermissionModule,
     AuditLogModule,
     PlatformAdminModule,
+    // argon2 的並行上限：全程序共用一個（docs/architecture/backend/04-auth.md §4.1）
+    PasswordHasherModule,
+    // 限流與登入延遲的計數（docs/architecture/backend/03-api-conventions.md §8）
+    RateLimitModule,
 
     // 對外的功能（對外的 controller 在各模組的 external/）
     ApiTokenModule,

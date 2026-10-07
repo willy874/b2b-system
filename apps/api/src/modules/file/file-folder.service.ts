@@ -83,10 +83,11 @@ export class FileFolderService {
       rows.map((row) => row.id),
     );
     return {
-      // 別人的個人資料夾與其他資料夾一致：列出但鎖住（§5.1）
-      items: rows.map((row) =>
-        toFolderDto(row, ctx, tags.get(row.id) ?? [], requested.has(row.id)),
-      ),
+      // 資料夾都列出、讀不到的鎖住（§5.1）；別人的個人資料夾例外：只列出自己或子孫讀得到的
+      // （或持有 file:listPersonal、全域 file:read），docs/rbac/07-resource-grants.md §12.1
+      items: rows
+        .filter((row) => ctx.exists(row.id))
+        .map((row) => toFolderDto(row, ctx, tags.get(row.id) ?? [], requested.has(row.id))),
       rootCapabilities: ctx.rootCapabilities(),
       personalFolderId:
         rows.find((row) => row.kind === 'personal' && row.ownerId === actor.id)?.id ?? null,

@@ -74,6 +74,11 @@ export const ErrorCode = {
   AUTH_SSO_PROVIDER_UNAVAILABLE: { status: 400 },
   /** 外部 IdP 回來的結果無效：state 不對、已過期、授權碼兌換失敗、ID token 驗證失敗。 */
   AUTH_SSO_EXTERNAL_FAILED: { status: 400 },
+  /**
+   * 密碼驗證的名額已滿或等太久（argon2 的並行上限，docs/architecture/backend/04-auth.md §4.1）：稍後再試。
+   * `details.retryAfterSeconds` 與 `Retry-After` 是建議的等待秒數。
+   */
+  AUTH_BUSY: { status: 503 },
 
   // ── 授權 ──
   AUTHZ_FORBIDDEN: { status: 403 },

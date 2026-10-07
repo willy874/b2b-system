@@ -255,6 +255,32 @@ export class FileFolderGrantRepository {
     return grant;
   }
 
+  /**
+   * 剛建立的資料夾一次寫入多筆授權（同一個多列 INSERT）。資料夾是新的、還沒有任何授權，所以不先刪除；
+   * 已有授權的資料夾用 `set`。
+   */
+  async createForNewFolders(
+    grants: readonly (GrantKey & { level: GrantLevel; grantedBy: string | null })[],
+    tx: DbOrTx,
+  ): Promise<void> {
+    if (grants.length === 0) return;
+    await tx.insert(relationTuples).values(
+      grants.map((grant) => {
+        const subject = subjectOf(grant.subjectType, grant.subjectId);
+        return {
+          objectType: FOLDER_OBJECT_TYPE,
+          objectId: grant.folderId,
+          relation: grant.level,
+          subjectType: subject.type,
+          subjectId: subject.id,
+          subjectRelation: subject.relation,
+          expiresAt: null,
+          createdBy: grant.grantedBy,
+        };
+      }),
+    );
+  }
+
   /** 移除這個對象在這個資料夾上的授權；回傳被移除的那一筆。 */
   async delete(key: GrantKey, tx: DbOrTx): Promise<FolderGrant | undefined> {
     const [row] = await tx

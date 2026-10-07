@@ -11,25 +11,50 @@ import type { ImageVariant } from './file.constants';
  */
 
 export interface ImageUrlClaims {
+  /** 簽發時的租戶：網址換到別的租戶的網域就驗不過（v2）。 */
+  tenantId: string;
   fileId: string;
   variant: ImageVariant;
   /** Unix 秒。 */
   expiresAt: number;
 }
 
-/** 由 api 自己的祕密衍生，與 JWT 的簽章金鑰分開用途。 */
-export function deriveImageUrlKey(secret: string): Buffer {
+/** v2 的簽章前綴：與沒有前綴的 v1 區分（過渡期兩者並存，docs/architecture/backend/09-file.md §5.4）。 */
+const V2_PREFIX = 'v2.';
+
+/** 舊（v1）的金鑰：由 `JWT_SECRET` 衍生。只在過渡期驗證，不再簽發。 */
+export function deriveLegacyImageUrlKey(secret: string): Buffer {
   return createHmac('sha256', secret).update('file-image-url/v1').digest();
 }
 
-export function signImageUrl(key: Buffer, claims: ImageUrlClaims): string {
-  return createHmac('sha256', key)
-    .update(`${claims.fileId}\n${claims.variant}\n${claims.expiresAt}`)
-    .digest('base64url');
+function hmac(key: Buffer, value: string): string {
+  return createHmac('sha256', key).update(value).digest('base64url');
 }
 
-export function verifyImageUrl(key: Buffer, claims: ImageUrlClaims, signature: string): boolean {
-  const expected = Buffer.from(signImageUrl(key, claims));
-  const actual = Buffer.from(signature);
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
+function sameString(actual: string, expected: string): boolean {
+  const a = Buffer.from(actual);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** v2：簽章內容帶版本與租戶；金鑰是獨立的 `FILE_URL_SIGNING_KEY`。 */
+export function signImageUrl(key: Buffer, claims: ImageUrlClaims): string {
+  return `${V2_PREFIX}${hmac(key, `v2\n${claims.tenantId}\n${claims.fileId}\n${claims.variant}\n${claims.expiresAt}`)}`;
+}
+
+/**
+ * 驗證網址簽章：`v2.` 開頭以 v2 驗證；沒有前綴的是 v1（不含租戶），只在還有舊金鑰（過渡期）時接受。
+ */
+export function verifyImageUrl(
+  keys: { current: Buffer; legacy: Buffer | undefined },
+  claims: ImageUrlClaims,
+  signature: string,
+): boolean {
+  if (signature.startsWith(V2_PREFIX))
+    return sameString(signature, signImageUrl(keys.current, claims));
+  if (!keys.legacy) return false;
+  return sameString(
+    signature,
+    hmac(keys.legacy, `${claims.fileId}\n${claims.variant}\n${claims.expiresAt}`),
+  );
 }

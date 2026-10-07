@@ -15,10 +15,11 @@ import {
 const REVIEWER: AuthUser = { id: 'reviewer-1', email: 'reviewer@example.com', status: 'active' };
 
 function context(roleIds: string[] = []): ApprovalContext {
-  const input = userRegistrationRequest(
-    { email: 'Alice@Example.com', displayName: 'Alice', reason: '新進企劃' },
-    'argon2-hash',
-  );
+  const input = userRegistrationRequest({
+    email: 'Alice@Example.com',
+    displayName: 'Alice',
+    reason: '新進企劃',
+  });
   return {
     request: {
       id: 'approval-1',
@@ -53,19 +54,15 @@ function setup() {
 }
 
 describe('userRegistrationRequest', () => {
-  it('去重鍵是小寫 email；密碼雜湊只放在 privatePayload', () => {
-    const input = userRegistrationRequest(
-      { email: 'Alice@Example.com', displayName: 'Alice' },
-      'argon2-hash',
-    );
+  it('去重鍵是小寫 email；不帶任何密碼', () => {
+    const input = userRegistrationRequest({ email: 'Alice@Example.com', displayName: 'Alice' });
     expect(input).toMatchObject({
       type: 'user.register',
       subjectKey: 'alice@example.com',
       payload: { email: 'Alice@Example.com', displayName: 'Alice' },
-      privatePayload: { passwordHash: 'argon2-hash' },
       requester: { id: null, name: 'Alice@Example.com' },
     });
-    expect(JSON.stringify(input.payload)).not.toContain('argon2-hash');
+    expect(input.privatePayload).toBeUndefined();
   });
 });
 
@@ -99,7 +96,6 @@ describe('UserRegistrationApprovalHandler（docs/rbac/06-approval.md §5）', ()
       {
         email: 'Alice@Example.com',
         displayName: 'Alice',
-        passwordHash: 'argon2-hash',
         status: 'pending',
         roleIds: ['role-1'],
       },

@@ -102,6 +102,12 @@
       "webhookDisableWarning": "{{code}} 的 webhook 會停止送出，期間發生的事件之後重新打開也不會補送。",
       "disableTitle": "關閉功能",
       "disableConfirm": "關閉後，{{code}} 的使用者立刻看不到「{{feature}}」，正在使用的頁面會被導回首頁。資料保留，重新打開即恢復。",
+      "impactTitle": "目前的影響：",
+      "impact": {
+        "identityProviderConnections_other": "{{count}} 個外部 IdP 連線",
+        "ssoOnlyDomains_other": "{{count}} 個只允許 SSO 的網域會改回密碼登入",
+        "passwordlessExternalUsers_other": "{{count}} 位使用者沒有設定密碼、只用外部 IdP 登入，要先重設密碼"
+      },
       "disableAction": "關閉",
       "announcement": "公告",
       "announcementDescription": "租戶管理者撰寫公告，立即或排程以站內通知發給指定的人、群組、角色或全租戶。",
@@ -131,7 +137,9 @@
       },
       "auditLog": {
         "hotRetentionDays": "熱資料保存天數",
-        "hotRetentionDaysDescription": "超過這個天數的稽核紀錄每天搬到冷表；兩邊都查得到，冷表的查詢較慢。"
+        "hotRetentionDaysDescription": "超過這個天數的稽核紀錄每天搬到冷表；兩邊都查得到，冷表的查詢較慢。",
+        "retentionDays": "冷資料保存天數",
+        "retentionDaysDescription": "冷表的紀錄超過這個天數就以整個月份刪除（每天執行，刪除本身會留下一筆稽核）。最少 365 天，-1 表示永久保留；實際至少保留熱資料的天數。"
       },
       "job": {
         "maxConcurrency": "同時執行的工作數",
@@ -148,7 +156,8 @@
       "unit": {
         "days": "{{value}} 天",
         "megabytes": "{{value}} MB",
-        "count": "{{value}}"
+        "count": "{{value}}",
+        "perMinute": "每分鐘 {{value}} 次"
       },
       "overridden": "已調整",
       "edit": "編輯{{name}}",
@@ -157,12 +166,25 @@
       "rangeHint": "{{min}}～{{max}}，預設 {{default}}",
       "defaultHint": "預設 {{default}}",
       "rangeError": "請輸入 {{min}}～{{max}} 的整數",
-      "success": "已更新參數"
+      "success": "已更新參數",
+      "rateLimit": {
+        "authPerMinute": "登入次數上限",
+        "authPerMinuteDescription": "這個租戶每分鐘所有登入請求合計的上限。被攻擊時只有這個租戶回「操作太頻繁」，不影響其他租戶。",
+        "trustedCidrs": "信任的網段",
+        "trustedCidrsDescription": "客戶公司或 VPN 的網段（CIDR，以逗號或空白分隔，例：203.0.113.0/24）。從這些網段登入時，每個 IP 的上限放寬為 10 倍，整間公司共用一個 NAT 也不會被擋；每個帳號的上限、延遲與鎖定不變。"
+      },
+      "empty": "未設定",
+      "forever": "永久",
+      "foreverHint": "；{{value}} 表示永久"
     },
     "tab": {
       "overview": "概覽",
       "features": "功能",
       "flags": "試行開關"
+    },
+    "limits": {
+      "title": "全租戶的限制",
+      "description": "不屬於任何功能、對整個租戶生效的上限。"
     }
   }
 }

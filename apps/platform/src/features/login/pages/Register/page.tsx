@@ -18,7 +18,7 @@ import { BackToTenantLogin, TenantRequired } from '../TenantLinks';
 export default function RegisterPage() {
   const { t } = useTranslation();
   const { tenant } = RegisterRoute.useSearch();
-  const { form, policy, closed, submitted, submitting, formError } = useRegisterForm(tenant);
+  const { form, closed, submitted, submitting, formError } = useRegisterForm(tenant);
 
   if (!tenant) return <TenantRequired title={t('login.register.title')} />;
   if (closed) {
@@ -81,45 +81,6 @@ export default function RegisterPage() {
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   data-testid="register-display-name"
-                />
-              </Field>
-            )}
-          </form.Field>
-
-          <form.Field name="password">
-            {(field) => (
-              <Field
-                label={t('login.field.password')}
-                description={t('login.password.hint', { min: policy.passwordMinLength })}
-                required
-                error={firstError(field.state.meta.errors)}
-              >
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  data-testid="register-password"
-                />
-              </Field>
-            )}
-          </form.Field>
-
-          <form.Field name="confirmPassword">
-            {(field) => (
-              <Field
-                label={t('login.field.confirmPassword')}
-                required
-                error={firstError(field.state.meta.errors)}
-              >
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  data-testid="register-confirm-password"
                 />
               </Field>
             )}

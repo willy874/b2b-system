@@ -6,6 +6,7 @@ export * from './BatchQueueHost';
 export * from './BatchQueueIndicator';
 export * from './BatchQueueNotifier';
 export * from './BatchResultDialog';
+export * from './collect';
 export * from './connect';
 export * from './errors';
 export * from './operations';

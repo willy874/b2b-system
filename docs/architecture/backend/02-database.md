@@ -249,6 +249,10 @@ export const authTokens = pgTable(
 );
 ```
 
+`user_login_sources`（登入成功過的來源）：`(user_id, ip_prefix)` 主鍵、`last_success_at`（索引，清理用），`user_id` 隨使用者刪除。
+30 天內成功登入過的來源打錯密碼不累計鎖定（[`04-auth.md`](04-auth.md) §3.4）；過期的列由 `auth.tokenCleanup` 分批清除。
+平台 DB 對平台管理者另有同樣形狀的 `platform_admin_login_sources`。
+
 ### 2.8 `audit_logs` / `audit_logs_archive`（熱表／冷表）
 
 稽核分成兩張欄位完全相同的表，分層理由與搬移流程見
@@ -568,6 +572,16 @@ async findUserIdsByRole(roleId: string): Promise<string[]> {
 ### 4.4 使用者列表（含角色，避免 N+1）
 
 ```ts
+// 先在 users 上篩選、排序、分頁，只對這一頁的人 join 角色並聚合
+const page = this.db
+  .select({ id: users.id })
+  .from(users)
+  .where(and(notDeleted(users), ...filters))
+  .orderBy(desc(users.createdAt), desc(users.id))
+  .limit(limit)
+  .offset(offset)
+  .as('page');
+
 const rows = await this.db
   .select({
     user: users,
@@ -578,18 +592,17 @@ const rows = await this.db
         '[]'
       )`,
   })
-  .from(users)
+  .from(page)
+  .innerJoin(users, eq(users.id, page.id))
   // 持有角色的邊：role:<r>#holder@user:<users.id>（多型 id 是 text，uuid 那邊轉成 text）
   .leftJoin(relationTuples, and(isRoleHolderTuple(), eq(relationTuples.subjectId, sql`${users.id}::text`)))
   .leftJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
-  .where(and(notDeleted(users), ...filters))
   .groupBy(users.id)
-  .orderBy(desc(users.createdAt))
-  .limit(limit)
-  .offset(offset);
+  .orderBy(desc(users.createdAt), desc(users.id));
 ```
 
 一次查詢帶回使用者與其角色。**不要** 先查使用者再逐一查角色。
+先分頁再聚合：聚合只涵蓋這一頁的人，不必替 offset 之前的每一個人 join 角色；排序欄都在 `users` 上、依角色篩選用 `EXISTS`，所以不需要先聚合。
 
 ---
 
@@ -654,6 +667,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0032_announcement_event_triggers.sql  公告的事件點：trigger_subject_id 與兩種唯一索引、事件查詢索引（純加法，唯一索引改為部分索引）
 ├── 0036_file_storage_usage.sql         檔案已用量的單列計數 file_storage_usage ＋ 手寫：以既有檔案的 SUM(size) 回填
 │                                       （[`backend/09-file.md`](09-file.md) §5.0；純加法）
+├── 0040_user_login_sources.sql         user_login_sources（§2.7 之後，[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads
@@ -668,6 +682,7 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 ├── 0009_toggleable_features.sql        回收桶、系統設定、外部 IdP、切換租戶改為可關閉的 feature（[`architecture/05-tenancy.md`](../05-tenancy.md) §12）
 ├── 0010_webhook_feature.sql            features 預設加 webhook，既有租戶啟用（[`backend/17-webhook.md`](17-webhook.md) §9.2 D8）
 ├── 0011_announcement_feature.sql       features 預設加 announcement，既有租戶啟用（[`backend/19-announcement.md`](19-announcement.md) §9.2 D20）
+├── 0016_platform_admin_login_sources.sql  platform_admin_login_sources（[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
 └── …                                   之後的變更接著編號
 ```
 
@@ -807,17 +822,15 @@ SELECT archive_audit_logs(now() - interval '90 days', 5000);
 - 熱表只有 90 天的量，四個索引都小到能常駐記憶體；寫入與預設查詢只碰熱表。
 - 冷表的量隨保留期成長，但只在查詢範圍早於 90 天時才被讀到（見 `06-audit-log.md` §7.2）。
 
-冷表超過約 1000 萬列時，再把冷表改成按月分區：
+冷表按月分區（租戶 migration 0039；[`06-audit-log.md`](./06-audit-log.md) §10）：
 
 ```sql
-CREATE TABLE audit_logs_archive (...) PARTITION BY RANGE (occurred_at);
-CREATE TABLE audit_logs_archive_2026_09 PARTITION OF audit_logs_archive
-  FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
+CREATE TABLE audit_logs_archive (..., PRIMARY KEY (id, occurred_at)) PARTITION BY RANGE (occurred_at);
+-- 分區由 ensure_audit_archive_partitions(from, to) 建立：audit_logs_archive_p202609 = [2026-09-01, 2026-10-01)
 ```
 
-屆時保留期清理變成 `DROP TABLE audit_logs_archive_2025_09`（瞬間完成、不產生
-bloat），而不是一個會鎖表數分鐘的大 `DELETE`。索引全部以 `occurred_at` 結尾，
-改造時不需要改查詢。
+保留期清理是 `drop_expired_audit_archive_partitions(cutoff)` DROP 整個月份（瞬間完成、不產生 bloat），
+而不是一個會鎖表數分鐘的大 `DELETE`；函式拒絕一年內的 cutoff。索引全部以 `occurred_at` 結尾，查詢不必改。
 
 ---
 

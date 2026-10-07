@@ -17,10 +17,16 @@ function inTenant<T>(featureParams: TenantFeatureParamOverrides, fn: () => Promi
 }
 
 function build(cron = '30 3 * * *') {
-  const execute = vi.fn(async () => [{ moved: 4 }]);
+  // 依序：搬移一批（不足一批就停）→ 預建分區 → 刪除過期分區（沒有）
+  const execute = vi
+    .fn()
+    .mockResolvedValueOnce([{ moved: 4 }])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([]);
+  const insert = vi.fn();
   const register = vi.fn();
   const job = new AuditLogArchiveJob(
-    { execute } as unknown as Database,
+    { execute, insert } as unknown as Database,
     { register } as unknown as JobQueue,
     { get: vi.fn(() => cron) } as unknown as ConfigService<Env, true>,
   );
@@ -70,6 +76,7 @@ describe('AuditLogArchiveJob（docs/architecture/backend/06-audit-log.md §8、1
       moved: 4,
       cutoff: new Date(NOW.getTime() - 90 * DAY).toISOString(),
       retentionDays: 90,
+      purgedPartitions: 0,
     });
   });
 
@@ -86,6 +93,33 @@ describe('AuditLogArchiveJob（docs/architecture/backend/06-audit-log.md §8、1
     const { job } = build();
     const result = await inTenant({ 'auditLog.hotRetentionDays': 1 }, () => job.run());
     expect(result.retentionDays).toBe(90);
+  });
+
+  it('冷表：預建分區；保留期限是 -1（永久）時不呼叫刪除', async () => {
+    const { job, execute } = build();
+    await inTenant({ 'auditLog.retentionDays': -1 }, () => job.run());
+    // 搬移 ＋ 預建分區，沒有第三次（刪除）
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('冷表：有保留期限時呼叫刪除過期分區，刪掉的分區寫 auditLog.purge', async () => {
+    const { job, execute } = build();
+    execute.mockReset();
+    execute
+      .mockResolvedValueOnce([{ moved: 0 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ partition_name: 'audit_logs_archive_p202401', row_count: '12' }]);
+    const values = vi.fn(async () => undefined);
+    (job as unknown as { db: { insert: unknown } }).db.insert = vi.fn(() => ({ values }));
+    const result = await inTenant({}, () => job.run());
+    expect(result.purgedPartitions).toBe(1);
+    expect(values).toHaveBeenCalledWith([
+      expect.objectContaining({
+        action: 'auditLog.purge',
+        actorEmail: 'system',
+        metadata: expect.objectContaining({ partition: 'audit_logs_archive_p202401', rows: 12 }),
+      }),
+    ]);
   });
 
   it('沒有租戶脈絡 → TENANT_NOT_FOUND，不搬移（不能悄悄用預設值）', async () => {

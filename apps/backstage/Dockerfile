@@ -52,6 +52,9 @@ COPY deploy/nginx.security-headers.conf /etc/nginx/snippets/security-headers.con
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 # 啟動時依 TRUSTED_PROXY_CIDRS 產生 real_ip 設定（docs/architecture/01-system.md §4.2）
 COPY --chmod=755 deploy/nginx-real-ip.sh /docker-entrypoint.d/15-real-ip.sh
+# 獨立的檔案網域：CSP 放行它、產生檔案網域的 server（FILE_DOWNLOAD_ORIGIN；docs/architecture/backend/09-file.md §3.2）
+COPY --chmod=755 deploy/nginx-file-origin.sh /docker-entrypoint.d/16-file-origin.sh
+ENV FILES_SERVER=1
 COPY --from=build /repo/apps/backstage/dist /usr/share/nginx/html
 EXPOSE 8080
 

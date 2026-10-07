@@ -22,6 +22,7 @@ import type {
   ApprovalType,
   ApproveApprovalRequest,
   AuditLog,
+  AuditLogList,
   AuditLogSummary,
   ChangePasswordRequest,
   CompleteFileUploadRequest,
@@ -161,6 +162,7 @@ import type {
   TagList,
   TagSummary,
   TenantFeature,
+  TenantFeatureImpact,
   TenantFeatureParam,
   TenantFeatureParamKey,
   TenantFlagOverrides,
@@ -711,6 +713,7 @@ export const PermissionKeySchema = z.enum([
   'file:delete',
   'file:access',
   'file:share',
+  'file:listPersonal',
   'job:read',
   'job:retry',
   'identityProvider:create',
@@ -1035,6 +1038,16 @@ export const AuditLogSummarySchema = z.object({
   errorCode: z.string().nullable(),
 }) satisfies z.ZodType<AuditLogSummary>;
 
+export const AuditLogListSchema = z.object({
+  items: z.array(AuditLogSummarySchema),
+  pagination: z.object({
+    offset: z.int().min(-9007199254740991).max(9007199254740991),
+    limit: z.int().min(-9007199254740991).max(9007199254740991),
+    total: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<AuditLogList>;
+
 export const AuditLogSchema = z.object({
   id: z.string(),
   occurredAt: z.string(),
@@ -1276,7 +1289,7 @@ export const UpdateUserRequestSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
-  timezone: z.string().max(64).optional(),
+  timezone: z.string().min(1).max(64).optional(),
   version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateUserRequest>;
 
@@ -1372,21 +1385,25 @@ export const TenantFlagOverridesSchema = z.record(
 export const TenantFeatureParamKeySchema = z.enum([
   'file.storageQuotaMb',
   'auditLog.hotRetentionDays',
+  'auditLog.retentionDays',
   'job.maxConcurrency',
   'identityProvider.maxProviders',
   'webhook.maxUrls',
+  'rateLimit.authPerMinute',
+  'rateLimit.trustedCidrs',
 ]) satisfies z.ZodType<TenantFeatureParamKey>;
 
 export const TenantFeatureParamSchema = z.object({
   key: TenantFeatureParamKeySchema,
-  feature: TenantFeatureSchema,
+  feature: TenantFeatureSchema.nullable(),
   type: z.enum(['integer', 'string']),
   value: z.union([z.number(), z.string()]),
   defaultValue: z.union([z.number(), z.string()]),
   overridden: z.boolean(),
-  unit: z.enum(['days', 'megabytes', 'count']).nullable(),
+  unit: z.enum(['days', 'megabytes', 'count', 'perMinute']).nullable(),
   min: z.number().nullable(),
   max: z.number().nullable(),
+  foreverValue: z.number().nullable(),
   maxLength: z.number().nullable(),
 }) satisfies z.ZodType<TenantFeatureParam>;
 
@@ -1457,6 +1474,17 @@ export const UpdateTenantRequestSchema = z.object({
     .record(z.string(), z.union([z.number(), z.string().max(1000)]).nullable())
     .optional(),
 }) satisfies z.ZodType<UpdateTenantRequest>;
+
+export const TenantFeatureImpactSchema = z.object({
+  feature: TenantFeatureSchema,
+  available: z.boolean(),
+  items: z.array(
+    z.object({
+      key: z.enum(['identityProviderConnections', 'ssoOnlyDomains', 'passwordlessExternalUsers']),
+      count: z.int().min(0).max(9007199254740991),
+    }),
+  ),
+}) satisfies z.ZodType<TenantFeatureImpact>;
 
 export const AddTenantDomainRequestSchema = z.object({
   domain: z
@@ -1553,7 +1581,7 @@ export const UpdateProfileRequestSchema = z.object({
   preferences: z
     .object({
       locale: z.string().max(10).optional(),
-      timezone: z.string().max(64).optional(),
+      timezone: z.string().min(1).max(64).optional(),
     })
     .optional(),
 }) satisfies z.ZodType<UpdateProfileRequest>;
@@ -1594,7 +1622,6 @@ export const RegisterRequestSchema = z.object({
       ),
     ),
   displayName: z.string().min(1).max(100),
-  password: z.string().min(12).max(128),
   reason: z.string().max(500).optional(),
 }) satisfies z.ZodType<RegisterRequest>;
 

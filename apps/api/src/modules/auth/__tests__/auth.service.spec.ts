@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { LoginThrottle, MemoryRateLimitStore } from '@/core/rate-limit';
+import { runInTenantContext } from '@/core/tenant';
+
 import { AuthService } from '../auth.service';
 
 function setup(
@@ -13,7 +16,7 @@ function setup(
   const service = new AuthService(
     {} as never, // db
     config as never,
-    {} as never, // jwt
+    {} as never, // tokenKeys
     users as never,
     {} as never, // refreshTokens
     {} as never, // authTokens
@@ -28,6 +31,9 @@ function setup(
     {} as never, // settings
     {} as never, // flags
     {} as never, // accessTokens
+    { verifyAgainstDummy: vi.fn(async () => false) } as never, // passwords
+    new LoginThrottle(new MemoryRateLimitStore()),
+    { isKnown: vi.fn(async () => false), remember: vi.fn(async () => undefined) } as never, // loginSources
   );
   return { service, jobs, users, identityProviders };
 }
@@ -90,9 +96,9 @@ describe('AuthService.login：直接登入的開關（docs/architecture/06-exter
     ['production 明確開啟', { NODE_ENV: 'production', DIRECT_LOGIN_ENABLED: true }],
   ])('%s：照常驗證帳密', async (_label, env) => {
     const { service, users } = setup(undefined, env);
-    await expect(service.login(credentials, {} as never)).rejects.toMatchObject({
-      code: 'AUTH_INVALID_CREDENTIALS',
-    });
+    await expect(
+      runInTenantContext({ id: 't1' } as never, () => service.login(credentials, {} as never)),
+    ).rejects.toMatchObject({ code: 'AUTH_INVALID_CREDENTIALS' });
     expect(users.findAccountByEmail).toHaveBeenCalled();
   });
 });

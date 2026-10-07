@@ -532,7 +532,6 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
         .send({
           email: 'wp-newcomer@example.com',
           displayName: '申請人甲',
-          password: 'ApplicantPassword!2026',
           reason: '加入團隊',
         })
         .expect(202);
@@ -568,10 +567,10 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
       const other = await createUser('wp-other-reviewer@example.com', [await roleIdOf('admin')]);
       const created = await inTenant(() =>
         app.get(ApprovalService).submit({
-          ...userRegistrationRequest(
-            { email: 'wp-invited@example.com', displayName: '被推薦的人' },
-            'hash',
-          ),
+          ...userRegistrationRequest({
+            email: 'wp-invited@example.com',
+            displayName: '被推薦的人',
+          }),
           requester: { id: requester, name: 'wp-self-reviewer@example.com' },
         }),
       );

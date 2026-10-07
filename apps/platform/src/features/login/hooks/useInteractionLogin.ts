@@ -1,5 +1,11 @@
-import { getErrorMessageKey, isAppError, useErrorMessage } from '@b2b-system/web-core/errors';
-import { zodFormValidator } from '@b2b-system/web-shared/hooks';
+import {
+  ErrorCodes,
+  getErrorMessageKey,
+  isAppError,
+  useErrorMessage,
+} from '@b2b-system/web-core/errors';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useCountdown, zodFormValidator } from '@b2b-system/web-shared/hooks';
 import { useForm } from '@tanstack/react-form';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -48,13 +54,38 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
   const abort = useSsoInteractionAbortMutation();
   const external = useStartExternalLoginMutation();
   const toMessage = useErrorMessage();
-  const [formError, setFormError] = useState<InteractionFormError>();
+  const { t } = useTranslation();
+  const [failure, setFailure] = useState<InteractionFormError & { retryable?: boolean }>();
   // 送出時才發現互動已過期：表單再送也沒用，改給「重新開始登入」
   const [expired, setExpired] = useState(false);
+  // 被限流（429）且伺服器給了等待秒數：倒數到可以再試為止，期間停用送出鈕——一直重送只會讓限流持續更久
+  const retry = useCountdown();
   const fail = (error: unknown) => {
-    setFormError({ message: toMessage(error), code: isAppError(error) ? error.code : undefined });
+    // 限流（429）與密碼驗證的名額已滿（503 AUTH_BUSY）都帶建議的等待秒數
+    const retryAfter =
+      isAppError(error) && (error.code === ErrorCodes.RATE_LIMITED || error.code === 'AUTH_BUSY')
+        ? error.retryAfterSeconds
+        : undefined;
+    setFailure({
+      message: toMessage(error),
+      code: isAppError(error) ? error.code : undefined,
+      retryable: retryAfter !== undefined,
+    });
     setExpired(isInteractionExpired(error));
+    if (retryAfter !== undefined) retry.start(retryAfter);
   };
+  // 限流的訊息跟著倒數更新；數完就收起來，不留一句「請在 0 秒後再試」
+  const formError: InteractionFormError | undefined = failure?.retryable
+    ? retry.remaining > 0
+      ? {
+          code: failure.code,
+          message:
+            failure.code === 'AUTH_BUSY'
+              ? failure.message
+              : t('error.rate_limited_retry', { count: retry.remaining }),
+        }
+      : undefined
+    : failure && { code: failure.code, message: failure.message };
   // 網址帶來的錯誤只顯示到使用者再試一次為止
   const [showSearchError, setShowSearchError] = useState(true);
   /** 拿去查網域的 email：離開欄位（或送出）時才更新，不在每次輸入時查詢。 */
@@ -79,7 +110,7 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
     defaultValues: { email: '', password: '' },
     validators: { onSubmit: zodFormValidator(LoginFormSchema) },
     onSubmit: async ({ value }) => {
-      setFormError(undefined);
+      setFailure(undefined);
       setShowSearchError(false);
       try {
         await login.mutateAsync({ params: { uid, ...value } });
@@ -91,7 +122,7 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
 
   const startExternal = async () => {
     if (!provider) return;
-    setFormError(undefined);
+    setFailure(undefined);
     setShowSearchError(false);
     try {
       await external.mutateAsync({ params: { uid, providerId: provider.id } });
@@ -110,6 +141,8 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
     ssoOnly,
     expired,
     formError,
+    /** 被限流時還要等幾秒才能再送出（0 = 可以送出） */
+    retryIn: retry.remaining,
     /** 網址帶回、還沒被使用者重試蓋掉的錯誤碼 */
     searchError: showSearchError ? searchError : undefined,
     searchErrorKey: searchError ? getErrorMessageKey(searchError) : undefined,

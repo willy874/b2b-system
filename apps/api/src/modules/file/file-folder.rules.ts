@@ -53,6 +53,8 @@ export class FileFolderRules {
     tx: DbOrTx,
   ): Promise<FileFolderRow> {
     const folder = await this.getOrThrow(id, tx);
+    // 看不到的（別人的個人資料夾）當作不存在：不以 403 洩漏 id 存在（docs/rbac/07-resource-grants.md §12.1）
+    if (!ctx.exists(id)) throw new AppException('FILE_FOLDER_NOT_FOUND', { folderId: id });
     if (!ctx.can('read', id)) throw await this.access.deny(actor, 'read', 'fileFolder', id);
     return folder;
   }

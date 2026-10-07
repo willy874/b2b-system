@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
+import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys';
+import { isCidrList } from '../rate-limit/ip';
+
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
 export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
+/** `FILE_STORAGE_DOWNLOAD_ENDPOINT` 裡代表「目前租戶的代碼」的佔位符（每個租戶一個檔案子網域時用）。 */
+export const TENANT_CODE_PLACEHOLDER = '{tenantCode}';
 
 /**
  * 環境變數是啟動的前置條件：缺少或格式錯誤一律在 bootstrap 階段失敗，
@@ -76,7 +81,36 @@ export const EnvSchema = z.object({
     z.string().optional(),
   ),
 
-  JWT_SECRET: z.string().min(32),
+  /**
+   * 舊的單一金鑰（docs/architecture/backend/04-auth.md §11）。開發環境必填：沒設定金鑰環與各種主金鑰時由它推導。
+   * production 只用來驗證 **沒有 `kid`** 的舊 access token 與 v1 的縮圖網址（換成金鑰環的過渡期）；
+   * 過渡期結束（`JWT_ACCESS_TTL` ＋ `FILE_URL_TTL` 之後）從環境拿掉，舊格式就一律被拒。
+   */
+  JWT_SECRET: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().min(32).optional(),
+  ),
+  /**
+   * 租戶 access token 的金鑰環：`<kid>:<base64 金鑰>[,…]`，第一把簽發、全部都能驗證（HS256）。
+   * 開發環境沒設定時由 `JWT_SECRET` 推導；**內部 api 的 production 必填**。對外 API 的程序不需要、也不該有。
+   */
+  JWT_SIGNING_KEYS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** 平台管理者 access token 的金鑰環（格式同 `JWT_SIGNING_KEYS`，必須是不同的金鑰）；**內部 api 的 production 必填**。 */
+  PLATFORM_JWT_SIGNING_KEYS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /**
+   * 檔案縮圖網址的 HMAC 金鑰（32 bytes 以上，base64；docs/architecture/backend/09-file.md §5.4）。
+   * 對外 API 的程序簽、內部 api 驗，所以兩個程序都要有；開發環境沒設定時由 `JWT_SECRET` 推導，**production 必填**。
+   */
+  FILE_URL_SIGNING_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
   JWT_ACCESS_TTL: z.coerce.number().int().default(300),
   REFRESH_TOKEN_TTL: z.coerce.number().int().default(604800),
   /**
@@ -109,6 +143,15 @@ export const EnvSchema = z.object({
 
   ARGON2_MEMORY_COST: z.coerce.number().int().default(19456),
   ARGON2_TIME_COST: z.coerce.number().int().default(2),
+  /**
+   * argon2 同時執行的上限（每程序；docs/architecture/backend/04-auth.md §4.1）。4 個並行約佔 76 MiB，
+   * 留下 threadpool（`UV_THREADPOOL_SIZE`）的其餘執行緒給 sharp、DNS、檔案 I/O。
+   */
+  ARGON2_MAX_CONCURRENCY: z.coerce.number().int().min(1).default(4),
+  /** 等待 argon2 名額的上限；超過立刻回 `503 AUTH_BUSY`。 */
+  ARGON2_MAX_QUEUE: z.coerce.number().int().min(0).default(32),
+  /** 等待 argon2 名額的逾時（毫秒）；超過回 `503 AUTH_BUSY`。 */
+  ARGON2_QUEUE_TIMEOUT_MS: z.coerce.number().int().min(1).default(3000),
 
   PERMISSION_CACHE_TTL: z.coerce.number().int().default(60),
   /**
@@ -130,6 +173,20 @@ export const EnvSchema = z.object({
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(10),
   /** 登入類端點：每個 IP（整間公司的早上登入尖峰）。忘記密碼、註冊是它的 1/10。 */
   AUTH_IP_RATE_LIMIT: z.coerce.number().int().min(1).default(300),
+  /**
+   * 登入類端點：每個租戶（與平台的登入各自一個桶）每分鐘合計。一個租戶被攻擊時不拖垮其他租戶的登入；
+   * 1200 足以應付 1000 人的公司集中在上班時間登入。平台可以對個別租戶以 feature 參數 `rateLimit.authPerMinute` 覆寫。
+   */
+  AUTH_TENANT_RATE_LIMIT: z.coerce.number().int().min(1).default(1200),
+  /**
+   * 豁免以 IP 計的限流的網段（逗號分隔的 IP 或 CIDR）：只給監控探針、內部服務。帳號、身分、租戶層級的限制照常；
+   * 企業 NAT 的放寬改用租戶的 feature 參數 `rateLimit.trustedCidrs`（docs/architecture/backend/03-api-conventions.md §8）。
+   */
+  RATE_LIMIT_EXEMPT_CIDRS: z
+    .string()
+    .trim()
+    .default('')
+    .refine((value) => isCidrList(value), '逗號分隔的 IP 或 CIDR'),
   /** `/auth/refresh`：每個 refresh session。 */
   REFRESH_RATE_LIMIT: z.coerce.number().int().min(1).default(30),
   /** `/auth/refresh`：每個 IP（1000 人每 5 分鐘續期一次 ≈ 200 次 / 分，重啟後會集中）。 */
@@ -179,6 +236,27 @@ export const EnvSchema = z.object({
       (value) => URL.canParse(value.replace(TENANT_ORIGIN_PLACEHOLDER, 'http://tenant.test')),
       'url',
     ),
+  /**
+   * 下載與預覽的 presigned 網址用的 endpoint（docs/architecture/backend/09-file.md §3.2）：獨立、不帶 cookie 的檔案網域，
+   * 使用者上傳的內容就不會在租戶網域上被渲染。上傳仍用 `FILE_STORAGE_PUBLIC_ENDPOINT`（同源）。
+   * 可以含 `{tenantOrigin}`、`{tenantCode}`（每個租戶一個子網域：`https://{tenantCode}.files.example.com/storage`）。
+   * 留空 = 與 `FILE_STORAGE_PUBLIC_ENDPOINT` 相同（同源；production 啟動時記一次警告）。
+   */
+  FILE_STORAGE_DOWNLOAD_ENDPOINT: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .refine(
+        (value) =>
+          URL.canParse(
+            value
+              .replace(TENANT_ORIGIN_PLACEHOLDER, 'http://tenant.test')
+              .replace(TENANT_CODE_PLACEHOLDER, 'tenant'),
+          ),
+        'url',
+      )
+      .optional(),
+  ),
   FILE_STORAGE_REGION: z.string().min(1).default('us-east-1'),
   FILE_STORAGE_ACCESS_KEY_ID: z.string().min(3),
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
@@ -440,15 +518,60 @@ const PUBLIC_URL_KEYS = ['APP_PUBLIC_URL', 'PLATFORM_APP_URL', 'OIDC_ISSUER'] as
 
 /** production 不接受開發用的預設值：範例或低熵的金鑰、本機的公開網址、`console` 寄信。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
-  if (env.NODE_ENV !== 'production') return;
+  if (env.NODE_ENV !== 'production') {
+    // 開發與測試：金鑰環、縮圖網址與各種主金鑰沒設定時都由它推導
+    if (!env.JWT_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['JWT_SECRET'],
+        message: '開發環境必須設定（至少 32 字元）',
+      });
+    }
+    for (const key of ['JWT_SIGNING_KEYS', 'PLATFORM_JWT_SIGNING_KEYS'] as const) {
+      const value = env[key];
+      const parsed = value ? parseSigningKeys(value) : undefined;
+      if (typeof parsed === 'string')
+        ctx.addIssue({ code: 'custom', path: [key], message: parsed });
+    }
+    return;
+  }
   const issue = (key: keyof Env, message: string) =>
     ctx.addIssue({ code: 'custom', path: [key], message });
   // 對外 API 的程序不簽 ID token、不碰外部 IdP 與 webhook 的密鑰：不要求這些金鑰，給了才檢查（06-external-api.md §6）
   const internal = env.API_SURFACE === 'internal';
 
-  for (const key of ['JWT_SECRET', 'FILE_STORAGE_SECRET_ACCESS_KEY'] as const) {
-    if (isWeakSecret(env[key])) issue(key, WEAK_SECRET_MESSAGE);
+  if (env.JWT_SECRET !== undefined && isWeakSecret(env.JWT_SECRET)) {
+    issue('JWT_SECRET', WEAK_SECRET_MESSAGE);
   }
+  if (isWeakSecret(env.FILE_STORAGE_SECRET_ACCESS_KEY)) {
+    issue('FILE_STORAGE_SECRET_ACCESS_KEY', WEAK_SECRET_MESSAGE);
+  }
+  // access token 的金鑰環只給內部 api：對外 API 的程序拿到金鑰環就能簽出任何人的 token（06-external-api.md §6）
+  for (const key of ['JWT_SIGNING_KEYS', 'PLATFORM_JWT_SIGNING_KEYS'] as const) {
+    const value = env[key];
+    if (!internal) {
+      if (value) issue(key, '對外 API 的程序不能持有 access token 的金鑰');
+      continue;
+    }
+    const parsed = value ? parseSigningKeys(value) : 'production 必須設定';
+    if (typeof parsed === 'string') issue(key, parsed);
+  }
+  if (env.JWT_SIGNING_KEYS && env.PLATFORM_JWT_SIGNING_KEYS) {
+    const tenant = parseSigningKeys(env.JWT_SIGNING_KEYS);
+    const platform = parseSigningKeys(env.PLATFORM_JWT_SIGNING_KEYS);
+    if (typeof tenant !== 'string' && typeof platform !== 'string') {
+      const tenantKeys = new Set([...tenant.byKid.values()].map((key) => key.toString('base64')));
+      if ([...platform.byKid.values()].some((key) => tenantKeys.has(key.toString('base64')))) {
+        issue('PLATFORM_JWT_SIGNING_KEYS', '不能與 JWT_SIGNING_KEYS 共用金鑰');
+      }
+    }
+  }
+  const fileUrlProblem = env.FILE_URL_SIGNING_KEY
+    ? Buffer.from(env.FILE_URL_SIGNING_KEY, 'base64').length < MIN_SIGNING_KEY_BYTES
+      ? `解開後至少要 ${MIN_SIGNING_KEY_BYTES} bytes（openssl rand -base64 48）`
+      : undefined
+    : 'production 必須設定';
+  if (fileUrlProblem) issue('FILE_URL_SIGNING_KEY', fileUrlProblem);
   // access key id 不是祕密（常是短的識別字），只擋範例值
   if (EXAMPLE_SECRETS.has(env.FILE_STORAGE_ACCESS_KEY_ID)) {
     issue('FILE_STORAGE_ACCESS_KEY_ID', WEAK_SECRET_MESSAGE);

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import type { AuthUser } from '@/common/types';
@@ -10,6 +11,7 @@ import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors
 import {
   IDENTITY_PROVIDER_MAX_PROVIDERS_PARAM,
   requireTenant,
+  TenantFeatureImpacts,
   tenantFeatureParam,
 } from '@/core/tenant';
 import type { IdentityProviderRow, UserIdentityRow } from '@/db/schema';
@@ -65,7 +67,7 @@ export function domainOf(email: string): string | undefined {
  * 以及登入時的查詢（網域導向、是否只允許 SSO、解密後的連線設定）。
  */
 @Injectable()
-export class IdentityProviderService {
+export class IdentityProviderService implements OnModuleInit {
   private readonly secrets: SecretBox;
   private readonly callback: string;
 
@@ -73,6 +75,7 @@ export class IdentityProviderService {
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: IdentityProviderRepository,
     private readonly audit: AuditService,
+    private readonly impacts: TenantFeatureImpacts,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -80,13 +83,25 @@ export class IdentityProviderService {
       // production 不推導：對外 API 的程序不持有這把金鑰（docs/architecture/06-external-api.md §6）
       config.get('NODE_ENV', { infer: true }) === 'production'
         ? null
-        : config.get('JWT_SECRET', { infer: true }),
+        : (config.get('JWT_SECRET', { infer: true }) ?? null),
       IDP_SECRET_PURPOSE,
     );
     const issuer = new URL(config.get('OIDC_ISSUER', { infer: true }));
     // 瀏覽器看到的 api 前綴（issuer 路徑去掉最後的 /oidc）＋ AuthModule 的固定 callback 路徑
     const apiPrefix = issuer.pathname.replace(/\/oidc$/, '');
     this.callback = `${issuer.origin}${apiPrefix}/oidc-interaction/external/callback`;
+  }
+
+  onModuleInit(): void {
+    // 平台管理者關閉這個 feature 前，確認框列出受影響的連線與使用者（docs/architecture/05-tenancy.md §12）
+    this.impacts.register('identityProvider', async () => {
+      const impact = await this.repo.countImpact();
+      return {
+        identityProviderConnections: impact.connections,
+        ssoOnlyDomains: impact.ssoOnlyDomains,
+        passwordlessExternalUsers: impact.passwordlessUsers,
+      };
+    });
   }
 
   /** 登記在外部 IdP 的 redirect URI：所有連線共用一個（外部 IdP 大多要求完全相符，不能帶互動 id）。 */

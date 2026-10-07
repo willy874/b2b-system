@@ -132,6 +132,26 @@ function systemSetup(options: SystemSetupOptions = {}) {
     create: vi.fn(async (values: FileFolderInsert[], _tx?: DbOrTx) =>
       values.map((value) => insert({ ...value, parentId: value.parentId ?? null })),
     ),
+    /** 唯一索引的模擬：同層同名（不分大小寫）或擁有者已有個人資料夾的列略過。 */
+    createSkippingConflicts: vi.fn(async (values: FileFolderInsert[], _tx: DbOrTx) =>
+      values.flatMap((value) => {
+        const clash = live().some(
+          (row) =>
+            (row.parentId === (value.parentId ?? null) &&
+              row.name.toLowerCase() === value.name.toLowerCase()) ||
+            (value.kind === 'personal' && row.kind === 'personal' && row.ownerId === value.ownerId),
+        );
+        return clash ? [] : [insert({ ...value, parentId: value.parentId ?? null })];
+      }),
+    ),
+    findChildNames: vi.fn(
+      async (parentId: string, _tx?: DbOrTx) =>
+        new Set(
+          live()
+            .filter((row) => row.parentId === parentId)
+            .map((row) => row.name.toLowerCase()),
+        ),
+    ),
     findActiveUserIds: vi.fn(async () => PEOPLE.map((person) => person.id)),
     findPersonalOwnerIds: vi.fn(
       async (userIds: readonly string[], _tx?: DbOrTx) =>
@@ -171,6 +191,19 @@ function systemSetup(options: SystemSetupOptions = {}) {
   };
   const grantStore = new Map<string, { key: GrantKey; level: GrantLevel }>();
   const grants = {
+    createForNewFolders: vi.fn(
+      async (
+        entries: readonly (GrantKey & { level: GrantLevel; grantedBy: string | null })[],
+        _tx: DbOrTx,
+      ) => {
+        for (const entry of entries) {
+          grantStore.set(`${entry.folderId}|${entry.subjectType}|${entry.subjectId}`, {
+            key: entry,
+            level: entry.level,
+          });
+        }
+      },
+    ),
     set: vi.fn(
       async (
         key: GrantKey,
@@ -205,6 +238,7 @@ function systemSetup(options: SystemSetupOptions = {}) {
   };
   const audit = {
     record: vi.fn(async (_entry: Record<string, unknown>, _tx?: DbOrTx) => undefined),
+    recordMany: vi.fn(async (_entries: Record<string, unknown>[], _tx?: DbOrTx) => undefined),
   };
   const handlers = new Map<string, Handler>();
   const unsubscribe = vi.fn();
@@ -389,16 +423,51 @@ describe('FileSystemFolderService.ensurePersonalFolders（docs/rbac/07-resource-
   it('稽核：fileFolder.create，操作者是 system，記下擁有者', async () => {
     const { service, audit, personalOf } = systemSetup();
     await service.ensurePersonalFolders([ALICE.id]);
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'fileFolder.create',
-        resourceId: personalOf(ALICE.id)?.id,
-        actorId: null,
-        actorEmail: 'system',
-        changes: { after: { name: 'Alice', kind: 'personal', ownerId: ALICE.id } },
-      }),
+    expect(audit.recordMany).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          action: 'fileFolder.create',
+          resourceId: personalOf(ALICE.id)?.id,
+          actorId: null,
+          actorEmail: 'system',
+          changes: { after: { name: 'Alice', kind: 'personal', ownerId: ALICE.id } },
+        }),
+      ],
       expect.anything(),
     );
+  });
+
+  it('一批人一次寫入：資料夾、授權、稽核各一個多列 INSERT，不逐人查詢名稱', async () => {
+    const { service, repo, grants, audit } = systemSetup();
+    await service.ensurePersonalFolders([ALICE.id, BOB.id, CAROL.id]);
+    expect(repo.createSkippingConflicts).toHaveBeenCalledTimes(1);
+    expect(grants.createForNewFolders).toHaveBeenCalledTimes(1);
+    expect(audit.recordMany).toHaveBeenCalledTimes(1);
+    expect(repo.hasSibling).not.toHaveBeenCalled();
+  });
+
+  it('同一批的人顯示名稱相同（不分大小寫）→ 後面的人改用下一個候選名稱', async () => {
+    const { service, repo, personalOf } = systemSetup();
+    const twin = {
+      id: '44444444-4444-4444-8444-444444444444',
+      displayName: 'alice',
+      email: 'a2@example.com',
+    };
+    repo.findUsers.mockResolvedValueOnce([ALICE, twin]);
+    await service.ensurePersonalFolders([ALICE.id, twin.id]);
+    expect(personalOf(ALICE.id)?.name).toBe('Alice');
+    expect(personalOf(twin.id)?.name).toBe('alice (a2@example.com)');
+  });
+
+  it('批次寫入時被唯一索引略過的人 → 改走逐人建立（以資料庫查詢挑名稱）', async () => {
+    const { service, repo, insert, personalOf } = systemSetup();
+    const privateRoot = await service.ensureSystemFolders();
+    insert({ name: 'ALICE', parentId: privateRoot.id });
+    // 記憶體裡的比對沒看到撞名（例：大小寫規則與 Postgres 的 lower() 不同），由唯一索引擋下
+    repo.findChildNames.mockResolvedValueOnce(new Set());
+    await service.ensurePersonalFolders([ALICE.id]);
+    expect(repo.hasSibling).toHaveBeenCalled();
+    expect(personalOf(ALICE.id)?.name).toBe('Alice (alice@example.com)');
   });
 
   it('同一層撞名 → 改用下一個候選名稱', async () => {
@@ -465,9 +534,10 @@ describe('FileSystemFolderService.ensurePersonalFolders（docs/rbac/07-resource-
     expect(live().filter((row) => row.kind === 'personal')).toHaveLength(1);
   });
 
-  it('一個人建立失敗 → 只略過他，同一批其他人照常建立', async () => {
+  it('批次失敗 → 退回逐人建立；一個人建立失敗只略過他，同一批其他人照常建立', async () => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const { service, grants, personalOf } = systemSetup();
+    grants.createForNewFolders.mockRejectedValue(new Error('boom'));
     grants.set.mockImplementation(async (key: GrantKey) => {
       if (key.subjectId === ALICE.id) throw new Error('unique violation');
     });
@@ -489,10 +559,11 @@ describe('FileSystemFolderService.ensurePersonalFolders（docs/rbac/07-resource-
       ],
     });
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    grants.createForNewFolders.mockRejectedValue(new Error('boom'));
     grants.set.mockRejectedValue(new Error('boom'));
     await service.ensurePersonalFolders([ALICE.id]);
     expect(events.publish).not.toHaveBeenCalled();
-    grants.set.mockResolvedValue(undefined);
+    grants.createForNewFolders.mockResolvedValue(undefined);
     await service.ensurePersonalFolders([ALICE.id]);
     expect(events.publish).toHaveBeenCalledWith(DomainEvent.RESOURCE_CHANGED, FOLDER_CREATED);
     warn.mockRestore();

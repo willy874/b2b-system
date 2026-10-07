@@ -172,7 +172,7 @@ describe('郵件寄送（docs/architecture/backend/11-mail.md）', () => {
   it('申請帳號被駁回 → 申請人收到結果與審核意見', async () => {
     await request(http)
       .post('/auth/register')
-      .send({ email: 'applicant@example.com', displayName: '申請人', password: NEW_PASSWORD })
+      .send({ email: 'applicant@example.com', displayName: '申請人' })
       .expect(202);
     const token = await adminToken();
     const list = await request(http)

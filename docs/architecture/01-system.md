@@ -255,6 +255,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   碰不到 `postgres`。
 - `/storage/` 的 location **不去掉前綴、原樣轉發 `Host`**、不緩衝、不限大小：瀏覽器以 presigned URL 直傳／下載，
   簽章涵蓋 host 與完整路徑（[`backend/09-file.md`](./backend/09-file.md) §3）。同源，所以 CSP 不必放寬。
+  設定 `FILE_DOWNLOAD_ORIGIN` 時，下載與預覽改由獨立、不帶 cookie 的檔案網域提供（同一個 backstage 容器的另一個 server，CSP 放行那一個 origin；[`backend/09-file.md`](./backend/09-file.md) §3.2）。
   換成真正的 S3 時拿掉 `file-storage` 服務，改 api 的 `FILE_STORAGE_*` 即可。
 - `migrate` 與 `api` 共用映像：部署時 schema 一定先於新版程式就位，api 不在啟動時自己跑 migration
   （多執行個體時會互搶）。
@@ -264,7 +265,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   （有自己 `add_header` 的 location 要再 include 一次，nginx 不會繼承）。
 - **nginx 的容量與強化**（`deploy/nginx.main.conf`）：每條 WebSocket 佔兩個連線，`worker_connections 8192`、
   `worker_rlimit_nofile 65535`（compose 的 `ulimits` 同步放寬）；對 api 用 `upstream` ＋ `keepalive`（`/api/` 清掉
-  `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`。
+  `Connection` 標頭，api 的 `keepAliveTimeout` 65 秒大於 nginx 的 60 秒）；`server_tokens off`、`gzip_proxied any`；
+  存取日誌的 `log_format` 記 `$request_method $uri $server_protocol` 而不是 `$request`，不留 query string（OIDC 的 `code`／`state`、重設密碼的 token）。
   映像是 `nginxinc/nginx-unprivileged`（uid 101、listen 8080），compose 以唯讀根目錄、`cap_drop: [ALL]` 執行。
   三個 nginx 都有 `/_nginx_health`（只接受容器內的連線），前端映像的 `HEALTHCHECK` 與 external-gateway 的 healthcheck 打它，
   不依賴 api 的狀態。改設定後跑 `sh deploy/check-nginx.sh`（Docker：`nginx -t` ＋ 實際轉發的標頭、X-Forwarded-For、健康檢查）；
@@ -338,7 +340,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | --- | --- | --- |
 | postgres | volume `postgres-data`：平台 DB ＋ 每個租戶的 database ＋ DB 角色 | 全部的資料 |
 | 物件 | volume `file-storage-data`（每個租戶一個 bucket） | 檔案內容；DB 的紀錄還在，但下載與預覽失敗 |
-| 主金鑰 | 環境變數（`deploy/prod.env`）：`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SECRET` | 見下方「主金鑰」 |
+| 主金鑰 | 環境變數（`deploy/prod.env`）：`TENANT_SECRET_KEY`、`IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY`、`OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS`、`FILE_URL_SIGNING_KEY` | 見下方「主金鑰」 |
 
 無法復原的操作：`trash.purge`（回收桶到期永久刪除）、`pnpm db:drop-tenant --confirm`、`pnpm db:reset`。它們之前的狀態只能從備份拿回來。
 
@@ -371,7 +373,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | --- | --- |
 | `TENANT_SECRET_KEY` | 平台 DB 裡所有租戶的連線字串都解不開，所有租戶無法服務。要以超級使用者替每個租戶角色重設密碼，再以新的金鑰加密新的連線字串寫回 `tenants.database_url_encrypted`（沒有現成的工具，要寫一次性的腳本，用 `SecretBox` 的 `TENANT_SECRET_PURPOSE`） |
 | `IDP_SECRET_KEY`、`WEBHOOK_SECRET_KEY` | 外部 IdP 的 client secret、webhook 的簽章密鑰解不開：在畫面上重新輸入 client secret、重新產生 webhook 密鑰 |
-| `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SECRET` | 換一把新的即可：已發出的 ID token、IdP session、access token 失效，使用者重新登入 |
+| `OIDC_JWKS`、`OIDC_COOKIE_KEYS`、`JWT_SIGNING_KEYS`、`PLATFORM_JWT_SIGNING_KEYS`、`FILE_URL_SIGNING_KEY` | 換一把新的即可：已發出的 ID token、IdP session、access token、縮圖網址失效，使用者重新登入 |
 
 **還原演練**：定期在另一台主機照上面的步驟還原一次，記下日期、備份的時間點、花了多久、遇到的問題。
 

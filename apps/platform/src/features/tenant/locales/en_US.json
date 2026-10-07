@@ -102,6 +102,15 @@
       "webhookDisableWarning": "{{code}} webhooks stop sending, and events that occur in the meantime are not sent later when you turn this back on.",
       "disableTitle": "Turn off feature",
       "disableConfirm": "After turning this off, {{code}} users immediately lose access to \"{{feature}}\" and anyone on its pages is sent back to the home page. Data is kept and comes back when you turn it on again.",
+      "impactTitle": "Currently affected:",
+      "impact": {
+        "identityProviderConnections_one": "{{count}} external IdP connection",
+        "identityProviderConnections_other": "{{count}} external IdP connections",
+        "ssoOnlyDomains_one": "{{count}} SSO-only domain will fall back to password sign-in",
+        "ssoOnlyDomains_other": "{{count}} SSO-only domains will fall back to password sign-in",
+        "passwordlessExternalUsers_one": "{{count}} user signs in only through the external IdP and has no password; they must reset it first",
+        "passwordlessExternalUsers_other": "{{count}} users sign in only through the external IdP and have no password; they must reset it first"
+      },
       "disableAction": "Turn off",
       "announcement": "Announcements",
       "announcementDescription": "Tenant admins write announcements and send them as in-app notifications to selected people, groups, roles, or everyone, immediately or on a schedule.",
@@ -131,7 +140,9 @@
       },
       "auditLog": {
         "hotRetentionDays": "Hot data retention",
-        "hotRetentionDaysDescription": "Audit records older than this are moved to the archive table daily. Both remain searchable; archive queries are slower."
+        "hotRetentionDaysDescription": "Audit records older than this are moved to the archive table daily. Both remain searchable; archive queries are slower.",
+        "retentionDays": "Archive retention",
+        "retentionDaysDescription": "Archived records older than this are deleted a whole month at a time (daily; each deletion is itself audited). At least 365 days; -1 keeps them forever. Records are always kept at least as long as the hot retention."
       },
       "job": {
         "maxConcurrency": "Concurrent jobs",
@@ -148,7 +159,8 @@
       "unit": {
         "days": "{{value}} days",
         "megabytes": "{{value}} MB",
-        "count": "{{value}}"
+        "count": "{{value}}",
+        "perMinute": "{{value}} per minute"
       },
       "overridden": "Customized",
       "edit": "Edit {{name}}",
@@ -157,12 +169,25 @@
       "rangeHint": "{{min}}–{{max}}, default {{default}}",
       "defaultHint": "Default {{default}}",
       "rangeError": "Enter a whole number from {{min}} to {{max}}",
-      "success": "Parameter updated"
+      "success": "Parameter updated",
+      "rateLimit": {
+        "authPerMinute": "Sign-in rate limit",
+        "authPerMinuteDescription": "Maximum sign-in requests per minute across the whole tenant. Under attack, only this tenant gets \"too many requests\"; other tenants are unaffected.",
+        "trustedCidrs": "Trusted networks",
+        "trustedCidrsDescription": "The customer's office or VPN ranges (CIDR, separated by commas or spaces, e.g. 203.0.113.0/24). Sign-ins from these networks get 10× the per-IP limit, so a whole company behind one NAT is not throttled; per-account limits, delays and lockout still apply."
+      },
+      "empty": "Not set",
+      "forever": "Forever",
+      "foreverHint": "; {{value}} keeps them forever"
     },
     "tab": {
       "overview": "Overview",
       "features": "Features",
       "flags": "Feature flags"
+    },
+    "limits": {
+      "title": "Tenant-wide limits",
+      "description": "Limits that apply to the whole tenant rather than a specific feature."
     }
   }
 }

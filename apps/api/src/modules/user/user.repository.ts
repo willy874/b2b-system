@@ -184,17 +184,25 @@ export class UserRepository {
       order === 'asc' ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),
     );
 
+    // 先在 users 上排序、分頁，只對這一頁的人 join 角色並聚合：聚合不必涵蓋 offset 之前的每一個人
+    // （排序欄都在 users 上，篩選的角色條件是 EXISTS，不需要先聚合）
+    const page = this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(where)
+      .orderBy(...orderBy, desc(users.id))
+      .limit(query.limit)
+      .offset(query.offset)
+      .as('page');
     const [rows, [counted]] = await Promise.all([
       this.db
         .select({ user: users, roles: ROLE_AGGREGATE })
-        .from(users)
+        .from(page)
+        .innerJoin(users, eq(users.id, page.id))
         .leftJoin(relationTuples, HELD_BY_USER)
         .leftJoin(roles, HELD_ROLE)
-        .where(where)
         .groupBy(users.id)
-        .orderBy(...orderBy, desc(users.id))
-        .limit(query.limit)
-        .offset(query.offset),
+        .orderBy(...orderBy, desc(users.id)),
       this.db
         .select({ total: sql<number>`count(*)::int` })
         .from(users)
@@ -450,7 +458,7 @@ export class UserRepository {
     return row;
   }
 
-  /** 未刪除、username 相同（不分大小寫，citext）的帳號：還原前找佔用者。 */
+  /** 未刪除、username 相同（不分大小寫，citext）的帳號：改名與還原前找佔用者。 */
   async findByUsername(username: string, tx?: DbOrTx): Promise<UserRow | undefined> {
     const [row] = await (tx ?? this.db)
       .select()

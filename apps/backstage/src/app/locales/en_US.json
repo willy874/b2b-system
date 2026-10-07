@@ -105,7 +105,8 @@
       "update": "Edit files",
       "delete": "Delete files",
       "access": "Use the file manager",
-      "share": "Manage file access"
+      "share": "Manage file access",
+      "listPersonal": "See others' personal folders"
     },
     "job": {
       "read": "View background jobs",

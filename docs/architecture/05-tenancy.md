@@ -200,18 +200,22 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 
 決定與理由見 §13。§5.1 的 `features` 決定租戶 **有沒有** 某個 feature；
 參數決定開了之後 **能用多少**。由平台管理者在租戶詳情（apps/platform 的「啟用的功能」，每個 feature 那一列下）設定，租戶管理者不能改。
+不屬於任何可開關的 feature、對整個租戶生效的限制（`feature: null`，key 以 `rateLimit.` 開頭）列在同一頁的「全租戶的限制」。
 
-**目錄**（`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`）：每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`、
-`type`（`integer` ｜ `string`）、`defaultValue`、整數的 `min`／`max`／`unit`（`days`、`megabytes`、`count`）、字串的 `maxLength`／`pattern`。
+**目錄**（`core/tenant/tenant-feature-params.ts` 的 `TENANT_FEATURE_PARAMS`）：每個參數有 `key`（`<feature>.<名稱>`）、所屬的 `feature`（或 `null`）、
+`type`（`integer` ｜ `string`）、`defaultValue`、整數的 `min`／`max`／`unit`（`days`、`megabytes`、`count`、`perMinute`）、字串的 `maxLength`／`pattern`。
 key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 
 | key | 預設 | 範圍 | 效果 | 出處 |
 | --- | --- | --- | --- | --- |
 | `file.storageQuotaMb` | 2048（MB） | 1–10485760 | 所有檔案的大小合計上限，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED` | [`backend/09-file.md`](./backend/09-file.md) §5.0 |
 | `auditLog.hotRetentionDays` | 90（天） | 7–3650 | 稽核熱表保留天數；`auditLog.archive` 搬移早於它的紀錄 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) §7.2、§8 |
+| `auditLog.retentionDays` | 365（天） | 365–36500，或 `-1`（永久） | 稽核冷表保留天數；`auditLog.archive` 以 DROP 整個月份分區刪除早於它的紀錄（實際至少保留熱表的天數）。參數的 `foreverValue`（`-1`）不受範圍限制，畫面顯示「永久」 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) §10 |
 | `job.maxConcurrency` | 10 | 1–100 | 租戶所有種類的背景工作同時執行的筆數；超過的放回佇列 | [`backend/10-jobs.md`](./backend/10-jobs.md) §3 |
 | `identityProvider.maxProviders` | 10 | 1–100 | 外部 IdP 連線數上限，超過回 `409 IDENTITY_PROVIDER_LIMIT_REACHED` | [`04-sso.md`](./04-sso.md) |
 | `webhook.maxUrls` | 1 | 1–500 | 整個租戶的 webhook 訂閱裡不重複的網址數；超過而且變多回 `409 WEBHOOK_URL_LIMIT_REACHED` | [`backend/17-webhook.md`](./backend/17-webhook.md) §2.1 |
+| `rateLimit.authPerMinute`（全租戶） | 1200（次／分） | 60–100000 | 這個租戶登入類請求每分鐘合計的上限，超過回 `429 RATE_LIMITED`；沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT` | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 |
+| `rateLimit.trustedCidrs`（全租戶） | 空（未設定） | 字串，最長 1000，逗號或空白分隔的 CIDR／位址 | 客戶公司或 VPN 的網段：從這些網段登入時 `auth`／`authMail` 的 IP 桶上限 ×10，帳號桶、延遲、鎖定不變 | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8、[`backend/04-auth.md`](./backend/04-auth.md) §12 D5 |
 
 - **讀取**：`tenantFeatureParam(PARAM)` 取目前租戶的生效值（沒有租戶脈絡時拋 `TENANT_NOT_FOUND`）；以 id 找租戶的地方（背景工作佇列）
   用 `resolveTenantFeatureParam(PARAM, record.featureParams)`；腳本讀 `ScriptTenant.featureParams`。覆寫值隨租戶登記載入
@@ -582,6 +586,17 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 
 - **租戶自行開關**：仍只有平台層（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9「原本待決、已定案的事項」1）。
 - **全平台一次關閉**：目前以租戶為單位；單一租戶的部署關掉該租戶即可。要全平台預設不同時，改平台 DB 的預設值。
+
+### 12.5 實作紀錄：關閉前列出受影響的數量
+
+2026-10-07 補上（`hardening-followups.md` 的項目）：確認框除了文字說明，另外列出這個租戶現在受影響的數量。
+
+- `GET /platform/tenants/:id/features/:feature/impact`（`tenant:read`）回 `{ feature, available, items: [{ key, count }] }`。
+  平台端點以 `Tenancy.runForMaintenance` 進入那個租戶計算（不看租戶狀態：停用的租戶也能改 feature）；進不去租戶 DB 時 `available: false`。
+- 計數由擁有 feature 的模組在 `onModuleInit` 向 `core/tenant` 的 `TenantFeatureImpacts` 登記（core 不認識業務模組）；
+  `key` 的清單是 `TENANT_FEATURE_IMPACT_KEYS`，前端以對照表翻譯。沒有登記的 feature 回空清單。
+- 目前只有 `identityProvider`：連線數、只允許 SSO 的網域數、連結了外部身分而自己沒有密碼的使用者數。
+- apps/platform 按下關閉時先查（查詢期間停用開關），數量為 0 的項目不列；查不到時照樣開確認框，只有一般的說明。
 
 ## 13. 設計決策：feature 參數（配額與上限）
 

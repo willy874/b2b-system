@@ -172,7 +172,7 @@ Append-only。`actor_email` 等欄位是寫入當下的快照，因此即使使�
 ### 3.6 `approval_requests`
 
 需要管理員核准才生效的變更（第一個類型是使用者註冊）。申請人、審核者的名稱同樣是快照；
-`private_payload`（註冊的密碼雜湊）永不回傳、審核後清空。欄位、約束與狀態機見
+`private_payload`（只給 handler 用的內容）永不回傳、審核後清空。欄位、約束與狀態機見
 [`06-approval.md`](./06-approval.md)。
 
 ---

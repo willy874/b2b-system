@@ -276,6 +276,64 @@ describe('列表的多欄排序（docs/architecture/backend/03-api-conventions.m
     });
   });
 
+  it('使用者列表先分頁再聚合角色：每一頁的人帶齊全部角色，依角色篩選時也不會只剩那個角色', async () => {
+    const [first, second] = await db
+      .insert(roles)
+      .values([
+        { slug: 'paged-a', name: 'Paged A' },
+        { slug: 'paged-b', name: 'Paged B' },
+      ])
+      .returning();
+    const people = await db
+      .insert(users)
+      .values(
+        ['paged-1', 'paged-2', 'paged-3'].map((name) => ({
+          email: `${name}@example.com`,
+          displayName: name,
+          status: 'active' as const,
+        })),
+      )
+      .returning();
+    // 每個人都持有兩個角色
+    await db
+      .insert(relationTuples)
+      .values(
+        people.flatMap((person) => [
+          roleHolderTuple(first!.id, person.id),
+          roleHolderTuple(second!.id, person.id),
+        ]),
+      );
+
+    const fetchPage = async (query: string) => {
+      const response = await request(http)
+        .get(`/users?keyword=paged-&sort=email&limit=2&${query}`)
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      return (
+        response.body as {
+          data: {
+            items: Array<{ email: string; roles: Array<{ slug: string }> }>;
+            pagination: { total: number };
+          };
+        }
+      ).data;
+    };
+    const page1 = await fetchPage('offset=0');
+    const page2 = await fetchPage('offset=2');
+    expect([...page1.items, ...page2.items].map((item) => item.email)).toEqual([
+      'paged-1@example.com',
+      'paged-2@example.com',
+      'paged-3@example.com',
+    ]);
+    expect(page1.pagination.total).toBe(3);
+    for (const item of [...page1.items, ...page2.items]) {
+      expect(item.roles.map((role) => role.slug)).toEqual(['paged-a', 'paged-b']);
+    }
+
+    const filtered = await fetchPage(`offset=0&roleId=${first!.id}`);
+    expect(filtered.items[0]?.roles.map((role) => role.slug)).toEqual(['paged-a', 'paged-b']);
+  });
+
   it('只剩已軟刪除的使用者持有時，刪除角色不回 ROLE_IN_USE', async () => {
     const delta = (await listRoles('sort=name')).find((item) => item.name === 'Delta sort-case');
     await request(http)

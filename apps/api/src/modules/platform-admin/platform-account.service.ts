@@ -6,7 +6,7 @@ import { PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { hashPassword, verifyPassword } from '@/modules/credential/password';
+import { PasswordHasher } from '@/modules/credential/password-hasher';
 
 import { PlatformAdminRepository } from './platform-admin.repository';
 import { PlatformAuditService } from './platform-audit.service';
@@ -29,6 +29,7 @@ export class PlatformAccountService {
     private readonly audit: PlatformAuditService,
     private readonly userCache: UserCacheService,
     private readonly events: DomainEventBus,
+    private readonly passwords: PasswordHasher,
   ) {}
 
   async verifySetupToken(raw: string): Promise<{ valid: boolean; email?: string }> {
@@ -44,7 +45,7 @@ export class PlatformAccountService {
       throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     }
     // argon2 在交易外算：不佔著交易等雜湊
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await this.passwords.hash(password);
     await withTransaction(this.db, async (tx) => {
       // 併發送出同一張 token：只有一個搶得到
       if (!(await this.tokens.markUsed(token.id, tx))) {
@@ -77,7 +78,7 @@ export class PlatformAccountService {
     if (!token || !admin || admin.status === 'inactive' || admin.status === 'pending') {
       throw new AppException('AUTH_SETUP_TOKEN_INVALID');
     }
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await this.passwords.hash(password);
     await withTransaction(this.db, async (tx) => {
       if (!(await this.tokens.markUsed(token.id, tx))) {
         throw new AppException('AUTH_SETUP_TOKEN_INVALID');
@@ -147,7 +148,7 @@ export class PlatformAccountService {
   ): Promise<{ success: true }> {
     const admin = await this.repo.findById(adminId);
     if (!admin?.passwordHash) throw new AppException('AUTH_PASSWORD_MISMATCH');
-    if (!(await verifyPassword(admin.passwordHash, currentPassword))) {
+    if (!(await this.passwords.verify(admin.passwordHash, currentPassword))) {
       // 同租戶的 AuthService.changePassword：猜目前密碼的嘗試要查得到
       await this.audit.recordSafely({
         action: 'platformAdmin.passwordChange',
@@ -162,7 +163,7 @@ export class PlatformAccountService {
     }
     if (currentPassword === newPassword) throw new AppException('AUTH_PASSWORD_WEAK');
 
-    const passwordHash = await hashPassword(newPassword);
+    const passwordHash = await this.passwords.hash(newPassword);
     await withTransaction(this.db, async (tx) => {
       await this.repo.update(admin.id, { passwordHash }, tx);
       await this.repo.incrementTokenVersion(admin.id, tx);

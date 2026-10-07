@@ -6,11 +6,11 @@
 
 |                | Access Token                  | Refresh Token                      |
 | -------------- | ----------------------------- | ---------------------------------- |
-| 格式           | JWT（HS256）                  | 不透明隨機值（32 bytes base64url） |
+| 格式           | JWT（HS256，header 帶 `kid`；§11） | 不透明隨機值（32 bytes base64url） |
 | 壽命           | **5 分鐘**                    | **7 天**；家族（一次登入）最長 **30 天**（§2.6） |
 | 存放（客戶端） | **記憶體**（JS 閉包）         | `httpOnly` cookie                  |
 | 存放（伺服器） | 不存                          | SHA-256 雜湊後存 `refresh_tokens`  |
-| 內容           | `{ sub, ver, jti, tid, iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
+| 內容           | 租戶：`{ sub, ver, jti, tid, iat, exp }`；平台管理者：`{ sub, ver, jti, realm: 'platform', iat, exp }`；經 SSO 登入時多 `sid`（IdP session） | 無語意；經 SSO 發出時記 `client_id`、`idp_session_uid` |
 | 輪替           | 不適用                        | **每次使用即輪替**                 |
 | 撤銷           | 靠 `token_version` 比對       | DB 標記 `revoked_at`               |
 
@@ -30,6 +30,10 @@ Token 裡因此只有這幾樣東西：
 - `jti` — 供稽核追蹤
 - `tid` — 簽發時的租戶 id（[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D10）：使用者 id 只在自己的租戶 DB 有意義，
   驗證時 `tid` 必須等於請求網域決定的租戶，否則 `AUTH_TOKEN_INVALID`，不會拿去查別的租戶的使用者
+- `realm: 'platform'` — 平台管理者的 token（取代 `tid`）：只在不屬於任何租戶的網域（apps/platform）有效
+- `sid` — 經 SSO 登入時的 IdP session（[`../04-sso.md`](../04-sso.md) §12.2 D5）
+
+簽章金鑰依 realm 分成兩組金鑰環，header 的 `kid` 指出用哪一把（§11）。
 
 ### 1.2 `token_version` 的角色
 
@@ -209,11 +213,14 @@ async refresh(@Req() req: Request) {
 
 ```ts
 async login(dto: LoginDto, ctx: RequestContext) {
+  // ★ 漸進延遲（§3.4）：在 argon2 之前判斷，等待中的嘗試直接 429
+  await this.loginThrottle.assertAllowed(tenant.id, dto.email, ipPrefix);
   const user = await this.userRepo.findByEmail(dto.email);
 
   // ★ 時序攻擊防護：帳號不存在時也跑一次 argon2，讓回應時間一致
   if (!user) {
     await argon2.verify(DUMMY_HASH, dto.password).catch(() => false);
+    await this.loginThrottle.recordFailure(tenant.id, dto.email, ipPrefix);   // 不存在的 email 一樣計數
     await this.audit.loginFailure(dto.email, 'user_not_found', ctx);
     throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
@@ -225,7 +232,10 @@ async login(dto: LoginDto, ctx: RequestContext) {
   const locked = user.lockedUntil && user.lockedUntil > new Date();
 
   if (!ok) {
-    if (!locked) await this.registerFailedAttempt(user, ctx);   // 鎖定中不計數、不延長
+    await this.loginThrottle.recordFailure(tenant.id, dto.email, ipPrefix);
+    if (locked) {}                                                // 鎖定中不計數、不延長
+    else if (await this.loginSources.isKnown(user.id, ipPrefix)) await this.audit.loginFailure(user, 'known_source', ctx);
+    else await this.registerFailedAttempt(user, ctx);             // 只有陌生來源累計鎖定（§3.4）
     throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS);
   }
 
@@ -246,6 +256,8 @@ async login(dto: LoginDto, ctx: RequestContext) {
   await this.userRepo.update(user.id, {
     failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(),
   });
+  await this.loginThrottle.reset(tenant.id, dto.email, ipPrefix);
+  await this.loginSources.remember(user.id, ipPrefix);
   await this.audit.loginSuccess(user, ctx);
 
   return this.issueSession(user, ctx);     // 新 family
@@ -285,8 +297,9 @@ WHERE id = $1 AND (locked_until IS NULL OR locked_until <= now())   -- 鎖定中
 RETURNING failed_login_count, locked_until;
 ```
 
-- **鎖定是輔助，猜測的防線是速率限制**：「帳號 ＋ IP」與每 IP 兩個桶（[`03-api-conventions.md`](./03-api-conventions.md) §8）在鎖定期間照常計數；
+- **鎖定是輔助，猜測的防線是速率限制與漸進延遲**：「帳號 ＋ IP」與每 IP 兩個桶（[`03-api-conventions.md`](./03-api-conventions.md) §8）與 §3.4 的延遲在鎖定期間照常計數；
   鎖定只讓同一個帳號在鎖定期間不能登入，回應與密碼錯誤相同（§3.2）。
+- **只有陌生來源的錯誤累計鎖定**：從已知來源（§3.4）打錯密碼只寫稽核（`metadata.reason: 'known_source'`），不增加 `failed_login_count`。
 - **只寫 `locked_until`，不改 `status`**：鎖定是擋猜密碼，不撤銷既有 session、不推 `session.revoked`。
   否則任何知道 email 的人錯 5 次就能把線上的人（包括最後一位 super-admin）踢下線。API 對外顯示的狀態在
   `locked_until` 還沒到期時是 `locked`（`displayStatusOf`；列表以 `status=locked` 篩選的是 `status = active` 且 `locked_until` 還沒到期，與顯示一致），到期自動回到 `active`。
@@ -304,6 +317,26 @@ RETURNING failed_login_count, locked_until;
 1. 等鎖定時間（預設 15 分鐘）過去，下次成功登入時計數與 `locked_until` 歸零
 2. 「忘記密碼」→ 重設密碼（重設會順帶解鎖；鎖定中的人仍是 `active`，收得到重設信）
 3. 管理員 `POST /users/:id/unlock`（需要 `user:update`）
+
+### 3.4 漸進延遲與已知來源
+
+**漸進延遲**（`core/rate-limit/login-throttle.ts` 的 `LoginThrottle`）：以「租戶 id（平台管理者是 `platform`）× email × IP 前綴（IPv4 完整位址、IPv6 /64）」
+計 **15 分鐘內的密碼錯誤次數**——只算錯誤，不算請求。第 3 次錯誤之後，下一次嘗試要等 `2^(n−3)` 秒（1、2、4…，上限 60 秒）：
+
+- 在查帳號與 argon2 **之前** 判斷，等待中的嘗試回 `429 RATE_LIMITED`（`details.retryAfterSeconds` 與 `Retry-After`），不消耗 argon2，也不計入鎖定。
+  **伺服器不 sleep**：睡著的請求仍佔著連線。
+- 訊息與一般限流相同，前端照樣倒數（不提示「帳號可能被鎖」），不透露這個帳號存在而且正在被延遲；不存在的 email 一樣計數。
+- 成功登入清除。計數經過 `RateLimitStore`（[`03-api-conventions.md`](./03-api-conventions.md) §8），多實例時與限流一起換成共享的實作。
+- 每分鐘 10 次的桶擋不住「每分鐘 9 次、持續一整天」；延遲讓單一來源的猜測成本指數成長，正常使用者打錯兩次不受影響。
+
+**已知來源**：登入成功時記下「使用者 × IP 前綴」（租戶 DB `user_login_sources`、平台 DB `platform_admin_login_sources`，`last_success_at` 每次成功更新）。
+30 天內成功登入過的來源是已知來源（`LOGIN_SOURCE_RETENTION_DAYS`），過期的列由每天的 `auth.tokenCleanup`／`auth.platformTokenCleanup` 分批清除。
+
+- 已知來源的錯誤密碼 **不累計鎖定**，只受延遲限制；陌生來源的錯誤照 §3.3 累計。
+- 解決「知道 email 就能鎖住別人」：受害者從平常的辦公室 IP 仍能登入；分散式撞庫（大量陌生 IP）仍會觸發鎖定。
+- 代價：同一個 NAT 後面的內部人員打錯不會觸發鎖定，但仍受延遲與每分鐘 10 次的桶限制。
+- 上線當下沒有任何已知來源，行為與之前相同；每個人成功登入一次之後才生效。
+- 外部 IdP 登入不經過密碼驗證，不記錄來源。
 
 ---
 
@@ -324,6 +357,20 @@ const OPTIONS = {
 
 參數依 OWASP Password Storage Cheat Sheet 的 Argon2id 建議值。
 
+所有雜湊與驗證（登入、帳號不存在時的假驗證、變更／重設／啟用密碼，租戶與平台管理者）都經過 `PasswordHasher`
+（`modules/credential/password-hasher.ts`，全域的 `PasswordHasherModule`；平台管理者原本用預設參數，現在一樣讀 `ARGON2_*`）：
+
+| 環境變數 | 預設 | 作用 |
+| --- | --- | --- |
+| `ARGON2_MAX_CONCURRENCY` | 4 | 同時執行的上限（每程序）。4 個約佔 76 MiB，留下 `UV_THREADPOOL_SIZE` 的其餘執行緒給 sharp、DNS、檔案 I/O |
+| `ARGON2_MAX_QUEUE` | 32 | 等待中的上限；超過立刻回 `503 AUTH_BUSY` |
+| `ARGON2_QUEUE_TIMEOUT_MS` | 3000 | 等待逾時；超過回 `503 AUTH_BUSY` |
+
+argon2 跑在 libuv 的 threadpool，沒有上限時一陣登入尖峰會佔滿整個 threadpool，連帶拖慢影像處理與 webhook 的 DNS 查詢。
+名額滿了快速失敗（`503 AUTH_BUSY`，`details.retryAfterSeconds = 2` 與 `Retry-After`），登入頁倒數後再試；單次驗證約 25–60 ms，
+4 個並行仍有每秒數十次的吞吐，遠高於每租戶的登入上限（[`03-api-conventions.md`](./03-api-conventions.md) §8）。
+限制器（`core/concurrency/limiter.ts`：FIFO、等待上限、逾時）與影像處理的並行上限共用。上限是 **每程序**，多實例時不共享。
+
 ### 4.2 強度要求
 
 ```ts
@@ -338,9 +385,15 @@ export const PasswordSchema = z
 複雜度規則已被證實會讓使用者選出更好猜的密碼（`Password1!`）。NIST SP 800-63B
 也已移除該建議。
 
-「常見密碼」（`isCommonPassword`）：洩漏清單裡長度 ≥ 12 的密碼幾乎都是「常見字根 ＋ 數字／年份／符號」或鍵盤排列，
-所以不放上萬筆的清單，而是列字根（`common-passwords.ts`），去掉前後的數字與符號、把替換字元換回字母
-（`P@ssw0rd2026!` → `password`）後比對；整串是重複片段或鍵盤／字母順序也算。
+「常見密碼」（`isCommonPassword`）有兩層：
+
+- **洩漏清單**（`common-password-list.ts`）：SecLists 的 `10k-most-common.txt`（MIT）轉小寫、去重、只留長度 ≥ 6 的約 7 700 筆。
+  整串、去掉頭尾符號、去掉尾端的數字與符號、去掉頭尾非字母、把替換字元換回字母、只留字母——任一個版本 **完全等於** 清單裡的一筆就算常見
+  （`Unbelievable`、`Jessica2026!!`、`M@tr1x2026!!`）。只比對長度 ≥ 6 的版本，避免剝成很短的片段後誤判。
+  清單是產生出來的檔案，更新時照檔頭的規則重新產生，不手改。
+- **字根**（`common-passwords.ts`）：洩漏清單裡長度 ≥ 12 的密碼幾乎都是「常見字根 ＋ 數字／年份／符號」或鍵盤排列，
+  清單本身比對不到這些變形；去掉前後的數字與符號、把替換字元換回字母（`P@ssw0rd2026!` → `password`）後比對字根；
+  整串是重複片段或鍵盤／字母順序也算。
 需要脈絡的規則在 service（`assertPasswordPolicy`）：租戶的最短長度（`auth.passwordMinLength`），
 以及密碼不能含 email 的帳號部分、網域名稱或租戶代碼（長度 ≥ 4 的片段）。錯誤形狀與 DTO 驗證相同
 （`VALIDATION_FAILED`，`fields.<欄位> = AUTH_PASSWORD_WEAK`）。
@@ -424,36 +477,29 @@ async forgotPassword(@Body(...) dto: ForgotPasswordDto) {
 
 ## 6. `JwtAuthGuard`
 
+`JwtAuthGuard`、WebSocket 的握手與 `session.renew` 都經過同一個 `AccessTokenVerifier`（`common/auth/access-token.verifier.ts`）：
+
 ```ts
-@Injectable()
-export class JwtAuthGuard implements CanActivate {
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    if (this.reflector.getAllAndOverride(IS_PUBLIC, [ctx.getHandler(), ctx.getClass()])) {
-      return true;
-    }
+async verify(token: string | undefined): Promise<AccessTokenVerifyResult> {
+  const payload = await this.verifyClaims(token); // 驗簽 ＋ 身分範圍
+  if (!payload) return { ok: false, code: 'AUTH_TOKEN_INVALID' };
+  const checked = await this.checkUser(payload.sub, payload.ver); // 快取或 DB：deletedAt、status、token_version
+  return checked.ok ? { ok: true, user: checked.user, payload } : checked;
+}
 
-    const req = ctx.switchToHttp().getRequest();
-    const token = extractBearer(req.headers.authorization);
-    if (!token) throw new AppException(ErrorCode.AUTH_TOKEN_INVALID);
-
-    let payload: AccessTokenPayload;
-    try {
-      payload = await this.jwt.verifyAsync(token, { secret: env.JWT_SECRET });
-    } catch {
-      throw new AppException(ErrorCode.AUTH_TOKEN_INVALID);
-    }
-
-    // 短 TTL 快取：避免每個請求都查 users
-    const user = await this.userCache.get(payload.sub);
-    if (!user || user.deletedAt) throw new AppException(ErrorCode.AUTH_TOKEN_INVALID);
-    if (user.status !== "active") throw new AppException(ErrorCode.AUTH_ACCOUNT_DISABLED);
-    if (user.tokenVersion !== payload.ver) throw new AppException(ErrorCode.AUTH_TOKEN_STALE);
-
-    req.user = { id: user.id, email: user.email, status: user.status };
-    return true;
-  }
+async verifyClaims(token: string | undefined) {
+  if (!token || token.startsWith(API_TOKEN_PREFIX)) return undefined; // API token 只在對外 API 有效
+  const tenant = currentTenant();
+  // 金鑰依網域選（§11 D4）：租戶網域只用租戶的金鑰環、apps/platform 只用平台的
+  const payload = await this.keys.verify(tenant ? 'tenant' : 'platform', token);
+  if (!payload) return undefined;
+  // 身分範圍也由網域決定：租戶網域只接受那個租戶簽的 token，apps/platform 只接受平台管理者的
+  const matches = tenant ? payload.tid === tenant.id : payload.realm === 'platform' && !payload.tid;
+  return matches ? payload : undefined;
 }
 ```
+
+錯誤碼：驗不過（含金鑰、`kid`、身分範圍）→ `AUTH_TOKEN_INVALID`；帳號停用 → `AUTH_ACCOUNT_DISABLED`；`token_version` 不符 → `AUTH_TOKEN_STALE`。
 
 `UserCacheService` TTL 30 秒，且在使用者被更新／停用／刪除時 **主動失效**。
 快取的存在讓「每個請求都驗證使用者狀態」這件事的成本可以接受。
@@ -602,6 +648,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 ### 10.2 決定
 
 - **Access Token**：JWT，5 分鐘，只存客戶端記憶體，內容只有 `{ sub, ver, jti }`
+  （後來加上身分範圍 `tid`／`realm` 與 SSO 的 `sid`，見 §1.1；金鑰環與 `kid` 見 §11）
 - **Refresh Token**：不透明隨機值，7 天，`httpOnly` cookie，
   雜湊後入庫，**每次使用即輪替**，**重用偵測 → 整條家族撤銷**
 - **撤銷機制**：`users.token_version`，遞增即讓所有既存 access token 失效
@@ -640,3 +687,71 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 | Access token 帶權限 | 見 [`05-rbac.md`](./05-rbac.md) §11 |
 | Refresh token 不輪替 | 被竊取後無從察覺 |
 | Refresh token 存 `localStorage` | XSS 直接拿走長期憑證 |
+
+## 11. 設計決策：access token 的金鑰環與用途分離
+
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §1）。
+
+### 11.1 背景
+
+原本租戶與平台的 access token 都以同一把 HS256 `JWT_SECRET` 簽，縮圖網址的 HMAC 金鑰也由它推導，對外 API 的程序為了簽縮圖網址而持有它。
+問題有三：輪替金鑰會讓所有人同時 401；租戶的 token 與平台的 token 只靠 claims 區分；對外入口被攻破時拿到的金鑰能偽造任何人（含平台管理者）的 token。
+
+### 11.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **這一版不做每個租戶一把非對稱金鑰** | 簽發與驗證都在 api 程序；api 被攻破時不論金鑰怎麼存都拿得到所有租戶的金鑰，分開沒有隔離效果。觸發條件見 D6 |
+| D2 | **金鑰環 ＋ `kid`**：`JWT_SIGNING_KEYS`＝`<kid>:<base64 金鑰>[,…]`，第一把簽發、全部都能驗證；簽發時 header 帶 `kid`，驗證依 `kid` 選金鑰，不認得的 `kid` 拒絕。`kid` 限 `[A-Za-z0-9_-]{1,32}`、不可重複；每把金鑰至少 32 bytes（`core/crypto/signing-keys.ts`） | 輪替＝在最前面加一把新的、部署，過一個 `JWT_ACCESS_TTL` 再刪掉舊的、部署，期間沒有人被迫重新登入；外洩時可以立刻拿掉 |
+| D3 | **驗證固定 HS256**（`algorithms: ['HS256']`），金鑰依 `kid` 決定，不信任 token 自稱的 `alg` | 擋掉 `alg: none` 與演算法混淆；之後加入非對稱金鑰時也是以金鑰決定演算法 |
+| D4 | **平台管理者用另一組金鑰環** `PLATFORM_JWT_SIGNING_KEYS`，不能與租戶的共用金鑰；租戶網域只用租戶的金鑰環驗、沒有租戶的網域只用平台的 | 縱深防禦：claims 的比對即使出錯，另一組金鑰簽的 token 也過不了驗簽 |
+| D5 | **縮圖網址的金鑰獨立**：`FILE_URL_SIGNING_KEY`，簽章內容 `v2\n<tenantId>\n<fileId>\n<variant>\n<expiresAt>`、簽章值以 `v2.` 開頭（[`09-file.md`](./09-file.md) §5.4）。對外 API 的程序只拿到它，拿不到 access token 的金鑰（`AccessTokenKeys` 在對外的範圍不載入任何金鑰，`verifyClaims` 一律拒絕） | 對外入口被攻破時不能偽造 access token；網址帶租戶，換到別的租戶的網域直接驗不過 |
+| D6 | **每租戶非對稱金鑰的觸發條件**（任一）：出現 api 程序以外、只需要驗證 token 的元件；客戶合約要求租戶專屬金鑰或自備金鑰；平台 realm 拆成獨立程序 | 三者都讓「簽的人」與「驗的人」分開，非對稱與分租戶才有實質效果。屆時 `kid` 已就位，token 格式不必再改 |
+| D7 | **過渡期以 `JWT_SECRET` 驗證沒有 `kid` 的舊 token 與 v1 的縮圖網址**；production 的 `JWT_SECRET` 改為選填，過渡期（`JWT_ACCESS_TTL` ＋ `FILE_URL_TTL`，約一小時）之後從環境拿掉，舊格式就一律拒絕 | 升級的那次部署沒有人被登出；結束過渡期只改設定、不必再部署一次程式 |
+| D8 | **開發與測試不必設定金鑰環**：沒設定時由 `JWT_SECRET` 以 HKDF 推導（每個用途不同：租戶、平台、縮圖網址）；production 一律要明確設定 | `.env.example` 維持一個值就能跑；推導出的金鑰不是 `JWT_SECRET` 本身，租戶與平台的金鑰也不同 |
+
+### 11.3 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 部署多三個必填的秘密 | `deploy/prod.env.example` 附產生方式；`deploy/fake-prod-env.mjs`、`prod-compose-env.spec.ts` 檢查 compose 的形狀 |
+| 輪替要部署兩次 | 與其他金鑰（`OIDC_JWKS`、`OIDC_COOKIE_KEYS`）相同的流程 |
+
+### 11.4 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 維持單一 HS256 金鑰 | 不採用：輪替造成 refresh 尖峰；對外 API 持有能偽造所有 token 的金鑰 |
+| 每租戶 ES256 金鑰（平台 DB 存加密的私鑰、`TenantDirectory` 快取公鑰、背景工作輪替、JWKS 端點） | 延後到 D6 的條件成立 |
+| 每租戶 HMAC 金鑰（由主金鑰以 HKDF 推導） | 不採用：主金鑰外洩等於全部外洩，只是看起來分開 |
+| 加 `iss`／`aud` claims | 不採用：`tid`／`realm` 已表達受眾 |
+
+---
+
+## 12. 設計決策：登入的容量與速率限制第二版
+
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §3）。共享計數（多實例時上限不變成 N 倍）是 [`../../features/multi-instance.md`](../../features/multi-instance.md) 的範圍；這裡定的是計數什麼、怎麼反應，兩者以 D1 的介面銜接。
+
+### 12.1 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **計數介面 `RateLimitStore`**（`core/rate-limit/`）：`hit(key, windowMs) → { count, resetAt, lastAt }`、`peek(key)`、`reset(key)`；先以記憶體實作（`MemoryRateLimitStore`），全域 guard 不再依賴 `@nestjs/throttler` 的 storage | 第二版不必等多實例；多實例也不必重寫規則。鎖定（`locked_until`）與 D3 的已知來源本來就在 DB，多實例下天生共享 |
+| D2 | **「帳號 × IP」漸進延遲**（§3.4）：15 分鐘內第 3 次錯誤之後等 `2^(n−3)` 秒（上限 60），回 429、伺服器不 sleep，成功清除，未知的 email 一樣計數 | 延遲讓單一來源的猜測成本指數成長；不 sleep 是因為睡著的請求仍佔著連線 |
+| D3 | **已知來源不觸發鎖定**（§3.4）：`user_login_sources`／`platform_admin_login_sources`，保留 30 天，每天清理 | 知道 email 的人不能把別人鎖住；分散式撞庫仍會觸發鎖定 |
+| D4 | **每租戶的登入上限**：`auth` 政策的租戶桶，預設 `AUTH_TENANT_RATE_LIMIT` = 1200/分（平台登入另一個桶），平台以 feature 參數 `rateLimit.authPerMinute` 覆寫（[`../05-tenancy.md`](../05-tenancy.md) §13） | 一個租戶被攻擊時，攻擊流量與它消耗的 argon2 不拖垮其他租戶的登入 |
+| D5 | **IP 白名單是放寬不是豁免**：feature 參數 `rateLimit.trustedCidrs` 讓 `auth`／`authMail` 的 IP 桶 ×10，帳號桶、延遲、租戶桶不變；全平台的 `RATE_LIMIT_EXEMPT_CIDRS` 只給監控與內部服務，豁免以 IP 計的桶 | 企業 NAT 後面整間公司共用一個 IP；帳號層級的保護沒有理由因來源可信而拿掉。由平台設定：放寬會消耗共用的容量 |
+| D6 | **argon2 的並行上限**：所有 hash／verify 經過 `PasswordHasher`（§4.1 的 `ARGON2_MAX_CONCURRENCY`／`ARGON2_MAX_QUEUE`／`ARGON2_QUEUE_TIMEOUT_MS`），滿了回 `503 AUTH_BUSY` ＋ `Retry-After` | 快速失敗比在 threadpool 裡無限排隊好；上限是每程序（CPU 是每台機器的資源） |
+| D7 | **前端**：登入表單遇到 `429`／`503 AUTH_BUSY` 時以 `retryAfterSeconds` 倒數並停用送出鈕；延遲不額外提示 | 不洩漏「這個帳號存在而且正在被延遲」 |
+| D8 | **與 multi-instance 的銜接**：所有計數都經過 D1；N 個實例而還沒換共享實作時，上限實際是 N 倍（[`03-api-conventions.md`](./03-api-conventions.md) §8）。寫入量：延遲只在密碼錯誤時寫、已知來源每次成功登入一次 upsert | 讓 multi-instance 評估 Postgres 計數時有明確的寫入量依據 |
+
+### 12.2 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 伺服器端 sleep 做延遲 | 不採用：見 D2 |
+| CAPTCHA 取代延遲 | 不採用：要引入第三方服務；通用後台的使用者多半在公司網路，延遲已足夠。之後若要做，掛在「延遲超過 N 秒」之後 |
+| 裝置 cookie（記住瀏覽器）取代 IP 前綴當已知來源 | 這一版不採用：登入在 apps/platform 的 OIDC 互動裡，cookie 要跨網域傳遞與輪替；之後與 [`../../features/mfa.md`](../../features/mfa.md) 的「記住這台裝置」一起做 |
+| argon2 每租戶各自一個佇列（公平排程） | 不採用：D4 的租戶桶已限制單一租戶能送進來的量 |
+| 降低 argon2 參數換吞吐 | 不採用：參數是密碼強度的決定（§4.1），不該被容量問題綁架 |
+| 租戶管理者自己設定 IP 白名單 | 不採用：放寬會消耗全平台共用的容量，由平台管理者決定 |

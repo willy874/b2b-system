@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Database } from '@/core/database';
+import { auditLogs } from '@/db/schema';
 
 import { AUDIT_LOG_ARCHIVE_BATCH_SIZE } from './audit-log.constants';
 
@@ -33,4 +34,59 @@ export async function archiveAuditLogs(
     if (batch < batchSize) break;
   }
   return { moved, cutoff };
+}
+
+/** 一個被刪除的月份分區（`drop_expired_audit_archive_partitions` 的回傳）。 */
+export interface PurgedAuditPartition {
+  partition: string;
+  rows: number;
+}
+
+/**
+ * 冷表的分區維護（docs/architecture/backend/06-audit-log.md §10）：預建這個月與下個月的分區；租戶設了保留天數（不是 `-1`）時，
+ * 以 DROP 整個月份分區刪除早於「現在 − 保留天數」的紀錄，並在熱表寫一筆 `auditLog.purge`（每個分區一筆）。
+ * 實際保留至少是熱表的天數：熱表搬過來的紀錄不會一到冷表就被刪。資料庫函式另有 365 天的硬下限。
+ * 不依賴 DI：排程工作與 `pnpm db:archive-audit-logs` 共用。
+ */
+export async function maintainAuditArchive(
+  db: Pick<Database, 'execute' | 'insert'>,
+  options: { retentionDays: number; hotRetentionDays: number; foreverValue: number },
+  now = new Date(),
+): Promise<PurgedAuditPartition[]> {
+  const nextMonth = new Date(now.getTime() + 31 * DAY_MS);
+  await db.execute(
+    sql`SELECT ensure_audit_archive_partitions(${now.toISOString()}::timestamptz, ${nextMonth.toISOString()}::timestamptz)`,
+  );
+  if (options.retentionDays === options.foreverValue) return [];
+
+  const effectiveDays = Math.max(options.retentionDays, options.hotRetentionDays);
+  const cutoff = new Date(now.getTime() - effectiveDays * DAY_MS).toISOString().slice(0, 10);
+  const rows = await db.execute<{ partition_name: string; row_count: string | number }>(
+    sql`SELECT partition_name, row_count FROM drop_expired_audit_archive_partitions(${cutoff}::date)`,
+  );
+  const purged = [...rows].map((row) => ({
+    partition: row.partition_name,
+    rows: Number(row.row_count),
+  }));
+  if (purged.length > 0) {
+    // 刪除本身也要留下紀錄（寫進熱表，不會被這次刪掉）
+    await db.insert(auditLogs).values(
+      purged.map((item) => ({
+        occurredAt: now,
+        actorId: null,
+        actorEmail: 'system',
+        action: 'auditLog.purge',
+        resourceType: 'auditLog',
+        resourceName: item.partition,
+        result: 'success' as const,
+        metadata: {
+          partition: item.partition,
+          rows: item.rows,
+          retentionDays: effectiveDays,
+          cutoff,
+        },
+      })),
+    );
+  }
+  return purged;
 }

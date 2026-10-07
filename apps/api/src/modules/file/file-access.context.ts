@@ -29,9 +29,12 @@ export const FILE_ACTION_RELATION = {
   share: 'can_share',
 } as const satisfies Record<FileAction, string>;
 
-/** 資料夾結構的一個節點：解析等級用的欄位 ＋ 擁有者。 */
+/** 資料夾結構的一個節點：解析等級用的欄位 ＋ 建立者 ＋ 種類與個人資料夾的擁有者（決定別人看不看得到）。 */
 export interface FolderNode extends HierarchyNode {
   createdBy: string | null;
+  /** 沒帶（測試的假資料）＝一般資料夾。 */
+  kind?: FileFolderKind;
+  ownerId?: string | null;
 }
 
 export interface FileCapabilities {
@@ -130,14 +133,62 @@ export class FileAccessContext {
     return { canCreate: this.can('create', null) };
   }
 
-  /** 資料夾存在（未刪除）。資料夾對所有能進檔案管理器的人可見，能不能讀另外看 `can('read')`。 */
+  /**
+   * 資料夾存在（未刪除）而且看得到。資料夾對所有能進檔案管理器的人可見，能不能讀另外看 `can('read')`；
+   * 唯一的例外是別人的個人資料夾（`isHidden`）：看不到的一律當作不存在（`404 FILE_FOLDER_NOT_FOUND`）。
+   */
   exists(folderId: string): boolean {
-    return this.folders.has(folderId);
+    return this.folders.has(folderId) && !this.isHidden(folderId);
+  }
+
+  /**
+   * 別人的個人資料夾（與它的子孫）對這個操作者隱藏（docs/rbac/07-resource-grants.md §12.1）：
+   * - 全域 `file:read`（讀得到全部）或 `file:listPersonal`（看得到、鎖住）：都不隱藏；
+   * - 否則只有「自己或任一子孫讀得到」的節點出現（本身讀不到的以鎖住的節點出現，才走得到裡面被分享的資料夾）。
+   * 一次請求只算一次（由下往上，O(n)）。
+   */
+  isHidden(folderId: string): boolean {
+    this.hidden ??= this.computeHidden();
+    return this.hidden.has(folderId);
+  }
+
+  private hidden: ReadonlySet<string> | undefined;
+
+  private computeHidden(): ReadonlySet<string> {
+    if (
+      this.hasGlobal('read') ||
+      this.checker.check(TENANT_OBJECT, PERMISSION.FILE_LIST_PERSONAL)
+    ) {
+      return new Set();
+    }
+    const children = new Map<string, string[]>();
+    for (const node of this.folders.values()) {
+      if (node.parentId === null) continue;
+      const siblings = children.get(node.parentId);
+      if (siblings) siblings.push(node.id);
+      else children.set(node.parentId, [node.id]);
+    }
+    const hidden = new Set<string>();
+    /** 子樹裡有讀得到的節點：回傳 true；整棵子樹都讀不到的節點記為隱藏。 */
+    const visit = (id: string): boolean => {
+      let visible = this.can('read', id);
+      for (const child of children.get(id) ?? []) {
+        // 每個子節點都要走過：讀得到的子樹以外的分支也要標成隱藏
+        if (visit(child)) visible = true;
+      }
+      if (!visible) hidden.add(id);
+      return visible;
+    };
+    for (const node of this.folders.values()) {
+      if (node.kind === 'personal' && node.ownerId !== this.actorId) visit(node.id);
+    }
+    return hidden;
   }
 
   /** 讀得到的資料夾；持有全域 `file:read` 時是 undefined（全部，含根目錄）。 */
   readableFolderIds(): string[] | undefined {
     if (this.hasGlobal('read')) return undefined;
+    // 讀得到的節點不會被隱藏（隱藏的定義就是整棵子樹讀不到）
     return [...this.folders.keys()].filter((id) => this.can('read', id));
   }
 

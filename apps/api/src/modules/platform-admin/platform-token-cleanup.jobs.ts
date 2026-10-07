@@ -7,10 +7,11 @@ import { deleteInBatches } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
 import { TOKEN_CLEANUP_BATCH_SIZE } from '@/modules/credential/credential.constants';
 
+import { PlatformAdminLoginSourceRepository } from './platform-admin-login-source.repository';
 import { PlatformRefreshTokenRepository } from './platform-refresh-token.repository';
 
 /**
- * 平台管理者的 `platform_refresh_tokens`（平台 DB）：規則與租戶的 `auth.tokenCleanup` 相同
+ * 平台管理者的 `platform_refresh_tokens` 與過期的登入來源（平台 DB）：規則與租戶的 `auth.tokenCleanup` 相同
  * （docs/architecture/backend/04-auth.md §8）。工作名稱已發布，不隨模組搬家改名。
  */
 export const PLATFORM_TOKEN_CLEANUP_JOB = defineJob<Record<string, never>>(
@@ -25,6 +26,7 @@ export class PlatformTokenCleanupJobs implements OnModuleInit {
   constructor(
     private readonly jobs: JobQueue,
     private readonly refreshTokens: PlatformRefreshTokenRepository,
+    private readonly loginSources: PlatformAdminLoginSourceRepository,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -34,13 +36,17 @@ export class PlatformTokenCleanupJobs implements OnModuleInit {
     });
   }
 
-  async run(): Promise<{ refreshTokens: number }> {
+  async run(): Promise<{ refreshTokens: number; loginSources: number }> {
     const days = this.config.get('AUTH_TOKEN_RETENTION_DAYS', { infer: true });
     const refreshTokens = await deleteInBatches(
       (size) => this.refreshTokens.deleteExpiredBatch(days, size),
       TOKEN_CLEANUP_BATCH_SIZE,
     );
-    this.logger.log({ refreshTokens }, '已清除過期的平台 refresh token');
-    return { refreshTokens };
+    const loginSources = await deleteInBatches(
+      (size) => this.loginSources.deleteStaleBatch(size),
+      TOKEN_CLEANUP_BATCH_SIZE,
+    );
+    this.logger.log({ refreshTokens, loginSources }, '已清除過期的平台 refresh token 與登入來源');
+    return { refreshTokens, loginSources };
   }
 }

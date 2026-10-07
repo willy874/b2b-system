@@ -5,6 +5,9 @@ import { request as httpsRequest } from 'node:https';
 import { BlockList, isIP } from 'node:net';
 import type { LookupFunction } from 'node:net';
 
+import { Agent, fetch as undiciFetch } from 'undici';
+import type { RequestInit as UndiciRequestInit } from 'undici';
+
 /** 解析主機名稱的方式（測試換成假的）。 */
 export type HostLookup = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
 
@@ -129,8 +132,8 @@ async function resolvePublic(
 
 /**
  * 連線前檢查網址：主機名稱解析出的 **每一個** 位址都必須是公開位址。
- * 只檢查、不綁定：解析與實際連線之間仍有 DNS rebinding 的空窗。實際送出請求用 `sendOutboundRequest`；
- * 這個函式給「儲存設定時先告訴使用者不行」與外部 IdP（openid-client 只接受 fetch）用。
+ * 只檢查、不綁定：解析與實際連線之間仍有 DNS rebinding 的空窗。實際送出請求用 `sendOutboundRequest` 或 `pinnedFetch`；
+ * 這個函式給「儲存設定時先告訴使用者不行」用。
  */
 export async function assertPublicDestination(
   url: URL,
@@ -168,13 +171,25 @@ export function pinnedLookup(resolve: HostLookup = systemLookup): LookupFunction
   };
 }
 
-/** 包一層 `fetch`：每個請求（discovery、token、userinfo、JWKS）送出前都先檢查目的地。 */
-export function guardedFetch(
-  resolve: HostLookup = systemLookup,
-): (url: string, options: RequestInit) => Promise<Response> {
+/** openid-client 的 `customFetch` 的形狀。 */
+export type PinnedFetch = (url: string, options: RequestInit) => Promise<Response>;
+
+/**
+ * 給外部 IdP 用的 `fetch`（discovery、token、userinfo、JWKS）：連線以 `pinnedLookup` 解析，
+ * 查詢與連線用的是同一次解析的結果，沒有 DNS rebinding 的空窗。openid-client 的 `customFetch` 只接受 fetch，
+ * 全域的 `fetch` 不能換 `lookup`，所以用 undici 的 `fetch` ＋ 帶 `connect.lookup` 的 `Agent`。
+ * 字面 IP 的網址不經過 lookup，送出前先檢查。回傳的函式共用一個 `Agent`（連線池），呼叫端建立一次重複使用。
+ */
+export function pinnedFetch(resolve: HostLookup = systemLookup): PinnedFetch {
+  const dispatcher = new Agent({ connect: { lookup: pinnedLookup(resolve) } });
   return async (url, options) => {
-    await assertPublicDestination(new URL(url), resolve);
-    return fetch(url, options);
+    const hostname = hostnameOf(new URL(url));
+    if (isIP(hostname) && isBlockedAddress(hostname)) throw new BlockedDestinationError(hostname);
+    // undici 的 Response 與全域的不是同一個類別；openid-client 以 Symbol.toStringTag 判斷，兩者都是 'Response'
+    return (await undiciFetch(url, {
+      ...(options as UndiciRequestInit),
+      dispatcher,
+    })) as unknown as Response;
   };
 }
 

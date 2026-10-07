@@ -2,6 +2,7 @@
   "login": {
     "title": "登入",
     "submit": "登入",
+    "retryIn_other": "{{count}} 秒後可再試",
     "redirecting": "正在前往登入頁…",
     "signedOut": "你已登出。所有產品共用同一組登入，登出後其他產品也會一起登出。",
     "passwordChanged": "密碼已變更，所有裝置都已登出。請用新密碼重新登入。",
@@ -61,11 +62,11 @@
     },
     "register": {
       "title": "申請帳號",
-      "description": "送出後由管理員審核，核准後即可用這組 Email 與密碼登入。",
+      "description": "送出後由管理員審核。核准後會寄一封啟用信到這個 Email，從信中的連結設定密碼即可登入。",
       "reason": "申請理由",
       "reasonPlaceholder": "例：所屬團隊、需要使用的功能（選填）",
       "submit": "送出申請",
-      "submitted": "申請已送出。管理員核准後，你就能用剛才設定的 Email 與密碼登入。",
+      "submitted": "申請已送出。管理員核准後，請到信箱收啟用信並設定密碼。",
       "closed": "這個租戶目前不開放註冊申請。請聯絡管理員為你建立帳號。"
     },
     "password": {
