@@ -3,4 +3,5 @@ export * from './event-bus';
 export * from './http-context';
 export * from './i18n';
 export * from './realtime';
+export * from './telemetry';
 export * from './theme';

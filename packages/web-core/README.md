@@ -36,14 +36,15 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `locales` | i18n、scope loader、`useTranslation`、Zod 錯誤訊息、`CORE_LOCALES` 與合併工具 |
 | `notify` | `useToast()` |
 | `permission` | 權限的機制：hooks、頁面權限註冊表、`evaluateAccess`、`buildPermissionKey`；權限目錄由 app 登記（下方） |
-| `plugins/app` | 基礎設施 plugin：cache、event-bus、http-context、i18n、realtime、theme |
-| `plugins/fetcher` | 攔截器：auth 標頭、refresh、retry、client-id、api-adapter |
+| `plugins/app` | 基礎設施 plugin：cache、event-bus、http-context、i18n、realtime、telemetry、theme |
+| `plugins/fetcher` | 攔截器：auth 標頭、refresh、retry、client-id、client-release、api-adapter |
 | `preference`、`toolbar` | 偏好頁分頁（以 `lazy()` 登記，由 `PreferenceSections` 以 `<Suspense>` 渲染）與可自訂欄位的表、頂列工具的註冊表 |
 | `route-link` | route id 的註冊表、`<RouteLink>`（渲染前檢查目標頁的權限）、`useRouteLinkAccess`、`useRouteLinkResolver` |
 | `realtime` | 推播的連線、協調者、`useRealtimeEvent()`；只有 `socketIoTransport.ts` import `socket.io-client` |
 | `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard`（路由）、`useDialogUnsavedGuard`（以 state 開關的對話框）、路由的 `staticData.titleKey`（`findTitleKey`） |
 | `shell` | `GlobalProvider`（`profileQueryKey` 由 app 傳入）、`SessionWatcher`（session 結束時清掉使用者的資料並導向登入頁；登入頁路徑與公開頁面由 app 傳入，導向的參數由 `loginSearchAfterSessionEnd` 組成）、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost`、`DocumentTitle`（「頁面 · 產品名」，`router` 與產品名的鍵由 app 傳入） |
 | `store` | 全域 store：`permission`、`layout`、`preference`（語系、時區、主題、頂列工具）、`tableColumnSettings` |
+| `telemetry` | 錯誤回報與 Web Vitals（`@sentry/browser` → apps/apm-service）：`telemetryPlugin`、`telemetryRootOptions()`、`bindTelemetryRouter()`、`useTelemetryUser()`、遮罩；見 [`docs/architecture/frontend/19-observability.md`](../../docs/architecture/frontend/19-observability.md) |
 | `theme` | `THEME_OPTIONS`、`resolveTheme()`／`applyTheme()` |
 | `testing` | `renderWithPermissions`／`AllProviders`、`renderRoute`（回傳 `router` 與 `queryClient`）、`renderInRouter`（單一元件放進只有 `/` 的路由）、`fakeBatchQueue`、`initTestI18n`、語系檔的檢查（`localeKeySet`、`pluralProblems`、`hasLocaleKey`、`findFullWidthPunctuation`） |
 

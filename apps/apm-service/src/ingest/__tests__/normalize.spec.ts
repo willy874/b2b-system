@@ -53,7 +53,7 @@ function sentryEvent(overrides: Record<string, unknown> = {}): Record<string, un
         },
       },
     ],
-    tags: { tenant: 'acme', source: 'react' },
+    tags: { host: 'acme.example.com', source: 'react' },
     user: { id: 'u-1', email: 'alice@example.com', ip_address: '1.2.3.4' },
     request: {
       url: 'https://acme.example.com/user/1?tab=roles',
@@ -79,7 +79,7 @@ describe('normalizeEvent（Sentry 事件 → 存檔格式）', () => {
       release: '1a2b3c4',
       transaction: '/user/$userId',
       receivedAt: NOW.toISOString(),
-      tags: { tenant: 'acme', source: 'react' },
+      tags: { host: 'acme.example.com', source: 'react' },
       sdk: { name: 'sentry.javascript.browser', version: '11.4.0' },
     });
     expect(event.exceptions[0]?.frames[1]).toEqual({
@@ -91,7 +91,7 @@ describe('normalizeEvent（Sentry 事件 → 存檔格式）', () => {
     });
   });
 
-  it('使用者只留 id；丟掉 headers、cookies、extra、contexts（設計決策 D7）', () => {
+  it('使用者只留 id；丟掉 headers、cookies、extra、contexts（docs/architecture/frontend/19-observability.md §9.2 D7）', () => {
     const event = normalizeEvent(sentryEvent(), 'backstage', NOW);
     expect(event.user).toEqual({ id: 'u-1' });
     expect(event.userAgent).toBe('Mozilla/5.0');
@@ -133,7 +133,7 @@ describe('normalizeEvent（Sentry 事件 → 存檔格式）', () => {
   });
 });
 
-describe('fingerprint（設計決策 D8）', () => {
+describe('fingerprint（docs/architecture/frontend/19-observability.md §9.2 D8）', () => {
   it('訊息裡會變的部分換成佔位', () => {
     expect(normalizeMessage('user 0f8fad5b-d9cb-469f-a165-70867728950e not found at 12')).toBe(
       'user <uuid> not found at <n>',

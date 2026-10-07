@@ -1,13 +1,13 @@
 import { isVitalName, type VitalName } from '@/metrics/apm-metrics';
 
 /**
- * 從 SDK 送來的 transaction 與 span 取出 Web Vitals（設計決策 D10）。
+ * 從 SDK 送來的 transaction 與 span 取出 Web Vitals（docs/architecture/frontend/19-observability.md §9.2 D10）。
  * SDK 不同版本放的位置不同，這裡都認：
  *
  * - transaction 的 `measurements`：`{ lcp: { value, unit } }`（舊版的 pageload）
  * - span 的屬性 `browser.web_vital.<名稱>.value`（v10 起的 web vital span；在 transaction 的 `spans`、
  *   獨立的 `span` 項目，或 span streaming 的 `{ items: [...] }`）
- * - `op: navigation` 的 transaction：起訖時間差當成路由切換耗時
+ * - `op: navigation` 的 transaction 或 segment span（屬性 `sentry.op`）：起訖時間差當成路由切換耗時
  */
 export interface VitalSample {
   route: string | undefined;
@@ -56,6 +56,21 @@ function fromSpan(span: unknown, fallbackRoute: string | undefined): VitalSample
     if (name !== undefined && isVitalName(name) && typeof value === 'number') {
       samples.push({ route, name, value });
     }
+  }
+  // span streaming 的路由切換：segment span 的 op 是 navigation，起訖時間差就是耗時（秒）
+  const start = span.start_timestamp;
+  const end = span.end_timestamp ?? span.timestamp;
+  if (
+    attributeValue(attributes['sentry.op']) === 'navigation' &&
+    typeof start === 'number' &&
+    typeof end === 'number' &&
+    end >= start
+  ) {
+    samples.push({
+      route: routeOf(attributes, typeof span.name === 'string' ? span.name : fallbackRoute),
+      name: 'navigation',
+      value: (end - start) * 1000,
+    });
   }
   return samples;
 }

@@ -36,7 +36,7 @@ export function sourcemapPathFor(filename: string): string | undefined {
 }
 
 /**
- * 查詢時以 sourcemap 還原堆疊（設計決策 D5）：sourcemap 比事件晚上傳也能還原。
+ * 查詢時以 sourcemap 還原堆疊（docs/architecture/frontend/19-observability.md §9.2 D5）：sourcemap 比事件晚上傳也能還原。
  * 解析過的 sourcemap 以「專案、release、檔案」快取最近 20 份。
  */
 export class Symbolicator {

@@ -29,7 +29,7 @@ export interface StoredEvent {
   eventId: string;
   /** 專案 slug。 */
   project: string;
-  /** fingerprint 的雜湊；查詢 API 的 issue id（設計決策 D8）。 */
+  /** fingerprint 的雜湊；查詢 API 的 issue id（docs/architecture/frontend/19-observability.md §9.2 D8）。 */
   groupId: string;
   title: string;
   /** 最內層、屬於 app 的那一層（壓縮後的名稱，查詢時以 sourcemap 還原）。 */
@@ -48,7 +48,7 @@ export interface StoredEvent {
   exceptions: StoredException[];
   breadcrumbs: StoredBreadcrumb[];
   tags: Record<string, string>;
-  /** 只有 id（設計決策 D7）。 */
+  /** 只有 id（docs/architecture/frontend/19-observability.md §9.2 D7）。 */
   user?: { id: string };
   userAgent?: string;
   /** 只留 path。 */

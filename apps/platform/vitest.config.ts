@@ -6,6 +6,8 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react(), svgr()],
+  // vite.config.ts 以 define 注入的 release（docs/architecture/frontend/19-observability.md §3）；測試固定 dev
+  define: { __APP_RELEASE__: JSON.stringify('dev') },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

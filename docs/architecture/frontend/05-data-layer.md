@@ -483,6 +483,16 @@ function onError(error: unknown) {
 
 **後端是權威，UI 發現不一致就立刻自我修正。**
 
+### 7.4 哪些錯誤會上報
+
+`telemetryPlugin` 訂閱同一組 QueryCache／MutationCache 事件（[`19-observability.md`](./19-observability.md) §2）：
+
+| 錯誤 | 上報到 apps/apm-service |
+| --- | --- |
+| `AppError`（含 403、5xx） | 不上報：後端已以同一個 `requestId` 記錄；請求只留在 breadcrumb（method、狀態、path 樣板、`requestId`） |
+| `NetworkError`、`RequestAbortedError` | 不上報：不是程式錯誤 |
+| 其他（`mutationFn`、`select`、adapter 裡的 `TypeError`…） | 上報（tag `source: query｜mutation`）：這類錯誤畫面只顯示 `error.unknown`，沒有 `requestId` |
+
 ---
 
 ## 8. 權限集合的水合

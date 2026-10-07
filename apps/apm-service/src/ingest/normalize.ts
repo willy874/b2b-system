@@ -162,7 +162,7 @@ function culpritOf(exceptions: readonly StoredException[]): string {
 
 /**
  * Sentry 的事件 payload → 存檔的形狀。只挑已知欄位：`extra`、`contexts`、`request.headers`、
- * `request.cookies`、`user` 除了 id 以外的欄位一律丟掉（設計決策 D7）。
+ * `request.cookies`、`user` 除了 id 以外的欄位一律丟掉（docs/architecture/frontend/19-observability.md §9.2 D7）。
  */
 export function normalizeEvent(
   raw: Record<string, unknown>,

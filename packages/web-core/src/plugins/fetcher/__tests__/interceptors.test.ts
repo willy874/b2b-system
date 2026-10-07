@@ -8,6 +8,7 @@ import { CLIENT_ID } from '../../../realtime';
 import { apiAdapterInterceptor } from '../api-adapter';
 import { createAuthHeaderInterceptor } from '../auth';
 import { clientIdInterceptor } from '../client-id';
+import { CLIENT_RELEASE_HEADER, clientReleaseInterceptor } from '../client-release';
 import { createRefreshTokenInterceptor } from '../refresh-token';
 import { retryInterceptor } from '../retry';
 
@@ -107,6 +108,15 @@ describe('client-id 攔截器（docs/architecture/frontend/11-realtime.md §4.1�
     const headers = new Headers(result.init.headers);
     expect(headers.get('authorization')).toBe('Bearer token-1');
     expect(headers.get('x-client-id')).toBe(CLIENT_ID);
+  });
+});
+
+describe('client-release 攔截器（docs/architecture/frontend/19-observability.md §3）', () => {
+  it('每個請求帶上前端的 release（telemetry 未初始化時是 dev），保留既有標頭', async () => {
+    const result = await clientReleaseInterceptor(withToken('token-1'));
+    const headers = new Headers(result.init.headers);
+    expect(headers.get(CLIENT_RELEASE_HEADER)).toBe('dev');
+    expect(headers.get('authorization')).toBe('Bearer token-1');
   });
 });
 

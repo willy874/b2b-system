@@ -26,6 +26,7 @@ apps/platform ──┤
 apps/e2e ┄┄┄┄┄▶ 只透過瀏覽器 / HTTP 操作執行中的系統，不 import 任何 workspace 原始碼
 
 apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package，也不被任何 package import
+apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；同上
 ```
 
 | Package                | 可以依賴（workspace）                    | 不可以                                                       | 強度 |
@@ -41,6 +42,7 @@ apps/file-storage  獨立的 S3 相容服務；不依賴任何 workspace package
 | `apps/api`             | `realtime`、`error-codes`                | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`web-shared`、`ui`、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 | `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
+| `apps/apm-service`     | 無                                       | 任何 workspace package；前端只透過 Sentry 的收件 API（`@sentry/browser`）與它溝通 | 🔒 `package.json` |
 
 - `apps/*` 之間 **永不互相 import**；packages 永不 import apps；下層 package 永不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）。🔒 測試（§4）
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。

@@ -3,7 +3,7 @@
 - 優先度：P3
 - 狀態：提案
 - 依賴：—
-- 相關：[`frontend-observability.md`](./frontend-observability.md)（前端的錯誤回報、Web Vitals、bundle 預算；由 `apps/apm-service` 收件，不依賴本提案）、[`multi-instance.md`](./multi-instance.md)、[`hardening-followups.md`](./hardening-followups.md)、
+- 相關：[`frontend/19-observability.md`](../architecture/frontend/19-observability.md)（前端的錯誤回報、Web Vitals、bundle 預算，已完成；由 [`apps/apm-service`](../architecture/07-apm-service.md) 收件）、[`multi-instance.md`](./multi-instance.md)、[`hardening-followups.md`](./hardening-followups.md)、
   [`../architecture/01-system.md`](../architecture/01-system.md) §5、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §12
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -21,7 +21,7 @@
 | 背景工作 | 管理頁看得到每個佇列的計數與失敗的工作（backstage 看租戶的、apps/platform 看平台的） |
 
 沒有的：任何指標（沒有 prom-client、OpenTelemetry、event loop 監測）、租戶 DB 與 pg-boss 的健康檢查。
-前端的部分（錯誤回報、Web Vitals、bundle 大小預算）拆到 [`frontend-observability.md`](./frontend-observability.md)。
+前端的部分（錯誤回報、Web Vitals、bundle 大小預算）已另外完成：[`frontend/19-observability.md`](../architecture/frontend/19-observability.md)。
 
 ## 範圍
 
@@ -44,7 +44,7 @@
 
 1. `/metrics` 的存取控制：只開在內網（nginx 不轉發），還是要 token？
 2. 前端錯誤回報要自建端點（寫進日誌），還是接 Sentry 之類的服務？接外部服務要處理個資與租戶網域的 CSP。
-   **結論**：搬到 [`frontend-observability.md`](./frontend-observability.md) 開放問題 1。
+   **結論**：自建模擬 Sentry API 的 `apps/apm-service`（[`frontend/19-observability.md`](../architecture/frontend/19-observability.md) §9.2 D1）。
 3. 要不要有依租戶的指標（例如每個租戶的請求量）？租戶多時標籤基數會很大，可以只在 tracing 與日誌帶租戶。
 
 ## 歸檔去向

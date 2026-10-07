@@ -7,14 +7,15 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AppError } from '../../errors';
 import { initTestI18n } from '../../testing/i18n';
 import { AllProviders } from '../../testing/renderWithPermissions';
 import {
   ErrorPage,
   ForbiddenPage,
-  isChunkLoadError,
   NotFoundPage,
   RouteErrorPage,
   UnexpectedErrorPage,
@@ -66,28 +67,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
-});
-
-describe('isChunkLoadError（部署新版後舊 chunk 不見）', () => {
-  it.each([
-    'Failed to fetch dynamically imported module: https://example.com/assets/Page-abc.js',
-    'error loading dynamically imported module',
-    'Importing a module script failed.',
-    'Unable to preload CSS for /assets/Page-abc.css',
-  ])('「%s」是 chunk 載入失敗', (message) => {
-    expect(isChunkLoadError(new TypeError(message))).toBe(true);
-  });
-
-  it('name 是 ChunkLoadError 也算', () => {
-    const error = new Error('whatever');
-    error.name = 'ChunkLoadError';
-    expect(isChunkLoadError(error)).toBe(true);
-  });
-
-  it('其他錯誤、不是 Error 的值都不算', () => {
-    expect(isChunkLoadError(new Error('Cannot read properties of undefined'))).toBe(false);
-    expect(isChunkLoadError('Failed to fetch dynamically imported module')).toBe(false);
-  });
 });
 
 describe('router 的預設 404／錯誤頁', () => {
@@ -157,6 +136,35 @@ describe('UnexpectedErrorPage（頁面需要的資料拿不到）', () => {
       '請重試，或聯絡系統管理員',
     );
     expect(screen.queryByTestId('error-page-retry')).not.toBeInTheDocument();
+  });
+
+  it('「複製錯誤資訊」以後端的 requestId 當代碼，附上 release 與頁面（frontend/19-observability.md §6）', async () => {
+    const user = userEvent.setup();
+    render(
+      <AllProviders>
+        <UnexpectedErrorPage error={new AppError('INTERNAL_ERROR', 500, undefined, 'req-123')} />
+      </AllProviders>,
+    );
+    await user.click(screen.getByTestId('error-page-copy-info'));
+    const copied = await navigator.clipboard.readText();
+    expect(copied).toMatch(/^錯誤代碼 req-123 · 版本 dev · \d{4}-\d{2}-\d{2}T.+ · \//);
+    expect(screen.getByTestId('error-page-copy-info')).toHaveTextContent('已複製');
+    expect(screen.queryByTestId('error-page-copy-info-text')).not.toBeInTheDocument();
+  });
+
+  it('瀏覽器不給寫剪貼簿時，把錯誤資訊顯示在頁面上', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
+    render(
+      <AllProviders>
+        <UnexpectedErrorPage error={new AppError('INTERNAL_ERROR', 500, undefined, 'req-456')} />
+      </AllProviders>,
+    );
+    await user.click(screen.getByTestId('error-page-copy-info'));
+    expect(await screen.findByTestId('error-page-copy-info-text')).toHaveTextContent(
+      '無法寫入剪貼簿，請選取這段文字複製： 錯誤代碼 req-456 · 版本 dev',
+    );
+    expect(screen.getByTestId('error-page-copy-info')).toHaveTextContent('複製錯誤資訊');
   });
 });
 

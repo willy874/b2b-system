@@ -45,7 +45,7 @@ async function collect(iterable: AsyncIterable<StoredEvent>): Promise<string[]> 
   return ids;
 }
 
-describe('EventStore（每專案每天一個 NDJSON，設計決策 D6）', () => {
+describe('EventStore（每專案每天一個 NDJSON，docs/architecture/frontend/19-observability.md §9.2 D6）', () => {
   it('依收到的日期分檔，scan 由新的檔案讀起', async () => {
     await store.append(storedEvent('a', '2026-10-05T10:00:00.000Z'));
     await store.append(storedEvent('b', '2026-10-06T10:00:00.000Z'));

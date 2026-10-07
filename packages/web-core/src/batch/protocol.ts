@@ -58,7 +58,12 @@ export type BatchHostMessage =
   /** 工作被取消：中止正在這個分頁處理的那一筆（它會以 `aborted` 的結果回來）。 */
   | { type: 'abort'; jobId: string; itemId: string }
   /** 工作結束（完成或取消）：只送給一個分頁，由它彈出結果。 */
-  | { type: 'finished'; job: BatchJob };
+  | { type: 'finished'; job: BatchJob }
+  /**
+   * 佇列裡未捕捉的例外：SharedWorker 的錯誤不會到分頁的 `window.onerror`，轉給一個分頁上報
+   * （docs/architecture/frontend/19-observability.md §2）。
+   */
+  | { type: 'worker-error'; name: string; message: string; stack?: string };
 
 type Tagged<T> = T & { tag: typeof TAG };
 

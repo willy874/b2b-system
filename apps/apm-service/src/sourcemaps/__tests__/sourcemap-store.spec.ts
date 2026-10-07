@@ -20,7 +20,7 @@ describe('toRelativePath（上傳時的檔名）', () => {
   });
 });
 
-describe('SourcemapStore（.data/sourcemaps，設計決策 D4）', () => {
+describe('SourcemapStore（.data/sourcemaps，docs/architecture/frontend/19-observability.md §9.2 D4）', () => {
   let dataDir: string;
   let store: SourcemapStore;
 

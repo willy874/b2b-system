@@ -20,7 +20,6 @@
 | P2 | 匯入／匯出框架 | [`import-export.md`](./import-export.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[背景工作](../architecture/backend/10-jobs.md)（已完成） |
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P2 | 安全與容量的後續強化 | [`hardening-followups.md`](./hardening-followups.md) | 提案 | — |
-| P2 | 前端可觀測性 | [`frontend-observability.md`](./frontend-observability.md) | 實作中（`feat/frontend-observability`） | — |
 | P3 | 權限圖（ReBAC）：專案（G5） | [`permission-graph.md`](./permission-graph.md) | 提案（G0～G4b 已上 main 並歸檔；G5 等專案功能） | 專案功能 |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
 | P3 | 可觀測性 | [`observability.md`](./observability.md) | 提案 | — |
@@ -40,6 +39,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `frontend-observability`（apps/apm-service 模擬 Sentry API、錯誤回報與 release、Web Vitals、bundle 預算）：[`frontend/19-observability.md`](../architecture/frontend/19-observability.md) §9、[`07-apm-service.md`](../architecture/07-apm-service.md)
 - `global-search`（命令面板 ⌘K、選單註冊表、全域快捷鍵）：[`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) §7
 - `announcements`（通知總覽、公告的立即／指定時間／週期／事件點發送、撤回）：[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §9、[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)
 - `tags`（標籤；原提案「標籤、留言、關注」的標籤部分）：[`backend/18-tag.md`](../architecture/backend/18-tag.md) §7
@@ -58,7 +58,6 @@
 1. `import-export`（大量匯入使用者、匯出稽核日誌），或資源的協作（`comments-watches`；照標籤的登記方式做）。
 2. `permission-graph` G5（專案）等專案功能的提案一起做。
 3. `hardening-followups` 裡的小項目可以隨時穿插。
-4. `frontend-observability`（實作中）：自建模擬 Sentry API 的 `apps/apm-service`，F1～F3 不依賴其他提案。
 
 ### 1.2 撰寫提案時的架構前提
 

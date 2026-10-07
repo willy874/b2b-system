@@ -11,7 +11,7 @@ const MULTIPART_OVERHEAD = 64 * 1024;
 
 /**
  * `POST /api/0/projects/:org/:project/releases/:version/files/`：Sentry 舊版的 release 檔案上傳
- * （multipart：`file`、`name`），存進 `.data/sourcemaps/`（設計決策 D4）。
+ * （multipart：`file`、`name`），存進 `.data/sourcemaps/`（docs/architecture/frontend/19-observability.md §9.2 D4）。
  */
 export async function uploadReleaseFile({
   req,

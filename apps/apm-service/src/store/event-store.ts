@@ -13,7 +13,7 @@ function dayOf(date: Date): string {
 }
 
 /**
- * 錯誤事件存成每個專案每天一個 NDJSON 檔（設計決策 D6）：
+ * 錯誤事件存成每個專案每天一個 NDJSON 檔（docs/architecture/frontend/19-observability.md §9.2 D6）：
  * `<dataDir>/events/<project>/<yyyy-mm-dd>.ndjson`，日期是 apm-service **收到** 的日期（UTC）。
  *
  * 規模是單一產品的前端錯誤，查詢以「讀最近幾天的檔案」完成，不需要資料庫。

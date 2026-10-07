@@ -36,11 +36,11 @@ export interface IssueQuery {
   release?: string;
   transaction?: string;
   level?: string;
-  tenant?: string;
+  host?: string;
   text: string[];
 }
 
-/** Sentry 搜尋語法的子集：`release:x transaction:/user/$userId level:error tenant:acme 其他文字`；`is:…` 忽略。 */
+/** Sentry 搜尋語法的子集：`release:x transaction:/user/$userId level:error host:acme.example.com 其他文字`；`is:…` 忽略。 */
 export function parseIssueQuery(value: string | null): IssueQuery {
   const query: IssueQuery = { text: [] };
   for (const token of (value ?? '').split(/\s+/).filter(Boolean)) {
@@ -51,7 +51,7 @@ export function parseIssueQuery(value: string | null): IssueQuery {
       case 'release':
       case 'transaction':
       case 'level':
-      case 'tenant':
+      case 'host':
         query[key] = tokenValue;
         break;
       case 'is':
@@ -67,7 +67,7 @@ function matches(event: StoredEvent, query: IssueQuery): boolean {
   if (query.release !== undefined && event.release !== query.release) return false;
   if (query.transaction !== undefined && event.transaction !== query.transaction) return false;
   if (query.level !== undefined && event.level !== query.level) return false;
-  if (query.tenant !== undefined && event.tags.tenant !== query.tenant) return false;
+  if (query.host !== undefined && event.tags.host !== query.host) return false;
   const title = event.title.toLowerCase();
   return query.text.every((text) => title.includes(text));
 }
@@ -110,7 +110,7 @@ function issueOf(project: ApmProject, aggregate: IssueAggregate) {
   };
 }
 
-/** `GET /api/0/projects/:org/:project/issues/`：依 fingerprint 分組的錯誤（設計決策 D8）。 */
+/** `GET /api/0/projects/:org/:project/issues/`：依 fingerprint 分組的錯誤（docs/architecture/frontend/19-observability.md §9.2 D8）。 */
 export async function listIssues({ res, url, params, services }: RequestContext): Promise<void> {
   const project = resolveProject(services, params.org, params.project);
   const now = services.now();
@@ -242,7 +242,7 @@ async function eventDetail(services: ApmServices, project: ApmProject, event: St
   };
 }
 
-/** `GET /api/0/projects/:org/:project/events/:eventId/`：單一事件，堆疊以 sourcemap 還原（設計決策 D5）。 */
+/** `GET /api/0/projects/:org/:project/events/:eventId/`：單一事件，堆疊以 sourcemap 還原（docs/architecture/frontend/19-observability.md §9.2 D5）。 */
 export async function getEvent({ res, params, services }: RequestContext): Promise<void> {
   const project = resolveProject(services, params.org, params.project);
   const eventId = (params.eventId ?? '').replaceAll('-', '').toLowerCase();

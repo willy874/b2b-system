@@ -22,7 +22,7 @@ import { createServices } from '@/services';
  * 以 @sentry/core（瀏覽器 SDK 底層的同一套）產生 envelope 與收件網址，確認 apm-service 與 SDK 相容
  * （docs/architecture/07-apm-service.md）。
  */
-// 收件時每個錯誤事件寫一行日誌（設計決策 D6）；測試不需要看到
+// 收件時每個錯誤事件寫一行日誌（docs/architecture/frontend/19-observability.md §9.2 D6）；測試不需要看到
 vi.mock('@/log', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
 const PUBLIC_KEY = 'f'.repeat(32);
@@ -105,7 +105,7 @@ function errorEvent(eventId: string, frame: { lineno: number; colno: number }) {
       ],
     },
     user: { id: 'u-1', email: 'alice@example.com' },
-    tags: { tenant: 'acme' },
+    tags: { host: 'acme.example.com' },
   };
 }
 
@@ -190,7 +190,7 @@ describe('apm-service（Sentry 相容 API）', () => {
         ],
       },
     });
-    // 使用者只留 id（設計決策 D7）
+    // 使用者只留 id（docs/architecture/frontend/19-observability.md §9.2 D7）
     expect(detail.user).toEqual({ id: 'u-1' });
 
     const latest = await api(

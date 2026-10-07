@@ -1,5 +1,5 @@
 /**
- * 把一個前端 `dist/` 裡的 `.map` 上傳到 apm-service（設計決策 D4）。
+ * 把一個前端 `dist/` 裡的 `.map` 上傳到 apm-service（docs/architecture/frontend/19-observability.md §9.2 D4）。
  *
  *   pnpm --filter @b2b-system/apm-service upload-sourcemaps \
  *     --project backstage --release 1a2b3c4 --dir apps/backstage/dist [--delete]

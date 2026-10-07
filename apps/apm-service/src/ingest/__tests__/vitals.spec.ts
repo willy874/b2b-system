@@ -1,6 +1,6 @@
 import { vitalsFromSpanItem, vitalsFromTransaction } from '../vitals';
 
-describe('Web Vitals 的取出（設計決策 D10）', () => {
+describe('Web Vitals 的取出（docs/architecture/frontend/19-observability.md §9.2 D10）', () => {
   it('transaction 的 measurements', () => {
     expect(
       vitalsFromTransaction({
@@ -37,6 +37,21 @@ describe('Web Vitals 的取出（設計決策 D10）', () => {
         data: { 'browser.web_vital.inp.value': 180, 'sentry.segment.name': '/user/$userId' },
       }),
     ).toEqual([{ route: '/user/$userId', name: 'inp', value: 180 }]);
+  });
+
+  it('span streaming 的 navigation：起訖時間差當成路由切換耗時', () => {
+    expect(
+      vitalsFromSpanItem({
+        items: [
+          {
+            name: '/role',
+            start_timestamp: 10,
+            end_timestamp: 10.4,
+            attributes: { 'sentry.op': { value: 'navigation', type: 'string' } },
+          },
+        ],
+      }),
+    ).toEqual([{ route: '/role', name: 'navigation', value: expect.closeTo(400, 5) }]);
   });
 
   it('span streaming 的 { items } 與 { value, type } 屬性', () => {

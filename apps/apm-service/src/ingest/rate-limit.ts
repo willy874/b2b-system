@@ -4,7 +4,7 @@ const MAX_KEYS = 50_000;
 
 /**
  * 固定視窗的計數（每個來源、每個專案、每分鐘）。只在本程序內：apm-service 是單一實例的服務。
- * 超過時回 429，SDK 會依 `Retry-After` 與 `X-Sentry-Rate-Limits` 暫停送出（設計決策 D3）。
+ * 超過時回 429，SDK 會依 `Retry-After` 與 `X-Sentry-Rate-Limits` 暫停送出（docs/architecture/frontend/19-observability.md §9.2 D3）。
  */
 export class RateLimiter {
   private readonly windows = new Map<string, { startedAt: number; count: number }>();

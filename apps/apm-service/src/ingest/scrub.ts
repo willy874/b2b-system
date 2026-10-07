@@ -1,5 +1,5 @@
 /**
- * 伺服器端的遮罩（設計決策 D7）：前端的 `beforeSend` 已經遮過一次，這裡兜底——
+ * 伺服器端的遮罩（docs/architecture/frontend/19-observability.md §9.2 D7）：前端的 `beforeSend` 已經遮過一次，這裡兜底——
  * SDK 升級、設定錯誤或有人直接打收件端點時，個資也不會落地。
  */
 

@@ -26,7 +26,7 @@ export const OTHER_ROUTE = 'other';
 const ROUTE_PATTERN = /^[A-Za-z0-9_./$:-]{1,120}$/;
 
 /**
- * apm-service 自己的 `/metrics`（設計決策 D10）。route 標籤是頁面的 path 樣板，來自客戶端，
+ * apm-service 自己的 `/metrics`（docs/architecture/frontend/19-observability.md §9.2 D10）。route 標籤是頁面的 path 樣板，來自客戶端，
  * 所以每個專案限制種類數，防止被灌入任意值讓時間序列爆量。
  */
 export class ApmMetrics {

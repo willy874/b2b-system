@@ -31,7 +31,7 @@ describe('sourcemapPathFor', () => {
   });
 });
 
-describe('Symbolicator（查詢時以 sourcemap 還原，設計決策 D5）', () => {
+describe('Symbolicator（查詢時以 sourcemap 還原，docs/architecture/frontend/19-observability.md §9.2 D5）', () => {
   let dataDir: string;
   let store: SourcemapStore;
   let minified: string;

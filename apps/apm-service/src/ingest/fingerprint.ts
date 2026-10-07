@@ -5,7 +5,7 @@ const DEFAULT_PLACEHOLDER = '{{ default }}';
 
 /**
  * 訊息裡會隨每次發生而變的部分換成佔位，同一個錯誤才會落在同一組。
- * 壓縮後的函式名稱每版不同，所以不拿堆疊分組（設計決策 D8）。
+ * 壓縮後的函式名稱每版不同，所以不拿堆疊分組（docs/architecture/frontend/19-observability.md §9.2 D8）。
  */
 export function normalizeMessage(message: string): string {
   return message

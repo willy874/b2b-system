@@ -56,7 +56,7 @@ function fileId(name: string): string {
 }
 
 /**
- * sourcemap 存在 `<dataDir>/sourcemaps/<project>/<release>/<相對路徑>`（設計決策 D4）。
+ * sourcemap 存在 `<dataDir>/sourcemaps/<project>/<release>/<相對路徑>`（docs/architecture/frontend/19-observability.md §9.2 D4）。
  * 和 apps/file-storage 一樣，`.data/` 就是儲存空間；換成物件儲存時只換這個類別。
  */
 export class SourcemapStore {

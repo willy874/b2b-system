@@ -15,6 +15,8 @@ export default defineConfig(({ command }) => ({
         command === 'serve' ? 'ga-[name]__[local]__[hash:base64:4]' : 'ga-[hash:base64:6]',
     },
   },
+  // 前端錯誤回報的 release（docs/architecture/frontend/19-observability.md §3）：CI 與 Docker 帶 commit，本機是 dev
+  define: { __APP_RELEASE__: JSON.stringify(process.env.APP_RELEASE ?? 'dev') },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -35,6 +37,12 @@ export default defineConfig(({ command }) => ({
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // 前端錯誤回報的收件（apps/apm-service）：DSN 是同源的 /apm/<專案 id>，轉發時去掉前綴（同 deploy/nginx.conf）。
+      // 只有設了 VITE_APM_* 才會送（預設只 console.debug）；要收時另外起 pnpm dev:apm
+      '/apm': {
+        target: process.env.DEV_APM_PROXY_TARGET ?? 'http://127.0.0.1:9100',
+        rewrite: (path) => path.replace(/^\/apm/, ''),
+      },
     },
   },
   build: {
@@ -42,5 +50,7 @@ export default defineConfig(({ command }) => ({
     // 正式產物不公開 sourcemap（nginx 會原樣提供 dist 裡的每個檔案）；要上傳到錯誤追蹤服務時
     // 以 BUILD_SOURCEMAP=hidden 建置，產生 .map 但不在 js 裡留參照，上傳後刪掉再部署
     sourcemap: process.env.BUILD_SOURCEMAP === 'hidden' ? 'hidden' : false,
+    // bundle 預算的檢查讀它（scripts/check-bundle-budget.mjs）；只在檢查時產生，正式產物不帶（nginx 會原樣提供 dist）
+    manifest: process.env.BUILD_MANIFEST === 'true',
   },
 }));

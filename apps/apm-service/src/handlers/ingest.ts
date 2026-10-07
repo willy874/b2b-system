@@ -9,9 +9,9 @@ import { vitalsFromSpanItem, vitalsFromTransaction } from '@/ingest/vitals';
 import { log } from '@/log';
 
 /**
- * `POST /api/:projectId/envelope/`：SDK 的收件端點（Sentry 相容，設計決策 D3）。
+ * `POST /api/:projectId/envelope/`：SDK 的收件端點（Sentry 相容，docs/architecture/frontend/19-observability.md §9.2 D3）。
  *
- * - `event`：遮罩後存檔，並寫一行日誌（設計決策 D6）
+ * - `event`：遮罩後存檔，並寫一行日誌（docs/architecture/frontend/19-observability.md §9.2 D6）
  * - `transaction`、`span`：取出 Web Vitals 記進 `/metrics`，本身不存
  * - 其他（`session`、`client_report`、`attachment`…）：接受後丟棄
  */
@@ -70,7 +70,7 @@ export async function ingestEnvelope(context: RequestContext): Promise<void> {
         release: event.release,
         transaction: event.transaction,
         userId: event.user?.id,
-        tenant: event.tags.tenant,
+        host: event.tags.host,
       });
       continue;
     }

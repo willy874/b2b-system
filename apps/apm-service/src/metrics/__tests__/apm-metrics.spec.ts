@@ -1,6 +1,6 @@
 import { ApmMetrics, OTHER_ROUTE } from '../apm-metrics';
 
-describe('ApmMetrics（/metrics，設計決策 D10）', () => {
+describe('ApmMetrics（/metrics，docs/architecture/frontend/19-observability.md §9.2 D10）', () => {
   it('Web Vital 以 histogram 輸出（累計的 bucket）', () => {
     const metrics = new ApmMetrics(10);
     metrics.observeVital('backstage', '/user', 'lcp', 300);

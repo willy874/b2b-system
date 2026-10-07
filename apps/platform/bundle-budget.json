@@ -1,0 +1,5 @@
+{
+  "$comment": "前端 bundle 預算（KB，gzip）：scripts/check-bundle-budget.mjs；2026-10-07 以現值加約 10% 設定，調高要在 PR 說明原因",
+  "initialKb": 350,
+  "maxChunkKb": 180
+}

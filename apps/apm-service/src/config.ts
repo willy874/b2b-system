@@ -82,7 +82,7 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
-  /** `/metrics` 的 route 標籤每個專案最多幾種，超過的歸到 `other`（設計決策 D10）。 */
+  /** `/metrics` 的 route 標籤每個專案最多幾種，超過的歸到 `other`（docs/architecture/frontend/19-observability.md §9.2 D10）。 */
   APM_ROUTE_LABEL_LIMIT: z.coerce.number().int().min(1).max(10_000).default(200),
 });
 

@@ -1,6 +1,6 @@
 import { scrubText, scrubUrl } from '../scrub';
 
-describe('scrubText（伺服器端的遮罩，設計決策 D7）', () => {
+describe('scrubText（伺服器端的遮罩，docs/architecture/frontend/19-observability.md §9.2 D7）', () => {
   it.each([
     ['email', 'user alice@example.com not found', 'user [email] not found'],
     ['JWT', 'bad token eyJhbGciOi.eyJzdWIiOiIx.c2lnbmF0dXJl', 'bad token [token]'],
