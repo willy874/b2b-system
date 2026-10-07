@@ -159,6 +159,7 @@ services:
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
       PLATFORM_APP_URL: ${PLATFORM_PUBLIC_ORIGIN:?required}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?required}
+      # 留空：預設租戶的第一位 super-admin 同樣建成 pending，日誌只印一次性的啟用連結
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
     # seed 是冪等的（權限目錄 upsert、系統角色已存在就略過），每次部署都跑。
     # 只有平台 DB 失敗才以非零結束；單一租戶失敗只列在日誌，不擋 api 啟動（05-tenancy.md §10.2 D14）

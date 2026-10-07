@@ -267,7 +267,7 @@ DEFAULT_TENANT_DOMAINS=localhost:5173
 DEFAULT_TENANT_STORAGE_BUCKET=b2b-system
 # 第一位平台管理者（apps/platform 的登入；與租戶的帳號是兩份資料）：db:seed 在平台 DB 沒有管理者時建立
 PLATFORM_ADMIN_EMAIL=platform@example.com
-PLATFORM_ADMIN_PASSWORD=                      # 留空 = seed 時隨機產生並印出一次
+PLATFORM_ADMIN_PASSWORD=                      # 留空：開發時隨機產生並印出一次；production 建成 pending，只印一次性的設定連結
 PORT=3000
 EXTERNAL_API_PORT=3001             # 對外 API 的程序（pnpm dev:external-api；[`architecture/06-external-api.md`](06-external-api.md) §9.2 D9）
 NODE_ENV=development
@@ -324,7 +324,7 @@ IDP_SECRET_KEY=                               # 加密外部 IdP client secret �
 WEBHOOK_SECRET_KEY=                           # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 
 SUPER_ADMIN_EMAIL=admin@example.com
-SUPER_ADMIN_PASSWORD=              # 留空則 seed 時隨機產生並印出一次
+SUPER_ADMIN_PASSWORD=              # 留空：開發時隨機產生並印出一次；production 建成 pending，只印一次性的啟用連結
 
 JOBS_WORKER_ENABLED=true           # 這個程序是否執行背景工作與排程；false 只入列（docs/architecture/backend/10-jobs.md §5）
 JOBS_OUTBOX_SWEEP_CRON=*/10 * * * *  # 補搬各租戶 job_outbox 的 cron（UTC）；間隔要遠大於 TENANT_POOL_IDLE_TIMEOUT；留空停用

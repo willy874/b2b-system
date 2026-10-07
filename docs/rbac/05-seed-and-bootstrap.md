@@ -190,59 +190,28 @@ await grantIfMissing("admin", ["system:update"]);
 
 ## 5. ③ super-admin 使用者
 
-```ts
-const existing = await db.query.users.findFirst({
-  where: hasRole("super-admin"),
-});
-if (existing) {
-  logger.info("super-admin 已存在，略過建立");
-  return;
-}
+實作在 `apps/api/src/db/seeds/super-admin.ts`（`seedSuperAdmin(db, tenantCode)`，只在 `SEED_TENANT` 執行）：
 
-const email = env.SUPER_ADMIN_EMAIL; // 必填
-const password = env.SUPER_ADMIN_PASSWORD ?? generateStrongPassword(24); // 未提供則隨機產生
+1. 已有任何未刪除的 super-admin 持有者 → 略過。例外：production、只有一位、還是 `pending`、email 等於 `SUPER_ADMIN_EMAIL`
+   （第一位還沒啟用）→ 換發新的啟用連結，舊的作廢。
+2. 否則在同一個交易建立帳號、指派 super-admin、寫 `system.bootstrap` 稽核：
 
-await db.transaction(async (tx) => {
-  const user = await tx
-    .insert(users)
-    .values({
-      email,
-      displayName: "Super Admin",
-      passwordHash: await argon2.hash(password),
-      status: "active",
-    })
-    .returning();
-  await tx.insert(userRoles).values({
-    userId: user.id,
-    roleId: superAdminRoleId,
-    grantedBy: null, // 系統初始化
-  });
-  await tx.insert(auditLogs).values({
-    action: "system.bootstrap",
-    actorId: null,
-    actorEmail: "system",
-    resourceType: "user",
-    resourceId: user.id,
-    result: "success",
-    metadata: { reason: "initial super admin created" },
-  });
-});
+| `SUPER_ADMIN_PASSWORD` | 環境 | 狀態 | 日誌 |
+| --- | --- | --- | --- |
+| 有（符合密碼政策） | 任何 | `active` | 只印「已建立」 |
+| 沒有 | 非 production | `active`，隨機密碼 | 印出隨機密碼一次（開發用） |
+| 沒有 | production | `pending`，密碼是沒有人知道的隨機值 | **不印密碼**；印出 apps/platform 的 `/setup?token=…&tenant=<代碼>`（1 小時有效、用過即失效） |
 
-if (!env.SUPER_ADMIN_PASSWORD) {
-  // ★ 只印這一次，之後無從取得
-  logger.warn(
-    `\n=== 初始超級管理員 ===\n  帳號：${email}\n  密碼：${password}\n  請立即登入並變更密碼。\n`,
-  );
-}
-```
+啟用連結與寄信的啟用連結是同一種 token（`issueAuthToken`，`purpose = activation`），走同一個 `POST /auth/setup`。
+連結過期又不方便重新部署時，用 §7 的 `cli:reset-super-admin`（對 `pending` 的帳號簽發啟用連結）。
 
 ### 5.1 安全要求
 
 | 要求                        | 作法                                                                             |
 | --------------------------- | -------------------------------------------------------------------------------- |
 | 密碼不得寫死在程式碼或 repo | `SUPER_ADMIN_PASSWORD` 來自環境變數，`.env.example` 中留空                       |
-| 隨機密碼只出現一次          | 只寫到啟動日誌，不入庫、不回傳                                                   |
-| production 強制變更         | `NODE_ENV=production` 且使用隨機密碼時，該帳號建立為 `pending`，必須走啟用信流程 |
+| 隨機密碼只出現一次          | 只有非 production 會印出，只寫到 seed 的日誌，不入庫、不回傳                     |
+| production 不落地密碼       | `NODE_ENV=production` 且沒有提供密碼時，帳號建成 `pending`、**不印密碼**，改印一次性的啟用連結；還沒啟用時下一次 `db:seed` 換發新的連結 |
 | 平台管理者同樣不落地密碼    | 第一位平台管理者（`PLATFORM_ADMIN_PASSWORD` 留空）在 production 建成 `pending`、**不印密碼**，改印一次性的設定連結（apps/platform 的 `/setup`，1 小時有效、用過即失效）；它還是唯一一位而且還沒設定密碼時，下一次 `db:seed`（重新部署）換發新的連結、舊的作廢 |
 | 提供的密碼要合格            | `SUPER_ADMIN_PASSWORD`、`PLATFORM_ADMIN_PASSWORD` 有值時套用與登入相同的密碼政策（≥ 12 字元、不是常見密碼、不含 email 的片段）；不合格就讓 seed 失敗，不靜默換成隨機密碼 |
 | 不可重複建立                | 已存在任何 super-admin 時整段略過                                                |
