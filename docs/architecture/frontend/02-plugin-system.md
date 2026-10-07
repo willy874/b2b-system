@@ -203,6 +203,7 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 | `refresh-token.ts` | `createRefreshTokenInterceptor(session)`：401 → **強制**續期（被拒的 token 未到期也一樣；已被別的請求換新則沿用）→ 重放原請求；只結束自己綁定的 session |
 | `retry.ts`         | 網路錯誤與 5xx 指數退避重試；只重試 `GET`/`HEAD`/`OPTIONS`，不重試 4xx 與中止 |
 | `api-adapter.ts`   | 把後端錯誤信封轉成 `AppError`                      |
+| `client-preference.ts` | `clientPreferenceInterceptor`：每個請求帶 `Accept-Language`（介面語系）與 `x-client-timezone`（偏好時區），送出當下讀 `useLocaleStore`／`useTimezoneStore`；呼叫端自己給的不覆寫（[08 §1.2](./08-i18n.md)） |
 
 ### 4.3 `plugins/features/` — 功能擴充
 

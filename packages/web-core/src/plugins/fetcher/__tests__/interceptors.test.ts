@@ -1,13 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_LANGUAGE, DEFAULT_TIMEZONE } from '@b2b-system/web-shared/constants';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionStore, sessionStore } from '../../../auth';
 import { AbortReason, NetworkError, RequestAbortedError } from '../../../client';
 import type { FetcherRequest, FetcherResponse } from '../../../client';
 import { AppError } from '../../../errors';
 import { CLIENT_ID } from '../../../realtime';
+import { useLocaleStore, useTimezoneStore } from '../../../store';
 import { apiAdapterInterceptor } from '../api-adapter';
 import { createAuthHeaderInterceptor } from '../auth';
 import { clientIdInterceptor } from '../client-id';
+import {
+  CLIENT_LOCALE_HEADER,
+  CLIENT_TIMEZONE_HEADER,
+  clientPreferenceInterceptor,
+} from '../client-preference';
 import { CLIENT_RELEASE_HEADER, clientReleaseInterceptor } from '../client-release';
 import { createHttpCacheInterceptor } from '../http-cache';
 import { createRefreshTokenInterceptor } from '../refresh-token';
@@ -118,6 +125,32 @@ describe('client-release 攔截器（docs/architecture/frontend/19-observability
     const headers = new Headers(result.init.headers);
     expect(headers.get(CLIENT_RELEASE_HEADER)).toBe('dev');
     expect(headers.get('authorization')).toBe('Bearer token-1');
+  });
+});
+
+describe('client-preference 攔截器（docs/architecture/frontend/08-i18n.md §1.2）', () => {
+  afterEach(() => {
+    useLocaleStore.setState({ locale: DEFAULT_LANGUAGE });
+    useTimezoneStore.setState({ timezone: DEFAULT_TIMEZONE });
+  });
+
+  it('帶上送出當下偏好的語系與時區，保留既有標頭', async () => {
+    useLocaleStore.setState({ locale: 'en-US' });
+    useTimezoneStore.setState({ timezone: 'America/New_York' });
+    const result = await clientPreferenceInterceptor(withToken('token-1'));
+    const headers = new Headers(result.init.headers);
+    expect(headers.get(CLIENT_LOCALE_HEADER)).toBe('en-US');
+    expect(headers.get(CLIENT_TIMEZONE_HEADER)).toBe('America/New_York');
+    expect(headers.get('authorization')).toBe('Bearer token-1');
+  });
+
+  it('呼叫端自己給的語系與時區不覆寫', async () => {
+    const result = await clientPreferenceInterceptor(
+      withInit({ headers: { [CLIENT_LOCALE_HEADER]: 'ja', [CLIENT_TIMEZONE_HEADER]: 'UTC' } }),
+    );
+    const headers = new Headers(result.init.headers);
+    expect(headers.get(CLIENT_LOCALE_HEADER)).toBe('ja');
+    expect(headers.get(CLIENT_TIMEZONE_HEADER)).toBe('UTC');
   });
 });
 
