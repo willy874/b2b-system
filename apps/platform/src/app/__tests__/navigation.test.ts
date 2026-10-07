@@ -53,6 +53,14 @@ describe('選單與命令面板的入口', () => {
     }
   });
 
+  it('側欄與帳號選單的圖示不重複（看圖示就分得出是哪一頁）', () => {
+    const byIcon = new Map<string, string[]>();
+    for (const item of navItemRegistry.values()) {
+      byIcon.set(item.icon, [...(byIcon.get(item.icon) ?? []), item.pageKey]);
+    }
+    expect([...byIcon].filter(([, pages]) => pages.length > 1)).toEqual([]);
+  });
+
   it('沒有分類是空的（分類裡的頁面全被拿掉時，連分類一起刪）', () => {
     const { groups } = resolveNavigation(navGroupRegistry.values(), navItemRegistry.values());
     expect(groups.filter((group) => group.items.length === 0).map((group) => group.key)).toEqual(

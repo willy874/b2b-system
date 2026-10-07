@@ -60,7 +60,7 @@
 3. 外部 IdP 登入要不要也套用 IP 清單（IdP 自己可能已經有條件式存取）？
 4. 「登入中的裝置」要不要包含 apps/platform 的平台管理者？
 5. 與 MFA 要不要合成一個「安全政策」設定頁？
-   **結論**（2026-10-07，隨 MFA 規劃決定）：合成一頁。backstage 的 `features/security` 是分頁式容器，MFA 是第一個分頁（`/security/mfa`，[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §6）；這份提案的 IP 清單、閒置逾時加自己的分頁。
+   **結論**（2026-10-07，隨 MFA 規劃決定）：合成一頁。backstage 的 `features/security` 是系統設定的「安全性」分頁（`/system/security`，2026-10 起；[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §6）；這份提案的 IP 清單、閒置逾時加在同一頁的區塊。
 
 ## 設計決策
 

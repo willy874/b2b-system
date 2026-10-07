@@ -11,6 +11,7 @@ export const mockState = {
     'user:delete',
     'user:assignRole',
     'user:resetPassword',
+    'user:resetMfa',
     'role:create',
     'role:read',
     'role:update',

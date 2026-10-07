@@ -11,7 +11,7 @@ export function registerIdentityProviderNavigation(): void {
     to: '/identity-provider',
     labelKey: 'menu.identityProvider',
     testId: 'menu-identity-provider',
-    icon: 'key',
+    icon: 'log-in',
     group: NavGroupKey.SYSTEM,
     order: 400,
   });

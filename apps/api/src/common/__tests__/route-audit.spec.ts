@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   Authenticated,
+  ExternalApi,
   Public,
   RequireFeature,
   RequireFlag,
@@ -100,8 +101,25 @@ class TrialModule {}
 @Module({ imports: [DiscoveryModule], controllers: [PlatformTrialController] })
 class PlatformTrialModule {}
 
+/** 對外 API 的路由：不標也帶 `externalApi`（docs/architecture/06-external-api.md §3.1） */
+@ExternalApi()
+@Controller('v1/featured')
+class ExternalFeaturedController {
+  @Get()
+  @Authenticated()
+  me(): void {}
+
+  @Get('files')
+  @RequireFeature('file')
+  @RequirePermissions('file:read')
+  files(): void {}
+}
+
 @Module({ imports: [DiscoveryModule], controllers: [FeaturedController] })
 class FeaturedModule {}
+
+@Module({ imports: [DiscoveryModule], controllers: [ExternalFeaturedController] })
+class ExternalFeaturedModule {}
 
 @Module({ imports: [DiscoveryModule], controllers: [PlatformFeaturedController] })
 class PlatformFeaturedModule {}
@@ -169,6 +187,15 @@ describe('路由稽核的 @RequireFeature（docs/architecture/frontend/02-plugin
       ['/featured/logs', ['trash', 'file']],
     ]);
     expect(() => auditRoutes(featured)).not.toThrow();
+  });
+
+  it('對外 API 的路由一律帶 externalApi，排在自己標的 feature 之後', async () => {
+    const external = await boot(ExternalFeaturedModule);
+    expect(collectRouteDeclarations(external).map((r) => [r.path, r.features])).toEqual([
+      ['/v1/featured', ['externalApi']],
+      ['/v1/featured/files', ['file', 'externalApi']],
+    ]);
+    expect(() => auditRoutes(external)).not.toThrow();
   });
 
   it('平台端點標了 @RequireFeature → 稽核失敗（平台的請求沒有租戶，標了也不生效）', async () => {

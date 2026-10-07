@@ -81,7 +81,10 @@ test.describe('群組（docs/architecture/iam/07-groups.md）', () => {
     await expect(memberPage.getByTestId('menu-user')).toBeVisible();
     await memberPage.goto('/profile');
     await memberPage.getByTestId('profile-permission-sources-show').click();
-    const path = getByTestIdAndValue(memberPage, 'permission-source', 'user:read')
+    // 兩層對話框：清單點 user:read，再看它的來源
+    await getByTestIdAndValue(memberPage, 'permission-source', 'user:read').click();
+    const path = memberPage
+      .getByTestId('permission-source-viewer')
       .getByTestId('explain-path')
       .filter({ hasText: groupName });
     await expect(getByTestIdAndValue(path, 'explain-node', 'group')).toHaveText(groupName);

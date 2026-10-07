@@ -371,7 +371,7 @@ if (enabled) await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: req
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D12 | **頁面放在 `features/notification`**：路由 `/notification/events`，頁面權限 `NOTIFICATION_EVENT_PAGE`（`system:read`），側邊選單「系統管理 › 事件通知」。依 `category` 分組的表格：一列一個事件（名稱、說明、收件人說明），每個管道一個開關；有覆寫的顯示「已修改」與「恢復預設」；`mandatory` 的開關停用並有鎖頭與說明；沒有 `system:update` 時整頁唯讀。只送出改過的項目 | 後端在 `modules/notification`，前端對應同名 feature（CLAUDE.md「三處必須同步」）。不塞進系統設定頁：那頁是「一個 key 一個欄位」的表單，事件是「事件 × 管道」的矩陣，而且數量會隨功能成長 |
+| D12 | **頁面放在 `features/notification`**：路由 `/notification/events`（2026-10 起改為 `/system/notification-events`，是系統設定的「事件通知」分頁，見 [`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5；程式仍在 `features/notification`），頁面權限 `NOTIFICATION_EVENT_PAGE`（`system:read`），側邊選單「系統管理 › 事件通知」。依 `category` 分組的表格：一列一個事件（名稱、說明、收件人說明），每個管道一個開關；有覆寫的顯示「已修改」與「恢復預設」；`mandatory` 的開關停用並有鎖頭與說明；沒有 `system:update` 時整頁唯讀。只送出改過的項目 | 後端在 `modules/notification`，前端對應同名 feature（CLAUDE.md「三處必須同步」）。不塞進系統設定頁：那頁是「一個 key 一個欄位」的表單，事件是「事件 × 管道」的矩陣，而且數量會隨功能成長 |
 | D13 | **事件的名稱與說明在前端語系檔**：`notification.event.<type>.name`、`.description`、`.recipients`，key 寫在 `constants.ts` 的對照表（`06-literal-strings.md`）；分類用 `notification.eventCategory.<category>`。後端新增了前端還不認得的事件時，以 `type` 本身當名稱顯示，開關照常可用 | 與通知句子同一個做法（`frontend/15-notification.md` §5）；後端不送顯示文字 |
 
 #### 個人層（E3）

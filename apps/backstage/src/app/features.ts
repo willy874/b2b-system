@@ -28,7 +28,7 @@ import { JOB_FEATURE, jobFeaturePlugin, Routes as JobRoutes } from '@/features/j
 import {
   Routes as SystemRoutes,
   SYSTEM_SETTING_FEATURE,
-  systemFeaturePlugin,
+  systemSettingFeaturePlugin,
 } from '@/features/system';
 import { Routes as TrashRoutes, TRASH_FEATURE, trashFeaturePlugin } from '@/features/trash';
 import { Routes as WebhookRoutes, WEBHOOK_FEATURE, webhookFeaturePlugin } from '@/features/webhook';
@@ -44,6 +44,16 @@ export const TENANT_SWITCH_FEATURE = 'tenantSwitch';
 
 function tenantSwitchPlugin(): AppDynamicPluginFactory {
   return () => ({ name: 'tenant-switch' });
+}
+
+/**
+ * 對外 API（docs/architecture/06-external-api.md §3.1）：在另一個程序，backstage 沒有它的頁面。服務帳號與 API token 的
+ * 管理照常可用，只在 token 列表上提示「目前沒有開放」（`core/components/ApiToken`）；同樣登記成空的 plugin。
+ */
+export const EXTERNAL_API_FEATURE = 'externalApi';
+
+function externalApiPlugin(): AppDynamicPluginFactory {
+  return () => ({ name: 'external-api' });
 }
 
 /**
@@ -64,8 +74,9 @@ export const FEATURE_CATALOG = {
   },
   [JOB_FEATURE]: { plugin: jobFeaturePlugin(), routes: [JobRoutes.JobListRoute] },
   [TRASH_FEATURE]: { plugin: trashFeaturePlugin(), routes: [TrashRoutes.TrashListRoute] },
+  // 系統設定的「一般」分頁；入口與其他分頁是常駐的（`main.tsx` 的 systemFeaturePlugin）
   [SYSTEM_SETTING_FEATURE]: {
-    plugin: systemFeaturePlugin(),
+    plugin: systemSettingFeaturePlugin(),
     routes: [SystemRoutes.SettingListRoute],
   },
   [IDENTITY_PROVIDER_FEATURE]: {
@@ -78,6 +89,7 @@ export const FEATURE_CATALOG = {
     plugin: announcementFeaturePlugin(),
     routes: [AnnouncementRoutes.AnnouncementListRoute, AnnouncementRoutes.AnnouncementMessageRoute],
   },
+  [EXTERNAL_API_FEATURE]: { plugin: externalApiPlugin(), routes: [] },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;
 

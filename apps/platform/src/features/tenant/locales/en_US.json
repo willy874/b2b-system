@@ -114,7 +114,10 @@
       "disableAction": "Turn off",
       "announcement": "Announcements",
       "announcementDescription": "Tenant admins write announcements and send them as in-app notifications to selected people, groups, roles, or everyone, immediately or on a schedule.",
-      "announcementDisableWarning": "Scheduled announcements for {{code}} stop sending; times missed while disabled are not sent when re-enabled. Announcements and their history are kept."
+      "announcementDisableWarning": "Scheduled announcements for {{code}} stop sending; times missed while disabled are not sent when re-enabled. Announcements and their history are kept.",
+      "externalApi": "External API",
+      "externalApiDescription": "The external API that outside systems call with API tokens. When off, every call returns 404; service accounts and tokens can still be managed in the backstage, and existing tokens work again as soon as it is turned back on.",
+      "externalApiDisableWarning": "Every integration calling the external API with an API token for {{code}} fails immediately (404) until this is turned back on."
     },
     "flag": {
       "title": "Feature flags",
@@ -184,7 +187,7 @@
       "overview": "Overview",
       "features": "Features",
       "flags": "Feature flags",
-      "mfa": "Two-step verification"
+      "mfa": "Multi-factor authentication"
     },
     "limits": {
       "title": "Tenant-wide limits",
@@ -192,7 +195,7 @@
     },
     "mfa": {
       "title": "MFA verification methods",
-      "description": "Which two-step verification methods this tenant can use. \"Platform default\" follows the platform-wide setting; methods switched off platform-wide are always off.",
+      "description": "Which multi-factor authentication methods this tenant can use. \"Platform default\" follows the platform-wide setting; methods switched off platform-wide are always off.",
       "killed": "Switched off platform-wide"
     }
   }

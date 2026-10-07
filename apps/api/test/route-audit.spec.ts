@@ -20,8 +20,15 @@ let app: INestApplication;
 /**
  * 路由 → 應標的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11、docs/architecture/05-tenancy.md §12）；
  * 平台的 /platform/jobs 不屬於任何租戶，不標。還原端點屬於回收桶，handler 的 `trash` 排在 class 的之前。
+ * 對外 API 的路由（`/v1/*`）一律再加上 `externalApi`（docs/architecture/06-external-api.md §3.1）。
  */
 function featuresOf(method: string, path: string): string[] | undefined {
+  if (/^\/v\d+(\/|$)/.test(path))
+    return [...(internalFeaturesOf(method, path) ?? []), 'externalApi'];
+  return internalFeaturesOf(method, path);
+}
+
+function internalFeaturesOf(method: string, path: string): string[] | undefined {
   const restore = method === 'POST' && path.endsWith('/:id/restore');
   if (/^\/(v1\/)?(files|file-folders|folders)(\/|$)/.test(path)) {
     return restore ? ['trash', 'file'] : ['file'];
@@ -209,7 +216,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /platform/admins/:id': 'platform platformAdmin:update',
       'POST /platform/admins/:id/password-link': 'platform platformAdmin:update',
       'GET /platform/admins/:id/mfa': 'platform platformAdmin:read',
-      'POST /platform/admins/:id/mfa/reset': 'platform platformAdmin:update',
+      'POST /platform/admins/:id/mfa/reset': 'platform platformAdmin:resetMfa',
       'GET /platform/mfa-methods': 'platform mfaMethod:read',
       'GET /platform/mfa-methods/:id/impact': 'platform mfaMethod:read',
       'PUT /platform/mfa-methods/:id': 'platform mfaMethod:update',
@@ -309,7 +316,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /users/:id/reset-password': 'user:resetPassword',
       'POST /users/:id/unlock': 'user:update',
       'GET /users/:id/mfa': 'user:read',
-      'POST /users/:id/mfa/reset': 'user:update',
+      'POST /users/:id/mfa/reset': 'user:resetMfa',
       'GET /mfa/policy': 'mfaPolicy:read',
       'POST /mfa/policy/preview': 'mfaPolicy:read',
       'PUT /mfa/policy': 'mfaPolicy:update',

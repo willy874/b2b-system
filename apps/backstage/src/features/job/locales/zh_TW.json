@@ -7,10 +7,6 @@
       "fileMaintenance": "檔案維護",
       "tokenCleanup": "過期登入憑證清理"
     },
-    "filter": {
-      "allNames": "全部工作",
-      "allStates": "全部狀態"
-    },
     "detail": {
       "arraySummary_other": "{{count}} 項",
       "objectSummary_other": "{{count}} 個欄位"

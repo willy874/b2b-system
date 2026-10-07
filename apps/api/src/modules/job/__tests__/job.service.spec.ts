@@ -108,7 +108,12 @@ describe('JobService（docs/architecture/backend/10-jobs.md §6）', () => {
 
   describe('list', () => {
     it('以目前租戶與租戶工作的名稱查詢，篩選條件原樣帶入', async () => {
-      const query = { offset: 0, limit: 20, name: 'auditLog.archive', state: 'failed' as const };
+      const query = {
+        offset: 0,
+        limit: 20,
+        name: ['auditLog.archive'],
+        state: ['failed' as const],
+      };
       await inTenant(() => service.list(query));
       expect(store.list).toHaveBeenCalledWith({ tenantId: 't1', names: TENANT_NAMES, ...query });
     });

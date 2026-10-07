@@ -294,6 +294,7 @@ export const PermissionKey = {
   'user:delete': 'user:delete',
   'user:assignRole': 'user:assignRole',
   'user:resetPassword': 'user:resetPassword',
+  'user:resetMfa': 'user:resetMfa',
   'role:create': 'role:create',
   'role:read': 'role:read',
   'role:update': 'role:update',
@@ -952,6 +953,7 @@ export const TenantFeature = {
   tenantSwitch: 'tenantSwitch',
   webhook: 'webhook',
   announcement: 'announcement',
+  externalApi: 'externalApi',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -1081,6 +1083,7 @@ export const PlatformPermissionKey = {
   'platformAdmin:read': 'platformAdmin:read',
   'platformAdmin:create': 'platformAdmin:create',
   'platformAdmin:update': 'platformAdmin:update',
+  'platformAdmin:resetMfa': 'platformAdmin:resetMfa',
   'platformAuditLog:read': 'platformAuditLog:read',
   'platformJob:read': 'platformJob:read',
   'platformJob:retry': 'platformJob:retry',

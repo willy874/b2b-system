@@ -120,10 +120,10 @@
 
 | 欄位 | 值 | 效果 | 出處 |
 | --- | --- | --- | --- |
-| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
 | `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | §11.2 D2 |
 | `feature_params` | `jsonb`，預設 `{}` | feature 參數（配額與上限）的覆寫 `{ [key]: number \| string }`，沒列出 = 預設值；見 §5.3 | §13.2 D2 |
-| `mfa_methods` | `jsonb`，預設 `{}` | MFA 驗證方式的租戶層開關 `{ [方式 id]: boolean }`，規則與 `flags` 相同（`resolveToggle`）；在租戶詳情的「兩步驟驗證」分頁設定 | [`backend/21-mfa.md`](backend/21-mfa.md) §5 |
+| `mfa_methods` | `jsonb`，預設 `{}` | MFA 驗證方式的租戶層開關 `{ [方式 id]: boolean }`，規則與 `flags` 相同（`resolveToggle`）；在租戶詳情的「多重驗證」分頁設定 | [`backend/21-mfa.md`](backend/21-mfa.md) §5 |
 
 各 feature 停用時的效果：
 
@@ -138,6 +138,7 @@
 | `tenantSwitch` | backstage 帳號選單沒有「切換租戶」 | apps/platform 的 `/enter` |
 | `announcement` | `/announcements`、`/me/announcement-messages` 回 404；沒有公告頁；已入列的排程與分批寫入略過（期間錯過的時間不補發） | 公告與發送紀錄保留 |
 | `webhook` | `/webhooks` 回 404；沒有 Webhook 頁；`emit()` 不寫事件也不入列，已入列的投遞略過（期間的事件之後不補送） | 訂閱與投遞紀錄保留；`webhook.cleanup` 照常清理 |
+| `externalApi` | 對外 API 的每個路由（`@ExternalApi()`，不必另標）以有效的 API token 呼叫時回 404；無效的 token 照舊 401。backstage 的 API token 列表提示「目前沒有開放」 | 服務帳號與 token 的管理（內部 api 的端點）、token 的期限；重新打開後原本的 token 立即可用。健康檢查不受影響（[`06-external-api.md`](./06-external-api.md) §3.1） |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，
   存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
@@ -598,6 +599,14 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
   `key` 的清單是 `TENANT_FEATURE_IMPACT_KEYS`，前端以對照表翻譯。沒有登記的 feature 回空清單。
 - 目前只有 `identityProvider`：連線數、只允許 SSO 的網域數、連結了外部身分而自己沒有密碼的使用者數。
 - apps/platform 按下關閉時先查（查詢期間停用開關），數量為 0 的項目不列；查不到時照樣開確認框，只有一般的說明。
+
+### 12.6 實作紀錄：對外 API（`externalApi`）
+
+2026-10-07 加入：對外 API 原本對每個租戶常駐，改為平台可關閉（細節見 [`06-external-api.md`](./06-external-api.md) §3.1）。
+
+- 擋在 `FeatureGuard`：`@ExternalApi()` 的路由一律要求 `externalApi`（`requiredFeaturesOf()`），不在每個對外 controller 上標。
+- 內部 api 的服務帳號與 token 管理 **不** 隨開關關閉（停用期間仍要能撤銷外洩的 token）；backstage 只在 token 列表上提示。
+- 平台 migration 0019：預設值加入 `externalApi`，既有租戶全部啟用。
 
 ## 13. 設計決策：feature 參數（配額與上限）
 

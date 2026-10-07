@@ -67,8 +67,10 @@ export interface JobListFilter {
   tenantId: JobOwnerFilter;
   /** 只看這些佇列（已註冊的工作）；pg-boss 內部或死信佇列不列出。 */
   names: string[];
-  name?: string;
-  state?: JobState;
+  /** 只看其中任一種工作（空陣列或省略＝不限）。 */
+  name?: string[];
+  /** 只看其中任一種狀態（空陣列或省略＝不限）。 */
+  state?: JobState[];
   offset: number;
   limit: number;
 }
@@ -97,8 +99,13 @@ export class JobStore {
     const where = and(
       ofTenant(filter.tenantId),
       inNames(filter.names),
-      filter.name ? sql`name = ${filter.name}` : undefined,
-      filter.state ? sql`state = ${filter.state}::${sql.raw(JOB_SCHEMA)}.job_state` : undefined,
+      filter.name?.length ? inNames(filter.name) : undefined,
+      filter.state?.length
+        ? sql`state IN (${sql.join(
+            filter.state.map((state) => sql`${state}::${sql.raw(JOB_SCHEMA)}.job_state`),
+            sql`, `,
+          )})`
+        : undefined,
     ) as SQL;
     const [items, [count]] = await Promise.all([
       this.db.execute<JobRecordRow>(

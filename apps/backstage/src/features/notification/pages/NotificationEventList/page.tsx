@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { getNotificationEventListQueryOptions } from '@/apis/notification/get-notification-event-list/query';
+import { SystemSettingsLayout } from '@/core/system-settings';
 
 import { useNotificationEventDraft } from '../../hooks/useNotificationEventDraft';
 import { useNotificationEventPermission } from '../../hooks/useNotificationEventPermission';
@@ -17,7 +18,7 @@ import { NotificationEventRow } from './components/NotificationEventRow';
 
 /**
  * 事件管理（docs/architecture/frontend/15-notification.md §9、docs/architecture/backend/16-notification-event.md §9.2 D12）：
- * 依分類列出系統會發出的事件，租戶決定每個管道是否送出；沒有 `system:update` 時唯讀。
+ * 依分類列出系統會發出的事件，租戶決定每個管道是否送出；沒有 `system:update` 時唯讀。系統設定的「事件通知」分頁。
  */
 export default function NotificationEventListPage() {
   const { t } = useTranslation();
@@ -47,63 +48,62 @@ export default function NotificationEventListPage() {
   };
 
   return (
-    <div className="flex max-w-4xl flex-col gap-4" data-testid="notification-event-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('notification.event.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+    <SystemSettingsLayout>
+      <div className="flex max-w-4xl flex-col gap-4" data-testid="notification-event-page">
+        <p className="m-0 text-sm text-[var(--color-fg-muted)]">
           {t('notification.event.description')}
         </p>
-      </header>
-      {isPending ? (
-        <Skeleton className="h-40" />
-      ) : loadError && !data ? (
-        // 查詢失敗：說明並提供重試，不是一片空白
-        <QueryError
-          error={loadError}
-          onRetry={() => void refetch()}
-          data-testid="notification-event-error"
-        />
-      ) : (
-        categories.map((view) => (
-          <section
-            key={view.category}
-            className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4"
-            aria-label={view.labelKey ? t(view.labelKey) : view.category}
-            data-testid="notification-event-category"
-            data-value={view.category}
-          >
-            <h2 className="m-0 pt-4 text-base font-medium">
-              {view.labelKey ? t(view.labelKey) : view.category}
-            </h2>
-            {view.events.map((event) => (
-              <NotificationEventRow
-                key={event.type}
-                event={event}
-                canUpdate={canUpdate}
-                current={draft.current}
-                onChange={draft.setEnabled}
-                onAllowUserOverrideChange={draft.setAllowUserOverride}
-                onReset={draft.resetToDefault}
-              />
-            ))}
-          </section>
-        ))
-      )}
-      {canUpdate && draft.isDirty && (
-        <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg)] py-3">
-          <Button onClick={draft.clear} data-testid="notification-event-discard">
-            {t('notification.event.discard')}
-          </Button>
-          <Button
-            variant="primary"
-            loading={update.isPending}
-            onClick={save}
-            data-testid="notification-event-save"
-          >
-            {t('common.save')}
-          </Button>
-        </footer>
-      )}
-    </div>
+        {isPending ? (
+          <Skeleton className="h-40" />
+        ) : loadError && !data ? (
+          // 查詢失敗：說明並提供重試，不是一片空白
+          <QueryError
+            error={loadError}
+            onRetry={() => void refetch()}
+            data-testid="notification-event-error"
+          />
+        ) : (
+          categories.map((view) => (
+            <section
+              key={view.category}
+              className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4"
+              aria-label={view.labelKey ? t(view.labelKey) : view.category}
+              data-testid="notification-event-category"
+              data-value={view.category}
+            >
+              <h2 className="m-0 pt-4 text-base font-medium">
+                {view.labelKey ? t(view.labelKey) : view.category}
+              </h2>
+              {view.events.map((event) => (
+                <NotificationEventRow
+                  key={event.type}
+                  event={event}
+                  canUpdate={canUpdate}
+                  current={draft.current}
+                  onChange={draft.setEnabled}
+                  onAllowUserOverrideChange={draft.setAllowUserOverride}
+                  onReset={draft.resetToDefault}
+                />
+              ))}
+            </section>
+          ))
+        )}
+        {canUpdate && draft.isDirty && (
+          <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg)] py-3">
+            <Button onClick={draft.clear} data-testid="notification-event-discard">
+              {t('notification.event.discard')}
+            </Button>
+            <Button
+              variant="primary"
+              loading={update.isPending}
+              onClick={save}
+              data-testid="notification-event-save"
+            >
+              {t('common.save')}
+            </Button>
+          </footer>
+        )}
+      </div>
+    </SystemSettingsLayout>
   );
 }

@@ -11,7 +11,7 @@ export function registerAnnouncementNavigation(): void {
     to: '/announcement',
     labelKey: 'menu.announcement',
     testId: 'menu-announcement',
-    icon: 'calendar',
+    icon: 'megaphone',
     group: NavGroupKey.SYSTEM,
     order: 900,
   });

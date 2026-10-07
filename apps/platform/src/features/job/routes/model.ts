@@ -4,8 +4,18 @@ import { z } from 'zod';
 export const JobSearchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).catch(0),
   limit: z.coerce.number().int().min(1).max(100).catch(50),
-  name: z.string().trim().min(1).optional().catch(undefined),
-  state: z.enum(JOB_STATES).optional().catch(undefined),
+  /** 其中任一種工作；網址上重複的 `name` 成為陣列（`web-core/router/search.ts`）。 */
+  name: z
+    .union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1)])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional()
+    .catch(undefined),
+  /** 其中任一種狀態。 */
+  state: z
+    .union([z.enum(JOB_STATES), z.array(z.enum(JOB_STATES)).min(1)])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional()
+    .catch(undefined),
   /** 租戶代碼，或 `platform`（`PLATFORM_TENANT_FILTER`）只看平台層級的工作 */
   tenant: z.string().trim().toLowerCase().min(1).optional().catch(undefined),
 });

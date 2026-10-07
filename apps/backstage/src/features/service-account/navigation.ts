@@ -11,7 +11,7 @@ export function registerServiceAccountNavigation(): void {
     to: '/service-account',
     labelKey: 'menu.serviceAccount',
     testId: 'menu-service-account',
-    icon: 'monitor',
+    icon: 'bot',
     group: NavGroupKey.PEOPLE,
     order: 400,
   });

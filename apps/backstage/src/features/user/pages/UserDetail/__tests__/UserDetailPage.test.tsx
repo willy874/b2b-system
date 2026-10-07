@@ -285,15 +285,22 @@ describe('UserDetailPage', () => {
     expect(fetchGroups).not.toHaveBeenCalled();
   });
 
-  it('看自己：有「有效權限」，展開才查，依賴樹帶出的鍵標出來源（docs/architecture/iam/01-model.md §9 G4b）', async () => {
+  it('看自己：「有效權限」打開對話框才查；清單點一個權限再疊一層看來源（docs/architecture/iam/01-model.md §9 G4b）', async () => {
     fetchProfile.mockResolvedValue({ user: { id: USER_ID }, permissions: [] });
     renderRoute(routes, PATH, ['user:read'] as PermissionKey[]);
     fireEvent.click(
       await screen.findByTestId('user-permission-sources-show', undefined, { timeout: 5000 }),
     );
-    const item = await screen.findByTestId('permission-source');
+    const list = await screen.findByTestId('permission-source-dialog');
+    const item = await within(list).findByTestId('permission-source');
     expect(item).toHaveAttribute('data-value', 'file:read');
-    expect(item).toHaveTextContent('由 file:update 帶出');
+    expect(item).toHaveTextContent('1 個來源');
+
+    fireEvent.click(item);
+    const viewer = await screen.findByTestId('permission-source-viewer-dialog');
+    expect(within(viewer).getByTestId('permission-source-path')).toHaveTextContent(
+      '由 file:update 帶出',
+    );
     expect(fetchSources.mock.calls[0]![0].params).toEqual({ userId: USER_ID });
   });
 

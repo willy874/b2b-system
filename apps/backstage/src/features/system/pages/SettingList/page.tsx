@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getSettingListQueryOptions } from '@/apis/system/get-setting-list/query';
+import { SystemSettingsLayout } from '@/core/system-settings';
 
 import { useSettingPermission } from '../../hooks/useSettingPermission';
 import { toSettingCategories } from './adapter';
 import { SettingCategoryForm } from './components/SettingCategoryForm';
 
 /**
- * 系統設定（docs/architecture/backend/12-settings.md）：依分類列出執行期可調的設定。
+ * 系統設定的「一般」分頁（docs/architecture/backend/12-settings.md）：依分類列出執行期可調的設定。
  * 範圍由後端的定義決定，這裡只先擋明顯超出範圍的值；沒有 `system:update` 時唯讀。
  */
 export default function SettingListPage() {
@@ -38,26 +39,25 @@ export default function SettingListPage() {
   useUnsavedChangesGuard(dirtyCategories.size > 0);
 
   return (
-    <div className="flex max-w-3xl flex-col gap-4" data-testid="setting-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('setting.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('setting.description')}</p>
-      </header>
-      {isPending ? (
-        <Skeleton className="h-40" />
-      ) : error && !data ? (
-        // 查詢失敗：說明並提供重試，不是標題下方一片空白
-        <QueryError error={error} onRetry={() => void refetch()} data-testid="setting-error" />
-      ) : (
-        categories.map((view) => (
-          <SettingCategoryForm
-            key={view.category}
-            view={view}
-            canUpdate={canUpdate}
-            onDirtyChange={changeDirty}
-          />
-        ))
-      )}
-    </div>
+    <SystemSettingsLayout>
+      <div className="flex max-w-3xl flex-col gap-4" data-testid="setting-page">
+        <p className="m-0 text-sm text-[var(--color-fg-muted)]">{t('setting.description')}</p>
+        {isPending ? (
+          <Skeleton className="h-40" />
+        ) : error && !data ? (
+          // 查詢失敗：說明並提供重試，不是標題下方一片空白
+          <QueryError error={error} onRetry={() => void refetch()} data-testid="setting-error" />
+        ) : (
+          categories.map((view) => (
+            <SettingCategoryForm
+              key={view.category}
+              view={view}
+              canUpdate={canUpdate}
+              onDirtyChange={changeDirty}
+            />
+          ))
+        )}
+      </div>
+    </SystemSettingsLayout>
   );
 }

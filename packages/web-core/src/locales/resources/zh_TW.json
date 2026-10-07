@@ -395,6 +395,8 @@
     "scheduledAt": "預定 {{time}}",
     "queues": {
       "title": "工作種類",
+      "open": "佇列概況",
+      "hint": "點卡片加入或移出列表的篩選，可以選好幾種。",
       "cron": "排程：{{cron}}（UTC）",
       "onDemand": "由程式入列",
       "ready_other": "等待 {{count}}",
@@ -473,7 +475,7 @@
       "back": "改用其他方式"
     },
     "challenge": {
-      "title": "兩步驟驗證",
+      "title": "多重驗證",
       "description": "請完成第二步驗證以登入。",
       "chooseFactor": "驗證方式",
       "verify": "驗證",
@@ -506,7 +508,7 @@
       "label": "目前密碼"
     },
     "self": {
-      "title": "兩步驟驗證",
+      "title": "多重驗證",
       "description": "登入時除了密碼，還要輸入驗證碼。密碼外洩時，對方仍無法登入。",
       "enabled": "已啟用",
       "disabled": "未啟用",
@@ -519,14 +521,14 @@
       "removed": "已移除驗證方式。",
       "removeTitle": "移除驗證方式",
       "removeDescription": "請輸入目前的密碼確認。移除最後一個驗證方式時，備用碼也會一併失效。",
-      "removeLastRequired": "你的帳號必須啟用兩步驟驗證，不能移除最後一個驗證方式。",
+      "removeLastRequired": "你的帳號必須啟用多重驗證，不能移除最後一個驗證方式。",
       "recoveryRemaining_other": "剩下 {{count}} 組備用碼",
       "regenerate": "重新產生備用碼",
       "regenerateTitle": "重新產生備用碼",
       "regenerateDescription": "請輸入目前的密碼確認。舊的備用碼會全部失效。"
     },
     "admin": {
-      "title": "兩步驟驗證",
+      "title": "多重驗證",
       "none": "尚未設定任何驗證方式。",
       "reset": "重設 MFA",
       "resetTitle": "要重設這個帳號的 MFA 嗎？",

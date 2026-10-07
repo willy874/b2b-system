@@ -1,20 +1,32 @@
-import type { AppDynamicPluginFactory } from '@b2b-system/web-core/app';
+import type { AppDynamicPluginFactory, AppPluginFactory } from '@b2b-system/web-core/app';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { SYSTEM_LOCALE_SCOPE } from './locale';
-import { registerSystemNavigation } from './navigation';
-import { registerSystemPagePermissions } from './permission';
+import { registerSettingTab, registerSystemNavigation } from './navigation';
+import { registerSettingPagePermissions, registerSystemPagePermissions } from './permission';
 
-/** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/05-tenancy.md §12）。 */
-export function appContextPlugin(): AppDynamicPluginFactory {
-  return (context) => {
+/**
+ * 常駐：系統設定的入口與外框（docs/architecture/frontend/02-plugin-system.md §4.5）。
+ * 安全性、事件通知的分頁由各自的 feature 登記，不能因為平台關掉「一般」分頁就看不到。
+ */
+export function appContextPlugin(): AppPluginFactory {
+  return () => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──
     registerSystemPagePermissions();
     registerSystemNavigation(); // 側欄與命令面板的入口
+    return { name: 'system-feature-plugin' };
+  };
+}
+
+/** 可啟用的 feature `systemSetting`：「一般」分頁，由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/05-tenancy.md §12）。 */
+export function settingPlugin(): AppDynamicPluginFactory {
+  return (context) => {
+    registerSettingPagePermissions();
+    registerSettingTab();
     const app = context.getInstance();
 
     return {
-      name: 'system-feature-plugin',
+      name: 'system-setting-feature-plugin',
       onInit: () => {
         app.addResourceBundle(
           {

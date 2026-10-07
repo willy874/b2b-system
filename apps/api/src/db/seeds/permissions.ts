@@ -11,6 +11,8 @@ export const PERMISSION_SEED = [
   ['user', 'delete', 'permission.user.delete', 103],
   ['user', 'assignRole', 'permission.user.assignRole', 104],
   ['user', 'resetPassword', 'permission.user.resetPassword', 105],
+  // 重設別人的 MFA：獨立的權限，`user:update` 不包含它（docs/architecture/backend/21-mfa.md §8）
+  ['user', 'resetMfa', 'permission.user.resetMfa', 106],
 
   ['role', 'create', 'permission.role.create', 200],
   ['role', 'read', 'permission.role.read', 201],
@@ -129,6 +131,7 @@ export const PERMISSION_DEPENDENCIES = {
   'user:delete': { includes: ['user:update'] },
   'user:update': { includes: ['user:resetPassword', 'user:read'] },
   'user:resetPassword': { includes: ['user:read'] },
+  'user:resetMfa': { includes: ['user:read'] },
   'user:assignRole': { includes: ['user:read'], requires: ['role:read'] },
 
   'role:create': { includes: ['role:update'] },

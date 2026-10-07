@@ -1,7 +1,6 @@
 import * as Pages from './pages';
 import * as Routes from './routes';
 
-Routes.SecurityRoute.update({ component: Pages.AsyncSecurityLayout });
 Routes.SecurityMfaRoute.update({ component: Pages.AsyncMfaPolicyPage });
 
 export { Routes };

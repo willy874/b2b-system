@@ -1,14 +1,16 @@
 import { z } from 'zod';
 
-import { OffsetSchema } from '@/core/http';
+import { OffsetSchema, QueryArraySchema } from '@/core/http';
 import { JOB_STATES } from '@/core/jobs';
 import { defineSchema } from '@/core/validation';
 
 export const ListJobSchema = z.object({
   offset: OffsetSchema,
   limit: z.coerce.number().int().min(1).max(100).default(50),
-  name: z.string().trim().max(100).optional(),
-  state: z.enum(JOB_STATES).optional(),
+  /** 其中任一種工作（可重複：`?name=a&name=b`）。 */
+  name: QueryArraySchema(z.string().trim().max(100)),
+  /** 其中任一種狀態（可重複）。 */
+  state: QueryArraySchema(z.enum(JOB_STATES)),
 });
 
 export type ListJobDto = z.infer<typeof ListJobSchema>;

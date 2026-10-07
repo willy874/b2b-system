@@ -1,6 +1,6 @@
 # 前端 15 — 站內通知
 
-> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、通知總覽 `/notification/all`、事件管理頁 `/notification/events`、偏好頁的通知分頁；`web-core/route-link` 的 route id 註冊表）。
+> 狀態：**已實作**（`features/notification`：頂列鈴鐺、Popover、列表頁 `/notification`、通知總覽 `/notification/all`、事件管理頁 `/system/notification-events`（系統設定的分頁）、偏好頁的通知分頁；`web-core/route-link` 的 route id 註冊表）。
 > 後端（`notifications` 表、`NotificationService.notify()`、API、推播、保留清理）見 [`../backend/15-notification.md`](../backend/15-notification.md)；
 > 決策見 [`backend/15-notification.md`](../backend/15-notification.md) §12.2 D3、D8、D12。
 
@@ -176,15 +176,15 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | 事件管理頁：分組與不認得的事件、草稿（切回伺服器的值移除、有覆寫而切回預設送 `null`、恢復預設、允許個人關閉與開關記在同一筆）、頁面（只送改過的、允許個人關閉、恢復預設、`mandatory` 停用、三個權限案例） | `features/notification/pages/NotificationEventList/__tests__/*`、`features/notification/hooks/__tests__/useNotificationEventDraft.test.ts` |
 | 偏好頁的通知分頁：切換即儲存只送一筆、鎖住的管道停用並顯示原因 | `features/notification/components/__tests__/NotificationPreferenceSection.test.tsx` |
 
-## 9. 事件管理頁（`/notification/events`）
+## 9. 事件管理頁（`/system/notification-events`）
 
 租戶層決定每個事件經由哪些管道送出（[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D12、D13；後端見
 [`../backend/16-notification-event.md`](../backend/16-notification-event.md)）。
 
 | 項目 | 規則 |
 | --- | --- |
-| 權限 | 頁面鍵 `NOTIFICATION_EVENT_PAGE`：`system:read` 檢視、`system:update`（`canUpdate`）切換與恢復預設；沒有 `system:update` 或權限未水合時整頁唯讀。與 `/notification` 是父子路徑，頁面鍵取前綴最長的 |
-| 選單 | 側邊選單「系統管理 › 事件通知」（`menu-notification-event`），排在系統設定之後 |
+| 權限 | 頁面鍵 `NOTIFICATION_EVENT_PAGE`：`system:read` 檢視、`system:update`（`canUpdate`）切換與恢復預設；沒有 `system:update` 或權限未水合時整頁唯讀。|
+| 選單 | 系統設定的「事件通知」分頁（[`02-plugin-system.md`](./02-plugin-system.md) §4.5）；側欄沒有獨立的入口（2026-10 起） |
 | 版面 | 依後端的 `category` 分組（後端目錄的順序）；一列一個事件：名稱、說明、收件人，右側每個管道一個開關、預設值、「已修改」與「恢復預設」，以及「允許個人關閉」的勾選（管道關閉時停用；`mandatory` 沒有） |
 | `mandatory` | 開關停用並顯示鎖頭與「安全相關，不能關閉」 |
 | 送出 | 一整頁一份草稿，只送改過的「事件 ＋ 管道」與改過的欄位（`enabled`、`allowUserOverride`）；有覆寫而切回預設值時送 `enabled: null`（不留一筆與預設相同的覆寫）。成功後以 `notificationPolicy update` 宣告變更 |

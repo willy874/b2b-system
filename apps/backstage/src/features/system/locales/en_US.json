@@ -1,6 +1,5 @@
 {
   "setting": {
-    "title": "System settings",
     "description": "Settings that can be changed at runtime. Changes take effect immediately and are recorded in the audit log. The allowed ranges are fixed by the system, so no value can weaken security.",
     "category": {
       "general": "General",

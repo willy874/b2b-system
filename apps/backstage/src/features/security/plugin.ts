@@ -13,7 +13,7 @@ export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：權限註冊必須在第一次 render 之前完成 ──
     registerSecurityPagePermissions();
-    registerSecurityNavigation();
+    registerSecurityNavigation(); // 系統設定的分頁
     const app = context.getInstance();
 
     return {

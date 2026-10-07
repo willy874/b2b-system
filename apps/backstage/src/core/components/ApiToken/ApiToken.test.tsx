@@ -1,8 +1,10 @@
 import { AllProviders, renderInRouter } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { featureStore, resetFeatureStore } from '@/core/feature';
+import type { FeatureStatus } from '@/core/feature';
 import type { ApiToken } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
 
@@ -47,6 +49,37 @@ describe('ApiTokenTable（docs/architecture/06-external-api.md §9）', () => {
       wrapper: AllProviders,
     });
     expect(screen.queryByTestId('api-token-revoke-button')).toBeNull();
+  });
+});
+
+/** 設定 feature 的安裝狀態後渲染列表。 */
+function withExternalApi(resolved: boolean, status?: FeatureStatus) {
+  featureStore.setState({
+    resolved,
+    statuses: new Map(status ? [['externalApi', status]] : []),
+  });
+  render(<ApiTokenTable tokens={[token('a', 'active')]} canRevoke onRevoke={vi.fn()} />, {
+    wrapper: AllProviders,
+  });
+}
+
+describe('ApiTokenTable 的對外 API 提示（docs/architecture/06-external-api.md §3.1）', () => {
+  afterEach(() => resetFeatureStore());
+
+  it('租戶沒有啟用對外 API → 提示呼叫不到；token 照樣列出、可以撤銷', () => {
+    withExternalApi(true, 'disabled');
+    expect(screen.getByTestId('api-token-external-api-disabled')).toBeInTheDocument();
+    expect(screen.getByTestId('api-token-revoke-button')).toBeInTheDocument();
+  });
+
+  it('已啟用 → 不提示', () => {
+    withExternalApi(true, 'ready');
+    expect(screen.queryByTestId('api-token-external-api-disabled')).toBeNull();
+  });
+
+  it('清單還沒到 → 不提示（不在登入後一閃而過）', () => {
+    withExternalApi(false, 'disabled');
+    expect(screen.queryByTestId('api-token-external-api-disabled')).toBeNull();
   });
 });
 

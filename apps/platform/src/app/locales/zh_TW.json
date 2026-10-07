@@ -58,7 +58,8 @@
       "update": "編輯使用者",
       "delete": "刪除使用者",
       "assignRole": "指派角色",
-      "resetPassword": "重設密碼"
+      "resetPassword": "重設密碼",
+      "resetMfa": "重設 MFA"
     },
     "role": {
       "create": "建立角色",
@@ -115,7 +116,8 @@
     "platformAdmin": {
       "read": "檢視平台管理者",
       "create": "新增平台管理者",
-      "update": "管理平台管理者"
+      "update": "管理平台管理者",
+      "resetMfa": "重設平台管理者的 MFA"
     },
     "platformAuditLog": {
       "read": "檢視平台稽核"

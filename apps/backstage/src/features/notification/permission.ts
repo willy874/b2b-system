@@ -16,7 +16,7 @@ import {
 /** 自己的通知：只需要登入，不需要任何權限（docs/architecture/backend/15-notification.md §12.2 D9）。 */
 export const NOTIFICATION_PAGE = definePageKey('NOTIFICATION');
 
-/** 事件管理：與系統設定同性質，沿用 `system:read`／`system:update`（docs/architecture/backend/16-notification-event.md §9.2 D10）。 */
+/** 事件管理（系統設定的「事件通知」分頁）：與系統設定同性質，沿用 `system:read`／`system:update`（docs/architecture/backend/16-notification-event.md §9.2 D10）。 */
 export const NOTIFICATION_EVENT_PAGE = definePageKey('NOTIFICATION_EVENT');
 
 /** 通知總覽：租戶內所有人的通知（docs/architecture/backend/19-announcement.md §9.2 D1、D2）。 */
@@ -27,7 +27,6 @@ export function registerNotificationPagePermissions(): void {
     route: routeBasePath(NotificationListRoute),
     rule: { access: [], match: PermissionMatch.EVERY },
   });
-  // `/notification/events` 是 `/notification` 的子路徑：頁面鍵取前綴最長的那一個
   registerPagePermission(NOTIFICATION_EVENT_PAGE, {
     route: routeBasePath(NotificationEventListRoute),
     rule: {

@@ -2,7 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
 
-import { RequireFeature, RequireFlag } from '@/common/decorators';
+import { ExternalApi, RequireFeature, RequireFlag, Surface } from '@/common/decorators';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { FeatureFlagService } from '@/core/feature-flags';
@@ -33,8 +33,33 @@ class TrialController {
   logs(): void {}
 }
 
+/** 對外 API 的 controller：不必標 `@RequireFeature('externalApi')`，一律要求（docs/architecture/06-external-api.md §3.1）。 */
+@ExternalApi()
+class ExternalMeController {
+  list(): void {}
+}
+
+@ExternalApi()
+@RequireFeature('file')
+class ExternalFileController {
+  list(): void {}
+}
+
+@Surface('both')
+class HealthController {
+  list(): void {}
+}
+
+type AnyController =
+  | typeof FileController
+  | typeof PlainController
+  | typeof TrialController
+  | typeof ExternalMeController
+  | typeof ExternalFileController
+  | typeof HealthController;
+
 function contextOf(
-  controller: typeof FileController | typeof PlainController | typeof TrialController,
+  controller: AnyController,
   method: 'list' | 'logs',
   type = 'http',
 ): ExecutionContext {
@@ -139,5 +164,35 @@ describe('FeatureGuard 的 @RequireFlag（docs/architecture/05-tenancy.md §11.2
 
   it('沒有租戶脈絡 → 通過', () => {
     expect(guard.canActivate(contextOf(TrialController, 'list'))).toBe(true);
+  });
+});
+
+describe('FeatureGuard 的對外 API（docs/architecture/06-external-api.md §3.1）', () => {
+  it('租戶啟用 externalApi → 對外路由通過', () => {
+    expect(inTenant(['externalApi'], contextOf(ExternalMeController, 'list'))).toBe(true);
+  });
+
+  it('租戶沒有啟用 externalApi → 對外路由一律 FEATURE_DISABLED，即使其他 feature 都開', () => {
+    expect(
+      codeOf(() =>
+        inTenant(['file', 'auditLog', 'job', 'trash'], contextOf(ExternalMeController, 'list')),
+      ),
+    ).toBe('FEATURE_DISABLED');
+  });
+
+  it('對外路由另標的 feature 也要成立', () => {
+    expect(inTenant(['externalApi', 'file'], contextOf(ExternalFileController, 'list'))).toBe(true);
+    expect(codeOf(() => inTenant(['externalApi'], contextOf(ExternalFileController, 'list')))).toBe(
+      'FEATURE_DISABLED',
+    );
+    expect(codeOf(() => inTenant(['file'], contextOf(ExternalFileController, 'list')))).toBe(
+      'FEATURE_DISABLED',
+    );
+  });
+
+  it('內部路由與兩邊都有的健康檢查不受 externalApi 影響', () => {
+    expect(inTenant([], contextOf(PlainController, 'list'))).toBe(true);
+    expect(inTenant([], contextOf(HealthController, 'list'))).toBe(true);
+    expect(inTenant(['file'], contextOf(FileController, 'list'))).toBe(true);
   });
 });

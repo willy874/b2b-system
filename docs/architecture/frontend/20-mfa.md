@@ -3,7 +3,7 @@
 後端的規格（資料表、流程、端點、設計決策）在 [`../backend/21-mfa.md`](../backend/21-mfa.md)；這份只講前端怎麼接。
 
 > 程式碼：`packages/web-core/src/mfa/`（註冊表、共用元件、內建方式的 UI）；apps/platform `features/login`（第二步）、`features/mfa-method`（平台開關）、
-> `features/tenant`（租戶詳情的「兩步驟驗證」分頁）、`core/mfa`（關閉前的確認框）；backstage `features/security`（政策頁）、`features/user`（MFA 欄、篩選、重設）；
+> `features/tenant`（租戶詳情的「多重驗證」分頁）、`core/mfa`（關閉前的確認框）；backstage `features/security`（政策頁）、`features/user`（MFA 欄、篩選、重設）；
 > 兩個 app 的 `features/account`（個人資料頁）。
 
 ## 1. 方式的註冊表
@@ -41,9 +41,9 @@ web-core 不呼叫 app 的 API（[`17-shared-packages.md`](./17-shared-packages.
 
 - **互動頁**（apps/platform `/interaction/:uid`）：`POST …/login` 的回應是 `SsoLoginResult`。有 `redirectTo` 照舊頂層跳轉；有 `next` 時換成 `MfaStepPanel`
   （`next: 'mfa'` → `MfaChallengeForm`；`'mfaEnroll'` → `MfaEnrollFlow`，備用碼對話框的完成鈕是「繼續登入」，關掉才跳轉）。
-- **個人資料頁**（兩個 app）：「兩步驟驗證」區塊（`MfaSecuritySection`）。
-- **backstage `/security/mfa`**：常駐的 feature `security`（不是可關閉的 feature），分頁式容器；MFA 是第一個分頁。`mfaPolicy:read` 進頁、`mfaPolicy:update` 才能改；
+- **個人資料頁**（兩個 app）：「多重驗證」區塊（`MfaSecuritySection`）。
+- **backstage `/system/security`**：常駐的 feature `security`（不是可關閉的 feature），是系統設定的「安全性」分頁（[`02-plugin-system.md`](./02-plugin-system.md) §4.5）。`mfaPolicy:read` 進頁、`mfaPolicy:update` 才能改；
   儲存前 `POST /mfa/policy/preview`，會有人被要求設定或被擋在門外時先確認。「不符合政策的人數」連到使用者列表的 `?mfa=false`（route id `user.listByMfa`）。
-- **backstage 使用者**：列表的「MFA」欄與篩選、詳情的驗證方式與「重設 MFA」（`user:update`，不能重設自己）。
+- **backstage 使用者**：列表的「MFA」欄與篩選、詳情的驗證方式與「重設 MFA」（`user:resetMfa`，不能重設自己）。
 - **apps/platform `/mfa-method`**：全平台開關（`mfaMethod:read` 進頁、`mfaMethod:update` 才能切換）；租戶詳情的 `?tab=mfa` 是租戶層開關（`tenant:update`）。
   關掉之前以 `GET /platform/mfa-methods/:id/impact` 顯示會被擋在門外的人數（`core/mfa/useConfirmMfaMethodOff`）。

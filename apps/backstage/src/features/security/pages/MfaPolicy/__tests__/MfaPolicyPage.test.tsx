@@ -53,7 +53,7 @@ const POLICY: MfaPolicy = {
 
 const READER = ['mfaPolicy:read'] as PermissionKey[];
 const EDITOR = ['mfaPolicy:read', 'mfaPolicy:update', 'role:read'] as PermissionKey[];
-const routes = [Routes.SecurityRoute.addChildren([Routes.SecurityMfaRoute])];
+const routes = [Routes.SecurityMfaRoute];
 
 beforeAll(async () => {
   await initTestI18n(zhTW);
@@ -76,7 +76,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('安全性：MFA 政策的頁面權限（docs/architecture/backend/21-mfa.md §6）', () => {
   it('有 mfaPolicy:read → 進得去', () => {
     usePermissionStore.setState({ permissions: new Set(READER), hydrated: true });
-    expect(renderHook(() => usePageAccess('/security/mfa')).result.current).toMatchObject({
+    expect(renderHook(() => usePageAccess('/system/security')).result.current).toMatchObject({
       gated: true,
       canAccess: true,
     });
@@ -87,7 +87,7 @@ describe('安全性：MFA 政策的頁面權限（docs/architecture/backend/21-m
       permissions: new Set(['system:read'] as PermissionKey[]),
       hydrated: true,
     });
-    expect(renderHook(() => usePageAccess('/security/mfa')).result.current).toMatchObject({
+    expect(renderHook(() => usePageAccess('/system/security')).result.current).toMatchObject({
       gated: true,
       canAccess: false,
     });
@@ -95,7 +95,7 @@ describe('安全性：MFA 政策的頁面權限（docs/architecture/backend/21-m
 
   it('權限未水合 → 還不能判斷', () => {
     usePermissionStore.setState({ permissions: new Set(), hydrated: false });
-    expect(renderHook(() => usePageAccess('/security/mfa')).result.current).toMatchObject({
+    expect(renderHook(() => usePageAccess('/system/security')).result.current).toMatchObject({
       hydrated: false,
       gated: true,
     });
@@ -104,7 +104,7 @@ describe('安全性：MFA 政策的頁面權限（docs/architecture/backend/21-m
 
 describe('安全性：MFA 政策頁', () => {
   it('只有讀取權限：唯讀、沒有儲存鈕；平台未開放的方式停用並註明', async () => {
-    renderRoute(routes, '/security/mfa', READER);
+    renderRoute(routes, '/system/security', READER);
     await screen.findByTestId('security-mfa-page');
     expect(screen.queryByTestId('security-mfa-save')).not.toBeInTheDocument();
     expect(screen.getByText('平台未開放')).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('安全性：MFA 政策頁', () => {
   it('要求所有人啟用：先預覽影響、有人會被要求時先確認，再以 version 儲存', async () => {
     previewPolicy.mockResolvedValue({ nonCompliant: 3, stranded: 0 });
     updatePolicy.mockResolvedValue({ ...POLICY, requireAll: true, version: 2, nonCompliant: 3 });
-    renderRoute(routes, '/security/mfa', EDITOR);
+    renderRoute(routes, '/system/security', EDITOR);
     fireEvent.click(await screen.findByTestId('security-mfa-require-all'));
     fireEvent.click(screen.getByTestId('security-mfa-save'));
     expect(await screen.findByTestId('security-mfa-confirm')).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('安全性：MFA 政策頁', () => {
 
   it('不符合政策的人數 > 0 時提供連到使用者列表的連結', async () => {
     fetchPolicy.mockResolvedValue({ ...POLICY, requireAll: true, nonCompliant: 2 });
-    renderRoute(routes, '/security/mfa', EDITOR);
+    renderRoute(routes, '/system/security', EDITOR);
     const count = await screen.findByTestId('security-mfa-non-compliant');
     expect(count).toHaveAttribute('data-value', '2');
   });

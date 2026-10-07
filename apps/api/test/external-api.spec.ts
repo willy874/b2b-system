@@ -5,12 +5,17 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { TenantDirectory } from '@/core/tenant';
+import { TENANT_FEATURES } from '@/core/tenant';
+import type { TenantFeature } from '@/core/tenant';
+import { tenants as platformTenants } from '@/db/platform/schema';
 import { apiTokens, relationTuples, roleHolderTuple, roles, users } from '@/db/schema';
 import { ApiTokenUsageService } from '@/modules/api-token/api-token-usage.service';
 
 import type { TestDatabase } from './db';
-import { createTestDatabase, truncateAll } from './db';
+import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
+import { testTenantContext } from './tenant';
 
 /**
  * 對外 API（docs/architecture/06-external-api.md §9 T2）：同一個測試程序裡起兩個 app——內部 api（AppModule）
@@ -76,6 +81,25 @@ async function createToken(
   return (response.body as { data: CreatedToken }).data;
 }
 
+/**
+ * 改測試租戶啟用的 feature，並讓兩個 app 的租戶登記快取失效（正式環境由平台的 PATCH 經廣播通知各程序）。
+ * 測試檔之間共用 container：改過之後要以 `TENANT_FEATURES` 還原。
+ */
+async function setTenantFeatures(features: readonly TenantFeature[]): Promise<void> {
+  const { id } = await testTenantContext(internal);
+  const platform = createPlatformTestDatabase();
+  try {
+    await platform.db
+      .update(platformTenants)
+      .set({ features: [...features] })
+      .where(eq(platformTenants.id, id));
+  } finally {
+    await platform.client.end();
+  }
+  internal.get(TenantDirectory).invalidate();
+  external.get(TenantDirectory).invalidate();
+}
+
 function errorCode(response: request.Response): string | undefined {
   return (response.body as { error?: { code?: string } }).error?.code;
 }
@@ -124,6 +148,7 @@ describe('對外 API（docs/architecture/06-external-api.md §9.2 D9～D17）', 
   });
 
   afterAll(async () => {
+    if (internal && external) await setTenantFeatures(TENANT_FEATURES);
     await external?.close();
     await internal?.close();
     await closeDb?.();
@@ -188,6 +213,26 @@ describe('對外 API（docs/architecture/06-external-api.md §9.2 D9～D17）', 
     it('健康檢查兩邊都有', async () => {
       await ext().get('/health').expect(200);
       await request(internalHttp).get('/health').expect(200);
+    });
+  });
+
+  describe('租戶的 feature 開關（docs/architecture/06-external-api.md §3.1）', () => {
+    it('平台關掉 externalApi → 對外路由一律 404 FEATURE_DISABLED；內部的 token 管理照常；打開後原本的 token 立即可用', async () => {
+      await setTenantFeatures(TENANT_FEATURES.filter((feature) => feature !== 'externalApi'));
+      try {
+        expect(errorCode(await ext(ids.raw).get('/v1/me').expect(404))).toBe('FEATURE_DISABLED');
+        expect(errorCode(await ext(ids.raw).get('/v1/users').expect(404))).toBe('FEATURE_DISABLED');
+        // 同一個租戶、但 secret 不對的 token 照舊 401：沒有憑證的人看不到這個租戶有沒有開
+        const tampered = `${ids.raw!.slice(0, -1)}${ids.raw!.endsWith('a') ? 'b' : 'a'}`;
+        expect(errorCode(await ext(tampered).get('/v1/me').expect(401))).toBe('AUTH_TOKEN_INVALID');
+        // 健康檢查不屬於任何租戶
+        await ext().get('/health').expect(200);
+        // 內部 api 的 token 管理不受影響
+        await asAdmin().get(`/service-accounts/${ids.account}/tokens`).expect(200);
+      } finally {
+        await setTenantFeatures(TENANT_FEATURES);
+      }
+      await ext(ids.raw).get('/v1/me').expect(200);
     });
   });
 

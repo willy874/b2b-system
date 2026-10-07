@@ -21,6 +21,7 @@ export const PLATFORM_PERMISSION_LABEL_KEY = {
   'platformAdmin:read': 'permission.platformAdmin.read',
   'platformAdmin:create': 'permission.platformAdmin.create',
   'platformAdmin:update': 'permission.platformAdmin.update',
+  'platformAdmin:resetMfa': 'permission.platformAdmin.resetMfa',
   'platformAuditLog:read': 'permission.platformAuditLog.read',
   'platformJob:read': 'permission.platformJob.read',
   'platformJob:retry': 'permission.platformJob.retry',

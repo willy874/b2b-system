@@ -17,6 +17,7 @@ import {
   resetPagePermissionRegistry,
   resolvePageKey,
 } from '@/core/permission';
+import { resetSystemSettingsTabs, systemSettingsTabRegistry } from '@/core/system-settings';
 
 /**
  * 側欄、帳號選單與命令面板的入口都由 feature 登記（docs/architecture/frontend/18-command-palette.md §2），
@@ -44,6 +45,7 @@ describe('選單與命令面板的入口', () => {
     resetPagePermissionRegistry();
     resetNavigationRegistry();
     resetCommandPaletteRegistry();
+    resetSystemSettingsTabs();
     registerNavGroups();
     registerAll();
   });
@@ -72,6 +74,27 @@ describe('選單與命令面板的入口', () => {
     for (const command of paletteCommandRegistry.values()) {
       if (command.pageKey) expect(pages, command.key).toContain(command.pageKey);
       if ('to' in command) expect(resolvePageKey(command.to), command.key).toBe(command.pageKey);
+    }
+  });
+
+  it('側欄與帳號選單的圖示不重複（看圖示就分得出是哪一頁）', () => {
+    const byIcon = new Map<string, string[]>();
+    for (const item of navItemRegistry.values()) {
+      byIcon.set(item.icon, [...(byIcon.get(item.icon) ?? []), item.pageKey]);
+    }
+    expect([...byIcon].filter(([, pages]) => pages.length > 1)).toEqual([]);
+  });
+
+  it('系統設定的分頁都有登記過的頁面，路徑落在該頁面上（docs/architecture/frontend/02-plugin-system.md §4.5）', () => {
+    const pages = new Set(getRegisteredPageKeys());
+    expect(systemSettingsTabRegistry.keys().toSorted()).toEqual([
+      'general',
+      'notification-events',
+      'security',
+    ]);
+    for (const tab of systemSettingsTabRegistry.values()) {
+      expect(pages, tab.key).toContain(tab.pageKey);
+      expect(resolvePageKey(tab.to), tab.to).toBe(tab.pageKey);
     }
   });
 

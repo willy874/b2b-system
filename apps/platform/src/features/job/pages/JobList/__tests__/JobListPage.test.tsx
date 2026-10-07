@@ -100,8 +100,12 @@ beforeEach(() => {
 });
 
 describe('平台的背景工作監控', () => {
-  it('顯示每種工作的佇列卡片', async () => {
+  it('佇列卡片收在「佇列概況」對話框；按鈕上掛著失敗總數', async () => {
     renderPage(['platformJob:read']);
+    await waitFor(() =>
+      expect(screen.getByTestId('job-queue-open-failed')).toHaveAttribute('data-value', '1'),
+    );
+    fireEvent.click(screen.getByTestId('job-queue-open'));
     await waitFor(() => expect(screen.getAllByTestId('job-queue-card')).toHaveLength(2));
     expect(
       screen.getAllByTestId('job-queue-card').map((card) => card.getAttribute('data-value')),
@@ -162,15 +166,20 @@ describe('平台的背景工作監控', () => {
     expect(screen.getByRole('textbox', { name: '租戶代碼' })).toHaveValue('');
   });
 
-  it('點佇列卡片 → 以該工作種類篩選；再點一次取消', async () => {
+  it('點佇列卡片 → 加入工作種類的篩選（可以多選）；再點一次移出', async () => {
     renderPage(['platformJob:read']);
-    const [card] = await screen.findAllByTestId('job-queue-card');
-    fireEvent.click(card!);
-    await waitFor(() => expect(lastListParams()).toMatchObject({ name: 'file.maintenance' }));
-    expect(card).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(card!);
-    await waitFor(() => expect(lastListParams()).toMatchObject({ name: undefined }));
-  });
+    fireEvent.click(await screen.findByTestId('job-queue-open'));
+    await waitFor(() => expect(screen.getAllByTestId('job-queue-card')).toHaveLength(2));
+    fireEvent.click(screen.getAllByTestId('job-queue-card')[0]!);
+    await waitFor(() => expect(lastListParams()).toMatchObject({ name: ['file.maintenance'] }));
+    fireEvent.click(screen.getAllByTestId('job-queue-card')[1]!);
+    await waitFor(() =>
+      expect(lastListParams()).toMatchObject({ name: ['file.maintenance', 'tenant.provision'] }),
+    );
+    expect(screen.getAllByTestId('job-queue-card')[0]).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getAllByTestId('job-queue-card')[0]!);
+    await waitFor(() => expect(lastListParams()).toMatchObject({ name: ['tenant.provision'] }));
+  }, 10_000);
 
   it('有 platformJob:retry → 只有 failed 的工作有重試按鈕', async () => {
     renderPage(['platformJob:read', 'platformJob:retry']);

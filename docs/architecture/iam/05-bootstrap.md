@@ -87,6 +87,7 @@ export const ROLE_SEED = [
       "user:delete",
       "user:assignRole",
       "user:resetPassword",
+      "user:resetMfa",
       "role:create",
       "role:read",
       "role:update",

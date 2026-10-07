@@ -9,7 +9,7 @@ beforeAll(() => initTestI18n({ job: { scope: { tenant: '每個租戶' } } }));
 
 describe('JobQueueSummary（每種工作一張卡片）', () => {
   it('顯示排程、各狀態的筆數與失敗數（testid ＋ data-value）', () => {
-    render(<JobQueueSummary queues={[QUEUE]} selectedName={undefined} onSelect={vi.fn()} />);
+    render(<JobQueueSummary queues={[QUEUE]} selectedNames={[]} onSelect={vi.fn()} />);
     const card = screen.getByTestId('job-queue-card');
     expect(card).toHaveAttribute('data-value', 'file.maintenance');
     expect(card).toHaveTextContent('排程：0 3 * * *（UTC）');
@@ -20,7 +20,7 @@ describe('JobQueueSummary（每種工作一張卡片）', () => {
     render(
       <JobQueueSummary
         queues={[{ ...QUEUE, failedCount: 0, cron: null }]}
-        selectedName={undefined}
+        selectedNames={[]}
         onSelect={vi.fn()}
       />,
     );
@@ -33,26 +33,34 @@ describe('JobQueueSummary（每種工作一張卡片）', () => {
     render(
       <JobQueueSummary
         queues={[{ ...QUEUE, scopeLabelKey: 'job.scope.tenant' }]}
-        selectedName={undefined}
+        selectedNames={[]}
         onSelect={vi.fn()}
       />,
     );
     expect(screen.getByTestId('job-queue-card')).toHaveTextContent('每個租戶 · 排程');
   });
 
-  it('點卡片以它篩選；再點已選的卡片取消', () => {
+  it('點卡片加入篩選（可以多選）；再點已選的卡片移出', () => {
+    const OTHER = { ...QUEUE, name: 'audit.archive' };
     const onSelect = vi.fn();
     const { rerender } = render(
-      <JobQueueSummary queues={[QUEUE]} selectedName={undefined} onSelect={onSelect} />,
+      <JobQueueSummary queues={[QUEUE, OTHER]} selectedNames={[]} onSelect={onSelect} />,
     );
-    fireEvent.click(screen.getByTestId('job-queue-card'));
-    expect(onSelect).toHaveBeenLastCalledWith('file.maintenance');
+    fireEvent.click(screen.getAllByTestId('job-queue-card')[0]!);
+    expect(onSelect).toHaveBeenLastCalledWith(['file.maintenance']);
 
     rerender(
-      <JobQueueSummary queues={[QUEUE]} selectedName="file.maintenance" onSelect={onSelect} />,
+      <JobQueueSummary
+        queues={[QUEUE, OTHER]}
+        selectedNames={['file.maintenance']}
+        onSelect={onSelect}
+      />,
     );
-    expect(screen.getByTestId('job-queue-card')).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(screen.getByTestId('job-queue-card'));
-    expect(onSelect).toHaveBeenLastCalledWith(undefined);
+    const [first, second] = screen.getAllByTestId('job-queue-card');
+    expect(first).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(second!);
+    expect(onSelect).toHaveBeenLastCalledWith(['file.maintenance', 'audit.archive']);
+    fireEvent.click(first!);
+    expect(onSelect).toHaveBeenLastCalledWith([]);
   });
 });

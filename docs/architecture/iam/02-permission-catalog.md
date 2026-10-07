@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 55 項）
+## 2. 權限清單（共 56 項）
 
 ### 2.1 `user` — 使用者
 
@@ -41,6 +41,7 @@
 | `user:delete`        | 刪除使用者        | 軟刪除帳號                             |
 | `user:assignRole`    | 指派角色          | 增減使用者持有的角色。**受反提權限制** |
 | `user:resetPassword` | 重設密碼          | 代使用者觸發密碼重設流程               |
+| `user:resetMfa`      | 重設 MFA          | 刪除別人的所有驗證方式與備用碼、結束他的 session（[`backend/21-mfa.md`](../backend/21-mfa.md) §8）。獨立授予：`user:update` 不包含它 |
 
 ### 2.2 `role` — 角色
 
@@ -215,7 +216,7 @@
 
 - 檢視／編輯自己的個人資料（`GET|PATCH /auth/profile`）
 - 變更自己的密碼（`POST /auth/change-password`）
-- 管理自己的兩步驟驗證：驗證方式的設定與移除、重新產生備用碼（`/auth/mfa/*`；[`backend/21-mfa.md`](../backend/21-mfa.md) §7）
+- 管理自己的多重驗證：驗證方式的設定與移除、重新產生備用碼（`/auth/mfa/*`；[`backend/21-mfa.md`](../backend/21-mfa.md) §7）
 - 檢視／修改自己的偏好設定（語系、時區）
 - 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D15）
 - 檢視自己的站內通知、標為已讀（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`；[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）
@@ -232,7 +233,7 @@
 
 | resource \ action | create | read | update | delete | 具名動作                      |
 | ----------------- | :----: | :--: | :----: | :----: | ----------------------------- |
-| `user`            |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`, `resetPassword` |
+| `user`            |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`, `resetPassword`, `resetMfa` |
 | `role`            |   ✓    |  ✓   |   ✓    |   ✓    | `grantPermission`             |
 | `permission`      |   —    |  ✓   |   —    |   —    | —                             |
 | `auditLog`        |   —    |  ✓   |   —    |   —    | —                             |
@@ -262,6 +263,7 @@
 | `user:delete`          |      ✓*       |    ✓    |           |          |
 | `user:assignRole`      |      ✓*       |    ✓    |           |          |
 | `user:resetPassword`   |      ✓*       |    ✓    |           |          |
+| `user:resetMfa`        |      ✓*       |    ✓    |           |          |
 | `role:create`          |      ✓*       |    ✓    |           |          |
 | `role:read`            |      ✓*       |    ✓    |     ✓     |          |
 | `role:update`          |      ✓*       |    ✓    |           |          |
@@ -350,13 +352,14 @@
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`06-resource-grants.md`](./06-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
-| 系統設定     | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
+| 系統設定（入口） | `/system`：導向第一個看得到的分頁（[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5） | `SYSTEM` | `system:read`、`mfaPolicy:read` 任一 | SOME |
+| 系統設定：一般 | `/system/settings`（`system:update` 才能修改） | `SETTING` | `system:read`             | EVERY |
 | 通知總覽     | `/notification/all`        | `NOTIFICATION_OVERVIEW` | `notification:read`           | EVERY |
-| 事件通知     | `/notification/events`（`system:update` 才能修改） | `NOTIFICATION_EVENT` | `system:read` | EVERY |
+| 系統設定：事件通知 | `/system/notification-events`（`system:update` 才能修改） | `NOTIFICATION_EVENT` | `system:read` | EVERY |
 | 公告列表     | `/announcement`（含 `/announcement/$announcementId` 詳情與發送紀錄） | `ANNOUNCEMENT` | `announcement:read` | EVERY |
 | 建立公告     | `/announcement/create`     | `ANNOUNCEMENT_CREATE` | `announcement:read` ＋ `announcement:create` | EVERY |
 | 公告全文     | `/announcement/message/$dispatchId` | `ANNOUNCEMENT_MESSAGE` | 無（只看得到自己收到的） | — |
-| 安全性：MFA 政策 | `/security/mfa`（`mfaPolicy:update` 才能修改） | `SECURITY_MFA` | `mfaPolicy:read` | EVERY |
+| 系統設定：安全性（MFA 政策） | `/system/security`（`mfaPolicy:update` 才能修改） | `SECURITY_MFA` | `mfaPolicy:read` | EVERY |
 | 回收桶       | `/trash`（分頁依各類型的 `<resource>:delete` 過濾） | `TRASH` | 任一種 `<resource>:delete`（`user:delete`、`role:delete`、`group:delete`、`file:delete`、`announcement:delete`；[`frontend/13-trash.md`](../frontend/13-trash.md) §3） | SOME |
 
 apps/platform 只給平台管理者登入（[`04-sso.md`](../04-sso.md) §1.1、§6.2），這個目錄的權限不適用；
@@ -381,6 +384,7 @@ export const PERMISSION_SEED = [
   ["user", "delete", "permission.user.delete", 103],
   ["user", "assignRole", "permission.user.assignRole", 104],
   ["user", "resetPassword", "permission.user.resetPassword", 105],
+  ["user", "resetMfa", "permission.user.resetMfa", 106],
 
   ["role", "create", "permission.role.create", 200],
   ["role", "read", "permission.role.read", 201],
@@ -466,6 +470,7 @@ Seed 行為：
 | `platformAdmin:read`    | 檢視平台管理者    | 管理者清單、角色與狀態 |
 | `platformAdmin:create`  | 新增平台管理者    | 建立成 `pending`，寄啟用信讓本人設定密碼（不接受密碼） |
 | `platformAdmin:update`  | 管理平台管理者    | 改名、換角色、停用／啟用（停用即撤銷 session，`locked` 改回 `active` 即解鎖）、寄設定密碼的連結；不能改自己的角色與狀態 |
+| `platformAdmin:resetMfa` | 重設平台管理者的 MFA | 刪除別的平台管理者的驗證方式與備用碼、結束他的 session；不能重設自己（[`backend/21-mfa.md`](../backend/21-mfa.md) §8） |
 | `platformAuditLog:read` | 檢視平台稽核      | `platform_audit_logs`：平台管理者做過的事（D19）；看不到租戶的稽核 |
 | `platformJob:read`      | 檢視背景工作      | 所有租戶與平台自己的工作（D23）；租戶的後台只看得到自己的 |
 | `platformJob:retry`     | 重試背景工作      | 把重試用完、停在失敗的工作重新排入；寫平台稽核 `platformJob.retry` |
@@ -485,6 +490,7 @@ Seed 行為：
 | `platformAdmin:read`    | ✅ | ✅ | ✅ |
 | `platformAdmin:create`  | ✅ |    |    |
 | `platformAdmin:update`  | ✅ |    |    |
+| `platformAdmin:resetMfa` | ✅ |    |    |
 | `platformAuditLog:read` | ✅ | ✅ | ✅ |
 | `platformJob:read`      | ✅ | ✅ | ✅ |
 | `platformJob:retry`     | ✅ | ✅ |    |
@@ -522,6 +528,7 @@ Seed 行為：
 | `user:delete` | `user:update` | |
 | `user:update` | `user:resetPassword`、`user:read` | |
 | `user:resetPassword` | `user:read` | |
+| `user:resetMfa` | `user:read` | |
 | `user:assignRole` | `user:read` | `role:read` |
 | `role:create` | `role:update` | |
 | `role:delete` | `role:update` | |

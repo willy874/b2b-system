@@ -16,10 +16,10 @@ import {
   API_SURFACE,
   IS_AUTHENTICATED,
   IS_PUBLIC,
-  REQUIRED_FEATURE,
   REQUIRED_FLAG,
   REQUIRED_PERMISSIONS,
   REQUIRED_PLATFORM_PERMISSIONS,
+  requiredFeaturesOf,
 } from './decorators';
 import type {
   ApiSurface,
@@ -38,7 +38,7 @@ export interface RouteDeclaration {
   match?: 'every' | 'some';
   /**
    * `@RequireFeature` 標的 feature（docs/architecture/frontend/02-plugin-system.md §9.2 D11），handler 與 class 的合併；
-   * 沒有標就是常駐的端點。
+   * 對外 API 的路由另含 `externalApi`（`requiredFeaturesOf`）。沒有標就是常駐的端點。
    */
   features?: TenantFeature[];
   /** `@RequireFlag` 標的 feature flag（docs/architecture/05-tenancy.md §11.2 D5）。 */
@@ -114,10 +114,7 @@ export function collectRouteDeclarations(app: INestApplication): RouteDeclaratio
       if (subPath === undefined) continue;
 
       const verb = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod;
-      const features = reflector.getAllAndMerge<TenantFeature[]>(REQUIRED_FEATURE, [
-        handler as () => void,
-        metatype,
-      ]);
+      const features = requiredFeaturesOf(reflector, [handler as () => void, metatype]);
       const flag = reflector.getAllAndOverride<string | undefined>(REQUIRED_FLAG, [
         handler as () => void,
         metatype,

@@ -209,6 +209,7 @@ export const PlatformTenantControllerFeatureImpactSchemas = {
       'tenantSwitch',
       'webhook',
       'announcement',
+      'externalApi',
     ]),
   }),
   responses: {

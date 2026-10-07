@@ -9,7 +9,7 @@ export function registerAccountNavigation(): void {
     to: '/profile',
     labelKey: 'menu.profile',
     testId: 'menu-profile',
-    icon: 'user',
+    icon: 'circle-user',
     placement: 'account',
     order: 100,
   });
@@ -18,7 +18,7 @@ export function registerAccountNavigation(): void {
     to: '/preference',
     labelKey: 'menu.preference',
     testId: 'menu-preference',
-    icon: 'settings',
+    icon: 'sliders',
     placement: 'account',
     order: 200,
   });

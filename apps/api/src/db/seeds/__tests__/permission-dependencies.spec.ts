@@ -34,6 +34,14 @@ describe('權限依賴樹（docs/architecture/iam/02-permission-catalog.md §9�
     expect(permissionClosure(['user:resetPassword']).has('user:update')).toBe(false);
   });
 
+  it('user:resetMfa 是獨立的權限：user:update 不包含它，它只帶 user:read', () => {
+    expect(permissionClosure(['user:update']).has('user:resetMfa')).toBe(false);
+    expect([...permissionClosure(['user:resetMfa'])].toSorted()).toEqual([
+      'user:read',
+      'user:resetMfa',
+    ]);
+  });
+
   it('依賴可以跨資源：user:assignRole 帶 role:read，但不帶 user:update', () => {
     const closure = permissionClosure(['user:assignRole']);
     expect(closure.has('role:read')).toBe(true);

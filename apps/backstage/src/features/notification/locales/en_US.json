@@ -39,7 +39,6 @@
       "unknown": "approval"
     },
     "event": {
-      "title": "Event notifications",
       "description": "The system notifies the people involved when these events happen. Turning a channel off stops future deliveries; notifications already sent are kept, and turning it back on does not resend them.",
       "recipients": "Recipients: {{recipients}}",
       "default": "Default: {{value}}",

@@ -19,7 +19,7 @@ export function FileStorageUsage() {
   const ratio = data.quota > 0 ? data.used / data.quota : 1;
   return (
     <Progress
-      className="px-2 pb-2"
+      className="shrink-0 border-t border-[var(--color-border)] px-3 py-2"
       value={Math.min(data.used, data.quota)}
       max={data.quota}
       tone={ratio >= NEARLY_FULL ? 'danger' : 'brand'}

@@ -25,7 +25,7 @@ export class UserMfaController {
 
   @Post(':id/mfa/reset')
   @HttpCode(200)
-  @RequirePermissions(PERMISSION.USER_UPDATE)
+  @RequirePermissions(PERMISSION.USER_RESET_MFA)
   @ApiOperation({
     summary:
       '重設 MFA：刪除所有驗證方式與備用碼、結束這個人所有的 session（持有 super-admin 的人只有 super-admin 能重設）',
@@ -51,7 +51,7 @@ export class PlatformAdminMfaController {
 
   @Post(':id/mfa/reset')
   @HttpCode(200)
-  @RequirePlatformPermissions('platformAdmin:update')
+  @RequirePlatformPermissions('platformAdmin:resetMfa')
   @ApiOperation({ summary: '重設平台管理者的 MFA（不能重設自己）；結束對方所有的 session' })
   reset(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     return this.admin.resetPlatformAdmin(actor, id);

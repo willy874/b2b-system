@@ -35,7 +35,7 @@
 | 3 | `SurfaceGuard` | 內部的路由回 `404 NOT_FOUND`（§3） |
 | 4 | `ApiTokenAuthGuard` | `ApiTokenVerifier`：格式 → 租戶相符 → 以 id 找（快取 10 秒）→ 比對 `SHA-256(secret)`（定長比較）→ 未撤銷、未過期 → 帳號有效且 `token_version` 沒變（使用者快取）。成功時把 token 寫進請求脈絡、記下使用（§5）；失敗以 IP 計數（§4） |
 | 5 | `ExternalRateLimitGuard` | 以 token 計數（§4） |
-| 6 | `FeatureGuard`、`PermissionsGuard` | 與內部 api 相同 |
+| 6 | `FeatureGuard`、`PermissionsGuard` | 與內部 api 相同；另外每個對外路由都要求租戶啟用 `externalApi`（§3.1） |
 
 **錯誤**：沒帶、格式不對、找不到、雜湊不符、已撤銷都回 `401 AUTH_TOKEN_INVALID`（不透露 token id 是否存在）；
 過期 `401 AUTH_API_TOKEN_EXPIRED`；帳號的 `token_version` 變了 `401 AUTH_TOKEN_STALE`；帳號停用 `403 AUTH_ACCOUNT_DISABLED`。
@@ -80,6 +80,22 @@
 - 直傳與下載的網址是 **租戶網域** 的 `/storage`（對外 API 的租戶由 token 決定、沒有租戶網域可依據，presigned URL 以租戶的 **主要網域** 簽章；[`backend/09-file.md`](./backend/09-file.md) §3）：整合方的網路要連得到租戶網域。
 - 對外程序 import 的業務模組：`ApiTokenModule`、`FileModule`、`UserModule`、`HealthModule`，以及 `RoleModule`、`GroupModule`
   ——回收桶在啟動時要求每一種類型都有 handler。這些模組內部的路由一律由 `SurfaceGuard` 擋下。
+
+### 3.1 租戶的開關（`externalApi`）
+
+對外 API 是平台管理者可以對每個租戶開關的 feature（[`05-tenancy.md`](./05-tenancy.md) §5.1；id `externalApi`）。
+
+- **擋在哪裡**：`FeatureGuard` 以 `requiredFeaturesOf()`（`common/decorators/require-feature.decorator.ts`）算出路由要求的 feature——
+  `@RequireFeature` 的合併，**`@ExternalApi()` 的路由一律再加上 `externalApi`**。對外的 controller 不必各自標，之後新增的對外端點也不會漏；
+  `route-audit` 收集宣告時用同一個函式，`test/route-audit.spec.ts` 的對照表因此每個 `/v1/*` 都帶 `externalApi`。`@Surface('both')`（健康檢查）不算對外。
+- **停用時**：帶有效 token 的請求回 `404 FEATURE_DISABLED`（與其他 feature 相同，不暴露功能存在）。`FeatureGuard` 排在 `ApiTokenAuthGuard`
+  與限流之後，所以無效的 token 照舊 `401`——沒有憑證的人看不到這個租戶有沒有開；有效 token 的請求仍會更新 `last_used_at`、計入限流。
+- **token 管理照常**：建立、列出、撤銷 token 的端點在內部 api（`/service-accounts/:id/tokens`、`/auth/api-tokens`、`/users/:userId/api-tokens`），
+  **不標** `@RequireFeature('externalApi')`。理由：token 有期限，停用期間仍要能撤銷外洩的 token、為重新打開預先發好 token；
+  服務帳號本身也是租戶的使用者（角色、稽核），不隨開關消失。backstage 的 `FEATURE_CATALOG` 登記一個空的 plugin（同 `tenantSwitch`），
+  三處 token 列表共用的 `ApiTokenTable` 以 `useIsFeatureDisabled('externalApi')` 在列表上方提示「目前沒有開放」。
+- **預設與既有租戶**：新租戶預設啟用；平台 migration 0019 把它加進平台 DB 的預設值，並讓既有租戶全部啟用（升版不改變行為）。
+- apps/platform 關閉時的確認框另外警告：所有以 API token 呼叫的整合會立刻失敗。
 
 ## 4. 速率限制（D13）
 
@@ -149,9 +165,9 @@ compose 把環境變數拆成兩份 anchor，external-api 只合併共用的那�
 
 | 層 | 涵蓋 |
 | --- | --- |
-| 單元 | token 格式（`common/auth/__tests__/api-token.format.spec.ts`） |
+| 單元 | token 格式（`common/auth/__tests__/api-token.format.spec.ts`）；對外路由要求 `externalApi`（`common/guards/__tests__/feature.guard.spec.ts`、`common/__tests__/route-audit.spec.ts`） |
 | 整合 | `test/external-api-v1.spec.ts`：檔案的單次與分塊上傳、列表、資訊、放棄、在內部 api 看得到；**限縮成 `file:read` 的 token 不能上傳**（帳號有全域 `file:create`）；使用者唯讀只列人 |
-| 整合 | `test/external-api.spec.ts`：同一個測試程序裡起內部 api 與對外 API 兩個 app。`/v1/me`、各種無效 token、JWT 與 API token 互不通用、`SurfaceGuard` 的兩個方向、scope 的交集、在內部 api 撤銷或停用後對外 API 立即拒絕、過期、`last_used_at`、驗證失敗的 429 |
+| 整合 | `test/external-api.spec.ts`：同一個測試程序裡起內部 api 與對外 API 兩個 app。`/v1/me`、各種無效 token、JWT 與 API token 互不通用、`SurfaceGuard` 的兩個方向、scope 的交集、在內部 api 撤銷或停用後對外 API 立即拒絕、過期、`last_used_at`、驗證失敗的 429；租戶關掉 `externalApi` 時回 `404 FEATURE_DISABLED`、內部的 token 管理照常、打開後原本的 token 立即可用 |
 | 路由稽核 | `test/route-audit.spec.ts`：三種寫錯的入口宣告會讓啟動失敗；對外路由的清單 |
 | E2E | `apps/e2e/tests/api-token.spec.ts`：在 backstage 建服務帳號、發 token（只顯示一次）→ 打對外 API → 撤銷、停用後立即拒絕；scopes 收窄；個人 token；token 打不進內部 API、對外 API 沒有內部的路由 |
 

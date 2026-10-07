@@ -11,7 +11,7 @@ export function registerFileNavigation(): void {
     to: '/file',
     labelKey: 'menu.file',
     testId: 'menu-file',
-    icon: 'file',
+    icon: 'folder',
     group: NavGroupKey.FEATURE,
     order: 100,
   });

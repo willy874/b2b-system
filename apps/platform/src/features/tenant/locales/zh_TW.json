@@ -111,7 +111,10 @@
       "disableAction": "關閉",
       "announcement": "公告",
       "announcementDescription": "租戶管理者撰寫公告，立即或排程以站內通知發給指定的人、群組、角色或全租戶。",
-      "announcementDisableWarning": "{{code}} 已排程的公告會停止發送，期間錯過的時間之後重新打開也不會補發；公告與發送紀錄保留。"
+      "announcementDisableWarning": "{{code}} 已排程的公告會停止發送，期間錯過的時間之後重新打開也不會補發；公告與發送紀錄保留。",
+      "externalApi": "對外 API",
+      "externalApiDescription": "外部系統以 API token 呼叫的對外 API。關掉後所有呼叫回 404；服務帳號與 token 照樣可以在後台管理，重新打開後原本的 token 立即可用。",
+      "externalApiDisableWarning": "{{code}} 所有以 API token 呼叫對外 API 的整合會立刻失敗（回 404），直到重新打開。"
     },
     "flag": {
       "title": "試行開關",
@@ -181,7 +184,7 @@
       "overview": "概覽",
       "features": "功能",
       "flags": "試行開關",
-      "mfa": "兩步驟驗證"
+      "mfa": "多重驗證"
     },
     "limits": {
       "title": "全租戶的限制",
@@ -189,7 +192,7 @@
     },
     "mfa": {
       "title": "MFA 驗證方式",
-      "description": "這個租戶可以用的兩步驟驗證方式。「依全平台」跟著平台管理的設定；全平台緊急關閉的方式一律關。",
+      "description": "這個租戶可以用的多重驗證方式。「依全平台」跟著平台管理的設定；全平台緊急關閉的方式一律關。",
       "killed": "全平台已緊急關閉"
     }
   }

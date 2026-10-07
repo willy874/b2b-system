@@ -76,7 +76,7 @@ function renderPage(permissions: PermissionKey[] | 'unhydrated') {
   );
   const router = createRouter({
     routeTree: RootRoute.addChildren([Routes.NotificationEventListRoute]),
-    history: createMemoryHistory({ initialEntries: ['/notification/events'] }),
+    history: createMemoryHistory({ initialEntries: ['/system/notification-events'] }),
     parseSearch,
     stringifySearch,
   });
@@ -202,7 +202,7 @@ describe('事件管理頁（docs/architecture/frontend/15-notification.md §9）
       const confirm = await screen.findByTestId('unsaved-changes-confirm');
       fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
       await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
-      expect(router.state.location.pathname).toBe('/notification/events');
+      expect(router.state.location.pathname).toBe('/system/notification-events');
       expect(screen.getByTestId('notification-event-save')).toBeInTheDocument();
     });
 

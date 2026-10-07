@@ -26,6 +26,7 @@
     "identityProvider": "外部 IdP",
     "webhook": "Webhook",
     "setting": "系統設定",
+    "settingGeneral": "一般",
     "announcement": "公告",
     "notificationOverview": "通知總覽",
     "notificationEvent": "事件通知",
@@ -50,7 +51,11 @@
     "mark": "B2B",
     "subtitle": "RBAC 管理後台",
     "featureDisabled": "目前的頁面所屬的功能已被停用",
-    "featureInstallFailed": "功能載入失敗，請重新整理頁面"
+    "featureInstallFailed": "功能載入失敗，請重新整理頁面",
+    "systemSettings": {
+      "description": "租戶的系統設定、安全政策與事件通知。修改立即生效並記錄在稽核日誌。",
+      "empty": "沒有可以檢視的設定。"
+    }
   },
   "permission": {
     "resource": {
@@ -78,7 +83,8 @@
       "update": "編輯使用者",
       "delete": "刪除使用者",
       "assignRole": "指派角色",
-      "resetPassword": "重設密碼"
+      "resetPassword": "重設密碼",
+      "resetMfa": "重設 MFA"
     },
     "role": {
       "create": "建立角色",
@@ -193,7 +199,16 @@
     },
     "superAdmin": "超級管理員：擁有所有權限。",
     "impliedBy": "由 {{key}} 帶出",
-    "noPermissions": "沒有任何權限"
+    "noPermissions": "沒有任何權限",
+    "list": {
+      "title": "有效權限",
+      "search": "搜尋權限鍵",
+      "noMatch": "沒有符合的權限",
+      "sources_other": "{{count}} 個來源"
+    },
+    "viewer": {
+      "description": "這個權限從哪裡來：每一條是一個來源。"
+    }
   },
   "apiToken": {
     "status": {
@@ -214,6 +229,7 @@
       "all": "跟著帳號的所有權限",
       "limited_other": "限縮為 {{count}} 個權限"
     },
+    "externalApiDisabled": "這個租戶目前沒有開放對外 API：token 照樣可以建立與撤銷，但呼叫對外 API 會失敗（404），直到平台管理者重新打開。",
     "neverUsed": "尚未使用",
     "empty": "還沒有 API token",
     "lifetime_other": "{{count}} 天",

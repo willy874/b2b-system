@@ -25,7 +25,7 @@ type State = (typeof STATES)[number];
 
 /**
  * MFA 驗證方式的全平台開關（docs/architecture/backend/21-mfa.md §5、D4）：規則與 feature flag 相同——全平台 `off`
- * 蓋過租戶層（緊急開關，例：寄信服務故障時關掉 email），`on`／預設時租戶層的覆寫生效（在租戶詳情的「兩步驟驗證」分頁設定）。
+ * 蓋過租戶層（緊急開關，例：寄信服務故障時關掉 email），`on`／預設時租戶層的覆寫生效（在租戶詳情的「多重驗證」分頁設定）。
  */
 export default function MfaMethodListPage() {
   const { t } = useTranslation();

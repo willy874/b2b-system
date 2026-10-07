@@ -11,7 +11,7 @@ export function registerUserNavigation(): void {
     to: '/user',
     labelKey: 'menu.user',
     testId: 'menu-user',
-    icon: 'users',
+    icon: 'user',
     group: NavGroupKey.PEOPLE,
     order: 100,
   });

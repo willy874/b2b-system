@@ -75,9 +75,11 @@ export default function UserDetailPage() {
           />
           <UserTagSection user={user.data} canEdit={permission.canUpdate} />
           {permission.canReadGroups && <UserGroupSection userId={userId} />}
-          {(isSelf || permission.canExplain) && <UserPermissionSourceSection userId={userId} />}
+          {(isSelf || permission.canExplain) && (
+            <UserPermissionSourceSection userId={userId} displayName={user.data.displayName} />
+          )}
           {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}
-          <UserMfaSection userId={userId} canReset={permission.canUpdate && !isSelf} />
+          <UserMfaSection userId={userId} canReset={permission.canResetMfa && !isSelf} />
         </div>
       )}
     </Dialog>

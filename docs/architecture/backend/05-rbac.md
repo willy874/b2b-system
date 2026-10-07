@@ -637,7 +637,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/platform/admins/:id` | `@RequirePlatformPermissions('platformAdmin:update')` |
 | POST   | `/platform/admins/:id/password-link` | `@RequirePlatformPermissions('platformAdmin:update')` |
 | GET    | `/platform/admins/:id/mfa` | `@RequirePlatformPermissions('platformAdmin:read')`（[`backend/21-mfa.md`](21-mfa.md) §8） |
-| POST   | `/platform/admins/:id/mfa/reset` | `@RequirePlatformPermissions('platformAdmin:update')`（不能重設自己） |
+| POST   | `/platform/admins/:id/mfa/reset` | `@RequirePlatformPermissions('platformAdmin:resetMfa')`（不能重設自己） |
 | GET    | `/platform/mfa-methods`、`/platform/mfa-methods/:id/impact` | `@RequirePlatformPermissions('mfaMethod:read')`（[`backend/21-mfa.md`](21-mfa.md) §5） |
 | PUT    | `/platform/mfa-methods/:id` | `@RequirePlatformPermissions('mfaMethod:update')` |
 | GET    | `/platform/audit-logs` | `@RequirePlatformPermissions('platformAuditLog:read')` |
@@ -724,7 +724,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | GET    | `/users/:id/mfa`            | `user:read`（[`backend/21-mfa.md`](21-mfa.md) §8） |
-| POST   | `/users/:id/mfa/reset`      | `user:update`（目標持有 super-admin 時操作者也要是 super-admin） |
+| POST   | `/users/:id/mfa/reset`      | `user:resetMfa`（目標持有 super-admin 時操作者也要是 super-admin） |
 | GET    | `/mfa/policy`               | `mfaPolicy:read`（[`backend/21-mfa.md`](21-mfa.md) §6） |
 | POST   | `/mfa/policy/preview`       | `mfaPolicy:read`                 |
 | PUT    | `/mfa/policy`               | `mfaPolicy:update`               |

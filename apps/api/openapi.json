@@ -7397,7 +7397,8 @@
                 "identityProvider",
                 "tenantSwitch",
                 "webhook",
-                "announcement"
+                "announcement",
+                "externalApi"
               ],
               "type": "string"
             }
@@ -8719,6 +8720,7 @@
           "user:delete",
           "user:assignRole",
           "user:resetPassword",
+          "user:resetMfa",
           "role:create",
           "role:read",
           "role:update",
@@ -11072,7 +11074,8 @@
           "identityProvider",
           "tenantSwitch",
           "webhook",
-          "announcement"
+          "announcement",
+          "externalApi"
         ]
       },
       "TenantFlagOverrides": {
@@ -11338,7 +11341,7 @@
             "maxLength": 100
           },
           "features": {
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
@@ -11551,6 +11554,7 @@
           "platformAdmin:read",
           "platformAdmin:create",
           "platformAdmin:update",
+          "platformAdmin:resetMfa",
           "platformAuditLog:read",
           "platformJob:read",
           "platformJob:retry",
