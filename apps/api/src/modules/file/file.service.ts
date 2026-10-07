@@ -119,8 +119,8 @@ export class FileService {
   }
 
   /**
-   * 帶 `cursor` 是 keyset 分頁（無限捲動），否則是 offset 分頁。兩種都回 `nextCursor`，
-   * 所以 offset 模式的第一頁也能直接接著用游標往下捲。
+   * 帶 `cursor` 是 keyset 分頁（無限捲動），否則是 offset 分頁。兩種都回 `nextCursor` 與 `prevCursor`，
+   * 所以 offset 模式的第一頁也能直接接著用游標往下捲；前端丟掉前面的頁之後以 `prevCursor` 往回取。
    * 只列看得到的資料夾裡的檔案（docs/rbac/07-resource-grants.md §5.2）。
    */
   async list(query: ListFileDto, actor: AuthUser): Promise<FileListDto> {
@@ -134,7 +134,11 @@ export class FileService {
     }
     const ctx = await this.access.contextFor(actor);
     const scope = await this.listScope(ctx, actor, query.folderId);
-    const { items, total, lastCreatedAt } = await this.repo.list(query, after, scope);
+    const { items, total, firstCreatedAt, lastCreatedAt } = await this.repo.list(
+      query,
+      after,
+      scope,
+    );
     const tags = await this.tags.tagsOf(
       RESOURCE_TYPE.FILE,
       items.map((file) => file.id),
@@ -148,22 +152,34 @@ export class FileService {
         ? { items: dtos, pagination: { offset: 0, limit: query.limit, total: null } }
         : paginated(dtos, total, query);
 
-    const last = items.at(-1);
     const [sort] = after ? [after.sort] : query.sort;
-    const nextCursor =
-      last && sort && items.length === query.limit
+    const backward = after?.direction === 'before';
+    const full = items.length === query.limit;
+    const cursorAt = (
+      file: FileWithUploader | undefined,
+      exactCreatedAt: string | undefined,
+      direction: FileCursor['direction'],
+    ) =>
+      file && sort
         ? encodeFileCursor({
             sort,
             value:
               sort.sort === 'createdAt'
-                ? (lastCreatedAt ?? last.createdAt.toISOString())
+                ? (exactCreatedAt ?? file.createdAt.toISOString())
                 : sort.sort === 'name'
-                  ? last.name
-                  : last.size,
-            id: last.id,
+                  ? file.name
+                  : file.size,
+            id: file.id,
+            direction,
           })
         : null;
-    return { ...page, nextCursor };
+    // 往後取的頁：不滿一頁就是最後一頁。往前取的頁：後面一定還有（游標那一筆）
+    const nextCursor = full || backward ? cursorAt(items.at(-1), lastCreatedAt, 'after') : null;
+    // 往前取的頁：不滿一頁就是最前面。offset 的第一頁前面沒有東西；其他頁前面都有（游標那一筆、或 offset 跳過的）
+    const prevCursor = (backward ? full : after !== undefined || query.offset > 0)
+      ? cursorAt(items[0], firstCreatedAt, 'before')
+      : null;
+    return { ...page, nextCursor, prevCursor };
   }
 
   /**

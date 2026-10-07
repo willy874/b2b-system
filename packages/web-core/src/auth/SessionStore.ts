@@ -103,6 +103,8 @@ export class SessionStore {
   /** 每次清空 session 就 +1：續期回來時世代不同，代表中途登出過，結果要丟掉。 */
   private epoch = 0;
   private readonly runExclusive: RunExclusive;
+  /** 最後一個採用的 token 的身分：session 結束（token 清掉）之後仍記得是誰的 session。 */
+  private lastIdentity: string | undefined;
 
   private readonly storage: DictStorage;
   private readonly subscribers = new Set<() => void>();
@@ -163,6 +165,14 @@ export class SessionStore {
     return this.accessToken ? identityOf(this.accessToken) : undefined;
   }
 
+  /**
+   * 最近一次 session 的身分；session 結束後仍保留（`getIdentity()` 已經是 undefined）。
+   * 給 session 結束時要以「是誰」處理的資料用（例：表單草稿，docs/architecture/frontend/09-state-and-storage.md §4.4）。
+   */
+  getLastIdentity(): string | undefined {
+    return this.lastIdentity;
+  }
+
   setTokens({ accessToken, expiresIn }: SessionTokens): void {
     this.applyTokens(accessToken, Date.now() + expiresIn * 1000);
   }
@@ -180,6 +190,7 @@ export class SessionStore {
     }
     this.accessToken = accessToken;
     this.expiresAt = expiresAt;
+    this.lastIdentity = next ?? this.lastIdentity;
     this.ended = false;
     this.storage.set(HAS_SESSION_KEY, true);
     this.events.emit('refreshed');

@@ -1,6 +1,9 @@
+import { sessionStore } from '@b2b-system/web-core/auth';
+import { formDraftStore, setFormDraftStore } from '@b2b-system/web-core/form';
 import { renderRoute } from '@b2b-system/web-core/testing';
+import { createDraftStore } from '@b2b-system/web-shared/storage';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
@@ -130,5 +133,31 @@ describe('AnnouncementCreatePage（docs/architecture/backend/19-announcement.md 
       await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
       expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
     });
+  });
+});
+
+describe('AnnouncementCreatePage：session 結束時保留的草稿（docs/architecture/frontend/09-state-and-storage.md §4.4）', () => {
+  beforeEach(() => {
+    setFormDraftStore(createDraftStore({ indexedDB: undefined }));
+    // 草稿以登入的身分（`tid:sub`）區分是誰
+    vi.spyOn(sessionStore, 'getIdentity').mockReturnValue('t1:me');
+  });
+
+  afterEach(() => {
+    setFormDraftStore(undefined);
+    vi.mocked(sessionStore.getIdentity).mockRestore();
+  });
+
+  it('有同一個人的草稿 → 提示；還原後填回內容', async () => {
+    await formDraftStore().save('t1:me', 'announcement.create', { title: '上次沒存的標題' });
+    renderRoute(routes, '/announcement/create', CREATOR);
+
+    const notice = await screen.findByTestId('form-draft-notice', undefined, { timeout: 5000 });
+    fireEvent.click(within(notice).getByTestId('form-draft-restore'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('announcement-title-input')).toHaveValue('上次沒存的標題'),
+    );
+    expect(screen.queryByTestId('form-draft-notice')).not.toBeInTheDocument();
   });
 });

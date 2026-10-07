@@ -15,7 +15,8 @@ const MAX_SCROLL_SPEED = 24;
 interface UseMarqueeSelectionOptions {
   scrollElement: HTMLElement | null;
   layout: FileLayout;
-  ids: readonly string[];
+  /** 每一格的 id；佔位的格是 `undefined`（框到也不選）。 */
+  ids: readonly (string | undefined)[];
   selection: FileSelection;
   enabled: boolean;
 }

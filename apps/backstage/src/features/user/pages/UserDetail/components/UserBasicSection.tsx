@@ -6,6 +6,7 @@ import { Input } from '@b2b-system/ui/Input';
 import { Select } from '@b2b-system/ui/Select';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
 import { isVersionConflict, useErrorToast } from '@b2b-system/web-core/errors';
+import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { formatDateTime } from '@b2b-system/web-shared/date';
@@ -50,9 +51,23 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
   const isLocked = user.status === 'locked';
   // 還沒啟用的人只能靠啟用信變成 active：不提供狀態選單（API 也不接受改回 pending）
   const canEditStatus = !isLocked && user.status !== 'pending';
-  useUnsavedChangesGuard(
-    editing && (displayName !== user.displayName || (canEditStatus && status !== user.status)),
-  );
+  const dirty =
+    editing && (displayName !== user.displayName || (canEditStatus && status !== user.status));
+  useUnsavedChangesGuard(dirty);
+  // session 非自願結束時保留編輯中的內容（含開始編輯時的版本，還原後送出照常以它做樂觀鎖）
+  const formDraft = useFormDraft({
+    key: `user.detail:${user.id}`,
+    values: { displayName, status, baseVersion },
+    dirty,
+    onRestore: (saved) => {
+      if (saved.displayName === undefined || saved.baseVersion === undefined) return;
+      setDisplayName(saved.displayName);
+      if (saved.status) setStatus(saved.status);
+      setBaseVersion(saved.baseVersion);
+      updateUser.reset();
+      setEditing(true);
+    },
+  });
 
   useEffect(() => {
     if (editing) nameRef.current?.focus();
@@ -122,6 +137,7 @@ export function UserBasicSection({ user, canUpdate, isSelf }: UserBasicSectionPr
 
   return (
     <section>
+      {canUpdate && !editing && <FormDraftNotice draft={formDraft} />}
       <div className="flex items-center justify-between">
         <h3 className="m-0 text-sm font-semibold">{t('user.detail.basic')}</h3>
         {canUpdate && !editing && (

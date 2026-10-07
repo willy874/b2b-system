@@ -14,6 +14,7 @@ import {
   clientIdInterceptor,
   clientReleaseInterceptor,
   createAuthHeaderInterceptor,
+  createHttpCacheInterceptor,
   createRefreshTokenInterceptor,
   retryInterceptor,
 } from '../fetcher';
@@ -59,7 +60,11 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           name: names.base,
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
-          requestInterceptors: [clientIdInterceptor, clientReleaseInterceptor],
+          requestInterceptors: [
+            clientIdInterceptor,
+            clientReleaseInterceptor,
+            createHttpCacheInterceptor(session),
+          ],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [retryInterceptor],
         }),
@@ -70,10 +75,12 @@ export function httpContextPlugin(backends: readonly BackendOptions[]): AppPlugi
           baseUrl: backend.baseUrl,
           timeoutMs: REQUEST_TIMEOUT_MS,
           // x-client-id：伺服器推播的 origin，讓發起寫入的分頁略過自己的變更
+          // 快取的判斷在認證之後：續期失敗、session 在這一刻結束的請求也是 no-store
           requestInterceptors: [
             clientIdInterceptor,
             clientReleaseInterceptor,
             createAuthHeaderInterceptor(session),
+            createHttpCacheInterceptor(session),
           ],
           responseInterceptors: [apiAdapterInterceptor],
           errorInterceptors: [createRefreshTokenInterceptor(session), retryInterceptor],

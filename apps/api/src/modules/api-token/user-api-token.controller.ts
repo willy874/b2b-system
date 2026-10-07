@@ -4,6 +4,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, RequirePermissions } from '@/common/decorators';
 import { PERMISSION } from '@/common/types';
 import type { AuthUser } from '@/common/types';
+import { NoStore } from '@/core/http';
 import { ApiZodResponse } from '@/core/validation';
 
 import { ApiTokenService } from './api-token.service';
@@ -15,6 +16,7 @@ import { ApiTokenListSchema } from './dto/api-token.dto';
  */
 @ApiTags('api-tokens')
 @Controller('users/:userId/api-tokens')
+@NoStore()
 export class UserApiTokenController {
   constructor(private readonly tokens: ApiTokenService) {}
 

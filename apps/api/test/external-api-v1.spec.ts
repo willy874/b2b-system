@@ -267,6 +267,8 @@ describe('對外 API v1：檔案與使用者（docs/architecture/06-external-api
 
     it('列表只有人，不含服務帳號；欄位是對外的契約', async () => {
       const response = await ext(tokens.directory!).get('/v1/users?limit=200').expect(200);
+      // 對外 API 一律不快取（docs/architecture/backend/03-api-conventions.md §9.1）
+      expect(response.headers['cache-control']).toBe('no-store');
       const list = dataOf<{
         items: (Record<string, unknown> & { id: string })[];
         pagination: { total: number };

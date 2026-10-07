@@ -11207,9 +11207,13 @@
           "nextCursor": {
             "nullable": true,
             "type": "string"
+          },
+          "prevCursor": {
+            "nullable": true,
+            "type": "string"
           }
         },
-        "required": ["items", "pagination", "nextCursor"],
+        "required": ["items", "pagination", "nextCursor", "prevCursor"],
         "additionalProperties": false
       },
       "FileUploadTarget": {

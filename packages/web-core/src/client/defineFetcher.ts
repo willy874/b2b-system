@@ -14,13 +14,19 @@ function signalOf(request: unknown): AbortSignal | undefined {
   return request.signal instanceof AbortSignal ? request.signal : undefined;
 }
 
+/** `HttpRequestDTO.cache`。 */
+function cacheOf(request: unknown): RequestCache | undefined {
+  if (typeof request !== 'object' || request === null || !('cache' in request)) return undefined;
+  return typeof request.cache === 'string' ? (request.cache as RequestCache) : undefined;
+}
+
 function define<TRequest, TResponse>(
   contextName: string,
   impl: FetcherImpl<TRequest, TResponse>,
 ): (request: TRequest) => Promise<TResponse> {
   return async (request: TRequest) => {
-    // signal 在這裡統一接上，fetcher 實作漏傳也不會失去取消能力
-    const http = getHttpContext(contextName).bind(signalOf(request));
+    // signal 與快取模式在這裡統一接上，fetcher 實作漏傳也不會失去取消能力
+    const http = getHttpContext(contextName).bind(signalOf(request), cacheOf(request));
     const response = await impl(http, request);
     return response.data;
   };

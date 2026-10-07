@@ -5,15 +5,15 @@ import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { cn } from '@b2b-system/web-shared/utils';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DragEvent, ReactNode } from 'react';
 
 import type { FileSortField } from '@/apis/file/types';
 
 import type { FileViewMode } from '../../../preference';
 import type { CollectedUpload } from '../../../upload/collectEntries';
-import type { BrowserItemVM } from '../adapter';
-import { computeFileLayout, itemRect } from '../layout';
+import type { BrowserItemVM, BrowserSlot } from '../adapter';
+import { computeFileLayout, itemRect, rowsTouchRange, withPlaceholders } from '../layout';
 import { useBrowserKeyboard } from '../useBrowserKeyboard';
 import { useBrowserPointer } from '../useBrowserPointer';
 import { useBrowserRows } from '../useBrowserRows';
@@ -38,6 +38,13 @@ interface FileBrowserProps {
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
+  /**
+   * 無限捲動被 `maxPages` 丟掉的頁：在 `items` 的第 `at` 個之前保留 `count` 格佔位（docs/architecture/frontend/12-file-manager.md §5）。
+   * 捲進佔位區時呼叫 `onLoadPrevious` 把它抓回來。
+   */
+  placeholder?: { at: number; count: number };
+  loadingPrevious?: boolean;
+  onLoadPrevious?: () => void;
   /** 開啟：資料夾是進入，檔案是 LightBox。 */
   onOpen: (item: BrowserItemVM) => void;
   onDeleteSelected: () => void;
@@ -80,6 +87,9 @@ export function FileBrowser({
   hasMore,
   loadingMore,
   onLoadMore,
+  placeholder,
+  loadingPrevious = false,
+  onLoadPrevious,
   onOpen,
   onDeleteSelected,
   onStaleUrl,
@@ -98,14 +108,25 @@ export function FileBrowser({
   const { t } = useTranslation();
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const { width } = useElementSize(scrollElement);
-  const layout = useMemo(
-    () => computeFileLayout(viewMode, width, items.length),
-    [items.length, viewMode, width],
+  // 版面以「格」計算：被丟掉的頁留下等量的佔位，丟頁、抓回來時其他項目的位置不變
+  const placeholderAt = placeholder?.at ?? 0;
+  const placeholderCount = placeholder?.count ?? 0;
+  const slots: readonly BrowserSlot[] = useMemo(
+    () => withPlaceholders(items, placeholderAt, placeholderCount),
+    [items, placeholderAt, placeholderCount],
   );
-  const ids = useMemo(() => items.map((item) => item.id), [items]);
-  const { rows, contentHeight, scrollToIndex } = useBrowserRows(scrollElement, layout);
+  const layout = useMemo(
+    () => computeFileLayout(viewMode, width, slots.length),
+    [slots.length, viewMode, width],
+  );
+  const ids = useMemo(() => slots.map((item) => item?.id), [slots]);
+  const { rows, contentHeight, scrollToIndex } = useBrowserRows(
+    scrollElement,
+    layout,
+    placeholderCount > 0,
+  );
   const { focusIndex, focused, setFocusIndex, onKeyDown } = useBrowserKeyboard({
-    items,
+    items: slots,
     layout,
     selection,
     currentFolderId,
@@ -122,7 +143,7 @@ export function FileBrowser({
     enabled: !loading,
   });
   const { onPointerDown, onClick, onDoubleClick, onDragStart, onToggle } = useBrowserPointer({
-    items,
+    items: slots,
     selection,
     setFocusIndex,
     onOpen,
@@ -164,12 +185,23 @@ export function FileBrowser({
   // 無限捲動（同 VirtualList）：接近底部就載下一頁；內容不滿一屏時自動連續載到填滿
   const { onScroll } = useInfiniteScroll({
     scrollElement,
-    count: items.length,
+    count: slots.length,
     hasMore,
     loading: loadingMore,
     onLoadMore,
     threshold: LOAD_MORE_THRESHOLD,
   });
+
+  // 渲染中的列（含 overscan）碰到佔位：把前一頁抓回來
+  const placeholderVisible = rowsTouchRange(
+    rows.map((row) => row.index),
+    layout.columns,
+    placeholderAt,
+    placeholderCount,
+  );
+  useEffect(() => {
+    if (placeholderVisible && !loadingPrevious) onLoadPrevious?.();
+  }, [loadingPrevious, onLoadPrevious, placeholderVisible]);
 
   const selecting = selection.selected.size > 0;
   const showEmpty = !loading && items.length === 0;
@@ -217,7 +249,7 @@ export function FileBrowser({
             {rows.map((row) =>
               Array.from({ length: layout.columns }, (_, column) => {
                 const index = row.index * layout.columns + column;
-                const item = items[index];
+                const item = slots[index];
                 if (!item) return null;
                 const rect = itemRect(layout, index);
                 return (

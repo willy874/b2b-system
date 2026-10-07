@@ -304,6 +304,53 @@ describe('帳號安全', () => {
     });
   });
 
+  describe('HTTP 快取（docs/architecture/backend/03-api-conventions.md §9.1）', () => {
+    it('一般的 GET：private, no-cache，帶 ETag；If-None-Match 相同時回 304', async () => {
+      const token = await tokenOf(ADMIN);
+      const first = await request(http)
+        .get('/users')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(first.headers['cache-control']).toBe('private, no-cache');
+      expect(first.headers.etag).toBeTruthy();
+      await request(http)
+        .get('/users')
+        .set('authorization', `Bearer ${token}`)
+        .set('if-none-match', first.headers.etag as string)
+        .expect(304);
+    });
+
+    it('身分、session 與稽核：no-store；寫入一律 no-store', async () => {
+      const token = await tokenOf(ADMIN);
+      const profile = await request(http)
+        .get('/auth/profile')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(profile.headers['cache-control']).toBe('no-store');
+      const audit = await request(http)
+        .get('/audit-logs')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(audit.headers['cache-control']).toBe('no-store');
+      // 寫入（驗證失敗的回應也一樣：標頭在 handler 之前設定）
+      const write = await request(http)
+        .patch('/users/not-a-uuid')
+        .set('authorization', `Bearer ${token}`)
+        .send({})
+        .expect(400);
+      expect(write.headers['cache-control']).toBe('no-store');
+    });
+
+    it('登出：Clear-Site-Data 清掉這個網域的 HTTP 快取', async () => {
+      const token = await tokenOf(ADMIN);
+      const response = await request(http)
+        .post('/auth/logout')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(response.headers['clear-site-data']).toBe('"cache"');
+    });
+  });
+
   describe('帳號列舉防護：狀態在驗證密碼之後才判斷（docs/architecture/backend/04-auth.md §3.2）', () => {
     it('未啟用、停用的帳號，密碼錯時與不存在的帳號同樣是 AUTH_INVALID_CREDENTIALS', async () => {
       await createUser('pending-enum@example.com', 'PendingPassword!2026', { status: 'pending' });

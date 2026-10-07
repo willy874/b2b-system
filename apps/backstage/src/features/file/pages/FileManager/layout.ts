@@ -160,3 +160,34 @@ export function moveIndex(
   if (!Number.isFinite(next)) return next < 0 ? 0 : count - 1;
   return next < 0 || next >= count ? index : next;
 }
+
+/**
+ * 在第 `at` 個項目之前插入 `count` 格佔位（無限捲動被 `maxPages` 丟掉的頁，docs/architecture/frontend/12-file-manager.md §5）。
+ * 版面以格的索引計算：丟頁時佔位多一頁、項目少一頁，抓回來時反過來，其他項目的格索引（位置）都不變。
+ */
+export function withPlaceholders<T>(
+  items: readonly T[],
+  at: number,
+  count: number,
+): ReadonlyArray<T | undefined> {
+  if (count <= 0) return items;
+  return [
+    ...items.slice(0, at),
+    ...Array.from({ length: count }, () => undefined),
+    ...items.slice(at),
+  ];
+}
+
+/** 這幾列（列的索引）有沒有碰到佔位的格 `[at, at + count)`。 */
+export function rowsTouchRange(
+  rowIndexes: readonly number[],
+  columns: number,
+  at: number,
+  count: number,
+): boolean {
+  if (count <= 0) return false;
+  return rowIndexes.some((row) => {
+    const first = row * columns;
+    return first < at + count && first + columns > at;
+  });
+}

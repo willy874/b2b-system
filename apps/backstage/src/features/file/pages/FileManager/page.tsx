@@ -31,6 +31,7 @@ export default function FileManagerPage() {
     data,
     folders,
     items,
+    placeholder,
     locked,
     permission,
     currentFolder,
@@ -126,6 +127,9 @@ export default function FileManagerPage() {
             hasMore={data.hasMore}
             loadingMore={data.isLoadingMore}
             onLoadMore={data.loadMore}
+            placeholder={placeholder}
+            loadingPrevious={data.isLoadingPrevious}
+            onLoadPrevious={data.loadPrevious}
             onOpen={onOpen}
             onDeleteSelected={() => selected.canDelete && actions.requestDelete(selectedItems)}
             onStaleUrl={data.reportStaleUrl}

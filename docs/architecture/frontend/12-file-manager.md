@@ -96,10 +96,16 @@ moveIndex(layout, i, 'ArrowDown', count);  // 鍵盤移動
 | 閱覽模式 | query | 說明 |
 | --- | --- | --- |
 | 分頁 | `getFileListQueryOptions`（`FILE_LIST_QUERY_KEY`） | offset ＋ limit；換頁時 `keepPreviousData` 不閃空白 |
-| 無限捲動 | `getFileInfiniteListQueryOptions`（`FILE_INFINITE_LIST_QUERY_KEY`） | 以上一頁的 `nextCursor` 接續（[backend 09 §6.1](../backend/09-file.md)）；捲到離底部 600 px 內就載下一頁（`useInfiniteScroll`），內容不滿一屏時自動連續載入 |
+| 無限捲動 | `getFileInfiniteListQueryOptions`（`FILE_INFINITE_LIST_QUERY_KEY`） | 以 `nextCursor`／`prevCursor` 接續（[backend 09 §6.1](../backend/09-file.md)）；捲到離底部 600 px 內就載下一頁（`useInfiniteScroll`），內容不滿一屏時自動連續載入；只保留最近 10 頁（`maxPages`） |
 
 - 兩個 query 同時只啟用一個；切換模式時另一個留在快取。
 - 無限捲動重新驗證時 TanStack 依序以游標重抓已載入的頁；合併時以 id 去重（`mergePages`），重抓途中頁與頁短暫重疊也不會出現兩次。
+- **只保留最近 10 頁**（`FILE_INFINITE_MAX_PAGES`）：重新驗證（推播、回到分頁）會依序重抓保留的每一頁，捲到第 30 頁時一次推播不該變成 30 個連續請求。
+  往下捲超過 10 頁時丟掉最前面的頁；頁參數是 `{ cursor, index }`，`index` 是從頭數來第幾頁，被丟掉的檔案數＝第一個保留的頁碼 × 每頁筆數（`useFileListData` 的 `dropped`）。
+- **捲動錨定以「格」解決**：`FileBrowser` 的版面、鍵盤焦點、框選都以格的索引計算，被丟掉的頁在資料夾之後、保留的檔案之前留下等量的 **佔位格**
+  （`withPlaceholders`，`layout.ts`）——丟頁時佔位多一頁、項目少一頁，抓回來時反過來，其他項目的格索引不變，格狀排列也不會整片換列（頁大小不是欄數的倍數時，直接移除會讓後面每一列重排）。
+  渲染中的列（含 overscan）碰到佔位時 `fetchPreviousPage`（`rowsTouchRange`）；有佔位時一律虛擬化，否則全部渲染會讓佔位一直「看得到」而不停往回抓。
+- 總數只來自不帶游標的第一頁：第一頁被丟掉之後沿用最後一次的值，換了篩選條件才重來。
 - **網址效期**：列表的 presigned 網址在 `FILE_URL_TTL` 後失效。`useFileListData` 在最早的 `urlExpiresAt` 前 60 秒重抓；
   縮圖載入失敗（網址被提早撤銷、時鐘偏差）時也重抓，但同一批資料只重抓一次。
 - 下載網址在時間窗內不變（[backend 09 §7.1](../backend/09-file.md)）：重抓列表不會讓縮圖重新下載。

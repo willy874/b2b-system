@@ -293,16 +293,19 @@ export const auditLogs = pgTable(
   ],
 );
 
-// 冷表：id 沿用熱表的值（不是 serial）；少一個 action 索引
+// 冷表：id 沿用熱表的值（不是 serial）；按月 RANGE 分區（migration 0039），主鍵必須含分區鍵 → (id, occurred_at)
 export const auditLogsArchive = pgTable(
   "audit_logs_archive",
-  { id: bigint("id", { mode: "bigint" }).primaryKey(), ...auditLogColumns() },
+  { id: bigint("id", { mode: "bigint" }).notNull(), ...auditLogColumns() },
   (t) => [
+    primaryKey({ columns: [t.id, t.occurredAt] }),
     index("audit_logs_archive_occurred_idx").on(t.occurredAt.desc().nullsFirst(), t.id.desc().nullsFirst()),
     index("audit_logs_archive_actor_idx").on(t.actorId, t.occurredAt.desc().nullsFirst()),
     index("audit_logs_archive_resource_idx").on(t.resourceType, t.resourceId, t.occurredAt.desc().nullsFirst()),
+    index("audit_logs_archive_action_idx").on(t.action.op("text_pattern_ops"), t.occurredAt.desc().nullsFirst()),
   ],
 );
+// 分區（audit_logs_archive_pYYYYMM）由 SQL 函式建立，Drizzle 的 schema 只描述父表
 ```
 
 索引細節：
@@ -523,8 +526,8 @@ REVOKE UPDATE, DELETE ON audit_logs FROM b2b_system_app;
 REVOKE INSERT, UPDATE, DELETE ON audit_logs_archive FROM b2b_system_app;
 ```
 
-> **熱 → 冷搬移** 與 **冷表的保留期清理** 都由另一個具備 `DELETE` 權限的維運
-> role 執行（見 §7 與 [`06-audit-log.md`](./06-audit-log.md) §8）。
+> **熱 → 冷搬移** 與 **冷表的保留期清理** 都經由 `SECURITY DEFINER` 的函式（`archive_audit_logs`、`drop_expired_audit_archive_partitions`）執行，
+> 應用程式的 role 不需要 `DELETE`（見 §7 與 [`06-audit-log.md`](./06-audit-log.md) §8、§10）。
 
 ### 3.3 `updated_at` 自動更新
 
@@ -774,6 +777,19 @@ postgres 的連線是有限資源（`max_connections`，每條約數 MB 記憶�
 
 postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connections`、`shared_buffers`（約記憶體 25%）、
 `effective_cache_size`（約 75%）、`work_mem`、`pg_stat_statements`、`log_min_duration_statement=500`。
+
+**還沒做、寫明觸發條件的兩項**（2026-10-07 評估）：
+
+- **每個租戶覆寫連線池大小**。觸發條件：某個租戶的池出現排隊——postgres.js 沒有池的統計，以 Grafana「容量與資料庫」的「連線數（依 database、狀態）」看那個租戶的 database 是否長時間佔滿 `TENANT_POOL_MAX` 條 active 連線，搭配 `api_db_transaction_duration_seconds` 與該租戶的 trace 判斷（[`../08-monitoring.md`](../08-monitoring.md) §2.2、§6.4），
+  或單一租戶的同時在線明顯超過 1000 人、其他租戶遠小於它。屆時：feature 參數 `db.poolMax`（2–50，[`../05-tenancy.md`](../05-tenancy.md) §13），
+  `Tenancy.poolOf` 建池時讀它、參數改變時以與「連線字串改變」相同的方式換池；預算公式的「同時活躍的租戶數 × `TENANT_POOL_MAX`」改為逐租戶加總。
+- **PgBouncer**。觸發條件（任一）：預算公式的左邊超過 `max_connections` 的約 70%；多實例上線、api 程序數 ≥ 2 且同時活躍的租戶超過 10 個；
+  postgres 的記憶體因連線數成為瓶頸。屆時現在的程式有三處與 transaction mode 不相容：
+  1. postgres.js 預設使用具名 prepared statements：經 PgBouncer 的連線要設 `prepare: false`（`core/database/database.provider.ts` 的 `postgresOptionsOf`）。
+  2. `statement_timeout`、`idle_in_transaction_session_timeout` 以連線的 startup 參數設定；PgBouncer 不轉送任意 startup 參數，要改成 `ALTER ROLE … SET`（或 database 層級）並在佈建時設定。
+  3. `core/broadcast` 的 `LISTEN` 連線與 pg-boss 需要 session 語意：**只有租戶 DB 經過 PgBouncer**，平台 DB 維持直連。
+
+  已經相容的部分：程式只用交易層級的 `pg_advisory_xact_lock`（資料夾樹鎖），沒有以 `SET`／`SET LOCAL` 保留的 session 狀態。
 
 ### 6.1 腳本
 

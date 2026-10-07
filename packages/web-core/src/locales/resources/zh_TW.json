@@ -52,6 +52,11 @@
     "selectAll": "全選本頁",
     "selectRow": "選取這一列",
     "pinColumn": "釘選",
+    "formDraft": {
+      "message": "有上次登入狀態結束時未儲存的內容（{{time}}）。",
+      "restore": "還原",
+      "discard": "捨棄"
+    },
     "batch": {
       "toolbar": "批次操作",
       "selected_other": "已選取 {{count}} 筆",

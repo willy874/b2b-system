@@ -219,7 +219,8 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 3. **沒有 API**：不存在 `PATCH /audit-logs/:id` 或 `DELETE /audit-logs/:id`
 
 熱 → 冷搬移經由 `SECURITY DEFINER` 的 `archive_audit_logs()`（§8），應用程式的 role 不需要 DELETE；
-保留期滿的清理由一個獨立的維運 role 執行。
+保留期滿的清理同樣經由 `SECURITY DEFINER` 的 `drop_expired_audit_archive_partitions()`（§10）以 DROP 整個月份分區執行，
+函式拒絕一年內的 cutoff，應用程式的 role 即使被濫用也刪不到一年內的資料。
 
 ---
 

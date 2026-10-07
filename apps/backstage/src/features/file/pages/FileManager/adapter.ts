@@ -89,6 +89,12 @@ export interface FolderItemVM {
 /** 主區塊的一格：資料夾或檔案。選取、框選、拖曳以 id 處理，不分種類。 */
 export type BrowserItemVM = FolderItemVM | FileItemVM;
 
+/**
+ * 瀏覽區的一格：項目，或無限捲動被丟掉的頁留下的佔位（`undefined`，docs/architecture/frontend/12-file-manager.md §5）。
+ * 版面、鍵盤、框選都以格的索引計算：丟頁、抓回來時其他項目的位置不變。
+ */
+export type BrowserSlot = BrowserItemVM | undefined;
+
 export function toFolderItemVM(folder: FileFolder, folderCount: number): FolderItemVM {
   return {
     type: 'folder',

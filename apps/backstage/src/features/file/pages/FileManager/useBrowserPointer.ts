@@ -2,13 +2,14 @@ import { useTranslation } from '@b2b-system/web-core/locales';
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import type { DragEvent, MouseEvent, PointerEvent } from 'react';
 
-import type { BrowserItemVM } from './adapter';
+import type { BrowserItemVM, BrowserSlot } from './adapter';
 import type { FileSelection } from './useFileSelection';
 import { draggedItemsOf } from './useItemDrag';
 import type { ItemDrag } from './useItemDrag';
 
 export interface UseBrowserPointerOptions {
-  items: readonly BrowserItemVM[];
+  /** 格（含佔位）：回報給 `setFocusIndex` 的是格的索引。 */
+  items: readonly BrowserSlot[];
   selection: FileSelection;
   /** 點到的項目成為鍵盤焦點 */
   setFocusIndex: (index: number) => void;
@@ -48,7 +49,7 @@ export function useBrowserPointer({
   const itemFromEvent = (event: MouseEvent) => {
     const element = (event.target as Element).closest<HTMLElement>('[data-file-item]');
     const id = element?.dataset.id;
-    return id ? { id, index: items.findIndex((item) => item.id === id) } : undefined;
+    return id ? { id, index: items.findIndex((item) => item?.id === id) } : undefined;
   };
 
   // 勾選框由它自己的 onCheckedChange 切換；以 ref 保持參考穩定，選取改變時項目不必全部重新渲染
@@ -88,7 +89,9 @@ export function useBrowserPointer({
     const hit = itemFromEvent(event);
     if (!hit) return;
     const draggedIds = selection.selected.has(hit.id) ? selection.selected : new Set([hit.id]);
-    const dragged = items.filter((item) => draggedIds.has(item.id));
+    const dragged = items.filter(
+      (item): item is BrowserItemVM => item !== undefined && draggedIds.has(item.id),
+    );
     // 批次移動不做一半：其中有不能移動的就整批不拖
     if (!canMove || dragged.some((item) => !item.canUpdate)) {
       event.preventDefault();

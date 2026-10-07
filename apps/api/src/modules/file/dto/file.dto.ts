@@ -93,6 +93,11 @@ export const FileListSchema = defineSchema(
     }),
     /** keyset 分頁：下一頁的游標（`GET /files?cursor=`）；沒有下一頁時為 null。 */
     nextCursor: z.string().nullable(),
+    /**
+     * keyset 分頁：前一頁（排在這一頁第一筆之前）的游標；已經是最前面時為 null。
+     * 無限捲動只保留最近的幾頁，往回捲時以它把丟掉的頁抓回來（docs/architecture/backend/09-file.md §6.1）。
+     */
+    prevCursor: z.string().nullable(),
   }),
 );
 

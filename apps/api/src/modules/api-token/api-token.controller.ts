@@ -12,6 +12,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Authenticated, CurrentUser } from '@/common/decorators';
 import type { AuthUser } from '@/common/types';
+import { NoStore } from '@/core/http';
 import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation';
 
 import { ApiTokenService } from './api-token.service';
@@ -28,6 +29,7 @@ import type { CreateApiTokenDto } from './dto/api-token.dto';
  */
 @ApiTags('api-tokens')
 @Controller('auth/api-tokens')
+@NoStore()
 export class ApiTokenController {
   constructor(private readonly tokens: ApiTokenService) {}
 

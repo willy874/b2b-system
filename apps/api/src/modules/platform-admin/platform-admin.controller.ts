@@ -13,6 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, RequirePlatformPermissions } from '@/common/decorators';
 import type { AuthUser } from '@/common/types';
+import { NoStore } from '@/core/http';
 import {
   ApiZodBody,
   ApiZodListResponse,
@@ -90,6 +91,7 @@ export class PlatformAdminController {
   }
 
   @Get('audit-logs')
+  @NoStore()
   @RequirePlatformPermissions('platformAuditLog:read')
   @ApiOperation({ summary: '平台稽核（固定 occurred_at DESC；時間範圍預設且最多 90 天）' })
   @ApiZodListResponse(200, PlatformAuditLogSchema)

@@ -18,11 +18,15 @@ export class HttpContext implements HttpClient {
     return this.options.name;
   }
 
-  /** 綁定呼叫端的 signal；`init.signal` 有給時以它為準。 */
-  bind(signal: AbortSignal | undefined): HttpClient {
+  /** 綁定呼叫端的 signal 與快取模式；`init` 有給時以它為準。 */
+  bind(signal: AbortSignal | undefined, cache?: RequestCache): HttpClient {
     return {
       request: <T>(url: string, init: RequestInit = {}) =>
-        this.request<T>(url, { ...init, signal: init.signal ?? signal }),
+        this.request<T>(url, {
+          ...init,
+          signal: init.signal ?? signal,
+          cache: init.cache ?? cache,
+        }),
     };
   }
 

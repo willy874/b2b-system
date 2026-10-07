@@ -9,6 +9,7 @@ import { apiAdapterInterceptor } from '../api-adapter';
 import { createAuthHeaderInterceptor } from '../auth';
 import { clientIdInterceptor } from '../client-id';
 import { CLIENT_RELEASE_HEADER, clientReleaseInterceptor } from '../client-release';
+import { createHttpCacheInterceptor } from '../http-cache';
 import { createRefreshTokenInterceptor } from '../refresh-token';
 import { retryInterceptor } from '../retry';
 
@@ -378,5 +379,22 @@ describe('refresh-token 攔截器', () => {
     off();
     other.dispose();
     sessionStore.clear();
+  });
+});
+
+describe('HTTP 快取攔截器（docs/architecture/frontend/09-state-and-storage.md §4.2）', () => {
+  const httpCacheInterceptor = createHttpCacheInterceptor(sessionStore);
+
+  it('有 session：不改動（依伺服器的 Cache-Control 與呼叫端的 cache）', async () => {
+    sessionStore.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+    const result = await httpCacheInterceptor(withInit({ cache: 'default' }));
+    expect(result.init.cache).toBe('default');
+    sessionStore.clear();
+  });
+
+  it('沒有 session（登出、被撤銷之後）：一律 no-store', async () => {
+    sessionStore.clear();
+    const result = await httpCacheInterceptor(withInit({ cache: 'default' }));
+    expect(result.init.cache).toBe('no-store');
   });
 });

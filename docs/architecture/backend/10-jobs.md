@@ -153,6 +153,9 @@ await withTransaction(this.db, async (tx) => {
 2. 搬移失敗或程序剛好在提交與搬移之間當掉：每 10 分鐘的 `jobs.outboxSweep` 走遍每個 `active` 租戶補搬。
    它會在每個租戶開一條連線，所以間隔要遠大於 `TENANT_POOL_IDLE_TIMEOUT`（30 秒），閒置租戶的連線池才會關掉
    （[`02-database.md`](./02-database.md) §6.2）。工作逾時或程序關閉時（`signal`）在兩批之間停下、不再進入下一個租戶。
+   - 評估過「只進入有寫入的租戶」與「relay 移出交易」（2026-10-07），**都不做**：清掃要補救的正是「提交與搬移之間程序當掉」，
+     這時程序記憶體裡的「有寫入的租戶」名單也一起消失；多實例時執行清掃的 worker 也看不到 api 程序記下的名單，要可靠就得另寫平台 DB，
+     代價比每 10 分鐘進一次每個租戶大。relay 移出交易會失去 `SKIP LOCKED` 的互斥，尖峰時幾十個提交各自重送同一批到平台 DB。
 3. 以 outbox 的 id 當 pg-boss 的工作 id：`send` 與批次 `insert` 用同一條 INSERT（`ON CONFLICT DO NOTHING`），
    送出後、刪除前當掉而重搬，也只會有一筆工作。
 4. **沒有註冊 handler 的列**（工作已下線或改名；滾動部署時舊版程序清掃到只有新版認得的工作）：搬移只選已註冊的名稱，

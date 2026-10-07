@@ -24,7 +24,7 @@ export interface FileListFilters {
 export interface FileListParams extends FileListFilters {
   offset: number;
   limit: number;
-  /** keyset 分頁的游標（上一頁的 `nextCursor`）；帶了就忽略 `offset`。 */
+  /** keyset 分頁的游標（回應的 `nextCursor` 或 `prevCursor`）；帶了就忽略 `offset`。 */
   cursor?: string;
 }
 

@@ -185,6 +185,14 @@ interface DictStorage {
 | 跨分頁 leader 選舉的任期 counter（`b2b-system:leader:*:counter`，[11 §3.3](./11-realtime.md)） |                          |
 | 命令面板「最近造訪」的 page key（不存名稱，[18 §3.3](./18-command-palette.md)） |                          |
 
+**唯一的例外（IndexedDB，不是 localStorage）**：session 非自願結束時，選擇加入的表單的 **加密草稿**，24 小時過期（§4.4）。
+它是個人資料與伺服器資料的複本，所以只在「回來的仍是同一個人」的結束原因保留、以不可匯出的金鑰加密，其他情況一律清除。
+
+瀏覽器的 **HTTP 快取** 也是伺服器資料的複本：api 對一般 `GET` 回 `private, no-cache`（存著但每次重新驗證），身分、憑證、稽核回 `no-store`，
+登出的回應以 `Clear-Site-Data: "cache"` 清掉整個網域的 HTTP 快取（[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §9.1）。
+前端在 **沒有 session 的期間**（登出、被撤銷、續期失敗之後）一律以 `cache: 'no-store'` 送出（`createHttpCacheInterceptor`，`web-core/plugins/fetcher/http-cache.ts`），
+個別查詢要關掉快取時傳 `HttpRequestDTO.cache: 'no-store'`。
+
 錯誤回報（`@sentry/browser`）的佇列只在記憶體，也不用 sessionStorage 串前一個 trace（[19 §4](./19-observability.md)）。
 
 ### 4.3 Token 的儲存
@@ -199,6 +207,41 @@ Refresh Token  → httpOnly cookie，JavaScript 讀不到
 防線：即使有腳本注入，也拿不走可長期使用的憑證。
 
 代價：每次重新整理都要多一次 `POST /auth/refresh`（約 50 ms）。可接受。
+
+---
+
+### 4.4 session 結束時的表單草稿
+
+session 中途結束時 `SessionWatcher` 清掉使用者資料、導向登入頁，表單內容原本全部遺失；登入在 apps/platform 的 OIDC 互動（頂層導向），
+沒有就地重新登入。會遺失草稿的實際情境：refresh token 7 天沒用而過期、家族滿 30 天、在另一個分頁變更了密碼。
+
+| 層 | 位置 | 職責 |
+| --- | --- | --- |
+| 儲存 | `web-shared/storage/draftStore.ts` | IndexedDB（`b2b-system:drafts`），WebCrypto AES-GCM 加密，金鑰是每個瀏覽器產生一次、**不可匯出** 的 `CryptoKey`（存在同一個 IndexedDB）；以「擁有者（`<租戶>:<使用者>`）× key」索引；24 小時過期、最多 20 筆、每筆 256 KiB（超過的不存）。沒有 IndexedDB 或 WebCrypto 時只在記憶體（等於不保留） |
+| 機制 | `web-core/form/`（`useFormDraft`、`FormDraftNotice`、`formDrafts.ts`） | 表單逐一選擇加入；`SessionWatcher` 在 `ended` 時先同步取出每個 dirty 表單的內容再加密存起來；登入（`refreshed`）成為某個人時清掉其他人的草稿 |
+| 表單 | 公告（建立、編輯）、Webhook（建立、編輯）、角色權限、使用者基本資料 | `useFormDraft({ key, values, dirty, onRestore })` ＋ `<FormDraftNotice draft={…} />` |
+
+```tsx
+const formDraft = useFormDraft({
+  key: `user.detail:${user.id}`,                 // route id ＋ 實體 id
+  values: { displayName, status, baseVersion },  // 含開始編輯時的 version：還原後送出照常以它做樂觀鎖
+  dirty,
+  onRestore: (saved) => { /* 合併回表單；saved 是 Partial（敏感與 exclude 的欄位已拿掉） */ },
+});
+<FormDraftNotice draft={formDraft} />           // 「有上次未儲存的內容（時間）」＋ 還原、捨棄
+```
+
+- **哪些原因保留**（`DRAFT_KEEPING_END_REASONS`）：`AUTH_REFRESH_EXPIRED`、`AUTH_REFRESH_INVALID`、`password_changed`——非自願、而且回來的仍是同一個人。
+  其他原因（自己登出、單一登出、`main_session_ended`、`AUTH_REFRESH_REUSED`、`AUTH_TOKEN_STALE`、`AUTH_ACCOUNT_DISABLED`、`session.revoked`、換了身分）
+  **不保留，並清掉那個人既有的草稿**：登出是使用者的意思（可能是共用電腦）；重用偵測、被停用、被撤銷代表帳號可能落在別人手上。
+- **只在結束當下存**，不做定時自動儲存；只存 dirty 的表單。欄位名稱含 `password`、`secret`、`token` 的值一律不存，另可用 `exclude` 指定。
+- **還原不自動套用**：重新登入回到 `redirect` 後，表單掛載時若有同一個人的草稿就顯示提示列，由使用者選「還原」或「捨棄」。
+  還原後送出仍帶草稿時的 `version`，伺服器已更新時照常 `409`（[`../backend/03-api-conventions.md`](../backend/03-api-conventions.md) §11）。
+- **擁有者**：`SessionStore.getLastIdentity()`（session 結束、token 清掉之後仍記得是誰）。登入成為不同的人時，上一個人的草稿全部清除。
+- 加密讓磁碟上的資料不是明文（備份、鑑識、其他程式讀檔都看不到內容）；不可匯出的金鑰讓 XSS 帶不走金鑰——但能在頁面內解密，
+  而 XSS 本來就讀得到畫面上的表單，沒有更差。
+- 不採用的做法：就地重新登入（彈出視窗跑 OIDC：會被阻擋、要處理跨視窗的 PKCE 與「回來的是不是同一個人」，而且情境多半是分頁放了幾天）；
+  伺服器端草稿（每種表單都要後端配合、未送出的個人資料存到伺服器）；sessionStorage 明文。
 
 ---
 
@@ -467,8 +510,9 @@ useBlocker({
 });
 ```
 
-TanStack Router 的 `useBlocker` 會攔截路由離開。**只攔截路由，不攔截關閉分頁**
-（`beforeunload` 在現代瀏覽器只能顯示制式訊息，而且會干擾 E2E 測試）。
+實際的寫法是 `web-core/router` 的 `useUnsavedChangesGuard(dirty)`（對話框裡用 `useDialogUnsavedGuard`）：TanStack Router 的 `useBlocker`
+攔截路由離開，先問「要放棄變更嗎？」；重新整理或關分頁則以 `enableBeforeUnload` 交給瀏覽器原生的 `beforeunload` 提示（只能顯示制式訊息）。
+session 結束時的導向帶 `ignoreBlocker`，這兩個保護都留不住使用者——選擇加入的表單改由 §4.4 的草稿保留內容。
 
 ---
 

@@ -2,6 +2,7 @@ import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { QueryError } from '@b2b-system/web-core/components';
+import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
@@ -62,6 +63,16 @@ export default function RoleDetailPermissionPage() {
   /** 草稿所依據的權限已經不是伺服器上最新的：別人在這段時間改過這個角色。 */
   const isStale = draft !== undefined && !sameKeys(draft.base, initial);
   useUnsavedChangesGuard(dirty);
+  // session 非自願結束時保留勾選（連同草稿的基準：還原後別人改過的話照樣提示過時）
+  const formDraft = useFormDraft({
+    key: `role.permission:${roleId}`,
+    values: { base: [...(draft?.base ?? initial)], selected: [...selected] },
+    dirty,
+    onRestore: (saved) => {
+      if (!saved.base || !saved.selected) return;
+      setDraft({ base: new Set(saved.base), selected: new Set(saved.selected) });
+    },
+  });
 
   // 既有權限回來之前不能勾選：以空集合為基準的草稿，儲存時會把角色原有的權限全部移除
   const loaded = current.isSuccess;
@@ -116,6 +127,7 @@ export default function RoleDetailPermissionPage() {
       {current.isError && (
         <QueryError error={current.error} onRetry={() => void current.refetch()} />
       )}
+      {current.isSuccess && <FormDraftNotice draft={formDraft} />}
       {isStale && (
         <div
           className="mb-3 flex items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]"

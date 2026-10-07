@@ -5,6 +5,12 @@ export interface HttpRequestDTO<TParams = unknown> {
    * 由 `defineXxxFetcher` 自動接到 `HttpContext`，fetcher 實作不必（也不應）自己傳給 `fetch`。
    */
   signal?: AbortSignal;
+  /**
+   * 這次請求的 HTTP 快取模式（`fetch` 的 `cache`；docs/architecture/backend/03-api-conventions.md §9.1）。
+   * 省略時依伺服器的 `Cache-Control`（一般 `GET` 是 `private, no-cache`：存著但每次重新驗證）；
+   * 不想讓這次的回應留在瀏覽器磁碟時傳 `'no-store'`。同樣由 `defineXxxFetcher` 自動接上。
+   */
+  cache?: RequestCache;
 }
 
 export interface FetcherRequest {

@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：提案
 - 依賴：站內通知（已完成，[`backend/15-notification.md`](../architecture/backend/15-notification.md)；完成通知）、背景工作（已完成，[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)）
-- 相關：[`overview/03-roadmap.md`](../overview/03-roadmap.md)「Phase 1 之後」第 4 項、[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13（前端批次佇列）
+- 相關：[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §13（前端批次佇列）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 

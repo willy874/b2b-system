@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import type { BrowserItemVM } from './adapter';
+import type { BrowserItemVM, BrowserSlot } from './adapter';
 import { moveIndex } from './layout';
 import type { FileLayout } from './layout';
 import type { FileSelection } from './useFileSelection';
@@ -17,7 +17,8 @@ const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 export interface UseBrowserKeyboardOptions {
-  items: readonly BrowserItemVM[];
+  /** 格（含佔位）：焦點的索引是格的索引。 */
+  items: readonly BrowserSlot[];
   layout: FileLayout;
   selection: FileSelection;
   /** 所在的資料夾：換資料夾時焦點不留在同一個位置上 */

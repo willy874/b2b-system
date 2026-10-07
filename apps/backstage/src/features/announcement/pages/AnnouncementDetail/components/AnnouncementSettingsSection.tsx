@@ -2,6 +2,7 @@ import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/web-core/errors';
+import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { formatDateTime } from '@b2b-system/web-shared/date';
@@ -66,6 +67,18 @@ export function AnnouncementSettingsSection({
   const [version, setVersion] = useState(announcement.version);
   const [reloading, setReloading] = useState(false);
   useUnsavedChangesGuard(draft !== undefined);
+  // session 非自願結束時保留編輯中的內容（含開始編輯時的版本：還原後送出照常以它做樂觀鎖）
+  const formDraft = useFormDraft({
+    key: `announcement.detail:${announcement.id}`,
+    values: { draft, version },
+    dirty: draft !== undefined,
+    onRestore: (saved) => {
+      if (!saved.draft || saved.version === undefined) return;
+      update.reset();
+      setDraft(saved.draft);
+      setVersion(saved.version);
+    },
+  });
 
   const { status } = announcement;
   const canEdit = status !== 'completed' && canUpdate && (status === 'draft' || canPublish);
@@ -184,6 +197,7 @@ export function AnnouncementSettingsSection({
 
   return (
     <section className="flex flex-col gap-3" data-testid="announcement-settings-section">
+      {canEdit && <FormDraftNotice draft={formDraft} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Chip
           tone={ANNOUNCEMENT_STATUS_TONE[status]}

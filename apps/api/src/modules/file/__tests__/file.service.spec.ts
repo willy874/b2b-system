@@ -833,7 +833,12 @@ describe('FileService.list：keyset 游標', () => {
     repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
     const page = await service.list(query, ALICE);
     const cursor = decodeFileCursor(page.nextCursor ?? '');
-    expect(cursor).toEqual({ sort: query.sort[0], value: 'b', id: rows[1]?.id });
+    expect(cursor).toEqual({
+      sort: query.sort[0],
+      value: 'b',
+      id: rows[1]?.id,
+      direction: 'after',
+    });
 
     await service.list({ ...query, cursor: page.nextCursor ?? '' }, ALICE);
     expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined);
@@ -892,8 +897,50 @@ describe('FileService.list：keyset 游標', () => {
       sort: { sort: 'size', order: 'desc' },
       value: 1,
       id: FILE_ID,
+      direction: 'after',
     });
     await expectAppError(service.list({ ...query, cursor: other }, ALICE), 'VALIDATION_FAILED');
+  });
+
+  it('prevCursor：offset 的第一頁沒有；往後取的頁指向第一筆（before）；往前取的頁不滿就是最前面', async () => {
+    const { service, repo } = setup();
+    repo.list.mockResolvedValue({ items: rows, total: 5, lastCreatedAt: undefined });
+    const first = await service.list(query, ALICE);
+    expect(first.prevCursor).toBeNull();
+
+    repo.list.mockResolvedValue({ items: rows, total: null, lastCreatedAt: undefined });
+    const next = await service.list({ ...query, cursor: first.nextCursor ?? '' }, ALICE);
+    expect(decodeFileCursor(next.prevCursor ?? '')).toEqual({
+      sort: query.sort[0],
+      value: 'a',
+      id: rows[0]?.id,
+      direction: 'before',
+    });
+
+    // 往前取：交給 repository 的游標是 before；滿頁時還有更前面的，不滿就是最前面
+    await service.list({ ...query, cursor: next.prevCursor ?? '' }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ direction: 'before' }),
+      undefined,
+    );
+    repo.list.mockResolvedValue({ items: rows.slice(0, 1), total: null, lastCreatedAt: undefined });
+    const head = await service.list({ ...query, cursor: next.prevCursor ?? '' }, ALICE);
+    expect(head.prevCursor).toBeNull();
+    // 往前取的頁後面一定還有（游標那一筆）
+    expect(decodeFileCursor(head.nextCursor ?? '')).toMatchObject({ direction: 'after' });
+  });
+
+  it('沒有方向的舊游標當作 after；不認得的方向 → VALIDATION_FAILED', async () => {
+    const legacy = Buffer.from(JSON.stringify(['name', 'asc', 'b', FILE_ID]), 'utf8').toString(
+      'base64url',
+    );
+    expect(decodeFileCursor(legacy)).toMatchObject({ direction: 'after' });
+    const sideways = Buffer.from(
+      JSON.stringify(['name', 'asc', 'b', FILE_ID, 'sideways']),
+      'utf8',
+    ).toString('base64url');
+    expect(decodeFileCursor(sideways)).toBeUndefined();
   });
 });
 
