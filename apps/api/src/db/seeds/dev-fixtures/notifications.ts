@@ -166,7 +166,129 @@ function buildSeeds(ctx: DevFixtureContext): NotificationSeed[] {
     readAfterHours: index === 0 ? null : 10,
   }));
 
-  return [...rolesChanged, ...pending, ...results, ...webhookDisabled];
+  return [...rolesChanged, ...pending, ...results, ...webhookDisabled, ...superAdminInbox(ctx)];
+}
+
+/**
+ * 登入 dev 的 super-admin 自己的通知中心：上面幾組大多寄給 dev 使用者，這組補齊各種情境——
+ * 每種類型、有無觸發者（系統）、有無連結、參數的邊界（只增／只減／都有、長名稱、升版前沒有 url），
+ * 時間從幾分鐘前到超過兩週（相對時間與日期兩種顯示）。
+ */
+function superAdminInbox(ctx: DevFixtureContext): NotificationSeed[] {
+  const actor = ctx.actorId;
+  const by = (serial: number): string | null => ctx.userIds[serial - 1] ?? null;
+  const seed = (
+    key: string,
+    rest: Omit<NotificationSeed, 'key' | 'recipient'>,
+  ): NotificationSeed => ({ key: `inbox:${key}`, recipient: actor, ...rest });
+
+  return [
+    seed('roles-added', {
+      type: USER_ROLES_CHANGED_NOTIFICATION.type,
+      params: { added: ['稽核'], removed: [] },
+      link: ACCOUNT_PROFILE_LINK,
+      actorId: by(13),
+      createdDaysAgo: 0.002,
+      readAfterHours: null,
+    }),
+    seed('roles-removed', {
+      type: USER_ROLES_CHANGED_NOTIFICATION.type,
+      params: { added: [], removed: ['客服'] },
+      link: ACCOUNT_PROFILE_LINK,
+      actorId: by(7),
+      createdDaysAgo: 1.1,
+      readAfterHours: 2,
+    }),
+    seed('roles-swapped-by-system', {
+      type: USER_ROLES_CHANGED_NOTIFICATION.type,
+      params: { added: ['發佈管理', '內容編輯', '客服'], removed: ['唯讀', '測試'] },
+      link: ACCOUNT_PROFILE_LINK,
+      actorId: null,
+      createdDaysAgo: 16,
+      readAfterHours: 30,
+    }),
+    seed('pending-register-now', {
+      type: APPROVAL_PENDING_NOTIFICATION.type,
+      params: {
+        approvalType: 'user.register',
+        requesterName: 'lin.yating@example.com',
+        subject: '林雅婷',
+      },
+      link: null,
+      actorId: null,
+      createdDaysAgo: 0.02,
+      readAfterHours: null,
+    }),
+    seed('pending-folder-long-name', {
+      type: APPROVAL_PENDING_NOTIFICATION.type,
+      params: {
+        approvalType: 'fileFolder.access',
+        requesterName: 'dev21@dev.local',
+        subject: '2026 年度第四季跨部門專案規劃與預算審核資料（含附件與會議紀錄）',
+      },
+      link: null,
+      actorId: null,
+      createdDaysAgo: 0.3,
+      readAfterHours: null,
+    }),
+    seed('pending-folder-old', {
+      type: APPROVAL_PENDING_NOTIFICATION.type,
+      params: {
+        approvalType: 'fileFolder.access',
+        requesterName: 'dev09@dev.local',
+        subject: '人事規章',
+      },
+      link: null,
+      actorId: null,
+      createdDaysAgo: 8,
+      readAfterHours: 12,
+    }),
+    seed('result-approved', {
+      type: APPROVAL_RESULT_NOTIFICATION.type,
+      params: { approvalType: 'fileFolder.access', subject: '財務報表', status: 'approved' },
+      link: null,
+      actorId: by(13),
+      createdDaysAgo: 0.6,
+      readAfterHours: null,
+    }),
+    seed('result-rejected', {
+      type: APPROVAL_RESULT_NOTIFICATION.type,
+      params: { approvalType: 'fileFolder.access', subject: '法務合約', status: 'rejected' },
+      link: null,
+      actorId: by(13),
+      createdDaysAgo: 2.5,
+      readAfterHours: 1,
+    }),
+    seed('result-approved-old', {
+      type: APPROVAL_RESULT_NOTIFICATION.type,
+      params: { approvalType: 'fileFolder.access', subject: '設計素材', status: 'approved' },
+      link: null,
+      actorId: by(7),
+      createdDaysAgo: 20,
+      readAfterHours: 4,
+    }),
+    seed('webhook-disabled-recent', {
+      type: WEBHOOK_DISABLED_NOTIFICATION.type,
+      params: {
+        webhookName: FAILING_WEBHOOK.name,
+        consecutiveFailures: 50,
+        url: FAILING_WEBHOOK.url,
+      },
+      link: webhookDetailLink(FAILING_WEBHOOK.id),
+      actorId: null,
+      createdDaysAgo: 0.05,
+      readAfterHours: null,
+    }),
+    // 升版前寫入的通知沒有 url（docs/architecture/backend/17-webhook.md §10.2 D15）
+    seed('webhook-disabled-legacy', {
+      type: WEBHOOK_DISABLED_NOTIFICATION.type,
+      params: { webhookName: FAILING_WEBHOOK.name, consecutiveFailures: 10 },
+      link: webhookDetailLink(FAILING_WEBHOOK.id),
+      actorId: null,
+      createdDaysAgo: 25,
+      readAfterHours: 72,
+    }),
+  ];
 }
 
 export async function seedNotificationFixtures(
