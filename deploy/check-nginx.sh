@@ -30,14 +30,17 @@ fail() {
   exit 1
 }
 
-# 假的 api：回傳收到的標頭與這條 TCP 連線的編號（keepalive 生效時多個請求共用同一條連線）
+# 假的 api：回傳收到的路徑、標頭與這條 TCP 連線的編號（keepalive 生效時多個請求共用同一條連線）。
+# 同一個容器也扮演 apm-service（:9100）
 ECHO_SERVER='
 let next = 0;
-require("http").createServer((req, res) => {
+const echo = (req, res) => {
   req.socket.id ??= ++next;
   res.setHeader("content-type", "application/json");
-  res.end(JSON.stringify({ headers: req.headers, connection: req.socket.id }));
-}).listen(3000);
+  res.end(JSON.stringify({ url: req.url, headers: req.headers, connection: req.socket.id }));
+};
+require("http").createServer(echo).listen(3000);
+require("http").createServer(echo).listen(9100);
 '
 
 # 從假的 api 容器（扮演前置 LB）對 nginx 送請求，印出回應本體
@@ -71,7 +74,7 @@ check_container() {
 }
 
 docker network create "$NETWORK" >/dev/null
-docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias api \
+docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias api --network-alias apm-service \
   "$NODE_IMAGE" node -e "$ECHO_SERVER" >/dev/null
 LB_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NETWORK-api")
 
@@ -115,6 +118,15 @@ for site in nginx.conf nginx.platform.conf; do
   [ "$connections" = "1" ] || fail "$site：upstream keepalive 沒有生效（用了 $connections 條連線）"
 
   check_forwarded_for "$site" /api/ip
+
+  # apm-service：只轉發收件端點，並去掉 /apm 前綴（docs/architecture/07-apm-service.md）
+  body=$(curl -s -X POST "http://127.0.0.1:$PORT/apm/api/1/envelope/?sentry_key=k")
+  echo "$body" | grep -q '"url":"/api/1/envelope/?sentry_key=k"' ||
+    fail "$site：/apm/api/<id>/envelope/ 沒有轉給 apm-service（$body）"
+  body=$(curl -s "http://127.0.0.1:$PORT/apm/api/0/projects/b2b-system/backstage/issues/")
+  echo "$body" | grep -q '"url"' && fail "$site：查詢 API 不應該經 nginx 對外（$body）"
+  body=$(curl -s "http://127.0.0.1:$PORT/apm/metrics")
+  echo "$body" | grep -q '"url"' && fail "$site：/metrics 不應該經 nginx 對外（$body）"
 
   echo "✓ $site"
 done

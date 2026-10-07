@@ -31,6 +31,9 @@ const env = {
   }),
   FILE_STORAGE_ACCESS_KEY_ID: hex(12),
   FILE_STORAGE_SECRET_ACCESS_KEY: base64Key(),
+  APM_BACKSTAGE_PUBLIC_KEY: hex(16),
+  APM_PLATFORM_PUBLIC_KEY: hex(16),
+  APM_AUTH_TOKEN: hex(24),
   // 不會真的寄信：啟動時不連 SMTP
   MAIL_SMTP_URL: 'smtp://mail.invalid:25',
   MAIL_FROM: 'B2B System <no-reply@example.com>',
