@@ -1,7 +1,7 @@
 # MFA（多因素驗證）：可擴充的驗證方式
 
 - 優先度：P3
-- 狀態：規劃中（開放問題全部有結論；實作計畫見 §14，branch 開工時填 `feat/mfa`）
+- 狀態：規劃中（開放問題與執行方式都已定案，§14.0；等使用者下令開工，開工時填 branch `feat/mfa`）
 - 依賴：—
 - 相關：[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D15（MFA 預留）、§3.2、§3.5；[`backend/04-auth.md`](../architecture/backend/04-auth.md) §3（登入、鎖定、漸進延遲）、§8.2（直接登入）；
   [`05-tenancy.md`](../architecture/05-tenancy.md) §5.1、§5.2、§11（平台層開關與 feature flag，本功能的開關照它做）；[`backend/11-mail.md`](../architecture/backend/11-mail.md) §4（token 在寄出當下簽發）；
@@ -267,7 +267,7 @@ apps/platform /interaction/:uid
 | 單一互動 | `MfaPending.attempts` 到 5 次就作廢，回 `AUTH_MFA_TOO_MANY_ATTEMPTS`，要從密碼重新開始 |
 | 單一 challenge | Email 的 challenge 錯 5 次作廢，要重新寄；10 分鐘到期 |
 | 鎖定 | 驗證碼錯誤與密碼錯誤 **共用** `failed_login_count`（租戶設定 `auth.loginMaxAttempts`；平台 env）；已知來源的錯誤照 [`04-auth.md`](../architecture/backend/04-auth.md) §3.4 不累計 |
-| 漸進延遲 | `LoginThrottle` 加一種鍵：帳號 id × IP 前綴（第二步已知道是誰，不必用 email） |
+| 漸進延遲 | 沿用 `LoginThrottle` 既有的鍵（租戶 × email × IP 前綴）：第二步已知道帳號的 email，與密碼錯誤累計在同一個計數 |
 | 速率限制 | `verify`、`enroll/confirm`：`@RateLimit('auth')`；`challenge`（寄信）：`@RateLimit('authMail')`，另外同一因子 60 秒內不重寄（`429 RATE_LIMITED`，`details.retryAfterSeconds`，互動頁照樣倒數） |
 | 重放 | TOTP 的時間步 ≤ `last_used_counter` 一律拒絕（`reason: 'replayed'`）：同一個碼在 30 秒內不能用兩次 |
 
@@ -369,7 +369,7 @@ backstage 新的常駐 feature `security`（`/security/mfa`；不是可關閉的
 | 收件地址 | 帳號目前的 email（不另存）；`describe` 顯示 `w***@example.com` |
 | 驗證碼 | 6 位數，`crypto.randomInt`；10 分鐘；一個 challenge 最多錯 5 次 |
 | 寄送 | `startChallenge` 寫 challenge（還沒有碼）並在交易內入列 `mfa.emailCodeMail { challengeId }`。**碼在寄出當下由工作產生**、寫入雜湊後寄出（[`11-mail.md`](../architecture/backend/11-mail.md) §4 的規則：工作資料不含碼）；重試會換新的碼 |
-| 寄送延遲 | 寄信工作以較高的優先度入列（pg-boss `priority`），不與大量的公告寄信排同一個隊；登入頁提示「信件可能需要一分鐘」並提供重寄 |
+| 寄送延遲 | 每種工作本來就是自己的佇列，不必優先度（`JobQueue` 也沒有 `priority`）；但租戶的 `job.maxConcurrency` 是所有工作合計，公告大量寄信時驗證碼信會被放回佇列。所以 `mfa.emailCodeMail` 的 `JobType` 宣告 **不受租戶同時執行數限制**（`core/jobs` 加這個選項）。登入頁提示「信件可能需要一分鐘」並提供重寄 |
 | 設定 | 開始設定時就寄一封；輸入正確才算設定完成（確認收得到） |
 | 平台管理者 | 以平台脈絡寄出（與 `platformAdmin.accountMail` 相同）；預設不開放（D10） |
 
@@ -401,7 +401,7 @@ registerMfaMethod({
 - 伺服器回傳註冊表裡沒有的方式 id（例：api 先部署了新方式）時，該因子顯示為「這個版本不支援」、不可選，不讓畫面壞掉。
 - apps/platform `features/login` 的互動頁：密碼步驟 → 依 `next` 切到 `MfaChallengeForm`（選因子、輸入碼、「改用備用碼」、重寄倒數沿用 `useCountdown`）或 `MfaEnrollFlow`（選方式 → 方式的 `Enroll` → `RecoveryCodesDialog`）。
 - 備用碼對話框：顯示、複製、下載 `.txt`；要勾「我已保存」才能關。
-- backstage：`/profile` 的「安全性」分頁、`features/user` 的 MFA 欄與重設、`features/security`（政策頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁）、租戶詳情加 `?tab=mfa`。
+- backstage：`/profile` 的「安全性」分頁、`features/user` 的 MFA 欄與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，[`tenant-security-policy.md`](./tenant-security-policy.md) 之後加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁）、租戶詳情加 `?tab=mfa`。
 - 權限：`features/security/permission.ts` 註冊 `/security/mfa` 的 page key（`mfaPolicy:read`）。
 
 ### 12. 權限、錯誤碼、稽核、指標
@@ -443,16 +443,29 @@ Grafana 告警：Email 驗證碼寄送延遲的 p95 超過 60 秒（平台管理
 | `PLATFORM_MFA_REQUIRED` | 平台管理者必須啟用 | 預設 `true`；`NODE_ENV=production` 設成 `false` 會啟動失敗。開發環境預設 `false` |
 | `PLATFORM_MFA_METHODS` | 平台管理者可用的方式（逗號分隔） | 預設 `totp`；不能是空的、不能含註冊表沒有的 id |
 
-- 上線當下所有平台管理者都沒有因子：下一次登入走「首次設定」。部署公告要提醒先準備好驗證器 App。
+- 目前沒有正式環境（2026-10-07），不需要上線公告或資料遷移；開發環境的平台管理者在 `PLATFORM_MFA_REQUIRED=true` 時下一次登入走「首次設定」。
 - 開發與 E2E：`db:seed:dev`／`db:seed:e2e` 的帳號不設因子、政策不要求；E2E 的 MFA 測試以 fixture 直接寫入已知 seed 的 TOTP 因子，測試輔助用 `core/mfa/totp.ts` 算碼；Email 走 Mailpit。
 
 ### 14. 實作計畫
 
+#### 14.0 執行方式（2026-10-07 定案）
+
+| # | 項目 | 決定 |
+| --- | --- | --- |
+| 1 | 開工時機 | 等使用者下令 |
+| 2 | 中途停點 | 不停：M1 → M2 → M3 → 測試一路做完，最後一次回報 |
+| 3 | 與 [`tenant-security-policy.md`](./tenant-security-policy.md) 的設定頁 | 合成一頁：`features/security` 是分頁式容器，MFA 是第一個分頁 |
+| 4 | 新的前端依賴 | 可以加 `qrcode`（只在設定元件 lazy 載入） |
+| 5 | 正式環境 | 沒有；資料、設定、相容性都可以任意修改，不需要上線公告與回滾計畫 |
+| 6 | 驗證器 App 的 issuer | 租戶用租戶名稱、平台管理者用「B2B Platform」；之後 [`tenant-branding.md`](./tenant-branding.md) 定了產品名稱再改 |
+| 7 | 驗證 | 實作期間不做瀏覽器驗證；**三個階段全部完成後** 才統一設計新的測試項目（單元、E2E，§14.5） |
+
 #### 14.1 分支與階段
 
 - branch：`feat/mfa`，worktree `../b2b-system-mfa`（開工時把本檔標頭與 [`README.md`](./README.md) §1 的狀態改成「實作中」）。
-- 三個階段依序做，**每個階段合併一次 `main`**，可以單獨上線；M1 合併後才開始 M2。
-- 每階段結束都跑：`pnpm typecheck`、`pnpm lint`、`pnpm test`、受影響的 E2E；改到 controller／DTO／權限鍵時重新產生 openapi 與 SDK（[`CLAUDE.md`](../../CLAUDE.md)「常用指令」）。
+- 三個階段在同一個 branch 依序做，每階段結束 commit 一次；**全部完成、§14.5 的測試通過後才合併 `main` 一次**（不 push，等使用者指示）。
+- 每階段結束都跑：`pnpm typecheck`、`pnpm lint`、`pnpm test`（既有的測試不能壞）；改到 controller／DTO／權限鍵時重新產生 openapi 與 SDK（[`CLAUDE.md`](../../CLAUDE.md)「常用指令」）。
+  新功能的測試不在各階段寫，集中在 §14.5。
 - migration 編號以開工時的 `main` 為準（目前租戶到 `0040`、平台到 `0016`）；下表以「下一號」表示。
 
 | 階段 | 一句話 | 租戶 migration | 平台 migration |
@@ -462,7 +475,7 @@ Grafana 告警：Email 驗證碼寄送延遲的 p95 超過 60 秒（平台管理
 | M3 政策與開關 | 平台兩級開關、租戶政策、必須啟用、平台管理者強制 | 下一號：`mfa_policy` | 下一號：`mfa_method_overrides`、`tenants.mfa_methods` |
 
 M2 排在政策之前：用第二種方式驗證 M1 的介面，介面要改就在只有兩種方式時改。
-M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.6 的實作紀錄），再繼續。
+M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.7 的實作紀錄），再繼續。
 
 #### 14.2 M1：框架 ＋ TOTP
 
@@ -474,7 +487,9 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.6 的實作
 3. `modules/mfa`：
    - `MfaAccountStore` 與租戶、平台兩個實作；
    - `MfaService`：`requirementFor`（M1 只有 §4.1 的第 1、3、4 步，政策固定為「不要求」）、challenge／verify 流程、備用碼、與 `failed_login_count` 和 `LoginThrottle` 的整合（§4.2）；
-   - `oidc_payloads` 的 `MfaPending` 型別；`SESSIONS_REVOKED` 的處理加上作廢 `MfaPending` 與互動中 pending 的因子（`OidcProviderService`）；
+   - `oidc_payloads` 的 `MfaPending` 型別；`SESSIONS_REVOKED` 的處理加上作廢 `MfaPending` 與互動中 pending 的因子
+     （`OidcPayloadRepository.destroySessionsOf` 目前只刪 `Session`、`Interaction` 兩種型別，要加上 `MfaPending`）；
+   - 鎖定計數共用：`AuthService`、`PlatformAdminService` 的 `registerFailedAttempt` 目前是 private，改成公開方法（或抽到兩者共用的地方）讓 `MfaService` 呼叫；
    - 端點：互動（§4）、自助（§7，租戶與平台）、管理員檢視與重設（§8，含 super-admin 的反提權）；
    - `auth.tokenCleanup`／`auth.platformTokenCleanup` 加清理過期的 pending 因子與 challenge。
 4. `SsoService.login` 回傳 `SsoLoginResult`（§4 的 union）；`AuthService.login`（直接登入）對有因子的帳號回 `AUTH_MFA_REQUIRED`。
@@ -494,7 +509,7 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.6 的實作
 3. backstage：`app/plugin.ts` 登記 TOTP；`/profile` 的「安全性」分頁；`features/user` 的「MFA」欄、篩選、詳情的「驗證方式」與「重設 MFA」。
 4. `pnpm bundle:check`：`qrcode` 只在設定的元件裡 lazy 載入，不進主要 bundle。
 
-**測試**
+**測試候選**（不在這個階段寫，§14.5 統一設計時參考）
 
 | 層 | 內容 |
 | --- | --- |
@@ -503,18 +518,19 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.6 的實作
 | 前端 | web-core 的元件與註冊表（重複註冊、未知方式 id 的顯示）；apps/platform `Interaction` 頁的第二步；backstage 的使用者詳情（重設按鈕的三個權限案例） |
 | E2E | `apps/e2e/tests/mfa.spec.ts`：設定 TOTP → 登出 → 以 TOTP 登入；以備用碼登入。fixture 寫入已知 seed 的因子 |
 
-**文件**（同一個 PR）：本檔的 §14.6 實作紀錄；`04-sso.md` §3.2 先加「第二步」的段落與互動端點表。正式的 `backend/20-mfa.md` 在 M3 歸檔時寫。
+**文件**：本檔的 §14.7 實作紀錄；`04-sso.md` §3.2 先加「第二步」的段落與互動端點表。正式的 `backend/20-mfa.md` 在 M3 歸檔時寫。
 
 #### 14.3 M2：Email 驗證碼
 
-1. `modules/mfa-email`：實作 `MfaMethod`（`challenge: 'server'`）；寄信工作 `mfa.emailCodeMail`（碼在寄出當下產生、HMAC 寫入 challenge、以 pg-boss `priority` 入列）；範本 `mails/mfa-email-code.mail.tsx`（兩個語系）。
+1. `modules/mfa-email`：實作 `MfaMethod`（`challenge: 'server'`）；寄信工作 `mfa.emailCodeMail`（碼在寄出當下產生、HMAC 寫入 challenge；`JobType` 宣告不受租戶 `job.maxConcurrency` 限制，§9.2）；範本 `mails/mfa-email-code.mail.tsx`（兩個語系）。
 2. `modules/mfa`：安全通知信 `mfa.securityNoticeMail`（新增、移除、重新產生備用碼、以備用碼登入、被重設），M1 的動作補上入列。
-3. 錯誤碼：`AUTH_MFA_CHALLENGE_EXPIRED`；重寄的冷卻沿用 `RATE_LIMITED`。
-4. 指標：`mfa_challenges_sent_total`、`mfa_email_delivery_seconds`；Grafana 告警「Email 驗證碼寄送 p95 > 60 秒」（`deploy/` 的規則與 `sh deploy/check-monitoring.sh`）。
-5. 前端：`web-core/mfa/methods/email/`（遮蔽的地址、重寄倒數 `useCountdown`），兩個 app 登記。
-6. 平台管理者：`PLATFORM_MFA_METHODS` 在 M3 才有，M2 的平台互動頁 **不** 列出 Email（定義的 `realms` 含 `platform`，但平台的可用清單先寫死只有 `totp`）。
-7. 測試：`apps/api/test/mfa-email.spec.ts`（challenge 錯 5 次作廢、到期、重寄換碼後舊碼失效、工作資料不含碼、寄信前帳號已停用則略過）；E2E 以 Mailpit 取信完成登入。
-8. **驗收的硬條件**：`git diff main -- apps/api/src/modules/mfa apps/api/src/db` 只有通知信相關的增加，沒有流程或 schema 的改動。
+3. `core/jobs`：`JobTypeOptions` 加「不受租戶同時執行數限制」的選項，`JobQueue` 檢查 `job.maxConcurrency` 時略過這種工作。
+4. 錯誤碼：`AUTH_MFA_CHALLENGE_EXPIRED`；重寄的冷卻沿用 `RATE_LIMITED`。
+5. 指標：`mfa_challenges_sent_total`、`mfa_email_delivery_seconds`；Grafana 告警「Email 驗證碼寄送 p95 > 60 秒」（`deploy/` 的規則與 `sh deploy/check-monitoring.sh`）。
+6. 前端：`web-core/mfa/methods/email/`（遮蔽的地址、重寄倒數 `useCountdown`），兩個 app 登記。
+7. 平台管理者：`PLATFORM_MFA_METHODS` 在 M3 才有，M2 的平台互動頁 **不** 列出 Email（定義的 `realms` 含 `platform`，但平台的可用清單先寫死只有 `totp`）。
+8. 測試候選（§14.5 統一設計）：`apps/api/test/mfa-email.spec.ts`（challenge 錯 5 次作廢、到期、重寄換碼後舊碼失效、工作資料不含碼、寄信前帳號已停用則略過、公告大量寄信時驗證碼信不被延後）；E2E 以 Mailpit 取信完成登入。
+9. **驗收的硬條件**：與 M1 結束時的 commit 相比，`apps/api/src/modules/mfa`、`apps/api/src/db` 只有通知信相關的增加，沒有流程或 schema 的改動（`core/jobs` 的選項是寄送延遲的修正，不算違反）。
 
 #### 14.4 M3：政策與開關
 
@@ -532,11 +548,11 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.6 的實作
 
 **前端**
 
-1. backstage：新的常駐 feature `features/security`（`/security/mfa`，`locale.ts` → `routes/` → `permission.ts` → `navigation.ts` → `plugin.ts` → `hooks/` → `pages/`）。
+1. backstage：新的常駐 feature `features/security`（分頁式容器，第一個分頁 `/security/mfa`；之後 `tenant-security-policy` 的 IP 清單、閒置逾時加自己的分頁。順序 `locale.ts` → `routes/` → `permission.ts` → `navigation.ts` → `plugin.ts` → `hooks/` → `pages/`）。
 2. apps/platform：`features/mfa-method`（`/mfa-method`）；租戶詳情 `?tab=mfa`；關閉前的影響人數確認對話框；`MFA_METHOD_LABEL_KEY` 與語系。
 3. 互動頁的首次設定（`MfaEnrollFlow` 已在 M1 做好，這裡接上 `next: 'mfaEnroll'`）。
 
-**測試**
+**測試候選**（不在這個階段寫，§14.5 統一設計時參考）
 
 | 層 | 內容 |
 | --- | --- |
@@ -545,19 +561,30 @@ M2 若發現非改 `modules/mfa` 不可，先修介面（記在 §14.6 的實作
 | 前端 | `features/security` 頁面的三個權限案例；apps/platform 的開關頁與影響人數對話框 |
 | E2E | 政策要求 admin → admin 登入時被要求設定；平台關掉 Email 的租戶覆寫 → 登入頁不再列出 Email |
 
-**歸檔**（M3 的 PR 內完成，依 [`README.md`](./README.md) §3.3）：寫 `docs/architecture/backend/20-mfa.md`（設計決策整節搬過去）與「歸檔去向」列的其他文件，刪除本檔與 §1 那一列。
+**歸檔**（§14.5 的測試通過後、合併 `main` 前完成，依 [`README.md`](./README.md) §3.3）：寫 `docs/architecture/backend/20-mfa.md`（設計決策整節搬過去）與「歸檔去向」列的其他文件，刪除本檔與 §1 那一列。
 
-#### 14.5 上線與相容
+#### 14.5 測試設計與驗證（三個階段全部完成後）
+
+1. 依 `testing` skill 盤點：§14.2～§14.4 的「測試候選」、§4.1 的需求判斷表、§4.2 的每一條防線、§12 的錯誤碼，對照實際做出來的程式碼，
+   列出測試項目清單（寫在本檔 §14.7，歸檔時搬進正式文件的「測試」一節）。
+2. **單元**：`core/mfa`（TOTP 的 RFC 向量、備用碼、註冊表、`resolveToggle`）、`MfaService.requirementFor` 的判斷表、web-core 的元件與註冊表、各頁面的權限案例。
+3. **E2E**（`apps/e2e/tests/mfa.spec.ts`）：TOTP 設定與登入、備用碼登入、Email 驗證碼經 Mailpit 登入、政策要求後的首次設定、平台關掉方式後的 `AUTH_MFA_UNAVAILABLE` 與備用碼出路、平台管理者的強制設定。
+   以 fixture 寫入已知 seed 的因子，測試輔助用 `core/mfa/totp.ts` 算碼。
+4. api 整合測試（`apps/api/test/`）照 repo 慣例補上，涵蓋 E2E 不適合跑的安全邊界：跳過第二步、重放、鎖定與已知來源、`SESSIONS_REVOKED`、反提權、廣播失效。
+5. 全部跑過：`pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm test:e2e`（與 dev 並行時換埠，見 repo 的 E2E 並行做法）、`pnpm bundle:check`。
+
+#### 14.6 環境與相容
+
+沒有正式環境（§14.0 #5），以下只是開發環境要做的事：
 
 | 項目 | 處理 |
 | --- | --- |
-| api 與 apps/platform 的互動回應改成 union | 同一次部署（apps/platform 只拆前端，本來就一起部署）；E2E 涵蓋 |
-| 平台管理者上線後被強制設定（M3） | 部署前公告；`PLATFORM_MFA_REQUIRED` 的預設在 production 是 `true`，dev 是 `false` |
-| `MFA_SECRET_KEY` | M1 上線前加進 `deploy/prod.env.example`（正式環境的 `deploy/prod.env` 同步補上）；`deploy/smoke-test.sh` 的必填檢查 |
-| dev DB | 每階段合併後 `db:migrate`；dev／E2E 的 seed 不建因子、政策不要求 |
-| 回滾 | M1 回滾：把 api 退版即可，新表留著無害；已設定 TOTP 的人在舊版只需要密碼（降級，但不會被鎖在外面） |
+| api 與 apps/platform 的互動回應改成 union | 同一個 branch 一起改，不考慮新舊版並存 |
+| `MFA_SECRET_KEY` | 加進 `.env.example`、`deploy/prod.env.example`；`deploy/smoke-test.sh` 的必填檢查 |
+| `PLATFORM_MFA_REQUIRED` | production 預設 `true`、dev 預設 `false` |
+| dev DB | 合併後 `db:migrate`；dev／E2E 的 seed 不建因子、政策不要求 |
 
-#### 14.6 實作紀錄
+#### 14.7 實作紀錄
 
 （實作時發現提案要改的地方記在這裡，歸檔時搬進正式文件的「實作紀錄」。）
 
