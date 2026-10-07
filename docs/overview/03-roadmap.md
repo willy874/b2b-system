@@ -10,7 +10,7 @@
 
 ## 1. 現況（2026-10-04）
 
-Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、非同步與溝通四組通用機制。各能力已在 main 上，規格寫在 `docs/architecture/`、`docs/rbac/`；
+Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、非同步與溝通四組通用機制。各能力已在 main 上，規格寫在 `docs/architecture/`（身分與權限在 `docs/architecture/iam/`）；
 每份規格最後的「設計決策」章節記錄當時的取捨（原本的 `docs/adr/`，2026-10-02 併入）。
 
 還沒做到的部分：
