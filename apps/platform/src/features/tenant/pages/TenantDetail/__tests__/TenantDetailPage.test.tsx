@@ -283,6 +283,19 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     expect(screen.queryByTestId('tenant-feature-dialog')).toBeNull();
   });
 
+  it('啟用的功能：切換成功提示「已更新啟用的功能」，不是改名的提示', async () => {
+    await initI18n('zh-TW');
+    i18n.addResourceBundle('zh-TW', 'translation', tenantZhTW, true, true);
+    const tenant = tenantFixture({ features: ['job'] });
+    update.mockResolvedValue({ ...tenant, features: ['job', 'externalApi'] });
+    renderPage(tenant, ALL, FEATURES_TAB);
+    fireEvent.click(await featureToggle('externalApi'));
+
+    const toast = await screen.findByTestId('toast');
+    expect(toast).toHaveTextContent(tenantZhTW.tenant.feature.success);
+    expect(toast).not.toHaveTextContent(tenantZhTW.tenant.rename.success);
+  });
+
   it('啟用的功能：關閉要先確認，取消就不送出；確認後送出去掉該 feature 的清單', async () => {
     const tenant = tenantFixture({ features: ['file', 'auditLog', 'job'] });
     update.mockResolvedValue({ ...tenant, features: ['auditLog', 'job'] });
