@@ -51,6 +51,7 @@ function config(overrides: Partial<ApmConfig> = {}): ApmConfig {
     rateLimitPerMinute: 1000,
     trustProxy: false,
     routeLabelLimit: 200,
+    releaseLabelLimit: 10,
     ...overrides,
   };
 }
@@ -207,6 +208,14 @@ describe('apm-service（Sentry 相容 API）', () => {
       `/api/0/projects/b2b-system/backstage/issues/?query=release:${RELEASE}&statsPeriod=1h`,
     );
     expect(await some.json()).toHaveLength(1);
+  });
+
+  it('存下的錯誤事件依專案、等級、release 出現在 /metrics（Grafana 的錯誤數，docs/architecture/08-monitoring.md §5.1）', async () => {
+    expect((await send(errorEvent('a'.repeat(32), { lineno: 1, colno: 1 }))).status).toBe(200);
+    const metrics = await (await fetch(`${baseUrl}/metrics`)).text();
+    expect(metrics).toContain(
+      `apm_events_total{project="backstage",level="error",release="${RELEASE}"} 1`,
+    );
   });
 
   it('接受 gzip 壓縮的 envelope（Node SDK）', async () => {

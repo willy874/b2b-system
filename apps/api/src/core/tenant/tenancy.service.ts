@@ -6,6 +6,8 @@ import type { Env } from '../config';
 import { connectionLimitsOf, createDatabase } from '../database';
 import type { ConnectionLimits, Database } from '../database';
 import { AppException } from '../errors';
+import { tenantPoolsOpen, tenantUnavailable as tenantUnavailableTotal } from '../metrics';
+import { annotateTenant } from '../tracing';
 import { runInTenantContext } from './tenant-context';
 import type { TenantContext } from './tenant-context';
 import { TenantDirectory } from './tenant-directory.service';
@@ -30,6 +32,7 @@ interface SchemaCheck {
 export type TenantUnavailableReason = 'inactive' | 'maintenance';
 
 function tenantUnavailable(reason: TenantUnavailableReason): AppException {
+  tenantUnavailableTotal.inc({ reason });
   return new AppException('TENANT_UNAVAILABLE', { reason });
 }
 
@@ -67,6 +70,7 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
         infer: true,
       }),
     });
+    tenantPoolsOpen.observe(this, (report) => report({}, this.pools.size));
   }
 
   async onApplicationBootstrap(): Promise<void> {
@@ -150,6 +154,7 @@ export class Tenancy implements OnApplicationBootstrap, OnApplicationShutdown {
   }
 
   private contextOf(tenant: TenantRecord): TenantContext {
+    annotateTenant(tenant.code);
     return {
       id: tenant.id,
       code: tenant.code,

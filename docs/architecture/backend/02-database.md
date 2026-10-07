@@ -780,7 +780,7 @@ postgres 端的調校（`docker-compose.prod.yml` 的 `command`）：`max_connec
 
 **還沒做、寫明觸發條件的兩項**（2026-10-07 評估）：
 
-- **每個租戶覆寫連線池大小**。觸發條件：某個租戶的池出現排隊（要先有 [`../../features/observability.md`](../../features/observability.md) 的「池等待數／等待時間」指標），
+- **每個租戶覆寫連線池大小**。觸發條件：某個租戶的池出現排隊——postgres.js 沒有池的統計，以 Grafana「容量與資料庫」的「連線數（依 database、狀態）」看那個租戶的 database 是否長時間佔滿 `TENANT_POOL_MAX` 條 active 連線，搭配 `api_db_transaction_duration_seconds` 與該租戶的 trace 判斷（[`../08-monitoring.md`](../08-monitoring.md) §2.2、§6.4），
   或單一租戶的同時在線明顯超過 1000 人、其他租戶遠小於它。屆時：feature 參數 `db.poolMax`（2–50，[`../05-tenancy.md`](../05-tenancy.md) §13），
   `Tenancy.poolOf` 建池時讀它、參數改變時以與「連線字串改變」相同的方式換池；預算公式的「同時活躍的租戶數 × `TENANT_POOL_MAX`」改為逐租戶加總。
 - **PgBouncer**。觸發條件（任一）：預算公式的左邊超過 `max_connections` 的約 70%；多實例上線、api 程序數 ≥ 2 且同時活躍的租戶超過 10 個；

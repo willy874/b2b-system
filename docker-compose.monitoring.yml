@@ -1,0 +1,133 @@
+# 監控（docs/architecture/08-monitoring.md §6）：疊在 docker-compose.prod.yml 上一起啟動。
+#   docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d --build
+#
+#   api／external-api ──/metrics（9464／9465）──▶ prometheus ◀── apm-service（9100）、postgres-exporter（9187）
+#   api／external-api ──OTLP（4318）──▶ tempo
+#   grafana（127.0.0.1:3300）──▶ prometheus、tempo、apm-service 的查詢 API
+#
+# 指標與 OTLP 的 port 都只在 monitoring 網路裡，不對主機發布；Grafana 只綁 MONITORING_BIND_ADDRESS（預設 127.0.0.1），
+# 從外面看要經 SSH tunnel 或前置 LB（加上 TLS 與存取控制），不經過租戶的 nginx。
+# 映像都以 digest 釘住（同 docker-compose.prod.yml）。
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '5'
+
+services:
+  # 既有的服務加入 monitoring 網路，並把 trace 送到 tempo
+  api:
+    networks: [monitoring]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+
+  external-api:
+    networks: [monitoring]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+
+  apm-service:
+    networks: [monitoring]
+
+  postgres:
+    environment:
+      # 只在第一次初始化資料目錄時用到（deploy/postgres/10-roles.sh）；既有部署見 deploy/monitoring/create-monitor-role.sql
+      POSTGRES_MONITOR_PASSWORD: ${POSTGRES_MONITOR_PASSWORD:?required}
+
+  prometheus:
+    image: prom/prometheus:v3.13.4@sha256:87861b8cf91579109319ebc300f3f1060e6da9c05d6ae8ad15a20c879e84e32e
+    restart: unless-stopped
+    logging: *logging
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-20GB}
+      # Prometheus 自己的網頁不對外：只有 Grafana 連它
+      - --web.listen-address=:9090
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-1g}
+    security_opt: ['no-new-privileges:true']
+    networks: [monitoring]
+
+  tempo:
+    image: grafana/tempo:2.9.5@sha256:785fd6c81d7f26ff0973208cd7093ac6030e13946c288612ff32f02416941d3a
+    restart: unless-stopped
+    logging: *logging
+    command: ['-config.file=/etc/tempo.yaml', '-config.expand-env=true']
+    environment:
+      TEMPO_RETENTION: ${TEMPO_RETENTION:-168h}
+    volumes:
+      - ./deploy/monitoring/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    mem_limit: ${TEMPO_MEM_LIMIT:-1g}
+    security_opt: ['no-new-privileges:true']
+    networks: [monitoring]
+
+  # Postgres 本身的指標：以只有 pg_monitor 權限的角色連到 postgres database（pg_stat_statements 的 extension 建在那裡）
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+    restart: unless-stopped
+    logging: *logging
+    command:
+      - --collector.stat_statements
+      - --collector.stat_statements.limit=50
+      - --collector.long_running_transactions
+    environment:
+      DATA_SOURCE_URI: postgres:5432/postgres?sslmode=disable
+      DATA_SOURCE_USER: b2b_monitor
+      DATA_SOURCE_PASS: ${POSTGRES_MONITOR_PASSWORD:?required}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 128m
+    networks: [data, monitoring]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - '${MONITORING_BIND_ADDRESS:-127.0.0.1}:3300:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?required}
+      # 瀏覽器看到的網址（例 https://grafana.example.com）；告警與分享連結以它開頭
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3300}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: 'false'
+      GF_NEWS_NEWS_FEED_ENABLED: 'false'
+      # apm-service 的查詢 API（Infinity 外掛）；啟動時從 grafana.com 下載並固定版本
+      GF_PLUGINS_PREINSTALL_SYNC: yesoreyeram-infinity-datasource@4.1.1
+      APM_QUERY_URL: http://apm-service:9100
+      APM_AUTH_TOKEN: ${APM_AUTH_TOKEN:?required}
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    mem_limit: 512m
+    security_opt: ['no-new-privileges:true']
+    networks: [monitoring]
+    depends_on: [prometheus, tempo]
+
+networks:
+  monitoring:
+
+volumes:
+  prometheus-data:
+  tempo-data:
+  grafana-data:

@@ -3,6 +3,7 @@ import type { OnModuleInit } from '@nestjs/common';
 
 import { BroadcastService } from '../broadcast';
 import type { BroadcastPublisher } from '../broadcast';
+import { cacheEntries, cacheLookups } from '../metrics';
 import { requireTenant } from '../tenant';
 import { InvalidationTracker } from './invalidation-tracker';
 
@@ -59,7 +60,9 @@ export class ApiTokenCacheService implements OnModuleInit {
   private readonly invalidations = new InvalidationTracker(MAX_ENTRIES);
   private publish?: BroadcastPublisher<ApiTokenCacheMessage>;
 
-  constructor(private readonly broadcast: BroadcastService) {}
+  constructor(private readonly broadcast: BroadcastService) {
+    cacheEntries.observe(this, (report) => report({ cache: 'apiToken' }, this.store.size));
+  }
 
   onModuleInit(): void {
     this.publish = this.broadcast.channel(API_TOKEN_CACHE_CHANNEL, {
@@ -78,8 +81,10 @@ export class ApiTokenCacheService implements OnModuleInit {
   get(tokenId: string): CachedApiToken | undefined {
     const key = keyOf(requireTenant().id, tokenId);
     const entry = this.store.get(key);
+    const isFresh = entry !== undefined && entry.expiresAt >= Date.now();
+    cacheLookups.inc({ cache: 'apiToken', result: isFresh ? 'hit' : 'miss' });
     if (!entry) return undefined;
-    if (entry.expiresAt < Date.now()) {
+    if (!isFresh) {
       this.store.delete(key);
       return undefined;
     }

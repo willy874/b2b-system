@@ -22,6 +22,9 @@ export default defineConfig({
       FILE_STORAGE_SECRET_ACCESS_KEY: 'test-secret-key',
       // 預設不執行背景工作（排程、worker 不在其他測試裡偷跑）；test/jobs.spec.ts 自己打開
       JOBS_WORKER_ENABLED: 'false',
+      // 每個測試建的 app 都會開 /metrics 的 port：關掉，免得互相占用（測試直接呼叫 handleMetricsRequest）
+      METRICS_PORT: '0',
+      EXTERNAL_METRICS_PORT: '0',
     },
     testTimeout: 30_000,
     hookTimeout: 120_000,

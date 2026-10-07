@@ -14,7 +14,7 @@
 └────────────────────────────────────────────────────────────┘
 
 橫切（core/ ＋ common/）：
-  config · database · cache · errors · http · logger · validation · storage
+  config · database · cache · errors · http · logger · metrics · tracing · validation · storage
   decorators · guards
 ```
 
@@ -59,6 +59,8 @@ apps/api/src/
 │   ├── errors/                           AppException、ErrorCode（轉出 @b2b-system/error-codes）、HttpExceptionFilter、資料庫錯誤的去參數化
 │   ├── http/                             request-context（AsyncLocalStorage）、分頁與排序、游標、對外連線的 SSRF 防護（outbound.ts）
 │   ├── logger/                           Pino：存取日誌與應用程式日誌、redact
+│   ├── metrics/                          Prometheus 指標（instruments.ts 一份清單）、給 Prometheus 的 /metrics server（../08-monitoring.md §2）
+│   ├── tracing/                          OpenTelemetry 的手動 span（inSpan）、租戶屬性、網址遮蔽（../08-monitoring.md §3）
 │   ├── validation/                       ZodValidationPipe、Zod → OpenAPI
 │   ├── settings/                         執行期可調的系統設定（12-settings.md）
 │   ├── jobs/                             ★ JobQueue（pg-boss）：defineJob()、register／enqueue（10-jobs.md）
@@ -121,6 +123,9 @@ apps/api/src/
 
 ```
 HTTP Request
+  │
+  ▼ ⓪ httpMetricsMiddleware（main.ts 第一個 app.use）
+     量每個請求的時間，回應結束時以路由樣板記一筆（../08-monitoring.md §2.2）；被 guard 擋下的也算
   │
   ▼ ① RequestIdMiddleware → TenantMiddleware
      產生 / 沿用 x-request-id，塞進 AsyncLocalStorage（讓 logger 與稽核都能取用）；
@@ -202,7 +207,7 @@ HTTP 由 `JwtAuthGuard`、ws 由 `WsAuthGuard` 認人（[`08-realtime.md`](./08-
 
 ```
 app.module
-  ├─ core（global）: Config · Logger · Database · Tenancy · FeatureFlags · Cache · Authz · Broadcast · Settings · Events · Jobs · Storage · Mail · Image · AccessToken
+  ├─ core（global）: Config · Logger · Metrics · Tracing · Database · Tenancy · FeatureFlags · Cache · Authz · Broadcast · Settings · Events · Jobs · Storage · Mail · Image · AccessToken
   ├─ AuthModule            ──▶ Credential · User · Approval · OidcProvider · IdentityProvider · PlatformAdmin
   ├─ TenantModule          ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
@@ -363,6 +368,7 @@ export type Env = z.infer<typeof EnvSchema>;
 `main.ts` 啟動序：
 
 ```
+0. import ./instrumentation：設了 OTEL_EXPORTER_OTLP_ENDPOINT 才掛上 OpenTelemetry（要早於 http、Nest、pino 被載入；../08-monitoring.md §3.1）
 1. 解析並驗證 env（失敗 → process.exit(1)，訊息明確指出缺哪一個）
 2. 建立 Nest app
 3. ★ 路由稽核：掃描所有註冊的路由，任何未宣告授權的 → 拋錯終止啟動

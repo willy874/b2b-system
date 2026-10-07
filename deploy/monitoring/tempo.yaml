@@ -1,0 +1,46 @@
+# Tempo（單一程序、本機磁碟；docs/architecture/08-monitoring.md §6）。api 以 OTLP/HTTP 送到 tempo:4318。
+# 量大或要多台時改成物件儲存（storage.trace.backend: s3，可以指向 apps/file-storage 或真正的 S3）。
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    # trace 保留期限；與 Prometheus 的保留期限分開設定
+    block_retention: ${TEMPO_RETENTION:-168h}
+
+metrics_generator:
+  storage:
+    path: /var/tempo/generator/wal
+  traces_storage:
+    path: /var/tempo/generator/traces
+  processor:
+    # Grafana 的 Traces Drilldown 以 TraceQL metrics 查詢（例：依租戶的 trace 數），不另外寫進 Prometheus
+    local_blocks:
+      filter_server_spans: false
+      flush_to_storage: true
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [local-blocks]

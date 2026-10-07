@@ -1,0 +1,12 @@
+# 儀表板以檔案提供（docs/architecture/08-monitoring.md §6.4）：改儀表板改 deploy/monitoring/grafana/dashboards/*.json，
+# 在 Grafana 裡的修改不會存回檔案（allowUiUpdates: false，避免兩邊不一致）。
+apiVersion: 1
+
+providers:
+  - name: b2b-system
+    folder: B2B System
+    type: file
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

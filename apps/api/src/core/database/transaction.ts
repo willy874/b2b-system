@@ -2,6 +2,8 @@ import type { ExtractTablesWithRelations } from 'drizzle-orm';
 import type { PgTransaction } from 'drizzle-orm/pg-core';
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
 
+import { dbTransactionDuration } from '../metrics';
+import { inSpan } from '../tracing';
 import type {
   Database,
   fullPlatformSchema,
@@ -54,11 +56,25 @@ export async function withTransaction<T>(
   fn: (tx: never) => Promise<T>,
 ): Promise<T> {
   const hooks: AfterCommitHook[] = [];
-  const result = await (db as Database).transaction(async (tx) => {
-    // 單元測試會傳假的交易（非物件）；那時沒有 afterCommit 可以用
-    if (typeof tx === 'object' && tx !== null) afterCommitHooks.set(tx, hooks);
-    return fn(tx as never);
-  });
+  // 交易的時間與 span（docs/architecture/08-monitoring.md §3.2）：postgres.js 沒有 OpenTelemetry 的 instrumentation，
+  // 單一查詢的耗時看 pg_stat_statements；這裡量的是「佔住一條連線多久」，連線池排隊多半是它造成的
+  const end = dbTransactionDuration.startTimer();
+  const result = await inSpan('db.transaction', {}, () =>
+    (db as Database).transaction(async (tx) => {
+      // 單元測試會傳假的交易（非物件）；那時沒有 afterCommit 可以用
+      if (typeof tx === 'object' && tx !== null) afterCommitHooks.set(tx, hooks);
+      return fn(tx as never);
+    }),
+  ).then(
+    (value) => {
+      end({ outcome: 'commit' });
+      return value;
+    },
+    (error: unknown) => {
+      end({ outcome: 'rollback' });
+      throw error;
+    },
+  );
   for (const hook of hooks) {
     // oxlint-disable-next-line no-await-in-loop -- 依登記順序執行
     await hook();

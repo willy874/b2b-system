@@ -24,10 +24,12 @@ import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
+import { MetricsModule } from './core/metrics';
 import { RateLimitModule } from './core/rate-limit';
 import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule, TenantMiddleware } from './core/tenant';
+import { TracingModule } from './core/tracing';
 import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApprovalModule } from './modules/approval/approval.module';
@@ -61,6 +63,9 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     DiscoveryModule, // 路由稽核掃描 controller metadata 用
     ConfigModule,
     LoggerModule,
+    // 給 Prometheus 的 /metrics（獨立的 port）與就緒檢查的 event loop 量測（docs/architecture/08-monitoring.md §2）
+    MetricsModule,
+    TracingModule,
     DatabaseModule,
     // 依網域決定租戶、每租戶的連線池（docs/architecture/05-tenancy.md §10.2 D2、D3）
     TenancyModule,

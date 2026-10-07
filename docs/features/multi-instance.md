@@ -4,7 +4,7 @@
 - 狀態：提案
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.3（擴展前提）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §10.3、
-  [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9（背景工作）、[`observability.md`](./observability.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §12（速率限制第二版與 `RateLimitStore`）、
+  [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §9（背景工作）、[`architecture/08-monitoring.md`](../architecture/08-monitoring.md)（多實例時看每個程序的指標，§2）、[`backend/04-auth.md`](../architecture/backend/04-auth.md) §12（速率限制第二版與 `RateLimitStore`）、
   [`permission-graph.md`](./permission-graph.md) G3a（已做出 `core/broadcast`，權限快取第一個用）、
   [`architecture/06-external-api.md`](../architecture/06-external-api.md) §9 T0（對外 API 是第二個程序，D16、D18 會先把其餘快取的失效廣播與事件轉送做掉）
 

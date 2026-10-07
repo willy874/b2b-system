@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { PermissionKey } from '@/db/seeds/permissions';
 
 import type { Env } from '../config';
+import { cacheEntries, cacheLookups } from '../metrics';
 import { currentTenant } from '../tenant';
 import { InvalidationTracker } from './invalidation-tracker';
 
@@ -52,12 +53,15 @@ export class PermissionCacheService {
 
   constructor(config: ConfigService<Env, true>) {
     this.ttl = config.get('PERMISSION_CACHE_TTL', { infer: true }) * 1000;
+    cacheEntries.observe(this, (report) => report({ cache: 'permission' }, this.store.size));
   }
 
   get(userId: string): PermissionSet | undefined {
     const entry = this.store.get(keyOf(userId));
+    const isFresh = entry !== undefined && entry.expiresAt >= Date.now();
+    cacheLookups.inc({ cache: 'permission', result: isFresh ? 'hit' : 'miss' });
     if (!entry) return undefined;
-    if (entry.expiresAt < Date.now()) {
+    if (!isFresh) {
       this.store.delete(keyOf(userId));
       return undefined;
     }

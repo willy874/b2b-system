@@ -236,7 +236,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   不要沿用開發的 `.env`：compose 會拿它替換 `${…}`，開發用的帳密與網域會流進正式環境。公開網址（`PUBLIC_ORIGIN`、`PLATFORM_PUBLIC_ORIGIN`、
   `DEFAULT_TENANT_DOMAINS`）與 `TRUSTED_PROXY_CIDRS` 沒有預設值，漏設時 `docker compose config` 就失敗；api 另外拒絕不是 https 或指向 localhost 的公開網址
   （[`02-repository-structure.md`](./02-repository-structure.md) §5）。
-- **映像以 digest 釘住**（四個 Dockerfile、兩份 compose、`deploy/check-nginx.sh`）：同一個 commit 不論何時建置都拿到同一個基底。
+- **映像以 digest 釘住**（四個 Dockerfile、三份 compose、`deploy/check-nginx.sh`）：同一個 commit 不論何時建置都拿到同一個基底。
   nginx 用仍在維護的 stable 分支並寫明版本。更新時以 `docker buildx imagetools inspect <映像>:<tag>` 取得新的 digest，
   所有出現的地方一起改（`.github/workflows/ci.yml` 的 action 也以 commit SHA 釘住），再跑 `sh deploy/check-nginx.sh` 與 `sh deploy/smoke-test.sh`。
   repo 沒有自動提更新的工具（Renovate 等），要定期手動檢查。
@@ -284,6 +284,8 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   所有人會算成 LB 那一個 IP。Cloudflare 之類的 CDN 要改用它提供的真實 IP 標頭與來源網段清單（改 `deploy/nginx-real-ip.sh` 的 `real_ip_header`）。
 - **對外的 port 只綁在 LB 連得到的介面**：8080、8081、8082 綁在 `EDGE_BIND_ADDRESS`（預設 `127.0.0.1`，只有同一台主機上的代理連得到）。
   LB 在別台主機時設成主機在 LB 那一側的位址，並以防火牆限制只有 LB 能連：直接連 nginx 會繞過 TLS 與 LB 上的防護。
+- **監控**（選用）：`docker compose … -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d` 多出 Prometheus、Tempo、Grafana、postgres-exporter，
+  api、external-api、apm-service 接上只有監控服務的 `monitoring` 網路；Grafana 只綁 `MONITORING_BIND_ADDRESS`（預設 `127.0.0.1:3300`）。見 [`08-monitoring.md`](./08-monitoring.md) §6。
 - **NAT 的設計假設**：企業客戶的上千名員工常共用一個出口 IP。已登入的請求以使用者計、未登入與登入類端點的 IP 桶
   按「整間公司在同一個 IP」估算（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）；
   數值不夠時調環境變數，不必改程式。
@@ -397,7 +399,10 @@ nginx 的存取日誌與 api 的 pino 日誌每個請求一筆，不輪替會塞
 | Request ID   | `RequestIdMiddleware` 產生 `x-request-id`，出現在回應 header、日誌與稽核紀錄中                                                                                    |
 | 結構化日誌   | Pino（JSON）：HTTP 存取日誌與應用程式日誌（`new Logger(Xxx.name)`，進入點以 `app.useLogger()` 接上）共用同一個 Pino。請求內的每一筆都帶 `requestId`（與回應的 `x-request-id`、稽核紀錄相同），應用程式日誌另有 `context`（類別名稱），存取日誌另有 `req`／`res`／`responseTime`；背景工作的日誌沒有 `requestId`。等級：development `debug`、production `info`、test 靜音 |
 | 授權失敗     | 每一次 403 都寫入 `audit_logs`（`action = 'authz.denied'`），含缺少的權限鍵                                                                                       |
-| 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB ping ＋ 物件儲存 ping，失敗回 `degraded`）                                                                  |
+| 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB、物件儲存、背景工作的連線池、event loop 延遲；失敗回 `degraded`；[`08-monitoring.md`](./08-monitoring.md) §4） |
+| 指標         | 每個 api 程序另開 `/metrics`（`METRICS_PORT` 9464／`EXTERNAL_METRICS_PORT` 9465，Prometheus 格式）：依路由的請求與延遲、快取、租戶連線池、交易、背景工作、推播、限流；不帶租戶標籤。見 [`08-monitoring.md`](./08-monitoring.md) §2 |
+| Tracing      | OpenTelemetry → Tempo（`OTEL_EXPORTER_OTLP_ENDPOINT` 有值才載入）：HTTP、controller、交易、背景工作、對外連線、物件儲存；span 帶 `b2b.tenant`，日誌帶 `trace_id`。見 [`08-monitoring.md`](./08-monitoring.md) §3 |
+| 監控部署     | `docker-compose.monitoring.yml` 疊在正式的 compose 上：Prometheus、Tempo、Grafana（儀表板與告警）、postgres-exporter。見 [`08-monitoring.md`](./08-monitoring.md) §6 |
 | 前端錯誤     | 兩個前端以 `@sentry/browser` 送到同源的 `/apm/`，由 `apps/apm-service`（模擬 Sentry API）存檔、以 sourcemap 還原堆疊；錯誤頁可「複製錯誤資訊」（事件 id 或 `requestId`、版本、頁面）。見 [`frontend/19-observability.md`](./frontend/19-observability.md)、[`07-apm-service.md`](./07-apm-service.md) |
 | 前端版本     | 產物帶 release（commit），每個請求帶 `x-client-release`，api 的存取日誌記成 `clientRelease` |
 

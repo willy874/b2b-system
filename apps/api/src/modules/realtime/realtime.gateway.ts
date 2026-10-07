@@ -27,6 +27,7 @@ import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
 import { requestHost } from '@/core/http';
+import { realtimeConnections, realtimeHandshakeRejected } from '@/core/metrics';
 import { requireTenant, runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 
@@ -114,9 +115,11 @@ export class RealtimeGateway
 
   afterInit(io: RealtimeServer): void {
     this.publisher.attach(io);
+    realtimeConnections.observe(this, (report) => report({}, io.engine.clientsCount));
     io.engine.opts.allowRequest = (req, callback) => {
       const rejection = this.checkRequest(req);
       if (rejection) {
+        realtimeHandshakeRejected.inc({ code: rejection });
         this.logger.warn(
           { ip: clientIpOf(req, this.trustProxy()), code: rejection },
           'WebSocket handshake 被拒',
@@ -132,6 +135,7 @@ export class RealtimeGateway
       this.enterTenant(io, socket).then(
         (code) => {
           if (!code) return next();
+          realtimeHandshakeRejected.inc({ code });
           this.logger.warn({ ip: socket.handshake.address, code }, 'WebSocket handshake 驗證失敗');
           next(connectError(code));
         },

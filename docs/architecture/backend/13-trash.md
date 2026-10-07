@@ -347,7 +347,7 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 R4b 之前個別刪除的檔案已經沒有物件，還原會得到 `objectMissing`（§7.2 第 4 步）；它們到期後照常被 `trash.purge` 清掉。
 
 **儲存用量**：物件多保留一個 `trash.retentionDays`。系統目前沒有依紀錄統計用量或檢查配額的地方（上傳只檢查單檔上限 `file.uploadMaxSize`），
-所以回收桶裡的檔案不影響任何計算；之後加用量指標或配額時要決定是否計入回收桶（`observability` 提案），要縮短保留就調小 `trash.retentionDays`。
+所以回收桶裡的檔案不影響任何計算；之後加用量指標或配額時要決定是否計入回收桶（指標的加法見 [`../08-monitoring.md`](../08-monitoring.md) §2.4），要縮短保留就調小 `trash.retentionDays`。
 
 ---
 

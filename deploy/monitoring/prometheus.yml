@@ -1,0 +1,31 @@
+# 正式環境的 Prometheus（docs/architecture/08-monitoring.md §6）：docker-compose.monitoring.yml 掛進來。
+# 抓取目標都在 compose 的 monitoring／data 網路裡，以服務名稱連線；指標的 port 都不對主機發布。
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # api 的 METRICS_PORT（9464）與 external-api 的 EXTERNAL_METRICS_PORT（9465）
+  - job_name: api
+    static_configs:
+      - targets: ['api:9464']
+  - job_name: external-api
+    static_configs:
+      - targets: ['external-api:9465']
+  # 前端的 Web Vitals 與錯誤事件數（docs/architecture/07-apm-service.md §3.4）
+  - job_name: apm-service
+    static_configs:
+      - targets: ['apm-service:9100']
+  # 連線數、交易、鎖、慢查詢（pg_stat_statements）
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+  - job_name: tempo
+    static_configs:
+      - targets: ['tempo:3200']
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,119 @@
+# 告警規則（docs/architecture/08-monitoring.md §6.3）。Grafana 的 Alerting 頁看得到狀態；
+# 要寄信或推到聊天工具時加一個 Alertmanager，或在 Grafana 設定 contact point。
+# 門檻是起點：上線後依實際的基準值調整，並把調整的理由寫在 summary 旁的註解。
+groups:
+  - name: b2b-api
+    rules:
+      - alert: ApiDown
+        expr: up{job=~"api|external-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: '{{ $labels.job }} 抓不到指標超過 2 分鐘'
+          description: 程序停了、/metrics 的 port 沒開，或 Prometheus 連不到 monitoring 網路。
+
+      - alert: ApiHighErrorRate
+        # 5xx 佔全部請求的比例；請求太少時不判斷，避免一兩個錯誤就觸發
+        expr: |
+          (
+            sum by (job) (rate(http_server_request_duration_seconds_count{status=~"5.."}[5m]))
+            / sum by (job) (rate(http_server_request_duration_seconds_count[5m]))
+          ) > 0.05
+          and sum by (job) (rate(http_server_request_duration_seconds_count[5m])) > 0.5
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: '{{ $labels.job }} 的 5xx 比例 {{ $value | humanizePercentage }}'
+          description: 看 Grafana「api 概況」依路由的錯誤，再從 Tempo 找同時段的錯誤 trace。
+
+      - alert: ApiSlowRoute
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, route, le) (rate(http_server_request_duration_seconds_bucket{route!~"unmatched|other"}[10m]))
+          ) > 2
+          and sum by (job, route) (rate(http_server_request_duration_seconds_count[10m])) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.route }} 的 p95 {{ $value | humanizeDuration }}'
+
+      - alert: ApiEventLoopLag
+        expr: max by (job, instance) (nodejs_eventloop_lag_p99_seconds) > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.job }} 的 event loop 延遲 p99 {{ $value | humanizeDuration }}'
+          description: 同步的大量運算（JSON、加解密）或 threadpool 被占滿；就緒檢查在 HEALTH_EVENT_LOOP_LAG_MS 時回 degraded。
+
+      - alert: Argon2Saturated
+        expr: increase(api_limiter_rejected_total{limiter="argon2"}[5m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: 登入的密碼驗證排不到名額（503 AUTH_BUSY）
+          description: 調高 ARGON2_MAX_CONCURRENCY 與 UV_THREADPOOL_SIZE 之前，先看是否為撞庫攻擊（api_rate_limited_total）。
+
+      - alert: TenantUnavailable
+        expr: increase(api_tenant_unavailable_total{reason="maintenance"}[10m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: 有租戶因 migration 落後或 DB 連不上而暫停服務
+          description: 日誌搜尋「租戶的 migration 落後」或「無法檢查租戶的 migration 版本」找出是哪個租戶；補跑 pnpm db:migrate 後自動恢復。
+
+  - name: b2b-jobs
+    rules:
+      - alert: JobBacklog
+        # 可以立即執行卻沒人取走的工作
+        expr: sum by (job) (api_job_queue_depth{state="ready"}) > 500
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: '背景工作 {{ $labels.job }} 積壓 {{ $value }} 筆'
+          description: worker 停了（JOBS_WORKER_ENABLED）、handler 變慢，或租戶的同時執行上限太低。
+
+      - alert: JobFailures
+        expr: sum by (job) (increase(api_jobs_processed_total{result="failed"}[15m])) > 10
+        labels: { severity: warning }
+        annotations:
+          summary: '背景工作 {{ $labels.job }} 15 分鐘內失敗 {{ $value }} 次'
+          description: 失敗的工作在 backstage／apps/platform 的背景工作頁看得到錯誤內容。
+
+      - alert: OutboxRelayFailing
+        expr: increase(api_job_outbox_relay_failures_total[10m]) > 0
+        labels: { severity: info }
+        annotations:
+          summary: 交易提交後的 outbox 搬移失敗，等定期清掃（jobs.outboxSweep）補救
+
+  - name: b2b-postgres
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: postgres-exporter 連不上 Postgres
+
+      - alert: PostgresConnectionsHigh
+        # 連線預算（docs/architecture/backend/02-database.md §6.2）：超過 70% 就是考慮 PgBouncer 的時候
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.7
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Postgres 連線數已用 {{ $value | humanizePercentage }}'
+
+  - name: b2b-frontend
+    rules:
+      - alert: FrontendErrorSpike
+        expr: sum by (project, release) (increase(apm_events_total{level=~"error|fatal"}[15m])) > 50
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.project }}（{{ $labels.release }}）15 分鐘內 {{ $value }} 筆前端錯誤'
+          description: 剛部署的版本先看 Grafana「前端」的 issues 表；必要時回滾前端映像。
+
+      - alert: FrontendLcpPoor
+        expr: |
+          histogram_quantile(0.75, sum by (project, le) (rate(apm_web_vital_bucket{name="lcp"}[30m]))) > 4000
+          and sum by (project) (rate(apm_web_vital_count{name="lcp"}[30m])) > 0.01
+        for: 30m
+        labels: { severity: info }
+        annotations:
+          summary: '{{ $labels.project }} 的 LCP p75 {{ $value }} ms（超過 4 秒是 poor）'

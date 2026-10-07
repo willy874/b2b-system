@@ -21,7 +21,6 @@
 | P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P3 | 權限圖（ReBAC）：專案（G5） | [`permission-graph.md`](./permission-graph.md) | 提案（G0～G4b 已上 main 並歸檔；G5 等專案功能） | 專案功能 |
 | P3 | MFA | [`mfa.md`](./mfa.md) | 提案 | — |
-| P3 | 可觀測性（後端） | [`observability.md`](./observability.md) | 提案（前端已完成並歸檔，剩 api 的指標與 tracing） | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 
 狀態只有三種：
@@ -38,6 +37,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `observability`（後端的指標與 tracing、就緒檢查、Grafana ＋ Prometheus ＋ Tempo 的部署與告警，apm-service 接進 Grafana）：[`architecture/08-monitoring.md`](../architecture/08-monitoring.md) §9
 - `hardening-followups`（安全與容量的後續強化）：access token 金鑰環 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §11、
   速率限制第二版與 argon2 上限 §12、獨立的檔案網域 [`backend/09-file.md`](../architecture/backend/09-file.md) §13、個人資料夾 [`rbac/07-resource-grants.md`](../rbac/07-resource-grants.md) §12.1、
   稽核冷表分區與保留期限 [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §10、HTTP 快取 [`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §13、
@@ -60,8 +60,7 @@
 接下來：
 
 1. `import-export`（大量匯入使用者、匯出稽核日誌），或資源的協作（`comments-watches`；照標籤的登記方式做）。
-2. `observability`（後端）：上線前做；`/metrics` 的存取方式可沿用 apps/apm-service 的做法。
-3. `permission-graph` G5（專案）等專案功能的提案一起做。
+2. `permission-graph` G5（專案）等專案功能的提案一起做。
 
 ### 1.2 撰寫提案時的架構前提
 
@@ -81,6 +80,7 @@
 | 軟刪除的查詢一律用 `notDeleted()`；要能還原的資源在 `onModuleInit` 註冊 `TrashHandler` 並提供 `POST /<resource>/:id/restore` | [`backend/13-trash.md`](../architecture/backend/13-trash.md) §1、§2 |
 | 要版本歷史的實體由擁有者模組在業務交易內呼叫 `RevisionService.record` | [`backend/14-revisions.md`](../architecture/backend/14-revisions.md) §6 |
 | 「通知某人」由擁有者模組在業務交易內呼叫 `NotificationService.notify`，不訂閱 `DomainEventBus` | [`backend/15-notification.md`](../architecture/backend/15-notification.md) §9 |
+| 要觀測的量（新的佇列、外部呼叫、快取、並行上限）在 `core/metrics/instruments.ts` 加指標；標籤不帶租戶，依租戶看用 trace 的 `b2b.tenant` | [`08-monitoring.md`](../architecture/08-monitoring.md) §2.3、§2.4 |
 
 ---
 

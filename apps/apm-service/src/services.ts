@@ -17,7 +17,7 @@ export async function createServices(
     events,
     sourcemaps,
     symbolicator: new Symbolicator(sourcemaps),
-    metrics: new ApmMetrics(config.routeLabelLimit),
+    metrics: new ApmMetrics(config.routeLabelLimit, config.releaseLabelLimit),
     rateLimiter: new RateLimiter(config.rateLimitPerMinute),
     now,
   };
