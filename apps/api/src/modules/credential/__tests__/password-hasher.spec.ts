@@ -38,4 +38,13 @@ describe('PasswordHasher（docs/architecture/backend/04-auth.md §4.1）', () =>
       details: { retryAfterSeconds: 2 },
     });
   });
+
+  it('名額以外的錯誤（例：argon2 參數無效）原樣拋出，不轉成 AUTH_BUSY', async () => {
+    const passwords = hasher({ ARGON2_TIME_COST: 0 });
+    const error = await passwords
+      .hash('Quiet-Harbor-Lantern-26')
+      .catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toMatchObject({ code: 'AUTH_BUSY' });
+  });
 });

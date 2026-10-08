@@ -1,11 +1,16 @@
 import { createChannel } from '@b2b-system/web-shared/channel';
 import { createFakeChannelHub } from '@b2b-system/web-shared/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NetworkError } from '../../client';
 import { AppError } from '../../errors';
-import { IDENTITY_CHANGED_REASON, SessionStore } from '../SessionStore';
-import type { SessionMessages } from '../SessionStore';
+import {
+  ensureSessionStore,
+  getSessionStore,
+  IDENTITY_CHANGED_REASON,
+  SessionStore,
+} from '../SessionStore';
+import type { RunExclusive, SessionMessages, SessionTokens } from '../SessionStore';
 
 function createStore(): SessionStore {
   return new SessionStore('test');
@@ -113,6 +118,21 @@ describe('SessionStore', () => {
     store.endSession('AUTH_TOKEN_STALE');
 
     expect(listener).toHaveBeenCalledWith('AUTH_TOKEN_STALE');
+    store.dispose();
+  });
+
+  it('取消舊的預告不影響之後的新預告', () => {
+    const store = createStore();
+    const listener = vi.fn();
+    store.events.on('ended', listener);
+    store.setTokens({ accessToken: 'token', expiresIn: 300 });
+
+    const cancelFirst = store.expectSessionEnd('password_changed');
+    store.expectSessionEnd('mfa_reset');
+    cancelFirst();
+    store.endSession('AUTH_TOKEN_STALE');
+
+    expect(listener).toHaveBeenCalledWith('mfa_reset');
     store.dispose();
   });
 
@@ -359,5 +379,267 @@ describe('SessionStore', () => {
       expect(ended).toHaveBeenCalledTimes(1);
       store.dispose();
     });
+  });
+});
+
+/** 只有 payload 有意義的假 JWT（payload 直接給字串，可做出格式錯誤的 token）。 */
+const jwtOf = (payload: string) =>
+  `h.${btoa(payload).replaceAll('=', '').replaceAll('+', '-').replaceAll('/', '_')}.s`;
+
+describe('SessionStore 的身分解析（getIdentity / getLastIdentity）', () => {
+  beforeEach(() => {
+    globalThis.localStorage?.clear();
+  });
+
+  it.each([
+    ['有租戶', JSON.stringify({ sub: 'u1', tid: 't1' }), 't1:u1'],
+    ['沒有租戶（平台身分）', JSON.stringify({ sub: 'u1' }), ':u1'],
+    ['tid 不是字串', JSON.stringify({ sub: 'u1', tid: 42 }), ':u1'],
+    ['沒有 sub', JSON.stringify({ tid: 't1' }), undefined],
+    ['payload 是 null', 'null', undefined],
+    ['payload 是數字', '1', undefined],
+    ['payload 不是 JSON', '{not-json', undefined],
+  ])('%s → %s', (_label, payload, expected) => {
+    const store = createStore();
+    store.setTokens({ accessToken: jwtOf(payload), expiresIn: 300 });
+    expect(store.getIdentity()).toBe(expected);
+    store.dispose();
+  });
+
+  it('不是 JWT（測試與 mock 模式的假 token）→ undefined', () => {
+    const store = createStore();
+    store.setTokens({ accessToken: 'plain-token', expiresIn: 300 });
+    expect(store.getIdentity()).toBeUndefined();
+    store.dispose();
+  });
+
+  it('沒有 token 時 getIdentity 為 undefined', () => {
+    const store = createStore();
+    expect(store.getIdentity()).toBeUndefined();
+    store.dispose();
+  });
+
+  it('session 結束後 getLastIdentity 仍記得是誰；之後的假 token 不會把它洗掉', () => {
+    const store = createStore();
+    store.setTokens({
+      accessToken: jwtOf(JSON.stringify({ sub: 'u1', tid: 't1' })),
+      expiresIn: 300,
+    });
+    store.endSession('logout');
+    expect(store.getIdentity()).toBeUndefined();
+    expect(store.getLastIdentity()).toBe('t1:u1');
+
+    store.setTokens({ accessToken: 'plain-token', expiresIn: 300 });
+    expect(store.getLastIdentity()).toBe('t1:u1');
+    store.dispose();
+  });
+
+  it('格式錯誤的 token 不會被當成換人（無從比對，交給後端驗證）', () => {
+    const store = createStore();
+    const ended = vi.fn();
+    store.events.on('ended', ended);
+    store.setTokens({ accessToken: jwtOf(JSON.stringify({ sub: 'u1' })), expiresIn: 300 });
+    store.setTokens({ accessToken: jwtOf('{broken'), expiresIn: 300 });
+    expect(ended).not.toHaveBeenCalled();
+    expect(store.getAccessToken()).toBe(jwtOf('{broken'));
+    store.dispose();
+  });
+});
+
+describe('SessionStore.renewAccessToken（請求被 401 拒絕後）', () => {
+  beforeEach(() => {
+    globalThis.localStorage?.clear();
+  });
+
+  it('被拒的仍是目前的 token：即使還沒到期也強制續期', async () => {
+    const store = createStore();
+    const refresh = vi.fn().mockResolvedValue({ accessToken: 'token-2', expiresIn: 300 });
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'token-1', expiresIn: 300 });
+
+    await expect(store.renewAccessToken('token-1')).resolves.toBe('token-2');
+    expect(refresh).toHaveBeenCalledOnce();
+    store.dispose();
+  });
+
+  it('被拒的 token 已被其他請求換掉：直接沿用新的，不重複續期', async () => {
+    const store = createStore();
+    const refresh = vi.fn();
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'token-2', expiresIn: 300 });
+
+    await expect(store.renewAccessToken('token-1')).resolves.toBe('token-2');
+    expect(refresh).not.toHaveBeenCalled();
+    store.dispose();
+  });
+
+  it('沒有 token 時（只有 session 旗標）照常續期', async () => {
+    const store = createStore();
+    const refresh = vi.fn().mockResolvedValue({ accessToken: 'token-1', expiresIn: 300 });
+    store.setRefreshFn(refresh);
+    store.presumeSession();
+
+    await expect(store.renewAccessToken(undefined)).resolves.toBe('token-1');
+    store.dispose();
+  });
+
+  it('★ 續期中收到 401：等待同一個續期的結果，不另外續期也不結束 session（10-testing §6）', async () => {
+    const store = createStore();
+    let resolveRefresh: ((value: SessionTokens) => void) | undefined;
+    const refresh = vi.fn(
+      () =>
+        new Promise<SessionTokens>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+    const ended = vi.fn();
+    store.events.on('ended', ended);
+
+    const pending = store.ensureAccessToken();
+    const renewed = store.renewAccessToken('stale');
+    await vi.waitFor(() => expect(resolveRefresh).toBeDefined());
+    resolveRefresh?.({ accessToken: 'fresh', expiresIn: 300 });
+
+    await expect(pending).resolves.toBe('fresh');
+    await expect(renewed).resolves.toBe('fresh');
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(ended).not.toHaveBeenCalled();
+    store.dispose();
+  });
+});
+
+describe('SessionStore 的跨分頁互斥', () => {
+  beforeEach(() => {
+    globalThis.localStorage?.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('等鎖期間其他分頁已續期完成：拿到鎖後沿用新 token，不再打續期', async () => {
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runExclusive: RunExclusive = async (_name, task) => {
+      await held;
+      return task();
+    };
+    const store = new SessionStore('test', { runExclusive });
+    const refresh = vi.fn();
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    const pending = store.ensureAccessToken();
+    // 持有鎖的分頁續期完成，經由 refresh-done 送來新 token
+    store.setTokens({ accessToken: 'from-peer', expiresIn: 300 });
+    release?.();
+
+    await expect(pending).resolves.toBe('from-peer');
+    expect(refresh).not.toHaveBeenCalled();
+    store.dispose();
+  });
+
+  it('等鎖期間本分頁已登出：拿到鎖後不續期', async () => {
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runExclusive: RunExclusive = async (_name, task) => {
+      await held;
+      return task();
+    };
+    const store = new SessionStore('test', { runExclusive });
+    const refresh = vi.fn();
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    const pending = store.ensureAccessToken();
+    store.endSession('logout');
+    release?.();
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(refresh).not.toHaveBeenCalled();
+    store.dispose();
+  });
+
+  it('★ 持有鎖的分頁沒有送來結果（廣播遺失或續期失敗）：拿到鎖後自己續期，不永久等待（10-testing §6）', async () => {
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runExclusive: RunExclusive = async (_name, task) => {
+      await held;
+      return task();
+    };
+    const store = new SessionStore('test', { runExclusive });
+    const refresh = vi.fn().mockResolvedValue({ accessToken: 'self', expiresIn: 300 });
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    const pending = store.ensureAccessToken();
+    release?.();
+
+    await expect(pending).resolves.toBe('self');
+    expect(refresh).toHaveBeenCalledOnce();
+    store.dispose();
+  });
+
+  it('預設以 navigator.locks 互斥，鎖名帶後端名稱', async () => {
+    const request = vi.fn((_name: string, task: () => Promise<unknown>) => task());
+    vi.stubGlobal('navigator', { ...globalThis.navigator, locks: { request } });
+    const store = new SessionStore('locked');
+    store.setRefreshFn(vi.fn().mockResolvedValue({ accessToken: 'fresh', expiresIn: 300 }));
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    await expect(store.ensureAccessToken()).resolves.toBe('fresh');
+    expect(request).toHaveBeenCalledWith('ge:refresh:locked', expect.any(Function));
+    store.dispose();
+  });
+
+  it('瀏覽器不支援 Web Locks：退回分頁內單飛，仍能續期', async () => {
+    vi.stubGlobal('navigator', { ...globalThis.navigator, locks: undefined });
+    const store = createStore();
+    const refresh = vi.fn().mockResolvedValue({ accessToken: 'fresh', expiresIn: 300 });
+    store.setRefreshFn(refresh);
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    const [first, second] = await Promise.all([
+      store.ensureAccessToken(),
+      store.ensureAccessToken(),
+    ]);
+    expect([first, second]).toEqual(['fresh', 'fresh']);
+    expect(refresh).toHaveBeenCalledOnce();
+    store.dispose();
+  });
+
+  it('★ BroadcastChannel 不可用：降級為單分頁行為，登入、續期、登出照常（10-testing §6）', async () => {
+    vi.stubGlobal('BroadcastChannel', undefined);
+    const store = createStore();
+    const ended = vi.fn();
+    store.events.on('ended', ended);
+    store.setRefreshFn(vi.fn().mockResolvedValue({ accessToken: 'fresh', expiresIn: 300 }));
+    store.setTokens({ accessToken: 'stale', expiresIn: 1 });
+
+    await expect(store.ensureAccessToken()).resolves.toBe('fresh');
+    store.endSession('logout');
+    expect(ended).toHaveBeenCalledWith('logout');
+    expect(store.hasSession()).toBe(false);
+    store.dispose();
+  });
+});
+
+describe('ensureSessionStore / getSessionStore', () => {
+  it('同一個名稱只建立一個實例', () => {
+    const store = ensureSessionStore('reports');
+    expect(ensureSessionStore('reports')).toBe(store);
+    expect(getSessionStore('reports')).toBe(store);
+  });
+
+  it('取用尚未建立的 session → 明確報錯，不默默建一個空的', () => {
+    expect(() => getSessionStore('typo')).toThrow('SessionStore "typo" 尚未建立');
   });
 });

@@ -1,4 +1,6 @@
-import { createAppContext } from '@b2b-system/web-core/app';
+import { AppContextProvider, createAppContext, GlobalEvents } from '@b2b-system/web-core/app';
+import type { AppContext } from '@b2b-system/web-core/app';
+import { sessionStore } from '@b2b-system/web-core/auth';
 import { resetBatchOperations } from '@b2b-system/web-core/batch';
 import {
   paletteCommandRegistry,
@@ -8,8 +10,15 @@ import {
 import { navItemRegistry, resetNavigationRegistry } from '@b2b-system/web-core/navigation';
 import { getPreferenceTables, resetPreferenceRegistry } from '@b2b-system/web-core/preference';
 import { resetRouteLinkRegistry, routeLinkRegistry } from '@b2b-system/web-core/route-link';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { createTestQueryClient } from '@b2b-system/web-core/testing';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { renderHook, waitFor } from '@testing-library/react';
+import { createElement } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import { resetFileRegistry } from '@/core/file';
 import { getRegisteredPageKeys, resetPagePermissionRegistry } from '@/core/permission';
 import { getTrashTypes, resetTrashRegistry } from '@/core/trash';
@@ -39,8 +48,9 @@ import { SERVICE_ACCOUNT_CREATE_PAGE, SERVICE_ACCOUNT_PAGE } from '@/features/se
 import { SETTING_PAGE } from '@/features/system';
 import { TRASH_PAGE } from '@/features/trash';
 import { WEBHOOK_CREATE_PAGE, WEBHOOK_PAGE } from '@/features/webhook';
+import { initTestI18n } from '@/test/i18n';
 
-import { FEATURE_CATALOG } from '../features';
+import { FEATURE_CATALOG, featureActivationPlugin, useSyncFeatures } from '../features';
 
 /** 每個可啟用 feature 安裝後應該多出來的頁面鍵。 */
 const EXPECTED_PAGES = {
@@ -139,5 +149,131 @@ describe('可啟用 feature 的 catalog', () => {
     context.uninstall(name);
     expect(routeLinkRegistry.keys()).toEqual([]);
     expect(getTrashTypes()).toEqual([]);
+  });
+});
+
+function resetRegistries() {
+  resetPagePermissionRegistry();
+  resetPreferenceRegistry();
+  resetBatchOperations();
+  resetFileRegistry();
+  resetRouteLinkRegistry();
+  resetNavigationRegistry();
+  resetCommandPaletteRegistry();
+  resetTrashRegistry();
+  resetFeatureStore();
+}
+
+/** 以假的 router 與 eventBus 建立安裝器；`pathname` 是目前頁面。 */
+function setupActivator(pathname: string, options: { failInit?: boolean } = {}) {
+  const router = {
+    state: { location: { pathname } },
+    navigate: vi.fn(() => Promise.resolve()),
+    invalidate: vi.fn(() => Promise.resolve()),
+  };
+  const emit = vi.fn();
+  const context = createAppContext()
+    .use(() => ({
+      name: 'stubs',
+      attrs: {
+        router,
+        eventBus: { emit },
+        addResourceBundle: () => {
+          if (options.failInit) throw new Error('bundle');
+          return () => undefined;
+        },
+      } as never,
+    }))
+    .use(featureActivationPlugin());
+  return { features: context.features, router, emit };
+}
+
+describe('featureActivationPlugin（docs/architecture/frontend/02-plugin-system.md §9.2 D9）', () => {
+  beforeAll(async () => {
+    await initTestI18n();
+  });
+
+  beforeEach(resetRegistries);
+  afterEach(resetRegistries);
+
+  it('停在剛啟用的 feature 頁面（例：它的 404）時，安裝後讓 router 重新判斷', async () => {
+    const { features, router } = setupActivator('/webhook/abc');
+    await features.apply(['webhook']);
+    expect(featureStore.getState().statuses.get('webhook')).toBe('ready');
+    expect(router.invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('目前頁面不屬於剛啟用的 feature 時不重新判斷', async () => {
+    const { features, router } = setupActivator('/webhooks');
+    await features.apply(['webhook']);
+    expect(router.invalidate).not.toHaveBeenCalled();
+  });
+
+  it('停用目前頁面所屬的 feature → 提示並導回首頁後才卸載', async () => {
+    const { features, router, emit } = setupActivator('/webhook');
+    await features.apply(['webhook']);
+    await features.apply([]);
+
+    expect(emit).toHaveBeenCalledWith(GlobalEvents.TOAST_SHOW, {
+      type: 'info',
+      title: '目前的頁面所屬的功能已被停用',
+    });
+    expect(router.navigate).toHaveBeenCalledWith({ to: '/', replace: true, ignoreBlocker: true });
+    expect(featureStore.getState().statuses.get('webhook')).toBe('disabled');
+  });
+
+  it('停用的 feature 不是目前頁面 → 不提示也不導頁', async () => {
+    const { features, router, emit } = setupActivator('/user');
+    await features.apply(['webhook']);
+    await features.apply([]);
+
+    expect(emit).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('安裝失敗 → 顯示錯誤提示，狀態是 failed', async () => {
+    const { features, emit } = setupActivator('/', { failInit: true });
+    await features.apply(['webhook']);
+
+    expect(featureStore.getState().statuses.get('webhook')).toBe('failed');
+    expect(emit).toHaveBeenCalledWith(GlobalEvents.TOAST_SHOW, {
+      type: 'error',
+      title: '功能載入失敗，請重新整理頁面',
+    });
+  });
+});
+
+function renderSync(profile: unknown, hasSession: boolean) {
+  sessionStore.clear();
+  if (hasSession) sessionStore.setTokens({ accessToken: 'token', expiresIn: 300 });
+  const apply = vi.fn(() => Promise.resolve());
+  const context = createAppContext().use(() => ({
+    name: 'features-stub',
+    attrs: { features: { apply } } as never,
+  })) as AppContext;
+  const queryClient = createTestQueryClient();
+  // staleTime 內不會重取：直接放進快取，不必起 MSW
+  queryClient.setQueryData([AUTH_PROFILE_QUERY_KEY], profile as never);
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(
+      AppContextProvider,
+      { context } as ComponentProps<typeof AppContextProvider>,
+      createElement(QueryClientProvider, { client: queryClient }, children),
+    );
+  renderHook(() => useSyncFeatures(), { wrapper });
+  return apply;
+}
+
+describe('useSyncFeatures', () => {
+  afterEach(() => sessionStore.clear());
+
+  it('有 session 時把 profile 的啟用清單與 flag 交給安裝器', async () => {
+    const apply = renderSync({ features: ['file'], flags: ['beta'] }, true);
+    await waitFor(() => expect(apply).toHaveBeenCalledWith(['file'], ['beta']));
+  });
+
+  it('profile 尚未取得時不套用（不會把所有 feature 卸載）', () => {
+    const apply = renderSync(undefined, false);
+    expect(apply).not.toHaveBeenCalled();
   });
 });

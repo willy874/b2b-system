@@ -112,4 +112,39 @@ describe('createStore', () => {
     expect(total.value).toBe(3);
     expect(label.value).toBe('COUNTER');
   });
+
+  it('replace 以傳入的內容取代整份狀態，即使欄位沒變也通知', () => {
+    const store = createStore<{ a?: number; b?: number }>(() => ({ a: 1, b: 2 }));
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.setState({ a: 1 }, true);
+
+    expect(store.getState()).toEqual({ a: 1 });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('state 可以列舉欄位、用 in 判斷欄位是否存在', () => {
+    const store = createStore<{ a: number; b?: string }>(() => ({ a: 1 }));
+
+    expect('a' in store.state).toBe(true);
+    expect('b' in store.state).toBe(false);
+    expect(Object.keys(store.state)).toEqual(['a']);
+    expect({ ...store.state }).toEqual({ a: 1 });
+    expect(Object.getOwnPropertyDescriptor(store.state, 'a')).toMatchObject({
+      value: 1,
+      writable: false,
+    });
+    expect(Object.getOwnPropertyDescriptor(store.state, 'b')).toBeUndefined();
+  });
+
+  it('列舉 state 的衍生值在任何欄位變動時都會更新', () => {
+    const store = createStore<{ a: number; b: number }>(() => ({ a: 1, b: 2 }));
+    const keys = computed(() => Object.keys(store.state).length);
+    expect(keys.value).toBe(2);
+
+    store.setState({ c: 3 } as never);
+
+    expect(keys.value).toBe(3);
+  });
 });

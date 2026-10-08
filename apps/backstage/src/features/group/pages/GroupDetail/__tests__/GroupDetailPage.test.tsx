@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,20 +10,29 @@ import { initTestI18n } from '@/test/i18n';
 import { registerGroupPagePermissions, Routes } from '../../..';
 import groupZhTW from '../../../locales/zh_TW.json';
 
-const { fetchGroups, fetchGroup, fetchMembers, fetchRoles, fetchRoleOptions, updateMembers } =
-  vi.hoisted(() => ({
-    fetchGroups: vi.fn(),
-    fetchGroup: vi.fn(),
-    fetchMembers: vi.fn(),
-    fetchRoles: vi.fn(),
-    fetchRoleOptions: vi.fn(),
-    updateMembers: vi.fn(),
-  }));
+const {
+  fetchGroups,
+  fetchGroup,
+  fetchMembers,
+  fetchRoles,
+  fetchRoleOptions,
+  updateMembers,
+  updateGroup,
+} = vi.hoisted(() => ({
+  updateGroup: vi.fn(),
+  fetchGroups: vi.fn(),
+  fetchGroup: vi.fn(),
+  fetchMembers: vi.fn(),
+  fetchRoles: vi.fn(),
+  fetchRoleOptions: vi.fn(),
+  updateMembers: vi.fn(),
+}));
 vi.mock('@/apis/group/get-group-list/fetcher', () => ({ fetchGroupListQuery: fetchGroups }));
 vi.mock('@/apis/group/get-group-detail/fetcher', () => ({ fetchGroupDetailQuery: fetchGroup }));
 vi.mock('@/apis/group/get-group-members/fetcher', () => ({ fetchGroupMembersQuery: fetchMembers }));
 vi.mock('@/apis/group/get-group-roles/fetcher', () => ({ fetchGroupRolesQuery: fetchRoles }));
 vi.mock('@/apis/role/get-role-list/fetcher', () => ({ fetchRoleListQuery: fetchRoleOptions }));
+vi.mock('@/apis/group/update-group/fetcher', () => ({ fetchGroupUpdateMutation: updateGroup }));
 vi.mock('@/apis/group/update-group-members/fetcher', () => ({
   fetchGroupMembersUpdateMutation: updateMembers,
 }));
@@ -84,6 +94,7 @@ beforeEach(() => {
     pagination: { total: 3 },
   });
   updateMembers.mockReset().mockResolvedValue(GROUP);
+  updateGroup.mockReset().mockResolvedValue({ ...GROUP, version: 2 });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -144,6 +155,91 @@ describe('GroupDetailPage（docs/architecture/iam/01-model.md §9.3 D11、D12）
       expect(updateMembers.mock.calls[0]![0]).toMatchObject({
         params: { groupId: 'g1', body: { add: [], remove: [{ type: 'group', id: 'g2' }] } },
       });
+    });
+  });
+
+  describe('基本資料（GroupBasicSection）', () => {
+    const EDITOR = [...READER, 'group:update'] as PermissionKey[];
+
+    async function openEditor() {
+      renderRoute(routes, '/group/g1', EDITOR);
+      fireEvent.click(await screen.findByTestId('group-edit-button', undefined, { timeout: 5000 }));
+      return screen.findByTestId('group-edit-form');
+    }
+
+    it('只能讀 → 沒有編輯按鈕', async () => {
+      renderRoute(routes, '/group/g1', READER);
+      await screen.findByText('Alice', undefined, { timeout: 5000 });
+      expect(screen.queryByTestId('group-edit-button')).toBeNull();
+    });
+
+    it('編輯：開啟時帶入目前的名稱與說明並聚焦名稱，送出開始編輯時的版本', async () => {
+      const form = await openEditor();
+      const name = within(form).getByTestId('group-name-edit-input');
+      expect(name).toHaveValue('美術');
+      expect(name).toHaveFocus();
+
+      fireEvent.change(name, { target: { value: '美術部' } });
+      fireEvent.change(form.querySelector('textarea')!, {
+        target: { value: '負責視覺' },
+      });
+      fireEvent.click(within(form).getByTestId('group-save-button'));
+
+      await waitFor(() => expect(updateGroup).toHaveBeenCalledTimes(1));
+      expect(updateGroup.mock.calls[0]![0]).toMatchObject({
+        params: { groupId: 'g1', body: { name: '美術部', description: '負責視覺', version: 1 } },
+      });
+      await waitFor(() => expect(screen.queryByTestId('group-edit-form')).toBeNull());
+    });
+
+    it('名稱空白不能儲存；取消回到檢視', async () => {
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('group-name-edit-input'), {
+        target: { value: '  ' },
+      });
+      expect(within(form).getByTestId('group-save-button')).toBeDisabled();
+      fireEvent.click(within(form).getByRole('button', { name: '取消' }));
+      expect(screen.queryByTestId('group-edit-form')).toBeNull();
+      expect(updateGroup).not.toHaveBeenCalled();
+    });
+
+    it('同名 → 以 toast 顯示錯誤，輸入保留', async () => {
+      updateGroup.mockRejectedValue(new AppError('GROUP_NAME_DUPLICATE', 409));
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('group-name-edit-input'), {
+        target: { value: '程式' },
+      });
+      fireEvent.click(within(form).getByTestId('group-save-button'));
+      expect(await screen.findByText('已有同名的群組（名稱不分大小寫）。')).toBeInTheDocument();
+      expect(screen.getByTestId('group-name-edit-input')).toHaveValue('程式');
+    });
+
+    it('版本衝突 → 重新載入後以最新的內容與版本為基礎', async () => {
+      updateGroup.mockRejectedValueOnce(new AppError('GROUP_VERSION_CONFLICT', 409));
+      const form = await openEditor();
+      fireEvent.click(within(form).getByTestId('group-save-button'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchGroup.mockResolvedValue({ ...GROUP, name: '視覺', description: '新說明', version: 3 });
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      await waitFor(() => expect(screen.getByTestId('group-name-edit-input')).toHaveValue('視覺'));
+
+      fireEvent.click(screen.getByTestId('group-save-button'));
+      await waitFor(() => expect(updateGroup).toHaveBeenCalledTimes(2));
+      expect(updateGroup.mock.calls[1]![0]).toMatchObject({
+        params: { body: { name: '視覺', description: '新說明', version: 3 } },
+      });
+    });
+
+    it('重新載入失敗 → 以 toast 顯示錯誤', async () => {
+      updateGroup.mockRejectedValueOnce(new AppError('GROUP_VERSION_CONFLICT', 409));
+      const form = await openEditor();
+      fireEvent.click(within(form).getByTestId('group-save-button'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchGroup.mockRejectedValue(new AppError('GROUP_NOT_FOUND', 404));
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      expect(await screen.findByText('找不到這個群組，可能已被刪除。')).toBeInTheDocument();
     });
   });
 });

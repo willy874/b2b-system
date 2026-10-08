@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeChannelHub } from '../../testing';
 import { createChannel } from '../createChannel';
-import { createLeaderElection } from '../leader/createLeaderElection';
+import { browserLeaderAdapters, createLeaderElection } from '../leader/createLeaderElection';
 import type { LeaderElection, LeaderMessages } from '../leader/createLeaderElection';
 
 const COUNTER_KEY = 'test:leader:counter';
@@ -233,5 +233,142 @@ describe('createLeaderElection（跨分頁 leader 選舉）', () => {
     vi.advanceTimersByTime(CLAIM_WINDOW);
 
     expect(roleOf(a)).toBe('follower');
+  });
+});
+
+describe('createLeaderElection（其他訊息與重新參與）', () => {
+  it('任期格式不對的心跳忽略，不影響現任 leader', () => {
+    const hub = createFakeChannelHub();
+    const a = openTab(hub);
+    vi.advanceTimersByTime(CLAIM_WINDOW);
+    const raw = createChannel<LeaderMessages>('test-leader', { transport: hub.transport() });
+
+    raw.post('leader-heartbeat', {
+      instanceId: 'intruder',
+      term: { counter: -1, ownerId: 'intruder' },
+    });
+    vi.advanceTimersByTime(HEARTBEAT);
+
+    expect(roleOf(a)).toBe('leader');
+    raw.close();
+  });
+
+  it('leader 送出 yield 讓位：可見的 follower 不必等逾時就競選', () => {
+    const hub = createFakeChannelHub();
+    const raw = createChannel<LeaderMessages>('test-leader', { transport: hub.transport() });
+    const a = openTab(hub, { visible: false });
+    raw.post('leader-announcement', {
+      instanceId: 'other',
+      term: { counter: 5, ownerId: 'other' },
+    });
+    vi.advanceTimersByTime(0);
+    expect(a.election.state.getState().leaderId).toBe('other');
+
+    a.setVisible(true);
+    raw.post('leader-release', {
+      instanceId: 'other',
+      term: { counter: 5, ownerId: 'other' },
+      reason: 'yield',
+    });
+    vi.advanceTimersByTime(CLAIM_WINDOW);
+
+    expect(roleOf(a)).toBe('leader');
+    // 任期接在已知的任期之後
+    expect(a.election.state.getState().term?.counter).toBeGreaterThan(5);
+    raw.close();
+  });
+
+  it('stop 之後回到初始狀態，再 start 可以重新當選', () => {
+    const hub = createFakeChannelHub();
+    const a = openTab(hub);
+    vi.advanceTimersByTime(CLAIM_WINDOW);
+
+    a.election.stop();
+    expect(a.election.state.getState()).toMatchObject({
+      role: 'follower',
+      leaderId: null,
+      term: null,
+    });
+    expect(a.election.isLeader()).toBe(false);
+
+    a.election.start();
+    vi.advanceTimersByTime(CLAIM_WINDOW);
+    expect(a.election.isLeader()).toBe(true);
+  });
+
+  it('leader 每個心跳週期送出心跳', () => {
+    const hub = createFakeChannelHub();
+    openTab(hub);
+    vi.advanceTimersByTime(CLAIM_WINDOW);
+    const before = hub.sentOfType('leader-heartbeat').length;
+
+    vi.advanceTimersByTime(HEARTBEAT * 3);
+
+    expect(hub.sentOfType('leader-heartbeat').length - before).toBe(3);
+  });
+
+  it('隱藏的 follower 進背景時取消尚未送出的競選', () => {
+    const hub = createFakeChannelHub();
+    const a = openTab(hub);
+
+    a.setVisible(false);
+    vi.advanceTimersByTime(CLAIM_WINDOW);
+
+    expect(roleOf(a)).toBe('follower');
+  });
+});
+
+describe('browserLeaderAdapters（瀏覽器的計時、儲存與可見性）', () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('可見的分頁當選，任期的 counter 寫進 localStorage', () => {
+    const election = createLeaderElection(browserLeaderAdapters('test-browser'), {
+      counterKey: COUNTER_KEY,
+    });
+    elections.push(election);
+    election.start();
+
+    vi.advanceTimersByTime(401);
+
+    expect(election.isLeader()).toBe(true);
+    expect(localStorage.getItem(COUNTER_KEY)).toBe('1');
+  });
+
+  it('進背景（visibilitychange）不讓位；回到前景後仍是 leader', () => {
+    const election = createLeaderElection(browserLeaderAdapters('test-browser'), {
+      counterKey: COUNTER_KEY,
+    });
+    elections.push(election);
+    election.start();
+    vi.advanceTimersByTime(401);
+
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    vi.advanceTimersByTime(5000);
+    expect(election.isLeader()).toBe(true);
+
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    vi.advanceTimersByTime(401);
+    expect(election.isLeader()).toBe(true);
+  });
+
+  it('localStorage 拋例外（私密模式）時仍能當選，並標記 degraded', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+    const election = createLeaderElection(browserLeaderAdapters('test-browser'), {
+      counterKey: COUNTER_KEY,
+    });
+    elections.push(election);
+    election.start();
+
+    vi.advanceTimersByTime(401);
+
+    expect(election.isLeader()).toBe(true);
+    expect(election.state.getState().degraded).toBe(true);
   });
 });

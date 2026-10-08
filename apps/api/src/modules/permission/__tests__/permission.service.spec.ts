@@ -4,6 +4,8 @@ import type { PermissionKey } from '@/common/types';
 import type { AuthzRevision, AuthzService, TenantPermissions } from '@/core/authz';
 import type { PermissionCacheService } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
+import { runWithRequestContext } from '@/core/http';
+import type { PermissionRow } from '@/db/schema';
 import { permissionClosure } from '@/db/seeds/permissions';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
@@ -516,5 +518,270 @@ describe('PermissionService.findActiveUserIdsWithPermission（docs/architecture/
       'stale',
       'inactive',
     ]);
+  });
+});
+
+/** 其餘公開方法用的完整假物件：快取可預先放值，repository 每個方法各自設定。 */
+function createFullService(
+  options: {
+    cached?: Record<string, { keys: PermissionKey[]; isSuperAdmin?: boolean }>;
+    loaded?: { keys: PermissionKey[]; isSuperAdmin: boolean };
+  } = {},
+) {
+  const { cached = {}, loaded = { keys: [], isSuperAdmin: false } } = options;
+  const repo = {
+    findAllPermissionKeys: vi.fn().mockResolvedValue(ALL_KEYS),
+    findIdsByKeys: vi.fn(),
+    listCatalog: vi.fn(),
+  };
+  const cache = {
+    get: vi.fn((id: string) => {
+      const entry = cached[id];
+      return entry
+        ? { permissions: new Set(entry.keys), isSuperAdmin: entry.isSuperAdmin ?? false }
+        : undefined;
+    }),
+    set: vi.fn(),
+    ticket: vi.fn(() => 7),
+    invalidate: vi.fn(),
+  };
+  const authz = {
+    ...fakeAuthz(() => loaded),
+    usersInSubjectSets: vi.fn().mockResolvedValue(['u1', 'u2']),
+  };
+  const revision = { changed: vi.fn().mockResolvedValue(undefined) };
+  const service = new PermissionService(
+    repo as unknown as PermissionRepository,
+    cache as unknown as PermissionCacheService,
+    authz as unknown as AuthzService,
+    revision as unknown as AuthzRevision,
+    NO_AUDIT,
+  );
+  return { service, repo, cache, authz, revision };
+}
+
+describe('PermissionService.getPermissionSet（快取，docs/architecture/backend/07-testing.md §8 權限快取）', () => {
+  it('快取沒命中：查詢前取票，查到的連同票寫回快取', async () => {
+    const { service, cache, authz } = createFullService({
+      loaded: { keys: ['role:update'], isSuperAdmin: false },
+    });
+    const value = await service.getPermissionSet('u1');
+    expect(authz.tenantPermissionsOf).toHaveBeenCalledWith(['u1'], {
+      withDependencies: true,
+      tx: undefined,
+    });
+    expect(cache.set).toHaveBeenCalledWith('u1', value, 7);
+    expect(cache.ticket.mock.invocationCallOrder[0]).toBeLessThan(
+      authz.tenantPermissionsOf.mock.invocationCallOrder[0] as number,
+    );
+    expect(value.permissions).toBeInstanceOf(Set);
+    expect([...value.permissions].toSorted()).toEqual(['role:read', 'role:update']);
+  });
+});
+
+const withToken = <T>(fn: () => Promise<T>, scopes?: string[], userId = 'u1') =>
+  runWithRequestContext(
+    {
+      requestId: 'r1',
+      apiToken: { id: 'tok', userId, scopes: scopes ? new Set(scopes) : undefined },
+    },
+    fn,
+  );
+
+describe('PermissionService：API token 限縮權限（docs/architecture/06-external-api.md §9.2 D3）', () => {
+  it('token 的擁有者：權限與 scopes 取交集，標 tokenScoped', async () => {
+    const { service } = createFullService({ cached: { u1: { keys: ['user:read', 'role:read'] } } });
+    const value = await withToken(() => service.getPermissionSet('u1'), ['user:read', 'file:read']);
+    expect([...value.permissions]).toEqual(['user:read']);
+    expect(value).toMatchObject({ isSuperAdmin: false, tokenScoped: true });
+  });
+
+  it('super-admin 透過 token 也只剩 scopes，不再是 super-admin', async () => {
+    const { service } = createFullService({ cached: { u1: { keys: [], isSuperAdmin: true } } });
+    const value = await withToken(() => service.getPermissionSet('u1'), ['file:read']);
+    expect([...value.permissions]).toEqual(['file:read']);
+    expect(value.isSuperAdmin).toBe(false);
+  });
+
+  it('問的不是 token 的擁有者、或 token 沒有 scopes：權限跟著帳號', async () => {
+    const { service } = createFullService({
+      cached: { u2: { keys: ['user:read', 'role:read'] }, u1: { keys: ['role:read'] } },
+    });
+    const other = await withToken(() => service.getPermissionSet('u2'), ['user:read']);
+    expect([...other.permissions]).toEqual(['user:read', 'role:read']);
+    const unscoped = await withToken(() => service.getPermissionSet('u1'));
+    expect(unscoped.tokenScoped).toBeUndefined();
+  });
+
+  it('批次解析也套用 token 的 scopes', async () => {
+    const { service } = createFullService({
+      cached: { u1: { keys: ['user:read', 'role:read'] } },
+      loaded: { keys: ['role:read'], isSuperAdmin: false },
+    });
+    const sets = await withToken(() => service.getPermissionSets(['u1', 'u9']), ['role:read']);
+    expect([...(sets.get('u1')?.permissions ?? [])]).toEqual(['role:read']);
+    expect([...(sets.get('u9')?.permissions ?? [])]).toEqual(['role:read']);
+  });
+});
+
+describe('PermissionService.getEffectivePermissionKeys（/auth/profile）', () => {
+  it('super-admin 展開成目錄全集', async () => {
+    const { service } = createFullService({ cached: { root: { keys: [], isSuperAdmin: true } } });
+    await expect(service.getEffectivePermissionKeys('root')).resolves.toEqual(ALL_KEYS);
+  });
+
+  it('一般使用者是解析後的鍵', async () => {
+    const { service, repo } = createFullService({ cached: { u1: { keys: ['user:read'] } } });
+    await expect(service.getEffectivePermissionKeys('u1')).resolves.toEqual(['user:read']);
+    expect(repo.findAllPermissionKeys).not.toHaveBeenCalled();
+  });
+});
+
+describe('PermissionService.assertGrantable／assertCanGrant（反提權，docs/architecture/backend/05-rbac.md §4.1）', () => {
+  it('授予自己沒有的權限 → AUTHZ_ESCALATION，missing 依目錄順序', async () => {
+    const { service, authz } = createFullService({ cached: { actor: { keys: ['user:read'] } } });
+    authz.grantedCapabilities.mockResolvedValue(capabilities('system:update', 'user:read'));
+    await expect(
+      service.assertGrantable('actor', ['system:update', 'user:read']),
+    ).rejects.toMatchObject({ code: 'AUTHZ_ESCALATION', details: { missing: ['system:update'] } });
+    expect(authz.grantedCapabilities).toHaveBeenCalledWith(
+      [
+        { object: { type: 'tenant', id: 'self' }, relation: 'system:update' },
+        { object: { type: 'tenant', id: 'self' }, relation: 'user:read' },
+      ],
+      { tx: undefined },
+    );
+  });
+
+  it('全部已持有 → 通過；在交易內呼叫時把 tx 傳給引擎', async () => {
+    const { service, authz } = createFullService({ cached: { actor: { keys: ['user:read'] } } });
+    authz.grantedCapabilities.mockResolvedValue(capabilities('user:read'));
+    const tx = {} as DbOrTx;
+    await expect(service.assertGrantable('actor', ['user:read'], tx)).resolves.toBeUndefined();
+    expect(authz.grantedCapabilities).toHaveBeenCalledWith(expect.any(Array), { tx });
+  });
+
+  it('super-admin 豁免，不展開能力', async () => {
+    const { service, authz } = createFullService({
+      cached: { root: { keys: [], isSuperAdmin: true } },
+    });
+    await expect(service.assertGrantable('root', ['system:update'])).resolves.toBeUndefined();
+    expect(authz.grantedCapabilities).not.toHaveBeenCalled();
+  });
+
+  it('空陣列不觸發檢查', async () => {
+    const { service, cache } = createFullService();
+    await expect(service.assertGrantable('actor', [])).resolves.toBeUndefined();
+    expect(cache.get).not.toHaveBeenCalled();
+  });
+
+  it('能力不在租戶上（資料夾的 can_*）是程式錯誤，直接拋出', async () => {
+    const { service, authz } = createFullService({ cached: { actor: { keys: [] } } });
+    authz.grantedCapabilities.mockResolvedValue([
+      { object: { type: 'folder', id: 'f1' }, relation: 'can_read' },
+    ]);
+    await expect(service.assertGrantable('actor', ['file:read'])).rejects.toThrow(
+      'assertCanGrant 只比對租戶上的能力：folder#can_read',
+    );
+  });
+});
+
+describe('PermissionService.filterGrantable（角色複製）', () => {
+  it('只留下 actor 持有的，其餘列為略過', async () => {
+    const { service } = createFullService({ cached: { actor: { keys: ['user:read'] } } });
+    await expect(service.filterGrantable('actor', ['user:read', 'system:update'])).resolves.toEqual(
+      { granted: ['user:read'], skipped: ['system:update'] },
+    );
+  });
+
+  it('super-admin 全部可授予', async () => {
+    const { service } = createFullService({ cached: { root: { keys: [], isSuperAdmin: true } } });
+    await expect(service.filterGrantable('root', ['system:update'])).resolves.toEqual({
+      granted: ['system:update'],
+      skipped: [],
+    });
+  });
+});
+
+describe('PermissionService.assertKeysExist', () => {
+  it('全部存在 → 回傳 key → id', async () => {
+    const { service, repo } = createFullService();
+    const found = new Map([['user:read', 'p1']]);
+    repo.findIdsByKeys.mockResolvedValue(found);
+    await expect(service.assertKeysExist(['user:read'])).resolves.toBe(found);
+  });
+
+  it('有不存在的鍵 → PERMISSION_UNKNOWN 帶出不存在的鍵', async () => {
+    const { service, repo } = createFullService();
+    repo.findIdsByKeys.mockResolvedValue(new Map([['user:read', 'p1']]));
+    await expect(service.assertKeysExist(['user:read', 'nope:x'])).rejects.toMatchObject({
+      code: 'PERMISSION_UNKNOWN',
+      details: { unknown: ['nope:x'] },
+    });
+  });
+});
+
+const row = (key: string): PermissionRow => {
+  const [resource = '', action = ''] = key.split(':');
+  return {
+    id: `id-${key}`,
+    key,
+    resource,
+    action,
+    nameI18nKey: `permission.${resource}.${action}`,
+    description: null,
+    sortOrder: 0,
+    createdAt: new Date(0),
+  };
+};
+
+describe('PermissionService.getCatalog（docs/architecture/iam/02-permission-catalog.md）', () => {
+  it('每列帶上依賴樹的 includes／requires（沒有依賴的是空陣列），並依資源分組', async () => {
+    const { service, repo } = createFullService();
+    repo.listCatalog.mockResolvedValue([
+      row('user:read'),
+      row('user:assignRole'),
+      row('role:read'),
+    ]);
+    const catalog = await service.getCatalog();
+    expect(
+      catalog.items.map(({ key, includes, requires }) => ({ key, includes, requires })),
+    ).toEqual([
+      { key: 'user:read', includes: [], requires: [] },
+      { key: 'user:assignRole', includes: ['user:read'], requires: ['role:read'] },
+      { key: 'role:read', includes: [], requires: [] },
+    ]);
+    expect(catalog.groups).toEqual([
+      {
+        resource: 'user',
+        nameI18nKey: 'permission.resource.user',
+        keys: ['user:read', 'user:assignRole'],
+      },
+      { resource: 'role', nameI18nKey: 'permission.resource.role', keys: ['role:read'] },
+    ]);
+  });
+});
+
+describe('PermissionService：失效與持有者查詢（docs/architecture/backend/05-rbac.md §5.1）', () => {
+  it('invalidateUser 清掉那個人的快取', () => {
+    const { service, cache } = createFullService();
+    service.invalidateUser('u1');
+    expect(cache.invalidate).toHaveBeenCalledWith('u1');
+  });
+
+  it('permissionsChanged 交給 AuthzRevision（整個租戶失效並廣播）', async () => {
+    const { service, revision } = createFullService();
+    await service.permissionsChanged(['u1']);
+    expect(revision.changed).toHaveBeenCalledWith(['u1']);
+  });
+
+  it('findUserIdsHoldingRole 以 role#holder 反查（含經由群組持有）', async () => {
+    const { service, authz } = createFullService();
+    const tx = {} as DbOrTx;
+    await expect(service.findUserIdsHoldingRole('r1', tx)).resolves.toEqual(['u1', 'u2']);
+    expect(authz.usersInSubjectSets).toHaveBeenCalledWith(
+      [{ type: 'role', id: 'r1', relation: 'holder' }],
+      { tx },
+    );
   });
 });

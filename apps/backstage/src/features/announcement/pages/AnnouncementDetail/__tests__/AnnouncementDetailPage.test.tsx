@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,8 +10,9 @@ import { initTestI18n } from '@/test/i18n';
 import { registerAnnouncementPagePermissions, Routes } from '../../..';
 import zhTW from '../../../locales/zh_TW.json';
 
-const { fetchList, fetchDetail, fetchDispatches, publish, pause, revoke, update, remove } =
+const { fetchList, fetchDetail, fetchDispatches, publish, pause, revoke, update, remove, resume } =
   vi.hoisted(() => ({
+    resume: vi.fn(),
     fetchList: vi.fn(),
     fetchDetail: vi.fn(),
     fetchDispatches: vi.fn(),
@@ -34,6 +36,9 @@ vi.mock('@/apis/announcement/publish-announcement/fetcher', () => ({
 }));
 vi.mock('@/apis/announcement/pause-announcement/fetcher', () => ({
   fetchAnnouncementPauseMutation: pause,
+}));
+vi.mock('@/apis/announcement/resume-announcement/fetcher', () => ({
+  fetchAnnouncementResumeMutation: resume,
 }));
 vi.mock('@/apis/announcement/revoke-announcement-dispatch/fetcher', () => ({
   fetchAnnouncementDispatchRevokeMutation: revoke,
@@ -119,6 +124,7 @@ beforeEach(() => {
   revoke.mockReset().mockResolvedValue({ ...DISPATCH, status: 'revoked' });
   update.mockReset().mockResolvedValue({ ...DRAFT, title: '改過的標題', version: 4 });
   remove.mockReset().mockResolvedValue(undefined);
+  resume.mockReset().mockResolvedValue({ ...SCHEDULED, version: 4 });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -259,6 +265,77 @@ describe('AnnouncementDetailPage（docs/architecture/backend/19-announcement.md 
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/announcement'));
       expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    });
+  });
+
+  describe('設定區塊的編輯與狀態（AnnouncementSettingsSection）', () => {
+    it('暫停中：可以恢復，帶 version', async () => {
+      fetchDetail.mockResolvedValue({ ...SCHEDULED, status: 'paused' });
+      await openDetail(PUBLISHER);
+      expect(screen.queryByTestId('announcement-pause')).toBeNull();
+      fireEvent.click(screen.getByTestId('announcement-resume'));
+      await waitFor(() => expect(resume).toHaveBeenCalledTimes(1));
+      expect(resume.mock.calls[0]![0]).toMatchObject({
+        params: { announcementId: 'a1', body: { version: 3 } },
+      });
+    });
+
+    it('編輯已送出的公告：提示修改只影響之後的發送；取消回到檢視', async () => {
+      fetchDetail.mockResolvedValue(SCHEDULED);
+      await openDetail(PUBLISHER);
+      fireEvent.click(screen.getByTestId('announcement-edit'));
+      expect(
+        await screen.findByText('這則公告已送出（排程中或暫停中）：修改只影響之後的發送。'),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '取消' }));
+      await waitFor(() => expect(screen.queryByTestId('announcement-save')).toBeNull());
+      expect(screen.getByTestId('announcement-detail-status')).toHaveAttribute(
+        'data-value',
+        'scheduled',
+      );
+    });
+
+    it('儲存失敗（非版本衝突）→ 錯誤顯示在表單上，輸入保留', async () => {
+      update.mockRejectedValue(new AppError('ANNOUNCEMENT_INVALID_STATE', 409));
+      const { input } = await startEditing();
+      fireEvent.click(screen.getByTestId('announcement-save'));
+      expect(
+        await screen.findByText('公告目前的狀態不能這樣操作，請重新整理後再試。'),
+      ).toBeInTheDocument();
+      expect(input).toHaveValue('改過的標題');
+      expect(update.mock.calls[0]![0]).toMatchObject({
+        params: { announcementId: 'a1', body: { title: '改過的標題', version: 3 } },
+      });
+    });
+
+    it('版本衝突 → 重新載入後以最新的內容與版本為基礎', async () => {
+      update.mockRejectedValueOnce(new AppError('ANNOUNCEMENT_VERSION_CONFLICT', 409));
+      await startEditing();
+      fireEvent.click(screen.getByTestId('announcement-save'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchDetail.mockResolvedValue({ ...DRAFT, title: '別人的標題', version: 8 });
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      await waitFor(() =>
+        expect(screen.getByTestId('announcement-title-input')).toHaveValue('別人的標題'),
+      );
+
+      fireEvent.click(screen.getByTestId('announcement-save'));
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+      expect(update.mock.calls[1]![0]).toMatchObject({
+        params: { body: { title: '別人的標題', version: 8 } },
+      });
+    });
+
+    it('重新載入失敗 → 以 toast 顯示錯誤', async () => {
+      update.mockRejectedValueOnce(new AppError('ANNOUNCEMENT_VERSION_CONFLICT', 409));
+      await startEditing();
+      fireEvent.click(screen.getByTestId('announcement-save'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchDetail.mockRejectedValueOnce(new AppError('ANNOUNCEMENT_NOT_FOUND', 404));
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      expect(await screen.findByText('找不到這則公告，可能已被刪除。')).toBeInTheDocument();
     });
   });
 });

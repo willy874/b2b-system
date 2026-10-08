@@ -1,6 +1,6 @@
 import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { featureStore } from '@/core/feature';
@@ -11,8 +11,40 @@ import { initTestI18n } from '@/test/i18n';
 import { registerApprovalPagePermissions, Routes } from '../../..';
 import approvalZhTW from '../../../locales/zh_TW.json';
 
-const { fetchList } = vi.hoisted(() => ({ fetchList: vi.fn() }));
+const { fetchList, fetchDetail } = vi.hoisted(() => ({ fetchList: vi.fn(), fetchDetail: vi.fn() }));
 vi.mock('@/apis/approval/get-approval-list/fetcher', () => ({ fetchApprovalListQuery: fetchList }));
+vi.mock('@/apis/approval/get-approval-detail/fetcher', () => ({
+  fetchApprovalDetailQuery: fetchDetail,
+}));
+
+const APPROVAL = {
+  id: 'a1',
+  type: 'user.register',
+  status: 'pending',
+  payload: { email: 'alice@example.com', displayName: 'Alice' },
+  requesterId: null,
+  requesterName: 'alice@example.com',
+  reason: null,
+  reviewerId: null,
+  reviewerName: null,
+  reviewComment: null,
+  reviewedAt: null,
+  resultResourceId: null,
+  flowVersion: null,
+  currentStep: null,
+  stepCount: 0,
+  resubmittedFrom: null,
+  createdAt: '2026-09-25T01:00:00.000Z',
+  updatedAt: '2026-09-25T01:00:00.000Z',
+};
+const REVIEWED = {
+  ...APPROVAL,
+  id: 'a2',
+  status: 'approved',
+  requesterName: 'bob@example.com',
+  reviewerName: '管理員',
+  reviewedAt: '2026-09-26T01:00:00.000Z',
+};
 
 const REVIEWER = ['approval:read', 'approval:review'] as PermissionKey[];
 const routes = [Routes.ApprovalListRoute];
@@ -23,6 +55,8 @@ beforeEach(() => {
   resetPagePermissionRegistry();
   registerApprovalPagePermissions();
   fetchList.mockReset();
+  // 詳情在這些測試裡不重要：維持載入中
+  fetchDetail.mockReset().mockReturnValue(new Promise(() => {}));
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -63,5 +97,97 @@ describe('ApprovalListPage 的匯出（docs/architecture/backend/22-data-transfe
     renderRoute(routes, '/approval', REVIEWER);
     await screen.findByText('沒有資料', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('approval-export-button')).toBeNull();
+  });
+});
+
+const listOf = (items: unknown[], total = items.length) => ({
+  items,
+  pagination: { offset: 0, limit: 20, total },
+});
+
+/** 某一列（以申請人定位）。 */
+async function rowOf(requester: string) {
+  const links = await screen.findAllByTestId('approval-detail-link', undefined, {
+    timeout: 5000,
+  });
+  const link = links.find((element) => element.getAttribute('data-value') === requester);
+  if (!link) throw new Error(`找不到 ${requester} 的申請`);
+  return link.closest('tr')!;
+}
+
+describe('ApprovalListPage 的列表（ApprovalTable）', () => {
+  beforeEach(() => {
+    fetchList.mockResolvedValue(listOf([APPROVAL, REVIEWED]));
+  });
+
+  it('列出類型、申請人、狀態與審核者；未審核的審核者顯示「-」', async () => {
+    renderRoute(routes, '/approval', REVIEWER);
+    const pending = await rowOf('alice@example.com');
+    expect(within(pending).getByTestId('approval-detail-link')).toHaveTextContent('註冊申請');
+    expect(within(pending).getByTestId('approval-status')).toHaveTextContent('待審核');
+    expect(pending).toHaveTextContent('-');
+
+    const reviewed = await rowOf('bob@example.com');
+    expect(within(reviewed).getByTestId('approval-status')).toHaveAttribute(
+      'data-value',
+      'approved',
+    );
+    expect(reviewed).toHaveTextContent('管理員');
+  });
+
+  it('有 approval:review → 有操作欄（待審核的列可以快速核准）', async () => {
+    renderRoute(routes, '/approval', REVIEWER);
+    const pending = await rowOf('alice@example.com');
+    expect(screen.getByRole('columnheader', { name: '操作' })).toBeInTheDocument();
+    expect(within(pending).getByTestId('approval-quick-approve')).toBeInTheDocument();
+  });
+
+  it('沒有 approval:review → 整欄不出現', async () => {
+    renderRoute(routes, '/approval', ['approval:read'] as PermissionKey[]);
+    await rowOf('alice@example.com');
+    expect(screen.queryByRole('columnheader', { name: '操作' })).toBeNull();
+    expect(screen.queryByTestId('approval-quick-approve')).toBeNull();
+  });
+
+  it('權限未水合 → 不閃現操作欄', async () => {
+    renderRoute(routes, '/approval', 'unhydrated');
+    await waitFor(() => expect(screen.queryByTestId('approval-quick-approve')).toBeNull());
+    expect(screen.queryByRole('columnheader', { name: '操作' })).toBeNull();
+  });
+
+  it('點申請時間排序：寫進網址並以它查詢', async () => {
+    const { router } = renderRoute(routes, '/approval', REVIEWER);
+    await rowOf('alice@example.com');
+    fireEvent.click(screen.getByRole('button', { name: '申請時間' }));
+    await waitFor(() =>
+      expect(fetchList).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ sort: [{ sort: 'createdAt', order: 'asc' }] }),
+        }),
+      ),
+    );
+    expect(JSON.stringify(router.state.location.search)).toContain('createdAt');
+  });
+
+  it('雙擊一列 → 打開那筆申請的詳情', async () => {
+    const { router } = renderRoute(
+      [Routes.ApprovalListRoute.addChildren([Routes.ApprovalDetailRoute])],
+      '/approval',
+      REVIEWER,
+    );
+    fireEvent.doubleClick(await rowOf('bob@example.com'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approval/a2'));
+  });
+
+  it('換頁：以新的 offset 查詢', async () => {
+    fetchList.mockResolvedValue(listOf([APPROVAL], 45));
+    renderRoute(routes, '/approval', REVIEWER);
+    await rowOf('alice@example.com');
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await waitFor(() =>
+      expect(fetchList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ offset: 20 }) }),
+      ),
+    );
   });
 });

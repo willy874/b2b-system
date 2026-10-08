@@ -12,13 +12,20 @@ import { initTestI18n } from '@/test/i18n';
 import { registerUserPagePermissions, Routes } from '../../..';
 import userZhTW from '../../../locales/zh_TW.json';
 
-const { fetchUsers, fetchProfile, resetPassword, fetchTags } = vi.hoisted(() => ({
-  fetchUsers: vi.fn(),
-  fetchProfile: vi.fn(),
-  resetPassword: vi.fn(),
-  fetchTags: vi.fn(),
-}));
+const { fetchUsers, fetchProfile, resetPassword, fetchTags, deleteUser, fetchTree, fetchUser } =
+  vi.hoisted(() => ({
+    deleteUser: vi.fn(),
+    fetchTree: vi.fn(),
+    fetchUser: vi.fn(),
+    fetchUsers: vi.fn(),
+    fetchProfile: vi.fn(),
+    resetPassword: vi.fn(),
+    fetchTags: vi.fn(),
+  }));
 vi.mock('@/apis/tag/get-tag-list/fetcher', () => ({ fetchTagListQuery: fetchTags }));
+vi.mock('@/apis/user/delete-user/fetcher', () => ({ fetchUserDeleteMutation: deleteUser }));
+vi.mock('@/apis/org-unit/get-org-unit-tree/fetcher', () => ({ fetchOrgUnitTreeQuery: fetchTree }));
+vi.mock('@/apis/user/get-user-detail/fetcher', () => ({ fetchUserDetailQuery: fetchUser }));
 vi.mock('@/apis/user/get-user-list/fetcher', () => ({ fetchUserListQuery: fetchUsers }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/reset-user-password/fetcher', () => ({
@@ -48,6 +55,10 @@ beforeEach(() => {
   fetchUsers.mockReset().mockResolvedValue({ items: [USER], pagination: { total: 1 } });
   fetchProfile.mockReset().mockResolvedValue({ user: { id: 'me' }, permissions: [] });
   resetPassword.mockReset().mockResolvedValue(undefined);
+  deleteUser.mockReset().mockResolvedValue(undefined);
+  fetchTree.mockReset().mockResolvedValue({ items: [] });
+  // 詳情在這些測試裡不重要：維持載入中
+  fetchUser.mockReset().mockReturnValue(new Promise(() => {}));
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -224,5 +235,88 @@ describe('UserListPage：選取全部符合的 N 筆（docs/architecture/fronten
       expect.objectContaining({ offset: 200, limit: 200, keyword: 'acme' }),
     ]);
     fireEvent.click(within(dialog).getByTestId('alert-dialog-cancel'));
+  });
+});
+
+describe('UserListPage 的刪除與導覽', () => {
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
+  it('刪除先確認，確認後呼叫刪除並關閉', async () => {
+    renderRoute(routes, '/user', ADMIN);
+    fireEvent.click(await screen.findByTestId('user-delete-button', undefined, { timeout: 5000 }));
+    const confirm = await screen.findByTestId('user-delete-confirm');
+    expect(confirm).toHaveTextContent('Locked Person');
+    expect(deleteUser).not.toHaveBeenCalled();
+
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+    await waitFor(() => expect(deleteUser).toHaveBeenCalledTimes(1));
+    expect(deleteUser.mock.calls[0]![0]).toMatchObject({ params: { userId: 'u1' } });
+    await waitFor(() => expect(screen.queryByTestId('user-delete-confirm')).toBeNull());
+  });
+
+  it('刪除失敗（錯誤由 mutation 顯示）也關閉確認框', async () => {
+    deleteUser.mockRejectedValue(new AppError('USER_NOT_FOUND', 404));
+    renderRoute(routes, '/user', ADMIN);
+    fireEvent.click(await screen.findByTestId('user-delete-button', undefined, { timeout: 5000 }));
+    fireEvent.click(
+      within(await screen.findByTestId('user-delete-confirm')).getByTestId('alert-dialog-confirm'),
+    );
+    await waitFor(() => expect(screen.queryByTestId('user-delete-confirm')).toBeNull());
+    expect(deleteUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('有 user:create → 顯示建立使用者；沒有就不顯示', async () => {
+    const { unmount } = renderRoute(routes, '/user', [...ADMIN, 'user:create'] as PermissionKey[]);
+    expect(
+      await screen.findByTestId('user-create-button', undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    unmount();
+
+    renderRoute(routes, '/user', ADMIN);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-create-button')).toBeNull();
+  });
+
+  it('雙擊一列 → 打開那位使用者的詳情，保留列表的條件', async () => {
+    const { router } = renderRoute(
+      [Routes.UserListRoute.addChildren([Routes.UserDetailRoute])],
+      '/user?keyword=locked',
+      ADMIN,
+    );
+    const name = await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    fireEvent.doubleClick(name.closest('tr')!);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/user/u1'));
+    expect(router.state.location.search).toMatchObject({ keyword: 'locked' });
+  });
+
+  it('組織管理啟用且有 orgUnit:read → 網址上的部門篩選帶進查詢', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['organization', 'ready']]) });
+    renderRoute(
+      routes,
+      '/user?orgUnitId=11111111-1111-4111-8111-111111111111&includeDescendants=true',
+      [...ADMIN, 'orgUnit:read'] as PermissionKey[],
+    );
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(fetchTree).toHaveBeenCalled();
+    expect(fetchUsers.mock.calls.at(-1)![0]).toMatchObject({
+      params: {
+        orgUnitId: '11111111-1111-4111-8111-111111111111',
+        includeDescendants: true,
+      },
+    });
+  });
+
+  it('組織管理未啟用 → 不查部門樹，也不帶部門參數', async () => {
+    renderRoute(routes, '/user?orgUnitId=11111111-1111-4111-8111-111111111111', [
+      ...ADMIN,
+      'orgUnit:read',
+    ] as PermissionKey[]);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(fetchTree).not.toHaveBeenCalled();
+    expect(fetchUsers.mock.calls.at(-1)![0]).toMatchObject({
+      params: { orgUnitId: undefined, includeDescendants: false },
+    });
   });
 });
