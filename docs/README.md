@@ -5,8 +5,8 @@
 會被強制使用的機制，之後的業務功能都建立在它上面。
 
 > 狀態：Phase 0（RBAC 骨架）已完成，之後陸續加入 SSO、多租戶、群組與關係圖、回收桶與版本歷史、站內通知、公告、Webhook、標籤等通用機制。
-> 能力地圖見 [`overview/01-overview.md`](./overview/01-overview.md) §3，畫面見 [`overview/05-feature-tour.md`](./overview/05-feature-tour.md)，
-> 時間軸見 [`overview/03-roadmap.md`](./overview/03-roadmap.md)，待製作的功能見 [`features/README.md`](./features/README.md)。
+> 能力地圖見 [`guide/introduction/01-overview.md`](./guide/introduction/01-overview.md) §3，畫面見 [`guide/introduction/03-feature-tour.md`](./guide/introduction/03-feature-tour.md)，
+> 時間軸見 [`features/roadmap.md`](./features/roadmap.md)，待製作的功能見 [`features/README.md`](./features/README.md)。
 > 最後更新：2026-10-06
 
 ---
@@ -29,15 +29,15 @@
 
 **第一次讀（決策者 / Reviewer）**
 
-想先快速了解專案：看畫面讀 [`overview/05-feature-tour.md`](./overview/05-feature-tour.md)（每個功能的截圖與背後的規則）；
-看設計讀 [`overview/04-introduction.md`](./overview/04-introduction.md)（各機制處理的邊際情況、與常見後台的差異）。
+想先快速了解專案：看畫面讀 [`guide/introduction/03-feature-tour.md`](./guide/introduction/03-feature-tour.md)（每個功能的截圖與背後的規則）；
+看設計讀 [`guide/introduction/02-introduction.md`](./guide/introduction/02-introduction.md)（各機制處理的邊際情況、與常見後台的差異）。
 
-1. [`overview/01-overview.md`](./overview/01-overview.md) — 定位、能力地圖、角色、名詞
-2. [`overview/02-technology-selection.md`](./overview/02-technology-selection.md) — 技術選型與理由
+1. [`guide/introduction/01-overview.md`](./guide/introduction/01-overview.md) — 定位、能力地圖、角色、名詞
+2. [`architecture/09-technology-selection.md`](./architecture/09-technology-selection.md) — 技術選型與理由
 3. [`architecture/01-system.md`](./architecture/01-system.md) — 系統全貌與資料流
    （登入與身分見 [`architecture/04-sso.md`](./architecture/04-sso.md)；每個租戶一個 database 與網域見 [`architecture/05-tenancy.md`](./architecture/05-tenancy.md)）
 4. [`iam/01-model.md`](./architecture/iam/01-model.md) — RBAC 領域模型與關係圖（§6.4）
-5. [`overview/03-roadmap.md`](./overview/03-roadmap.md) — 現況、時間軸、Phase 0 的驗收基準
+5. [`features/roadmap.md`](./features/roadmap.md) — 現況、時間軸、Phase 0 的驗收基準
 
 **開始寫程式之前（所有人）**
 
@@ -72,13 +72,14 @@
 docs/
 ├── README.md                          ← 你在這裡
 │
-├── overview/                          為什麼做、做什麼、做到哪裡
-│   ├── 01-overview.md                 專案總覽：定位、系統組成、能力地圖、角色、非功能需求、名詞
-│   ├── 02-technology-selection.md     技術選型與理由
-│   ├── 03-roadmap.md                  進度與路線：現況、時間軸、推翻過的決定、Phase 0 驗收基準
-│   ├── 04-introduction.md             專案介紹：邊際情況的處理、與常見後台的對照
-│   ├── 05-feature-tour.md             功能導覽：逐頁截圖與背後的規則（截圖由 apps/e2e/tour/ 產生，在 images/tour/）
-│   └── images/tour/
+├── guide/                             產品指南：給要認識或使用產品的人
+│   ├── README.md                      給誰看、先讀哪一份、新文件放哪
+│   ├── introduction/                  認識產品：是什麼、為什麼
+│   │   ├── 01-overview.md             專案總覽：定位、系統組成、能力地圖、角色、非功能需求、名詞
+│   │   ├── 02-introduction.md         專案介紹：邊際情況的處理、與常見後台的對照
+│   │   └── 03-feature-tour.md         功能導覽：逐頁截圖與背後的規則
+│   ├── how-to/                        操作說明：一個任務一份，依角色分資料夾（tenant-admin/、platform-admin/）
+│   └── images/tour/                   截圖（由 apps/e2e/tour/ 產生，介紹與操作說明共用）
 │
 ├── architecture/                      系統長什麼樣子（規格）
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
@@ -89,6 +90,7 @@ docs/
 │   ├── 06-external-api.md             對外 API：獨立的程序與網域、API token 認證、路由的分界、限流
 │   ├── 07-apm-service.md              apps/apm-service：模擬 Sentry API 的前端錯誤收件、sourcemap、Web Vitals 指標
 │   ├── 08-monitoring.md               監控：api 的指標與 tracing、健康檢查、Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警
+│   ├── 09-technology-selection.md     技術選型與理由
 │   │
 │   ├── iam/                           身分與存取：誰是誰、誰能對什麼做什麼（領域規則；各層的實作在 backend/05、frontend/06）
 │   │   ├── README.md                  閱讀順序、與 backend/04-auth、05-rbac、frontend/06-permission 的分工
@@ -163,8 +165,9 @@ docs/
 │   ├── 06-literal-strings.md          i18n key / className / testid 不得以模板組成
 │   └── 07-layer-dependencies.md       package 與資料夾的層級依賴矩陣
 │
-└── features/                          待製作功能的提案（完成後刪除、重寫成正式文件歸檔）
-    └── README.md                      清單、優先度、提案 → 歸檔的流程
+└── features/                          待製作功能的提案（完成後刪除、重寫成正式文件歸檔）與專案進度
+    ├── README.md                      清單、優先度、提案 → 歸檔的流程
+    └── roadmap.md                     進度與路線：現況、時間軸、推翻過的決定、Phase 0 驗收基準
 ```
 
 ---
@@ -175,8 +178,9 @@ docs/
 - 權限一律寫成 `resource:action`（例如 `role:update`）。
 - 使用者故事格式：**「作為 …，我希望 …，以便 …」** ＋ Given / When / Then。
 - 任何「為什麼不選 X」的判斷寫進該規格最後的「設計決策」章節（見本節最後一條），不要散落在規格內文。
-- 分區原則：`overview/` 講目標與計畫、`architecture/` 講系統設計（身分與權限的規則在 `architecture/iam/`）、
-  `coding-standards/` 講寫程式規則。新文件依此歸位。
+- 分區原則：`guide/` 寫給要認識或使用產品的人（介紹在 `guide/introduction/`、操作說明在 `guide/how-to/`）、
+  `architecture/` 講系統設計（身分與權限的規則在 `architecture/iam/`）、`coding-standards/` 講寫程式規則、
+  `features/` 講還沒做的功能與專案進度。新文件依此歸位。
 - **還沒實作的功能** 寫在 `features/`，不要寫進上述分區；那些分區只描述已存在的系統。
   流程見 [`features/README.md`](./features/README.md)。
 - 檔案路徑用相對於 repo 根目錄的形式（`apps/backstage/src/...`）。

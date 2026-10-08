@@ -6,7 +6,7 @@
 ## 這個專案是什麼
 
 B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**。
-通用型多租戶後台：不綁定任何業務領域，業務功能以 feature＋module 的形式加在骨架上。範圍見 [`docs/overview/01-overview.md`](docs/overview/01-overview.md)。
+通用型多租戶後台：不綁定任何業務領域，業務功能以 feature＋module 的形式加在骨架上。範圍見 [`docs/guide/introduction/01-overview.md`](docs/guide/introduction/01-overview.md)。
 
 ## 先讀哪些文件
 
@@ -124,7 +124,7 @@ sh deploy/check-nginx.sh / sh deploy/smoke-test.sh   # nginx 設定／正式 com
 sh deploy/check-monitoring.sh   # 監控設定：compose 疊加、Prometheus 規則、Grafana 儀表板（需要 Docker；CI 的 deploy job 也跑）
 pnpm monitoring:up / monitoring:down   # 本機的 Prometheus（:9090）、Tempo（:4318）、Grafana（:3300）；api 的 /metrics 在 :9464，要看 trace 在 .env 設 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
                     # 正式環境：docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d（docs/architecture/08-monitoring.md §6）
-pnpm --filter @b2b-system/e2e tour   # 重拍 docs/overview/05-feature-tour.md 的截圖（會重置 DB，只對隔離環境跑；docs/architecture/frontend/10-testing.md §4.6）
+pnpm --filter @b2b-system/e2e tour   # 重拍 docs/guide/introduction/03-feature-tour.md 的截圖（會重置 DB，只對隔離環境跑；docs/architecture/frontend/10-testing.md §4.6）
 ```
 
 ## 新增一個功能的順序

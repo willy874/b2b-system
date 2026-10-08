@@ -12,7 +12,7 @@ import type { DemoData } from './demo-data';
 import { shoot } from './shoot';
 
 /**
- * 功能導覽的劇本（docs/overview/05-feature-tour.md）。每一張圖是一個 `scene`：
+ * 功能導覽的劇本（docs/guide/introduction/03-feature-tour.md）。每一張圖是一個 `scene`：
  * 某一張拍不到時記下來、繼續拍下一張，最後一起報告——不讓一個畫面的改版擋住整份導覽的更新。
  */
 

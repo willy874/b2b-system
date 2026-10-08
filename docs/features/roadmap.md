@@ -2,8 +2,8 @@
 
 這份文件記錄 **做過什麼、做到哪裡、接下來做什麼**。
 
-- 每項能力的現況與畫面看 [`01-overview.md`](./01-overview.md) §3 與 [`05-feature-tour.md`](./05-feature-tour.md)。
-- **接下來要做的功能只有一份清單：[`features/README.md`](../features/README.md)**。這裡不重複列，避免兩邊不同步。
+- 每項能力的現況與畫面看 [`../guide/introduction/01-overview.md`](../guide/introduction/01-overview.md) §3 與 [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md)。
+- **接下來要做的功能只有一份清單：[`features/README.md`](./README.md)**。這裡不重複列，避免兩邊不同步。
 - 已知問題與技術債在 [`issues/README.md`](../issues/README.md)。
 
 ---
@@ -39,7 +39,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-01 | 站內通知；群組與反提權一般化（G4a）；有效權限的說明（G4b）；事件管理與個人通知設定；服務帳號、API token 與對外 API；可由平台關閉的 feature；依賴大升級（Nest 12、TS 6、Vitest 5） | [`backend/15-notification.md`](../architecture/backend/15-notification.md)、[`iam/07-groups.md`](../architecture/iam/07-groups.md)、[`06-external-api.md`](../architecture/06-external-api.md) |
 | 10-02 | Webhook；標籤；公告與排程通知；feature 參數（配額）；ADR 併入各規格 | [`backend/17-webhook.md`](../architecture/backend/17-webhook.md)、[`backend/18-tag.md`](../architecture/backend/18-tag.md)、[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) |
 | 10-03 | 平台後台改用 backstage 的外框與頁面，加上個人帳號頁、即時推播與站內通知 | [`apps/platform/README.md`](../../apps/platform/README.md) |
-| 10-04 | `apps/auth` 改名 `apps/platform`；功能導覽與截圖劇本 | [`05-feature-tour.md`](./05-feature-tour.md) |
+| 10-04 | `apps/auth` 改名 `apps/platform`；功能導覽與截圖劇本 | [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md) |
 | 10-07 | 命令面板（⌘K）、側欄改由 feature 登記的選單註冊表、全域快捷鍵 | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
 | 10-07 | 前端可觀測性：apps/apm-service（模擬 Sentry API）、錯誤回報與 release、Web Vitals、bundle 預算 | [`frontend/19-observability.md`](../architecture/frontend/19-observability.md) |
 | 10-08 | 匯入／匯出：資源登記的欄位定義、CSV／XLSX／SQL 匯出、worker thread 的分析與無狀態驗證、`DataGrid` 預覽、逐列交易的背景套用；第一批是使用者與稽核日誌 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
@@ -49,7 +49,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-08 | 租戶用量：每小時的快照（使用者、儲存與配額）、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與排序、詳情的用量分頁、儲存配額越過 80% 的平台通知 | [`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14 |
 | 10-08 | 留言與關注：擁有者登記的資源類型、@提及、關注的通知（背景工作）、資源頁的面板註冊表；第一批接上使用者 | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
 | 10-07 | 監控：api 的 Prometheus 指標與 OpenTelemetry tracing、就緒檢查補上背景工作與 event loop；Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警，apm-service 的錯誤數與 issues 接進 Grafana | [`08-monitoring.md`](../architecture/08-monitoring.md) |
-| 10-08 | 功能導覽補上命令面板、MFA、組織、多階段審批、匯入／匯出、留言與關注、租戶用量，並重拍全部截圖（導覽劇本改用 `db:seed:dev` 的部門樹與 Webhook） | [`05-feature-tour.md`](./05-feature-tour.md) |
+| 10-08 | 功能導覽補上命令面板、MFA、組織、多階段審批、匯入／匯出、留言與關注、租戶用量，並重拍全部截圖（導覽劇本改用 `db:seed:dev` 的部門樹與 Webhook） | [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md) |
 
 ### 2.1 推翻過的決定
 
@@ -79,4 +79,4 @@ Phase 0 的目標是「先把誰能做什麼一次做對」，分六個里程碑
 | M5 | 稽核日誌、個人帳號、收尾 | `core/` 不 import `features/`、`modules/`（結構測試）；註解掉任一 feature plugin 仍能啟動；每個錯誤碼與權限鍵都有兩個語系的翻譯（語系測試） |
 
 Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；之後由權限圖一般化，[`iam/01-model.md`](../architecture/iam/01-model.md) §9）、深色主題（09-25）、服務帳號與 API token（10-01）。
-仍未做的（多實例部署等）在 [`features/README.md`](../features/README.md)。
+仍未做的（多實例部署等）在 [`features/README.md`](README.md)。

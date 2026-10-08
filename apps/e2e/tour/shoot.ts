@@ -2,9 +2,9 @@ import { fileURLToPath } from 'node:url';
 
 import type { Page } from '@playwright/test';
 
-/** 導覽截圖的輸出資料夾：進版控，docs/overview/05-feature-tour.md 直接引用。 */
+/** 導覽截圖的輸出資料夾：進版控，docs/guide/introduction/03-feature-tour.md 直接引用。 */
 export const TOUR_IMAGE_DIR = fileURLToPath(
-  new URL('../../../docs/overview/images/tour/', import.meta.url),
+  new URL('../../../docs/guide/images/tour/', import.meta.url),
 );
 
 /**

@@ -9,7 +9,7 @@ import { snapshot } from '../helpers/snapshot';
 
 /**
  * 個人帳號的密碼與憑證（docs/architecture/backend/04-auth.md）：改密碼後所有裝置登出、忘記密碼不洩漏帳號是否存在、
- * 從重設信設定新密碼、重放舊的 refresh token 撤銷整條 family（docs/overview/03-roadmap.md M3）。
+ * 從重設信設定新密碼、重放舊的 refresh token 撤銷整條 family（docs/features/roadmap.md M3）。
  * 密碼會被改掉的案例用專用帳號 `passwordTarget`，依序執行並在結束時改回 `E2E_PASSWORD`。
  */
 
