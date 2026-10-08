@@ -1,3 +1,4 @@
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,16 +10,25 @@ import { initTestI18n } from '@/test/i18n';
 import { registerWebhookPagePermissions, Routes } from '../../..';
 import webhookZhTW from '../../../locales/zh_TW.json';
 
-const { fetchList, fetchWebhook, fetchEvents, fetchDeliveries, sendTest, redeliver, rotate } =
-  vi.hoisted(() => ({
-    fetchList: vi.fn(),
-    fetchWebhook: vi.fn(),
-    fetchEvents: vi.fn(),
-    fetchDeliveries: vi.fn(),
-    sendTest: vi.fn(),
-    redeliver: vi.fn(),
-    rotate: vi.fn(),
-  }));
+const {
+  fetchList,
+  fetchWebhook,
+  fetchEvents,
+  fetchDeliveries,
+  sendTest,
+  redeliver,
+  rotate,
+  update,
+} = vi.hoisted(() => ({
+  update: vi.fn(),
+  fetchList: vi.fn(),
+  fetchWebhook: vi.fn(),
+  fetchEvents: vi.fn(),
+  fetchDeliveries: vi.fn(),
+  sendTest: vi.fn(),
+  redeliver: vi.fn(),
+  rotate: vi.fn(),
+}));
 vi.mock('@/apis/webhook/get-webhook-list/fetcher', () => ({ fetchWebhookListQuery: fetchList }));
 vi.mock('@/apis/webhook/get-webhook-detail/fetcher', () => ({
   fetchWebhookDetailQuery: fetchWebhook,
@@ -34,6 +44,9 @@ vi.mock('@/apis/webhook/send-webhook-test/fetcher', () => ({
 }));
 vi.mock('@/apis/webhook/redeliver-webhook/fetcher', () => ({
   fetchWebhookRedeliverMutation: redeliver,
+}));
+vi.mock('@/apis/webhook/update-webhook/fetcher', () => ({
+  fetchWebhookUpdateMutation: update,
 }));
 vi.mock('@/apis/webhook/rotate-webhook-secret/fetcher', () => ({
   fetchWebhookSecretRotateMutation: rotate,
@@ -95,8 +108,15 @@ beforeEach(() => {
   });
   redeliver.mockReset().mockResolvedValue({ ...DELIVERY, id: 'd3', attempt: 2, trigger: 'manual' });
   rotate.mockReset().mockResolvedValue({ secret: 'whsec_new', webhook: WEBHOOK });
+  update.mockReset().mockResolvedValue({ ...WEBHOOK, version: 3 });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
+
+async function openEditor() {
+  renderRoute(routes, '/webhook/w1', EDITOR);
+  fireEvent.click(await screen.findByTestId('webhook-edit-button', undefined, { timeout: 5000 }));
+  return screen.findByTestId('webhook-edit-form');
+}
 
 describe('WebhookDetailPage（docs/architecture/backend/17-webhook.md §9 W2）', () => {
   it('有 webhook:update → 顯示送測試事件、輪替密鑰、停用、編輯與重送', async () => {
@@ -214,5 +234,117 @@ describe('WebhookDetailPage（docs/architecture/backend/17-webhook.md §9 W2）'
         expect.objectContaining({ params: expect.objectContaining({ targetId: 't2' }) }),
       ),
     );
+  });
+
+  describe('設定區塊的編輯與停用（WebhookSettingsSection）', () => {
+    it('停用：帶目前的版本送出 status=disabled', async () => {
+      renderRoute(routes, '/webhook/w1', EDITOR);
+      const button = await screen.findByTestId('webhook-status-button', undefined, {
+        timeout: 5000,
+      });
+      expect(button).toHaveTextContent('停用');
+      fireEvent.click(button);
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      expect(update.mock.calls[0]![0]).toMatchObject({
+        params: { webhookId: 'w1', body: { status: 'disabled', version: 2 } },
+      });
+    });
+
+    it('已停用 → 按鈕是啟用，送出 status=active；失敗時以 toast 顯示錯誤', async () => {
+      fetchWebhook.mockResolvedValue({ ...WEBHOOK, status: 'disabled', disabledReason: 'manual' });
+      update.mockRejectedValue(new AppError('WEBHOOK_VERSION_CONFLICT', 409));
+      renderRoute(routes, '/webhook/w1', EDITOR);
+      const button = await screen.findByTestId('webhook-status-button', undefined, {
+        timeout: 5000,
+      });
+      expect(button).toHaveTextContent('啟用');
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(update.mock.calls[0]![0]).toMatchObject({
+          params: { body: { status: 'active', version: 2 } },
+        }),
+      );
+      expect(
+        await screen.findByText('這個 webhook 已經被其他人修改，請重新載入後再編輯。'),
+      ).toBeInTheDocument();
+    });
+
+    it('編輯後儲存：送出整理過的名稱、網址、事件與開始編輯時的版本，成功後回到檢視', async () => {
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('webhook-name-edit-input'), {
+        target: { value: '  部署通知  ' },
+      });
+      fireEvent.click(within(form).getByTestId('webhook-save-button'));
+
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      expect(update.mock.calls[0]![0]).toMatchObject({
+        params: {
+          webhookId: 'w1',
+          body: {
+            name: '部署通知',
+            urls: ['https://hooks.example.com/ci'],
+            events: ['user.created'],
+            version: 2,
+          },
+        },
+      });
+      await waitFor(() => expect(screen.queryByTestId('webhook-edit-form')).toBeNull());
+    });
+
+    it('名稱清空時不能儲存；取消回到檢視且不送出', async () => {
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('webhook-name-edit-input'), {
+        target: { value: '   ' },
+      });
+      expect(within(form).getByTestId('webhook-save-button')).toBeDisabled();
+
+      fireEvent.click(within(form).getByRole('button', { name: '取消' }));
+      expect(screen.queryByTestId('webhook-edit-form')).toBeNull();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('儲存失敗（非版本衝突）→ 錯誤顯示在表單上，輸入保留', async () => {
+      update.mockRejectedValue(new AppError('WEBHOOK_URL_NOT_ALLOWED', 400));
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('webhook-name-edit-input'), {
+        target: { value: '改過的名稱' },
+      });
+      fireEvent.click(within(form).getByTestId('webhook-save-button'));
+
+      expect(await within(form).findByText(/這個網址不能使用/)).toBeInTheDocument();
+      expect(within(form).getByTestId('webhook-name-edit-input')).toHaveValue('改過的名稱');
+    });
+
+    it('版本衝突 → 提示並可重新載入，表單改以最新的內容與版本為基礎', async () => {
+      update.mockRejectedValueOnce(new AppError('WEBHOOK_VERSION_CONFLICT', 409));
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('webhook-name-edit-input'), {
+        target: { value: '我的修改' },
+      });
+      fireEvent.click(within(form).getByTestId('webhook-save-button'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchWebhook.mockResolvedValue({ ...WEBHOOK, name: '別人的修改', version: 5 });
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      await waitFor(() =>
+        expect(screen.getByTestId('webhook-name-edit-input')).toHaveValue('別人的修改'),
+      );
+      expect(screen.queryByTestId('version-conflict-alert')).toBeNull();
+
+      fireEvent.click(screen.getByTestId('webhook-save-button'));
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+      expect(update.mock.calls[1]![0]).toMatchObject({ params: { body: { version: 5 } } });
+    });
+
+    it('重新載入失敗 → 以 toast 顯示錯誤', async () => {
+      update.mockRejectedValueOnce(new AppError('WEBHOOK_VERSION_CONFLICT', 409));
+      const form = await openEditor();
+      fireEvent.click(within(form).getByTestId('webhook-save-button'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchWebhook.mockRejectedValue(new AppError('WEBHOOK_NOT_FOUND', 404));
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      expect(await screen.findByText('找不到這個 webhook，可能已被刪除。')).toBeInTheDocument();
+    });
   });
 });

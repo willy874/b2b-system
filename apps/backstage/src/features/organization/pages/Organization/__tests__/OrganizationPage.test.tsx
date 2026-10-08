@@ -1,4 +1,5 @@
 import { installFlowDom } from '@b2b-system/ui/testing';
+import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -441,5 +442,393 @@ describe('OrganizationPage 的匯出、匯入入口（docs/architecture/backend/
     await screen.findByTestId('org-unit-name', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('org-unit-export-button')).toBeNull();
     expect(screen.queryByTestId('org-unit-import-button')).toBeNull();
+  });
+});
+
+async function openEditor() {
+  renderRoute(routes, SALES_PATH, MANAGER);
+  fireEvent.click(await screen.findByTestId('org-unit-edit-button', undefined, { timeout: 5000 }));
+  return screen.findByTestId('org-unit-edit-form');
+}
+
+describe('OrganizationPage 的部門基本資料（OrgUnitBasicSection）', () => {
+  it('檢視：沒有代碼顯示「-」', async () => {
+    renderRoute(routes, SALES_PATH, READER);
+    expect(
+      await screen.findByTestId('org-unit-code', undefined, { timeout: 5000 }),
+    ).toHaveTextContent('-');
+  });
+
+  it('編輯：聚焦名稱；代碼與說明去掉空白，清空的送 null，帶開始編輯時的版本', async () => {
+    const form = await openEditor();
+    const name = within(form).getByTestId('org-unit-name-edit-input');
+    expect(name).toHaveValue('業務部');
+    expect(name).toHaveFocus();
+
+    fireEvent.change(name, { target: { value: '業務處' } });
+    fireEvent.change(within(form).getByTestId('org-unit-code-edit-input'), {
+      target: { value: '  SALES  ' },
+    });
+    fireEvent.change(form.querySelector('textarea')!, { target: { value: '   ' } });
+    fireEvent.click(within(form).getByTestId('org-unit-save-button'));
+
+    await waitFor(() => expect(updateUnit).toHaveBeenCalledTimes(1));
+    expect(updateUnit.mock.calls[0]![0]).toMatchObject({
+      params: {
+        unitId: SALES,
+        body: { name: '業務處', code: 'SALES', description: null, version: 2 },
+      },
+    });
+    await waitFor(() => expect(screen.queryByTestId('org-unit-edit-form')).toBeNull());
+  });
+
+  it('名稱空白不能儲存；取消回到檢視', async () => {
+    const form = await openEditor();
+    fireEvent.change(within(form).getByTestId('org-unit-name-edit-input'), {
+      target: { value: ' ' },
+    });
+    expect(within(form).getByTestId('org-unit-save-button')).toBeDisabled();
+    fireEvent.click(within(form).getByRole('button', { name: '取消' }));
+    expect(screen.queryByTestId('org-unit-edit-form')).toBeNull();
+    expect(updateUnit).not.toHaveBeenCalled();
+  });
+
+  it('代碼重複 → 以 toast 顯示錯誤，輸入保留', async () => {
+    updateUnit.mockRejectedValue(new AppError('ORG_UNIT_CODE_DUPLICATE', 409));
+    const form = await openEditor();
+    fireEvent.change(within(form).getByTestId('org-unit-code-edit-input'), {
+      target: { value: 'HQ' },
+    });
+    fireEvent.click(within(form).getByTestId('org-unit-save-button'));
+    expect(await screen.findByText('部門代碼已被使用。')).toBeInTheDocument();
+    expect(screen.getByTestId('org-unit-code-edit-input')).toHaveValue('HQ');
+  });
+
+  it('版本衝突 → 重新載入後以最新的內容與版本為基礎；重新載入失敗以 toast 顯示', async () => {
+    updateUnit.mockRejectedValueOnce(new AppError('ORG_UNIT_VERSION_CONFLICT', 409));
+    const form = await openEditor();
+    fireEvent.click(within(form).getByTestId('org-unit-save-button'));
+    await screen.findByTestId('version-conflict-alert');
+
+    fetchUnit.mockResolvedValueOnce({
+      ...UNITS[1],
+      name: '營業部',
+      code: 'BIZ',
+      description: '新的說明',
+      version: 7,
+      path: [],
+    });
+    fireEvent.click(screen.getByTestId('version-conflict-reload'));
+    await waitFor(() =>
+      expect(screen.getByTestId('org-unit-name-edit-input')).toHaveValue('營業部'),
+    );
+    expect(screen.getByTestId('org-unit-code-edit-input')).toHaveValue('BIZ');
+
+    fireEvent.click(screen.getByTestId('org-unit-save-button'));
+    await waitFor(() => expect(updateUnit).toHaveBeenCalledTimes(2));
+    expect(updateUnit.mock.calls[1]![0]).toMatchObject({
+      params: { body: { name: '營業部', code: 'BIZ', description: '新的說明', version: 7 } },
+    });
+  });
+
+  it('重新載入失敗 → 以 toast 顯示錯誤', async () => {
+    updateUnit.mockRejectedValueOnce(new AppError('ORG_UNIT_VERSION_CONFLICT', 409));
+    const form = await openEditor();
+    fireEvent.click(within(form).getByTestId('org-unit-save-button'));
+    await screen.findByTestId('version-conflict-alert');
+
+    fetchUnit.mockRejectedValueOnce(new AppError('ORG_UNIT_NOT_FOUND', 404));
+    fireEvent.click(screen.getByTestId('version-conflict-reload'));
+    expect(await screen.findByText('找不到這個部門。')).toBeInTheDocument();
+  });
+});
+
+describe('OrganizationPage 的新增部門（OrgUnitCreateDialog）', () => {
+  it('新增最上層：名稱必填，送出後選中新的部門', async () => {
+    const { router } = renderRoute(routes, '/organization', MANAGER);
+    fireEvent.click(
+      await screen.findByTestId('org-unit-create-button', undefined, { timeout: 5000 }),
+    );
+    const dialog = await screen.findByTestId('org-unit-create-dialog');
+    expect(dialog).toHaveTextContent('新增在最上層。');
+    expect(within(dialog).getByTestId('org-unit-create-submit')).toBeDisabled();
+
+    fireEvent.change(within(dialog).getByTestId('org-unit-create-name'), {
+      target: { value: '財務部' },
+    });
+    fireEvent.change(within(dialog).getByTestId('org-unit-create-code'), {
+      target: { value: ' FIN ' },
+    });
+    fireEvent.click(within(dialog).getByTestId('org-unit-create-submit'));
+
+    await waitFor(() => expect(createUnit).toHaveBeenCalledTimes(1));
+    expect(createUnit.mock.calls[0]![0]).toMatchObject({
+      params: { body: { name: '財務部', parentId: null, code: 'FIN', description: null } },
+    });
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({
+        unitId: '55555555-5555-4555-8555-555555555555',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByTestId('org-unit-create-dialog')).toBeNull());
+  });
+
+  it('新增下層：說明在哪個部門之下，送出它的 id 為上層；在表單按 Enter 也能送出', async () => {
+    renderRoute(routes, SALES_PATH, MANAGER);
+    fireEvent.click(
+      await screen.findByTestId('org-unit-create-child-button', undefined, { timeout: 5000 }),
+    );
+    const dialog = await screen.findByTestId('org-unit-create-dialog');
+    expect(dialog).toHaveTextContent('新增在「業務部」之下。');
+
+    const name = within(dialog).getByTestId('org-unit-create-name');
+    fireEvent.change(name, { target: { value: '南區' } });
+    fireEvent.change(dialog.querySelector('textarea')!, { target: { value: ' 南部據點 ' } });
+    fireEvent.submit(name.closest('form')!);
+
+    await waitFor(() => expect(createUnit).toHaveBeenCalledTimes(1));
+    expect(createUnit.mock.calls[0]![0]).toMatchObject({
+      params: { body: { name: '南區', parentId: SALES, code: null, description: '南部據點' } },
+    });
+  });
+
+  it('送出失敗 → 錯誤顯示在對話框裡；取消後重新開啟是空白表單', async () => {
+    createUnit.mockRejectedValue(new AppError('ORG_UNIT_NAME_DUPLICATE', 409));
+    renderRoute(routes, '/organization', MANAGER);
+    fireEvent.click(
+      await screen.findByTestId('org-unit-create-button', undefined, { timeout: 5000 }),
+    );
+    let dialog = await screen.findByTestId('org-unit-create-dialog');
+    fireEvent.change(within(dialog).getByTestId('org-unit-create-name'), {
+      target: { value: '總公司' },
+    });
+    fireEvent.click(within(dialog).getByTestId('org-unit-create-submit'));
+    expect(await within(dialog).findByText('同一層已有同名的部門。')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.queryByTestId('org-unit-create-dialog')).toBeNull());
+
+    fireEvent.click(screen.getByTestId('org-unit-create-button'));
+    dialog = await screen.findByTestId('org-unit-create-dialog');
+    expect(within(dialog).getByTestId('org-unit-create-name')).toHaveValue('');
+    expect(within(dialog).queryByText('同一層已有同名的部門。')).toBeNull();
+  });
+});
+
+describe('OrganizationPage 的部門成員（OrgUnitMemberSection）', () => {
+  it('切換主要部門送出 isPrimary 的差異', async () => {
+    renderRoute(routes, SALES_PATH, MANAGER);
+    const [primary] = await screen.findAllByTestId('org-unit-member-primary', undefined, {
+      timeout: 5000,
+    });
+    fireEvent.click(primary!);
+    await waitFor(() => expect(updateMembers).toHaveBeenCalledTimes(1));
+    expect(updateMembers.mock.calls[0]![0]).toMatchObject({
+      params: {
+        unitId: SALES,
+        body: { add: [], update: [{ userId: 'u-alice', isPrimary: false }], remove: [] },
+      },
+    });
+  });
+
+  it('編輯職稱：帶入目前的職稱，送出去頭尾空白的值；清空送 null', async () => {
+    fetchMembers.mockResolvedValue({
+      items: [member('u-alice', 'Alice', { title: '經理' })],
+      pagination: { total: 1 },
+    });
+    renderRoute(routes, SALES_PATH, MANAGER);
+    fireEvent.click(
+      await screen.findByTestId('org-unit-member-title', undefined, { timeout: 5000 }),
+    );
+    let dialog = await screen.findByTestId('org-unit-member-title-dialog');
+    const input = within(dialog).getByTestId('org-unit-member-title-input');
+    expect(input).toHaveValue('經理');
+    fireEvent.change(input, { target: { value: '  協理 ' } });
+    fireEvent.click(within(dialog).getByTestId('org-unit-member-title-submit'));
+    await waitFor(() => expect(updateMembers).toHaveBeenCalledTimes(1));
+    expect(updateMembers.mock.calls[0]![0]).toMatchObject({
+      params: { body: { update: [{ userId: 'u-alice', title: '協理' }] } },
+    });
+    await waitFor(() => expect(screen.queryByTestId('org-unit-member-title-dialog')).toBeNull());
+
+    fireEvent.click(screen.getByTestId('org-unit-member-title'));
+    dialog = await screen.findByTestId('org-unit-member-title-dialog');
+    fireEvent.change(within(dialog).getByTestId('org-unit-member-title-input'), {
+      target: { value: '  ' },
+    });
+    fireEvent.click(within(dialog).getByTestId('org-unit-member-title-submit'));
+    await waitFor(() => expect(updateMembers).toHaveBeenCalledTimes(2));
+    expect(updateMembers.mock.calls[1]![0]).toMatchObject({
+      params: { body: { update: [{ userId: 'u-alice', title: null }] } },
+    });
+  });
+
+  it('移除成員要先確認，確認後送出 remove', async () => {
+    renderRoute(routes, SALES_PATH, MANAGER);
+    const [remove] = await screen.findAllByTestId('org-unit-member-remove', undefined, {
+      timeout: 5000,
+    });
+    fireEvent.click(remove!);
+    const confirm = await screen.findByTestId('org-unit-member-remove-confirm');
+    expect(confirm).toHaveTextContent('「Alice」不再屬於這個部門');
+    expect(updateMembers).not.toHaveBeenCalled();
+    fireEvent.click(within(confirm).getByRole('button', { name: '移除' }));
+    await waitFor(() => expect(updateMembers).toHaveBeenCalledTimes(1));
+    expect(updateMembers.mock.calls[0]![0]).toMatchObject({
+      params: { unitId: SALES, body: { add: [], update: [], remove: ['u-alice'] } },
+    });
+  });
+
+  it('加入成員：選了使用者才能加入，送出 add', async () => {
+    fetchUsers.mockResolvedValue({
+      items: [{ id: 'u-carol', displayName: 'Carol', email: 'carol@acme.test' }],
+      pagination: { total: 1 },
+    });
+    renderRoute(routes, SALES_PATH, MANAGER);
+    const add = await screen.findByTestId('org-unit-member-add', undefined, { timeout: 5000 });
+    expect(add).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('org-unit-member-target'));
+    fireEvent.click(await screen.findByRole('option', { name: /Carol/ }));
+    await waitFor(() => expect(add).toBeEnabled());
+    fireEvent.click(add);
+
+    await waitFor(() => expect(updateMembers).toHaveBeenCalledTimes(1));
+    expect(updateMembers.mock.calls[0]![0]).toMatchObject({
+      params: { unitId: SALES, body: { add: [{ userId: 'u-carol' }], update: [], remove: [] } },
+    });
+    await waitFor(() => expect(add).toBeDisabled());
+  });
+
+  it('沒有成員時顯示「無」；超過一頁時可以換頁', async () => {
+    fetchMembers.mockResolvedValue({ items: [], pagination: { total: 0 } });
+    const { unmount } = renderRoute(routes, SALES_PATH, READER);
+    const list = await screen.findByTestId('org-unit-member-list', undefined, { timeout: 5000 });
+    await waitFor(() => expect(list).not.toHaveTextContent('…'));
+    expect(within(list).queryByTestId('org-unit-member')).toBeNull();
+    unmount();
+
+    fetchMembers.mockResolvedValue({
+      items: [member('u-alice', 'Alice')],
+      pagination: { total: 120 },
+    });
+    renderRoute(routes, SALES_PATH, READER);
+    await screen.findAllByTestId('org-unit-member', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await waitFor(() =>
+      expect(fetchMembers).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ offset: 50, limit: 50 }) }),
+      ),
+    );
+  });
+});
+
+describe('OrganizationPage 的其他操作', () => {
+  it('刪除失敗 → 對話框留著，不改選部門', async () => {
+    deleteUnit.mockRejectedValue(new AppError('ORG_UNIT_HAS_CHILDREN', 409));
+    const { router } = renderRoute(routes, SALES_PATH, MANAGER);
+    fireEvent.click(
+      await screen.findByTestId('org-unit-delete-button', undefined, { timeout: 5000 }),
+    );
+    const confirm = await screen.findByTestId('org-unit-delete-confirm');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+    expect(await screen.findByText('還有下層部門，請先刪除或搬走下層部門。')).toBeInTheDocument();
+    expect(screen.getByTestId('org-unit-delete-confirm')).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ unitId: SALES });
+  });
+
+  it('部門讀不到 → 可以回到組織（清掉 unitId）', async () => {
+    fetchUnit.mockRejectedValue(new AppError('ORG_UNIT_NOT_FOUND', 404));
+    const { router } = renderRoute(routes, SALES_PATH, READER);
+    fireEvent.click(
+      await screen.findByTestId('org-unit-detail-back', undefined, { timeout: 5000 }),
+    );
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    expect(await screen.findByTestId('org-unit-detail-empty')).toBeInTheDocument();
+  });
+
+  it('切到組織圖：保留選中的部門，網址帶 view=chart', async () => {
+    const { router } = renderRoute(routes, SALES_PATH, READER);
+    await screen.findByTestId('org-unit-name', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByRole('tab', { name: '組織圖' }));
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ unitId: SALES, view: 'chart' }),
+    );
+    expect(await screen.findByTestId('org-chart')).toBeInTheDocument();
+  });
+
+  it('部門樹讀取失敗 → 組織圖顯示錯誤並可重試', async () => {
+    fetchTree.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, CHART_PATH, READER);
+    const retry = await screen.findByTestId('query-error-retry', undefined, { timeout: 5000 });
+    fireEvent.click(retry);
+    expect(await screen.findByTestId('org-chart')).toBeInTheDocument();
+    expect(fetchTree).toHaveBeenCalledTimes(2);
+  });
+});
+
+const chartItem = async (id: string) => {
+  await chartNode(id);
+  const item = screen
+    .getAllByTestId('tree-editor-item')
+    .find((element) => element.getAttribute('data-value') === id);
+  if (!item) throw new Error(`組織圖上沒有可選取的部門 ${id}`);
+  return item;
+};
+const deleteAction = () =>
+  within(screen.getByTestId('tree-editor-toolbar'))
+    .getAllByTestId('tree-editor-action')
+    .find((element) => element.getAttribute('data-value') === 'delete')!;
+
+async function selectAndDelete(permissions: PermissionKey[], id: string) {
+  renderRoute(routes, CHART_PATH, permissions);
+  await chartNode(HQ);
+  fireEvent.click(screen.getByTestId('org-chart-edit'));
+  await waitFor(async () => {
+    fireEvent.click(await chartItem(id));
+    expect(deleteAction()).not.toHaveAttribute('aria-disabled');
+  });
+  fireEvent.click(deleteAction());
+}
+
+describe('OrganizationPage 的組織圖刪除（OrgChartPanel 的 onBeforeDelete）', () => {
+  it('刪除有下層的部門：確認時說明下層會變成最上層，確認後計入變更', async () => {
+    await selectAndDelete(MANAGER, SALES);
+    const confirm = await screen.findByTestId('org-chart-delete-confirm');
+    expect(confirm).toHaveTextContent('留下的下層部門會變成最上層');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+    // 刪除本身＋留下的下層換上層
+    await waitFor(() =>
+      expect(screen.getByTestId('org-chart-change-count')).toHaveAttribute('data-value', '2'),
+    );
+    expect(screen.queryByTestId('org-chart-delete-confirm')).toBeNull();
+    expect(deleteUnit).not.toHaveBeenCalled();
+  });
+
+  it('刪除沒有下層的部門：一般的確認說明', async () => {
+    await selectAndDelete(MANAGER, NORTH);
+    const confirm = await screen.findByTestId('org-chart-delete-confirm');
+    expect(confirm).toHaveTextContent('將刪除 1 個部門（儲存後才生效）');
+    expect(confirm).not.toHaveTextContent('最上層');
+  });
+
+  it('沒有 orgUnit:delete → 不能刪除既有的部門，以 toast 說明', async () => {
+    await selectAndDelete(
+      [...READER, 'orgUnit:create', 'orgUnit:update'] as PermissionKey[],
+      NORTH,
+    );
+    expect(await screen.findByText('你沒有刪除部門的權限')).toBeInTheDocument();
+    expect(screen.queryByTestId('org-chart-delete-confirm')).toBeNull();
+  });
+
+  it('沒有 orgUnit:update → 不能刪除會留下下層的部門（下層要換上層）', async () => {
+    await selectAndDelete(
+      [...READER, 'orgUnit:create', 'orgUnit:delete'] as PermissionKey[],
+      SALES,
+    );
+    expect(
+      await screen.findByText('刪除後下層部門要換上層，你沒有編輯部門的權限'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('org-chart-delete-confirm')).toBeNull();
   });
 });

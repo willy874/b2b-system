@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import type { StoredFile } from '@/shared/api-sdk';
+import type { FileFolder, StoredFile } from '@/shared/api-sdk';
 
-import { earliestUrlExpiry, mergePages, toFileItemVM } from '../adapter';
+import {
+  earliestUrlExpiry,
+  isFileItem,
+  isFolderItem,
+  mergePages,
+  toFileItemVM,
+  toFolderItemVM,
+} from '../adapter';
 
 const file = (overrides: Partial<StoredFile> = {}): StoredFile => ({
   id: 'f1',
@@ -55,6 +62,61 @@ describe('toFileItemVM', () => {
     expect(toFileItemVM(file())).toMatchObject({ sizeLabel: '1.0 KB', uploaderName: 'Alice' });
     expect(toFileItemVM(file({ uploader: null })).uploaderName).toBeNull();
   });
+
+  it('還沒有網址（未就緒）的小圖 → 沒有預覽圖', () => {
+    expect(toFileItemVM(file({ url: null })).previewUrl).toBeNull();
+  });
+
+  it('能力旗標來自後端的 capabilities', () => {
+    expect(toFileItemVM(file())).toMatchObject({ type: 'file', canUpdate: true, canDelete: false });
+  });
+});
+
+describe('toFolderItemVM', () => {
+  const folder: FileFolder = {
+    id: 'd1',
+    name: '合約',
+    parentId: 'root',
+    kind: 'normal',
+    inheritGrants: true,
+    hasPendingAccessRequest: true,
+    capabilities: {
+      canRead: false,
+      canCreate: false,
+      canUpdate: false,
+      canDelete: false,
+      canShare: false,
+    },
+    tags: [],
+    createdAt: '2026-09-27T00:00:00.000Z',
+    updatedAt: '2026-09-28T00:00:00.000Z',
+  };
+
+  it('攤平 capabilities、帶上子資料夾數與待審申請（鎖住的資料夾）', () => {
+    expect(toFolderItemVM(folder, 3)).toEqual({
+      type: 'folder',
+      id: 'd1',
+      name: '合約',
+      parentId: 'root',
+      kind: 'normal',
+      folderCount: 3,
+      canRead: false,
+      canCreate: false,
+      canUpdate: false,
+      canDelete: false,
+      canShare: false,
+      hasPendingAccessRequest: true,
+      tags: [],
+      updatedAt: '2026-09-28T00:00:00.000Z',
+    });
+  });
+
+  it('isFileItem／isFolderItem 依種類區分格子', () => {
+    const folderItem = toFolderItemVM(folder, 0);
+    const fileItem = toFileItemVM(file());
+    expect([isFolderItem(folderItem), isFileItem(folderItem)]).toEqual([true, false]);
+    expect([isFolderItem(fileItem), isFileItem(fileItem)]).toEqual([false, true]);
+  });
 });
 
 describe('mergePages（無限捲動的多頁合併）', () => {
@@ -77,5 +139,14 @@ describe('earliestUrlExpiry', () => {
       ]),
     ).toBe(Date.parse('2026-09-27T00:10:00.000Z'));
     expect(earliestUrlExpiry([file({ urlExpiresAt: null })])).toBeUndefined();
+  });
+
+  it('略過無法解析的時間', () => {
+    expect(
+      earliestUrlExpiry([
+        file({ urlExpiresAt: 'not-a-date' }),
+        file({ urlExpiresAt: '2026-09-27T00:30:00.000Z' }),
+      ]),
+    ).toBe(Date.parse('2026-09-27T00:30:00.000Z'));
   });
 });

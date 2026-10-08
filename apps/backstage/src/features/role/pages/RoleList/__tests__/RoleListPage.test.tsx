@@ -12,12 +12,14 @@ import { registerRolePagePermissions, Routes } from '../../..';
 import roleZhTW from '../../../locales/zh_TW.json';
 import type * as adapter from '../adapter';
 
-const { fetchRoles, deleteRole, toRoleRowVM } = vi.hoisted(() => ({
+const { fetchRoles, deleteRole, toRoleRowVM, fetchRole } = vi.hoisted(() => ({
+  fetchRole: vi.fn(),
   fetchRoles: vi.fn(),
   deleteRole: vi.fn(),
   toRoleRowVM: vi.fn(),
 }));
 vi.mock('@/apis/role/get-role-list/fetcher', () => ({ fetchRoleListQuery: fetchRoles }));
+vi.mock('@/apis/role/get-role-detail/fetcher', () => ({ fetchRoleDetailQuery: fetchRole }));
 vi.mock('@/apis/role/delete-role/fetcher', () => ({ fetchRoleDeleteMutation: deleteRole }));
 // 計算 adapter 被呼叫幾次：列是否在與資料、權限無關的重繪時重建
 vi.mock('../adapter', async (importOriginal) => {
@@ -49,6 +51,8 @@ beforeEach(() => {
     pagination: { total: 2 },
   });
   deleteRole.mockReset().mockResolvedValue(undefined);
+  // 詳情在這些測試裡不重要：維持載入中
+  fetchRole.mockReset().mockReturnValue(new Promise(() => {}));
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -161,5 +165,63 @@ describe('RoleListPage 的匯出、匯入入口（docs/architecture/backend/22-d
     await screen.findByText('Editor', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('role-export-button')).toBeNull();
     expect(screen.queryByTestId('role-import-button')).toBeNull();
+  });
+});
+
+describe('RoleListPage 的其他操作', () => {
+  it('刪除失敗（不是 ROLE_IN_USE）→ 確認框留著，不改成強制刪除', async () => {
+    deleteRole.mockRejectedValue(new AppError('ROLE_NOT_FOUND', 404));
+    renderRoute(routes, '/role', MANAGER);
+    await screen.findByText('Viewer', undefined, { timeout: 5000 });
+    fireEvent.click(deleteButtonOf('Viewer'));
+    const confirm = await screen.findByTestId('role-delete-confirm');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+    await waitFor(() => expect(deleteRole).toHaveBeenCalledTimes(1));
+    expect(deleteRole.mock.calls[0]![0]).toMatchObject({ params: { roleId: 'r2', force: false } });
+    expect(screen.getByTestId('role-delete-confirm')).toBeInTheDocument();
+    expect(within(confirm).getByTestId('alert-dialog-confirm')).toHaveTextContent('刪除');
+  });
+
+  it('有 role:create → 顯示建立角色', async () => {
+    renderRoute(routes, '/role', [...MANAGER, 'role:create'] as PermissionKey[]);
+    expect(
+      await screen.findByTestId('role-create-button', undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('沒有 role:create → 不顯示建立角色', async () => {
+    renderRoute(routes, '/role', MANAGER);
+    await screen.findByText('Viewer', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('role-create-button')).toBeNull();
+  });
+
+  it('權限未水合 → 不閃現建立角色', async () => {
+    renderRoute(routes, '/role', 'unhydrated');
+    await waitFor(() => expect(fetchRoles).toHaveBeenCalled());
+    expect(screen.queryByTestId('role-create-button')).toBeNull();
+  });
+
+  it('雙擊一列 → 打開那個角色的詳情', async () => {
+    const { router } = renderRoute(
+      [Routes.RoleListRoute.addChildren([Routes.RoleDetailRoute])],
+      '/role',
+      MANAGER,
+    );
+    const name = await screen.findByText('Editor', undefined, { timeout: 5000 });
+    fireEvent.doubleClick(name.closest('tr')!);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/role/r1'));
+  });
+
+  it('換頁：以新的 offset 查詢', async () => {
+    fetchRoles.mockResolvedValue({ items: [role('r1', 'Editor', 0)], pagination: { total: 45 } });
+    renderRoute(routes, '/role', MANAGER);
+    // 資料回來前分頁列的總數是 0、下一頁停用
+    await screen.findByText('Editor', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await waitFor(() =>
+      expect(fetchRoles).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ offset: 20 }) }),
+      ),
+    );
   });
 });

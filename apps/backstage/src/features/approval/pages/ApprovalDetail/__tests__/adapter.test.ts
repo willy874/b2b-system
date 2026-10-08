@@ -103,3 +103,28 @@ describe('toApprovalDetailVM（多階段，docs/architecture/backend/20-approval
     expect(vm.currentStep).toBeNull();
   });
 });
+
+const access = (payload: Record<string, unknown>): ApprovalRequestDetail => ({
+  ...BASE,
+  type: 'fileFolder.access',
+  payload,
+});
+
+describe('toApprovalDetailVM（資料夾存取申請，docs/architecture/iam/06-resource-grants.md）', () => {
+  it('fileFolder.access 的 payload 收斂成 folderAccess，沒有 registration', () => {
+    const vm = toApprovalDetailVM(access({ folderName: '合約', level: 'editor' }));
+    expect(vm.folderAccess).toEqual({ folderName: '合約', level: 'editor' });
+    expect(vm.registration).toBeNull();
+  });
+
+  it('不認得的存取層級退回 viewer，資料夾名稱缺漏時是空字串', () => {
+    expect(toApprovalDetailVM(access({ level: 'owner' })).folderAccess).toEqual({
+      folderName: '',
+      level: 'viewer',
+    });
+  });
+
+  it('其他類型沒有 folderAccess', () => {
+    expect(toApprovalDetailVM(BASE).folderAccess).toBeNull();
+  });
+});
