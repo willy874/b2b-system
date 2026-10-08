@@ -1,7 +1,14 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
-import type { ApprovalRequest, ApproveApprovalRequest, RejectApprovalRequest } from '../models';
+import type {
+  ApprovalRequest,
+  ApprovalRequestDetail,
+  ApproveApprovalRequest,
+  DecideApprovalStepRequest,
+  OverrideApprovalStepRequest,
+  RejectApprovalRequest,
+} from '../models';
 import type { ApiResponse } from '../runtime';
 import { buildUrl } from '../url';
 
@@ -40,7 +47,7 @@ export interface ApprovalControllerFindOneInput {
 
 export interface ApprovalControllerFindOneResponses {
   200: {
-    data: ApprovalRequest;
+    data: ApprovalRequestDetail;
   };
 }
 
@@ -113,4 +120,125 @@ export type ApprovalControllerRejectResult = ApiResponse<
 
 export function getApprovalControllerRejectUrl(path: ApprovalControllerRejectPathParams): string {
   return buildUrl('/approvals/{id}/reject', path);
+}
+
+// POST /approvals/{id}/withdraw
+
+export interface ApprovalControllerWithdrawPathParams {
+  id: string;
+}
+
+export interface ApprovalControllerWithdrawInput {
+  path: ApprovalControllerWithdrawPathParams;
+}
+
+export interface ApprovalControllerWithdrawResponses {
+  200: {
+    data: ApprovalRequestDetail;
+  };
+}
+
+export type ApprovalControllerWithdrawResponse = ApprovalControllerWithdrawResponses[200];
+
+export type ApprovalControllerWithdrawResult = ApiResponse<
+  200,
+  ApprovalControllerWithdrawResponses[200]
+>;
+
+export function getApprovalControllerWithdrawUrl(
+  path: ApprovalControllerWithdrawPathParams,
+): string {
+  return buildUrl('/approvals/{id}/withdraw', path);
+}
+
+// POST /approvals/{id}/steps/{ordinal}/decisions
+
+export interface ApprovalControllerDecidePathParams {
+  id: string;
+  ordinal: number;
+}
+
+export type ApprovalControllerDecideBody = DecideApprovalStepRequest;
+
+export interface ApprovalControllerDecideInput {
+  path: ApprovalControllerDecidePathParams;
+  body: ApprovalControllerDecideBody;
+}
+
+export interface ApprovalControllerDecideResponses {
+  200: {
+    data: ApprovalRequestDetail;
+  };
+}
+
+export type ApprovalControllerDecideResponse = ApprovalControllerDecideResponses[200];
+
+export type ApprovalControllerDecideResult = ApiResponse<
+  200,
+  ApprovalControllerDecideResponses[200]
+>;
+
+export function getApprovalControllerDecideUrl(path: ApprovalControllerDecidePathParams): string {
+  return buildUrl('/approvals/{id}/steps/{ordinal}/decisions', path);
+}
+
+// POST /approvals/{id}/steps/{ordinal}/override
+
+export interface ApprovalControllerOverridePathParams {
+  id: string;
+  ordinal: number;
+}
+
+export type ApprovalControllerOverrideBody = OverrideApprovalStepRequest;
+
+export interface ApprovalControllerOverrideInput {
+  path: ApprovalControllerOverridePathParams;
+  body: ApprovalControllerOverrideBody;
+}
+
+export interface ApprovalControllerOverrideResponses {
+  200: {
+    data: ApprovalRequestDetail;
+  };
+}
+
+export type ApprovalControllerOverrideResponse = ApprovalControllerOverrideResponses[200];
+
+export type ApprovalControllerOverrideResult = ApiResponse<
+  200,
+  ApprovalControllerOverrideResponses[200]
+>;
+
+export function getApprovalControllerOverrideUrl(
+  path: ApprovalControllerOverridePathParams,
+): string {
+  return buildUrl('/approvals/{id}/steps/{ordinal}/override', path);
+}
+
+// POST /approvals/{id}/steps/{ordinal}/refresh
+
+export interface ApprovalControllerRefreshPathParams {
+  id: string;
+  ordinal: number;
+}
+
+export interface ApprovalControllerRefreshInput {
+  path: ApprovalControllerRefreshPathParams;
+}
+
+export interface ApprovalControllerRefreshResponses {
+  200: {
+    data: ApprovalRequestDetail;
+  };
+}
+
+export type ApprovalControllerRefreshResponse = ApprovalControllerRefreshResponses[200];
+
+export type ApprovalControllerRefreshResult = ApiResponse<
+  200,
+  ApprovalControllerRefreshResponses[200]
+>;
+
+export function getApprovalControllerRefreshUrl(path: ApprovalControllerRefreshPathParams): string {
+  return buildUrl('/approvals/{id}/steps/{ordinal}/refresh', path);
 }

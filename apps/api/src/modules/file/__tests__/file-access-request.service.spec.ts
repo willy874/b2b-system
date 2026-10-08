@@ -49,6 +49,10 @@ function request(overrides: Partial<ApprovalRequestDto> = {}): ApprovalRequestDt
     reviewComment: null,
     reviewedAt: null,
     resultResourceId: null,
+    flowVersion: null,
+    currentStep: null,
+    stepCount: 0,
+    resubmittedFrom: null,
     createdAt: '2026-10-01T00:00:00.000Z',
     updatedAt: '2026-10-01T00:00:00.000Z',
     ...overrides,
@@ -67,7 +71,7 @@ function setup(access: Omit<AccessFixtureOptions, 'nodes'> = {}) {
   const approvals = {
     submit: vi.fn(async (): Promise<ApprovalRequestDto | undefined> => request()),
     listPendingBy: vi.fn(async (): Promise<ApprovalRequestDto[]> => []),
-    findOne: vi.fn(async (_id: string): Promise<ApprovalRequestDto> => request()),
+    get: vi.fn(async (_id: string): Promise<ApprovalRequestDto> => request()),
     approve: vi.fn(async () => request({ status: 'approved' })),
     reject: vi.fn(async () => request({ status: 'rejected' })),
   };
@@ -259,7 +263,7 @@ describe('FileAccessRequestService.approve / reject（docs/architecture/iam/06-r
 
   it('申請不存在（審批模組回 AppException）→ FILE_ACCESS_REQUEST_NOT_FOUND', async () => {
     const { service, approvals } = setup();
-    approvals.findOne.mockRejectedValueOnce(new AppException('APPROVAL_NOT_FOUND'));
+    approvals.get.mockRejectedValueOnce(new AppException('APPROVAL_NOT_FOUND'));
     const error = await errorOf(service.approve(FOLDER, REQUEST_ID, {}, ACTOR));
     expect(error?.code).toBe('FILE_ACCESS_REQUEST_NOT_FOUND');
     expect(error?.details).toEqual({ requestId: REQUEST_ID });
@@ -268,7 +272,7 @@ describe('FileAccessRequestService.approve / reject（docs/architecture/iam/06-r
 
   it('查詢申請時非預期的錯誤照原樣拋出', async () => {
     const { service, approvals } = setup();
-    approvals.findOne.mockRejectedValueOnce(new Error('db down'));
+    approvals.get.mockRejectedValueOnce(new Error('db down'));
     await expect(service.reject(FOLDER, REQUEST_ID, {}, ACTOR)).rejects.toThrow('db down');
   });
 
@@ -282,7 +286,7 @@ describe('FileAccessRequestService.approve / reject（docs/architecture/iam/06-r
     ['payload 形狀不對', { payload: { folderId: FOLDER } }],
   ] as const)('%s → FILE_ACCESS_REQUEST_NOT_FOUND，不呼叫審批模組', async (_label, overrides) => {
     const { service, approvals } = setup();
-    approvals.findOne.mockResolvedValueOnce(request(overrides as Partial<ApprovalRequestDto>));
+    approvals.get.mockResolvedValueOnce(request(overrides as Partial<ApprovalRequestDto>));
     expect((await errorOf(service.reject(FOLDER, REQUEST_ID, {}, ACTOR)))?.code).toBe(
       'FILE_ACCESS_REQUEST_NOT_FOUND',
     );

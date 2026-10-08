@@ -30,6 +30,7 @@ import { RefreshTokenService } from '@/modules/credential/refresh-token.service'
 import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
+import { OrgChartService } from '@/modules/organization/org-chart.service';
 import { SUPER_ADMIN_SLUG } from '@/modules/permission/permission.constants';
 import { PermissionService } from '@/modules/permission/permission.service';
 import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
@@ -139,10 +140,11 @@ export class UserService {
     private readonly webhooks: WebhookService,
     private readonly tags: TagService,
     private readonly announcementTriggers: AnnouncementTriggerService,
+    private readonly orgChart: OrgChartService,
   ) {}
 
   async list(query: ListUserDto) {
-    const { items, total } = await this.repo.list(query);
+    const { items, total } = await this.repo.list(query, await this.orgUnitScope(query));
     const tags = await this.tags.tagsOf(
       RESOURCE_TYPE.USER,
       items.map((item) => item.id),
@@ -152,6 +154,20 @@ export class UserService {
       total,
       query,
     );
+  }
+
+  /**
+   * 部門篩選展開成部門 id（docs/architecture/backend/23-organization.md §4）；組織管理未啟用時不靜靜地忽略。
+   * 列表與匯出（`UserTransferResource`）共用。
+   */
+  async orgUnitScope(
+    query: Pick<ListUserDto, 'orgUnitId' | 'includeDescendants'>,
+  ): Promise<string[] | undefined> {
+    if (!query.orgUnitId) return undefined;
+    if (!this.orgChart.isEnabled()) {
+      throw new AppException('VALIDATION_FAILED', { fields: { orgUnitId: 'feature disabled' } });
+    }
+    return this.orgChart.unitScope(query.orgUnitId, query.includeDescendants ?? false);
   }
 
   async findOne(id: string): Promise<UserDto> {

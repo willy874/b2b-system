@@ -614,7 +614,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
             subject: '被推薦的人',
             status: 'rejected',
           },
-          link: { route: 'approval.detail', params: { approvalId: created!.id } },
+          link: { route: 'approval.myDetail', params: { approvalId: created!.id } },
         }),
       ]);
     });

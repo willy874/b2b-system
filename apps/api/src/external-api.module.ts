@@ -40,6 +40,7 @@ import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { RoleModule } from './modules/role/role.module';
@@ -104,6 +105,7 @@ import { UserModule } from './modules/user/user.module';
     // 回收桶要求每一種類型都有 handler（啟動時檢查）：檔案、使用者之外的擁有者模組也要在。它們的路由由 SurfaceGuard 擋下
     RoleModule,
     GroupModule,
+    OrganizationModule,
     AnnouncementModule,
   ],
   providers: [

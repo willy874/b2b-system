@@ -17,6 +17,8 @@ const getUserListQueryKeys = (params: UserListParams) =>
     params.roleId?.join(',') ?? '',
     params.mfa ?? '',
     params.tagId?.join(',') ?? '',
+    params.orgUnitId ?? '',
+    params.includeDescendants ?? false,
     params.sort ? toSortParams(params.sort).join(',') : '',
   ] as const;
 

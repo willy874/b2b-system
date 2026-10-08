@@ -212,6 +212,8 @@ export const PlatformTenantControllerFeatureImpactSchemas = {
       'externalApi',
       'group',
       'dataTransfer',
+      'organization',
+      'approvalChain',
     ]),
   }),
   responses: {

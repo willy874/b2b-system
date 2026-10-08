@@ -14,6 +14,11 @@ import {
   Routes as AnnouncementRoutes,
 } from '@/features/announcement';
 import {
+  APPROVAL_FLOW_FEATURE,
+  approvalFlowFeaturePlugin,
+  Routes as ApprovalFlowRoutes,
+} from '@/features/approval-flow';
+import {
   AUDIT_LOG_FEATURE,
   auditLogFeaturePlugin,
   Routes as AuditLogRoutes,
@@ -31,6 +36,11 @@ import {
   Routes as IdentityProviderRoutes,
 } from '@/features/identity-provider';
 import { JOB_FEATURE, jobFeaturePlugin, Routes as JobRoutes } from '@/features/job';
+import {
+  ORGANIZATION_FEATURE,
+  organizationFeaturePlugin,
+  Routes as OrganizationRoutes,
+} from '@/features/organization';
 import {
   Routes as ServiceAccountRoutes,
   SERVICE_ACCOUNT_FEATURE,
@@ -105,6 +115,18 @@ export const FEATURE_CATALOG = {
   [DATA_TRANSFER_FEATURE]: {
     plugin: dataTransferFeaturePlugin(),
     routes: [DataTransferRoutes.DataTransferListRoute, UserRoutes.UserImportRoute],
+  },
+  // 組織管理（docs/architecture/backend/23-organization.md）：使用者詳情的「所屬部門」、使用者列表的部門篩選、
+  // 審批流程的「主管」「部門」規則以 `useIsFeatureReady` 決定是否顯示
+  [ORGANIZATION_FEATURE]: {
+    plugin: organizationFeaturePlugin(),
+    routes: [OrganizationRoutes.OrganizationRoute],
+  },
+  // 多階段審批的流程設定（docs/architecture/backend/20-approval.md §9）；審批本身常駐，
+  // 審批頁的關卡操作與「待我審核」以 `useIsFeatureReady` 決定是否顯示
+  [APPROVAL_FLOW_FEATURE]: {
+    plugin: approvalFlowFeaturePlugin(),
+    routes: [ApprovalFlowRoutes.ApprovalFlowListRoute],
   },
 } as const satisfies Record<TenantFeature, FeatureDefinition> &
   Readonly<Record<string, FeatureDefinition>>;

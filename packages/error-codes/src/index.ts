@@ -243,6 +243,38 @@ export const ErrorCode = {
   APPROVAL_NOT_FOUND: { status: 404 },
   APPROVAL_ALREADY_REVIEWED: { status: 409 },
   APPROVAL_SELF_REVIEW: { status: 403 },
+  // 多階段（docs/architecture/backend/20-approval.md §9）
+  /** 關卡已經往下走了（畫面過期）：重新取得後再決定。 */
+  APPROVAL_STEP_STALE: { status: 409 },
+  /** 不是目前關卡的審核者（或帳號已停用）。 */
+  APPROVAL_NOT_ASSIGNED: { status: 403 },
+  /** 這一關已經做過決定。 */
+  APPROVAL_STEP_ALREADY_DECIDED: { status: 409 },
+  /** 多關的請求要用關卡的端點決定（`POST /approvals/:id/steps/:ordinal/decisions`）。 */
+  APPROVAL_CHAIN_IN_PROGRESS: { status: 409 },
+  /** 只有申請人能撤回。 */
+  APPROVAL_NOT_REQUESTER: { status: 403 },
+  /** 這個審批類型不支援多階段流程。 */
+  APPROVAL_FLOW_NOT_SUPPORTED: { status: 422 },
+  APPROVAL_FLOW_VERSION_CONFLICT: { status: 409 },
+  /** 審核者規則目前不能用（組織管理或群組未啟用、目標已刪除）；`details.steps` 列出關卡。 */
+  APPROVAL_FLOW_ASSIGNEE_UNAVAILABLE: { status: 422 },
+
+  // ── 組織（docs/architecture/backend/23-organization.md） ──
+  ORG_UNIT_NOT_FOUND: { status: 404 },
+  /** 同一個上層之下已有同名的部門（`details.conflictingUnitId`）。 */
+  ORG_UNIT_NAME_DUPLICATE: { status: 409 },
+  ORG_UNIT_CODE_DUPLICATE: { status: 409 },
+  ORG_UNIT_VERSION_CONFLICT: { status: 409 },
+  /** 搬到自己或自己的下層之下。 */
+  ORG_UNIT_CYCLE: { status: 409 },
+  /** 部門樹超過層數上限（`details.max`）。 */
+  ORG_UNIT_TOO_DEEP: { status: 409 },
+  /** 還有下層部門，不能刪除。 */
+  ORG_UNIT_HAS_CHILDREN: { status: 409 },
+  /** 上層部門已刪除：先還原上層。 */
+  ORG_UNIT_PARENT_DELETED: { status: 409 },
+  ORG_UNIT_NOT_DELETED: { status: 409 },
 
   // ── 外部 IdP 連線 ──
   IDENTITY_PROVIDER_NOT_FOUND: { status: 404 },

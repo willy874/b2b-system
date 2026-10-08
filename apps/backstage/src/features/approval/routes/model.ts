@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import type { ApprovalSortField } from '@/apis/approval/types';
 
+import { MY_APPROVAL_TABS } from '../constants';
+
 /** 列表可排序的欄位（後端白名單）。 */
 export const APPROVAL_SORT_FIELDS = [
   'createdAt',
@@ -13,7 +15,7 @@ export const ApprovalSearchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0).catch(0),
   limit: z.coerce.number().int().min(1).max(200).default(20).catch(20),
   keyword: z.string().trim().optional().catch(undefined),
-  status: z.enum(['pending', 'approved', 'rejected']).optional().catch(undefined),
+  status: z.enum(['pending', 'approved', 'rejected', 'withdrawn']).optional().catch(undefined),
   type: z.enum(['user.register']).optional().catch(undefined),
   /** 多欄排序（陣列順序即優先順序）；空陣列＝後端預設排序（建立時間新到舊）。 */
   sort: sortSearchSchema(APPROVAL_SORT_FIELDS),
@@ -27,3 +29,14 @@ export const DEFAULT_APPROVAL_SEARCH: ApprovalSearchQuery = {
   limit: 20,
   sort: [],
 };
+
+/** 「我的審批」（docs/architecture/backend/20-approval.md §9.10）：分頁與分頁的頁碼。 */
+export const MyApprovalSearchQuerySchema = z.object({
+  tab: z.enum(MY_APPROVAL_TABS).optional().catch(undefined),
+  offset: z.coerce.number().int().min(0).default(0).catch(0),
+  limit: z.coerce.number().int().min(1).max(200).default(20).catch(20),
+});
+
+export type MyApprovalSearchQuery = z.infer<typeof MyApprovalSearchQuerySchema>;
+
+export const DEFAULT_MY_APPROVAL_SEARCH: MyApprovalSearchQuery = { offset: 0, limit: 20 };

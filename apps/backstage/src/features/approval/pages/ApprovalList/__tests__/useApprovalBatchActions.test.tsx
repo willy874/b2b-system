@@ -32,6 +32,8 @@ const row = (overrides: Partial<ApprovalRowVM>): ApprovalRowVM => ({
   createdAt: new Date(0),
   reviewedAt: null,
   isPending: true,
+  progress: null,
+  stepCount: 0,
   canReview: true,
   canApprove: true,
   ...overrides,

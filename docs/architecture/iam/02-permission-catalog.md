@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 58 項）
+## 2. 權限清單（共 65 項）
 
 ### 2.1 `user` — 使用者
 
@@ -80,6 +80,7 @@
 | ----------------- | ----------------- | --------------------------------------------------------------------------------------------- |
 | `approval:read`   | 檢視審批          | 審批請求列表與詳情                                                                            |
 | `approval:review` | 審核申請          | 核准／駁回。**核准另需該類型要求的權限**（`user.register` = `user:create`），見 [`backend/20-approval.md`](../backend/20-approval.md) §3.2 |
+| `approval:override` | 強制定案審批    | 多階段審批卡住時：重新展開目前關卡的審核者、強制定案目前的關卡（意見必填）。最後一關的核准另需該類型要求的權限（[`backend/20-approval.md`](../backend/20-approval.md) §9.8、D10） |
 
 > 為什麼不是 `approval:update`：核准與駁回是具名的「審核」決定，不是修改請求內容；
 > 也讓「能看不能審」（auditor）與「能審」清楚分開。
@@ -189,7 +190,7 @@
 | ------------------- | ----------------- | ---- |
 | `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D1） |
 
-> 每個人看自己的通知不需要這個鍵（§2.18）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
+> 每個人看自己的通知不需要這個鍵（§2.20）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
 
 ### 2.16 `announcement` — 公告
 
@@ -201,7 +202,7 @@
 | `announcement:delete`   | 刪除公告          | 軟刪除（進回收桶）與還原；排程中的刪除時改成暫停 |
 | `announcement:publish`  | 發送公告          | 送出（立即或排程）、暫停與恢復排程、修改已送出的公告、撤回一次發送 |
 
-> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.18）。
+> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.20）。
 
 ### 2.17 `mfaPolicy` — MFA 政策
 
@@ -210,9 +211,30 @@
 | `mfaPolicy:read`        | 檢視 MFA 政策     | 允許的方式、全員或指定角色必須啟用、不符合政策的人數；預覽變更的影響（[`backend/21-mfa.md`](../backend/21-mfa.md) §6） |
 | `mfaPolicy:update`      | 修改 MFA 政策     | 修改上述政策（樂觀鎖、稽核 `mfaPolicy.update`）。預設只給 super-admin：放寬 MFA 等於削弱所有人的保護（D11） |
 
-> 自己的驗證方式（設定、移除、備用碼）屬於個人範圍（§2.18）；管理員檢視與重設別人的 MFA 用 `user:read`／`user:update`。
+> 自己的驗證方式（設定、移除、備用碼）屬於個人範圍（§2.20）；管理員檢視與重設別人的 MFA 用 `user:read`／`user:update`。
 
-### 2.18 個人範圍（不需要權限）
+### 2.18 `orgUnit` — 組織
+
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `orgUnit:create`        | 建立部門          | 建立部門（[`backend/23-organization.md`](../backend/23-organization.md)） |
+| `orgUnit:read`          | 檢視組織          | 部門樹、部門詳情與成員、使用者所屬的部門 |
+| `orgUnit:update`        | 編輯組織          | 改名、搬移、排序；**增減成員、設定主管與主要部門**。不能改自己的成員資格與主管身分（D6） |
+| `orgUnit:delete`        | 刪除部門          | 軟刪除（進回收桶）與還原；還有下層部門時不能刪 |
+
+> 部門不是授權來源：成員資格不帶任何權限鍵，所以 `orgUnit:update` 不受反提權限制。但「誰是主管」決定多階段審批的審核者，
+> 不能改自己的那一條擋住「把自己設成主管」。
+
+### 2.19 `approvalFlow` — 審批流程
+
+| 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
+| ----------------------- | ----------------- | ---- |
+| `approvalFlow:read`     | 檢視審批流程      | 多階段審批的流程設定、試算（[`backend/20-approval.md`](../backend/20-approval.md) §9） |
+| `approvalFlow:update`   | 設定審批流程      | 建立、修改、停用流程。**受反提權限制**：要持有該類型核准所需的權限（D11） |
+
+> 設定流程等於決定「誰可以代為執行某操作」，所以列進 §9.2 G4（不能被任何鍵包含）。
+
+### 2.20 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -223,6 +245,9 @@
 - 檢視與修改自己的通知設定（`GET`／`PATCH /me/notification-preferences`；[`backend/16-notification-event.md`](../backend/16-notification-event.md) §9.2 D15）
 - 檢視自己的站內通知、標為已讀、刪除（`GET /notifications`、`POST /notifications/:id/read`、`POST /notifications/read-all`、`DELETE /notifications/:id`；[`backend/15-notification.md`](../backend/15-notification.md) §12.2 D9）
 - 閱讀自己收到的公告全文（`GET /me/announcement-messages/:dispatchId`；[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D4）
+- 檢視自己送出的審批與被指派要審的審批、撤回自己仍待審的申請、在被指派的關卡做決定
+  （`GET /approvals?scope=mine|assigned`、`GET /approvals/:id`、`POST /approvals/:id/withdraw`、`POST /approvals/:id/steps/:ordinal/decisions`；
+  [`backend/20-approval.md`](../backend/20-approval.md) §9.10）
 - 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`
 - 登出
@@ -240,7 +265,7 @@
 | `permission`      |   —    |  ✓   |   —    |   —    | —                             |
 | `auditLog`        |   —    |  ✓   |   —    |   —    | `export`                      |
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
-| `approval`        |   —    |  ✓   |   —    |   —    | `review`                      |
+| `approval`        |   —    |  ✓   |   —    |   —    | `review`, `override`          |
 | `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
 | `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
 | `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
@@ -252,6 +277,8 @@
 | `notification`    |   —    |  ✓   |   —    |   —    | —                             |
 | `announcement`    |   ✓    |  ✓   |   ✓    |   ✓    | `publish`                     |
 | `mfaPolicy`       |   —    |  ✓   |   ✓    |   —    | —                             |
+| `orgUnit`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `approvalFlow`    |   —    |  ✓   |   ✓    |   —    | —                             |
 
 ---
 
@@ -279,6 +306,7 @@
 | `system:update`        |      ✓*       |         |           |          |
 | `approval:read`        |      ✓*       |    ✓    |     ✓     |          |
 | `approval:review`      |      ✓*       |    ✓    |           |          |
+| `approval:override`    |      ✓*       |    ✓    |           |          |
 | `file:create`          |      ✓*       |    ✓    |           |          |
 | `file:read`            |      ✓*       |    ✓    |     ✓     |          |
 | `file:update`          |      ✓*       |    ✓    |           |          |
@@ -317,6 +345,12 @@
 | `announcement:publish` |      ✓*       |    ✓    |           |          |
 | `mfaPolicy:read`       |      ✓*       |    ✓    |     ✓     |          |
 | `mfaPolicy:update`     |      ✓*       |         |           |          |
+| `orgUnit:create`       |      ✓*       |    ✓    |           |          |
+| `orgUnit:read`         |      ✓*       |    ✓    |     ✓     |          |
+| `orgUnit:update`       |      ✓*       |    ✓    |           |          |
+| `orgUnit:delete`       |      ✓*       |    ✓    |           |          |
+| `approvalFlow:read`    |      ✓*       |    ✓    |     ✓     |          |
+| `approvalFlow:update`  |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
@@ -346,6 +380,7 @@
 | 角色權限管理 | `/role/$roleId/permission` | （沿用 `ROLE`） | `role:read` ＋ `permission:read` | EVERY |
 | 角色版本紀錄 | `/role/$roleId/revision`   | （沿用 `ROLE`） | `role:read`（「還原到這一版」另看 `role:update`） | EVERY |
 | 群組列表     | `/group`（含 `/group/$groupId` 詳情；成員要 `user:read`、角色要 `role:read`） | `GROUP` | `group:read` | EVERY |
+| 組織         | `/organization`（`?unitId=` 選中的部門；成員要 `user:read`） | `ORG_UNIT` | `orgUnit:read` | EVERY |
 | 建立群組     | `/group/create`            | `GROUP_CREATE`  | `group:read` ＋ `group:create`   | EVERY |
 | 服務帳號列表 | `/service-account`（含 `/service-account/$serviceAccountId` 詳情；角色要 `role:read`，token 要 `serviceAccount:update`） | `SERVICE_ACCOUNT` | `serviceAccount:read` | EVERY |
 | 建立服務帳號 | `/service-account/create`  | `SERVICE_ACCOUNT_CREATE` | `serviceAccount:read` ＋ `serviceAccount:create` | EVERY |
@@ -355,6 +390,8 @@
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
 | 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
+| 我的審批     | `/my-approvals`（含 `/my-approvals/$approvalId` 對話框；看得到哪些由後端依申請人與候選人決定） | `MY_APPROVAL` | 無 | — |
+| 審批流程     | `/approval-flow`（含編輯頁；儲存要 `approvalFlow:update`） | `APPROVAL_FLOW` | `approvalFlow:read` | EVERY |
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`06-resource-grants.md`](./06-resource-grants.md) §7） | SOME |
 | 外部 IdP 連線 | `/identity-provider`      | `IDENTITY_PROVIDER` | `identityProvider:read`        | EVERY |
@@ -405,6 +442,7 @@ export const PERMISSION_SEED = [
 
   ["approval", "read", "permission.approval.read", 600],
   ["approval", "review", "permission.approval.review", 601],
+  ["approval", "override", "permission.approval.override", 602],
 
   ["file", "create", "permission.file.create", 700],
   ["file", "read", "permission.file.read", 701],
@@ -544,6 +582,7 @@ Seed 行為：
 | `role:grantPermission` | `role:read` | `permission:read` |
 | `system:update` | `system:read` | |
 | `approval:review` | `approval:read` | |
+| `approval:override` | `approval:read` | |
 | `file:create` | `file:read` | |
 | `file:delete` | `file:update` | |
 | `file:update` | `file:read` | |
@@ -573,6 +612,10 @@ Seed 行為：
 | `announcement:update` | `announcement:read` | `user:read`、`group:read`、`role:read` |
 | `announcement:publish` | `announcement:update` | |
 | `mfaPolicy:update` | `mfaPolicy:read` | `role:read` |
+| `orgUnit:create` | `orgUnit:update` | |
+| `orgUnit:delete` | `orgUnit:update` | |
+| `orgUnit:update` | `orgUnit:read` | `user:read` |
+| `approvalFlow:update` | `approvalFlow:read` | `user:read`、`group:read`、`role:read`、`orgUnit:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 
@@ -585,7 +628,7 @@ Seed 行為：
 | G1 | 沒有循環 | 閉包要有定義 |
 | G2 | 子能力只能在同一個資源內 | 跨資源的關係一律是「依賴」 |
 | G3 | 依賴只能指向 `<r>:read`（或閘門 `file:access`） | 依賴是為了完整操作而補上的，不能因此多出寫入能力 |
-| G4 | 受反提權限制的鍵（`user:assignRole`、`role:grantPermission`、`file:share`、`group:assignRole`）不能被任何鍵包含 | 否則「能編輯使用者」會悄悄等於「能指派角色」 |
+| G4 | 受反提權限制的鍵（`user:assignRole`、`role:grantPermission`、`file:share`、`group:assignRole`、`approvalFlow:update`）不能被任何鍵包含 | 否則「能編輯使用者」會悄悄等於「能指派角色」 |
 
 ### 9.3 對預設角色的影響
 

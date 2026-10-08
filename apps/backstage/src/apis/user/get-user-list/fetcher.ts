@@ -15,6 +15,8 @@ export const fetchUserListQuery = defineAuthFetcher<
     withQuery(getUserControllerListUrl(), {
       ...request.params,
       sort: request.params.sort && toSortParams(request.params.sort),
+      // 後端收字串 'true'／'false'；false 等於不帶
+      includeDescendants: request.params.includeDescendants ? 'true' : undefined,
     }),
     {
       method: 'GET',

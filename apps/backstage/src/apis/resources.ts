@@ -6,6 +6,8 @@ import { ANNOUNCEMENT_DISPATCHES_QUERY_KEY } from '@/apis/announcement/get-annou
 import { ANNOUNCEMENT_LIST_QUERY_KEY } from '@/apis/announcement/get-announcement-list/query';
 import { MY_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-my-api-tokens/query';
 import { USER_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-user-api-tokens/query';
+import { APPROVAL_FLOW_DETAIL_QUERY_KEY } from '@/apis/approval-flow/get-approval-flow-detail/query';
+import { APPROVAL_FLOW_LIST_QUERY_KEY } from '@/apis/approval-flow/get-approval-flow-list/query';
 /**
  * 本專案的資源依賴圖（機制見 `web-core/cache/resourceGraph.ts`）。
  *
@@ -50,6 +52,10 @@ import { NOTIFICATION_LIST_QUERY_KEY } from '@/apis/notification/get-notificatio
 import { NOTIFICATION_OVERVIEW_QUERY_KEY } from '@/apis/notification/get-notification-overview/query';
 import { NOTIFICATION_PREFERENCE_LIST_QUERY_KEY } from '@/apis/notification/get-notification-preference-list/query';
 import { NOTIFICATION_UNREAD_COUNT_QUERY_KEY } from '@/apis/notification/get-notification-unread-count/query';
+import { ORG_UNIT_DETAIL_QUERY_KEY } from '@/apis/org-unit/get-org-unit-detail/query';
+import { ORG_UNIT_MEMBERS_QUERY_KEY } from '@/apis/org-unit/get-org-unit-members/query';
+import { ORG_UNIT_TREE_QUERY_KEY } from '@/apis/org-unit/get-org-unit-tree/query';
+import { USER_ORG_UNITS_QUERY_KEY } from '@/apis/org-unit/get-user-org-units/query';
 import { PERMISSION_LIST_QUERY_KEY } from '@/apis/permission/get-permission-list/query';
 import { ROLE_DETAIL_QUERY_KEY } from '@/apis/role/get-role-detail/query';
 import { ROLE_LIST_QUERY_KEY, ROLE_OPTIONS_QUERY_KEY } from '@/apis/role/get-role-list/query';
@@ -153,6 +159,13 @@ export const Resource = {
    */
   DATA_TRANSFER: 'dataTransfer',
   /**
+   * 組織的部門（`id` = 部門 id；docs/architecture/backend/23-organization.md）：結構與成員都以它宣告。
+   * 被異動的成員本人由後端以 user room 推送（使用者詳情的「所屬部門」）。
+   */
+  ORG_UNIT: 'orgUnit',
+  /** 審批流程的設定（`id` = 審批類型；docs/architecture/backend/20-approval.md §9）。 */
+  APPROVAL_FLOW: 'approvalFlow',
+  /**
    * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/platform 的連線
    * （docs/architecture/backend/08-realtime.md §3.6），backstage 永遠收不到；列在這裡只為了滿足 `ServerChangeSource` 的檢查。
    */
@@ -255,6 +268,26 @@ const graph = createResourceGraph<Resource>({
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],
     entity: [APPROVAL_DETAIL_QUERY_KEY],
+  },
+  [Resource.APPROVAL_FLOW]: {
+    collection: [APPROVAL_FLOW_LIST_QUERY_KEY],
+    entity: [APPROVAL_FLOW_DETAIL_QUERY_KEY],
+    derivesFrom: [
+      // 規則旁顯示對象的名稱與「已刪除」：使用者、群組、角色、部門改名或刪除時重抓
+      { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
+      { from: Resource.GROUP, kinds: ['update', 'delete'], id: 'none' },
+      { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
+      { from: Resource.ORG_UNIT, kinds: ['update', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.ORG_UNIT]: {
+    // 使用者的「所屬部門」以使用者 id 為鍵，部門的變化不知道影響了誰：整批重抓
+    collection: [ORG_UNIT_TREE_QUERY_KEY, USER_ORG_UNITS_QUERY_KEY],
+    entity: [ORG_UNIT_DETAIL_QUERY_KEY, ORG_UNIT_MEMBERS_QUERY_KEY],
+    derivesFrom: [
+      // 成員表嵌入使用者的名稱與狀態
+      { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
+    ],
   },
   [Resource.JOB]: {
     // 佇列計數跟著工作的狀態走：重試一筆，失敗數就少一

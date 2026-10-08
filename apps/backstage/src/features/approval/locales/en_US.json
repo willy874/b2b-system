@@ -75,18 +75,96 @@
       "reason": "Reason",
       "email": "Email",
       "displayName": "Display name",
-      "emailUnverified": "Not verified"
+      "emailUnverified": "Not verified",
+      "progress": "Progress"
     },
     "status": {
       "all": "All statuses",
       "pending": "Pending",
       "approved": "Approved",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "withdrawn": "Withdrawn"
     },
     "type": {
       "all": "All types",
       "userRegister": "Registration",
       "fileFolderAccess": "Folder access request"
+    },
+    "progress": {
+      "step": "{{name}} {{approvals}}/{{required}}"
+    },
+    "step": {
+      "title": "Approval steps",
+      "count": "{{approvals}}/{{required}} approved",
+      "approve": "Approve",
+      "skippedHint": "Conditions not met; this step is skipped.",
+      "candidates": "Reviewers: {{names}}",
+      "status": {
+        "waiting": "Waiting",
+        "active": "In review",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "skipped": "Skipped",
+        "cancelled": "Cancelled"
+      },
+      "shortage": {
+        "noCandidate": "No reviewers",
+        "insufficient": "Too few reviewers"
+      },
+      "closeReason": {
+        "rejected": "Request rejected",
+        "withdrawn": "Withdrawn by the requester",
+        "chainDisabled": "Multi-step approvals disabled",
+        "override": "Overridden"
+      },
+      "decision": {
+        "approve": "approved",
+        "reject": "rejected"
+      },
+      "via": {
+        "assignee": "reviewer",
+        "override": "override",
+        "legacy": "decided while multi-step approvals were disabled"
+      },
+      "assignee": {
+        "user": "Specific person",
+        "group": "Group",
+        "role": "Role",
+        "manager": "Requester's level-{{level}} manager",
+        "orgUnit": "Department managers"
+      },
+      "assigneeWithLabel": "{{kind}}: {{label}}",
+      "nameSeparator": ", ",
+      "viaSuffix": " ({{via}})"
+    },
+    "override": {
+      "approve": "Force-approve this step",
+      "reject": "Force-reject",
+      "approveTitle": "Force-approve this step",
+      "rejectTitle": "Force-reject the request",
+      "confirm": "This bypasses the step's reviewers and is recorded in the audit log under your name. Your comment is the reason.",
+      "commentRequired": "A comment is required as the reason for an override",
+      "success": "Overridden."
+    },
+    "refresh": {
+      "action": "Re-resolve reviewers",
+      "success": "Reviewers re-resolved by the rule."
+    },
+    "withdraw": {
+      "action": "Withdraw request",
+      "title": "Withdraw request",
+      "confirm": "Withdrawing ends this request; you will need to submit a new one to apply again.",
+      "success": "Request withdrawn."
+    },
+    "my": {
+      "description": "Steps assigned to you and requests you submitted.",
+      "tab": {
+        "assigned": "Waiting for me",
+        "mine": "My requests"
+      },
+      "backToList": "Back to my approvals",
+      "emptyAssigned": "Nothing is waiting for your review",
+      "emptyMine": "You haven't submitted any requests"
     }
   }
 }

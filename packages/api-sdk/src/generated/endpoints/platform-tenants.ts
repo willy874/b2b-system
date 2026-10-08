@@ -160,7 +160,9 @@ export interface PlatformTenantControllerFeatureImpactPathParams {
     | 'announcement'
     | 'externalApi'
     | 'group'
-    | 'dataTransfer';
+    | 'dataTransfer'
+    | 'organization'
+    | 'approvalChain';
 }
 
 export interface PlatformTenantControllerFeatureImpactInput {

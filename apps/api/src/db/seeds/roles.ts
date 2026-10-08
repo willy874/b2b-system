@@ -81,6 +81,13 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'announcement:delete',
       'announcement:publish',
       'mfaPolicy:read',
+      'orgUnit:create',
+      'orgUnit:read',
+      'orgUnit:update',
+      'orgUnit:delete',
+      'approval:override',
+      'approvalFlow:read',
+      'approvalFlow:update',
     ],
   },
   {
@@ -105,6 +112,8 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'webhook:read',
       'announcement:read',
       'mfaPolicy:read',
+      'orgUnit:read',
+      'approvalFlow:read',
     ],
   },
   {

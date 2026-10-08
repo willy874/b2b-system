@@ -26,6 +26,7 @@ import { APPROVAL_SORT_FIELDS, ApprovalDetailRoute } from '../../../routes';
 import type { ApprovalSearchQuery } from '../../../routes';
 import type { ApprovalRowVM } from '../adapter';
 import type { ApprovalFilterValues } from '../useApprovalFilters';
+import { ApprovalProgress } from './ApprovalProgress';
 import { ApprovalRowActions } from './ApprovalRowActions';
 
 /** 欄位順序與顯示存在這台裝置（`web-core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
@@ -101,6 +102,12 @@ export function ApprovalTable({
             {t(APPROVAL_STATUS_LABEL_KEY[row.original.status])}
           </Chip>
         ),
+      },
+      {
+        id: 'progress',
+        header: t('approval.field.progress'),
+        enableSorting: false,
+        cell: ({ row }) => <ApprovalProgress row={row.original} />,
       },
       {
         id: 'createdAt',

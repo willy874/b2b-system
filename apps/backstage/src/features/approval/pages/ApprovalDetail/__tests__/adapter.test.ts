@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ApprovalRequest } from '@/shared/api-sdk';
+import type { ApprovalRequestDetail } from '@/shared/api-sdk';
 
 import { toApprovalDetailVM } from '../adapter';
 
-const BASE: ApprovalRequest = {
+const BASE: ApprovalRequestDetail = {
   id: 'a1',
   type: 'user.register',
   status: 'pending',
@@ -17,8 +17,14 @@ const BASE: ApprovalRequest = {
   reviewComment: null,
   reviewedAt: null,
   resultResourceId: null,
+  flowVersion: null,
+  currentStep: null,
+  stepCount: 0,
+  resubmittedFrom: null,
   createdAt: '2026-09-25T01:00:00.000Z',
   updatedAt: '2026-09-25T01:00:00.000Z',
+  steps: [],
+  viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
 };
 
 describe('toApprovalDetailVM', () => {
@@ -49,5 +55,51 @@ describe('toApprovalDetailVM', () => {
       reviewComment: '請改用公司信箱',
       reviewedAt: new Date('2026-09-25T02:00:00.000Z'),
     });
+  });
+});
+
+describe('toApprovalDetailVM（多階段，docs/architecture/backend/20-approval.md §9）', () => {
+  const STEP = {
+    ordinal: 0,
+    key: 'finance',
+    name: '財務',
+    assignee: { kind: 'group' as const, id: 'g1', label: '財務群組' },
+    requiredMode: 'count' as const,
+    required: 2,
+    status: 'active' as const,
+    shortage: null,
+    closeReason: null,
+    conditions: [],
+    activatedAt: '2026-09-25T01:00:00.000Z',
+    closedAt: null,
+    candidates: [
+      { userId: 'u1', name: 'F1' },
+      { userId: 'u2', name: 'F2' },
+    ],
+    decisions: [
+      {
+        reviewerId: 'u1',
+        reviewerName: 'F1',
+        decision: 'approve' as const,
+        via: 'assignee' as const,
+        comment: null,
+        decidedAt: '2026-09-25T02:00:00.000Z',
+      },
+    ],
+  };
+
+  it('同意數由決定算出；目前的關卡是 active 的那一關', () => {
+    const vm = toApprovalDetailVM({
+      ...BASE,
+      steps: [STEP, { ...STEP, ordinal: 1, status: 'waiting', decisions: [] }],
+    });
+    expect(vm.steps.map((step) => step.approvals)).toEqual([1, 0]);
+    expect(vm.currentStep?.ordinal).toBe(0);
+  });
+
+  it('單關請求沒有關卡與目前的關卡', () => {
+    const vm = toApprovalDetailVM(BASE);
+    expect(vm.steps).toEqual([]);
+    expect(vm.currentStep).toBeNull();
   });
 });

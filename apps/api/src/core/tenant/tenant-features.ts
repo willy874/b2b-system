@@ -28,6 +28,10 @@ export const TENANT_FEATURES = [
   'group',
   // docs/architecture/backend/22-data-transfer.md：匯入／匯出
   'dataTransfer',
+  // docs/architecture/backend/23-organization.md：組織管理（部門樹、成員、主管）。新的加值能力，平台 DB 的預設值不含它（D3）
+  'organization',
+  // docs/architecture/backend/20-approval.md §9：多階段審批（審批本身常駐）。同上，預設不啟用（D17）
+  'approvalChain',
 ] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];

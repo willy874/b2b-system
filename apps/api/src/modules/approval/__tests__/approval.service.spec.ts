@@ -11,6 +11,10 @@ import type { NotificationService } from '@/modules/notification/notification.se
 import { createPermissionChecks } from '@/modules/permission/__tests__/permission-checks.fixture';
 import type { WebhookService } from '@/modules/webhook/webhook.service';
 
+import { ApprovalAssigneeRegistry } from '../approval-assignee.registry';
+import type { ApprovalChainRepository } from '../approval-chain.repository';
+import type { ApprovalChainService } from '../approval-chain.service';
+import { ApprovalFinalizer } from '../approval-finalizer.service';
 import { ApprovalHandlerRegistry } from '../approval-handler.registry';
 import { ApprovalType, PENDING_SUBJECT_CONSTRAINT } from '../approval.constants';
 import type { ApprovalRepository } from '../approval.repository';
@@ -35,6 +39,11 @@ function row(overrides: Partial<ApprovalRequestRow> = {}): ApprovalRequestRow {
     reviewComment: null,
     reviewedAt: null,
     resultResourceId: null,
+    flowId: null,
+    flowVersion: null,
+    allowRepeatApprover: null,
+    currentStep: null,
+    resubmittedFrom: null,
     createdAt: new Date('2026-09-25T00:00:00.000Z'),
     updatedAt: new Date('2026-09-25T00:00:00.000Z'),
     ...overrides,
@@ -91,20 +100,45 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     summarize: vi.fn(() => 'Alice'),
   } satisfies ApprovalHandler;
 
-  const service = new ApprovalService(
-    db as never,
+  // 單關的情境：沒有流程，多階段的部分以假物件代替（多階段的規則在 approval-chain.service.spec.ts）
+  const chainRepo = {
+    summariesOf: vi.fn(async () => ({ current: new Map(), counts: new Map() })),
+    stepsOf: vi.fn(async () => []),
+    assigneeIdsOf: vi.fn(async () => []),
+  };
+  const chain = {
+    flowFor: vi.fn(async () => undefined),
+    isEnabled: vi.fn(() => true),
+    overrideHolders: vi.fn(async () => []),
+    canView: vi.fn(async () => true),
+    closeByLegacy: vi.fn(async () => undefined),
+  };
+  const handlers = new ApprovalHandlerRegistry();
+  const finalizer = new ApprovalFinalizer(
     repo as unknown as ApprovalRepository,
-    new ApprovalHandlerRegistry(),
-    permissionService,
+    handlers,
     audit as unknown as AuditService,
-    events as unknown as DomainEventBus,
     jobs as unknown as JobQueue,
     notifications as unknown as NotificationService,
     webhooks as unknown as WebhookService,
   );
+  const service = new ApprovalService(
+    db as never,
+    repo as unknown as ApprovalRepository,
+    chainRepo as unknown as ApprovalChainRepository,
+    handlers,
+    new ApprovalAssigneeRegistry(),
+    chain as unknown as ApprovalChainService,
+    finalizer,
+    permissionService,
+    audit as unknown as AuditService,
+    events as unknown as DomainEventBus,
+    notifications as unknown as NotificationService,
+  );
   service.registerHandler(handler);
   return {
     service,
+    chain,
     repo,
     audit,
     events,
@@ -141,6 +175,7 @@ describe('ApprovalService.submit', () => {
     expect(JSON.stringify(ctx.audit.record.mock.calls)).not.toContain('passwordHash');
     expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [{ resource: 'approval', kind: 'create', id: 'approval-1' }],
+      affectedUserIds: [],
     });
   });
 
@@ -215,6 +250,7 @@ describe('ApprovalService.approve', () => {
     });
     expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [{ resource: 'approval', kind: 'update', id: 'approval-1' }],
+      affectedUserIds: [],
     });
     const reviewOrder = ctx.repo.review.mock.invocationCallOrder[0]!;
     expect(reviewOrder).toBeLessThan(ctx.handler.apply.mock.invocationCallOrder[0]!);
@@ -262,7 +298,7 @@ describe('ApprovalService.approve', () => {
     expect(ctx.notifications.notify).not.toHaveBeenCalled();
   });
 
-  it('有申請人：在同一個交易內通知申請人核准結果，連到審批詳情', async () => {
+  it('有申請人：在同一個交易內通知申請人核准結果，連到「我的審批」（申請人通常沒有 approval:read）', async () => {
     const ctx = setup();
     ctx.repo.findById.mockResolvedValue(row({ requesterId: 'member-1' }));
     await ctx.service.approve('approval-1', { roleIds: [] }, REVIEWER);
@@ -272,7 +308,7 @@ describe('ApprovalService.approve', () => {
         recipientId: 'member-1',
         actorId: REVIEWER.id,
         params: { approvalType: 'user.register', subject: 'Alice', status: 'approved' },
-        link: { route: 'approval.detail', params: { approvalId: 'approval-1' } },
+        link: { route: 'approval.myDetail', params: { approvalId: 'approval-1' } },
       },
       ctx.tx,
     );
@@ -397,6 +433,7 @@ describe('ApprovalService.reject', () => {
     expect(ctx.handler.apply).not.toHaveBeenCalled();
     expect(ctx.events.publish).toHaveBeenCalledWith('resource.changed', {
       changes: [{ resource: 'approval', kind: 'update', id: 'approval-1' }],
+      affectedUserIds: [],
     });
     expect(ctx.jobs.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'approval.resultMail' }),

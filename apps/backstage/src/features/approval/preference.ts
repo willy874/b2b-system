@@ -14,6 +14,7 @@ export function registerApprovalPreferences(): void {
       type: 'approval.field.type',
       requesterName: 'approval.field.requester',
       status: 'approval.field.status',
+      progress: 'approval.field.progress',
       createdAt: 'approval.field.createdAt',
       reviewerName: 'approval.field.reviewer',
       reviewedAt: 'approval.field.reviewedAt',

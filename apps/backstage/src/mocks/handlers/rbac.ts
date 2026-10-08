@@ -264,8 +264,21 @@ export const rbacHandlers = [
   ),
   http.get(`${MOCK_API_BASE}/approvals/:id`, ({ params }) => {
     const approval = APPROVAL_FIXTURES.find((item) => item.id === params.id);
+    // 詳情多帶關卡與目前的登入者能做什麼（docs/architecture/backend/20-approval.md §9.13）；mock 只有單關請求
     return approval
-      ? HttpResponse.json({ data: approval })
+      ? HttpResponse.json({
+          data: {
+            ...approval,
+            steps: [],
+            viewer: {
+              canDecide: false,
+              canOverride: false,
+              canReviewSingle:
+                approval.status === 'pending' && mockState.permissions.includes('approval:review'),
+              canWithdraw: false,
+            },
+          },
+        })
       : HttpResponse.json(
           { error: { code: 'APPROVAL_NOT_FOUND', message: 'not found' } },
           { status: 404 },

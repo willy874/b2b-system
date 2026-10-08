@@ -17,9 +17,24 @@ import type {
   AnnouncementTriggerEventList,
   ApiToken,
   ApiTokenList,
+  ApprovalAssigneeRule,
+  ApprovalAssigneeStatus,
+  ApprovalCandidate,
+  ApprovalCondition,
+  ApprovalConditionField,
+  ApprovalDecision,
+  ApprovalFlow,
+  ApprovalFlowList,
+  ApprovalFlowPreview,
+  ApprovalFlowStep,
+  ApprovalFlowStepInput,
   ApprovalRequest,
+  ApprovalRequestDetail,
   ApprovalStatus,
+  ApprovalStep,
+  ApprovalStepStatus,
   ApprovalType,
+  ApprovalViewer,
   ApproveApprovalRequest,
   AuditLog,
   AuditLogList,
@@ -38,6 +53,7 @@ import type {
   CreateGroupRequest,
   CreateIdentityProviderRequest,
   CreateImportRequest,
+  CreateOrgUnitRequest,
   CreatePlatformAdminRequest,
   CreateRoleRequest,
   CreateServiceAccountRequest,
@@ -65,6 +81,7 @@ import type {
   DataTransferRowIssue,
   DataTransferRowValidation,
   DataTransferTargetOptionList,
+  DecideApprovalStepRequest,
   DuplicateRoleRequest,
   EffectivePermission,
   EnsureFileFolderPathsRequest,
@@ -123,6 +140,7 @@ import type {
   MfaRecoveryCodes,
   MoveFileItemsRequest,
   MoveFileItemsResult,
+  MoveOrgUnitRequest,
   Notification,
   NotificationChannel,
   NotificationEvent,
@@ -137,6 +155,12 @@ import type {
   NotificationPreferenceList,
   NotificationReadAllResult,
   NotificationUnreadCount,
+  OrgUnit,
+  OrgUnitDetail,
+  OrgUnitMember,
+  OrgUnitPathItem,
+  OrgUnitTree,
+  OverrideApprovalStepRequest,
   Permission,
   PermissionCatalog,
   PermissionGroup,
@@ -159,8 +183,10 @@ import type {
   PlatformProfile,
   PlatformTenant,
   PlatformTenantList,
+  PreviewApprovalFlowRequest,
   Profile,
   PublicSystemSettings,
+  PutApprovalFlowRequest,
   RegisterRequest,
   RegisterResult,
   RejectApprovalRequest,
@@ -225,6 +251,8 @@ import type {
   UpdateMfaPolicyRequest,
   UpdateNotificationEventsRequest,
   UpdateNotificationPreferencesRequest,
+  UpdateOrgUnitMembersRequest,
+  UpdateOrgUnitRequest,
   UpdatePlatformAdminRequest,
   UpdatePlatformMfaMethodRequest,
   UpdatePlatformProfileRequest,
@@ -238,6 +266,8 @@ import type {
   UpdateUserRequest,
   UpdateWebhookRequest,
   User,
+  UserOrgUnit,
+  UserOrgUnits,
   UserRoles,
   UserStatus,
   ValidateImportRequest,
@@ -413,6 +443,7 @@ export const TrashResourceTypeSchema = z.enum([
   'file',
   'fileFolder',
   'announcement',
+  'orgUnit',
 ]) satisfies z.ZodType<TrashResourceType>;
 
 export const TrashItemSchema = z.object({
@@ -757,6 +788,7 @@ export const PermissionKeySchema = z.enum([
   'system:update',
   'approval:read',
   'approval:review',
+  'approval:override',
   'file:create',
   'file:read',
   'file:update',
@@ -795,6 +827,12 @@ export const PermissionKeySchema = z.enum([
   'announcement:publish',
   'mfaPolicy:read',
   'mfaPolicy:update',
+  'orgUnit:create',
+  'orgUnit:read',
+  'orgUnit:update',
+  'orgUnit:delete',
+  'approvalFlow:read',
+  'approvalFlow:update',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -1010,10 +1048,181 @@ export const WebhookTestResultSchema = z.object({
   items: z.array(WebhookDeliverySchema),
 }) satisfies z.ZodType<WebhookTestResult>;
 
+export const ApprovalAssigneeRuleSchema = z.union([
+  z.object({
+    kind: z.enum(['user']),
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+  }),
+  z.object({
+    kind: z.enum(['group']),
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+  }),
+  z.object({
+    kind: z.enum(['role']),
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+  }),
+  z.object({
+    kind: z.enum(['manager']),
+    level: z.int().min(1).max(5),
+  }),
+  z.object({
+    kind: z.enum(['orgUnit']),
+    id: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      ),
+  }),
+]) satisfies z.ZodType<ApprovalAssigneeRule>;
+
+export const ApprovalConditionSchema = z.object({
+  field: z.string().min(1).max(64),
+  op: z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in']),
+  value: z.union([
+    z.union([z.number(), z.string().max(200)]),
+    z
+      .array(z.union([z.number(), z.string().max(200)]))
+      .min(1)
+      .max(50),
+  ]),
+}) satisfies z.ZodType<ApprovalCondition>;
+
+export const ApprovalFlowStepInputSchema = z.object({
+  key: z.string().min(1).max(64).optional(),
+  name: z.string().min(1).max(64),
+  assignee: ApprovalAssigneeRuleSchema,
+  requiredApprovals: z.union([z.int().min(1).max(20), z.enum(['all'])]),
+  conditions: z.array(ApprovalConditionSchema).max(5).default([]),
+}) satisfies z.ZodType<ApprovalFlowStepInput>;
+
+export const PutApprovalFlowRequestSchema = z.object({
+  enabled: z.boolean(),
+  allowRepeatApprover: z.boolean().default(false),
+  steps: z.array(ApprovalFlowStepInputSchema).min(1).max(10),
+  version: z.int().min(1).max(9007199254740991).optional(),
+}) satisfies z.ZodType<PutApprovalFlowRequest>;
+
+export const ApprovalAssigneeStatusSchema = z.object({
+  label: z.string(),
+  available: z.boolean(),
+  deleted: z.boolean(),
+}) satisfies z.ZodType<ApprovalAssigneeStatus>;
+
+export const ApprovalFlowStepSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  assignee: ApprovalAssigneeRuleSchema,
+  assigneeStatus: ApprovalAssigneeStatusSchema,
+  requiredApprovals: z.union([
+    z.int().min(-9007199254740991).max(9007199254740991),
+    z.enum(['all']),
+  ]),
+  conditions: z.array(ApprovalConditionSchema),
+}) satisfies z.ZodType<ApprovalFlowStep>;
+
+export const ApprovalConditionFieldSchema = z.object({
+  key: z.string(),
+  type: z.enum(['number', 'string', 'enum']),
+  options: z.array(z.string()).nullable(),
+}) satisfies z.ZodType<ApprovalConditionField>;
+
+export const ApprovalFlowSchema = z.object({
+  type: z.string(),
+  requester: z.enum(['user', 'anonymous']),
+  fields: z.array(ApprovalConditionFieldSchema),
+  flow: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      enabled: z.boolean(),
+      allowRepeatApprover: z.boolean(),
+      steps: z.array(ApprovalFlowStepSchema),
+      version: z.int().min(-9007199254740991).max(9007199254740991),
+      updatedAt: z.string(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<ApprovalFlow>;
+
+export const ApprovalFlowListSchema = z.object({
+  items: z.array(ApprovalFlowSchema),
+  assigneeKinds: z.object({
+    user: z.boolean(),
+    group: z.boolean(),
+    role: z.boolean(),
+    manager: z.boolean(),
+    orgUnit: z.boolean(),
+  }),
+}) satisfies z.ZodType<ApprovalFlowList>;
+
+export const PreviewApprovalFlowRequestSchema = z.object({
+  steps: z.array(ApprovalFlowStepInputSchema).min(1).max(10).optional(),
+  allowRepeatApprover: z.boolean().optional(),
+  requesterId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+  fields: z.record(z.string(), z.union([z.number(), z.string()]).nullable()).default({}),
+}) satisfies z.ZodType<PreviewApprovalFlowRequest>;
+
+export const ApprovalCandidateSchema = z.object({
+  userId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+}) satisfies z.ZodType<ApprovalCandidate>;
+
+export const ApprovalFlowPreviewSchema = z.object({
+  steps: z.array(
+    z.object({
+      key: z.string(),
+      name: z.string(),
+      skipped: z.boolean(),
+      candidates: z.array(ApprovalCandidateSchema),
+      required: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+      shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+    }),
+  ),
+}) satisfies z.ZodType<ApprovalFlowPreview>;
+
 export const ApprovalStatusSchema = z.enum([
   'pending',
   'approved',
   'rejected',
+  'withdrawn',
 ]) satisfies z.ZodType<ApprovalStatus>;
 
 export const ApprovalTypeSchema = z.enum([
@@ -1054,9 +1263,151 @@ export const ApprovalRequestSchema = z.object({
   reviewComment: z.string().nullable(),
   reviewedAt: z.string().nullable(),
   resultResourceId: z.string().nullable(),
+  flowVersion: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  currentStep: z
+    .object({
+      ordinal: z.int().min(-9007199254740991).max(9007199254740991),
+      name: z.string(),
+      approvals: z.int().min(-9007199254740991).max(9007199254740991),
+      required: z.int().min(-9007199254740991).max(9007199254740991),
+      shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+    })
+    .nullable(),
+  stepCount: z.int().min(-9007199254740991).max(9007199254740991),
+  resubmittedFrom: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<ApprovalRequest>;
+
+export const ApprovalStepStatusSchema = z.enum([
+  'waiting',
+  'active',
+  'approved',
+  'rejected',
+  'skipped',
+  'cancelled',
+]) satisfies z.ZodType<ApprovalStepStatus>;
+
+export const ApprovalDecisionSchema = z.object({
+  reviewerId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  reviewerName: z.string(),
+  decision: z.enum(['approve', 'reject']),
+  via: z.enum(['assignee', 'override', 'legacy']),
+  comment: z.string().nullable(),
+  decidedAt: z.string(),
+}) satisfies z.ZodType<ApprovalDecision>;
+
+export const ApprovalStepSchema = z.object({
+  ordinal: z.int().min(-9007199254740991).max(9007199254740991),
+  key: z.string(),
+  name: z.string(),
+  assignee: z.intersection(
+    ApprovalAssigneeRuleSchema,
+    z.object({
+      label: z.string(),
+    }),
+  ),
+  requiredMode: z.enum(['count', 'all']),
+  required: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  status: ApprovalStepStatusSchema,
+  shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+  closeReason: z.enum(['rejected', 'withdrawn', 'chainDisabled', 'override']).nullable(),
+  conditions: z.array(ApprovalConditionSchema),
+  activatedAt: z.string().nullable(),
+  closedAt: z.string().nullable(),
+  candidates: z.array(
+    z.object({
+      userId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    }),
+  ),
+  decisions: z.array(ApprovalDecisionSchema),
+}) satisfies z.ZodType<ApprovalStep>;
+
+export const ApprovalViewerSchema = z.object({
+  canDecide: z.boolean(),
+  canOverride: z.boolean(),
+  canReviewSingle: z.boolean(),
+  canWithdraw: z.boolean(),
+}) satisfies z.ZodType<ApprovalViewer>;
+
+export const ApprovalRequestDetailSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  type: ApprovalTypeSchema,
+  status: ApprovalStatusSchema,
+  payload: z.record(z.string(), z.unknown()),
+  requesterId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  requesterName: z.string(),
+  reason: z.string().nullable(),
+  reviewerId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  reviewerName: z.string().nullable(),
+  reviewComment: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  resultResourceId: z.string().nullable(),
+  flowVersion: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  currentStep: z
+    .object({
+      ordinal: z.int().min(-9007199254740991).max(9007199254740991),
+      name: z.string(),
+      approvals: z.int().min(-9007199254740991).max(9007199254740991),
+      required: z.int().min(-9007199254740991).max(9007199254740991),
+      shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+    })
+    .nullable(),
+  stepCount: z.int().min(-9007199254740991).max(9007199254740991),
+  resubmittedFrom: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  steps: z.array(ApprovalStepSchema),
+  viewer: ApprovalViewerSchema,
+}) satisfies z.ZodType<ApprovalRequestDetail>;
 
 export const ApproveApprovalRequestSchema = z.object({
   comment: z.string().max(500).optional(),
@@ -1077,6 +1428,40 @@ export const ApproveApprovalRequestSchema = z.object({
 export const RejectApprovalRequestSchema = z.object({
   comment: z.string().max(500).optional(),
 }) satisfies z.ZodType<RejectApprovalRequest>;
+
+export const DecideApprovalStepRequestSchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+  comment: z.string().max(500).optional(),
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<DecideApprovalStepRequest>;
+
+export const OverrideApprovalStepRequestSchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+  comment: z.string().min(1).max(500),
+  roleIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<OverrideApprovalStepRequest>;
 
 export const AuditLogSummarySchema = z.object({
   id: z.string(),
@@ -1545,6 +1930,211 @@ export const DataTransferApplyRowListSchema = z.object({
   nextRowNo: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
 }) satisfies z.ZodType<DataTransferApplyRowList>;
 
+export const OrgUnitSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  name: z.string(),
+  code: z.string().nullable(),
+  description: z.string().nullable(),
+  sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
+  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
+  managerCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<OrgUnit>;
+
+export const OrgUnitPathItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+}) satisfies z.ZodType<OrgUnitPathItem>;
+
+export const OrgUnitDetailSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  name: z.string(),
+  code: z.string().nullable(),
+  description: z.string().nullable(),
+  sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
+  memberCount: z.int().min(-9007199254740991).max(9007199254740991),
+  managerCount: z.int().min(-9007199254740991).max(9007199254740991),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  path: z.array(OrgUnitPathItemSchema),
+}) satisfies z.ZodType<OrgUnitDetail>;
+
+export const OrgUnitTreeSchema = z.object({
+  items: z.array(OrgUnitSchema),
+}) satisfies z.ZodType<OrgUnitTree>;
+
+export const CreateOrgUnitRequestSchema = z.object({
+  name: z.string().min(1).max(64),
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+  code: z.string().min(1).max(32).regex(new RegExp('^[A-Za-z0-9._-]+$')).nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+}) satisfies z.ZodType<CreateOrgUnitRequest>;
+
+export const UpdateOrgUnitRequestSchema = z.object({
+  name: z.string().min(1).max(64).optional(),
+  code: z.string().min(1).max(32).regex(new RegExp('^[A-Za-z0-9._-]+$')).nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateOrgUnitRequest>;
+
+export const MoveOrgUnitRequestSchema = z.object({
+  parentId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  beforeId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<MoveOrgUnitRequest>;
+
+export const OrgUnitMemberSchema = z.object({
+  userId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  displayName: z.string(),
+  email: z.string(),
+  status: z.enum(['pending', 'active', 'inactive', 'locked']),
+  unitId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  unitName: z.string(),
+  isManager: z.boolean(),
+  isPrimary: z.boolean(),
+  title: z.string().nullable(),
+}) satisfies z.ZodType<OrgUnitMember>;
+
+export const UpdateOrgUnitMembersRequestSchema = z.object({
+  add: z
+    .array(
+      z.object({
+        userId: z
+          .uuid()
+          .regex(
+            new RegExp(
+              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+            ),
+          ),
+        isManager: z.boolean().optional(),
+        isPrimary: z.boolean().optional(),
+        title: z.string().max(64).nullable().optional(),
+      }),
+    )
+    .max(200)
+    .default([]),
+  update: z
+    .array(
+      z.object({
+        userId: z
+          .uuid()
+          .regex(
+            new RegExp(
+              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+            ),
+          ),
+        isManager: z.boolean().optional(),
+        isPrimary: z.boolean().optional(),
+        title: z.string().max(64).nullable().optional(),
+      }),
+    )
+    .max(200)
+    .default([]),
+  remove: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(200)
+    .default([]),
+}) satisfies z.ZodType<UpdateOrgUnitMembersRequest>;
+
+export const UserOrgUnitSchema = z.object({
+  unitId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  path: z.array(OrgUnitPathItemSchema),
+  isManager: z.boolean(),
+  isPrimary: z.boolean(),
+  title: z.string().nullable(),
+}) satisfies z.ZodType<UserOrgUnit>;
+
+export const UserOrgUnitsSchema = z.object({
+  items: z.array(UserOrgUnitSchema),
+}) satisfies z.ZodType<UserOrgUnits>;
+
 export const TagSummarySchema = z.object({
   id: z
     .uuid()
@@ -1977,6 +2567,8 @@ export const TenantFeatureSchema = z.enum([
   'externalApi',
   'group',
   'dataTransfer',
+  'organization',
+  'approvalChain',
 ]) satisfies z.ZodType<TenantFeature>;
 
 export const TenantFlagOverridesSchema = z.record(
@@ -2079,7 +2671,7 @@ export const CreateTenantRequestSchema = z.object({
 
 export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  features: z.array(TenantFeatureSchema).max(12).optional(),
+  features: z.array(TenantFeatureSchema).max(14).optional(),
   flags: TenantFlagOverridesSchema.optional(),
   mfaMethods: TenantMfaMethodOverridesSchema.optional(),
   featureParams: z
@@ -2099,6 +2691,11 @@ export const TenantFeatureImpactSchema = z.object({
         'groups',
         'groupMembers',
         'groupRoleGrants',
+        'orgUnits',
+        'orgUnitMembers',
+        'approvalFlowsUsingOrg',
+        'approvalFlows',
+        'approvalRequestsInChain',
       ]),
       count: z.int().min(0).max(9007199254740991),
     }),

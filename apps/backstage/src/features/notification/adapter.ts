@@ -92,10 +92,44 @@ export function describeNotification(
     case 'approval.pending': {
       const requester = stringParam(params, 'requesterName');
       if (!requester) return UNKNOWN;
+      // 多階段的關卡帶 stepName（docs/architecture/backend/20-approval.md §9.15）
+      const step = stringParam(params, 'stepName');
+      return {
+        message: step
+          ? {
+              key: NOTIFICATION_MESSAGE_KEY.approvalPendingStep,
+              args: {
+                requester: { text: requester },
+                type: approvalTypeLabel(params),
+                step: { text: step },
+              },
+            }
+          : {
+              key: NOTIFICATION_MESSAGE_KEY.approvalPending,
+              args: { requester: { text: requester }, type: approvalTypeLabel(params) },
+            },
+        details: subjectDetail(params),
+      };
+    }
+    case 'approval.progress': {
+      const step = stringParam(params, 'stepName');
+      const next = stringParam(params, 'nextStepName');
+      if (!step || !next) return UNKNOWN;
       return {
         message: {
-          key: NOTIFICATION_MESSAGE_KEY.approvalPending,
-          args: { requester: { text: requester }, type: approvalTypeLabel(params) },
+          key: NOTIFICATION_MESSAGE_KEY.approvalProgress,
+          args: { type: approvalTypeLabel(params), step: { text: step }, next: { text: next } },
+        },
+        details: subjectDetail(params),
+      };
+    }
+    case 'approval.unassigned': {
+      const step = stringParam(params, 'stepName');
+      if (!step) return UNKNOWN;
+      return {
+        message: {
+          key: NOTIFICATION_MESSAGE_KEY.approvalUnassigned,
+          args: { type: approvalTypeLabel(params), step: { text: step } },
         },
         details: subjectDetail(params),
       };

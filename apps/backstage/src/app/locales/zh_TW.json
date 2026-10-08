@@ -37,7 +37,10 @@
     "switchTenant": "切換租戶",
     "security": "安全性",
     "dataTransfer": "我的匯入匯出",
-    "userImport": "匯入使用者"
+    "userImport": "匯入使用者",
+    "organization": "組織",
+    "approvalFlow": "審批流程",
+    "myApproval": "我的審批"
   },
   "commandPalette": {
     "command": {
@@ -77,7 +80,9 @@
       "tag": "標籤",
       "notification": "站內通知",
       "announcement": "公告",
-      "mfaPolicy": "MFA 政策"
+      "mfaPolicy": "MFA 政策",
+      "orgUnit": "組織",
+      "approvalFlow": "審批流程"
     },
     "user": {
       "create": "建立使用者",
@@ -109,7 +114,8 @@
     },
     "approval": {
       "read": "檢視審批",
-      "review": "審核申請"
+      "review": "審核申請",
+      "override": "強制定案審批"
     },
     "file": {
       "create": "上傳檔案",
@@ -170,6 +176,16 @@
     "mfaPolicy": {
       "read": "檢視 MFA 政策",
       "update": "修改 MFA 政策"
+    },
+    "orgUnit": {
+      "create": "建立部門",
+      "read": "檢視組織",
+      "update": "編輯組織",
+      "delete": "刪除部門"
+    },
+    "approvalFlow": {
+      "read": "檢視審批流程",
+      "update": "設定審批流程"
     }
   },
   "validation": {

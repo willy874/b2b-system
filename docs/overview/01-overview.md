@@ -64,7 +64,8 @@
 | 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./05-feature-tour.md#23-群組) | [`iam/07-groups.md`](../architecture/iam/07-groups.md) |
 | 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.4](./05-feature-tour.md#24-權限目錄與有效權限) | [`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md)、[`iam/08-explain.md`](../architecture/iam/08-explain.md) |
 | 服務帳號與 API token | 個人與服務帳號的 token（scopes、到期、撤銷）、對外 API | [§2.5](./05-feature-tour.md#25-服務帳號與-api-token) | [`06-external-api.md`](../architecture/06-external-api.md) |
-| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則 | [§3.2](./05-feature-tour.md#32-審批) | [`backend/20-approval.md`](../architecture/backend/20-approval.md) |
+| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則；多階段流程（依序多關、會簽、條件分流、申請人的主管）、我的審批與撤回 | [§3.2](./05-feature-tour.md#32-審批) | [`backend/20-approval.md`](../architecture/backend/20-approval.md) |
+| 組織 | 部門樹、成員與主要部門、主管；使用者依部門篩選 | — | [`backend/23-organization.md`](../architecture/backend/23-organization.md) |
 
 ### 3.2 資料與內容
 
@@ -102,7 +103,7 @@
 
 - 任何特定領域的業務功能——本 repo 只提供骨架。
 - LDAP、SAML（OIDC 的外部 IdP 已支援）。
-- 還沒做、但已有提案的功能（匯入匯出、留言與關注、多階段審批、租戶用量、多實例部署）列在
+- 還沒做、但已有提案的功能（留言與關注、租戶用量、多實例部署）列在
   [`features/README.md`](../features/README.md)。
 
 ---

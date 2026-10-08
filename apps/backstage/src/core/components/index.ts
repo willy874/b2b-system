@@ -2,5 +2,6 @@
 // （`@/core/components/<元件>`），否則整個 barrel 連同 Table、Select 會進 entry chunk。
 export * from './ApiToken';
 export * from './ExplainPath';
+export * from './OrgUnitPicker';
 export * from './Tag';
 export * from './VersionConflictAlert';

@@ -146,9 +146,10 @@ docs/
 │       ├── 17-webhook.md              Webhook：對外事件的目錄、訂閱、投遞與重試、簽章、SSRF 防護（core/http/outbound）
 │       ├── 18-tag.md                  標籤：標籤組與資源類型的登記、指派、篩選、清理
 │       ├── 19-announcement.md         公告：受眾、立即與排程發送、撤回、讀全文
-│       ├── 20-approval.md             審批：請求 → 核准 → 套用；類型 handler；使用者註冊、資料夾存取申請
+│       ├── 20-approval.md             審批：請求 → 核准 → 套用；類型 handler；使用者註冊、資料夾存取申請；多階段流程
 │       ├── 21-mfa.md                  MFA：MfaMethod 介面與註冊表、TOTP 與 Email、登入的第二步、平台開關與租戶政策
-│       └── 22-data-transfer.md        匯入／匯出：資源登記、CSV／XLSX／JSON／YAML／SQL 匯出、分析與驗證、逐列交易的套用、清理
+│       ├── 22-data-transfer.md        匯入／匯出：資源登記、CSV／XLSX／JSON／YAML／SQL 匯出、分析與驗證、逐列交易的套用、清理
+│       └── 23-organization.md         組織管理：部門樹、成員、主管的解析
 │
 ├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）

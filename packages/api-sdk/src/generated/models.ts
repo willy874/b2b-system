@@ -121,6 +121,7 @@ export const TrashResourceType = {
   file: 'file',
   fileFolder: 'fileFolder',
   announcement: 'announcement',
+  orgUnit: 'orgUnit',
 } as const;
 export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
 
@@ -308,6 +309,7 @@ export const PermissionKey = {
   'system:update': 'system:update',
   'approval:read': 'approval:read',
   'approval:review': 'approval:review',
+  'approval:override': 'approval:override',
   'file:create': 'file:create',
   'file:read': 'file:read',
   'file:update': 'file:update',
@@ -346,6 +348,12 @@ export const PermissionKey = {
   'announcement:publish': 'announcement:publish',
   'mfaPolicy:read': 'mfaPolicy:read',
   'mfaPolicy:update': 'mfaPolicy:update',
+  'orgUnit:create': 'orgUnit:create',
+  'orgUnit:read': 'orgUnit:read',
+  'orgUnit:update': 'orgUnit:update',
+  'orgUnit:delete': 'orgUnit:delete',
+  'approvalFlow:read': 'approvalFlow:read',
+  'approvalFlow:update': 'approvalFlow:update',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -493,10 +501,123 @@ export interface WebhookTestResult {
   items: Array<WebhookDelivery>;
 }
 
+export type ApprovalAssigneeRule =
+  | {
+      kind: 'user';
+      id: string;
+    }
+  | {
+      kind: 'group';
+      id: string;
+    }
+  | {
+      kind: 'role';
+      id: string;
+    }
+  | {
+      kind: 'manager';
+      level: number;
+    }
+  | {
+      kind: 'orgUnit';
+      id: string;
+    };
+
+export interface ApprovalCondition {
+  field: string;
+  op: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in';
+  value: (number | string) | Array<number | string>;
+}
+
+export interface ApprovalFlowStepInput {
+  key?: string;
+  name: string;
+  assignee: ApprovalAssigneeRule;
+  requiredApprovals: number | 'all';
+  conditions: Array<ApprovalCondition>;
+}
+
+export interface PutApprovalFlowRequest {
+  enabled: boolean;
+  allowRepeatApprover: boolean;
+  steps: Array<ApprovalFlowStepInput>;
+  version?: number;
+}
+
+export interface ApprovalAssigneeStatus {
+  label: string;
+  available: boolean;
+  deleted: boolean;
+}
+
+export interface ApprovalFlowStep {
+  key: string;
+  name: string;
+  assignee: ApprovalAssigneeRule;
+  assigneeStatus: ApprovalAssigneeStatus;
+  requiredApprovals: number | 'all';
+  conditions: Array<ApprovalCondition>;
+}
+
+export interface ApprovalConditionField {
+  key: string;
+  type: 'number' | 'string' | 'enum';
+  options: Array<string> | null;
+}
+
+export interface ApprovalFlow {
+  type: string;
+  requester: 'user' | 'anonymous';
+  fields: Array<ApprovalConditionField>;
+  flow: {
+    id: string;
+    enabled: boolean;
+    allowRepeatApprover: boolean;
+    steps: Array<ApprovalFlowStep>;
+    version: number;
+    updatedAt: string;
+  } | null;
+}
+
+export interface ApprovalFlowList {
+  items: Array<ApprovalFlow>;
+  assigneeKinds: {
+    user: boolean;
+    group: boolean;
+    role: boolean;
+    manager: boolean;
+    orgUnit: boolean;
+  };
+}
+
+export interface PreviewApprovalFlowRequest {
+  steps?: Array<ApprovalFlowStepInput>;
+  allowRepeatApprover?: boolean;
+  requesterId?: string | null;
+  fields: Record<string, (number | string) | null>;
+}
+
+export interface ApprovalCandidate {
+  userId: string;
+  name: string;
+}
+
+export interface ApprovalFlowPreview {
+  steps: Array<{
+    key: string;
+    name: string;
+    skipped: boolean;
+    candidates: Array<ApprovalCandidate>;
+    required: number | null;
+    shortage: ('noCandidate' | 'insufficient') | null;
+  }>;
+}
+
 export const ApprovalStatus = {
   pending: 'pending',
   approved: 'approved',
   rejected: 'rejected',
+  withdrawn: 'withdrawn',
 } as const;
 export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
 
@@ -519,8 +640,95 @@ export interface ApprovalRequest {
   reviewComment: string | null;
   reviewedAt: string | null;
   resultResourceId: string | null;
+  flowVersion: number | null;
+  currentStep: {
+    ordinal: number;
+    name: string;
+    approvals: number;
+    required: number;
+    shortage: ('noCandidate' | 'insufficient') | null;
+  } | null;
+  stepCount: number;
+  resubmittedFrom: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export const ApprovalStepStatus = {
+  waiting: 'waiting',
+  active: 'active',
+  approved: 'approved',
+  rejected: 'rejected',
+  skipped: 'skipped',
+  cancelled: 'cancelled',
+} as const;
+export type ApprovalStepStatus = (typeof ApprovalStepStatus)[keyof typeof ApprovalStepStatus];
+
+export interface ApprovalDecision {
+  reviewerId: string | null;
+  reviewerName: string;
+  decision: 'approve' | 'reject';
+  via: 'assignee' | 'override' | 'legacy';
+  comment: string | null;
+  decidedAt: string;
+}
+
+export interface ApprovalStep {
+  ordinal: number;
+  key: string;
+  name: string;
+  assignee: ApprovalAssigneeRule & {
+    label: string;
+  };
+  requiredMode: 'count' | 'all';
+  required: number | null;
+  status: ApprovalStepStatus;
+  shortage: ('noCandidate' | 'insufficient') | null;
+  closeReason: ('rejected' | 'withdrawn' | 'chainDisabled' | 'override') | null;
+  conditions: Array<ApprovalCondition>;
+  activatedAt: string | null;
+  closedAt: string | null;
+  candidates: Array<{
+    userId: string;
+    name: string;
+  }>;
+  decisions: Array<ApprovalDecision>;
+}
+
+export interface ApprovalViewer {
+  canDecide: boolean;
+  canOverride: boolean;
+  canReviewSingle: boolean;
+  canWithdraw: boolean;
+}
+
+export interface ApprovalRequestDetail {
+  id: string;
+  type: ApprovalType;
+  status: ApprovalStatus;
+  payload: Record<string, unknown>;
+  requesterId: string | null;
+  requesterName: string;
+  reason: string | null;
+  reviewerId: string | null;
+  reviewerName: string | null;
+  reviewComment: string | null;
+  reviewedAt: string | null;
+  resultResourceId: string | null;
+  flowVersion: number | null;
+  currentStep: {
+    ordinal: number;
+    name: string;
+    approvals: number;
+    required: number;
+    shortage: ('noCandidate' | 'insufficient') | null;
+  } | null;
+  stepCount: number;
+  resubmittedFrom: string | null;
+  createdAt: string;
+  updatedAt: string;
+  steps: Array<ApprovalStep>;
+  viewer: ApprovalViewer;
 }
 
 export interface ApproveApprovalRequest {
@@ -530,6 +738,18 @@ export interface ApproveApprovalRequest {
 
 export interface RejectApprovalRequest {
   comment?: string;
+}
+
+export interface DecideApprovalStepRequest {
+  decision: 'approve' | 'reject';
+  comment?: string;
+  roleIds: Array<string>;
+}
+
+export interface OverrideApprovalStepRequest {
+  decision: 'approve' | 'reject';
+  comment: string;
+  roleIds: Array<string>;
 }
 
 export interface AuditLogSummary {
@@ -897,6 +1117,105 @@ export interface DataTransferApplyRowList {
   nextRowNo: number | null;
 }
 
+export interface OrgUnit {
+  id: string;
+  parentId: string | null;
+  name: string;
+  code: string | null;
+  description: string | null;
+  sortOrder: number;
+  memberCount: number;
+  managerCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrgUnitPathItem {
+  id: string;
+  name: string;
+}
+
+export interface OrgUnitDetail {
+  id: string;
+  parentId: string | null;
+  name: string;
+  code: string | null;
+  description: string | null;
+  sortOrder: number;
+  memberCount: number;
+  managerCount: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  path: Array<OrgUnitPathItem>;
+}
+
+export interface OrgUnitTree {
+  items: Array<OrgUnit>;
+}
+
+export interface CreateOrgUnitRequest {
+  name: string;
+  parentId?: string | null;
+  code?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateOrgUnitRequest {
+  name?: string;
+  code?: string | null;
+  description?: string | null;
+  version: number;
+}
+
+export interface MoveOrgUnitRequest {
+  parentId: string | null;
+  beforeId?: string | null;
+  version: number;
+}
+
+export interface OrgUnitMember {
+  userId: string;
+  displayName: string;
+  email: string;
+  status: 'pending' | 'active' | 'inactive' | 'locked';
+  unitId: string;
+  unitName: string;
+  isManager: boolean;
+  isPrimary: boolean;
+  title: string | null;
+}
+
+export interface UpdateOrgUnitMembersRequest {
+  add: Array<{
+    userId: string;
+    isManager?: boolean;
+    isPrimary?: boolean;
+    title?: string | null;
+  }>;
+  update: Array<{
+    userId: string;
+    isManager?: boolean;
+    isPrimary?: boolean;
+    title?: string | null;
+  }>;
+  remove: Array<string>;
+}
+
+export interface UserOrgUnit {
+  unitId: string;
+  name: string;
+  path: Array<OrgUnitPathItem>;
+  isManager: boolean;
+  isPrimary: boolean;
+  title: string | null;
+}
+
+export interface UserOrgUnits {
+  items: Array<UserOrgUnit>;
+}
+
 export interface TagSummary {
   id: string;
   name: string;
@@ -1181,6 +1500,8 @@ export const TenantFeature = {
   externalApi: 'externalApi',
   group: 'group',
   dataTransfer: 'dataTransfer',
+  organization: 'organization',
+  approvalChain: 'approvalChain',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -1272,7 +1593,12 @@ export interface TenantFeatureImpact {
       | 'passwordlessExternalUsers'
       | 'groups'
       | 'groupMembers'
-      | 'groupRoleGrants';
+      | 'groupRoleGrants'
+      | 'orgUnits'
+      | 'orgUnitMembers'
+      | 'approvalFlowsUsingOrg'
+      | 'approvalFlows'
+      | 'approvalRequestsInChain';
     count: number;
   }>;
 }

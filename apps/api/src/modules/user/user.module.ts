@@ -8,6 +8,7 @@ import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
 import { NotificationEventCatalog } from '@/modules/notification/notification-event.catalog';
 import { NotificationModule } from '@/modules/notification/notification.module';
+import { OrganizationModule } from '@/modules/organization/organization.module';
 import { TagModule } from '@/modules/tag/tag.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 import { WebhookEventCatalog } from '@/modules/webhook/webhook-event.catalog';
@@ -39,6 +40,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     TagModule,
     AnnouncementModule,
     DataTransferModule,
+    OrganizationModule,
   ],
   // 對外 API 的 controller 也在這裡，另一邊由 SurfaceGuard 回 404（docs/architecture/06-external-api.md §9.2 D11）
   controllers: [UserController, UserExternalController],

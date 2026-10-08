@@ -6,17 +6,28 @@ import { z } from 'zod';
 import type {
   ApprovalControllerApproveInput,
   ApprovalControllerApproveResult,
+  ApprovalControllerDecideInput,
+  ApprovalControllerDecideResult,
   ApprovalControllerFindOneInput,
   ApprovalControllerFindOneResult,
   ApprovalControllerListResult,
+  ApprovalControllerOverrideInput,
+  ApprovalControllerOverrideResult,
+  ApprovalControllerRefreshInput,
+  ApprovalControllerRefreshResult,
   ApprovalControllerRejectInput,
   ApprovalControllerRejectResult,
+  ApprovalControllerWithdrawInput,
+  ApprovalControllerWithdrawResult,
 } from '../../endpoints/approvals';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
+  ApprovalRequestDetailSchema,
   ApprovalRequestSchema,
   ApproveApprovalRequestSchema,
+  DecideApprovalStepRequestSchema,
+  OverrideApprovalStepRequestSchema,
   RejectApprovalRequestSchema,
 } from '../components';
 
@@ -45,7 +56,7 @@ const approvalControllerListOperation: OperationDefinition = {
   schemas: ApprovalControllerListSchemas,
 };
 
-/** 審批請求列表 */
+/** 審批請求列表（全部／待我審核／我送出的） */
 export function approvalControllerList(
   options?: RequestOptions,
 ): Promise<ApprovalControllerListResult> {
@@ -60,7 +71,7 @@ export const ApprovalControllerFindOneSchemas = {
   }),
   responses: {
     200: z.object({
-      data: ApprovalRequestSchema,
+      data: ApprovalRequestDetailSchema,
     }),
   },
 } satisfies OperationSchemas;
@@ -150,4 +161,141 @@ export function approvalControllerReject(
   options?: RequestOptions,
 ): Promise<ApprovalControllerRejectResult> {
   return request<ApprovalControllerRejectResult>(approvalControllerRejectOperation, input, options);
+}
+
+// POST /approvals/{id}/withdraw
+
+export const ApprovalControllerWithdrawSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: ApprovalRequestDetailSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const approvalControllerWithdrawOperation: OperationDefinition = {
+  id: 'ApprovalController_withdraw',
+  method: 'POST',
+  path: '/approvals/{id}/withdraw',
+  responseTypes: { 200: 'json' },
+  schemas: ApprovalControllerWithdrawSchemas,
+};
+
+/** 撤回自己送出的申請 */
+export function approvalControllerWithdraw(
+  input: ApprovalControllerWithdrawInput,
+  options?: RequestOptions,
+): Promise<ApprovalControllerWithdrawResult> {
+  return request<ApprovalControllerWithdrawResult>(
+    approvalControllerWithdrawOperation,
+    input,
+    options,
+  );
+}
+
+// POST /approvals/{id}/steps/{ordinal}/decisions
+
+export const ApprovalControllerDecideSchemas = {
+  path: z.object({
+    id: z.string(),
+    ordinal: z.number(),
+  }),
+  body: DecideApprovalStepRequestSchema,
+  responses: {
+    200: z.object({
+      data: ApprovalRequestDetailSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const approvalControllerDecideOperation: OperationDefinition = {
+  id: 'ApprovalController_decide',
+  method: 'POST',
+  path: '/approvals/{id}/steps/{ordinal}/decisions',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: ApprovalControllerDecideSchemas,
+};
+
+/** 在目前的關卡同意或駁回 */
+export function approvalControllerDecide(
+  input: ApprovalControllerDecideInput,
+  options?: RequestOptions,
+): Promise<ApprovalControllerDecideResult> {
+  return request<ApprovalControllerDecideResult>(approvalControllerDecideOperation, input, options);
+}
+
+// POST /approvals/{id}/steps/{ordinal}/override
+
+export const ApprovalControllerOverrideSchemas = {
+  path: z.object({
+    id: z.string(),
+    ordinal: z.number(),
+  }),
+  body: OverrideApprovalStepRequestSchema,
+  responses: {
+    200: z.object({
+      data: ApprovalRequestDetailSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const approvalControllerOverrideOperation: OperationDefinition = {
+  id: 'ApprovalController_override',
+  method: 'POST',
+  path: '/approvals/{id}/steps/{ordinal}/override',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: ApprovalControllerOverrideSchemas,
+};
+
+/** 強制定案目前的關卡 */
+export function approvalControllerOverride(
+  input: ApprovalControllerOverrideInput,
+  options?: RequestOptions,
+): Promise<ApprovalControllerOverrideResult> {
+  return request<ApprovalControllerOverrideResult>(
+    approvalControllerOverrideOperation,
+    input,
+    options,
+  );
+}
+
+// POST /approvals/{id}/steps/{ordinal}/refresh
+
+export const ApprovalControllerRefreshSchemas = {
+  path: z.object({
+    id: z.string(),
+    ordinal: z.number(),
+  }),
+  responses: {
+    200: z.object({
+      data: ApprovalRequestDetailSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const approvalControllerRefreshOperation: OperationDefinition = {
+  id: 'ApprovalController_refresh',
+  method: 'POST',
+  path: '/approvals/{id}/steps/{ordinal}/refresh',
+  responseTypes: { 200: 'json' },
+  schemas: ApprovalControllerRefreshSchemas,
+};
+
+/** 重新展開目前關卡的審核者 */
+export function approvalControllerRefresh(
+  input: ApprovalControllerRefreshInput,
+  options?: RequestOptions,
+): Promise<ApprovalControllerRefreshResult> {
+  return request<ApprovalControllerRefreshResult>(
+    approvalControllerRefreshOperation,
+    input,
+    options,
+  );
 }

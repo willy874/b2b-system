@@ -21,6 +21,8 @@ export type ApprovalPendingParams = {
   requesterName: string;
   /** 一行摘要（由該類型的 handler 提供：註冊是顯示名稱、資料夾存取是資料夾名稱）。 */
   subject: string;
+  /** 多階段：輪到的關卡名稱（docs/architecture/backend/20-approval.md §9.15）；單關請求沒有。 */
+  stepName?: string;
 };
 
 export const APPROVAL_PENDING_NOTIFICATION = defineNotification<ApprovalPendingParams>(
@@ -43,13 +45,51 @@ export const APPROVAL_RESULT_NOTIFICATION = defineNotification<ApprovalResultPar
   { category: 'approval', channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL] },
 );
 
+/** 多階段：一關通過、往下一關（給申請人；docs/architecture/backend/20-approval.md §9.15）。 */
+export type ApprovalProgressParams = {
+  approvalType: ApprovalType;
+  subject: string;
+  /** 剛通過的關卡。 */
+  stepName: string;
+  /** 接下來的關卡。 */
+  nextStepName: string;
+};
+
+export const APPROVAL_PROGRESS_NOTIFICATION = defineNotification<ApprovalProgressParams>(
+  'approval.progress',
+  { category: 'approval', channels: [NotificationChannel.IN_APP], feature: 'approvalChain' },
+);
+
+/** 多階段：關卡啟動時找不到（足夠的）審核者，給持有 `approval:override` 的人（D9）。 */
+export type ApprovalUnassignedParams = {
+  approvalType: ApprovalType;
+  subject: string;
+  stepName: string;
+  shortage: 'noCandidate' | 'insufficient';
+};
+
+export const APPROVAL_UNASSIGNED_NOTIFICATION = defineNotification<ApprovalUnassignedParams>(
+  'approval.unassigned',
+  { category: 'approval', channels: [NotificationChannel.IN_APP], feature: 'approvalChain' },
+);
+
 /** `ApprovalModule` 登記進事件目錄的類型。 */
 export const APPROVAL_NOTIFICATIONS: readonly AnyNotificationType[] = [
   APPROVAL_PENDING_NOTIFICATION,
   APPROVAL_RESULT_NOTIFICATION,
+  APPROVAL_PROGRESS_NOTIFICATION,
+  APPROVAL_UNASSIGNED_NOTIFICATION,
 ];
 
-/** 審批詳情（前端 `/approval/$approvalId`）。 */
+/** 審批詳情（前端 `/approval/$approvalId`；需要 `approval:read`）。 */
 export function approvalDetailLink(approvalId: string): NotificationLink {
   return { route: 'approval.detail', params: { approvalId } };
+}
+
+/**
+ * 「我的審批」的詳情（前端 `/my-approvals/$approvalId`）：申請人與關卡的審核者沒有 `approval:read` 也打得開
+ * （docs/architecture/backend/20-approval.md §9.10）。
+ */
+export function approvalTaskLink(approvalId: string): NotificationLink {
+  return { route: 'approval.myDetail', params: { approvalId } };
 }

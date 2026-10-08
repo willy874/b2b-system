@@ -18,6 +18,15 @@ export class ApprovalHandlerRegistry {
     this.handlers.set(handler.type, handler);
   }
 
+  /** 不在登記裡回 undefined（流程設定的路徑參數由使用者輸入）。 */
+  find(type: string): ApprovalHandler | undefined {
+    return this.handlers.get(type as ApprovalType);
+  }
+
+  all(): ApprovalHandler[] {
+    return [...this.handlers.values()];
+  }
+
   /** 找不到代表資料庫裡有程式不認識的類型（例：回滾版本），屬於部署問題而非使用者錯誤。 */
   get(type: string): ApprovalHandler {
     const handler = this.handlers.get(type as ApprovalType);

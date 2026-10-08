@@ -6,7 +6,9 @@ import { useMemo } from 'react';
 
 import { fetchApprovalListQuery } from '@/apis/approval/get-approval-list/fetcher';
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
+import { useIsFeatureReady } from '@/core/feature';
 
+import { APPROVAL_CHAIN_FEATURE } from '../../constants';
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
 import { APPROVAL_LIST_TABLE_ID } from '../../preference';
 import { ApprovalDetailRoute } from '../../routes';
@@ -37,14 +39,16 @@ export default function ApprovalListPage() {
     getApprovalListQueryOptions({ params: listParams }),
   );
 
-  // 只依賴 adapter 用到的布林值：與資料、這兩個權限無關的重繪不重建列
+  // 只依賴 adapter 用到的布林值：與資料、這幾個條件無關的重繪不重建列
   const { canReview, canApproveRegistration } = permission;
+  const chainEnabled = useIsFeatureReady(APPROVAL_CHAIN_FEATURE);
+  const facade = useMemo(
+    () => ({ canReview, canApproveRegistration, chainEnabled }),
+    [canReview, canApproveRegistration, chainEnabled],
+  );
   const rows = useMemo(
-    () =>
-      (data?.items ?? []).map((item) =>
-        toApprovalRowVM(item, { canReview, canApproveRegistration }),
-      ),
-    [data, canReview, canApproveRegistration],
+    () => (data?.items ?? []).map((item) => toApprovalRowVM(item, facade)),
+    [data, facade],
   );
   const selection = useTableSelection(rows, getRowId);
   // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
@@ -96,9 +100,7 @@ export default function ApprovalListPage() {
                 signal,
               });
               return {
-                items: page.items.map((item) =>
-                  toApprovalRowVM(item, { canReview, canApproveRegistration }),
-                ),
+                items: page.items.map((item) => toApprovalRowVM(item, facade)),
                 total: page.pagination.total,
               };
             },

@@ -75,6 +75,8 @@ export const TENANT_FEATURE_LABEL_KEY = {
   externalApi: 'tenant.feature.externalApi',
   group: 'tenant.feature.group',
   dataTransfer: 'tenant.feature.dataTransfer',
+  organization: 'tenant.feature.organization',
+  approvalChain: 'tenant.feature.approvalChain',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
@@ -90,6 +92,8 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
   externalApi: 'tenant.feature.externalApiDescription',
   group: 'tenant.feature.groupDescription',
   dataTransfer: 'tenant.feature.dataTransferDescription',
+  organization: 'tenant.feature.organizationDescription',
+  approvalChain: 'tenant.feature.approvalChainDescription',
 } as const satisfies Record<TenantFeature, string>;
 
 /**
@@ -101,6 +105,8 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   announcement: 'tenant.feature.announcementDisableWarning',
   externalApi: 'tenant.feature.externalApiDisableWarning',
   group: 'tenant.feature.groupDisableWarning',
+  organization: 'tenant.feature.organizationDisableWarning',
+  approvalChain: 'tenant.feature.approvalChainDisableWarning',
 };
 
 /** 關閉 feature 會影響的項目（`GET /platform/tenants/:id/features/:feature/impact`）。 */
@@ -111,6 +117,11 @@ export const TENANT_FEATURE_IMPACT_LABEL_KEY = {
   groups: 'tenant.feature.impact.groups',
   groupMembers: 'tenant.feature.impact.groupMembers',
   groupRoleGrants: 'tenant.feature.impact.groupRoleGrants',
+  orgUnits: 'tenant.feature.impact.orgUnits',
+  orgUnitMembers: 'tenant.feature.impact.orgUnitMembers',
+  approvalFlowsUsingOrg: 'tenant.feature.impact.approvalFlowsUsingOrg',
+  approvalFlows: 'tenant.feature.impact.approvalFlows',
+  approvalRequestsInChain: 'tenant.feature.impact.approvalRequestsInChain',
 } as const satisfies Record<TenantFeatureImpact['items'][number]['key'], string>;
 
 /**

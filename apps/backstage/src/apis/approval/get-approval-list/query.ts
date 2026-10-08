@@ -10,6 +10,7 @@ export const APPROVAL_LIST_QUERY_KEY = 'APPROVAL_LIST_QUERY_KEY';
 const getApprovalListQueryKeys = (params: ApprovalListParams) =>
   [
     APPROVAL_LIST_QUERY_KEY,
+    params.scope ?? 'all',
     params.offset,
     params.limit,
     params.keyword,

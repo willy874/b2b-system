@@ -30,7 +30,10 @@
       "webhookDisabled_one": "Webhook \"{{name}}\" failed {{count}} time in a row and was turned off",
       "webhookDisabled_other": "Webhook \"{{name}}\" failed {{count}} times in a row and was turned off",
       "unknown": "You have a new notification",
-      "announcementPublished": "Announcement: {{title}}"
+      "announcementPublished": "Announcement: {{title}}",
+      "approvalPendingStep": "{{requester}}'s {{type}} request reached \"{{step}}\" and is waiting for your review",
+      "approvalProgress": "Your {{type}} request passed \"{{step}}\"; next is \"{{next}}\"",
+      "approvalUnassigned": "\"{{step}}\" of a {{type}} request has no (or too few) reviewers and needs attention"
     },
     "detail": {
       "subject": "{{subject}}",
@@ -72,8 +75,8 @@
       "type": {
         "approvalPending": {
           "name": "Request awaiting review",
-          "description": "Notifies reviewers when someone submits a request (account registration, folder access).",
-          "recipients": "People holding the “Review requests” permission at submission (excluding the requester)"
+          "description": "Notifies reviewers when someone submits a request or a multi-step request reaches their step.",
+          "recipients": "Single step: people with \"Review requests\" at submission (except the requester); multi-step: the reviewers of that step"
         },
         "approvalResult": {
           "name": "Request reviewed",
@@ -94,6 +97,16 @@
           "name": "Announcements",
           "description": "Announcements sent by admins, now or on a schedule. Open the notification to read the full text.",
           "recipients": "The announcement's selected recipients"
+        },
+        "approvalProgress": {
+          "name": "Request progress",
+          "description": "Notifies the requester when a multi-step request passes a step.",
+          "recipients": "The requester"
+        },
+        "approvalUnassigned": {
+          "name": "No reviewers for an approval step",
+          "description": "A step of a multi-step request found no (or too few) reviewers by its rule.",
+          "recipients": "People with \"Override approvals\""
         }
       }
     },

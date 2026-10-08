@@ -22,7 +22,7 @@ export function ApprovalReviewForm({ approval, review, roleOptions }: ApprovalRe
   const { t } = useTranslation();
   const access = useApprovalReviewAccess(approval);
 
-  if (!access.visible) return null;
+  if (!access.showComment) return null;
 
   return (
     <section className="flex flex-col gap-4" data-testid="approval-review-form">
@@ -61,7 +61,7 @@ export function ApprovalReviewForm({ approval, review, roleOptions }: ApprovalRe
         />
       </Field>
 
-      {!access.canApprove && (
+      {access.visible && !access.canApprove && (
         <p className="m-0 text-xs text-[var(--color-fg-muted)]" data-testid="approval-approve-hint">
           {t('approval.review.missingCreatePermission')}
         </p>

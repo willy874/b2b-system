@@ -71,18 +71,96 @@
       "reason": "申請理由",
       "email": "Email",
       "displayName": "顯示名稱",
-      "emailUnverified": "尚未驗證"
+      "emailUnverified": "尚未驗證",
+      "progress": "進度"
     },
     "status": {
       "all": "全部狀態",
       "pending": "待審核",
       "approved": "已核准",
-      "rejected": "已駁回"
+      "rejected": "已駁回",
+      "withdrawn": "已撤回"
     },
     "type": {
       "all": "全部類型",
       "userRegister": "註冊申請",
       "fileFolderAccess": "資料夾存取申請"
+    },
+    "progress": {
+      "step": "{{name}} {{approvals}}／{{required}}"
+    },
+    "step": {
+      "title": "審核關卡",
+      "count": "{{approvals}}／{{required}} 已同意",
+      "approve": "同意",
+      "skippedHint": "條件不符，這一關略過。",
+      "candidates": "審核者：{{names}}",
+      "status": {
+        "waiting": "等待中",
+        "active": "審核中",
+        "approved": "已通過",
+        "rejected": "已駁回",
+        "skipped": "略過",
+        "cancelled": "已取消"
+      },
+      "shortage": {
+        "noCandidate": "找不到審核者",
+        "insufficient": "審核者不足"
+      },
+      "closeReason": {
+        "rejected": "整筆已駁回",
+        "withdrawn": "申請人已撤回",
+        "chainDisabled": "多階段審批停用",
+        "override": "強制定案"
+      },
+      "decision": {
+        "approve": "同意",
+        "reject": "駁回"
+      },
+      "via": {
+        "assignee": "審核者",
+        "override": "強制定案",
+        "legacy": "多階段停用期間定案"
+      },
+      "assignee": {
+        "user": "指定的人",
+        "group": "群組",
+        "role": "角色",
+        "manager": "申請人的第 {{level}} 層主管",
+        "orgUnit": "部門主管"
+      },
+      "assigneeWithLabel": "{{kind}}：{{label}}",
+      "nameSeparator": "、",
+      "viaSuffix": "（{{via}}）"
+    },
+    "override": {
+      "approve": "強制通過這一關",
+      "reject": "強制駁回",
+      "approveTitle": "強制通過這一關",
+      "rejectTitle": "強制駁回申請",
+      "confirm": "這會略過這一關原本的審核者，並以你的名義記錄在稽核日誌。審核意見會作為理由。",
+      "commentRequired": "強制定案需要填寫審核意見作為理由",
+      "success": "已強制定案。"
+    },
+    "refresh": {
+      "action": "重新展開審核者",
+      "success": "已依規則重新展開審核者。"
+    },
+    "withdraw": {
+      "action": "撤回申請",
+      "title": "撤回申請",
+      "confirm": "撤回後這筆申請就結束了；要再申請必須重新送出。",
+      "success": "已撤回申請。"
+    },
+    "my": {
+      "description": "指派給你審核的關卡，以及你送出的申請。",
+      "tab": {
+        "assigned": "待我審核",
+        "mine": "我的申請"
+      },
+      "backToList": "回到我的審批",
+      "emptyAssigned": "目前沒有等你審核的申請",
+      "emptyMine": "你還沒有送出任何申請"
     }
   }
 }

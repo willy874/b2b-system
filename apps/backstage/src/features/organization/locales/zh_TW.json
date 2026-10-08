@@ -1,0 +1,78 @@
+{
+  "organization": {
+    "title": "組織",
+    "description": "部門的上下層與成員。主管與主要部門決定審批的「主管」關卡由誰審核；部門不帶權限，授權請用群組。",
+    "tree": {
+      "label": "部門樹",
+      "searchPlaceholder": "搜尋部門名稱或代碼",
+      "noMatch": "沒有符合的部門",
+      "empty": "還沒有任何部門",
+      "expand": "展開「{{name}}」",
+      "collapse": "收合「{{name}}」"
+    },
+    "field": {
+      "name": "名稱",
+      "code": "代碼",
+      "codeHint": "選填，給匯入與外部系統對應；只能用英數與 - _ .",
+      "description": "說明"
+    },
+    "create": {
+      "topLevelAction": "新增最上層部門",
+      "child": "新增下層部門",
+      "title": "新增部門",
+      "topLevel": "新增在最上層。",
+      "underParent": "新增在「{{name}}」之下。",
+      "submit": "新增",
+      "success": "已新增部門「{{name}}」"
+    },
+    "update": {
+      "success": "已更新部門"
+    },
+    "move": {
+      "open": "搬移到…",
+      "title": "搬移「{{name}}」",
+      "target": "新的上層部門",
+      "topLevel": "（最上層）",
+      "action": "搬移",
+      "success": "已搬移部門「{{name}}」"
+    },
+    "delete": {
+      "title": "刪除部門",
+      "confirm": "確定要刪除「{{name}}」嗎？還有下層部門時不能刪除。成員資格跟著部門移到回收桶，還原時一併恢復。",
+      "success": "已刪除部門",
+      "undo": "復原"
+    },
+    "restore": {
+      "action": "還原",
+      "success": "已還原部門「{{name}}」，成員一併恢復"
+    },
+    "detail": {
+      "path": "上層路徑",
+      "topLevel": "最上層部門",
+      "basic": "基本資料",
+      "members_other": "成員（{{count}}）",
+      "back": "回到組織",
+      "emptyTitle": "選擇一個部門",
+      "emptyDescription": "從左側的部門樹選擇部門，查看它的成員與主管。"
+    },
+    "member": {
+      "includeDescendants": "含下層部門",
+      "manager": "主管",
+      "primary": "主要部門",
+      "toggleManager": "「{{name}}」是這個部門的主管",
+      "togglePrimary": "這是「{{name}}」的主要部門",
+      "title": "職稱",
+      "editTitle": "編輯「{{name}}」的職稱",
+      "titleDialog": "「{{name}}」的職稱",
+      "target": "成員",
+      "placeholder": "搜尋要加入的使用者",
+      "noMatch": "沒有符合的使用者",
+      "add": "加入",
+      "remove": "移除「{{name}}」",
+      "removeTitle": "移除成員",
+      "removeConfirm": "移除後，「{{name}}」不再屬於這個部門；若這是他的主要部門，他會暫時沒有主管。",
+      "removeAction": "移除",
+      "success": "已更新部門的成員"
+    }
+  }
+}

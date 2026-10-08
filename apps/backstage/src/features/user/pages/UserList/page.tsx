@@ -10,6 +10,7 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
+import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { fetchUserListQuery } from '@/apis/user/get-user-list/fetcher';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
@@ -42,6 +43,9 @@ export default function UserListPage() {
   const deleteUser = useUserDeleteMutation();
   // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('user'));
+  // 篩選面板的部門樹；租戶沒有啟用 `organization` 時不查、不帶部門參數（後端會回 VALIDATION_FAILED）
+  const canFilterOrgUnit = permission.canReadOrgUnits;
+  const orgUnits = useQuery({ ...getOrgUnitTreeQueryOptions(), enabled: canFilterOrgUnit });
 
   const listParams: UserListParams = {
     offset: search.offset,
@@ -50,6 +54,8 @@ export default function UserListPage() {
     status: search.status ? [search.status] : undefined,
     mfa: search.mfa,
     tagId: search.tagId,
+    orgUnitId: canFilterOrgUnit ? search.orgUnitId : undefined,
+    includeDescendants: canFilterOrgUnit && search.includeDescendants === 'true',
     sort: search.sort,
   };
   const { data, isPending, error, refetch } = useQuery(
@@ -89,8 +95,18 @@ export default function UserListPage() {
       status: listParams.status,
       mfa: search.mfa,
       tagId: search.tagId,
+      // 部門篩選也套到匯出（docs/architecture/backend/23-organization.md §4）
+      orgUnitId: listParams.orgUnitId,
+      includeDescendants: listParams.includeDescendants ? ('true' as const) : undefined,
     }),
-    [listParams.status, search.keyword, search.mfa, search.tagId],
+    [
+      listParams.status,
+      listParams.orgUnitId,
+      listParams.includeDescendants,
+      search.keyword,
+      search.mfa,
+      search.tagId,
+    ],
   );
   // 篩選條件改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
   const filters = useUserFilters(
@@ -101,7 +117,9 @@ export default function UserListPage() {
           next.keyword !== search.keyword ||
           next.status !== search.status ||
           next.mfa !== search.mfa ||
-          next.tagId?.join(',') !== search.tagId?.join(',')
+          next.tagId?.join(',') !== search.tagId?.join(',') ||
+          next.orgUnitId !== search.orgUnitId ||
+          next.includeDescendants !== search.includeDescendants
         ) {
           selection.clear();
         }
@@ -109,6 +127,7 @@ export default function UserListPage() {
       },
     },
     tags.data?.items,
+    canFilterOrgUnit ? { units: orgUnits.data?.items, loading: orgUnits.isPending } : undefined,
   );
 
   return (

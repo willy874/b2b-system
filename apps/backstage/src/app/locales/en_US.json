@@ -37,7 +37,10 @@
     "switchTenant": "Switch tenant",
     "security": "Security",
     "dataTransfer": "My imports & exports",
-    "userImport": "Import users"
+    "userImport": "Import users",
+    "organization": "Organization",
+    "approvalFlow": "Approval flows",
+    "myApproval": "My approvals"
   },
   "commandPalette": {
     "command": {
@@ -77,7 +80,9 @@
       "tag": "Tags",
       "notification": "Notifications",
       "announcement": "Announcements",
-      "mfaPolicy": "MFA policy"
+      "mfaPolicy": "MFA policy",
+      "orgUnit": "Organization",
+      "approvalFlow": "Approval flows"
     },
     "user": {
       "create": "Create user",
@@ -109,7 +114,8 @@
     },
     "approval": {
       "read": "View approvals",
-      "review": "Review requests"
+      "review": "Review requests",
+      "override": "Override approvals"
     },
     "file": {
       "create": "Upload files",
@@ -170,6 +176,16 @@
     "mfaPolicy": {
       "read": "View MFA policy",
       "update": "Change MFA policy"
+    },
+    "orgUnit": {
+      "create": "Create departments",
+      "read": "View organization",
+      "update": "Edit organization",
+      "delete": "Delete departments"
+    },
+    "approvalFlow": {
+      "read": "View approval flows",
+      "update": "Configure approval flows"
     }
   },
   "validation": {

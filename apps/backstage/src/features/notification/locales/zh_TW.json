@@ -27,7 +27,10 @@
       "userRolesChanged": "你的角色已變更",
       "webhookDisabled_other": "Webhook「{{name}}」連續失敗 {{count}} 次，已自動停用",
       "unknown": "你有一則新通知",
-      "announcementPublished": "公告：{{title}}"
+      "announcementPublished": "公告：{{title}}",
+      "approvalPendingStep": "{{requester}} 的{{type}}申請輪到「{{step}}」，等待你審核",
+      "approvalProgress": "你的{{type}}申請已通過「{{step}}」，接下來是「{{next}}」",
+      "approvalUnassigned": "{{type}}申請的「{{step}}」找不到足夠的審核者，需要處理"
     },
     "detail": {
       "subject": "{{subject}}",
@@ -69,8 +72,8 @@
       "type": {
         "approvalPending": {
           "name": "有待審的申請",
-          "description": "有人送出申請（帳號註冊、資料夾存取）時，通知可以審核的人。",
-          "recipients": "送出當下持有「審核申請」權限的人（不含申請人自己）"
+          "description": "有人送出申請、或多階段的申請輪到某一關時，通知可以審核的人。",
+          "recipients": "單關：送出當下持有「審核申請」權限的人（不含申請人自己）；多階段：那一關的審核者"
         },
         "approvalResult": {
           "name": "申請的審核結果",
@@ -91,6 +94,16 @@
           "name": "公告",
           "description": "管理者送出的公告（立即或排程）。點開通知看全文。",
           "recipients": "公告選定的收件對象"
+        },
+        "approvalProgress": {
+          "name": "申請的關卡進度",
+          "description": "多階段的申請通過一關、進入下一關時通知申請人。",
+          "recipients": "申請人"
+        },
+        "approvalUnassigned": {
+          "name": "審批找不到審核者",
+          "description": "多階段的申請進入某一關時，依規則找不到（足夠的）審核者。",
+          "recipients": "持有「強制定案審批」權限的人"
         }
       }
     },

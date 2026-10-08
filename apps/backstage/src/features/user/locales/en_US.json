@@ -97,7 +97,8 @@
       "effectiveHint": "Where each permission comes from: through which groups and which role. Groups or roles you cannot see show only their kind.",
       "showEffective": "Show effective permissions and sources",
       "apiTokens": "Personal API tokens",
-      "apiTokensHint": "Tokens this user created to call the external API as themselves. Revoke them here when their role changes or a token leaks."
+      "apiTokensHint": "Tokens this user created to call the external API as themselves. Revoke them here when their role changes or a token leaks.",
+      "orgUnits": "Departments"
     },
     "field": {
       "email": "Email",
@@ -126,6 +127,15 @@
       "all": "All",
       "enabled": "On",
       "disabled": "Off"
+    },
+    "orgUnit": {
+      "filter": "Department",
+      "all": "All departments",
+      "includeDescendants": "Include sub-departments",
+      "searchPlaceholder": "Search by department name or code",
+      "noMatch": "No matching departments",
+      "primary": "Primary",
+      "manager": "Manager"
     }
   }
 }
