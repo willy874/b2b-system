@@ -143,7 +143,7 @@ GET／POST /comments/:resourceType/:resourceId、PATCH／DELETE /comments/:id、
 | 推播受眾（`comment` 沿用 `refs` 的來源、`watch` 只給本人） | `src/modules/realtime/__tests__/realtime.audience.spec.ts` |
 | 端點的授權宣告 | `test/route-audit.spec.ts` |
 | 前端：面板（列表、空狀態、操作選單、新增與錯誤、提及、編輯、刪除、載入更多、關注）、`useWatch`、`ResourcePanels`、通知的句子 | `features/comment/**/__tests__`、`core/resource-panel/__tests__`、`features/notification/__tests__/adapter.test.ts` |
-| E2E：留言並提及 → 作者自動關注 → 被提及的人收到通知、看得到但不能改 → 刪除 | `apps/e2e/tests/comment.spec.ts`（[`../frontend/10-testing.md`](../frontend/10-testing.md) §4.1 #26） |
+| E2E：留言並提及 → 作者自動關注 → 被提及的人收到通知、看得到但不能改 → 刪除；關注者收到 `comment.created`、`watch.resourceUpdated`，取消關注後不再收到；作者編輯（已編輯標示）、管理者刪除別人的留言 | `apps/e2e/tests/comment.spec.ts`（[`../frontend/10-testing.md`](../frontend/10-testing.md) §4.1 #26） |
 
 ---
 

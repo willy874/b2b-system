@@ -164,4 +164,72 @@ test.describe('匯入／匯出（docs/architecture/backend/22-data-transfer.md�
     const parent = units.find((unit) => unit.code === root);
     expect(units.find((unit) => unit.code === child)?.parentId).toBe(parent?.id);
   });
+  test('匯出角色 CSV：權限鍵以分號串在同一格', async ({ page }) => {
+    const token = await apiLogin('admin');
+    const name = unique('E2E 匯出角色');
+    const created = await apiRequest(token, 'post', '/roles', {
+      name,
+      permissionKeys: ['user:read', 'role:read'],
+    });
+    expect(created.status).toBe(201);
+    const roleId = (created.body as { data: { id: string } }).data.id;
+
+    try {
+      await loginAndWaitForHome(page, 'admin');
+      await page.goto(`/role?keyword=${encodeURIComponent(name)}`);
+      await page.getByTestId('role-export-button').click();
+      const download = page.waitForEvent('download');
+      await page.getByTestId('role-export-dialog').getByTestId('export-submit').click();
+      const file = await download;
+      expect(file.suggestedFilename()).toMatch(/^roles-\d{8}-\d{4}\.csv$/);
+      const text = await readFile(await file.path(), 'utf8');
+      const line = text.split('\r\n').find((row) => row.includes(name));
+      expect(line).toBeDefined();
+      expect(line).toMatch(/role:read;user:read|user:read;role:read/);
+    } finally {
+      await apiRequest(token, 'delete', `/roles/${roleId}?force=true`);
+    }
+  });
+
+  test('匯入角色：含自己沒有的權限鍵的列被標成錯誤（反提權）；略過錯誤列套用 → 只建立合法的那一列', async ({
+    page,
+  }) => {
+    const allowed = unique('E2E 匯入角色');
+    const escalated = unique('E2E 提權角色');
+    // admin 只有 system:read（docs/architecture/backend/12-settings.md）：授予 system:update 是提權
+    const csv = `\uFEFF名稱,權限\r\n${allowed},user:read\r\n${escalated},system:update\r\n`;
+
+    await loginAndWaitForHome(page, 'admin');
+    await page.goto('/role/import');
+    await page.getByTestId('file-upload-input').setInputFiles({
+      name: 'roles.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv, 'utf8'),
+    });
+    await page.getByTestId('import-analyze').click();
+    await expect(page.getByTestId('import-grid')).toBeVisible();
+    await expect(page.getByTestId('import-validating')).toBeHidden();
+    await expect(page.getByTestId('import-summary')).toContainText('1 列錯誤');
+    await snapshot(page, 'role-import-escalation');
+
+    await page.getByTestId('import-submit').click();
+    const dialog = page.getByTestId('import-submit-dialog');
+    await expect(getByTestIdAndValue(dialog, 'import-submit-errors', '1')).toBeVisible();
+    await dialog.getByTestId('import-skip-invalid').click();
+    await dialog.getByTestId('import-submit-confirm').click();
+    await expect(page.getByTestId('import-result')).toBeVisible({ timeout: 30_000 });
+    await expect(getByTestIdAndValue(page, 'import-result-succeeded', '1')).toBeVisible();
+
+    const token = await apiLogin('admin');
+    const roles = async (keyword: string) =>
+      (
+        (await apiRequest(token, 'get', `/roles?keyword=${encodeURIComponent(keyword)}`)).body as {
+          data: { items: Array<{ id: string; name: string }> };
+        }
+      ).data.items;
+    const [created] = await roles(allowed);
+    expect(created?.name).toBe(allowed);
+    expect(await roles(escalated)).toEqual([]);
+    await apiRequest(token, 'delete', `/roles/${created!.id}?force=true`);
+  });
 });

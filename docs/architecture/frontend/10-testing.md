@@ -225,7 +225,14 @@ export const authHandlers = [
 | 23  | 平台關掉租戶的 feature → 停在那頁的人被推播帶回首頁、選單消失、端點 404；再打開後恢復 | 平台 DB → 租戶推播（[`05-tenancy.md`](../05-tenancy.md) §12） |
 | 24  | 平台新增 operator → 啟用信設定密碼 → 登入 apps/platform，看得到租戶但不能管理平台管理者 | 平台 DB 的帳號、權限不同的平台角色 |
 | 25  | super-admin 不能刪除、停用自己或拿掉自己的 super-admin；admin 不能動 super-admin | 最後一位 super-admin 的保護（`LAST_SUPER_ADMIN` 走不到，由 api 整合測試守住） |
-| 26  | 在使用者詳情留言並提及別人 → 作者自動關注 → 被提及的人收到通知、看得到留言但不能改 → 作者刪除 | 留言、提及的權限過濾、通知（[`backend/24-comment.md`](../backend/24-comment.md)） |
+| 26  | 在使用者詳情留言並提及別人 → 作者自動關注 → 被提及的人收到通知、看得到留言但不能改 → 作者刪除；關注者收到留言與資源修改的通知、取消關注後不再收到；作者編輯、管理者刪除別人的留言 | 留言、提及的權限過濾、通知、背景工作 `watch.notify`（[`backend/24-comment.md`](../backend/24-comment.md)） |
+| 27  | 建部門與下層部門 → 成員設為主管與主要部門 → 使用者詳情的「所屬部門」、使用者列表以部門（含下層）篩選；組織圖編輯模式新增並改名後儲存；有下層不能刪、回收桶還原；auditor 唯讀、member 403 | 部門樹、成員與使用者兩個 feature 的關聯、組織圖的多步儲存（[`backend/23-organization.md`](../backend/23-organization.md)） |
+| 28  | 在流程編輯頁加一關（指定使用者、帶條件）並調整順序 → 試算看出條件不符時略過 → 儲存；auditor 唯讀、member 403 | 審批流程的設定與試算（[`backend/20-approval.md`](../backend/20-approval.md) §9） |
+| 29  | 唯讀角色匯出稽核日誌 → 背景工作頁看得到這次的匯出工作與工作資料；平台的背景工作頁標出所屬租戶 | 背景工作跨租戶與平台兩個介面（[`backend/10-jobs.md`](../backend/10-jobs.md)） |
+| 30  | 平台幫租戶加別名網域 → 從那個網域解析得到租戶 → 移除後解析不到，兩次都記入平台稽核；用量分頁與列表的用量排序；operator 不能刪租戶、不能改驗證方式 | 平台 DB 的網域表與租戶解析的快取（[`05-tenancy.md`](../05-tenancy.md)） |
+| 31  | 匯出角色（權限鍵以分號串在同一格）；匯入角色時含自己沒有的權限的列標成錯誤，略過後只建立合法的列 | 匯入的反提權（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md)） |
+| 32  | 建立使用者時 email 重複；編輯顯示名稱並停用；連續打錯密碼被鎖定 → 管理員解鎖 → 管理員寄重設密碼信 → 新密碼登入 | 鎖定、漸進延遲與已知來源（[`backend/04-auth.md`](../backend/04-auth.md) §3）、Mailpit |
+| 33  | 新增外部 IdP 連線 → 登入頁對那個網域多出外部登入 → 改名 → 刪除後消失；權限目錄的篩選、技能樹與「我持有的」 | 租戶設定影響 apps/platform 的登入頁；權限目錄依登入者的權限 |
 
 ### 4.2 結構
 
@@ -241,9 +248,13 @@ apps/e2e/
     ├── rbac-lifecycle.spec.ts
     ├── permission-propagation.spec.ts
     ├── route-guard.spec.ts
-    └── …                 一個功能一份（group、webhook、announcement、api-token、file、tag、system…）
+    └── …                 一個功能一份（group、webhook、announcement、api-token、file、tag、system、organization、user、permission、platform-tenant…）
 ```
-helpers/ 另有 `webhook-receiver.ts`（測試程序內的 webhook 接收端）與 `api.ts` 的 `externalRequest()`（對外 API）。
+helpers/ 另有 `webhook-receiver.ts`（測試程序內的 webhook 接收端）、`api.ts` 的 `externalRequest()`（對外 API）
+與 `browser-fetch.ts` 的 `fetchOn()`（從瀏覽器對 `*.localhost` 的網域發請求：只有瀏覽器會把它解析到本機）。
+
+已知問題還沒修、而且 **每次都會重現** 時，對應的案例以 `test.fail()` 標記並在註解寫出 `docs/issues/` 的檔名：修好後它會「意外通過」而失敗，提醒拿掉標記。
+不用 `test.skip`／`test.fixme`（那樣修好了也不會有人發現）。時有時無的問題不標 `test.fail()`（會變成不穩定的測試），改在該處註解寫出 issue 的檔名。
 
 ### 4.3 資料隔離
 
@@ -270,6 +281,10 @@ global setup 的 `db:reset` 會 **清空** `PLATFORM_DATABASE_URL` 與它登記�
 
 會動到 **整個租戶** 的設定的案例，挑其他 spec 不碰的對象，並在 `finally` 還原：系統設定改 `trash.retentionDays`、
 平台關閉的 feature 用 `job`、事件管理只改 `announcement.published`（與公告的案例放在同一個檔案、依序執行）。
+背景工作頁的案例和「平台關閉 `job`」放在同一個檔案（`tenant-features.spec.ts`，`mode: 'default'` 依序執行），不會在 feature 關閉的期間打開那一頁；
+註冊審批（單關）與多階段審批的案例都送出註冊申請、讀寫同一份 `user.register` 的流程，全部放在 `approval.spec.ts` 依序執行（`mode: 'default'`）：
+多階段的案例打開流程的那段時間，並行送出的單關申請會變成多關。流程編輯頁的案例存成 **停用**。
+平台租戶的案例只增減預設租戶的 **別名** 網域，不碰主要網域。
 Webhook 的租戶預設只允許 1 個不重複的目標網址（`webhook.maxUrls`），所以整個 `webhook.spec.ts` 共用一個接收端、依序執行，
 每個案例在 `afterEach` 刪掉自己的訂閱。
 
