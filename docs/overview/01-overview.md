@@ -58,14 +58,14 @@
 
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
-| 登入與 SSO | apps/platform 的登入互動頁、外部 IdP（OIDC）與網域導向、單一登出、忘記密碼、啟用信、註冊申請；多重驗證（驗證器 App、Email 驗證碼、備用碼；平台開關與租戶政策，[`backend/21-mfa.md`](../architecture/backend/21-mfa.md)） | [§1](./05-feature-tour.md#1-登入) | [`04-sso.md`](../architecture/04-sso.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) |
+| 登入與 SSO | apps/platform 的登入互動頁、外部 IdP（OIDC）與網域導向、單一登出、忘記密碼、啟用信、註冊申請；多重驗證（驗證器 App、Email 驗證碼、備用碼；平台開關與租戶政策，[`backend/21-mfa.md`](../architecture/backend/21-mfa.md)） | [§1](./05-feature-tour.md#1-登入)、[§1.1](./05-feature-tour.md#11-多重驗證) | [`04-sso.md`](../architecture/04-sso.md)、[`backend/04-auth.md`](../architecture/backend/04-auth.md) |
 | 使用者 | 列表（搜尋、排序、篩選、跨頁選取）、建立、編輯、停用、解鎖、重設密碼、指派角色、批次操作 | [§2.1](./05-feature-tour.md#21-使用者) | [`iam/04-api.md`](../architecture/iam/04-api.md) |
 | 角色 | 建立、複製、權限技能樹、系統角色保護、版本紀錄與還原 | [§2.2](./05-feature-tour.md#22-角色) | [`iam/01-model.md`](../architecture/iam/01-model.md) |
 | 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./05-feature-tour.md#23-群組) | [`iam/07-groups.md`](../architecture/iam/07-groups.md) |
-| 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.4](./05-feature-tour.md#24-權限目錄與有效權限) | [`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md)、[`iam/08-explain.md`](../architecture/iam/08-explain.md) |
-| 服務帳號與 API token | 個人與服務帳號的 token（scopes、到期、撤銷）、對外 API | [§2.5](./05-feature-tour.md#25-服務帳號與-api-token) | [`06-external-api.md`](../architecture/06-external-api.md) |
-| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則；多階段流程（依序多關、會簽、條件分流、申請人的主管）、我的審批與撤回 | [§3.2](./05-feature-tour.md#32-審批) | [`backend/20-approval.md`](../architecture/backend/20-approval.md) |
-| 組織 | 部門樹、成員與主要部門、主管；使用者依部門篩選 | — | [`backend/23-organization.md`](../architecture/backend/23-organization.md) |
+| 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.5](./05-feature-tour.md#25-權限目錄與有效權限) | [`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md)、[`iam/08-explain.md`](../architecture/iam/08-explain.md) |
+| 服務帳號與 API token | 個人與服務帳號的 token（scopes、到期、撤銷）、對外 API | [§2.6](./05-feature-tour.md#26-服務帳號與-api-token) | [`06-external-api.md`](../architecture/06-external-api.md) |
+| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則；多階段流程（依序多關、會簽、條件分流、申請人的主管、強制定案）、我的審批與撤回 | [§3.2](./05-feature-tour.md#32-審批) | [`backend/20-approval.md`](../architecture/backend/20-approval.md) |
+| 組織 | 部門樹與組織圖、成員與主要部門、主管；使用者依部門篩選；部門不帶權限 | [§2.4](./05-feature-tour.md#24-組織) | [`backend/23-organization.md`](../architecture/backend/23-organization.md) |
 
 ### 3.2 資料與內容
 
@@ -73,10 +73,10 @@
 | --- | --- | --- | --- |
 | 檔案 | S3 直傳、分塊上傳、影像變體、檔案管理器、資料夾層級的授權與繼承 | [§3.1](./05-feature-tour.md#31-檔案管理器) | [`backend/09-file.md`](../architecture/backend/09-file.md)、[`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md) |
 | 標籤 | 依資源類型分開的標籤組、列表依標籤篩選 | [§3.3](./05-feature-tour.md#33-標籤) | [`backend/18-tag.md`](../architecture/backend/18-tag.md) |
-| 留言與關注 | 資源上的留言與 @提及、關注（有新留言或被修改時通知）；第一批接上使用者 | — | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
+| 留言與關注 | 資源上的留言與 @提及、關注（有新留言或被修改時通知）；第一批接上使用者 | [§3.5](./05-feature-tour.md#35-留言與關注) | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
 | 稽核日誌 | 所有寫入與授權決策；前後差異；熱冷分層 | [§4.1](./05-feature-tour.md#41-稽核日誌) | [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) |
 | 回收桶與版本歷史 | 樂觀鎖（`version` 必填）、刪除後可還原、到期永久刪除、角色的版本差異與還原 | [§4.2](./05-feature-tour.md#42-回收桶與版本紀錄) | [`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) |
-| 匯入／匯出 | 使用者、角色、群組、組織、標籤、稽核日誌、審批、服務帳號匯出成 CSV／XLSX／JSON／YAML／SQL（背景產生、完成通知）；從 CSV／XLSX／JSON／YAML 新增或修改使用者、角色、群組與成員、部門與成員、標籤（部門的上層可以引用同一份檔案）：後端分析與驗證、類似 Excel 的預覽與修正（下拉選單、自動完成、手動指定比對目標）、逐列交易的背景套用、結果報告 | — | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
+| 匯入／匯出 | 使用者、角色、群組、組織、標籤、稽核日誌、審批、服務帳號匯出成 CSV／XLSX／JSON／YAML／SQL（背景產生、完成通知）；從 CSV／XLSX／JSON／YAML 新增或修改使用者、角色、群組與成員、部門與成員、標籤（部門的上層可以引用同一份檔案）：後端分析與驗證、類似 Excel 的預覽與修正（下拉選單、自動完成、手動指定比對目標）、逐列交易的背景套用、結果報告 | [§3.4](./05-feature-tour.md#34-匯入匯出) | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
 
 ### 3.3 非同步與溝通
 
@@ -92,11 +92,11 @@
 
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
-| 系統設定 | 每個租戶執行期可調的帳號政策、上傳上限、預設時區 | [§4.4](./05-feature-tour.md#44-系統設定與外部-idp) | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
+| 系統設定 | 每個租戶執行期可調的帳號政策、上傳上限、預設時區；MFA 政策（允許的方式、誰必須啟用） | [§4.4](./05-feature-tour.md#44-系統設定安全性與外部-idp) | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
 | 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額；每個租戶的用量（使用者、儲存、請求、背景工作）與配額警示 | [§6.1](./05-feature-tour.md#61-租戶) | [`05-tenancy.md`](../architecture/05-tenancy.md) |
-| 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag | [§6.2](./05-feature-tour.md#62-平台管理者feature-flag-與平台稽核) | [`05-tenancy.md`](../architecture/05-tenancy.md) §11 |
-| 個人帳號 | 個人資料、變更密碼、語系、時區、主題、通知設定 | [§7](./05-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) |
-| 命令面板 | ⌘K／Ctrl+K：跳到頁面、最近造訪、搜尋使用者、角色、群組、檔案等資料、建立的捷徑；依權限過濾，兩個前端都有 | — | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
+| 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag、MFA 驗證方式的全平台開關 | [§6.2](./05-feature-tour.md#62-平台管理者mfa-驗證方式feature-flag-與平台稽核) | [`05-tenancy.md`](../architecture/05-tenancy.md) §11 |
+| 個人帳號 | 個人資料、變更密碼、多重驗證與備用碼、語系、時區、主題、通知設定 | [§7](./05-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) |
+| 命令面板 | ⌘K／Ctrl+K：跳到頁面、最近造訪、搜尋使用者、角色、群組、部門、檔案等資料、建立的捷徑；依權限過濾，兩個前端都有 | [開頭](./05-feature-tour.md) | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
 | 監控 | api 的指標（Prometheus）與 tracing（OpenTelemetry → Tempo）、就緒檢查；Grafana 的儀表板與告警（api、容量與資料庫、背景工作、前端的錯誤與 Web Vitals） | — | [`08-monitoring.md`](../architecture/08-monitoring.md) |
 | 前端可觀測性 | 兩個前端的錯誤回報（送到模擬 Sentry API 的 apps/apm-service，以 sourcemap 還原堆疊）、錯誤頁的「複製錯誤資訊」、Web Vitals、CI 的 bundle 預算 | — | [`frontend/19-observability.md`](../architecture/frontend/19-observability.md)、[`07-apm-service.md`](../architecture/07-apm-service.md) |
 
@@ -119,7 +119,7 @@
 | 角色 | slug | 用途 | 權限 |
 | --- | --- | --- | --- |
 | 超級管理員 | `super-admin` | 每個租戶的最高權限，由初始化或佈建建立 | 隱含全集（一條 `superAdmin` 邊，不列權限鍵）；不可調整 |
-| 系統管理員 | `admin` | 日常管理者 | 人員、角色、群組、檔案、審批、背景工作、外部 IdP、服務帳號、Webhook、標籤、公告的管理 |
+| 系統管理員 | `admin` | 日常管理者 | 人員、角色、群組、組織、檔案、審批與審批流程、背景工作、外部 IdP、服務帳號、Webhook、標籤、公告的管理，各資源的匯出，刪除別人的留言；系統設定與 MFA 政策只能檢視 |
 | 稽核人員 | `auditor` | 稽核與客服：只能看，不能改 | 上述資源的 `read`、稽核日誌、`authz:explain` |
 | 一般成員 | `member` | 業務功能的一般使用者 | 只有 `file:access`：進得了檔案管理器，範圍由資料夾授權決定 |
 
