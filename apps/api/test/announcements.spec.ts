@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { plainTextToRichText } from '@b2b-system/rich-text';
+import type { RichTextDocument } from '@b2b-system/rich-text';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -117,10 +122,37 @@ async function roleIdOf(slug: string): Promise<string> {
   return role!.id;
 }
 
+/** 內文：富文本（粗體、連結），純文字是 `BODY_TEXT`。 */
+const BODY: RichTextDocument = {
+  type: 'doc',
+  content: [
+    {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: '本週六 22:00～24:00 系統維護，' },
+        { type: 'text', text: '請提前存檔', marks: [{ type: 'bold' }] },
+        { type: 'text', text: '。' },
+      ],
+    },
+    {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: '詳見' },
+        {
+          type: 'text',
+          text: '維護公告',
+          marks: [{ type: 'link', attrs: { href: 'https://example.com/maintenance' } }],
+        },
+      ],
+    },
+  ],
+};
+const BODY_TEXT = '本週六 22:00～24:00 系統維護，請提前存檔。\n詳見維護公告';
+
 function draft(overrides: Record<string, unknown> = {}) {
   return {
     title: '系統維護通知',
-    body: '本週六 22:00～24:00 系統維護，請提前存檔。',
+    body: BODY,
     audience: { groupIds: [ids.g1], roleIds: [ids.role], userIds: [ids.root, ids.m4] },
     trigger: { kind: 'immediate' },
     ...overrides,
@@ -262,6 +294,126 @@ describe('公告與排程通知（docs/architecture/backend/19-announcement.md �
     await editor.post(`/announcements/${created.id}/publish`, { version: 1 }).expect(403);
   });
 
+  // ── 內文（富文本，§9.2 D22） ─────────────────────────
+
+  it('內文存文件 JSON（body_doc）與純文字（body）；搜尋比對純文字', async () => {
+    const root = await as(ROOT);
+    const created = dataOf<AnnouncementBody & { body: unknown }>(
+      await root.post('/announcements', draft({ title: '內文搜尋' })).expect(201),
+    );
+    expect(created.body).toEqual(BODY);
+    const [row] = await db.select().from(announcements).where(eq(announcements.id, created.id));
+    expect(row).toMatchObject({ body: BODY_TEXT, bodyDoc: BODY });
+
+    // 粗體裡的字也搜得到；JSON 的結構（"bold"、"paragraph"）搜不到
+    const found = dataOf<{ items: Array<{ id: string }> }>(
+      await root.get('/announcements').query({ keyword: '請提前存檔' }).expect(200),
+    );
+    expect(found.items.map((item) => item.id)).toContain(created.id);
+    const structural = dataOf<{ items: Array<{ id: string }> }>(
+      await root.get('/announcements').query({ keyword: 'paragraph' }).expect(200),
+    );
+    expect(structural.items.map((item) => item.id)).not.toContain(created.id);
+  });
+
+  it('不合法的內文 → 400 VALIDATION_FAILED，欄位指到出錯的節點', async () => {
+    const root = await as(ROOT);
+    const unsafe = await root
+      .post(
+        '/announcements',
+        draft({
+          body: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  {
+                    type: 'text',
+                    text: '點我',
+                    marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }],
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      )
+      .expect(400);
+    expect(errorOf(unsafe)).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { fields: { 'body.content.0.content.0.marks.0.attrs.href': expect.any(String) } },
+    });
+
+    for (const body of [
+      '純文字',
+      { type: 'doc', content: [{ type: 'script', content: [] }] },
+      { type: 'doc', content: [{ type: 'paragraph' }] },
+      plainTextToRichText('超'.repeat(5001)),
+    ]) {
+      const response = await root.post('/announcements', draft({ body })).expect(400);
+      expect(errorOf(response).code).toBe('VALIDATION_FAILED');
+    }
+  });
+
+  it('還沒有 body_doc 的列（部署期間舊版 api 寫入的）：以純文字的 body 轉成文件', async () => {
+    const [legacy] = await db
+      .insert(announcements)
+      .values({
+        title: '舊版寫入',
+        body: '第一行\n\n第三行',
+        audience: { all: true, userIds: [], groupIds: [], roleIds: [] },
+        trigger: { kind: 'immediate' },
+      })
+      .returning();
+    const fetched = dataOf<{ body: unknown }>(
+      await (await as(ROOT)).get(`/announcements/${legacy!.id}`).expect(200),
+    );
+    expect(fetched.body).toEqual(plainTextToRichText('第一行\n\n第三行'));
+    await db.delete(announcements).where(eq(announcements.id, legacy!.id));
+  });
+
+  it('migration 0050 的回填與 plainTextToRichText 的結果相同', async () => {
+    const migration = readFileSync(
+      join(__dirname, '../src/db/migrations/0050_announcement_body_doc.sql'),
+      'utf8',
+    );
+    const backfill = migration
+      .split('--> statement-breakpoint')
+      .filter((statement) => statement.includes('UPDATE "announcements"'));
+    expect(backfill).toHaveLength(1);
+
+    const texts = ['單行', '第一行\n第二行', '第一行\r\n\r\n第三行', '', '結尾換行\n'];
+    const inserted = await db
+      .insert(announcements)
+      .values(
+        texts.map((text, index) => ({
+          title: `回填 ${index}`,
+          body: text,
+          audience: { all: true, userIds: [], groupIds: [], roleIds: [] },
+          trigger: { kind: 'immediate' as const },
+        })),
+      )
+      .returning();
+    await db.execute(sql.raw(backfill[0]!));
+    const rows = await db
+      .select()
+      .from(announcements)
+      .where(
+        inArray(
+          announcements.id,
+          inserted.map((row) => row.id),
+        ),
+      );
+    for (const row of rows) expect(row.bodyDoc).toEqual(plainTextToRichText(row.body));
+    await db.delete(announcements).where(
+      inArray(
+        announcements.id,
+        inserted.map((row) => row.id),
+      ),
+    );
+  });
+
   // ── 受眾 ─────────────────────────────────────────────
 
   it('受眾預覽：巢狀群組、角色、指定的人取聯集，只算可登入的；不存在的來源列在 skipped', async () => {
@@ -346,12 +498,12 @@ describe('公告與排程通知（docs/architecture/backend/19-announcement.md �
   });
 
   it('收件人讀全文 → 標為已讀、已讀數 +1；沒收到的人 404', async () => {
-    const message = dataOf<{ title: string; body: string; sender: { id: string } | null }>(
+    const message = dataOf<{ title: string; body: unknown; sender: { id: string } | null }>(
       await (await as(M1)).get(`/me/announcement-messages/${ids.dispatch}`).expect(200),
     );
     expect(message).toMatchObject({
       title: '系統維護通知',
-      body: '本週六 22:00～24:00 系統維護，請提前存檔。',
+      body: BODY,
       sender: { id: ids.root },
     });
     const [row] = await db

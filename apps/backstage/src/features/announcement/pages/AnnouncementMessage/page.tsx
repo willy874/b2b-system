@@ -1,3 +1,4 @@
+import { RichTextViewer } from '@b2b-system/ui/RichTextViewer';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { QueryError } from '@b2b-system/web-core/components';
 import { isNotFound } from '@b2b-system/web-core/errors';
@@ -52,12 +53,7 @@ export default function AnnouncementMessagePage() {
               })}
             </p>
           </header>
-          <div
-            className="whitespace-pre-wrap leading-relaxed"
-            data-testid="announcement-message-body"
-          >
-            {message.data.body}
-          </div>
+          <RichTextViewer value={message.data.body} data-testid="announcement-message-body" />
         </>
       )}
     </article>

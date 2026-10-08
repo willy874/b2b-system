@@ -1,6 +1,8 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { preloadRichTextEditor } from '@b2b-system/ui/LazyRichTextEditor';
+import { RichTextViewer } from '@b2b-system/ui/RichTextViewer';
 import { isVersionConflict, useErrorMessage, useErrorToast } from '@b2b-system/web-core/errors';
 import { FormDraftNotice, useFormDraft } from '@b2b-system/web-core/form';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -16,7 +18,7 @@ import type { Announcement } from '@/shared/api-sdk';
 
 import { AnnouncementForm } from '../../../components/AnnouncementForm';
 import type { AnnouncementDraft } from '../../../components/AnnouncementForm';
-import { toDraft, toRequest } from '../../../components/draft';
+import { restoreDraft, toDraft, toRequest } from '../../../components/draft';
 import { describeTrigger } from '../../../components/triggerSummary';
 import {
   ANNOUNCEMENT_STATUS_LABEL_KEY,
@@ -75,7 +77,7 @@ export function AnnouncementSettingsSection({
     onRestore: (saved) => {
       if (!saved.draft || saved.version === undefined) return;
       update.reset();
-      setDraft(saved.draft);
+      setDraft({ ...saved.draft, ...restoreDraft(saved.draft) });
       setVersion(saved.version);
     },
   });
@@ -211,6 +213,9 @@ export function AnnouncementSettingsSection({
             <Button
               size="sm"
               onClick={() => startEditing(announcement)}
+              // 編輯表單的內文編輯器是獨立的 chunk：滑過或聚焦按鈕就先下載
+              onPointerEnter={preloadRichTextEditor}
+              onFocus={preloadRichTextEditor}
               data-testid="announcement-edit"
             >
               {t('common.edit')}
@@ -283,8 +288,8 @@ export function AnnouncementSettingsSection({
         <dt className="text-[var(--color-fg-muted)]">{t('announcement.field.title')}</dt>
         <dd className="m-0 font-medium">{announcement.title}</dd>
         <dt className="text-[var(--color-fg-muted)]">{t('announcement.field.body')}</dt>
-        <dd className="m-0 whitespace-pre-wrap" data-testid="announcement-detail-body">
-          {announcement.body}
+        <dd className="m-0">
+          <RichTextViewer value={announcement.body} data-testid="announcement-detail-body" />
         </dd>
       </dl>
     </section>

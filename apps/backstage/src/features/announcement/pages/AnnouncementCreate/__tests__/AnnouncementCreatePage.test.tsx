@@ -1,8 +1,9 @@
+import { installRangeLayoutStub, insertRichText } from '@b2b-system/ui/testing';
 import { sessionStore } from '@b2b-system/web-core/auth';
 import { formDraftStore, setFormDraftStore } from '@b2b-system/web-core/form';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { createDraftStore } from '@b2b-system/web-shared/storage';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -42,7 +43,10 @@ const routes = [
   ]),
 ];
 
-beforeAll(() => initTestI18n(zhTW));
+beforeAll(() => {
+  initTestI18n(zhTW);
+  installRangeLayoutStub();
+});
 
 beforeEach(() => {
   resetPagePermissionRegistry();
@@ -58,6 +62,15 @@ beforeEach(() => {
   create.mockReset().mockResolvedValue({ id: 'a9' });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
+
+/**
+ * 在內文編輯器輸入：編輯器延遲載入，先等它出現；jsdom 沒辦法模擬 contenteditable 的輸入，
+ * 經由 `insertRichText` 直接對編輯器下指令。
+ */
+async function typeBody(text: string) {
+  const textbox = await screen.findByRole('textbox', { name: /內文/ });
+  act(() => insertRichText(textbox, text));
+}
 
 async function typeTitle() {
   const input = await screen.findByTestId('announcement-title-input', undefined, {
@@ -80,9 +93,7 @@ describe('AnnouncementCreatePage（docs/architecture/backend/19-announcement.md 
     fireEvent.change(screen.getByTestId('announcement-title-input'), {
       target: { value: '系統維護' },
     });
-    fireEvent.change(screen.getByTestId('announcement-body-input'), {
-      target: { value: '週六停機' },
-    });
+    await typeBody('週六停機');
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
 
@@ -91,7 +102,10 @@ describe('AnnouncementCreatePage（docs/architecture/backend/19-announcement.md 
       params: {
         body: {
           title: '系統維護',
-          body: '週六停機',
+          body: {
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '週六停機' }] }],
+          },
           audience: { all: true },
           trigger: { kind: 'immediate' },
         },

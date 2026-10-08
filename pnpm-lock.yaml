@@ -44,6 +44,9 @@ importers:
       '@b2b-system/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
+      '@b2b-system/rich-text':
+        specifier: workspace:*
+        version: link:../../packages/rich-text
       '@nestjs/common':
         specifier: ^12.1.2
         version: 12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2)

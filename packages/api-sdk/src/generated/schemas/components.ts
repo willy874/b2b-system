@@ -206,6 +206,9 @@ import type {
   RevertRoleRevisionRequest,
   ReviewFileAccessRequest,
   RevisionSummary,
+  RichTextDocument,
+  RichTextMark,
+  RichTextNode,
   Role,
   RoleHolder,
   RolePermissions,
@@ -286,6 +289,35 @@ import type {
   WebhookTarget,
   WebhookTestResult,
 } from '../models';
+
+export const RichTextMarkSchema = z.object({
+  type: z.enum(['bold', 'italic', 'underline', 'strike', 'code', 'link']),
+  attrs: z.record(z.string(), z.unknown()).optional(),
+}) satisfies z.ZodType<RichTextMark>;
+
+export const RichTextNodeSchema: z.ZodType<RichTextNode> = z.object({
+  type: z.enum([
+    'paragraph',
+    'heading',
+    'bulletList',
+    'orderedList',
+    'listItem',
+    'blockquote',
+    'codeBlock',
+    'horizontalRule',
+    'hardBreak',
+    'text',
+  ]),
+  attrs: z.record(z.string(), z.unknown()).optional(),
+  content: z.array(z.lazy(() => RichTextNodeSchema)).optional(),
+  text: z.string().optional(),
+  marks: z.array(RichTextMarkSchema).optional(),
+});
+
+export const RichTextDocumentSchema = z.object({
+  type: z.enum(['doc']),
+  content: z.array(RichTextNodeSchema),
+}) satisfies z.ZodType<RichTextDocument>;
 
 export const NotificationChannelSchema = z.enum([
   'inApp',
@@ -595,7 +627,7 @@ export const AnnouncementSchema = z.object({
       ),
     ),
   title: z.string(),
-  body: z.string(),
+  body: RichTextDocumentSchema,
   audience: AnnouncementAudienceSchema,
   trigger: AnnouncementTriggerSchema,
   status: z.enum(['draft', 'scheduled', 'paused', 'completed']),
@@ -646,14 +678,14 @@ export const AnnouncementSchema = z.object({
 
 export const CreateAnnouncementRequestSchema = z.object({
   title: z.string().min(1).max(120),
-  body: z.string().min(1).max(5000),
+  body: RichTextDocumentSchema,
   audience: AnnouncementAudienceSchema,
   trigger: AnnouncementTriggerSchema,
 }) satisfies z.ZodType<CreateAnnouncementRequest>;
 
 export const UpdateAnnouncementRequestSchema = z.object({
   title: z.string().min(1).max(120).optional(),
-  body: z.string().min(1).max(5000).optional(),
+  body: RichTextDocumentSchema.optional(),
   audience: AnnouncementAudienceSchema.optional(),
   trigger: AnnouncementTriggerSchema.optional(),
   version: z.int().min(1).max(9007199254740991),
@@ -713,7 +745,7 @@ export const AnnouncementDispatchSchema = z.object({
     ),
   scheduledFor: z.string(),
   title: z.string(),
-  body: z.string(),
+  body: RichTextDocumentSchema,
   audience: AnnouncementAudienceSchema,
   status: z.enum(['pending', 'sending', 'sent', 'failed', 'revoked']),
   recipientCount: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
@@ -758,7 +790,7 @@ export const AnnouncementMessageSchema = z.object({
       ),
     ),
   title: z.string(),
-  body: z.string(),
+  body: RichTextDocumentSchema,
   sentAt: z.string(),
   sender: z
     .object({

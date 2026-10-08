@@ -33,6 +33,7 @@
     "@b2b-system/error-codes": "workspace:*",
     "@b2b-system/mail-components": "workspace:*",
     "@b2b-system/realtime": "workspace:*",
+    "@b2b-system/rich-text": "workspace:*",
     "@nestjs/common": "^12.1.2",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.1.2",

@@ -1,4 +1,5 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { plainTextToRichText } from '@b2b-system/rich-text';
 import { Logger } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -193,6 +194,7 @@ describe('AnnouncementDispatchService.runScheduled（docs/architecture/backend/1
         scheduledFor: new Date(RUN_AT),
         title: '季度說明會',
         body: '十月的季度說明會改到線上舉行。',
+        bodyDoc: plainTextToRichText('十月的季度說明會改到線上舉行。'),
         audience: AUDIENCE,
         createdBy: 'publisher-1',
       },
@@ -369,6 +371,7 @@ describe('AnnouncementDispatchService.runEvent（docs/architecture/backend/19-an
         scheduledFor: new Date(RUN_AT),
         title: '季度說明會',
         body: '十月的季度說明會改到線上舉行。',
+        bodyDoc: plainTextToRichText('十月的季度說明會改到線上舉行。'),
         audience: { all: false, userIds: ['user-9'], groupIds: [], roleIds: [] },
         triggerSubjectId: 'user-9',
         createdBy: 'publisher-1',

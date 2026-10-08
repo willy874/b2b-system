@@ -60,6 +60,8 @@ export function announcement(overrides: Partial<AnnouncementRow> = {}): Announce
     id: 'ann-1',
     title: '季度說明會',
     body: '十月的季度說明會改到線上舉行。',
+    // 還沒有 body_doc 的列（部署期間舊版 api 寫入的）：讀取時以 body 轉換
+    bodyDoc: null,
     audience: AUDIENCE,
     trigger: { kind: 'immediate' },
     status: 'draft',
@@ -87,6 +89,7 @@ export function dispatchRow(
     scheduledFor: new Date('2026-10-05T01:00:00.000Z'),
     title: '季度說明會',
     body: '十月的季度說明會改到線上舉行。',
+    bodyDoc: null,
     audience: AUDIENCE,
     status: 'pending',
     triggerSubjectId: null,

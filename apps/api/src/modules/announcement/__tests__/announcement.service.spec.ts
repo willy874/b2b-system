@@ -1,4 +1,5 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import { plainTextToRichText } from '@b2b-system/rich-text';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PERMISSION } from '@/common/types';
@@ -252,7 +253,7 @@ describe('AnnouncementService.list／findOne（docs/architecture/backend/19-anno
 describe('AnnouncementService.create（docs/architecture/backend/19-announcement.md §3）', () => {
   const dto = {
     title: '季度說明會',
-    body: '內文',
+    body: plainTextToRichText('內文'),
     audience: { all: false, userIds: [], groupIds: [], roleIds: [] },
     trigger: { kind: 'immediate' } as AnnouncementTriggerValue,
   };
@@ -261,7 +262,17 @@ describe('AnnouncementService.create（docs/architecture/backend/19-announcement
     const ctx = setup();
     const result = await run(() => ctx.service.create(dto, ACTOR));
     expect(ctx.repo.create).toHaveBeenCalledWith(
-      { ...dto, status: 'draft', createdBy: ACTOR.id, updatedBy: ACTOR.id },
+      {
+        title: dto.title,
+        // 文件存 body_doc，純文字存 body（搜尋、字數、稽核）
+        body: '內文',
+        bodyDoc: dto.body,
+        audience: dto.audience,
+        trigger: dto.trigger,
+        status: 'draft',
+        createdBy: ACTOR.id,
+        updatedBy: ACTOR.id,
+      },
       ctx.tx,
     );
     expect(result.id).toBe('ann-new');
@@ -535,7 +546,9 @@ describe('AnnouncementService.update（docs/architecture/backend/19-announcement
 
   it('稽核記前後的快照與更新後的狀態', async () => {
     const ctx = setup({ stored: scheduledOnce() });
-    await run(() => ctx.service.update('ann-1', { version: 3, body: '改過的內文' }, ACTOR));
+    await run(() =>
+      ctx.service.update('ann-1', { version: 3, body: plainTextToRichText('改過的內文') }, ACTOR),
+    );
     expect(ctx.audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'announcement.update',
@@ -633,6 +646,7 @@ describe('AnnouncementService.publishAnnouncement（docs/architecture/backend/19
         scheduledFor: NOW,
         title: '季度說明會',
         body: '十月的季度說明會改到線上舉行。',
+        bodyDoc: plainTextToRichText('十月的季度說明會改到線上舉行。'),
         audience: announcement().audience,
         createdBy: ACTOR.id,
       },
@@ -1213,7 +1227,7 @@ describe('AnnouncementService.readMessage（docs/architecture/backend/19-announc
     expect(result).toEqual({
       dispatchId: 'disp-1',
       title: '季度說明會',
-      body: '十月的季度說明會改到線上舉行。',
+      body: plainTextToRichText('十月的季度說明會改到線上舉行。'),
       sentAt: startedAt.toISOString(),
       sender: PERSON,
     });

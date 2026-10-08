@@ -1,4 +1,5 @@
 import { ButtonLink } from '@b2b-system/ui/Button';
+import { preloadRichTextEditor } from '@b2b-system/ui/LazyRichTextEditor';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
@@ -46,6 +47,9 @@ export default function AnnouncementListPage() {
             variant="primary"
             to={AnnouncementCreateRoute.to}
             search={search}
+            // 新增表單的內文編輯器是獨立的 chunk：滑過或聚焦按鈕就先下載
+            onPointerEnter={preloadRichTextEditor}
+            onFocus={preloadRichTextEditor}
             data-testid="announcement-create-button"
           >
             {t('announcement.create.action')}

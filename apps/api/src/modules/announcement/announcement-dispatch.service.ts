@@ -17,6 +17,7 @@ import { NotificationService } from '@/modules/notification/notification.service
 
 import { AnnouncementTriggerCatalog } from './announcement-trigger.catalog';
 import { AnnouncementAudienceResolver } from './announcement.audience';
+import { bodyDocumentOf } from './announcement.body';
 import {
   ANNOUNCEMENT_FAN_OUT_BATCH_SIZE,
   ANNOUNCEMENT_REQUEUE_WINDOW_MS,
@@ -105,6 +106,7 @@ export class AnnouncementDispatchService {
           scheduledFor: runAt,
           title: row.title,
           body: row.body,
+          bodyDoc: bodyDocumentOf(row),
           audience: row.audience,
           // 排程的發送沿用最後送出或恢復排程的人（不是系統）：通知的觸發者、發送紀錄都顯示他
           createdBy: row.updatedBy,
@@ -236,6 +238,7 @@ export class AnnouncementDispatchService {
           scheduledFor: new Date(data.runAt),
           title: row.title,
           body: row.body,
+          bodyDoc: bodyDocumentOf(row),
           audience: { all: false, userIds: [data.userId], groupIds: [], roleIds: [] },
           triggerSubjectId: data.userId,
           createdBy: row.updatedBy,

@@ -29,7 +29,7 @@
     "field": {
       "title": "Title",
       "body": "Content",
-      "bodyHint": "Plain text, up to {{max}} characters. Recipients see the full text when they open the notification.",
+      "bodyHint": "Supports headings, bold, lists, links and more, up to {{max}} characters. Recipients see the full text when they open the notification.",
       "audience": "Recipients",
       "trigger": "Send time",
       "status": "Status",
