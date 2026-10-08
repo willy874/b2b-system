@@ -1,4 +1,10 @@
-import type { PlatformTenant, TenantFeatureParam } from '@/shared/api-sdk';
+import type {
+  PlatformTenant,
+  PlatformTenantListItem,
+  TenantFeatureParam,
+  TenantUsage,
+  TenantUsageSummary,
+} from '@/shared/api-sdk';
 
 import { TENANT_FEATURES } from './constants';
 
@@ -74,5 +80,73 @@ export function tenantFixture(overrides: Partial<PlatformTenant> = {}): Platform
     createdAt: '2026-09-30T00:00:00.000Z',
     updatedAt: '2026-09-30T00:00:00.000Z',
     ...overrides,
+  };
+}
+
+const MIB = 1024 * 1024;
+
+/** 用量摘要：還沒彙總過（快照的量都是 `null`）。 */
+export function emptyUsageSummary(): TenantUsageSummary {
+  return {
+    usersActive: null,
+    usersTotal: null,
+    serviceAccounts: null,
+    storageUsedBytes: null,
+    storageQuotaBytes: null,
+    storageUsageRatio: null,
+    recentRequests: 0,
+    lastActivityAt: null,
+    snapshotAt: null,
+  };
+}
+
+/** 用量摘要：2048 MB 的配額用了 `ratio`。 */
+export function usageSummaryFixture(
+  overrides: Partial<TenantUsageSummary> = {},
+  ratio = 0.25,
+): TenantUsageSummary {
+  return {
+    usersActive: 12,
+    usersTotal: 15,
+    serviceAccounts: 2,
+    storageUsedBytes: Math.round(2048 * ratio) * MIB,
+    storageQuotaBytes: 2048 * MIB,
+    storageUsageRatio: ratio,
+    recentRequests: 4321,
+    lastActivityAt: '2026-10-07T09:30:00.000Z',
+    snapshotAt: '2026-10-08T06:05:00.000Z',
+    ...overrides,
+  };
+}
+
+/** 租戶清單的一列（租戶 ＋ 用量摘要）。 */
+export function tenantListItemFixture(
+  overrides: Partial<PlatformTenant> = {},
+  usage: TenantUsageSummary = usageSummaryFixture(),
+): PlatformTenantListItem {
+  return { ...tenantFixture(overrides), usage };
+}
+
+/** 詳情頁的用量：近 `days` 天，最後一天有請求。 */
+export function tenantUsageFixture(summary = usageSummaryFixture(), days = 30): TenantUsage {
+  return {
+    summary,
+    warningRatio: 0.8,
+    recentDays: 7,
+    daily: Array.from({ length: days }, (_, index) => {
+      const date = new Date(Date.UTC(2026, 8, 9 + index)).toISOString().slice(0, 10);
+      const last = index === days - 1;
+      return {
+        date,
+        usersActive: last ? summary.usersActive : null,
+        usersTotal: last ? summary.usersTotal : null,
+        serviceAccounts: last ? summary.serviceAccounts : null,
+        storageUsedBytes: last ? summary.storageUsedBytes : null,
+        storageQuotaBytes: last ? summary.storageQuotaBytes : null,
+        requestsInternal: last ? 120 : 0,
+        requestsExternal: last ? 30 : 0,
+        jobsExecuted: last ? 4 : 0,
+      };
+    }),
   };
 }

@@ -21,6 +21,7 @@ export function useTenantDetailTab() {
 
   const tabs: TenantDetailTab[] = [
     'overview',
+    'usage',
     'features',
     ...(canReadFlags ? (['flags'] as const) : []),
     ...(canReadMfa ? (['mfa'] as const) : []),

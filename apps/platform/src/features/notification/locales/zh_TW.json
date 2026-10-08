@@ -18,6 +18,7 @@
     "type": {
       "tenantProvisioned": "租戶「{{name}}」（{{code}}）佈建完成，可以使用了。",
       "tenantProvisionFailed": "租戶「{{name}}」（{{code}}）佈建失敗，請查看原因並重試。",
+      "tenantStorageNearQuota": "租戶「{{name}}」（{{code}}）的檔案已用掉 {{percent}}% 的容量，接近上限。",
       "platformAdminRoleChanged": "你的角色從「{{from}}」改為「{{to}}」。",
       "unknown": "你有一則新通知。"
     },

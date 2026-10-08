@@ -44,6 +44,10 @@ export function toNotificationVM(notification: PlatformNotification): Notificati
     const value = asString(params[key]);
     if (value) strings[key] = value;
   }
+  // 儲存配額警示的使用率（tenant.storageNearQuota）
+  if (typeof params.percent === 'number' && Number.isFinite(params.percent)) {
+    strings.percent = String(params.percent);
+  }
   const fromKey = roleKey(params.from);
   const toKey = roleKey(params.to);
   if (fromKey) strings.fromKey = fromKey;

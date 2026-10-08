@@ -19,6 +19,7 @@ export const NOTIFICATION_PAGE_SIZE_OPTIONS = [20, 50, 100];
 export const NOTIFICATION_MESSAGE_KEY: Readonly<Record<string, string>> = {
   'tenant.provisioned': 'notification.type.tenantProvisioned',
   'tenant.provisionFailed': 'notification.type.tenantProvisionFailed',
+  'tenant.storageNearQuota': 'notification.type.tenantStorageNearQuota',
   'platformAdmin.roleChanged': 'notification.type.platformAdminRoleChanged',
 };
 
@@ -28,6 +29,7 @@ export const NOTIFICATION_UNKNOWN_KEY = 'notification.type.unknown';
 export const NOTIFICATION_ICON: Readonly<Record<string, IconName>> = {
   'tenant.provisioned': 'check',
   'tenant.provisionFailed': 'warning',
+  'tenant.storageNearQuota': 'warning',
   'platformAdmin.roleChanged': 'user',
 };
 
