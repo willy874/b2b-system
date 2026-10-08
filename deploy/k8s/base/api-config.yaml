@@ -3,7 +3,7 @@
 #   FILE_URL_SIGNING_KEY、FILE_STORAGE_ACCESS_KEY_ID、FILE_STORAGE_SECRET_ACCESS_KEY、OIDC_JWKS、OIDC_COOKIE_KEYS、
 #   IDP_SECRET_KEY、WEBHOOK_SECRET_KEY、MFA_SECRET_KEY、MAIL_SMTP_URL
 #   kubectl create secret generic b2b-api-secrets --from-env-file=deploy/prod.env
-# 每個角色讀同一份設定：程序之間的金鑰必須相同（docs/features/multi-instance.md D5）。
+# 每個角色讀同一份設定：程序之間的金鑰必須相同（docs/architecture/01-system.md §7 D5）。
 apiVersion: v1
 kind: ConfigMap
 metadata:

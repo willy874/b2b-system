@@ -1,4 +1,4 @@
-# k8s 的參考部署（docs/features/multi-instance.md D15）：單體（api 一個 Deployment，APP_ROLES=all）。
+# k8s 的參考部署（docs/architecture/01-system.md §7 D15）：單體（api 一個 Deployment，APP_ROLES=all）。
 # 多實例用 overlays/cluster。部署前先建立 Secret b2b-api-secrets（見 base/api-config.yaml 的說明）。
 #   kubectl apply -k deploy/k8s/overlays/standalone   # 或 overlays/cluster
 #

@@ -1,5 +1,5 @@
 #!/bin/sh
-# api 的 upstream（docs/features/multi-instance.md D12）→ /tmp/nginx-upstreams.conf，由 deploy/nginx.main.conf 在 http 層 include：
+# api 的 upstream（docs/architecture/01-system.md §7 D12）→ /tmp/nginx-upstreams.conf，由 deploy/nginx.main.conf 在 http 層 include：
 #
 # - api_backend：REST（API_UPSTREAM，預設 api:3000）。
 # - realtime_backend：/api/socket.io/（REALTIME_UPSTREAM，預設同 API_UPSTREAM）。拆開部署時指向 realtime 角色的服務。

@@ -1,4 +1,4 @@
-# 擴縮的起點（實際的門檻上線後依指標調整；docs/features/multi-instance.md 範圍外）。
+# 擴縮的起點（實際的門檻上線後依指標調整；docs/architecture/01-system.md §4.3）。
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

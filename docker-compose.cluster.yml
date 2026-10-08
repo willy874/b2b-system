@@ -1,4 +1,4 @@
-# 多實例（docs/features/multi-instance.md）：疊在 docker-compose.prod.yml 上。
+# 多實例（docs/architecture/01-system.md §4.3）：疊在 docker-compose.prod.yml 上。
 #   docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-compose.cluster.yml up -d --build
 # 要監控時再疊 docker-compose.monitoring.yml（Prometheus 以 DNS 找到每個實例）。
 #
@@ -23,7 +23,7 @@ services:
     environment:
       DEPLOYMENT_MODE: cluster
       SHUTDOWN_DRAIN_SECONDS: ${SHUTDOWN_DRAIN_SECONDS:-10}
-      # 每個租戶的池：只有 handshake 與權限集合的查詢（docs/features/multi-instance.md §初步構想 5）
+      # 每個租戶的池：只有 handshake 與權限集合的查詢（docs/architecture/01-system.md §7 §初步構想 5）
       TENANT_POOL_MAX: ${REALTIME_TENANT_POOL_MAX:-3}
       PLATFORM_POOL_MAX: ${REALTIME_PLATFORM_POOL_MAX:-3}
     deploy:

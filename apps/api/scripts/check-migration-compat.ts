@@ -1,5 +1,5 @@
 /**
- * CI：這次新增的 migration 有沒有破壞性語句（docs/features/multi-instance.md D14）。
+ * CI：這次新增的 migration 有沒有破壞性語句（docs/architecture/01-system.md §7 D14）。
  *
  *   MIGRATION_BASE=origin/main pnpm --filter @b2b-system/api migrations:check
  *

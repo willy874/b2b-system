@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { findBreakingChanges } from '../migration-compat';
 
-describe('migration 相容檢查（docs/features/multi-instance.md D14）', () => {
+describe('migration 相容檢查（docs/architecture/01-system.md §7 D14）', () => {
   it.each([
     ['DROP TABLE "legacy";', 'DROP TABLE'],
     ['ALTER TABLE "users" DROP COLUMN "nickname";', 'DROP COLUMN'],

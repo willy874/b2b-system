@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# k8s 的參考部署（deploy/k8s，docs/features/multi-instance.md D15）：兩個 overlay 都要能以 kustomize 產生，
+# k8s 的參考部署（deploy/k8s，docs/architecture/01-system.md §7 D15）：兩個 overlay 都要能以 kustomize 產生，
 # 並通過 Kubernetes 的 schema 檢查（kubeconform，strict：拼錯的欄位也算錯）。需要 kubectl（內建 kustomize）與 Docker。
 # 不起叢集：探針、角色與排空的行為由 api 的測試與 deploy/smoke-test.sh --cluster 驗證。
 #

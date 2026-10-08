@@ -1,5 +1,5 @@
 /**
- * migration 對上一版程式相容的檢查（docs/features/multi-instance.md D14）：滾動部署時新舊兩版程式同時連到新 schema，
+ * migration 對上一版程式相容的檢查（docs/architecture/01-system.md §7 D14）：滾動部署時新舊兩版程式同時連到新 schema，
  * 破壞性變更要拆成兩次部署（docs/architecture/backend/02-database.md §5.1）。只檢查這次新增的 migration；
  * 確定要破壞時，在那一行上方寫 `-- breaking-ok: <理由與第二次部署的計畫>`。
  */

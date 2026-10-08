@@ -1,4 +1,4 @@
-# 推播與背景工作（同一個映像，APP_ROLES 不同；docs/features/multi-instance.md §初步構想 1）。
+# 推播與背景工作（同一個映像，APP_ROLES 不同；docs/architecture/01-system.md §4.3）。
 # 連線池依角色調小（§初步構想 5）：推播只查 handshake 與權限集合，worker 依工作的並行度。
 apiVersion: apps/v1
 kind: Deployment
