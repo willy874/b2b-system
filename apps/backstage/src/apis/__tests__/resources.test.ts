@@ -201,6 +201,20 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     }
   });
 
+  it('群組、公告、部門的刪除與還原（create）讓回收桶失效；修改不會（回收桶的分頁見各 feature 的 trash.ts）', () => {
+    for (const resource of [Resource.GROUP, Resource.ANNOUNCEMENT, Resource.ORG_UNIT]) {
+      expect(keysOf({ resource, kind: 'delete', id: 'x1' })).toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+      expect(keysOf({ resource, kind: 'create', id: 'x1' })).toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+      expect(keysOf({ resource, kind: 'update', id: 'x1' })).not.toContain(
+        'invalidate:TRASH_LIST_QUERY_KEY',
+      );
+    }
+  });
+
   it('改自己的 profile：等同 user(self) 更新，profile 跟著失效', () => {
     signInAs();
     const keys = keysOf({ resource: Resource.USER, kind: 'update', id: SELF_ID });
