@@ -28,6 +28,8 @@ export const OrgUnitSchema = defineSchema(
     memberCount: z.number().int(),
     /** 主管數。 */
     managerCount: z.number().int(),
+    /** 主管（依名稱）：組織圖的節點顯示主管名字（docs/architecture/backend/23-organization.md §8）。 */
+    managers: z.array(z.object({ userId: z.string().uuid(), displayName: z.string() })),
     /** 樂觀鎖版本：`PATCH`、`move` 時帶上。 */
     version: z.number().int(),
     createdAt: z.string(),

@@ -1126,6 +1126,10 @@ export interface OrgUnit {
   sortOrder: number;
   memberCount: number;
   managerCount: number;
+  managers: Array<{
+    userId: string;
+    displayName: string;
+  }>;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -1145,6 +1149,10 @@ export interface OrgUnitDetail {
   sortOrder: number;
   memberCount: number;
   managerCount: number;
+  managers: Array<{
+    userId: string;
+    displayName: string;
+  }>;
   version: number;
   createdAt: string;
   updatedAt: string;

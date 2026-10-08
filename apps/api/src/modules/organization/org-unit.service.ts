@@ -37,6 +37,7 @@ function toDto(unit: OrgUnitWithCounts): OrgUnitDto {
     sortOrder: unit.sortOrder,
     memberCount: unit.memberCount,
     managerCount: unit.managerCount,
+    managers: unit.managers,
     version: unit.version,
     createdAt: unit.createdAt.toISOString(),
     updatedAt: unit.updatedAt.toISOString(),

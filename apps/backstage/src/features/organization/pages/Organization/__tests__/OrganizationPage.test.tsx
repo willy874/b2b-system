@@ -1,3 +1,4 @@
+import { installFlowDom } from '@b2b-system/ui/testing';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +19,8 @@ const {
   deleteUnit,
   moveUnit,
   updateMembers,
+  createUnit,
+  updateUnit,
 } = vi.hoisted(() => ({
   fetchTree: vi.fn(),
   fetchUnit: vi.fn(),
@@ -27,6 +30,8 @@ const {
   deleteUnit: vi.fn(),
   moveUnit: vi.fn(),
   updateMembers: vi.fn(),
+  createUnit: vi.fn(),
+  updateUnit: vi.fn(),
 }));
 vi.mock('@/apis/org-unit/get-org-unit-tree/fetcher', () => ({ fetchOrgUnitTreeQuery: fetchTree }));
 vi.mock('@/apis/org-unit/get-org-unit-detail/fetcher', () => ({
@@ -41,6 +46,12 @@ vi.mock('@/apis/org-unit/delete-org-unit/fetcher', () => ({
   fetchOrgUnitDeleteMutation: deleteUnit,
 }));
 vi.mock('@/apis/org-unit/move-org-unit/fetcher', () => ({ fetchOrgUnitMoveMutation: moveUnit }));
+vi.mock('@/apis/org-unit/create-org-unit/fetcher', () => ({
+  fetchOrgUnitCreateMutation: createUnit,
+}));
+vi.mock('@/apis/org-unit/update-org-unit/fetcher', () => ({
+  fetchOrgUnitUpdateMutation: updateUnit,
+}));
 vi.mock('@/apis/org-unit/update-org-unit-members/fetcher', () => ({
   fetchOrgUnitMembersUpdateMutation: updateMembers,
 }));
@@ -59,6 +70,7 @@ const unit = (id: string, name: string, parentId: string | null, sortOrder: numb
   sortOrder,
   memberCount: 1,
   managerCount: 0,
+  managers: [],
   version: 2,
   createdAt: '2026-10-01T00:00:00.000Z',
   updatedAt: '2026-10-01T00:00:00.000Z',
@@ -105,7 +117,10 @@ async function treeNode(id: string) {
 const visibleNodeIds = () =>
   screen.queryAllByTestId('org-unit-tree-node').map((node) => node.getAttribute('data-value'));
 
-beforeAll(() => initTestI18n(organizationZhTW));
+beforeAll(() => {
+  installFlowDom();
+  initTestI18n(organizationZhTW);
+});
 
 beforeEach(() => {
   resetPagePermissionRegistry();
@@ -128,6 +143,16 @@ beforeEach(() => {
     path: [],
   }));
   updateMembers.mockReset().mockResolvedValue({ ...UNITS[1], path: [] });
+  createUnit.mockReset().mockImplementation(async ({ params }) => ({
+    ...unit('55555555-5555-4555-8555-555555555555', params.body.name, params.body.parentId, 9),
+    path: [],
+  }));
+  updateUnit.mockReset().mockImplementation(async ({ params }) => ({
+    ...UNITS.find((item) => item.id === params.unitId),
+    ...params.body,
+    version: params.body.version + 1,
+    path: [],
+  }));
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -273,5 +298,124 @@ describe('OrganizationPage 的操作', () => {
     const row = await screen.findByText('Bob');
     expect(row.closest('li')).toHaveTextContent('北區');
     expect(screen.queryByTestId('org-unit-member-manager')).toBeNull();
+  });
+});
+
+const CHART_PATH = '/organization?view=chart';
+
+/** 編輯模式雙擊節點改名（只改草稿）。 */
+async function renameInChart(id: string, name: string) {
+  // 進入編輯模式後 React Flow 會重新掛載節點：雙擊最新的那一個
+  await waitFor(async () => {
+    fireEvent.doubleClick(await chartNode(id));
+    expect(screen.getByTestId('org-chart-rename-dialog')).toBeInTheDocument();
+  });
+  const dialog = screen.getByTestId('org-chart-rename-dialog');
+  fireEvent.change(within(dialog).getByTestId('org-chart-rename-input'), {
+    target: { value: name },
+  });
+  fireEvent.click(within(dialog).getByTestId('org-chart-rename-submit'));
+}
+
+/** 組織圖上的一個節點（以 `data-value` 定位）。 */
+async function chartNode(id: string) {
+  const nodes = await screen.findAllByTestId('org-chart-node', undefined, { timeout: 5000 });
+  const node = nodes.find((element) => element.getAttribute('data-value') === id);
+  if (!node) throw new Error(`組織圖上沒有部門 ${id}`);
+  return node;
+}
+
+describe('OrganizationPage 的組織圖（docs/architecture/backend/23-organization.md §8）', () => {
+  it('有 orgUnit:create／update／delete → 畫出整棵樹，可以進入編輯模式', async () => {
+    renderRoute(routes, CHART_PATH, MANAGER);
+    await chartNode(NORTH);
+    expect(screen.getAllByTestId('org-chart-node')).toHaveLength(4);
+    expect(screen.getByTestId('org-chart-edit')).toBeInTheDocument();
+    // 組織圖有自己的編輯模式，頁首的「新增最上層部門」只在清單
+    expect(screen.queryByTestId('org-unit-create-button')).toBeNull();
+  });
+
+  it('只有 orgUnit:read → 只能看，沒有編輯按鈕', async () => {
+    renderRoute(routes, CHART_PATH, READER);
+    await chartNode(HQ);
+    expect(screen.queryByTestId('org-chart-edit')).toBeNull();
+  });
+
+  it('權限未水合 → 不閃現編輯按鈕', async () => {
+    renderRoute(routes, CHART_PATH, 'unhydrated');
+    await waitFor(() => expect(fetchTree).toHaveBeenCalled());
+    expect(screen.queryByTestId('org-chart-edit')).toBeNull();
+  });
+
+  it('檢視模式點部門：網址帶 unitId，下方顯示它的詳情', async () => {
+    const { router } = renderRoute(routes, CHART_PATH, READER);
+    fireEvent.click(await chartNode(RD));
+    expect(await screen.findByTestId('org-unit-name')).toHaveTextContent('研發部');
+    expect(router.state.location.search).toEqual({ unitId: RD, view: 'chart' });
+  });
+
+  it('切換分頁：清單不寫進網址', async () => {
+    const { router } = renderRoute(routes, CHART_PATH, READER);
+    await chartNode(HQ);
+    fireEvent.click(screen.getByRole('tab', { name: '清單' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    expect(await screen.findAllByTestId('org-unit-tree-node')).not.toHaveLength(0);
+  });
+
+  it('編輯：新增下層與改名只改草稿，儲存時依序呼叫 API', async () => {
+    renderRoute(routes, CHART_PATH, MANAGER);
+    await chartNode(HQ);
+    fireEvent.click(screen.getByTestId('org-chart-edit'));
+    expect(screen.getByTestId('org-chart-save')).toBeDisabled();
+
+    // 業務部底下新增一個部門
+    const addChild = await screen.findAllByTestId('tree-editor-add-child');
+    fireEvent.click(addChild.find((button) => button.getAttribute('data-value') === SALES)!);
+    // 研發部改名
+    await renameInChart(RD, '產品研發部');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('org-chart-change-count')).toHaveAttribute('data-value', '2'),
+    );
+    expect(createUnit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('org-chart-save'));
+
+    await waitFor(() => expect(updateUnit).toHaveBeenCalledTimes(1));
+    expect(createUnit.mock.calls[0]![0]).toMatchObject({
+      params: { body: { name: '新部門', parentId: SALES } },
+    });
+    expect(updateUnit.mock.calls[0]![0]).toMatchObject({
+      params: { unitId: RD, body: { name: '產品研發部', version: 2 } },
+    });
+    // 儲存後回到檢視模式
+    expect(await screen.findByTestId('org-chart-edit')).toBeInTheDocument();
+  });
+
+  it('儲存中途失敗：停在那一步並說明，前面的步驟已生效', async () => {
+    updateUnit.mockRejectedValue(new Error('boom'));
+    renderRoute(routes, CHART_PATH, MANAGER);
+    await chartNode(HQ);
+    fireEvent.click(screen.getByTestId('org-chart-edit'));
+    await renameInChart(RD, '產品研發部');
+    fireEvent.click(await screen.findByTestId('org-chart-save'));
+
+    expect(await screen.findByTestId('org-chart-save-failure')).toHaveTextContent('改名「研發部」');
+  });
+
+  it('取消：有變更時先確認', async () => {
+    renderRoute(routes, CHART_PATH, MANAGER);
+    await chartNode(HQ);
+    fireEvent.click(screen.getByTestId('org-chart-edit'));
+    const addChild = await screen.findAllByTestId('tree-editor-add-child');
+    fireEvent.click(addChild[0]!);
+    await waitFor(() =>
+      expect(screen.getByTestId('org-chart-change-count')).toHaveAttribute('data-value', '1'),
+    );
+
+    fireEvent.click(screen.getByTestId('org-chart-cancel'));
+    const confirm = await screen.findByTestId('org-chart-cancel-confirm');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+    expect(await screen.findByTestId('org-chart-edit')).toBeInTheDocument();
+    expect(screen.getAllByTestId('org-chart-node')).toHaveLength(4);
   });
 });

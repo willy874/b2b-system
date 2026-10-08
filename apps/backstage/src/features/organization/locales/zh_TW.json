@@ -73,6 +73,43 @@
       "removeConfirm": "移除後，「{{name}}」不再屬於這個部門；若這是他的主要部門，他會暫時沒有主管。",
       "removeAction": "移除",
       "success": "已更新部門的成員"
+    },
+    "view": {
+      "list": "清單",
+      "chart": "組織圖"
+    },
+    "chart": {
+      "label": "組織圖",
+      "viewHint": "點部門在下方查看詳情與成員。",
+      "editHint": "點部門下緣的「＋」新增下層；從部門下緣拖線到另一個部門換上層；雙擊改名；選取後按 Delete 刪除。改動按「儲存」後才生效。",
+      "edit": "編輯組織圖",
+      "save": "儲存",
+      "saved": "組織圖已儲存",
+      "newUnit": "新部門",
+      "newBadge": "新",
+      "untitled": "（未命名）",
+      "blankName": "有部門的名稱是空白的，雙擊補上名稱後才能儲存。",
+      "managers": "主管：{{names}}",
+      "noManager": "沒有主管",
+      "nameSeparator": "、",
+      "renameTitle": "部門名稱",
+      "cancelTitle": "放棄變更？",
+      "discard": "放棄變更",
+      "deleteTitle": "刪除部門？",
+      "deleteForbidden": "你沒有刪除部門的權限",
+      "orphanForbidden": "刪除後下層部門要換上層，你沒有編輯部門的權限",
+      "saveFailed": "{{step}}「{{name}}」時失敗，前面的 {{completed}} 項變更已生效，畫面已更新為目前的組織。原因：{{reason}}",
+      "step": {
+        "create": "新增",
+        "rename": "改名",
+        "move": "換上層",
+        "delete": "刪除"
+      },
+      "changes_other": "{{count}} 項變更",
+      "memberCount_other": "{{count}} 人",
+      "cancelConfirm_other": "組織圖有 {{count}} 項變更還沒儲存，離開編輯模式會全部放棄。",
+      "deleteConfirm_other": "將刪除 {{count}} 個部門（儲存後才生效），成員資格隨部門進回收桶。",
+      "deleteConfirmWithChildren_other": "將刪除 {{count}} 個部門（儲存後才生效），成員資格隨部門進回收桶；它們留下的下層部門會變成最上層。"
     }
   }
 }

@@ -614,7 +614,7 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 | 刪除 | Delete / Backspace 或工具列；刪節點時連同它身上的連線，子節點變成根節點。`onBeforeDelete` 可非同步確認（例如 `useConfirm()`），回傳 `false` 取消 |
 | 復原 | 工具列、⌘/Ctrl + Z、⌘/Ctrl + Shift + Z（或 ⌘/Ctrl + Y），最多 100 步；外部換掉 `value`（不是元件剛回報的那一個參考）時清空 |
 | 節點內容 | `renderNode(node, { selected, readOnly })`；沒給時顯示 `getNodeLabel(node)`（預設 `id`，也是節點的無障礙名稱）。框內的輸入框取得焦點時，快捷鍵交還給輸入框 |
-| 選取 | `onSelectionChange(nodeIds)`：搭配旁邊的屬性面板，以 `updateNodeData` 改資料；`onNodeClick`、`onNodeDoubleClick`。`selectable={false}`：節點與連線不能選取、不能聚焦（結構唯讀、互動放在 `renderNode` 裡的按鈕時用，Tab 只停在按鈕上） |
+| 選取 | `onSelectionChange(nodeIds)`：搭配旁邊的屬性面板，以 `updateNodeData` 改資料；`onNodeClick`、`onNodeDoubleClick`（有傳時關掉畫布的雙擊放大：不可拖的節點沒有 `nopan`，雙擊會先被 d3-zoom 吃掉）。`selectable={false}`：節點與連線不能選取、不能聚焦（結構唯讀、互動放在 `renderNode` 裡的按鈕時用，Tab 只停在按鈕上） |
 | 狀態 | `getNodeState(node)` → `active`（已啟用）／`derived`（由其他節點帶出）／`available`（可啟用）／`locked`（不能操作），外框與底色由元件呈現（`data-state`）；`renderNode` 的第二個參數也拿得到 `state` |
 | 強調 | `highlightedNodeIds`（`data-highlighted`，例如滑過節點時標出前置）、`activeEdgeIds`（已啟用的路徑，品牌色）、`highlightedEdgeIds`（強調的路徑）；連線 id 是 `getEdgeId(edge)` |
 | 連線外觀 | `TreeEditorEdge.variant`：`solid`（預設）／`dashed`（例：跨分支的「需要」關係）；元件原樣保存 |

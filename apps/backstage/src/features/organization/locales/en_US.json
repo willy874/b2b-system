@@ -74,6 +74,48 @@
       "removeConfirm": "\"{{name}}\" will no longer belong to this department. If it is their primary department, they will have no manager for now.",
       "removeAction": "Remove",
       "success": "Department members updated"
+    },
+    "view": {
+      "list": "List",
+      "chart": "Org chart"
+    },
+    "chart": {
+      "label": "Org chart",
+      "viewHint": "Click a unit to see its details and members below.",
+      "editHint": "Press + under a unit to add a child; drag a line from a unit's bottom edge to another unit to change its parent; double-click to rename; select and press Delete to remove. Changes take effect when you save.",
+      "edit": "Edit org chart",
+      "save": "Save",
+      "saved": "Org chart saved",
+      "changes_one": "{{count}} change",
+      "changes_other": "{{count}} changes",
+      "newUnit": "New unit",
+      "newBadge": "New",
+      "untitled": "(Untitled)",
+      "blankName": "Some units have a blank name. Double-click them to add a name before saving.",
+      "managers": "Managers: {{names}}",
+      "noManager": "No manager",
+      "nameSeparator": ", ",
+      "memberCount_one": "{{count}} member",
+      "memberCount_other": "{{count}} members",
+      "renameTitle": "Unit name",
+      "cancelTitle": "Discard changes?",
+      "cancelConfirm_one": "The org chart has {{count}} unsaved change. Leaving edit mode discards it.",
+      "cancelConfirm_other": "The org chart has {{count}} unsaved changes. Leaving edit mode discards them all.",
+      "discard": "Discard changes",
+      "deleteTitle": "Delete units?",
+      "deleteConfirm_one": "{{count}} unit will be deleted when you save. Its memberships go to the trash with it.",
+      "deleteConfirm_other": "{{count}} units will be deleted when you save. Their memberships go to the trash with them.",
+      "deleteConfirmWithChildren_one": "{{count}} unit will be deleted when you save. Its memberships go to the trash with it, and its remaining child units become top-level.",
+      "deleteConfirmWithChildren_other": "{{count}} units will be deleted when you save. Their memberships go to the trash with them, and their remaining child units become top-level.",
+      "deleteForbidden": "You don't have permission to delete units",
+      "orphanForbidden": "Deleting this would move its child units, and you don't have permission to edit units",
+      "saveFailed": "Failed to {{step}} \"{{name}}\". The previous {{completed}} changes took effect; the chart now shows the current organization. Reason: {{reason}}",
+      "step": {
+        "create": "create",
+        "rename": "rename",
+        "move": "move",
+        "delete": "delete"
+      }
     }
   }
 }

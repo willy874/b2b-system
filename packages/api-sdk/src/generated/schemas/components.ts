@@ -1952,6 +1952,18 @@ export const OrgUnitSchema = z.object({
   sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
   memberCount: z.int().min(-9007199254740991).max(9007199254740991),
   managerCount: z.int().min(-9007199254740991).max(9007199254740991),
+  managers: z.array(
+    z.object({
+      userId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    }),
+  ),
   version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -1990,6 +2002,18 @@ export const OrgUnitDetailSchema = z.object({
   sortOrder: z.int().min(-9007199254740991).max(9007199254740991),
   memberCount: z.int().min(-9007199254740991).max(9007199254740991),
   managerCount: z.int().min(-9007199254740991).max(9007199254740991),
+  managers: z.array(
+    z.object({
+      userId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      displayName: z.string(),
+    }),
+  ),
   version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
   updatedAt: z.string(),

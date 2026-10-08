@@ -283,6 +283,9 @@ function TreeEditorCanvas<TData>({
               if (node.type === 'tree')
                 onNodeDoubleClick?.(node.data.source as TreeEditorNode<TData>);
             }}
+            // 不可拖的節點（layout="auto"）沒有 nopan，雙擊會先被畫布的「雙擊放大」吃掉（d3-zoom 停止傳遞），
+            // onNodeDoubleClick 永遠收不到；有雙擊處理時關掉雙擊放大（縮放仍有滾輪與工具列）
+            zoomOnDoubleClick={!onNodeDoubleClick}
             nodesDraggable={draggable}
             nodesConnectable={editable}
             elementsSelectable={selectable}

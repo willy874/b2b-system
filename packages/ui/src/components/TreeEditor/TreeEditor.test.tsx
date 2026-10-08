@@ -239,4 +239,12 @@ describe('TreeEditor', () => {
     expect(item('a')).not.toHaveAttribute('data-selected');
     expect(onSelectionChange).not.toHaveBeenCalled();
   });
+
+  it('layout="auto"（節點不可拖）：雙擊節點觸發 onNodeDoubleClick，不被畫布的雙擊放大吃掉', async () => {
+    const onNodeDoubleClick = vi.fn();
+    renderEditor({ layout: 'auto', onNodeDoubleClick });
+    await screen.findAllByTestId('tree-editor-item');
+    fireEvent.doubleClick(item('a'));
+    expect(onNodeDoubleClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
+  });
 });

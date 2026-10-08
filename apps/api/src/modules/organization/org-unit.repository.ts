@@ -20,6 +20,8 @@ const deleter = alias(users, 'deleter');
 export interface OrgUnitWithCounts extends OrgUnitRow {
   memberCount: number;
   managerCount: number;
+  /** 主管（未刪除的使用者，依名稱）：組織圖的節點顯示主管名字。 */
+  managers: Array<{ userId: string; displayName: string }>;
 }
 
 export interface OrgUnitMemberView {
@@ -58,6 +60,11 @@ const memberCount = sql<number>`(SELECT count(*)::int FROM ${orgUnitMembers} m
   WHERE m.unit_id = ${OUTER_UNIT_ID} AND ${ACTIVE_MEMBER})`;
 const managerCount = sql<number>`(SELECT count(*)::int FROM ${orgUnitMembers} m
   WHERE m.unit_id = ${OUTER_UNIT_ID} AND m.is_manager AND ${ACTIVE_MEMBER})`;
+const managers = sql<Array<{ userId: string; displayName: string }>>`(SELECT coalesce(
+    json_agg(json_build_object('userId', u.id, 'displayName', u.display_name) ORDER BY u.display_name, u.id),
+    '[]'::json)
+  FROM ${orgUnitMembers} m JOIN ${users} u ON u.id = m.user_id
+  WHERE m.unit_id = ${OUTER_UNIT_ID} AND m.is_manager AND u.deleted_at IS NULL /* notDeleted */)`;
 
 @Injectable()
 export class OrgUnitRepository {
@@ -68,7 +75,7 @@ export class OrgUnitRepository {
   /** 整棵樹（未刪除），同層依 `sort_order`、名稱排序。 */
   async listAll(): Promise<OrgUnitWithCounts[]> {
     return this.db
-      .select({ unit: orgUnits, memberCount, managerCount })
+      .select({ unit: orgUnits, memberCount, managerCount, managers })
       .from(orgUnits)
       .where(notDeleted(orgUnits))
       .orderBy(asc(orgUnits.sortOrder), asc(orgUnits.name))
@@ -92,11 +99,18 @@ export class OrgUnitRepository {
 
   async withCounts(id: string): Promise<OrgUnitWithCounts | undefined> {
     const [row] = await this.db
-      .select({ unit: orgUnits, memberCount, managerCount })
+      .select({ unit: orgUnits, memberCount, managerCount, managers })
       .from(orgUnits)
       .where(and(eq(orgUnits.id, id), notDeleted(orgUnits)))
       .limit(1);
-    return row && { ...row.unit, memberCount: row.memberCount, managerCount: row.managerCount };
+    return (
+      row && {
+        ...row.unit,
+        memberCount: row.memberCount,
+        managerCount: row.managerCount,
+        managers: row.managers,
+      }
+    );
   }
 
   async findById(id: string, tx?: DbOrTx): Promise<OrgUnitRow | undefined> {

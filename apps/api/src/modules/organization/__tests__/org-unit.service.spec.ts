@@ -38,7 +38,7 @@ function setup() {
   const db = { transaction: vi.fn((fn: (t: unknown) => unknown) => fn(tx)) };
   const repo = {
     findById: vi.fn(async (): Promise<OrgUnitRow | undefined> => unit()),
-    withCounts: vi.fn(async () => ({ ...unit(), memberCount: 0, managerCount: 0 })),
+    withCounts: vi.fn(async () => ({ ...unit(), memberCount: 0, managerCount: 0, managers: [] })),
     pathsOf: vi.fn(async () => new Map()),
     findByCode: vi.fn(async (): Promise<OrgUnitRow | undefined> => undefined),
     findSiblingByName: vi.fn(async (): Promise<OrgUnitRow | undefined> => undefined),

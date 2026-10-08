@@ -83,7 +83,7 @@
 
 | Method | Path | 權限 | 說明 |
 | --- | --- | --- | --- |
-| GET | `/org-units` | `orgUnit:read` | 整棵樹（扁平陣列，帶 `parentId`、`sortOrder`、`memberCount`、`managerCount`）；`?keyword=` 只回名稱或代碼符合的部門與它們的上層 |
+| GET | `/org-units` | `orgUnit:read` | 整棵樹（扁平陣列，帶 `parentId`、`sortOrder`、`memberCount`、`managerCount`、主管 `managers`（`userId`、`displayName`，依名稱排列，給組織圖）；`?keyword=` 只回名稱或代碼符合的部門與它們的上層 |
 | POST | `/org-units` | `orgUnit:create` | `{ name, parentId?, code?, description? }`；排在同層最後 |
 | GET | `/org-units/:id` | `orgUnit:read` | 詳情，含上層路徑 `path`（最上層在前，不含自己） |
 | PATCH | `/org-units/:id` | `orgUnit:update` | `name`、`code`、`description`；必帶 `version`（`409 ORG_UNIT_VERSION_CONFLICT`） |
@@ -132,15 +132,34 @@
 
 | 位置 | 內容 |
 | --- | --- |
-| `features/organization`（可啟用的 feature `organization`） | `/organization`（Page Key `ORG_UNIT`，`orgUnit:read`；側欄「人員管理」，群組之後）。選中的部門在網址 `?unitId=` |
+| `features/organization`（可啟用的 feature `organization`） | `/organization`（Page Key `ORG_UNIT`，`orgUnit:read`；側欄「人員管理」，群組之後）。選中的部門在網址 `?unitId=`；頁首的分頁切換「清單」與「組織圖」（`?view=chart`，清單是預設、不寫進網址） |
 | 左側部門樹 | 依 `parentId` 組樹，同層依 `sortOrder`、名稱；本地以名稱或代碼篩選（保留上層，有關鍵字時全部展開）；每個節點顯示直接成員數 |
 | 右側詳情 | 上層路徑、名稱、代碼與說明的就地編輯（帶 `version`，衝突時 `VersionConflictAlert`）；「新增下層部門」（`orgUnit:create`）、「搬移到…」對話框（`orgUnit:update`，以 `OrgUnitPicker` 選新的上層或最上層，自己與下層不能選）、「刪除」（`orgUnit:delete`，先確認；成功後改選上層） |
 | 成員表（另要 `user:read`） | 可勾「含下層部門」（下層的列只顯示）；每列切換主管、主要部門、編輯職稱、移除；自己那一列沒有操作（D6）；加成員以伺服器端搜尋使用者 |
 | 命令面板、回收桶 | 搜尋部門名稱與代碼（route id `organization.unit`）；回收桶「部門」分頁（`orgUnit:delete`） |
 | `core/components/OrgUnitPicker` | 樹狀、可搜尋的部門選擇器（`ui/Select` 的巢狀選項）；資料與文字由呼叫端傳入。首屏的程式不 import 它（會把 Select 帶進 entry chunk） |
+| 組織圖（`?view=chart`） | `TreeEditor`（`mode="tree"`、`layout="auto"`、根在上）畫出整棵樹，節點顯示名稱、主管與直接成員數；點節點在下方顯示詳情。下方「編輯模式」一節 |
 | 使用者 feature | 詳情的「所屬部門」（主要部門在前、上層路徑、主管與職稱）；列表的部門篩選（`orgUnitId`、`includeDescendants`，也套用到匯出）。都只在 `organization` 已安裝且有 `orgUnit:read` 時出現 |
 
-與當初構想不同：用「搬移到…」對話框取代 TreeEditor 的拖放、行內改名與右鍵選單，沒有同層的拖曳排序（API 的 `beforeId` 已支援）；沒有「建立部門」的命令面板指令（建立是頁內對話框）。
+清單用「搬移到…」對話框，沒有同層的拖曳排序（API 的 `beforeId` 已支援）；沒有「建立部門」的命令面板指令（建立是頁內對話框）。
+
+### 8.1 組織圖的編輯模式
+
+有 `orgUnit:create`／`update`／`delete` 任一個時出現「編輯組織圖」。進入時把目前的部門樹複製成 **草稿**，畫布上的動作只改草稿：
+
+| 動作 | 權限 | 說明 |
+| --- | --- | --- |
+| 節點下緣的「＋」、工具列的新增 | `orgUnit:create` | 新節點叫「新部門」，標「新」；新部門底下可以再接新部門 |
+| 雙擊節點改名 | 既有部門 `orgUnit:update`；新部門 `orgUnit:create` | 名稱空白時不能儲存 |
+| 從節點拖線到另一個節點、刪掉連線 | `orgUnit:update` | 換上層／變成最上層；循環由元件擋，層數上限（10）在拖線時就擋（`isWithinDepth`） |
+| 選取後 Delete | `orgUnit:delete`（只刪草稿裡的新部門不用） | 先確認；留下的下層變成最上層，所以有下層時另要 `orgUnit:update` |
+
+「儲存」比對草稿與伺服器上的樹（`pages/Organization/orgChart.ts` 的 `planOrgChartChanges`），依序呼叫既有的 API：
+**新增**（上層先於下層，新部門的 id 傳給下層）→ **改名**（`PATCH`）→ **換上層**（`move`，用改名回來的 `version`）→ **刪除**（伺服器上較深的先刪，因為有下層的部門不能刪）。
+後端沒有批次端點、這些呼叫也不在同一個交易：任一步失敗就停下，離開編輯模式並顯示「哪一步、哪個部門、前面幾步已生效」，畫面重新取得伺服器上的樹，使用者從那裡再編輯。
+有未儲存的變更時，取消要確認，離開頁面由 `useUnsavedChangesGuard` 攔下；編輯模式不顯示下方的詳情（詳情裡的操作會直接改伺服器，與草稿衝突）。
+
+不做：同層排序（自動排版依 `sortOrder` 排列，拖曳不改順序）、在組織圖上編輯成員。
 
 ---
 
@@ -149,6 +168,8 @@
 | 層 | 涵蓋 |
 | --- | --- |
 | 單元 `org-unit.service.spec.ts` | 每個錯誤碼分支：上層不存在、層數、同層同名、代碼、版本衝突、循環、子樹放不下、有下層、還原的狀態、上層已刪除、改到自己、使用者不存在；主要部門的取消順序 |
+| 前端 `pages/Organization/__tests__/orgChart.test.ts` | 草稿 → 計畫（新增的順序與上層參照、改名、換上層、刪除的順序、新增又刪掉的節點）、層數上限、依序執行與中途失敗 |
+| 前端 `OrganizationPage.test.tsx` | 清單與組織圖的三個權限案例；組織圖點節點、切換分頁、新增＋改名後儲存、儲存中途失敗、取消要確認 |
 | 單元 `org-chart.service.spec.ts` | 第 N 層主管（沒有主管的部門往上跳過）、扣掉申請人、未啟用時回空 |
 | 整合 `test/organization.spec.ts` | 部門樹的建立與唯一性、關鍵字、搬移的循環與撞名與樂觀鎖、深度上限、成員與主要部門、主管的解析（主管本人、兩位主管、停用的主管）、使用者列表的篩選、刪除與回收桶與還原的順序、auditor 唯讀、`organization` 停用 |
 | 整合 `test/approval-chain.spec.ts` | `manager` 規則經組織解析；`organization` 停用時展開為空 |

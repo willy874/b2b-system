@@ -244,6 +244,10 @@ describe('組織管理（docs/architecture/backend/23-organization.md）', () =>
   it('主管的解析：沿主要部門往上、跳過自己（D5）', async () => {
     expect(await managersOf(ids.carl, 1)).toEqual([ids.amy]);
     expect(await managersOf(ids.carl, 2)).toEqual([ids.ben]);
+    // 樹的每個部門帶主管的名字（組織圖用）
+    const tree = await (await as(ADMIN)).get('/org-units').expect(200);
+    const north = tree.body.data.items.find((unit: { id: string }) => unit.id === ids.north);
+    expect(north.managers).toEqual([{ userId: ids.amy, displayName: 'amy' }]);
     expect(await managersOf(ids.carl, 3)).toEqual([]);
     // 主管本人：第 1 層是上層部門的主管
     expect(await managersOf(ids.amy, 1)).toEqual([ids.ben]);
