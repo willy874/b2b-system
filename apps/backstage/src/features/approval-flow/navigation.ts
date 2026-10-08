@@ -4,7 +4,7 @@ import { NavGroupKey } from '@/core/navigation';
 
 import { APPROVAL_FLOW_PAGE } from './permission';
 
-/** 側欄的入口，排在「審批」（200）之後；命令面板的「頁面」也列出它（docs/architecture/frontend/18-command-palette.md §2）。 */
+/** 側欄「系統管理」的入口；命令面板的「頁面」也列出它（docs/architecture/frontend/18-command-palette.md §2）。 */
 export function registerApprovalFlowNavigation(): void {
   registerNavItem({
     pageKey: APPROVAL_FLOW_PAGE,
