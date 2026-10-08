@@ -15,6 +15,12 @@ export interface UserListParams {
   mfa?: 'true' | 'false';
   /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tagId?: string[];
+  /**
+   * 屬於這個部門（docs/architecture/backend/23-organization.md §4）；`includeDescendants` 時含下層部門。
+   * 租戶沒有啟用 `organization` 時後端回 `VALIDATION_FAILED`，不要帶。
+   */
+  orgUnitId?: string;
+  includeDescendants?: boolean;
   /** 多欄排序，陣列順序即優先順序。 */
   sort?: Array<SortEntry<UserSortField>>;
 }

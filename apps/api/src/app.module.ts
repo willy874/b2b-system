@@ -48,6 +48,7 @@ import { MfaEmailModule } from './modules/mfa-email/mfa-email.module';
 import { MfaTotpModule } from './modules/mfa-totp/mfa-totp.module';
 import { MfaModule } from './modules/mfa/mfa.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { PlatformNotificationModule } from './modules/platform-notification/platform-notification.module';
@@ -127,6 +128,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     UserModule,
     RoleModule,
     GroupModule,
+    OrganizationModule,
     // 服務帳號與 API token（docs/architecture/06-external-api.md §9）
     ApiTokenModule,
     ServiceAccountModule,

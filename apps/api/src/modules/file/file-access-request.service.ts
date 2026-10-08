@@ -125,7 +125,7 @@ export class FileAccessRequestService {
     const ctx = await this.access.contextFor(actor);
     await this.grantService.assertCanShare(ctx, actor, folderId);
     // 不存在（APPROVAL_NOT_FOUND）與「不是這個資料夾的」一樣回 FILE_ACCESS_REQUEST_NOT_FOUND
-    const request = await this.approvals.findOne(requestId).catch((error: unknown) => {
+    const request = await this.approvals.get(requestId).catch((error: unknown) => {
       if (error instanceof AppException) return undefined;
       throw error;
     });

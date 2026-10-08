@@ -14,6 +14,10 @@ export const NOTIFICATION_MESSAGE_KEY = {
   approvalPending: 'notification.message.approvalPending',
   approvalApproved: 'notification.message.approvalApproved',
   approvalRejected: 'notification.message.approvalRejected',
+  /** 多階段：輪到某一關（docs/architecture/backend/20-approval.md §9.15）。 */
+  approvalPendingStep: 'notification.message.approvalPendingStep',
+  approvalProgress: 'notification.message.approvalProgress',
+  approvalUnassigned: 'notification.message.approvalUnassigned',
   userRolesChanged: 'notification.message.userRolesChanged',
   webhookDisabled: 'notification.message.webhookDisabled',
   announcementPublished: 'notification.message.announcementPublished',
@@ -42,6 +46,8 @@ export const APPROVAL_TYPE_FALLBACK_KEY = 'notification.approvalType.unknown';
 export const NOTIFICATION_ICON = {
   'approval.pending': 'flag',
   'approval.result': 'shield',
+  'approval.progress': 'flag',
+  'approval.unassigned': 'warning',
   'user.rolesChanged': 'user',
   'webhook.disabled': 'warning',
   'announcement.published': 'megaphone',
@@ -81,6 +87,16 @@ export const NOTIFICATION_EVENT_LABEL: Readonly<Partial<Record<string, Notificat
     nameKey: 'notification.event.type.approvalResult.name',
     descriptionKey: 'notification.event.type.approvalResult.description',
     recipientsKey: 'notification.event.type.approvalResult.recipients',
+  },
+  'approval.progress': {
+    nameKey: 'notification.event.type.approvalProgress.name',
+    descriptionKey: 'notification.event.type.approvalProgress.description',
+    recipientsKey: 'notification.event.type.approvalProgress.recipients',
+  },
+  'approval.unassigned': {
+    nameKey: 'notification.event.type.approvalUnassigned.name',
+    descriptionKey: 'notification.event.type.approvalUnassigned.description',
+    recipientsKey: 'notification.event.type.approvalUnassigned.recipients',
   },
   'user.rolesChanged': {
     nameKey: 'notification.event.type.userRolesChanged.name',

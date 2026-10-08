@@ -3,6 +3,7 @@ import { RootRoute } from '@b2b-system/web-core/router';
 import { Routes as AccountRoutes } from '@/features/account';
 import { Routes as AnnouncementRoutes } from '@/features/announcement';
 import { Routes as ApprovalRoutes } from '@/features/approval';
+import { Routes as ApprovalFlowRoutes } from '@/features/approval-flow';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as AuthRoutes } from '@/features/auth';
 import { Routes as DataTransferRoutes } from '@/features/data-transfer';
@@ -12,6 +13,7 @@ import { Routes as HomeRoutes } from '@/features/home';
 import { Routes as IdentityProviderRoutes } from '@/features/identity-provider';
 import { Routes as JobRoutes } from '@/features/job';
 import { Routes as NotificationRoutes } from '@/features/notification';
+import { Routes as OrganizationRoutes } from '@/features/organization';
 import { Routes as PermissionRoutes } from '@/features/permission';
 import { Routes as RoleRoutes } from '@/features/role';
 import { Routes as SecurityRoutes } from '@/features/security';
@@ -47,6 +49,7 @@ export const routeTree = RootRoute.addChildren([
     GroupRoutes.GroupCreateRoute,
     GroupRoutes.GroupDetailRoute,
   ]),
+  OrganizationRoutes.OrganizationRoute,
 
   ServiceAccountRoutes.ServiceAccountListRoute.addChildren([
     ServiceAccountRoutes.ServiceAccountCreateRoute,
@@ -57,6 +60,9 @@ export const routeTree = RootRoute.addChildren([
   TagRoutes.TagListRoute,
   AuditLogRoutes.AuditLogListRoute,
   ApprovalRoutes.ApprovalListRoute.addChildren([ApprovalRoutes.ApprovalDetailRoute]),
+  ApprovalRoutes.MyApprovalRoute.addChildren([ApprovalRoutes.MyApprovalDetailRoute]),
+  ApprovalFlowRoutes.ApprovalFlowListRoute,
+  ApprovalFlowRoutes.ApprovalFlowEditRoute,
   FileRoutes.FileListRoute,
   JobRoutes.JobListRoute,
   IdentityProviderRoutes.IdentityProviderListRoute,

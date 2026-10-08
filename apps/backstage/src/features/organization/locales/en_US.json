@@ -1,0 +1,79 @@
+{
+  "organization": {
+    "title": "Organization",
+    "description": "Departments, their hierarchy and members. Managers and primary departments decide who reviews \"manager\" approval steps; departments grant no permissions — use groups for access.",
+    "tree": {
+      "label": "Department tree",
+      "searchPlaceholder": "Search by department name or code",
+      "noMatch": "No matching departments",
+      "empty": "No departments yet",
+      "expand": "Expand \"{{name}}\"",
+      "collapse": "Collapse \"{{name}}\""
+    },
+    "field": {
+      "name": "Name",
+      "code": "Code",
+      "codeHint": "Optional; for imports and external systems. Letters, digits, - _ . only.",
+      "description": "Description"
+    },
+    "create": {
+      "topLevelAction": "New top-level department",
+      "child": "New sub-department",
+      "title": "New department",
+      "topLevel": "Created at the top level.",
+      "underParent": "Created under \"{{name}}\".",
+      "submit": "Create",
+      "success": "Department \"{{name}}\" created"
+    },
+    "update": {
+      "success": "Department updated"
+    },
+    "move": {
+      "open": "Move to…",
+      "title": "Move \"{{name}}\"",
+      "target": "New parent department",
+      "topLevel": "(Top level)",
+      "action": "Move",
+      "success": "Department \"{{name}}\" moved"
+    },
+    "delete": {
+      "title": "Delete department",
+      "confirm": "Delete \"{{name}}\"? A department with sub-departments cannot be deleted. Memberships go to the trash with it and come back when it is restored.",
+      "success": "Department deleted",
+      "undo": "Undo"
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Department \"{{name}}\" restored with its members"
+    },
+    "detail": {
+      "path": "Parent departments",
+      "topLevel": "Top-level department",
+      "basic": "Details",
+      "members_one": "Members ({{count}})",
+      "members_other": "Members ({{count}})",
+      "back": "Back to organization",
+      "emptyTitle": "Select a department",
+      "emptyDescription": "Pick a department from the tree to see its members and managers."
+    },
+    "member": {
+      "includeDescendants": "Include sub-departments",
+      "manager": "Manager",
+      "primary": "Primary department",
+      "toggleManager": "\"{{name}}\" manages this department",
+      "togglePrimary": "This is the primary department of \"{{name}}\"",
+      "title": "Job title",
+      "editTitle": "Edit the job title of \"{{name}}\"",
+      "titleDialog": "Job title of \"{{name}}\"",
+      "target": "Member",
+      "placeholder": "Search for a user to add",
+      "noMatch": "No matching users",
+      "add": "Add",
+      "remove": "Remove \"{{name}}\"",
+      "removeTitle": "Remove member",
+      "removeConfirm": "\"{{name}}\" will no longer belong to this department. If it is their primary department, they will have no manager for now.",
+      "removeAction": "Remove",
+      "success": "Department members updated"
+    }
+  }
+}

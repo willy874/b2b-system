@@ -43,6 +43,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-07 | 命令面板（⌘K）、側欄改由 feature 登記的選單註冊表、全域快捷鍵 | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
 | 10-07 | 前端可觀測性：apps/apm-service（模擬 Sentry API）、錯誤回報與 release、Web Vitals、bundle 預算 | [`frontend/19-observability.md`](../architecture/frontend/19-observability.md) |
 | 10-08 | 匯入／匯出：資源登記的欄位定義、CSV／XLSX／SQL 匯出、worker thread 的分析與無狀態驗證、`DataGrid` 預覽、逐列交易的背景套用；第一批是使用者與稽核日誌 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
+| 10-08 | 組織管理（部門樹、成員、主管）與多階段審批（依序多關、會簽、條件分流、override、我的審批與撤回）；兩者都可由平台關閉、預設不啟用 | [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、[`backend/23-organization.md`](../architecture/backend/23-organization.md) |
 | 10-07 | 監控：api 的 Prometheus 指標與 OpenTelemetry tracing、就緒檢查補上背景工作與 event loop；Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警，apm-service 的錯誤數與 issues 接進 Grafana | [`08-monitoring.md`](../architecture/08-monitoring.md) |
 
 ### 2.1 推翻過的決定

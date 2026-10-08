@@ -89,7 +89,8 @@
       "effectiveHint": "每個權限從哪裡來：經由哪些群組、哪個角色；看不到的群組或角色只顯示種類。",
       "showEffective": "顯示有效權限與來源",
       "apiTokens": "個人 API token",
-      "apiTokensHint": "這位使用者建立的 token（代表他本人呼叫對外 API）。人員異動或 token 外流時可以在這裡撤銷。"
+      "apiTokensHint": "這位使用者建立的 token（代表他本人呼叫對外 API）。人員異動或 token 外流時可以在這裡撤銷。",
+      "orgUnits": "所屬部門"
     },
     "field": {
       "email": "Email",
@@ -118,6 +119,15 @@
       "all": "全部",
       "enabled": "已啟用",
       "disabled": "未啟用"
+    },
+    "orgUnit": {
+      "filter": "部門",
+      "all": "全部部門",
+      "includeDescendants": "含下層部門",
+      "searchPlaceholder": "搜尋部門名稱或代碼",
+      "noMatch": "沒有符合的部門",
+      "primary": "主要部門",
+      "manager": "主管"
     }
   }
 }

@@ -1,11 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray, like } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, like, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB, containsPattern, prefixPattern } from '@/core/database';
 import type { ApprovalRequestInsert, ApprovalRequestRow } from '@/db/schema';
-import { approvalRequests, notDeleted, users } from '@/db/schema';
+import {
+  approvalDecisions,
+  approvalRequests,
+  approvalStepAssignees,
+  approvalSteps,
+  notDeleted,
+  users,
+} from '@/db/schema';
 
 import type { ListApprovalDto } from './dto/approval.dto';
 
@@ -90,8 +97,28 @@ export class ApprovalRepository {
       .orderBy(asc(approvalRequests.createdAt), asc(approvalRequests.id));
   }
 
-  async list(query: ListApprovalDto): Promise<{ items: ApprovalRequestRow[]; total: number }> {
+  /**
+   * 列表。`scope`（docs/architecture/backend/20-approval.md §9.13）：`mine` 是 `actorId` 送出的；`assigned` 是 `actorId`
+   * 為目前關卡的候選人、還沒在這一關做決定的待審請求。
+   */
+  async list(
+    query: ListApprovalDto,
+    actorId: string,
+  ): Promise<{ items: ApprovalRequestRow[]; total: number }> {
     const conditions: SQL[] = [];
+    if (query.scope === 'mine') conditions.push(eq(approvalRequests.requesterId, actorId));
+    if (query.scope === 'assigned') {
+      // 子查詢用別名手寫條件：計數的查詢是單表 select，Drizzle 會把 ${approvalRequests.id} 輸出成不帶表名的 "id"
+      const outerId = sql`${approvalRequests}.${sql.identifier(approvalRequests.id.name)}`;
+      conditions.push(
+        eq(approvalRequests.status, 'pending'),
+        sql`EXISTS (SELECT 1 FROM ${approvalSteps} s
+          JOIN ${approvalStepAssignees} a ON a.step_id = s.id AND a.user_id = ${actorId}
+          WHERE s.request_id = ${outerId} AND s.status = 'active'
+            AND NOT EXISTS (SELECT 1 FROM ${approvalDecisions} d
+              WHERE d.step_id = s.id AND d.reviewer_id = ${actorId}))`,
+      );
+    }
     if (query.keyword) {
       conditions.push(ilike(approvalRequests.requesterName, containsPattern(query.keyword)));
     }

@@ -18,6 +18,7 @@ import {
   isHumanUser,
   isRoleHolderTuple,
   notDeleted,
+  orgUnitMembers,
   relationTuples,
   ROLE_HOLDER_RELATION,
   ROLE_OBJECT_TYPE,
@@ -105,7 +106,10 @@ export interface FailedLoginResult {
 }
 
 /** 列表與匯出共用的篩選條件（列表的 query 去掉分頁與排序）。 */
-export type UserFilter = Pick<ListUserDto, 'keyword' | 'status' | 'roleId' | 'mfa' | 'tagId'>;
+export type UserFilter = Pick<ListUserDto, 'keyword' | 'status' | 'roleId' | 'mfa' | 'tagId'> & {
+  /** 只列屬於這些部門的人（由 `OrgChartService.unitScope` 展開；空陣列 = 沒有人）。 */
+  orgUnitIds?: readonly string[];
+};
 
 /** 匯出的範圍：勾選的 id，或列表的篩選條件（docs/architecture/backend/22-data-transfer.md §6.1）。 */
 export type UserExportScope = { ids: readonly string[] } | { filter: UserFilter };
@@ -187,11 +191,25 @@ export class UserRepository {
     if (query.tagId?.length) {
       conditions.push(hasAnyTag(RESOURCE_TYPE.USER, users.id, query.tagId));
     }
+    if (query.orgUnitIds) {
+      conditions.push(
+        query.orgUnitIds.length
+          ? sql`EXISTS (SELECT 1 FROM ${orgUnitMembers} m
+              WHERE m.user_id = ${users.id} AND m.unit_id IN (${sql.join(
+                query.orgUnitIds.map((id) => sql`${id}::uuid`),
+                sql`, `,
+              )}))`
+          : sql`false`,
+      );
+    }
     return and(...conditions);
   }
 
-  async list(query: ListUserDto): Promise<{ items: UserWithRoles[]; total: number }> {
-    const where = this.buildFilters(query);
+  async list(
+    query: ListUserDto,
+    orgUnitIds?: readonly string[],
+  ): Promise<{ items: UserWithRoles[]; total: number }> {
+    const where = this.buildFilters({ ...query, orgUnitIds });
     // 依 sort 陣列的順序排；最後以 id 收尾，讓同值的列在分頁之間順序穩定
     const orderBy = query.sort.map(({ sort, order }) =>
       order === 'asc' ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),

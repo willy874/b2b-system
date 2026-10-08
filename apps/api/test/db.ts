@@ -27,7 +27,7 @@ export type PlatformTestDatabase = ReturnType<typeof createPlatformTestDatabase>
 /** 每個 suite 之間清空業務資料（保留 schema 與 migration 紀錄）。 */
 export async function truncateAll(db: TestDatabase): Promise<void> {
   await db.execute(
-    sql`TRUNCATE approval_requests, files, file_folders, relation_tuples, users, roles, groups, permissions, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive, system_settings, revisions, notifications, notification_policies, notification_preferences, webhook_subscriptions, webhook_events, webhook_deliveries, tags, resource_tags, announcements, announcement_dispatches RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE approval_requests, files, file_folders, relation_tuples, users, roles, groups, permissions, refresh_tokens, auth_tokens, audit_logs, audit_logs_archive, system_settings, revisions, notifications, notification_policies, notification_preferences, webhook_subscriptions, webhook_events, webhook_deliveries, tags, resource_tags, announcements, announcement_dispatches, org_units, org_unit_members, approval_flows RESTART IDENTITY CASCADE`,
   );
   // 已用量的計數是單列（migration 0036 建立），不能 TRUNCATE：檔案清空了，計數歸零
   await db.execute(sql`UPDATE file_storage_usage SET used_bytes = 0, reconciled_at = NULL`);

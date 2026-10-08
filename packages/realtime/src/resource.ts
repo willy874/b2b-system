@@ -66,6 +66,13 @@ export const ChangeSource = {
   ANNOUNCEMENT: 'announcement',
   /** 匯入／匯出的傳輸（docs/architecture/backend/22-data-transfer.md §9.4）：只推給建立者，id 是傳輸 id */
   DATA_TRANSFER: 'dataTransfer',
+  /**
+   * 組織的部門（`id` = 部門 id；docs/architecture/backend/23-organization.md）：建立、改名、搬移、刪除、還原、成員異動。
+   * 成員異動時以 `affectedUserIds` 帶上被異動的人（使用者詳情的「所屬部門」）。
+   */
+  ORG_UNIT: 'orgUnit',
+  /** 審批流程的設定（`id` = 審批類型；docs/architecture/backend/20-approval.md §9）。 */
+  APPROVAL_FLOW: 'approvalFlow',
   // ── 平台（apps/platform 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
   /** 租戶登記（`id` = 租戶 id）：建立、改名、網域、啟用的 feature、停用與啟用、刪除，以及背景佈建的結果。 */
   PLATFORM_TENANT: 'platformTenant',
@@ -116,6 +123,8 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.TAG,
   ChangeSource.ANNOUNCEMENT,
   ChangeSource.DATA_TRANSFER,
+  ChangeSource.ORG_UNIT,
+  ChangeSource.APPROVAL_FLOW,
   ChangeSource.PLATFORM_TENANT,
   ChangeSource.PLATFORM_ADMIN,
   ChangeSource.PLATFORM_FEATURE_FLAG,

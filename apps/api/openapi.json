@@ -456,7 +456,7 @@
             }
           }
         },
-        "summary": "審批請求列表",
+        "summary": "審批請求列表（全部／待我審核／我送出的）",
         "tags": ["approvals"]
       }
     },
@@ -483,7 +483,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/ApprovalRequest"
+                      "$ref": "#/components/schemas/ApprovalRequestDetail"
                     }
                   }
                 }
@@ -582,6 +582,337 @@
         },
         "summary": "駁回",
         "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}/withdraw": {
+      "post": {
+        "operationId": "ApprovalController_withdraw",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequestDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "撤回自己送出的申請",
+        "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}/steps/{ordinal}/decisions": {
+      "post": {
+        "operationId": "ApprovalController_decide",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordinal",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideApprovalStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequestDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "在目前的關卡同意或駁回",
+        "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}/steps/{ordinal}/override": {
+      "post": {
+        "operationId": "ApprovalController_override",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordinal",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideApprovalStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequestDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "強制定案目前的關卡",
+        "tags": ["approvals"]
+      }
+    },
+    "/approvals/{id}/steps/{ordinal}/refresh": {
+      "post": {
+        "operationId": "ApprovalController_refresh",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordinal",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalRequestDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "重新展開目前關卡的審核者",
+        "tags": ["approvals"]
+      }
+    },
+    "/approval-flows": {
+      "get": {
+        "operationId": "ApprovalFlowController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalFlowList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "支援多階段流程的審批類型與它們的流程",
+        "tags": ["approval-flows"]
+      }
+    },
+    "/approval-flows/{type}": {
+      "get": {
+        "operationId": "ApprovalFlowController_get",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalFlow"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["approval-flows"]
+      },
+      "put": {
+        "operationId": "ApprovalFlowController_put",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutApprovalFlowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalFlow"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["approval-flows"]
+      }
+    },
+    "/approval-flows/{type}/preview": {
+      "post": {
+        "operationId": "ApprovalFlowController_preview",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewApprovalFlowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalFlowPreview"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "試算流程會走哪些關卡、每關是誰",
+        "tags": ["approval-flows"]
       }
     },
     "/notifications": {
@@ -4062,6 +4393,377 @@
         },
         "summary": "自己收到的公告全文；同時把那則通知標為已讀",
         "tags": ["announcements"]
+      }
+    },
+    "/org-units": {
+      "get": {
+        "operationId": "OrgUnitController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitTree"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "整棵部門樹（扁平陣列）",
+        "tags": ["org-units"]
+      },
+      "post": {
+        "operationId": "OrgUnitController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrgUnitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["org-units"]
+      }
+    },
+    "/org-units/{id}": {
+      "get": {
+        "operationId": "OrgUnitController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["org-units"]
+      },
+      "patch": {
+        "operationId": "OrgUnitController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrgUnitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["org-units"]
+      },
+      "delete": {
+        "operationId": "OrgUnitController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": ["org-units"]
+      }
+    },
+    "/org-units/{id}/move": {
+      "post": {
+        "operationId": "OrgUnitController_move",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOrgUnitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "搬移部門（換上層、同層排序）",
+        "tags": ["org-units"]
+      }
+    },
+    "/org-units/{id}/restore": {
+      "post": {
+        "operationId": "OrgUnitController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的部門（成員資格一併恢復）",
+        "tags": ["org-units"]
+      }
+    },
+    "/org-units/{id}/members": {
+      "get": {
+        "operationId": "OrgUnitController_listMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/OrgUnitMember"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "部門的成員（可含下層部門）",
+        "tags": ["org-units"]
+      },
+      "patch": {
+        "operationId": "OrgUnitController_updateMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrgUnitMembersRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrgUnitDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "增減、修改部門的成員（差異語意）",
+        "tags": ["org-units"]
+      }
+    },
+    "/users/{id}/org-units": {
+      "get": {
+        "operationId": "UserOrgUnitController_listOfUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UserOrgUnits"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "使用者所屬的部門（主要部門在前）",
+        "tags": ["org-units"]
       }
     },
     "/auth/login": {
@@ -7995,7 +8697,9 @@
                 "announcement",
                 "externalApi",
                 "group",
-                "dataTransfer"
+                "dataTransfer",
+                "organization",
+                "approvalChain"
               ],
               "type": "string"
             }
@@ -8612,7 +9316,7 @@
       },
       "TrashResourceType": {
         "type": "string",
-        "enum": ["user", "role", "group", "file", "fileFolder", "announcement"]
+        "enum": ["user", "role", "group", "file", "fileFolder", "announcement", "orgUnit"]
       },
       "TrashItem": {
         "type": "object",
@@ -9331,6 +10035,7 @@
           "system:update",
           "approval:read",
           "approval:review",
+          "approval:override",
           "file:create",
           "file:read",
           "file:update",
@@ -9368,7 +10073,13 @@
           "announcement:delete",
           "announcement:publish",
           "mfaPolicy:read",
-          "mfaPolicy:update"
+          "mfaPolicy:update",
+          "orgUnit:create",
+          "orgUnit:read",
+          "orgUnit:update",
+          "orgUnit:delete",
+          "approvalFlow:read",
+          "approvalFlow:update"
         ]
       },
       "Permission": {
@@ -9956,9 +10667,479 @@
         "required": ["items"],
         "additionalProperties": false
       },
+      "ApprovalAssigneeRule": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["user"]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": ["kind", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["group"]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": ["kind", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["role"]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": ["kind", "id"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["manager"]
+              },
+              "level": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            },
+            "required": ["kind", "level"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["orgUnit"]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": ["kind", "id"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ApprovalCondition": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "op": {
+            "type": "string",
+            "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in"]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                ]
+              },
+              {
+                "minItems": 1,
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "required": ["field", "op", "value"],
+        "additionalProperties": false
+      },
+      "ApprovalFlowStepInput": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/ApprovalAssigneeRule"
+          },
+          "requiredApprovals": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              },
+              {
+                "type": "string",
+                "enum": ["all"]
+              }
+            ]
+          },
+          "conditions": {
+            "default": [],
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalCondition"
+            }
+          }
+        },
+        "required": ["name", "assignee", "requiredApprovals", "conditions"],
+        "additionalProperties": false
+      },
+      "PutApprovalFlowRequest": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowRepeatApprover": {
+            "default": false,
+            "type": "boolean"
+          },
+          "steps": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalFlowStepInput"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["enabled", "allowRepeatApprover", "steps"],
+        "additionalProperties": false
+      },
+      "ApprovalAssigneeStatus": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": ["label", "available", "deleted"],
+        "additionalProperties": false
+      },
+      "ApprovalFlowStep": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/ApprovalAssigneeRule"
+          },
+          "assigneeStatus": {
+            "$ref": "#/components/schemas/ApprovalAssigneeStatus"
+          },
+          "requiredApprovals": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "enum": ["all"]
+              }
+            ]
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalCondition"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "assignee",
+          "assigneeStatus",
+          "requiredApprovals",
+          "conditions"
+        ],
+        "additionalProperties": false
+      },
+      "ApprovalConditionField": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["number", "string", "enum"]
+          },
+          "options": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["key", "type", "options"],
+        "additionalProperties": false
+      },
+      "ApprovalFlow": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "requester": {
+            "type": "string",
+            "enum": ["user", "anonymous"]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalConditionField"
+            }
+          },
+          "flow": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "allowRepeatApprover": {
+                "type": "boolean"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ApprovalFlowStep"
+                }
+              },
+              "version": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "enabled", "allowRepeatApprover", "steps", "version", "updatedAt"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["type", "requester", "fields", "flow"],
+        "additionalProperties": false
+      },
+      "ApprovalFlowList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalFlow"
+            }
+          },
+          "assigneeKinds": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "boolean"
+              },
+              "group": {
+                "type": "boolean"
+              },
+              "role": {
+                "type": "boolean"
+              },
+              "manager": {
+                "type": "boolean"
+              },
+              "orgUnit": {
+                "type": "boolean"
+              }
+            },
+            "required": ["user", "group", "role", "manager", "orgUnit"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["items", "assigneeKinds"],
+        "additionalProperties": false
+      },
+      "PreviewApprovalFlowRequest": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalFlowStepInput"
+            }
+          },
+          "allowRepeatApprover": {
+            "type": "boolean"
+          },
+          "requesterId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "fields": {
+            "default": {},
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [null]
+                }
+              ]
+            }
+          }
+        },
+        "required": ["fields"],
+        "additionalProperties": false
+      },
+      "ApprovalCandidate": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["userId", "name"],
+        "additionalProperties": false
+      },
+      "ApprovalFlowPreview": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "skipped": {
+                  "type": "boolean"
+                },
+                "candidates": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalCandidate"
+                  }
+                },
+                "required": {
+                  "nullable": true,
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "shortage": {
+                  "nullable": true,
+                  "type": "string",
+                  "enum": ["noCandidate", "insufficient"]
+                }
+              },
+              "required": ["key", "name", "skipped", "candidates", "required", "shortage"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["steps"],
+        "additionalProperties": false
+      },
       "ApprovalStatus": {
         "type": "string",
-        "enum": ["pending", "approved", "rejected"]
+        "enum": ["pending", "approved", "rejected", "withdrawn"]
       },
       "ApprovalType": {
         "type": "string",
@@ -10017,6 +11198,54 @@
             "nullable": true,
             "type": "string"
           },
+          "flowVersion": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currentStep": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "ordinal": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "approvals": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "required": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "shortage": {
+                "nullable": true,
+                "type": "string",
+                "enum": ["noCandidate", "insufficient"]
+              }
+            },
+            "required": ["ordinal", "name", "approvals", "required", "shortage"],
+            "additionalProperties": false
+          },
+          "stepCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "resubmittedFrom": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -10037,8 +11266,318 @@
           "reviewComment",
           "reviewedAt",
           "resultResourceId",
+          "flowVersion",
+          "currentStep",
+          "stepCount",
+          "resubmittedFrom",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ApprovalStepStatus": {
+        "type": "string",
+        "enum": ["waiting", "active", "approved", "rejected", "skipped", "cancelled"]
+      },
+      "ApprovalDecision": {
+        "type": "object",
+        "properties": {
+          "reviewerId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "reviewerName": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"]
+          },
+          "via": {
+            "type": "string",
+            "enum": ["assignee", "override", "legacy"]
+          },
+          "comment": {
+            "nullable": true,
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string"
+          }
+        },
+        "required": ["reviewerId", "reviewerName", "decision", "via", "comment", "decidedAt"],
+        "additionalProperties": false
+      },
+      "ApprovalStep": {
+        "type": "object",
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "assignee": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalAssigneeRule"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": ["label"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "requiredMode": {
+            "type": "string",
+            "enum": ["count", "all"]
+          },
+          "required": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "$ref": "#/components/schemas/ApprovalStepStatus"
+          },
+          "shortage": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["noCandidate", "insufficient"]
+          },
+          "closeReason": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["rejected", "withdrawn", "chainDisabled", "override"]
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalCondition"
+            }
+          },
+          "activatedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "closedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["userId", "name"],
+              "additionalProperties": false
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalDecision"
+            }
+          }
+        },
+        "required": [
+          "ordinal",
+          "key",
+          "name",
+          "assignee",
+          "requiredMode",
+          "required",
+          "status",
+          "shortage",
+          "closeReason",
+          "conditions",
+          "activatedAt",
+          "closedAt",
+          "candidates",
+          "decisions"
+        ],
+        "additionalProperties": false
+      },
+      "ApprovalViewer": {
+        "type": "object",
+        "properties": {
+          "canDecide": {
+            "type": "boolean"
+          },
+          "canOverride": {
+            "type": "boolean"
+          },
+          "canReviewSingle": {
+            "type": "boolean"
+          },
+          "canWithdraw": {
+            "type": "boolean"
+          }
+        },
+        "required": ["canDecide", "canOverride", "canReviewSingle", "canWithdraw"],
+        "additionalProperties": false
+      },
+      "ApprovalRequestDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ApprovalType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ApprovalStatus"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "requesterId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "requesterName": {
+            "type": "string"
+          },
+          "reason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewerId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "reviewerName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewComment": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reviewedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "resultResourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "flowVersion": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currentStep": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "ordinal": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "approvals": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "required": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "shortage": {
+                "nullable": true,
+                "type": "string",
+                "enum": ["noCandidate", "insufficient"]
+              }
+            },
+            "required": ["ordinal", "name", "approvals", "required", "shortage"],
+            "additionalProperties": false
+          },
+          "stepCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "resubmittedFrom": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalStep"
+            }
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/ApprovalViewer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "payload",
+          "requesterId",
+          "requesterName",
+          "reason",
+          "reviewerId",
+          "reviewerName",
+          "reviewComment",
+          "reviewedAt",
+          "resultResourceId",
+          "flowVersion",
+          "currentStep",
+          "stepCount",
+          "resubmittedFrom",
+          "createdAt",
+          "updatedAt",
+          "steps",
+          "viewer"
         ],
         "additionalProperties": false
       },
@@ -10071,6 +11610,57 @@
             "maxLength": 500
           }
         },
+        "additionalProperties": false
+      },
+      "DecideApprovalStepRequest": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"]
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "roleIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["decision", "roleIds"],
+        "additionalProperties": false
+      },
+      "OverrideApprovalStepRequest": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"]
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "roleIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["decision", "comment", "roleIds"],
         "additionalProperties": false
       },
       "AuditLogSummary": {
@@ -11521,6 +13111,425 @@
         "required": ["items", "nextRowNo"],
         "additionalProperties": false
       },
+      "OrgUnit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "memberCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "managerCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "code",
+          "description",
+          "sortOrder",
+          "memberCount",
+          "managerCount",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "OrgUnitPathItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"],
+        "additionalProperties": false
+      },
+      "OrgUnitDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "memberCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "managerCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrgUnitPathItem"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "code",
+          "description",
+          "sortOrder",
+          "memberCount",
+          "managerCount",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "OrgUnitTree": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrgUnit"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreateOrgUnitRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "code": {
+            "nullable": true,
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "UpdateOrgUnitRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "code": {
+            "nullable": true,
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 500
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "MoveOrgUnitRequest": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "beforeId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["parentId", "version"],
+        "additionalProperties": false
+      },
+      "OrgUnitMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "active", "inactive", "locked"]
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "unitName": {
+            "type": "string"
+          },
+          "isManager": {
+            "type": "boolean"
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "title": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName",
+          "email",
+          "status",
+          "unitId",
+          "unitName",
+          "isManager",
+          "isPrimary",
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateOrgUnitMembersRequest": {
+        "type": "object",
+        "properties": {
+          "add": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "isManager": {
+                  "type": "boolean"
+                },
+                "isPrimary": {
+                  "type": "boolean"
+                },
+                "title": {
+                  "nullable": true,
+                  "type": "string",
+                  "maxLength": 64
+                }
+              },
+              "required": ["userId"],
+              "additionalProperties": false
+            }
+          },
+          "update": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "isManager": {
+                  "type": "boolean"
+                },
+                "isPrimary": {
+                  "type": "boolean"
+                },
+                "title": {
+                  "nullable": true,
+                  "type": "string",
+                  "maxLength": 64
+                }
+              },
+              "required": ["userId"],
+              "additionalProperties": false
+            }
+          },
+          "remove": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["add", "update", "remove"],
+        "additionalProperties": false
+      },
+      "UserOrgUnit": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrgUnitPathItem"
+            }
+          },
+          "isManager": {
+            "type": "boolean"
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "title": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["unitId", "name", "path", "isManager", "isPrimary", "title"],
+        "additionalProperties": false
+      },
+      "UserOrgUnits": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserOrgUnit"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
       "TagSummary": {
         "type": "object",
         "properties": {
@@ -12563,7 +14572,9 @@
           "announcement",
           "externalApi",
           "group",
-          "dataTransfer"
+          "dataTransfer",
+          "organization",
+          "approvalChain"
         ]
       },
       "TenantFlagOverrides": {
@@ -12832,7 +14843,7 @@
             "maxLength": 100
           },
           "features": {
-            "maxItems": 12,
+            "maxItems": 14,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
@@ -12892,7 +14903,12 @@
                     "passwordlessExternalUsers",
                     "groups",
                     "groupMembers",
-                    "groupRoleGrants"
+                    "groupRoleGrants",
+                    "orgUnits",
+                    "orgUnitMembers",
+                    "approvalFlowsUsingOrg",
+                    "approvalFlows",
+                    "approvalRequestsInChain"
                   ]
                 },
                 "count": {

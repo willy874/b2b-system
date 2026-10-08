@@ -37,6 +37,14 @@ function internalFeaturesOf(method: string, path: string): string[] | undefined 
     return restore ? ['trash', 'announcement'] : ['announcement'];
   if (/^\/me\/announcement-messages(\/|$)/.test(path)) return ['announcement'];
   if (/^\/groups(\/|$)/.test(path)) return restore ? ['trash', 'group'] : ['group'];
+  // 組織管理（docs/architecture/backend/23-organization.md）：部門與使用者詳情的「所屬部門」
+  if (/^\/org-units(\/|$)/.test(path) || path === '/users/:id/org-units') {
+    return restore ? ['trash', 'organization'] : ['organization'];
+  }
+  // 多階段審批（docs/architecture/backend/20-approval.md §9）：流程設定與關卡的端點；審批本身常駐
+  if (/^\/approval-flows(\/|$)/.test(path) || path.startsWith('/approvals/:id/steps/')) {
+    return ['approvalChain'];
+  }
   if (restore || /^\/trash(\/|$)/.test(path)) return ['trash'];
   if (/^\/audit-logs(\/|$)/.test(path)) return ['auditLog'];
   if (/^\/jobs(\/|$)/.test(path)) return ['job'];
@@ -353,7 +361,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /tags/:id': 'tag:update',
       'DELETE /tags/:id': 'tag:delete',
       'PUT /tags/assignments/:resourceType/:resourceId': 'authenticated',
-      'GET /trash': 'user:delete|role:delete|group:delete|file:delete|announcement:delete',
+      'GET /trash':
+        'user:delete|role:delete|group:delete|file:delete|announcement:delete|orgUnit:delete',
       'GET /roles': 'role:read',
       'POST /roles': 'role:create',
       'GET /roles/:id': 'role:read',
@@ -373,6 +382,16 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /groups/:id/members': 'group:update',
       'GET /groups/:id/roles': 'group:read+role:read',
       'PATCH /groups/:id/roles': 'group:assignRole',
+      'GET /org-units': 'orgUnit:read',
+      'POST /org-units': 'orgUnit:create',
+      'GET /org-units/:id': 'orgUnit:read',
+      'PATCH /org-units/:id': 'orgUnit:update',
+      'POST /org-units/:id/move': 'orgUnit:update',
+      'DELETE /org-units/:id': 'orgUnit:delete',
+      'POST /org-units/:id/restore': 'orgUnit:delete',
+      'GET /org-units/:id/members': 'orgUnit:read+user:read',
+      'PATCH /org-units/:id/members': 'orgUnit:update',
+      'GET /users/:id/org-units': 'orgUnit:read',
       'POST /roles/:id/restore': 'role:delete',
       'GET /roles/:id/revisions': 'role:read',
       'GET /roles/:id/revisions/:version': 'role:read',
@@ -402,10 +421,19 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /system/settings': 'system:read',
       'GET /system/settings/public': 'public',
       'PATCH /system/settings': 'system:update',
-      'GET /approvals': 'approval:read',
-      'GET /approvals/:id': 'approval:read',
+      // 多階段之後：列表的 scope=all 與詳情的可見性在 service 檢查（docs/architecture/backend/20-approval.md §9.10、§9.13）
+      'GET /approvals': 'authenticated',
+      'GET /approvals/:id': 'authenticated',
       'POST /approvals/:id/approve': 'approval:review',
       'POST /approvals/:id/reject': 'approval:review',
+      'POST /approvals/:id/withdraw': 'authenticated',
+      'POST /approvals/:id/steps/:ordinal/decisions': 'authenticated',
+      'POST /approvals/:id/steps/:ordinal/override': 'approval:override',
+      'POST /approvals/:id/steps/:ordinal/refresh': 'approval:override',
+      'GET /approval-flows': 'approvalFlow:read',
+      'GET /approval-flows/:type': 'approvalFlow:read',
+      'PUT /approval-flows/:type': 'approvalFlow:update',
+      'POST /approval-flows/:type/preview': 'approvalFlow:read',
       'GET /jobs/queues': 'job:read',
       'GET /jobs': 'job:read',
       'GET /jobs/:id': 'job:read',

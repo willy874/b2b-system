@@ -17,11 +17,15 @@ const BASE: ApprovalRequest = {
   reviewComment: null,
   reviewedAt: null,
   resultResourceId: null,
+  flowVersion: null,
+  currentStep: null,
+  stepCount: 0,
+  resubmittedFrom: null,
   createdAt: '2026-09-25T01:00:00.000Z',
   updatedAt: '2026-09-25T01:00:00.000Z',
 };
 
-const REVIEWER = { canReview: true, canApproveRegistration: true };
+const REVIEWER = { canReview: true, canApproveRegistration: true, chainEnabled: true };
 
 describe('toApprovalRowVM', () => {
   it.each([
@@ -59,17 +63,38 @@ describe('toApprovalRowVM', () => {
     [
       '待審 ＋ 只有審核權（沒有 user:create）',
       'pending',
-      { canReview: true, canApproveRegistration: false },
+      { canReview: true, canApproveRegistration: false, chainEnabled: true },
       { canReview: true, canApprove: false },
     ],
     [
       '待審 ＋ 沒有審核權',
       'pending',
-      { canReview: false, canApproveRegistration: false },
+      { canReview: false, canApproveRegistration: false, chainEnabled: true },
       { canReview: false, canApprove: false },
     ],
     ['已審核', 'rejected', REVIEWER, { canReview: false, canApprove: false }],
   ] as const)('快速審核旗標：%s', (_, status, permission, expected) => {
     expect(toApprovalRowVM({ ...BASE, status }, permission)).toMatchObject(expected);
+  });
+});
+
+describe('toApprovalRowVM（多階段，docs/architecture/backend/20-approval.md §9.11）', () => {
+  const inChain = {
+    ...BASE,
+    currentStep: { ordinal: 1, name: '財務', approvals: 1, required: 2, shortage: null },
+    stepCount: 3,
+  };
+
+  it('進行中的多關請求不能快速審核（要在關卡上決定），但帶出進度', () => {
+    const vm = toApprovalRowVM(inChain, REVIEWER);
+    expect(vm).toMatchObject({ canReview: false, canApprove: false, stepCount: 3 });
+    expect(vm.progress).toMatchObject({ name: '財務', approvals: 1, required: 2 });
+  });
+
+  it('多階段停用期間：多關請求改由單關的核准／駁回一次定案', () => {
+    expect(toApprovalRowVM(inChain, { ...REVIEWER, chainEnabled: false })).toMatchObject({
+      canReview: true,
+      canApprove: true,
+    });
   });
 });

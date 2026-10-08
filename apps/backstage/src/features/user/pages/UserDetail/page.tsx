@@ -17,6 +17,7 @@ import { UserApiTokenSection } from './components/UserApiTokenSection';
 import { UserBasicSection } from './components/UserBasicSection';
 import { UserGroupSection } from './components/UserGroupSection';
 import { UserMfaSection } from './components/UserMfaSection';
+import { UserOrgUnitSection } from './components/UserOrgUnitSection';
 import { UserPermissionSourceSection } from './components/UserPermissionSourceSection';
 import { UserRoleSection } from './components/UserRoleSection';
 import { UserTagSection } from './components/UserTagSection';
@@ -75,6 +76,7 @@ export default function UserDetailPage() {
           />
           <UserTagSection user={user.data} canEdit={permission.canUpdate} />
           {permission.canReadGroups && <UserGroupSection userId={userId} />}
+          {permission.canReadOrgUnits && <UserOrgUnitSection userId={userId} />}
           {(isSelf || permission.canExplain) && (
             <UserPermissionSourceSection userId={userId} displayName={user.data.displayName} />
           )}

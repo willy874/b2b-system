@@ -19,8 +19,12 @@ export function useUserSearchFilter() {
   return {
     search,
     /** 篩選面板送出時一次更新，改篩選條件就回到第一頁。 */
-    setFilters: (filters: Pick<UserSearchQuery, 'keyword' | 'status' | 'mfa' | 'tagId' | 'sort'>) =>
-      patch({ ...filters, offset: 0 }),
+    setFilters: (
+      filters: Pick<
+        UserSearchQuery,
+        'keyword' | 'status' | 'mfa' | 'tagId' | 'orgUnitId' | 'includeDescendants' | 'sort'
+      >,
+    ) => patch({ ...filters, offset: 0 }),
     /** 表頭點擊：整組多欄排序換成點擊後的結果，回到第一頁。 */
     setSort: (sort: UserSearchQuery['sort']) => patch({ sort, offset: 0 }),
     setPage: (offset: number, limit: number) => patch({ offset, limit }),

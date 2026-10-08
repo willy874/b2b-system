@@ -387,6 +387,7 @@
           "system:update",
           "approval:read",
           "approval:review",
+          "approval:override",
           "file:create",
           "file:read",
           "file:update",
@@ -424,7 +425,13 @@
           "announcement:delete",
           "announcement:publish",
           "mfaPolicy:read",
-          "mfaPolicy:update"
+          "mfaPolicy:update",
+          "orgUnit:create",
+          "orgUnit:read",
+          "orgUnit:update",
+          "orgUnit:delete",
+          "approvalFlow:read",
+          "approvalFlow:update"
         ]
       },
       "ExternalMe": {

@@ -1,0 +1,119 @@
+{
+  "approvalFlow": {
+    "type": {
+      "userRegister": "使用者註冊"
+    },
+    "field": {
+      "emailDomain": "Email 網域",
+      "amount": "金額",
+      "category": "類別"
+    },
+    "status": {
+      "unset": "未設定",
+      "enabled": "啟用中",
+      "disabled": "已停用"
+    },
+    "list": {
+      "title": "審批流程",
+      "description": "為支援多階段審批的類型設定依序的關卡；沒有啟用流程的類型照舊由審批管理者一次定案。",
+      "assigneeIssue": "有審核者無法使用",
+      "column": {
+        "type": "審批類型",
+        "status": "流程狀態",
+        "steps": "關卡",
+        "version": "版本"
+      }
+    },
+    "edit": {
+      "back": "審批流程",
+      "version": "第 {{version}} 版",
+      "discard": "放棄修改",
+      "enabled": "啟用流程",
+      "enabledHint": "停用時這個類型回到單關審批，設定會保留。",
+      "allowRepeatApprover": "同一個人可以審兩關",
+      "allowRepeatApproverHint": "預設不行：前面關卡做過決定的人不會再成為後面關卡的審核者。"
+    },
+    "save": {
+      "success": "已儲存流程"
+    },
+    "step": {
+      "ordinal": "第 {{ordinal}} 關",
+      "add": "新增關卡",
+      "remove": "刪除關卡",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "name": "關卡名稱",
+      "assignee": "審核者",
+      "required": "需要幾人同意",
+      "requiredMode": "同意數的方式",
+      "requiredCount": "指定人數",
+      "requiredAll": "全部審核者",
+      "increase": "增加",
+      "decrease": "減少",
+      "conditions": "條件（全部符合才經過這一關）",
+      "noCondition": "沒有條件：每一筆申請都會經過這一關。"
+    },
+    "assignee": {
+      "kindLabel": "審核者的種類",
+      "target": "審核者",
+      "level": "主管層級",
+      "managerLevel": "申請人的第 {{level}} 層主管",
+      "userPlaceholder": "搜尋使用者",
+      "groupPlaceholder": "選擇群組",
+      "rolePlaceholder": "選擇角色",
+      "orgUnitPlaceholder": "選擇部門（該部門的主管）",
+      "noMatch": "沒有符合的項目",
+      "deleted": "已刪除",
+      "rejected": "這個審核者目前無法使用（功能未啟用或對象已刪除），請改選其他審核者。",
+      "kind": {
+        "user": "指定使用者",
+        "group": "群組",
+        "role": "角色",
+        "manager": "申請人的主管",
+        "orgUnit": "部門的主管"
+      },
+      "unavailable": {
+        "organization": "組織管理未啟用",
+        "group": "群組未啟用",
+        "feature": "功能未啟用"
+      },
+      "summary": "{{kind}}：{{target}}"
+    },
+    "condition": {
+      "add": "新增條件",
+      "remove": "刪除條件",
+      "field": "欄位",
+      "value": "值",
+      "listPlaceholder": "多個值以逗號分隔",
+      "op": {
+        "label": "運算子",
+        "eq": "等於",
+        "ne": "不等於",
+        "gt": "大於",
+        "gte": "大於或等於",
+        "lt": "小於",
+        "lte": "小於或等於",
+        "in": "是其中之一"
+      }
+    },
+    "validation": {
+      "required": "必填",
+      "invalidValue": "值的格式不正確"
+    },
+    "preview": {
+      "title": "試算",
+      "description": "以目前的草稿（含未儲存的修改）預覽會走哪些關卡、每關是誰。",
+      "requester": "申請人",
+      "run": "試算",
+      "incomplete": "有關卡還沒填完，請先完成名稱、審核者與條件。",
+      "skipped": "略過（條件不符）",
+      "noCandidate": "沒有候選人",
+      "shortage": {
+        "noCandidate": "找不到審核者",
+        "insufficient": "候選人不足"
+      },
+      "required_other": "需要 {{count}} 人同意",
+      "stepTitle": "第 {{ordinal}} 關：{{name}}"
+    }
+  }
+}

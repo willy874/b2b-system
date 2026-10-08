@@ -10,8 +10,10 @@ import { ApprovalType } from '@/modules/approval/approval.constants';
 import { ApprovalService } from '@/modules/approval/approval.service';
 import type {
   ApprovalContext,
+  ApprovalFlowSupport,
   ApprovalHandler,
   ApprovalOutcome,
+  ApprovalPermissionContext,
   SubmitApprovalInput,
 } from '@/modules/approval/approval.types';
 import { ACTIVATION_MAIL_JOB } from '@/modules/credential/auth-mail.constants';
@@ -54,6 +56,26 @@ export function userRegistrationRequest(registration: Registration): SubmitAppro
 export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModuleInit {
   readonly type = ApprovalType.USER_REGISTER;
 
+  /**
+   * 可以設定多階段流程（docs/architecture/backend/20-approval.md §9.1）：匿名申請，沒有主管可以往上找；
+   * 分流的欄位是 email 的網域（例：外部網域的申請多一關）。
+   */
+  readonly flow: ApprovalFlowSupport = {
+    requester: 'anonymous',
+    fields: [
+      {
+        key: 'emailDomain',
+        type: 'string',
+        read: (payload) => {
+          const email = RegistrationPayloadSchema.safeParse(payload);
+          if (!email.success) return null;
+          const at = email.data.email.lastIndexOf('@');
+          return at >= 0 ? email.data.email.slice(at + 1).toLowerCase() : null;
+        },
+      },
+    ],
+  };
+
   constructor(
     private readonly approvals: ApprovalService,
     private readonly users: UserAccountService,
@@ -64,7 +86,7 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
     this.approvals.registerHandler(this);
   }
 
-  requiredPermissions({ options }: ApprovalContext): PermissionKey[] {
+  requiredPermissions({ options }: ApprovalPermissionContext): PermissionKey[] {
     return options.roleIds.length
       ? [PERMISSION.USER_CREATE, PERMISSION.USER_ASSIGN_ROLE]
       : [PERMISSION.USER_CREATE];

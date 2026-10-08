@@ -14,6 +14,8 @@ const ROW: ApprovalRowVM = {
   createdAt: new Date('2026-09-25T01:00:00.000Z'),
   reviewedAt: null,
   isPending: true,
+  progress: null,
+  stepCount: 0,
   canReview: true,
   canApprove: true,
 };

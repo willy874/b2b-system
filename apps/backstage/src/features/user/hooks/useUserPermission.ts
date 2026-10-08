@@ -12,6 +12,7 @@ export function useUserPermission() {
   const hasApiTokens = useIsFeatureReady(TenantFeature.externalApi);
   const hasGroups = useIsFeatureReady(TenantFeature.group);
   const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
+  const hasOrganization = useIsFeatureReady(TenantFeature.organization);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -29,6 +30,11 @@ export function useUserPermission() {
        * （docs/architecture/iam/07-groups.md §8）
        */
       canReadGroups: hasGroups && can(PermissionKey['group:read']),
+      /**
+       * 詳情的「所屬部門」與列表的部門篩選（docs/architecture/backend/23-organization.md §8）：要能讀組織；
+       * 租戶沒有啟用 `organization` 時兩者都沒有（後端的部門參數會回 `VALIDATION_FAILED`）
+       */
+      canReadOrgUnits: hasOrganization && can(PermissionKey['orgUnit:read']),
       /** 看別人的有效權限與來源（docs/architecture/iam/01-model.md §9 G4b）；看自己不需要 */
       canExplain: can(PermissionKey['authz:explain']),
       /**
@@ -41,6 +47,6 @@ export function useUserPermission() {
       /** 匯入沿用 create／update：修改模式要 `user:update`（`user:create` 包含它） */
       canImport: hasDataTransfer && page.canUpdate,
     }),
-    [page, can, hasApiTokens, hasGroups, hasDataTransfer],
+    [page, can, hasApiTokens, hasGroups, hasDataTransfer, hasOrganization],
   );
 }

@@ -30,6 +30,8 @@ export const PERMISSION_SEED = [
 
   ['approval', 'read', 'permission.approval.read', 600],
   ['approval', 'review', 'permission.approval.review', 601],
+  // 多階段審批卡住時的出口：重新展開審核者、強制定案目前的關卡（docs/architecture/backend/20-approval.md §9.8、D10）
+  ['approval', 'override', 'permission.approval.override', 602],
 
   ['file', 'create', 'permission.file.create', 700],
   ['file', 'read', 'permission.file.read', 701],
@@ -89,6 +91,16 @@ export const PERMISSION_SEED = [
   // 租戶的 MFA 政策（docs/architecture/backend/21-mfa.md §6、D11）；update 預設只給 super-admin：放寬 MFA 等於削弱所有人的保護
   ['mfaPolicy', 'read', 'permission.mfaPolicy.read', 1900],
   ['mfaPolicy', 'update', 'permission.mfaPolicy.update', 1901],
+
+  // 組織管理：部門樹、成員與主管（docs/architecture/backend/23-organization.md）
+  ['orgUnit', 'create', 'permission.orgUnit.create', 2000],
+  ['orgUnit', 'read', 'permission.orgUnit.read', 2001],
+  ['orgUnit', 'update', 'permission.orgUnit.update', 2002],
+  ['orgUnit', 'delete', 'permission.orgUnit.delete', 2003],
+
+  // 多階段審批的流程設定（docs/architecture/backend/20-approval.md §9、D11）；update 受反提權限制
+  ['approvalFlow', 'read', 'permission.approvalFlow.read', 2100],
+  ['approvalFlow', 'update', 'permission.approvalFlow.update', 2101],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;
@@ -147,6 +159,7 @@ export const PERMISSION_DEPENDENCIES = {
 
   'system:update': { includes: ['system:read'] },
   'approval:review': { includes: ['approval:read'] },
+  'approval:override': { includes: ['approval:read'] },
 
   'file:create': { includes: ['file:read'] },
   'file:delete': { includes: ['file:update'] },
@@ -197,6 +210,17 @@ export const PERMISSION_DEPENDENCIES = {
 
   // 「必須啟用的角色」要看得到角色
   'mfaPolicy:update': { includes: ['mfaPolicy:read'], requires: ['role:read'] },
+
+  'orgUnit:create': { includes: ['orgUnit:update'] },
+  'orgUnit:delete': { includes: ['orgUnit:update'] },
+  // 挑成員要看得到使用者
+  'orgUnit:update': { includes: ['orgUnit:read'], requires: ['user:read'] },
+
+  // 審核者規則的選擇器要看得到使用者、群組、角色、部門
+  'approvalFlow:update': {
+    includes: ['approvalFlow:read'],
+    requires: ['user:read', 'group:read', 'role:read', 'orgUnit:read'],
+  },
 } as const satisfies Partial<Record<PermissionKey, PermissionDependency>>;
 
 export type PermissionDependencyMap = Partial<Record<PermissionKey, PermissionDependency>>;
@@ -210,6 +234,8 @@ export const ESCALATION_GUARDED_PERMISSIONS = [
   'role:grantPermission',
   'file:share',
   'group:assignRole',
+  // 設定流程＝決定誰可以代為執行某操作（docs/architecture/backend/20-approval.md §9、D11）
+  'approvalFlow:update',
 ] as const satisfies readonly PermissionKey[];
 
 /** 依賴只能指向 read；`file:access` 是檔案管理器的閘門，也只帶來「能進入」。 */

@@ -16,6 +16,9 @@ export const RESOURCE_TYPE = {
   WEBHOOK: 'webhook',
   TAG: 'tag',
   ANNOUNCEMENT: 'announcement',
+  ORG_UNIT: 'orgUnit',
+  APPROVAL: 'approval',
+  APPROVAL_FLOW: 'approvalFlow',
 } as const;
 
 export type ResourceType = (typeof RESOURCE_TYPE)[keyof typeof RESOURCE_TYPE];

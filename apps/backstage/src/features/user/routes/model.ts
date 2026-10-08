@@ -24,6 +24,10 @@ export const UserSearchQuerySchema = z.object({
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional()
     .catch(undefined),
+  /** 屬於這個部門（docs/architecture/backend/23-organization.md §8）；租戶沒有啟用 `organization` 時頁面不帶給後端。 */
+  orgUnitId: z.string().uuid().optional().catch(undefined),
+  /** 部門篩選含下層部門；只在有 `orgUnitId` 時有意義。 */
+  includeDescendants: z.enum(['true']).optional().catch(undefined),
   /** 多欄排序（陣列順序即優先順序），表頭與篩選面板都能設定；空陣列＝後端預設排序。 */
   sort: sortSearchSchema(USER_SORT_FIELDS),
 });

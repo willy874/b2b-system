@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionKey, resetPagePermissionRegistry } from '@/core/permission';
-import type { ApprovalRequest, Role } from '@/shared/api-sdk';
+import type { ApprovalRequestDetail, Role } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
@@ -45,6 +45,9 @@ const PENDING: ApprovalDetailVM = {
   reviewedAt: null,
   folderAccess: null,
   registration: { email: 'alice@example.com', displayName: 'Alice' },
+  steps: [],
+  currentStep: null,
+  viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
 };
 
 const ROLES = [{ id: 'role-member', slug: 'member', name: '一般成員' }] as Role[];
@@ -66,8 +69,15 @@ function reviewState(): ApprovalReviewState {
     isPending: false,
     isApproving: false,
     isRejecting: false,
+    isOverriding: false,
+    isRefreshing: false,
+    isWithdrawing: false,
     approve: vi.fn(async () => undefined),
     reject: vi.fn(async () => undefined),
+    decide: vi.fn(async () => undefined),
+    override: vi.fn(async () => undefined),
+    refresh: vi.fn(async () => undefined),
+    withdraw: vi.fn(async () => undefined),
   };
 }
 
@@ -199,7 +209,7 @@ describe('審批詳情（路由對話框）的未儲存提醒', () => {
   // 列表換成只渲染子路由：這裡只測詳情對話框
   Routes.ApprovalListRoute.update({ component: Outlet });
   const routes = [Routes.ApprovalListRoute.addChildren([Routes.ApprovalDetailRoute])];
-  const DTO: ApprovalRequest = {
+  const DTO: ApprovalRequestDetail = {
     id: 'a1',
     type: 'user.register',
     status: 'pending',
@@ -212,8 +222,14 @@ describe('審批詳情（路由對話框）的未儲存提醒', () => {
     reviewComment: null,
     reviewedAt: null,
     resultResourceId: null,
+    flowVersion: null,
+    currentStep: null,
+    stepCount: 0,
+    resubmittedFrom: null,
     createdAt: '2026-09-25T01:00:00.000Z',
     updatedAt: '2026-09-25T01:00:00.000Z',
+    steps: [],
+    viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
   };
 
   beforeEach(() => {

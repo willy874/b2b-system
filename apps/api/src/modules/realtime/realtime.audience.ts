@@ -51,8 +51,16 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   [ChangeSource.GROUP]: { perms: () => [PERMISSION.GROUP_READ], includesSubject: false },
   // 沒有任何畫面顯示憑證
   [ChangeSource.USER_CREDENTIAL]: { perms: () => [], includesSubject: false },
-  // 審批列表；匿名申請人（註冊）沒有連線，不必通知本人
+  // 審批列表；申請人與目前關卡的候選人由呼叫端以 `affectedUserIds` 帶入（docs/architecture/backend/20-approval.md §9.10）。
+  // 匿名申請人（註冊）沒有連線
   [ChangeSource.APPROVAL]: { perms: () => [PERMISSION.APPROVAL_READ], includesSubject: false },
+  // 審批流程的設定頁
+  [ChangeSource.APPROVAL_FLOW]: {
+    perms: () => [PERMISSION.APPROVAL_FLOW_READ],
+    includesSubject: false,
+  },
+  // 部門樹與成員；被異動的成員本人由呼叫端以 `affectedUserIds` 帶入
+  [ChangeSource.ORG_UNIT]: { perms: () => [PERMISSION.ORG_UNIT_READ], includesSubject: false },
   // 檔案列表與詳情。`file:access` 的人只看得到被授權的資料夾：payload 只有 id，
   // 收到看不到的變更只會多重抓一次（docs/architecture/iam/06-resource-grants.md §9）
   [ChangeSource.FILE]: { perms: () => FILE_READERS, includesSubject: false },

@@ -1,6 +1,6 @@
 import { registerRouteLink } from '@b2b-system/web-core/route-link';
 
-import { ApprovalDetailRoute } from './routes/pages';
+import { ApprovalDetailRoute, MyApprovalDetailRoute } from './routes/pages';
 
 /**
  * 後端連結用的 route id（docs/architecture/backend/15-notification.md §4.1）。已發出的 id 不改名：舊通知靠它連結；
@@ -9,6 +9,11 @@ import { ApprovalDetailRoute } from './routes/pages';
 export function registerApprovalRouteLinks(): void {
   registerRouteLink('approval.detail', {
     route: ApprovalDetailRoute,
+    params: { approvalId: 'approvalId' },
+  });
+  // 申請人與關卡的審核者沒有 approval:read：多階段的通知連到「我的審批」（docs/architecture/backend/20-approval.md §9.15）
+  registerRouteLink('approval.myDetail', {
+    route: MyApprovalDetailRoute,
     params: { approvalId: 'approvalId' },
   });
 }

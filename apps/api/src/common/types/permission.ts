@@ -33,6 +33,14 @@ export const PERMISSION = {
 
   APPROVAL_READ: 'approval:read',
   APPROVAL_REVIEW: 'approval:review',
+  APPROVAL_OVERRIDE: 'approval:override',
+  APPROVAL_FLOW_READ: 'approvalFlow:read',
+  APPROVAL_FLOW_UPDATE: 'approvalFlow:update',
+
+  ORG_UNIT_CREATE: 'orgUnit:create',
+  ORG_UNIT_READ: 'orgUnit:read',
+  ORG_UNIT_UPDATE: 'orgUnit:update',
+  ORG_UNIT_DELETE: 'orgUnit:delete',
 
   FILE_CREATE: 'file:create',
   FILE_READ: 'file:read',

@@ -1,0 +1,120 @@
+{
+  "approvalFlow": {
+    "type": {
+      "userRegister": "User registration"
+    },
+    "field": {
+      "emailDomain": "Email domain",
+      "amount": "Amount",
+      "category": "Category"
+    },
+    "status": {
+      "unset": "Not set",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "list": {
+      "title": "Approval flows",
+      "description": "Configure sequential steps for approval types that support multi-step approval. Types without an enabled flow are still decided in a single step.",
+      "assigneeIssue": "Unavailable reviewers",
+      "column": {
+        "type": "Approval type",
+        "status": "Flow status",
+        "steps": "Steps",
+        "version": "Version"
+      }
+    },
+    "edit": {
+      "back": "Approval flows",
+      "version": "Version {{version}}",
+      "discard": "Discard changes",
+      "enabled": "Enable flow",
+      "enabledHint": "When disabled, this type goes back to single-step approval. The settings are kept.",
+      "allowRepeatApprover": "Allow the same person to approve two steps",
+      "allowRepeatApproverHint": "Off by default: people who decided an earlier step are excluded from later steps."
+    },
+    "save": {
+      "success": "Flow saved"
+    },
+    "step": {
+      "ordinal": "Step {{ordinal}}",
+      "add": "Add step",
+      "remove": "Remove step",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "name": "Step name",
+      "assignee": "Reviewers",
+      "required": "Approvals required",
+      "requiredMode": "Approval count mode",
+      "requiredCount": "Number of people",
+      "requiredAll": "All reviewers",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "conditions": "Conditions (all must match for this step to run)",
+      "noCondition": "No conditions: every request goes through this step."
+    },
+    "assignee": {
+      "kindLabel": "Reviewer type",
+      "target": "Reviewer",
+      "level": "Manager level",
+      "managerLevel": "Requester's level-{{level}} manager",
+      "userPlaceholder": "Search users",
+      "groupPlaceholder": "Select a group",
+      "rolePlaceholder": "Select a role",
+      "orgUnitPlaceholder": "Select a department (its managers)",
+      "noMatch": "No matches",
+      "deleted": "Deleted",
+      "rejected": "This reviewer is unavailable (feature disabled or target deleted). Choose another reviewer.",
+      "kind": {
+        "user": "Specific user",
+        "group": "Group",
+        "role": "Role",
+        "manager": "Requester's manager",
+        "orgUnit": "Department managers"
+      },
+      "unavailable": {
+        "organization": "Organization is not enabled",
+        "group": "Groups are not enabled",
+        "feature": "Feature not enabled"
+      },
+      "summary": "{{kind}}: {{target}}"
+    },
+    "condition": {
+      "add": "Add condition",
+      "remove": "Remove condition",
+      "field": "Field",
+      "value": "Value",
+      "listPlaceholder": "Separate multiple values with commas",
+      "op": {
+        "label": "Operator",
+        "eq": "equals",
+        "ne": "does not equal",
+        "gt": "greater than",
+        "gte": "at least",
+        "lt": "less than",
+        "lte": "at most",
+        "in": "is one of"
+      }
+    },
+    "validation": {
+      "required": "Required",
+      "invalidValue": "Invalid value"
+    },
+    "preview": {
+      "title": "Preview",
+      "description": "Preview which steps the current draft (including unsaved changes) runs and who reviews each.",
+      "requester": "Requester",
+      "run": "Preview",
+      "incomplete": "Some steps are incomplete. Fill in the name, reviewers and conditions first.",
+      "skipped": "Skipped (conditions not met)",
+      "noCandidate": "No candidates",
+      "shortage": {
+        "noCandidate": "No reviewers found",
+        "insufficient": "Not enough reviewers"
+      },
+      "required_one": "{{count}} approval required",
+      "required_other": "{{count}} approvals required",
+      "stepTitle": "Step {{ordinal}}: {{name}}"
+    }
+  }
+}

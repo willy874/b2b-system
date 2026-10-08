@@ -2,39 +2,43 @@ import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import type { Database, Transaction } from '@/core/database';
+import type { Database } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
-import { JobQueue } from '@/core/jobs';
 import type { ApprovalRequestRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
-import { notification, NotificationChannel } from '@/modules/notification/notification.definition';
+import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { PermissionService } from '@/modules/permission/permission.service';
-import { WebhookService } from '@/modules/webhook/webhook.service';
 
+import { ApprovalAssigneeRegistry } from './approval-assignee.registry';
+import { ApprovalChainRepository } from './approval-chain.repository';
+import type { CurrentStepSummary } from './approval-chain.repository';
+import { ApprovalChainService } from './approval-chain.service';
+import type { ChainDecisionResult } from './approval-chain.service';
+import { ApprovalFinalizer } from './approval-finalizer.service';
 import { ApprovalHandlerRegistry } from './approval-handler.registry';
-import { APPROVAL_RESULT_MAIL_JOB } from './approval-mail.constants';
 import { APPROVAL_PERMISSIONS, PENDING_SUBJECT_CONSTRAINT } from './approval.constants';
 import type { ApprovalType } from './approval.constants';
-import {
-  APPROVAL_PENDING_NOTIFICATION,
-  APPROVAL_RESULT_NOTIFICATION,
-  approvalDetailLink,
-} from './approval.notifications';
+import { APPROVAL_PENDING_NOTIFICATION, approvalDetailLink } from './approval.notifications';
 import { ApprovalRepository } from './approval.repository';
 import type { ApprovalContext, ApprovalHandler, SubmitApprovalInput } from './approval.types';
-import { APPROVAL_DECIDED_WEBHOOK } from './approval.webhooks';
 import type {
+  ApprovalRequestDetailDto,
   ApprovalRequestDto,
   ApproveApprovalDto,
+  DecideApprovalStepDto,
   ListApprovalDto,
+  OverrideApprovalStepDto,
   RejectApprovalDto,
 } from './dto/approval.dto';
 
-function toDto(row: ApprovalRequestRow): ApprovalRequestDto {
+function toDto(
+  row: ApprovalRequestRow,
+  summary: { current?: CurrentStepSummary; count?: number } = {},
+): ApprovalRequestDto {
   return {
     id: row.id,
     type: row.type as ApprovalType,
@@ -48,27 +52,34 @@ function toDto(row: ApprovalRequestRow): ApprovalRequestDto {
     reviewComment: row.reviewComment,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     resultResourceId: row.resultResourceId,
+    flowVersion: row.flowVersion,
+    currentStep: row.status === 'pending' ? (summary.current ?? null) : null,
+    stepCount: summary.count ?? 0,
+    resubmittedFrom: row.resubmittedFrom,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
 /**
- * 審批請求的狀態機：`pending` → `approved` | `rejected`，只能走一次（docs/architecture/backend/20-approval.md §3）。
+ * 審批請求的狀態機：`pending` → `approved` | `rejected` | `withdrawn`，只能走一次（docs/architecture/backend/20-approval.md §3）。
  * 「核准之後做什麼」交給各類型的 `ApprovalHandler`；這裡負責權限、交易、稽核與推播。
+ * 多階段（§9）：送出時有流程就複製關卡，關卡的決定由 `ApprovalChainService` 處理；最終的核准與駁回都經 `ApprovalFinalizer`。
  */
 @Injectable()
 export class ApprovalService {
   constructor(
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly repo: ApprovalRepository,
+    private readonly chainRepo: ApprovalChainRepository,
     private readonly handlers: ApprovalHandlerRegistry,
+    private readonly assignees: ApprovalAssigneeRegistry,
+    private readonly chain: ApprovalChainService,
+    private readonly finalizer: ApprovalFinalizer,
     private readonly permissionService: PermissionService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
-    private readonly jobs: JobQueue,
     private readonly notifications: NotificationService,
-    private readonly webhooks: WebhookService,
   ) {}
 
   /** 擁有資源的模組在 `onModuleInit` 呼叫，登記自己負責的審批類型。 */
@@ -77,18 +88,30 @@ export class ApprovalService {
   }
 
   /**
+   * 擁有者模組登記一種審核者規則（docs/architecture/backend/20-approval.md §9.2、D15；例：組織管理的 `manager`）。
+   */
+  registerAssigneeResolver: ApprovalAssigneeRegistry['register'] = (resolver) =>
+    this.assignees.register(resolver);
+
+  /**
    * 建立一筆待審請求。同類型同對象已有待審請求時不再建立，回傳 `undefined`——
    * 要不要把「重複」告訴申請人由呼叫端決定（註冊為了防帳號列舉而不說）。
+   *
+   * 該類型有啟用中的流程（且 `approvalChain` 已啟用）時走多階段：複製關卡、啟動第一關、通知那一關的候選人。
+   * 否則是單關：送出當下持有 `approval:review` 的人收到通知。關卡全部略過時也退回單關（§9.5）。
    */
   async submit(input: SubmitApprovalInput): Promise<ApprovalRequestDto | undefined> {
     if (await this.repo.findPending(input.type, input.subjectKey)) return undefined;
     const handler = this.handlers.get(input.type);
-    // 審核者是送出當下的快照（docs/architecture/backend/15-notification.md §12.2 D5）：之後權限變動不補發也不收回
-    const reviewers = await this.permissionService.findActiveUserIdsWithPermission(
-      APPROVAL_PERMISSIONS.REVIEW,
-    );
+    const flow = await this.chain.flowFor(handler);
+    // 審核者與 override 持有者都是送出當下的快照（docs/architecture/backend/15-notification.md §12.2 D5）。
+    // 在交易之前查：它們會用連線池另取連線
+    const [reviewers, overrideHolders] = await Promise.all([
+      this.permissionService.findActiveUserIdsWithPermission(APPROVAL_PERMISSIONS.REVIEW),
+      flow ? this.chain.overrideHolders() : Promise.resolve([]),
+    ]);
 
-    let created: ApprovalRequestRow;
+    let created: { row: ApprovalRequestRow; affected: string[] };
     try {
       created = await withTransaction(this.db, async (tx) => {
         const row = await this.repo.create(
@@ -100,9 +123,18 @@ export class ApprovalService {
             requesterId: input.requester.id,
             requesterName: input.requester.name,
             reason: input.reason ?? null,
+            resubmittedFrom: input.resubmittedFrom ?? null,
+            ...(flow && {
+              flowId: flow.id,
+              flowVersion: flow.version,
+              allowRepeatApprover: flow.allowRepeatApprover,
+            }),
           },
           tx,
         );
+        const started = flow
+          ? await this.chain.start(row, flow, handler, overrideHolders, tx)
+          : { skipped: [], activated: false, candidates: [] };
         await this.audit.record(
           {
             action: 'approval.submit',
@@ -113,26 +145,35 @@ export class ApprovalService {
             actorEmail: input.requester.name,
             // private_payload 永不進稽核
             changes: { after: { type: input.type, payload: input.payload } },
+            ...(flow && {
+              metadata: {
+                flowId: flow.id,
+                flowVersion: flow.version,
+                skippedSteps: started.skipped,
+              },
+            }),
           },
           tx,
         );
-        // 申請人自己也有審核權限時不通知他（操作者＝收件人，D7）；匿名的註冊沒有操作者
-        await this.notifications.notify(
-          reviewers.map((recipientId) =>
-            notification(APPROVAL_PENDING_NOTIFICATION, {
-              recipientId,
-              actorId: input.requester.id,
-              params: {
-                approvalType: input.type,
-                requesterName: input.requester.name,
-                subject: handler.summarize(input.payload),
-              },
-              link: approvalDetailLink(row.id),
-            }),
-          ),
-          tx,
-        );
-        return row;
+        if (!started.activated) {
+          // 申請人自己也有審核權限時不通知他（操作者＝收件人，D7）；匿名的註冊沒有操作者
+          await this.notifications.notify(
+            reviewers.map((recipientId) =>
+              notification(APPROVAL_PENDING_NOTIFICATION, {
+                recipientId,
+                actorId: input.requester.id,
+                params: {
+                  approvalType: input.type,
+                  requesterName: input.requester.name,
+                  subject: handler.summarize(input.payload),
+                },
+                link: approvalDetailLink(row.id),
+              }),
+            ),
+            tx,
+          );
+        }
+        return { row, affected: started.candidates };
       });
     } catch (error) {
       // 預檢查與 INSERT 之間被併發的同一筆搶先：結果等同「已有待審」
@@ -142,13 +183,36 @@ export class ApprovalService {
       throw error;
     }
 
-    this.publishChanged(created.id, ChangeKind.CREATE);
-    return toDto(created);
+    this.publishChanged(created.row.id, ChangeKind.CREATE, created.row, created.affected);
+    return this.findDto(created.row.id);
   }
 
-  async list(query: ListApprovalDto) {
-    const { items, total } = await this.repo.list(query);
-    return paginated(items.map(toDto), total, query);
+  /**
+   * 列表（§9.13）：`all` 需要 `approval:read`；`assigned` 是我目前要審的；`mine` 是我送出的。
+   * 路由只宣告 `@Authenticated()`，`all` 的權限在這裡檢查（含 `authz.denied` 稽核）。
+   */
+  async list(query: ListApprovalDto, actor: AuthUser) {
+    if (query.scope === 'all') {
+      await this.permissionService.assertHasAll(actor, [APPROVAL_PERMISSIONS.READ], {
+        route: 'GET /approvals',
+      });
+    }
+    // 停用期間沒有「待我審核」：那些請求改由 approval:review 一次定案（D12）
+    if (query.scope === 'assigned' && !this.chain.isEnabled()) {
+      return paginated([], 0, query);
+    }
+    const { items, total } = await this.repo.list(query, actor.id);
+    const summaries = await this.chainRepo.summariesOf(items.map((item) => item.id));
+    return paginated(
+      items.map((item) =>
+        toDto(item, {
+          current: summaries.current.get(item.id),
+          count: summaries.counts.get(item.id),
+        }),
+      ),
+      total,
+      query,
+    );
   }
 
   /** 某類型的待審請求（依去重鍵前綴或申請人篩選）；讀取權限由呼叫端決定。 */
@@ -156,19 +220,33 @@ export class ApprovalService {
     type: ApprovalType,
     filter: { subjectKeyPrefix?: string; requesterId?: string },
   ): Promise<ApprovalRequestDto[]> {
-    return (await this.repo.findPendingBy(type, filter)).map(toDto);
+    return (await this.repo.findPendingBy(type, filter)).map((row) => toDto(row));
   }
 
-  async findOne(id: string): Promise<ApprovalRequestDto> {
-    return toDto(await this.getExisting(id));
+  /** 單一請求（不含關卡）；讀取權限由呼叫端決定（例：資料夾的管理者審核存取申請）。 */
+  get(id: string): Promise<ApprovalRequestDto> {
+    return this.findDto(id);
   }
 
+  /** 詳情：`approval:read`、申請人、任一關的候選人看得到（§9.10）；其他人 404。 */
+  async findOne(id: string, actor: AuthUser): Promise<ApprovalRequestDetailDto> {
+    const request = await this.getExisting(id);
+    if (!(await this.chain.canView(request, actor))) throw new AppException('APPROVAL_NOT_FOUND');
+    const [dto, detail] = await Promise.all([this.findDto(id), this.chain.detail(request, actor)]);
+    return { ...dto, ...detail };
+  }
+
+  /**
+   * 單關的核准（§3.4）。多關請求在 `approvalChain` 啟用時要用關卡的端點（`409 APPROVAL_CHAIN_IN_PROGRESS`）；
+   * 停用期間一次定案，剩下的關卡 `cancelled`（D12）。
+   */
   async approve(
     id: string,
     dto: ApproveApprovalDto,
     reviewer: AuthUser,
   ): Promise<ApprovalRequestDto> {
     const request = await this.getPending(id, reviewer);
+    const inChain = this.assertSingleStepAllowed(request);
     const handler = this.handlers.get(request.type);
     const ctx: ApprovalContext = { request, reviewer, options: { roleIds: dto.roleIds } };
 
@@ -179,50 +257,27 @@ export class ApprovalService {
     });
     await handler.assertApprovable(ctx);
 
-    const { reviewed, outcome } = await withTransaction(this.db, async (tx) => {
-      // 先搶下請求再套用：併發核准時，輸的那個在建立任何東西之前就 rollback
-      const row = await this.repo.review(
-        id,
+    const affected = inChain ? await this.currentCandidates(request) : [];
+    const { row, outcome } = await withTransaction(this.db, async (tx) => {
+      const result = await this.finalizer.approve(
+        ctx,
         {
-          status: 'approved',
-          reviewerId: reviewer.id,
-          reviewerName: reviewer.email,
-          reviewComment: dto.comment ?? null,
-          reviewedAt: new Date(),
+          reviewer,
+          comment: dto.comment ?? null,
+          ...(inChain && { metadata: { chainDisabled: true } }),
         },
         tx,
       );
-      if (!row) throw new AppException('APPROVAL_ALREADY_REVIEWED');
-
-      const applied = await handler.apply(ctx, tx);
-      await this.repo.setResult(id, applied.resourceId, tx);
-      await this.audit.record(
-        {
-          action: 'approval.approve',
-          resourceType: 'approval',
-          resourceId: id,
-          resourceName: request.requesterName,
-          changes: {
-            before: { status: 'pending' },
-            after: {
-              status: 'approved',
-              comment: dto.comment ?? null,
-              roleIds: dto.roleIds,
-              resultResourceId: applied.resourceId,
-            },
-          },
-        },
-        tx,
-      );
-      await this.enqueueResultMail(request, tx);
-      await this.notifyResult(request, 'approved', reviewer, tx);
-      await this.emitDecided(request, 'approved', tx);
-      return { reviewed: { ...row, resultResourceId: applied.resourceId }, outcome: applied };
+      if (inChain) {
+        await this.chain.closeByLegacy(request, reviewer, 'approve', dto.comment ?? null, tx);
+      }
+      return result;
     });
 
     await handler.afterApply(ctx, outcome);
-    this.publishChanged(id, ChangeKind.UPDATE);
-    return toDto(reviewed);
+    this.publishChanged(id, ChangeKind.UPDATE, request, affected);
+    // 多關請求要帶上關卡的摘要；單關的直接用交易回傳的列
+    return inChain ? this.findDto(id) : toDto(row);
   }
 
   async reject(
@@ -231,44 +286,138 @@ export class ApprovalService {
     reviewer: AuthUser,
   ): Promise<ApprovalRequestDto> {
     const request = await this.getPending(id, reviewer);
+    const inChain = this.assertSingleStepAllowed(request);
+    const affected = inChain ? await this.currentCandidates(request) : [];
 
-    const reviewed = await withTransaction(this.db, async (tx) => {
+    const row = await withTransaction(this.db, async (tx) => {
+      const rejected = await this.finalizer.reject(
+        request,
+        {
+          reviewer,
+          comment: dto.comment ?? null,
+          ...(inChain && { metadata: { chainDisabled: true } }),
+        },
+        tx,
+      );
+      if (inChain) {
+        await this.chain.closeByLegacy(request, reviewer, 'reject', dto.comment ?? null, tx);
+      }
+      return rejected;
+    });
+
+    this.publishChanged(id, ChangeKind.UPDATE, request, affected);
+    return inChain ? this.findDto(id) : toDto(row);
+  }
+
+  // ── 多階段（§9） ─────────────────────────────────────
+
+  async decideStep(
+    id: string,
+    ordinal: number,
+    dto: DecideApprovalStepDto,
+    actor: AuthUser,
+  ): Promise<ApprovalRequestDetailDto> {
+    return this.afterChain(await this.chain.decide(id, ordinal, dto, actor), actor);
+  }
+
+  async overrideStep(
+    id: string,
+    ordinal: number,
+    dto: OverrideApprovalStepDto,
+    actor: AuthUser,
+  ): Promise<ApprovalRequestDetailDto> {
+    return this.afterChain(await this.chain.override(id, ordinal, dto, actor), actor);
+  }
+
+  async refreshStep(
+    id: string,
+    ordinal: number,
+    actor: AuthUser,
+  ): Promise<ApprovalRequestDetailDto> {
+    return this.afterChain(await this.chain.refresh(id, ordinal, actor), actor);
+  }
+
+  /** 申請人撤回自己仍待審的請求（§9.9）。單關與多關都可以；多關的剩餘關卡 `cancelled`（`withdrawn`）。 */
+  async withdraw(id: string, actor: AuthUser): Promise<ApprovalRequestDetailDto> {
+    const request = await this.getExisting(id);
+    if (request.requesterId !== actor.id) {
+      // 看不到的請求不透露存在
+      if (!(await this.chain.canView(request, actor))) throw new AppException('APPROVAL_NOT_FOUND');
+      throw new AppException('APPROVAL_NOT_REQUESTER');
+    }
+    if (request.status !== 'pending') throw new AppException('APPROVAL_ALREADY_REVIEWED');
+
+    const candidates = await withTransaction(this.db, async (tx) => {
       const row = await this.repo.review(
         id,
         {
-          status: 'rejected',
-          reviewerId: reviewer.id,
-          reviewerName: reviewer.email,
-          reviewComment: dto.comment ?? null,
+          status: 'withdrawn',
+          reviewerId: null,
+          reviewerName: null,
+          reviewComment: null,
           reviewedAt: new Date(),
         },
         tx,
       );
       if (!row) throw new AppException('APPROVAL_ALREADY_REVIEWED');
+      const affected = request.flowId ? await this.chain.closeByWithdraw(request, tx) : [];
       await this.audit.record(
         {
-          action: 'approval.reject',
+          action: 'approval.withdraw',
           resourceType: 'approval',
           resourceId: id,
           resourceName: request.requesterName,
-          changes: {
-            before: { status: 'pending' },
-            after: { status: 'rejected', comment: dto.comment ?? null },
-          },
+          changes: { before: { status: 'pending' }, after: { status: 'withdrawn' } },
         },
         tx,
       );
-      await this.enqueueResultMail(request, tx);
-      await this.notifyResult(request, 'rejected', reviewer, tx);
-      await this.emitDecided(request, 'rejected', tx);
-      return row;
+      return affected;
     });
 
-    this.publishChanged(id, ChangeKind.UPDATE);
-    return toDto(reviewed);
+    this.publishChanged(id, ChangeKind.UPDATE, request, candidates);
+    return this.findOne(id, actor);
   }
 
   // ── 業務規則 ─────────────────────────────────────────────
+
+  /**
+   * 單關的端點能不能用在這筆請求：單關請求一律可以；多關請求只在 `approvalChain` 停用期間可以（D12）。
+   * 回傳是不是多關請求（停用期間的定案要關掉剩下的關卡）。
+   */
+  private assertSingleStepAllowed(request: ApprovalRequestRow): boolean {
+    const inChain = request.currentStep !== null;
+    if (inChain && this.chain.isEnabled()) throw new AppException('APPROVAL_CHAIN_IN_PROGRESS');
+    return inChain;
+  }
+
+  private async currentCandidates(request: ApprovalRequestRow): Promise<string[]> {
+    const steps = await this.chainRepo.stepsOf(request.id);
+    const current = steps.find((step) => step.status === 'active');
+    return current ? this.chainRepo.assigneeIdsOf(current.id) : [];
+  }
+
+  private async afterChain(
+    result: ChainDecisionResult,
+    actor: AuthUser,
+  ): Promise<ApprovalRequestDetailDto> {
+    if (result.applied) {
+      const handler = this.handlers.get(result.request.type);
+      await handler.afterApply(result.applied.ctx, result.applied.outcome);
+    }
+    this.publishChanged(
+      result.request.id,
+      ChangeKind.UPDATE,
+      result.request,
+      result.affectedUserIds,
+    );
+    return this.findOne(result.request.id, actor);
+  }
+
+  private async findDto(id: string): Promise<ApprovalRequestDto> {
+    const row = await this.getExisting(id);
+    const summaries = await this.chainRepo.summariesOf([id]);
+    return toDto(row, { current: summaries.current.get(id), count: summaries.counts.get(id) });
+  }
 
   private async getExisting(id: string): Promise<ApprovalRequestRow> {
     const request = await this.repo.findById(id);
@@ -284,70 +433,18 @@ export class ApprovalService {
     return request;
   }
 
-  /**
-   * 結果信是 `approval.result` 的 `email` 管道（docs/architecture/backend/16-notification-event.md §9.2 D3、D6、D14）：租戶關掉、或申請人自己關掉時不入列。
-   * 匿名的申請（註冊）沒有帳號，只看租戶層。判斷的是入列當下的設定，已入列的信不撤回。
-   */
-  private async enqueueResultMail(request: ApprovalRequestRow, tx: Transaction): Promise<void> {
-    const enabled = request.requesterId
-      ? (
-          await this.notifications.filterRecipients(
-            APPROVAL_RESULT_NOTIFICATION,
-            NotificationChannel.EMAIL,
-            [request.requesterId],
-            tx,
-          )
-        ).length > 0
-      : await this.notifications.isChannelEnabled(
-          APPROVAL_RESULT_NOTIFICATION,
-          NotificationChannel.EMAIL,
-          tx,
-        );
-    if (enabled) {
-      await this.jobs.enqueue(APPROVAL_RESULT_MAIL_JOB, { approvalId: request.id }, { tx });
-    }
-  }
-
-  /** 審批結果通知給申請人（docs/architecture/backend/15-notification.md §12.2 D11）；匿名的申請（註冊）沒有收件人，只有結果信。 */
-  private async notifyResult(
-    request: ApprovalRequestRow,
-    status: 'approved' | 'rejected',
-    reviewer: AuthUser,
-    tx: Transaction,
-  ): Promise<void> {
-    if (!request.requesterId) return;
-    const handler = this.handlers.get(request.type);
-    await this.notifications.notify(
-      notification(APPROVAL_RESULT_NOTIFICATION, {
-        recipientId: request.requesterId,
-        actorId: reviewer.id,
-        params: {
-          approvalType: request.type as ApprovalType,
-          subject: handler.summarize(request.payload),
-          status,
-        },
-        link: handler.resultLink ? handler.resultLink(request) : approvalDetailLink(request.id),
-      }),
-      tx,
-    );
-  }
-
-  /** 對外事件 `approval.decided`（docs/architecture/backend/17-webhook.md §9.2 D2）。 */
-  private emitDecided(
-    request: ApprovalRequestRow,
-    decision: 'approved' | 'rejected',
-    tx: Transaction,
-  ): Promise<void> {
-    return this.webhooks.emit(
-      APPROVAL_DECIDED_WEBHOOK,
-      { approvalId: request.id, approvalType: request.type as ApprovalType, decision },
-      tx,
-    );
-  }
-
-  private publishChanged(id: string, kind: ChangeKind): void {
+  /** 推播：`approval:read` 的人（perm room）、申請人與相關的候選人（user room，§9.15）。 */
+  private publishChanged(
+    id: string,
+    kind: ChangeKind,
+    request: Pick<ApprovalRequestRow, 'requesterId'>,
+    candidates: readonly string[] = [],
+  ): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.APPROVAL, kind, id }],
+      affectedUserIds: [
+        ...new Set([...(request.requesterId ? [request.requesterId] : []), ...candidates]),
+      ],
     });
   }
 }

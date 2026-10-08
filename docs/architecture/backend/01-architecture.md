@@ -212,9 +212,10 @@ app.module
   ├─ MfaModule             ──▶ Credential · User · OidcProvider
   ├─ TenantModule          ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
-  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Announcement · DataTransfer
+  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Announcement · DataTransfer · Organization
   ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag
   ├─ GroupModule           ──▶ Trash · Announcement
+  ├─ OrganizationModule    ──▶ Trash · Approval
   ├─ RoleModule            ──▶ Trash · Revision
   ├─ ApprovalModule        ──▶ Notification · Webhook
   ├─ AnnouncementModule    ──▶ Notification · Trash

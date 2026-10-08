@@ -199,7 +199,7 @@ export class UserTransferResource implements OnModuleInit {
           idSchema: UUID,
           orderHint: { 'zh-TW': '依建立時間排序', 'en-US': 'Sorted by creation time' },
           iterate: (scope) => this.iterate(scope),
-          count: (scope) => this.repo.exportCount(toScope(scope)),
+          count: async (scope) => this.repo.exportCount(await this.toScope(scope)),
         },
         importer: {
           modes: {
@@ -265,16 +265,21 @@ export class UserTransferResource implements OnModuleInit {
     );
   }
 
+  /** 匯出的範圍；列表的部門篩選展開成部門 id（docs/architecture/backend/23-organization.md §4）。 */
+  private async toScope(scope: ExportScope<UserExportFilter>): Promise<UserExportScope> {
+    if (scope.kind === 'ids') return { ids: scope.ids };
+    const { orgUnitId, includeDescendants, ...filter } = scope.filter;
+    const orgUnitIds = await this.users.orgUnitScope({ orgUnitId, includeDescendants });
+    return { filter: { ...(filter as UserFilter), orgUnitIds } };
+  }
+
   private async *iterate(
     scope: ExportScope<UserExportFilter>,
   ): AsyncIterable<readonly UserRecord[]> {
     let after: UserExportCursor | null = null;
+    const resolved = await this.toScope(scope);
     for (;;) {
-      const page = await this.repo.exportPage(
-        toScope(scope),
-        after,
-        DATA_TRANSFER_EXPORT_PAGE_SIZE,
-      );
+      const page = await this.repo.exportPage(resolved, after, DATA_TRANSFER_EXPORT_PAGE_SIZE);
       if (page.length) yield page;
       const last = page.at(-1);
       if (!last || page.length < DATA_TRANSFER_EXPORT_PAGE_SIZE) return;
@@ -370,10 +375,6 @@ export class UserTransferResource implements OnModuleInit {
     }
     return issues;
   }
-}
-
-function toScope(scope: ExportScope<UserExportFilter>): UserExportScope {
-  return scope.kind === 'ids' ? { ids: scope.ids } : { filter: scope.filter as UserFilter };
 }
 
 /** `UserService` 的交易後副作用 → 框架可合併的副作用（權限失效只做一次、推播合併）。 */

@@ -1,10 +1,14 @@
 import { sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
+  boolean,
   check,
+  integer,
   index,
   jsonb,
   pgEnum,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -13,7 +17,13 @@ import {
 
 import { users } from './users';
 
-export const approvalStatus = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
+/** `withdrawn`：申請人撤回（docs/architecture/backend/20-approval.md §9）。 */
+export const approvalStatus = pgEnum('approval_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'withdrawn',
+]);
 
 /**
  * 需要管理員核准才會生效的變更請求（docs/architecture/backend/20-approval.md）。
@@ -46,6 +56,19 @@ export const approvalRequests = pgTable(
     /** 核准後產生／異動的資源（註冊 = 新使用者的 id）。 */
     resultResourceId: text('result_resource_id'),
 
+    // ── 多階段（docs/architecture/backend/20-approval.md §9）：單關請求這四欄都是 null ──
+    /** 送出時依的流程（外鍵不加：流程不刪除，只停用）。 */
+    flowId: uuid('flow_id'),
+    flowVersion: integer('flow_version'),
+    /** 送出時流程的「同一個人能不能審兩關」（D6）的快照：之後改流程不影響進行中的請求。 */
+    allowRepeatApprover: boolean('allow_repeat_approver'),
+    /** 目前關卡的 ordinal；單關請求、或關卡全部略過時為 null。 */
+    currentStep: smallint('current_step'),
+    /** 駁回或撤回後重新送出時，指向前一筆（D7）。 */
+    resubmittedFrom: uuid('resubmitted_from').references((): AnyPgColumn => approvalRequests.id, {
+      onDelete: 'set null',
+    }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -60,6 +83,8 @@ export const approvalRequests = pgTable(
       .where(sql`${t.status} = 'pending'`),
     index('approval_requests_status_created_idx').on(t.status, t.createdAt.desc()),
     index('approval_requests_created_idx').on(t.createdAt.desc()),
+    // 「我的申請」
+    index('approval_requests_requester_idx').on(t.requesterId, t.createdAt.desc()),
   ],
 );
 

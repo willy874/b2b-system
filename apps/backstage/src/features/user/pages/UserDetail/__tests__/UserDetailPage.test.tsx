@@ -12,21 +12,31 @@ import { initTestI18n } from '@/test/i18n';
 import { registerUserPagePermissions, Routes } from '../../..';
 import userZhTW from '../../../locales/zh_TW.json';
 
-const { fetchUser, fetchProfile, updateUser, unlockUser, fetchGroups, fetchSources } = vi.hoisted(
-  () => ({
-    fetchSources: vi.fn(),
-    fetchGroups: vi.fn(),
-    fetchUser: vi.fn(),
-    fetchProfile: vi.fn(),
-    updateUser: vi.fn(),
-    unlockUser: vi.fn(),
-  }),
-);
+const {
+  fetchUser,
+  fetchProfile,
+  updateUser,
+  unlockUser,
+  fetchGroups,
+  fetchSources,
+  fetchOrgUnits,
+} = vi.hoisted(() => ({
+  fetchOrgUnits: vi.fn(),
+  fetchSources: vi.fn(),
+  fetchGroups: vi.fn(),
+  fetchUser: vi.fn(),
+  fetchProfile: vi.fn(),
+  updateUser: vi.fn(),
+  unlockUser: vi.fn(),
+}));
 vi.mock('@/apis/user/get-user-detail/fetcher', () => ({ fetchUserDetailQuery: fetchUser }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/update-user/fetcher', () => ({ fetchUserUpdateMutation: updateUser }));
 vi.mock('@/apis/user/unlock-user/fetcher', () => ({ fetchUserUnlockMutation: unlockUser }));
 vi.mock('@/apis/group/get-group-list/fetcher', () => ({ fetchGroupListQuery: fetchGroups }));
+vi.mock('@/apis/org-unit/get-user-org-units/fetcher', () => ({
+  fetchUserOrgUnitsQuery: fetchOrgUnits,
+}));
 vi.mock('@/apis/user/get-user-permission-sources/fetcher', () => ({
   fetchUserPermissionSourcesQuery: fetchSources,
 }));
@@ -99,6 +109,21 @@ beforeEach(() => {
       },
     ],
     pagination: { total: 2 },
+  });
+  fetchOrgUnits.mockReset().mockResolvedValue({
+    items: [
+      {
+        unitId: 'ou-north',
+        name: '北區',
+        path: [
+          { id: 'ou-hq', name: '總公司' },
+          { id: 'ou-sales', name: '業務部' },
+        ],
+        isManager: true,
+        isPrimary: true,
+        title: '經理',
+      },
+    ],
   });
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
@@ -351,5 +376,43 @@ describe('UserDetailPage', () => {
     fetchGroups.mockResolvedValue({ items: [], pagination: { total: 0 } });
     fireEvent.click(within(error).getByTestId('user-group-retry'));
     await waitFor(() => expect(screen.queryByTestId('user-group-error')).toBeNull());
+  });
+});
+
+/** 租戶啟用 organization（群組照舊啟用）。 */
+const enableOrganization = () =>
+  featureStore.setState({
+    resolved: true,
+    statuses: new Map([
+      ['group', 'ready'],
+      ['organization', 'ready'],
+    ]),
+  });
+
+describe('UserDetailPage 的所屬部門（docs/architecture/backend/23-organization.md §8）', () => {
+  it('租戶啟用 organization、有 orgUnit:read → 列出部門、上層路徑、主管與職稱', async () => {
+    enableOrganization();
+    renderRoute(routes, PATH, ['user:read', 'orgUnit:read'] as PermissionKey[]);
+    const unit = await screen.findByTestId('user-org-unit', undefined, { timeout: 5000 });
+    expect(unit).toHaveAttribute('data-value', 'ou-north');
+    expect(unit).toHaveTextContent('總公司 / 業務部 /');
+    expect(unit).toHaveTextContent('主要部門');
+    expect(unit).toHaveTextContent('主管');
+    expect(unit).toHaveTextContent('經理');
+    expect(fetchOrgUnits.mock.calls[0]![0].params).toEqual({ userId: USER_ID });
+  });
+
+  it('租戶沒有啟用 organization → 有 orgUnit:read 也不顯示、不查', async () => {
+    renderRoute(routes, PATH, ['user:read', 'group:read', 'orgUnit:read'] as PermissionKey[]);
+    await screen.findByTestId('user-group-section', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-org-unit-section')).not.toBeInTheDocument();
+    expect(fetchOrgUnits).not.toHaveBeenCalled();
+  });
+
+  it('沒有 orgUnit:read → 不顯示', async () => {
+    enableOrganization();
+    renderRoute(routes, PATH, ['user:read', 'group:read'] as PermissionKey[]);
+    await screen.findByTestId('user-group-section', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-org-unit-section')).not.toBeInTheDocument();
   });
 });

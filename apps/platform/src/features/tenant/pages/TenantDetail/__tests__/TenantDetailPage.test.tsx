@@ -195,7 +195,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
       .find((el) => el.dataset.value === 'features');
     fireEvent.click(featuresTab!);
     await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'features' }));
-    expect(await screen.findAllByTestId('tenant-feature')).toHaveLength(12);
+    expect(await screen.findAllByTestId('tenant-feature')).toHaveLength(14);
     expect(screen.queryByTestId('tenant-domain')).toBeNull();
   });
 
@@ -267,6 +267,8 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
       'externalApi',
       'group',
       'dataTransfer',
+      'organization',
+      'approvalChain',
     ]);
     expect(await featureToggle('file')).toHaveAttribute('aria-checked', 'false');
     expect(await featureToggle('auditLog')).toHaveAttribute('aria-checked', 'true');
@@ -370,7 +372,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     renderPage(tenantFixture(), ['tenant:read'], FEATURES_TAB);
     await screen.findAllByTestId('tenant-feature');
     const toggles = screen.getAllByTestId('tenant-feature-toggle');
-    expect(toggles).toHaveLength(12);
+    expect(toggles).toHaveLength(14);
     for (const toggle of toggles) expect(toggle).toHaveAttribute('data-disabled');
   });
 

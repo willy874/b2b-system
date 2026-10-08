@@ -1,30 +1,44 @@
 import type { FilterBarProps } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { createElement } from 'react';
 
-import type { Tag } from '@/shared/api-sdk';
+import type { OrgUnit, Tag } from '@/shared/api-sdk';
 
 import { USER_STATUS_LABEL_KEY } from '../../constants';
 import type { UserSearchQuery } from '../../routes';
+import { OrgUnitFilterControl } from './components/OrgUnitFilterControl';
+import type { OrgUnitFilterValue } from './components/OrgUnitFilterControl';
 import type { useUserSearchFilter } from './useUserSearchFilter';
 
 export type UserFilterValues = Pick<
   UserSearchQuery,
   'keyword' | 'status' | 'mfa' | 'tagId' | 'sort'
->;
+> & {
+  /** 部門與「含下層部門」：網址上是 `orgUnitId`、`includeDescendants` 兩個參數，面板裡是一個欄位。 */
+  orgUnit?: OrgUnitFilterValue;
+};
 
 const EMPTY_FILTERS: UserFilterValues = {
   keyword: undefined,
   status: undefined,
   mfa: undefined,
   tagId: undefined,
+  orgUnit: undefined,
   sort: [],
 };
 
-/** 篩選面板：關鍵字、狀態、MFA、標籤、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
+/** 部門篩選的資料；`undefined` = 不提供部門篩選（租戶沒有啟用 `organization` 或沒有 `orgUnit:read`）。 */
+export interface UserOrgUnitFilterSource {
+  units: readonly OrgUnit[] | undefined;
+  loading: boolean;
+}
+
+/** 篩選面板：關鍵字、狀態、MFA、標籤、部門、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
 export function useUserFilters(
   { search, setFilters }: ReturnType<typeof useUserSearchFilter>,
   /** `user` 標籤組的標籤；還沒載入或沒有任何標籤時不顯示標籤篩選。 */
   tags: readonly Tag[] = [],
+  orgUnits?: UserOrgUnitFilterSource,
 ): FilterBarProps<UserFilterValues> {
   const { t } = useTranslation();
   return {
@@ -33,12 +47,21 @@ export function useUserFilters(
       status: search.status,
       mfa: search.mfa,
       tagId: search.tagId,
+      orgUnit:
+        orgUnits && search.orgUnitId
+          ? { unitId: search.orgUnitId, includeDescendants: search.includeDescendants === 'true' }
+          : undefined,
       sort: search.sort,
     },
     defaultValue: EMPTY_FILTERS,
     // 排序條件全部移除＝不指定，由後端套用預設排序。
     // 關鍵字改由表格上方常駐的搜尋框輸入，仍保留在 value 裡：面板送出與「清除篩選」時一起處理
-    onSubmit: setFilters,
+    onSubmit: ({ orgUnit, ...rest }) =>
+      setFilters({
+        ...rest,
+        orgUnitId: orgUnit?.unitId,
+        includeDescendants: orgUnit?.includeDescendants ? 'true' : undefined,
+      }),
     fields: [
       {
         type: 'select',
@@ -69,6 +92,28 @@ export function useUserFilters(
               key: 'tagId' as const,
               label: t('tag.filter'),
               options: tags.map((tag) => ({ value: tag.id, label: tag.name })),
+            },
+          ]
+        : []),
+      ...(orgUnits
+        ? [
+            {
+              type: 'custom' as const,
+              key: 'orgUnit' as const,
+              label: t('user.orgUnit.filter'),
+              render: ({
+                value,
+                onChange,
+              }: {
+                value: OrgUnitFilterValue | undefined;
+                onChange: (value: OrgUnitFilterValue | undefined) => void;
+              }) =>
+                createElement(OrgUnitFilterControl, {
+                  units: orgUnits.units,
+                  loading: orgUnits.loading,
+                  value,
+                  onChange,
+                }),
             },
           ]
         : []),

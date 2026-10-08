@@ -15,6 +15,13 @@ export const TENANT_FEATURE_IMPACT_KEYS = [
   'groups',
   'groupMembers',
   'groupRoleGrants',
+  // organization（docs/architecture/backend/23-organization.md §6）
+  'orgUnits',
+  'orgUnitMembers',
+  'approvalFlowsUsingOrg',
+  // approvalChain（docs/architecture/backend/20-approval.md §9.11）
+  'approvalFlows',
+  'approvalRequestsInChain',
 ] as const;
 
 export type TenantFeatureImpactKey = (typeof TENANT_FEATURE_IMPACT_KEYS)[number];

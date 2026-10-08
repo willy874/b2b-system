@@ -15,6 +15,7 @@ const PERMISSION_OF: Record<TrashResourceType, PermissionKey> = {
   file: 'file:delete',
   fileFolder: 'file:delete',
   announcement: 'announcement:delete',
+  orgUnit: 'orgUnit:delete',
 };
 
 function handler(type: TrashResourceType, purgeOrder = 10): TrashHandler {

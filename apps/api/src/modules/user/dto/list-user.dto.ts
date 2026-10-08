@@ -14,6 +14,15 @@ export const ListUserSchema = PaginationSchema.extend({
     .optional(),
   /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tagId: TagIdsFilterSchema,
+  /**
+   * 屬於這個部門（docs/architecture/backend/23-organization.md §4）；`organization` 未啟用時回 `VALIDATION_FAILED`。
+   * `includeDescendants=true` 時含下層部門。
+   */
+  orgUnitId: z.string().uuid().optional(),
+  includeDescendants: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
 }).extend(SortSchema(['createdAt', 'email', 'displayName', 'lastLoginAt']).shape);
 
 export type ListUserDto = z.infer<typeof ListUserSchema>;
