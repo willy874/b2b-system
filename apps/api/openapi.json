@@ -1574,56 +1574,6 @@
         "tags": ["webhooks"]
       }
     },
-    "/trash": {
-      "get": {
-        "operationId": "TrashController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/TrashItem"
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "required": ["offset", "limit", "total"],
-                          "properties": {
-                            "offset": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "回收桶：某一類已刪除的項目（新刪除的在前）",
-        "tags": ["trash"]
-      }
-    },
     "/data-transfers": {
       "get": {
         "operationId": "DataTransferController_list",
@@ -2208,6 +2158,56 @@
         },
         "summary": "下載匯入的結果報告（原本的欄位加上列號、結果、錯誤）",
         "tags": ["data-transfers"]
+      }
+    },
+    "/trash": {
+      "get": {
+        "operationId": "TrashController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TrashItem"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "required": ["offset", "limit", "total"],
+                          "properties": {
+                            "offset": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "回收桶：某一類已刪除的項目（新刪除的在前）",
+        "tags": ["trash"]
       }
     },
     "/oidc-interaction/{uid}/mfa/challenge": {
@@ -10390,6 +10390,7 @@
           "role:update",
           "role:delete",
           "role:grantPermission",
+          "role:export",
           "permission:read",
           "auditLog:read",
           "auditLog:export",
@@ -10398,6 +10399,7 @@
           "approval:read",
           "approval:review",
           "approval:override",
+          "approval:export",
           "file:create",
           "file:read",
           "file:update",
@@ -10416,11 +10418,13 @@
           "group:update",
           "group:delete",
           "group:assignRole",
+          "group:export",
           "authz:explain",
           "serviceAccount:create",
           "serviceAccount:read",
           "serviceAccount:update",
           "serviceAccount:delete",
+          "serviceAccount:export",
           "webhook:create",
           "webhook:read",
           "webhook:update",
@@ -10428,6 +10432,7 @@
           "tag:create",
           "tag:update",
           "tag:delete",
+          "tag:export",
           "notification:read",
           "announcement:create",
           "announcement:read",
@@ -10440,6 +10445,7 @@
           "orgUnit:read",
           "orgUnit:update",
           "orgUnit:delete",
+          "orgUnit:export",
           "approvalFlow:read",
           "approvalFlow:update",
           "comment:delete"
@@ -10696,6 +10702,1111 @@
           }
         },
         "required": ["token", "apiToken"],
+        "additionalProperties": false
+      },
+      "DataTransfer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["export", "import"]
+          },
+          "type": {
+            "type": "string"
+          },
+          "mode": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "format": {
+            "type": "string",
+            "enum": ["csv", "xlsx", "json", "yaml", "sql"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "running", "applying", "completed", "failed", "cancelled", "expired"]
+          },
+          "scopeKind": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["ids", "filter"]
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "outputName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "outputSize": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "totalRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "processedRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "succeededRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skippedRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "errorDetails": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "finishedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "direction",
+          "type",
+          "mode",
+          "format",
+          "status",
+          "scopeKind",
+          "columns",
+          "sourceName",
+          "outputName",
+          "outputSize",
+          "totalRows",
+          "processedRows",
+          "succeededRows",
+          "failedRows",
+          "skippedRows",
+          "errorCode",
+          "errorDetails",
+          "version",
+          "expiresAt",
+          "startedAt",
+          "finishedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CancelDataTransferRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "DataTransferDownload": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "expiresAt", "fileName"],
+        "additionalProperties": false
+      },
+      "DataTransferOption": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": ["value", "label"],
+        "additionalProperties": false
+      },
+      "DataTransferExportColumn": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "date", "datetime", "enum", "reference", "json"]
+          }
+        },
+        "required": ["key", "label", "kind"],
+        "additionalProperties": false
+      },
+      "DataTransferResource": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "export": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "formats": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["csv", "xlsx", "json", "yaml", "sql"]
+                }
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DataTransferExportColumn"
+                }
+              },
+              "orderHint": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": ["formats", "columns", "orderHint"],
+            "additionalProperties": false
+          },
+          "importModes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["create", "update"]
+            }
+          }
+        },
+        "required": ["type", "label", "export", "importModes"],
+        "additionalProperties": false
+      },
+      "DataTransferResourceList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataTransferResource"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "DataTransferImportColumn": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "date", "datetime", "enum", "reference", "json"]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "multiple": {
+            "type": "boolean"
+          },
+          "matchKey": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unique": {
+            "type": "boolean"
+          },
+          "nullable": {
+            "type": "boolean"
+          },
+          "suggest": {
+            "type": "boolean"
+          },
+          "hint": {
+            "nullable": true,
+            "type": "string"
+          },
+          "options": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataTransferOption"
+            }
+          },
+          "transitions": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "sameFile": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "kind",
+          "required",
+          "multiple",
+          "matchKey",
+          "unique",
+          "nullable",
+          "suggest",
+          "hint",
+          "options",
+          "transitions",
+          "sameFile"
+        ],
+        "additionalProperties": false
+      },
+      "DataTransferImportColumnList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataTransferImportColumn"
+            }
+          },
+          "readOnly": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": ["key", "label"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items", "readOnly"],
+        "additionalProperties": false
+      },
+      "DataTransferReferenceOptionList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "label"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "DataTransferTargetOptionList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "label"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "DataTransferRowIssue": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning"]
+          }
+        },
+        "required": ["column", "code", "severity"],
+        "additionalProperties": false
+      },
+      "DataTransferImportTarget": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "current": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": ["id", "label", "version", "current"],
+        "additionalProperties": false
+      },
+      "DataTransferRowValidation": {
+        "type": "object",
+        "properties": {
+          "rowNo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataTransferRowIssue"
+            }
+          },
+          "target": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataTransferImportTarget"
+              }
+            ]
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["rowNo", "issues"],
+        "additionalProperties": false
+      },
+      "DataTransferImportRow": {
+        "type": "object",
+        "properties": {
+          "rowNo": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sourceRow": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "cells": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 32767
+            }
+          },
+          "targetId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["rowNo", "sourceRow", "cells"],
+        "additionalProperties": false
+      },
+      "DataTransferImportAnalysis": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["needsMapping"]
+              },
+              "fileName": {
+                "type": "string"
+              },
+              "headers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "suggestion": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": ["index", "text", "suggestion"],
+                  "additionalProperties": false
+                }
+              },
+              "samples": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "ignored": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "header": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["readOnly", "forbidden"]
+                    }
+                  },
+                  "required": ["index", "header", "reason"],
+                  "additionalProperties": false
+                }
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DataTransferImportColumn"
+                }
+              },
+              "sheets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["status", "fileName", "headers", "samples", "ignored", "columns"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["ok"]
+              },
+              "fileName": {
+                "type": "string"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DataTransferImportColumn"
+                }
+              },
+              "ignored": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "header": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["readOnly", "forbidden", "unmapped"]
+                    }
+                  },
+                  "required": ["header", "reason"],
+                  "additionalProperties": false
+                }
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DataTransferImportRow"
+                }
+              },
+              "results": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DataTransferRowValidation"
+                }
+              },
+              "sheets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["status", "fileName", "columns", "ignored", "rows", "results"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ValidateImportRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "rows": {
+            "minItems": 1,
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNo": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "cells": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 32767
+                  }
+                },
+                "targetId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": ["rowNo", "cells"],
+              "additionalProperties": false
+            }
+          },
+          "fileKeys": {
+            "type": "object",
+            "additionalProperties": {
+              "maxItems": 1000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 500
+              }
+            }
+          }
+        },
+        "required": ["mode", "rows"],
+        "additionalProperties": false
+      },
+      "ValidateImportResult": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataTransferRowValidation"
+            }
+          }
+        },
+        "required": ["rows"],
+        "additionalProperties": false
+      },
+      "CreateImportRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["create", "update"]
+          },
+          "fileName": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "skipInvalid": {
+            "default": false,
+            "type": "boolean"
+          },
+          "rows": {
+            "minItems": 1,
+            "maxItems": 20000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNo": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "sourceRow": {
+                  "nullable": true,
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "cells": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 32767
+                  }
+                },
+                "targetId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "target": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "expected": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["id", "version"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["rowNo", "cells"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["type", "mode", "skipInvalid", "rows"],
+        "additionalProperties": false
+      },
+      "CreateExportRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "format": {
+            "default": "csv",
+            "type": "string",
+            "enum": ["csv", "xlsx", "json", "yaml", "sql"]
+          },
+          "scope": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["ids"]
+                  },
+                  "ids": {
+                    "minItems": 1,
+                    "maxItems": 10000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  }
+                },
+                "required": ["kind", "ids"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["filter"]
+                  },
+                  "filter": {
+                    "default": {},
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": ["kind", "filter"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "columns": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        },
+        "required": ["type", "format", "scope"],
+        "additionalProperties": false
+      },
+      "DataTransferApplyRow": {
+        "type": "object",
+        "properties": {
+          "rowNo": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sourceRow": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "cells": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["pending", "succeeded", "failed", "skipped", "cancelled"]
+          },
+          "error": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "changes": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "resultId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["rowNo", "sourceRow", "cells", "outcome", "error", "changes", "resultId"],
+        "additionalProperties": false
+      },
+      "DataTransferApplyRowList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataTransferApplyRow"
+            }
+          },
+          "nextRowNo": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["items", "nextRowNo"],
+        "additionalProperties": false
+      },
+      "AuditLogSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "actorEmail": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "resourceName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["success", "failure"]
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "actorId",
+          "actorEmail",
+          "action",
+          "resourceType",
+          "resourceId",
+          "resourceName",
+          "result",
+          "errorCode"
+        ],
+        "additionalProperties": false
+      },
+      "AuditLogList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogSummary"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["offset", "limit", "total"],
+            "additionalProperties": false
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "pagination", "nextCursor"],
+        "additionalProperties": false
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "actorEmail": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "resourceName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["success", "failure"]
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "changes": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "metadata": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "actorId",
+          "actorEmail",
+          "action",
+          "resourceType",
+          "resourceId",
+          "resourceName",
+          "result",
+          "errorCode",
+          "changes",
+          "metadata"
+        ],
         "additionalProperties": false
       },
       "WebhookTarget": {
@@ -12026,163 +13137,6 @@
         "required": ["decision", "comment", "roleIds"],
         "additionalProperties": false
       },
-      "AuditLogSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "occurredAt": {
-            "type": "string"
-          },
-          "actorId": {
-            "nullable": true,
-            "type": "string"
-          },
-          "actorEmail": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "resourceType": {
-            "type": "string"
-          },
-          "resourceId": {
-            "nullable": true,
-            "type": "string"
-          },
-          "resourceName": {
-            "nullable": true,
-            "type": "string"
-          },
-          "result": {
-            "type": "string",
-            "enum": ["success", "failure"]
-          },
-          "errorCode": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "occurredAt",
-          "actorId",
-          "actorEmail",
-          "action",
-          "resourceType",
-          "resourceId",
-          "resourceName",
-          "result",
-          "errorCode"
-        ],
-        "additionalProperties": false
-      },
-      "AuditLogList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogSummary"
-            }
-          },
-          "pagination": {
-            "type": "object",
-            "properties": {
-              "offset": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "limit": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "total": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": ["offset", "limit", "total"],
-            "additionalProperties": false
-          },
-          "nextCursor": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": ["items", "pagination", "nextCursor"],
-        "additionalProperties": false
-      },
-      "AuditLog": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "occurredAt": {
-            "type": "string"
-          },
-          "actorId": {
-            "nullable": true,
-            "type": "string"
-          },
-          "actorEmail": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "resourceType": {
-            "type": "string"
-          },
-          "resourceId": {
-            "nullable": true,
-            "type": "string"
-          },
-          "resourceName": {
-            "nullable": true,
-            "type": "string"
-          },
-          "result": {
-            "type": "string",
-            "enum": ["success", "failure"]
-          },
-          "errorCode": {
-            "nullable": true,
-            "type": "string"
-          },
-          "changes": {
-            "nullable": true,
-            "type": "object",
-            "additionalProperties": {}
-          },
-          "metadata": {
-            "nullable": true,
-            "type": "object",
-            "additionalProperties": {}
-          }
-        },
-        "required": [
-          "id",
-          "occurredAt",
-          "actorId",
-          "actorEmail",
-          "action",
-          "resourceType",
-          "resourceId",
-          "resourceName",
-          "result",
-          "errorCode",
-          "changes",
-          "metadata"
-        ],
-        "additionalProperties": false
-      },
       "IdentityProviderDomain": {
         "type": "object",
         "properties": {
@@ -12767,938 +13721,6 @@
           }
         },
         "required": ["watching", "watcherCount"],
-        "additionalProperties": false
-      },
-      "DataTransfer": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "direction": {
-            "type": "string",
-            "enum": ["export", "import"]
-          },
-          "type": {
-            "type": "string"
-          },
-          "mode": {
-            "nullable": true,
-            "type": "string",
-            "enum": ["create", "update"]
-          },
-          "format": {
-            "type": "string",
-            "enum": ["csv", "xlsx", "json", "yaml", "sql"]
-          },
-          "status": {
-            "type": "string",
-            "enum": ["queued", "running", "applying", "completed", "failed", "cancelled", "expired"]
-          },
-          "scopeKind": {
-            "nullable": true,
-            "type": "string",
-            "enum": ["ids", "filter"]
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sourceName": {
-            "nullable": true,
-            "type": "string"
-          },
-          "outputName": {
-            "nullable": true,
-            "type": "string"
-          },
-          "outputSize": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "totalRows": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "processedRows": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "succeededRows": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "failedRows": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "skippedRows": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "errorCode": {
-            "nullable": true,
-            "type": "string"
-          },
-          "errorDetails": {
-            "nullable": true,
-            "type": "object",
-            "additionalProperties": {}
-          },
-          "version": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "startedAt": {
-            "nullable": true,
-            "type": "string"
-          },
-          "finishedAt": {
-            "nullable": true,
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "direction",
-          "type",
-          "mode",
-          "format",
-          "status",
-          "scopeKind",
-          "columns",
-          "sourceName",
-          "outputName",
-          "outputSize",
-          "totalRows",
-          "processedRows",
-          "succeededRows",
-          "failedRows",
-          "skippedRows",
-          "errorCode",
-          "errorDetails",
-          "version",
-          "expiresAt",
-          "startedAt",
-          "finishedAt",
-          "createdAt",
-          "updatedAt"
-        ],
-        "additionalProperties": false
-      },
-      "CancelDataTransferRequest": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": ["version"],
-        "additionalProperties": false
-      },
-      "DataTransferDownload": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "fileName": {
-            "type": "string"
-          }
-        },
-        "required": ["url", "expiresAt", "fileName"],
-        "additionalProperties": false
-      },
-      "DataTransferOption": {
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          }
-        },
-        "required": ["value", "label"],
-        "additionalProperties": false
-      },
-      "DataTransferExportColumn": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["string", "number", "boolean", "date", "datetime", "enum", "reference", "json"]
-          }
-        },
-        "required": ["key", "label", "kind"],
-        "additionalProperties": false
-      },
-      "DataTransferResource": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "export": {
-            "nullable": true,
-            "type": "object",
-            "properties": {
-              "formats": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "enum": ["csv", "xlsx", "json", "yaml", "sql"]
-                }
-              },
-              "columns": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/DataTransferExportColumn"
-                }
-              },
-              "orderHint": {
-                "nullable": true,
-                "type": "string"
-              }
-            },
-            "required": ["formats", "columns", "orderHint"],
-            "additionalProperties": false
-          },
-          "importModes": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": ["create", "update"]
-            }
-          }
-        },
-        "required": ["type", "label", "export", "importModes"],
-        "additionalProperties": false
-      },
-      "DataTransferResourceList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataTransferResource"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "DataTransferImportColumn": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["string", "number", "boolean", "date", "datetime", "enum", "reference", "json"]
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "multiple": {
-            "type": "boolean"
-          },
-          "matchKey": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "unique": {
-            "type": "boolean"
-          },
-          "nullable": {
-            "type": "boolean"
-          },
-          "suggest": {
-            "type": "boolean"
-          },
-          "hint": {
-            "nullable": true,
-            "type": "string"
-          },
-          "options": {
-            "nullable": true,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataTransferOption"
-            }
-          },
-          "transitions": {
-            "nullable": true,
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "required": [
-          "key",
-          "label",
-          "kind",
-          "required",
-          "multiple",
-          "matchKey",
-          "unique",
-          "nullable",
-          "suggest",
-          "hint",
-          "options",
-          "transitions"
-        ],
-        "additionalProperties": false
-      },
-      "DataTransferImportColumnList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataTransferImportColumn"
-            }
-          },
-          "readOnly": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "key": {
-                  "type": "string"
-                },
-                "label": {
-                  "type": "string"
-                }
-              },
-              "required": ["key", "label"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["items", "readOnly"],
-        "additionalProperties": false
-      },
-      "DataTransferReferenceOptionList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "label": {
-                  "type": "string"
-                }
-              },
-              "required": ["id", "label"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "DataTransferTargetOptionList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "label": {
-                  "type": "string"
-                },
-                "description": {
-                  "type": "string"
-                }
-              },
-              "required": ["id", "label"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "DataTransferRowIssue": {
-        "type": "object",
-        "properties": {
-          "column": {
-            "nullable": true,
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "params": {
-            "type": "object",
-            "additionalProperties": {}
-          },
-          "severity": {
-            "type": "string",
-            "enum": ["error", "warning"]
-          }
-        },
-        "required": ["column", "code", "severity"],
-        "additionalProperties": false
-      },
-      "DataTransferImportTarget": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "current": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "expected": {
-            "type": "object",
-            "additionalProperties": {}
-          }
-        },
-        "required": ["id", "label", "version", "current"],
-        "additionalProperties": false
-      },
-      "DataTransferRowValidation": {
-        "type": "object",
-        "properties": {
-          "rowNo": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "issues": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataTransferRowIssue"
-            }
-          },
-          "target": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DataTransferImportTarget"
-              }
-            ]
-          },
-          "changed": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["rowNo", "issues"],
-        "additionalProperties": false
-      },
-      "DataTransferImportRow": {
-        "type": "object",
-        "properties": {
-          "rowNo": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          },
-          "sourceRow": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "cells": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string",
-              "maxLength": 32767
-            }
-          },
-          "targetId": {
-            "nullable": true,
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          }
-        },
-        "required": ["rowNo", "sourceRow", "cells"],
-        "additionalProperties": false
-      },
-      "DataTransferImportAnalysis": {
-        "oneOf": [
-          {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "enum": ["needsMapping"]
-              },
-              "fileName": {
-                "type": "string"
-              },
-              "headers": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "index": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "text": {
-                      "type": "string"
-                    },
-                    "suggestion": {
-                      "nullable": true,
-                      "type": "string"
-                    }
-                  },
-                  "required": ["index", "text", "suggestion"],
-                  "additionalProperties": false
-                }
-              },
-              "samples": {
-                "type": "array",
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              },
-              "ignored": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "index": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "header": {
-                      "type": "string"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "enum": ["readOnly", "forbidden"]
-                    }
-                  },
-                  "required": ["index", "header", "reason"],
-                  "additionalProperties": false
-                }
-              },
-              "columns": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/DataTransferImportColumn"
-                }
-              },
-              "sheets": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "required": ["status", "fileName", "headers", "samples", "ignored", "columns"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "enum": ["ok"]
-              },
-              "fileName": {
-                "type": "string"
-              },
-              "columns": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/DataTransferImportColumn"
-                }
-              },
-              "ignored": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "header": {
-                      "type": "string"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "enum": ["readOnly", "forbidden", "unmapped"]
-                    }
-                  },
-                  "required": ["header", "reason"],
-                  "additionalProperties": false
-                }
-              },
-              "rows": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/DataTransferImportRow"
-                }
-              },
-              "results": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/DataTransferRowValidation"
-                }
-              },
-              "sheets": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "required": ["status", "fileName", "columns", "ignored", "rows", "results"],
-            "additionalProperties": false
-          }
-        ]
-      },
-      "ValidateImportRequest": {
-        "type": "object",
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": ["create", "update"]
-          },
-          "rows": {
-            "minItems": 1,
-            "maxItems": 1000,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "rowNo": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 9007199254740991
-                },
-                "cells": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string",
-                    "maxLength": 32767
-                  }
-                },
-                "targetId": {
-                  "nullable": true,
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                }
-              },
-              "required": ["rowNo", "cells"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["mode", "rows"],
-        "additionalProperties": false
-      },
-      "ValidateImportResult": {
-        "type": "object",
-        "properties": {
-          "rows": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataTransferRowValidation"
-            }
-          }
-        },
-        "required": ["rows"],
-        "additionalProperties": false
-      },
-      "CreateImportRequest": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 50
-          },
-          "mode": {
-            "type": "string",
-            "enum": ["create", "update"]
-          },
-          "fileName": {
-            "type": "string",
-            "maxLength": 255
-          },
-          "skipInvalid": {
-            "default": false,
-            "type": "boolean"
-          },
-          "rows": {
-            "minItems": 1,
-            "maxItems": 20000,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "rowNo": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 9007199254740991
-                },
-                "sourceRow": {
-                  "nullable": true,
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 9007199254740991
-                },
-                "cells": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string",
-                    "maxLength": 32767
-                  }
-                },
-                "targetId": {
-                  "nullable": true,
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                },
-                "target": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "version": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 9007199254740991
-                    },
-                    "expected": {
-                      "type": "object",
-                      "additionalProperties": {}
-                    }
-                  },
-                  "required": ["id", "version"],
-                  "additionalProperties": false
-                }
-              },
-              "required": ["rowNo", "cells"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["type", "mode", "skipInvalid", "rows"],
-        "additionalProperties": false
-      },
-      "CreateExportRequest": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 50
-          },
-          "format": {
-            "default": "csv",
-            "type": "string",
-            "enum": ["csv", "xlsx", "json", "yaml", "sql"]
-          },
-          "scope": {
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "enum": ["ids"]
-                  },
-                  "ids": {
-                    "minItems": 1,
-                    "maxItems": 10000,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64
-                    }
-                  }
-                },
-                "required": ["kind", "ids"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "enum": ["filter"]
-                  },
-                  "filter": {
-                    "default": {},
-                    "type": "object",
-                    "additionalProperties": {}
-                  }
-                },
-                "required": ["kind", "filter"],
-                "additionalProperties": false
-              }
-            ]
-          },
-          "columns": {
-            "minItems": 1,
-            "maxItems": 100,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            }
-          }
-        },
-        "required": ["type", "format", "scope"],
-        "additionalProperties": false
-      },
-      "DataTransferApplyRow": {
-        "type": "object",
-        "properties": {
-          "rowNo": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "sourceRow": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "cells": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "outcome": {
-            "type": "string",
-            "enum": ["pending", "succeeded", "failed", "skipped", "cancelled"]
-          },
-          "error": {
-            "nullable": true,
-            "type": "object",
-            "additionalProperties": {}
-          },
-          "changes": {
-            "nullable": true,
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
-              },
-              "minItems": 2,
-              "maxItems": 2
-            }
-          },
-          "resultId": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": ["rowNo", "sourceRow", "cells", "outcome", "error", "changes", "resultId"],
-        "additionalProperties": false
-      },
-      "DataTransferApplyRowList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataTransferApplyRow"
-            }
-          },
-          "nextRowNo": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": ["items", "nextRowNo"],
         "additionalProperties": false
       },
       "OrgUnit": {

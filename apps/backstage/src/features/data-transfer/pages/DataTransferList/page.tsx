@@ -14,21 +14,37 @@ import { invalidateResources, Resource } from '@/apis/resources';
 import { dataTransferApi } from '../../hooks/dataTransferApi';
 import { DataTransferListRoute } from '../../routes';
 
-/** 匯入完成的「查看結果」：到該資源的匯入頁（route id 依資源類型，呼叫處寫字面量）。 */
+/**
+ * 匯入完成的「查看結果」：到該資源的匯入頁。route id 依資源類型，每一種都寫成字面量
+ * （docs/architecture/frontend/03-feature-anatomy.md §4.1）；那個 feature 沒有註冊（未啟用、沒有權限）時不顯示。
+ */
 function ResultLink({ transfer, label }: { transfer: TransferView; label: string }) {
-  if (transfer.type !== 'user') return null;
-  return (
-    <RouteLink
-      to="user.import"
-      params={{ mode: transfer.mode ?? 'create', transferId: transfer.id }}
-      fallback="hide"
-      className="text-sm text-[var(--color-brand)]"
-      data-testid="data-transfer-result"
-      data-value={transfer.id}
-    >
-      {label}
-    </RouteLink>
-  );
+  const props = {
+    params: { mode: transfer.mode ?? 'create', transferId: transfer.id },
+    fallback: 'hide' as const,
+    className: 'text-sm text-[var(--color-brand)]',
+    'data-testid': 'data-transfer-result',
+    'data-value': transfer.id,
+    children: label,
+  };
+  switch (transfer.type) {
+    case 'user':
+      return <RouteLink to="user.import" {...props} />;
+    case 'role':
+      return <RouteLink to="role.import" {...props} />;
+    case 'group':
+      return <RouteLink to="group.import" {...props} />;
+    case 'groupMember':
+      return <RouteLink to="groupMember.import" {...props} />;
+    case 'orgUnit':
+      return <RouteLink to="orgUnit.import" {...props} />;
+    case 'orgUnitMember':
+      return <RouteLink to="orgUnitMember.import" {...props} />;
+    case 'tag':
+      return <RouteLink to="tag.import" {...props} />;
+    default:
+      return null;
+  }
 }
 
 /** 我的匯入匯出（docs/architecture/backend/22-data-transfer.md §8.4）。 */

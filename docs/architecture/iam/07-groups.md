@@ -92,6 +92,9 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 
 不存在或已刪除的群組（還原以外的端點）回 `404 GROUP_NOT_FOUND`。
 
+整批：群組（名稱、說明、持有的角色）與直接成員可以匯出（`group:export`）與匯入（[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.2）。
+匯入走同一個 `GroupService`（交易內的版本），反提權、不能改自己、循環與層數的規則相同；成員只能加入，移除在畫面上做。
+
 資料夾授權的對象多一種 `group`（`PUT /file-folders/:id/grants` 的 `subjectType`、`GET /file-folders/:id/grant-subjects?subjectType=group`；
 [`06-resource-grants.md`](./06-resource-grants.md) §6.2）。
 

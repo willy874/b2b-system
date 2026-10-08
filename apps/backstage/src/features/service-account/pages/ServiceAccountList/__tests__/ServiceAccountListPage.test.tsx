@@ -1,7 +1,8 @@
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -81,5 +82,28 @@ describe('ServiceAccountListPage（docs/architecture/06-external-api.md §9 T4�
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(deleteAccount).toHaveBeenCalledTimes(1));
     expect(deleteAccount.mock.calls[0]![0]).toMatchObject({ params: { serviceAccountId: 'sa1' } });
+  });
+});
+
+describe('ServiceAccountListPage 的匯出（docs/architecture/backend/22-data-transfer.md §12.6）', () => {
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
+  it('有 serviceAccount:export → 顯示「匯出」；沒有就不顯示（也沒有匯入）', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+    renderRoute(routes, '/service-account', [
+      'serviceAccount:read',
+      'serviceAccount:export',
+    ] as PermissionKey[]);
+    await screen.findByText('CI 建置', undefined, { timeout: 5000 });
+    expect(screen.getByTestId('service-account-export-button')).toBeInTheDocument();
+  });
+
+  it('只有 serviceAccount:read → 不顯示', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+    renderRoute(routes, '/service-account', ['serviceAccount:read'] as PermissionKey[]);
+    await screen.findByText('CI 建置', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('service-account-export-button')).toBeNull();
   });
 });

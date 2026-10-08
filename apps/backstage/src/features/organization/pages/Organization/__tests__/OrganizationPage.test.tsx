@@ -1,8 +1,9 @@
 import { installFlowDom } from '@b2b-system/ui/testing';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -417,5 +418,28 @@ describe('OrganizationPage 的組織圖（docs/architecture/backend/23-organizat
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
     expect(await screen.findByTestId('org-chart-edit')).toBeInTheDocument();
     expect(screen.getAllByTestId('org-chart-node')).toHaveLength(4);
+  });
+});
+
+describe('OrganizationPage 的匯出、匯入入口（docs/architecture/backend/22-data-transfer.md §12.3）', () => {
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
+  it('有 orgUnit:export、orgUnit:update → 匯出可以選部門或目前部門的成員', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+    renderRoute(routes, SALES_PATH, [...MANAGER, 'orgUnit:export'] as PermissionKey[]);
+    await screen.findByTestId('org-unit-name', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('org-unit-export-button'));
+    expect(await screen.findByText('部門成員（目前部門與下層）')).toBeInTheDocument();
+    expect(screen.getByTestId('org-unit-import-button')).toBeInTheDocument();
+  });
+
+  it('只有 orgUnit:read → 不顯示匯出、匯入', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+    renderRoute(routes, SALES_PATH, READER);
+    await screen.findByTestId('org-unit-name', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('org-unit-export-button')).toBeNull();
+    expect(screen.queryByTestId('org-unit-import-button')).toBeNull();
   });
 });

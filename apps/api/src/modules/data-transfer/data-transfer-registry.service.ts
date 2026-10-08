@@ -95,4 +95,14 @@ function assertColumns(resource: AnyTransferResource): void {
   for (const key of importer.uniqueColumns ?? []) {
     if (!keys.has(key)) throw new Error(`資源 ${resource.type} 的唯一欄 ${key} 不存在`);
   }
+  for (const column of resource.columns) {
+    const sameFile = column.reference?.sameFile;
+    if (!sameFile) continue;
+    const where = `${resource.type}.${column.key}`;
+    // 被引用的值要能唯一地指到一列，套用時才知道先建立哪一列
+    if (!importer.uniqueColumns?.includes(sameFile.column)) {
+      throw new Error(`欄位 ${where}：同檔引用的 ${sameFile.column} 要是唯一欄`);
+    }
+    if (column.multiple) throw new Error(`欄位 ${where}：同檔引用只能用在單一值的欄位`);
+  }
 }

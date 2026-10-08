@@ -1,8 +1,9 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
 import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -42,6 +43,12 @@ function toDto(unit: OrgUnitWithCounts): OrgUnitDto {
     createdAt: unit.createdAt.toISOString(),
     updatedAt: unit.updatedAt.toISOString(),
   };
+}
+
+/** 部門寫入在交易提交後要做的事（推播）；部門不是授權來源，沒有權限失效（D1）。 */
+export interface OrgUnitAfterCommit {
+  changes: ResourceChangeWire[];
+  affectedUserIds: string[];
 }
 
 /** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
@@ -90,55 +97,73 @@ export class OrgUnitService {
   }
 
   async create(dto: CreateOrgUnitDto, actor: AuthUser): Promise<OrgUnitDetailDto> {
+    const { unit, after } = await withTransaction(this.db, (tx) => this.createInTx(dto, actor, tx));
+    this.runAfterCommit(after);
+    return this.findOne(unit.id);
+  }
+
+  /** 建立的業務規則與寫入，在呼叫端的交易內（API 與匯入共用一份規則）。 */
+  async createInTx(
+    dto: CreateOrgUnitDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ unit: OrgUnitRow; after: OrgUnitAfterCommit }> {
     const parentId = dto.parentId ?? null;
     const code = dto.code ?? null;
     if (code) await this.assertCodeAvailable(code);
 
-    const unit = await withTransaction(this.db, async (tx) => {
-      await this.repo.lockStructure(tx);
-      if (parentId) {
-        if (!(await this.repo.findById(parentId, tx))) throw new AppException('ORG_UNIT_NOT_FOUND');
-        // 新部門的層數 = 上層的層數 ＋ 1
-        await this.assertDepth(parentId, 0, tx);
-      }
-      await this.assertNameAvailable(parentId, dto.name, undefined, tx);
-      const created = await this.repo.create(
-        {
-          parentId,
-          name: dto.name,
-          code,
-          description: dto.description ?? null,
-          sortOrder: await this.repo.nextSortOrder(parentId, tx),
-          createdBy: actor.id,
-          updatedBy: actor.id,
-        },
-        tx,
-      );
-      await this.audit.record(
-        {
-          action: 'orgUnit.create',
-          resourceType: RESOURCE_TYPE.ORG_UNIT,
-          resourceId: created.id,
-          resourceName: created.name,
-          changes: {
-            after: {
-              name: created.name,
-              parentId: created.parentId,
-              code: created.code,
-              description: created.description,
-            },
+    await this.repo.lockStructure(tx);
+    if (parentId) {
+      if (!(await this.repo.findById(parentId, tx))) throw new AppException('ORG_UNIT_NOT_FOUND');
+      // 新部門的層數 = 上層的層數 ＋ 1
+      await this.assertDepth(parentId, 0, tx);
+    }
+    await this.assertNameAvailable(parentId, dto.name, undefined, tx);
+    const unit = await this.repo.create(
+      {
+        parentId,
+        name: dto.name,
+        code,
+        description: dto.description ?? null,
+        sortOrder: await this.repo.nextSortOrder(parentId, tx),
+        createdBy: actor.id,
+        updatedBy: actor.id,
+      },
+      tx,
+    );
+    await this.audit.record(
+      {
+        action: 'orgUnit.create',
+        resourceType: RESOURCE_TYPE.ORG_UNIT,
+        resourceId: unit.id,
+        resourceName: unit.name,
+        changes: {
+          after: {
+            name: unit.name,
+            parentId: unit.parentId,
+            code: unit.code,
+            description: unit.description,
           },
         },
-        tx,
-      );
-      return created;
-    });
-
-    this.publish(ChangeKind.CREATE, unit.id);
-    return this.findOne(unit.id);
+      },
+      tx,
+    );
+    return { unit, after: this.changed(ChangeKind.CREATE, unit.id) };
   }
 
   async update(id: string, dto: UpdateOrgUnitDto, actor: AuthUser): Promise<OrgUnitDetailDto> {
+    const { after } = await withTransaction(this.db, (tx) => this.updateInTx(id, dto, actor, tx));
+    this.runAfterCommit(after);
+    return this.findOne(id);
+  }
+
+  /** 改名稱、代碼、說明的業務規則與寫入，在呼叫端的交易內。 */
+  async updateInTx(
+    id: string,
+    dto: UpdateOrgUnitDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ unit: OrgUnitRow; after: OrgUnitAfterCommit }> {
     const { version, ...fields } = dto;
     const unit = await this.getExisting(id);
     if (version !== unit.version) {
@@ -147,28 +172,24 @@ export class OrgUnitService {
     if (fields.code) await this.assertCodeAvailable(fields.code, id);
     const changes = diff(unit, fields, [...ORG_UNIT_AUDIT_FIELDS]);
 
-    await withTransaction(this.db, async (tx) => {
-      // 改名的撞名檢查要在結構的鎖之內：同時有人把別的部門搬進同一個上層
-      await this.repo.lockStructure(tx);
-      if (fields.name) await this.assertNameAvailable(unit.parentId, fields.name, id, tx);
-      const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
-      if (!updated) {
-        throw await missedUpdate(() => this.repo.findVersion(id, tx), ORG_UNIT_LOCK_CODES);
-      }
-      await this.audit.record(
-        {
-          action: 'orgUnit.update',
-          resourceType: RESOURCE_TYPE.ORG_UNIT,
-          resourceId: id,
-          resourceName: updated.name,
-          changes,
-        },
-        tx,
-      );
-    });
-
-    this.publish(ChangeKind.UPDATE, id);
-    return this.findOne(id);
+    // 改名的撞名檢查要在結構的鎖之內：同時有人把別的部門搬進同一個上層
+    await this.repo.lockStructure(tx);
+    if (fields.name) await this.assertNameAvailable(unit.parentId, fields.name, id, tx);
+    const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
+    if (!updated) {
+      throw await missedUpdate(() => this.repo.findVersion(id, tx), ORG_UNIT_LOCK_CODES);
+    }
+    await this.audit.record(
+      {
+        action: 'orgUnit.update',
+        resourceType: RESOURCE_TYPE.ORG_UNIT,
+        resourceId: id,
+        resourceName: updated.name,
+        changes,
+      },
+      tx,
+    );
+    return { unit: updated, after: this.changed(ChangeKind.UPDATE, id) };
   }
 
   /**
@@ -176,6 +197,18 @@ export class OrgUnitService {
    * 新的上層之下不能有同名的部門。
    */
   async move(id: string, dto: MoveOrgUnitDto, actor: AuthUser): Promise<OrgUnitDetailDto> {
+    const { after } = await withTransaction(this.db, (tx) => this.moveInTx(id, dto, actor, tx));
+    this.runAfterCommit(after);
+    return this.findOne(id);
+  }
+
+  /** 搬移的業務規則與寫入，在呼叫端的交易內（匯入改「上層」時排在新上層的最後）。 */
+  async moveInTx(
+    id: string,
+    dto: MoveOrgUnitDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ unit: OrgUnitRow; after: OrgUnitAfterCommit }> {
     const unit = await this.getExisting(id);
     if (dto.version !== unit.version) {
       throw new AppException('ORG_UNIT_VERSION_CONFLICT', { current: unit.version });
@@ -183,52 +216,43 @@ export class OrgUnitService {
     const parentId = dto.parentId;
     if (parentId === id) throw new AppException('ORG_UNIT_CYCLE');
 
-    await withTransaction(this.db, async (tx) => {
-      await this.repo.lockStructure(tx);
-      const subtree = await this.repo.descendants(id, tx);
-      if (parentId) {
-        if (!(await this.repo.findById(parentId, tx))) throw new AppException('ORG_UNIT_NOT_FOUND');
-        if (subtree.some((row) => row.id === parentId)) throw new AppException('ORG_UNIT_CYCLE');
-        const height = Math.max(0, ...subtree.map((row) => row.depth));
-        await this.assertDepth(parentId, height, tx);
-      }
-      if (parentId !== unit.parentId) {
-        await this.assertNameAvailable(parentId, unit.name, id, tx);
-      }
+    await this.repo.lockStructure(tx);
+    const subtree = await this.repo.descendants(id, tx);
+    if (parentId) {
+      if (!(await this.repo.findById(parentId, tx))) throw new AppException('ORG_UNIT_NOT_FOUND');
+      if (subtree.some((row) => row.id === parentId)) throw new AppException('ORG_UNIT_CYCLE');
+      const height = Math.max(0, ...subtree.map((row) => row.depth));
+      await this.assertDepth(parentId, height, tx);
+    }
+    if (parentId !== unit.parentId) {
+      await this.assertNameAvailable(parentId, unit.name, id, tx);
+    }
 
-      const updated = await this.repo.update(
-        id,
-        { parentId, updatedBy: actor.id },
-        dto.version,
-        tx,
-      );
-      if (!updated) {
-        throw await missedUpdate(() => this.repo.findVersion(id, tx), ORG_UNIT_LOCK_CODES);
-      }
-      const siblings = (await this.repo.listSiblings(parentId, tx)).filter((row) => row.id !== id);
-      const order = siblings.map((row) => row.id);
-      const at = dto.beforeId ? order.indexOf(dto.beforeId) : -1;
-      order.splice(at >= 0 ? at : order.length, 0, id);
-      await this.repo.setSortOrders(order, tx);
+    const updated = await this.repo.update(id, { parentId, updatedBy: actor.id }, dto.version, tx);
+    if (!updated) {
+      throw await missedUpdate(() => this.repo.findVersion(id, tx), ORG_UNIT_LOCK_CODES);
+    }
+    const siblings = (await this.repo.listSiblings(parentId, tx)).filter((row) => row.id !== id);
+    const order = siblings.map((row) => row.id);
+    const at = dto.beforeId ? order.indexOf(dto.beforeId) : -1;
+    order.splice(at >= 0 ? at : order.length, 0, id);
+    await this.repo.setSortOrders(order, tx);
 
-      await this.audit.record(
-        {
-          action: 'orgUnit.move',
-          resourceType: RESOURCE_TYPE.ORG_UNIT,
-          resourceId: id,
-          resourceName: unit.name,
-          changes: {
-            before: { parentId: unit.parentId },
-            after: { parentId },
-          },
-          metadata: { beforeId: dto.beforeId ?? null },
+    await this.audit.record(
+      {
+        action: 'orgUnit.move',
+        resourceType: RESOURCE_TYPE.ORG_UNIT,
+        resourceId: id,
+        resourceName: unit.name,
+        changes: {
+          before: { parentId: unit.parentId },
+          after: { parentId },
         },
-        tx,
-      );
-    });
-
-    this.publish(ChangeKind.UPDATE, id);
-    return this.findOne(id);
+        metadata: { beforeId: dto.beforeId ?? null },
+      },
+      tx,
+    );
+    return { unit: updated, after: this.changed(ChangeKind.UPDATE, id) };
   }
 
   /**
@@ -325,6 +349,20 @@ export class OrgUnitService {
     dto: UpdateOrgUnitMembersDto,
     actor: AuthUser,
   ): Promise<OrgUnitDetailDto> {
+    const { after } = await withTransaction(this.db, (tx) =>
+      this.updateMembersInTx(id, dto, actor, tx),
+    );
+    this.runAfterCommit(after);
+    return this.findOne(id);
+  }
+
+  /** 成員的業務規則與寫入，在呼叫端的交易內（匯入的「部門成員」一列一次）。 */
+  async updateMembersInTx(
+    id: string,
+    dto: UpdateOrgUnitMembersDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ after: OrgUnitAfterCommit }> {
     const unit = await this.getExisting(id);
     const touched = [
       ...dto.add.map((member) => member.userId),
@@ -337,38 +375,42 @@ export class OrgUnitService {
     const missing = joining.filter((userId) => !found.includes(userId));
     if (missing.length) throw new AppException('USER_NOT_FOUND', { ids: missing });
 
-    await withTransaction(this.db, async (tx) => {
-      if (!(await this.repo.lockActiveRow(id, tx))) throw new AppException('ORG_UNIT_NOT_FOUND');
-      const before = await this.repo.memberSnapshot(id, tx);
-      await this.repo.removeMembers(id, dto.remove, tx);
-      const upserts = [...dto.add, ...dto.update];
-      await this.repo.clearPrimaryElsewhere(
-        id,
-        upserts.filter((member) => member.isPrimary).map((member) => member.userId),
+    if (!(await this.repo.lockActiveRow(id, tx))) throw new AppException('ORG_UNIT_NOT_FOUND');
+    const before = await this.repo.memberSnapshot(id, tx);
+    await this.repo.removeMembers(id, dto.remove, tx);
+    const upserts = [...dto.add, ...dto.update];
+    await this.repo.clearPrimaryElsewhere(
+      id,
+      upserts.filter((member) => member.isPrimary).map((member) => member.userId),
+      tx,
+    );
+    await this.repo.upsertMembers(id, upserts, actor.id, tx);
+    const after = await this.repo.memberSnapshot(id, tx);
+
+    const record = (action: string, metadata: Record<string, unknown>) =>
+      this.audit.record(
+        {
+          action,
+          resourceType: RESOURCE_TYPE.ORG_UNIT,
+          resourceId: id,
+          resourceName: unit.name,
+          changes: { before: { members: before }, after: { members: after } },
+          metadata,
+        },
         tx,
       );
-      await this.repo.upsertMembers(id, upserts, actor.id, tx);
-      const after = await this.repo.memberSnapshot(id, tx);
+    if (dto.add.length) await record('orgUnit.member.add', { added: dto.add });
+    if (dto.update.length) await record('orgUnit.member.update', { updated: dto.update });
+    if (dto.remove.length) await record('orgUnit.member.remove', { removed: dto.remove });
+    return { after: this.changed(ChangeKind.UPDATE, id, touched) };
+  }
 
-      const record = (action: string, metadata: Record<string, unknown>) =>
-        this.audit.record(
-          {
-            action,
-            resourceType: RESOURCE_TYPE.ORG_UNIT,
-            resourceId: id,
-            resourceName: unit.name,
-            changes: { before: { members: before }, after: { members: after } },
-            metadata,
-          },
-          tx,
-        );
-      if (dto.add.length) await record('orgUnit.member.add', { added: dto.add });
-      if (dto.update.length) await record('orgUnit.member.update', { updated: dto.update });
-      if (dto.remove.length) await record('orgUnit.member.remove', { removed: dto.remove });
+  /** 交易提交後的推播（部門不是授權來源，沒有權限失效）。 */
+  runAfterCommit(after: OrgUnitAfterCommit): void {
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: after.changes,
+      affectedUserIds: after.affectedUserIds,
     });
-
-    this.publish(ChangeKind.UPDATE, id, touched);
-    return this.findOne(id);
   }
 
   /** 那個人所屬的部門（主要部門在前），每一列帶上層路徑。 */
@@ -424,6 +466,17 @@ export class OrgUnitService {
     const unit = await this.repo.findById(id);
     if (!unit) throw new AppException('ORG_UNIT_NOT_FOUND');
     return unit;
+  }
+
+  private changed(
+    kind: ChangeKind,
+    id: string,
+    affectedUserIds: readonly string[] = [],
+  ): OrgUnitAfterCommit {
+    return {
+      changes: [{ resource: ChangeSource.ORG_UNIT, kind, id }],
+      affectedUserIds: [...affectedUserIds],
+    };
   }
 
   private publish(kind: ChangeKind, id: string, affectedUserIds: readonly string[] = []): void {

@@ -24,7 +24,7 @@ interface Slot {
 }
 
 /**
- * 匯入分析的 worker thread 池（docs/architecture/backend/22-data-transfer.md §7.3、§12 D22）：CSV 解碼與 XLSX 解壓是 CPU 密集的工作，
+ * 匯入分析的 worker thread 池（docs/architecture/backend/22-data-transfer.md §7.3、§13 D22）：CSV 解碼與 XLSX 解壓是 CPU 密集的工作，
  * 在主執行緒做會卡住同一個程序的所有請求。每程序 `DATA_TRANSFER_PARSE_WORKERS` 個（第一次使用時才建立）；
  * 都在忙時排隊最多 5 秒，仍拿不到就回 `503 DATA_TRANSFER_BUSY`。worker 掛掉時拒絕它手上的請求並補一個新的。
  */

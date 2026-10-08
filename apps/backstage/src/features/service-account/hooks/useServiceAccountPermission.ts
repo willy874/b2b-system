@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { SERVICE_ACCOUNT_PAGE } from '../permission';
 
@@ -9,6 +11,8 @@ export function useServiceAccountPermission() {
   const page = usePagePermission(SERVICE_ACCOUNT_PAGE);
   const { can, permissions } = usePermission();
   const canReadRoles = can(PermissionKey['role:read']);
+  const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
+  const canExport = hasDataTransfer && can(PermissionKey['serviceAccount:export']);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -24,7 +28,9 @@ export function useServiceAccountPermission() {
        * 以權限鍵本身當名稱：權限目錄要 `permission:read` 才讀得到。
        */
       scopeOptions: [...permissions].toSorted().map((key) => ({ key, label: key })),
+      /** 匯出要 `serviceAccount:export`（docs/architecture/backend/22-data-transfer.md §12.6）；沒有匯入 */
+      canExport,
     }),
-    [page, canReadRoles, permissions],
+    [page, canReadRoles, permissions, canExport],
   );
 }

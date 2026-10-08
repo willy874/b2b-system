@@ -41,7 +41,7 @@ export default function AuditLogListPage() {
   const [exporting, setExporting] = useState(false);
   const { can, hydrated } = usePermission();
   const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
-  // 匯出要獨立的 auditLog:export（docs/architecture/backend/22-data-transfer.md §12 D11）
+  // 匯出要獨立的 auditLog:export（docs/architecture/backend/22-data-transfer.md §13 D11）
   const canExport = hydrated && hasDataTransfer && can(PermissionKey['auditLog:export']);
   const toggleExpand = useCallback(
     (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),

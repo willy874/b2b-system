@@ -3,7 +3,7 @@ import type { ObjectStorage, UploadedPart } from '@/core/storage';
 import type { ByteSink } from './export-writers';
 
 /**
- * 把寫檔器的輸出分段上傳到物件儲存（docs/architecture/backend/22-data-transfer.md §6.3 步驟 4、§12 D6）：
+ * 把寫檔器的輸出分段上傳到物件儲存（docs/architecture/backend/22-data-transfer.md §6.3 步驟 4、§13 D6）：
  * 累積到 `partBytes` 就以伺服器端的 multipart 上傳一段，整份檔案不放記憶體。
  * 整個檔案小於一段時不開 multipart，結束時一次 `putObject`。
  */

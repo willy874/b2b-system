@@ -22,6 +22,7 @@ export const PERMISSION = {
   ROLE_UPDATE: 'role:update',
   ROLE_DELETE: 'role:delete',
   ROLE_GRANT_PERMISSION: 'role:grantPermission',
+  ROLE_EXPORT: 'role:export',
 
   PERMISSION_READ: 'permission:read',
   AUDIT_LOG_READ: 'auditLog:read',
@@ -34,6 +35,7 @@ export const PERMISSION = {
   APPROVAL_READ: 'approval:read',
   APPROVAL_REVIEW: 'approval:review',
   APPROVAL_OVERRIDE: 'approval:override',
+  APPROVAL_EXPORT: 'approval:export',
   APPROVAL_FLOW_READ: 'approvalFlow:read',
   APPROVAL_FLOW_UPDATE: 'approvalFlow:update',
 
@@ -41,6 +43,7 @@ export const PERMISSION = {
   ORG_UNIT_READ: 'orgUnit:read',
   ORG_UNIT_UPDATE: 'orgUnit:update',
   ORG_UNIT_DELETE: 'orgUnit:delete',
+  ORG_UNIT_EXPORT: 'orgUnit:export',
 
   FILE_CREATE: 'file:create',
   FILE_READ: 'file:read',
@@ -63,6 +66,7 @@ export const PERMISSION = {
   GROUP_UPDATE: 'group:update',
   GROUP_DELETE: 'group:delete',
   GROUP_ASSIGN_ROLE: 'group:assignRole',
+  GROUP_EXPORT: 'group:export',
 
   AUTHZ_EXPLAIN: 'authz:explain',
 
@@ -70,6 +74,7 @@ export const PERMISSION = {
   SERVICE_ACCOUNT_READ: 'serviceAccount:read',
   SERVICE_ACCOUNT_UPDATE: 'serviceAccount:update',
   SERVICE_ACCOUNT_DELETE: 'serviceAccount:delete',
+  SERVICE_ACCOUNT_EXPORT: 'serviceAccount:export',
 
   WEBHOOK_CREATE: 'webhook:create',
   WEBHOOK_READ: 'webhook:read',
@@ -79,6 +84,7 @@ export const PERMISSION = {
   TAG_CREATE: 'tag:create',
   TAG_UPDATE: 'tag:update',
   TAG_DELETE: 'tag:delete',
+  TAG_EXPORT: 'tag:export',
 
   COMMENT_DELETE: 'comment:delete',
 

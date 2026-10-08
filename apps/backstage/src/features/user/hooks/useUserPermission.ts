@@ -42,7 +42,7 @@ export function useUserPermission() {
        * 租戶沒有啟用 `externalApi` 時沒有這個區塊（§3.1）
        */
       canManageApiTokens: page.canUpdate && hasApiTokens,
-      /** 匯出要獨立的 `user:export`（docs/architecture/backend/22-data-transfer.md §12 D11）；租戶沒有啟用 `dataTransfer` 時沒有入口 */
+      /** 匯出要獨立的 `user:export`（docs/architecture/backend/22-data-transfer.md §13 D11）；租戶沒有啟用 `dataTransfer` 時沒有入口 */
       canExport: hasDataTransfer && can(PermissionKey['user:export']),
       /** 匯入沿用 create／update：修改模式要 `user:update`（`user:create` 包含它） */
       canImport: hasDataTransfer && page.canUpdate,

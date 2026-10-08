@@ -37,6 +37,7 @@ import type {
 } from '../data-transfer.types';
 import { hasErrors, ImportValidator } from './import-validator';
 import type { ValidatedRow } from './import-validator';
+import { isSameFileRef, planSameFile, sameFileColumns, sameFileKeyOf } from './same-file';
 
 /** 一次取回的套用列（重新驗證與套用都分批，避免整份放在記憶體兩次）。 */
 const ROW_BATCH = 1000;
@@ -61,6 +62,8 @@ class ApplyStopped extends Error {
  */
 class EffectBuffer {
   private permissionsChanged = false;
+  /** 合併的受影響者；有任何一筆沒帶（不知道是誰）時是 null：交給 `permissionsChanged()` 不帶參數。 */
+  private permissionUserIds: Set<string> | null = new Set();
   private changes: ResourceChangeWire[] = [];
   private affected = new Set<string>();
   private custom = new Map<string, () => Promise<void> | void>();
@@ -75,8 +78,11 @@ class EffectBuffer {
   add(effects: readonly AfterCommitEffect[] | undefined): void {
     this.rows += 1;
     for (const effect of effects ?? []) {
-      if (effect.kind === 'permissionsChanged') this.permissionsChanged = true;
-      else if (effect.kind === 'resourceChanged') {
+      if (effect.kind === 'permissionsChanged') {
+        this.permissionsChanged = true;
+        if (!effect.userIds) this.permissionUserIds = null;
+        else for (const id of effect.userIds) this.permissionUserIds?.add(id);
+      } else if (effect.kind === 'resourceChanged') {
         this.changes.push(effect.change);
         for (const id of effect.affectedUserIds ?? []) this.affected.add(id);
       } else this.custom.set(effect.key, effect.run);
@@ -92,17 +98,23 @@ class EffectBuffer {
 
   async flush(): Promise<void> {
     const permissionsChanged = this.permissionsChanged;
+    const permissionUserIds = this.permissionUserIds;
     const changes = this.changes;
     const affected = [...this.affected];
     const custom = [...this.custom.values()];
     this.permissionsChanged = false;
+    this.permissionUserIds = new Set();
     this.changes = [];
     this.affected = new Set();
     this.custom = new Map();
     this.rows = 0;
     this.lastFlush = Date.now();
     // 規則 6：先失效再發佈
-    if (permissionsChanged) await this.permissions.permissionsChanged();
+    if (permissionsChanged) {
+      await this.permissions.permissionsChanged(
+        permissionUserIds ? [...permissionUserIds] : undefined,
+      );
+    }
     for (const run of custom) await run();
     for (let index = 0; index < changes.length; index += MAX_CHANGES_PER_PUBLISH) {
       this.events.publish(DomainEvent.RESOURCE_CHANGED, {
@@ -212,11 +224,17 @@ export class DataTransferApplyService {
         else applicable.push(row);
       }
 
-      // 2. 逐列套用
+      // 2. 逐列套用；同檔引用的列排在被引用的列之後（§7.8）
+      const { ordered, created } = await this.planSameFile(
+        transfer.id,
+        resource,
+        applicable,
+        byRowNo,
+      );
       let processed = 0;
       let reportedAt = Date.now();
       let reportedRows = 0;
-      for (const row of applicable) {
+      for (const row of ordered) {
         if (processed % CANCEL_CHECK_ROWS === 0) {
           const current = await this.repo.findById(transfer.id);
           if (current?.status !== 'applying') throw new ApplyStopped('cancelled');
@@ -226,7 +244,10 @@ export class DataTransferApplyService {
           if (!permissions.every((key) => ctx.can(key))) throw new ApplyStopped('forbidden');
         }
         const result = byRowNo.get(row.rowNo);
-        if (result) await this.applyRow(transfer, resource, mode, row, result, ctx, effects);
+        if (result && (await this.resolveSameFile(transfer.id, resource, row, result, created))) {
+          const id = await this.applyRow(transfer, resource, mode, row, result, ctx, effects);
+          if (id) this.rememberCreated(resource, row, id, created);
+        }
         processed += 1;
         if (effects.due) await effects.flush();
         if (
@@ -318,9 +339,9 @@ export class DataTransferApplyService {
     result: ValidatedRow,
     ctx: TransferContext,
     effects: EffectBuffer,
-  ): Promise<void> {
+  ): Promise<string | null> {
     const importer = resource.importer;
-    if (!importer) return;
+    if (!importer) return null;
     const metadata = {
       ...getRequestContext()?.auditMetadata,
       via: 'import',
@@ -373,6 +394,7 @@ export class DataTransferApplyService {
         }),
       );
       effects.add(applied.after);
+      return applied.id;
     } catch (error) {
       const outcomeError =
         error instanceof AppException
@@ -385,7 +407,94 @@ export class DataTransferApplyService {
         );
       }
       await this.repo.setRowOutcome(transfer.id, row.rowNo, { outcome: 'failed', outcomeError });
+      return null;
     }
+  }
+
+  /**
+   * 同檔引用（§7.8）的套用順序：被引用的列先套用。在循環裡的列（驗證時已標錯，這裡是保險）直接失敗。
+   * `created` 記下這次建立的紀錄：被引用的值 → id。
+   */
+  private async planSameFile(
+    transferId: string,
+    resource: AnyTransferResource,
+    rows: readonly DataTransferApplyRow[],
+    byRowNo: ReadonlyMap<number, ValidatedRow>,
+  ): Promise<{ ordered: DataTransferApplyRow[]; created: Map<string, string> }> {
+    const created = new Map<string, string>();
+    const columns = sameFileColumns(resource);
+    if (!columns.length) return { ordered: [...rows], created };
+    const { ordered, cyclic } = planSameFile(
+      rows,
+      (row) =>
+        columns.flatMap((column) => {
+          const value = byRowNo.get(row.rowNo)?.values[column.key];
+          return isSameFileRef(value) ? [value.key] : [];
+        }),
+      (row) => this.sameFileKeys(resource, row),
+    );
+    for (const row of cyclic) {
+      await this.repo.setRowOutcome(transferId, row.rowNo, {
+        outcome: 'failed',
+        outcomeError: {
+          code: 'VALIDATION_FAILED',
+          issues: [{ column: null, code: 'referenceCycle', severity: 'error' }],
+        },
+      });
+    }
+    return { ordered, created };
+  }
+
+  /** 一列可以被引用的值（正規化後）：每個同檔引用指向的欄。 */
+  private sameFileKeys(resource: AnyTransferResource, row: DataTransferApplyRow): string[] {
+    return sameFileColumns(resource).flatMap((column) => {
+      const key = sameFileKeyOf(row.raw, column.reference?.sameFile?.column ?? '');
+      return key ? [key] : [];
+    });
+  }
+
+  private rememberCreated(
+    resource: AnyTransferResource,
+    row: DataTransferApplyRow,
+    id: string,
+    created: Map<string, string>,
+  ): void {
+    for (const key of this.sameFileKeys(resource, row)) created.set(key, id);
+  }
+
+  /** 把佔位值換成被引用的列建立出來的 id；那一列沒有成功時這一列失敗（`referenceFailed`）。 */
+  private async resolveSameFile(
+    transferId: string,
+    resource: AnyTransferResource,
+    row: DataTransferApplyRow,
+    result: ValidatedRow,
+    created: ReadonlyMap<string, string>,
+  ): Promise<boolean> {
+    for (const column of sameFileColumns(resource)) {
+      const value = result.values[column.key];
+      if (!isSameFileRef(value)) continue;
+      const id = created.get(value.key);
+      if (id) {
+        result.values[column.key] = id;
+        continue;
+      }
+      await this.repo.setRowOutcome(transferId, row.rowNo, {
+        outcome: 'failed',
+        outcomeError: {
+          code: 'VALIDATION_FAILED',
+          issues: [
+            {
+              column: column.key,
+              code: 'referenceFailed',
+              params: { value: result.texts[column.key] ?? value.key },
+              severity: 'error',
+            },
+          ],
+        },
+      });
+      return false;
+    }
+    return true;
   }
 
   private async reportProgress(transfer: DataTransferRow): Promise<void> {

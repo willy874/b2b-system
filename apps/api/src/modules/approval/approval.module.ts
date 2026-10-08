@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { TenantFeatureImpacts } from '@/core/tenant';
+import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module';
 import { NotificationEventCatalog } from '@/modules/notification/notification-event.catalog';
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { WebhookEventCatalog } from '@/modules/webhook/webhook-event.catalog';
@@ -19,15 +20,16 @@ import { ApprovalController } from './approval.controller';
 import { APPROVAL_NOTIFICATIONS } from './approval.notifications';
 import { ApprovalRepository } from './approval.repository';
 import { ApprovalService } from './approval.service';
+import { ApprovalTransferResource } from './approval.transfer';
 import { APPROVAL_WEBHOOK_EVENTS } from './approval.webhooks';
 
 /**
- * 通用模組：只依賴 Permission / AuditLog（皆為 @Global）與 Notification、Webhook（同為通用模組，不依賴業務模組）。
+ * 通用模組：只依賴 Permission / AuditLog（皆為 @Global）與 Notification、Webhook、DataTransfer（同為通用模組，不依賴業務模組）。
  * 擁有資源的業務模組 import 它，並以 `ApprovalService.registerHandler()` 登記自己的 `ApprovalHandler`
  * （docs/architecture/backend/20-approval.md §4）；審核者規則以 `registerAssigneeResolver()` 登記（§9.2，例：組織管理）。
  */
 @Module({
-  imports: [NotificationModule, WebhookModule],
+  imports: [NotificationModule, WebhookModule, DataTransferModule],
   controllers: [ApprovalController, ApprovalFlowController],
   providers: [
     ApprovalService,
@@ -40,6 +42,7 @@ import { APPROVAL_WEBHOOK_EVENTS } from './approval.webhooks';
     ApprovalChainService,
     ApprovalFinalizer,
     ApprovalFlowService,
+    ApprovalTransferResource,
   ],
   exports: [ApprovalService, ApprovalFlowService],
 })

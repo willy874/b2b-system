@@ -9,3 +9,4 @@ export const AsyncRoleDetailPermissionPage = lazyRouteComponent(
 export const AsyncRoleDetailRevisionPage = lazyRouteComponent(
   () => import('./RoleDetailRevision/page'),
 );
+export const AsyncRoleImportPage = lazyRouteComponent(() => import('./RoleImport/page'));

@@ -130,13 +130,72 @@ function record(state: ImportState, edit: Edit): ImportState['history'] {
   return { undo: [...state.history.undo, edit].slice(-IMPORT_HISTORY_LIMIT), redo: [] };
 }
 
+/**
+ * 同檔引用（docs/architecture/backend/22-data-transfer.md §7.8）：被引用的欄（例：部門的代碼）改了、或那一列新增或移除，
+ * 引用舊值或新值的其他列也要重新驗證（它們原本對得上或對不上的結果變了）。
+ */
+function sameFileDependents(
+  columns: readonly ImportColumnView[],
+  edit: Edit,
+  rows: readonly ImportRow[],
+): number[] {
+  const referencing = columns.filter((column) => column.sameFile);
+  if (!referencing.length) return [];
+  const touched = new Set(edit.rowNos);
+  const dependents = new Set<number>();
+  for (const column of referencing) {
+    const target = column.sameFile ?? '';
+    const changed = new Set<string>();
+    edit.rowNos.forEach((_, index) => {
+      const before = normalize(edit.before[index]?.cells[target] ?? '');
+      const after = normalize(edit.after[index]?.cells[target] ?? '');
+      if (before === after) return;
+      if (before) changed.add(before);
+      if (after) changed.add(after);
+    });
+    if (!changed.size) continue;
+    for (const row of rows) {
+      if (touched.has(row.rowNo) || isBlankRow(row)) continue;
+      if (changed.has(normalize(row.cells[column.key] ?? ''))) dependents.add(row.rowNo);
+    }
+  }
+  return [...dependents];
+}
+
+/**
+ * 驗證一批列時要帶的 `fileKeys`：這批列引用到、而且檔案裡有的值（被引用的欄 → 原始文字）。
+ * `validate` 只收到被改的列，看不到整份檔案；只帶引用到的值，請求才不會隨檔案變大。
+ */
+export function fileKeysFor(
+  state: Pick<ImportState, 'mode' | 'columns' | 'rows'>,
+  batch: readonly ImportRow[],
+): Record<string, string[]> | undefined {
+  if (state.mode !== 'create') return undefined;
+  const result: Record<string, string[]> = {};
+  for (const column of state.columns.filter((item) => item.sameFile)) {
+    const target = column.sameFile ?? '';
+    const inFile = new Map<string, string>();
+    for (const row of state.rows) {
+      const text = (row.cells[target] ?? '').trim();
+      if (text) inFile.set(normalize(text), text);
+    }
+    const wanted = new Set<string>();
+    for (const row of batch) {
+      const text = inFile.get(normalize(row.cells[column.key] ?? ''));
+      if (text) wanted.add(text);
+    }
+    if (wanted.size) result[target] = [...new Set([...(result[target] ?? []), ...wanted])];
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
 function commit(state: ImportState, edit: Edit, history: ImportState['history']): ImportState {
   const rows = applyRows(state.rows, edit.rowNos, edit.after);
   const existing = new Set(rows.map((row) => row.rowNo));
-  const { revisions, pending } = bump(
-    state,
-    edit.rowNos.filter((rowNo) => existing.has(rowNo)),
-  );
+  const { revisions, pending } = bump(state, [
+    ...edit.rowNos.filter((rowNo) => existing.has(rowNo)),
+    ...sameFileDependents(state.columns, edit, rows),
+  ]);
   // 移除的列：結果與待驗證一起拿掉
   const results = { ...state.results };
   for (const rowNo of edit.rowNos) {

@@ -454,7 +454,7 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/archit
 
   it('super-admin：全集、都算隱含', () => {
     const effective = service.describeRolePermissions([], true);
-    expect(effective).toHaveLength(66);
+    expect(effective).toHaveLength(72);
     expect(effective.every((entry) => entry.source === 'implied')).toBe(true);
   });
 });

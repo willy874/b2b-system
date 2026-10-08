@@ -1,8 +1,9 @@
 import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -129,5 +130,36 @@ describe('RoleListPage', () => {
     await screen.findByTestId('role-delete-confirm');
 
     expect(toRoleRowVM.mock.calls.length).toBe(built);
+  });
+});
+
+describe('RoleListPage 的匯出、匯入入口（docs/architecture/backend/22-data-transfer.md §12.1）', () => {
+  beforeEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+  });
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
+  it('有 role:export、role:update → 顯示「匯出」「匯入」', async () => {
+    renderRoute(routes, '/role', ['role:read', 'role:update', 'role:export'] as PermissionKey[]);
+    await screen.findByText('Editor', undefined, { timeout: 5000 });
+    expect(screen.getByTestId('role-export-button')).toBeInTheDocument();
+    expect(screen.getByTestId('role-import-button')).toBeInTheDocument();
+  });
+
+  it('只有 role:read → 兩個入口都不顯示；租戶沒有啟用 dataTransfer 時也不顯示', async () => {
+    renderRoute(routes, '/role', ['role:read'] as PermissionKey[]);
+    await screen.findByText('Editor', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('role-export-button')).toBeNull();
+    expect(screen.queryByTestId('role-import-button')).toBeNull();
+  });
+
+  it('租戶沒有啟用 dataTransfer → 有權限也不顯示', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+    renderRoute(routes, '/role', ['role:read', 'role:update', 'role:export'] as PermissionKey[]);
+    await screen.findByText('Editor', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('role-export-button')).toBeNull();
+    expect(screen.queryByTestId('role-import-button')).toBeNull();
   });
 });

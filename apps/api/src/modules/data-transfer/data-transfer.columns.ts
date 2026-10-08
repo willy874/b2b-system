@@ -87,6 +87,7 @@ export function toImportColumnView(
     options:
       column.enum?.map((option) => ({ value: option.value, label: option.label[locale] })) ?? null,
     transitions: mode === 'update' && spec?.transitions ? mapRecord(spec.transitions) : null,
+    sameFile: mode === 'create' ? (column.reference?.sameFile?.column ?? null) : null,
   };
 }
 

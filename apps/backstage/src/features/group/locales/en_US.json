@@ -67,6 +67,10 @@
         "user": "After removal, \"{{name}}\" no longer gets this group's roles.",
         "group": "After removal, \"{{name}}\" no longer gets this group's roles, and neither do its members."
       }
+    },
+    "transfer": {
+      "groups": "Groups",
+      "members": "Group members"
     }
   }
 }

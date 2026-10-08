@@ -1,6 +1,8 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
-import { Button } from '@b2b-system/ui/Button';
+import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
 import { Tabs } from '@b2b-system/ui/Tabs';
+import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -13,13 +15,14 @@ import { TenantFeature } from '@/shared/api-sdk';
 import type { Tag } from '@/shared/api-sdk';
 
 import { TAG_SCOPE_DESCRIPTION_KEY, TAG_SCOPE_FEATURE, TAG_SCOPE_LABEL_KEY } from '../../constants';
+import { tagExportApi } from '../../hooks/tagTransferApi';
 import {
   useTagCreateMutation,
   useTagDeleteMutation,
   useTagUpdateMutation,
 } from '../../hooks/useTagMutations';
 import { useTagPermission } from '../../hooks/useTagPermission';
-import { TAG_SCOPES, TagListRoute } from '../../routes';
+import { TAG_SCOPES, TagImportRoute, TagListRoute } from '../../routes';
 import { TagFormDialog } from './components/TagFormDialog';
 import { TagTable } from './components/TagTable';
 
@@ -45,6 +48,8 @@ export default function TagListPage() {
   const remove = useTagDeleteMutation();
   const [editing, setEditing] = useState<Tag | 'new'>();
   const [pendingDelete, setPendingDelete] = useState<Tag>();
+  /** 匯出目前的標籤組（docs/architecture/backend/22-data-transfer.md §12.4）。 */
+  const [exporting, setExporting] = useState(false);
 
   /** 版本衝突後重新載入：重抓列表，換成最新的那一筆（含 `version`）；已被刪除就關掉對話框。 */
   const reloadEditing = async () => {
@@ -62,15 +67,38 @@ export default function TagListPage() {
             {t('tagAdmin.list.description')}
           </p>
         </div>
-        {permission.canCreate && (
-          <Button
-            variant="primary"
-            onClick={() => setEditing('new')}
-            data-testid="tag-create-button"
-          >
-            {t('tagAdmin.create.action')}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {permission.canExport && (
+            <Button
+              variant="secondary"
+              startIcon={<Icon name="download" size={16} />}
+              onClick={() => setExporting(true)}
+              data-testid="tag-export-button"
+            >
+              {t('dataTransfer.export.action')}
+            </Button>
+          )}
+          {permission.canImport && (
+            <ButtonLink
+              variant="secondary"
+              to={TagImportRoute.to}
+              search={{ mode: 'create' }}
+              startIcon={<Icon name="upload" size={16} />}
+              data-testid="tag-import-button"
+            >
+              {t('dataTransfer.import.action')}
+            </ButtonLink>
+          )}
+          {permission.canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => setEditing('new')}
+              data-testid="tag-create-button"
+            >
+              {t('tagAdmin.create.action')}
+            </Button>
+          )}
+        </div>
       </header>
 
       <Tabs
@@ -109,6 +137,16 @@ export default function TagListPage() {
               })
         }
         onReload={reloadEditing}
+      />
+
+      <ExportDialog
+        open={exporting}
+        onOpenChange={setExporting}
+        api={tagExportApi}
+        type="tag"
+        filter={{ scope }}
+        matchingTotal={tags.data?.items.length ?? 0}
+        data-testid="tag-export-dialog"
       />
 
       <AlertDialog

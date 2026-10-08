@@ -411,7 +411,13 @@ export class DataTransferImportService {
       preference,
       'POST /data-transfers/importers/:type/validate',
     );
-    const rows = await this.validator.validate(resource, dto.mode, dto.rows, ctx);
+    const rows = await this.validator.validate(
+      resource,
+      dto.mode,
+      dto.rows,
+      ctx,
+      dto.fileKeys ? { fileKeys: dto.fileKeys } : {},
+    );
     return { rows: rows.map((row) => this.validator.toResponse(row)) };
   }
 

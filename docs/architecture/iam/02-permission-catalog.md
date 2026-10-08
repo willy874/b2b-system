@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 66 項）
+## 2. 權限清單（共 72 項）
 
 ### 2.1 `user` — 使用者
 
@@ -53,6 +53,7 @@
 | `role:update`          | 編輯角色          | 修改名稱與描述                       |
 | `role:delete`          | 刪除角色          | 刪除非系統角色                       |
 | `role:grantPermission` | 授予／移除權限    | 變更角色的權限集合。**受反提權限制** |
+| `role:export` | 匯出角色 | 把角色（含權限鍵）整批匯出（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.1），主要用來把角色搬到另一個租戶；匯入沿用 `role:create`／`role:update`，權限欄另要 `role:grantPermission` |
 
 ### 2.3 `permission` — 權限目錄
 
@@ -81,6 +82,7 @@
 | `approval:read`   | 檢視審批          | 審批請求列表與詳情                                                                            |
 | `approval:review` | 審核申請          | 核准／駁回。**核准另需該類型要求的權限**（`user.register` = `user:create`），見 [`backend/20-approval.md`](../backend/20-approval.md) §3.2 |
 | `approval:override` | 強制定案審批    | 多階段審批卡住時：重新展開目前關卡的審核者、強制定案目前的關卡（意見必填）。最後一關的核准另需該類型要求的權限（[`backend/20-approval.md`](../backend/20-approval.md) §9.8、D10） |
+| `approval:export` | 匯出審批紀錄 | 把審批請求與每一關的決定整批匯出（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.5）；看得到全部的請求 |
 
 > 為什麼不是 `approval:update`：核准與駁回是具名的「審核」決定，不是修改請求內容；
 > 也讓「能看不能審」（auditor）與「能審」清楚分開。
@@ -136,6 +138,7 @@
 | `group:update`     | 編輯群組          | 修改名稱與說明；**增減成員**（含把群組加進另一個群組）。加成員等於指派群組持有的角色，受反提權限制（[`01-model.md`](01-model.md) §9.3 D11） |
 | `group:delete`     | 刪除群組          | 軟刪除群組；成員與持有角色的邊保留，還原時一起回來 |
 | `group:assignRole` | 讓群組持有角色    | 增減群組持有的角色。**受反提權限制**；super-admin 不能由群組持有（D12） |
+| `group:export` | 匯出群組 | 把群組與群組成員整批匯出（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.2）；成員帶 email，所以依賴 `user:read`。匯入沿用 `group:create`／`group:update` |
 
 > 群組是「純分組」：授權給群組、群組持有角色，人員異動只改成員。群組可以巢狀（成員可以是另一個群組）。
 > `group:update` 本身不列為受反提權限制的鍵：加成員時檢查的是 **那個群組帶來的能力**（群組與它所有上層群組持有的角色），
@@ -157,6 +160,7 @@
 | `serviceAccount:read`   | 檢視服務帳號      | 服務帳號列表與詳情、持有的角色、它的 API token（不含 secret） |
 | `serviceAccount:update` | 編輯服務帳號      | 修改名稱、停用與啟用、**增減持有的角色**、**建立與撤銷它的 API token**。角色與 token 都受反提權限制（D4） |
 | `serviceAccount:delete` | 刪除服務帳號      | 軟刪除；它的 token 一併失效，不進回收桶、不能還原 |
+| `serviceAccount:export` | 匯出服務帳號 | 把服務帳號（角色、有效的 token 數）整批匯出（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.6）；token 本身不匯出 |
 
 > `serviceAccount:update` 不列為受反提權限制的鍵：指派角色時檢查的是 **那些角色帶來的能力**，建立 token 時檢查的是
 > **token 取得的有效權限**（服務帳號的權限 ∩ token 的 scope），操作者全部都有才放行。
@@ -180,6 +184,7 @@
 | `tag:create` | 建立標籤          | 在某個標籤組（檔案、使用者）新增標籤定義（[`backend/18-tag.md`](../backend/18-tag.md) §7.2 D5） |
 | `tag:update` | 編輯標籤          | 改標籤的名稱與顏色 |
 | `tag:delete` | 刪除標籤          | 硬刪除；所有資源上的這個標籤一併移除 |
+| `tag:export` | 匯出標籤 | 把一個標籤組的標籤定義整批匯出（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.4）；仍要進得了該標籤組。匯入沿用 `tag:create`／`tag:update` |
 
 > 沒有 `tag:read`：定義對「進得了那個標籤組」的人都可讀（檔案組：`file:access` 或 `file:read`；使用者組：`user:read`）。
 > **貼與移除標籤不需要權限鍵**，跟著目標的編輯權限：檔案、資料夾是能改名，使用者是 `user:update`。
@@ -221,6 +226,7 @@
 | `orgUnit:read`          | 檢視組織          | 部門樹、部門詳情與成員、使用者所屬的部門 |
 | `orgUnit:update`        | 編輯組織          | 改名、搬移、排序；**增減成員、設定主管與主要部門**。不能改自己的成員資格與主管身分（D6） |
 | `orgUnit:delete`        | 刪除部門          | 軟刪除（進回收桶）與還原；還有下層部門時不能刪 |
+| `orgUnit:export`        | 匯出組織          | 把部門樹與部門成員整批匯出（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12.3）；成員帶 email，所以依賴 `user:read`。匯入沿用 `orgUnit:create`／`orgUnit:update` |
 
 > 部門不是授權來源：成員資格不帶任何權限鍵，所以 `orgUnit:update` 不受反提權限制。但「誰是主管」決定多階段審批的審核者，
 > 不能改自己的那一條擋住「把自己設成主管」。
@@ -271,23 +277,23 @@
 | resource \ action | create | read | update | delete | 具名動作                      |
 | ----------------- | :----: | :--: | :----: | :----: | ----------------------------- |
 | `user`            |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`, `resetPassword`, `resetMfa`, `export` |
-| `role`            |   ✓    |  ✓   |   ✓    |   ✓    | `grantPermission`             |
+| `role`            |   ✓    |  ✓   |   ✓    |   ✓    | `grantPermission`, `export`   |
 | `permission`      |   —    |  ✓   |   —    |   —    | —                             |
 | `auditLog`        |   —    |  ✓   |   —    |   —    | `export`                      |
 | `system`          |   —    |  ✓   |   ✓    |   —    | —                             |
-| `approval`        |   —    |  ✓   |   —    |   —    | `review`, `override`          |
+| `approval`        |   —    |  ✓   |   —    |   —    | `review`, `override`, `export` |
 | `file`            |   ✓    |  ✓   |   ✓    |   ✓    | `access`, `share`             |
 | `job`             |   —    |  ✓   |   —    |   —    | `retry`                       |
 | `identityProvider`|   ✓    |  ✓   |   ✓    |   ✓    | —                             |
-| `group`           |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`                  |
+| `group`           |   ✓    |  ✓   |   ✓    |   ✓    | `assignRole`, `export`        |
 | `authz`           |   —    |  —   |   —    |   —    | `explain`                     |
-| `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `serviceAccount`  |   ✓    |  ✓   |   ✓    |   ✓    | `export`                      |
 | `webhook`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
-| `tag`             |   ✓    |  —   |   ✓    |   ✓    | —                             |
+| `tag`             |   ✓    |  —   |   ✓    |   ✓    | `export`                      |
 | `notification`    |   —    |  ✓   |   —    |   —    | —                             |
 | `announcement`    |   ✓    |  ✓   |   ✓    |   ✓    | `publish`                     |
 | `mfaPolicy`       |   —    |  ✓   |   ✓    |   —    | —                             |
-| `orgUnit`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
+| `orgUnit`         |   ✓    |  ✓   |   ✓    |   ✓    | `export`                      |
 | `approvalFlow`    |   —    |  ✓   |   ✓    |   —    | —                             |
 | `comment`         |   —    |  —   |   —    |   ✓    | —                             |
 
@@ -310,6 +316,7 @@
 | `role:update`          |      ✓*       |    ✓    |           |          |
 | `role:delete`          |      ✓*       |    ✓    |           |          |
 | `role:grantPermission` |      ✓*       |    ✓    |           |          |
+| `role:export`          |      ✓*       |    ✓    |           |          |
 | `permission:read`      |      ✓*       |    ✓    |     ✓     |          |
 | `auditLog:read`        |      ✓*       |    ✓    |     ✓     |          |
 | `auditLog:export`      |      ✓*       |    ✓    |     ✓     |          |
@@ -318,6 +325,7 @@
 | `approval:read`        |      ✓*       |    ✓    |     ✓     |          |
 | `approval:review`      |      ✓*       |    ✓    |           |          |
 | `approval:override`    |      ✓*       |    ✓    |           |          |
+| `approval:export`      |      ✓*       |    ✓    |     ✓     |          |
 | `file:create`          |      ✓*       |    ✓    |           |          |
 | `file:read`            |      ✓*       |    ✓    |     ✓     |          |
 | `file:update`          |      ✓*       |    ✓    |           |          |
@@ -336,11 +344,13 @@
 | `group:update`         |      ✓*       |    ✓    |           |          |
 | `group:delete`         |      ✓*       |    ✓    |           |          |
 | `group:assignRole`     |      ✓*       |    ✓    |           |          |
+| `group:export`         |      ✓*       |    ✓    |           |          |
 | `authz:explain`        |      ✓*       |    ✓    |     ✓     |          |
 | `serviceAccount:create` |     ✓*       |    ✓    |           |          |
 | `serviceAccount:read`   |     ✓*       |    ✓    |     ✓     |          |
 | `serviceAccount:update` |     ✓*       |    ✓    |           |          |
 | `serviceAccount:delete` |     ✓*       |    ✓    |           |          |
+| `serviceAccount:export` |     ✓*       |    ✓    |           |          |
 | `webhook:create`       |      ✓*       |    ✓    |           |          |
 | `webhook:read`         |      ✓*       |    ✓    |     ✓     |          |
 | `webhook:update`       |      ✓*       |    ✓    |           |          |
@@ -348,6 +358,7 @@
 | `tag:create`           |      ✓*       |    ✓    |           |          |
 | `tag:update`           |      ✓*       |    ✓    |           |          |
 | `tag:delete`           |      ✓*       |    ✓    |           |          |
+| `tag:export`           |      ✓*       |    ✓    |           |          |
 | `notification:read`    |      ✓*       |    ✓    |           |          |
 | `announcement:create`  |      ✓*       |    ✓    |           |          |
 | `announcement:read`    |      ✓*       |    ✓    |     ✓     |          |
@@ -360,6 +371,7 @@
 | `orgUnit:read`         |      ✓*       |    ✓    |     ✓     |          |
 | `orgUnit:update`       |      ✓*       |    ✓    |           |          |
 | `orgUnit:delete`       |      ✓*       |    ✓    |           |          |
+| `orgUnit:export`       |      ✓*       |    ✓    |           |          |
 | `approvalFlow:read`    |      ✓*       |    ✓    |     ✓     |          |
 | `approvalFlow:update`  |      ✓*       |    ✓    |           |          |
 | `comment:delete`       |      ✓*       |    ✓    |           |          |
@@ -389,10 +401,15 @@
 | 匯入使用者   | `/user/import`（`?mode=create\|update`；頁內依權限決定可以切換的模式，新增模式要 `user:create`） | `USER_IMPORT` | `user:read` ＋ `user:update` | EVERY |
 | 角色列表     | `/role`                    | `ROLE`          | `role:read`                      | EVERY |
 | 建立角色     | `/role/create`             | `ROLE_CREATE`   | `role:read` ＋ `role:create`     | EVERY |
+| 匯入角色     | `/role/import`（`?mode=create\|update`；新增模式要 `role:create`） | `ROLE_IMPORT` | `role:read` ＋ `role:update` | EVERY |
 | 角色權限管理 | `/role/$roleId/permission` | （沿用 `ROLE`） | `role:read` ＋ `permission:read` | EVERY |
 | 角色版本紀錄 | `/role/$roleId/revision`   | （沿用 `ROLE`） | `role:read`（「還原到這一版」另看 `role:update`） | EVERY |
 | 群組列表     | `/group`（含 `/group/$groupId` 詳情；成員要 `user:read`、角色要 `role:read`） | `GROUP` | `group:read` | EVERY |
+| 匯入群組     | `/group/import`（`?mode=create\|update`；新增模式要 `group:create`） | `GROUP_IMPORT` | `group:read` ＋ `group:update` | EVERY |
+| 匯入群組成員 | `/group/import-members`（只有新增模式） | `GROUP_MEMBER_IMPORT` | `group:read` ＋ `group:update` ＋ `user:read` | EVERY |
 | 組織         | `/organization`（`?unitId=` 選中的部門；成員要 `user:read`） | `ORG_UNIT` | `orgUnit:read` | EVERY |
+| 匯入部門     | `/organization/import`（`?mode=create\|update`；新增模式要 `orgUnit:create`） | `ORG_UNIT_IMPORT` | `orgUnit:read` ＋ `orgUnit:update` | EVERY |
+| 匯入部門成員 | `/organization/import-members` | `ORG_UNIT_MEMBER_IMPORT` | `orgUnit:read` ＋ `orgUnit:update` ＋ `user:read` | EVERY |
 | 建立群組     | `/group/create`            | `GROUP_CREATE`  | `group:read` ＋ `group:create`   | EVERY |
 | 服務帳號列表 | `/service-account`（含 `/service-account/$serviceAccountId` 詳情；角色要 `role:read`，token 要 `serviceAccount:update`） | `SERVICE_ACCOUNT` | `serviceAccount:read` | EVERY |
 | 建立服務帳號 | `/service-account/create`  | `SERVICE_ACCOUNT_CREATE` | `serviceAccount:read` ＋ `serviceAccount:create` | EVERY |
@@ -592,9 +609,11 @@ Seed 行為：
 | `role:delete` | `role:update` | |
 | `role:update` | `role:read` | |
 | `role:grantPermission` | `role:read` | `permission:read` |
+| `role:export` | `role:read` | |
 | `system:update` | `system:read` | |
 | `approval:review` | `approval:read` | |
 | `approval:override` | `approval:read` | |
+| `approval:export` | `approval:read` | |
 | `file:create` | `file:read` | |
 | `file:delete` | `file:update` | |
 | `file:update` | `file:read` | |
@@ -609,10 +628,12 @@ Seed 行為：
 | `group:delete` | `group:update` | |
 | `group:update` | `group:read` | `user:read` |
 | `group:assignRole` | `group:read` | `role:read` |
+| `group:export` | `group:read` | `user:read` |
 | `authz:explain` | | `user:read`、`role:read`、`group:read` |
 | `serviceAccount:create` | `serviceAccount:update` | |
 | `serviceAccount:delete` | `serviceAccount:update` | |
 | `serviceAccount:update` | `serviceAccount:read` | `role:read` |
+| `serviceAccount:export` | `serviceAccount:read` | |
 | `webhook:create` | `webhook:update` | |
 | `webhook:delete` | `webhook:update` | |
 | `webhook:update` | `webhook:read` | |
@@ -627,6 +648,7 @@ Seed 行為：
 | `orgUnit:create` | `orgUnit:update` | |
 | `orgUnit:delete` | `orgUnit:update` | |
 | `orgUnit:update` | `orgUnit:read` | `user:read` |
+| `orgUnit:export` | `orgUnit:read` | `user:read` |
 | `approvalFlow:update` | `approvalFlow:read` | `user:read`、`group:read`、`role:read`、`orgUnit:read` |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。

@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { APPROVAL_PAGE } from '../permission';
 
@@ -12,6 +14,7 @@ export function useApprovalPermission() {
   const page = usePagePermission(APPROVAL_PAGE);
   const { can } = usePermission();
   const canReview = can(PermissionKey['approval:review']);
+  const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -22,7 +25,9 @@ export function useApprovalPermission() {
       canApproveRegistration: canReview && can(PermissionKey['user:create']),
       /** 核准註冊時一併指派角色：要能指派、也要讀得到角色選項 */
       canAssignRole: can(PermissionKey['user:assignRole']) && can(PermissionKey['role:read']),
+      /** 匯出請求與審核紀錄要 `approval:export`（docs/architecture/backend/22-data-transfer.md §12.5）；租戶沒有啟用 `dataTransfer` 時沒有入口 */
+      canExport: hasDataTransfer && can(PermissionKey['approval:export']),
     }),
-    [page, can, canReview],
+    [page, can, canReview, hasDataTransfer],
   );
 }

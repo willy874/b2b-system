@@ -38,6 +38,12 @@
     "security": "安全性",
     "dataTransfer": "我的匯入匯出",
     "userImport": "匯入使用者",
+    "roleImport": "匯入角色",
+    "groupImport": "匯入群組",
+    "groupMemberImport": "匯入群組成員",
+    "orgUnitImport": "匯入部門",
+    "orgUnitMemberImport": "匯入部門成員",
+    "tagImport": "匯入標籤",
     "organization": "組織",
     "approvalFlow": "審批流程",
     "myApproval": "我的審批"
@@ -100,7 +106,8 @@
       "read": "檢視角色",
       "update": "編輯角色",
       "delete": "刪除角色",
-      "grantPermission": "授予／移除權限"
+      "grantPermission": "授予／移除權限",
+      "export": "匯出角色"
     },
     "permission": {
       "read": "檢視權限目錄"
@@ -116,7 +123,8 @@
     "approval": {
       "read": "檢視審批",
       "review": "審核申請",
-      "override": "強制定案審批"
+      "override": "強制定案審批",
+      "export": "匯出審批紀錄"
     },
     "file": {
       "create": "上傳檔案",
@@ -142,7 +150,8 @@
       "read": "檢視群組",
       "update": "編輯群組",
       "delete": "刪除群組",
-      "assignRole": "讓群組持有角色"
+      "assignRole": "讓群組持有角色",
+      "export": "匯出群組"
     },
     "authz": {
       "explain": "檢視授權來源"
@@ -151,7 +160,8 @@
       "create": "建立服務帳號",
       "read": "檢視服務帳號",
       "update": "編輯服務帳號",
-      "delete": "刪除服務帳號"
+      "delete": "刪除服務帳號",
+      "export": "匯出服務帳號"
     },
     "webhook": {
       "create": "建立 Webhook",
@@ -162,7 +172,8 @@
     "tag": {
       "create": "建立標籤",
       "update": "編輯標籤",
-      "delete": "刪除標籤"
+      "delete": "刪除標籤",
+      "export": "匯出標籤"
     },
     "notification": {
       "read": "檢視所有通知"
@@ -182,7 +193,8 @@
       "create": "建立部門",
       "read": "檢視組織",
       "update": "編輯組織",
-      "delete": "刪除部門"
+      "delete": "刪除部門",
+      "export": "匯出組織"
     },
     "approvalFlow": {
       "read": "檢視審批流程",

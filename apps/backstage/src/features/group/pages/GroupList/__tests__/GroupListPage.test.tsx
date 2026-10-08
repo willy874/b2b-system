@@ -1,7 +1,8 @@
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -73,5 +74,34 @@ describe('GroupListPage（docs/architecture/iam/01-model.md §9 G4）', () => {
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(deleteGroup).toHaveBeenCalledTimes(1));
     expect(deleteGroup.mock.calls[0]![0]).toMatchObject({ params: { groupId: 'g1' } });
+  });
+});
+
+describe('GroupListPage 的匯出、匯入入口（docs/architecture/backend/22-data-transfer.md §12.2）', () => {
+  beforeEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+  });
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
+  it('有 group:export、group:update、user:read → 匯出與匯入都可以選群組或成員', async () => {
+    renderRoute(routes, '/group', [
+      'group:read',
+      'group:update',
+      'group:export',
+      'user:read',
+    ] as PermissionKey[]);
+    await screen.findByText('美術', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('group-import-button'));
+    expect(await screen.findByText('群組成員')).toBeInTheDocument();
+    expect(screen.getByTestId('group-export-button')).toBeInTheDocument();
+  });
+
+  it('只有 group:read → 不顯示匯出、匯入', async () => {
+    renderRoute(routes, '/group', ['group:read'] as PermissionKey[]);
+    await screen.findByText('美術', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('group-export-button')).toBeNull();
+    expect(screen.queryByTestId('group-import-button')).toBeNull();
   });
 });

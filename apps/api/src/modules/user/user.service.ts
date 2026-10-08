@@ -530,7 +530,7 @@ export class UserService {
 
   /**
    * 交易提交後的副作用（規則 6、7：先失效再發佈）。API 在交易後立即呼叫；匯入的套用工作把它拆成可合併的副作用
-   * （`UserTransferResource`），每 100 列才做一次全租戶的權限失效（docs/architecture/backend/22-data-transfer.md §12 D10）。
+   * （`UserTransferResource`），每 100 列才做一次全租戶的權限失效（docs/architecture/backend/22-data-transfer.md §13 D10）。
    */
   async runAfterCommit(after: UserAfterCommit): Promise<void> {
     if (after.invalidateAccount) this.invalidateAccount(after.invalidateAccount);

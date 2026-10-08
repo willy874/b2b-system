@@ -1,8 +1,9 @@
 import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore } from '@/core/feature';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -38,5 +39,29 @@ describe('ApprovalListPage（docs/architecture/frontend/07-ui-system.md §6.1）
     fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 20, total: 0 } });
     fireEvent.click(screen.getByTestId('query-error-retry'));
     expect(await screen.findByText('沒有資料')).toBeInTheDocument();
+  });
+});
+
+describe('ApprovalListPage 的匯出（docs/architecture/backend/22-data-transfer.md §12.5）', () => {
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
+  it('有 approval:export → 匯出可以選請求或審核紀錄；沒有就不顯示', async () => {
+    fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 20, total: 0 } });
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+    renderRoute(routes, '/approval', [...REVIEWER, 'approval:export'] as PermissionKey[]);
+    fireEvent.click(
+      await screen.findByTestId('approval-export-button', undefined, { timeout: 5000 }),
+    );
+    expect(await screen.findByText('審核紀錄（每一關的決定）')).toBeInTheDocument();
+  });
+
+  it('沒有 approval:export → 不顯示匯出', async () => {
+    fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 20, total: 0 } });
+    featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
+    renderRoute(routes, '/approval', REVIEWER);
+    await screen.findByText('沒有資料', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('approval-export-button')).toBeNull();
   });
 });

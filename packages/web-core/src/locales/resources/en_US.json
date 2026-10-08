@@ -659,7 +659,7 @@
     },
     "modeHint": {
       "create": "Each row creates a new record",
-      "update": "Find existing records by ID or email and change the columns in the file"
+      "update": "Find existing records by ID or another match key and change the columns in the file"
     },
     "format": {
       "csv": "CSV",
@@ -699,6 +699,7 @@
       "scope": "Scope",
       "scopeSelected": "{{selected}} selected",
       "scopeFilter": "All matching the current filters, about {{total}}",
+      "scopeAll": "Everything matching the current view",
       "format": "Format",
       "columns": "Columns",
       "selectAllColumns": "Select all",
@@ -843,7 +844,7 @@
       "ambiguousReference": "\"{{value}}\" matches more than one record",
       "duplicateInFile": "Duplicates row {{rows}}",
       "alreadyExists": "\"{{value}}\" already exists",
-      "matchKeyRequired": "Enter an ID or email to find the record to update",
+      "matchKeyRequired": "Fill in a match key (ID or another key column) to find the record to update",
       "targetNotFound": "Record not found",
       "ambiguousMatch": "Matches more than one record",
       "duplicateTarget": "Updates the same record as row {{rows}}",
@@ -853,7 +854,17 @@
       "selfModify": "You can't change this for yourself",
       "suggestion": "Suggestion: {{value}}",
       "unknown": "Invalid data ({{code}})",
-      "targetNotSelected": "Match undone: choose a target, or remove this row from the import"
+      "targetNotSelected": "Match undone: choose a target, or remove this row from the import",
+      "referenceCycle": "The references form a cycle; no row can be created first",
+      "referenceFailed": "The referenced row \"{{value}}\" was not created",
+      "permissionNotGrantable": "You can't grant these permissions: {{names}}",
+      "immutable": "This record can't be changed",
+      "superAdminForbidden": "super-admin can only be assigned to users directly",
+      "exactlyOne": "Fill in only one of these two columns",
+      "membershipCycle": "A group can't contain itself",
+      "escalation": "Adding this would grant permissions you don't have",
+      "primaryConflict": "Rows {{rows}} all set this person's primary unit",
+      "forbidden": "You don't have permission for this row"
     },
     "list": {
       "title": "My imports & exports",

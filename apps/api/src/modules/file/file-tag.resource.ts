@@ -29,6 +29,7 @@ export class FileTagResource implements OnModuleInit {
     this.tags.registerScope({
       scope: FILE_TAG_SCOPE,
       feature: 'file',
+      label: { 'zh-TW': '檔案', 'en-US': 'Files' },
       assertCanBrowse: (actor, context) =>
         this.permissions.assertHasAny(
           actor,

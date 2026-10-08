@@ -630,7 +630,7 @@
     },
     "modeHint": {
       "create": "每一列建立一筆新資料",
-      "update": "以 ID 或 Email 找到現有資料，修改檔案中有的欄位"
+      "update": "以 ID 或比對欄位找到現有資料，修改檔案中有的欄位"
     },
     "format": {
       "csv": "CSV",
@@ -670,6 +670,7 @@
       "scope": "範圍",
       "scopeSelected": "已勾選 {{selected}} 筆",
       "scopeFilter": "符合目前篩選的全部，約 {{total}} 筆",
+      "scopeAll": "符合目前條件的全部資料",
       "format": "格式",
       "columns": "欄位",
       "selectAllColumns": "全選",
@@ -814,7 +815,7 @@
       "ambiguousReference": "「{{value}}」對到多筆",
       "duplicateInFile": "與第 {{rows}} 列重複",
       "alreadyExists": "「{{value}}」已經存在",
-      "matchKeyRequired": "要填 ID 或 Email 才能找到要修改的資料",
+      "matchKeyRequired": "要填比對欄位（ID 或另一個比對鍵）才能找到要修改的資料",
       "targetNotFound": "找不到這筆資料",
       "ambiguousMatch": "對到多筆資料",
       "duplicateTarget": "與第 {{rows}} 列修改同一筆資料",
@@ -824,7 +825,17 @@
       "selfModify": "不能修改自己的這個欄位",
       "suggestion": "建議：{{value}}",
       "unknown": "資料有誤（{{code}}）",
-      "targetNotSelected": "已撤回比對：請選擇比對目標，或從匯入中移除這一列"
+      "targetNotSelected": "已撤回比對：請選擇比對目標，或從匯入中移除這一列",
+      "referenceCycle": "引用形成循環，沒有一列能先建立",
+      "referenceFailed": "引用的「{{value}}」那一列沒有成功建立",
+      "permissionNotGrantable": "你不能授予這些權限：{{names}}",
+      "immutable": "這筆資料不能修改",
+      "superAdminForbidden": "super-admin 只能直接指派給使用者",
+      "exactlyOne": "這兩欄只能擇一填寫",
+      "membershipCycle": "不能把群組放進自己",
+      "escalation": "加入後會取得你沒有的權限，你不能操作",
+      "primaryConflict": "第 {{rows}} 列同時把這個人設為主要部門",
+      "forbidden": "你沒有權限操作這一列"
     },
     "list": {
       "title": "我的匯入匯出",

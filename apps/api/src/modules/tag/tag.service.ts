@@ -2,7 +2,7 @@ import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
-import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
 import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException, constraintNameOf, isUniqueViolation } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -11,6 +11,7 @@ import { requireTenant } from '@/core/tenant';
 import type { TagColor, TagRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { PermissionCheckContext } from '@/modules/permission/permission.service';
 
 import type {
   CreateTagDto,
@@ -110,78 +111,127 @@ export class TagService {
   }
 
   async create(dto: CreateTagDto, actor: AuthUser): Promise<TagDto> {
-    this.requireScope(dto.scope);
     const created = await this.uniqueName(() =>
-      withTransaction(this.db, async (tx) => {
-        await this.repo.lockScope(dto.scope, tx);
-        if ((await this.repo.countInScope(dto.scope, tx)) >= TAG_MAX_PER_SCOPE) {
-          throw new AppException('TAG_LIMIT_REACHED', { max: TAG_MAX_PER_SCOPE });
-        }
-        const row = await this.repo.create(
-          {
-            scope: dto.scope,
-            name: dto.name,
-            color: dto.color,
-            createdBy: actor.id,
-            updatedBy: actor.id,
-          },
-          tx,
-        );
-        await this.audit.record(
-          {
-            action: 'tag.create',
-            resourceType: RESOURCE_TYPE.TAG,
-            resourceId: row.id,
-            resourceName: row.name,
-            changes: { after: { scope: row.scope, name: row.name, color: row.color } },
-          },
-          tx,
-        );
-        return row;
-      }),
+      withTransaction(this.db, (tx) => this.createInTx(dto, actor, tx)),
     );
     this.publish(ChangeKind.CREATE, created.id);
     return toDto(created);
   }
 
+  /** 建立的業務規則與寫入，在呼叫端的交易內（API 與匯入共用一份規則）。交易提交後呼叫端要 `publishChanged()`。 */
+  async createInTx(dto: CreateTagDto, actor: AuthUser, tx: Transaction): Promise<TagRow> {
+    this.requireScope(dto.scope);
+    await this.repo.lockScope(dto.scope, tx);
+    if ((await this.repo.countInScope(dto.scope, tx)) >= TAG_MAX_PER_SCOPE) {
+      throw new AppException('TAG_LIMIT_REACHED', { max: TAG_MAX_PER_SCOPE });
+    }
+    // 預先檢查同名：唯一索引撞到時整個交易已經中止，匯入的一列要拿到明確的錯誤碼
+    if ((await this.repo.findByNames(dto.scope, [dto.name], tx)).length) {
+      throw new AppException('TAG_NAME_DUPLICATE');
+    }
+    const row = await this.repo.create(
+      {
+        scope: dto.scope,
+        name: dto.name,
+        color: dto.color,
+        createdBy: actor.id,
+        updatedBy: actor.id,
+      },
+      tx,
+    );
+    await this.audit.record(
+      {
+        action: 'tag.create',
+        resourceType: RESOURCE_TYPE.TAG,
+        resourceId: row.id,
+        resourceName: row.name,
+        changes: { after: { scope: row.scope, name: row.name, color: row.color } },
+      },
+      tx,
+    );
+    return row;
+  }
+
   /** 改名、改色（帶 `version`）。標籤組不能改：已貼上的資源屬於原本的組。 */
   async update(id: string, dto: UpdateTagDto, actor: AuthUser): Promise<TagDto> {
+    const updated = await this.uniqueName(() =>
+      withTransaction(this.db, (tx) => this.updateInTx(id, dto, actor, tx)),
+    );
+    this.publish(ChangeKind.UPDATE, id);
+    return toDto(updated);
+  }
+
+  /** 改名、改色的業務規則與寫入，在呼叫端的交易內。 */
+  async updateInTx(
+    id: string,
+    dto: UpdateTagDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<TagRow> {
     const current = await this.getExisting(id);
     this.requireScope(current.scope);
     if (dto.version !== current.version) {
       throw new AppException('TAG_VERSION_CONFLICT', { current: current.version });
     }
-    const updated = await this.uniqueName(() =>
-      withTransaction(this.db, async (tx) => {
-        const row = await this.repo.update(
-          id,
-          {
-            ...(dto.name !== undefined && { name: dto.name }),
-            ...(dto.color !== undefined && { color: dto.color }),
-            updatedBy: actor.id,
-          },
-          dto.version,
-          tx,
-        );
-        if (!row) throw await missedUpdate(() => this.repo.findVersion(id, tx), TAG_LOCK_CODES);
-        const changes = diff(current, row, TAG_AUDIT_FIELDS);
-        if (changes) {
-          await this.audit.record(
-            {
-              action: 'tag.update',
-              resourceType: RESOURCE_TYPE.TAG,
-              resourceId: id,
-              resourceName: row.name,
-              changes,
-            },
-            tx,
-          );
-        }
-        return row;
-      }),
+    if (
+      dto.name !== undefined &&
+      dto.name.toLowerCase() !== current.name.toLowerCase() &&
+      (await this.repo.findByNames(current.scope, [dto.name], tx)).length
+    ) {
+      throw new AppException('TAG_NAME_DUPLICATE');
+    }
+    const row = await this.repo.update(
+      id,
+      {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.color !== undefined && { color: dto.color }),
+        updatedBy: actor.id,
+      },
+      dto.version,
+      tx,
     );
-    this.publish(ChangeKind.UPDATE, id);
-    return toDto(updated);
+    if (!row) throw await missedUpdate(() => this.repo.findVersion(id, tx), TAG_LOCK_CODES);
+    const changes = diff(current, row, TAG_AUDIT_FIELDS);
+    if (changes) {
+      await this.audit.record(
+        {
+          action: 'tag.update',
+          resourceType: RESOURCE_TYPE.TAG,
+          resourceId: id,
+          resourceName: row.name,
+          changes,
+        },
+        tx,
+      );
+    }
+    return row;
+  }
+
+  /** 交易提交後的推播（匯入的套用工作合併後呼叫）。 */
+  publishChanged(kind: ChangeKind, id: string): void {
+    this.publish(kind, id);
+  }
+
+  /** 所有登記的標籤組（不看租戶）：匯入匯出的「標籤組」欄的選項。 */
+  registeredScopes(): TagScopeDefinition[] {
+    return [...this.scopes.values()];
+  }
+
+  /** 目前租戶可用的標籤組（所屬 feature 已啟用）。 */
+  availableScopes(): TagScopeDefinition[] {
+    const features = requireTenant().features;
+    return [...this.scopes.values()].filter(
+      (definition) => !definition.feature || features.includes(definition.feature),
+    );
+  }
+
+  /** 進得了這個標籤組（D5）；進不了拋 `AUTHZ_FORBIDDEN` 並寫 `authz.denied`。 */
+  async assertCanBrowse(
+    scope: string,
+    actor: AuthUser,
+    context: PermissionCheckContext,
+  ): Promise<void> {
+    await this.requireScope(scope).assertCanBrowse(actor, context);
   }
 
   /** 硬刪除，指派一併刪除（D4）；稽核記下名稱、組與當時貼著的資源數。 */

@@ -1,6 +1,7 @@
 import { localeScopeLoader } from '@b2b-system/web-core/locales';
 import { RootRoute } from '@b2b-system/web-core/router';
 import { createRoute, stripSearchParams } from '@tanstack/react-router';
+import { z } from 'zod';
 
 import { requireFeature } from '@/core/feature';
 
@@ -31,4 +32,40 @@ export const GroupCreateRoute = createRoute({
 export const GroupDetailRoute = createRoute({
   getParentRoute: () => GroupListRoute,
   path: '$groupId',
+});
+
+/** 匯入頁的網址：模式與已送出的傳輸（重新整理或從通知回來時直接顯示結果，docs/architecture/backend/22-data-transfer.md §7.2）。 */
+export const GroupImportSearchSchema = z.object({
+  mode: z.enum(['create', 'update']).catch('create'),
+  transfer: z.string().uuid().optional().catch(undefined),
+});
+
+/** 群組與 `dataTransfer` 都要啟用（任一個關閉時 404）。 */
+async function requireImportFeatures(): Promise<void> {
+  await requireFeature(GROUP_FEATURE)();
+  await requireFeature('dataTransfer')();
+}
+
+/**
+ * 群組匯入（docs/architecture/backend/22-data-transfer.md §12.2）：全頁，掛在根下（不在列表頁的 Outlet 裡，也有自己的頁面權限）。
+ */
+export const GroupImportRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/group/import',
+  staticData: { titleKey: 'menu.groupImport' },
+  beforeLoad: requireImportFeatures,
+  loader: localeScopeLoader(GROUP_LOCALE_SCOPE),
+  validateSearch: GroupImportSearchSchema,
+  search: { middlewares: [stripSearchParams({ mode: 'create' as const })] },
+});
+
+/** 群組成員匯入：只有新增模式（加成員）。 */
+export const GroupMemberImportRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/group/import-members',
+  staticData: { titleKey: 'menu.groupMemberImport' },
+  beforeLoad: requireImportFeatures,
+  loader: localeScopeLoader(GROUP_LOCALE_SCOPE),
+  validateSearch: GroupImportSearchSchema,
+  search: { middlewares: [stripSearchParams({ mode: 'create' as const })] },
 });

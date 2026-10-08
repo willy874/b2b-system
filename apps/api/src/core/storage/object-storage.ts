@@ -143,7 +143,7 @@ export abstract class ObjectStorage {
   ): Promise<PresignedRequest>;
 
   /**
-   * api 自己上傳第 `partNumber` 塊（伺服器端的串流寫檔，例：匯出檔；docs/architecture/backend/22-data-transfer.md §12 D6），回傳 ETag。
+   * api 自己上傳第 `partNumber` 塊（伺服器端的串流寫檔，例：匯出檔；docs/architecture/backend/22-data-transfer.md §13 D6），回傳 ETag。
    * 除了最後一塊，每塊至少 5 MiB（S3 的限制）。
    */
   abstract uploadPart(

@@ -214,18 +214,19 @@ app.module
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
   ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Comment · Announcement · DataTransfer · Organization
   ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag
-  ├─ GroupModule           ──▶ Trash · Announcement
-  ├─ OrganizationModule    ──▶ Trash · Approval
-  ├─ RoleModule            ──▶ Trash · Revision
-  ├─ ApprovalModule        ──▶ Notification · Webhook
+  ├─ GroupModule           ──▶ Trash · Announcement · DataTransfer
+  ├─ OrganizationModule    ──▶ Trash · Approval · DataTransfer
+  ├─ RoleModule            ──▶ Trash · Revision · DataTransfer
+  ├─ ApprovalModule        ──▶ Notification · Webhook · DataTransfer
   ├─ AnnouncementModule    ──▶ Notification · Trash
   ├─ WebhookModule         ──▶ Notification
   ├─ DataTransferModule    ──▶ Notification
   ├─ CommentModule         ──▶ Notification
-  ├─ ServiceAccountModule  ──▶ ApiToken
+  ├─ ServiceAccountModule  ──▶ ApiToken · DataTransfer
+  ├─ TagModule             ──▶ DataTransfer
   ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
   ├─ PlatformAdminModule   ──▶ PlatformNotification
-  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaEmail · MfaTotp · Notification · Permission · PlatformNotification · Revision · System · Tag · Trash
+  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaEmail · MfaTotp · Notification · Permission · PlatformNotification · Revision · System · Trash
   └─ @Global：Permission · AuditLog · PlatformAdmin
 ```
 

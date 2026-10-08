@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePagePermission, usePermission } from '@/core/permission';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { GROUP_PAGE } from '../permission';
 
@@ -8,6 +10,7 @@ import { GROUP_PAGE } from '../permission';
 export function useGroupPermission() {
   const page = usePagePermission(GROUP_PAGE);
   const { can } = usePermission();
+  const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -19,7 +22,13 @@ export function useGroupPermission() {
       canViewMembers: can(PermissionKey['user:read']),
       /** 持有的角色清單要能讀角色（後端 `GET /groups/:id/roles` 要 role:read） */
       canViewRoles: can(PermissionKey['role:read']),
+      /** 匯出群組與成員要獨立的 `group:export`（docs/architecture/backend/22-data-transfer.md §13 D11）；租戶沒有啟用 `dataTransfer` 時沒有入口 */
+      canExport: hasDataTransfer && can(PermissionKey['group:export']),
+      /** 匯入沿用 create／update：修改模式與加成員要 `group:update` */
+      canImport: hasDataTransfer && page.canUpdate,
+      /** 匯入成員要能挑使用者 */
+      canImportMembers: hasDataTransfer && page.canUpdate && can(PermissionKey['user:read']),
     }),
-    [page, can],
+    [page, can, hasDataTransfer],
   );
 }

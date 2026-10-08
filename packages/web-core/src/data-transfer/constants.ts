@@ -153,4 +153,18 @@ export const ISSUE_MESSAGE_KEY: Readonly<Record<string, string>> = {
   targetNotSelected: 'dataTransfer.issue.targetNotSelected',
   roleNotAssignable: 'dataTransfer.issue.roleNotAssignable',
   selfModify: 'dataTransfer.issue.selfModify',
+  // 角色、群組、組織、標籤（docs/architecture/backend/22-data-transfer.md §12）與同檔引用（§7.8）
+  referenceCycle: 'dataTransfer.issue.referenceCycle',
+  referenceFailed: 'dataTransfer.issue.referenceFailed',
+  permissionNotGrantable: 'dataTransfer.issue.permissionNotGrantable',
+  immutable: 'dataTransfer.issue.immutable',
+  superAdminForbidden: 'dataTransfer.issue.superAdminForbidden',
+  exactlyOne: 'dataTransfer.issue.exactlyOne',
+  membershipCycle: 'dataTransfer.issue.membershipCycle',
+  escalation: 'dataTransfer.issue.escalation',
+  primaryConflict: 'dataTransfer.issue.primaryConflict',
+  forbidden: 'dataTransfer.issue.forbidden',
 };
+
+/** 表頭提示列出選項的上限（與後端範本的欄位說明相同）；超過時不列，下拉選單可以搜尋。 */
+export const HINT_MAX_OPTIONS = 12;

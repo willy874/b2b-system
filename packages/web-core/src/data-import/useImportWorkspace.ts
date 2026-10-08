@@ -20,6 +20,7 @@ import type { ImportDraft } from './importDraft';
 import {
   computeLocalIssues,
   emptyImportState,
+  fileKeysFor,
   importReducer,
   isBlankRow,
   manualRows,
@@ -176,6 +177,10 @@ export function useImportWorkspace({ api, type, mode }: ImportWorkspaceOptions) 
           type,
           state.mode,
           batch.map(({ row }) => ({ rowNo: row.rowNo, cells: row.cells, ...targetIdOf(row) })),
+          fileKeysFor(
+            { mode: state.mode, columns: state.columns, rows: state.rows },
+            batch.map(({ row }) => row),
+          ),
         )
         .then(
           (response) => dispatch({ type: 'validated', results: response.rows, sent }),
@@ -192,7 +197,7 @@ export function useImportWorkspace({ api, type, mode }: ImportWorkspaceOptions) 
         });
     }, VALIDATE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [api, phase, state.mode, state.pending, state.rows, type]);
+  }, [api, phase, state.columns, state.mode, state.pending, state.rows, type]);
 
   // ── 步驟 ──
   const analyze = useCallback(

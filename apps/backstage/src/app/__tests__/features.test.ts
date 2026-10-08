@@ -22,10 +22,19 @@ import { APPROVAL_FLOW_PAGE } from '@/features/approval-flow';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { DATA_TRANSFER_PAGE } from '@/features/data-transfer';
 import { FILE_PAGE } from '@/features/file';
-import { GROUP_CREATE_PAGE, GROUP_PAGE } from '@/features/group';
+import {
+  GROUP_CREATE_PAGE,
+  GROUP_IMPORT_PAGE,
+  GROUP_MEMBER_IMPORT_PAGE,
+  GROUP_PAGE,
+} from '@/features/group';
 import { IDENTITY_PROVIDER_PAGE } from '@/features/identity-provider';
 import { JOB_PAGE } from '@/features/job';
-import { ORG_UNIT_PAGE } from '@/features/organization';
+import {
+  ORG_UNIT_IMPORT_PAGE,
+  ORG_UNIT_MEMBER_IMPORT_PAGE,
+  ORG_UNIT_PAGE,
+} from '@/features/organization';
 import { SERVICE_ACCOUNT_CREATE_PAGE, SERVICE_ACCOUNT_PAGE } from '@/features/service-account';
 import { SETTING_PAGE } from '@/features/system';
 import { TRASH_PAGE } from '@/features/trash';
@@ -47,10 +56,11 @@ const EXPECTED_PAGES = {
   announcement: [ANNOUNCEMENT_PAGE, ANNOUNCEMENT_CREATE_PAGE, ANNOUNCEMENT_MESSAGE_PAGE],
   // 對外 API 在另一個程序，backstage 的頁面是服務帳號
   externalApi: [SERVICE_ACCOUNT_PAGE, SERVICE_ACCOUNT_CREATE_PAGE],
-  group: [GROUP_PAGE, GROUP_CREATE_PAGE],
-  // 各資源的匯入頁屬於該資源的 feature（使用者的 USER_IMPORT 常駐登記），這裡只有「我的匯入匯出」
+  // 匯入頁屬於群組自己的 feature（還要 dataTransfer 啟用才進得去）
+  group: [GROUP_PAGE, GROUP_CREATE_PAGE, GROUP_IMPORT_PAGE, GROUP_MEMBER_IMPORT_PAGE],
+  // 各資源的匯入頁屬於該資源的 feature（使用者、角色、標籤的匯入頁常駐登記），這裡只有「我的匯入匯出」
   dataTransfer: [DATA_TRANSFER_PAGE],
-  organization: [ORG_UNIT_PAGE],
+  organization: [ORG_UNIT_PAGE, ORG_UNIT_IMPORT_PAGE, ORG_UNIT_MEMBER_IMPORT_PAGE],
   approvalChain: [APPROVAL_FLOW_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 

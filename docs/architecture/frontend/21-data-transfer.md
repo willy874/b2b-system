@@ -21,12 +21,31 @@
 | `apps/backstage/src/apis/data-transfer/<operation>/` | 每支 API 一個資料夾；`analyze-import` 以 `FormData` 送出（這個 app 第一個 multipart 的 fetcher），範本與結果報告是附件（HTTP 管道回 Blob，§6） |
 | `apps/backstage/src/features/data-transfer/` | 「我的匯入匯出」（`/data-transfer`）、route id `dataTransfer.detail`（通知的連結） |
 | `apps/backstage/src/features/user/pages/UserImport/` | 使用者匯入頁（`/user/import?mode=create\|update&transfer=<id>`）：把 fetcher 與 `type: 'user'` 交給 `ImportWorkspace` |
-| 使用者列表、稽核日誌頁 | 頁首的「匯出」「匯入」、批次列的「匯出選取」 |
+| 其他資源的匯入頁 | `/role/import`、`/group/import`、`/group/import-members`、`/organization/import`、`/organization/import-members`、`/tag/import`（§1.1） |
+| 列表頁 | 頁首的「匯出」「匯入」、批次列的「匯出選取」；一個頁面有兩種資源時是下拉選單（§1.1） |
 
 - web-core 不呼叫 app 的 API：`ImportWorkspace`、`ExportDialog`、`TransferTable` 以 props 接收一組 fetcher（`DataTransferApi`／`ImportApi`）與查詢鍵，
   與 MFA 的 `MfaSelfApi` 同一個做法。app 在各 feature 的 `hooks/*Api.ts` 組好（feature 之間不共用模組，所以使用者與稽核日誌各一份）。
 - 欄位名稱、選項、說明都由 `GET /data-transfers/importers/:type` 依請求的語系回傳；前端不為每個資源寫欄位定義。
 - 匯入頁屬於各資源的 feature：頁面權限與麵包屑是靜態的，頁面只有幾十行。
+
+### 1.1 各資源的入口（[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12）
+
+| 頁面 | 匯出 | 匯入 | 頁面鍵（匯入頁） |
+| --- | --- | --- | --- |
+| 使用者列表 | 按鈕、批次列 | `/user/import` | `USER_IMPORT`（`user:read`＋`user:update`） |
+| 角色列表 | 按鈕、批次列 | `/role/import` | `ROLE_IMPORT`（`role:read`＋`role:update`） |
+| 群組列表 | 選單：群組／群組成員 | 選單：`/group/import`、`/group/import-members`（只有新增模式） | `GROUP_IMPORT`、`GROUP_MEMBER_IMPORT`（另要 `user:read`） |
+| 組織 | 選單：部門／部門成員（選中部門時是它與下層的成員） | 選單：`/organization/import`、`/organization/import-members` | `ORG_UNIT_IMPORT`、`ORG_UNIT_MEMBER_IMPORT`（另要 `user:read`） |
+| 標籤管理 | 按鈕（目前的標籤組） | `/tag/import`（標籤組是每一列的欄位） | `TAG_IMPORT`（`tag:update`） |
+| 審批 | 選單：請求／審核紀錄；批次列 | — | — |
+| 服務帳號列表 | 按鈕 | — | — |
+| 稽核日誌 | 按鈕 | — | — |
+
+- 入口的條件都是「該資源的匯出權限（或匯入的 create／update）」且租戶啟用 `dataTransfer`；群組與組織的匯入頁另外要該 feature 啟用。
+- 匯入頁的路由掛在根下（例：`/group/import` 不是 `/group` 的子路由）：不在列表頁的 Outlet 裡，頁面鍵以最長前綴解析到自己的。
+- 「我的匯入匯出」的「查看結果」依資源類型連到這些頁面（route id `<type>.import`，每一種寫成字面量，§5）。
+- 匯出成員時事先不知道筆數：`ExportDialog` 的 `matchingTotal` 可以省略，範圍顯示「符合目前條件的全部資料」。
 
 ## 2. 匯出
 
@@ -46,7 +65,7 @@
 | 欄位 | 預設全選、可取消勾選；上次的選擇存在偏好（`localStorage`，以資源類型為鍵，只留目前還有權讀的欄位） |
 | 送出後 | 對話框變成進度：「正在匯出… 1 500／3 400」，可「在背景繼續」關閉，或取消 |
 
-流程：`POST /exports` → 以 `useTransferQuery` 等推播（`Resource.DATA_TRANSFER` 讓 `transfer(id)` 失效並重抓；推播斷線時進行中的傳輸每 5 秒輪詢，重新連上時重查一次，連線中也每 15 秒保險輪詢，[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12 D39）
+流程：`POST /exports` → 以 `useTransferQuery` 等推播（`Resource.DATA_TRANSFER` 讓 `transfer(id)` 失效並重抓；推播斷線時進行中的傳輸每 5 秒輪詢，重新連上時重查一次，連線中也每 15 秒保險輪詢，[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §13 D39）
 → 完成時 `POST /:id/download` → `downloadFromUrl()`（`<a download>`，點完移除）。對話框已關閉時不自動下載，完成時的站內通知連到「我的匯入匯出」。
 0 筆顯示「沒有符合的資料」；勾選範圍有幾筆已無法存取時顯示「已勾選 120 筆，匯出 118 筆」。
 
@@ -55,7 +74,7 @@
 
 **選型**
 
-- 以 `react-data-grid` 為底層（[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §12 D14）：MIT 授權、列與欄都虛擬捲動、內建鍵盤移動與儲存格編輯、可凍結欄。
+- 以 `react-data-grid` 為底層（[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §13 D14）：MIT 授權、列與欄都虛擬捲動、內建鍵盤移動與儲存格編輯、可凍結欄。
 - 樣式以 Design Token 覆寫它的 CSS 變數，不寫色碼。
 - 外面包一層 ui 自己的 API，app 不直接 import 底層套件；之後要換實作只動 ui。
 
@@ -123,6 +142,10 @@ interface ImportState {
   修改模式另外向伺服器查現有的值（欄位有 `suggest`）。
 - 套用前的確認框以大字列出「將新增／將修改 N 列」「沒有變更（略過）」「有錯誤」，有錯誤的列不算在要寫入的列數裡。
 - 篩選（只看錯誤列等）在前端做。
+- 同一份檔案內的引用（[`../backend/22-data-transfer.md`](../backend/22-data-transfer.md) §7.8）：欄位清單的 `sameFile` 標出可以引用檔案裡其他列的參照欄（例：部門的「上層」引用「代碼」）。
+  - 送 `validate` 時帶 `fileKeys`（`fileKeysFor`）：這批列引用到、而且檔案裡有的值；只帶引用到的，請求不會隨檔案變大。
+  - 被引用的欄改了值、或那一列新增或移除時，引用舊值或新值的列也重新驗證（`commit` 裡的 `sameFileDependents`）。
+- 表頭提示列出選項的上限是 12 個（`HINT_MAX_OPTIONS`，與範本的欄位說明相同）；更多時不列，下拉選單可以搜尋（例：角色的權限鍵）。
 
 ### 4.2 草稿與離開頁面
 
@@ -191,7 +214,8 @@ interface ImportState {
 | 層 | 涵蓋 |
 | --- | --- |
 | ui（`DataGrid.test.tsx`） | grid 角色、必填標記、錯誤儲存格的 `aria-invalid` 與訊息、Delete 清空、Ctrl＋Z、TSV 解析、範圍貼上與編輯中的貼上、下拉選單（單選、遠端多選）、自動完成 |
-| web-core（`importState.test.ts`） | 編輯、復原與重做、過時的驗證結果被丟棄、新增與移除列、檔案內重複、同一個目標多次、摘要、比對目標的手動指定與撤回 |
+| web-core（`importState.test.ts`） | 編輯、復原與重做、過時的驗證結果被丟棄、新增與移除列、檔案內重複、同一個目標多次、摘要、比對目標的手動指定與撤回；同檔引用的重新驗證與 `fileKeys` |
 | web-core（`ExportDialog.test.tsx`、`ImportWorkspace.test.tsx`） | 範圍與欄位、完成後自動下載；上傳 → 分析 → 預覽標出錯誤 → 確認框的數字 → 勾選略過後套用；復原／重做的快捷鍵與離開後取消登記 |
 | web-core（`BatchBar.test.tsx`） | `kind: 'run'` 的動作不出確認框、不入列 |
-| backstage | 使用者列表的入口（有權限、沒有權限、feature 未啟用、未水合）；「我的匯入匯出」的列表與下載；匯入頁的模式依權限 |
+| backstage | 各列表的入口（有權限、沒有權限、feature 未啟用、未水合；角色、群組、組織、標籤、審批、服務帳號）；「我的匯入匯出」的列表與下載；各匯入頁的模式依權限 |
+| E2E（`data-transfer.spec.ts`） | 匯出使用者 CSV；匯入使用者（修正、草稿接續、套用）；匯入部門（子部門寫在上層之前，以同檔引用依序建立） |

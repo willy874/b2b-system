@@ -38,6 +38,12 @@
     "security": "Security",
     "dataTransfer": "My imports & exports",
     "userImport": "Import users",
+    "roleImport": "Import roles",
+    "groupImport": "Import groups",
+    "groupMemberImport": "Import group members",
+    "orgUnitImport": "Import org units",
+    "orgUnitMemberImport": "Import org unit members",
+    "tagImport": "Import tags",
     "organization": "Organization",
     "approvalFlow": "Approval flows",
     "myApproval": "My approvals"
@@ -100,7 +106,8 @@
       "read": "View roles",
       "update": "Edit role",
       "delete": "Delete role",
-      "grantPermission": "Grant / revoke permissions"
+      "grantPermission": "Grant / revoke permissions",
+      "export": "Export roles"
     },
     "permission": {
       "read": "View permission catalog"
@@ -116,7 +123,8 @@
     "approval": {
       "read": "View approvals",
       "review": "Review requests",
-      "override": "Override approvals"
+      "override": "Override approvals",
+      "export": "Export approval records"
     },
     "file": {
       "create": "Upload files",
@@ -142,7 +150,8 @@
       "read": "View groups",
       "update": "Edit groups",
       "delete": "Delete groups",
-      "assignRole": "Assign roles to groups"
+      "assignRole": "Assign roles to groups",
+      "export": "Export groups"
     },
     "authz": {
       "explain": "View access explanations"
@@ -151,7 +160,8 @@
       "create": "Create service accounts",
       "read": "View service accounts",
       "update": "Edit service accounts",
-      "delete": "Delete service accounts"
+      "delete": "Delete service accounts",
+      "export": "Export service accounts"
     },
     "webhook": {
       "create": "Create webhooks",
@@ -162,7 +172,8 @@
     "tag": {
       "create": "Create tags",
       "update": "Edit tags",
-      "delete": "Delete tags"
+      "delete": "Delete tags",
+      "export": "Export tags"
     },
     "notification": {
       "read": "View all notifications"
@@ -182,7 +193,8 @@
       "create": "Create departments",
       "read": "View organization",
       "update": "Edit organization",
-      "delete": "Delete departments"
+      "delete": "Delete departments",
+      "export": "Export organization"
     },
     "approvalFlow": {
       "read": "View approval flows",

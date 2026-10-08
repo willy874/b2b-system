@@ -38,7 +38,7 @@ export const RequestContentLength = createParamDecorator(
   },
 );
 
-/** 分析上傳的檔案（記憶體中的位元組；不落地、不進 bucket，§12 D22）。 */
+/** 分析上傳的檔案（記憶體中的位元組；不落地、不進 bucket，§13 D22）。 */
 export interface UploadedSheet {
   originalname: string;
   size: number;

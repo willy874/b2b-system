@@ -4,6 +4,7 @@ import type { ImportColumnView, RowValidation } from '../../data-transfer';
 import {
   computeLocalIssues,
   emptyImportState,
+  fileKeysFor,
   importReducer,
   manualRows,
   rowStatus,
@@ -190,5 +191,56 @@ describe('匯入預覽的狀態（docs/architecture/backend/22-data-transfer.md 
 
     expect(run(auto, { type: 'undo' }).rows[0]?.target).toBeNull();
     expect(run(auto, { type: 'undo' }, { type: 'undo' }).rows[0]?.target).toEqual(target);
+  });
+});
+
+describe('同檔引用（docs/architecture/backend/22-data-transfer.md §7.8）', () => {
+  const UNIT_COLUMNS = [
+    column('code', { unique: true }),
+    column('name', { required: true }),
+    column('parent', { kind: 'reference', sameFile: 'code' }),
+  ];
+  const units = () =>
+    importReducer(emptyImportState('create'), {
+      type: 'load',
+      mode: 'create',
+      fileName: 'units.csv',
+      columns: UNIT_COLUMNS,
+      ignored: [],
+      rows: [
+        { rowNo: 1, sourceRow: 2, cells: { code: 'HQ', name: '總部', parent: '' } },
+        { rowNo: 2, sourceRow: 3, cells: { code: 'SALES', name: '業務部', parent: 'hq' } },
+        { rowNo: 3, sourceRow: 4, cells: { code: 'RD', name: '研發部', parent: 'OTHER' } },
+      ],
+      results: [],
+    });
+
+  it('改了被引用的代碼：引用舊值或新值的列也重新驗證', () => {
+    const renamed = run(units(), {
+      type: 'editCells',
+      changes: [{ rowNo: 1, key: 'code', value: 'OTHER' }],
+    });
+    // 第 2 列引用舊值 HQ（不分大小寫）、第 3 列引用新值 OTHER
+    expect(Object.keys(renamed.pending).toSorted()).toEqual(['1', '2', '3']);
+
+    const renamedName = run(units(), {
+      type: 'editCells',
+      changes: [{ rowNo: 1, key: 'name', value: '總公司' }],
+    });
+    expect(Object.keys(renamedName.pending)).toEqual(['1']);
+  });
+
+  it('移除被引用的列，引用它的列重新驗證；復原時也一樣', () => {
+    const removed = run(units(), { type: 'removeRows', rowNos: [1] });
+    expect(Object.keys(removed.pending)).toEqual(['2']);
+    const restored = run(removed, { type: 'undo' });
+    expect(Object.keys(restored.pending).toSorted()).toEqual(['1', '2']);
+  });
+
+  it('fileKeys：只帶這批列引用到、而且檔案裡有的值（原始文字）；修改模式不帶', () => {
+    const state = units();
+    expect(fileKeysFor(state, [state.rows[1]!])).toEqual({ code: ['HQ'] });
+    expect(fileKeysFor(state, [state.rows[2]!])).toBeUndefined();
+    expect(fileKeysFor({ ...state, mode: 'update' }, [state.rows[1]!])).toBeUndefined();
   });
 });

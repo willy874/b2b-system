@@ -200,7 +200,7 @@ describe('匯入／匯出（docs/architecture/backend/22-data-transfer.md）', (
   });
 
   describe('匯出', () => {
-    it('沒有 user:export 時回 403；auditor 只能匯出稽核日誌', async () => {
+    it('沒有 user:export 時回 403；auditor 只能匯出稽核日誌與審批紀錄', async () => {
       const auditor = await login(AUDITOR);
       await createExport(auditor, { type: 'user', scope: { kind: 'filter', filter: {} } }, 403);
       await createExport(auditor, { type: 'auditLog', scope: { kind: 'filter', filter: {} } }, 202);
@@ -211,7 +211,11 @@ describe('匯入／匯出（docs/architecture/backend/22-data-transfer.md）', (
       const items = (
         resources.body as { data: { items: { type: string; importModes: string[] }[] } }
       ).data.items;
-      expect(items.map((item) => item.type)).toEqual(['auditLog']);
+      expect(items.map((item) => item.type).toSorted()).toEqual([
+        'approvalDecision',
+        'approvalRequest',
+        'auditLog',
+      ]);
     });
 
     it('CSV：BOM、匯出者語系的標頭、公式注入防護；完成後通知、下載寫稽核', async () => {

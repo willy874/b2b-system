@@ -110,6 +110,11 @@
       "cancelConfirm_other": "組織圖有 {{count}} 項變更還沒儲存，離開編輯模式會全部放棄。",
       "deleteConfirm_other": "將刪除 {{count}} 個部門（儲存後才生效），成員資格隨部門進回收桶。",
       "deleteConfirmWithChildren_other": "將刪除 {{count}} 個部門（儲存後才生效），成員資格隨部門進回收桶；它們留下的下層部門會變成最上層。"
+    },
+    "transfer": {
+      "units": "部門",
+      "members": "部門成員",
+      "membersOfUnit": "部門成員（目前部門與下層）"
     }
   }
 }

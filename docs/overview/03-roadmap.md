@@ -43,7 +43,8 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-07 | 命令面板（⌘K）、側欄改由 feature 登記的選單註冊表、全域快捷鍵 | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
 | 10-07 | 前端可觀測性：apps/apm-service（模擬 Sentry API）、錯誤回報與 release、Web Vitals、bundle 預算 | [`frontend/19-observability.md`](../architecture/frontend/19-observability.md) |
 | 10-08 | 匯入／匯出：資源登記的欄位定義、CSV／XLSX／SQL 匯出、worker thread 的分析與無狀態驗證、`DataGrid` 預覽、逐列交易的背景套用；第一批是使用者與稽核日誌 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
-| 10-08 | 匯入／匯出的強化：JSON／YAML 匯入匯出與範本、預覽的下拉選單（包成儲存格的 `Select`，可多選）與自動完成、手動指定或撤回比對目標、復原／重做快捷鍵、編輯中的複製貼上、可讀的套用確認框 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §12 D32～D39、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
+| 10-08 | 匯入／匯出的強化：JSON／YAML 匯入匯出與範本、預覽的下拉選單（包成儲存格的 `Select`，可多選）與自動完成、手動指定或撤回比對目標、復原／重做快捷鍵、編輯中的複製貼上、可讀的套用確認框 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §13 D32～D39、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
+| 10-08 | 匯入／匯出擴充到角色、群組與群組成員、部門與部門成員、標籤（匯入＋匯出）與審批、服務帳號（只匯出）；同一份檔案內的引用（部門的上層） | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §12、§7.8 |
 | 10-08 | 組織管理（部門樹、成員、主管）與多階段審批（依序多關、會簽、條件分流、override、我的審批與撤回）；兩者都可由平台關閉、預設啟用 | [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、[`backend/23-organization.md`](../architecture/backend/23-organization.md) |
 | 10-08 | 留言與關注：擁有者登記的資源類型、@提及、關注的通知（背景工作）、資源頁的面板註冊表；第一批接上使用者 | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
 | 10-07 | 監控：api 的 Prometheus 指標與 OpenTelemetry tracing、就緒檢查補上背景工作與 event loop；Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警，apm-service 的錯誤數與 issues 接進 Grafana | [`08-monitoring.md`](../architecture/08-monitoring.md) |
@@ -76,4 +77,4 @@ Phase 0 的目標是「先把誰能做什麼一次做對」，分六個里程碑
 | M5 | 稽核日誌、個人帳號、收尾 | `core/` 不 import `features/`、`modules/`（結構測試）；註解掉任一 feature plugin 仍能啟動；每個錯誤碼與權限鍵都有兩個語系的翻譯（語系測試） |
 
 Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；之後由權限圖一般化，[`iam/01-model.md`](../architecture/iam/01-model.md) §9）、深色主題（09-25）、服務帳號與 API token（10-01）。
-仍未做的（匯入匯出、多實例部署等）在 [`features/README.md`](../features/README.md)。
+仍未做的（多實例部署等）在 [`features/README.md`](../features/README.md)。

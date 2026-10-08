@@ -402,7 +402,9 @@ export class UserTransferResource implements OnModuleInit {
 /** `UserService` 的交易後副作用 → 框架可合併的副作用（權限失效只做一次、推播合併）。 */
 function toEffects(after: UserAfterCommit, users: UserService): AfterCommitEffect[] {
   const effects: AfterCommitEffect[] = [];
-  if (after.permissionsChanged?.length) effects.push({ kind: 'permissionsChanged' });
+  if (after.permissionsChanged?.length) {
+    effects.push({ kind: 'permissionsChanged', userIds: after.permissionsChanged });
+  }
   if (after.invalidateAccount || after.sessionsRevoked?.length) {
     const id = after.invalidateAccount ?? after.sessionsRevoked?.[0] ?? '';
     effects.push({

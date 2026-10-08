@@ -29,8 +29,8 @@ export interface ExportDialogProps {
   selectedIds?: readonly string[];
   /** 列表目前的篩選條件（列表 API 的同一個物件，去掉分頁）。 */
   filter: Record<string, unknown>;
-  /** 符合目前篩選的筆數（列表的 total）。 */
-  matchingTotal: number;
+  /** 符合目前篩選的筆數（列表的 total）；事先不知道時省略（例：群組成員、部門成員）。 */
+  matchingTotal?: number;
   /** 「選取全部符合」：範圍是篩選條件，不先把 id 抓回來（D3）。 */
   allMatchingSelected?: boolean;
   'data-testid'?: string;
@@ -249,9 +249,12 @@ function ExportDialogContent({
                   : []),
                 {
                   value: 'filter',
-                  label: t('dataTransfer.export.scopeFilter', {
-                    total: matchingTotal.toLocaleString(),
-                  }),
+                  label:
+                    matchingTotal === undefined
+                      ? t('dataTransfer.export.scopeAll')
+                      : t('dataTransfer.export.scopeFilter', {
+                          total: matchingTotal.toLocaleString(),
+                        }),
                   description: resource?.export?.orderHint ?? undefined,
                 },
               ]}

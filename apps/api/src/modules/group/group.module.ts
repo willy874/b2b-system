@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { TenantFeatureImpacts } from '@/core/tenant';
 import { AnnouncementTriggerCatalog } from '@/modules/announcement/announcement-trigger.catalog';
 import { AnnouncementModule } from '@/modules/announcement/announcement.module';
+import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 
 import { GroupTrashHandler } from './group-trash.handler';
@@ -10,11 +11,12 @@ import { GROUP_ANNOUNCEMENT_TRIGGERS } from './group.announcement-triggers';
 import { GroupController } from './group.controller';
 import { GroupRepository } from './group.repository';
 import { GroupService } from './group.service';
+import { GroupTransferResource } from './group.transfer';
 
 @Module({
-  imports: [TrashModule, AnnouncementModule],
+  imports: [TrashModule, AnnouncementModule, DataTransferModule],
   controllers: [GroupController],
-  providers: [GroupService, GroupRepository, GroupTrashHandler],
+  providers: [GroupService, GroupRepository, GroupTrashHandler, GroupTransferResource],
   exports: [GroupService],
 })
 export class GroupModule {

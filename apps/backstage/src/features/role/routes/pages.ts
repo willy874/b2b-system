@@ -2,8 +2,10 @@ import { queryClient } from '@b2b-system/web-core/cache';
 import { localeScopeLoader } from '@b2b-system/web-core/locales';
 import { RootRoute } from '@b2b-system/web-core/router';
 import { createRoute, redirect, stripSearchParams } from '@tanstack/react-router';
+import { z } from 'zod';
 
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
+import { requireFeature } from '@/core/feature';
 
 import { ROLE_LOCALE_SCOPE } from '../locale';
 import { DEFAULT_ROLE_SEARCH, RoleSearchQuerySchema } from './model';
@@ -55,4 +57,24 @@ export const RoleDetailPermissionRoute = createRoute({
 export const RoleDetailRevisionRoute = createRoute({
   getParentRoute: () => RoleDetailRoute,
   path: 'revision',
+});
+
+/** 匯入頁的網址：模式與已送出的傳輸（重新整理或從通知回來時直接顯示結果，docs/architecture/backend/22-data-transfer.md §7.2）。 */
+export const RoleImportSearchSchema = z.object({
+  mode: z.enum(['create', 'update']).catch('create'),
+  transfer: z.string().uuid().optional().catch(undefined),
+});
+
+/**
+ * 角色匯入（docs/architecture/backend/22-data-transfer.md §12.1）：全頁，掛在根下而不是 `/role` 底下（不在列表頁的 Outlet 裡，
+ * 也有自己的頁面權限）。屬於可啟用的 `dataTransfer`，未啟用時 404。
+ */
+export const RoleImportRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: '/role/import',
+  staticData: { titleKey: 'menu.roleImport' },
+  beforeLoad: requireFeature('dataTransfer'),
+  loader: localeScopeLoader(ROLE_LOCALE_SCOPE),
+  validateSearch: RoleImportSearchSchema,
+  search: { middlewares: [stripSearchParams({ mode: 'create' as const })] },
 });

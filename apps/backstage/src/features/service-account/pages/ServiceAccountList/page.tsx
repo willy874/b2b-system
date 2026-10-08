@@ -1,5 +1,7 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
-import { ButtonLink } from '@b2b-system/ui/Button';
+import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
+import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
@@ -7,6 +9,7 @@ import { useMemo, useState } from 'react';
 
 import { getServiceAccountListQueryOptions } from '@/apis/service-account/get-service-account-list/query';
 
+import { serviceAccountExportApi } from '../../hooks/serviceAccountExportApi';
 import { useServiceAccountDeleteMutation } from '../../hooks/useServiceAccountMutations';
 import { useServiceAccountPermission } from '../../hooks/useServiceAccountPermission';
 import { ServiceAccountCreateRoute, ServiceAccountDetailRoute } from '../../routes';
@@ -23,6 +26,7 @@ export default function ServiceAccountListPage() {
   const { search, setKeyword, setSort, setPage } = useServiceAccountSearchFilter();
   const [pendingDelete, setPendingDelete] = useState<ServiceAccountRowVM>();
   const deleteAccount = useServiceAccountDeleteMutation();
+  const [exporting, setExporting] = useState(false);
 
   const { data, isPending, error, refetch } = useQuery(
     getServiceAccountListQueryOptions({
@@ -45,16 +49,28 @@ export default function ServiceAccountListPage() {
             {t('serviceAccount.list.description')}
           </p>
         </div>
-        {permission.canCreate && (
-          <ButtonLink
-            variant="primary"
-            to={ServiceAccountCreateRoute.to}
-            search={search}
-            data-testid="service-account-create-button"
-          >
-            {t('serviceAccount.create.action')}
-          </ButtonLink>
-        )}
+        <div className="flex items-center gap-2">
+          {permission.canExport && (
+            <Button
+              variant="secondary"
+              startIcon={<Icon name="download" size={16} />}
+              onClick={() => setExporting(true)}
+              data-testid="service-account-export-button"
+            >
+              {t('dataTransfer.export.action')}
+            </Button>
+          )}
+          {permission.canCreate && (
+            <ButtonLink
+              variant="primary"
+              to={ServiceAccountCreateRoute.to}
+              search={search}
+              data-testid="service-account-create-button"
+            >
+              {t('serviceAccount.create.action')}
+            </ButtonLink>
+          )}
+        </div>
       </header>
 
       <ServiceAccountTable
@@ -84,6 +100,16 @@ export default function ServiceAccountListPage() {
           total: data?.pagination.total ?? 0,
           onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
+      />
+
+      <ExportDialog
+        open={exporting}
+        onOpenChange={setExporting}
+        api={serviceAccountExportApi}
+        type="serviceAccount"
+        filter={{ keyword: search.keyword }}
+        matchingTotal={data?.pagination.total ?? 0}
+        data-testid="service-account-export-dialog"
       />
 
       <AlertDialog

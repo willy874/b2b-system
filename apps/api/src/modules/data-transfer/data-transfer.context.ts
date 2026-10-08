@@ -50,7 +50,7 @@ export class TransferOwnerUnavailableError extends Error {
 
 /**
  * 傳輸的執行脈絡：操作者、語系、時區與權限（docs/architecture/backend/22-data-transfer.md §6.2 `TransferContext`）。
- * 工作以建立者的身分執行（§12 D20）：以 `created_by` 重建 `AuthUser`，放進 request context，業務稽核的 actor 才是建立者。
+ * 工作以建立者的身分執行（§13 D20）：以 `created_by` 重建 `AuthUser`，放進 request context，業務稽核的 actor 才是建立者。
  */
 @Injectable()
 export class DataTransferContextFactory {

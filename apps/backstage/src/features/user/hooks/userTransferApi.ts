@@ -41,7 +41,8 @@ export const userImportApi: ImportApi = {
   fetchColumns: (type, mode, signal) => fetchImportColumnsQuery({ params: { type, mode }, signal }),
   downloadTemplate: (type, mode, format) => fetchImportTemplate({ params: { type, mode, format } }),
   analyze: (type, file, options) => fetchAnalyzeImport({ params: { type, file, ...options } }),
-  validate: (type, mode, rows) => fetchValidateImportRows({ params: { type, mode, rows } }),
+  validate: (type, mode, rows, fileKeys) =>
+    fetchValidateImportRows({ params: { type, mode, rows, ...(fileKeys ? { fileKeys } : {}) } }),
   searchOptions: async (type, column, keyword) =>
     (await fetchImportOptions({ params: { type, column, keyword } })).items,
   searchTargets: async (type, keyword) =>

@@ -302,6 +302,7 @@ export const PermissionKey = {
   'role:update': 'role:update',
   'role:delete': 'role:delete',
   'role:grantPermission': 'role:grantPermission',
+  'role:export': 'role:export',
   'permission:read': 'permission:read',
   'auditLog:read': 'auditLog:read',
   'auditLog:export': 'auditLog:export',
@@ -310,6 +311,7 @@ export const PermissionKey = {
   'approval:read': 'approval:read',
   'approval:review': 'approval:review',
   'approval:override': 'approval:override',
+  'approval:export': 'approval:export',
   'file:create': 'file:create',
   'file:read': 'file:read',
   'file:update': 'file:update',
@@ -328,11 +330,13 @@ export const PermissionKey = {
   'group:update': 'group:update',
   'group:delete': 'group:delete',
   'group:assignRole': 'group:assignRole',
+  'group:export': 'group:export',
   'authz:explain': 'authz:explain',
   'serviceAccount:create': 'serviceAccount:create',
   'serviceAccount:read': 'serviceAccount:read',
   'serviceAccount:update': 'serviceAccount:update',
   'serviceAccount:delete': 'serviceAccount:delete',
+  'serviceAccount:export': 'serviceAccount:export',
   'webhook:create': 'webhook:create',
   'webhook:read': 'webhook:read',
   'webhook:update': 'webhook:update',
@@ -340,6 +344,7 @@ export const PermissionKey = {
   'tag:create': 'tag:create',
   'tag:update': 'tag:update',
   'tag:delete': 'tag:delete',
+  'tag:export': 'tag:export',
   'notification:read': 'notification:read',
   'announcement:create': 'announcement:create',
   'announcement:read': 'announcement:read',
@@ -352,6 +357,7 @@ export const PermissionKey = {
   'orgUnit:read': 'orgUnit:read',
   'orgUnit:update': 'orgUnit:update',
   'orgUnit:delete': 'orgUnit:delete',
+  'orgUnit:export': 'orgUnit:export',
   'approvalFlow:read': 'approvalFlow:read',
   'approvalFlow:update': 'approvalFlow:update',
   'comment:delete': 'comment:delete',
@@ -422,6 +428,268 @@ export interface CreateApiTokenRequest {
 export interface CreatedApiToken {
   token: string;
   apiToken: ApiToken;
+}
+
+export interface DataTransfer {
+  id: string;
+  direction: 'export' | 'import';
+  type: string;
+  mode: ('create' | 'update') | null;
+  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
+  status: 'queued' | 'running' | 'applying' | 'completed' | 'failed' | 'cancelled' | 'expired';
+  scopeKind: ('ids' | 'filter') | null;
+  columns: Array<string>;
+  sourceName: string | null;
+  outputName: string | null;
+  outputSize: number | null;
+  totalRows: number;
+  processedRows: number;
+  succeededRows: number;
+  failedRows: number;
+  skippedRows: number;
+  errorCode: string | null;
+  errorDetails: Record<string, unknown> | null;
+  version: number;
+  expiresAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CancelDataTransferRequest {
+  version: number;
+}
+
+export interface DataTransferDownload {
+  url: string;
+  expiresAt: string;
+  fileName: string;
+}
+
+export interface DataTransferOption {
+  value: string;
+  label: string;
+}
+
+export interface DataTransferExportColumn {
+  key: string;
+  label: string;
+  kind: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'reference' | 'json';
+}
+
+export interface DataTransferResource {
+  type: string;
+  label: string;
+  export: {
+    formats: Array<'csv' | 'xlsx' | 'json' | 'yaml' | 'sql'>;
+    columns: Array<DataTransferExportColumn>;
+    orderHint: string | null;
+  } | null;
+  importModes: Array<'create' | 'update'>;
+}
+
+export interface DataTransferResourceList {
+  items: Array<DataTransferResource>;
+}
+
+export interface DataTransferImportColumn {
+  key: string;
+  label: string;
+  kind: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'reference' | 'json';
+  required: boolean;
+  multiple: boolean;
+  matchKey: number | null;
+  unique: boolean;
+  nullable: boolean;
+  suggest: boolean;
+  hint: string | null;
+  options: Array<DataTransferOption> | null;
+  transitions: Record<string, Array<string>> | null;
+  sameFile: string | null;
+}
+
+export interface DataTransferImportColumnList {
+  items: Array<DataTransferImportColumn>;
+  readOnly: Array<{
+    key: string;
+    label: string;
+  }>;
+}
+
+export interface DataTransferReferenceOptionList {
+  items: Array<{
+    id: string;
+    label: string;
+  }>;
+}
+
+export interface DataTransferTargetOptionList {
+  items: Array<{
+    id: string;
+    label: string;
+    description?: string;
+  }>;
+}
+
+export interface DataTransferRowIssue {
+  column: string | null;
+  code: string;
+  params?: Record<string, unknown>;
+  severity: 'error' | 'warning';
+}
+
+export interface DataTransferImportTarget {
+  id: string;
+  label: string;
+  version: number;
+  current: Record<string, string>;
+  expected?: Record<string, unknown>;
+}
+
+export interface DataTransferRowValidation {
+  rowNo: number;
+  issues: Array<DataTransferRowIssue>;
+  target?: DataTransferImportTarget;
+  changed?: Array<string>;
+}
+
+export interface DataTransferImportRow {
+  rowNo: number;
+  sourceRow: number | null;
+  cells: Record<string, string>;
+  targetId?: string | null;
+}
+
+export type DataTransferImportAnalysis =
+  | {
+      status: 'needsMapping';
+      fileName: string;
+      headers: Array<{
+        index: number;
+        text: string;
+        suggestion: string | null;
+      }>;
+      samples: Array<Array<string>>;
+      ignored: Array<{
+        index: number;
+        header: string;
+        reason: 'readOnly' | 'forbidden';
+      }>;
+      columns: Array<DataTransferImportColumn>;
+      sheets?: Array<string>;
+    }
+  | {
+      status: 'ok';
+      fileName: string;
+      columns: Array<DataTransferImportColumn>;
+      ignored: Array<{
+        header: string;
+        reason: 'readOnly' | 'forbidden' | 'unmapped';
+      }>;
+      rows: Array<DataTransferImportRow>;
+      results: Array<DataTransferRowValidation>;
+      sheets?: Array<string>;
+    };
+
+export interface ValidateImportRequest {
+  mode: 'create' | 'update';
+  rows: Array<{
+    rowNo: number;
+    cells: Record<string, string>;
+    targetId?: string | null;
+  }>;
+  fileKeys?: Record<string, Array<string>>;
+}
+
+export interface ValidateImportResult {
+  rows: Array<DataTransferRowValidation>;
+}
+
+export interface CreateImportRequest {
+  type: string;
+  mode: 'create' | 'update';
+  fileName?: string;
+  skipInvalid: boolean;
+  rows: Array<{
+    rowNo: number;
+    sourceRow?: number | null;
+    cells: Record<string, string>;
+    targetId?: string | null;
+    target?: {
+      id: string;
+      version: number;
+      expected?: Record<string, unknown>;
+    };
+  }>;
+}
+
+export interface CreateExportRequest {
+  type: string;
+  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
+  scope:
+    | {
+        kind: 'ids';
+        ids: Array<string>;
+      }
+    | {
+        kind: 'filter';
+        filter: Record<string, unknown>;
+      };
+  columns?: Array<string>;
+}
+
+export interface DataTransferApplyRow {
+  rowNo: number;
+  sourceRow: number | null;
+  cells: Record<string, string>;
+  outcome: 'pending' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
+  error: Record<string, unknown> | null;
+  changes: Record<string, Array<string | string>> | null;
+  resultId: string | null;
+}
+
+export interface DataTransferApplyRowList {
+  items: Array<DataTransferApplyRow>;
+  nextRowNo: number | null;
+}
+
+export interface AuditLogSummary {
+  id: string;
+  occurredAt: string;
+  actorId: string | null;
+  actorEmail: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  resourceName: string | null;
+  result: 'success' | 'failure';
+  errorCode: string | null;
+}
+
+export interface AuditLogList {
+  items: Array<AuditLogSummary>;
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+  };
+  nextCursor: string | null;
+}
+
+export interface AuditLog {
+  id: string;
+  occurredAt: string;
+  actorId: string | null;
+  actorEmail: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  resourceName: string | null;
+  result: 'success' | 'failure';
+  errorCode: string | null;
+  changes: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface WebhookTarget {
@@ -753,44 +1021,6 @@ export interface OverrideApprovalStepRequest {
   roleIds: Array<string>;
 }
 
-export interface AuditLogSummary {
-  id: string;
-  occurredAt: string;
-  actorId: string | null;
-  actorEmail: string;
-  action: string;
-  resourceType: string;
-  resourceId: string | null;
-  resourceName: string | null;
-  result: 'success' | 'failure';
-  errorCode: string | null;
-}
-
-export interface AuditLogList {
-  items: Array<AuditLogSummary>;
-  pagination: {
-    offset: number;
-    limit: number;
-    total: number;
-  };
-  nextCursor: string | null;
-}
-
-export interface AuditLog {
-  id: string;
-  occurredAt: string;
-  actorId: string | null;
-  actorEmail: string;
-  action: string;
-  resourceType: string;
-  resourceId: string | null;
-  resourceName: string | null;
-  result: 'success' | 'failure';
-  errorCode: string | null;
-  changes: Record<string, unknown> | null;
-  metadata: Record<string, unknown> | null;
-}
-
 export interface IdentityProviderDomain {
   domain: string;
   ssoOnly: boolean;
@@ -939,228 +1169,6 @@ export interface MentionableList {
 export interface WatchState {
   watching: boolean;
   watcherCount: number;
-}
-
-export interface DataTransfer {
-  id: string;
-  direction: 'export' | 'import';
-  type: string;
-  mode: ('create' | 'update') | null;
-  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
-  status: 'queued' | 'running' | 'applying' | 'completed' | 'failed' | 'cancelled' | 'expired';
-  scopeKind: ('ids' | 'filter') | null;
-  columns: Array<string>;
-  sourceName: string | null;
-  outputName: string | null;
-  outputSize: number | null;
-  totalRows: number;
-  processedRows: number;
-  succeededRows: number;
-  failedRows: number;
-  skippedRows: number;
-  errorCode: string | null;
-  errorDetails: Record<string, unknown> | null;
-  version: number;
-  expiresAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CancelDataTransferRequest {
-  version: number;
-}
-
-export interface DataTransferDownload {
-  url: string;
-  expiresAt: string;
-  fileName: string;
-}
-
-export interface DataTransferOption {
-  value: string;
-  label: string;
-}
-
-export interface DataTransferExportColumn {
-  key: string;
-  label: string;
-  kind: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'reference' | 'json';
-}
-
-export interface DataTransferResource {
-  type: string;
-  label: string;
-  export: {
-    formats: Array<'csv' | 'xlsx' | 'json' | 'yaml' | 'sql'>;
-    columns: Array<DataTransferExportColumn>;
-    orderHint: string | null;
-  } | null;
-  importModes: Array<'create' | 'update'>;
-}
-
-export interface DataTransferResourceList {
-  items: Array<DataTransferResource>;
-}
-
-export interface DataTransferImportColumn {
-  key: string;
-  label: string;
-  kind: 'string' | 'number' | 'boolean' | 'date' | 'datetime' | 'enum' | 'reference' | 'json';
-  required: boolean;
-  multiple: boolean;
-  matchKey: number | null;
-  unique: boolean;
-  nullable: boolean;
-  suggest: boolean;
-  hint: string | null;
-  options: Array<DataTransferOption> | null;
-  transitions: Record<string, Array<string>> | null;
-}
-
-export interface DataTransferImportColumnList {
-  items: Array<DataTransferImportColumn>;
-  readOnly: Array<{
-    key: string;
-    label: string;
-  }>;
-}
-
-export interface DataTransferReferenceOptionList {
-  items: Array<{
-    id: string;
-    label: string;
-  }>;
-}
-
-export interface DataTransferTargetOptionList {
-  items: Array<{
-    id: string;
-    label: string;
-    description?: string;
-  }>;
-}
-
-export interface DataTransferRowIssue {
-  column: string | null;
-  code: string;
-  params?: Record<string, unknown>;
-  severity: 'error' | 'warning';
-}
-
-export interface DataTransferImportTarget {
-  id: string;
-  label: string;
-  version: number;
-  current: Record<string, string>;
-  expected?: Record<string, unknown>;
-}
-
-export interface DataTransferRowValidation {
-  rowNo: number;
-  issues: Array<DataTransferRowIssue>;
-  target?: DataTransferImportTarget;
-  changed?: Array<string>;
-}
-
-export interface DataTransferImportRow {
-  rowNo: number;
-  sourceRow: number | null;
-  cells: Record<string, string>;
-  targetId?: string | null;
-}
-
-export type DataTransferImportAnalysis =
-  | {
-      status: 'needsMapping';
-      fileName: string;
-      headers: Array<{
-        index: number;
-        text: string;
-        suggestion: string | null;
-      }>;
-      samples: Array<Array<string>>;
-      ignored: Array<{
-        index: number;
-        header: string;
-        reason: 'readOnly' | 'forbidden';
-      }>;
-      columns: Array<DataTransferImportColumn>;
-      sheets?: Array<string>;
-    }
-  | {
-      status: 'ok';
-      fileName: string;
-      columns: Array<DataTransferImportColumn>;
-      ignored: Array<{
-        header: string;
-        reason: 'readOnly' | 'forbidden' | 'unmapped';
-      }>;
-      rows: Array<DataTransferImportRow>;
-      results: Array<DataTransferRowValidation>;
-      sheets?: Array<string>;
-    };
-
-export interface ValidateImportRequest {
-  mode: 'create' | 'update';
-  rows: Array<{
-    rowNo: number;
-    cells: Record<string, string>;
-    targetId?: string | null;
-  }>;
-}
-
-export interface ValidateImportResult {
-  rows: Array<DataTransferRowValidation>;
-}
-
-export interface CreateImportRequest {
-  type: string;
-  mode: 'create' | 'update';
-  fileName?: string;
-  skipInvalid: boolean;
-  rows: Array<{
-    rowNo: number;
-    sourceRow?: number | null;
-    cells: Record<string, string>;
-    targetId?: string | null;
-    target?: {
-      id: string;
-      version: number;
-      expected?: Record<string, unknown>;
-    };
-  }>;
-}
-
-export interface CreateExportRequest {
-  type: string;
-  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
-  scope:
-    | {
-        kind: 'ids';
-        ids: Array<string>;
-      }
-    | {
-        kind: 'filter';
-        filter: Record<string, unknown>;
-      };
-  columns?: Array<string>;
-}
-
-export interface DataTransferApplyRow {
-  rowNo: number;
-  sourceRow: number | null;
-  cells: Record<string, string>;
-  outcome: 'pending' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
-  error: Record<string, unknown> | null;
-  changes: Record<string, Array<string | string>> | null;
-  resultId: string | null;
-}
-
-export interface DataTransferApplyRowList {
-  items: Array<DataTransferApplyRow>;
-  nextRowNo: number | null;
 }
 
 export interface OrgUnit {

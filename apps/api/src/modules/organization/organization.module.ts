@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { TenantFeatureImpacts } from '@/core/tenant';
 import { ApprovalFlowService } from '@/modules/approval/approval-flow.service';
 import { ApprovalModule } from '@/modules/approval/approval.module';
+import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module';
 import { TrashModule } from '@/modules/trash/trash.module';
 
 import { OrgAssigneeResolvers } from './org-assignee.resolvers';
@@ -11,13 +12,14 @@ import { OrgUnitTrashHandler } from './org-unit-trash.handler';
 import { OrgUnitController, UserOrgUnitController } from './org-unit.controller';
 import { OrgUnitRepository } from './org-unit.repository';
 import { OrgUnitService } from './org-unit.service';
+import { OrgUnitTransferResource } from './org-unit.transfer';
 
 /**
  * 組織管理（docs/architecture/backend/23-organization.md）：部門樹、成員、主管。
  * `OrgChartService` 給其他模組查主管與部門範圍；審批的 `manager`／`orgUnit` 規則由這裡登記進審批（§3）。
  */
 @Module({
-  imports: [TrashModule, ApprovalModule],
+  imports: [TrashModule, ApprovalModule, DataTransferModule],
   controllers: [OrgUnitController, UserOrgUnitController],
   providers: [
     OrgUnitService,
@@ -25,6 +27,7 @@ import { OrgUnitService } from './org-unit.service';
     OrgChartService,
     OrgUnitTrashHandler,
     OrgAssigneeResolvers,
+    OrgUnitTransferResource,
   ],
   exports: [OrgChartService],
 })

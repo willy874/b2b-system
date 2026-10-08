@@ -17,6 +17,15 @@ import type {
 } from '../data-transfer.types';
 import { cleanText, closest, normalizeText, parseCell, toCellText } from '../data-transfer.values';
 import type { RowValidation } from '../dto/data-transfer.dto';
+import {
+  collectFileKeys,
+  isSameFileRef,
+  planSameFile,
+  sameFileColumns,
+  sameFileKeyOf,
+  sameFileRef,
+} from './same-file';
+import type { SameFileRef } from './same-file';
 
 export interface ImportRowInput {
   rowNo: number;
@@ -91,7 +100,11 @@ export class ImportValidator {
     mode: ImportMode,
     inputs: readonly ImportRowInput[],
     ctx: TransferContext,
-    options: { crossRow?: boolean } = {},
+    options: {
+      crossRow?: boolean;
+      /** 預覽的 `validate`：這批列引用到、而且檔案裡有的值（§7.8）；分析與套用工作手上就是整份檔案，不必帶。 */
+      fileKeys?: Readonly<Record<string, readonly string[]>>;
+    } = {},
   ): Promise<ValidatedRow[]> {
     const sets = importColumnSets(resource, mode, ctx);
     const byKey = new Map(sets.importable.map((column) => [column.key, column]));
@@ -155,8 +168,11 @@ export class ImportValidator {
       }
     });
 
-    // 2. 參照：完全相符才算對上，不自動更正；附上最接近的候選（D7）
-    await this.resolveReferences(rows, references, ctx);
+    // 2. 參照：完全相符才算對上，不自動更正；附上最接近的候選（D7）。新增模式還可以指向檔案裡的其他列（§7.8）
+    const inFile =
+      mode === 'create' ? collectFileKeys(resource, inputs, options.fileKeys) : new Map();
+    await this.resolveReferences(rows, references, ctx, inFile);
+    if (mode === 'create') this.checkSameFileCycles(resource, inputs, rows);
 
     // 3. 必填（新增模式）
     if (mode === 'create') {
@@ -228,11 +244,13 @@ export class ImportValidator {
     rows: ValidatedRow[],
     references: Map<AnyColumn, Set<string>>,
     ctx: TransferContext,
+    inFile: ReadonlyMap<string, ReadonlySet<string>>,
   ): Promise<void> {
     for (const [column, names] of references) {
       const spec = column.reference;
       if (!spec) continue;
       const resolved = await spec.resolve([...names], ctx);
+      const sameFile = spec.sameFile ? inFile.get(spec.sameFile.column) : undefined;
       const suggestions = new Map<string, string | null>();
       const suggest = async (name: string): Promise<string | null> => {
         if (suggestions.has(name)) return suggestions.get(name) ?? null;
@@ -249,11 +267,17 @@ export class ImportValidator {
         const value = row.values[column.key];
         if (value === undefined || value === null) continue;
         const items = (Array.isArray(value) ? value : [value]).map(String);
-        const ids: string[] = [];
+        const ids: Array<string | SameFileRef> = [];
         const labels: string[] = [];
         let failed = false;
         for (const name of items) {
           const match: ResolvedReference | undefined = resolved.get(normalizeText(name));
+          if (!match && sameFile?.has(normalizeText(name))) {
+            // 資料庫裡沒有、檔案裡有：套用時換成那一列建立的 id
+            ids.push(sameFileRef(normalizeText(name)));
+            labels.push(name);
+            continue;
+          }
           if (!match) {
             const suggestion = await suggest(name);
             row.issues.push(
@@ -278,6 +302,39 @@ export class ImportValidator {
         row.values[column.key] = column.multiple ? [...new Set(ids)] : ids[0];
         row.texts[column.key] = labels.join(MULTI_VALUE_SEPARATOR);
       }
+    }
+  }
+
+  /** 同檔引用形成循環（含引用自己）的列：永遠沒有一列能先建立（§7.8）。 */
+  private checkSameFileCycles(
+    resource: AnyTransferResource,
+    inputs: readonly ImportRowInput[],
+    rows: ValidatedRow[],
+  ): void {
+    const columns = sameFileColumns(resource);
+    if (!columns.length) return;
+    const cells = new Map(inputs.map((input) => [input.rowNo, input.cells]));
+    const { cyclic } = planSameFile(
+      rows,
+      (row) =>
+        columns.flatMap((column) => {
+          const value = row.values[column.key];
+          return isSameFileRef(value) ? [value.key] : [];
+        }),
+      (row) =>
+        columns.flatMap((column) => {
+          const key = sameFileKeyOf(
+            cells.get(row.rowNo) ?? {},
+            column.reference?.sameFile?.column ?? '',
+          );
+          return key ? [key] : [];
+        }),
+    );
+    for (const row of cyclic) {
+      const column = columns.find((item) => isSameFileRef(row.values[item.key]));
+      if (!column) continue;
+      row.issues.push(error(column.key, 'referenceCycle', { value: row.texts[column.key] ?? '' }));
+      delete row.values[column.key];
     }
   }
 

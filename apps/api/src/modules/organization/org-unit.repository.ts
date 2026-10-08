@@ -36,6 +36,17 @@ export interface OrgUnitMemberView {
   title: string | null;
 }
 
+/** 匯入匯出的一筆部門成員（docs/architecture/backend/22-data-transfer.md §12.3）。 */
+export interface OrgUnitMembershipRow {
+  unitId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  isManager: boolean;
+  isPrimary: boolean;
+  title: string | null;
+}
+
 /** 稽核用的成員快照。 */
 export interface OrgUnitMemberSnapshot {
   userId: string;
@@ -238,7 +249,8 @@ export class OrgUnitRepository {
   async setSortOrders(order: readonly string[], tx: DbOrTx): Promise<void> {
     if (!order.length) return;
     const cases = sql.join(
-      order.map((id, index) => sql`WHEN ${id}::uuid THEN ${index}`),
+      // 參數要標型別：CASE 的每個分支都是沒有型別的參數時，postgres 推成 text，寫進 integer 欄位會失敗
+      order.map((id, index) => sql`WHEN ${id}::uuid THEN ${index}::int`),
       sql` `,
     );
     await tx
@@ -601,6 +613,115 @@ export class OrgUnitRepository {
     await tx
       .delete(orgUnitMembers)
       .where(and(eq(orgUnitMembers.unitId, unitId), inArray(orgUnitMembers.userId, [...userIds])));
+  }
+
+  // ── 匯入匯出（docs/architecture/backend/22-data-transfer.md §12.3）────────
+
+  /** 已被未刪除的部門使用的代碼（小寫）。 */
+  async findTakenCodes(values: readonly string[]): Promise<Set<string>> {
+    if (!values.length) return new Set();
+    const rows = await this.db
+      .select({ value: sql<string>`lower(${orgUnits.code}::text)` })
+      .from(orgUnits)
+      .where(
+        and(
+          notDeleted(orgUnits),
+          sql`lower(${orgUnits.code}::text) IN ${values.map((value) => value.toLowerCase())}`,
+        ),
+      );
+    return new Set(rows.map((row) => row.value));
+  }
+
+  /** 這些部門（未刪除）的成員（未刪除的使用者），依部門、顯示名稱排序。 */
+  async membersOfUnits(unitIds: readonly string[]): Promise<OrgUnitMembershipRow[]> {
+    if (!unitIds.length) return [];
+    return this.db
+      .select({
+        unitId: orgUnitMembers.unitId,
+        userId: orgUnitMembers.userId,
+        email: sql<string>`${users.email}::text`,
+        displayName: users.displayName,
+        isManager: orgUnitMembers.isManager,
+        isPrimary: orgUnitMembers.isPrimary,
+        title: orgUnitMembers.title,
+      })
+      .from(orgUnitMembers)
+      .innerJoin(users, eq(users.id, orgUnitMembers.userId))
+      .where(and(inArray(orgUnitMembers.unitId, [...unitIds]), notDeleted(users)))
+      .orderBy(asc(orgUnitMembers.unitId), asc(users.displayName), asc(users.id));
+  }
+
+  /** 這些（部門、使用者）的成員資格；key 是 `部門 id:使用者 id`。 */
+  async findMemberships(
+    pairs: ReadonlyArray<{ unitId: string; userId: string }>,
+  ): Promise<Map<string, OrgUnitMembershipRow>> {
+    const result = new Map<string, OrgUnitMembershipRow>();
+    if (!pairs.length) return result;
+    const rows = await this.db
+      .select({
+        unitId: orgUnitMembers.unitId,
+        userId: orgUnitMembers.userId,
+        email: sql<string>`${users.email}::text`,
+        displayName: users.displayName,
+        isManager: orgUnitMembers.isManager,
+        isPrimary: orgUnitMembers.isPrimary,
+        title: orgUnitMembers.title,
+      })
+      .from(orgUnitMembers)
+      .innerJoin(users, eq(users.id, orgUnitMembers.userId))
+      .innerJoin(orgUnits, and(eq(orgUnits.id, orgUnitMembers.unitId), notDeleted(orgUnits)))
+      .where(
+        and(
+          notDeleted(users),
+          sql`(${orgUnitMembers.unitId}, ${orgUnitMembers.userId}) IN (${sql.join(
+            pairs.map((pair) => sql`(${pair.unitId}::uuid, ${pair.userId}::uuid)`),
+            sql`, `,
+          )})`,
+        ),
+      );
+    for (const row of rows) result.set(`${row.unitId}:${row.userId}`, row);
+    return result;
+  }
+
+  /** 使用者參照：以 email 或 id 找未刪除的使用者（不分大小寫）。 */
+  async findActiveUsersByEmails(
+    values: readonly string[],
+  ): Promise<Array<{ id: string; email: string }>> {
+    if (!values.length) return [];
+    const lowered = values.map((value) => value.toLowerCase());
+    return this.db
+      .select({ id: users.id, email: sql<string>`${users.email}::text` })
+      .from(users)
+      .where(
+        and(
+          notDeleted(users),
+          sql`(lower(${users.email}::text) IN ${lowered} OR ${users.id}::text IN ${lowered})`,
+        ),
+      );
+  }
+
+  async searchActiveUsers(
+    keyword: string,
+    limit: number,
+  ): Promise<Array<{ id: string; email: string; displayName: string }>> {
+    const pattern = containsPattern(keyword);
+    return this.db
+      .select({
+        id: users.id,
+        email: sql<string>`${users.email}::text`,
+        displayName: users.displayName,
+      })
+      .from(users)
+      .where(
+        and(
+          notDeleted(users),
+          keyword
+            ? sql`(${users.email}::text ILIKE ${pattern} OR ${users.displayName} ILIKE ${pattern})`
+            : undefined,
+        ),
+      )
+      .orderBy(asc(users.email))
+      .limit(limit);
   }
 
   /** 那個人所屬的（未刪除）部門，主要部門在前。 */

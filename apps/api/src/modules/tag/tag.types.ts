@@ -11,6 +11,8 @@ export interface TagScopeDefinition {
   scope: string;
   /** 所屬的可啟用 feature：租戶沒啟用時這個標籤組回 `404 FEATURE_DISABLED`（D12）。 */
   feature?: TenantFeature;
+  /** 顯示名稱（匯入匯出的「標籤組」欄，docs/architecture/backend/22-data-transfer.md §12.4）；沒有時顯示 `scope`。 */
+  label?: { 'zh-TW': string; 'en-US': string };
   /**
    * 進得了這個標籤組（讀得到定義）：通常是「能看這種資源的列表」的權限（D5）。進不了就拋 `403 AUTHZ_FORBIDDEN`
    * 並寫 `authz.denied`——`GET /tags` 只宣告 `@Authenticated()`，這裡是唯一的權限檢查，拒絕要留在稽核裡。

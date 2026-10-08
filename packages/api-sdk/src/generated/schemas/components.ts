@@ -788,6 +788,7 @@ export const PermissionKeySchema = z.enum([
   'role:update',
   'role:delete',
   'role:grantPermission',
+  'role:export',
   'permission:read',
   'auditLog:read',
   'auditLog:export',
@@ -796,6 +797,7 @@ export const PermissionKeySchema = z.enum([
   'approval:read',
   'approval:review',
   'approval:override',
+  'approval:export',
   'file:create',
   'file:read',
   'file:update',
@@ -814,11 +816,13 @@ export const PermissionKeySchema = z.enum([
   'group:update',
   'group:delete',
   'group:assignRole',
+  'group:export',
   'authz:explain',
   'serviceAccount:create',
   'serviceAccount:read',
   'serviceAccount:update',
   'serviceAccount:delete',
+  'serviceAccount:export',
   'webhook:create',
   'webhook:read',
   'webhook:update',
@@ -826,6 +830,7 @@ export const PermissionKeySchema = z.enum([
   'tag:create',
   'tag:update',
   'tag:delete',
+  'tag:export',
   'notification:read',
   'announcement:create',
   'announcement:read',
@@ -838,6 +843,7 @@ export const PermissionKeySchema = z.enum([
   'orgUnit:read',
   'orgUnit:update',
   'orgUnit:delete',
+  'orgUnit:export',
   'approvalFlow:read',
   'approvalFlow:update',
   'comment:delete',
@@ -936,6 +942,340 @@ export const CreatedApiTokenSchema = z.object({
   token: z.string(),
   apiToken: ApiTokenSchema,
 }) satisfies z.ZodType<CreatedApiToken>;
+
+export const DataTransferSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  direction: z.enum(['export', 'import']),
+  type: z.string(),
+  mode: z.enum(['create', 'update']).nullable(),
+  format: z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql']),
+  status: z.enum(['queued', 'running', 'applying', 'completed', 'failed', 'cancelled', 'expired']),
+  scopeKind: z.enum(['ids', 'filter']).nullable(),
+  columns: z.array(z.string()),
+  sourceName: z.string().nullable(),
+  outputName: z.string().nullable(),
+  outputSize: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  totalRows: z.int().min(-9007199254740991).max(9007199254740991),
+  processedRows: z.int().min(-9007199254740991).max(9007199254740991),
+  succeededRows: z.int().min(-9007199254740991).max(9007199254740991),
+  failedRows: z.int().min(-9007199254740991).max(9007199254740991),
+  skippedRows: z.int().min(-9007199254740991).max(9007199254740991),
+  errorCode: z.string().nullable(),
+  errorDetails: z.record(z.string(), z.unknown()).nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  expiresAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<DataTransfer>;
+
+export const CancelDataTransferRequestSchema = z.object({
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<CancelDataTransferRequest>;
+
+export const DataTransferDownloadSchema = z.object({
+  url: z.string(),
+  expiresAt: z.string(),
+  fileName: z.string(),
+}) satisfies z.ZodType<DataTransferDownload>;
+
+export const DataTransferOptionSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+}) satisfies z.ZodType<DataTransferOption>;
+
+export const DataTransferExportColumnSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  kind: z.enum(['string', 'number', 'boolean', 'date', 'datetime', 'enum', 'reference', 'json']),
+}) satisfies z.ZodType<DataTransferExportColumn>;
+
+export const DataTransferResourceSchema = z.object({
+  type: z.string(),
+  label: z.string(),
+  export: z
+    .object({
+      formats: z.array(z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql'])),
+      columns: z.array(DataTransferExportColumnSchema),
+      orderHint: z.string().nullable(),
+    })
+    .nullable(),
+  importModes: z.array(z.enum(['create', 'update'])),
+}) satisfies z.ZodType<DataTransferResource>;
+
+export const DataTransferResourceListSchema = z.object({
+  items: z.array(DataTransferResourceSchema),
+}) satisfies z.ZodType<DataTransferResourceList>;
+
+export const DataTransferImportColumnSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  kind: z.enum(['string', 'number', 'boolean', 'date', 'datetime', 'enum', 'reference', 'json']),
+  required: z.boolean(),
+  multiple: z.boolean(),
+  matchKey: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  unique: z.boolean(),
+  nullable: z.boolean(),
+  suggest: z.boolean(),
+  hint: z.string().nullable(),
+  options: z.array(DataTransferOptionSchema).nullable(),
+  transitions: z.record(z.string(), z.array(z.string())).nullable(),
+  sameFile: z.string().nullable(),
+}) satisfies z.ZodType<DataTransferImportColumn>;
+
+export const DataTransferImportColumnListSchema = z.object({
+  items: z.array(DataTransferImportColumnSchema),
+  readOnly: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+    }),
+  ),
+}) satisfies z.ZodType<DataTransferImportColumnList>;
+
+export const DataTransferReferenceOptionListSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+    }),
+  ),
+}) satisfies z.ZodType<DataTransferReferenceOptionList>;
+
+export const DataTransferTargetOptionListSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      description: z.string().optional(),
+    }),
+  ),
+}) satisfies z.ZodType<DataTransferTargetOptionList>;
+
+export const DataTransferRowIssueSchema = z.object({
+  column: z.string().nullable(),
+  code: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  severity: z.enum(['error', 'warning']),
+}) satisfies z.ZodType<DataTransferRowIssue>;
+
+export const DataTransferImportTargetSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  current: z.record(z.string(), z.string()),
+  expected: z.record(z.string(), z.unknown()).optional(),
+}) satisfies z.ZodType<DataTransferImportTarget>;
+
+export const DataTransferRowValidationSchema = z.object({
+  rowNo: z.int().min(-9007199254740991).max(9007199254740991),
+  issues: z.array(DataTransferRowIssueSchema),
+  target: DataTransferImportTargetSchema.optional(),
+  changed: z.array(z.string()).optional(),
+}) satisfies z.ZodType<DataTransferRowValidation>;
+
+export const DataTransferImportRowSchema = z.object({
+  rowNo: z.int().min(1).max(9007199254740991),
+  sourceRow: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  cells: z.record(z.string(), z.string().max(32767)),
+  targetId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+}) satisfies z.ZodType<DataTransferImportRow>;
+
+export const DataTransferImportAnalysisSchema = z.union([
+  z.object({
+    status: z.enum(['needsMapping']),
+    fileName: z.string(),
+    headers: z.array(
+      z.object({
+        index: z.int().min(-9007199254740991).max(9007199254740991),
+        text: z.string(),
+        suggestion: z.string().nullable(),
+      }),
+    ),
+    samples: z.array(z.array(z.string())),
+    ignored: z.array(
+      z.object({
+        index: z.int().min(-9007199254740991).max(9007199254740991),
+        header: z.string(),
+        reason: z.enum(['readOnly', 'forbidden']),
+      }),
+    ),
+    columns: z.array(DataTransferImportColumnSchema),
+    sheets: z.array(z.string()).optional(),
+  }),
+  z.object({
+    status: z.enum(['ok']),
+    fileName: z.string(),
+    columns: z.array(DataTransferImportColumnSchema),
+    ignored: z.array(
+      z.object({
+        header: z.string(),
+        reason: z.enum(['readOnly', 'forbidden', 'unmapped']),
+      }),
+    ),
+    rows: z.array(DataTransferImportRowSchema),
+    results: z.array(DataTransferRowValidationSchema),
+    sheets: z.array(z.string()).optional(),
+  }),
+]) satisfies z.ZodType<DataTransferImportAnalysis>;
+
+export const ValidateImportRequestSchema = z.object({
+  mode: z.enum(['create', 'update']),
+  rows: z
+    .array(
+      z.object({
+        rowNo: z.int().min(1).max(9007199254740991),
+        cells: z.record(z.string(), z.string().max(32767)),
+        targetId: z
+          .uuid()
+          .regex(
+            new RegExp(
+              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+            ),
+          )
+          .nullable()
+          .optional(),
+      }),
+    )
+    .min(1)
+    .max(1000),
+  fileKeys: z.record(z.string(), z.array(z.string().max(500)).max(1000)).optional(),
+}) satisfies z.ZodType<ValidateImportRequest>;
+
+export const ValidateImportResultSchema = z.object({
+  rows: z.array(DataTransferRowValidationSchema),
+}) satisfies z.ZodType<ValidateImportResult>;
+
+export const CreateImportRequestSchema = z.object({
+  type: z.string().min(1).max(50),
+  mode: z.enum(['create', 'update']),
+  fileName: z.string().max(255).optional(),
+  skipInvalid: z.boolean().default(false),
+  rows: z
+    .array(
+      z.object({
+        rowNo: z.int().min(1).max(9007199254740991),
+        sourceRow: z.int().min(1).max(9007199254740991).nullable().optional(),
+        cells: z.record(z.string(), z.string().max(32767)),
+        targetId: z
+          .uuid()
+          .regex(
+            new RegExp(
+              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+            ),
+          )
+          .nullable()
+          .optional(),
+        target: z
+          .object({
+            id: z
+              .uuid()
+              .regex(
+                new RegExp(
+                  '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+                ),
+              ),
+            version: z.int().min(1).max(9007199254740991),
+            expected: z.record(z.string(), z.unknown()).optional(),
+          })
+          .optional(),
+      }),
+    )
+    .min(1)
+    .max(20000),
+}) satisfies z.ZodType<CreateImportRequest>;
+
+export const CreateExportRequestSchema = z.object({
+  type: z.string().min(1).max(50),
+  format: z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql']).default('csv'),
+  scope: z.union([
+    z.object({
+      kind: z.enum(['ids']),
+      ids: z.array(z.string().min(1).max(64)).min(1).max(10000),
+    }),
+    z.object({
+      kind: z.enum(['filter']),
+      filter: z.record(z.string(), z.unknown()).default({}),
+    }),
+  ]),
+  columns: z.array(z.string().min(1).max(100)).min(1).max(100).optional(),
+}) satisfies z.ZodType<CreateExportRequest>;
+
+export const DataTransferApplyRowSchema = z.object({
+  rowNo: z.int().min(-9007199254740991).max(9007199254740991),
+  sourceRow: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  cells: z.record(z.string(), z.string()),
+  outcome: z.enum(['pending', 'succeeded', 'failed', 'skipped', 'cancelled']),
+  error: z.record(z.string(), z.unknown()).nullable(),
+  changes: z
+    .record(
+      z.string(),
+      z
+        .array(z.union([z.string(), z.string()]))
+        .min(2)
+        .max(2),
+    )
+    .nullable(),
+  resultId: z.string().nullable(),
+}) satisfies z.ZodType<DataTransferApplyRow>;
+
+export const DataTransferApplyRowListSchema = z.object({
+  items: z.array(DataTransferApplyRowSchema),
+  nextRowNo: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+}) satisfies z.ZodType<DataTransferApplyRowList>;
+
+export const AuditLogSummarySchema = z.object({
+  id: z.string(),
+  occurredAt: z.string(),
+  actorId: z.string().nullable(),
+  actorEmail: z.string(),
+  action: z.string(),
+  resourceType: z.string(),
+  resourceId: z.string().nullable(),
+  resourceName: z.string().nullable(),
+  result: z.enum(['success', 'failure']),
+  errorCode: z.string().nullable(),
+}) satisfies z.ZodType<AuditLogSummary>;
+
+export const AuditLogListSchema = z.object({
+  items: z.array(AuditLogSummarySchema),
+  pagination: z.object({
+    offset: z.int().min(-9007199254740991).max(9007199254740991),
+    limit: z.int().min(-9007199254740991).max(9007199254740991),
+    total: z.int().min(-9007199254740991).max(9007199254740991),
+  }),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<AuditLogList>;
+
+export const AuditLogSchema = z.object({
+  id: z.string(),
+  occurredAt: z.string(),
+  actorId: z.string().nullable(),
+  actorEmail: z.string(),
+  action: z.string(),
+  resourceType: z.string(),
+  resourceId: z.string().nullable(),
+  resourceName: z.string().nullable(),
+  result: z.enum(['success', 'failure']),
+  errorCode: z.string().nullable(),
+  changes: z.record(z.string(), z.unknown()).nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
+}) satisfies z.ZodType<AuditLog>;
 
 export const WebhookTargetSchema = z.object({
   id: z
@@ -1471,44 +1811,6 @@ export const OverrideApprovalStepRequestSchema = z.object({
     .default([]),
 }) satisfies z.ZodType<OverrideApprovalStepRequest>;
 
-export const AuditLogSummarySchema = z.object({
-  id: z.string(),
-  occurredAt: z.string(),
-  actorId: z.string().nullable(),
-  actorEmail: z.string(),
-  action: z.string(),
-  resourceType: z.string(),
-  resourceId: z.string().nullable(),
-  resourceName: z.string().nullable(),
-  result: z.enum(['success', 'failure']),
-  errorCode: z.string().nullable(),
-}) satisfies z.ZodType<AuditLogSummary>;
-
-export const AuditLogListSchema = z.object({
-  items: z.array(AuditLogSummarySchema),
-  pagination: z.object({
-    offset: z.int().min(-9007199254740991).max(9007199254740991),
-    limit: z.int().min(-9007199254740991).max(9007199254740991),
-    total: z.int().min(-9007199254740991).max(9007199254740991),
-  }),
-  nextCursor: z.string().nullable(),
-}) satisfies z.ZodType<AuditLogList>;
-
-export const AuditLogSchema = z.object({
-  id: z.string(),
-  occurredAt: z.string(),
-  actorId: z.string().nullable(),
-  actorEmail: z.string(),
-  action: z.string(),
-  resourceType: z.string(),
-  resourceId: z.string().nullable(),
-  resourceName: z.string().nullable(),
-  result: z.enum(['success', 'failure']),
-  errorCode: z.string().nullable(),
-  changes: z.record(z.string(), z.unknown()).nullable(),
-  metadata: z.record(z.string(), z.unknown()).nullable(),
-}) satisfies z.ZodType<AuditLog>;
-
 export const IdentityProviderDomainSchema = z.object({
   domain: z
     .string()
@@ -1728,300 +2030,6 @@ export const WatchStateSchema = z.object({
   watching: z.boolean(),
   watcherCount: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<WatchState>;
-
-export const DataTransferSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  direction: z.enum(['export', 'import']),
-  type: z.string(),
-  mode: z.enum(['create', 'update']).nullable(),
-  format: z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql']),
-  status: z.enum(['queued', 'running', 'applying', 'completed', 'failed', 'cancelled', 'expired']),
-  scopeKind: z.enum(['ids', 'filter']).nullable(),
-  columns: z.array(z.string()),
-  sourceName: z.string().nullable(),
-  outputName: z.string().nullable(),
-  outputSize: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  totalRows: z.int().min(-9007199254740991).max(9007199254740991),
-  processedRows: z.int().min(-9007199254740991).max(9007199254740991),
-  succeededRows: z.int().min(-9007199254740991).max(9007199254740991),
-  failedRows: z.int().min(-9007199254740991).max(9007199254740991),
-  skippedRows: z.int().min(-9007199254740991).max(9007199254740991),
-  errorCode: z.string().nullable(),
-  errorDetails: z.record(z.string(), z.unknown()).nullable(),
-  version: z.int().min(-9007199254740991).max(9007199254740991),
-  expiresAt: z.string(),
-  startedAt: z.string().nullable(),
-  finishedAt: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-}) satisfies z.ZodType<DataTransfer>;
-
-export const CancelDataTransferRequestSchema = z.object({
-  version: z.int().min(1).max(9007199254740991),
-}) satisfies z.ZodType<CancelDataTransferRequest>;
-
-export const DataTransferDownloadSchema = z.object({
-  url: z.string(),
-  expiresAt: z.string(),
-  fileName: z.string(),
-}) satisfies z.ZodType<DataTransferDownload>;
-
-export const DataTransferOptionSchema = z.object({
-  value: z.string(),
-  label: z.string(),
-}) satisfies z.ZodType<DataTransferOption>;
-
-export const DataTransferExportColumnSchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  kind: z.enum(['string', 'number', 'boolean', 'date', 'datetime', 'enum', 'reference', 'json']),
-}) satisfies z.ZodType<DataTransferExportColumn>;
-
-export const DataTransferResourceSchema = z.object({
-  type: z.string(),
-  label: z.string(),
-  export: z
-    .object({
-      formats: z.array(z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql'])),
-      columns: z.array(DataTransferExportColumnSchema),
-      orderHint: z.string().nullable(),
-    })
-    .nullable(),
-  importModes: z.array(z.enum(['create', 'update'])),
-}) satisfies z.ZodType<DataTransferResource>;
-
-export const DataTransferResourceListSchema = z.object({
-  items: z.array(DataTransferResourceSchema),
-}) satisfies z.ZodType<DataTransferResourceList>;
-
-export const DataTransferImportColumnSchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  kind: z.enum(['string', 'number', 'boolean', 'date', 'datetime', 'enum', 'reference', 'json']),
-  required: z.boolean(),
-  multiple: z.boolean(),
-  matchKey: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  unique: z.boolean(),
-  nullable: z.boolean(),
-  suggest: z.boolean(),
-  hint: z.string().nullable(),
-  options: z.array(DataTransferOptionSchema).nullable(),
-  transitions: z.record(z.string(), z.array(z.string())).nullable(),
-}) satisfies z.ZodType<DataTransferImportColumn>;
-
-export const DataTransferImportColumnListSchema = z.object({
-  items: z.array(DataTransferImportColumnSchema),
-  readOnly: z.array(
-    z.object({
-      key: z.string(),
-      label: z.string(),
-    }),
-  ),
-}) satisfies z.ZodType<DataTransferImportColumnList>;
-
-export const DataTransferReferenceOptionListSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      label: z.string(),
-    }),
-  ),
-}) satisfies z.ZodType<DataTransferReferenceOptionList>;
-
-export const DataTransferTargetOptionListSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      label: z.string(),
-      description: z.string().optional(),
-    }),
-  ),
-}) satisfies z.ZodType<DataTransferTargetOptionList>;
-
-export const DataTransferRowIssueSchema = z.object({
-  column: z.string().nullable(),
-  code: z.string(),
-  params: z.record(z.string(), z.unknown()).optional(),
-  severity: z.enum(['error', 'warning']),
-}) satisfies z.ZodType<DataTransferRowIssue>;
-
-export const DataTransferImportTargetSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  version: z.int().min(-9007199254740991).max(9007199254740991),
-  current: z.record(z.string(), z.string()),
-  expected: z.record(z.string(), z.unknown()).optional(),
-}) satisfies z.ZodType<DataTransferImportTarget>;
-
-export const DataTransferRowValidationSchema = z.object({
-  rowNo: z.int().min(-9007199254740991).max(9007199254740991),
-  issues: z.array(DataTransferRowIssueSchema),
-  target: DataTransferImportTargetSchema.optional(),
-  changed: z.array(z.string()).optional(),
-}) satisfies z.ZodType<DataTransferRowValidation>;
-
-export const DataTransferImportRowSchema = z.object({
-  rowNo: z.int().min(1).max(9007199254740991),
-  sourceRow: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  cells: z.record(z.string(), z.string().max(32767)),
-  targetId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    )
-    .nullable()
-    .optional(),
-}) satisfies z.ZodType<DataTransferImportRow>;
-
-export const DataTransferImportAnalysisSchema = z.union([
-  z.object({
-    status: z.enum(['needsMapping']),
-    fileName: z.string(),
-    headers: z.array(
-      z.object({
-        index: z.int().min(-9007199254740991).max(9007199254740991),
-        text: z.string(),
-        suggestion: z.string().nullable(),
-      }),
-    ),
-    samples: z.array(z.array(z.string())),
-    ignored: z.array(
-      z.object({
-        index: z.int().min(-9007199254740991).max(9007199254740991),
-        header: z.string(),
-        reason: z.enum(['readOnly', 'forbidden']),
-      }),
-    ),
-    columns: z.array(DataTransferImportColumnSchema),
-    sheets: z.array(z.string()).optional(),
-  }),
-  z.object({
-    status: z.enum(['ok']),
-    fileName: z.string(),
-    columns: z.array(DataTransferImportColumnSchema),
-    ignored: z.array(
-      z.object({
-        header: z.string(),
-        reason: z.enum(['readOnly', 'forbidden', 'unmapped']),
-      }),
-    ),
-    rows: z.array(DataTransferImportRowSchema),
-    results: z.array(DataTransferRowValidationSchema),
-    sheets: z.array(z.string()).optional(),
-  }),
-]) satisfies z.ZodType<DataTransferImportAnalysis>;
-
-export const ValidateImportRequestSchema = z.object({
-  mode: z.enum(['create', 'update']),
-  rows: z
-    .array(
-      z.object({
-        rowNo: z.int().min(1).max(9007199254740991),
-        cells: z.record(z.string(), z.string().max(32767)),
-        targetId: z
-          .uuid()
-          .regex(
-            new RegExp(
-              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-            ),
-          )
-          .nullable()
-          .optional(),
-      }),
-    )
-    .min(1)
-    .max(1000),
-}) satisfies z.ZodType<ValidateImportRequest>;
-
-export const ValidateImportResultSchema = z.object({
-  rows: z.array(DataTransferRowValidationSchema),
-}) satisfies z.ZodType<ValidateImportResult>;
-
-export const CreateImportRequestSchema = z.object({
-  type: z.string().min(1).max(50),
-  mode: z.enum(['create', 'update']),
-  fileName: z.string().max(255).optional(),
-  skipInvalid: z.boolean().default(false),
-  rows: z
-    .array(
-      z.object({
-        rowNo: z.int().min(1).max(9007199254740991),
-        sourceRow: z.int().min(1).max(9007199254740991).nullable().optional(),
-        cells: z.record(z.string(), z.string().max(32767)),
-        targetId: z
-          .uuid()
-          .regex(
-            new RegExp(
-              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-            ),
-          )
-          .nullable()
-          .optional(),
-        target: z
-          .object({
-            id: z
-              .uuid()
-              .regex(
-                new RegExp(
-                  '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-                ),
-              ),
-            version: z.int().min(1).max(9007199254740991),
-            expected: z.record(z.string(), z.unknown()).optional(),
-          })
-          .optional(),
-      }),
-    )
-    .min(1)
-    .max(20000),
-}) satisfies z.ZodType<CreateImportRequest>;
-
-export const CreateExportRequestSchema = z.object({
-  type: z.string().min(1).max(50),
-  format: z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql']).default('csv'),
-  scope: z.union([
-    z.object({
-      kind: z.enum(['ids']),
-      ids: z.array(z.string().min(1).max(64)).min(1).max(10000),
-    }),
-    z.object({
-      kind: z.enum(['filter']),
-      filter: z.record(z.string(), z.unknown()).default({}),
-    }),
-  ]),
-  columns: z.array(z.string().min(1).max(100)).min(1).max(100).optional(),
-}) satisfies z.ZodType<CreateExportRequest>;
-
-export const DataTransferApplyRowSchema = z.object({
-  rowNo: z.int().min(-9007199254740991).max(9007199254740991),
-  sourceRow: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  cells: z.record(z.string(), z.string()),
-  outcome: z.enum(['pending', 'succeeded', 'failed', 'skipped', 'cancelled']),
-  error: z.record(z.string(), z.unknown()).nullable(),
-  changes: z
-    .record(
-      z.string(),
-      z
-        .array(z.union([z.string(), z.string()]))
-        .min(2)
-        .max(2),
-    )
-    .nullable(),
-  resultId: z.string().nullable(),
-}) satisfies z.ZodType<DataTransferApplyRow>;
-
-export const DataTransferApplyRowListSchema = z.object({
-  items: z.array(DataTransferApplyRowSchema),
-  nextRowNo: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-}) satisfies z.ZodType<DataTransferApplyRowList>;
 
 export const OrgUnitSchema = z.object({
   id: z

@@ -46,6 +46,16 @@ const ACTIVE_TOKEN_COUNT = sql<number>`(
     AND t.account_version = ${users.tokenVersion}
 )`;
 
+/** 匯出的範圍（docs/architecture/backend/22-data-transfer.md §12.6）：勾選的 id，或列表的篩選條件。 */
+export type ServiceAccountExportScope =
+  | { ids: readonly string[] }
+  | { filter: Pick<ListServiceAccountDto, 'keyword'> };
+
+export interface ServiceAccountExportCursor {
+  createdAt: Date;
+  id: string;
+}
+
 interface JoinedRow {
   account: UserRow;
   roles: ServiceAccountRoleSummary[];
@@ -109,6 +119,48 @@ export class ServiceAccountRepository {
       items: rows.map(toRow),
       total: counted?.total ?? 0,
     };
+  }
+
+  /** 匯出：依建立時間的 keyset 逐頁讀。token 本身（含前綴）不匯出，只有有效的 token 數。 */
+  async exportPage(
+    scope: ServiceAccountExportScope,
+    after: ServiceAccountExportCursor | null,
+    limit: number,
+  ): Promise<ServiceAccountRow[]> {
+    const rows = await this.db
+      .select({ account: users, roles: ROLE_AGGREGATE, activeTokenCount: ACTIVE_TOKEN_COUNT })
+      .from(users)
+      .leftJoin(relationTuples, HELD_BY_ACCOUNT)
+      .leftJoin(roles, HELD_ROLE)
+      .where(
+        and(
+          this.exportWhere(scope),
+          after
+            ? sql`(${users.createdAt}, ${users.id}) > (${after.createdAt.toISOString()}::timestamptz, ${after.id}::uuid)`
+            : undefined,
+        ),
+      )
+      .groupBy(users.id)
+      .orderBy(asc(users.createdAt), asc(users.id))
+      .limit(limit);
+    return rows.map(toRow);
+  }
+
+  async exportCount(scope: ServiceAccountExportScope): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(users)
+      .where(this.exportWhere(scope));
+    return row?.total ?? 0;
+  }
+
+  private exportWhere(scope: ServiceAccountExportScope): SQL | undefined {
+    const conditions: SQL[] = [notDeleted(users), isServiceAccount()];
+    if ('ids' in scope) conditions.push(inArray(users.id, [...scope.ids]));
+    else if (scope.filter.keyword) {
+      conditions.push(ilike(users.displayName, containsPattern(scope.filter.keyword)));
+    }
+    return and(...conditions);
   }
 
   async findById(id: string, tx?: DbOrTx): Promise<ServiceAccountRow | undefined> {

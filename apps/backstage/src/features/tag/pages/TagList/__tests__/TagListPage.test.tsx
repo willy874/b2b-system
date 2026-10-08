@@ -176,3 +176,26 @@ describe('TagListPage（docs/architecture/backend/18-tag.md §7.2 D5）', () => 
     });
   });
 });
+
+describe('TagListPage 的匯出、匯入入口（docs/architecture/backend/22-data-transfer.md §12.4）', () => {
+  it('有 tag:export、tag:update → 顯示「匯出」「匯入」；沒有 tag:export 只有匯入', async () => {
+    featureStore.setState({
+      resolved: true,
+      statuses: new Map([
+        ['file', 'ready'],
+        ['dataTransfer', 'ready'],
+      ]),
+    });
+    renderRoute(routes, '/tag?scope=user', [...ADMIN, 'tag:export'] as PermissionKey[]);
+    await screen.findByText('研發部', undefined, { timeout: 5000 });
+    expect(screen.getByTestId('tag-export-button')).toBeInTheDocument();
+    expect(screen.getByTestId('tag-import-button')).toBeInTheDocument();
+  });
+
+  it('租戶沒有啟用 dataTransfer → 不顯示', async () => {
+    renderRoute(routes, '/tag?scope=user', [...ADMIN, 'tag:export'] as PermissionKey[]);
+    await screen.findByText('研發部', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('tag-export-button')).toBeNull();
+    expect(screen.queryByTestId('tag-import-button')).toBeNull();
+  });
+});

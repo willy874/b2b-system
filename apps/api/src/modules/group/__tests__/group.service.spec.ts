@@ -256,7 +256,7 @@ describe('GroupService.updateRoles（docs/architecture/iam/01-model.md §9.3 D12
 
   it('加角色受指派角色的反提權限制', async () => {
     await ctx.service.updateRoles('g1', { add: ['r-editor'], remove: [] }, ACTOR);
-    expect(ctx.permissions.assertRolesAssignable).toHaveBeenCalledWith('actor', ['r-editor']);
+    expect(ctx.permissions.assertRolesAssignable).toHaveBeenCalledWith('actor', ['r-editor'], 'tx');
     expect(ctx.repo.addRoles).toHaveBeenCalledWith('g1', ['r-editor'], 'actor', 'tx');
   });
 

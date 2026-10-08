@@ -15,7 +15,12 @@ import {
   registerNotificationPagePermissions,
 } from '@/features/notification';
 import { PERMISSION_PAGE, registerPermissionPagePermissions } from '@/features/permission';
-import { registerRolePagePermissions, ROLE_CREATE_PAGE, ROLE_PAGE } from '@/features/role';
+import {
+  registerRolePagePermissions,
+  ROLE_CREATE_PAGE,
+  ROLE_IMPORT_PAGE,
+  ROLE_PAGE,
+} from '@/features/role';
 import { registerTrashPagePermissions, TRASH_PAGE } from '@/features/trash';
 import {
   registerUserPagePermissions,
@@ -52,6 +57,7 @@ describe('註冊表完整性', () => {
         USER_IMPORT_PAGE,
         ROLE_PAGE,
         ROLE_CREATE_PAGE,
+        ROLE_IMPORT_PAGE,
         PERMISSION_PAGE,
         AUDIT_LOG_PAGE,
         PROFILE_PAGE,

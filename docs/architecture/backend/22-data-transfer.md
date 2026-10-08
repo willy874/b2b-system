@@ -1,10 +1,11 @@
 # 後端 22 — 匯入／匯出（data transfer）
 
-把資源整批匯出成 CSV／XLSX／SQL、從 CSV／XLSX 整批新增或修改。重點不在第一批的兩種資源（使用者、稽核日誌），而是 **共同的框架**：
+把資源整批匯出成 CSV／XLSX／JSON／YAML／SQL、從 CSV／XLSX／JSON／YAML 整批新增或修改。重點不在個別的資源，而是 **共同的框架**：
 擁有者模組登記一份欄位定義（`TransferResource`），匯出與匯入共用；檔案的解析、驗證、套用都在伺服器端，預覽與編輯在前端。
+目前登記的資源：使用者、角色、群組與群組成員、部門與部門成員、標籤（匯入＋匯出）；稽核日誌、審批請求與決定、服務帳號（只匯出）（§12）。
 
 > 程式碼：後端 `apps/api/src/modules/data-transfer/`（框架：登記表、API、工作、寫檔器與讀檔器、驗證器）、
-> `apps/api/src/modules/user/user.transfer.ts`（使用者）、`apps/api/src/modules/data-transfer/resources/audit-log.transfer.ts`（稽核日誌，D27）；
+> 各資源的 `<name>.transfer.ts`（§12、§11）與 `apps/api/src/modules/data-transfer/resources/audit-log.transfer.ts`（稽核日誌，D27）；
 > 前端見 [`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md)。
 > 相關：[`10-jobs.md`](10-jobs.md)（背景工作）、[`09-file.md`](09-file.md) §14（伺服器端的分段上傳、`transfers/` 前綴）、
 > [`15-notification.md`](15-notification.md)（完成通知）、[`../05-tenancy.md`](../05-tenancy.md) §5（feature 與參數）、[`03-api-conventions.md`](03-api-conventions.md) §10（不提供批次端點的例外）。
@@ -24,7 +25,8 @@
 9. 權限、稽核、通知、推播、指標
 10. 上限與保留期限
 11. 程式碼地圖
-12. 設計決策：匯入／匯出
+12. 其他資源：角色、群組、組織、標籤、審批、服務帳號
+13. 設計決策：匯入／匯出
 
 ---
 
@@ -43,7 +45,7 @@
   - 瀏覽器直傳物件儲存（`presignUpload`）。
   - 「模組把 handler 註冊進通用模組」的模式：審批 handler、標籤資源、`TrashHandler`、`SettingService.register`。
 
-參考實作是一套純前端的批次匯入。它的問題正是這份設計要避開的（§12 D1）：
+參考實作是一套純前端的批次匯入。它的問題正是這份設計要避開的（§13 D1）：
 
 - 在瀏覽器解析 CSV、逐列呼叫既有的單筆 API。
 - 上限 500 列。
@@ -68,7 +70,7 @@
 | 確認後背景套用：每列一個交易、走與 API 相同的 service，可取消，結果報告逐列列出 | 套用後的整批復原 |
 | 失敗的列一鍵另開成新的匯入，修正後再套用 | |
 | 「我的匯入匯出」列表頁 | 管理者看所有人的匯入匯出（稽核日誌已記錄） |
-| 第一批：使用者（匯入＋匯出）、稽核日誌（只匯出） | 其他資源；角色、群組、標籤等之後照同一個登記方式加 |
+| 第一批：使用者（匯入＋匯出）、稽核日誌（只匯出）；之後加上角色、群組、組織、標籤（匯入＋匯出）與審批、服務帳號（只匯出），見 §12 | 系統設定、通知政策、審批流程、公告這類巢狀設定（D46）；檔案清單、Webhook、API token（D47） |
 
 ## 3. 使用者故事
 
@@ -133,7 +135,7 @@
 ```
 
 伺服器在 ①② **不保存任何東西**：分析與驗證都是無狀態的請求，檔案只在請求期間存在於記憶體。
-從 ③ 開始才有 `data_transfers` 這筆傳輸（§12 D21）。
+從 ③ 開始才有 `data_transfers` 這筆傳輸（§13 D21）。
 
 傳輸的狀態：
 
@@ -202,7 +204,7 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
 ```
 
 - 兩張表都不軟刪除、不進回收桶、不記版本歷史：它們是有期限的工作資料，不是使用者維護的實體。
-- 預覽期間的列 **不在資料庫**：分析與驗證是無狀態的（§12 D21）。前端送出套用時才把整份 JSON 寫進 `data_transfer_rows`，
+- 預覽期間的列 **不在資料庫**：分析與驗證是無狀態的（§13 D21）。前端送出套用時才把整份 JSON 寫進 `data_transfer_rows`，
   用途只有兩個：讓套用工作可以重試而恰好一次（§7.6），以及結果報告。
 - `version` 只保護傳輸本身的狀態轉移（使用者的取消與工作的狀態更新不互相覆蓋）。
 
@@ -229,7 +231,7 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
 | `POST /data-transfers/imports` | **套用**：`{ type, mode, fileName?, skipInvalid, rows: [{ rowNo, sourceRow?, cells, targetId?, target? }] }`（§7.6） | 202 `DataTransfer` |
 | `GET /data-transfers/:id/rows` | 匯入的套用列與結果（`outcome` 篩選、`afterRowNo` keyset、`limit` ≤ 1 000）；「以失敗的列重新匯入」用 | 列與 `nextRowNo` |
 
-- `analyze` 是 api **第一個收 multipart 的端點**。其他上傳都是瀏覽器直傳 bucket，這裡例外的理由見 §12 D22：
+- `analyze` 是 api **第一個收 multipart 的端點**。其他上傳都是瀏覽器直傳 bucket，這裡例外的理由見 §13 D22：
   - 只收單一檔案，大小上限在串流讀取時就檢查，超過立即中斷；
   - 檔案只在記憶體，不落地、不進 bucket；
   - 解析在 worker thread 中執行，不卡住 api 的 event loop（§7.3）。
@@ -244,7 +246,7 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
 - 匯出的欄位有一半不能匯入，重匯時被默默忽略。
 - 為了防公式注入加上的 `'` 前綴，重匯時被當成內容寫回。
 
-「匯出 → 在試算表修改 → 匯回」因此無法運作。這裡每個資源只有 **一份** 欄位定義（§12 D4）。
+「匯出 → 在試算表修改 → 匯回」因此無法運作。這裡每個資源只有 **一份** 欄位定義（§13 D4）。
 
 ### 5.1 登記
 
@@ -363,7 +365,7 @@ POST /data-transfers/exports
 
 - `scope.kind = 'ids'`：列表上勾選的資料，最多 10 000 筆。
 - `scope.kind = 'filter'`：目前列表的篩選條件，就是列表頁送給 `GET /users` 的同一個物件，去掉 `offset`、`limit`、`cursor`。
-  - 用「選取全部符合」勾選時，前端送 **filter**，不先把 10 000 筆 id 抓回來（§12 D3）。
+  - 用「選取全部符合」勾選時，前端送 **filter**，不先把 10 000 筆 id 抓回來（§13 D3）。
 - 每個資源的 `filterSchema` 由列表的 query DTO 衍生（`ListUserSchema.omit({ offset, limit })`），沒有第二份篩選規則。
 - 不論哪一種，匯出時 **以操作者當下的權限重新查詢**：
   - 勾選後失去可見性的 id 不會出現。
@@ -415,7 +417,7 @@ interface TransferContext {
 3. `count()` 超過上限（§10）→ `failed`，錯誤碼 `DATA_TRANSFER_TOO_MANY_ROWS { max, count }`。
    - 這一步也在 `POST /exports` 當下先做一次，超過就直接回 422，不入列。
 4. 依格式建立寫檔器（§6.5），逐頁寫入。
-   - 每累積 8 MiB 以 **伺服器端的 multipart** 上傳一段：`ObjectStorage` 新增 `uploadPart(key, uploadId, partNumber, body)`（§12 D6）。
+   - 每累積 8 MiB 以 **伺服器端的 multipart** 上傳一段：`ObjectStorage` 新增 `uploadPart(key, uploadId, partNumber, body)`（§13 D6）。
    - 整份檔案不放記憶體。
 5. 每處理 500 列或每秒（取較慢者）更新 `processed_rows` 並推播進度（§9.4）；同時檢查取消旗標。
 6. 完成：
@@ -434,7 +436,7 @@ POST /data-transfers/:id/cancel  { version } → 200 DataTransfer
 
 下載：
 
-- 每次呼叫都重新簽發（`presignDownload(key, { disposition: 'attachment', fileName, expiresIn: FILE_URL_TTL })`）。檔案保留數天，連結最多 1 小時（§12 D12）。
+- 每次呼叫都重新簽發（`presignDownload(key, { disposition: 'attachment', fileName, expiresIn: FILE_URL_TTL })`）。檔案保留數天，連結最多 1 小時（§13 D12）。
 - 走獨立的檔案網域（`FILE_STORAGE_DOWNLOAD_ENDPOINT`），與檔案管理相同（[`backend/09-file.md`](09-file.md) §13）。
 - 只有建立者能下載，而且 **下載當下** 仍要有該資源的匯出權限。被拿掉權限的人不能下載先前產生的檔案。
 - 寫稽核 `dataTransfer.download`。用 `POST` 是因為它有寫入。
@@ -455,7 +457,7 @@ POST /data-transfers/:id/cancel  { version } → 200 DataTransfer
 - UTF-8 加 BOM（Excel 才能正確辨識中文）、CRLF 換行，依 RFC 4180 加引號。
 - 第一列是標頭，用匯出者語系的 `label`。
 - **公式注入防護**：`string` 欄的值開頭是 `= + - @ Tab CR` 時前置 `'`。
-  - 匯入時 `string` 欄去掉這個 `'`，所以來回不會變形（§12 D16）。
+  - 匯入時 `string` 欄去掉這個 `'`，所以來回不會變形（§13 D16）。
   - 數字欄不加，負數照常是 `-5`。
 - 自己寫一個約 80 行的寫檔器，不引入套件：只需要「加引號＋跳脫」。
 
@@ -525,7 +527,7 @@ COMMIT;
 - 「建立＋指派角色」分成兩個請求，部分成功時無法收拾。
 - 500 列上限。
 
-這裡把工作分成三段，各自交給最適合的一方（§12 D1、D21）：
+這裡把工作分成三段，各自交給最適合的一方（§13 D1、D21）：
 
 | 階段 | 誰做 | 理由 |
 | --- | --- | --- |
@@ -671,7 +673,7 @@ interface RowValidation {
 | 檢查 | 在哪裡 | 說明 |
 | --- | --- | --- |
 | 型別轉換（§5.3）、欄位 `schema` | 後端 | 失敗寫成 `{ column, code, params, severity: 'error' }`；Zod 的 issue 依代碼對應成 `tooShort { min }`、`tooLong { max }`、`invalidFormat { format: 'email' }`…（§9.5） |
-| `enum`、`reference` 對應 | 後端 | 完全相符才算對上，**不自動更正**（§12 D7）；附上最接近的候選 `params.suggestion`（編輯距離） |
+| `enum`、`reference` 對應 | 後端 | 完全相符才算對上，**不自動更正**（§13 D7）；附上最接近的候選 `params.suggestion`（編輯距離） |
 | 與資料庫重複（新增模式） | 後端 | 唯一欄以 `WHERE lower(email) = ANY($1)` 一次查完，命中的列標 `alreadyExists` |
 | 比對目標（修改模式，§7.5） | 後端 | 回傳 `target` 與 `changed` |
 | 資源特有的規則 | 後端 | `importer.validateRows`：例如角色是否可指派 → `roleNotAssignable { names }`；修改自己的狀態 → `selfModify` |
@@ -843,8 +845,8 @@ POST /data-transfers/imports
 - **一列是原子的**：使用者與角色指派在同一個交易。參考實作的「實體建好但關聯失敗、回報失敗、重匯後重複」不會發生。
 - **業務稽核照常**：每列由 service 寫自己的稽核（`user.create`）。
   - 工作以建立者的身分執行（以 `created_by` 重建 `AuthUser`，放進 request context），稽核的 actor 是建立者，不是 `system`。
-  - metadata 加上 `{ via: 'import', transferId }`（§12 D20）。
-- 啟用信照常在交易內入列（`auth.activationMail`），由寄信工作的並行上限（5）自然限速（§12 D13）。
+  - metadata 加上 `{ via: 'import', transferId }`（§13 D20）。
+- 啟用信照常在交易內入列（`auth.activationMail`），由寄信工作的並行上限（5）自然限速（§13 D13）。
 
 **交易後的副作用要合併**
 
@@ -879,6 +881,19 @@ POST /data-transfers/imports
   3. 全部送 `validate`（每批 1 000 列）：重新比對、重新驗證。
   4. 使用者修正後照常套用，成為一個新的傳輸。原本的傳輸不變。
 
+### 7.8 同一份檔案內的引用
+
+新增模式中，參照欄有時要指向 **同一份檔案裡另一列** 要新增的紀錄：部門的「上層」常常是檔案裡剛定義的部門（D40）。
+
+- 登記：`reference.sameFile = { column }`，`column` 是被引用的欄（要是唯一欄，例：部門的「代碼」）；只能用在單一值的欄位。登記時檢查，寫錯就啟動失敗。
+- 驗證：參照的值對不上資料庫、但等於檔案裡另一列 `column` 欄的值時，不是 `referenceNotFound`，而是先放一個佔位值（`SameFileRef`）。
+  - `analyze` 與套用工作手上就是整份檔案；預覽的 `validate` 只送改過的列，所以前端另外帶 `fileKeys`：這批列引用到、而且檔案裡有的值（只帶引用到的，請求不會隨檔案變大）。
+  - 引用形成循環（含引用自己）的列：`referenceCycle`。
+  - 欄位清單的 `sameFile` 告訴前端哪一欄可以同檔引用；前端在被引用的欄改了值、或那一列新增或移除時，讓引用舊值或新值的列重新驗證。
+- 套用：依相依關係排序（拓撲排序，沒有相依的列維持列號順序），被引用的列先套用；佔位值換成那一列建立出來的 id。
+  被引用的列沒有成功（驗證失敗被略過、套用失敗）時，引用它的列 `failed`（`referenceFailed`）。
+- 只在新增模式：修改模式的上層一定是已經存在的紀錄。
+
 ---
 
 ## 8. 前端
@@ -895,10 +910,16 @@ POST /data-transfers/imports
 
 | 權限鍵 | 說明 | 預設角色 |
 | --- | --- | --- |
-| `user:export` **新增** | 匯出使用者 | admin |
-| `auditLog:export` **新增** | 匯出稽核日誌 | admin、auditor |
+| `user:export` | 匯出使用者 | admin |
+| `auditLog:export` | 匯出稽核日誌 | admin、auditor |
+| `role:export` | 匯出角色 | admin |
+| `group:export` | 匯出群組與群組成員（依賴 `user:read`：成員帶 email） | admin |
+| `orgUnit:export` | 匯出部門與部門成員（依賴 `user:read`） | admin |
+| `tag:export` | 匯出標籤定義（仍要進得了該標籤組） | admin |
+| `approval:export` | 匯出審批請求與決定 | admin、auditor |
+| `serviceAccount:export` | 匯出服務帳號 | admin |
 
-- 匯出要 **獨立的權限**（§12 D11）：能在畫面上逐頁看，不代表可以整批帶走。
+- 匯出要 **獨立的權限**（§13 D11）：能在畫面上逐頁看，不代表可以整批帶走。
   - `PERMISSION_DEPENDENCIES`：`'user:export': { includes: ['user:read'] }`、`'auditLog:export': { includes: ['auditLog:read'] }`。
   - 依 G2，同一個資源內的包含是允許的。
 - 匯入 **不新增權限**：
@@ -911,7 +932,8 @@ POST /data-transfers/imports
 - 「我的匯入匯出」與 `/data-transfers` 的傳輸操作只要登入（`@Authenticated()`），**只能操作自己建立的**。
   - 別人的傳輸一律 `404 DATA_TRANSFER_NOT_FOUND`，與通知相同，不洩漏存在與否。
   - 依資源而定的權限在 service 內以 `permissionService.assertHasAll` 檢查。它會寫 `authz.denied` 稽核，與路由宣告的 `@RequirePermissions` 效果相同。
-- 匯入頁的頁面權限：`USER_IMPORT_PAGE` 要 `user:read` 與 `user:update`；頁內依權限決定可以切換哪些模式。
+- 匯入頁的頁面權限：`USER_IMPORT_PAGE` 要 `user:read` 與 `user:update`；頁內依權限決定可以切換哪些模式。其他資源的匯入頁見 §12。
+- 第二批（§12）的六個匯出權限由租戶 migration `0049_data_transfer_resources` 補給既有租戶的系統角色。
 - 同步：
   - `docs/architecture/iam/02-permission-catalog.md`；
   - `db/seeds/permissions.ts`（排在 user、auditLog 區塊的空號：107、401）；
@@ -975,7 +997,9 @@ POST /data-transfers/imports
 - 參照：`referenceNotFound`、`ambiguousReference`
 - 唯一值：`duplicateInFile`、`alreadyExists`
 - 修改模式的比對：`matchKeyRequired`、`targetNotFound`、`ambiguousMatch`、`duplicateTarget`、`targetNotSelected`（撤回比對）、`transitionNotAllowed`、`noChanges`（警告）
-- 資源特有：`roleNotAssignable`、`selfModify`
+- 同檔引用（§7.8）：`referenceCycle`、`referenceFailed`
+- 資源特有：`roleNotAssignable`、`selfModify`、`permissionNotGrantable`（角色：授予自己沒有的權限）、`immutable`（super-admin）、
+  `superAdminForbidden`（群組持有 super-admin）、`exactlyOne`、`membershipCycle`、`escalation`（群組成員）、`primaryConflict`（部門成員）、`forbidden`（進不了標籤組）
 
 問題以「代碼＋參數」存放，**翻譯只在顯示時做**：
 
@@ -1046,20 +1070,84 @@ POST /data-transfers/imports
 | `data-transfer-cleanup.service.ts` | `dataTransfer.cleanup` |
 | `data-transfer.http.ts` | multipart（`ImportUploadInterceptor`）、套用路由的 JSON 上限（`registerDataTransferBodyParser`，`main.ts` 呼叫） |
 | `resources/audit-log.transfer.ts` | 稽核日誌的匯出（D27） |
+| `import/same-file.ts` | 同檔引用（§7.8）：佔位值、檔案裡可以被引用的值、相依排序與循環偵測 |
+
+各資源的登記在擁有者模組（§12）：`user/user.transfer.ts`、`role/role.transfer.ts`、`group/group.transfer.ts`、`organization/org-unit.transfer.ts`、
+`tag/tag.transfer.ts`、`approval/approval.transfer.ts`、`service-account/service-account.transfer.ts`。
 
 加一種資源：在擁有者模組寫 `<name>.transfer.ts`（以 `UserTransferResource` 為範本），`onModuleInit` 登記；
 需要套用的寫入要有交易內的版本（`createInTx` 這類，§7.4「對既有 service 的要求」）。前端只要在該資源的列表加入口、寫一個幾十行的匯入頁。
 
-## 12. 設計決策：匯入／匯出
+## 12. 其他資源：角色、群組、組織、標籤、審批、服務帳號
 
-### 12.1 背景
+第一批之後依同一個登記方式加上的資源。各資源的 importer 都走擁有者 service 的 **交易內版本**（`createInTx`、`updateInTx`…）：API 與匯入共用一份業務規則，
+交易後的副作用（權限失效、推播）交給框架合併（D10）。檔案內的列互相引用見 §7.8。
+
+| 資源（`type`） | 方向與模式 | 匯出權限 | 匯入權限 | feature |
+| --- | --- | --- | --- | --- |
+| `role` | 匯出；新增、修改 | `role:export` | `role:create`／`role:update`；權限欄另要 `role:grantPermission` | — |
+| `group` | 匯出；新增、修改 | `group:export` | `group:create`／`group:update`；角色欄另要 `group:assignRole` | `group` |
+| `groupMember` | 匯出；新增 | `group:export` | `group:update` | `group` |
+| `orgUnit` | 匯出；新增、修改 | `orgUnit:export` | `orgUnit:create`／`orgUnit:update` | `organization` |
+| `orgUnitMember` | 匯出；新增、修改 | `orgUnit:export` | `orgUnit:update` | `organization` |
+| `tag` | 匯出；新增、修改 | `tag:export` | `tag:create`／`tag:update` | —（標籤組各自的 feature） |
+| `approvalRequest`、`approvalDecision` | 只匯出 | `approval:export` | — | — |
+| `serviceAccount` | 只匯出 | `serviceAccount:export` | — | `externalApi` |
+
+### 12.1 角色
+
+- 欄位：ID、代碼（slug）、名稱、說明、權限（權限鍵，多值）；只匯出的「系統角色」「直接持有的人數」「建立時間」。持有者不在這裡（使用者的「角色」欄、群組的「角色」欄）。
+- 主要用途是把一個租戶調好的角色搬到另一個租戶：修改模式以 ID 或 **代碼** 比對（代碼跨租戶不變），新增模式可以指定代碼（D42）。
+- 權限欄的選項是權限鍵本身（跨語系、跨租戶都一樣）；修改模式整組取代，以比對當下的權限鍵當 `expectedKeys`，預覽之後別人改過就 `ROLE_VERSION_CONFLICT`。
+- 驗證：授予自己沒有的權限 → `permissionNotGrantable`（修改模式只看新增的鍵）；super-admin 不可修改 → `immutable`。自我鎖定在套用時由 `RoleService` 檢查。
+
+### 12.2 群組與群組成員
+
+- `group`：ID、名稱（修改模式沒有 ID 時的比對鍵）、說明、角色（整組取代，以 `expectedRoleIds` 防止覆蓋別人的修改）；只匯出的直接成員數。
+  驗證：super-admin → `superAdminForbidden`（D12）；不能指派的角色 → `roleNotAssignable`；自己所屬的群組的角色 → `selfModify`。
+- `groupMember`：一列一筆 **直接** 成員關係（群組 × 使用者或成員群組），只有新增模式（D41、D43）。
+  - 「使用者」（Email）與「成員群組」擇一 → `required`、`exactlyOne`；把群組放進自己 → `membershipCycle`；更深的循環、巢狀層數在套用時由 `GroupService` 檢查。
+  - 已是成員 → `alreadyExists`；把自己或自己所屬的群組放進去 → `selfModify`；加入後取得自己沒有的權限（D11）、或對象是 super-admin → `escalation`。
+  - 匯出：全部、某個群組（`filter.groupId`），或勾選的群組的成員（勾選範圍是群組的 id）。
+
+### 12.3 部門與部門成員
+
+- `orgUnit`：ID、代碼（唯一、修改模式的比對鍵）、名稱、上層、說明；只匯出的路徑與成員數。
+  - 上層以 **代碼** 引用，沒有代碼的部門以 **路徑**（`總部/業務部`）引用，也可以是 id；只有一個部門叫這個名字時名稱也可以。新增模式還可以引用檔案裡的其他列（§7.8）。
+  - 匯出依組織樹排序（上層在前），上層寫代碼（沒有時寫路徑）：匯出的檔案直接匯到另一個租戶，上層都對得上。
+  - 修改模式改了上層就搬移（排在新上層的最後），`\N` 搬到最上層；搬到自己或自己的下層之下 → `referenceCycle`。同一個上層之下撞名 → `alreadyExists`。
+- `orgUnitMember`：一列一筆成員資格（部門 × 使用者）：主管、主要部門、職稱。
+  - 新增模式加成員；修改模式以匯出檔裡的 ID（`部門 id:使用者 id`，成員關係沒有自己的 id）修改主管、主要部門、職稱。移除成員在組織頁做（D43）。
+  - 不能改自己（D6）→ `selfModify`；已是成員 → `alreadyExists`；同一批裡同一個人有兩個主要部門 → `primaryConflict`。設為主要部門時原本的主要部門在同一個交易內取消。
+  - 結果的紀錄 id 是成員本人（`result_id` 是 uuid；「查看紀錄」連到那個人）。
+
+### 12.4 標籤
+
+- ID、標籤組（每一列的欄位，選項是登記的標籤組）、名稱、顏色。唯一性是「組 × 名稱」，框架的唯一欄只看單一欄，所以在 `validateRows` 查（`alreadyExists`）。
+- 標籤沒有讀取權限（[`18-tag.md`](18-tag.md) §7.2 D5：進得了標籤組就讀得到）：匯出與匯入都照樣以標籤組的 `assertCanBrowse` 檢查，進不了 → `forbidden`。
+- 匯出一次一個標籤組（`filter.scope`，標籤管理頁目前的分頁）。標籤組的選項要在所有模組登記完標籤組之後才齊，所以這個資源在 `onApplicationBootstrap` 登記（D44）。
+
+### 12.5 審批請求與決定（只匯出）
+
+- `approvalRequest`：一筆請求一列（類型、狀態、申請人、理由、目前關卡、關卡數、定案者、意見、時間、結果資源、`payload`）。`private_payload` 一律不匯出。
+- `approvalDecision`：一個決定一列：多階段的每一關每一人；單關的請求以請求上的審核者表示（「方式」是「單關審核」，沒有關卡序）。勾選的範圍是請求。
+- 兩者都要 `approval:export`，它包含 `approval:read`：看得到全部的請求，不套用申請人與候選人的可見性（[`20-approval.md`](20-approval.md) §9.10、D45）。
+
+### 12.6 服務帳號（只匯出）
+
+- 名稱、狀態、角色、有效的 token 數、建立時間；token 本身（含前綴）不匯出。
+- 不提供匯入：建立之後要另外簽發 token（只顯示一次），整批建立沒有意義（D47）。
+
+## 13. 設計決策：匯入／匯出
+
+### 13.1 背景
 
 既有的匯入能力只有前端批次佇列，它是為「勾選幾百筆做同一個動作」設計的。參考實作（另一個專案已上線的前端批次匯入）把同樣的模式延伸到匯入：
 在瀏覽器解析與驗證，逐列呼叫單筆 API，以跨分頁的 SharedWorker 協調執行權。那份實作上線後累積了十幾個問題（「評估過的方案」逐條引用）。
 
 這份設計的主軸：**解析、驗證、套用都在伺服器端，預覽與編輯在前端**。後端把各種格式統一轉成 JSON，前端持有 JSON 編輯、把改過的列交給後端驗證；送出後才成為可重試、可取消的伺服器端工作（D21）。
 
-### 12.2 決定
+### 13.2 決定
 
 | # | 決定 | 理由與代價 |
 | --- | --- | --- |
@@ -1102,8 +1190,17 @@ POST /data-transfers/imports
 | D37 | **復原／重做的快捷鍵登記在全域快捷鍵（`registerHotkey`），只在預覽掛載期間有效**；輸入框裡不攔，是瀏覽器原生的文字復原 | 焦點不在表格（剛按過工具列的按鈕）時也要能復原；與命令面板的快捷鍵共用衝突偵測 |
 | D38 | **編輯中的複製貼上交給瀏覽器**：只作用在輸入框選取的文字，不是整格或範圍貼上 | 表格的範圍貼上是「選取儲存格」時的行為；編輯中把整段 TSV 貼滿表格會覆蓋使用者沒選的儲存格 |
 | D39 | **傳輸的狀態查詢在推播重新連上時重查一次，連線中也每 15 秒保險輪詢** | 斷線期間完成的傳輸收不到推播；只在斷線時輪詢的話，重新連上後畫面會一直停在「排隊中」 |
+| D40 | **同一份檔案內的引用**（§7.8）：參照欄可以指向檔案裡另一列（唯一欄的值），套用時依相依順序先建立被引用的列 | 部門樹一定是「上層在檔案裡」；要求使用者分層匯入好幾次、或規定上層必須寫在前面都容易出錯。預覽只送改過的列，所以由前端帶「引用到、而且檔案裡有的值」，伺服器仍不保存預覽 |
+| D41 | **成員關係另外登記成資源（`groupMember`、`orgUnitMember`）**，不在使用者的匯入加「群組」「部門」欄 | 成員關係本身有屬性（主管、主要部門、職稱）；使用者模組 import 群組、組織模組會形成循環，另做「欄位貢獻」的擴充點成本高。一列一筆關係也是 HR 系統常見的匯出形狀 |
+| D42 | **角色以代碼（slug）比對，新增時可以指定代碼**（API 的建立仍由名稱產生） | 跨租戶搬移角色時名稱可能被改過，代碼不變；指定的代碼要符合 `slugify()` 的格式、不能重複 |
+| D43 | **不提供刪除與「以檔案為準」的同步**：成員只能加入與修改屬性 | 框架沒有刪除模式（§2）；同步語意要定義「檔案裡沒有的就移除」的範圍，誤刪的代價高。移除在畫面上逐筆做 |
+| D44 | **標籤在 `onApplicationBootstrap` 登記**，「標籤組」欄列出所有登記的組；租戶沒啟用的組在驗證時以 `forbidden` 擋下 | 標籤組由各模組在 `onModuleInit` 登記，順序不固定；欄位定義是登記時決定的，不能依租戶變動 |
+| D45 | **審批的匯出看得到全部請求**：`approval:export` 包含 `approval:read` | 合規查核要的是完整的紀錄；只看得到自己相關的請求的人不需要整批匯出 |
+| D46 | **巢狀的設定不走這個框架**（系統設定、通知政策、審批流程、公告） | 框架是一列一筆；這些設定是 key-value 或巢狀的 jsonb，裡面以 id 引用其他資源，`json` 欄不能匯入。之後若要在租戶之間複製設定，另做「設定快照」 |
+| D47 | **不做檔案清單、Webhook、API token 的匯出；服務帳號只匯出** | 檔案的可見性是資料夾層級的授權，不是一個權限鍵；Webhook 與 token 含機密，匯入時也必須重新產生，失去搬移的意義 |
+| D48 | **交易後的權限失效合併受影響的人**（`permissionsChanged` 帶 `userIds`，合併後一起交出） | 角色的權限鍵改了，持有者可能剛取得檔案權限，要補建個人資料夾；只做一次全租戶失效時也要知道是誰 |
 
-### 12.3 評估過的方案
+### 13.3 評估過的方案
 
 **D1：在瀏覽器解析與驗證（參考實作的做法）**
 
@@ -1150,7 +1247,7 @@ POST /data-transfers/imports
 **D6：XLSX 用 SheetJS**
 
 - npm 上的版本已停止更新（新版只從官方 CDN 發佈），而且社群版的串流寫入有限。不選。
-- `exceljs` 的維護狀態見 §12.4；若有阻礙，改用 SheetJS 的官方發佈版，只換寫檔器與讀檔器的實作。
+- `exceljs` 的維護狀態見 §13.4；若有阻礙，改用 SheetJS 的官方發佈版，只換寫檔器與讀檔器的實作。
 
 **D6：SQL 匯出內部資料表**
 
@@ -1233,7 +1330,7 @@ POST /data-transfers/imports
 
 - 10 MiB 的 XLSX 解壓與解析可能要數秒，期間同一個程序的所有請求都會停住。不選。
 
-### 12.4 實作前的假設與驗證結果
+### 13.4 實作前的假設與驗證結果
 
 | 假設 | 結果 |
 | --- | --- |
@@ -1245,7 +1342,7 @@ POST /data-transfers/imports
 | `UserService.create`／`update`／`replaceRoles` 可以拆出交易內的版本 | 成立：`createInTx`／`updateInTx`／`replaceRolesInTx` ＋ `runAfterCommit`，既有的使用者整合測試全部通過 |
 | 工作裡建立的 request context 能讓稽核取得建立者 | 成立（`DataTransferContextFactory.runAs`），整合測試檢查 `user.create` 的 actor 與 `via` |
 
-### 12.5 實作紀錄
+### 13.5 實作紀錄
 
 - **D31：套用路由的 JSON 上限。** Nest 以函式名稱 `jsonParser` 判斷 JSON parser 是否已經註冊；直接 `app.use(path, json())` 會讓它略過全域的 parser，
   所以包一層匿名函式。上限是參數最大值（50 MB）× 2，租戶的實際上限由 service 依 `Content-Length` 檢查。nginx 另有 `/api/data-transfers/` 的 location（`client_max_body_size 101m`、`proxy_read_timeout 120s`）。
@@ -1257,3 +1354,8 @@ POST /data-transfers/imports
 - **前端的實作差異** 見 [`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §7。
 - **JSON／YAML、手動指定比對目標、自動完成（D32～D39）** 是第一版上線後依使用回饋加的：租戶 migration `0046_data_transfer_formats`
   放寬 `data_transfers.format` 的檢查並新增 `data_transfer_rows.target_manual`。
+- **第二批資源（§12、D40～D48）。** 租戶 migration `0049_data_transfer_resources` 把六個匯出權限補給既有租戶的系統角色。
+  `RoleService`、`GroupService`、`OrgUnitService`、`TagService` 拆出交易內的版本（API 改成呼叫它們，行為不變）。
+  - 套用列的結果 id（`result_id`）是 uuid：部門成員回傳使用者的 id。
+  - 實作時發現部門的「搬移」從來沒有成功過：同層排序的 `CASE … THEN $n` 參數沒有型別，postgres 推成 text 寫不進 `sort_order`。已修正並補上成功搬移的整合測試（[`23-organization.md`](23-organization.md)）。
+  - `matchKeyRequired` 與修改模式的說明原本寫死「ID 或 Email」，改成通用的「比對欄位」。

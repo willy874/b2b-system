@@ -11,6 +11,7 @@ export function useRolePermission() {
   const page = usePagePermission(ROLE_PAGE);
   const { can } = usePermission();
   const hasGroups = useIsFeatureReady(TenantFeature.group);
+  const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -29,7 +30,11 @@ export function useRolePermission() {
        * （docs/architecture/iam/07-groups.md §8）
        */
       canViewGroups: hasGroups && can(PermissionKey['group:read']),
+      /** 匯出要獨立的 `role:export`（docs/architecture/backend/22-data-transfer.md §13 D11）；租戶沒有啟用 `dataTransfer` 時沒有入口 */
+      canExport: hasDataTransfer && can(PermissionKey['role:export']),
+      /** 匯入沿用 create／update：修改模式要 `role:update`（`role:create` 包含它） */
+      canImport: hasDataTransfer && page.canUpdate,
     }),
-    [page, can, hasGroups],
+    [page, can, hasGroups, hasDataTransfer],
   );
 }

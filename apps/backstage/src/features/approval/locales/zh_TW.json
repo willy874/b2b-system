@@ -161,6 +161,10 @@
       "backToList": "回到我的審批",
       "emptyAssigned": "目前沒有等你審核的申請",
       "emptyMine": "你還沒有送出任何申請"
+    },
+    "transfer": {
+      "requests": "審批請求",
+      "decisions": "審核紀錄（每一關的決定）"
     }
   }
 }

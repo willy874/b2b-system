@@ -44,6 +44,21 @@ export interface RoleWithCounts extends RoleRow {
   userCount: number;
 }
 
+/** 匯入匯出的一筆角色：計數加上明確授予的權限鍵（docs/architecture/backend/22-data-transfer.md §12.1）。 */
+export interface RoleExportRow extends RoleWithCounts {
+  permissionKeys: string[];
+}
+
+/** 匯出的範圍：勾選的 id，或列表的篩選條件（去掉分頁與排序）。 */
+export type RoleExportScope =
+  | { ids: readonly string[] }
+  | { filter: Pick<ListRoleDto, 'keyword' | 'isSystem'> };
+
+export interface RoleExportCursor {
+  createdAt: Date;
+  id: string;
+}
+
 // 子查詢裡的邊以別名 t 表示；條件與 db/schema 的 isRolePermissionTuple()／isRoleHolderTuple() 相同
 const permissionCountOf = (roleId: SQLWrapper | string) =>
   sql<number>`(SELECT count(*)::int FROM ${relationTuples} t
@@ -183,6 +198,137 @@ export class RoleRepository {
       })),
       total: counted?.total ?? 0,
     };
+  }
+
+  // ── 匯入匯出（docs/architecture/backend/22-data-transfer.md §12.1）────────
+
+  /** 依建立時間的 keyset 逐頁讀；權限鍵一頁一次查詢。 */
+  async exportPage(
+    scope: RoleExportScope,
+    after: RoleExportCursor | null,
+    limit: number,
+  ): Promise<RoleExportRow[]> {
+    const rows = await this.db
+      .select({
+        role: roles,
+        permissionCount: SORT_COLUMNS.permissionCount,
+        userCount: SORT_COLUMNS.userCount,
+      })
+      .from(roles)
+      .where(
+        and(
+          this.exportWhere(scope),
+          after
+            ? sql`(${roles.createdAt}, ${roles.id}) > (${after.createdAt.toISOString()}::timestamptz, ${after.id}::uuid)`
+            : undefined,
+        ),
+      )
+      .orderBy(asc(roles.createdAt), asc(roles.id))
+      .limit(limit);
+    return this.withPermissionKeys(
+      rows.map((row) => ({
+        ...row.role,
+        permissionCount: row.permissionCount,
+        userCount: row.userCount,
+      })),
+    );
+  }
+
+  async exportCount(scope: RoleExportScope): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(roles)
+      .where(this.exportWhere(scope));
+    return row?.total ?? 0;
+  }
+
+  /** 匯入的修改模式：以 id 或 slug（不分大小寫）找未刪除的角色。 */
+  async findForImport(column: 'id' | 'slug', values: readonly string[]): Promise<RoleExportRow[]> {
+    if (!values.length) return [];
+    const match =
+      column === 'id'
+        ? inArray(roles.id, [...values])
+        : sql`lower(${roles.slug}) IN ${values.map((value) => value.toLowerCase())}`;
+    const rows = await this.db
+      .select({
+        role: roles,
+        permissionCount: SORT_COLUMNS.permissionCount,
+        userCount: SORT_COLUMNS.userCount,
+      })
+      .from(roles)
+      .where(and(match, isActiveRole()));
+    return this.withPermissionKeys(
+      rows.map((row) => ({
+        ...row.role,
+        permissionCount: row.permissionCount,
+        userCount: row.userCount,
+      })),
+    );
+  }
+
+  /** 匯入的新增模式：已經被使用的名稱或 slug（小寫）。 */
+  async findTakenValues(column: 'name' | 'slug', values: readonly string[]): Promise<Set<string>> {
+    if (!values.length) return new Set();
+    const target = column === 'name' ? roles.name : roles.slug;
+    const rows = await this.db
+      .select({ value: sql<string>`lower(${target})` })
+      .from(roles)
+      .where(
+        and(isActiveRole(), sql`lower(${target}) IN ${values.map((value) => value.toLowerCase())}`),
+      );
+    return new Set(rows.map((row) => row.value));
+  }
+
+  /** 匯入的比對目標與自動完成：名稱或 slug 含關鍵字的角色。 */
+  async searchForImport(keyword: string, limit: number): Promise<RoleRow[]> {
+    const pattern = containsPattern(keyword);
+    return this.db
+      .select()
+      .from(roles)
+      .where(
+        and(
+          isActiveRole(),
+          keyword ? or(ilike(roles.name, pattern), ilike(roles.slug, pattern)) : undefined,
+        ),
+      )
+      .orderBy(asc(roles.name), asc(roles.id))
+      .limit(limit);
+  }
+
+  private exportWhere(scope: RoleExportScope): SQL | undefined {
+    if ('ids' in scope) return and(isActiveRole(), inArray(roles.id, [...scope.ids]));
+    const conditions: SQL[] = [isActiveRole()];
+    if (scope.filter.keyword) {
+      const pattern = containsPattern(scope.filter.keyword);
+      conditions.push(sql`(${roles.name} ILIKE ${pattern} OR ${roles.slug} ILIKE ${pattern})`);
+    }
+    if (scope.filter.isSystem !== undefined) {
+      conditions.push(eq(roles.isSystem, scope.filter.isSystem));
+    }
+    return and(...conditions);
+  }
+
+  /** 明確授予的權限鍵，依鍵排序；super-admin 的隱含全集不是權限鍵的邊（`isRolePermissionTuple` 已排除）。 */
+  private async withPermissionKeys(rows: RoleWithCounts[]): Promise<RoleExportRow[]> {
+    if (!rows.length) return [];
+    const edges = await this.db
+      .select({ roleId: relationTuples.subjectId, key: relationTuples.relation })
+      .from(relationTuples)
+      .where(
+        and(
+          isRolePermissionTuple(),
+          inArray(
+            relationTuples.subjectId,
+            rows.map((row) => row.id),
+          ),
+        ),
+      )
+      .orderBy(asc(relationTuples.relation));
+    const keys = new Map<string, string[]>();
+    for (const edge of edges) {
+      keys.set(edge.roleId, [...(keys.get(edge.roleId) ?? []), edge.key]);
+    }
+    return rows.map((row) => ({ ...row, permissionKeys: keys.get(row.id) ?? [] }));
   }
 
   async create(values: RoleInsert, tx?: DbOrTx): Promise<RoleRow> {

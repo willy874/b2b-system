@@ -2,7 +2,9 @@ import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button } from '@b2b-system/ui/Button';
 import { Empty } from '@b2b-system/ui/Empty';
 import { Icon } from '@b2b-system/ui/Icon';
+import { Menu } from '@b2b-system/ui/Menu';
 import { Tabs } from '@b2b-system/ui/Tabs';
+import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -11,9 +13,10 @@ import { useState } from 'react';
 import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
 import type { OrgUnitDetail } from '@/shared/api-sdk';
 
+import { orgUnitExportApi } from '../../hooks/orgUnitTransferApi';
 import { useOrgUnitDeleteMutation } from '../../hooks/useOrgUnitMutations';
 import { useOrgUnitPermission } from '../../hooks/useOrgUnitPermission';
-import { OrganizationRoute } from '../../routes';
+import { OrganizationRoute, OrgUnitImportRoute, OrgUnitMemberImportRoute } from '../../routes';
 import { OrgChartPanel } from './components/OrgChartPanel';
 import { OrgUnitCreateDialog } from './components/OrgUnitCreateDialog';
 import type { OrgUnitCreateTarget } from './components/OrgUnitCreateDialog';
@@ -41,6 +44,8 @@ export default function OrganizationPage() {
   const [creating, setCreating] = useState<OrgUnitCreateTarget>();
   const [moving, setMoving] = useState<OrgUnitDetail>();
   const [pendingDelete, setPendingDelete] = useState<OrgUnitDetail>();
+  /** 匯出對話框：部門或成員（選中部門時是它與下層的成員，docs/architecture/backend/22-data-transfer.md §12.3）。 */
+  const [exporting, setExporting] = useState<'orgUnit' | 'orgUnitMember' | null>(null);
 
   const select = (id: string | undefined) =>
     void navigate({ to: OrganizationRoute.to, search: searchOf(id, view) });
@@ -68,16 +73,85 @@ export default function OrganizationPage() {
             {t('organization.description')}
           </p>
         </div>
-        {view === 'list' && permission.hydrated && permission.canCreate && (
-          <Button
-            variant="primary"
-            startIcon={<Icon name="plus" size={16} />}
-            onClick={() => setCreating({ parentId: null })}
-            data-testid="org-unit-create-button"
-          >
-            {t('organization.create.topLevelAction')}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {permission.hydrated && permission.canExport && (
+            <Menu
+              align="end"
+              trigger={
+                <Button
+                  variant="secondary"
+                  startIcon={<Icon name="download" size={16} />}
+                  endIcon={<Icon name="chevron-down" size={14} />}
+                  data-testid="org-unit-export-button"
+                >
+                  {t('dataTransfer.export.action')}
+                </Button>
+              }
+              items={[
+                {
+                  key: 'orgUnit',
+                  label: t('organization.transfer.units'),
+                  onSelect: () => setExporting('orgUnit'),
+                },
+                {
+                  key: 'orgUnitMember',
+                  label: unitId
+                    ? t('organization.transfer.membersOfUnit')
+                    : t('organization.transfer.members'),
+                  onSelect: () => setExporting('orgUnitMember'),
+                },
+              ]}
+              data-testid="org-unit-export-menu"
+            />
+          )}
+          {permission.hydrated && permission.canImport && (
+            <Menu
+              align="end"
+              trigger={
+                <Button
+                  variant="secondary"
+                  startIcon={<Icon name="upload" size={16} />}
+                  endIcon={<Icon name="chevron-down" size={14} />}
+                  data-testid="org-unit-import-button"
+                >
+                  {t('dataTransfer.import.action')}
+                </Button>
+              }
+              items={[
+                {
+                  key: 'orgUnit',
+                  label: t('organization.transfer.units'),
+                  onSelect: () =>
+                    void navigate({ to: OrgUnitImportRoute.to, search: { mode: 'create' } }),
+                },
+                ...(permission.canImportMembers
+                  ? [
+                      {
+                        key: 'orgUnitMember',
+                        label: t('organization.transfer.members'),
+                        onSelect: () =>
+                          void navigate({
+                            to: OrgUnitMemberImportRoute.to,
+                            search: { mode: 'create' as const },
+                          }),
+                      },
+                    ]
+                  : []),
+              ]}
+              data-testid="org-unit-import-menu"
+            />
+          )}
+          {view === 'list' && permission.hydrated && permission.canCreate && (
+            <Button
+              variant="primary"
+              startIcon={<Icon name="plus" size={16} />}
+              onClick={() => setCreating({ parentId: null })}
+              data-testid="org-unit-create-button"
+            >
+              {t('organization.create.topLevelAction')}
+            </Button>
+          )}
+        </div>
       </header>
 
       <Tabs
@@ -136,6 +210,18 @@ export default function OrganizationPage() {
         units={tree.data?.items}
         onClose={() => setMoving(undefined)}
       />
+      <ExportDialog
+        open={exporting !== null}
+        onOpenChange={(open) => !open && setExporting(null)}
+        api={orgUnitExportApi}
+        type={exporting ?? 'orgUnit'}
+        filter={
+          exporting === 'orgUnitMember' && unitId ? { unitId, includeDescendants: 'true' } : {}
+        }
+        matchingTotal={exporting === 'orgUnit' ? tree.data?.items.length : undefined}
+        data-testid="org-unit-export-dialog"
+      />
+
       <AlertDialog
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(undefined)}

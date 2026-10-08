@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { AuthUser, PermissionKey } from '@/common/types';
-import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
 import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -91,12 +91,29 @@ function holderRefreshChanges(
   }));
 }
 
+/** 兩組權限鍵是否相同（不計順序）。 */
+function sameKeys(a: readonly string[], b: readonly string[]): boolean {
+  const set = new Set(a);
+  return set.size === new Set(b).size && b.every((key) => set.has(key));
+}
+
 /** `GET /roles/:id/permissions` 的回應（RolePermissionsSchema）。 */
 export interface RolePermissions {
   permissions: PermissionCatalogItem[];
   effective: EffectivePermission[];
   isSuperAdmin: boolean;
 }
+
+/** 角色寫入在交易提交後要做的事（`runAfterCommit`）；匯入的套用工作把它拆成可合併的副作用。 */
+export interface RoleAfterCommit {
+  changes: ResourceChangeWire[];
+  affectedUserIds: string[];
+  /** 權限鍵改變了：持有者（含經由群組）。 */
+  permissionsChanged?: string[];
+}
+
+/** 匯入建立角色時可以指定 slug（跨租戶複製角色時保留同一個 slug，docs/architecture/backend/22-data-transfer.md §12.1）。 */
+export type CreateRoleInput = CreateRoleDto & { slug?: string };
 
 /** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
 const ROLE_LOCK_CODES = {
@@ -151,44 +168,77 @@ export class RoleService {
   }
 
   async create(dto: CreateRoleDto, actor: AuthUser): Promise<RoleDto> {
-    await this.assertNameAvailable(dto.name);
-    await this.permissionService.assertGrantable(actor.id, dto.permissionKeys as PermissionKey[]);
-    await this.permissionService.assertKeysExist(dto.permissionKeys);
-
-    const role = await withTransaction(this.db, async (tx) => {
-      const created = await this.repo.create(
-        {
-          slug: await this.uniqueSlug(slugify(dto.name)),
-          name: dto.name,
-          description: dto.description ?? null,
-          isSystem: false,
-          createdBy: actor.id,
-          updatedBy: actor.id,
-        },
-        tx,
-      );
-      await this.repo.addPermissions(created.id, dto.permissionKeys, actor.id, tx);
-      await this.recordRevision(created, actor.id, tx);
-      await this.audit.record(
-        {
-          action: 'role.create',
-          resourceType: 'role',
-          resourceId: created.id,
-          resourceName: created.name,
-          changes: { after: { name: created.name, permissions: dto.permissionKeys } },
-        },
-        tx,
-      );
-      return created;
-    });
-
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.CREATE, id: role.id }],
-    });
+    const { role, after } = await withTransaction(this.db, (tx) => this.createInTx(dto, actor, tx));
+    await this.runAfterCommit(after);
     return this.findOne(role.id);
   }
 
+  /** 建立的業務規則與寫入，在呼叫端的交易內（API 與匯入共用一份規則）。 */
+  async createInTx(
+    input: CreateRoleInput,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ role: RoleRow; after: RoleAfterCommit }> {
+    await this.assertNameAvailable(input.name);
+    await this.permissionService.assertGrantable(
+      actor.id,
+      input.permissionKeys as PermissionKey[],
+      tx,
+    );
+    await this.permissionService.assertKeysExist(input.permissionKeys);
+    let slug = await this.uniqueSlug(slugify(input.name));
+    if (input.slug) {
+      if (await this.repo.findBySlug(input.slug)) {
+        throw new AppException('ROLE_NAME_DUPLICATE', { field: 'slug', value: input.slug });
+      }
+      slug = input.slug;
+    }
+
+    const role = await this.repo.create(
+      {
+        slug,
+        name: input.name,
+        description: input.description ?? null,
+        isSystem: false,
+        createdBy: actor.id,
+        updatedBy: actor.id,
+      },
+      tx,
+    );
+    await this.repo.addPermissions(role.id, input.permissionKeys, actor.id, tx);
+    await this.recordRevision(role, actor.id, tx);
+    await this.audit.record(
+      {
+        action: 'role.create',
+        resourceType: 'role',
+        resourceId: role.id,
+        resourceName: role.name,
+        changes: { after: { name: role.name, permissions: input.permissionKeys } },
+      },
+      tx,
+    );
+    return {
+      role,
+      after: {
+        changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.CREATE, id: role.id }],
+        affectedUserIds: [],
+      },
+    };
+  }
+
   async update(id: string, dto: UpdateRoleDto, actor: AuthUser): Promise<RoleDto> {
+    const { after } = await withTransaction(this.db, (tx) => this.updateInTx(id, dto, actor, tx));
+    await this.runAfterCommit(after);
+    return this.findOne(id);
+  }
+
+  /** 改名稱、說明的業務規則與寫入，在呼叫端的交易內（與 `createInTx` 同一個做法）。 */
+  async updateInTx(
+    id: string,
+    dto: UpdateRoleDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ role: RoleRow; after: RoleAfterCommit }> {
     const { version, ...fields } = dto;
     const role = await this.getExisting(id);
     // 讀到時就不同：別人已經改過（docs/architecture/backend/14-revisions.md §9.2 D3）
@@ -203,32 +253,31 @@ export class RoleService {
     }
 
     const changes = diff(role, fields, [...ROLE_AUDIT_FIELDS]);
-
-    await withTransaction(this.db, async (tx) => {
-      const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
-      // 讀到之後、寫入之前被別人改過（版本變了）或刪除
-      if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), ROLE_LOCK_CODES);
-      // UPDATE 已經鎖住角色列：同一個角色的版本號依序產生
-      await this.recordRevision(updated, actor.id, tx);
-      await this.audit.record(
-        {
-          action: 'role.update',
-          resourceType: 'role',
-          resourceId: id,
-          resourceName: updated.name,
-          changes,
-        },
-        tx,
-      );
-    });
+    const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
+    // 讀到之後、寫入之前被別人改過（版本變了）或刪除
+    if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), ROLE_LOCK_CODES);
+    // UPDATE 已經鎖住角色列：同一個角色的版本號依序產生
+    await this.recordRevision(updated, actor.id, tx);
+    await this.audit.record(
+      {
+        action: 'role.update',
+        resourceType: 'role',
+        resourceId: id,
+        resourceName: updated.name,
+        changes,
+      },
+      tx,
+    );
 
     // 改名不影響權限，但持有者的 profile（角色名稱）要重抓。只經由群組持有的人 profile 不列這個角色，不必另外推
-    const holders = await this.permissionService.findUserIdsHoldingRole(id);
-    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.UPDATE, id }],
-      affectedUserIds: holders,
-    });
-    return this.findOne(id);
+    const holders = await this.permissionService.findUserIdsHoldingRole(id, tx);
+    return {
+      role: updated,
+      after: {
+        changes: [{ resource: ChangeSource.ROLE, kind: ChangeKind.UPDATE, id }],
+        affectedUserIds: holders,
+      },
+    };
   }
 
   async updatePermissions(
@@ -236,67 +285,119 @@ export class RoleService {
     dto: UpdateRolePermissionsDto,
     actor: AuthUser,
   ): Promise<RolePermissions> {
+    const { after } = await withTransaction(this.db, (tx) =>
+      this.changePermissionsInTx(
+        id,
+        { add: dto.add as PermissionKey[], remove: dto.remove as PermissionKey[] },
+        actor,
+        tx,
+      ),
+    );
+    await this.runAfterCommit(after);
+    return this.describePermissions(id, false);
+  }
+
+  /**
+   * 整組取代權限鍵（匯入的修改模式）：與目前的差異換成增減，規則與 `updatePermissions` 相同。
+   * `expectedKeys` 是預覽時看到的權限鍵：與目前不同（別人剛改過）→ `ROLE_VERSION_CONFLICT`，不蓋掉那次變更。
+   */
+  async replacePermissionsInTx(
+    id: string,
+    input: { keys: readonly string[]; expectedKeys?: readonly string[] },
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ after: RoleAfterCommit }> {
+    const current = await this.repo.listPermissionKeys(id, tx);
+    if (input.expectedKeys && !sameKeys(current, input.expectedKeys)) {
+      throw new AppException('ROLE_VERSION_CONFLICT', { currentPermissions: current });
+    }
+    const next = new Set(input.keys);
+    return this.changePermissionsInTx(
+      id,
+      {
+        add: input.keys.filter((key) => !current.includes(key)) as PermissionKey[],
+        remove: current.filter((key) => !next.has(key)) as PermissionKey[],
+      },
+      actor,
+      tx,
+    );
+  }
+
+  /** 增減權限鍵的業務規則與寫入，在呼叫端的交易內。 */
+  private async changePermissionsInTx(
+    id: string,
+    change: { add: readonly PermissionKey[]; remove: readonly PermissionKey[] },
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ after: RoleAfterCommit }> {
     const role = await this.getExisting(id);
     if (role.slug === SUPER_ADMIN_SLUG) throw new AppException('ROLE_SUPER_ADMIN_IMMUTABLE');
 
-    const touched = [...dto.add, ...dto.remove];
+    const touched = [...change.add, ...change.remove];
     await this.permissionService.assertKeysExist(touched);
-    await this.permissionService.assertGrantable(actor.id, dto.add as PermissionKey[]);
+    await this.permissionService.assertGrantable(actor.id, change.add, tx);
 
-    // 自我鎖定的預估用交易外的讀取；稽核的 before／after 在交易內讀，才是實際寫入的前後
-    const predicted = [
-      ...new Set([...(await this.repo.listPermissionKeys(id)), ...dto.add]),
-    ].filter((key) => !dto.remove.includes(key as PermissionKey));
+    // 鎖住角色列：同一個角色的權限變更依序進行，before／after 與版本號不會被併發的另一筆交錯
+    const locked = await this.repo.lockActiveRow(id, tx);
+    if (!locked) throw new AppException('ROLE_NOT_FOUND');
+    const before = await this.repo.listPermissionKeys(id, tx);
+    const predicted = [...new Set([...before, ...change.add])].filter(
+      (key) => !change.remove.includes(key as PermissionKey),
+    );
     await this.permissionService.assertNoSelfLockout(
       actor.id,
       id,
       predicted,
       ROLE_MANAGEMENT_PERMISSIONS,
+      tx,
+    );
+    if (change.remove.length) await this.repo.removePermissions(id, change.remove, tx);
+    if (change.add.length) await this.repo.addPermissions(id, change.add, actor.id, tx);
+    const after = await this.repo.listPermissionKeys(id, tx);
+    // 權限鍵是關聯的寫入，不遞增角色的 `version`（docs/architecture/backend/14-revisions.md §9.2 D3），但會產生新的一版
+    await this.revisions.record(tx, {
+      resourceType: RESOURCE_TYPE.ROLE,
+      resourceId: id,
+      snapshot: toRoleRevision(locked, after),
+      actorId: actor.id,
+    });
+    await this.audit.record(
+      {
+        action: 'role.grantPermission',
+        resourceType: 'role',
+        resourceId: id,
+        resourceName: role.name,
+        changes: { before: { permissions: before }, after: { permissions: after } },
+      },
+      tx,
     );
 
-    await withTransaction(this.db, async (tx) => {
-      // 鎖住角色列：同一個角色的權限變更依序進行，before／after 與版本號不會被併發的另一筆交錯
-      const locked = await this.repo.lockActiveRow(id, tx);
-      if (!locked) throw new AppException('ROLE_NOT_FOUND');
-      const before = await this.repo.listPermissionKeys(id, tx);
-      if (dto.remove.length) {
-        await this.repo.removePermissions(id, dto.remove, tx);
-      }
-      if (dto.add.length) {
-        await this.repo.addPermissions(id, dto.add, actor.id, tx);
-      }
-      const after = await this.repo.listPermissionKeys(id, tx);
-      // 權限鍵是關聯的寫入，不遞增角色的 `version`（docs/architecture/backend/14-revisions.md §9.2 D3），但會產生新的一版
-      await this.revisions.record(tx, {
-        resourceType: RESOURCE_TYPE.ROLE,
-        resourceId: id,
-        snapshot: toRoleRevision(locked, after),
-        actorId: actor.id,
-      });
-      await this.audit.record(
-        {
-          action: 'role.grantPermission',
-          resourceType: 'role',
-          resourceId: id,
-          resourceName: role.name,
-          changes: { before: { permissions: before }, after: { permissions: after } },
-        },
-        tx,
-      );
-    });
-
-    // ★ 快取失效在交易「之後」——交易可能 rollback；推播的 room 同步在失效之後。
     // 持有者不是失效的依據（整個租戶都失效）：給剛取得檔案權限的人補建個人資料夾、讓他們的畫面重抓
-    const { holders, viaGroupsOnly } = await this.holdersOf(id);
-    await this.permissionService.permissionsChanged(holders);
+    const { holders, viaGroupsOnly } = await this.holdersOf(id, tx);
+    return {
+      after: {
+        permissionsChanged: holders,
+        changes: [
+          { resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id },
+          ...holderRefreshChanges(id, viaGroupsOnly, 1),
+        ],
+        affectedUserIds: holders,
+      },
+    };
+  }
+
+  /**
+   * 交易提交後的副作用（規則 6、7：先失效再發佈）。API 在交易後立即呼叫；匯入的套用工作把它拆成可合併的副作用
+   * （`RoleTransferResource`），權限失效每 100 列才做一次（docs/architecture/backend/22-data-transfer.md §13 D10）。
+   */
+  async runAfterCommit(after: RoleAfterCommit): Promise<void> {
+    if (after.permissionsChanged) {
+      await this.permissionService.permissionsChanged(after.permissionsChanged);
+    }
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
-      changes: [
-        { resource: ChangeSource.ROLE_PERMISSION, kind: ChangeKind.UPDATE, id },
-        ...holderRefreshChanges(id, viaGroupsOnly, 1),
-      ],
-      affectedUserIds: holders,
+      changes: after.changes,
+      ...(after.affectedUserIds.length ? { affectedUserIds: after.affectedUserIds } : {}),
     });
-    return this.describePermissions(id, false);
   }
 
   async duplicate(id: string, dto: DuplicateRoleDto, actor: AuthUser) {

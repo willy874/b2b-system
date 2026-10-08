@@ -1,6 +1,9 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
-import { ButtonLink } from '@b2b-system/ui/Button';
+import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
 import { useTableSelection } from '@b2b-system/ui/Table';
+import type { BatchAction } from '@b2b-system/web-core/batch';
+import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { ErrorCodes, isAppError } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
@@ -10,10 +13,11 @@ import { useMemo, useState } from 'react';
 import { fetchRoleListQuery } from '@/apis/role/get-role-list/fetcher';
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
 
+import { roleExportApi } from '../../hooks/roleTransferApi';
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
 import { ROLE_LIST_TABLE_ID } from '../../preference';
-import { RoleCreateRoute, RoleDetailRoute } from '../../routes';
+import { RoleCreateRoute, RoleDetailRoute, RoleImportRoute } from '../../routes';
 import { toRoleRowVM } from './adapter';
 import type { RoleRowVM } from './adapter';
 import { RoleTable } from './components/RoleTable';
@@ -30,6 +34,8 @@ export default function RoleListPage() {
   const batchActions = useRoleBatchActions();
   const [pendingDelete, setPendingDelete] = useState<RoleRowVM>();
   const deleteRole = useRoleDeleteMutation();
+  /** 匯出對話框：開啟時的範圍（docs/architecture/backend/22-data-transfer.md §8.2）。 */
+  const [exporting, setExporting] = useState<{ ids: string[]; allMatching: boolean } | null>(null);
 
   const listParams = {
     offset: search.offset,
@@ -48,6 +54,21 @@ export default function RoleListPage() {
     [data, canDelete, canUpdate],
   );
   const selection = useTableSelection(rows, getRowId);
+  // 批次列的「匯出選取」：不入佇列，開匯出對話框；「選取全部符合」時以篩選條件匯出
+  const actions = useMemo<Array<BatchAction<RoleRowVM>>>(
+    () => [
+      ...batchActions,
+      {
+        kind: 'run',
+        id: 'export',
+        label: t('dataTransfer.export.selectedAction'),
+        hidden: !permission.hydrated || !permission.canExport,
+        run: ({ rows: targets, allMatching }) =>
+          setExporting({ ids: targets.map((target) => target.id), allMatching }),
+      },
+    ],
+    [batchActions, permission.canExport, permission.hydrated, t],
+  );
   // 關鍵字改變後，原本勾選的列可能不在結果裡了：清空選取（排序只是換順序，保留）
   const filters = useRoleFilters({
     ...searchFilter,
@@ -64,17 +85,40 @@ export default function RoleListPage() {
           <h1 className="m-0 text-xl font-semibold">{t('role.list.title')}</h1>
           <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('role.list.description')}</p>
         </div>
-        {/* 使用者永遠不會有這個權限時直接隱藏 */}
-        {permission.canCreate && (
-          <ButtonLink
-            variant="primary"
-            to={RoleCreateRoute.to}
-            search={search}
-            data-testid="role-create-button"
-          >
-            {t('role.create.action')}
-          </ButtonLink>
-        )}
+        <div className="flex items-center gap-2">
+          {permission.canExport && (
+            <Button
+              variant="secondary"
+              startIcon={<Icon name="download" size={16} />}
+              onClick={() => setExporting({ ids: [], allMatching: false })}
+              data-testid="role-export-button"
+            >
+              {t('dataTransfer.export.action')}
+            </Button>
+          )}
+          {permission.canImport && (
+            <ButtonLink
+              variant="secondary"
+              to={RoleImportRoute.to}
+              search={{ mode: 'create' }}
+              startIcon={<Icon name="upload" size={16} />}
+              data-testid="role-import-button"
+            >
+              {t('dataTransfer.import.action')}
+            </ButtonLink>
+          )}
+          {/* 使用者永遠不會有這個權限時直接隱藏 */}
+          {permission.canCreate && (
+            <ButtonLink
+              variant="primary"
+              to={RoleCreateRoute.to}
+              search={search}
+              data-testid="role-create-button"
+            >
+              {t('role.create.action')}
+            </ButtonLink>
+          )}
+        </div>
       </header>
 
       <RoleTable
@@ -97,7 +141,7 @@ export default function RoleListPage() {
         batch={{
           scope: ROLE_LIST_TABLE_ID,
           selection,
-          actions: batchActions,
+          actions,
           getRowLabel,
           // 「選取全部符合」：同樣的篩選與排序逐頁取回（docs/architecture/frontend/07-ui-system.md §13.7）
           selectAllMatching: {
@@ -120,6 +164,18 @@ export default function RoleListPage() {
           total: data?.pagination.total ?? 0,
           onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
+      />
+
+      <ExportDialog
+        open={exporting !== null}
+        onOpenChange={(open) => !open && setExporting(null)}
+        api={roleExportApi}
+        type="role"
+        selectedIds={exporting?.ids}
+        allMatchingSelected={exporting?.allMatching}
+        filter={{ keyword: search.keyword }}
+        matchingTotal={data?.pagination.total ?? 0}
+        data-testid="role-export-dialog"
       />
 
       <AlertDialog

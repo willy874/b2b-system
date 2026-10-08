@@ -44,6 +44,39 @@ export class TagRepository {
       .where(and(eq(tags.scope, scope), inArray(tags.id, [...ids])));
   }
 
+  /** 匯入匯出（docs/architecture/backend/22-data-transfer.md §12.4）：這些標籤組的標籤，依組、名稱排序。 */
+  listByScopes(scopes: readonly string[]): Promise<TagRow[]> {
+    if (!scopes.length) return Promise.resolve([]);
+    return this.db
+      .select()
+      .from(tags)
+      .where(inArray(tags.scope, [...scopes]))
+      .orderBy(asc(tags.scope), asc(sql`lower(${tags.name})`), asc(tags.id));
+  }
+
+  /** 這些 id 的標籤（不分組）。 */
+  findByIds(ids: readonly string[]): Promise<TagRow[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return this.db
+      .select()
+      .from(tags)
+      .where(inArray(tags.id, [...ids]));
+  }
+
+  /** 這個標籤組裡名稱（不分大小寫）是這些的標籤。 */
+  findByNames(scope: string, names: readonly string[], tx?: DbOrTx): Promise<TagRow[]> {
+    if (!names.length) return Promise.resolve([]);
+    return (tx ?? this.db)
+      .select()
+      .from(tags)
+      .where(
+        and(
+          eq(tags.scope, scope),
+          sql`lower(${tags.name}) IN ${names.map((name) => name.toLowerCase())}`,
+        ),
+      );
+  }
+
   async countInScope(scope: string, tx: DbOrTx): Promise<number> {
     const [row] = await tx.select({ total: count() }).from(tags).where(eq(tags.scope, scope));
     return row?.total ?? 0;

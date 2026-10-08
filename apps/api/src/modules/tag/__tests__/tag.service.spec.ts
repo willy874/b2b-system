@@ -43,6 +43,7 @@ function setup() {
     findById: vi.fn(async (): Promise<TagRow | undefined> => tag('t1')),
     findVersion: vi.fn(async (): Promise<number | undefined> => 1),
     findInScope: vi.fn(async (): Promise<TagRow[]> => []),
+    findByNames: vi.fn(async (): Promise<TagRow[]> => []),
     countInScope: vi.fn(async () => 0),
     lockScope: vi.fn(async () => undefined),
     create: vi.fn(async (values: Partial<TagRow>) => tag('new', values)),

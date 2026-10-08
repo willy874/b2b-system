@@ -21,6 +21,42 @@ const SORT_COLUMNS = {
   reviewedAt: approvalRequests.reviewedAt,
 } as const;
 
+/** 匯出的範圍（docs/architecture/backend/22-data-transfer.md §12.5）：勾選的 id，或列表的篩選條件（不含 `scope`：匯出要 `approval:export`，看得到全部）。 */
+export type ApprovalExportScope =
+  | { ids: readonly string[] }
+  | { filter: Pick<ListApprovalDto, 'keyword' | 'status' | 'type'> };
+
+export interface ApprovalExportCursor {
+  createdAt: Date;
+  id: string;
+}
+
+/** 匯出的一筆請求：加上目前關卡的名稱（多階段）。 */
+export interface ApprovalExportRow extends ApprovalRequestRow {
+  currentStepName: string | null;
+  stepCount: number;
+}
+
+/** 匯出的一筆決定：多階段的每一關每一人；單關的請求以請求上的審核者表示（`stepOrdinal` 為 null）。 */
+export interface ApprovalDecisionExportRow {
+  id: string;
+  requestId: string;
+  type: string;
+  requesterName: string;
+  stepOrdinal: number | null;
+  stepName: string | null;
+  reviewerName: string;
+  decision: 'approve' | 'reject';
+  via: string;
+  comment: string | null;
+  decidedAt: Date;
+}
+
+export interface ApprovalDecisionCursor {
+  decidedAt: Date;
+  id: string;
+}
+
 /** 審核結果；只會套用在仍為 `pending` 的列上。 */
 export type ApprovalReview = Pick<
   ApprovalRequestInsert,
@@ -141,6 +177,112 @@ export class ApprovalRepository {
       this.db.$count(approvalRequests, where),
     ]);
     return { items, total };
+  }
+
+  // ── 匯出（docs/architecture/backend/22-data-transfer.md §12.5）────────
+
+  /** 依建立時間的 keyset 逐頁讀；目前關卡的名稱一頁一次查詢。 */
+  async exportPage(
+    scope: ApprovalExportScope,
+    after: ApprovalExportCursor | null,
+    limit: number,
+  ): Promise<ApprovalExportRow[]> {
+    const rows = await this.db
+      .select({
+        request: approvalRequests,
+        currentStepName: sql<string | null>`(SELECT s.name FROM ${approvalSteps} s
+          WHERE s.request_id = ${approvalRequests.id} AND s.ordinal = ${approvalRequests.currentStep})`,
+        stepCount: sql<number>`(SELECT count(*)::int FROM ${approvalSteps} s
+          WHERE s.request_id = ${approvalRequests.id})`,
+      })
+      .from(approvalRequests)
+      .where(
+        and(
+          this.exportWhere(scope),
+          after
+            ? sql`(${approvalRequests.createdAt}, ${approvalRequests.id}) > (${after.createdAt.toISOString()}::timestamptz, ${after.id}::uuid)`
+            : undefined,
+        ),
+      )
+      .orderBy(asc(approvalRequests.createdAt), asc(approvalRequests.id))
+      .limit(limit);
+    return rows.map((row) => ({
+      ...row.request,
+      currentStepName: row.currentStepName,
+      stepCount: row.stepCount,
+    }));
+  }
+
+  exportCount(scope: ApprovalExportScope): Promise<number> {
+    return this.db.$count(approvalRequests, this.exportWhere(scope));
+  }
+
+  /**
+   * 決定：多階段的每一筆決定，加上沒有決定紀錄的單關請求（以請求上的審核者表示）。範圍是請求的範圍；
+   * 依決定時間的 keyset 逐頁讀。
+   */
+  async exportDecisions(
+    scope: ApprovalExportScope,
+    after: ApprovalDecisionCursor | null,
+    limit: number,
+  ): Promise<ApprovalDecisionExportRow[]> {
+    const rows = await this.db.execute<
+      Omit<ApprovalDecisionExportRow, 'decidedAt'> & { decidedAt: string | Date } & Record<
+          string,
+          unknown
+        >
+    >(sql`
+      SELECT * FROM (${this.decisionRows(scope)}) d
+      ${
+        after
+          ? sql`WHERE (d."decidedAt", d.id) > (${after.decidedAt.toISOString()}::timestamptz, ${after.id})`
+          : sql``
+      }
+      ORDER BY d."decidedAt", d.id
+      LIMIT ${limit}`);
+    return rows.map((row) => ({ ...row, decidedAt: new Date(row.decidedAt) }));
+  }
+
+  async exportDecisionCount(scope: ApprovalExportScope): Promise<number> {
+    const [row] = await this.db.execute<{ total: number }>(
+      sql`SELECT count(*)::int AS total FROM (${this.decisionRows(scope)}) d`,
+    );
+    return row?.total ?? 0;
+  }
+
+  private decisionRows(scope: ApprovalExportScope): SQL {
+    // 範圍以子查詢表示：篩選條件是請求表的欄位（`exportWhere`），在單表的子查詢裡才不會跟決定表的欄位混淆
+    const inScope = this.db
+      .select({ id: approvalRequests.id })
+      .from(approvalRequests)
+      .where(this.exportWhere(scope));
+    return sql`
+      SELECT d.id::text AS id, r.id::text AS "requestId", r.type AS type, r.requester_name AS "requesterName",
+        s.ordinal::int AS "stepOrdinal", s.name AS "stepName", d.reviewer_name AS "reviewerName",
+        d.decision AS decision, d.via AS via, d.comment AS comment, d.decided_at AS "decidedAt"
+      FROM ${approvalDecisions} d
+      JOIN ${approvalSteps} s ON s.id = d.step_id
+      JOIN ${approvalRequests} r ON r.id = d.request_id
+      WHERE r.id IN (${inScope})
+      UNION ALL
+      SELECT r.id::text AS id, r.id::text AS "requestId", r.type AS type, r.requester_name AS "requesterName",
+        NULL::int AS "stepOrdinal", NULL AS "stepName", r.reviewer_name AS "reviewerName",
+        CASE r.status WHEN 'approved' THEN 'approve' ELSE 'reject' END AS decision, 'single' AS via,
+        r.review_comment AS comment, r.reviewed_at AS "decidedAt"
+      FROM ${approvalRequests} r
+      WHERE r.id IN (${inScope}) AND r.status IN ('approved', 'rejected') AND r.reviewed_at IS NOT NULL
+        AND r.reviewer_name IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM ${approvalDecisions} x WHERE x.request_id = r.id)`;
+  }
+
+  private exportWhere(scope: ApprovalExportScope): SQL | undefined {
+    if ('ids' in scope) return inArray(approvalRequests.id, [...scope.ids]);
+    const conditions: SQL[] = [];
+    const { keyword, status, type } = scope.filter;
+    if (keyword) conditions.push(ilike(approvalRequests.requesterName, containsPattern(keyword)));
+    if (status?.length) conditions.push(inArray(approvalRequests.status, status));
+    if (type?.length) conditions.push(inArray(approvalRequests.type, type));
+    return conditions.length ? and(...conditions) : undefined;
   }
 
   /**

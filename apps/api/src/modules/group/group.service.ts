@@ -1,4 +1,5 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
+import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
@@ -8,7 +9,7 @@ import {
   GROUP_OBJECT_TYPE,
   subjectKey,
 } from '@/core/authz';
-import type { Database, DbOrTx, MissedUpdateCodes } from '@/core/database';
+import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
 import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
@@ -56,6 +57,12 @@ function uniqueMembers(members: readonly GroupMemberRef[]): GroupMemberSubject[]
   return [...seen.values()];
 }
 
+/** 兩組 id 是否相同（不計順序）。 */
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  const set = new Set(a);
+  return set.size === new Set(b).size && b.every((id) => set.has(id));
+}
+
 function idsOf(members: readonly GroupMemberSubject[], type: GroupMemberSubject['type']): string[] {
   return members.filter((member) => member.type === type).map((member) => member.id);
 }
@@ -72,6 +79,14 @@ function idsOf(members: readonly GroupMemberSubject[], type: GroupMemberSubject[
  * - 只檢查全域權限鍵，不檢查群組在資料夾上的授權（D13）。
  * - 不能改自己：把自己、自己所屬的群組放進或移出群組，或改自己所屬群組持有的角色（I9 的延伸）。
  */
+/** 群組寫入在交易提交後要做的事（`runAfterCommit`）；匯入的套用工作把它拆成可合併的副作用。 */
+export interface GroupAfterCommit {
+  changes: ResourceChangeWire[];
+  affectedUserIds: string[];
+  /** 誰有什麼權限變了：受影響的人（成員前後的聯集）。 */
+  permissionsChanged?: string[];
+}
+
 /** 樂觀鎖的條件式 UPDATE 沒命中時的錯誤碼（`missedUpdate`）。 */
 const GROUP_LOCK_CODES = {
   notFound: 'GROUP_NOT_FOUND',
@@ -112,35 +127,55 @@ export class GroupService {
   }
 
   async create(dto: CreateGroupDto, actor: AuthUser): Promise<GroupDto> {
-    await this.assertNameAvailable(dto.name);
-    const group = await withTransaction(this.db, async (tx) => {
-      const created = await this.repo.create(
-        {
-          name: dto.name,
-          description: dto.description ?? null,
-          createdBy: actor.id,
-          updatedBy: actor.id,
-        },
-        tx,
-      );
-      await this.audit.record(
-        {
-          action: 'group.create',
-          resourceType: RESOURCE_TYPE.GROUP,
-          resourceId: created.id,
-          resourceName: created.name,
-          changes: { after: { name: created.name, description: created.description } },
-        },
-        tx,
-      );
-      return created;
-    });
-
-    this.publish(ChangeKind.CREATE, group.id);
+    const { group, after } = await withTransaction(this.db, (tx) =>
+      this.createInTx(dto, actor, tx),
+    );
+    await this.runAfterCommit(after);
     return this.findOne(group.id);
   }
 
+  /** 建立的業務規則與寫入，在呼叫端的交易內（API 與匯入共用一份規則）。 */
+  async createInTx(
+    dto: CreateGroupDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ group: GroupRow; after: GroupAfterCommit }> {
+    await this.assertNameAvailable(dto.name);
+    const group = await this.repo.create(
+      {
+        name: dto.name,
+        description: dto.description ?? null,
+        createdBy: actor.id,
+        updatedBy: actor.id,
+      },
+      tx,
+    );
+    await this.audit.record(
+      {
+        action: 'group.create',
+        resourceType: RESOURCE_TYPE.GROUP,
+        resourceId: group.id,
+        resourceName: group.name,
+        changes: { after: { name: group.name, description: group.description } },
+      },
+      tx,
+    );
+    return { group, after: this.changed(ChangeKind.CREATE, group.id) };
+  }
+
   async update(id: string, dto: UpdateGroupDto, actor: AuthUser): Promise<GroupDto> {
+    const { after } = await withTransaction(this.db, (tx) => this.updateInTx(id, dto, actor, tx));
+    await this.runAfterCommit(after);
+    return this.findOne(id);
+  }
+
+  /** 改名稱、說明的業務規則與寫入，在呼叫端的交易內。 */
+  async updateInTx(
+    id: string,
+    dto: UpdateGroupDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ group: GroupRow; after: GroupAfterCommit }> {
     const { version, ...fields } = dto;
     const group = await this.getExisting(id);
     if (version !== group.version) {
@@ -151,25 +186,20 @@ export class GroupService {
       await this.assertNameAvailable(dto.name);
     }
     const changes = diff(group, fields, [...GROUP_AUDIT_FIELDS]);
-
-    await withTransaction(this.db, async (tx) => {
-      const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
-      if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), GROUP_LOCK_CODES);
-      await this.audit.record(
-        {
-          action: 'group.update',
-          resourceType: RESOURCE_TYPE.GROUP,
-          resourceId: id,
-          resourceName: updated.name,
-          changes,
-        },
-        tx,
-      );
-    });
-
+    const updated = await this.repo.update(id, { ...fields, updatedBy: actor.id }, version, tx);
+    if (!updated) throw await missedUpdate(() => this.repo.findVersion(id, tx), GROUP_LOCK_CODES);
+    await this.audit.record(
+      {
+        action: 'group.update',
+        resourceType: RESOURCE_TYPE.GROUP,
+        resourceId: id,
+        resourceName: updated.name,
+        changes,
+      },
+      tx,
+    );
     // 改名不影響權限
-    this.publish(ChangeKind.UPDATE, id);
-    return this.findOne(id);
+    return { group: updated, after: this.changed(ChangeKind.UPDATE, id) };
   }
 
   /**
@@ -255,6 +285,20 @@ export class GroupService {
 
   /** 增減直接成員（差異語意）。加入的成員取得 G 與它所有上層群組持有的角色（D11）。 */
   async updateMembers(id: string, dto: UpdateGroupMembersDto, actor: AuthUser): Promise<GroupDto> {
+    const { after } = await withTransaction(this.db, (tx) =>
+      this.updateMembersInTx(id, dto, actor, tx),
+    );
+    await this.runAfterCommit(after);
+    return this.findOne(id);
+  }
+
+  /** 增減成員的業務規則與寫入，在呼叫端的交易內（匯入的「群組成員」一列一次）。 */
+  async updateMembersInTx(
+    id: string,
+    dto: UpdateGroupMembersDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ after: GroupAfterCommit }> {
     const group = await this.getExisting(id);
     const add = uniqueMembers(dto.add);
     const remove = uniqueMembers(dto.remove);
@@ -264,74 +308,111 @@ export class GroupService {
     await this.assertCanManageUsers(actor, [...idsOf(add, 'user'), ...idsOf(remove, 'user')]);
     if (idsOf(add, 'group').includes(id)) throw new AppException('GROUP_MEMBERSHIP_CYCLE');
 
-    const before = await this.repo.memberUserIds(id);
-    await withTransaction(this.db, async (tx) => {
-      if (!(await this.repo.lockActiveRow(id, tx))) throw new AppException('GROUP_NOT_FOUND');
-      await this.repo.lockMembership(tx);
-      const beforeRefs = await this.repo.listMemberRefs(id, tx);
+    if (!(await this.repo.lockActiveRow(id, tx))) throw new AppException('GROUP_NOT_FOUND');
+    await this.repo.lockMembership(tx);
+    const before = await this.repo.memberUserIds(id, tx);
+    const beforeRefs = await this.repo.listMemberRefs(id, tx);
 
-      if (add.length) {
-        const ancestors = await this.repo.ancestors(id, tx);
-        const ancestorIds = new Set(ancestors.map((ancestor) => ancestor.id));
-        for (const nested of idsOf(add, 'group')) {
-          // H 已經（直接或間接）包含 G：把 H 放進 G 會形成循環
-          if (ancestorIds.has(nested)) {
-            throw new AppException('GROUP_MEMBERSHIP_CYCLE', { groupId: nested });
-          }
-          // oxlint-disable-next-line no-await-in-loop -- 一次加入的群組很少；在同一把鎖內依序檢查
-          const below = await this.repo.descendants(nested, tx);
-          this.assertNestingDepth(ancestors, below, 2);
+    if (add.length) {
+      const ancestors = await this.repo.ancestors(id, tx);
+      const ancestorIds = new Set(ancestors.map((ancestor) => ancestor.id));
+      for (const nested of idsOf(add, 'group')) {
+        // H 已經（直接或間接）包含 G：把 H 放進 G 會形成循環
+        if (ancestorIds.has(nested)) {
+          throw new AppException('GROUP_MEMBERSHIP_CYCLE', { groupId: nested });
         }
-        await this.assertCanJoin(actor, id, tx);
+        // oxlint-disable-next-line no-await-in-loop -- 一次加入的群組很少；在同一把鎖內依序檢查
+        const below = await this.repo.descendants(nested, tx);
+        this.assertNestingDepth(ancestors, below, 2);
       }
+      await this.assertCanJoin(actor, id, tx);
+    }
 
-      await this.repo.removeMembers(id, remove, tx);
-      await this.repo.addMembers(id, add, actor.id, tx);
-      const afterRefs = await this.repo.listMemberRefs(id, tx);
-      if (add.length) {
-        await this.audit.record(
-          {
-            action: 'group.member.add',
-            resourceType: RESOURCE_TYPE.GROUP,
-            resourceId: id,
-            resourceName: group.name,
-            changes: { before: { members: beforeRefs }, after: { members: afterRefs } },
-            metadata: { added: add },
-          },
-          tx,
-        );
-        await this.announcementTriggers.fire(
-          GROUP_MEMBER_ADDED_TRIGGER,
-          { userIds: idsOf(add, 'user'), groupId: id },
-          tx,
-        );
-      }
-      if (remove.length) {
-        await this.audit.record(
-          {
-            action: 'group.member.remove',
-            resourceType: RESOURCE_TYPE.GROUP,
-            resourceId: id,
-            resourceName: group.name,
-            changes: { before: { members: beforeRefs }, after: { members: afterRefs } },
-            metadata: { removed: remove },
-          },
-          tx,
-        );
-      }
-    });
+    await this.repo.removeMembers(id, remove, tx);
+    await this.repo.addMembers(id, add, actor.id, tx);
+    const afterRefs = await this.repo.listMemberRefs(id, tx);
+    if (add.length) {
+      await this.audit.record(
+        {
+          action: 'group.member.add',
+          resourceType: RESOURCE_TYPE.GROUP,
+          resourceId: id,
+          resourceName: group.name,
+          changes: { before: { members: beforeRefs }, after: { members: afterRefs } },
+          metadata: { added: add },
+        },
+        tx,
+      );
+      await this.announcementTriggers.fire(
+        GROUP_MEMBER_ADDED_TRIGGER,
+        { userIds: idsOf(add, 'user'), groupId: id },
+        tx,
+      );
+    }
+    if (remove.length) {
+      await this.audit.record(
+        {
+          action: 'group.member.remove',
+          resourceType: RESOURCE_TYPE.GROUP,
+          resourceId: id,
+          resourceName: group.name,
+          changes: { before: { members: beforeRefs }, after: { members: afterRefs } },
+          metadata: { removed: remove },
+        },
+        tx,
+      );
+    }
 
     // 加入與移出的人（含巢狀群組底下的人）都受影響：前後的聯集
-    const after = await this.repo.memberUserIds(id);
+    const after = await this.repo.memberUserIds(id, tx);
     const affected = [...new Set([...before, ...after])];
-    await this.permissionService.permissionsChanged(affected);
-    this.publish(ChangeKind.UPDATE, id, affected);
-    return this.findOne(id);
+    return { after: this.changed(ChangeKind.UPDATE, id, affected, true) };
   }
 
   /** 增減群組持有的角色（差異語意）。等於把角色指派給群組的所有成員（D12：不能是 super-admin）。 */
   async updateRoles(id: string, dto: UpdateGroupRolesDto, actor: AuthUser): Promise<GroupRolesDto> {
-    const group = await this.getExisting(id);
+    const { after } = await withTransaction(this.db, (tx) =>
+      this.updateRolesInTx(id, dto, actor, tx),
+    );
+    await this.runAfterCommit(after);
+    return { roles: await this.repo.listRoles(id) };
+  }
+
+  /**
+   * 整組取代持有的角色（匯入的修改模式）：與目前的差異換成增減，規則與 `updateRoles` 相同。
+   * `expectedRoleIds` 是預覽時看到的角色：與目前不同（別人剛改過）→ `GROUP_VERSION_CONFLICT`，不蓋掉那次變更。
+   */
+  async replaceRolesInTx(
+    id: string,
+    input: { roleIds: readonly string[]; expectedRoleIds?: readonly string[] },
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ after: GroupAfterCommit }> {
+    const current = await this.repo.listRoleIds(id, tx);
+    if (input.expectedRoleIds && !sameIds(current, input.expectedRoleIds)) {
+      throw new AppException('GROUP_VERSION_CONFLICT', { currentRoleIds: current });
+    }
+    const next = new Set(input.roleIds);
+    return this.updateRolesInTx(
+      id,
+      {
+        add: input.roleIds.filter((roleId) => !current.includes(roleId)),
+        remove: current.filter((roleId) => !next.has(roleId)),
+      },
+      actor,
+      tx,
+    );
+  }
+
+  /** 增減持有角色的業務規則與寫入，在呼叫端的交易內。 */
+  async updateRolesInTx(
+    id: string,
+    dto: UpdateGroupRolesDto,
+    actor: AuthUser,
+    tx: Transaction,
+  ): Promise<{ after: GroupAfterCommit }> {
+    // 以同一個交易讀：匯入建立群組後在同一個交易內讓它持有角色
+    const group = await this.getExisting(id, tx);
     const add = [...new Set(dto.add)];
     const remove = [...new Set(dto.remove)];
 
@@ -342,30 +423,40 @@ export class GroupService {
     if (found.some((role) => role.slug === SUPER_ADMIN_SLUG)) {
       throw new AppException('GROUP_SUPER_ADMIN_FORBIDDEN');
     }
-    await this.permissionService.assertRolesAssignable(actor.id, add);
+    await this.permissionService.assertRolesAssignable(actor.id, add, tx);
 
-    await withTransaction(this.db, async (tx) => {
-      if (!(await this.repo.lockActiveRow(id, tx))) throw new AppException('GROUP_NOT_FOUND');
-      const before = await this.repo.listRoleIds(id, tx);
-      await this.repo.removeRoles(id, remove, tx);
-      await this.repo.addRoles(id, add, actor.id, tx);
-      const after = await this.repo.listRoleIds(id, tx);
-      await this.audit.record(
-        {
-          action: 'group.assignRole',
-          resourceType: RESOURCE_TYPE.GROUP,
-          resourceId: id,
-          resourceName: group.name,
-          changes: { before: { roles: before }, after: { roles: after } },
-        },
-        tx,
-      );
+    if (!(await this.repo.lockActiveRow(id, tx))) throw new AppException('GROUP_NOT_FOUND');
+    const before = await this.repo.listRoleIds(id, tx);
+    await this.repo.removeRoles(id, remove, tx);
+    await this.repo.addRoles(id, add, actor.id, tx);
+    const after = await this.repo.listRoleIds(id, tx);
+    await this.audit.record(
+      {
+        action: 'group.assignRole',
+        resourceType: RESOURCE_TYPE.GROUP,
+        resourceId: id,
+        resourceName: group.name,
+        changes: { before: { roles: before }, after: { roles: after } },
+      },
+      tx,
+    );
+
+    const affected = await this.repo.memberUserIds(id, tx);
+    return { after: this.changed(ChangeKind.UPDATE, id, affected, true) };
+  }
+
+  /**
+   * 交易提交後的副作用（規則 6、7：先失效再發佈）。API 在交易後立即呼叫；匯入的套用工作把它拆成可合併的副作用
+   * （`GroupTransferResource`），權限失效每 100 列才做一次（docs/architecture/backend/22-data-transfer.md §13 D10）。
+   */
+  async runAfterCommit(after: GroupAfterCommit): Promise<void> {
+    if (after.permissionsChanged) {
+      await this.permissionService.permissionsChanged(after.permissionsChanged);
+    }
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: after.changes,
+      affectedUserIds: after.affectedUserIds,
     });
-
-    const affected = await this.repo.memberUserIds(id);
-    await this.permissionService.permissionsChanged(affected);
-    this.publish(ChangeKind.UPDATE, id, affected);
-    return { roles: await this.repo.listRoles(id) };
   }
 
   // ── 業務規則 ─────────────────────────────────────────────
@@ -453,6 +544,20 @@ export class GroupService {
     }
   }
 
+  /** 群組的一筆推播；`permissions` 為真時受影響的人的權限也變了。 */
+  private changed(
+    kind: ChangeKind,
+    id: string,
+    affectedUserIds: readonly string[] = [],
+    permissions = false,
+  ): GroupAfterCommit {
+    return {
+      changes: [{ resource: ChangeSource.GROUP, kind, id }],
+      affectedUserIds: [...affectedUserIds],
+      ...(permissions ? { permissionsChanged: [...affectedUserIds] } : {}),
+    };
+  }
+
   private publish(kind: ChangeKind, id: string, affectedUserIds: readonly string[] = []): void {
     this.events.publish(DomainEvent.RESOURCE_CHANGED, {
       changes: [{ resource: ChangeSource.GROUP, kind, id }],
@@ -460,8 +565,8 @@ export class GroupService {
     });
   }
 
-  private async getExisting(id: string): Promise<GroupRow> {
-    const group = await this.repo.findById(id);
+  private async getExisting(id: string, tx?: DbOrTx): Promise<GroupRow> {
+    const group = await this.repo.findById(id, tx);
     if (!group) throw new AppException('GROUP_NOT_FOUND');
     return group;
   }

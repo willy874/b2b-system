@@ -116,6 +116,11 @@
         "move": "move",
         "delete": "delete"
       }
+    },
+    "transfer": {
+      "units": "Org units",
+      "members": "Org unit members",
+      "membersOfUnit": "Org unit members (selected unit and below)"
     }
   }
 }

@@ -469,6 +469,7 @@ COMMIT → 最後一關才 handler.afterApply → 推播
 | `approval:override` | 重新展開審核者、強制定案目前的關卡（包含 `approval:read`） | super-admin、admin |
 | `approvalFlow:read` | 流程設定、試算 | super-admin、admin、auditor |
 | `approvalFlow:update` | 設定流程；受反提權限制（[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §9.2 G4） | super-admin、admin |
+| `approval:export` | 匯出請求與每一關的決定（包含 `approval:read`；[`22-data-transfer.md`](./22-data-transfer.md) §12.5） | super-admin、admin、auditor |
 
 關卡的審核 **不需要** `approval:review`：被流程指派就是授權（D3）。
 

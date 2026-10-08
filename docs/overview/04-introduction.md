@@ -247,6 +247,6 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 **已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理、公告、Webhook、標籤、命令面板（⌘K）、服務帳號與 API token、對外 API（`/v1`）、可由平台關閉的 feature 與 feature flag、深色主題。完整的能力地圖見 [`01-overview.md`](./01-overview.md) §3，畫面見 [`05-feature-tour.md`](./05-feature-tour.md)。
 
-**待做**：匯入匯出、留言與關注、MFA、多實例部署。每項都有提案文件，清單與優先度只維護在 [`features/README.md`](../features/README.md)；時間軸見 [`03-roadmap.md`](./03-roadmap.md)。
+**待做**：留言與關注、多實例部署。每項都有提案文件，清單與優先度只維護在 [`features/README.md`](../features/README.md)；時間軸見 [`03-roadmap.md`](./03-roadmap.md)。
 
 **技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`02-technology-selection.md`](./02-technology-selection.md)。

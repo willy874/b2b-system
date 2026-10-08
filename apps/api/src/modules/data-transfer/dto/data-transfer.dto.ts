@@ -153,6 +153,11 @@ export const ImportColumnViewSchema = defineSchema(
     options: z.array(TransferOptionSchema).nullable(),
     /** 狀態欄的合法轉移（目前值 → 可以改成的值）。 */
     transitions: z.record(z.string(), z.array(z.string())).nullable(),
+    /**
+     * 新增模式：這個參照欄也可以填檔案裡另一列這個欄位的值（同檔引用，§7.8）；前端驗證時把這批列引用到、
+     * 而且檔案裡有的值放進 `fileKeys`。不能同檔引用時是 null。
+     */
+    sameFile: z.string().nullable(),
   }),
 );
 
@@ -299,6 +304,10 @@ export const ValidateImportSchema = defineSchema(
       )
       .min(1)
       .max(DATA_TRANSFER_VALIDATE_MAX_ROWS),
+    /** 同檔引用（§7.8）：被引用的欄 → 這批列引用到、而且檔案裡其他列有的值。 */
+    fileKeys: z
+      .record(z.string(), z.array(z.string().max(500)).max(DATA_TRANSFER_VALIDATE_MAX_ROWS))
+      .optional(),
   }),
 );
 

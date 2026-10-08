@@ -81,6 +81,11 @@ export interface ImportColumnView {
   hint: string | null;
   options: Array<{ value: string; label: string }> | null;
   transitions: Record<string, string[]> | null;
+  /**
+   * 新增模式：這個參照欄也可以填檔案裡另一列這個欄位的值（同檔引用，docs/architecture/backend/22-data-transfer.md §7.8）；
+   * 驗證時把這批列引用到、而且檔案裡有的值放進 `fileKeys`。
+   */
+  sameFile?: string | null;
 }
 
 export interface RowIssue {
@@ -234,6 +239,8 @@ export interface ImportApi extends DataTransferApi {
     type: string,
     mode: ImportMode,
     rows: ImportRowInput[],
+    /** 同檔引用（§7.8）：被引用的欄 → 這批列引用到、而且檔案裡其他列有的值。 */
+    fileKeys?: Record<string, string[]>,
   ) => Promise<{ rows: RowValidation[] }>;
   /** `reference` 欄的選項，或文字欄（`suggest`）的自動完成。 */
   searchOptions: (

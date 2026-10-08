@@ -38,7 +38,7 @@
 - `organization`（部門樹、成員、主管的解析；平台可關閉）：[`backend/23-organization.md`](../architecture/backend/23-organization.md) §10
 - `approval-chains`（多階段審批：依序多關、會簽、條件分流、override、我的審批與撤回；平台可關閉）：[`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、§10
 
-- `import-export`（匯入／匯出框架：資源登記、CSV／XLSX／SQL 匯出、後端分析＋前端預覽的匯入、逐列交易的套用；第一批是使用者與稽核日誌）：[`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §12、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md)
+- `import-export`（匯入／匯出框架：資源登記、CSV／XLSX／SQL 匯出、後端分析＋前端預覽的匯入、逐列交易的套用；第一批是使用者與稽核日誌）：[`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §13、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md)
 - `mfa`（可擴充的驗證方式：TOTP、Email 驗證碼、備用碼；登入互動的第二步、平台兩級開關、租戶政策）：[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §15
 - `observability`（後端的指標與 tracing、就緒檢查、Grafana ＋ Prometheus ＋ Tempo 的部署與告警，apm-service 接進 Grafana）：[`architecture/08-monitoring.md`](../architecture/08-monitoring.md) §9
 - `hardening-followups`（安全與容量的後續強化）：access token 金鑰環 [`backend/04-auth.md`](../architecture/backend/04-auth.md) §11、

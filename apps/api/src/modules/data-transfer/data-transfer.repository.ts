@@ -259,7 +259,7 @@ export class DataTransferRepository {
 
   // ── 建立者 ──
 
-  /** 工作以建立者的身分執行（§12 D20）：讀出帳號狀態，與存取 token 的驗證同樣的條件。 */
+  /** 工作以建立者的身分執行（§13 D20）：讀出帳號狀態，與存取 token 的驗證同樣的條件。 */
   async findOwner(userId: string): Promise<TransferOwner | undefined> {
     const [row] = await this.db
       .select({

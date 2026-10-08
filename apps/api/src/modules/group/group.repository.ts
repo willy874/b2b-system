@@ -47,6 +47,43 @@ export interface GroupWithCounts extends GroupRow {
   membership?: 'direct' | 'nested';
 }
 
+/** 匯入匯出的一筆群組：計數加上持有的角色（docs/architecture/backend/22-data-transfer.md §12.2）。 */
+export interface GroupExportRow extends GroupWithCounts {
+  roles: Array<{ id: string; name: string }>;
+}
+
+/** 匯出的範圍：勾選的 id，或列表的篩選條件（去掉分頁與排序）。 */
+export type GroupExportScope =
+  | { ids: readonly string[] }
+  | { filter: Pick<ListGroupDto, 'keyword' | 'userId' | 'roleId'> };
+
+export interface GroupExportCursor {
+  createdAt: Date;
+  id: string;
+}
+
+/** 一筆直接成員關係（群組成員的匯入匯出）。 */
+export interface GroupMembershipRow {
+  groupId: string;
+  groupName: string;
+  type: 'user' | 'group';
+  memberId: string;
+  /** 使用者的 email，或成員群組的名稱：匯入時以它找成員。 */
+  member: string;
+  /** 使用者的顯示名稱，或成員群組的名稱。 */
+  memberName: string;
+}
+
+/** 成員的匯出範圍：勾選的群組，或某一個群組（`groupId`），或全部。 */
+export type GroupMembershipScope = { groupIds?: readonly string[] };
+
+export interface GroupMembershipCursor {
+  groupName: string;
+  groupId: string;
+  type: 'user' | 'group';
+  memberId: string;
+}
+
 /** 群組的一個直接成員（`listMembers`）。 */
 export interface GroupMemberRow {
   type: 'user' | 'group';
@@ -297,6 +334,327 @@ export class GroupRepository {
       .update(groups)
       .set({ deletedAt: new Date(), updatedBy: actorId })
       .where(eq(groups.id, id));
+  }
+
+  // ── 匯入匯出（docs/architecture/backend/22-data-transfer.md §12.2）────────
+
+  /** 依建立時間的 keyset 逐頁讀；持有的角色一頁一次查詢。 */
+  async exportPage(
+    scope: GroupExportScope,
+    after: GroupExportCursor | null,
+    limit: number,
+  ): Promise<GroupExportRow[]> {
+    const where = await this.exportWhere(scope);
+    if (!where) return [];
+    const rows = await this.db
+      .select({
+        group: groups,
+        memberCount: SORT_COLUMNS.memberCount,
+        roleCount: SORT_COLUMNS.roleCount,
+      })
+      .from(groups)
+      .where(
+        and(
+          where,
+          after
+            ? sql`(${groups.createdAt}, ${groups.id}) > (${after.createdAt.toISOString()}::timestamptz, ${after.id}::uuid)`
+            : undefined,
+        ),
+      )
+      .orderBy(asc(groups.createdAt), asc(groups.id))
+      .limit(limit);
+    return this.withRoles(
+      rows.map((row) => ({ ...row.group, memberCount: row.memberCount, roleCount: row.roleCount })),
+    );
+  }
+
+  async exportCount(scope: GroupExportScope): Promise<number> {
+    const where = await this.exportWhere(scope);
+    if (!where) return 0;
+    const [row] = await this.db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(groups)
+      .where(where);
+    return row?.total ?? 0;
+  }
+
+  /** 匯入的修改模式：以 id 或名稱（不分大小寫）找未刪除的群組。 */
+  async findForImport(column: 'id' | 'name', values: readonly string[]): Promise<GroupExportRow[]> {
+    if (!values.length) return [];
+    const match =
+      column === 'id'
+        ? inArray(groups.id, [...values])
+        : sql`lower(${groups.name}) IN ${values.map((value) => value.toLowerCase())}`;
+    const rows = await this.db
+      .select({
+        group: groups,
+        memberCount: SORT_COLUMNS.memberCount,
+        roleCount: SORT_COLUMNS.roleCount,
+      })
+      .from(groups)
+      .where(and(match, isActiveGroup()));
+    return this.withRoles(
+      rows.map((row) => ({ ...row.group, memberCount: row.memberCount, roleCount: row.roleCount })),
+    );
+  }
+
+  /** 名稱（小寫）已被未刪除的群組使用。 */
+  async findTakenNames(values: readonly string[]): Promise<Set<string>> {
+    if (!values.length) return new Set();
+    const rows = await this.db
+      .select({ value: sql<string>`lower(${groups.name})` })
+      .from(groups)
+      .where(
+        and(
+          isActiveGroup(),
+          sql`lower(${groups.name}) IN ${values.map((value) => value.toLowerCase())}`,
+        ),
+      );
+    return new Set(rows.map((row) => row.value));
+  }
+
+  /** 名稱含關鍵字的群組（比對目標、群組參照的下拉選單）。 */
+  async searchForImport(keyword: string, limit: number): Promise<GroupRow[]> {
+    return this.db
+      .select()
+      .from(groups)
+      .where(
+        and(
+          isActiveGroup(),
+          keyword ? sql`${groups.name} ILIKE ${containsPattern(keyword)}` : undefined,
+        ),
+      )
+      .orderBy(asc(groups.name), asc(groups.id))
+      .limit(limit);
+  }
+
+  /** 群組參照：以名稱或 id 找未刪除的群組（不分大小寫）。 */
+  async findActiveGroupsByNames(names: readonly string[]): Promise<GroupRow[]> {
+    if (!names.length) return [];
+    const lowered = names.map((name) => name.toLowerCase());
+    return this.db
+      .select()
+      .from(groups)
+      .where(
+        and(
+          isActiveGroup(),
+          or(sql`lower(${groups.name}) IN ${lowered}`, sql`${groups.id}::text IN ${lowered}`),
+        ),
+      );
+  }
+
+  /** 角色參照：以名稱、代碼（slug）或 id 找未刪除的角色（不分大小寫）。 */
+  async findActiveRolesByNames(
+    names: readonly string[],
+  ): Promise<Array<{ id: string; slug: string; name: string }>> {
+    if (!names.length) return [];
+    const lowered = names.map((name) => name.toLowerCase());
+    return this.db
+      .select({ id: roles.id, slug: roles.slug, name: roles.name })
+      .from(roles)
+      .where(
+        and(
+          isActiveRole(),
+          or(
+            sql`lower(${roles.name}) IN ${lowered}`,
+            sql`lower(${roles.slug}) IN ${lowered}`,
+            sql`${roles.id}::text IN ${lowered}`,
+          ),
+        ),
+      );
+  }
+
+  async searchActiveRoles(
+    keyword: string,
+    limit: number,
+  ): Promise<Array<{ id: string; name: string }>> {
+    return this.db
+      .select({ id: roles.id, name: roles.name })
+      .from(roles)
+      .where(
+        and(
+          isActiveRole(),
+          keyword ? sql`${roles.name} ILIKE ${containsPattern(keyword)}` : undefined,
+        ),
+      )
+      .orderBy(asc(roles.name))
+      .limit(limit);
+  }
+
+  /** 使用者參照：以 email 或 id 找未刪除的使用者（不分大小寫）。 */
+  async findActiveUsersByEmails(
+    values: readonly string[],
+  ): Promise<Array<{ id: string; email: string }>> {
+    if (!values.length) return [];
+    const lowered = values.map((value) => value.toLowerCase());
+    return this.db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          notDeleted(users),
+          or(sql`lower(${users.email}::text) IN ${lowered}`, sql`${users.id}::text IN ${lowered}`),
+        ),
+      );
+  }
+
+  async searchActiveUsers(
+    keyword: string,
+    limit: number,
+  ): Promise<Array<{ id: string; email: string }>> {
+    return this.db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          notDeleted(users),
+          keyword
+            ? sql`(${users.email}::text ILIKE ${containsPattern(keyword)} OR ${users.displayName} ILIKE ${containsPattern(keyword)})`
+            : undefined,
+        ),
+      )
+      .orderBy(asc(users.email))
+      .limit(limit);
+  }
+
+  /**
+   * 直接成員關係，依（群組名稱、群組、類型、成員）的 keyset 逐頁讀。已刪除的群組、使用者、成員群組不算。
+   */
+  async exportMembers(
+    scope: GroupMembershipScope,
+    after: GroupMembershipCursor | null,
+    limit: number,
+  ): Promise<GroupMembershipRow[]> {
+    const rows = await this.db.execute<GroupMembershipRow & Record<string, unknown>>(sql`
+      SELECT * FROM (${this.membershipRows(scope)}) m
+      ${
+        after
+          ? sql`WHERE (lower(m."groupName"), m."groupId", m.type, m."memberId") >
+              (lower(${after.groupName}), ${after.groupId}, ${after.type}, ${after.memberId})`
+          : sql``
+      }
+      ORDER BY lower(m."groupName"), m."groupId", m.type, m."memberId"
+      LIMIT ${limit}`);
+    return [...rows];
+  }
+
+  async exportMemberCount(scope: GroupMembershipScope): Promise<number> {
+    const [row] = await this.db.execute<{ total: number }>(
+      sql`SELECT count(*)::int AS total FROM (${this.membershipRows(scope)}) m`,
+    );
+    return row?.total ?? 0;
+  }
+
+  /** 這些（群組、成員）中已經是直接成員的（key 是 `群組 id:類型:成員 id`）。 */
+  async findExistingMemberships(
+    pairs: ReadonlyArray<{ groupId: string; member: GroupMemberSubject }>,
+  ): Promise<Set<string>> {
+    if (!pairs.length) return new Set();
+    const rows = await this.db
+      .select({
+        groupId: relationTuples.objectId,
+        type: relationTuples.subjectType,
+        memberId: relationTuples.subjectId,
+      })
+      .from(relationTuples)
+      .where(
+        and(
+          isGroupMemberTuple(),
+          or(
+            ...pairs.map(({ groupId, member }) => {
+              const tuple = groupMemberTuple(groupId, member);
+              return and(
+                eq(relationTuples.objectId, groupId),
+                eq(relationTuples.subjectType, tuple.subjectType),
+                eq(relationTuples.subjectId, tuple.subjectId),
+              );
+            }),
+          ),
+        ),
+      );
+    return new Set(
+      rows.map(
+        (row) =>
+          `${row.groupId}:${row.type === GROUP_OBJECT_TYPE ? 'group' : 'user'}:${row.memberId}`,
+      ),
+    );
+  }
+
+  private membershipRows(scope: GroupMembershipScope): SQL {
+    const inScope = scope.groupIds
+      ? scope.groupIds.length
+        ? sql`AND g.id IN ${[...scope.groupIds]}`
+        : sql`AND false`
+      : sql``;
+    return sql`
+      SELECT g.id::text AS "groupId", g.name AS "groupName", 'user' AS type, u.id::text AS "memberId",
+        u.email::text AS member, u.display_name AS "memberName"
+      FROM ${relationTuples} t
+      JOIN ${groups} g ON g.id::text = t.object_id AND g.deleted_at IS NULL /* notDeleted */
+      JOIN ${users} u ON u.id::text = t.subject_id AND u.deleted_at IS NULL /* notDeleted */
+      WHERE t.object_type = ${GROUP_OBJECT_TYPE} AND t.relation = ${GROUP_MEMBER_RELATION}
+        AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = '' ${inScope}
+      UNION ALL
+      SELECT g.id::text AS "groupId", g.name AS "groupName", 'group' AS type, sg.id::text AS "memberId",
+        sg.name AS member, sg.name AS "memberName"
+      FROM ${relationTuples} t
+      JOIN ${groups} g ON g.id::text = t.object_id AND g.deleted_at IS NULL /* notDeleted */
+      JOIN ${groups} sg ON sg.id::text = t.subject_id AND sg.deleted_at IS NULL /* notDeleted */
+      WHERE t.object_type = ${GROUP_OBJECT_TYPE} AND t.relation = ${GROUP_MEMBER_RELATION}
+        AND t.subject_type = ${GROUP_OBJECT_TYPE} AND t.subject_relation = ${GROUP_MEMBER_RELATION} ${inScope}`;
+  }
+
+  private async exportWhere(scope: GroupExportScope): Promise<SQL | undefined> {
+    if ('ids' in scope) return and(isActiveGroup(), inArray(groups.id, [...scope.ids]));
+    const conditions: SQL[] = [isActiveGroup()];
+    const { keyword, userId, roleId } = scope.filter;
+    if (keyword) {
+      const pattern = containsPattern(keyword);
+      conditions.push(
+        sql`(${groups.name} ILIKE ${pattern} OR ${groups.description} ILIKE ${pattern})`,
+      );
+    }
+    if (userId) {
+      const membership = await this.groupsOfUser(userId);
+      // 沒有符合的群組：回 undefined，呼叫端當作空集合
+      if (membership.size === 0) return undefined;
+      conditions.push(inArray(groups.id, [...membership.keys()]));
+    }
+    if (roleId) {
+      conditions.push(sql`EXISTS (SELECT 1 FROM ${relationTuples} t
+        WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.object_id = ${roleId}
+          AND t.relation = ${ROLE_HOLDER_RELATION}
+          AND t.subject_type = ${GROUP_OBJECT_TYPE} AND t.subject_relation = ${GROUP_MEMBER_RELATION}
+          AND t.subject_id = ${OUTER_GROUP_ID}::text)`);
+    }
+    return and(...conditions);
+  }
+
+  /** 持有的（未刪除）角色，依名稱排序。 */
+  private async withRoles(rows: GroupWithCounts[]): Promise<GroupExportRow[]> {
+    if (!rows.length) return [];
+    const held = await this.db
+      .select({ groupId: relationTuples.subjectId, id: roles.id, name: roles.name })
+      .from(relationTuples)
+      .innerJoin(roles, and(eq(sql`${roles.id}::text`, relationTuples.objectId), isActiveRole()))
+      .where(
+        and(
+          isGroupRoleTuple(),
+          inArray(
+            relationTuples.subjectId,
+            rows.map((row) => row.id),
+          ),
+        ),
+      )
+      .orderBy(asc(roles.name));
+    const byGroup = new Map<string, Array<{ id: string; name: string }>>();
+    for (const role of held) {
+      byGroup.set(role.groupId, [
+        ...(byGroup.get(role.groupId) ?? []),
+        { id: role.id, name: role.name },
+      ]);
+    }
+    return rows.map((row) => ({ ...row, roles: byGroup.get(row.id) ?? [] }));
   }
 
   // ── 成員 ─────────────────────────────────────────────

@@ -11,7 +11,7 @@ import { Tooltip } from '@b2b-system/ui/Tooltip';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Key } from 'react';
 
-import { COLUMN_KIND_LABEL_KEY, useIssueMessage } from '../data-transfer';
+import { COLUMN_KIND_LABEL_KEY, HINT_MAX_OPTIONS, useIssueMessage } from '../data-transfer';
 import type { ImportApi, ImportColumnView, ImportRow, RowIssue } from '../data-transfer';
 import { useErrorMessage } from '../errors';
 import { isMacPlatform, registerHotkey } from '../hotkey';
@@ -178,7 +178,10 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
           t(COLUMN_KIND_LABEL_KEY[column.kind]),
           column.hint,
           column.multiple ? t('dataTransfer.import.multiple') : null,
-          column.options?.map((option) => option.label).join(t('dataTransfer.separator')),
+          // 選項太多時不列（例：權限鍵）：下拉選單可以搜尋
+          column.options && column.options.length <= HINT_MAX_OPTIONS
+            ? column.options.map((option) => option.label).join(t('dataTransfer.separator'))
+            : null,
         ]
           .filter(Boolean)
           .join('\n'),

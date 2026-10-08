@@ -24,6 +24,8 @@ PUT /tags/assignments/:resourceType/:resourceId
 | `user` | `user`（不含服務帳號） | `user:read` | `user:update` | — | `UserTagResource` |
 
 - 標籤組名稱存在 `tags.scope`，已發布後不改名。所屬 feature 沒啟用時，該組的端點回 `404 FEATURE_DISABLED`；資料保留。
+- 登記時可以帶顯示名稱 `label`（兩個語系）：匯入匯出的「標籤組」欄顯示它（[`22-data-transfer.md`](./22-data-transfer.md) §12.4）。
+- 標籤定義可以整批匯出（`tag:export`，一次一個組）與匯入（新增、修改名稱與顏色），仍以 `assertCanBrowse` 檢查；指派不在匯入匯出的範圍。
 - 看不到或不存在的目標由擁有者回自己的 404（`FILE_NOT_FOUND`、`FILE_FOLDER_NOT_FOUND`、`USER_NOT_FOUND`），不能改回 `403 AUTHZ_FORBIDDEN`。
 - 兩個端點只宣告 `@Authenticated()`，擁有者的判斷是唯一的權限檢查，所以拒絕一定要留在稽核：權限鍵的判斷經
   `PermissionService.assertHasAll`／`assertHasAny`（`TagService` 傳入 `{ route, metadata }`，[`05-rbac.md`](./05-rbac.md) §1），

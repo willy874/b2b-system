@@ -128,4 +128,40 @@ test.describe('匯入／匯出（docs/architecture/backend/22-data-transfer.md�
       (found.body as { data: { items: Array<{ email: string; status: string }> } }).data.items,
     ).toEqual([expect.objectContaining({ email: second, status: 'pending' })]);
   });
+
+  test('匯入部門：上層引用同一份檔案裡的其他列，子部門寫在上層之前也依序建立（§7.8）', async ({
+    page,
+  }) => {
+    const suffix = `${Date.now()}`.slice(-8);
+    const root = `E2E-HQ-${suffix}`;
+    const child = `E2E-SALES-${suffix}`;
+    const csv = `\uFEFF代碼,名稱,上層\r\n${child},業務部 ${suffix},${root}\r\n${root},總部 ${suffix},\r\n`;
+
+    await loginAndWaitForHome(page, 'admin');
+    await page.goto('/organization/import');
+    await page.getByTestId('file-upload-input').setInputFiles({
+      name: 'units.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv, 'utf8'),
+    });
+    await page.getByTestId('import-analyze').click();
+    await expect(page.getByTestId('import-grid')).toBeVisible();
+    await expect(page.getByTestId('import-validating')).toBeHidden();
+    await expect(page.getByTestId('import-summary')).toContainText('0 列錯誤');
+
+    await page.getByTestId('import-submit').click();
+    await page.getByTestId('import-submit-confirm').click();
+    await expect(page.getByTestId('import-result')).toBeVisible({ timeout: 30_000 });
+    await expect(getByTestIdAndValue(page, 'import-result-succeeded', '2')).toBeVisible();
+
+    const token = await apiLogin('admin');
+    const tree = await apiRequest(token, 'get', `/org-units?keyword=${encodeURIComponent(suffix)}`);
+    const units = (
+      tree.body as {
+        data: { items: Array<{ id: string; code: string | null; parentId: string | null }> };
+      }
+    ).data.items;
+    const parent = units.find((unit) => unit.code === root);
+    expect(units.find((unit) => unit.code === child)?.parentId).toBe(parent?.id);
+  });
 });

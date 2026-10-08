@@ -75,6 +75,11 @@ export interface ReferenceSpec {
   ): Promise<ReadonlyMap<string, ResolvedReference>>;
   /** 預覽中的下拉選單。 */
   search(keyword: string, ctx: TransferContext): Promise<readonly { id: string; label: string }[]>;
+  /**
+   * 新增模式：也可以指向 **同一份檔案** 裡其他列要新增的紀錄，以那一列 `column` 欄（唯一欄）的值引用（§7.8）。
+   * 例：部門的「上層」填檔案裡另一列的代碼。套用時依相依順序先建立被指向的列；只能用在單一值的欄位。
+   */
+  sameFile?: { column: string };
 }
 
 export interface TransferColumnImport {
@@ -191,8 +196,8 @@ export interface ApplyTarget {
 }
 
 export type AfterCommitEffect =
-  /** 多列只做一次 */
-  | { kind: 'permissionsChanged' }
+  /** 多列只做一次；`userIds` 合併後交給 `permissionsChanged()`（例：補建取得檔案權限的人的個人資料夾） */
+  | { kind: 'permissionsChanged'; userIds?: readonly string[] }
   /** 合併後分批推播 */
   | { kind: 'resourceChanged'; change: ResourceChangeWire; affectedUserIds?: readonly string[] }
   /** 同一個 key 只跑一次 */

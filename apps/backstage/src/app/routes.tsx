@@ -44,12 +44,17 @@ export const routeTree = RootRoute.addChildren([
       RoleRoutes.RoleDetailRevisionRoute,
     ]),
   ]),
+  RoleRoutes.RoleImportRoute,
 
   GroupRoutes.GroupListRoute.addChildren([
     GroupRoutes.GroupCreateRoute,
     GroupRoutes.GroupDetailRoute,
   ]),
+  GroupRoutes.GroupImportRoute,
+  GroupRoutes.GroupMemberImportRoute,
   OrganizationRoutes.OrganizationRoute,
+  OrganizationRoutes.OrgUnitImportRoute,
+  OrganizationRoutes.OrgUnitMemberImportRoute,
 
   ServiceAccountRoutes.ServiceAccountListRoute.addChildren([
     ServiceAccountRoutes.ServiceAccountCreateRoute,
@@ -58,6 +63,7 @@ export const routeTree = RootRoute.addChildren([
 
   PermissionRoutes.PermissionListRoute,
   TagRoutes.TagListRoute,
+  TagRoutes.TagImportRoute,
   AuditLogRoutes.AuditLogListRoute,
   ApprovalRoutes.ApprovalListRoute.addChildren([ApprovalRoutes.ApprovalDetailRoute]),
   ApprovalRoutes.MyApprovalRoute.addChildren([ApprovalRoutes.MyApprovalDetailRoute]),

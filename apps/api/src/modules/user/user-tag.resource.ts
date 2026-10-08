@@ -29,6 +29,7 @@ export class UserTagResource implements OnModuleInit {
   onModuleInit(): void {
     this.tags.registerScope({
       scope: USER_TAG_SCOPE,
+      label: { 'zh-TW': '使用者', 'en-US': 'Users' },
       assertCanBrowse: (actor, context) =>
         this.permissions.assertHasAll(actor, [PERMISSION.USER_READ], context),
     });

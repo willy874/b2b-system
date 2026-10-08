@@ -13,7 +13,7 @@ export const PERMISSION_SEED = [
   ['user', 'resetPassword', 'permission.user.resetPassword', 105],
   // 重設別人的 MFA：獨立的權限，`user:update` 不包含它（docs/architecture/backend/21-mfa.md §8）
   ['user', 'resetMfa', 'permission.user.resetMfa', 106],
-  // 整批帶走資料的風險高於逐頁閱讀：匯出要獨立的權限（docs/architecture/backend/22-data-transfer.md §12 D11）
+  // 整批帶走資料的風險高於逐頁閱讀：匯出要獨立的權限（docs/architecture/backend/22-data-transfer.md §13 D11）
   ['user', 'export', 'permission.user.export', 107],
 
   ['role', 'create', 'permission.role.create', 200],
@@ -21,6 +21,8 @@ export const PERMISSION_SEED = [
   ['role', 'update', 'permission.role.update', 202],
   ['role', 'delete', 'permission.role.delete', 203],
   ['role', 'grantPermission', 'permission.role.grantPermission', 204],
+  // 匯出要獨立的權限（docs/architecture/backend/22-data-transfer.md §13 D11、§13）
+  ['role', 'export', 'permission.role.export', 205],
 
   ['permission', 'read', 'permission.permission.read', 300],
   ['auditLog', 'read', 'permission.auditLog.read', 400],
@@ -32,6 +34,7 @@ export const PERMISSION_SEED = [
   ['approval', 'review', 'permission.approval.review', 601],
   // 多階段審批卡住時的出口：重新展開審核者、強制定案目前的關卡（docs/architecture/backend/20-approval.md §9.8、D10）
   ['approval', 'override', 'permission.approval.override', 602],
+  ['approval', 'export', 'permission.approval.export', 603],
 
   ['file', 'create', 'permission.file.create', 700],
   ['file', 'read', 'permission.file.read', 701],
@@ -57,6 +60,7 @@ export const PERMISSION_SEED = [
   ['group', 'update', 'permission.group.update', 1202],
   ['group', 'delete', 'permission.group.delete', 1203],
   ['group', 'assignRole', 'permission.group.assignRole', 1204],
+  ['group', 'export', 'permission.group.export', 1205],
 
   // 授權說明：別人的有效權限與來源、資料夾存取的路徑（docs/architecture/iam/01-model.md §9.3 D14）
   ['authz', 'explain', 'permission.authz.explain', 1300],
@@ -66,6 +70,7 @@ export const PERMISSION_SEED = [
   ['serviceAccount', 'read', 'permission.serviceAccount.read', 1401],
   ['serviceAccount', 'update', 'permission.serviceAccount.update', 1402],
   ['serviceAccount', 'delete', 'permission.serviceAccount.delete', 1403],
+  ['serviceAccount', 'export', 'permission.serviceAccount.export', 1404],
 
   // Webhook 訂閱與投遞紀錄（docs/architecture/backend/17-webhook.md §9.2 D6）
   ['webhook', 'create', 'permission.webhook.create', 1500],
@@ -77,6 +82,7 @@ export const PERMISSION_SEED = [
   ['tag', 'create', 'permission.tag.create', 1600],
   ['tag', 'update', 'permission.tag.update', 1601],
   ['tag', 'delete', 'permission.tag.delete', 1602],
+  ['tag', 'export', 'permission.tag.export', 1603],
 
   // 通知總覽：租戶內所有人的站內通知（docs/architecture/backend/19-announcement.md §9.2 D1、D2）
   ['notification', 'read', 'permission.notification.read', 1700],
@@ -97,6 +103,7 @@ export const PERMISSION_SEED = [
   ['orgUnit', 'read', 'permission.orgUnit.read', 2001],
   ['orgUnit', 'update', 'permission.orgUnit.update', 2002],
   ['orgUnit', 'delete', 'permission.orgUnit.delete', 2003],
+  ['orgUnit', 'export', 'permission.orgUnit.export', 2004],
 
   // 多階段審批的流程設定（docs/architecture/backend/20-approval.md §9、D11）；update 受反提權限制
   ['approvalFlow', 'read', 'permission.approvalFlow.read', 2100],
@@ -157,12 +164,14 @@ export const PERMISSION_DEPENDENCIES = {
   'role:delete': { includes: ['role:update'] },
   'role:update': { includes: ['role:read'] },
   'role:grantPermission': { includes: ['role:read'], requires: ['permission:read'] },
+  'role:export': { includes: ['role:read'] },
 
   'auditLog:export': { includes: ['auditLog:read'] },
 
   'system:update': { includes: ['system:read'] },
   'approval:review': { includes: ['approval:read'] },
   'approval:override': { includes: ['approval:read'] },
+  'approval:export': { includes: ['approval:read'] },
 
   'file:create': { includes: ['file:read'] },
   'file:delete': { includes: ['file:update'] },
@@ -182,6 +191,8 @@ export const PERMISSION_DEPENDENCIES = {
   // 挑成員要看得到使用者
   'group:update': { includes: ['group:read'], requires: ['user:read'] },
   'group:assignRole': { includes: ['group:read'], requires: ['role:read'] },
+  // 成員的匯出帶 email
+  'group:export': { includes: ['group:read'], requires: ['user:read'] },
 
   // 路徑會經過使用者、群組、角色
   'authz:explain': { requires: ['user:read', 'role:read', 'group:read'] },
@@ -190,6 +201,7 @@ export const PERMISSION_DEPENDENCIES = {
   'serviceAccount:delete': { includes: ['serviceAccount:update'] },
   // 指派角色要看得到角色；角色與 token 的反提權在操作本身檢查
   'serviceAccount:update': { includes: ['serviceAccount:read'], requires: ['role:read'] },
+  'serviceAccount:export': { includes: ['serviceAccount:read'] },
 
   'webhook:create': { includes: ['webhook:update'] },
   'webhook:delete': { includes: ['webhook:update'] },
@@ -218,6 +230,8 @@ export const PERMISSION_DEPENDENCIES = {
   'orgUnit:delete': { includes: ['orgUnit:update'] },
   // 挑成員要看得到使用者
   'orgUnit:update': { includes: ['orgUnit:read'], requires: ['user:read'] },
+  // 成員的匯出帶 email
+  'orgUnit:export': { includes: ['orgUnit:read'], requires: ['user:read'] },
 
   // 審核者規則的選擇器要看得到使用者、群組、角色、部門
   'approvalFlow:update': {

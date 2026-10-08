@@ -193,6 +193,21 @@ describe('組織管理（docs/architecture/backend/23-organization.md）', () =>
       .post(`/org-units/${ids.rdNorth}/move`, { parentId: null, version: 99 })
       .expect(409);
     expect(stale.body.error.code).toBe('ORG_UNIT_VERSION_CONFLICT');
+
+    // 成功的搬移：同層的排序重新編排（sort_order 是 integer）
+    const moved = await admin
+      .post(`/org-units/${ids.rdNorth}/move`, {
+        parentId: null,
+        version: rdNorth.body.data.version,
+      })
+      .expect(200);
+    expect(moved.body.data.parentId).toBeNull();
+    await admin
+      .post(`/org-units/${ids.rdNorth}/move`, {
+        parentId: rdNorth.body.data.parentId,
+        version: moved.body.data.version,
+      })
+      .expect(200);
   });
 
   it('層數上限：第 11 層 409 ORG_UNIT_TOO_DEEP', async () => {
