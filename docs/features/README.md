@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
+| P2 | 多實例部署與服務拆分 | [`multi-instance.md`](./multi-instance.md) | 規劃中 | — |
 
 狀態只有三種：
 
@@ -62,7 +62,7 @@
 
 接下來：
 
-1. `multi-instance`（多實例部署）：等到真的要部署第二個 api 實例再做；其中「feature flag 的全平台快取接上失效廣播」是程序內的小改動，可以先單獨做。
+1. `multi-instance`（多實例部署與服務拆分）：預設維持單體，以 `APP_ROLES`／`DEPLOYMENT_MODE` 切換成 `http`／`realtime`／`worker` 分開部署、可搬到 k8s。開放問題已有結論（D1～D15）；分五期，M1（feature flag 廣播、限流統一走 `RateLimitStore`、readiness 與排空）不依賴其他期，可以先做。
 
 ### 1.2 撰寫提案時的架構前提
 
