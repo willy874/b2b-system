@@ -46,6 +46,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-08 | 匯入／匯出的強化：JSON／YAML 匯入匯出與範本、預覽的下拉選單（包成儲存格的 `Select`，可多選）與自動完成、手動指定或撤回比對目標、復原／重做快捷鍵、編輯中的複製貼上、可讀的套用確認框 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §13 D32～D39、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
 | 10-08 | 匯入／匯出擴充到角色、群組與群組成員、部門與部門成員、標籤（匯入＋匯出）與審批、服務帳號（只匯出）；同一份檔案內的引用（部門的上層） | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §12、§7.8 |
 | 10-08 | 組織管理（部門樹、成員、主管）與多階段審批（依序多關、會簽、條件分流、override、我的審批與撤回）；兩者都可由平台關閉、預設啟用 | [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、[`backend/23-organization.md`](../architecture/backend/23-organization.md) |
+| 10-08 | 租戶用量：每小時的快照（使用者、儲存與配額）、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與排序、詳情的用量分頁、儲存配額越過 80% 的平台通知 | [`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14 |
 | 10-08 | 留言與關注：擁有者登記的資源類型、@提及、關注的通知（背景工作）、資源頁的面板註冊表；第一批接上使用者 | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
 | 10-07 | 監控：api 的 Prometheus 指標與 OpenTelemetry tracing、就緒檢查補上背景工作與 event loop；Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警，apm-service 的錯誤數與 issues 接進 Grafana | [`08-monitoring.md`](../architecture/08-monitoring.md) |
 

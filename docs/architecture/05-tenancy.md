@@ -1,7 +1,7 @@
 # 租戶（每個租戶一個 database 與網域）
 
-決定與理由見 §10（D1–D26 與「實作時改掉的做法」）；feature flag、可關閉的 feature、feature 參數的決定見 §11～§13。
-這份文件描述做出來的樣子：請求怎麼找到租戶、連線與脈絡、migration、租戶的生命週期、周邊元件怎麼分租戶、部署與腳本。
+決定與理由見 §10（D1–D26 與「實作時改掉的做法」）；feature flag、可關閉的 feature、feature 參數、租戶用量的決定見 §11～§14。
+這份文件描述做出來的樣子：請求怎麼找到租戶、連線與脈絡、migration、租戶的生命週期與用量、周邊元件怎麼分租戶、部署與腳本。
 身分（租戶的使用者與平台管理者）與 OIDC 的部分見 [`04-sso.md`](./04-sso.md) §1.1。
 
 ## 1. 全貌
@@ -237,6 +237,36 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 - **新增一個參數**：目錄加一列（預設值要讓既有租戶的行為不變，或在 §13 補一條決定說明）→ 擁有者模組以 `tenantFeatureParam()` 讀 →
   apps/platform 的 `TENANT_FEATURE_PARAM_LABEL_KEY`／`TENANT_FEATURE_PARAM_DESCRIPTION_KEY` 與兩個語系檔 → 本節的表。
 
+### 5.4 用量
+
+決定與理由見 §14。平台管理者在 apps/platform 看每個租戶用了多少：租戶清單的用量欄位（可排序），詳情頁的「用量」分頁（摘要、儲存的配額使用率、近 30 天每天一列）。
+資料在平台 DB 的 `tenant_usage_daily`：每個租戶每天（UTC 的日曆日）一列，一個量一欄。
+
+| 量 | 欄位 | 來源 | 更新 |
+| --- | --- | --- | --- |
+| 啟用的使用者／全部使用者 | `users_active`、`users_total` | 租戶 DB 的 `users`（人類、未刪除；啟用 = `status = 'active'`），`modules/user` 登記 | 快照 |
+| 服務帳號 | `service_accounts` | 同上，`kind = 'service'` | 快照 |
+| 已用的儲存量、配額 | `storage_used_bytes`、`storage_quota_bytes` | `file_storage_usage.used_bytes`（與上傳時判斷配額的是同一個數字，§13.3 D8）、`file.storageQuotaMb`，`modules/file` 登記 | 快照 |
+| 最後登入 | `last_login_at` | 人類使用者的 `max(last_login_at)` | 快照 |
+| 後台／對外 API 的請求數 | `requests_internal`、`requests_external` | 每個請求（含被 guard 擋下的；健康檢查不算），依程序是內部 api 或對外 API | 計數 |
+| 背景工作數 | `jobs_executed` | 租戶的工作在租戶裡開始執行一次記一次（重試也算） | 計數 |
+
+- **快照**：平台工作 `tenant.usageRollup`（`TENANT_USAGE_ROLLUP_CRON`，預設每小時第 5 分）走遍每個 `active` 租戶，
+  呼叫擁有者模組登記的來源（`core/usage` 的 `TenantUsageSnapshots`，在 `onModuleInit` 登記），覆寫當天那一列的快照欄。歷史日的值是那天最後一次快照；
+  一個租戶失敗只略過它。同一個工作最後刪掉保留期限（`TENANT_USAGE_RETENTION_DAYS`，預設 400 天）以前的列。
+- **計數**：`core/usage` 的 `UsageMeter` 在每個程序的記憶體依「日期 × 租戶」累計，每分鐘一條 `INSERT … ON CONFLICT DO UPDATE SET x = x + excluded.x`
+  加到當天的列，程序結束前再寫一次。多個程序（內部 api、對外 API、worker）同時寫入天然相加。請求由 `UsageRequestMiddleware` 計，
+  掛在租戶的 middleware（`TenantMiddleware`／`TokenTenantMiddleware`）之後；背景工作在 `JobQueue` 進入租戶之後計。寫入失敗記
+  `api_tenant_usage_flush_failures_total`，那一輪的計數丟掉。
+- **摘要**（清單的每一列與詳情頁的上方）：最近一次快照的量、儲存使用率（已用 ÷ 配額，可能超過 1）、近 7 天（含今天）的請求數、
+  最後活動（最後登入與最後一個有對外 API 請求的日子，取較晚者）。還沒彙總過的租戶，快照的量是 `null`，畫面顯示「-」。
+- **配額警示**：使用率達到 80% 時清單與詳情標成警示；彙總時越過 80%（上一次快照低於、或第一次就高於）發平台通知
+  `tenant.storageNearQuota` 給角色有 `tenant:update` 的平台管理者，停在 80% 以上不重發，降回去之後再越過會再發。
+- **API**：`GET /platform/tenants` 每一列多一個 `usage`（`TenantUsageSummary`），回應多 `usageRecentDays`、`usageWarningRatio`，
+  `sort` 可用 `createdAt`、`code`、`usersActive`、`storageUsage`、`recentRequests`、`lastActivityAt`（沒帶時依建立時間舊到新）；
+  `GET /platform/tenants/:id/usage?days=30`（1–90）回摘要與每天一筆（含沒有資料的日子）。都只要 `tenant:read`。
+- 租戶管理者在 backstage 看不到這些數字（§14.2 D9）。
+
 ## 6. 周邊元件怎麼分租戶
 
 | 元件 | 做法 | 詳見 |
@@ -251,6 +281,7 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 | 可啟用的 feature、feature flag | 平台 DB 的 `tenants.features`、`tenants.flags` 與 `feature_flag_overrides`；api 以全域的 `FeatureGuard` 擋下未啟用的端點 | §5.1、§5.2 |
 | 領域事件 | 在發佈者的租戶脈絡裡傳給訂閱者；`TENANT_ACTIVATED` 讓每個租戶一份的初始資料在佈建、重新啟用時補上 | `core/events` |
 | Access token | 帶 `tid`（租戶）或 `realm: 'platform'`；拿到別的網域一律無效 | [`backend/04-auth.md`](./backend/04-auth.md) |
+| 用量 | 平台 DB 的 `tenant_usage_daily` 依租戶一天一列；指標（Prometheus）不帶租戶，依租戶的數字只看這張表 | §5.4 |
 
 ## 7. 部署
 
@@ -311,8 +342,8 @@ api 與 migrate 都不再以 `POSTGRES_USER`（超級使用者）連線：
 
 | 層 | 涵蓋 |
 | --- | --- |
-| 單元 | `Tenancy`（狀態、版本檢查與重新檢查、`runForMaintenance`、`evict`）、`JobQueue` 對租戶不能進入的處理、`S3ObjectStorage` 的每租戶 bucket 與 presigned 網域、`MailService` 的租戶網域、`FeatureGuard`（含 `@RequireFlag`）、`PlatformTenantService.update` 的 `features` 與 `flags`（稽核、失效後發佈事件）、`FeatureFlagService` 的生效值、`PlatformFeatureFlagService`、flag 目錄的格式與到期 |
-| 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關、關掉 `file` 後 `/files` 回 404 `FEATURE_DISABLED` 與 profile 的 `features`）、`feature-flags.spec.ts`（兩級覆寫的生效值、`@RequireFlag` 端點、權限與稽核）、`route-audit.spec.ts`（`@RequireFeature` 標在哪些端點）、`sso.spec.ts`（OIDC 帶租戶） |
+| 單元 | `Tenancy`（狀態、版本檢查與重新檢查、`runForMaintenance`、`evict`）、`JobQueue` 對租戶不能進入的處理、`S3ObjectStorage` 的每租戶 bucket 與 presigned 網域、`MailService` 的租戶網域、`FeatureGuard`（含 `@RequireFlag`）、`PlatformTenantService.update` 的 `features` 與 `flags`（稽核、失效後發佈事件）、`FeatureFlagService` 的生效值、`PlatformFeatureFlagService`、flag 目錄的格式與到期、`UsageMeter`（依日期與租戶合併、失敗不重送）、`UsageRequestMiddleware`、越過警示門檻與最後活動的判斷 |
+| 整合（`apps/api/test`） | `tenancy.spec.ts`（兩個租戶的帳號、token、資料互不相通；未知網域、停用、migration 落後）、`platform-tenant.spec.ts`（建立 → 佈建 → 啟用信 → 登入；網域；停用清掉 IdP 的 session；刪除後網域釋出）、`platform-admin.spec.ts`（平台管理者、稽核、背景工作、外部 IdP 開關、關掉 `file` 後 `/files` 回 404 `FEATURE_DISABLED` 與 profile 的 `features`）、`feature-flags.spec.ts`（兩級覆寫的生效值、`@RequireFlag` 端點、權限與稽核）、`tenant-usage.spec.ts`（請求計數相加、快照與租戶 DB 一致、配額警示只在越過時通知、清單依用量排序、保留期限）、`route-audit.spec.ts`（`@RequireFeature` 標在哪些端點）、`sso.spec.ts`（OIDC 帶租戶） |
 | E2E（`apps/e2e/tests/tenancy.spec.ts`） | 平台管理者在 apps/platform 建立租戶，第一位管理員從啟用信進入 `{code}.localhost:5173`；同一個 IdP session 換租戶要重新登入；授權碼送到別的租戶的 BFF → `AUTH_SSO_CODE_INVALID`；authorize 的租戶與 redirect URI 不一致 → `invalid_request`、沒有授權碼；停用後網域 503 |
 
 HTTP 整合測試一律以 `listenOnLoopback(app)` 取得 server（[`../coding-standards/04-testing.md`](../coding-standards/04-testing.md) §3）。
@@ -694,3 +725,59 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 | D8 | 不帶資料夾的上傳原本不在交易內；`FileFolderService.insideFolder()` 改成一律開交易，advisory lock 才有作用 |
 | D9 | 排名與放回在 `JobStore.activeAhead()`／`requeue()`（`JOB_SCHEMA` 從 `job-queue.ts` 搬到 `job-store.ts`，避免循環 import）；放回時一併清掉 `started_on`、`heartbeat_on`。每一筆租戶工作開始前都要排名，所以兩段都走索引：租戶的工作送出時帶 pg-boss 的 `group: { id: tenantId }`，這一筆以主鍵 `(name, id)` 找、計數以 `name IN (已註冊) AND group_id = 租戶 AND state = 'active'` 用 pg-boss 內建的 `job_i7`。原本以 `data->>'tenantId'` 比對，每一筆都全表掃描所有租戶 7 天內的工作（[`backend/10-jobs.md`](./backend/10-jobs.md) §3） |
 | 前端 | apps/platform 的參數列在「啟用的功能」每個 feature 那一列下，編輯是單一參數的對話框（只送那一個 key）；backstage 的檔案管理器側欄顯示容量用量（`FileStorageUsage`） |
+
+## 14. 設計決策：租戶用量
+
+> 2026-10-08 決定並實作（原提案 `tenant-usage`，已刪除）。
+
+### 14.1 背景
+
+平台管理者看不到「每個租戶用了多少」：
+
+- Prometheus 指標刻意 **不帶租戶標籤**（基數會爆，[`08-monitoring.md`](./08-monitoring.md) §2.3），依租戶只能從 trace 的 `b2b.tenant` 個別追。
+- 配額（`file.storageQuotaMb`，§5.3）在上傳當下判斷，但沒有地方看「離上限還有多少」。
+- 決定方案、找出沉睡或濫用的租戶，都需要每個租戶的用量。
+
+### 14.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **寬表** `tenant_usage_daily`（平台 DB，平台 migration 0023）：主鍵 `(tenant_id, date)`，一個量一欄；快照欄可為 `null`（那天還沒彙總），計數欄預設 0；另有 `(date)` 索引給保留期限的清理 | 清單要依量排序、詳情要一次取 30 天：寬表一列就是一天，排序直接用欄位。新增一個量要加欄位與 migration，量不常變 |
+| D2 | **快照每小時**：平台工作 `tenant.usageRollup`（`scope: 'platform'`、`exclusive`），cron `TENANT_USAGE_ROLLUP_CRON` 預設 `5 * * * *`，覆寫 **當天** 的快照欄 | 每天一次的話，清單上的數字最多晚一天；一個租戶幾個 `count(*)`，每小時跑的成本很低。歷史日的值自然是那天最後一次快照 |
+| D3 | **請求與背景工作是計數**：每個程序在記憶體依「日期 × 租戶」累計，每分鐘一條 `INSERT … ON CONFLICT DO UPDATE SET x = x + excluded.x`，程序結束前寫一次；寫入失敗那一輪丟掉、記指標 | 每個請求都寫 DB 會讓唯讀的請求也變成寫入。當掉最多少記一分鐘：數字用來看趨勢、不計費（提案開放問題 1）。失敗不重送：平台 DB 長時間連不上時記憶體不會一直長 |
+| D4 | **日期一律 UTC 的日曆日** | 多個程序、平台管理者不一定同時區；與排程的 cron（UTC）一致。畫面上註明 |
+| D5 | **快照的來源由擁有者模組登記**（`core/usage` 的 `TenantUsageSnapshots`）：`modules/user` 登記使用者數、服務帳號數、最後登入；`modules/file` 登記儲存量與配額 | `core/` 與彙總工作不認識業務資料表（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md) §3.2），與 `TenantFeatureImpacts` 同一個做法 |
+| D6 | **保留 400 天**（`TENANT_USAGE_RETENTION_DAYS`，最少 31），彙總工作順便刪除 | 夠做年同期比較；一天只有「租戶數」那麼多列。真的要計費時另做月彙總（提案開放問題 2） |
+| D7 | **最後活動** = 人類使用者最後一次登入，與最後一個有對外 API 請求的日子（當天 00:00 UTC），取較晚者 | 登入時間已經有欄位，不必另外寫入；只用 API token 的租戶沒有人登入，以對外 API 的請求補上（提案開放問題 4） |
+| D8 | **配額警示門檻 80%（程式常數）**；彙總時 **越過** 才通知（上一次快照低於門檻或沒有快照，這次高於），收件人是角色有 `tenant:update` 的平台管理者（能調整配額的人），類型 `tenant.storageNearQuota` | 每天重發會變成噪音；越過時一次就夠，降回去再越過會再發。門檻是產品的決定，要依租戶調整時再改成 feature 參數 |
+| D9 | **租戶管理者這一版看不到**（backstage 沒有用量頁） | 配額本來只有平台看得到；資料已在平台 DB，之後只要加一個唯讀端點與頁面（提案開放問題 3） |
+| D10 | **請求在租戶的 middleware 之後計數**（`UsageRequestMiddleware`），含被 guard 擋下的（401、403、429）；`/health` 不算；沒有租戶的請求（apps/platform 網域）不算 | interceptor 看不到被 guard 擋下的請求，而那些請求一樣佔用服務；`httpMetricsMiddleware` 在租戶決定之前執行，拿不到租戶 |
+| D11 | **背景工作數 = 開始執行的租戶工作**（`JobQueue` 進入租戶後計一次，重試也算），不是入列數 | pg-boss 的工作只保留幾天（高流量的工作 1 天），事後從佇列表數不準；在執行時計數與請求同一條路徑 |
+| D12 | **清單的排序在 SQL**：以三個 `LEFT JOIN LATERAL`（最近一次快照、近 7 天的請求合計、最後一個有對外 API 請求的日子）取摘要；降冪時沒有值的排最後、升冪時排最前；以代碼收尾 | 伺服器分頁要在資料庫排序；一個租戶最多 400 列，都走主鍵。升冪時「從沒活動過」的租戶排第一，找沉睡租戶時最先看到 |
+
+### 14.3 不做
+
+- 即時（秒級）用量、計費與發票。
+- 租戶管理者自己看的用量頁（D9）。
+- 依量的告警規則（只做儲存配額的警示）；其他量要警示時再加。
+- 對外 API 依 token 的用量（`api_tokens.last_used_at` 已有最後使用時間）。
+
+### 14.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 程序崩潰時少記最多一分鐘的請求與背景工作 | 正常關機會寫出最後一輪；數字只看趨勢 |
+| 每個請求多一次記憶體累加，每個程序每分鐘一次平台 DB 寫入 | 一條 INSERT 寫完所有租戶 |
+| 每小時對每個租戶多幾個 `count(*)` | 依序進入租戶，不一次打開所有連線；`users` 以租戶的規模可接受 |
+| 新增一個量要加欄位與 migration（D1） | 量不常變；換來排序與查詢簡單 |
+
+### 14.5 替代方案
+
+| 方案 | 不選的原因 |
+| --- | --- |
+| 直式表（`tenant_id, date, metric, value`）（提案的初稿） | 清單依量排序要先轉置；不同型別的量（時間、位元組）擠在同一個 `value` 欄 |
+| 每天彙總一次（提案的初稿） | 清單上的數字最多晚一天；每小時的成本很低 |
+| 依租戶標籤的 Prometheus 指標 | 時間序列隨租戶數爆量（[`08-monitoring.md`](./08-monitoring.md) §2.3） |
+| 從 pg-boss 的工作表數背景工作 | 保留期限短，彙總時已經被清掉 |
+| 通知類型 `tenant.quotaNearLimit`，參數帶哪一種配額（提案的初稿） | 目前只有儲存一種配額；通用的句子要再翻譯配額名稱。有第二種配額時再加類型 |
+

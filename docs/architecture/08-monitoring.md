@@ -88,6 +88,7 @@ Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_d
 | `api_job_duration_seconds` | histogram | `job` | handler 的執行時間 | 同上 |
 | `api_job_queue_depth` | gauge | `job`、`state`（`ready`／`deferred`／`active`／`failed`） | 佇列各狀態的筆數（§9.2 D9） | `JobQueue`（只在執行工作的程序） |
 | `api_job_outbox_relay_failures_total` | counter | — | 交易提交後搬移 outbox 失敗（等定期清掃） | `JobQueue` |
+| `api_tenant_usage_flush_failures_total` | counter | — | 租戶用量的計數寫入平台 DB 失敗（那一輪的請求數、背景工作數遺失；依租戶的用量不走指標，[`05-tenancy.md`](./05-tenancy.md) §5.4） | `UsageMeter` |
 | `api_realtime_connections` | gauge | — | 這個程序上的 WebSocket 連線數 | `RealtimeGateway` |
 | `api_realtime_handshake_rejected_total` | counter | `code` | handshake 被拒（`RATE_LIMITED`、`ORIGIN_NOT_ALLOWED`、驗證失敗的錯誤碼） | `RealtimeGateway` |
 | `api_rate_limited_total` | counter | `bucket` | 被速率限制擋下的 HTTP 請求（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 的桶名稱） | `RateLimitGuard` |
