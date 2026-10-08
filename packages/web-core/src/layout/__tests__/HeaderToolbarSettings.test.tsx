@@ -69,4 +69,19 @@ describe('HeaderToolbarSettings（偏好頁的頂列工具）', () => {
     expect(itemKeys()).toEqual(['theme', 'language']);
     expect(screen.getByTestId('header-toolbar-reset')).toBeInTheDocument();
   });
+
+  it('隱藏的工具重新打開時從 hidden 移除，順序不變', async () => {
+    useHeaderToolbarStore.setState({
+      settings: { order: ['theme', 'language'], hidden: ['theme', 'language'] },
+    });
+    const user = userEvent.setup();
+    render(<HeaderToolbarSettings />);
+
+    await user.click(screen.getAllByTestId('header-toolbar-toggle')[0]!);
+
+    expect(useHeaderToolbarStore.getState().settings).toEqual({
+      order: ['theme', 'language'],
+      hidden: ['language'],
+    });
+  });
 });

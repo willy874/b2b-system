@@ -1,6 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { WsException } from '@nestjs/websockets';
+import { MESSAGE_METADATA } from '@nestjs/websockets/constants';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -287,5 +288,91 @@ describe('PermissionsGuard（WebSocket，docs/architecture/backend/08-realtime.m
       .canActivate(createWsContext('updateRole', {}))
       .catch((caught: unknown) => caught);
     expect((error as WsException).getError()).toMatchObject({ code: 'AUTH_TOKEN_INVALID' });
+  });
+});
+
+describe('PermissionsGuard：其餘分支', () => {
+  it('HTTP、WebSocket 以外的執行環境（排程、rpc）直接放行', async () => {
+    const { guard } = createGuard([]);
+    const context = { getType: () => 'rpc' } as unknown as ExecutionContext;
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('沒有比對到 route 時，稽核的 route 用請求路徑', async () => {
+    const { guard, audit } = createGuard([]);
+    const context = {
+      getType: () => 'http',
+      getHandler: () => new TestController().updateRole,
+      getClass: () => TestController,
+      switchToHttp: () => ({
+        getRequest: () => ({
+          method: 'POST',
+          path: '/roles/r1',
+          user: { id: 'user-1', email: 'a@example.com', status: 'active' },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+    await expect(guard.canActivate(context)).rejects.toMatchObject({ code: 'AUTHZ_FORBIDDEN' });
+    expect(audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ route: 'POST /roles/r1' }) }),
+    );
+  });
+
+  it('平台端點沒有 req.user → AUTH_TOKEN_INVALID', async () => {
+    const { guard } = createGuard([], false, ['tenant:create']);
+    const context = {
+      getType: () => 'http',
+      getHandler: () => new TestController().createTenant,
+      getClass: () => TestController,
+      switchToHttp: () => ({
+        getRequest: () => ({ method: 'POST', path: '/platform/tenants' }),
+      }),
+    } as unknown as ExecutionContext;
+    await expect(
+      runWithRequestContext({ requestId: 'r1', platformHost: true }, () =>
+        guard.canActivate(context),
+      ),
+    ).rejects.toMatchObject({ code: 'AUTH_TOKEN_INVALID' });
+  });
+
+  it('WebSocket 上的平台端點 → PLATFORM_ONLY', async () => {
+    const { guard } = createGuard([], false, ['tenant:create']);
+    await expect(
+      runWithRequestContext({ requestId: 'r1', platformHost: true }, () =>
+        guard.canActivate(createWsContext('createTenant', socketIdentity)),
+      ),
+    ).rejects.toMatchObject({ code: 'PLATFORM_ONLY' });
+  });
+
+  it('WebSocket 的稽核 route 用 @SubscribeMessage 的事件名稱', async () => {
+    class GatewayLike {
+      @RequirePermissions('role:update')
+      handle(): void {}
+    }
+    const handler = new GatewayLike().handle;
+    Reflect.defineMetadata(MESSAGE_METADATA, 'role.subscribe', handler);
+    const { guard, audit } = createGuard([]);
+    const context = {
+      getType: () => 'ws',
+      getHandler: () => handler,
+      getClass: () => GatewayLike,
+      switchToWs: () => ({ getClient: () => ({ id: 's1', data: socketIdentity }) }),
+    } as unknown as ExecutionContext;
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(WsException);
+    expect(audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ route: 'WS role.subscribe' }),
+      }),
+    );
+  });
+
+  it('WebSocket 沒有事件名稱時，稽核的 route 用 handler 名稱', async () => {
+    const { guard, audit } = createGuard([]);
+    await expect(
+      guard.canActivate(createWsContext('updateRole', socketIdentity)),
+    ).rejects.toBeInstanceOf(WsException);
+    expect(audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ route: 'WS updateRole' }) }),
+    );
   });
 });

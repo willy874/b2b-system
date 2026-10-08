@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { TableColumnDef } from './features';
 import { Table } from './index';
@@ -341,6 +341,93 @@ describe('Table', () => {
       expect(rows[2]).toHaveAttribute('data-pinned-row-edge');
       expect(rows[3]).not.toHaveAttribute('data-pinned-row-edge');
       expect(screen.getByRole('table').parentElement).toHaveAttribute('data-scrollable');
+    });
+  });
+
+  describe('固定欄位與釘選列的位移（以量到的欄寬、列高計算）', () => {
+    const WIDTHS: Record<string, number> = { a: 50, b: 70, c: 30, d: 20 };
+    const many: Row[] = [
+      { id: '1', name: 'A' },
+      { id: '2', name: 'B' },
+      { id: '3', name: 'C' },
+      { id: '4', name: 'D' },
+    ];
+    const fourColumns: Array<TableColumnDef<Row>> = ['a', 'b', 'c', 'd'].map((id) => ({
+      id,
+      header: id.toUpperCase(),
+      cell: ({ row }) => `${id}${row.original.id}`,
+    }));
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function fakeSizes() {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const columnId = this.getAttribute('data-column-id');
+        if (this.tagName === 'TH' && columnId) {
+          return DOMRect.fromRect({ width: WIDTHS[columnId] ?? 0, height: 40 });
+        }
+        if (this.tagName === 'TR') return DOMRect.fromRect({ width: 0, height: 30 });
+        if (this.tagName === 'THEAD') return DOMRect.fromRect({ width: 0, height: 40 });
+        return DOMRect.fromRect({ width: 0, height: 0 });
+      });
+    }
+
+    it('多欄固定：start 依序累加左側的欄寬，end 從右側累加', () => {
+      fakeSizes();
+      render(
+        <Table
+          data={data}
+          columns={fourColumns}
+          getRowId={(row) => row.id}
+          columnPinning={{ start: ['a', 'b'], end: ['c', 'd'] }}
+        />,
+      );
+      const header = (name: string) => screen.getByRole('columnheader', { name });
+
+      expect(header('A')).toHaveStyle({ left: '0px' });
+      expect(header('B')).toHaveStyle({ left: '50px' });
+      expect(header('B')).toHaveAttribute('data-pinned-edge', 'true');
+      expect(header('A')).not.toHaveAttribute('data-pinned-edge');
+      expect(header('D')).toHaveStyle({ right: '0px' });
+      expect(header('C')).toHaveStyle({ right: '20px' });
+      expect(header('C')).toHaveAttribute('data-pinned-edge', 'true');
+    });
+
+    it('釘選列：sticky 表頭時頂端從表頭下緣開始累加，底端從下往上累加', () => {
+      fakeSizes();
+      render(
+        <Table
+          data={many}
+          columns={columns}
+          getRowId={(row) => row.id}
+          stickyHeader
+          rowPinning={{ top: ['1', '2'], bottom: ['3', '4'] }}
+        />,
+      );
+      const cellOf = (name: string) => screen.getByRole('cell', { name });
+
+      expect(cellOf('A')).toHaveStyle({ top: '40px' });
+      expect(cellOf('B')).toHaveStyle({ top: '70px' });
+      expect(cellOf('D')).toHaveStyle({ bottom: '0px' });
+      expect(cellOf('C')).toHaveStyle({ bottom: '30px' });
+    });
+
+    it('表頭不是 sticky 時頂端的釘選列從 0 開始', () => {
+      fakeSizes();
+      render(
+        <Table
+          data={many}
+          columns={columns}
+          getRowId={(row) => row.id}
+          rowPinning={{ top: ['2'], bottom: [] }}
+        />,
+      );
+
+      expect(screen.getByRole('cell', { name: 'B' })).toHaveStyle({ top: '0px' });
     });
   });
 });

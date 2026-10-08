@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  formatDate,
   formatDateTime,
+  getDateTimeDefaults,
   formatRelativeTime,
   isValidTimeZone,
   setDateTimeDefaults,
@@ -184,5 +186,95 @@ describe('supportedTimeZones（偏好頁與系統設定的時區下拉）', () =
     expect(supportedTimeZones('Etc/Unknown-Zone')).toContain('Etc/Unknown-Zone');
     const zones = supportedTimeZones('Asia/Taipei');
     expect(zones.filter((zone) => zone === 'Asia/Taipei')).toHaveLength(1);
+  });
+});
+
+describe('formatDate（只有日期）', () => {
+  it('以偏好的時區決定是哪一天', () => {
+    expect(formatDate(INSTANT, { locale: 'en-US', timeZone: 'Asia/Taipei' })).toBe('Oct 1, 2026');
+    expect(formatDate(INSTANT, { locale: 'en-US', timeZone: 'UTC' })).toBe('Sep 30, 2026');
+  });
+
+  it('空值或不合法的值顯示 -', () => {
+    expect(formatDate(undefined)).toBe('-');
+    expect(formatDate('')).toBe('-');
+    expect(formatDate('not a date')).toBe('-');
+  });
+
+  it('接受 Date 物件', () => {
+    expect(formatDate(new Date(INSTANT), { locale: 'en-US', timeZone: 'UTC' })).toBe(
+      'Sep 30, 2026',
+    );
+  });
+});
+
+describe('getDateTimeDefaults／setDateTimeDefaults', () => {
+  it('回傳目前的預設值，改動回傳值不影響預設', () => {
+    setDateTimeDefaults({ locale: 'en-US', timeZone: 'UTC' });
+    const current = getDateTimeDefaults() as { locale: string };
+    current.locale = 'ja-JP';
+
+    expect(getDateTimeDefaults()).toEqual({ locale: 'en-US', timeZone: 'UTC' });
+  });
+
+  it('空的欄位不覆蓋原本的值', () => {
+    setDateTimeDefaults({ locale: '', timeZone: '' });
+    expect(getDateTimeDefaults()).toEqual({ locale: 'zh-TW', timeZone: 'Asia/Taipei' });
+  });
+});
+
+describe('formatRelativeTime（未來與退回預設）', () => {
+  const now = Date.parse(INSTANT);
+
+  it('未來的時間顯示「…後」', () => {
+    expect(formatRelativeTime(new Date(now + 5 * 60_000), now, { locale: 'en-US' })).toBe(
+      'in 5 minutes',
+    );
+    expect(
+      formatRelativeTime(new Date(now + 2 * 7 * 24 * 60 * 60_000), now, { locale: 'en-US' }),
+    ).toBe('in 2 weeks');
+  });
+
+  it('年與月的單位', () => {
+    const day = 24 * 60 * 60_000;
+    expect(formatRelativeTime(new Date(now - 400 * day), now, { locale: 'en-US' })).toBe(
+      'last year',
+    );
+    expect(formatRelativeTime(new Date(now - 60 * day), now, { locale: 'en-US' })).toBe(
+      '2 months ago',
+    );
+  });
+
+  it('語系不合法時退回預設語系，不丟 RangeError', () => {
+    expect(formatRelativeTime(new Date(now - 5 * 60_000), now, { locale: '!!' })).toBe('5 分鐘前');
+  });
+});
+
+describe('時區不合法時退回預設時區（台北）', () => {
+  it('zonedDateTime／toZonedParts／zonedDayBoundary', () => {
+    expect(zonedDateTime('2026-10-10', '18:00', 'Mars/Base')).toBe('2026-10-10T10:00:00.000Z');
+    expect(toZonedParts('2026-10-10T10:00:00.000Z', 'Mars/Base')).toEqual({
+      day: '2026-10-10',
+      time: '18:00',
+    });
+    expect(zonedDayBoundary('2026-10-10', 'end', 'Mars/Base')).toBe('2026-10-10T15:59:59.999Z');
+  });
+
+  it('語系不合法時 formatDateTime 也退回預設', () => {
+    expect(formatDateTime(INSTANT, { locale: '!!' })).toBe(
+      formatDateTime(INSTANT, { locale: 'zh-TW', timeZone: 'Asia/Taipei' }),
+    );
+  });
+});
+
+describe('supportedTimeZones（瀏覽器沒有 Intl.supportedValuesOf）', () => {
+  it('只剩 UTC 與目前的值', () => {
+    const original = Intl.supportedValuesOf;
+    Object.defineProperty(Intl, 'supportedValuesOf', { value: undefined, configurable: true });
+    try {
+      expect(supportedTimeZones('Asia/Taipei')).toEqual(['UTC', 'Asia/Taipei']);
+    } finally {
+      Object.defineProperty(Intl, 'supportedValuesOf', { value: original, configurable: true });
+    }
   });
 });
