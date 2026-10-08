@@ -5,6 +5,7 @@
 #   deploy/nginx.main.conf → /etc/nginx/nginx.conf
 #   deploy/nginx.security-headers.conf → /etc/nginx/snippets/security-headers.conf
 #   deploy/nginx.conf／nginx.platform.conf → /etc/nginx/conf.d/default.conf
+#   deploy/nginx-upstreams.sh → /docker-entrypoint.d/14-upstreams.sh（backstage 另帶 REALTIME_UPSTREAM：/api/socket.io/ 轉給另一個名稱）
 #   deploy/nginx-real-ip.sh → /docker-entrypoint.d/15-real-ip.sh
 #   deploy/nginx-file-origin.sh → /docker-entrypoint.d/16-file-origin.sh（backstage 另帶 FILES_SERVER=1）
 #   deploy/nginx-apm.sh → /docker-entrypoint.d/17-apm.sh（APM_ENABLED；關閉、沒有 apm-service 時另外檢查）
@@ -78,6 +79,7 @@ check_container() {
 
 docker network create "$NETWORK" >/dev/null
 docker run -d --name "$NETWORK-api" --network "$NETWORK" --network-alias api --network-alias apm-service \
+  --network-alias api-realtime \
   "$NODE_IMAGE" node -e "$ECHO_SERVER" >/dev/null
 LB_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NETWORK-api")
 
@@ -85,13 +87,18 @@ for site in nginx.conf nginx.platform.conf; do
   echo "── $site"
   docker rm -f "$NETWORK-nginx" >/dev/null 2>&1 || true
   files_server=0
-  [ "$site" = "nginx.conf" ] && files_server=1
+  realtime=api:3000
+  if [ "$site" = "nginx.conf" ]; then
+    files_server=1
+    realtime=api-realtime:3000
+  fi
   docker run -d --name "$NETWORK-nginx" --network "$NETWORK" -p "$PORT:8080" \
     --read-only --tmpfs /tmp --add-host file-storage:127.0.0.1 -e "TRUSTED_PROXY_CIDRS=$LB_IP/32" \
-    -e "FILE_DOWNLOAD_ORIGIN=$FILE_ORIGIN" -e "FILES_SERVER=$files_server" \
+    -e "FILE_DOWNLOAD_ORIGIN=$FILE_ORIGIN" -e "FILES_SERVER=$files_server" -e "REALTIME_UPSTREAM=$realtime" \
     -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
     -v "$DEPLOY_DIR/nginx.security-headers.conf:/etc/nginx/snippets/security-headers.conf:ro" \
     -v "$DEPLOY_DIR/$site:/etc/nginx/conf.d/default.conf:ro" \
+    -v "$DEPLOY_DIR/nginx-upstreams.sh:/docker-entrypoint.d/14-upstreams.sh:ro" \
     -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
     -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
     -v "$DEPLOY_DIR/nginx-apm.sh:/docker-entrypoint.d/17-apm.sh:ro" \
@@ -127,6 +134,15 @@ for site in nginx.conf nginx.platform.conf; do
   [ "$connections" = "1" ] || fail "$site：upstream keepalive 沒有生效（用了 $connections 條連線）"
 
   check_forwarded_for "$site" /api/ip
+
+  # upstream 由 deploy/nginx-upstreams.sh 產生（docs/architecture/01-system.md §7 D12）：名稱在執行期解析
+  docker exec "$NETWORK-nginx" grep -q "server $realtime resolve;" /tmp/nginx-upstreams.conf ||
+    fail "$site：沒有產生 realtime 的 upstream（$realtime）"
+  if [ "$site" = "nginx.conf" ]; then
+    body=$(curl -s "http://127.0.0.1:$PORT/api/socket.io/?EIO=4&transport=websocket")
+    echo "$body" | grep -q '"url":"/socket.io/?EIO=4&transport=websocket"' ||
+      fail "$site：/api/socket.io/ 沒有轉給 REALTIME_UPSTREAM（$body）"
+  fi
 
   # apm-service：只轉發收件端點，並去掉 /apm 前綴（docs/architecture/07-apm-service.md）
   body=$(curl -s -X POST "http://127.0.0.1:$PORT/apm/api/1/envelope/?sentry_key=k")
@@ -173,6 +189,7 @@ for conf in nginx.conf nginx.platform.conf; do
       -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
       -v "$DEPLOY_DIR/nginx.security-headers.conf:/etc/nginx/snippets/security-headers.conf:ro" \
       -v "$DEPLOY_DIR/$conf:/etc/nginx/conf.d/default.conf:ro" \
+      -v "$DEPLOY_DIR/nginx-upstreams.sh:/docker-entrypoint.d/14-upstreams.sh:ro" \
       -v "$DEPLOY_DIR/nginx-real-ip.sh:/docker-entrypoint.d/15-real-ip.sh:ro" \
       -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
       -v "$DEPLOY_DIR/nginx-apm.sh:/docker-entrypoint.d/17-apm.sh:ro" \

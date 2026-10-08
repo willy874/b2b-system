@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 
 import type { Env } from '@/core/config';
+import { processRolesOf } from '@/core/config/process-roles';
 import { AppException } from '@/core/errors';
 import { requestHost } from '@/core/http';
 import type { TrustProxyFn } from '@/core/http';
@@ -19,6 +20,7 @@ export const OIDC_MOUNT_PATH = '/oidc';
 
 @Injectable()
 class OidcProviderMiddleware implements NestMiddleware {
+  private readonly isHttpRole: boolean;
   /** issuer 所在的 apps/platform 網域（docs/architecture/04-sso.md §2）。 */
   private readonly authHost: string;
 
@@ -27,9 +29,18 @@ class OidcProviderMiddleware implements NestMiddleware {
     config: ConfigService<Env, true>,
   ) {
     this.authHost = new URL(config.get('PLATFORM_APP_URL', { infer: true })).host.toLowerCase();
+    this.isHttpRole = processRolesOf({ APP_ROLES: config.get('APP_ROLES', { infer: true }) }).has(
+      'http',
+    );
   }
 
-  use(req: Request, res: Response): void {
+  use(req: Request, res: Response, next: () => void): void {
+    // 沒有 http 角色的程序（只跑推播或背景工作）不提供登入：交回 Nest，同其他路由回 404
+    // （docs/architecture/01-system.md §4.3；/oidc/* 不是 Nest 的路由，SurfaceGuard 擋不到）
+    if (!this.isHttpRole) {
+      next();
+      return;
+    }
     // 只在 apps/platform 的網域提供：issuer 本來就在那個 origin，其他網域（租戶的、未登記的、直接用 IP）一律
     // 404 PLATFORM_ONLY，只套在 apps/platform 網域上的網路控制才保護得到登入（docs/architecture/05-tenancy.md §2）。
     // 這個 middleware 比 TenantMiddleware 先執行，所以自己判斷

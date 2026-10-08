@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys';
 import { isCidrList } from '../rate-limit/ip';
+import { ALL_PROCESS_ROLES, parseProcessRoles } from './process-roles';
 
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
 export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
@@ -20,6 +21,32 @@ export const EnvSchema = z.object({
    * 不持有那些金鑰（docs/architecture/06-external-api.md §6）。
    */
   API_SURFACE: z.enum(['internal', 'external']).default('internal'),
+  /**
+   * 這個程序扮演的角色（逗號分隔：`http`、`realtime`、`worker`；`all` = 三個都是，預設）。同一個映像，
+   * 拆開部署時各容器設不同的值（docs/architecture/01-system.md §4.3）。對外 API 的程序固定是 `http`。
+   * 以字串保存（`processRolesOf()` 解析）：`app.module.ts` 在 Nest 啟動之前就要從 `process.env` 讀到它。
+   */
+  APP_ROLES: z
+    .string()
+    .default(ALL_PROCESS_ROLES)
+    .refine((value) => parseProcessRoles(value) !== undefined, {
+      message: '格式是 all，或 http、realtime、worker 的逗號分隔清單',
+    }),
+  /**
+   * 部署模式（docs/architecture/01-system.md §7 D5）：`standalone` 宣告「只有一個程序」，允許程序內的共享狀態；
+   * `cluster` 時多個程序共用的東西（各程序的金鑰、共享的計數）必須真的共享，否則拒絕啟動。
+   */
+  DEPLOYMENT_MODE: z.enum(['standalone', 'cluster']).default('standalone'),
+  /**
+   * 速率限制的計數存在哪裡（docs/architecture/01-system.md §7 D6）：`memory`（程序內，只適合單一程序）或 `postgres`
+   * （平台 DB 的共享計數）。沒設定時依 `DEPLOYMENT_MODE`（`rateLimitStoreOf()`）；`cluster` 不能是 `memory`。
+   */
+  RATE_LIMIT_STORE: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.enum(['memory', 'postgres']).optional(),
+  ),
+  /** 共享計數的過期列清理（UTC）；記憶體實作時這個工作什麼都不做。空字串停用。 */
+  RATE_LIMIT_CLEANUP_CRON: z.string().default('* * * * *'),
   PORT: z.coerce.number().int().default(3000),
   /**
    * 監聽的位址（`listenHostOf()`）。沒設定時 production 聽所有介面（nginx 從另一個容器連進來），
@@ -55,6 +82,11 @@ export const EnvSchema = z.object({
    * `/health/ready` 回 `degraded`。0 = 不檢查。
    */
   HEALTH_EVENT_LOOP_LAG_MS: z.coerce.number().int().min(0).default(1000),
+  /**
+   * 收到 `SIGTERM` 之後、關閉 HTTP server 之前的排空秒數：期間 `/health/ready` 回 503，讓 LB／Ingress 把程序移出，
+   * WebSocket 分批斷線（docs/architecture/01-system.md §7 D13）。單一程序直接結束即可（0）；k8s 建議 10。
+   */
+  SHUTDOWN_DRAIN_SECONDS: z.coerce.number().int().min(0).max(120).default(0),
   /**
    * OpenTelemetry 的 trace 收件位址（OTLP/HTTP，例 `http://tempo:4318`；docs/architecture/08-monitoring.md §3）。
    * 沒設定（或 `MONITORING_ENABLED=false`）= 不載入 tracing。SDK 在 `src/instrumentation.ts` 讀 `process.env`（要早於任何 import），這裡只做格式驗證。
@@ -351,8 +383,9 @@ export const EnvSchema = z.object({
   ),
 
   /**
-   * 這個程序是否執行背景工作（worker ＋ 排程）。`false` 時仍可入列，由另一個以同一映像、
-   * 設為 `true` 的容器執行（docs/architecture/backend/10-jobs.md §9.2 D4、D5）。
+   * `worker` 角色裡是否真的執行背景工作（pg-boss 的 worker ＋ 排程）。`false` 時只入列；`worker` 角色的其他工作
+   * （開機時補租戶的系統資料夾）照做。拆開部署時用 `APP_ROLES` 決定誰是 worker，這個開關留給測試與開發
+   * （不和別人共用的 dev DB 搶工作；docs/architecture/backend/10-jobs.md §5）。
    */
   JOBS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -608,6 +641,26 @@ const PUBLIC_URL_KEYS = ['APP_PUBLIC_URL', 'PLATFORM_APP_URL', 'OIDC_ISSUER'] as
 
 /** production 不接受開發用的預設值：範例或低熵的金鑰、本機的公開網址、`console` 寄信。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
+  if (env.DEPLOYMENT_MODE === 'cluster' && env.RATE_LIMIT_STORE === 'memory') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['RATE_LIMIT_STORE'],
+      message: 'DEPLOYMENT_MODE=cluster 不能用 memory：每個程序各自計數，上限會變成程序數的倍數',
+    });
+  }
+  if (env.DEPLOYMENT_MODE === 'cluster' && env.API_SURFACE === 'internal') {
+    // 開發環境沒設時每個程序各自產生隨機金鑰：ID token 與互動的 cookie 換一個程序就驗不過
+    for (const key of ['OIDC_JWKS', 'OIDC_COOKIE_KEYS'] as const) {
+      const value = env[key];
+      if (value === undefined || (Array.isArray(value) && value.length === 0)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'DEPLOYMENT_MODE=cluster 時必須設定：每個程序要用同一組金鑰',
+        });
+      }
+    }
+  }
   if (env.NODE_ENV !== 'production') {
     // 開發與測試：金鑰環、縮圖網址與各種主金鑰沒設定時都由它推導
     if (!env.JWT_SECRET) {
@@ -716,6 +769,13 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
 });
 
 export type Env = z.infer<typeof EnvSchema>;
+
+/** 實際使用的計數儲存：沒指定時 cluster 用 Postgres、standalone 用記憶體（docs/architecture/01-system.md §7 D6）。 */
+export function rateLimitStoreOf(
+  env: Pick<Env, 'RATE_LIMIT_STORE' | 'DEPLOYMENT_MODE'>,
+): 'memory' | 'postgres' {
+  return env.RATE_LIMIT_STORE ?? (env.DEPLOYMENT_MODE === 'cluster' ? 'postgres' : 'memory');
+}
 
 /** `app.listen()` 的位址：`undefined` 是 Node 的預設（所有介面）。 */
 export function listenHostOf(env: Pick<Env, 'NODE_ENV' | 'LISTEN_HOST'>): string | undefined {

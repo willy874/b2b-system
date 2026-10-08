@@ -1,0 +1,30 @@
+# api 的設定。非秘密放 ConfigMap；秘密放 Secret b2b-api-secrets（不進版控），鍵與 deploy/prod.env.example 相同：
+#   PLATFORM_DATABASE_URL、TENANT_PROVISIONING_DATABASE_URL、TENANT_SECRET_KEY、JWT_SIGNING_KEYS、PLATFORM_JWT_SIGNING_KEYS、
+#   FILE_URL_SIGNING_KEY、FILE_STORAGE_ACCESS_KEY_ID、FILE_STORAGE_SECRET_ACCESS_KEY、OIDC_JWKS、OIDC_COOKIE_KEYS、
+#   IDP_SECRET_KEY、WEBHOOK_SECRET_KEY、MFA_SECRET_KEY、MAIL_SMTP_URL
+#   kubectl create secret generic b2b-api-secrets --from-env-file=deploy/prod.env
+# 每個角色讀同一份設定：程序之間的金鑰必須相同（docs/features/multi-instance.md D5）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: b2b-api-env
+data:
+  NODE_ENV: production
+  APP_ROLES: all
+  DEPLOYMENT_MODE: standalone
+  SHUTDOWN_DRAIN_SECONDS: '10'
+  TRUST_PROXY: uniquelocal
+  MONITORING_ENABLED: 'true'
+  UV_THREADPOOL_SIZE: '16'
+  NODE_OPTIONS: --max-old-space-size=1536
+  TENANT_POOL_MAX: '10'
+  PLATFORM_POOL_MAX: '10'
+  MAIL_TRANSPORT: smtp
+  MAIL_FROM: no-reply@example.com
+  SUPER_ADMIN_EMAIL: admin@example.com
+  APP_PUBLIC_URL: https://app.example.com
+  PLATFORM_APP_URL: https://accounts.example.com
+  OIDC_ISSUER: https://accounts.example.com/api/oidc
+  # S3 相容的物件儲存：api 寫入用內網位址；presigned URL 以瀏覽器看到的位址簽章（docs/architecture/backend/09-file.md §3）
+  FILE_STORAGE_ENDPOINT: https://s3.example.com
+  FILE_STORAGE_PUBLIC_ENDPOINT: https://s3.example.com

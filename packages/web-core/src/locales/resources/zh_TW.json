@@ -278,6 +278,7 @@
     "CONFLICT": "資料剛被其他操作變更，請重新整理後再試。",
     "RATE_LIMITED": "操作太頻繁，請稍後再試。",
     "INTERNAL_ERROR": "伺服器發生錯誤，請稍後再試。",
+    "SERVICE_NOT_READY": "伺服器正在重新啟動，請稍後再試。",
     "page": {
       "forbidden": {
         "title": "你沒有權限看這一頁",

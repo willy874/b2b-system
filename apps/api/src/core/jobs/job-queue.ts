@@ -9,6 +9,7 @@ import { jobOutbox } from '@/db/schema';
 import type { JobOutboxRow } from '@/db/schema';
 
 import type { Env } from '../config';
+import { processRolesOf } from '../config/process-roles';
 import { afterCommit, TENANT_DB, withTransaction } from '../database';
 import type { Database, Transaction } from '../database';
 import { AppException, redactDbError } from '../errors';
@@ -145,7 +146,10 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly store: JobStore,
     private readonly usage: UsageMeter,
   ) {
-    this.workerEnabled = config.get('JOBS_WORKER_ENABLED', { infer: true });
+    // worker 角色才執行工作；JOBS_WORKER_ENABLED=false 讓 worker 角色也只入列（測試、共用的 dev DB）
+    this.workerEnabled =
+      processRolesOf({ APP_ROLES: config.get('APP_ROLES', { infer: true }) }).has('worker') &&
+      config.get('JOBS_WORKER_ENABLED', { infer: true });
     this.boss = new PgBoss({
       connectionString: config.get('PLATFORM_DATABASE_URL', { infer: true }),
       schema: JOB_SCHEMA,

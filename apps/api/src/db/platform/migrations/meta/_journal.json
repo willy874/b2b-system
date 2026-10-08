@@ -169,6 +169,13 @@
       "when": 1791441233591,
       "tag": "0023_tenant_usage_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791450867730,
+      "tag": "0024_rate_limit_counters",
+      "breakpoints": true
     }
   ]
 }

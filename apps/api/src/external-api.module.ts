@@ -1,7 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
-import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AccessTokenModule } from './common/auth';
 import { FeatureGuard, PermissionsGuard, PROCESS_SURFACE, SurfaceGuard } from './common/guards';
@@ -22,6 +21,7 @@ import {
 } from './core/http';
 import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
+import { LifecycleModule } from './core/lifecycle';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
 import { MetricsModule } from './core/metrics';
@@ -64,6 +64,8 @@ import { UserModule } from './modules/user/user.module';
     DiscoveryModule, // 路由稽核掃描 controller metadata 用
     ConfigModule,
     LoggerModule,
+    // 結束前的排空（readiness 503、WebSocket 分批斷線；docs/architecture/01-system.md §7 D13）
+    LifecycleModule,
     // 給 Prometheus 的 /metrics（獨立的 port）與就緒檢查的 event loop 量測（docs/architecture/08-monitoring.md §2）
     MetricsModule,
     TracingModule,
@@ -89,7 +91,6 @@ import { UserModule } from './modules/user/user.module';
     // verifyClaims 一律拒絕（docs/architecture/backend/04-auth.md §11 D5）
     JwtModule.register({ global: true }),
     AccessTokenModule,
-    ThrottlerModule.forRoot([]),
 
     // 葉節點模組：PermissionsGuard 依賴
     PermissionModule,

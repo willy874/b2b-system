@@ -23,7 +23,7 @@
   （`AccessTokenVerifier.verifyClaims`）。
 - **沒有** Socket.io、OIDC Provider、refresh cookie、CSRF；不 import `RealtimeModule`、`AuthModule`。
   領域事件以 `EventsModule.sendOnly()` 組裝：自己的寫入照樣轉送給內部 api 推播，但不收內部 api 轉來的（沒有推播，[`backend/08-realtime.md`](backend/08-realtime.md) §7.6）。
-- **只入列、不執行背景工作**（D19）：`src/external-process-env.ts` 在任何模組讀設定之前把 `JOBS_WORKER_ENABLED` 設成 `false`。
+- **只入列、不執行背景工作**（D19）：`src/external-process-env.ts` 在任何模組讀設定之前把 `APP_ROLES` 設成 `http`、`JOBS_WORKER_ENABLED` 設成 `false`。
 - **跨程序的一致性**：這個程序寫入的資料，快取失效與推播都經平台 DB 的廣播送到內部 api（[`01-system.md`](./01-system.md) §4.4）。
 
 ## 2. 一個請求的流程
@@ -110,8 +110,8 @@ apps/platform 顯示為「服務帳號與對外 API」）。服務帳號不能�
 | 每個 IP 的驗證失敗 | `externalAuthFailure:{ip}` | `EXTERNAL_AUTH_FAILURE_RATE_LIMIT`（預設 30）；超過之後的失敗回 `429`，成功的請求不計 |
 | 沒有 token 的請求（健康檢查） | IP | `ANONYMOUS_RATE_LIMIT` |
 
-每個整合有自己的額度，不和本人的瀏覽器、也不和同一個 NAT 後面的其他整合共用。計數在程序的記憶體（共享計數見
-[`../features/multi-instance.md`](../features/multi-instance.md)）。
+每個整合有自己的額度，不和本人的瀏覽器、也不和同一個 NAT 後面的其他整合共用。計數與內部 api 共用 `RateLimitStore`
+（[`backend/03-api-conventions.md`](backend/03-api-conventions.md) §8；共享計數見 [`01-system.md`](./01-system.md) §7 D6），被擋下的請求計入 `api_rate_limited_total{bucket}`。
 
 ## 5. 快取與最後使用時間
 
@@ -195,7 +195,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 
 所以這份決定包含兩件事：**程式的身分**（服務帳號與 token），以及 **它從哪裡進來**（獨立的對外 API 服務）。
 
-相關的規格：[`backend/04-auth.md`](./backend/04-auth.md) §8.2、[`01-system.md`](./01-system.md) §4、[`05-tenancy.md`](./05-tenancy.md) §2、[`backend/05-rbac.md`](./backend/05-rbac.md) §4.1、§5.1、[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §7、§8、[`iam/01-model.md`](iam/01-model.md) §7。沿用 [`backend/04-auth.md`](backend/04-auth.md) §10（`token_version` 是唯一的撤銷機制）、[`architecture/05-tenancy.md`](05-tenancy.md) §10（每個租戶一個 DB 與網域）、[`iam/01-model.md`](iam/01-model.md) §9（關係圖與一般化的反提權）；之後依賴這份決定的有 Webhook（[`backend/17-webhook.md`](backend/17-webhook.md) §9）、MFA（[`backend/21-mfa.md`](backend/21-mfa.md)）、[`../features/multi-instance.md`](../features/multi-instance.md)（T0 已做掉其中一部分）。
+相關的規格：[`backend/04-auth.md`](./backend/04-auth.md) §8.2、[`01-system.md`](./01-system.md) §4、[`05-tenancy.md`](./05-tenancy.md) §2、[`backend/05-rbac.md`](./backend/05-rbac.md) §4.1、§5.1、[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §7、§8、[`iam/01-model.md`](iam/01-model.md) §7。沿用 [`backend/04-auth.md`](backend/04-auth.md) §10（`token_version` 是唯一的撤銷機制）、[`architecture/05-tenancy.md`](05-tenancy.md) §10（每個租戶一個 DB 與網域）、[`iam/01-model.md`](iam/01-model.md) §9（關係圖與一般化的反提權）；之後依賴這份決定的有 Webhook（[`backend/17-webhook.md`](backend/17-webhook.md) §9）、MFA（[`backend/21-mfa.md`](backend/21-mfa.md)）、[`01-system.md`](./01-system.md) §7（T0 已做掉其中一部分）。
 
 ### 9.2 決定
 
@@ -301,7 +301,7 @@ API 只接受 5 分鐘的 access token（JWT），程式要取得它只能用 `P
 | T0 | 轉送哪些事件（D18） | 除了 `resource.changed`、`sessions.revoked`，`tenant.featuresChanged` 也轉送（它同樣是推播）。`permissions.changed` 不轉送（`AuthzRevision` 已廣播）、`tenant.activated` 不轉送（訂閱者寫資料庫，做一次就夠） |
 | T0 | 轉送的事件給誰（D18） | `DomainEventBus.subscribe(type, handler, { remote: true })` 才收得到其他程序轉送來的事件，預設不收：撤銷 OIDC session、補個人資料夾這類「整個系統做一次」的訂閱者不必改 |
 | T0 | 放不進一則 `NOTIFY` 的事件（D18） | 資源變更拿掉個別 id，退化成整個來源失效；受影響的人、撤銷連線的名單每 150 個一則 |
-| T0 | 推播的跨節點（D18） | 事件轉送讓每個程序推給自己的連線，因此 **不再** 規劃裝 `@socket.io/postgres-adapter` 的跨節點 emit（會重複推）；跨裝置中繼（`channel.relay`）仍只在本節點，留在 `multi-instance.md` |
+| T0 | 推播的跨節點（D18） | 事件轉送讓每個程序推給自己的連線，因此 **不再** 規劃裝 `@socket.io/postgres-adapter` 的跨節點 emit（會重複推）；跨裝置中繼（`channel.relay`）當時仍只在本節點；2026-10-08 起經廣播頻道 `user_relay` 跨節點（[`01-system.md`](./01-system.md) §7 D8） |
 | T0 | 驗收 | `apps/api/test/cross-process.spec.ts`：同一個測試程序裡兩個 Nest app 共用一個 Postgres。A 停用使用者 → B 立即拒絕他的 token、他連在 B 的連線收到 `session.revoked`；A 建立角色 → 連在 B 的管理者收到推播；A 改設定 → B 立即讀到。關掉廣播時四項都失敗 |
 | T1 | 服務帳號的稽核（D13） | 動作是 `serviceAccount.create`／`update`／`assignRole`／`delete`、`resourceType = 'serviceAccount'`，不沿用 `user.*` 加 `metadata.kind`：稽核頁以 `resourceType` 連到資源，服務帳號的 id 在 `/users/:id` 會是 404 |
 | T1 | 刪除的服務帳號（D1） | 不在回收桶列出、不能還原（`UserRepository.listDeleted`、`findDeletedById` 只看人）；保留期滿後 `trash.purge` 照樣清除（`findExpired` 不分種類），`api_tokens` 隨 FK 刪除 |

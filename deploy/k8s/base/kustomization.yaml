@@ -1,0 +1,29 @@
+# k8s 的參考部署（docs/features/multi-instance.md D15）：單體（api 一個 Deployment，APP_ROLES=all）。
+# 多實例用 overlays/cluster。部署前先建立 Secret b2b-api-secrets（見 base/api-config.yaml 的說明）。
+#   kubectl apply -k deploy/k8s/overlays/standalone   # 或 overlays/cluster
+#
+# 不在這裡的：postgres（用託管的資料庫或另外的 StatefulSet）、物件儲存（用 S3 相容的服務；apps/file-storage 只適合單機）、
+# apm-service 與監控（沿用 compose，或接到既有的 Prometheus／Grafana）。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: b2b-system
+    includeSelectors: false
+resources:
+  - api-config.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - frontends.yaml
+  - ingress.yaml
+images:
+  # 由 CI 建置並推到自己的 registry 之後，在 overlay 以 images 改成實際的位置與 tag
+  - name: b2b-system-api
+    newName: registry.example.com/b2b-system-api
+    newTag: latest
+  - name: b2b-system-backstage
+    newName: registry.example.com/b2b-system-backstage
+    newTag: latest
+  - name: b2b-system-platform
+    newName: registry.example.com/b2b-system-platform
+    newTag: latest

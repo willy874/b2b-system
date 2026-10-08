@@ -1,9 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
-import { ThrottlerStorageService } from '@nestjs/throttler';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppException } from '@/core/errors';
+import { MemoryRateLimitStore } from '@/core/rate-limit';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 
@@ -23,14 +23,14 @@ interface CallOptions {
   type?: 'http' | 'ws';
 }
 
-const storages: ThrottlerStorageService[] = [];
+const storages: MemoryRateLimitStore[] = [];
 
 afterEach(() => {
-  for (const storage of storages.splice(0)) storage.onApplicationShutdown();
+  for (const storage of storages.splice(0)) storage.onModuleDestroy();
 });
 
 function createGuard() {
-  const storage = new ThrottlerStorageService();
+  const storage = new MemoryRateLimitStore();
   storages.push(storage);
   const config = { get: (key: string) => LIMITS[key] } as unknown as ConfigService<never, true>;
   const guard = new ExternalRateLimitGuard(storage, config);

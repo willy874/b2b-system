@@ -75,8 +75,8 @@ export class PlatformFeatureFlagService {
     });
 
     if (changed) {
-      // 失效之後才通知：前端收到後重新取得的 profile 已經是新的值（D7）
-      await this.flags.reload();
+      // 失效之後才通知：前端收到後重新取得的 profile 已經是新的值（D7）；其他程序經廣播重新讀取
+      await this.flags.changed();
       await this.notifyAllTenants();
       // 平台管理者的畫面（docs/architecture/backend/08-realtime.md §3.6）
       this.events.publish(DomainEvent.PLATFORM_CHANGED, {

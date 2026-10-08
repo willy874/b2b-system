@@ -12,6 +12,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { auditRoutes } from './common/route-audit';
 import { listenHostOf } from './core/config/env.schema';
 import type { Env } from './core/config/env.schema';
+import { enableGracefulShutdown } from './core/lifecycle';
 import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { ExternalApiModule } from './external-api.module';
@@ -38,7 +39,7 @@ async function bootstrap(): Promise<void> {
   // 同 main.ts：監控整套關閉時不量 HTTP 請求（docs/architecture/08-monitoring.md §1.1）
   if (config.get('MONITORING_ENABLED', { infer: true })) app.use(httpMetricsMiddleware);
   // 不讀 cookie：對外 API 只認 Authorization 標頭（D10）
-  app.enableShutdownHooks();
+  enableGracefulShutdown(app);
 
   auditRoutes(app);
   assertPermissionDependencies();

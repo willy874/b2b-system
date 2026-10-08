@@ -186,7 +186,7 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 ```
 
 **判斷**：`FeatureFlagService.isEnabled(key)` 是同步的。租戶層的覆寫隨租戶登記載入 `TenantContext.flags`（`TenantDirectory`），
-全平台層快取在 `FeatureFlagService`，每 `TENANT_CACHE_TTL` 秒與切換時重新讀取；多個執行個體時其他程序最多晚 `TENANT_CACHE_TTL` 秒。
+全平台層快取在 `FeatureFlagService`：切換時本機重新讀取，並經 `core/broadcast`（頻道 `feature_flags`）通知其他程序立即重新讀取；另每 `TENANT_CACHE_TTL` 秒重讀一次，作為漏掉廣播時的上限。
 沒有租戶脈絡（平台的工作、平台端點）只看全平台層與預設值；不在目錄裡的 key 一律關。
 
 **用在哪裡**：
@@ -547,7 +547,7 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 | D1 | **flag 的目錄集中在 `core/feature-flags/feature-flags.ts`**：`FEATURE_FLAGS: FeatureFlagDefinition[]`（`key`、`description`、`defaultEnabled`、`owner`、`removeBy`）。key 用 `<模組>.<名稱>`（camelCase，例 `levelEditor.v2`）。**不** 讓各模組在 `onModuleInit` 註冊。目錄以 `FEATURE_FLAG_CATALOG` provider 注入（測試換成自己的目錄）；啟動時檢查格式、重複與日期 | 所有 flag 集中在一處：到期檢查、平台管理頁、驗證都讀同一份；目錄只是資料，`core/` 放它不違反「`core/` 不 import `modules/`」 |
 | D2 | **兩級覆寫都在平台 DB**：租戶層是 `tenants.flags jsonb not null default '{}'`（`{ [key]: boolean }`，沒列出＝不覆寫）；全平台層是 `feature_flag_overrides`（`key` pk、`state`：`on` ｜ `off`、`updated_by`、`updated_at`，沒有列＝不覆寫） | 決定「誰先試」與「全面開放／緊急關閉」都是平台的事（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8 同一個理由）；租戶層和 `features` 同一列，進入租戶時一起讀出，判斷不多查 DB |
 | D3 | **生效值的優先順序**：全平台 `off` → 一律關（緊急開關，蓋過租戶層）；否則租戶層有值 → 用它；否則全平台 `on` → 開；否則 `defaultEnabled` | 緊急關閉必須壓過所有例外，才能保證「按下去就全部停」；全面開放時仍保留「某個租戶先不要」的例外 |
-| D4 | **讀取**：`TenantContext` 加 `flags`（已過濾不認得的 key），與 `features` 由 `TenantDirectory` 一起載入與失效；全平台覆寫由 `FeatureFlagService` 在啟動時載入、快取 `TENANT_CACHE_TTL` 秒、變更時本機立即失效。`FeatureFlagService.isEnabled(key)` 是同步的，租戶脈絡內外（背景工作、平台端點）都能呼叫；沒有租戶脈絡時只看全平台層與預設值 | 判斷會出現在 guard 與業務分支裡，不能每次查 DB；多執行個體最多晚 `TENANT_CACHE_TTL` 秒，與租戶登記相同（[`multi-instance.md`](../features/multi-instance.md)） |
+| D4 | **讀取**：`TenantContext` 加 `flags`（已過濾不認得的 key），與 `features` 由 `TenantDirectory` 一起載入與失效；全平台覆寫由 `FeatureFlagService` 在啟動時載入、快取 `TENANT_CACHE_TTL` 秒、變更時本機立即失效。`FeatureFlagService.isEnabled(key)` 是同步的，租戶脈絡內外（背景工作、平台端點）都能呼叫；沒有租戶脈絡時只看全平台層與預設值 | 判斷會出現在 guard 與業務分支裡，不能每次查 DB；多執行個體最多晚 `TENANT_CACHE_TTL` 秒，與租戶登記相同。2026-10-08 起全平台覆寫改成變更時經 `core/broadcast` 通知其他程序（[`01-system.md`](./01-system.md) §4.3） |
 | D5 | **後端**：`@RequireFlag('<key>')` 可標在 class 或 handler，由既有的 `FeatureGuard` 一併判斷（同一個位置、同一個 `404 FEATURE_DISABLED`）；與 `@RequireFeature` 可以並存，兩者都要成立。業務分支內用 `FeatureFlagService.isEnabled()`。授權宣告照舊必填，`route-audit` 不變 | 「這個功能存不存在」只需要一個 guard、一種回應；關閉時回 404 不暴露功能存在（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D11） |
 | D6 | **`/auth/profile` 加 `flags: string[]`**：只列出生效為開的 key。所有租戶都帶（flag 可以用在常駐 feature） | 前端只需要知道「開了哪些」；清單很短 |
 | D7 | **變更與推播沿用 `features` 的路徑**：租戶層由 `PATCH /platform/tenants/:id` 的 `flags`（**完整的覆寫表**，取代而非增減；不認得的 key 回 `VALIDATION_FAILED`）寫入，稽核 `tenant.update` 的 `before`／`after` 帶 `flags`，之後 `TenantDirectory.invalidate()` 並發佈 `TENANT_FEATURES_CHANGED`。全平台層由 `PUT /platform/feature-flags/:key`（`{ state: 'default' \| 'on' \| 'off' }`）寫入，平台稽核 `featureFlag.update`，之後對 **每個 `active` 租戶** 發佈 `TENANT_FEATURES_CHANGED` | 前端已經會因為 `tenantFeature` 重抓 profile，不必新增事件、來源或前端邏輯 |

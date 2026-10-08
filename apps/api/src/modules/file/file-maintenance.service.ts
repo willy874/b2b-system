@@ -274,7 +274,7 @@ export class FileMaintenanceService implements OnModuleInit {
     );
     report.requeuedVariants = ids.length;
     if (dryRun) return;
-    for (const id of ids) this.images.schedule(id);
+    await Promise.all(ids.map((id) => this.images.enqueueVariants(id)));
   }
 
   /**

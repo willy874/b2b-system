@@ -1,0 +1,51 @@
+# 多實例（docs/features/multi-instance.md）：疊在 docker-compose.prod.yml 上。
+#   docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-compose.cluster.yml up -d --build
+# 要監控時再疊 docker-compose.monitoring.yml（Prometheus 以 DNS 找到每個實例）。
+#
+#   backstage（nginx）──/api/*──────────▶ api（APP_ROLES=http）× API_HTTP_REPLICAS
+#                     └─/api/socket.io/─▶ api-realtime × API_REALTIME_REPLICAS（只用 websocket 傳輸，不需要黏著）
+#   api-worker × API_WORKER_REPLICAS：背景工作、排程、影像變體（pg-boss 以資料庫協調，排程每次只觸發一次）
+#
+# 程序之間只經 postgres 溝通：快取失效與推播轉送（LISTEN／NOTIFY）、佇列（pg-boss）、速率限制的共享計數。
+# DEPLOYMENT_MODE=cluster：沒有共享的設定（例：RATE_LIMIT_STORE=memory）就拒絕啟動。
+# 連線預算要乘上程序數（docs/architecture/backend/02-database.md §6.2）；程序多、活躍的租戶多時在前面加 PgBouncer。
+services:
+  api:
+    environment:
+      APP_ROLES: http
+      DEPLOYMENT_MODE: cluster
+      SHUTDOWN_DRAIN_SECONDS: ${SHUTDOWN_DRAIN_SECONDS:-10}
+    deploy:
+      replicas: ${API_HTTP_REPLICAS:-2}
+
+  api-realtime:
+    profiles: !reset []
+    environment:
+      DEPLOYMENT_MODE: cluster
+      SHUTDOWN_DRAIN_SECONDS: ${SHUTDOWN_DRAIN_SECONDS:-10}
+      # 每個租戶的池：只有 handshake 與權限集合的查詢（docs/features/multi-instance.md §初步構想 5）
+      TENANT_POOL_MAX: ${REALTIME_TENANT_POOL_MAX:-3}
+      PLATFORM_POOL_MAX: ${REALTIME_PLATFORM_POOL_MAX:-3}
+    deploy:
+      replicas: ${API_REALTIME_REPLICAS:-2}
+
+  api-worker:
+    profiles: !reset []
+    environment:
+      DEPLOYMENT_MODE: cluster
+      TENANT_POOL_MAX: ${WORKER_TENANT_POOL_MAX:-5}
+      PLATFORM_POOL_MAX: ${WORKER_PLATFORM_POOL_MAX:-5}
+    deploy:
+      replicas: ${API_WORKER_REPLICAS:-1}
+
+  external-api:
+    environment:
+      DEPLOYMENT_MODE: cluster
+
+  backstage:
+    environment:
+      # deploy/nginx-upstreams.sh：/api/socket.io/ 轉給推播的程序；名稱在執行期解析，擴縮後跟得上
+      REALTIME_UPSTREAM: api-realtime:3000
+    depends_on:
+      api-realtime:
+        condition: service_healthy

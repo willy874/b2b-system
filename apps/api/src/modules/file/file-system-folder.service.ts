@@ -4,8 +4,11 @@ import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnApplicationBootstrap, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { PERMISSION } from '@/common/types';
+import type { Env } from '@/core/config';
+import { processRolesOf } from '@/core/config/process-roles';
 import type { DbOrTx } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { Tenancy } from '@/core/tenant';
@@ -47,6 +50,7 @@ export class FileSystemFolderService
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
     private readonly tenancy: Tenancy,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   onModuleInit(): void {
@@ -69,8 +73,13 @@ export class FileSystemFolderService
     this.unsubscribers = [];
   }
 
-  /** 每個 `active` 的租戶各一套系統資料夾（docs/architecture/05-tenancy.md §10.2 D3）。 */
+  /**
+   * 每個 `active` 的租戶各一套系統資料夾（docs/architecture/05-tenancy.md §10.2 D3）。只在 `worker` 角色做：
+   * 多個 http／realtime 程序同時開機時不必每個都進入每個租戶 DB（docs/architecture/01-system.md §7 D3）。
+   */
   async onApplicationBootstrap(): Promise<void> {
+    const roles = processRolesOf({ APP_ROLES: this.config.get('APP_ROLES', { infer: true }) });
+    if (!roles.has('worker')) return;
     await this.tenancy.forEachActive(() => this.prepareTenant());
   }
 

@@ -104,8 +104,8 @@
 
 - 任何特定領域的業務功能——本 repo 只提供骨架。
 - LDAP、SAML（OIDC 的外部 IdP 已支援）。
-- 還沒做、但已有提案的功能（多實例部署）列在
-  [`features/README.md`](../../features/README.md)。
+- 還沒做的功能列在 [`features/README.md`](../../features/README.md)（目前沒有提案）。
+  多實例部署已完成：預設單體，以 `APP_ROLES`／`DEPLOYMENT_MODE` 拆成 http、realtime、worker 各自擴展（[`architecture/01-system.md`](../../architecture/01-system.md) §4.3）。
 
 ---
 

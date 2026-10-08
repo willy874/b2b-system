@@ -22,6 +22,7 @@ import {
 } from '@opentelemetry/semantic-conventions';
 import { parse } from 'dotenv';
 
+import { processRolesOf, rolesLabelOf } from './core/config/process-roles';
 import { routeLabelOf } from './core/metrics/route-label';
 import { RedactUrlProcessor } from './core/tracing/redact-url.processor';
 import { tracingEndpointOf } from './core/tracing/tracing-endpoint';
@@ -71,6 +72,8 @@ function startTracing(endpoint: string): void {
       // 與 Prometheus 的 job 名稱相同：Grafana 從 trace 跳到同一個服務的指標（deploy/monitoring/prometheus.yml）
       [ATTR_SERVICE_NAME]:
         envValue('OTEL_SERVICE_NAME') ?? (surface === 'external' ? 'external-api' : 'api'),
+      // 內部 api 拆成角色時，以它區分是哪一種程序（docs/architecture/01-system.md §4.3）
+      'b2b.roles': rolesLabelOf(processRolesOf({ APP_ROLES: envValue('APP_ROLES') })),
       [ATTR_SERVICE_VERSION]: envValue('APP_RELEASE') ?? 'unknown',
       'deployment.environment.name': envValue('NODE_ENV') ?? 'development',
     }),

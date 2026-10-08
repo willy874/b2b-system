@@ -633,7 +633,7 @@ pnpm db:migrate
 | 產生後 **必須** 人工檢視                            | drizzle-kit 對欄位改名可能產生「drop + add」導致資料遺失 |
 | Trigger / function / 資料修補 用 **手寫** migration | drizzle-kit 不產生這些                                   |
 | 已套用到任何共用環境的 migration **不可修改**       | 要改就發新的一支                                         |
-| 破壞性變更拆成兩次部署                              | 先加新欄位並雙寫 → 部署 → 再移除舊欄位                   |
+| 破壞性變更拆成兩次部署                              | 先加新欄位並雙寫 → 部署 → 再移除舊欄位。滾動部署時新舊兩版程式同時連到新 schema。CI 掃描新增的 migration（`pnpm --filter @b2b-system/api migrations:check`）：`DROP TABLE`／`COLUMN`、`RENAME`、改型別、`SET NOT NULL`、不帶 `DEFAULT` 的 `ADD COLUMN … NOT NULL` 要在上一行寫 `-- breaking-ok: <理由>`（[`../01-system.md`](../01-system.md) §7 D14） |
 
 ### 5.2 兩條 migration 線
 
@@ -726,7 +726,7 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 
 | | 內容 | 連線 | DI token |
 | --- | --- | --- | --- |
-| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss；程序之間的失效廣播（`LISTEN`／`NOTIFY`，`core/broadcast`） | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`）；底層的 postgres.js client 是 `PLATFORM_SQL`（`BroadcastService` 用） |
+| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss、速率限制的共享計數（`rate_limit_counters`，UNLOGGED）；程序之間的失效廣播（`LISTEN`／`NOTIFY`，`core/broadcast`） | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`）；底層的 postgres.js client 是 `PLATFORM_SQL`（`BroadcastService` 用） |
 | 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 `TENANT_POOL_IDLE_TIMEOUT` 秒關閉） | `TENANT_DB`（`Database`） |
 
 - **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。
@@ -752,6 +752,8 @@ postgres 的連線是有限資源（`max_connections`，每條約數 MB 記憶�
 | 每個租戶 | 10，閒置 30 秒關閉 | `TENANT_POOL_MAX`、`TENANT_POOL_IDLE_TIMEOUT` |
 
 **預算**：`(平台池 ＋ 4 ＋ 1 ＋ 同時活躍的租戶數 × TENANT_POOL_MAX) × api 程序數 ＋ migrate／腳本 ＜ max_connections − superuser_reserved_connections（3）`。
+拆開部署時（[`../01-system.md`](../01-system.md) §4.3）每個角色的程序都算進「api 程序數」，各自的池依角色調小：`api-realtime` 的平台池與租戶池 3、
+`api-worker` 5（`docker-compose.cluster.yml`、`deploy/k8s/overlays/cluster`）。
 對外 API（`external-api`，[`../06-external-api.md`](../06-external-api.md)）是另一個程序，同樣算進「api 程序數」，但它的池在 compose
 另外設定（`EXTERNAL_TENANT_POOL_MAX` 預設 5、`EXTERNAL_PLATFORM_POOL_MAX` 預設 5）。
 

@@ -133,7 +133,7 @@ trace 的 `http.route` 也用它。
 | --- | --- | --- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | （空） | OTLP/HTTP 的位址；送到 `<位址>/v1/traces` |
 | `OTEL_TRACES_SAMPLER_ARG` | `1`（正式的 compose 預設 `0.2`） | 根 span 的取樣率；請求帶了取樣決定（`traceparent`）時照上游的 |
-| `OTEL_SERVICE_NAME` | `api`／`external-api` | 與 Prometheus 的 job 名稱相同，Grafana 才能從 trace 跳到同一個服務的指標 |
+| `OTEL_SERVICE_NAME` | `api`／`external-api` | 與 Prometheus 的 job 名稱相同，Grafana 才能從 trace 跳到同一個服務的指標。內部 api 拆成角色時仍是 `api`，角色在資源屬性 `b2b.roles`（[`01-system.md`](./01-system.md) §4.3） |
 | `APP_RELEASE` | `unknown` | `service.version` |
 
 - `src/instrumentation.ts` 必須在 `http`、`@nestjs/core`、`pino` 被載入之前執行：`main.ts` 第一個 import 它，`main.external.ts` 在 `external-process-env` 之後
@@ -171,7 +171,12 @@ trace 的 `http.route` 也用它。
 | `GET /health` | 存活（容器的 HEALTHCHECK） | 程序在、event loop 轉得動（回得了就是） |
 | `GET /health/ready` | 就緒（LB） | `database`：平台 DB `select 1`；`storage`：物件儲存；`jobs`：pg-boss 自己的連線池（它用 `pg`，與 api 的平台池分開）；`eventLoop`：最近 30 秒的 event loop 延遲 p99 ≤ `HEALTH_EVENT_LOOP_LAG_MS`（預設 1000，`0` 不檢查） |
 
-- 任一項失敗回 `{ status: 'degraded', checks }`（HTTP 200，照舊）。每一項最多等 2 秒，連線卡住時也能在探針的逾時（3 秒）內回應。
+- **回 503**（`SERVICE_NOT_READY`）只有兩種情況：程序正在排空（收到 `SIGTERM`，`details.draining: true`），或平台 DB 連不上
+  （`details.checks`；認不出租戶、驗不了 token，流量送過來也只會失敗）。LB／k8s 的 readinessProbe 依狀態碼把程序移出。
+- 其他項失敗回 `{ status: 'degraded', checks }`（HTTP 200）：一個非必要依賴的抖動不該讓所有程序同時被移出服務。每一項最多等 2 秒，連線卡住時也能在探針的逾時（3 秒）內回應。
+- **排空**（`core/lifecycle`，[`01-system.md`](./01-system.md) §7 D13）：進入點以 `enableGracefulShutdown(app)` 取代 `enableShutdownHooks()`。
+  收到 `SIGTERM`／`SIGINT` 後 readiness 改回 503、WebSocket 不收新連線並分批關閉既有的，等 `SHUTDOWN_DRAIN_SECONDS`（預設 0；k8s 建議 10）後才走 Nest 的關閉順序。
+  存活（`/health`）在排空中照常回 200，容器不會在排空期間被重啟。排空中再收到一次訊號就立即結束。
 - **租戶 DB 不在就緒檢查裡**（§9.2 D8）：單一租戶的 DB 掛掉不該讓整個程序被 LB 摘掉；`Tenancy.enter` 已經只對那個租戶回 503，
   看指標 `api_tenant_unavailable_total{reason="maintenance"}`（告警 `TenantUnavailable`）。
 
@@ -233,6 +238,9 @@ docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-c
 
 APM 關閉（沒有 `apm` profile，[`07-apm-service.md`](./07-apm-service.md) §8.1）時監控照樣疊得上：apm-service 不存在，Prometheus 的 `apm-service` 目標顯示 down
 （沒有告警盯它）、Grafana 的 APM 資料來源與「前端」儀表板沒有資料，其他儀表板與告警不受影響。
+
+多實例（`docker-compose.cluster.yml`，[`01-system.md`](./01-system.md) §4.3）也疊同一份：Prometheus 以 `dns_sd_configs` 找目標，`api`、`api-realtime`、`api-worker`
+的每個實例各自是 job `api` 的一個 target（拆出去的角色帶 `role` 標籤），`external-api` 同理；名稱不存在（沒有那個 profile）時只是沒有 target，不算 down。
 
 `b2b_monitor` 由 `deploy/postgres/10-roles.sh` 在 **第一次初始化資料目錄時** 建立（設了 `POSTGRES_MONITOR_PASSWORD` 才建）。既有部署要先以超級使用者執行一次
 `deploy/monitoring/create-monitor-role.sql`（檔頭有指令）。

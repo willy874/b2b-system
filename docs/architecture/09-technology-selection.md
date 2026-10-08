@@ -5,7 +5,7 @@
 選型的原則有三條：
 
 1. **少一個服務就少一個故障點。** 佇列、跨程序廣播、權限關係圖都放在 PostgreSQL 上，沒有 Redis、沒有外部授權服務。
-   只有在 Postgres 確定撐不住時才加元件（[`features/multi-instance.md`](../features/multi-instance.md)）。
+   只有在 Postgres 確定撐不住時才加元件（[`01-system.md`](./01-system.md) §7）。
 2. **型別從一個地方來。** 資料表的型別來自 Drizzle schema，請求的型別來自 Zod schema，前端的 API 型別與權限鍵來自後端產生的 OpenAPI。
 3. **前端架構沿用驗證過的設計。** plugin-based AppContext ＋ feature-first 分層 ＋ 執行期權限註冊表，來自一套規模相近、同樣以 RBAC 為核心的產品；重新發明沒有收益。
 

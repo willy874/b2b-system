@@ -1,14 +1,17 @@
 import { ChangeKind } from '@b2b-system/realtime';
 import { Injectable, Logger } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { createLimiter } from '@/core/concurrency';
 import type { Env } from '@/core/config';
 import { deriveKey } from '@/core/crypto';
+import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { IMAGE_FORMAT_CONTENT_TYPE, ImageDecodeError, ImageProcessor } from '@/core/image';
 import type { ImageFormat } from '@/core/image';
+import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage, stableSigningDate } from '@/core/storage';
 import { requireTenant } from '@/core/tenant';
 import type { FileRow } from '@/db/schema';
@@ -20,7 +23,6 @@ import {
   fileChange,
   IMAGE_CONVERSION_MAX_OUTPUT_SIZE,
   IMAGE_CONVERSION_OVERSIZED_MEMORY,
-  IMAGE_VARIANT_ANNOUNCE_WAIT_MS,
   IMAGE_VARIANT_CONCURRENCY,
   IMAGE_VARIANT_MAX_EDGE,
   IMAGE_VARIANT_MAX_INPUT_SIZE,
@@ -30,6 +32,16 @@ import {
 } from './file.constants';
 import type { ImageVariant } from './file.constants';
 import { FileRepository } from './file.repository';
+
+/**
+ * 產生一個檔案的影像變體（docs/architecture/01-system.md §7 D9）：在 worker 執行，sharp 的 CPU 不佔 API 的 event loop。
+ * 不用 `exclusive`（那是每個租戶一筆）：同一個檔案重複排入時，第二筆看到變體已經不是 `pending` 就直接結束。
+ */
+export const FILE_IMAGE_VARIANTS_JOB = defineJob<{ fileId: string }>('file.imageVariants', {
+  concurrency: IMAGE_VARIANT_CONCURRENCY,
+  retryLimit: 3,
+  expireInSeconds: 5 * 60,
+});
 
 /** 影像 API 的轉址目標。 */
 export interface ImageRedirect {
@@ -55,23 +67,22 @@ const FORMAT_EXTENSION: Record<ImageFormat, string> = {
 /**
  * 圖片的三個版本與影像 API（docs/architecture/backend/09-file.md §5.4）。
  *
- * - 上傳完成時排入 `schedule()`：讀原圖、產生全螢幕預覽與圖示預覽兩個縮小版本並寫回物件儲存（實體化），
- *   連同原圖共三個版本。主格式是 progressive JPEG（有透明度的圖改用 WebP）；
+ * - 上傳完成時在交易內排入背景工作 `file.imageVariants`（`enqueueVariants()`）：讀原圖、產生全螢幕預覽與圖示預覽
+ *   兩個縮小版本並寫回物件儲存（實體化），連同原圖共三個版本。主格式是 progressive JPEG（有透明度的圖改用 WebP）；
  * - 影像 API（`resolve()`）依請求的格式回應：主格式直接轉址；其他格式第一次被要求時才轉出並存起來，
  *   之後同樣直接轉址。內容一律由物件儲存送出，不經過 api。
  */
 @Injectable()
-export class FileImageService {
+export class FileImageService implements OnModuleInit {
   private readonly logger = new Logger(FileImageService.name);
   private readonly urlKeys: { current: Buffer; legacy: Buffer | undefined };
   private readonly urlTtl: number;
   private readonly baseUrl: string;
+  /** 依請求轉出其他格式的並行上限（變體的並行度在背景工作的設定）。 */
   private readonly limit = createLimiter({
     name: 'image',
     concurrency: IMAGE_VARIANT_CONCURRENCY,
   });
-  /** 排入或執行中的變體產生（檔案 id → 工作）：同一個檔案不重複產生。 */
-  private readonly generating = new Map<string, Promise<void>>();
   /** 依請求轉出其他格式（物件 key → 工作）：同時多個請求只轉一次。 */
   private readonly converting = new Map<string, Promise<void>>();
   /** 轉出後超過上限的格式（物件 key）：結果不會變，不再重新轉；只記最近的幾個。 */
@@ -82,6 +93,7 @@ export class FileImageService {
     private readonly storage: ObjectStorage,
     private readonly images: ImageProcessor,
     private readonly events: DomainEventBus,
+    private readonly jobs: JobQueue,
     config: ConfigService<Env, true>,
   ) {
     const secret = config.get('JWT_SECRET', { infer: true });
@@ -97,43 +109,29 @@ export class FileImageService {
     this.baseUrl = config.get('API_PUBLIC_BASE_URL', { infer: true });
   }
 
-  /**
-   * 排入產生影像變體；同一個檔案已在佇列中就不重複排入。不等待完成——
-   * 完成後發佈 `file` 的 UPDATE，前端重抓就拿到影像網址。
-   *
-   * `announce`：剛完成上傳、還沒推過 `file create` 的檔案。變體在
-   * `IMAGE_VARIANT_ANNOUNCE_WAIT_MS` 內處理完（不論成敗）就只推一次 create；超過才先推 create，好了再推 update。
-   */
-  schedule(fileId: string, options: { announce?: { folderId: string | null } } = {}): void {
-    const announce = options.announce
-      ? this.announcement(fileId, options.announce.folderId)
-      : undefined;
-    if (this.generating.has(fileId)) {
-      announce?.now();
-      return;
-    }
-    const task = this.limit(() => this.generate(fileId))
-      .then((ready) => {
-        // 還沒推過 create：這一次就涵蓋了變體（前端重抓時已經是 ready）
-        if (announce && !announce.isDone()) announce.now();
-        else if (ready) this.publish(ChangeKind.UPDATE, ready);
-      })
-      .catch((error: unknown) => {
-        this.logger.error({ err: error, fileId }, '產生影像變體時發生未預期的錯誤');
-      })
-      .finally(() => {
-        // 失敗也要讓其他人看得到這個檔案
-        announce?.now();
-        this.generating.delete(fileId);
-      });
-    this.generating.set(fileId, task);
+  onModuleInit(): void {
+    this.jobs.register(FILE_IMAGE_VARIANTS_JOB, ({ fileId }) => this.generateVariants(fileId));
   }
 
-  /** 等排入的變體與背景轉檔全部處理完（測試與關機用）。 */
+  /**
+   * 排入產生影像變體。帶 `tx` 時在業務交易內入列（outbox）：交易回滾就沒有工作。
+   * 完成後發佈 `file` 的 UPDATE，前端重抓就拿到影像網址。
+   */
+  async enqueueVariants(fileId: string, tx?: Transaction): Promise<void> {
+    await this.jobs.enqueue(FILE_IMAGE_VARIANTS_JOB, { fileId }, { tx });
+  }
+
+  /** 背景工作的本體：產生變體，變成 ready 時推 update。不是 `pending`（已產生、已刪除）就什麼都不做。 */
+  async generateVariants(fileId: string): Promise<void> {
+    const ready = await this.generate(fileId);
+    if (ready) this.publish(ChangeKind.UPDATE, ready);
+  }
+
+  /** 等背景轉檔（依請求轉出的其他格式）全部處理完（測試與關機用）。變體在背景工作裡，不在這裡等。 */
   async whenIdle(): Promise<void> {
-    while (this.generating.size > 0 || this.converting.size > 0) {
+    while (this.converting.size > 0) {
       // oxlint-disable-next-line no-await-in-loop -- 等待途中可能又排入新的
-      await Promise.allSettled([...this.generating.values(), ...this.converting.values()]);
+      await Promise.allSettled(this.converting.values());
     }
   }
 
@@ -288,21 +286,6 @@ export class FileImageService {
       return undefined;
     }
     return updated;
-  }
-
-  /** 至多推一次 `file create`：到期、或呼叫 `now()` 時（先到者）。 */
-  private announcement(fileId: string, folderId: string | null) {
-    let isDone = false;
-    const now = () => {
-      if (isDone) return;
-      isDone = true;
-      clearTimeout(timer);
-      this.publish(ChangeKind.CREATE, { id: fileId, folderId });
-    };
-    const timer = setTimeout(now, IMAGE_VARIANT_ANNOUNCE_WAIT_MS);
-    // 關機時不必等它
-    timer.unref();
-    return { now, isDone: () => isDone };
   }
 
   private publish(kind: ChangeKind, file: Pick<FileRow, 'id' | 'folderId'>): void {

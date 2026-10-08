@@ -48,7 +48,7 @@ function parseEnvelope(payload: string): Envelope | null {
 }
 
 /**
- * 程序之間的失效廣播（docs/architecture/iam/01-model.md §9.2 D7、docs/features/multi-instance.md）：
+ * 程序之間的失效廣播（docs/architecture/iam/01-model.md §9.2 D7、docs/architecture/01-system.md §7）：
  * 平台 DB 上的 `LISTEN`／`NOTIFY`。每個程序只有一條監聽的連線（postgres.js 的 `listen` 自己維持、斷線重連），
  * 與租戶的數量無關；各租戶 DB 的變更由程式在交易提交後送到這裡。
  *

@@ -41,12 +41,12 @@ const env = {
   APM_ENABLED: String(apm),
   ...(apm
     ? {
-        COMPOSE_PROFILES: 'apm',
+        COMPOSE_PROFILES: 'apm,external',
         APM_BACKSTAGE_PUBLIC_KEY: hex(16),
         APM_PLATFORM_PUBLIC_KEY: hex(16),
         APM_AUTH_TOKEN: hex(24),
       }
-    : {}),
+    : { COMPOSE_PROFILES: 'external' }),
   // 不會真的寄信：啟動時不連 SMTP
   MAIL_SMTP_URL: 'smtp://mail.invalid:25',
   MAIL_FROM: 'B2B System <no-reply@example.com>',

@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy } from '@nestjs/common';
+
+import { rateLimitStoreFailures } from '../metrics';
 
 /** 一個計數 key 在目前時間窗內的狀態。 */
 export interface RateLimitRecord {
@@ -15,8 +17,8 @@ export interface RateLimitRecord {
  * 速率限制與登入延遲的計數（docs/architecture/backend/03-api-conventions.md §8）。固定時間窗：第一次計數時開窗，
  * 窗結束後下一次計數重新開始。
  *
- * 規則（計什麼、上限多少）在呼叫端；這裡只負責「存」。目前是程序內的記憶體實作：多實例時上限會變成 N 倍，
- * 換成共享的實作（Postgres，docs/features/multi-instance.md）只要換掉這個 provider，規則不必改。
+ * 規則（計什麼、上限多少）在呼叫端；這裡只負責「存」。實作有兩個：程序內的記憶體（單一程序）與平台 DB 的共享計數
+ * （`PostgresRateLimitStore`，多個程序；docs/architecture/01-system.md §7 D6），由 `RATE_LIMIT_STORE` 選擇。
  */
 export abstract class RateLimitStore {
   /** 計一次並回傳計數後的狀態。 */
@@ -25,6 +27,26 @@ export abstract class RateLimitStore {
   abstract peek(key: string): Promise<RateLimitRecord | undefined>;
   /** 清掉這個 key（例：登入成功後清除錯誤次數）。 */
   abstract reset(key: string): Promise<void>;
+}
+
+const fallbackLogger = new Logger('RateLimitStore');
+
+/**
+ * 計一次；計數存不了時放行（回 `undefined`）並記錄。給「放寬也不會造成傷害」的限流用：對外 API 的額度、
+ * WebSocket 的 handshake（docs/architecture/01-system.md §7 D6）。登入類的限流不要用它。
+ */
+export async function hitOrAllow(
+  store: RateLimitStore,
+  key: string,
+  windowMs: number,
+): Promise<RateLimitRecord | undefined> {
+  try {
+    return await store.hit(key, windowMs);
+  } catch (error) {
+    rateLimitStoreFailures.inc({ outcome: 'allowed' });
+    fallbackLogger.error({ err: error }, '速率限制的計數失敗，放行');
+    return undefined;
+  }
 }
 
 /** 過期項目的清理間隔：不必每次計數都掃。 */

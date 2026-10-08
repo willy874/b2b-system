@@ -116,17 +116,14 @@ export const IMAGE_CONVERSION_MAX_OUTPUT_SIZE = 128 * 1024 * 1024;
 /** 每個 api 執行個體最多記住幾個「轉出後超過上限」的格式，免得每次請求都重新解碼一次大圖。 */
 export const IMAGE_CONVERSION_OVERSIZED_MEMORY = 1000;
 
-/** 同一個 api 執行個體同時產生變體的數量：解碼大圖很吃 CPU 與記憶體。 */
+/**
+ * 同一個程序同時處理影像的數量：解碼大圖很吃 CPU 與記憶體。worker 的變體產生（`file.imageVariants` 的並行度）
+ * 與 http 程序依請求轉出其他格式各自套用。
+ */
 export const IMAGE_VARIANT_CONCURRENCY = 2;
 
 /**
- * 上傳完成的圖片等變體多久才先推 `file create`：通常變體在這之前就好了，
- * 「完成」與「變體好了」合併成一次推播；超過才先推 create，變體好了再推 update。
- */
-export const IMAGE_VARIANT_ANNOUNCE_WAIT_MS = 3_000;
-
-/**
- * 變體排入後超過這個時間仍是 `pending`（執行個體重啟、儲存服務暫時失敗），維護排程重新排入。
+ * 變體排入後超過這個時間仍是 `pending`（工作用完重試、儲存服務暫時失敗），維護排程重新排入。
  */
 export const IMAGE_VARIANT_RETRY_AFTER_MS = 5 * 60 * 1000;
 

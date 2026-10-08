@@ -26,6 +26,9 @@ node "$ROOT/deploy/fake-prod-env.mjs" --no-apm > "$WORK/prod-no-apm.env"
 printf 'GRAFANA_ADMIN_PASSWORD=%s\nPOSTGRES_MONITOR_PASSWORD=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" >> "$WORK/prod-no-apm.env"
 docker compose --project-directory "$ROOT" --env-file "$WORK/prod-no-apm.env" \
   -f "$ROOT/docker-compose.prod.yml" -f "$ROOT/docker-compose.monitoring.yml" config --quiet
+# 多實例（docs/architecture/01-system.md §7）：正式 ＋ 多實例 ＋ 監控
+docker compose --project-directory "$ROOT" --env-file "$WORK/prod.env" -f "$ROOT/docker-compose.prod.yml" \
+  -f "$ROOT/docker-compose.cluster.yml" -f "$ROOT/docker-compose.monitoring.yml" config --quiet
 # 監控整套關閉 = 不疊 docker-compose.monitoring.yml；APM 開關兩種都要合法
 for env in prod.env prod-no-apm.env; do
   docker compose --project-directory "$ROOT" --env-file "$WORK/$env" -f "$ROOT/docker-compose.prod.yml" config --quiet

@@ -13,6 +13,7 @@ COPY packages/error-codes/package.json packages/error-codes/
 COPY packages/web-shared/package.json packages/web-shared/
 COPY packages/ui/package.json packages/ui/
 COPY packages/web-core/package.json packages/web-core/
+COPY packages/rich-text/package.json packages/rich-text/
 COPY apps/platform/package.json apps/platform/
 RUN pnpm install --frozen-lockfile --filter @b2b-system/platform...
 
@@ -37,6 +38,7 @@ COPY apps/platform ./apps/platform
 RUN pnpm --filter @b2b-system/api-sdk build \
  && pnpm --filter @b2b-system/error-codes build \
  && pnpm --filter @b2b-system/realtime build \
+ && pnpm --filter @b2b-system/rich-text build \
  && pnpm --filter @b2b-system/platform build \
  && mkdir -p /sourcemaps \
  && cd apps/platform/dist \
@@ -53,6 +55,9 @@ COPY deploy/nginx.main.conf /etc/nginx/nginx.conf
 COPY deploy/nginx.security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY deploy/nginx.platform.conf /etc/nginx/conf.d/default.conf
 # 啟動時依 TRUSTED_PROXY_CIDRS 產生 real_ip 設定（docs/architecture/01-system.md §4.2）
+# api 的 upstream：位址可由 API_UPSTREAM／REALTIME_UPSTREAM 指定（docs/architecture/01-system.md §7 D12）
+COPY --chmod=755 deploy/nginx-upstreams.sh /docker-entrypoint.d/14-upstreams.sh
+ENV API_UPSTREAM_KEEPALIVE=32
 COPY --chmod=755 deploy/nginx-real-ip.sh /docker-entrypoint.d/15-real-ip.sh
 # 獨立的檔案網域：CSP 放行它（FILE_DOWNLOAD_ORIGIN；docs/architecture/backend/09-file.md §3.2）
 COPY --chmod=755 deploy/nginx-file-origin.sh /docker-entrypoint.d/16-file-origin.sh

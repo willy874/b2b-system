@@ -108,6 +108,25 @@ export const rateLimited = new Counter({
   registers,
 });
 
+/**
+ * 速率限制計數的儲存（`RateLimitStore`）每次操作的時間：共享實作（Postgres）換成 Valkey 的依據
+ * （docs/architecture/01-system.md §7 D10：`hit` 的 p99 > 5 ms）。
+ */
+export const rateLimitStoreDuration = new Histogram({
+  name: 'api_rate_limit_store_duration_seconds',
+  help: '速率限制計數的儲存操作時間（依實作、操作）',
+  labelNames: ['store', 'op'] as const,
+  buckets: [0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5],
+  registers,
+});
+
+export const rateLimitStoreFailures = new Counter({
+  name: 'api_rate_limit_store_failures_total',
+  help: '速率限制計數的儲存失敗（依政策放行或拒絕；docs/architecture/01-system.md §7 D6）',
+  labelNames: ['outcome'] as const,
+  registers,
+});
+
 export const limiterActive = new ObservedGauge({
   name: 'api_limiter_active',
   help: '程序內並行上限（argon2、影像處理）正在執行的工作數',

@@ -41,6 +41,12 @@ x-api-common-env: &api-common-env
   # 監控整套的開關（docs/architecture/08-monitoring.md §1.1）：沒疊 docker-compose.monitoring.yml 時預設關閉（不開 /metrics、
   # 不量指標、不載入 tracing）；疊上時那份檔案改成預設開啟。都可以在 deploy/prod.env 以 MONITORING_ENABLED 覆寫
   MONITORING_ENABLED: ${MONITORING_ENABLED:-false}
+  # 部署形態（docs/architecture/01-system.md §7 D5、D6、D13）：單一程序是 standalone；多實例疊 docker-compose.cluster.yml
+  DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-standalone}
+  # 速率限制的計數：留空 = standalone 用程序記憶體、cluster 用平台 DB 的共享計數
+  RATE_LIMIT_STORE: ${RATE_LIMIT_STORE:-}
+  # 收到 SIGTERM 後先排空（readiness 回 503、WebSocket 分批斷線）幾秒再關閉；單一程序不必等
+  SHUTDOWN_DRAIN_SECONDS: ${SHUTDOWN_DRAIN_SECONDS:-0}
   # 只信任 nginx 這一跳：nginx 以 real_ip 驗過前置 LB 之後，把 X-Forwarded-For 覆寫成單一的客戶端 IP
   # （deploy/nginx-real-ip.sh）。docker 的位址池不在私有網段時改成那個子網路或 1（docs/architecture/01-system.md §4.2）
   TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
@@ -188,27 +194,53 @@ services:
       postgres:
         condition: service_healthy
 
-  api:
-    # 與 migrate 共用同一個映像（由 migrate 的 build 產生），不另外 build 也不 pull
+  # 內部 api。預設是單體（APP_ROLES=all：HTTP、推播、背景工作都在這個程序）。角色與擴展見 docs/architecture/01-system.md §7：
+  #   - 背景工作分開：COMPOSE_PROFILES 加上 worker、API_ROLES=http,realtime（仍是 standalone，D15）
+  #   - 多實例：疊 docker-compose.cluster.yml
+  api: &api-service # 與 migrate 共用同一個映像（由 migrate 的 build 產生），不另外 build 也不 pull
     image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
     logging: *logging
     environment:
       <<: [*api-common-env, *api-internal-env]
+      APP_ROLES: ${API_ROLES:-all}
     networks: [edge, data, storage]
     mem_limit: ${API_MEM_LIMIT:-2g}
     security_opt: ['no-new-privileges:true']
-    # 單一執行個體：權限快取與 Socket.io room 都在記憶體。擴展前提見 01-system.md §4.3
+    # 排空（SHUTDOWN_DRAIN_SECONDS）＋ 背景工作收尾（最多 30 秒）之後才強制結束
+    stop_grace_period: 45s
     depends_on:
       migrate:
         condition: service_completed_successfully
       file-storage:
         condition: service_healthy
 
+  # 背景工作與排程（APP_ROLES=worker）：同一個映像。worker profile 或 docker-compose.cluster.yml 才啟動。
+  # 只有健康檢查的路由，不接流量：不在 edge 網路，寄信、webhook 的對外連線走 storage 網路的預設閘道
+  api-worker:
+    <<: *api-service
+    profiles: [worker]
+    environment:
+      <<: [*api-common-env, *api-internal-env]
+      APP_ROLES: worker
+    networks: [data, storage]
+    mem_limit: ${API_WORKER_MEM_LIMIT:-2g}
+
+  # 推播（APP_ROLES=realtime）：只在 docker-compose.cluster.yml 啟動（cluster profile）。backstage 的 /api/socket.io/ 指向它
+  api-realtime:
+    <<: *api-service
+    profiles: [cluster]
+    environment:
+      <<: [*api-common-env, *api-internal-env]
+      APP_ROLES: realtime
+    mem_limit: ${API_REALTIME_MEM_LIMIT:-1g}
+
   # 對外 API（docs/architecture/06-external-api.md §9.2 D9、D19）：與 api 同一個映像、不同的進入點與 port。
   # 只認 API token；只入列、不執行背景工作（main.external.ts 固定）；在自己的 external 網路，閘道碰不到內部 api
   external-api:
+    # 不用對外 API 的部署拿掉 COMPOSE_PROFILES 的 external，少跑兩個容器（docs/architecture/01-system.md §7 D2）
+    profiles: [external]
     image: b2b-system-api
     pull_policy: never
     restart: unless-stopped
@@ -245,6 +277,7 @@ services:
 
   # 對外 API 的網域（例 api.example.com）指到這裡；TLS 一樣在前面的 LB 終結
   external-gateway:
+    profiles: [external]
     image: nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:15c994d10d6d78658721c3bcafff14cb281fba2a4bdf9d5ba92c416a472516e3
     restart: unless-stopped
     logging: *logging

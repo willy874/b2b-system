@@ -382,12 +382,12 @@ export class FileService {
         tx,
       );
       await this.webhooks.emit(FILE_UPLOADED_WEBHOOK, { fileId: id, folderId: file.folderId }, tx);
+      // 變體在 worker 產生（docs/architecture/01-system.md §7 D9）；交易回滾就沒有工作
+      if (hasVariants) await this.images.enqueueVariants(id, tx);
     });
 
-    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話）。圖片的 create 推播交給變體產生：
-    // 變體很快就好時「完成」與「變體好了」合併成一次推播
-    if (hasVariants) this.images.schedule(id, { announce: { folderId: file.folderId } });
-    else this.publish(ChangeKind.CREATE, id, file.folderId);
+    // 不等變體產生完：回應先帶瀏覽器縮圖（有的話），變體好了再推 update
+    this.publish(ChangeKind.CREATE, id, file.folderId);
     return this.findOne(id, actor);
   }
 
@@ -531,7 +531,7 @@ export class FileService {
       },
     );
 
-    if (probe.variantsLost) this.images.schedule(id);
+    if (probe.variantsLost) await this.images.enqueueVariants(id);
     // 重新出現在列表：以 create 宣告（回收桶由前端的依賴圖跟著失效）
     this.publish(ChangeKind.CREATE, id, file.folderId);
     return this.findOne(id, actor);

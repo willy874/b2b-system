@@ -962,7 +962,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 
 ## 12. 設計決策：登入的容量與速率限制第二版
 
-> 2026-10-07 決定（`hardening-followups.md` 設計決策 §3）。共享計數（多實例時上限不變成 N 倍）是 [`../../features/multi-instance.md`](../../features/multi-instance.md) 的範圍；這裡定的是計數什麼、怎麼反應，兩者以 D1 的介面銜接。
+> 2026-10-07 決定（`hardening-followups.md` 設計決策 §3）。共享計數（多實例時上限不變成 N 倍）已於 2026-10-08 以 D1 的介面接上平台 DB 的 `PostgresRateLimitStore`（[`../01-system.md`](../01-system.md) §7 D6）；這裡定的是計數什麼、怎麼反應，兩者以 D1 的介面銜接。
 
 ### 12.1 決定
 

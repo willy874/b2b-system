@@ -233,7 +233,7 @@ function setup(
     resetVariants: vi.fn(async () => undefined),
   };
   const objects = { probe: vi.fn(async () => new Map<string, FileObjectProbe>()) };
-  const images = { schedule: vi.fn() };
+  const images = { enqueueVariants: vi.fn(async () => undefined) };
   // 標籤（docs/architecture/backend/18-tag.md §7）：沒有貼任何標籤
   const tags = {
     tagsOf: vi.fn(
@@ -788,7 +788,7 @@ describe('FileFolderRestoreService.restore（docs/architecture/backend/13-trash.
     expect(fileRepo.restore.mock.calls[0]?.[0]).toEqual(['f1', 'f2']);
     expect(fileRepo.clearThumbnail).toHaveBeenCalledWith(['f1'], 'tx');
     expect(fileRepo.resetVariants).toHaveBeenCalledWith(['f2'], 'tx');
-    expect(images.schedule).toHaveBeenCalledWith('f2');
+    expect(images.enqueueVariants).toHaveBeenCalledWith('f2');
   });
 
   it('上層已刪除 → FILE_FOLDER_RESTORE_CONFLICT（parentDeleted）', async () => {

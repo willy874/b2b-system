@@ -361,6 +361,7 @@ function outboxTable(initial: OutboxRow[]) {
 
 interface HarnessOptions {
   workerEnabled?: boolean;
+  appRoles?: string;
   sweepCron?: string;
   tenantDb?: Database;
   activeTenants?: Array<Pick<TenantRecord, 'id'>>;
@@ -370,6 +371,7 @@ interface HarnessOptions {
 function createQueue(options: HarnessOptions = {}) {
   const values: Record<string, unknown> = {
     PLATFORM_DATABASE_URL: 'postgres://u:p@127.0.0.1:1/x',
+    APP_ROLES: options.appRoles,
     JOBS_WORKER_ENABLED: options.workerEnabled ?? true,
     JOBS_OUTBOX_SWEEP_CRON: options.sweepCron ?? '*/10 * * * *',
   };
@@ -543,6 +545,18 @@ describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architectur
     expect(boss.getSchedules).not.toHaveBeenCalled();
     expect(boss.schedule).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['all', true],
+    ['worker', true],
+    ['http,realtime', false],
+  ])(
+    'APP_ROLES=%s → 執行背景工作 = %s（docs/architecture/01-system.md §7）',
+    (appRoles, expected) => {
+      const { boss } = createQueue({ appRoles });
+      expect(boss.options).toMatchObject({ schedule: expected, supervise: expected });
+    },
+  );
 
   it('JOBS_WORKER_ENABLED=true → 每種已註冊的工作各啟動一個 worker', async () => {
     const { queue, boss } = createQueue();

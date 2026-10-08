@@ -7,8 +7,13 @@ import {
   MAX_RELAY_ENVELOPE_BYTES,
   ServerEvent,
 } from '@b2b-system/realtime';
-import type { RealtimeConnectErrorData, SessionRenewResult } from '@b2b-system/realtime';
+import type {
+  ChannelEnvelopeWire,
+  RealtimeConnectErrorData,
+  SessionRenewResult,
+} from '@b2b-system/realtime';
 import { Inject, Logger } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
 import {
@@ -23,16 +28,25 @@ import { z } from 'zod';
 
 import { AccessTokenVerifier } from '@/common/auth';
 import { Authenticated } from '@/common/decorators';
+import { BroadcastService } from '@/core/broadcast';
+import type { BroadcastPublisher } from '@/core/broadcast';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
 import { requestHost } from '@/core/http';
+import { ShutdownState } from '@/core/lifecycle';
 import { realtimeConnections, realtimeHandshakeRejected } from '@/core/metrics';
+import { hitOrAllow, RateLimitStore } from '@/core/rate-limit';
 import { requireTenant, runInTenantContext, Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 
 import { RealtimeAudience } from './realtime.audience';
-import { REALTIME_LIMITS, REALTIME_MAX_FRAME_BYTES } from './realtime.constants';
+import {
+  REALTIME_DRAIN_BATCHES,
+  REALTIME_DRAIN_SPREAD,
+  REALTIME_LIMITS,
+  REALTIME_MAX_FRAME_BYTES,
+} from './realtime.constants';
 import type { RealtimeLimits } from './realtime.constants';
 import { RealtimeExpiry } from './realtime.expiry';
 import { SocketIoRealtimePublisher } from './realtime.publisher';
@@ -77,7 +91,7 @@ function connectError(code: ErrorCode): Error {
   maxHttpBufferSize: REALTIME_MAX_FRAME_BYTES,
 })
 export class RealtimeGateway
-  implements OnGatewayInit<RealtimeServer>, OnGatewayConnection, OnGatewayDisconnect
+  implements OnModuleInit, OnGatewayInit<RealtimeServer>, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
   server?: RealtimeServer;
@@ -85,7 +99,9 @@ export class RealtimeGateway
   private readonly logger = new Logger(RealtimeGateway.name);
   private readonly allowedOrigins: ReadonlySet<string>;
   private readonly allowMissingOrigin: boolean;
-  private readonly handshakes: FixedWindowCounter;
+  /** 送給其他節點的跨裝置中繼（`onModuleInit` 時建立）。 */
+  private publishRelay?: BroadcastPublisher<RemoteRelay>;
+  /** 每條連線的訊息數：連線不會換節點，計在本機即可（handshake 的每 IP 次數經 `RateLimitStore`，可跨節點共享）。 */
   private readonly messages: FixedWindowCounter;
   /** 連線 → 它的租戶脈絡（handshake 時決定，連線期間不變）。 */
   private readonly tenants = new WeakMap<RealtimeSocket, TenantContext>();
@@ -104,30 +120,47 @@ export class RealtimeGateway
     private readonly publisher: SocketIoRealtimePublisher,
     private readonly directory: TenantDirectory,
     private readonly tenancy: Tenancy,
+    private readonly rateLimits: RateLimitStore,
+    private readonly shutdown: ShutdownState,
+    private readonly broadcast: BroadcastService,
   ) {
     this.allowedOrigins = new Set(config.get('REALTIME_ALLOWED_ORIGINS', { infer: true }));
     this.authHost = new URL(config.get('PLATFORM_APP_URL', { infer: true })).host.toLowerCase();
     // 瀏覽器一定帶 Origin；沒帶的只會是 Node 客戶端（整合測試、腳本），production 一律拒絕
     this.allowMissingOrigin = config.get('NODE_ENV', { infer: true }) !== 'production';
-    this.handshakes = new FixedWindowCounter(limits.handshakeWindowMs);
     this.messages = new FixedWindowCounter(limits.messageWindowMs);
+  }
+
+  /**
+   * 跨裝置中繼跨節點（docs/architecture/01-system.md §7 D8）：同一個人連在別的節點的裝置，由那個節點送給它自己的連線。
+   * 不裝 Socket.io 的 adapter：伺服器端推播已經經 DomainEventRelay 跨節點，裝了會重複推。
+   */
+  onModuleInit(): void {
+    this.publishRelay = this.broadcast.channel<RemoteRelay>(USER_RELAY_CHANNEL, {
+      parse: parseRemoteRelay,
+      onMessage: ({ room, envelope }) => {
+        this.server?.to(room).emit(ServerEvent.CHANNEL_RELAY, envelope);
+      },
+    });
   }
 
   afterInit(io: RealtimeServer): void {
     this.publisher.attach(io);
+    this.shutdown.onDrain((drainMs) => this.drainConnections(io, drainMs));
     realtimeConnections.observe(this, (report) => report({}, io.engine.clientsCount));
     io.engine.opts.allowRequest = (req, callback) => {
-      const rejection = this.checkRequest(req);
-      if (rejection) {
-        realtimeHandshakeRejected.inc({ code: rejection });
-        this.logger.warn(
-          { ip: clientIpOf(req, this.trustProxy()), code: rejection },
-          'WebSocket handshake 被拒',
-        );
-        callback(rejection, false);
-        return;
-      }
-      callback(null, true);
+      void this.checkRequest(req).then((rejection) => {
+        if (rejection) {
+          realtimeHandshakeRejected.inc({ code: rejection });
+          this.logger.warn(
+            { ip: clientIpOf(req, this.trustProxy()), code: rejection },
+            'WebSocket handshake 被拒',
+          );
+          callback(rejection, false);
+          return;
+        }
+        callback(null, true);
+      });
     };
 
     // 驗證失敗就不建立連線，不會有「先連上再踢掉」的空窗
@@ -233,7 +266,9 @@ export class RealtimeGateway
     const envelope = ChannelEnvelopeWireSchema.safeParse(body);
     if (!envelope.success || !isRelayableChannel(envelope.data.channel)) return;
     if (Buffer.byteLength(JSON.stringify(envelope.data)) > MAX_RELAY_ENVELOPE_BYTES) return;
-    socket.to(this.ownRoom(socket)).emit(ServerEvent.CHANNEL_RELAY, envelope.data);
+    const room = this.ownRoom(socket);
+    socket.to(room).emit(ServerEvent.CHANNEL_RELAY, envelope.data);
+    void this.publishRelay?.({ room, envelope: envelope.data });
   }
 
   // ── 內部 ─────────────────────────────────────────────────
@@ -258,9 +293,30 @@ export class RealtimeGateway
     return typeof fn === 'function' ? (fn as TrustProxyFn) : () => false;
   }
 
-  /** HTTP 升級前的檢查：Origin 白名單、每個 IP 的 handshake 次數。回傳拒絕原因。 */
-  private checkRequest(req: IncomingMessage): string | undefined {
-    if (this.handshakes.hit(clientIpOf(req, this.trustProxy())) > this.limits.handshakesPerIp) {
+  /**
+   * 排空：把本節點的連線分批關掉底層的傳輸（不是 `socket.disconnect()`——那是「伺服器要你走」，客戶端不會自動重連），
+   * 客戶端照一般的斷線退避重連，readiness 已經是 503，會連到其他節點。排空期是 0 時不分批，交給關閉流程。
+   */
+  private drainConnections(io: RealtimeServer, drainMs: number): void {
+    const sockets = [...io.sockets.sockets.values()];
+    if (drainMs <= 0 || sockets.length === 0) return;
+    const batches = Math.min(sockets.length, REALTIME_DRAIN_BATCHES);
+    const size = Math.ceil(sockets.length / batches);
+    const intervalMs = (drainMs * REALTIME_DRAIN_SPREAD) / batches;
+    this.logger.log({ connections: sockets.length, batches }, '排空：分批關閉 WebSocket 連線');
+    for (let index = 0; index < batches; index += 1) {
+      const batch = sockets.slice(index * size, (index + 1) * size);
+      setTimeout(() => {
+        for (const socket of batch) socket.conn.close();
+      }, index * intervalMs).unref();
+    }
+  }
+
+  /** HTTP 升級前的檢查：排空中、Origin 白名單、每個 IP 的 handshake 次數。回傳拒絕原因。 */
+  private async checkRequest(req: IncomingMessage): Promise<string | undefined> {
+    // 排空中不收新連線：LB 移除之前還送過來的，讓客戶端重試到其他節點
+    if (this.shutdown.draining) return 'SERVICE_NOT_READY' satisfies ErrorCode;
+    if (await this.isHandshakeLimited(clientIpOf(req, this.trustProxy()))) {
       return 'RATE_LIMITED' satisfies ErrorCode;
     }
     const origin = req.headers.origin;
@@ -268,6 +324,19 @@ export class RealtimeGateway
       ? this.allowedOrigins.has(origin) || this.isSameOrigin(origin, req)
       : this.allowMissingOrigin;
     return allowed ? undefined : 'ORIGIN_NOT_ALLOWED';
+  }
+
+  /**
+   * 每個 IP 的 handshake 次數（`REALTIME_HANDSHAKES_PER_IP`）。計數存不了時放行：這是防濫用，不是授權，
+   * 不能因為計數的儲存出問題就讓所有人連不上推播（docs/architecture/01-system.md §7 D6）。
+   */
+  private async isHandshakeLimited(ip: string): Promise<boolean> {
+    const record = await hitOrAllow(
+      this.rateLimits,
+      `realtimeHandshake:${ip}`,
+      this.limits.handshakeWindowMs,
+    );
+    return record !== undefined && record.count > this.limits.handshakesPerIp;
   }
 
   /**
@@ -350,3 +419,25 @@ export class RealtimeGateway
     });
   }
 }
+
+/** 跨裝置中繼的廣播頻道（docs/architecture/01-system.md §7 D8）。外框已限制 ≤ 4 KB，放得進 `NOTIFY` 的 8000 位元組。 */
+const USER_RELAY_CHANNEL = 'user_relay';
+
+interface RemoteRelay {
+  /** 同一個人的 room（`userRoom`／`platformAdminRoom` 組出來的）。 */
+  room: string;
+  envelope: ChannelEnvelopeWire;
+}
+
+/** 只接受同一個人的 room 與合法的外框：廣播是內部的，但不讓它變成任意 room 的通道。 */
+function parseRemoteRelay(value: unknown): RemoteRelay | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { room, envelope } = value as Partial<Record<keyof RemoteRelay, unknown>>;
+  if (typeof room !== 'string' || !OWN_ROOM_PATTERN.test(room)) return null;
+  const parsed = ChannelEnvelopeWireSchema.safeParse(envelope);
+  if (!parsed.success || !isRelayableChannel(parsed.data.channel)) return null;
+  return { room, envelope: parsed.data };
+}
+
+/** `userRoom()`（`t:<租戶>:user:<id>`）或 `platformAdminRoom()`（`platform:admin:<id>`）。 */
+const OWN_ROOM_PATTERN = /^(t:[^:]+:user|platform:admin):[^:]+$/;

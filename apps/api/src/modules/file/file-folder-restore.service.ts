@@ -132,7 +132,7 @@ export class FileFolderRestoreService {
       };
     });
 
-    for (const fileId of result.variantsLost) this.images.schedule(fileId);
+    await Promise.all(result.variantsLost.map((fileId) => this.images.enqueueVariants(fileId)));
     const changes: ResourceChangeWire[] = [
       // 重新出現：以 create 宣告（回收桶由前端的依賴圖跟著失效）
       { resource: ChangeSource.FILE_FOLDER, kind: ChangeKind.CREATE, id },
