@@ -17,6 +17,7 @@ describe('toNotificationVM（平台的通知 → 畫面）', () => {
   it.each([
     ['tenant.provisioned', 'notification.type.tenantProvisioned'],
     ['tenant.provisionFailed', 'notification.type.tenantProvisionFailed'],
+    ['tenant.storageNearQuota', 'notification.type.tenantStorageNearQuota'],
     ['platformAdmin.roleChanged', 'notification.type.platformAdminRoleChanged'],
     // 後端比前端新：通用的句子
     ['someday.newType', 'notification.type.unknown'],
@@ -37,6 +38,17 @@ describe('toNotificationVM（平台的通知 → 畫面）', () => {
       params: { code: 'acme', name: 'Acme' },
     });
     expect(vm.params).not.toHaveProperty('secret');
+  });
+
+  it('儲存配額警示：使用率（數字）帶進句子', () => {
+    const vm = toNotificationVM({
+      ...base,
+      type: 'tenant.storageNearQuota',
+      params: { code: 'acme', name: 'Acme', percent: 85 },
+    });
+    expect(notificationMessage(t, vm)).toBe(
+      'notification.type.tenantStorageNearQuota{"code":"acme","name":"Acme","percent":"85"}',
+    );
   });
 
   it('換角色：角色以目前語系的名稱帶入句子；不認得的角色不帶', () => {

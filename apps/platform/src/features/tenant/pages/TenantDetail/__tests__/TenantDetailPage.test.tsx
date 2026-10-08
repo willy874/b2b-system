@@ -11,19 +11,35 @@ import type { FeatureFlag, PlatformTenant } from '@/shared/api-sdk';
 
 import { registerTenantPagePermissions, Routes } from '../../..';
 import tenantZhTW from '../../../locales/zh_TW.json';
-import { FEATURE_PARAMS, tenantFixture } from '../../../test-fixtures';
+import {
+  emptyUsageSummary,
+  FEATURE_PARAMS,
+  tenantFixture,
+  tenantUsageFixture,
+  usageSummaryFixture,
+} from '../../../test-fixtures';
 
-const { getTenant, retry, disable, removeDomain, update, removeTenant, listFlags, featureImpact } =
-  vi.hoisted(() => ({
-    featureImpact: vi.fn(),
-    listFlags: vi.fn(),
-    update: vi.fn(),
-    removeTenant: vi.fn(),
-    getTenant: vi.fn(),
-    retry: vi.fn(),
-    disable: vi.fn(),
-    removeDomain: vi.fn(),
-  }));
+const {
+  getTenant,
+  retry,
+  disable,
+  removeDomain,
+  update,
+  removeTenant,
+  listFlags,
+  featureImpact,
+  getUsage,
+} = vi.hoisted(() => ({
+  getUsage: vi.fn(),
+  featureImpact: vi.fn(),
+  listFlags: vi.fn(),
+  update: vi.fn(),
+  removeTenant: vi.fn(),
+  getTenant: vi.fn(),
+  retry: vi.fn(),
+  disable: vi.fn(),
+  removeDomain: vi.fn(),
+}));
 vi.mock('@/apis/platform-tenant/get-tenant/query', () => ({
   TENANT_DETAIL_QUERY_KEY: 'TENANT_DETAIL_QUERY_KEY',
   getTenantQueryOptions: (id: string) => ({
@@ -38,6 +54,13 @@ vi.mock('@/apis/platform-tenant/get-tenant-feature-impact/query', () => ({
     queryFn: () => featureImpact(id, feature),
     staleTime: 0,
     gcTime: 0,
+  }),
+}));
+vi.mock('@/apis/platform-tenant/get-tenant-usage/query', () => ({
+  TENANT_USAGE_QUERY_KEY: 'TENANT_USAGE_QUERY_KEY',
+  getTenantUsageQueryOptions: (id: string, days: number) => ({
+    queryKey: ['TENANT_USAGE_QUERY_KEY', id, days],
+    queryFn: () => getUsage(id, days),
   }),
 }));
 vi.mock('@/apis/platform-feature-flag/get-feature-flag-list/query', () => ({
@@ -142,6 +165,7 @@ beforeEach(() => {
   removeDomain.mockReset();
   update.mockReset();
   removeTenant.mockReset();
+  getUsage.mockReset().mockResolvedValue(tenantUsageFixture());
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -187,7 +211,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
     const router = renderPage(tenantFixture(), FLAG_ADMIN);
     expect(await screen.findByTestId('tenant-code')).toHaveTextContent('acme');
     expect(router.state.location.searchStr).toBe('');
-    expect(tabValues()).toEqual(['overview', 'features', 'flags']);
+    expect(tabValues()).toEqual(['overview', 'usage', 'features', 'flags']);
     expect(screen.queryByTestId('tenant-feature')).toBeNull();
 
     const featuresTab = within(screen.getByTestId('tenant-tabs'))
@@ -450,7 +474,7 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
   it('試行開關：沒有 featureFlag:read → 沒有這個分頁，網址指向它也回到概覽（docs/architecture/05-tenancy.md §11.2 D8）', async () => {
     renderPage(tenantFixture(), ALL, FLAGS_TAB);
     expect(await screen.findByTestId('tenant-disable')).toBeInTheDocument();
-    expect(tabValues()).toEqual(['overview', 'features']);
+    expect(tabValues()).toEqual(['overview', 'usage', 'features']);
     expect(screen.getByTestId('tenant-tab-panel')).toHaveAttribute('data-value', 'overview');
     expect(screen.getAllByTestId('tenant-domain')).toHaveLength(2);
     expect(screen.queryByTestId('tenant-flag')).toBeNull();
@@ -639,5 +663,38 @@ describe('租戶詳情（docs/architecture/05-tenancy.md §10.2 D12、D13）', (
       const row = await paramRow('file.storageQuotaMb');
       expect(within(row).queryByTestId('tenant-param-edit')).toBeNull();
     });
+  });
+});
+
+describe('租戶詳情的用量分頁（docs/architecture/05-tenancy.md §5.4）', () => {
+  it('摘要、儲存使用率與近 30 天每天一列（新到舊）', async () => {
+    renderPage(tenantFixture(), ['tenant:read'], '?tab=usage');
+    expect(await screen.findByTestId('tenant-usage-users')).toHaveTextContent('12');
+    expect(screen.getByTestId('tenant-usage-users')).toHaveTextContent('15');
+    expect(screen.getByTestId('tenant-usage-requests')).toHaveTextContent('4,321');
+    expect(screen.getByTestId('tenant-usage-storage')).toHaveAttribute('data-value', 'normal');
+    expect(screen.queryByTestId('tenant-usage-storage-warning')).toBeNull();
+    expect(getUsage).toHaveBeenCalledWith(tenantFixture().id, 30);
+    const rows = within(screen.getByTestId('tenant-usage-trend')).getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(30);
+    expect(rows[0]).toHaveTextContent('2026-10-08');
+    expect(rows[0]).toHaveTextContent('120');
+  });
+
+  it('使用率達到警示門檻 → 進度條與說明都標出警示', async () => {
+    getUsage.mockResolvedValue(tenantUsageFixture(usageSummaryFixture({}, 0.92)));
+    renderPage(tenantFixture(), ['tenant:read'], '?tab=usage');
+    expect(await screen.findByTestId('tenant-usage-storage-warning')).toHaveTextContent('92%');
+    expect(screen.getByTestId('tenant-usage-storage')).toHaveAttribute('data-value', 'warning');
+  });
+
+  it('還沒彙總過 → 說明要等下一次彙總，不顯示儲存', async () => {
+    getUsage.mockResolvedValue(tenantUsageFixture(emptyUsageSummary()));
+    renderPage(tenantFixture(), ['tenant:read'], '?tab=usage');
+    expect(await screen.findByTestId('tenant-usage-snapshot')).toHaveTextContent(
+      tenantZhTW.tenant.usage.noSnapshot,
+    );
+    expect(screen.queryByTestId('tenant-usage-storage')).toBeNull();
+    expect(screen.getByTestId('tenant-usage-users')).toHaveTextContent('-');
   });
 });

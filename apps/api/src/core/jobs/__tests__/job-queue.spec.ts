@@ -11,6 +11,7 @@ import type { Database, Transaction } from '../../database';
 import { AppException } from '../../errors';
 import { runInTenantContext } from '../../tenant';
 import type { Tenancy, TenantContext, TenantDirectory, TenantRecord } from '../../tenant';
+import type { UsageMeter } from '../../usage';
 import { JobQueue } from '../job-queue';
 import type { JobContext, JobEnvelope } from '../job-queue';
 import type { JobStore } from '../job-store';
@@ -78,12 +79,23 @@ function setupQueue(run: Tenancy['run'] = vi.fn(), deps: QueueDeps = {}) {
   const tenancy = { run } as unknown as Tenancy;
   const directory = { findById: vi.fn(async () => deps.tenant) } as unknown as TenantDirectory;
   const store = (deps.store ?? {}) as JobStore;
-  return { queue: new JobQueue(config, tenancy, directory, {} as Database, store) };
+  const usage = { count: vi.fn() };
+  return {
+    queue: new JobQueue(
+      config,
+      tenancy,
+      directory,
+      {} as Database,
+      store,
+      usage as unknown as UsageMeter,
+    ),
+    usage,
+  };
 }
 
 /** 只測 handler 的執行規則。 */
 function setup(run: Tenancy['run'], deps: QueueDeps = {}, type: JobType<{ id: string }> = TYPE) {
-  const { queue } = setupQueue(run, deps);
+  const { queue, usage } = setupQueue(run, deps);
   const handler = vi.fn(async () => ({ done: true }));
   const execute = (envelope: JobEnvelope) =>
     (
@@ -95,7 +107,7 @@ function setup(run: Tenancy['run'], deps: QueueDeps = {}, type: JobType<{ id: st
         ) => Promise<object | void>;
       }
     ).execute({ type, handler, cron: undefined }, envelope, CONTEXT);
-  return { execute, handler };
+  return { execute, handler, usage };
 }
 
 const ENVELOPE: JobEnvelope = { tenantId: 't1', payload: { id: 'x' } };
@@ -133,6 +145,20 @@ describe('JobQueue：租戶不能進入時的工作（docs/architecture/05-tenan
     const { execute, handler } = setup(async (_id, fn) => fn());
     await expect(execute(ENVELOPE)).resolves.toEqual({ done: true });
     expect(handler).toHaveBeenCalledWith({ id: 'x' }, CONTEXT);
+  });
+
+  it('在租戶裡開始執行時記一次租戶用量（docs/architecture/05-tenancy.md §14.2 D11）', async () => {
+    const { execute, usage } = setup(async (_id, fn) => fn());
+    await execute(ENVELOPE);
+    expect(usage.count).toHaveBeenCalledExactlyOnceWith('jobsExecuted');
+  });
+
+  it('租戶進不去 → 不記用量', async () => {
+    const { execute, usage } = setup(async () => {
+      throw new AppException('TENANT_NOT_FOUND');
+    });
+    await execute(ENVELOPE);
+    expect(usage.count).not.toHaveBeenCalled();
   });
 });
 
@@ -365,6 +391,7 @@ function createQueue(options: HarnessOptions = {}) {
     directory,
     options.tenantDb ?? outboxDb().db,
     {} as JobStore,
+    { count: vi.fn() } as unknown as UsageMeter,
   );
   const boss = FakeBoss.last;
   if (!boss) throw new Error('pg-boss 沒有被建立');

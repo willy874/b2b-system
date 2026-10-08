@@ -21,7 +21,11 @@
       "adminEmail": "第一位管理員",
       "adminName": "管理員名稱",
       "storageBucket": "檔案儲存",
-      "provisionedAt": "佈建完成"
+      "provisionedAt": "佈建完成",
+      "usersActive": "啟用的使用者",
+      "storage": "儲存空間",
+      "recentRequests": "近期請求",
+      "lastActivityAt": "最後活動"
     },
     "hint": {
       "code": "小寫英數與連字號，建立後不能修改。預設網域是 {{domain}}。",
@@ -210,6 +214,7 @@
     },
     "tab": {
       "overview": "概覽",
+      "usage": "用量",
       "features": "功能",
       "flags": "試行開關",
       "mfa": "多重驗證"
@@ -222,6 +227,29 @@
       "title": "MFA 驗證方式",
       "description": "這個租戶可以用的多重驗證方式。「依全平台」跟著平台管理的設定；全平台緊急關閉的方式一律關。",
       "killed": "全平台已緊急關閉"
+    },
+    "usage": {
+      "snapshotAt": "{{time}} 更新",
+      "noSnapshot": "還沒有用量資料。用量每小時彙總一次，新租戶要等下一次彙總。",
+      "usersActive": "啟用的使用者",
+      "usersOf": "共 {{total}} 位使用者",
+      "serviceAccounts": "服務帳號",
+      "storage": "儲存空間",
+      "storageOf": "{{used}} / {{quota}}（{{percent}}%）",
+      "storageWarning": "已使用 {{percent}}% 的容量，接近上限。可以在「功能」分頁調整檔案的容量上限。",
+      "recentRequests": "近 {{days}} 天的請求",
+      "lastActivityAt": "最後活動",
+      "never": "從未",
+      "trendTitle": "近 {{days}} 天",
+      "trendHint": "日期是 UTC。請求與背景工作是當天的累計；使用者與儲存空間是當天最後一次彙總的值。",
+      "column": {
+        "date": "日期",
+        "usersActive": "啟用的使用者",
+        "storage": "儲存空間",
+        "requestsInternal": "後台請求",
+        "requestsExternal": "對外 API 請求",
+        "jobsExecuted": "背景工作"
+      }
     }
   }
 }

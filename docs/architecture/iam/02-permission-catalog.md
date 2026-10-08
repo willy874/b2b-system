@@ -536,7 +536,7 @@ Seed 行為：
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
-| `tenant:read`           | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串） |
+| `tenant:read`           | 檢視租戶          | 租戶清單、狀態、網域、佈建失敗的原因（不含連線字串）、用量 |
 | `tenant:create`         | 建立租戶          | 建立並佈建新租戶（database、migration、第一位管理員與啟用信）、重試失敗的佈建 |
 | `tenant:update`         | 編輯租戶          | 改名稱、新增／移除網域、停用與啟用（停用會撤銷該租戶的所有 session）、是否允許外部 IdP、啟用的 feature、feature flag 的租戶層覆寫 |
 | `tenant:delete`         | 刪除租戶          | 標記刪除並釋出網域；database 與 bucket 由 `pnpm db:drop-tenant` 手動清除（D13） |

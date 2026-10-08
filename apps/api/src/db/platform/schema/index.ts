@@ -6,5 +6,6 @@ export * from './platform-admin-login-sources';
 export * from './platform-admins';
 export * from './platform-environment';
 export * from './platform-notifications';
+export * from './tenant-usage';
 export * from './tenants';
 export { isDeleted, notDeleted } from '../../schema/soft-delete';

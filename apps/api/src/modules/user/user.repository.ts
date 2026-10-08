@@ -129,6 +129,35 @@ function heldBy(userId: string): SQL | undefined {
 export class UserRepository {
   constructor(@Inject(TENANT_DB) private readonly db: Database) {}
 
+  /**
+   * 租戶用量的快照（docs/architecture/05-tenancy.md §5.4）：一次掃描算出人數、服務帳號數與最近一次登入。
+   * 服務帳號不登入（只用 API token），最後登入只看人。
+   */
+  async usageCounts(): Promise<{
+    usersActive: number;
+    usersTotal: number;
+    serviceAccounts: number;
+    lastLoginAt: Date | null;
+  }> {
+    const [row] = await this.db
+      .select({
+        usersActive: sql<number>`count(*) filter (where ${users.kind} = 'human' and ${users.status} = 'active')::int`,
+        usersTotal: sql<number>`count(*) filter (where ${users.kind} = 'human')::int`,
+        serviceAccounts: sql<number>`count(*) filter (where ${users.kind} = 'service')::int`,
+        lastLoginAt: sql<
+          string | null
+        >`max(${users.lastLoginAt}) filter (where ${users.kind} = 'human')`,
+      })
+      .from(users)
+      .where(notDeleted(users));
+    return {
+      usersActive: row?.usersActive ?? 0,
+      usersTotal: row?.usersTotal ?? 0,
+      serviceAccounts: row?.serviceAccounts ?? 0,
+      lastLoginAt: row?.lastLoginAt ? new Date(row.lastLoginAt) : null,
+    };
+  }
+
   async findById(id: string): Promise<UserRow | undefined> {
     const [row] = await this.db
       .select()

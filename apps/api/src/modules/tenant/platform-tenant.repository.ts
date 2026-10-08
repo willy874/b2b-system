@@ -1,9 +1,25 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, exists, ilike, inArray, lt, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  gt,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  lt,
+  or,
+  sql,
+} from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 
 import { containsPattern, PLATFORM_DB, withTransaction } from '@/core/database';
 import type { PlatformDatabase, PlatformDbOrTx, PlatformTransaction } from '@/core/database';
-import { notDeleted, tenantDomains, tenants } from '@/db/platform/schema';
+import { notDeleted, tenantDomains, tenants, tenantUsageDaily } from '@/db/platform/schema';
 import type { TenantRow, TenantStatus } from '@/db/platform/schema';
 
 export interface TenantWithDomains extends TenantRow {
@@ -31,12 +47,41 @@ export type TenantPatch = Partial<
   >
 >;
 
+export type TenantListSortField =
+  | 'createdAt'
+  | 'code'
+  | 'usersActive'
+  | 'storageUsage'
+  | 'recentRequests'
+  | 'lastActivityAt';
+
 export interface TenantListFilter {
   offset: number;
   limit: number;
   /** 代碼、名稱或任一網域的部分相符。 */
   q?: string;
   status?: TenantStatus;
+  sort: ReadonlyArray<{ sort: TenantListSortField; order: 'asc' | 'desc' }>;
+  /** 「近期請求數」從這一天（UTC，含）起算。 */
+  recentFrom: string;
+}
+
+/** 列表一列的用量摘要（docs/architecture/05-tenancy.md §5.4）；沒有快照時快照欄是 `null`。 */
+export interface TenantUsageSummaryRow {
+  usersActive: number | null;
+  usersTotal: number | null;
+  serviceAccounts: number | null;
+  storageUsedBytes: number | null;
+  storageQuotaBytes: number | null;
+  lastLoginAt: Date | null;
+  snapshotAt: Date | null;
+  recentRequests: number;
+  /** 最後一個有對外 API 請求的日子。 */
+  lastExternalDate: string | null;
+}
+
+export interface TenantListItem extends TenantWithDomains {
+  usage: TenantUsageSummaryRow;
 }
 
 /** 平台管理者對租戶登記的讀寫（平台 DB，docs/architecture/05-tenancy.md §10.2 D12、D13）。 */
@@ -80,7 +125,7 @@ export class PlatformTenantRepository {
       .returning();
   }
 
-  async list(filter: TenantListFilter): Promise<{ items: TenantWithDomains[]; total: number }> {
+  async list(filter: TenantListFilter): Promise<{ items: TenantListItem[]; total: number }> {
     const pattern = filter.q ? containsPattern(filter.q) : undefined;
     const where = and(
       notDeleted(tenants),
@@ -100,12 +145,83 @@ export class PlatformTenantRepository {
           )
         : undefined,
     );
+    // 用量摘要（docs/architecture/05-tenancy.md §14.2 D12）：每個租戶最近一次快照、近期的請求數、最後一個有對外 API 請求的日子。
+    // 一個租戶最多保留期限那麼多列，三個 LATERAL 都走主鍵 (tenant_id, date)
+    const snapshot = this.db
+      .select({
+        usersActive: tenantUsageDaily.usersActive,
+        usersTotal: tenantUsageDaily.usersTotal,
+        serviceAccounts: tenantUsageDaily.serviceAccounts,
+        storageUsedBytes: tenantUsageDaily.storageUsedBytes,
+        storageQuotaBytes: tenantUsageDaily.storageQuotaBytes,
+        lastLoginAt: tenantUsageDaily.lastLoginAt,
+        snapshotAt: tenantUsageDaily.snapshotAt,
+      })
+      .from(tenantUsageDaily)
+      .where(and(eq(tenantUsageDaily.tenantId, tenants.id), isNotNull(tenantUsageDaily.snapshotAt)))
+      .orderBy(desc(tenantUsageDaily.date))
+      .limit(1)
+      .as('usage_snapshot');
+    const recent = this.db
+      .select({
+        requests:
+          sql<number>`coalesce(sum(${tenantUsageDaily.requestsInternal} + ${tenantUsageDaily.requestsExternal}), 0)::bigint`
+            .mapWith(Number)
+            .as('recent_requests'),
+      })
+      .from(tenantUsageDaily)
+      .where(
+        and(
+          eq(tenantUsageDaily.tenantId, tenants.id),
+          gte(tenantUsageDaily.date, filter.recentFrom),
+        ),
+      )
+      .as('usage_recent');
+    const external = this.db
+      .select({
+        lastDate: sql<string | null>`max(${tenantUsageDaily.date})`.as('last_external_date'),
+      })
+      .from(tenantUsageDaily)
+      .where(
+        and(eq(tenantUsageDaily.tenantId, tenants.id), gt(tenantUsageDaily.requestsExternal, 0)),
+      )
+      .as('usage_external');
+
+    const sortColumns: Record<TenantListSortField, SQL> = {
+      createdAt: sql`${tenants.createdAt}`,
+      code: sql`${tenants.code}`,
+      usersActive: sql`${snapshot.usersActive}`,
+      storageUsage: sql`${snapshot.storageUsedBytes}::float8 / nullif(${snapshot.storageQuotaBytes}, 0)`,
+      recentRequests: sql`${recent.requests}`,
+      lastActivityAt: sql`greatest(${snapshot.lastLoginAt}, ${external.lastDate}::timestamptz)`,
+    };
+    // 降冪時沒有值的排最後、升冪時排最前；最後以代碼收尾，讓同值的列在分頁之間順序穩定
+    const orderBy = filter.sort.map(({ sort, order }) =>
+      order === 'asc'
+        ? sql`${sortColumns[sort]} asc nulls first`
+        : sql`${sortColumns[sort]} desc nulls last`,
+    );
+
     const [rows, [totalRow]] = await Promise.all([
       this.db
-        .select()
+        .select({
+          tenant: tenants,
+          usersActive: snapshot.usersActive,
+          usersTotal: snapshot.usersTotal,
+          serviceAccounts: snapshot.serviceAccounts,
+          storageUsedBytes: snapshot.storageUsedBytes,
+          storageQuotaBytes: snapshot.storageQuotaBytes,
+          lastLoginAt: snapshot.lastLoginAt,
+          snapshotAt: snapshot.snapshotAt,
+          recentRequests: recent.requests,
+          lastExternalDate: external.lastDate,
+        })
         .from(tenants)
+        .leftJoinLateral(snapshot, sql`true`)
+        .leftJoinLateral(recent, sql`true`)
+        .leftJoinLateral(external, sql`true`)
         .where(where)
-        .orderBy(asc(tenants.createdAt), asc(tenants.code))
+        .orderBy(...orderBy, asc(tenants.code))
         .limit(filter.limit)
         .offset(filter.offset),
       this.db
@@ -113,7 +229,26 @@ export class PlatformTenantRepository {
         .from(tenants)
         .where(where),
     ]);
-    return { items: await this.withDomains(rows), total: totalRow?.total ?? 0 };
+    const withDomains = await this.withDomains(rows.map((row) => row.tenant));
+    return {
+      items: withDomains.map((tenant, index) => {
+        const row = rows[index];
+        return Object.assign(tenant, {
+          usage: {
+            usersActive: row?.usersActive ?? null,
+            usersTotal: row?.usersTotal ?? null,
+            serviceAccounts: row?.serviceAccounts ?? null,
+            storageUsedBytes: row?.storageUsedBytes ?? null,
+            storageQuotaBytes: row?.storageQuotaBytes ?? null,
+            lastLoginAt: row?.lastLoginAt ?? null,
+            snapshotAt: row?.snapshotAt ?? null,
+            recentRequests: row?.recentRequests ?? 0,
+            lastExternalDate: row?.lastExternalDate ?? null,
+          },
+        });
+      }),
+      total: totalRow?.total ?? 0,
+    };
   }
 
   async findById(id: string): Promise<TenantWithDomains | undefined> {

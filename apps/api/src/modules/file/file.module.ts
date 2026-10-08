@@ -31,6 +31,7 @@ import { FileObjectsService } from './file-objects.service';
 import { FileSystemFolderService } from './file-system-folder.service';
 import { FileTagResource } from './file-tag.resource';
 import { FileTrashHandler } from './file-trash.handler';
+import { FileUsageCollector } from './file-usage.collector';
 import { FileController } from './file.controller';
 import { FileRepository } from './file.repository';
 import { FileService } from './file.service';
@@ -71,6 +72,7 @@ import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
     FileFolderTree,
     FileObjectsService,
     FileTrashHandler,
+    FileUsageCollector,
     FileFolderTrashHandler,
     FileTagResource,
   ],

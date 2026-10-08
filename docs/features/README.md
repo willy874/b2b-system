@@ -17,7 +17,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 租戶用量總覽 | [`tenant-usage.md`](./tenant-usage.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 
 狀態只有三種：
@@ -34,6 +33,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `tenant-usage`（租戶用量：每小時的快照、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與用量分頁、儲存配額警示）：[`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14
 - `comments-watches`（留言、@提及、關注；擁有者登記資源類型，第一批是使用者；資源頁的面板註冊表）：[`backend/24-comment.md`](../architecture/backend/24-comment.md) §8、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md)
 - `organization`（部門樹、成員、主管的解析；平台可關閉）：[`backend/23-organization.md`](../architecture/backend/23-organization.md) §10
 - `approval-chains`（多階段審批：依序多關、會簽、條件分流、override、我的審批與撤回；平台可關閉）：[`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、§10
@@ -62,7 +62,7 @@
 
 接下來：
 
-1. `tenant-usage`（租戶用量總覽）。
+1. `multi-instance`（多實例部署）：等到真的要部署第二個 api 實例再做；其中「feature flag 的全平台快取接上失效廣播」是程序內的小改動，可以先單獨做。
 
 ### 1.2 撰寫提案時的架構前提
 

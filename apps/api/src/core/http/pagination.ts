@@ -63,9 +63,12 @@ function parseSortTokens(value: unknown): unknown {
 /**
  * 多欄排序（`sort=<欄位>` 升冪、`sort=-<欄位>` 降冪，可重複）。
  * 欄位必須是白名單 enum，不接受任意欄位名——那是 SQL injection 的入口，也會讓沒有索引的欄位被拿來排序；
- * 同一欄位不能出現兩次。沒帶時預設 `-<fields[0]>`。
+ * 同一欄位不能出現兩次。沒帶時預設 `-<fields[0]>`，或第二個參數給的排序（例：原本就依建立時間舊到新的列表）。
  */
-export const SortSchema = <const T extends readonly [string, ...string[]]>(fields: T) =>
+export const SortSchema = <const T extends readonly [string, ...string[]]>(
+  fields: T,
+  defaultSort: ReadonlyArray<SortEntry<T[number]>> = [{ sort: fields[0], order: 'desc' }],
+) =>
   z.object({
     sort: z.preprocess(
       parseSortTokens,
@@ -76,7 +79,7 @@ export const SortSchema = <const T extends readonly [string, ...string[]]>(field
         .refine((entries) => new Set(entries.map((entry) => entry.sort)).size === entries.length, {
           message: 'duplicate sort field',
         })
-        .default([{ sort: fields[0], order: 'desc' }]),
+        .default([...defaultSort]),
     ),
   });
 

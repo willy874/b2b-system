@@ -509,6 +509,14 @@ export const EnvSchema = z.object({
   NOTIFICATION_CLEANUP_CRON: z.string().trim().default('0 5 * * *'),
 
   /**
+   * 租戶用量快照的 cron（UTC）；空字串停用。每小時覆寫當天的快照、檢查配額警示、刪除過期的日資料
+   * （docs/architecture/05-tenancy.md §14.2 D2）。
+   */
+  TENANT_USAGE_ROLLUP_CRON: z.string().trim().default('5 * * * *'),
+  /** 租戶用量的日資料保留幾天（docs/architecture/05-tenancy.md §14.2 D6）。 */
+  TENANT_USAGE_RETENTION_DAYS: z.coerce.number().int().min(31).default(400),
+
+  /**
    * 第一位平台管理者（apps/platform 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
    * 密碼留空 = seed 時隨機產生並印出一次。
    */

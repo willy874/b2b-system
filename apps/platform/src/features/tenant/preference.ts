@@ -15,6 +15,10 @@ export function registerTenantPreferences(): void {
       name: 'tenant.field.name',
       status: 'tenant.field.status',
       domain: 'tenant.field.primaryDomain',
+      usersActive: 'tenant.field.usersActive',
+      storageUsage: 'tenant.field.storage',
+      recentRequests: 'tenant.field.recentRequests',
+      lastActivityAt: 'tenant.field.lastActivityAt',
       createdAt: 'tenant.field.createdAt',
     },
     // 清單沒有批次操作，不提供勾選欄

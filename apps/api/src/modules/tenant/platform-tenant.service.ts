@@ -36,6 +36,7 @@ import type {
   TenantFeatureParamOverrides,
   TenantFeatureParamValue,
 } from '@/core/tenant';
+import { usageDate, usageDateDaysBefore } from '@/core/usage';
 import type { TenantStatus } from '@/db/platform/schema';
 import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
@@ -53,6 +54,8 @@ import type {
 import { PlatformTenantRepository } from './platform-tenant.repository';
 import type { TenantWithDomains } from './platform-tenant.repository';
 import { TENANT_PROVISION_JOB, TenantProvisioner } from './tenant-provisioner';
+import { TENANT_USAGE_RECENT_DAYS, TENANT_USAGE_WARNING_RATIO } from './tenant-usage.constants';
+import { toUsageSummary } from './tenant-usage.service';
 
 /** 新租戶的 bucket：`b2b-{code}`；被用過（含刪除的租戶）就加上序號。 */
 const BUCKET_PREFIX = 'b2b-';
@@ -191,11 +194,18 @@ export class PlatformTenantService {
   }
 
   async list(query: ListPlatformTenantDto): Promise<PlatformTenantListDto> {
-    const { items, total } = await this.repo.list(query);
+    const recentFrom = usageDateDaysBefore(usageDate(), TENANT_USAGE_RECENT_DAYS - 1);
+    const { items, total } = await this.repo.list({ ...query, recentFrom });
     return {
-      items: items.map((item) => toDto(item, this.flags.catalog, this.mfaMethods)),
+      items: items.map((item) =>
+        Object.assign(toDto(item, this.flags.catalog, this.mfaMethods), {
+          usage: toUsageSummary(item.usage),
+        }),
+      ),
       pagination: { offset: query.offset, limit: query.limit, total },
       baseDomain: this.baseDomain,
+      usageRecentDays: TENANT_USAGE_RECENT_DAYS,
+      usageWarningRatio: TENANT_USAGE_WARNING_RATIO,
     };
   }
 

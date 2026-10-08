@@ -1577,6 +1577,37 @@ export interface MfaMethodImpact {
   skippedTenants: number;
 }
 
+export interface TenantUsageSummary {
+  usersActive: number | null;
+  usersTotal: number | null;
+  serviceAccounts: number | null;
+  storageUsedBytes: number | null;
+  storageQuotaBytes: number | null;
+  storageUsageRatio: number | null;
+  recentRequests: number;
+  lastActivityAt: string | null;
+  snapshotAt: string | null;
+}
+
+export interface TenantUsageDay {
+  date: string;
+  usersActive: number | null;
+  usersTotal: number | null;
+  serviceAccounts: number | null;
+  storageUsedBytes: number | null;
+  storageQuotaBytes: number | null;
+  requestsInternal: number;
+  requestsExternal: number;
+  jobsExecuted: number;
+}
+
+export interface TenantUsage {
+  summary: TenantUsageSummary;
+  warningRatio: number;
+  recentDays: number;
+  daily: Array<TenantUsageDay>;
+}
+
 export const TenantFeature = {
   file: 'file',
   auditLog: 'auditLog',
@@ -1647,14 +1678,35 @@ export interface PlatformTenant {
   updatedAt: string;
 }
 
+export interface PlatformTenantListItem {
+  id: string;
+  code: string;
+  name: string;
+  status: 'provisioning' | 'active' | 'disabled' | 'failed';
+  domains: Array<string>;
+  storageBucket: string;
+  features: Array<TenantFeature>;
+  flags: TenantFlagOverrides;
+  mfaMethods: TenantMfaMethodOverrides;
+  featureParams: Array<TenantFeatureParam>;
+  adminEmail: string | null;
+  provisionError: string | null;
+  provisionedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  usage: TenantUsageSummary;
+}
+
 export interface PlatformTenantList {
-  items: Array<PlatformTenant>;
+  items: Array<PlatformTenantListItem>;
   pagination: {
     offset: number;
     limit: number;
     total: number;
   };
   baseDomain: string;
+  usageRecentDays: number;
+  usageWarningRatio: number;
 }
 
 export interface CreateTenantRequest {

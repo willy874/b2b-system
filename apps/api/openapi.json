@@ -8896,7 +8896,7 @@
             }
           }
         },
-        "summary": "租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）",
+        "summary": "租戶（未刪除）、用量摘要與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）、排序（sort）",
         "tags": ["platform-tenants"]
       },
       "post": {
@@ -9027,6 +9027,41 @@
           }
         },
         "summary": "標記刪除並停用、釋出網域；database 與 bucket 由手動步驟清除",
+        "tags": ["platform-tenants"]
+      }
+    },
+    "/platform/tenants/{id}/usage": {
+      "get": {
+        "operationId": "PlatformTenantController_getUsage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TenantUsage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "用量：最近一次快照的摘要與近 days 天（含今天，UTC）每天一筆（docs/architecture/05-tenancy.md §5.4）",
         "tags": ["platform-tenants"]
       }
     },
@@ -15285,6 +15320,151 @@
         "required": ["stranded", "tenants", "skippedTenants"],
         "additionalProperties": false
       },
+      "TenantUsageSummary": {
+        "type": "object",
+        "properties": {
+          "usersActive": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "usersTotal": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "serviceAccounts": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "storageUsedBytes": {
+            "nullable": true,
+            "type": "number"
+          },
+          "storageQuotaBytes": {
+            "nullable": true,
+            "type": "number"
+          },
+          "storageUsageRatio": {
+            "nullable": true,
+            "type": "number"
+          },
+          "recentRequests": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lastActivityAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "snapshotAt": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "usersActive",
+          "usersTotal",
+          "serviceAccounts",
+          "storageUsedBytes",
+          "storageQuotaBytes",
+          "storageUsageRatio",
+          "recentRequests",
+          "lastActivityAt",
+          "snapshotAt"
+        ],
+        "additionalProperties": false
+      },
+      "TenantUsageDay": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "usersActive": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "usersTotal": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "serviceAccounts": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "storageUsedBytes": {
+            "nullable": true,
+            "type": "number"
+          },
+          "storageQuotaBytes": {
+            "nullable": true,
+            "type": "number"
+          },
+          "requestsInternal": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "requestsExternal": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "jobsExecuted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "date",
+          "usersActive",
+          "usersTotal",
+          "serviceAccounts",
+          "storageUsedBytes",
+          "storageQuotaBytes",
+          "requestsInternal",
+          "requestsExternal",
+          "jobsExecuted"
+        ],
+        "additionalProperties": false
+      },
+      "TenantUsage": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/TenantUsageSummary"
+          },
+          "warningRatio": {
+            "type": "number"
+          },
+          "recentDays": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "daily": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantUsageDay"
+            }
+          }
+        },
+        "required": ["summary", "warningRatio", "recentDays", "daily"],
+        "additionalProperties": false
+      },
       "TenantFeature": {
         "type": "string",
         "enum": [
@@ -15493,13 +15673,100 @@
         ],
         "additionalProperties": false
       },
+      "PlatformTenantListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["provisioning", "active", "disabled", "failed"]
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "storageBucket": {
+            "type": "string"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantFeature"
+            }
+          },
+          "flags": {
+            "$ref": "#/components/schemas/TenantFlagOverrides"
+          },
+          "mfaMethods": {
+            "$ref": "#/components/schemas/TenantMfaMethodOverrides"
+          },
+          "featureParams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantFeatureParam"
+            }
+          },
+          "adminEmail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionError": {
+            "nullable": true,
+            "type": "string"
+          },
+          "provisionedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/TenantUsageSummary"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "domains",
+          "storageBucket",
+          "features",
+          "flags",
+          "mfaMethods",
+          "featureParams",
+          "adminEmail",
+          "provisionError",
+          "provisionedAt",
+          "createdAt",
+          "updatedAt",
+          "usage"
+        ],
+        "additionalProperties": false
+      },
       "PlatformTenantList": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PlatformTenant"
+              "$ref": "#/components/schemas/PlatformTenantListItem"
             }
           },
           "pagination": {
@@ -15520,9 +15787,17 @@
           },
           "baseDomain": {
             "type": "string"
+          },
+          "usageRecentDays": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "usageWarningRatio": {
+            "type": "number"
           }
         },
-        "required": ["items", "pagination", "baseDomain"],
+        "required": ["items", "pagination", "baseDomain", "usageRecentDays", "usageWarningRatio"],
         "additionalProperties": false
       },
       "CreateTenantRequest": {

@@ -23,6 +23,7 @@ import { UserLoginService } from './user-login.service';
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
 import { UserTagResource } from './user-tag.resource';
 import { UserTrashHandler } from './user-trash.handler';
+import { UserUsageCollector } from './user-usage.collector';
 import { USER_ANNOUNCEMENT_TRIGGERS } from './user.announcement-triggers';
 import { UserController } from './user.controller';
 import { USER_NOTIFICATIONS } from './user.notifications';
@@ -58,6 +59,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     UserCommentResource,
     UserExternalService,
     UserTransferResource,
+    UserUsageCollector,
   ],
   // 管理端點（UserService）、登入流程等其他模組用的帳號讀寫（UserAccountService）與密碼登入的檢查（UserLoginService）
   exports: [UserService, UserAccountService, UserLoginService],

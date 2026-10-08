@@ -30,6 +30,7 @@ export const TENANT_STATUS_TONE = {
 /** 詳情頁的分頁名稱。 */
 export const TENANT_DETAIL_TAB_LABEL_KEY = {
   overview: 'tenant.tab.overview',
+  usage: 'tenant.tab.usage',
   features: 'tenant.tab.features',
   flags: 'tenant.tab.flags',
   mfa: 'tenant.tab.mfa',

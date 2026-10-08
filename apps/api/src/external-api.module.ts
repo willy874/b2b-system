@@ -30,6 +30,7 @@ import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule } from './core/tenant';
 import { TracingModule } from './core/tracing';
+import { UsageModule, UsageRequestMiddleware } from './core/usage';
 import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApiTokenAuthGuard } from './modules/api-token/external/api-token-auth.guard';
@@ -76,6 +77,8 @@ import { UserModule } from './modules/user/user.module';
     // 寫入的推播轉送給內部 api；這個程序沒有推播，不收別人轉送來的
     EventsModule.sendOnly(),
     JobsModule,
+    // 對外 API 的請求數（docs/architecture/05-tenancy.md §5.4）
+    UsageModule,
     StorageModule,
     // 寄信的工作在這裡只入列（平台管理者模組登記了寄信的 handler，PermissionsGuard 依賴那個模組）
     MailModule,
@@ -125,6 +128,8 @@ import { UserModule } from './modules/user/user.module';
 })
 export class ExternalApiModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware, TokenTenantMiddleware).forRoutes('*');
+    consumer
+      .apply(RequestIdMiddleware, TokenTenantMiddleware, UsageRequestMiddleware)
+      .forRoutes('*');
   }
 }

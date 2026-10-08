@@ -93,7 +93,7 @@
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
 | 系統設定 | 每個租戶執行期可調的帳號政策、上傳上限、預設時區 | [§4.4](./05-feature-tour.md#44-系統設定與外部-idp) | [`backend/12-settings.md`](../architecture/backend/12-settings.md) |
-| 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額 | [§6.1](./05-feature-tour.md#61-租戶) | [`05-tenancy.md`](../architecture/05-tenancy.md) |
+| 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額；每個租戶的用量（使用者、儲存、請求、背景工作）與配額警示 | [§6.1](./05-feature-tour.md#61-租戶) | [`05-tenancy.md`](../architecture/05-tenancy.md) |
 | 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag | [§6.2](./05-feature-tour.md#62-平台管理者feature-flag-與平台稽核) | [`05-tenancy.md`](../architecture/05-tenancy.md) §11 |
 | 個人帳號 | 個人資料、變更密碼、語系、時區、主題、通知設定 | [§7](./05-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../architecture/frontend/09-state-and-storage.md) |
 | 命令面板 | ⌘K／Ctrl+K：跳到頁面、最近造訪、搜尋使用者、角色、群組、檔案等資料、建立的捷徑；依權限過濾，兩個前端都有 | — | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
@@ -104,7 +104,7 @@
 
 - 任何特定領域的業務功能——本 repo 只提供骨架。
 - LDAP、SAML（OIDC 的外部 IdP 已支援）。
-- 還沒做、但已有提案的功能（留言與關注、租戶用量、多實例部署）列在
+- 還沒做、但已有提案的功能（多實例部署）列在
   [`features/README.md`](../features/README.md)。
 
 ---

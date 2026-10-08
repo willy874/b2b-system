@@ -22,7 +22,7 @@ pnpm --filter @b2b-system/platform build
 | 路徑 | 說明 |
 | --- | --- |
 | `features/login` | `/interaction/:uid`：**IdP 的登入互動頁**，所有產品的密碼登入都在這裡（D16），顯示要登入的租戶；`/error`：provider 的協定錯誤；`/login`、`/callback`：apps/platform 自己的頁面經 SSO 登入（**只給平台管理者**，[`architecture/05-tenancy.md`](../../docs/architecture/05-tenancy.md) §10.2 D5）；帳號流程 `/forgot-password`、`/reset-password`、`/setup`、`/register`（網址帶 `?tenant=`，以 `X-Tenant` 送給 api；完成後回到那個租戶的 backstage 登入。`/setup`、`/reset-password` 沒有 `?tenant=` 是平台管理者的連結，打 `/platform/auth/*`、完成後留在 apps/platform 登入）；`/enter`：**進入租戶**（輸入租戶代碼 → 前往那個租戶的 backstage 登入，D11；平台登入頁有連結） |
-| `features/tenant` | `/tenant`、`/tenant/$id?tab=`：租戶的清單（`RichTable`）、建立（背景佈建）、詳情（麵包屑；概覽／功能／試行開關三個分頁：網域、改名、停用／啟用、刪除、重試佈建、啟用的 feature 與參數、flag 的租戶覆寫）；`tenant:*` 是 **平台** 的權限 |
+| `features/tenant` | `/tenant`、`/tenant/$id?tab=`：租戶的清單（`RichTable`，含用量欄位與排序）、建立（背景佈建）、詳情（麵包屑；概覽／用量／功能／試行開關／多重驗證分頁：網域、改名、停用／啟用、刪除、重試佈建、用量的摘要與近 30 天（[`docs/architecture/05-tenancy.md`](../../docs/architecture/05-tenancy.md) §5.4）、啟用的 feature 與參數、flag 的租戶覆寫）；`tenant:*` 是 **平台** 的權限 |
 | `features/platform-admin` | `/admin`：平台管理者的清單、新增（寄啟用信）、編輯（名稱、角色、停用）、寄設定密碼的連結 |
 | `features/feature-flag` | `/feature-flag`：試行開關的目錄與全平台覆寫 |
 | `features/audit-log` | `/audit-log`：平台稽核（平台管理者做過的事；看不到租戶的稽核） |

@@ -17,15 +17,15 @@ import { useTenantSearchFilter } from './useTenantSearchFilter';
 
 /**
  * 平台管理者的租戶清單（docs/architecture/05-tenancy.md §10.2 D12、D13）：
- * 代碼、名稱、狀態、主要網域；點進去看詳情與停用、刪除。
- * 伺服器分頁、代碼／名稱／網域搜尋與狀態篩選，條件放在網址上（routes/model.ts）。
+ * 代碼、名稱、狀態、主要網域與用量摘要（§5.4）；點進去看詳情與停用、刪除。
+ * 伺服器分頁、代碼／名稱／網域搜尋、狀態篩選與排序，條件放在網址上（routes/model.ts）。
  */
 export default function TenantListPage() {
   const { t } = useTranslation();
   const permission = useTenantPermission();
   const navigate = useNavigate();
   const searchFilter = useTenantSearchFilter();
-  const { search, setPage } = searchFilter;
+  const { search, setPage, setSort } = searchFilter;
   const filters = useTenantFilters(searchFilter);
   const [creating, setCreating] = useState(false);
 
@@ -35,9 +35,13 @@ export default function TenantListPage() {
       limit: search.limit,
       q: search.q,
       status: search.status,
+      sort: search.sort,
     }),
   );
-  const rows = useMemo(() => (data?.items ?? []).map(toTenantRowVM), [data]);
+  const rows = useMemo(
+    () => (data?.items ?? []).map((item) => toTenantRowVM(item, data?.usageWarningRatio ?? 1)),
+    [data],
+  );
 
   const openDetail = (id: string, options?: { ignoreBlocker?: boolean }) =>
     void navigate({
@@ -84,6 +88,8 @@ export default function TenantListPage() {
           pageSizeOptions: TENANT_PAGE_SIZE_OPTIONS,
           onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
+        sort={search.sort}
+        onSortingChange={setSort}
         onRowDoubleClick={(row) => openDetail(row.id)}
       />
 

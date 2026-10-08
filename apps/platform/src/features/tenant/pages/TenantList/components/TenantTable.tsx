@@ -7,13 +7,21 @@ import type {
   TableSettingsConfig,
 } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { formatDateTime } from '@b2b-system/web-shared/date';
+import { cn, formatBytes } from '@b2b-system/web-shared/utils';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
+import type { TenantSortField } from '@/apis/platform-tenant/types';
+
 import { TenantStatus } from '../../../components/TenantStatus';
 import { TENANT_LIST_TABLE_ID } from '../../../preference';
-import { DEFAULT_TENANT_DETAIL_SEARCH, TenantDetailRoute } from '../../../routes';
+import {
+  DEFAULT_TENANT_DETAIL_SEARCH,
+  TENANT_SORT_FIELDS,
+  TenantDetailRoute,
+} from '../../../routes';
 import type { TenantRowVM } from '../adapter';
 import type { TenantFilterValues } from '../useTenantFilters';
 
@@ -30,6 +38,8 @@ interface TenantTableProps {
   error: unknown;
   onRetry: () => void;
   pagination: RichTablePagination;
+  sort: Array<SortEntry<TenantSortField>>;
+  onSortingChange: (sort: Array<SortEntry<TenantSortField>>) => void;
   onRowDoubleClick: (row: TenantRowVM) => void;
 }
 
@@ -42,6 +52,8 @@ export function TenantTable({
   error,
   onRetry,
   pagination,
+  sort,
+  onSortingChange,
   onRowDoubleClick,
 }: TenantTableProps) {
   const { t } = useTranslation();
@@ -51,7 +63,6 @@ export function TenantTable({
       {
         id: 'code',
         header: t('tenant.field.code'),
-        enableSorting: false,
         cell: ({ row }) => (
           <Link
             to={TenantDetailRoute.to}
@@ -85,10 +96,31 @@ export function TenantTable({
           <code className="font-mono text-xs">{row.original.primaryDomain ?? '-'}</code>
         ),
       },
+      // 用量摘要（docs/architecture/05-tenancy.md §5.4）：還沒彙總過的租戶顯示「-」
+      {
+        id: 'usersActive',
+        header: t('tenant.field.usersActive'),
+        cell: ({ row }) => row.original.usersActive?.toLocaleString() ?? '-',
+      },
+      {
+        id: 'storageUsage',
+        header: t('tenant.field.storage'),
+        cell: ({ row }) => <StorageCell row={row.original} />,
+      },
+      {
+        id: 'recentRequests',
+        header: t('tenant.field.recentRequests'),
+        cell: ({ row }) => row.original.recentRequests.toLocaleString(),
+      },
+      {
+        id: 'lastActivityAt',
+        header: t('tenant.field.lastActivityAt'),
+        cell: ({ row }) =>
+          row.original.lastActivityAt ? formatDateTime(row.original.lastActivityAt) : '-',
+      },
       {
         id: 'createdAt',
         header: t('tenant.field.createdAt'),
-        enableSorting: false,
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
     ],
@@ -108,6 +140,14 @@ export function TenantTable({
       error={error}
       onRetry={onRetry}
       pagination={pagination}
+      sorting={sort.map((entry) => ({ sortBy: entry.sort, sortOrder: entry.order }))}
+      onSortingChange={(sorting) =>
+        onSortingChange(
+          sorting.flatMap(({ sortBy, sortOrder }) =>
+            isSortField(sortBy) ? [{ sort: sortBy, order: sortOrder }] : [],
+          ),
+        )
+      }
       onRowDoubleClick={onRowDoubleClick}
       emptyTitle={filtered ? t('tenant.emptyFiltered') : t('tenant.empty')}
       data-testid="tenant-table"
@@ -116,3 +156,26 @@ export function TenantTable({
 }
 
 const getRowId = (row: TenantRowVM) => row.id;
+
+function isSortField(value: string): value is TenantSortField {
+  return (TENANT_SORT_FIELDS as readonly string[]).includes(value);
+}
+
+/** 已用量與使用率；達到警示門檻時以警示色標出。 */
+function StorageCell({ row }: { row: TenantRowVM }) {
+  if (row.storageUsedBytes === null) return '-';
+  const percent = row.storageUsageRatio === null ? null : Math.floor(row.storageUsageRatio * 100);
+  return (
+    <span
+      className={cn(
+        'tabular-nums',
+        row.isStorageWarning && 'font-medium text-[var(--color-warning-text)]',
+      )}
+      data-testid="tenant-storage-usage"
+      data-value={row.isStorageWarning ? 'warning' : 'normal'}
+    >
+      {formatBytes(row.storageUsedBytes)}
+      {percent !== null && ` (${percent}%)`}
+    </span>
+  );
+}

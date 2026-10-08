@@ -83,6 +83,12 @@ export const outboxRelayFailures = new Counter({
   registers,
 });
 
+export const tenantUsageFlushFailures = new Counter({
+  name: 'api_tenant_usage_flush_failures_total',
+  help: '租戶用量的計數寫入平台 DB 失敗（這一輪的請求數、背景工作數遺失，docs/architecture/05-tenancy.md §14.2 D3）',
+  registers,
+});
+
 export const realtimeConnections = new ObservedGauge({
   name: 'api_realtime_connections',
   help: '這個程序上的 WebSocket 連線數',

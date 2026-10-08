@@ -21,7 +21,11 @@
       "adminEmail": "First administrator",
       "adminName": "Administrator name",
       "storageBucket": "File storage",
-      "provisionedAt": "Provisioned"
+      "provisionedAt": "Provisioned",
+      "usersActive": "Active users",
+      "storage": "Storage",
+      "recentRequests": "Recent requests",
+      "lastActivityAt": "Last activity"
     },
     "hint": {
       "code": "Lowercase letters, digits, and hyphens. Can't be changed later. The default domain is {{domain}}.",
@@ -221,6 +225,7 @@
     },
     "tab": {
       "overview": "Overview",
+      "usage": "Usage",
       "features": "Features",
       "flags": "Feature flags",
       "mfa": "Multi-factor authentication"
@@ -233,6 +238,29 @@
       "title": "MFA verification methods",
       "description": "Which multi-factor authentication methods this tenant can use. \"Platform default\" follows the platform-wide setting; methods switched off platform-wide are always off.",
       "killed": "Switched off platform-wide"
+    },
+    "usage": {
+      "snapshotAt": "Updated {{time}}",
+      "noSnapshot": "No usage data yet. Usage is collected every hour; new tenants appear after the next run.",
+      "usersActive": "Active users",
+      "usersOf": "{{total}} users in total",
+      "serviceAccounts": "Service accounts",
+      "storage": "Storage",
+      "storageOf": "{{used}} / {{quota}} ({{percent}}%)",
+      "storageWarning": "{{percent}}% of the quota is used. You can raise the file storage quota on the Features tab.",
+      "recentRequests": "Requests in the last {{days}} days",
+      "lastActivityAt": "Last activity",
+      "never": "Never",
+      "trendTitle": "Last {{days}} days",
+      "trendHint": "Dates are in UTC. Requests and jobs are totals for the day; users and storage are the last snapshot of the day.",
+      "column": {
+        "date": "Date",
+        "usersActive": "Active users",
+        "storage": "Storage",
+        "requestsInternal": "Back-office requests",
+        "requestsExternal": "External API requests",
+        "jobsExecuted": "Background jobs"
+      }
     }
   }
 }

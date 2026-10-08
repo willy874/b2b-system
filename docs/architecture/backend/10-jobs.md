@@ -124,6 +124,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `watch.notify` | `modules/comment` | — | 擁有者在業務交易內以 `WatchService.resourceChanged()` 入列（有人關注時；同一個資源 60 秒內一次）；通知關注者資源被修改（[`24-comment.md`](./24-comment.md) §4） |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
 | `tenant.provisionSweep`（平台） | `modules/tenant` | — | `*/5 * * * *`（每 5 分鐘；佈建逾時仍在 `provisioning` 的租戶改成 `failed`，[`../05-tenancy.md`](../05-tenancy.md) §5） |
+| `tenant.usageRollup`（平台） | `modules/tenant` | `TENANT_USAGE_ROLLUP_CRON` | `5 * * * *`（每小時第 5 分；每個租戶的用量快照、儲存配額警示、刪除保留期限以前的日資料，[`../05-tenancy.md`](../05-tenancy.md) §5.4） |
 | `auth.tokenCleanup`、`auth.platformTokenCleanup`（平台） | `modules/credential`、`modules/platform-admin`（平台） | `AUTH_TOKEN_CLEANUP_CRON` | `15 4 * * *`（每天 04:15 UTC；清除過期的 refresh token 與啟用／重設 token，[`04-auth.md`](./04-auth.md) §8） |
 | `jobs.outboxSweep`（平台） | `core/jobs` | `JOBS_OUTBOX_SWEEP_CRON` | `*/10 * * * *`（每 10 分鐘；補搬各租戶 outbox 裡沒搬成的工作，§4.1） |
 
@@ -220,6 +221,8 @@ await withTransaction(this.db, async (tx) => {
 | `REVISION_PRUNE_CRON` | `45 4 * * *` | 版本歷史保留清理的排程（UTC）；空字串停用 |
 | `ANNOUNCEMENT_MAINTENANCE_CRON` | `20 5 * * *` | 公告的每日維護（補排程、發送紀錄保留清理）的排程（UTC）；空字串停用 |
 | `DATA_TRANSFER_CLEANUP_CRON` | `25 5 * * *` | 匯入匯出的清理排程（UTC）；空字串停用 |
+| `TENANT_USAGE_ROLLUP_CRON` | `5 * * * *` | 租戶用量快照的排程（UTC）；空字串停用 |
+| `TENANT_USAGE_RETENTION_DAYS` | `400` | 租戶用量的日資料保留天數（最少 31） |
 
 資料庫權限：pg-boss 啟動時要能在 `pgboss` schema 建表（第一次部署或升級 pg-boss 時）。
 應用程式與維運拆成不同 role 的部署，先以有權限的 role 啟動一次，或用 `getConstructionPlans()`

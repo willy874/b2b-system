@@ -34,7 +34,10 @@ import type {
   ListPlatformTenantDto,
   UpdateTenantDto,
 } from './dto/platform-tenant.dto';
+import { GetTenantUsageSchema, TenantUsageSchema } from './dto/tenant-usage.dto';
+import type { GetTenantUsageDto } from './dto/tenant-usage.dto';
 import { PlatformTenantService } from './platform-tenant.service';
+import { TenantUsageService } from './tenant-usage.service';
 
 /**
  * 平台管理者的租戶管理（apps/platform，docs/architecture/05-tenancy.md §10.2 D12、D13）。
@@ -43,12 +46,16 @@ import { PlatformTenantService } from './platform-tenant.service';
 @ApiTags('platform-tenants')
 @Controller('platform/tenants')
 export class PlatformTenantController {
-  constructor(private readonly tenants: PlatformTenantService) {}
+  constructor(
+    private readonly tenants: PlatformTenantService,
+    private readonly usage: TenantUsageService,
+  ) {}
 
   @Get()
   @RequirePlatformPermissions('tenant:read')
   @ApiOperation({
-    summary: '租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）',
+    summary:
+      '租戶（未刪除）、用量摘要與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）、排序（sort）',
   })
   @ApiZodResponse(200, PlatformTenantListSchema)
   list(@Query(new ZodValidationPipe(ListPlatformTenantSchema)) query: ListPlatformTenantDto) {
@@ -82,6 +89,20 @@ export class PlatformTenantController {
     @Body(new ZodValidationPipe(UpdateTenantSchema)) dto: UpdateTenantDto,
   ) {
     return this.tenants.update(id, dto);
+  }
+
+  @Get(':id/usage')
+  @RequirePlatformPermissions('tenant:read')
+  @ApiOperation({
+    summary:
+      '用量：最近一次快照的摘要與近 days 天（含今天，UTC）每天一筆（docs/architecture/05-tenancy.md §5.4）',
+  })
+  @ApiZodResponse(200, TenantUsageSchema)
+  getUsage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodValidationPipe(GetTenantUsageSchema)) query: GetTenantUsageDto,
+  ) {
+    return this.usage.get(id, query);
   }
 
   @Get(':id/features/:feature/impact')
