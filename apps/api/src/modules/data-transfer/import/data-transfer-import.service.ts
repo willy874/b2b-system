@@ -21,6 +21,7 @@ import {
   DATA_TRANSFER_MAX_ACTIVE_PER_USER,
   DATA_TRANSFER_SAMPLE_ROWS,
   DATA_TRANSFER_TEMPLATE_SAMPLES,
+  MULTI_VALUE_SEPARATOR,
   REFERENCE_SEARCH_LIMIT,
 } from '../data-transfer.constants';
 import { DataTransferContextFactory } from '../data-transfer.context';
@@ -31,13 +32,13 @@ import { DataTransferLifecycle, toTransferDto } from '../data-transfer.lifecycle
 import { DataTransferRepository } from '../data-transfer.repository';
 import type {
   AnyTransferResource,
+  ImportFormat,
   ImportMode,
   LocalizedText,
-  SheetFormat,
   TransferContext,
   TransferLocale,
 } from '../data-transfer.types';
-import { escapeFormula, normalizeText, toCellText } from '../data-transfer.values';
+import { escapeFormula, normalizeText, toCellText, toDataValue } from '../data-transfer.values';
 import type {
   AnalyzeImportDto,
   CreateImportDto,
@@ -50,7 +51,7 @@ import type {
 import { mapHeaders, parseMappingParam, toCells } from './header-mapping';
 import { ImportValidator } from './import-validator';
 import { ParsePool } from './parse-pool';
-import { buildCsv, buildXlsx, SHEET_CONTENT_TYPE } from './sheet-files';
+import { buildCsv, buildDataFile, buildXlsx, SHEET_CONTENT_TYPE } from './sheet-files';
 import type { SheetData } from './sheet-files';
 
 const MIB = 1024 * 1024;
@@ -101,10 +102,13 @@ export interface SheetFile {
   body: Buffer;
 }
 
-function sheetFormatOf(fileName: string): SheetFormat | null {
+/** 依副檔名判斷格式（內容不可信，也不看瀏覽器給的 MIME type）。 */
+export function importFormatOf(fileName: string): ImportFormat | null {
   const lower = fileName.toLowerCase();
   if (lower.endsWith('.xlsx')) return 'xlsx';
   if (lower.endsWith('.csv') || lower.endsWith('.tsv') || lower.endsWith('.txt')) return 'csv';
+  if (lower.endsWith('.json')) return 'json';
+  if (lower.endsWith('.yaml') || lower.endsWith('.yml')) return 'yaml';
   return null;
 }
 
@@ -158,7 +162,10 @@ export class DataTransferImportService {
     };
   }
 
-  /** 範本（§7.2 步驟 2）：只含可匯入的欄位；修改模式預先填入最多 10 筆現有資料。XLSX 另附欄位說明的工作表。 */
+  /**
+   * 範本（§7.2 步驟 2）：只含可匯入的欄位；修改模式預先填入最多 10 筆現有資料。XLSX 另附欄位說明的工作表；
+   * JSON／YAML 是以欄位 key 為鍵的物件陣列（與匯出同一種形狀）。
+   */
   async template(
     type: string,
     query: TemplateQueryDto,
@@ -174,16 +181,47 @@ export class DataTransferImportService {
     );
     const columns = importColumnSets(resource, query.mode, ctx).importable;
     const header = columns.map((column) => column.label[ctx.locale]);
+    const samples =
+      query.mode === 'update' && resource.importer?.sampleRecords
+        ? await resource.importer.sampleRecords(ctx, DATA_TRANSFER_TEMPLATE_SAMPLES)
+        : null;
+    const fileName = `${resource.fileBaseName}-template-${query.mode}.${query.format}`;
+    if (query.format === 'json' || query.format === 'yaml') {
+      const records = samples
+        ? samples.map((record) =>
+            Object.fromEntries(
+              columns.map((column) => [
+                column.key,
+                toDataValue(column, column.export?.get(record), ctx),
+              ]),
+            ),
+          )
+        : columns.some((column) => column.example)
+          ? [
+              Object.fromEntries(
+                columns.map((column) => [
+                  column.key,
+                  column.multiple
+                    ? (column.example ?? '').split(MULTI_VALUE_SEPARATOR).filter(Boolean)
+                    : (column.example ?? null),
+                ]),
+              ),
+            ]
+          : [];
+      return {
+        fileName,
+        contentType: SHEET_CONTENT_TYPE[query.format],
+        body: buildDataFile(query.format, records),
+      };
+    }
     let rows: string[][] = [];
-    if (query.mode === 'update' && resource.importer?.sampleRecords) {
-      const records = await resource.importer.sampleRecords(ctx, DATA_TRANSFER_TEMPLATE_SAMPLES);
-      rows = records.map((record) =>
+    if (samples) {
+      rows = samples.map((record) =>
         columns.map((column) => toCellText(column, column.export?.get(record), ctx)),
       );
     } else if (columns.some((column) => column.example)) {
       rows = [columns.map((column) => column.example ?? '')];
     }
-    const fileName = `${resource.fileBaseName}-template-${query.mode}.${query.format}`;
     const data: SheetData = { name: resource.label[ctx.locale], header, rows };
     if (query.format === 'csv') {
       const escaped = rows.map((row) =>
@@ -221,7 +259,10 @@ export class DataTransferImportService {
     return { fileName, contentType: SHEET_CONTENT_TYPE.xlsx, body: await buildXlsx([data, guide]) };
   }
 
-  /** `reference` 欄位的搜尋（預覽中的下拉選單）。 */
+  /**
+   * 預覽中的選項：`reference` 欄位的下拉選單（id 是參照的 id），或文字欄的自動完成（`import.suggest`，id 與 label 都是值）。
+   * 欄位要是操作者在某個模式可以匯入的欄位。
+   */
   async options(
     type: string,
     key: string,
@@ -237,7 +278,8 @@ export class DataTransferImportService {
         column?.import?.modes.includes(item) &&
         resource.importer?.modes[item]?.permissions.every((permission) => ctx.can(permission)),
     );
-    if (!column?.reference || !mode) {
+    const suggest = column?.import?.suggest;
+    if (!column || !mode || (!column.reference && !suggest)) {
       throw new AppException('VALIDATION_FAILED', { fields: { column: key } });
     }
     if (!importColumnSets(resource, mode, ctx).importable.includes(column)) {
@@ -245,7 +287,32 @@ export class DataTransferImportService {
         missing: [column.import?.permission ?? column.permission],
       });
     }
-    const items = await column.reference.search(keyword, ctx);
+    if (column.reference) {
+      const items = await column.reference.search(keyword, ctx);
+      return { items: items.slice(0, REFERENCE_SEARCH_LIMIT) };
+    }
+    const values = suggest ? await suggest(keyword, ctx) : [];
+    return {
+      items: [...new Set(values)]
+        .slice(0, REFERENCE_SEARCH_LIMIT)
+        .map((value) => ({ id: value, label: value })),
+    };
+  }
+
+  /** 修改模式：手動指定比對目標的下拉選單（§7.5）。資源沒有實作 `searchTargets` 時不能手動指定。 */
+  async targets(type: string, keyword: string, actor: AuthUser, preference: ClientPreference) {
+    const { resource, ctx } = await this.prepare(
+      type,
+      'update',
+      actor,
+      preference,
+      'GET /data-transfers/importers/:type/targets',
+    );
+    const search = resource.importer?.searchTargets;
+    if (!search || !resource.importer?.findTargetsById) {
+      throw new AppException('VALIDATION_FAILED', { fields: { type } });
+    }
+    const items = await search(keyword, ctx);
     return { items: items.slice(0, REFERENCE_SEARCH_LIMIT) };
   }
 
@@ -269,7 +336,7 @@ export class DataTransferImportService {
     );
     const maxBytes = tenantFeatureParam(DATA_TRANSFER_IMPORT_MAX_SIZE_MB_PARAM) * MIB;
     if (file.size > maxBytes) throw new AppException('DATA_TRANSFER_FILE_TOO_LARGE', { maxBytes });
-    const format = sheetFormatOf(file.originalname);
+    const format = importFormatOf(file.originalname);
     if (!format) throw new AppException('DATA_TRANSFER_FILE_UNREADABLE', { reason: 'format' });
     const parsed = await this.pool.parse(new Uint8Array(file.buffer), {
       format,
@@ -392,7 +459,7 @@ export class DataTransferImportService {
           direction: 'import',
           type: resource.type,
           mode: dto.mode,
-          format: dto.fileName && sheetFormatOf(dto.fileName) === 'xlsx' ? 'xlsx' : 'csv',
+          format: (dto.fileName && importFormatOf(dto.fileName)) || 'csv',
           status: 'queued',
           createdBy: actor.id,
           locale: ctx.locale,
@@ -415,7 +482,9 @@ export class DataTransferImportService {
           rowNo: row.rowNo,
           sourceRow: row.sourceRow ?? null,
           raw: row.cells,
-          targetId: row.target?.id ?? null,
+          // 手動指定（或撤回）的目標：工作重新驗證時照用，不再以比對鍵找
+          targetManual: row.targetId !== undefined,
+          targetId: row.targetId !== undefined ? row.targetId : (row.target?.id ?? null),
           targetVersion: row.target?.version ?? null,
           targetExpected: row.target?.expected ?? null,
         })),

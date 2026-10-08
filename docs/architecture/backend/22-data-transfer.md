@@ -191,6 +191,7 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
   target_id        uuid null              -- 修改模式：預覽時比對到的紀錄（套用時以權限重新確認）
   target_version   int null               -- 修改模式：預覽時的 version，套用時用於樂觀鎖
   target_expected  jsonb null             -- 修改模式：比對當下的關聯欄（例：roleIds），套用時的樂觀鎖輸入（D29）
+  target_manual    boolean not null default false  -- 修改模式：預覽中手動指定（target_id 有值）或撤回（target_id 是 null）的目標，套用時照用（§7.5）
   outcome          text not null default 'pending'  -- pending | succeeded | failed | skipped | cancelled
   outcome_error    jsonb null             -- { code, details } 或 { code: 'VALIDATION_FAILED', issues }
   changes          jsonb null             -- 修改模式：{ columnKey: [原值, 新值] }，在套用的交易內記下，結果報告用
@@ -220,11 +221,12 @@ data_transfer_rows                        -- 只有匯入，在送出套用時�
 | `GET /data-transfers/resources` | 操作者可以匯出或匯入的資源類型，以及各自可用的欄位與格式 | 清單 |
 | `POST /data-transfers/exports` | 建立匯出（§6.1） | 202 `DataTransfer` |
 | `GET /data-transfers/importers/:type` | 匯入的欄位定義（`mode`），依請求的語系 | 欄位清單 |
-| `GET /data-transfers/importers/:type/template` | 範本（`mode`、`format=csv\|xlsx`），直接串流 | 檔案 |
-| `GET /data-transfers/importers/:type/columns/:key/options` | `reference` 欄位的搜尋（`keyword`），預覽中的下拉選單 | `{ id, label }[]` |
+| `GET /data-transfers/importers/:type/template` | 範本（`mode`、`format=csv\|xlsx\|json\|yaml`），直接串流 | 檔案 |
+| `GET /data-transfers/importers/:type/columns/:key/options` | `reference` 欄位的搜尋（`keyword`），預覽中的下拉選單；文字欄有 `import.suggest` 時是自動完成的建議（`id` 與 `label` 都是值） | `{ id, label }[]` |
+| `GET /data-transfers/importers/:type/targets` | 修改模式：手動指定比對目標的下拉選單（`keyword`，§7.5） | `{ id, label, description? }[]` |
 | `POST /data-transfers/importers/:type/analyze` | **分析**：multipart 上傳檔案（`file`、`mode`、選填 `encoding`、`sheet`、`mapping`），轉成 JSON 並驗證（§7.3） | 200 `ImportAnalysis` |
-| `POST /data-transfers/importers/:type/validate` | 驗證 JSON 列：`{ mode, rows: [{ rowNo, cells }] }`，最多 1 000 列（§7.4） | 200 `{ rows: [{ rowNo, issues, target? }] }` |
-| `POST /data-transfers/imports` | **套用**：`{ type, mode, fileName?, skipInvalid, rows: [{ rowNo, sourceRow?, cells, target? }] }`（§7.6） | 202 `DataTransfer` |
+| `POST /data-transfers/importers/:type/validate` | 驗證 JSON 列：`{ mode, rows: [{ rowNo, cells, targetId? }] }`，最多 1 000 列（§7.4） | 200 `{ rows: [{ rowNo, issues, target? }] }` |
+| `POST /data-transfers/imports` | **套用**：`{ type, mode, fileName?, skipInvalid, rows: [{ rowNo, sourceRow?, cells, targetId?, target? }] }`（§7.6） | 202 `DataTransfer` |
 | `GET /data-transfers/:id/rows` | 匯入的套用列與結果（`outcome` 篩選、`afterRowNo` keyset、`limit` ≤ 1 000）；「以失敗的列重新匯入」用 | 列與 `nextRowNo` |
 
 - `analyze` 是 api **第一個收 multipart 的端點**。其他上傳都是瀏覽器直傳 bucket，這裡例外的理由見 §12 D22：
@@ -302,6 +304,8 @@ interface TransferColumn<TRecord> {
     transitions?: Readonly<Record<string, readonly string[]>>; // 狀態欄的合法轉移
     /** 匯入時額外要的權限（例：角色欄要 user:assignRole） */
     permission?: PermissionKey;
+    /** 文字欄的自動完成：依輸入查詢現有的值（使用者的 Email、帳號）；沒有的欄位前端只以同一欄填過的值建議 */
+    suggest?(keyword: string, ctx: TransferContext): Promise<readonly string[]>;
   };
 }
 
@@ -463,6 +467,16 @@ POST /data-transfers/:id/cancel  { version } → 200 DataTransfer
 - 字串一律寫成字串儲存格，不會被解讀成公式，所以 **不加** `'` 前綴。
 - XLSX 上限 1 048 576 列、單一儲存格 32 767 字元。匯出上限（§10）遠低於列數上限；超長的儲存格截斷並在最後加 `…`，計入 `output` 的 `truncatedCells`。
 
+**JSON／YAML**
+
+- 一個物件陣列，每筆紀錄一個物件，**鍵是欄位的 `key`**（穩定、與語系無關；匯回時標頭對應直接以 `key` 比對）。
+- 值保留型別（`toDataValue`）：`number` 是數字、`boolean` 是 `true`／`false`、多值是陣列（沒有值是 `[]`）、空值是 `null`、`enum` 是值代碼（與 SQL 相同）。
+  `date`、`datetime` 的文字與 CSV 相同（`datetime` 帶匯出者時區的時差）。
+- JSON 逐頁寫出：`[` 之後每筆一行，最後 `]`，不必把整份資料組成一個物件再序列化。YAML 每頁以 `yaml` 套件序列化成序列（`- key: value`）後接上。
+- 字串不加公式前綴：JSON／YAML 不會被試算表直接執行。
+- 範本也有 JSON／YAML（`format=json|yaml`）：新增模式是一筆範例、修改模式是抽樣的現有資料；沒有「欄位說明」工作表（說明看預覽頂端的表格）。
+- 結果報告只有 CSV／XLSX：報告多出的「列號」「結果」「錯誤」是表格的欄位。
+
 **SQL（只匯出）**
 
 ```sql
@@ -570,9 +584,15 @@ COMMIT;
   - 讀第一個工作表，或指定的工作表。有多個工作表又沒指定時，回應附上 `sheets` 清單，前端讓使用者改選。
   - 公式儲存格取快取的計算結果；沒有結果的視為空白，並加警告 `formulaWithoutValue`。
   - 日期儲存格依 §5.3 轉成字串（`YYYY-MM-DD` 或含時差的 ISO 8601），JSON 中一律是字串。
+- JSON／YAML：最上層是物件陣列，或只有一個陣列屬性的物件（例：`{ "users": [...] }`）；其他形狀回 `422 DATA_TRANSFER_FILE_UNREADABLE`。
+  - 標頭是所有物件的鍵（依第一次出現的順序），標頭對應與 CSV 相同（所以匯出的 JSON 直接以 `key` 對上）。
+  - 值轉成儲存格文字：陣列以 `;` 串接（多值欄）、`null` 是空白、數字與布林轉成字串、物件是 JSON；之後的驗證與 CSV 完全相同。
+  - 列號是陣列中的第幾筆（1 起）。要清空修改模式的欄位，值寫字串 `"\\N"`（`null` 是「不變更」）。
+  - YAML 以 `yaml` 套件的 1.2 core schema 解析（`2026-10-08` 仍是字串，不會變成 Date），別名展開上限 100（防 billion laughs）。
+- 格式依副檔名判斷：`.csv`／`.tsv`／`.txt`、`.xlsx`、`.json`、`.yaml`／`.yml`（`importFormatOf`）。
 - 空白列（所有儲存格都是空的）略過，不佔列號。
 - 第一個非空白列是標頭。
-- 之後要加新格式（例：ODS、JSON），只要加一個讀檔器輸出同樣的二維字串陣列，其餘流程不變。
+- 之後要加新格式（例：ODS），只要加一個讀檔器輸出同樣的二維字串陣列，其餘流程不變。
 
 **標頭對應**
 
@@ -674,6 +694,9 @@ interface TransferImporter<TCreate, TPatch> {
   findExisting?(column: string, values: readonly string[], ctx): Promise<Map<string, { id: string; label: string }>>;
   /** 修改模式：依比對鍵找目標，回傳目前的值（只含要匯入的欄位）、version 與關聯欄的樂觀鎖輸入 */
   resolveTargets?(keys: readonly MatchKeys[], ctx): Promise<readonly MatchResult[]>;
+  /** 修改模式：手動指定的目標（以 id 找）與比對目標的下拉選單；兩個都有才能手動指定（§7.5） */
+  findTargetsById?(ids: readonly string[], ctx): Promise<Map<string, MatchResult>>;
+  searchTargets?(keyword: string, ctx): Promise<readonly { id: string; label: string; description?: string }[]>;
   /** 資源特有的跨欄、跨列檢查；只回傳 issue，不寫資料 */
   validateRows?(rows: readonly ResolvedRow[], ctx): Promise<readonly RowIssue[]>;
   /** 範本：新增模式的範例列、修改模式抽樣的現有紀錄（最多 10 筆，以操作者的權限） */
@@ -717,6 +740,22 @@ type AfterCommitEffect =
 - 同一個目標出現在多列 → 每一列都是錯誤 `duplicateTarget { rows }`（前端計算，套用時重算）。
   - 參考實作只給「最後一列為準」的警告；但兩列各改一半時結果難以預期，所以改成錯誤。
 - 使用者改了某列的比對鍵 → 那一列送 `validate`，重新比對。
+
+**手動指定比對目標**
+
+自動比對的結果不一定是使用者要的（Email 打錯、同名、要把資料改到另一筆）。預覽的「比對目標」欄是下拉選單：
+
+| 選擇 | 送出的 `targetId` | 結果 |
+| --- | --- | --- |
+| 自動比對（預設） | 不帶 | 依比對鍵找（上面的規則） |
+| 搜尋並選一筆紀錄 | 紀錄的 id | 以 id 找這筆（`importer.findTargetsById`，以操作者的權限）；**比對鍵不再用來找目標**，也仍然不會被修改。找不到 → `targetNotFound` |
+| 撤回比對 | `null` | 錯誤 `targetNotSelected`：這一列不會套用，直到重新選擇或改回自動比對（勾選「略過有錯誤的列」時略過） |
+
+- 下拉選單的搜尋：`GET /data-transfers/importers/:type/targets?keyword=`（修改模式的權限；回傳 `{ id, label, description }`，使用者是 Email 與顯示名稱）。
+  資源沒有實作 `searchTargets`／`findTargetsById` 時不能手動指定，前端的比對目標欄是唯讀。
+- `validate` 與送出套用的列都帶 `targetId`；套用列存 `target_manual`（`target_id` 是 null 就是撤回）。
+  工作重新驗證時照用這個選擇，**不會改用比對鍵自動比對**——撤回的列即使 Email 對得上現有的紀錄也不會被修改。
+- 選擇是一次編輯：可以復原、重做，也存進草稿。
 
 **目前值與 version**
 
@@ -935,7 +974,7 @@ POST /data-transfers/imports
 - 型別與格式：`required`、`invalidNumber`、`invalidBoolean`、`invalidDate`、`invalidDateTime`、`invalidEnum`、`tooShort`、`tooLong`、`tooSmall`、`tooLarge`（數字欄）、`invalidFormat`、`tooManyValues`、`notNullable`、`formulaWithoutValue`
 - 參照：`referenceNotFound`、`ambiguousReference`
 - 唯一值：`duplicateInFile`、`alreadyExists`
-- 修改模式的比對：`matchKeyRequired`、`targetNotFound`、`ambiguousMatch`、`duplicateTarget`、`transitionNotAllowed`、`noChanges`（警告）
+- 修改模式的比對：`matchKeyRequired`、`targetNotFound`、`ambiguousMatch`、`duplicateTarget`、`targetNotSelected`（撤回比對）、`transitionNotAllowed`、`noChanges`（警告）
 - 資源特有：`roleNotAssignable`、`selfModify`
 
 問題以「代碼＋參數」存放，**翻譯只在顯示時做**：
@@ -952,37 +991,6 @@ POST /data-transfers/imports
 - `api_data_transfer_parse_duration_seconds{format}`：histogram，分析時在 worker thread 解析檔案的秒數。
 
 工作的耗時與成敗已由 `JobQueue` 依工作名稱記錄，不重複。標籤不帶租戶（[`08-monitoring.md`](../08-monitoring.md) §2.3）。
-
----
-
-## 10. 上限與保留期限
-
-| 項目 | 預設 | 設定方式 |
-| --- | --- | --- |
-| 匯入的列數 | 5 000 | 租戶 feature 參數 `dataTransfer.importMaxRows`（平台設定，100～20 000）。上限決定伺服器的負載，由平台控制，不讓租戶自己調高 |
-| 匯入的檔案大小 | 10 MiB | 同上，`dataTransfer.importMaxSizeMb`（1～50）；`presignUpload` 簽入 `contentLength` |
-| 匯出的列數 | 100 000 | 同上，`dataTransfer.exportMaxRows`（1 000～1 000 000） |
-| 勾選範圍的 id 數 | 10 000 | 固定，與 `BATCH_SELECT_ALL_MAX` 一致 |
-| 每人同時進行的傳輸 | 3 | 固定；指 `queued`、`running`、`applying` |
-| 分析的並行 | 每程序 2 個 worker thread | env `DATA_TRANSFER_PARSE_WORKERS`；排隊最多 5 秒，否則 `503 DATA_TRANSFER_BUSY` |
-| `validate` 一次的列數 | 1 000 | 固定 |
-| 匯出檔與套用列的保留 | 7 天 | 租戶系統設定 `dataTransfer.retentionDays`（1～30，新類別 `dataTransfer`）；從完成時起算 |
-| 匯入的原始檔 | 不保存 | 只在分析請求期間存在於記憶體 |
-| 預覽草稿（瀏覽器） | 24 小時 | 固定；套用、放棄、登出時清除（[`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §4） |
-| 傳輸紀錄（摘要）的保留 | 90 天 | 固定；過期後連同紀錄刪除，稽核日誌另有保留 |
-| 下載連結 | `FILE_URL_TTL`（≤ 1 小時） | 每次下載重新簽發 |
-
-清理工作 `dataTransfer.cleanup`：
-
-- 每天執行，租戶範圍，`exclusive`。
-- 到期的傳輸：刪除 `transfers/<id>/` 下的物件（匯出檔）、刪除套用列、`status = expired`。
-- 摘要超過 90 天：刪除紀錄。
-- 刪除物件失敗只記錄，下一輪再試。
-
-**容量**
-
-- 套用列在租戶 DB，5 000 列 × 每列約 1 KB，約 5 MB。7 天後清除。預覽期間伺服器端沒有任何資料。
-- `transfers/` 的物件不計入 `file.storageQuotaMb`：與縮圖、變體一樣是系統產物，靠保留期限控制。
 
 ---
 
@@ -1086,6 +1094,14 @@ POST /data-transfers/imports
 | D28 | **業務稽核的 `via: 'import'` 由 request context 的 `auditMetadata` 帶入**（`AuditService` 合併進每筆稽核） | 不必為每個 `*InTx` 方法加 metadata 參數；之後別的背景工作代替使用者操作時同一個機制可用 |
 | D29 | **`data_transfer_rows` 多一欄 `target_expected`**：修改模式比對當下的關聯欄（`roleIds`），套用時原樣當成 `expectedRoleIds` | 多值欄整組取代要沿用 `PUT /users/:id/roles` 的衝突檢查；前端送回的值存下來才能讓工作在重試時一致 |
 | D30 | **結果報告的「錯誤」欄寫錯誤碼與問題代碼**（例：`email: alreadyExists`），不翻譯 | 後端沒有語系檔；畫面上的結果表由前端翻譯，報告是給人修正後重新上傳的，代碼足以辨識。報告多出的「列號」「結果」「錯誤」三欄，重新上傳時自動視為唯讀欄 |
+| D32 | **JSON／YAML 以欄位 `key` 為鍵、保留型別**（數字、布林、多值是陣列、`enum` 是值代碼）；匯入時讀檔器把值轉回儲存格文字，之後與 CSV 走同一個驗證器 | 給程式讀寫的格式不該依語系換鍵名；匯入只有「讀檔器」一處不同，驗證、預覽、套用都不必知道來源格式 |
+| D33 | **結果報告只有 CSV／XLSX**；範本有四種格式 | 報告多出的「列號」「結果」「錯誤」是表格的欄位，放進 JSON 物件會和資源的欄位混在一起；範本是給人填的起點，四種都要 |
+| D34 | **手動指定比對目標以 `targetId` 三態表示**（不帶＝自動、id＝指定、`null`＝撤回），套用列存 `target_manual`；撤回是錯誤 `targetNotSelected` 而不是略過 | 工作重新驗證時必須照用預覽中的選擇，不能又以比對鍵自動比對（撤回的列 Email 若對得上，會改到使用者明確不要的那筆）；撤回後的列要有明確的狀態提醒使用者處理，勾選「略過有錯誤的列」時才略過 |
+| D35 | **文字欄的自動完成**：同一欄填過的值（新增模式的唯一欄不建議，改成補完 Email 的網域）＋修改模式向伺服器查現有的值（欄位有 `import.suggest`） | 新增模式建議現有的 Email 一定會重複；修改模式的 Email 是比對鍵，建議現有的值正好幫使用者找到要改的人 |
+| D36 | **`DataGrid` 的下拉選單編輯器包專案的 `Select`**（樣式改成儲存格，功能相同），不用原生 `<select>`／`<datalist>` | 原生元件不能搜尋、多選、遠端查詢，樣式也無法統一；`Select` 已經有虛擬捲動與無障礙的鍵盤操作。儲存格存選項的名稱（與檔案、匯出相同的文字），不是值代碼 |
+| D37 | **復原／重做的快捷鍵登記在全域快捷鍵（`registerHotkey`），只在預覽掛載期間有效**；輸入框裡不攔，是瀏覽器原生的文字復原 | 焦點不在表格（剛按過工具列的按鈕）時也要能復原；與命令面板的快捷鍵共用衝突偵測 |
+| D38 | **編輯中的複製貼上交給瀏覽器**：只作用在輸入框選取的文字，不是整格或範圍貼上 | 表格的範圍貼上是「選取儲存格」時的行為；編輯中把整段 TSV 貼滿表格會覆蓋使用者沒選的儲存格 |
+| D39 | **傳輸的狀態查詢在推播重新連上時重查一次，連線中也每 15 秒保險輪詢** | 斷線期間完成的傳輸收不到推播；只在斷線時輪詢的話，重新連上後畫面會一直停在「排隊中」 |
 
 ### 12.3 評估過的方案
 
@@ -1239,3 +1255,5 @@ POST /data-transfers/imports
 - **新的問題代碼。** 數字欄的範圍用 `tooSmall`／`tooLarge`（字串是 `tooShort`／`tooLong`）。
 - **稽核日誌的筆數。** `exportCount` 最多數到「上限 ＋ 1」，超過上限時不必數完。
 - **前端的實作差異** 見 [`../frontend/21-data-transfer.md`](../frontend/21-data-transfer.md) §7。
+- **JSON／YAML、手動指定比對目標、自動完成（D32～D39）** 是第一版上線後依使用回饋加的：租戶 migration `0046_data_transfer_formats`
+  放寬 `data_transfers.format` 的檢查並新增 `data_transfer_rows.target_manual`。

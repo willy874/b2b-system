@@ -9,7 +9,10 @@ import type {
 export type DataTransferStatus = DataTransfer['status'];
 export type ImportMode = NonNullable<DataTransfer['mode']>;
 export type ExportFormat = DataTransfer['format'];
+/** 結果報告的格式。 */
 export type SheetFormat = 'csv' | 'xlsx';
+/** 可以匯入的格式，也是範本的格式。 */
+export type ImportFormat = 'csv' | 'xlsx' | 'json' | 'yaml';
 export type RowOutcome = DataTransferApplyRow['outcome'];
 export type ImportColumn = DataTransferImportColumn;
 export type ImportAnalysis = DataTransferImportAnalysis;

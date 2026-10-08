@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -28,7 +29,7 @@ export const dataTransfers = pgTable(
     type: text('type').notNull(),
     /** 匯入：`create` ｜ `update`；匯出是 null。 */
     mode: text('mode'),
-    /** `csv` ｜ `xlsx` ｜ `sql`。 */
+    /** `csv` ｜ `xlsx` ｜ `json` ｜ `yaml` ｜ `sql`。 */
     format: text('format').notNull(),
     /** 匯出：queued → running → completed｜failed｜cancelled；匯入：queued → applying → …；到期 → expired。 */
     status: text('status').notNull(),
@@ -63,7 +64,10 @@ export const dataTransfers = pgTable(
   },
   (t) => [
     check('data_transfers_direction_check', sql`${t.direction} IN ('export', 'import')`),
-    check('data_transfers_format_check', sql`${t.format} IN ('csv', 'xlsx', 'sql')`),
+    check(
+      'data_transfers_format_check',
+      sql`${t.format} IN ('csv', 'xlsx', 'json', 'yaml', 'sql')`,
+    ),
     check(
       'data_transfers_status_check',
       sql`${t.status} IN ('queued', 'running', 'applying', 'completed', 'failed', 'cancelled', 'expired')`,
@@ -102,6 +106,11 @@ export const dataTransferRows = pgTable(
     /** 修改模式：預覽時比對到的紀錄與 version（套用時仍以權限重新查詢，這兩個只是樂觀鎖的輸入）。 */
     targetId: uuid('target_id'),
     targetVersion: integer('target_version'),
+    /**
+     * 修改模式：使用者在預覽中手動指定（`target_id` 有值）或撤回（`target_id` 是 null）的比對目標；
+     * 套用時照用，不再以比對鍵找。false 是依比對鍵自動比對。
+     */
+    targetManual: boolean('target_manual').notNull().default(false),
     /** 修改模式：比對當下的關聯欄（例：`roleIds`），套用時原樣當成樂觀鎖的輸入。 */
     targetExpected: jsonb('target_expected').$type<Record<string, unknown>>(),
     /** `pending` ｜ `succeeded` ｜ `failed` ｜ `skipped` ｜ `cancelled`。 */

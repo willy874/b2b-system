@@ -8,12 +8,13 @@ import { FormError } from '@b2b-system/ui/FormError';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Key } from 'react';
 
 import { COLUMN_KIND_LABEL_KEY, useIssueMessage } from '../data-transfer';
-import type { ImportApi, RowIssue } from '../data-transfer';
+import type { ImportApi, ImportColumnView, ImportRow, RowIssue } from '../data-transfer';
 import { useErrorMessage } from '../errors';
+import { isMacPlatform, registerHotkey } from '../hotkey';
 import { useTranslation } from '../locales';
 import { rowIssues, rowStatus } from './importState';
 import type { RowStatus } from './importState';
@@ -22,6 +23,57 @@ import type { ImportWorkspaceModel } from './useImportWorkspace';
 /** `\N`：修改模式中代表清空（§7.5），畫面上顯示成「清空」標籤。 */
 const NULL_TOKEN = '\\N';
 const TARGET_COLUMN = '__target';
+/** 比對目標欄的特殊值：依比對鍵自動比對、撤回比對。 */
+const TARGET_AUTO = '__auto';
+const TARGET_NONE = '__none';
+/** 落在比對目標欄的列層級問題。 */
+const TARGET_ISSUES: ReadonlySet<string> = new Set([
+  'targetNotSelected',
+  'targetNotFound',
+  'matchKeyRequired',
+  'ambiguousMatch',
+]);
+/** 多值欄位的分隔字元（與後端一致）。 */
+const SEPARATOR = ';';
+/** 自動完成最多列出幾個建議。 */
+const SUGGESTION_LIMIT = 10;
+
+function targetCell(row: ImportRow): string {
+  if (row.target === undefined) return TARGET_AUTO;
+  return row.target?.id ?? TARGET_NONE;
+}
+
+/**
+ * 同一欄已經填過的值（Excel 的自動完成）。唯一欄在新增模式不建議填過的值（一定重複），
+ * 改成補完 Email 的網域：輸入 `alice@` 時建議同一欄出現過的 `@example.com`。
+ */
+function localSuggestions(
+  rows: readonly ImportRow[],
+  column: ImportColumnView,
+  keyword: string,
+  createMode: boolean,
+): string[] {
+  const wanted = keyword.toLowerCase();
+  const values = new Set<string>();
+  const at = keyword.indexOf('@');
+  if (at >= 0) {
+    const [local, domain] = [keyword.slice(0, at), keyword.slice(at + 1).toLowerCase()];
+    for (const row of rows) {
+      const text = row.cells[column.key] ?? '';
+      const found = text.slice(text.indexOf('@') + 1);
+      if (text.includes('@') && found.toLowerCase().startsWith(domain) && local) {
+        values.add(`${local}@${found}`);
+      }
+    }
+  }
+  if (!(createMode && column.unique)) {
+    for (const row of rows) {
+      const text = (row.cells[column.key] ?? '').trim();
+      if (text && text !== NULL_TOKEN && text.toLowerCase().includes(wanted)) values.add(text);
+    }
+  }
+  return [...values].slice(0, SUGGESTION_LIMIT);
+}
 
 type Filter = 'all' | 'errors' | 'warnings' | 'changed' | 'unchanged';
 
@@ -70,40 +122,136 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
   const [skipInvalid, setSkipInvalid] = useState(false);
   const isUpdate = state.mode === 'update';
 
+  // 編輯器的查詢在事件中才執行：以 ref 讀最新的列，欄位定義不必隨每次編輯重建
+  const rowsRef = useRef(state.rows);
+  useEffect(() => {
+    rowsRef.current = state.rows;
+  }, [state.rows]);
+  /** 比對目標下拉選單查到的名稱：選取時寫進列上的 `target`（草稿與畫面都用它）。 */
+  const searchedTargets = useRef(new Map<string, string>());
+  const canPickTarget = isUpdate && Boolean(api.searchTargets);
+  /** 手動指定的目標 id → 名稱。 */
+  const manualLabels = useMemo(
+    () =>
+      new Map(
+        state.rows.flatMap((row) =>
+          row.target ? [[row.target.id, row.target.label] as const] : [],
+        ),
+      ),
+    [state.rows],
+  );
+
   const columns = useMemo<DataGridColumn[]>(() => {
-    const data = state.columns.map<DataGridColumn>((column) => ({
-      key: column.key,
-      name: column.label,
-      required: column.required,
-      description: [
-        t(COLUMN_KIND_LABEL_KEY[column.kind]),
-        column.hint,
-        column.multiple ? t('dataTransfer.import.multiple') : null,
-        column.options?.map((option) => option.label).join(t('dataTransfer.separator')),
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      width: column.kind === 'string' ? 200 : 150,
-      ...(column.options ? { options: column.options } : {}),
-      ...(column.kind === 'reference'
+    const data = state.columns.map<DataGridColumn>((column) => {
+      const editor: Partial<DataGridColumn> = {};
+      if (column.options) {
+        // 儲存格是選項的名稱（與檔案、匯出相同的文字），不是值代碼
+        editor.options = column.options.map((option) => ({
+          value: option.label,
+          label: option.label,
+        }));
+      } else if (column.kind === 'reference') {
+        editor.loadOptions = async (keyword: string) =>
+          (await api.searchOptions(type, column.key, keyword)).map((item) => ({
+            value: item.label,
+            label: item.label,
+          }));
+        editor.multiple = column.multiple;
+        editor.separator = SEPARATOR;
+      } else if (column.kind === 'string' && !column.multiple) {
+        editor.loadSuggestions = async (keyword: string) => {
+          if (!keyword) return [];
+          const local = localSuggestions(rowsRef.current, column, keyword, !isUpdate);
+          // 伺服器的建議（現有資料的值）只在修改模式有意義：新增模式填現有的值一定重複
+          const remote =
+            isUpdate && column.suggest
+              ? (await api.searchOptions(type, column.key, keyword)).map((item) => item.label)
+              : [];
+          return [...new Set([...local, ...remote])].slice(0, SUGGESTION_LIMIT);
+        };
+      }
+      return {
+        key: column.key,
+        name: column.label,
+        required: column.required,
+        description: [
+          t(COLUMN_KIND_LABEL_KEY[column.kind]),
+          column.hint,
+          column.multiple ? t('dataTransfer.import.multiple') : null,
+          column.options?.map((option) => option.label).join(t('dataTransfer.separator')),
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        width: column.kind === 'string' ? 200 : 150,
+        ...editor,
+        renderValue: (value: string) =>
+          value === NULL_TOKEN ? (
+            <Chip tone="warning">{t('dataTransfer.import.clearValue')}</Chip>
+          ) : (
+            value
+          ),
+      };
+    });
+    if (!isUpdate) return data;
+    const target: DataGridColumn = {
+      key: TARGET_COLUMN,
+      name: t('dataTransfer.import.target'),
+      width: 240,
+      editable: canPickTarget,
+      renderValue: (value, row) => {
+        const result = state.results[Number(row.key)];
+        if (value === TARGET_NONE) {
+          return <Chip tone="warning">{t('dataTransfer.import.targetUnmatched')}</Chip>;
+        }
+        if (value === TARGET_AUTO) {
+          return (
+            result?.target?.label ?? (
+              <span className="text-[var(--color-fg-muted)]">
+                {t('dataTransfer.import.targetUnmatched')}
+              </span>
+            )
+          );
+        }
+        return (
+          <span className="flex items-center gap-1" data-testid="import-target-manual">
+            <span className="truncate">{manualLabels.get(value) ?? value}</span>
+            <Chip tone="brand">{t('dataTransfer.import.targetManual')}</Chip>
+          </span>
+        );
+      },
+      ...(canPickTarget
         ? {
-            loadSuggestions: async (keyword: string) =>
-              (await api.searchOptions(type, column.key, keyword)).map((item) => item.label),
+            options: [
+              {
+                value: TARGET_AUTO,
+                label: t('dataTransfer.import.targetAuto'),
+                description: t('dataTransfer.import.targetAutoHint'),
+              },
+              {
+                value: TARGET_NONE,
+                label: t('dataTransfer.import.targetNone'),
+                description: t('dataTransfer.import.targetNoneHint'),
+              },
+            ],
+            rowOptions: (row: DataGridRow) => {
+              const value = row.cells[TARGET_COLUMN] ?? '';
+              const label = manualLabels.get(value);
+              return label ? [{ value, label }] : [];
+            },
+            loadOptions: async (keyword: string) => {
+              const items = (await api.searchTargets?.(type, keyword)) ?? [];
+              for (const item of items) searchedTargets.current.set(item.id, item.label);
+              return items.map((item) => ({
+                value: item.id,
+                label: item.label,
+                ...(item.description ? { description: item.description } : {}),
+              }));
+            },
           }
         : {}),
-      renderValue: (value: string) =>
-        value === NULL_TOKEN ? (
-          <Chip tone="warning">{t('dataTransfer.import.clearValue')}</Chip>
-        ) : (
-          value
-        ),
-    }));
-    if (!isUpdate) return data;
-    return [
-      { key: TARGET_COLUMN, name: t('dataTransfer.import.target'), editable: false, width: 200 },
-      ...data,
-    ];
-  }, [api, isUpdate, state.columns, t, type]);
+    };
+    return [target, ...data];
+  }, [api, canPickTarget, isUpdate, manualLabels, state.columns, state.results, t, type]);
 
   const visible = useMemo(() => {
     const statuses = FILTER_STATUSES[filter];
@@ -139,11 +287,17 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
           }
         }
         const rowLevel = issues.filter((issue: RowIssue) => issue.column === null);
+        // 比對不到、撤回比對：問題落在比對目標欄，可以直接在那一格改選
+        const targetIssues = rowLevel.filter((issue) => TARGET_ISSUES.has(issue.code));
+        if (isUpdate && targetIssues.length) {
+          states[TARGET_COLUMN] = {
+            tone: 'error',
+            message: targetIssues.map((issue) => issueMessage(issue)).join('\n'),
+          };
+        }
         return {
           key: row.rowNo,
-          cells: isUpdate
-            ? { ...row.cells, [TARGET_COLUMN]: result?.target?.label ?? '' }
-            : row.cells,
+          cells: isUpdate ? { ...row.cells, [TARGET_COLUMN]: targetCell(row) } : row.cells,
           states,
           tone: ROW_TONE[status],
           header: (
@@ -163,6 +317,33 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
   );
 
   const rowNoAt = (index: number) => visible[index]?.rowNo;
+
+  /** 比對目標欄的變更：自動比對（清空儲存格也是）、撤回、手動指定；貼上不認得的文字不理會。 */
+  const changeTarget = (rowNo: number, value: string) => {
+    if (value === TARGET_AUTO || value === '') return workspace.setTarget(rowNo, undefined);
+    if (value === TARGET_NONE) return workspace.setTarget(rowNo, null);
+    const label = searchedTargets.current.get(value) ?? manualLabels.get(value);
+    if (label) workspace.setTarget(rowNo, { id: value, label });
+  };
+
+  // 復原／重做的快捷鍵（⌘Z／⌘⇧Z、Ctrl＋Z／Ctrl＋Shift＋Z、Ctrl＋Y）：焦點不在表格時也可以用；
+  // 在輸入框裡是瀏覽器原生的文字復原。表格自己處理過的按鍵（defaultPrevented）不會再觸發一次
+  const history = useRef({ undo: workspace.undo, redo: workspace.redo });
+  useEffect(() => {
+    history.current = { undo: workspace.undo, redo: workspace.redo };
+  }, [workspace.redo, workspace.undo]);
+  useEffect(() => {
+    const unregister = [
+      registerHotkey({ combo: 'mod+z', run: () => history.current.undo() }),
+      registerHotkey({ combo: 'mod+shift+z', run: () => history.current.redo() }),
+      ...(isMacPlatform()
+        ? []
+        : [registerHotkey({ combo: 'mod+y', run: () => history.current.redo() })]),
+    ];
+    return () => {
+      for (const off of unregister) off();
+    };
+  }, []);
   const counts: Record<Filter, number> = {
     all: summary.total,
     errors: summary.errors,
@@ -172,6 +353,38 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
   };
   const blocked = summary.errors > 0 && !skipInvalid;
   const submitCount = workspace.submittable.length;
+  // 有錯誤的列不會寫入：沒勾略過時整批擋下，勾了就略過
+  const applyCount = Math.max(0, submitCount - summary.errors);
+  const submitStats: Array<{ key: string; label: string; rows: number; tone?: 'danger' }> = [
+    {
+      key: isUpdate ? 'update' : 'create',
+      label: t(isUpdate ? 'dataTransfer.import.submitUpdate' : 'dataTransfer.import.submitCreate'),
+      rows: applyCount,
+    },
+    ...(isUpdate && summary.unchanged > 0
+      ? [
+          {
+            key: 'unchanged',
+            label: t('dataTransfer.import.submitUnchanged'),
+            rows: summary.unchanged,
+          },
+        ]
+      : []),
+    ...(summary.errors > 0
+      ? [
+          {
+            key: 'errors',
+            label: t(
+              skipInvalid
+                ? 'dataTransfer.import.submitSkipped'
+                : 'dataTransfer.import.submitErrors',
+            ),
+            rows: summary.errors,
+            tone: 'danger' as const,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3" data-testid="import-preview">
@@ -262,7 +475,12 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
         <DataGrid
           columns={columns}
           rows={gridRows}
-          onCellsChange={(changes) =>
+          onCellsChange={(changes) => {
+            for (const change of changes) {
+              const rowNo = rowNoAt(change.rowIndex);
+              if (rowNo === undefined || change.key !== TARGET_COLUMN) continue;
+              changeTarget(rowNo, change.value);
+            }
             workspace.edit(
               changes.flatMap((change) => {
                 const rowNo = rowNoAt(change.rowIndex);
@@ -270,8 +488,8 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
                   ? []
                   : [{ rowNo, key: change.key, value: change.value }];
               }),
-            )
-          }
+            );
+          }}
           onUndo={workspace.undo}
           onRedo={workspace.redo}
           selectedRows={selected}
@@ -308,7 +526,6 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
         open={confirming}
         onOpenChange={setConfirming}
         title={t('dataTransfer.import.submitTitle')}
-        description={t('dataTransfer.import.submitDescription', { rows: submitCount })}
         footer={
           <>
             <Button variant="secondary" onClick={() => setConfirming(false)}>
@@ -332,9 +549,28 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
         }
         data-testid="import-submit-dialog"
       >
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4 text-sm text-[var(--color-fg)]">
+          {/* 這次會發生什麼：大字的數字，一眼看得出要寫入幾筆、略過幾列 */}
+          <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
+            {submitStats.map((stat) => (
+              <div
+                key={stat.key}
+                className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-fill-subtle)] px-3 py-2"
+                data-testid={`import-submit-${stat.key}`}
+                data-value={stat.rows}
+              >
+                <dt className="text-[var(--color-fg-muted)]">{stat.label}</dt>
+                <dd
+                  className={`m-0 text-xl font-semibold tabular-nums ${stat.tone === 'danger' ? 'text-[var(--color-danger-text)]' : ''}`}
+                >
+                  {t('dataTransfer.import.submitRows', { rows: stat.rows })}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="m-0 leading-relaxed">{t('dataTransfer.import.submitBackground')}</p>
           {summary.errors > 0 && (
-            <>
+            <div className="flex flex-col gap-2">
               <Checkbox
                 checked={skipInvalid}
                 onCheckedChange={setSkipInvalid}
@@ -346,7 +582,7 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
                   {t('dataTransfer.import.hasErrors', { rows: summary.errors })}
                 </FormError>
               )}
-            </>
+            </div>
           )}
         </div>
       </Dialog>

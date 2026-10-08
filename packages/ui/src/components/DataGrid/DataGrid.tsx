@@ -1,6 +1,6 @@
 import 'react-data-grid/lib/styles.css';
 import { cn } from '@b2b-system/web-shared/utils';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ClipboardEvent, Key, ReactNode, Ref } from 'react';
 import { DataGrid as Grid, SelectColumn } from 'react-data-grid';
 import type {
@@ -9,9 +9,10 @@ import type {
   CellKeyboardEvent,
   Column,
   DataGridHandle,
-  RenderEditCellProps,
   RowsChangeData,
 } from 'react-data-grid';
+
+import { AutocompleteEditor, SelectEditor, TextEditor } from './DataGridEditors';
 
 import styles from './DataGrid.module.css';
 
@@ -27,7 +28,12 @@ export interface DataGridCellState {
 export interface DataGridOption {
   value: string;
   label: string;
+  /** 選項的第二行（例：比對目標的顯示名稱）。 */
+  description?: string;
 }
+
+/** 多值儲存格預設的分隔字元。 */
+export const DATA_GRID_SEPARATOR = ';';
 
 export interface DataGridColumn {
   key: string;
@@ -38,9 +44,20 @@ export interface DataGridColumn {
   width?: number;
   /** 預設可以編輯。 */
   editable?: boolean;
-  /** 固定選項：編輯器是下拉選單。 */
+  /**
+   * 下拉選單（`options`、`rowOptions`、`loadOptions` 任一個）：編輯器是包成儲存格樣子的 `Select`，
+   * 功能與 `Select` 相同（搜尋、虛擬捲動、多選）。儲存格的字串是選取的 `value`（多選以 `separator` 串接）。
+   */
   options?: readonly DataGridOption[];
-  /** 動態建議：編輯時依輸入查詢（例：遠端搜尋）。 */
+  /** 這一列特有的選項（例：目前的值，讓下拉選單顯示它的名稱）。 */
+  rowOptions?: (row: DataGridRow) => readonly DataGridOption[];
+  /** 遠端選項：展開與輸入關鍵字時查詢。 */
+  loadOptions?: (keyword: string) => Promise<readonly DataGridOption[]>;
+  /** 下拉選單可以多選。 */
+  multiple?: boolean;
+  /** 多選的分隔字元，預設 `;`。 */
+  separator?: string;
+  /** 文字欄的自動完成：輸入時查詢建議，仍可以輸入任意文字。 */
   loadSuggestions?: (keyword: string) => Promise<readonly string[]>;
   /** 自訂顯示；沒有就顯示原始字串。 */
   renderValue?: (value: string, row: DataGridRow) => ReactNode;
@@ -100,6 +117,14 @@ const TONE_CLASS = {
   pending: styles.pending,
 } as const satisfies Record<DataGridCellTone, string | undefined>;
 
+/** 事件來自編輯器的輸入框（或下拉選單的搜尋框）：剪貼簿交給瀏覽器處理文字。 */
+function isTextInput(target: EventTarget): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest('input, textarea') !== null)
+  );
+}
+
 /** 從 Excel 複製的範圍是 TSV：列以換行、欄以 Tab 分隔；引號包住的欄位可以含換行。 */
 export function parseTsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -133,104 +158,11 @@ export function parseTsv(text: string): string[][] {
   return rows;
 }
 
-function TextEditor({ row, column, onRowChange, onClose }: RenderEditCellProps<DataGridRow>) {
-  return (
-    <input
-      // oxlint-disable-next-line jsx-a11y/no-autofocus -- 試算表的編輯器：進入編輯時焦點就在輸入框
-      autoFocus
-      className={styles.editor}
-      value={row.cells[column.key] ?? ''}
-      aria-label={typeof column.name === 'string' ? column.name : column.key}
-      onChange={(event) =>
-        onRowChange({ ...row, cells: { ...row.cells, [column.key]: event.target.value } })
-      }
-      onBlur={() => onClose(true, false)}
-    />
-  );
-}
-
-function OptionsEditor({
-  options,
-  ...props
-}: RenderEditCellProps<DataGridRow> & { options: readonly DataGridOption[] }) {
-  const { row, column, onRowChange } = props;
-  const value = row.cells[column.key] ?? '';
-  const known = options.some((option) => option.label === value || option.value === value);
-  return (
-    <select
-      // oxlint-disable-next-line jsx-a11y/no-autofocus -- 同 TextEditor
-      autoFocus
-      className={styles.editor}
-      value={value}
-      aria-label={typeof column.name === 'string' ? column.name : column.key}
-      onChange={(event) =>
-        onRowChange({ ...row, cells: { ...row.cells, [column.key]: event.target.value } }, true)
-      }
-    >
-      <option value="">—</option>
-      {!known && value && <option value={value}>{value}</option>}
-      {options.map((option) => (
-        <option key={option.value} value={option.label}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function SuggestEditor({
-  loadSuggestions,
-  ...props
-}: RenderEditCellProps<DataGridRow> & {
-  loadSuggestions: (keyword: string) => Promise<readonly string[]>;
-}) {
-  const { row, column, onRowChange, onClose } = props;
-  const [suggestions, setSuggestions] = useState<readonly string[]>([]);
-  const listId = `data-grid-suggest-${String(row.key)}-${column.key}`;
-  const value = row.cells[column.key] ?? '';
-  // 只套用最後一次查詢的結果（輸入很快時，先發出的查詢可能後回來）
-  const latest = useRef('');
-  return (
-    <>
-      <input
-        // oxlint-disable-next-line jsx-a11y/no-autofocus -- 同 TextEditor
-        autoFocus
-        className={styles.editor}
-        value={value}
-        list={listId}
-        aria-label={typeof column.name === 'string' ? column.name : column.key}
-        onChange={(event) => {
-          const next = event.target.value;
-          onRowChange({ ...row, cells: { ...row.cells, [column.key]: next } });
-          // 多值以 ; 分隔：只對最後一段查詢
-          const keyword = next.split(';').at(-1)?.trim() ?? '';
-          latest.current = keyword;
-          void loadSuggestions(keyword).then(
-            (items) => {
-              if (latest.current === keyword) setSuggestions(items);
-            },
-            () => setSuggestions([]),
-          );
-        }}
-        onBlur={() => onClose(true, false)}
-      />
-      <datalist id={listId}>
-        {suggestions.map((item) => (
-          <option
-            key={item}
-            value={[...value.split(';').slice(0, -1), item].map((part) => part.trim()).join(';')}
-          >
-            {item}
-          </option>
-        ))}
-      </datalist>
-    </>
-  );
-}
-
 /**
  * 試算表式的表格（docs/architecture/frontend/21-data-transfer.md §3）：列與欄都虛擬捲動、方向鍵與 Tab 移動、
- * Enter／F2 編輯、Esc 取消、Delete 清空、F8 跳到下一個錯誤、Ctrl＋C 複製目前的儲存格、Ctrl＋V 貼上 TSV 範圍（可以直接從 Excel 貼過來）。
+ * Enter／F2 編輯、Esc 取消、Delete 清空、F8 跳到下一個錯誤、Ctrl＋C 複製目前的儲存格、Ctrl＋V 貼上 TSV 範圍（可以直接從 Excel 貼過來）；
+ * 編輯中的複製貼上只作用在輸入框的文字。
+ * 編輯器依欄位設定：文字（可以加自動完成）、下拉選單（單選或多選，可以遠端查詢）。
  *
  * 受控元件：列、欄、儲存格狀態都由 props 傳入，變更以 `onCellsChange` 回報；底層是 `react-data-grid`，
  * 型別不外露（之後換實作只動這個資料夾）。平常每一格是唯讀的顯示元件，只有正在編輯的那一格掛上輸入元件。
@@ -302,9 +234,22 @@ export function DataGrid({
         );
       },
       renderEditCell: (props) => {
-        if (column.options) return <OptionsEditor {...props} options={column.options} />;
+        if (column.options || column.rowOptions || column.loadOptions) {
+          return (
+            <SelectEditor
+              {...props}
+              config={{
+                ...(column.options ? { options: column.options } : {}),
+                ...(column.rowOptions ? { rowOptions: column.rowOptions } : {}),
+                ...(column.loadOptions ? { loadOptions: column.loadOptions } : {}),
+                multiple: Boolean(column.multiple),
+                separator: column.separator ?? DATA_GRID_SEPARATOR,
+              }}
+            />
+          );
+        }
         if (column.loadSuggestions)
-          return <SuggestEditor {...props} loadSuggestions={column.loadSuggestions} />;
+          return <AutocompleteEditor {...props} loadSuggestions={column.loadSuggestions} />;
         return <TextEditor {...props} />;
       },
     }));
@@ -382,6 +327,8 @@ export function DataGrid({
     { row, column }: CellCopyArgs<DataGridRow>,
     event: ClipboardEvent<HTMLDivElement>,
   ) => {
+    // 編輯中：複製輸入框裡選取的文字（瀏覽器的預設），不是整格
+    if (isTextInput(event.target)) return;
     event.clipboardData.setData('text/plain', row.cells[column.key] ?? '');
     event.preventDefault();
   };
@@ -391,6 +338,8 @@ export function DataGrid({
     { row, column }: CellCopyArgs<DataGridRow>,
     event: ClipboardEvent<HTMLDivElement>,
   ): DataGridRow => {
+    // 編輯中：貼到輸入框的游標位置（瀏覽器的預設），不是整格或範圍貼上
+    if (isTextInput(event.target)) return row;
     event.preventDefault();
     if (!onCellsChange) return row;
     const startRow = rows.indexOf(row);

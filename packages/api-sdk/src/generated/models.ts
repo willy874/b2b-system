@@ -900,7 +900,7 @@ export interface DataTransfer {
   direction: 'export' | 'import';
   type: string;
   mode: ('create' | 'update') | null;
-  format: 'csv' | 'xlsx' | 'sql';
+  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
   status: 'queued' | 'running' | 'applying' | 'completed' | 'failed' | 'cancelled' | 'expired';
   scopeKind: ('ids' | 'filter') | null;
   columns: Array<string>;
@@ -947,7 +947,7 @@ export interface DataTransferResource {
   type: string;
   label: string;
   export: {
-    formats: Array<'csv' | 'xlsx' | 'sql'>;
+    formats: Array<'csv' | 'xlsx' | 'json' | 'yaml' | 'sql'>;
     columns: Array<DataTransferExportColumn>;
     orderHint: string | null;
   } | null;
@@ -967,6 +967,7 @@ export interface DataTransferImportColumn {
   matchKey: number | null;
   unique: boolean;
   nullable: boolean;
+  suggest: boolean;
   hint: string | null;
   options: Array<DataTransferOption> | null;
   transitions: Record<string, Array<string>> | null;
@@ -984,6 +985,14 @@ export interface DataTransferReferenceOptionList {
   items: Array<{
     id: string;
     label: string;
+  }>;
+}
+
+export interface DataTransferTargetOptionList {
+  items: Array<{
+    id: string;
+    label: string;
+    description?: string;
   }>;
 }
 
@@ -1013,6 +1022,7 @@ export interface DataTransferImportRow {
   rowNo: number;
   sourceRow: number | null;
   cells: Record<string, string>;
+  targetId?: string | null;
 }
 
 export type DataTransferImportAnalysis =
@@ -1051,6 +1061,7 @@ export interface ValidateImportRequest {
   rows: Array<{
     rowNo: number;
     cells: Record<string, string>;
+    targetId?: string | null;
   }>;
 }
 
@@ -1067,6 +1078,7 @@ export interface CreateImportRequest {
     rowNo: number;
     sourceRow?: number | null;
     cells: Record<string, string>;
+    targetId?: string | null;
     target?: {
       id: string;
       version: number;
@@ -1077,7 +1089,7 @@ export interface CreateImportRequest {
 
 export interface CreateExportRequest {
   type: string;
-  format: 'csv' | 'xlsx' | 'sql';
+  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
   scope:
     | {
         kind: 'ids';

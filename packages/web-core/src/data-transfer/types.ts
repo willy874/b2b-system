@@ -15,7 +15,10 @@ export type TransferStatus =
   | 'expired';
 export type TransferDirection = 'export' | 'import';
 export type ImportMode = 'create' | 'update';
-export type ExportFormat = 'csv' | 'xlsx' | 'sql';
+export type ExportFormat = 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql';
+/** 可以匯入的檔案格式，也是範本的格式。 */
+export type ImportFormat = 'csv' | 'xlsx' | 'json' | 'yaml';
+/** 結果報告的格式。 */
 export type SheetFormat = 'csv' | 'xlsx';
 export type RowOutcome = 'pending' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
 export type TransferColumnKind =
@@ -73,6 +76,8 @@ export interface ImportColumnView {
   matchKey: number | null;
   unique: boolean;
   nullable: boolean;
+  /** 文字欄可以向伺服器查詢自動完成的建議（`searchOptions`）。 */
+  suggest: boolean;
   hint: string | null;
   options: Array<{ value: string; label: string }> | null;
   transitions: Record<string, string[]> | null;
@@ -100,10 +105,34 @@ export interface RowValidation {
   changed?: string[];
 }
 
+/** 修改模式在預覽中手動指定的比對目標。 */
+export interface ManualTarget {
+  id: string;
+  label: string;
+}
+
 export interface ImportRow {
   rowNo: number;
   sourceRow: number | null;
   cells: Record<string, string>;
+  /**
+   * 修改模式的比對目標（docs/architecture/backend/22-data-transfer.md §7.5）：沒有這個欄位是依比對鍵自動比對，
+   * `null` 是撤回比對（該列不會套用），物件是手動指定的紀錄。
+   */
+  target?: ManualTarget | null;
+}
+
+/** 送去驗證、套用的列：手動指定的目標以 `targetId` 表示。 */
+export interface ImportRowInput {
+  rowNo: number;
+  cells: Record<string, string>;
+  targetId?: string | null;
+}
+
+export interface TargetOption {
+  id: string;
+  label: string;
+  description?: string;
 }
 
 export type ImportAnalysis =
@@ -149,6 +178,7 @@ export interface SubmitImportRow {
   rowNo: number;
   sourceRow?: number | null;
   cells: Record<string, string>;
+  targetId?: string | null;
   target?: { id: string; version: number; expected?: Record<string, unknown> };
 }
 
@@ -197,19 +227,22 @@ export interface ImportApi extends DataTransferApi {
   downloadTemplate: (
     type: string,
     mode: ImportMode,
-    format: SheetFormat,
+    format: ImportFormat,
   ) => Promise<DownloadedFile>;
   analyze: (type: string, file: File, options: AnalyzeOptions) => Promise<ImportAnalysis>;
   validate: (
     type: string,
     mode: ImportMode,
-    rows: Array<{ rowNo: number; cells: Record<string, string> }>,
+    rows: ImportRowInput[],
   ) => Promise<{ rows: RowValidation[] }>;
+  /** `reference` 欄的選項，或文字欄（`suggest`）的自動完成。 */
   searchOptions: (
     type: string,
     column: string,
     keyword: string,
   ) => Promise<Array<{ id: string; label: string }>>;
+  /** 修改模式：手動指定比對目標的下拉選單。沒有給就不能手動指定（比對目標欄唯讀）。 */
+  searchTargets?: (type: string, keyword: string) => Promise<TargetOption[]>;
   createImport: (body: {
     type: string;
     mode: ImportMode;

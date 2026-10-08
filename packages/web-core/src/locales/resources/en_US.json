@@ -660,11 +660,15 @@
     "format": {
       "csv": "CSV",
       "xlsx": "Excel (XLSX)",
+      "json": "JSON",
+      "yaml": "YAML",
       "sql": "SQL"
     },
     "formatHint": {
       "csv": "Opens in Excel and most tools",
       "xlsx": "Keeps number and date formats",
+      "json": "For programs: keyed by column code, keeps numbers, booleans and lists",
+      "yaml": "Same content as JSON, easier to read and to keep in version control",
       "sql": "PostgreSQL INSERT statements for another database"
     },
     "outcome": {
@@ -725,11 +729,11 @@
       "matchKey": "Match key",
       "multiple": "Separate values with ;",
       "nullable": "Enter \\N to clear",
-      "uploadHint": "Drop a CSV or XLSX file here, or",
+      "uploadHint": "Drop a CSV, XLSX, JSON or YAML file here, or",
       "uploadBrowse": "browse",
       "uploadRemove": "Remove",
       "uploadTooLarge": "The file is too large (max {{max}})",
-      "uploadWrongType": "Only .csv and .xlsx are accepted",
+      "uploadWrongType": "Only .csv, .xlsx, .json and .yaml are accepted",
       "encoding": "Encoding",
       "encodingAuto": "Detect automatically",
       "encodingUtf8": "UTF-8",
@@ -770,7 +774,6 @@
       "applySuggestionAll": "Apply to all ({{rows}} rows)",
       "submit": "Apply {{rows}}",
       "submitTitle": "Start applying?",
-      "submitDescription": "{{rows}} rows will be applied in the background. You'll get a notification when it's done, and you can leave this page.",
       "skipInvalid": "Skip rows with errors ({{rows}})",
       "submitConfirm": "Start",
       "hasErrors": "{{rows}} rows still have errors. Fix them or skip them.",
@@ -799,7 +802,22 @@
       "leaveTitle": "Leave the import?",
       "leaveDescription": "The preview is saved as a draft. Come back within 24 hours to continue.",
       "undo": "Undo",
-      "redo": "Redo"
+      "redo": "Redo",
+      "templateJson": "JSON template",
+      "templateYaml": "YAML template",
+      "targetAuto": "Match automatically",
+      "targetAutoHint": "The record found by ID or email",
+      "targetNone": "Undo match",
+      "targetNoneHint": "This row will not be applied until a target is chosen again",
+      "targetUnmatched": "Not matched",
+      "targetManual": "Chosen manually",
+      "submitCreate": "To create",
+      "submitUpdate": "To update",
+      "submitUnchanged": "Unchanged (skipped)",
+      "submitErrors": "With errors",
+      "submitSkipped": "With errors (skipped)",
+      "submitRows": "{{rows}} rows",
+      "submitBackground": "Rows are applied in the background and you will be notified when it finishes; you can leave this page after submitting."
     },
     "issue": {
       "required": "Required",
@@ -830,7 +848,8 @@
       "roleNotAssignable": "You can't assign these roles: {{names}}",
       "selfModify": "You can't change this for yourself",
       "suggestion": "Suggestion: {{value}}",
-      "unknown": "Invalid data ({{code}})"
+      "unknown": "Invalid data ({{code}})",
+      "targetNotSelected": "Match undone: choose a target, or remove this row from the import"
     },
     "list": {
       "title": "My imports & exports",

@@ -10,6 +10,7 @@ import {
 } from '../data-transfer.constants';
 import {
   EXPORT_FORMATS,
+  IMPORT_FORMATS,
   IMPORT_MODES,
   ROW_OUTCOMES,
   SHEET_FORMATS,
@@ -24,6 +25,7 @@ export const TransferStatusSchema = z.enum(TRANSFER_STATUSES);
 export const ImportModeSchema = z.enum(IMPORT_MODES);
 export const ExportFormatSchema = z.enum(EXPORT_FORMATS);
 export const SheetFormatSchema = z.enum(SHEET_FORMATS);
+export const ImportFormatSchema = z.enum(IMPORT_FORMATS);
 export const RowOutcomeSchema = z.enum(ROW_OUTCOMES);
 
 const TypeSchema = z.string().trim().min(1).max(50);
@@ -144,6 +146,8 @@ export const ImportColumnViewSchema = defineSchema(
     unique: z.boolean(),
     /** 修改模式能不能以 `\N` 清空。 */
     nullable: z.boolean(),
+    /** 文字欄可以向伺服器查詢自動完成的建議（`/options`）；沒有的欄位只以同一欄填過的值建議。 */
+    suggest: z.boolean(),
     hint: z.string().nullable(),
     /** `enum` 的選項（依請求的語系）。 */
     options: z.array(TransferOptionSchema).nullable(),
@@ -165,17 +169,33 @@ export const ImportColumnListSchema = defineSchema(
 
 export const TemplateQuerySchema = z.object({
   mode: ImportModeSchema,
-  format: SheetFormatSchema.default('csv'),
+  format: ImportFormatSchema.default('csv'),
 });
 
 export const ReferenceOptionsQuerySchema = z.object({
   keyword: z.string().trim().max(100).default(''),
 });
 
+/** `reference` 欄的選項（id 是參照的 id）；文字欄的自動完成也是這個形狀（id 與 label 都是建議的值）。 */
 export const ReferenceOptionListSchema = defineSchema(
   'DataTransferReferenceOptionList',
   z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) }),
 );
+
+export const TargetOptionListSchema = defineSchema(
+  'DataTransferTargetOptionList',
+  z.object({
+    items: z.array(
+      z.object({ id: z.string(), label: z.string(), description: z.string().optional() }),
+    ),
+  }),
+);
+
+/**
+ * 修改模式手動指定的比對目標（§7.5）：沒有這個欄位是依比對鍵自動比對；`null` 是撤回比對（該列是錯誤
+ * `targetNotSelected`，不會套用）；字串是指定的紀錄 id（比對鍵不再用來找目標）。
+ */
+const TargetIdSchema = z.string().uuid().nullable().optional();
 
 // ── 匯入：分析、驗證 ──
 
@@ -219,6 +239,7 @@ export const ImportRowSchema = defineSchema(
     rowNo: z.number().int().min(1),
     sourceRow: z.number().int().nullable(),
     cells: CellsSchema,
+    targetId: TargetIdSchema,
   }),
 );
 
@@ -273,7 +294,9 @@ export const ValidateImportSchema = defineSchema(
   z.object({
     mode: ImportModeSchema,
     rows: z
-      .array(z.object({ rowNo: z.number().int().min(1), cells: CellsSchema }))
+      .array(
+        z.object({ rowNo: z.number().int().min(1), cells: CellsSchema, targetId: TargetIdSchema }),
+      )
       .min(1)
       .max(DATA_TRANSFER_VALIDATE_MAX_ROWS),
   }),
@@ -298,6 +321,7 @@ export const CreateImportSchema = defineSchema(
           rowNo: z.number().int().min(1),
           sourceRow: z.number().int().min(1).nullable().optional(),
           cells: CellsSchema,
+          targetId: TargetIdSchema,
           /** 修改模式：預覽時比對到的目標（只是樂觀鎖的輸入，不是授權）。 */
           target: z
             .object({

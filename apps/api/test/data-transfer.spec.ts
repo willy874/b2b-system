@@ -814,6 +814,209 @@ describe('匯入／匯出（docs/architecture/backend/22-data-transfer.md）', (
     });
   });
 
+  describe('JSON／YAML、自動完成、手動指定比對目標（§6.5、§7.3、§7.5）', () => {
+    const validate = (token: string, body: object) =>
+      request(http)
+        .post('/data-transfers/importers/user/validate')
+        .set('authorization', `Bearer ${token}`)
+        .send(body);
+
+    it('分析 JSON 與 YAML：以欄位 key 為標頭，多值的陣列轉成 ; 串接', async () => {
+      const admin = await login(ADMIN);
+      const json = Buffer.from(
+        JSON.stringify({
+          users: [{ email: 'json-1@example.com', displayName: 'Json 1', roles: ['稽核人員'] }],
+        }),
+      );
+      const fromJson = await analyze(admin, json, 'users.json', { mode: 'create' }).expect(200);
+      const okJson = (fromJson.body as { data: AnalysisOk }).data;
+      expect(okJson.status).toBe('ok');
+      expect(okJson.rows[0]?.cells).toEqual({
+        email: 'json-1@example.com',
+        displayName: 'Json 1',
+        roles: '稽核人員',
+      });
+      expect(okJson.results[0]?.issues).toEqual([]);
+
+      await db.insert(users).values({ email: 'yaml-1@example.com', displayName: 'Yaml 1' });
+      const yaml = Buffer.from('- email: yaml-1@example.com\n  displayName: Yaml One\n');
+      const fromYaml = await analyze(admin, yaml, 'users.yml', { mode: 'update' }).expect(200);
+      const okYaml = (fromYaml.body as { data: AnalysisOk }).data;
+      expect(okYaml.results[0]).toMatchObject({ changed: ['displayName'] });
+
+      const broken = await analyze(admin, Buffer.from('[1, 2]'), 'users.json', {
+        mode: 'create',
+      }).expect(422);
+      expect((broken.body as { error: { code: string } }).error.code).toBe(
+        'DATA_TRANSFER_FILE_UNREADABLE',
+      );
+    });
+
+    it('範本也有 JSON／YAML：以欄位 key 為鍵、多值是陣列', async () => {
+      const admin = await login(ADMIN);
+      const response = await request(http)
+        .get('/data-transfers/importers/user/template?mode=create&format=json')
+        .set('authorization', `Bearer ${admin}`)
+        .buffer(true)
+        .parse((res, done) => {
+          let text = '';
+          res.on('data', (chunk: Buffer) => (text += chunk.toString('utf8')));
+          res.on('end', () => done(null, text));
+        })
+        .expect(200);
+      expect(response.headers['content-type']).toContain('application/json');
+      expect(JSON.parse(response.body as string)).toEqual([
+        { email: 'alice@example.com', username: 'alice', displayName: 'Alice Chen', roles: [] },
+      ]);
+    });
+
+    it('自動完成：Email 欄建議現有的值；沒有 suggest 的文字欄不能查', async () => {
+      const admin = await login(ADMIN);
+      await db.insert(users).values({ email: 'suggest-me@example.com', displayName: 'Suggest' });
+      const found = await request(http)
+        .get('/data-transfers/importers/user/columns/email/options?keyword=suggest')
+        .set('authorization', `Bearer ${admin}`)
+        .expect(200);
+      expect(
+        (found.body as { data: { items: { id: string; label: string }[] } }).data.items,
+      ).toEqual([{ id: 'suggest-me@example.com', label: 'suggest-me@example.com' }]);
+      await request(http)
+        .get('/data-transfers/importers/user/columns/displayName/options?keyword=a')
+        .set('authorization', `Bearer ${admin}`)
+        .expect(400);
+    });
+
+    it('比對目標的下拉選單：要有修改模式的權限', async () => {
+      const admin = await login(ADMIN);
+      const [target] = await db
+        .insert(users)
+        .values({ email: 'pick-me@example.com', displayName: 'Pick Me' })
+        .returning();
+      const found = await request(http)
+        .get('/data-transfers/importers/user/targets?keyword=pick-me')
+        .set('authorization', `Bearer ${admin}`)
+        .expect(200);
+      expect((found.body as { data: { items: unknown[] } }).data.items).toEqual([
+        { id: target!.id, label: 'pick-me@example.com', description: 'Pick Me' },
+      ]);
+      await request(http)
+        .get('/data-transfers/importers/user/targets')
+        .set('authorization', `Bearer ${await login(MEMBER)}`)
+        .expect(403);
+    });
+
+    it('驗證：手動指定的目標取代比對鍵；撤回比對是錯誤；指定不存在的紀錄找不到', async () => {
+      const admin = await login(ADMIN);
+      const [target] = await db
+        .insert(users)
+        .values({ email: 'manual@example.com', displayName: 'Manual' })
+        .returning();
+      const response = await validate(admin, {
+        mode: 'update',
+        rows: [
+          {
+            rowNo: 1,
+            cells: { email: 'typo@example.com', displayName: 'Manual 2' },
+            targetId: target!.id,
+          },
+          { rowNo: 2, cells: { email: 'manual@example.com', displayName: 'X' }, targetId: null },
+          {
+            rowNo: 3,
+            cells: { displayName: 'Y' },
+            targetId: '00000000-0000-4000-8000-000000000000',
+          },
+        ],
+      }).expect(200);
+      const rows = (response.body as { data: { rows: AnalysisOk['results'] } }).data.rows;
+      expect(rows[0]).toMatchObject({
+        issues: [],
+        target: { id: target!.id, current: { email: 'manual@example.com', displayName: 'Manual' } },
+        // Email 是比對鍵，不會被修改
+        changed: ['displayName'],
+      });
+      expect(rows[1]?.issues.map((issue) => issue.code)).toEqual(['targetNotSelected']);
+      expect(rows[1]?.target).toBeUndefined();
+      expect(rows[2]?.issues.map((issue) => issue.code)).toEqual(['targetNotFound']);
+    });
+
+    it('套用：工作照用手動指定的目標；撤回比對的列略過，不會改用 Email 自動比對', async () => {
+      const admin = await login(ADMIN);
+      const [picked] = await db
+        .insert(users)
+        .values({ email: 'picked@example.com', displayName: 'Picked' })
+        .returning();
+      const [untouched] = await db
+        .insert(users)
+        .values({ email: 'untouched@example.com', displayName: 'Untouched' })
+        .returning();
+      const created = await request(http)
+        .post('/data-transfers/imports')
+        .set('authorization', `Bearer ${admin}`)
+        .send({
+          type: 'user',
+          mode: 'update',
+          skipInvalid: true,
+          rows: [
+            {
+              rowNo: 1,
+              cells: { email: 'nobody@example.com', displayName: 'Picked 2' },
+              targetId: picked!.id,
+              target: { id: picked!.id, version: picked!.version },
+            },
+            {
+              rowNo: 2,
+              cells: { email: 'untouched@example.com', displayName: 'Should Not Change' },
+              targetId: null,
+            },
+          ],
+        })
+        .expect(202);
+      const transfer = (created.body as { data: TransferBody }).data;
+      const stored = await db
+        .select()
+        .from(dataTransferRows)
+        .where(eq(dataTransferRows.transferId, transfer.id));
+      expect(
+        stored
+          .toSorted((a, b) => a.rowNo - b.rowNo)
+          .map((row) => [row.rowNo, row.targetManual, row.targetId]),
+      ).toEqual([
+        [1, true, picked!.id],
+        [2, true, null],
+      ]);
+
+      await runApply(transfer.id);
+      expect(await getTransfer(admin, transfer.id)).toMatchObject({
+        status: 'completed',
+        succeededRows: 1,
+        skippedRows: 1,
+      });
+      const [after] = await db.select().from(users).where(eq(users.id, picked!.id));
+      expect(after?.displayName).toBe('Picked 2');
+      const [same] = await db.select().from(users).where(eq(users.id, untouched!.id));
+      expect(same?.displayName).toBe('Untouched');
+    });
+
+    it('匯出 JSON：以欄位 key 為鍵，enum 是值代碼', async () => {
+      const admin = await login(ADMIN);
+      await db
+        .insert(users)
+        .values({ email: 'export-json@example.com', displayName: 'Export', status: 'active' });
+      const created = await createExport(admin, {
+        type: 'user',
+        format: 'json',
+        scope: { kind: 'filter', filter: { keyword: 'export-json' } },
+        columns: ['email', 'status', 'roles'],
+      });
+      const transfer = (created.body as { data: TransferBody }).data;
+      await runExport(transfer.id);
+      expect((await getTransfer(admin, transfer.id)).outputName).toMatch(/\.json$/);
+      expect(JSON.parse(outputOf(transfer.id).toString('utf8'))).toEqual([
+        { email: 'export-json@example.com', status: 'active', roles: [] },
+      ]);
+    });
+  });
+
   describe('清理（§10）', () => {
     it('到期的傳輸：刪除匯出檔與套用列、標成 expired；超過 90 天的紀錄刪除', async () => {
       const admin = await login(ADMIN);

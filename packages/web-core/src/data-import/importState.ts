@@ -3,6 +3,7 @@ import type {
   ImportColumnView,
   ImportMode,
   ImportRow,
+  ManualTarget,
   RowIssue,
   RowValidation,
 } from '../data-transfer';
@@ -57,6 +58,8 @@ export type ImportAction =
       revalidate?: boolean;
     }
   | { type: 'editCells'; changes: CellChange[] }
+  /** 修改模式的比對目標：`undefined` 改回自動比對、`null` 撤回比對、物件是手動指定（可以復原）。 */
+  | { type: 'setTarget'; rowNo: number; target: ManualTarget | null | undefined }
   | { type: 'addRows'; count: number }
   | { type: 'removeRows'; rowNos: number[] }
   | { type: 'undo' }
@@ -183,6 +186,18 @@ export function importReducer(state: ImportState, action: ImportAction): ImportS
       };
       return commit(state, edit, record(state, edit));
     }
+    case 'setTarget': {
+      const row = state.rows.find((item) => item.rowNo === action.rowNo);
+      if (!row || sameTarget(row.target, action.target)) return state;
+      const next: ImportRow = {
+        rowNo: row.rowNo,
+        sourceRow: row.sourceRow,
+        cells: row.cells,
+        ...(action.target === undefined ? {} : { target: action.target }),
+      };
+      const edit: Edit = { rowNos: [row.rowNo], before: [row], after: [next] };
+      return commit(state, edit, record(state, edit));
+    }
     case 'addRows': {
       const last = state.rows.at(-1)?.rowNo ?? 0;
       const added = Array.from({ length: action.count }, (_, index) => ({
@@ -260,6 +275,20 @@ export function importReducer(state: ImportState, action: ImportAction): ImportS
     case 'reset':
       return emptyImportState(action.mode);
   }
+}
+
+function sameTarget(
+  a: ManualTarget | null | undefined,
+  b: ManualTarget | null | undefined,
+): boolean {
+  if (a === undefined || a === null || b === undefined || b === null) return a === b;
+  return a.id === b.id;
+}
+
+/** 送去驗證、套用時的 `targetId`：自動比對時不帶。 */
+export function targetIdOf(row: ImportRow): { targetId?: string | null } {
+  if (row.target === undefined) return {};
+  return { targetId: row.target?.id ?? null };
 }
 
 /** 正規化後比對（與後端相同：全形轉半形、去空白、小寫、壓縮空白）。 */

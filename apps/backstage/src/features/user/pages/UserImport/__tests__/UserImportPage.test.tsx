@@ -41,6 +41,7 @@ beforeEach(() => {
         matchKey: 2,
         unique: true,
         nullable: false,
+        suggest: false,
         hint: null,
         options: null,
         transitions: null,

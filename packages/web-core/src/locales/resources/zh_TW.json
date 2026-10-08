@@ -631,11 +631,15 @@
     "format": {
       "csv": "CSV",
       "xlsx": "Excel（XLSX）",
+      "json": "JSON",
+      "yaml": "YAML",
       "sql": "SQL"
     },
     "formatHint": {
       "csv": "Excel 與大多數工具都能開啟",
       "xlsx": "保留數字與日期的格式",
+      "json": "給程式讀取：以欄位代碼為鍵，保留數字、是否與多值",
+      "yaml": "與 JSON 相同的內容，方便人閱讀與版本控制",
       "sql": "PostgreSQL 的 INSERT，匯入其他資料庫"
     },
     "outcome": {
@@ -696,11 +700,11 @@
       "matchKey": "比對鍵",
       "multiple": "多個值以 ; 分隔",
       "nullable": "填 \\N 清空",
-      "uploadHint": "把 CSV 或 XLSX 拖曳到這裡，或",
+      "uploadHint": "把 CSV、XLSX、JSON 或 YAML 拖曳到這裡，或",
       "uploadBrowse": "選擇檔案",
       "uploadRemove": "移除",
       "uploadTooLarge": "檔案太大（上限 {{max}}）",
-      "uploadWrongType": "只接受 .csv、.xlsx",
+      "uploadWrongType": "只接受 .csv、.xlsx、.json、.yaml",
       "encoding": "編碼",
       "encodingAuto": "自動偵測",
       "encodingUtf8": "UTF-8",
@@ -741,7 +745,6 @@
       "applySuggestionAll": "全部套用（{{rows}} 列）",
       "submit": "套用 {{rows}} 筆",
       "submitTitle": "開始套用？",
-      "submitDescription": "將在背景套用 {{rows}} 列，完成時會收到通知；可以離開這一頁。",
       "skipInvalid": "略過有錯誤的列（{{rows}} 列）",
       "submitConfirm": "開始套用",
       "hasErrors": "還有 {{rows}} 列有錯誤：請先修正，或勾選略過",
@@ -770,7 +773,22 @@
       "leaveTitle": "離開匯入？",
       "leaveDescription": "預覽中的資料已存成草稿，24 小時內回來可以接續。",
       "undo": "復原",
-      "redo": "重做"
+      "redo": "重做",
+      "templateJson": "JSON 範本",
+      "templateYaml": "YAML 範本",
+      "targetAuto": "自動比對",
+      "targetAutoHint": "依 ID 或 Email 找到的資料",
+      "targetNone": "撤回比對",
+      "targetNoneHint": "這一列不會套用，直到重新選擇比對目標",
+      "targetUnmatched": "未比對",
+      "targetManual": "手動指定",
+      "submitCreate": "將新增",
+      "submitUpdate": "將修改",
+      "submitUnchanged": "沒有變更（略過）",
+      "submitErrors": "有錯誤",
+      "submitSkipped": "有錯誤（略過）",
+      "submitRows": "{{rows}} 列",
+      "submitBackground": "套用在背景進行，完成時會收到通知；送出後可以離開這一頁。"
     },
     "issue": {
       "required": "必填",
@@ -801,7 +819,8 @@
       "roleNotAssignable": "你不能指派這些角色：{{names}}",
       "selfModify": "不能修改自己的這個欄位",
       "suggestion": "建議：{{value}}",
-      "unknown": "資料有誤（{{code}}）"
+      "unknown": "資料有誤（{{code}}）",
+      "targetNotSelected": "已撤回比對：請選擇比對目標，或從匯入中移除這一列"
     },
     "list": {
       "title": "我的匯入匯出",

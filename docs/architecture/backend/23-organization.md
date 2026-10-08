@@ -22,7 +22,7 @@
 
 ---
 
-## 2. 資料模型（租戶 DB，migration 0046）
+## 2. 資料模型（租戶 DB，migration 0047）
 
 | 表 | 欄位 |
 | --- | --- |
@@ -124,7 +124,7 @@
 | `orgUnit:update` | 改名、搬移、排序；增減成員、設定主管與主要部門 | 包含 `orgUnit:read`；依賴 `user:read` | super-admin、admin |
 | `orgUnit:delete` | 軟刪除與還原 | 包含 `orgUnit:update` | super-admin、admin |
 
-`orgUnit:update` 不受反提權限制（不授予任何權限鍵）。不能改自己（D6）。既有租戶的系統角色由 migration 0046 補上。
+`orgUnit:update` 不受反提權限制（不授予任何權限鍵）。不能改自己（D6）。既有租戶的系統角色由 migration 0047 補上。
 
 ---
 

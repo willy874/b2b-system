@@ -2,6 +2,7 @@ import type { ChipTone } from '@b2b-system/ui/Chip';
 
 import type {
   ExportFormat,
+  ImportFormat,
   ImportMode,
   RowOutcome,
   TransferColumnKind,
@@ -18,6 +19,8 @@ export const ACTIVE_TRANSFER_STATUSES: ReadonlySet<TransferStatus> = new Set([
 
 /** 推播斷線時的輪詢間隔（docs/architecture/backend/22-data-transfer.md §8.2）。 */
 export const TRANSFER_POLL_INTERVAL_MS = 5000;
+/** 推播連線中、傳輸還在進行時的保險輪詢間隔（推播漏掉時不會一直停在進行中）。 */
+export const TRANSFER_SAFETY_POLL_INTERVAL_MS = 15_000;
 /** `validate` 一次最多送的列數（與後端一致）。 */
 export const VALIDATE_BATCH_SIZE = 1000;
 /** 連續的修改合併成一個驗證請求的間隔。 */
@@ -67,14 +70,29 @@ export const IMPORT_MODE_HINT_KEY = {
 export const EXPORT_FORMAT_LABEL_KEY = {
   csv: 'dataTransfer.format.csv',
   xlsx: 'dataTransfer.format.xlsx',
+  json: 'dataTransfer.format.json',
+  yaml: 'dataTransfer.format.yaml',
   sql: 'dataTransfer.format.sql',
 } as const satisfies Record<ExportFormat, string>;
 
 export const EXPORT_FORMAT_HINT_KEY = {
   csv: 'dataTransfer.formatHint.csv',
   xlsx: 'dataTransfer.formatHint.xlsx',
+  json: 'dataTransfer.formatHint.json',
+  yaml: 'dataTransfer.formatHint.yaml',
   sql: 'dataTransfer.formatHint.sql',
 } as const satisfies Record<ExportFormat, string>;
+
+/** 範本的下載按鈕（依序）。 */
+export const IMPORT_TEMPLATE_FORMATS = [
+  'xlsx',
+  'csv',
+  'json',
+  'yaml',
+] as const satisfies readonly ImportFormat[];
+
+/** 上傳時接受的副檔名（與後端的 `importFormatOf` 一致）。 */
+export const IMPORT_ACCEPT = '.csv,.tsv,.txt,.xlsx,.json,.yaml,.yml';
 
 export const ROW_OUTCOME_LABEL_KEY = {
   pending: 'dataTransfer.outcome.pending',
@@ -132,6 +150,7 @@ export const ISSUE_MESSAGE_KEY: Readonly<Record<string, string>> = {
   duplicateTarget: 'dataTransfer.issue.duplicateTarget',
   transitionNotAllowed: 'dataTransfer.issue.transitionNotAllowed',
   noChanges: 'dataTransfer.issue.noChanges',
+  targetNotSelected: 'dataTransfer.issue.targetNotSelected',
   roleNotAssignable: 'dataTransfer.issue.roleNotAssignable',
   selfModify: 'dataTransfer.issue.selfModify',
 };

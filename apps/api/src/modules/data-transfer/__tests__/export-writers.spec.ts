@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { parse as parseYaml } from 'yaml';
 
 import type { TransferColumn } from '../data-transfer.types';
 import { createExportWriter, csvField } from '../export/export-writers';
@@ -49,7 +50,10 @@ const meta = {
   generatedBy: 'a@example.com',
 };
 
-async function write(format: 'csv' | 'xlsx' | 'sql'): Promise<Buffer> {
+async function write(
+  format: 'csv' | 'xlsx' | 'json' | 'yaml' | 'sql',
+  records: readonly Row[] = rows,
+): Promise<Buffer> {
   const chunks: Buffer[] = [];
   const writer = createExportWriter(
     format,
@@ -59,8 +63,10 @@ async function write(format: 'csv' | 'xlsx' | 'sql'): Promise<Buffer> {
     meta,
   );
   await writer.start();
-  await writer.write(rows);
-  await writer.finish(rows.length);
+  // 分兩頁寫，確認逐頁寫出的結果仍是一份合法的檔案
+  await writer.write(records.slice(0, 1));
+  await writer.write(records.slice(1));
+  await writer.finish(records.length);
   return Buffer.concat(chunks);
 }
 
@@ -102,5 +108,27 @@ describe('匯出的寫檔器（docs/architecture/backend/22-data-transfer.md §6
     // 牆上時間：台北的 14:30
     expect((sheet.getCell('C2').value as Date).toISOString()).toBe('2026-10-08T14:30:00.000Z');
     expect(sheet.getCell('D2').value).toBe('a;b');
+  });
+
+  const expectedRecords = [
+    { name: '=1+1', count: -5, at: '2026-10-08T14:30:00+08:00', tags: ['a', 'b'] },
+    { name: 'line\nbreak "quoted"', count: 3, at: '2026-01-01T08:00:00+08:00', tags: [] },
+  ];
+
+  it('JSON：以欄位 key 為鍵的物件陣列，保留數字與多值的型別，不加公式前綴', async () => {
+    const text = (await write('json')).toString('utf8');
+    expect(JSON.parse(text)).toEqual(expectedRecords);
+    // 一筆一行：大檔案逐頁寫出，不必整份組成一個物件
+    expect(text.split('\n')).toHaveLength(5);
+  });
+
+  it('YAML：與 JSON 相同的內容；字串照 YAML 的規則加引號，讀回來型別不變', async () => {
+    const text = (await write('yaml')).toString('utf8');
+    expect(parseYaml(text)).toEqual(expectedRecords);
+  });
+
+  it('JSON／YAML：沒有資料時仍是空陣列', async () => {
+    expect(JSON.parse((await write('json', [])).toString('utf8'))).toEqual([]);
+    expect(parseYaml((await write('yaml', [])).toString('utf8'))).toEqual([]);
   });
 });

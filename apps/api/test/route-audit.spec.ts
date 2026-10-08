@@ -406,6 +406,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /data-transfers/importers/:type': 'authenticated',
       'GET /data-transfers/importers/:type/template': 'authenticated',
       'GET /data-transfers/importers/:type/columns/:key/options': 'authenticated',
+      'GET /data-transfers/importers/:type/targets': 'authenticated',
       'POST /data-transfers/importers/:type/analyze': 'authenticated',
       'POST /data-transfers/importers/:type/validate': 'authenticated',
       'GET /data-transfers/:id': 'authenticated',

@@ -28,6 +28,8 @@ import type {
   DataTransferControllerResourcesResult,
   DataTransferControllerRowsInput,
   DataTransferControllerRowsResult,
+  DataTransferControllerTargetOptionsInput,
+  DataTransferControllerTargetOptionsResult,
   DataTransferControllerTemplateInput,
   DataTransferControllerTemplateResult,
   DataTransferControllerValidateInput,
@@ -46,6 +48,7 @@ import {
   DataTransferReferenceOptionListSchema,
   DataTransferResourceListSchema,
   DataTransferSchema,
+  DataTransferTargetOptionListSchema,
   ValidateImportRequestSchema,
   ValidateImportResultSchema,
 } from '../components';
@@ -264,13 +267,46 @@ const dataTransferControllerReferenceOptionsOperation: OperationDefinition = {
   schemas: DataTransferControllerReferenceOptionsSchemas,
 };
 
-/** reference 欄位的搜尋（預覽中的下拉選單） */
+/** 預覽中的選項：reference 欄位的下拉選單，或文字欄的自動完成（欄位有 suggest 時） */
 export function dataTransferControllerReferenceOptions(
   input: DataTransferControllerReferenceOptionsInput,
   options?: RequestOptions,
 ): Promise<DataTransferControllerReferenceOptionsResult> {
   return request<DataTransferControllerReferenceOptionsResult>(
     dataTransferControllerReferenceOptionsOperation,
+    input,
+    options,
+  );
+}
+
+// GET /data-transfers/importers/{type}/targets
+
+export const DataTransferControllerTargetOptionsSchemas = {
+  path: z.object({
+    type: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: DataTransferTargetOptionListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const dataTransferControllerTargetOptionsOperation: OperationDefinition = {
+  id: 'DataTransferController_targetOptions',
+  method: 'GET',
+  path: '/data-transfers/importers/{type}/targets',
+  responseTypes: { 200: 'json' },
+  schemas: DataTransferControllerTargetOptionsSchemas,
+};
+
+/** 修改模式：手動指定比對目標的下拉選單（關鍵字搜尋） */
+export function dataTransferControllerTargetOptions(
+  input: DataTransferControllerTargetOptionsInput,
+  options?: RequestOptions,
+): Promise<DataTransferControllerTargetOptionsResult> {
+  return request<DataTransferControllerTargetOptionsResult>(
+    dataTransferControllerTargetOptionsOperation,
     input,
     options,
   );
@@ -299,7 +335,7 @@ const dataTransferControllerAnalyzeOperation: OperationDefinition = {
   schemas: DataTransferControllerAnalyzeSchemas,
 };
 
-/** 分析：上傳 CSV／XLSX，轉成 JSON 並逐列驗證（不保存任何資料） */
+/** 分析：上傳 CSV／XLSX／JSON／YAML，轉成 JSON 並逐列驗證（不保存任何資料） */
 export function dataTransferControllerAnalyze(
   input: DataTransferControllerAnalyzeInput,
   options?: RequestOptions,

@@ -20,10 +20,14 @@ export type TransferDirection = (typeof TRANSFER_DIRECTIONS)[number];
 export const IMPORT_MODES = ['create', 'update'] as const;
 export type ImportMode = (typeof IMPORT_MODES)[number];
 
-export const EXPORT_FORMATS = ['csv', 'xlsx', 'sql'] as const;
+export const EXPORT_FORMATS = ['csv', 'xlsx', 'json', 'yaml', 'sql'] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
-/** 範本與結果報告的格式（SQL 不能匯入，所以沒有）。 */
+/** 可以匯入的檔案格式，也是範本的格式（SQL 不能匯入，所以沒有）。 */
+export const IMPORT_FORMATS = ['csv', 'xlsx', 'json', 'yaml'] as const;
+export type ImportFormat = (typeof IMPORT_FORMATS)[number];
+
+/** 結果報告的格式：表格（多出「列號」「結果」「錯誤」三欄，修正後直接重新上傳）。 */
 export const SHEET_FORMATS = ['csv', 'xlsx'] as const;
 export type SheetFormat = (typeof SHEET_FORMATS)[number];
 
@@ -86,6 +90,11 @@ export interface TransferColumnImport {
   transitions?: Readonly<Record<string, readonly string[]>>;
   /** 匯入這一欄額外要的權限（例：角色欄要 `user:assignRole`）。 */
   permission?: PermissionKey;
+  /**
+   * 文字欄的自動完成：依輸入查詢現有的值（例：修改模式以 Email 比對時，建議現有使用者的 Email）。
+   * 沒有的欄位前端只以同一欄已經填過的值建議。
+   */
+  suggest?(keyword: string, ctx: TransferContext): Promise<readonly string[]>;
 }
 
 export interface TransferColumn<TRecord> {
@@ -218,6 +227,19 @@ export interface TransferImporter<TRecord> {
     rows: readonly ResolvedRow[],
     ctx: TransferContext,
   ): Promise<ReadonlyMap<number, readonly RowIssue[]>>;
+  /**
+   * 修改模式：以 id 找使用者在預覽中手動選的目標（§7.5「手動指定比對目標」）；以操作者的權限查，看不到的等同不存在。
+   * 沒有實作的資源不能手動指定。
+   */
+  findTargetsById?(
+    ids: readonly string[],
+    ctx: TransferContext,
+  ): Promise<ReadonlyMap<string, MatchResult<TRecord>>>;
+  /** 修改模式：比對目標的下拉選單（關鍵字搜尋，回傳 id 與顯示名稱）。 */
+  searchTargets?(
+    keyword: string,
+    ctx: TransferContext,
+  ): Promise<readonly { id: string; label: string; description?: string }[]>;
   /** 範本：修改模式抽樣的現有紀錄（以操作者的權限）。 */
   sampleRecords?(ctx: TransferContext, limit: number): Promise<readonly TRecord[]>;
   /** 套用一列；必須使用傳入的 tx，走與 API 相同的業務規則。 */

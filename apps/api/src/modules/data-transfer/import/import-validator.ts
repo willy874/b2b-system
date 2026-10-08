@@ -21,6 +21,8 @@ import type { RowValidation } from '../dto/data-transfer.dto';
 export interface ImportRowInput {
   rowNo: number;
   cells: Readonly<Record<string, string>>;
+  /** 修改模式手動指定的目標：`undefined` 依比對鍵自動比對、`null` 撤回比對、字串是紀錄 id（§7.5）。 */
+  targetId?: string | null;
 }
 
 /** 驗證後的一列：給回應（issues、target、changed）也給套用（values、patch）。 */
@@ -308,6 +310,7 @@ export class ImportValidator {
 
   /**
    * 修改模式（§7.5）：比對鍵依 `matchKey` 的順序；有 `id` 而且有填就只用 `id`，找不到是錯誤、不改用 email 重試。
+   * 使用者在預覽中手動指定目標（`targetId`）時以 id 找它，比對鍵不再用來找目標；撤回比對（`null`）是錯誤。
    * 以操作者的權限查，看不到的紀錄等同不存在。比對成功時算出目前值與有變更的欄位。
    */
   private async matchTargets(
@@ -322,9 +325,18 @@ export class ImportValidator {
     const keys = matchColumns(importable);
     const wanted = new Map<string, Set<string>>();
     const chosen = new Map<number, { column: AnyColumn; value: string }>();
+    const manualIds = new Set<string>();
     inputs.forEach((input, index) => {
       const row = rows[index];
       if (!row) return;
+      if (input.targetId === null) {
+        row.issues.push(error(null, 'targetNotSelected'));
+        return;
+      }
+      if (input.targetId !== undefined) {
+        manualIds.add(input.targetId);
+        return;
+      }
       const column = keys.find((key) => cleanText(input.cells[key.key] ?? '') !== '');
       if (!column) {
         row.issues.push(error(null, 'matchKeyRequired'));
@@ -341,11 +353,21 @@ export class ImportValidator {
     for (const [column, values] of wanted) {
       found.set(column, await importer.resolveTargets(column, [...values], ctx));
     }
-    const presentKeys = (input: ImportRowInput) => Object.keys(input.cells);
+    const manual: ReadonlyMap<string, MatchResult<unknown>> = manualIds.size &&
+    importer.findTargetsById
+      ? await importer.findTargetsById([...manualIds], ctx)
+      : new Map();
     inputs.forEach((input, index) => {
       const row = rows[index];
+      if (!row) return;
+      if (typeof input.targetId === 'string') {
+        const target = manual.get(input.targetId);
+        if (target) this.compareWithTarget(importable, input, row, target, ctx);
+        else row.issues.push(error(null, 'targetNotFound', { value: input.targetId }));
+        return;
+      }
       const pick = chosen.get(index);
-      if (!row || !pick) return;
+      if (!pick) return;
       const matches = found.get(pick.column.key)?.get(pick.value) ?? [];
       if (matches.length === 0) {
         row.issues.push(error(pick.column.key, 'targetNotFound', { value: pick.value }));
@@ -358,41 +380,51 @@ export class ImportValidator {
         return;
       }
       const target = matches[0];
-      if (!target) return;
-      row.target = target;
-      row.current = {};
-      row.changed = [];
-      for (const key of presentKeys(input)) {
-        const column = importable.find((item) => item.key === key);
-        if (!column?.export) continue;
-        const currentValue = column.export.get(target.record);
-        const currentText = toCellText(column, currentValue, ctx);
-        row.current[key] = currentText;
-        if (!isModifiable(column, 'update') || !(key in row.values)) continue;
-        const nextText = row.texts[key] ?? '';
-        if (
-          comparable(nextText, Boolean(column.multiple)) ===
-          comparable(currentText, Boolean(column.multiple))
-        ) {
-          // 與目前值相同：不送出
-          delete row.values[key];
-          delete row.texts[key];
+      if (target) this.compareWithTarget(importable, input, row, target, ctx);
+    });
+  }
+
+  /** 比對到目標之後：檔案中有的欄位的目前值，以及有變更（而且轉移合法）的欄位。 */
+  private compareWithTarget(
+    importable: readonly AnyColumn[],
+    input: ImportRowInput,
+    row: ValidatedRow,
+    target: MatchResult<unknown>,
+    ctx: TransferContext,
+  ): void {
+    row.target = target;
+    row.current = {};
+    row.changed = [];
+    for (const key of Object.keys(input.cells)) {
+      const column = importable.find((item) => item.key === key);
+      if (!column?.export) continue;
+      const currentValue = column.export.get(target.record);
+      const currentText = toCellText(column, currentValue, ctx);
+      row.current[key] = currentText;
+      if (!isModifiable(column, 'update') || !(key in row.values)) continue;
+      const nextText = row.texts[key] ?? '';
+      if (
+        comparable(nextText, Boolean(column.multiple)) ===
+        comparable(currentText, Boolean(column.multiple))
+      ) {
+        // 與目前值相同：不送出
+        delete row.values[key];
+        delete row.texts[key];
+        continue;
+      }
+      const transitions = column.import?.transitions;
+      if (transitions) {
+        const from = String(currentValue ?? '');
+        const to = String(row.values[key] ?? '');
+        if (!(transitions[from] ?? []).includes(to)) {
+          row.issues.push(
+            error(key, 'transitionNotAllowed', { from: currentText, to: row.texts[key] ?? to }),
+          );
           continue;
         }
-        const transitions = column.import?.transitions;
-        if (transitions) {
-          const from = String(currentValue ?? '');
-          const to = String(row.values[key] ?? '');
-          if (!(transitions[from] ?? []).includes(to)) {
-            row.issues.push(
-              error(key, 'transitionNotAllowed', { from: currentText, to: row.texts[key] ?? to }),
-            );
-            continue;
-          }
-        }
-        row.changed.push(key);
       }
-    });
+      row.changed.push(key);
+    }
   }
 
   /** 檔案內重複與同一個目標出現多次（套用工作在伺服器端重算，D23）。 */

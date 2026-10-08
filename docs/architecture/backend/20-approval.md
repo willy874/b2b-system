@@ -328,7 +328,7 @@ interface ApprovalFlowSupport {
 每個解析器有 `isAvailable()`（流程編輯與試算用；`manager`／`orgUnit` 看 `organization`、`group` 看 `group`）與 `describe()`（對象的顯示名稱、是否已刪除）。
 沒有登記或不可用的種類展開為空陣列，不拋錯。
 
-### 9.3 資料模型（租戶 DB，migration 0046）
+### 9.3 資料模型（租戶 DB，migration 0047）
 
 | 表 | 內容 |
 | --- | --- |

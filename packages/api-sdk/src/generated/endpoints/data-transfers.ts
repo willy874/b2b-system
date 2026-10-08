@@ -12,6 +12,7 @@ import type {
   DataTransferImportColumnList,
   DataTransferReferenceOptionList,
   DataTransferResourceList,
+  DataTransferTargetOptionList,
   ValidateImportRequest,
   ValidateImportResult,
 } from '../models';
@@ -201,6 +202,36 @@ export function getDataTransferControllerReferenceOptionsUrl(
   path: DataTransferControllerReferenceOptionsPathParams,
 ): string {
   return buildUrl('/data-transfers/importers/{type}/columns/{key}/options', path);
+}
+
+// GET /data-transfers/importers/{type}/targets
+
+export interface DataTransferControllerTargetOptionsPathParams {
+  type: string;
+}
+
+export interface DataTransferControllerTargetOptionsInput {
+  path: DataTransferControllerTargetOptionsPathParams;
+}
+
+export interface DataTransferControllerTargetOptionsResponses {
+  200: {
+    data: DataTransferTargetOptionList;
+  };
+}
+
+export type DataTransferControllerTargetOptionsResponse =
+  DataTransferControllerTargetOptionsResponses[200];
+
+export type DataTransferControllerTargetOptionsResult = ApiResponse<
+  200,
+  DataTransferControllerTargetOptionsResponses[200]
+>;
+
+export function getDataTransferControllerTargetOptionsUrl(
+  path: DataTransferControllerTargetOptionsPathParams,
+): string {
+  return buildUrl('/data-transfers/importers/{type}/targets', path);
 }
 
 // POST /data-transfers/importers/{type}/analyze

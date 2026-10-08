@@ -329,6 +329,24 @@ export class UserRepository {
     return rows.map((row) => ({ ...row.user, roles: row.roles }));
   }
 
+  /** 匯入預覽：比對目標的下拉選單與 Email／帳號欄的自動完成（關鍵字比對 email、帳號、顯示名稱）。 */
+  async searchForImport(
+    keyword: string,
+    limit: number,
+  ): Promise<Pick<UserRow, 'id' | 'email' | 'username' | 'displayName'>[]> {
+    return this.db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        displayName: users.displayName,
+      })
+      .from(users)
+      .where(this.buildFilters({ keyword: keyword || undefined }))
+      .orderBy(asc(users.email), asc(users.id))
+      .limit(limit);
+  }
+
   /** 匯入的角色欄：以名稱、代碼（slug）或 id 找未刪除的角色（不分大小寫）。 */
   async findActiveRolesByNames(names: readonly string[]): Promise<RoleRow[]> {
     if (!names.length) return [];

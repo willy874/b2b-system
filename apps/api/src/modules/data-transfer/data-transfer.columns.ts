@@ -82,6 +82,7 @@ export function toImportColumnView(
     matchKey: mode === 'update' ? (spec?.matchKey ?? null) : null,
     unique: Boolean(resource.importer?.uniqueColumns?.includes(column.key)),
     nullable: Boolean(spec?.nullable),
+    suggest: Boolean(spec?.suggest),
     hint: column.hint?.[locale] ?? null,
     options:
       column.enum?.map((option) => ({ value: option.value, label: option.label[locale] })) ?? null,

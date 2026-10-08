@@ -12,6 +12,7 @@ import type {
   ImportColumnView,
   ImportMode,
   ImportRow,
+  ManualTarget,
   SubmitImportRow,
 } from '../data-transfer';
 import { loadImportDraft, removeImportDraft, saveImportDraft } from './importDraft';
@@ -24,6 +25,7 @@ import {
   manualRows,
   rowIssues,
   summarize,
+  targetIdOf,
 } from './importState';
 import type { CellChange } from './importState';
 
@@ -173,7 +175,7 @@ export function useImportWorkspace({ api, type, mode }: ImportWorkspaceOptions) 
         .validate(
           type,
           state.mode,
-          batch.map(({ row }) => ({ rowNo: row.rowNo, cells: row.cells })),
+          batch.map(({ row }) => ({ rowNo: row.rowNo, cells: row.cells, ...targetIdOf(row) })),
         )
         .then(
           (response) => dispatch({ type: 'validated', results: response.rows, sent }),
@@ -298,6 +300,7 @@ export function useImportWorkspace({ api, type, mode }: ImportWorkspaceOptions) 
             rowNo: row.rowNo,
             sourceRow: row.sourceRow,
             cells: row.cells,
+            ...targetIdOf(row),
             ...(result?.target
               ? {
                   target: {
@@ -364,6 +367,8 @@ export function useImportWorkspace({ api, type, mode }: ImportWorkspaceOptions) 
     submit,
     clearError: () => setError(null),
     edit: (changes: CellChange[]) => dispatch({ type: 'editCells', changes }),
+    setTarget: (rowNo: number, target: ManualTarget | null | undefined) =>
+      dispatch({ type: 'setTarget', rowNo, target }),
     addRow: () => dispatch({ type: 'addRows', count: 1 }),
     removeRows: (rowNos: number[]) => dispatch({ type: 'removeRows', rowNos }),
     undo: () => dispatch({ type: 'undo' }),
