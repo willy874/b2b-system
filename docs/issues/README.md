@@ -17,7 +17,9 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| — | 目前沒有已知問題 | — | — |
+| 高 | 部門頁加成員一律 500（只帶 `userId` 時 upsert 的 `set` 是空的） | [`org-unit-member-add-without-fields-500.md`](./org-unit-member-add-without-fields-500.md) | E2E 補齊（2026-10-08） |
+| 中 | 回收桶的列表不隨部門的刪除與還原更新 | [`trash-list-not-invalidated-by-org-unit.md`](./trash-list-not-invalidated-by-org-unit.md) | E2E 補齊（2026-10-08） |
+| 低 | 三處 `data-testid` 以字串模板組成 | [`testid-template-literals.md`](./testid-template-literals.md) | E2E 補齊（2026-10-08） |
 
 嚴重度：
 
