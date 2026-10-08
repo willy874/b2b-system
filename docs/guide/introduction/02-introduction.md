@@ -266,6 +266,6 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 **已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理、公告、Webhook、標籤、命令面板（⌘K）、服務帳號與 API token、對外 API（`/v1`）、可由平台關閉的 feature 與 feature flag、MFA、組織管理與多階段審批、匯入／匯出、留言與關注、富文本、租戶用量、監控與前端錯誤回報、深色主題。完整的能力地圖見 [`01-overview.md`](./01-overview.md) §3，畫面見 [`03-feature-tour.md`](./03-feature-tour.md)。
 
-**待做**：多實例部署（提案文件，只剩部署第二個 api 實例時才需要的部分）。清單與優先度只維護在 [`features/README.md`](../../features/README.md)；時間軸見 [`../../features/roadmap.md`](../../features/roadmap.md)。
+**待做**：目前沒有提案（多實例部署已完成：預設單體，以環境變數拆成 http、realtime、worker 各自擴展，[`architecture/01-system.md`](../../architecture/01-system.md) §4.3）。清單與優先度只維護在 [`features/README.md`](../../features/README.md)；時間軸見 [`../../features/roadmap.md`](../../features/roadmap.md)。
 
 **技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、Tiptap 3、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`../../architecture/09-technology-selection.md`](../../architecture/09-technology-selection.md)。

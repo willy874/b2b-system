@@ -17,7 +17,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 
 | 項目 | 狀態 |
 | --- | --- |
-| CI | `.github/workflows/ci.yml` 在 PR 與 push 到 `main` 時跑 typecheck、lint、format、`pnpm test`、依賴稽核、秘密掃描、bundle 預算、正式映像（[`coding-standards/05-git.md`](../coding-standards/05-git.md) §2.4）。還沒有的：E2E、`openapi.json` 與原始碼一致的檢查（[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §7.2） |
+| CI | `.github/workflows/ci.yml` 在 PR 與 push 到 `main` 時跑 typecheck、lint、format、migration 的相容檢查、`pnpm test`、依賴稽核、秘密掃描、bundle 預算、正式映像（[`coding-standards/05-git.md`](../coding-standards/05-git.md) §2.4）。還沒有的：E2E、`openapi.json` 與原始碼一致的檢查（[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §7.2） |
 | 前端層級依賴 | 依賴矩陣（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review |
 | 覆蓋率 | Phase 0 訂的目標（前端 75%、後端 80%，`core/permission`、`common/guards` 100%）沒有寫成測試設定的門檻；`test:cov` 只能手動跑，CI 不檢查 |
 | 業務功能 | 沒有，這是骨架 |
@@ -52,6 +52,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-08 | 租戶用量：每小時的快照（使用者、儲存與配額）、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與排序、詳情的用量分頁、儲存配額越過 80% 的平台通知 | [`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14 |
 | 10-08 | 留言與關注：擁有者登記的資源類型、@提及、關注的通知（背景工作）、資源頁的面板註冊表；第一批接上使用者 | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
 | 10-08 | 富文本：`@b2b-system/rich-text`（格式定義、純文字、連結白名單、JSON ⇄ HTML）、Tiptap 編輯器與自製檢視器；第一個用在公告內文 | [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.16 |
+| 10-09 | 多實例部署與服務拆分：程序角色 `APP_ROLES`（http、realtime、worker，預設單體）與 `DEPLOYMENT_MODE`、平台 DB 的共享速率限制計數、跨裝置中繼跨節點、影像變體改成背景工作、排空與 readiness 503、compose 的多實例與 k8s 的參考部署（Kustomize）、migration 相容檢查 | [`01-system.md`](../architecture/01-system.md) §4.3、§7 |
 | 10-08 | 功能導覽補上命令面板、MFA、組織、多階段審批、匯入／匯出、留言與關注、租戶用量，並重拍全部截圖（導覽劇本改用 `db:seed:dev` 的部門樹與 Webhook） | [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md) |
 
 ### 2.1 推翻過的決定
@@ -82,4 +83,4 @@ Phase 0 的目標是「先把誰能做什麼一次做對」，分六個里程碑
 | M5 | 稽核日誌、個人帳號、收尾 | `core/` 不 import `features/`、`modules/`（結構測試）；註解掉任一 feature plugin 仍能啟動；每個錯誤碼與權限鍵都有兩個語系的翻譯（語系測試） |
 
 Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；之後由權限圖一般化，[`iam/01-model.md`](../architecture/iam/01-model.md) §9）、深色主題（09-25）、服務帳號與 API token（10-01）。
-仍未做的（多實例部署等）在 [`features/README.md`](README.md)。
+待製作的功能在 [`features/README.md`](README.md)（目前沒有提案）。
