@@ -9,11 +9,16 @@ import type { ApiSurface } from '../decorators';
 
 /** 這個程序是哪一個入口：組裝根（`app.module.ts`、`external-api.module.ts`）各自提供。 */
 export const PROCESS_SURFACE = Symbol('PROCESS_SURFACE');
-export type ProcessSurface = Exclude<ApiSurface, 'both'>;
+/**
+ * `ops`：內部 api 的程序沒有 `http` 角色（只跑推播或背景工作）——只開兩邊都有的路由（健康檢查），
+ * 讓探針有東西可打（docs/features/multi-instance.md §初步構想 1）。
+ */
+export type ProcessSurface = Exclude<ApiSurface, 'both'> | 'ops';
 
 /**
  * 另一個入口的路由回 404（docs/architecture/06-external-api.md §9.2 D11）：排在所有全域 guard 的第一個，
- * 不驗身分、不限流，就像那條路由不存在。內部 api 的 `/v1/*` 與對外 API 的 `/users` 都是這樣。
+ * 不驗身分、不限流，就像那條路由不存在。內部 api 的 `/v1/*` 與對外 API 的 `/users` 都是這樣；
+ * 沒有 `http` 角色的程序（`ops`）只剩健康檢查。
  */
 @Injectable()
 export class SurfaceGuard implements CanActivate {

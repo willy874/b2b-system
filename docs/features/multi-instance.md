@@ -1,7 +1,7 @@
 # 多實例部署與服務拆分
 
 - 優先度：P2
-- 狀態：實作中（branch：`feat/multi-instance`；M1 完成）
+- 狀態：實作中（branch：`feat/multi-instance`；M1、M2 完成）
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.4（部署拓撲、擴展前提、程序之間的一致性）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7.6、§8、§10.3、
   [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §5、§9（背景工作的位置）、[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2（連線預算、PgBouncer 的觸發條件）、
@@ -126,7 +126,7 @@ api 已經不完全是「一個程序」了：
 - 角色只決定 **這個程序打開哪些入口**，不決定載入哪些業務模組：每個角色都 import 同樣的業務模組（service 都在），差別是
   1. `http`：開放內部 surface 的 controller。沒有 `http` 的程序只開 `@Surface('ops')`（健康檢查）——沿用 `SurfaceGuard` 的機制，與對外 API 程序擋內部路由的方式相同（[`06-external-api.md`](../architecture/06-external-api.md) §9 D11）。
   2. `realtime`：`RealtimeModule`（gateway 與 listener）只在這個角色 import。沒有它的程序發佈領域事件時，本機沒有推播的訂閱者，事件經 `DomainEventRelay` 送到有 `realtime` 的程序推播——轉送本來就是這樣運作的，發佈端不必改。
-  3. `worker`：取代 `JOBS_WORKER_ENABLED`。沒有 `worker` 的程序照樣可以入列。
+  3. `worker`：執行背景工作與「整個系統做一次」的開機工作。沒有 `worker` 的程序照樣可以入列。`JOBS_WORKER_ENABLED=false` 保留為 `worker` 角色內「只入列」的開關（實作紀錄）。
 - **只有入口分角色、模組不分**，是為了守住兩件事：outbox 的搬移只處理本程序登記過的工作類型（`job-queue.ts:291`），每個程序都有完整的登記才不會漏；回收桶在啟動時要求每一種類型都有 handler（[`06-external-api.md`](../architecture/06-external-api.md) §9 T3 的教訓）。
 - `DEPLOYMENT_MODE`：
   - `standalone`（預設）：允許程序內的共享狀態（`RATE_LIMIT_STORE=memory`）。這是「只有一個程序」的宣告；開了兩個 standalone 程序不會被偵測到，文件寫明。
@@ -351,12 +351,25 @@ nginx 變數化 `proxy_pass` 會失去 `upstream` 的 `keepalive`；compose clus
 | 期 | 內容 | 驗收 |
 | --- | --- | --- |
 | M1 程序內的補強（**完成**） | feature flag 接上廣播；對外 API 與 WebSocket handshake 的限流改走 `RateLimitStore`（仍是記憶體）；readiness 的 503 與排空（D13） | `cross-process.spec.ts` 加 feature flag 的案例；既有限流測試全過 |
-| M2 角色 | `APP_ROLES`、`DEPLOYMENT_MODE`、`SurfaceGuard` 的集合、`RealtimeModule` 依角色載入、D3 的開機工作、服務名稱帶角色；移除 `JOBS_WORKER_ENABLED` | 整合測試：`http` 程序沒有 gateway、`realtime` 程序的業務路由 404、`worker` 只有 `/health`；三個角色分開時推播與入列照常 |
+| M2 角色（**完成**） | `APP_ROLES`、`DEPLOYMENT_MODE`、`SurfaceGuard` 的集合、`RealtimeModule` 依角色載入、D3 的開機工作、服務名稱帶角色；移除 `JOBS_WORKER_ENABLED` | 整合測試：`http` 程序沒有 gateway、`realtime` 程序的業務路由 404、`worker` 只有 `/health`；三個角色分開時推播與入列照常 |
 | M3 共享狀態 | `PostgresRateLimitStore` ＋ 清理排程；`cluster` 的啟動檢查；`channel.relay` 跨節點（D8） | 兩個程序共用計數（登入失敗在 A、B 合計）；k6 壓測達開放問題 1 的門檻 |
 | M4 影像變體 | 改成背景工作（D9） | 既有影像變體的測試改成跑 worker；`http` 程序不再載入 sharp 的 limiter |
 | M5 部署 | `docker-compose.cluster.yml`、nginx 的動態 upstream、Prometheus 服務探索、`deploy/smoke-test.sh` 加 cluster 版本；k8s 參考部署（D15，含 kind smoke）；migration 相容檢查（D14） | E2E：`api-http` ×2、`api-realtime` ×2、`api-worker` ×1，在 A 改權限、連在 B 的使用者即時收到；滾動重啟期間 E2E 不失敗 |
 
 M1 不依賴其他期，可以先做。
+
+## 實作紀錄
+
+實作時與上面的構想不同的地方；歸檔時搬進主要規格的「設計決策」章節。
+
+| 期 | 項目 | 構想 | 實作 | 原因 |
+| --- | --- | --- | --- | --- |
+| M1 | 排空的位置 | 在 Nest 的關閉 hook 裡等 | `core/lifecycle` 的 `enableGracefulShutdown()` 取代 `enableShutdownHooks()`，在訊號處理裡先排空再 `app.close()` | Nest 的關閉順序從 `onModuleDestroy` 開始，沒有「關 HTTP 之前先等」的位置；排空期間各模組（推播、廣播）都還要正常運作 |
+| M1 | WebSocket 的排空 | 分批斷線 | 分批關閉底層傳輸（`socket.conn.close()`），排空中拒絕新的 handshake（`SERVICE_NOT_READY`） | `socket.disconnect()` 在客戶端是「伺服器要你走」，Socket.io 不會自動重連；關閉傳輸才會照一般斷線的退避重連到其他節點 |
+| M1 | readiness 的 503 | 回 503 | 新錯誤碼 `SERVICE_NOT_READY`（`details.draining`、`details.checks`） | Service 拋 `AppException`、controller 不寫判斷（coding-standards 03 §1） |
+| M2 | `JOBS_WORKER_ENABLED` | 移除，改由 `APP_ROLES` 決定 | 保留：`worker` 角色裡是否真的執行工作（`false` 只入列）；角色決定的是開機工作與誰有資格執行 | 測試（預設不跑工作，但要有開機時補的系統資料夾）與共用 dev DB 的驗證流程都依賴「不執行工作、其他照舊」；拿掉它就要另外發明一個測試用的開關 |
+| M2 | 角色的讀取時機 | `ProcessRoles` provider | `APP_ROLES` 以字串保存，`processRolesOf()` 解析；`app.module.ts` 在 import 時從 `process.env` 讀 | Nest 的模組清單是靜態的，推播的 gateway 只要被 import 就會掛上 Socket.io；`./core/config` 先被載入時已把 `.env` 寫進 `process.env` |
+| M2 | `/oidc/*` | `SurfaceGuard` 擋 | OIDC 的 middleware 自己判斷：沒有 `http` 角色就交回 Nest（404） | `/oidc/*` 是 middleware，不經全域 guard |
 
 ## 歸檔去向
 

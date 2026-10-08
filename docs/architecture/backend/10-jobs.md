@@ -100,7 +100,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
   （`HIGH_VOLUME_RETENTION_SECONDS`），讓表維持在小的範圍。這三種失敗後也只留 1 天：webhook 另有投遞紀錄與重送，公告另有發送紀錄。
 - `exclusive` 在佇列建立時決定，之後不能改；要改就換工作名稱。其他選項每次啟動同步到佇列（`deleteAfterSeconds` 只套用到之後入列的工作）。
 - 排程（`cron`，UTC）由註冊時的 `{ cron }` 決定；空字串代表不排程，啟動時會移除之前的排程。
-- 排程與 pg-boss 的維護（逾時收回、清除過期工作）只在 `JOBS_WORKER_ENABLED=true` 的程序跑；
+- 排程與 pg-boss 的維護（逾時收回、清除過期工作）只在執行工作的程序（`worker` 角色且 `JOBS_WORKER_ENABLED=true`）跑；
   pg-boss 以資料庫鎖保證多個程序同時開也只觸發一次。
 
 | 工作 | 擁有者 | 排程（env） | 預設 |
@@ -173,8 +173,11 @@ await withTransaction(this.db, async (tx) => {
 
 | 部署 | 設定 |
 | --- | --- |
-| 單一容器（目前） | api 預設 `JOBS_WORKER_ENABLED=true`：同一個程序處理 HTTP 與工作 |
-| 拆開 | 同一個映像多起一個容器當 worker；api 容器設 `JOBS_WORKER_ENABLED=false`（仍可入列） |
+| 單一容器（預設） | `APP_ROLES=all`：同一個程序處理 HTTP、推播與工作 |
+| 拆開 | 同一個映像多起一個容器 `APP_ROLES=worker`；api 容器設 `APP_ROLES=http,realtime`（仍可入列）。角色見 [`../../features/multi-instance.md`](../../features/multi-instance.md) |
+
+`worker` 角色另外負責「整個系統做一次」的開機工作（為每個租戶補系統資料夾與個人資料夾）。
+`JOBS_WORKER_ENABLED=false` 讓 `worker` 角色也只入列、不執行工作與排程（開機工作照做）：給測試與共用的 dev DB 用，不和別人的程序搶工作。
 
 不另開 `apps/worker`：handler 需要 DI 裡的服務（`ObjectStorage`、之後的 `MailTransport`），
 同一份程式碼、同一個映像最省事（§9.2 D4、D5）。關機時等執行中的工作結束（最多 30 秒），
@@ -213,7 +216,8 @@ await withTransaction(this.db, async (tx) => {
 
 | 環境變數 | 預設 | 說明 |
 | --- | --- | --- |
-| `JOBS_WORKER_ENABLED` | `true` | 這個程序是否執行工作與排程；`false` 只入列 |
+| `APP_ROLES` | `all` | 這個程序的角色；有 `worker` 才執行工作與排程（§5） |
+| `JOBS_WORKER_ENABLED` | `true` | `worker` 角色裡是否真的執行工作與排程；`false` 只入列 |
 | `JOBS_OUTBOX_SWEEP_CRON` | `*/10 * * * *` | 補搬 outbox 的排程（UTC）；空字串停用 |
 | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *` | 稽核封存的排程（UTC）；空字串停用 |
 | `FILE_MAINTENANCE_CRON` | `0 * * * *` | 檔案維護的排程（UTC）；空字串停用 |

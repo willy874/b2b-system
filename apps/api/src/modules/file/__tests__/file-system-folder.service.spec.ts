@@ -1,9 +1,11 @@
 import { ChangeKind, ChangeSource } from '@b2b-system/realtime';
 import { Logger } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/common/types';
 import type { PermissionSet } from '@/core/cache/permission-cache.service';
+import type { Env } from '@/core/config';
 import type { DbOrTx } from '@/core/database';
 import { DomainEvent } from '@/core/events';
 import type { DomainEventBus, DomainEventPayloads } from '@/core/events';
@@ -79,6 +81,8 @@ const PEOPLE = [ALICE, BOB, CAROL];
 type Handler = (payload: never) => unknown;
 
 interface SystemSetupOptions {
+  /** `APP_ROLES`（預設單體）。 */
+  appRoles?: string;
   /** 一開始就有的資料夾。 */
   folders?: Partial<FileFolderRow>[];
   /** 每個人的權限：預設 Alice、Bob 有 file:access，Carol 沒有。 */
@@ -274,6 +278,7 @@ function systemSetup(options: SystemSetupOptions = {}) {
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
     tenancy as unknown as Tenancy,
+    { get: () => options.appRoles ?? 'all' } as unknown as ConfigService<Env, true>,
   );
   const emit = async <T extends DomainEvent>(type: T, payload: DomainEventPayloads[T]) => {
     const handler = handlers.get(type);
@@ -652,6 +657,12 @@ describe('FileSystemFolderService 的生命週期與事件訂閱（docs/architec
     expect(live().some((row) => row.kind === 'shared')).toBe(true);
     expect(personalOf(ALICE.id)).toBeDefined();
     expect(personalOf(CAROL.id)).toBeUndefined();
+  });
+
+  it('沒有 worker 角色的程序啟動時不進入每個租戶（docs/features/multi-instance.md D3）', async () => {
+    const { service, tenancy } = systemSetup({ appRoles: 'http,realtime' });
+    await service.onApplicationBootstrap();
+    expect(tenancy.forEachActive).not.toHaveBeenCalled();
   });
 
   it('準備租戶時也清掉已刪除擁有者的空個人資料夾', async () => {

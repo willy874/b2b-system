@@ -15,6 +15,7 @@ import { AuthzModule } from './core/authz';
 import { BroadcastModule } from './core/broadcast';
 import { CacheModule } from './core/cache';
 import { ConfigModule } from './core/config';
+import { processRolesOf } from './core/config/process-roles';
 import { DatabaseModule } from './core/database';
 import { HttpExceptionFilter } from './core/errors';
 import { EventsModule } from './core/events';
@@ -66,6 +67,12 @@ import { TrashModule } from './modules/trash/trash.module';
 import { UserModule } from './modules/user/user.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 
+/**
+ * 這個程序的角色（docs/features/multi-instance.md §初步構想 1）。在 import 時決定：Nest 的模組清單是靜態的，
+ * 推播的 gateway 只要被 import 就會掛上 Socket.io。`./core/config` 在上面先被載入時已把 `.env` 寫進 `process.env`。
+ */
+const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
+
 @Module({
   imports: [
     // core（global）
@@ -112,7 +119,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // 平台管理者的站內通知；由租戶佈建、管理者管理發出（docs/architecture/backend/15-notification.md §6.2）
     PlatformNotificationModule,
     // 訂閱領域事件並推播；沒有任何模組依賴它（docs/architecture/backend/08-realtime.md §2）
-    RealtimeModule,
+    // 推播只在 realtime 角色：其他角色的領域事件經 DomainEventRelay 轉給有連線的程序
+    ...(ROLES.has('realtime') ? [RealtimeModule] : []),
 
     // 審批的狀態機；各類型的 handler 由擁有資源的業務模組註冊（docs/architecture/backend/20-approval.md §4）
     ApprovalModule,
@@ -157,8 +165,9 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     // 全域註冊 ＋ 預設拒絕：忘記宣告權限的後果是「啟動失敗」而不是「開了一個無保護的端點」。
     // Nest 12 起全域 guard／interceptor 也套用到 WebSocket gateway：每個 guard 自己看 ctx.getType()，
     // HTTP 由 JwtAuthGuard、ws 由 WsAuthGuard 認人，兩者都排在 FeatureGuard 與 PermissionsGuard 之前
-    // 這個程序是內部 api：對外 API 的路由（/v1/*）在這裡等同不存在（docs/architecture/06-external-api.md §9.2 D11）
-    { provide: PROCESS_SURFACE, useValue: 'internal' },
+    // 這個程序是內部 api：對外 API 的路由（/v1/*）在這裡等同不存在（docs/architecture/06-external-api.md §9.2 D11）；
+    // 沒有 http 角色時只開健康檢查
+    { provide: PROCESS_SURFACE, useValue: ROLES.has('http') ? 'internal' : 'ops' },
     { provide: APP_GUARD, useClass: SurfaceGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },

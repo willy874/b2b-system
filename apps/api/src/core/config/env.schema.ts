@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys';
 import { isCidrList } from '../rate-limit/ip';
+import { ALL_PROCESS_ROLES, parseProcessRoles } from './process-roles';
 
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
 export const TENANT_ORIGIN_PLACEHOLDER = '{tenantOrigin}';
@@ -20,6 +21,22 @@ export const EnvSchema = z.object({
    * 不持有那些金鑰（docs/architecture/06-external-api.md §6）。
    */
   API_SURFACE: z.enum(['internal', 'external']).default('internal'),
+  /**
+   * 這個程序扮演的角色（逗號分隔：`http`、`realtime`、`worker`；`all` = 三個都是，預設）。同一個映像，
+   * 拆開部署時各容器設不同的值（docs/features/multi-instance.md §初步構想 1）。對外 API 的程序固定是 `http`。
+   * 以字串保存（`processRolesOf()` 解析）：`app.module.ts` 在 Nest 啟動之前就要從 `process.env` 讀到它。
+   */
+  APP_ROLES: z
+    .string()
+    .default(ALL_PROCESS_ROLES)
+    .refine((value) => parseProcessRoles(value) !== undefined, {
+      message: '格式是 all，或 http、realtime、worker 的逗號分隔清單',
+    }),
+  /**
+   * 部署模式（docs/features/multi-instance.md D5）：`standalone` 宣告「只有一個程序」，允許程序內的共享狀態；
+   * `cluster` 時多個程序共用的東西（各程序的金鑰、共享的計數）必須真的共享，否則拒絕啟動。
+   */
+  DEPLOYMENT_MODE: z.enum(['standalone', 'cluster']).default('standalone'),
   PORT: z.coerce.number().int().default(3000),
   /**
    * 監聽的位址（`listenHostOf()`）。沒設定時 production 聽所有介面（nginx 從另一個容器連進來），
@@ -356,8 +373,9 @@ export const EnvSchema = z.object({
   ),
 
   /**
-   * 這個程序是否執行背景工作（worker ＋ 排程）。`false` 時仍可入列，由另一個以同一映像、
-   * 設為 `true` 的容器執行（docs/architecture/backend/10-jobs.md §9.2 D4、D5）。
+   * `worker` 角色裡是否真的執行背景工作（pg-boss 的 worker ＋ 排程）。`false` 時只入列；`worker` 角色的其他工作
+   * （開機時補租戶的系統資料夾）照做。拆開部署時用 `APP_ROLES` 決定誰是 worker，這個開關留給測試與開發
+   * （不和別人共用的 dev DB 搶工作；docs/architecture/backend/10-jobs.md §5）。
    */
   JOBS_WORKER_ENABLED: z
     .enum(['true', 'false'])
@@ -613,6 +631,19 @@ const PUBLIC_URL_KEYS = ['APP_PUBLIC_URL', 'PLATFORM_APP_URL', 'OIDC_ISSUER'] as
 
 /** production 不接受開發用的預設值：範例或低熵的金鑰、本機的公開網址、`console` 寄信。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
+  if (env.DEPLOYMENT_MODE === 'cluster' && env.API_SURFACE === 'internal') {
+    // 開發環境沒設時每個程序各自產生隨機金鑰：ID token 與互動的 cookie 換一個程序就驗不過
+    for (const key of ['OIDC_JWKS', 'OIDC_COOKIE_KEYS'] as const) {
+      const value = env[key];
+      if (value === undefined || (Array.isArray(value) && value.length === 0)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'DEPLOYMENT_MODE=cluster 時必須設定：每個程序要用同一組金鑰',
+        });
+      }
+    }
+  }
   if (env.NODE_ENV !== 'production') {
     // 開發與測試：金鑰環、縮圖網址與各種主金鑰沒設定時都由它推導
     if (!env.JWT_SECRET) {

@@ -252,3 +252,51 @@ describe('MONITORING_ENABLED（監控整套的開關，docs/architecture/08-moni
     expect(flag.safeParse('off').success).toBe(false);
   });
 });
+
+describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/features/multi-instance.md D5）', () => {
+  const development = (overrides: Record<string, string> = {}) => ({
+    PLATFORM_DATABASE_URL: 'postgres://u:p@db:5432/platform',
+    JWT_SECRET: 'change-me-in-production-min-32-chars',
+    FILE_STORAGE_ACCESS_KEY_ID: 'dev-access-key',
+    FILE_STORAGE_SECRET_ACCESS_KEY: 'dev-secret-key',
+    SUPER_ADMIN_EMAIL: 'admin@example.com',
+    ...overrides,
+  });
+
+  it('預設是單體（all）、standalone', () => {
+    const env = validateEnv(development());
+    expect(env.APP_ROLES).toBe('all');
+    expect(env.DEPLOYMENT_MODE).toBe('standalone');
+  });
+
+  it.each(['http', 'http,realtime', ' worker , http ', 'all'])('接受 %j', (value) => {
+    expect(validateEnv(development({ APP_ROLES: value })).APP_ROLES).toBe(value);
+  });
+
+  it.each(['', 'api', 'http,all'])('拒絕 %j', (value) => {
+    expect(() => validateEnv(development({ APP_ROLES: value }))).toThrow('APP_ROLES');
+  });
+
+  it('cluster：開發環境也要設定 OIDC 的金鑰（否則每個程序各自產生）', () => {
+    expect(() => validateEnv(development({ DEPLOYMENT_MODE: 'cluster' }))).toThrow('OIDC_JWKS');
+    expect(() => validateEnv(development({ DEPLOYMENT_MODE: 'cluster', OIDC_JWKS: JWKS }))).toThrow(
+      'OIDC_COOKIE_KEYS',
+    );
+    expect(
+      validateEnv(
+        development({
+          DEPLOYMENT_MODE: 'cluster',
+          OIDC_JWKS: JWKS,
+          OIDC_COOKIE_KEYS: secretKey(),
+        }),
+      ).DEPLOYMENT_MODE,
+    ).toBe('cluster');
+  });
+
+  it('cluster 的對外 API 程序不要求 OIDC 的金鑰（它不簽 ID token）', () => {
+    expect(
+      validateEnv(development({ DEPLOYMENT_MODE: 'cluster', API_SURFACE: 'external' }))
+        .DEPLOYMENT_MODE,
+    ).toBe('cluster');
+  });
+});

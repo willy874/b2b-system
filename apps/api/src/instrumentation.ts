@@ -22,6 +22,7 @@ import {
 } from '@opentelemetry/semantic-conventions';
 import { parse } from 'dotenv';
 
+import { processRolesOf, serviceNameOf } from './core/config/process-roles';
 import { routeLabelOf } from './core/metrics/route-label';
 import { RedactUrlProcessor } from './core/tracing/redact-url.processor';
 import { tracingEndpointOf } from './core/tracing/tracing-endpoint';
@@ -68,9 +69,13 @@ function startTracing(endpoint: string): void {
   const ratio = Number(envValue('OTEL_TRACES_SAMPLER_ARG') ?? '1');
   const provider = new NodeTracerProvider({
     resource: resourceFromAttributes({
-      // 與 Prometheus 的 job 名稱相同：Grafana 從 trace 跳到同一個服務的指標（deploy/monitoring/prometheus.yml）
+      // 與 Prometheus 的 job 名稱相同：Grafana 從 trace 跳到同一個服務的指標（deploy/monitoring/prometheus.yml）；
+      // 內部 api 拆成角色時帶角色（api-http、api-worker…，docs/features/multi-instance.md）
       [ATTR_SERVICE_NAME]:
-        envValue('OTEL_SERVICE_NAME') ?? (surface === 'external' ? 'external-api' : 'api'),
+        envValue('OTEL_SERVICE_NAME') ??
+        (surface === 'external'
+          ? 'external-api'
+          : serviceNameOf(processRolesOf({ APP_ROLES: envValue('APP_ROLES') }))),
       [ATTR_SERVICE_VERSION]: envValue('APP_RELEASE') ?? 'unknown',
       'deployment.environment.name': envValue('NODE_ENV') ?? 'development',
     }),
