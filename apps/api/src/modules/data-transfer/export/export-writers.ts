@@ -1,6 +1,7 @@
 import { PassThrough } from 'node:stream';
 
 import ExcelJS from 'exceljs';
+import { stringify as stringifyYaml } from 'yaml';
 
 import { XLSX_MAX_CELL_LENGTH } from '../data-transfer.constants';
 import type { ExportFormat, TransferColumn } from '../data-transfer.types';
@@ -9,6 +10,7 @@ import {
   snakeCase,
   sqlType,
   toCellText,
+  toDataValue,
   toSqlLiteral,
   toXlsxValue,
 } from '../data-transfer.values';
@@ -44,6 +46,8 @@ type AnyColumn = TransferColumn<unknown>;
 export const EXPORT_CONTENT_TYPE: Readonly<Record<ExportFormat, string>> = {
   csv: 'text/csv; charset=utf-8',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  json: 'application/json; charset=utf-8',
+  yaml: 'application/yaml; charset=utf-8',
   sql: 'application/sql; charset=utf-8',
 };
 
@@ -90,6 +94,74 @@ export class CsvExportWriter implements ExportWriter {
   }
 
   async finish(): Promise<{ truncatedCells: number }> {
+    return { truncatedCells: 0 };
+  }
+}
+
+// ── JSON／YAML ──
+
+/** 一筆紀錄 → 以欄位 key 為鍵的物件（key 穩定、與語系無關，匯回時標頭對應直接以 key 比對）。 */
+export function toDataRecord(
+  columns: readonly AnyColumn[],
+  record: unknown,
+  ctx: FormatContext,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    columns.map((column) => [column.key, toDataValue(column, valueOf(column, record), ctx)]),
+  );
+}
+
+/** 一個陣列，每筆紀錄一個物件、一行（逐頁寫出，不必把整份資料組成一個物件再序列化）。 */
+export class JsonExportWriter implements ExportWriter {
+  private first = true;
+
+  constructor(
+    private readonly columns: readonly AnyColumn[],
+    private readonly ctx: FormatContext,
+    private readonly sink: ByteSink,
+  ) {}
+
+  async start(): Promise<void> {
+    this.sink.write(Buffer.from('[', 'utf8'));
+  }
+
+  async write(records: readonly unknown[]): Promise<void> {
+    let chunk = '';
+    for (const record of records) {
+      chunk += `${this.first ? '' : ','}\n  ${JSON.stringify(toDataRecord(this.columns, record, this.ctx))}`;
+      this.first = false;
+    }
+    if (chunk) this.sink.write(Buffer.from(chunk, 'utf8'));
+  }
+
+  async finish(): Promise<{ truncatedCells: number }> {
+    this.sink.write(Buffer.from(this.first ? ']\n' : '\n]\n', 'utf8'));
+    return { truncatedCells: 0 };
+  }
+}
+
+/** 一個序列（`- key: value`），每筆紀錄各自序列化後接上；字串一律依 YAML 的規則加引號，讀回來不會變成數字或布林。 */
+export class YamlExportWriter implements ExportWriter {
+  private rows = 0;
+
+  constructor(
+    private readonly columns: readonly AnyColumn[],
+    private readonly ctx: FormatContext,
+    private readonly sink: ByteSink,
+  ) {}
+
+  async start(): Promise<void> {}
+
+  async write(records: readonly unknown[]): Promise<void> {
+    if (records.length === 0) return;
+    const items = records.map((record) => toDataRecord(this.columns, record, this.ctx));
+    this.rows += items.length;
+    this.sink.write(Buffer.from(stringifyYaml(items, { lineWidth: 0 }), 'utf8'));
+  }
+
+  async finish(): Promise<{ truncatedCells: number }> {
+    // 沒有任何紀錄時寫成空序列，讀回來仍是陣列
+    if (this.rows === 0) this.sink.write(Buffer.from('[]\n', 'utf8'));
     return { truncatedCells: 0 };
   }
 }
@@ -259,6 +331,10 @@ export function createExportWriter(
       return new CsvExportWriter(columns, ctx, sink);
     case 'xlsx':
       return new XlsxExportWriter(columns, ctx, sink, meta);
+    case 'json':
+      return new JsonExportWriter(columns, ctx, sink);
+    case 'yaml':
+      return new YamlExportWriter(columns, ctx, sink);
     case 'sql':
       return new SqlExportWriter(columns, sink, meta);
   }

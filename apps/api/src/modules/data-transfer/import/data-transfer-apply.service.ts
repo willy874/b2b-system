@@ -193,7 +193,12 @@ export class DataTransferApplyService {
       const validated = await this.validator.validate(
         resource,
         mode,
-        pending.map((row) => ({ rowNo: row.rowNo, cells: row.raw })),
+        pending.map((row) => ({
+          rowNo: row.rowNo,
+          cells: row.raw,
+          // 預覽中手動指定（或撤回）的目標照用（§7.5）
+          ...(row.targetManual ? { targetId: row.targetId } : {}),
+        })),
         ctx,
         { crossRow: true },
       );

@@ -74,7 +74,7 @@
 | 標籤 | 依資源類型分開的標籤組、列表依標籤篩選 | [§3.3](./05-feature-tour.md#33-標籤) | [`backend/18-tag.md`](../architecture/backend/18-tag.md) |
 | 稽核日誌 | 所有寫入與授權決策；前後差異；熱冷分層 | [§4.1](./05-feature-tour.md#41-稽核日誌) | [`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) |
 | 回收桶與版本歷史 | 樂觀鎖（`version` 必填）、刪除後可還原、到期永久刪除、角色的版本差異與還原 | [§4.2](./05-feature-tour.md#42-回收桶與版本紀錄) | [`backend/13-trash.md`](../architecture/backend/13-trash.md)、[`backend/14-revisions.md`](../architecture/backend/14-revisions.md) |
-| 匯入／匯出 | 使用者與稽核日誌匯出成 CSV／XLSX／SQL（背景產生、完成通知）；從 CSV／XLSX 新增或修改使用者：後端分析與驗證、類似 Excel 的預覽與修正、逐列交易的背景套用、結果報告 | — | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
+| 匯入／匯出 | 使用者與稽核日誌匯出成 CSV／XLSX／JSON／YAML／SQL（背景產生、完成通知）；從 CSV／XLSX／JSON／YAML 新增或修改使用者：後端分析與驗證、類似 Excel 的預覽與修正（下拉選單、自動完成、手動指定比對目標）、逐列交易的背景套用、結果報告 | — | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
 
 ### 3.3 非同步與溝通
 

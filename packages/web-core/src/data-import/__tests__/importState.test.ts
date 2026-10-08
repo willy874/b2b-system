@@ -8,6 +8,7 @@ import {
   manualRows,
   rowStatus,
   summarize,
+  targetIdOf,
 } from '../importState';
 import type { ImportAction, ImportState } from '../importState';
 
@@ -21,6 +22,7 @@ function column(key: string, overrides: Partial<ImportColumnView> = {}): ImportC
     matchKey: null,
     unique: false,
     nullable: false,
+    suggest: false,
     hint: null,
     options: null,
     transitions: null,
@@ -168,5 +170,25 @@ describe('匯入預覽的狀態（docs/architecture/backend/22-data-transfer.md 
     });
     expect(state.pending).toEqual({});
     expect(summarize(state, new Map()).total).toBe(0);
+  });
+
+  it('比對目標：手動指定、撤回、改回自動比對都是一次編輯（可以復原），該列重新驗證', () => {
+    const target = { id: 'u-2', label: 'b@example.com' };
+    const picked = run(loaded('update'), { type: 'setTarget', rowNo: 1, target });
+    expect(picked.rows[0]?.target).toEqual(target);
+    expect(targetIdOf(picked.rows[0]!)).toEqual({ targetId: 'u-2' });
+    expect(picked.pending).toEqual({ 1: 1 });
+    // 同一個目標不算編輯
+    expect(run(picked, { type: 'setTarget', rowNo: 1, target: { ...target } })).toBe(picked);
+
+    const revoked = run(picked, { type: 'setTarget', rowNo: 1, target: null });
+    expect(targetIdOf(revoked.rows[0]!)).toEqual({ targetId: null });
+
+    const auto = run(revoked, { type: 'setTarget', rowNo: 1, target: undefined });
+    expect(auto.rows[0]).not.toHaveProperty('target');
+    expect(targetIdOf(auto.rows[0]!)).toEqual({});
+
+    expect(run(auto, { type: 'undo' }).rows[0]?.target).toBeNull();
+    expect(run(auto, { type: 'undo' }, { type: 'undo' }).rows[0]?.target).toEqual(target);
   });
 });

@@ -16,6 +16,7 @@ import { getTransferRowsQueryKeys } from '@/apis/data-transfer/get-transfer-rows
 import { fetchTransferQuery } from '@/apis/data-transfer/get-transfer/fetcher';
 import { getTransferQueryKeys } from '@/apis/data-transfer/get-transfer/query';
 import { fetchImportOptions } from '@/apis/data-transfer/search-import-options/fetcher';
+import { fetchImportTargets } from '@/apis/data-transfer/search-import-targets/fetcher';
 import { fetchValidateImportRows } from '@/apis/data-transfer/validate-import-rows/fetcher';
 
 /** 匯出對話框用的 API（web-core 不呼叫 app 的 API，docs/architecture/backend/22-data-transfer.md §8.1）。 */
@@ -43,5 +44,7 @@ export const userImportApi: ImportApi = {
   validate: (type, mode, rows) => fetchValidateImportRows({ params: { type, mode, rows } }),
   searchOptions: async (type, column, keyword) =>
     (await fetchImportOptions({ params: { type, column, keyword } })).items,
+  searchTargets: async (type, keyword) =>
+    (await fetchImportTargets({ params: { type, keyword } })).items,
   createImport: (body) => fetchCreateImportMutation({ params: body }),
 };

@@ -784,6 +784,7 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/data-transfers/importers/:type` | `@Authenticated`（同上，依 `mode`） |
 | GET    | `/data-transfers/importers/:type/template` | `@Authenticated`（同上，依 `mode`） |
 | GET    | `/data-transfers/importers/:type/columns/:key/options` | `@Authenticated`（該欄位可以匯入） |
+| GET    | `/data-transfers/importers/:type/targets` | `@Authenticated`（同上，修改模式） |
 | POST   | `/data-transfers/importers/:type/analyze` | `@Authenticated`（同上，依 `mode`；multipart） |
 | POST   | `/data-transfers/importers/:type/validate` | `@Authenticated`（同上，依 `mode`） |
 | GET    | `/data-transfers/:id`       | `@Authenticated`（只能看自己的，別人的回 404） |

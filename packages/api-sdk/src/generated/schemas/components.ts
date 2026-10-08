@@ -64,6 +64,7 @@ import type {
   DataTransferResourceList,
   DataTransferRowIssue,
   DataTransferRowValidation,
+  DataTransferTargetOptionList,
   DuplicateRoleRequest,
   EffectivePermission,
   EnsureFileFolderPathsRequest,
@@ -1261,7 +1262,7 @@ export const DataTransferSchema = z.object({
   direction: z.enum(['export', 'import']),
   type: z.string(),
   mode: z.enum(['create', 'update']).nullable(),
-  format: z.enum(['csv', 'xlsx', 'sql']),
+  format: z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql']),
   status: z.enum(['queued', 'running', 'applying', 'completed', 'failed', 'cancelled', 'expired']),
   scopeKind: z.enum(['ids', 'filter']).nullable(),
   columns: z.array(z.string()),
@@ -1309,7 +1310,7 @@ export const DataTransferResourceSchema = z.object({
   label: z.string(),
   export: z
     .object({
-      formats: z.array(z.enum(['csv', 'xlsx', 'sql'])),
+      formats: z.array(z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql'])),
       columns: z.array(DataTransferExportColumnSchema),
       orderHint: z.string().nullable(),
     })
@@ -1330,6 +1331,7 @@ export const DataTransferImportColumnSchema = z.object({
   matchKey: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
   unique: z.boolean(),
   nullable: z.boolean(),
+  suggest: z.boolean(),
   hint: z.string().nullable(),
   options: z.array(DataTransferOptionSchema).nullable(),
   transitions: z.record(z.string(), z.array(z.string())).nullable(),
@@ -1353,6 +1355,16 @@ export const DataTransferReferenceOptionListSchema = z.object({
     }),
   ),
 }) satisfies z.ZodType<DataTransferReferenceOptionList>;
+
+export const DataTransferTargetOptionListSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      description: z.string().optional(),
+    }),
+  ),
+}) satisfies z.ZodType<DataTransferTargetOptionList>;
 
 export const DataTransferRowIssueSchema = z.object({
   column: z.string().nullable(),
@@ -1380,6 +1392,15 @@ export const DataTransferImportRowSchema = z.object({
   rowNo: z.int().min(1).max(9007199254740991),
   sourceRow: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
   cells: z.record(z.string(), z.string().max(32767)),
+  targetId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
 }) satisfies z.ZodType<DataTransferImportRow>;
 
 export const DataTransferImportAnalysisSchema = z.union([
@@ -1427,6 +1448,15 @@ export const ValidateImportRequestSchema = z.object({
       z.object({
         rowNo: z.int().min(1).max(9007199254740991),
         cells: z.record(z.string(), z.string().max(32767)),
+        targetId: z
+          .uuid()
+          .regex(
+            new RegExp(
+              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+            ),
+          )
+          .nullable()
+          .optional(),
       }),
     )
     .min(1)
@@ -1448,6 +1478,15 @@ export const CreateImportRequestSchema = z.object({
         rowNo: z.int().min(1).max(9007199254740991),
         sourceRow: z.int().min(1).max(9007199254740991).nullable().optional(),
         cells: z.record(z.string(), z.string().max(32767)),
+        targetId: z
+          .uuid()
+          .regex(
+            new RegExp(
+              '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+            ),
+          )
+          .nullable()
+          .optional(),
         target: z
           .object({
             id: z
@@ -1469,7 +1508,7 @@ export const CreateImportRequestSchema = z.object({
 
 export const CreateExportRequestSchema = z.object({
   type: z.string().min(1).max(50),
-  format: z.enum(['csv', 'xlsx', 'sql']).default('csv'),
+  format: z.enum(['csv', 'xlsx', 'json', 'yaml', 'sql']).default('csv'),
   scope: z.union([
     z.object({
       kind: z.enum(['ids']),

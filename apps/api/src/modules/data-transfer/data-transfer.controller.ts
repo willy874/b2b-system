@@ -55,6 +55,7 @@ import {
   ListTransferRowsSchema,
   ReferenceOptionListSchema,
   ReferenceOptionsQuerySchema,
+  TargetOptionListSchema,
   ReportQuerySchema,
   TemplateQuerySchema,
   TransferApplyRowListSchema,
@@ -168,7 +169,12 @@ export class DataTransferController {
   @Authenticated()
   @NoStore()
   @ApiOperation({ summary: '下載範本（修改模式預先填入現有資料）' })
-  @ApiProduces('text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/json',
+    'application/yaml',
+  )
   @ApiResponse({ status: 200, description: '範本檔' })
   async template(
     @Param('type') type: string,
@@ -182,7 +188,9 @@ export class DataTransferController {
 
   @Get('importers/:type/columns/:key/options')
   @Authenticated()
-  @ApiOperation({ summary: 'reference 欄位的搜尋（預覽中的下拉選單）' })
+  @ApiOperation({
+    summary: '預覽中的選項：reference 欄位的下拉選單，或文字欄的自動完成（欄位有 suggest 時）',
+  })
   @ApiZodResponse(200, ReferenceOptionListSchema)
   referenceOptions(
     @Param('type') type: string,
@@ -194,11 +202,26 @@ export class DataTransferController {
     return this.imports.options(type, key, query.keyword, actor, preference);
   }
 
+  @Get('importers/:type/targets')
+  @Authenticated()
+  @ApiOperation({ summary: '修改模式：手動指定比對目標的下拉選單（關鍵字搜尋）' })
+  @ApiZodResponse(200, TargetOptionListSchema)
+  targetOptions(
+    @Param('type') type: string,
+    @Query(new ZodValidationPipe(ReferenceOptionsQuerySchema)) query: ReferenceOptionsQueryDto,
+    @CurrentUser() actor: AuthUser,
+    @RequestPreference() preference: ClientPreference,
+  ) {
+    return this.imports.targets(type, query.keyword, actor, preference);
+  }
+
   @Post('importers/:type/analyze')
   @Authenticated()
   @HttpCode(200)
   @UseInterceptors(ImportUploadInterceptor)
-  @ApiOperation({ summary: '分析：上傳 CSV／XLSX，轉成 JSON 並逐列驗證（不保存任何資料）' })
+  @ApiOperation({
+    summary: '分析：上傳 CSV／XLSX／JSON／YAML，轉成 JSON 並逐列驗證（不保存任何資料）',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

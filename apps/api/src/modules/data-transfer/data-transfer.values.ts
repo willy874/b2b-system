@@ -176,6 +176,40 @@ export function toXlsxValue(
   return scalarText(column, value, ctx);
 }
 
+function dataScalar(column: TransferColumn<unknown>, value: unknown, ctx: FormatContext): unknown {
+  if (value === null || value === undefined) return null;
+  switch (column.kind) {
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value) ? value : String(value);
+    case 'boolean':
+      return Boolean(value);
+    case 'date':
+    case 'datetime':
+      return scalarText(column, value, ctx) || null;
+    case 'json':
+      return value;
+    // enum 輸出值代碼（與 SQL 相同；匯入時代碼、任一語系的標籤都認得）
+    default:
+      return String(value);
+  }
+}
+
+/**
+ * JSON／YAML 用（§6.5）：保留型別的值。數字、是否是原生型別，多值是陣列，空值是 `null`，enum 是值代碼；
+ * 日期與日期時間的文字與 CSV 相同（日期時間帶匯出者時區的時差）。匯入時讀檔器把這些值轉回儲存格文字。
+ */
+export function toDataValue(
+  column: TransferColumn<unknown>,
+  value: unknown,
+  ctx: FormatContext,
+): unknown {
+  if (column.multiple) {
+    if (value === null || value === undefined) return [];
+    return (Array.isArray(value) ? value : [value]).map((item) => dataScalar(column, item, ctx));
+  }
+  return dataScalar(column, value, ctx);
+}
+
 /** SQL 的欄位型別（§6.5）。 */
 export function sqlType(column: TransferColumn<unknown>): string {
   const base = {

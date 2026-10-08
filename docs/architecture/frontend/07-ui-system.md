@@ -82,7 +82,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `TextEllipsis` / `BoxEllipsis` / `ButtonEllipsis` | 自製：CSS 省略號 ＋ `ResizeObserver` 量測；提示框用 `Tooltip`、下拉用 `Menu`（§3.8） |
 | `Select`（含搜尋，取代原本的 `Combobox`）/ `Menu` | 自製列表 ＋ Base UI `Popover`（定位、點外面／Esc 關閉、焦點歸還）＋ TanStack Virtual（§3.10） |
 | `VirtualList`                    | TanStack Virtual；長列表的虛擬捲動 ＋ 無限捲動（§3.10） |
-| `DataGrid`                       | 試算表式的表格（`react-data-grid`）：列與欄虛擬捲動、鍵盤移動、儲存格編輯、貼上 TSV、儲存格狀態（§3.15） |
+| `DataGrid`                       | 試算表式的表格（`react-data-grid`）：列與欄虛擬捲動、鍵盤移動、儲存格編輯（文字、自動完成、包成儲存格的 `Select`）、貼上 TSV、儲存格狀態（§3.15） |
 | `Typography` / `Title` / `Text` / `Paragraph` | 自製；`copyable` 的複製按鈕用 `Tooltip` ＋ `navigator.clipboard`（§3.9） |
 | `JsonViewer` / `JsonEditor`      | `JsonEditor` 是 CodeMirror 6；`JsonViewer` 自製（逐行渲染 ＋ `useVirtualRows`），外觀對齊 CodeMirror（§3.12、§11） |
 | `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
@@ -722,6 +722,8 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 
 匯入預覽用的受控表格：列、欄、儲存格狀態（錯誤、警告、有變更、沒有變更、驗證中）都由 props 傳入，編輯與貼上以 `onCellsChange` 回報；
 平常每一格是唯讀的顯示元件，只有正在編輯的那一格掛上輸入元件。底層是 `react-data-grid`（以 Design Token 覆寫它的 CSS 變數），型別不外露。
+編輯器依欄位設定：文字（`loadSuggestions` 加上自動完成）、下拉選單（`options`／`rowOptions`／`loadOptions`，`multiple` 多選）。
+下拉選單 **直接包 §3.10 的 `Select`**，只把觸發鈕的樣式改成儲存格（`DataGrid.module.css` 的 `.selectTrigger`），搜尋、虛擬捲動、多選與鍵盤操作都是 `Select` 的，不另寫一份。
 行為與鍵盤見 [`21-data-transfer.md`](21-data-transfer.md) §3。
 
 ---

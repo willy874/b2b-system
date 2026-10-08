@@ -1537,7 +1537,42 @@
             }
           }
         },
-        "summary": "reference 欄位的搜尋（預覽中的下拉選單）",
+        "summary": "預覽中的選項：reference 欄位的下拉選單，或文字欄的自動完成（欄位有 suggest 時）",
+        "tags": ["data-transfers"]
+      }
+    },
+    "/data-transfers/importers/{type}/targets": {
+      "get": {
+        "operationId": "DataTransferController_targetOptions",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DataTransferTargetOptionList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "修改模式：手動指定比對目標的下拉選單（關鍵字搜尋）",
         "tags": ["data-transfers"]
       }
     },
@@ -1604,7 +1639,7 @@
             }
           }
         },
-        "summary": "分析：上傳 CSV／XLSX，轉成 JSON 並逐列驗證（不保存任何資料）",
+        "summary": "分析：上傳 CSV／XLSX／JSON／YAML，轉成 JSON 並逐列驗證（不保存任何資料）",
         "tags": ["data-transfers"]
       }
     },
@@ -10659,7 +10694,7 @@
           },
           "format": {
             "type": "string",
-            "enum": ["csv", "xlsx", "sql"]
+            "enum": ["csv", "xlsx", "json", "yaml", "sql"]
           },
           "status": {
             "type": "string",
@@ -10850,7 +10885,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["csv", "xlsx", "sql"]
+                  "enum": ["csv", "xlsx", "json", "yaml", "sql"]
                 }
               },
               "columns": {
@@ -10922,6 +10957,9 @@
           "nullable": {
             "type": "boolean"
           },
+          "suggest": {
+            "type": "boolean"
+          },
           "hint": {
             "nullable": true,
             "type": "string"
@@ -10953,6 +10991,7 @@
           "matchKey",
           "unique",
           "nullable",
+          "suggest",
           "hint",
           "options",
           "transitions"
@@ -11000,6 +11039,32 @@
                   "type": "string"
                 },
                 "label": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "label"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "DataTransferTargetOptionList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
                   "type": "string"
                 }
               },
@@ -11112,6 +11177,12 @@
               "type": "string",
               "maxLength": 32767
             }
+          },
+          "targetId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
         "required": ["rowNo", "sourceRow", "cells"],
@@ -11280,6 +11351,12 @@
                     "type": "string",
                     "maxLength": 32767
                   }
+                },
+                "targetId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                 }
               },
               "required": ["rowNo", "cells"],
@@ -11348,6 +11425,12 @@
                     "maxLength": 32767
                   }
                 },
+                "targetId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
                 "target": {
                   "type": "object",
                   "properties": {
@@ -11389,7 +11472,7 @@
           "format": {
             "default": "csv",
             "type": "string",
-            "enum": ["csv", "xlsx", "sql"]
+            "enum": ["csv", "xlsx", "json", "yaml", "sql"]
           },
           "scope": {
             "oneOf": [

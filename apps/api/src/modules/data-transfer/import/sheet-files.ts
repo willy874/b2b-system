@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { stringify as stringifyYaml } from 'yaml';
 
 import { csvLine } from '../export/export-writers';
 
@@ -36,7 +37,23 @@ export async function buildXlsx(sheets: readonly SheetData[]): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+/** JSON／YAML 的範本：以欄位 key 為鍵的物件陣列（與匯出的 JSON／YAML 同一種形狀）。 */
+export function buildDataFile(
+  format: 'json' | 'yaml',
+  records: readonly Readonly<Record<string, unknown>>[],
+): Buffer {
+  const text =
+    format === 'json'
+      ? `${JSON.stringify(records, null, 2)}\n`
+      : records.length
+        ? stringifyYaml(records, { lineWidth: 0 })
+        : '[]\n';
+  return Buffer.from(text, 'utf8');
+}
+
 export const SHEET_CONTENT_TYPE = {
   csv: 'text/csv; charset=utf-8',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  json: 'application/json; charset=utf-8',
+  yaml: 'application/yaml; charset=utf-8',
 } as const;

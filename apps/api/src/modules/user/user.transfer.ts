@@ -37,6 +37,8 @@ const UserExportFilterSchema = ListUserSchema.omit({ offset: true, limit: true, 
 type UserExportFilter = z.infer<typeof UserExportFilterSchema>;
 
 const UUID = z.string().uuid();
+/** 自動完成與比對目標下拉選單一次的筆數。 */
+const SUGGEST_LIMIT = 20;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** 狀態的選項；`locked` 是顯示用的（`active` ＋ 鎖定中），只會出現在匯出。 */
@@ -95,6 +97,8 @@ export class UserTransferResource implements OnModuleInit {
           requiredOnCreate: true,
           matchKey: 2,
           schema: CreateUserSchema.shape.email,
+          suggest: async (keyword) =>
+            (await this.repo.searchForImport(keyword, SUGGEST_LIMIT)).map((user) => user.email),
         },
       },
       {
@@ -109,6 +113,10 @@ export class UserTransferResource implements OnModuleInit {
           modes: ['create', 'update'],
           nullable: true,
           schema: z.string().trim().min(3).max(50),
+          suggest: async (keyword) =>
+            (await this.repo.searchForImport(keyword, SUGGEST_LIMIT)).flatMap((user) =>
+              user.username ? [user.username] : [],
+            ),
         },
       },
       {
@@ -210,6 +218,20 @@ export class UserTransferResource implements OnModuleInit {
           findExisting: (column, values) =>
             this.repo.findTakenValues(column === 'username' ? 'username' : 'email', values),
           resolveTargets: (column, values) => this.resolveTargets(column, values),
+          findTargetsById: async (ids) => {
+            const found = await this.resolveTargets('id', ids);
+            return new Map(
+              [...found].flatMap(([id, matches]) => (matches[0] ? [[id, matches[0]]] : [])),
+            );
+          },
+          searchTargets: async (keyword) =>
+            (await this.repo.searchForImport(keyword, SUGGEST_LIMIT)).map((user) => ({
+              id: user.id,
+              label: user.email,
+              description: user.username
+                ? `${user.displayName} (${user.username})`
+                : user.displayName,
+            })),
           validateRows: (mode, rows, ctx) => this.validateRows(mode, rows, ctx),
           sampleRecords: (_ctx, limit) => this.repo.exportPage({ filter: {} }, null, limit),
           create: async (values, ctx, tx) => {

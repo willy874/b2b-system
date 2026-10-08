@@ -1,10 +1,11 @@
 import { createDraftStore } from '@b2b-system/web-shared/storage';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ImportApi, ImportColumnView, TransferView } from '../../data-transfer';
 import { setImportDraftStore } from '../../form';
+import { findHotkey, isMacPlatform } from '../../hotkey';
 import { initTestI18n, renderInRouter } from '../../testing';
 import { ImportWorkspace } from '../ImportWorkspace';
 
@@ -25,6 +26,7 @@ const COLUMNS: ImportColumnView[] = [
     matchKey: null,
     unique: true,
     nullable: false,
+    suggest: false,
     hint: null,
     options: null,
     transitions: null,
@@ -116,6 +118,9 @@ describe('ImportWorkspace（docs/architecture/backend/22-data-transfer.md §7.2�
 
     await userEvent.click(screen.getByTestId('import-submit'));
     expect(screen.getByTestId('import-submit-confirm')).toBeDisabled();
+    // 確認對話框：要新增幾列、幾列有錯誤（有錯誤的列不算在新增裡）
+    expect(screen.getByTestId('import-submit-create')).toHaveAttribute('data-value', '1');
+    expect(screen.getByTestId('import-submit-errors')).toHaveAttribute('data-value', '1');
     await userEvent.click(screen.getByRole('checkbox', { name: /略過有錯誤的列/ }));
     await userEvent.click(screen.getByTestId('import-submit-confirm'));
     await waitFor(() => expect(onTransferChange).toHaveBeenCalledWith('transfer-1'));
@@ -129,5 +134,48 @@ describe('ImportWorkspace（docs/architecture/backend/22-data-transfer.md §7.2�
         { rowNo: 2, sourceRow: 3, cells: { email: 'bad' } },
       ],
     });
+  });
+
+  it('復原／重做的快捷鍵：焦點不在表格時也可以用；離開預覽後取消登記', async () => {
+    const api = fakeApi();
+    const view = renderInRouter(
+      <ImportWorkspace
+        api={api}
+        type="user"
+        mode="create"
+        modes={['create']}
+        onModeChange={vi.fn()}
+        transferId={null}
+        onTransferChange={vi.fn()}
+      />,
+    );
+    const input = await screen.findByLabelText('選擇檔案', { selector: 'input' });
+    await userEvent.upload(input, new File(['email'], 'users.csv', { type: 'text/csv' }));
+    await userEvent.click(screen.getByTestId('import-analyze'));
+    await screen.findByTestId('import-preview');
+    await userEvent.click(screen.getByTestId('import-add-row'));
+    expect(screen.getAllByTestId('import-row-status')).toHaveLength(3);
+
+    const mac = isMacPlatform();
+    const press = (shift = false) => {
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: !mac,
+        metaKey: mac,
+        shiftKey: shift,
+      });
+      const hotkey = findHotkey(event);
+      expect(hotkey).toBeDefined();
+      act(() => hotkey?.run(event));
+    };
+    press();
+    expect(screen.getAllByTestId('import-row-status')).toHaveLength(2);
+    press(true);
+    expect(screen.getAllByTestId('import-row-status')).toHaveLength(3);
+
+    view.unmount();
+    expect(
+      findHotkey(new KeyboardEvent('keydown', { key: 'z', ctrlKey: !mac, metaKey: mac })),
+    ).toBeUndefined();
   });
 });
