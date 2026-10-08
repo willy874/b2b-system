@@ -130,10 +130,10 @@
       "dataTransfer": "匯入／匯出",
       "dataTransferDescription": "以 CSV／XLSX 大量匯入資料、把列表與稽核日誌匯出成檔案。關掉後頁面與端點消失；已產生的匯出檔照保留期限清除。",
       "organization": "組織管理",
-      "organizationDescription": "部門樹、成員與主管；多階段審批可以「申請人的主管」「某部門的主管」當審核者。關掉後後台沒有組織頁；部門與成員保留，重新打開後一致。新租戶預設不啟用。",
+      "organizationDescription": "部門樹、成員與主管；多階段審批可以「申請人的主管」「某部門的主管」當審核者。關掉後後台沒有組織頁；部門與成員保留，重新打開後一致。",
       "organizationDisableWarning": "{{code}} 的審批流程裡以「主管」「部門主管」為審核者的關卡會找不到人，改由持有「強制定案審批」權限的人處理。",
       "approvalChain": "多階段審批",
-      "approvalChainDescription": "為審批類型設定依序多關、會簽、條件分流的流程。審批本身（單關）不受影響。新租戶預設不啟用。",
+      "approvalChainDescription": "為審批類型設定依序多關、會簽、條件分流的流程。審批本身（單關）不受影響。",
       "approvalChainDisableWarning": "{{code}} 的新申請一律改為單關；進行中的多關申請改由持有「審核申請」權限的人一次定案。流程設定保留，重新打開後未定案的申請從原本的關卡繼續。"
     },
     "flag": {

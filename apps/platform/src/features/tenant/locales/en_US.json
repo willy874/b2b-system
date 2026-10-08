@@ -141,10 +141,10 @@
       "dataTransfer": "Import / export",
       "dataTransferDescription": "Bulk import data from CSV/XLSX and export lists and audit logs to files. When off, the pages and endpoints disappear; existing export files are removed when they expire.",
       "organization": "Organization",
-      "organizationDescription": "Department tree, members and managers; multi-step approvals can route to the requester's manager or a department's managers. When off, the organization page disappears; departments and members are kept and come back when turned on again. Off by default for new tenants.",
+      "organizationDescription": "Department tree, members and managers; multi-step approvals can route to the requester's manager or a department's managers. When off, the organization page disappears; departments and members are kept and come back when turned on again.",
       "organizationDisableWarning": "Approval steps of {{code}} that use managers or department managers as reviewers will find no reviewers and go to people with \"Override approvals\".",
       "approvalChain": "Multi-step approvals",
-      "approvalChainDescription": "Sequential steps, multi-person sign-off and conditional routing for approval types. Single-step approvals are not affected. Off by default for new tenants.",
+      "approvalChainDescription": "Sequential steps, multi-person sign-off and conditional routing for approval types. Single-step approvals are not affected.",
       "approvalChainDisableWarning": "New requests of {{code}} become single-step; in-flight multi-step requests are decided in one go by people with \"Review requests\". Flows are kept; undecided requests continue from their step when turned on again."
     },
     "flag": {

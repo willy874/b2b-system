@@ -27,7 +27,7 @@ async function setTenantFeature(page: Page, feature: string, enabled: boolean): 
 }
 
 /**
- * 多階段審批（docs/architecture/backend/20-approval.md §9）：平台打開 `approvalChain`，admin 為註冊申請設定兩關的流程
+ * 多階段審批（docs/architecture/backend/20-approval.md §9）：確認平台已打開 `approvalChain`（預設開啟），admin 為註冊申請設定兩關的流程
  * （指定的 member → admin 角色），申請依序在兩個人的「我的審批」出現，最後一關核准後才建立帳號。
  */
 test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）', () => {
@@ -108,7 +108,7 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
       await snapshot(admin, 'chain-approved');
       await adminContext.close();
     } finally {
-      // 其他測試（註冊審批）與重跑的起點一致：停用流程、關掉多階段審批
+      // 其他測試（註冊審批）與重跑的起點一致：停用流程；多階段審批維持預設的開啟
       await apiRequest(adminToken, 'put', '/approval-flows/user.register', {
         enabled: false,
         steps: [
@@ -116,7 +116,6 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
         ],
         version: flowVersion,
       });
-      await setTenantFeature(platform, 'approvalChain', false);
       await platformContext.close();
     }
   });

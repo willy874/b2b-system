@@ -434,7 +434,7 @@ COMMIT → 最後一關才 handler.afterApply → 推播
 | 重新啟用 | 停用期間沒有定案的請求從原本的關卡繼續；候選人沿用當時的名單 | — |
 
 `TenantFeatureImpacts`：`approvalFlows`（啟用中的流程數）、`approvalRequestsInChain`（進行中的多關請求數）；
-`organization` 的確認框另列 `approvalFlowsUsingOrg`（用到 `manager`／`orgUnit` 的啟用中流程數）。新租戶與既有租戶預設都不啟用（D17）。
+`organization` 的確認框另列 `approvalFlowsUsingOrg`（用到 `manager`／`orgUnit` 的啟用中流程數）。新租戶與既有租戶預設都啟用（D17，平台 migration 0022）。
 
 ### 9.12 組織、群組被關閉時（D14）
 
@@ -534,7 +534,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 | D14 | **不做平台層的 feature 相依**；組織、群組停用時規則展開為空 → 短缺 → override；流程編輯只擋新增或修改 | 組織架構本來就可能不完整，「找不到人」必須有處理方式 |
 | D15 | **審核者規則的種類由擁有者模組登記** | 通用模組不 import 業務模組（[`coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2） |
 | D16 | **同一筆請求的決定以 `SELECT … FOR UPDATE` 排隊**；「是不是最後一關」與最後一關的權限檢查都在鎖之內 | 會簽時兩個人同時同意，只能推進一次、只能執行一次 `handler.apply` |
-| D17 | **新 feature 預設不啟用**（新租戶與既有租戶） | 全新的加值能力；合併後所有租戶的行為不變 |
+| D17 | ~~**新 feature 預設不啟用**（新租戶與既有租戶）~~ **2026-10-08 改為預設啟用**（平台 DB 的預設值加上 `approvalChain`，既有租戶由平台 migration 0022 啟用） | 原理由：全新的加值能力，合併後所有租戶的行為不變。改的理由（使用者決定）：與其他 feature 一致，需要時由平台個別關閉；沒有設定流程的類型照舊單關，打開本身不改變任何審批的行為 |
 | D18 | **handler 沒有宣告 `flow` 的類型永遠單關**；`fileFolder.access` 不宣告 | 資源層級審核的類型若再疊上流程，會出現兩條互相矛盾的審核入口 |
 
 ### 10.3 評估過的方案
