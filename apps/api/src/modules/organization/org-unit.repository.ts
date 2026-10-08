@@ -567,25 +567,25 @@ export class OrgUnitRepository {
     tx: DbOrTx,
   ): Promise<void> {
     for (const member of members) {
+      const target = [orgUnitMembers.unitId, orgUnitMembers.userId];
+      const set = {
+        ...(member.isManager !== undefined && { isManager: member.isManager }),
+        ...(member.isPrimary !== undefined && { isPrimary: member.isPrimary }),
+        ...(member.title !== undefined && { title: member.title }),
+      };
+      const insert = tx.insert(orgUnitMembers).values({
+        unitId,
+        userId: member.userId,
+        isManager: member.isManager ?? false,
+        isPrimary: member.isPrimary ?? false,
+        title: member.title ?? null,
+        createdBy: actorId,
+      });
+      // 只帶 userId（畫面的「加入」）：已是成員時沒有要改的欄位；空的 set 會讓 Drizzle 拒絕建出查詢
       // oxlint-disable-next-line no-await-in-loop -- 每一列的更新欄位不同（只改有帶的欄位）；一次最多 200 列
-      await tx
-        .insert(orgUnitMembers)
-        .values({
-          unitId,
-          userId: member.userId,
-          isManager: member.isManager ?? false,
-          isPrimary: member.isPrimary ?? false,
-          title: member.title ?? null,
-          createdBy: actorId,
-        })
-        .onConflictDoUpdate({
-          target: [orgUnitMembers.unitId, orgUnitMembers.userId],
-          set: {
-            ...(member.isManager !== undefined && { isManager: member.isManager }),
-            ...(member.isPrimary !== undefined && { isPrimary: member.isPrimary }),
-            ...(member.title !== undefined && { title: member.title }),
-          },
-        });
+      await (Object.keys(set).length > 0
+        ? insert.onConflictDoUpdate({ target, set })
+        : insert.onConflictDoNothing({ target }));
     }
   }
 
