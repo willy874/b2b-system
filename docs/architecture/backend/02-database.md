@@ -726,7 +726,7 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 
 | | 內容 | 連線 | DI token |
 | --- | --- | --- | --- |
-| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss；程序之間的失效廣播（`LISTEN`／`NOTIFY`，`core/broadcast`） | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`）；底層的 postgres.js client 是 `PLATFORM_SQL`（`BroadcastService` 用） |
+| 平台 DB（一個） | `tenants`、`tenant_domains`、`oidc_payloads`、pg-boss、速率限制的共享計數（`rate_limit_counters`，UNLOGGED）；程序之間的失效廣播（`LISTEN`／`NOTIFY`，`core/broadcast`） | `PLATFORM_DATABASE_URL`；`DatabaseModule` 建一個連線池 | `PLATFORM_DB`（`PlatformDatabase`）；底層的 postgres.js client 是 `PLATFORM_SQL`（`BroadcastService` 用） |
 | 租戶 DB（每租戶一個） | 其餘所有業務表 | 連線字串以 `TENANT_SECRET_KEY` 加密存在 `tenants`；`core/tenant` 的 `Tenancy` 在第一次用到時建立小連線池（`TENANT_POOL_MAX`，閒置 `TENANT_POOL_IDLE_TIMEOUT` 秒關閉） | `TENANT_DB`（`Database`） |
 
 - **`TENANT_DB` 永遠指向「目前的租戶」**：它是一個 Proxy，每次存取都轉到目前租戶脈絡（`AsyncLocalStorage`）的 database。

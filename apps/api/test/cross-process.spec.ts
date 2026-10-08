@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
-import { ChangeSource, ServerEvent } from '@b2b-system/realtime';
+import { ChangeSource, ClientEvent, ServerEvent } from '@b2b-system/realtime';
 import type {
+  ChannelEnvelopeWire,
   ClientToServerEvents,
   ResourceChanged,
   ServerToClientEvents,
@@ -242,5 +243,25 @@ describe('兩個程序之間的一致性（docs/architecture/06-external-api.md 
     } finally {
       await platformDb.delete(featureFlagOverrides).where(eq(featureFlagOverrides.key, key));
     }
+  });
+
+  it('跨裝置中繼：同一個人連在 A 的分頁送出，連在 B 的裝置收到（docs/features/multi-instance.md D8）', async () => {
+    const member = await createMember('cross-relay@example.com');
+    const token = await tokenFor(member.id);
+    const onA = await connect(a, token);
+    const onB = await connect(b, token);
+    const received = waitFor<ChannelEnvelopeWire>(onB, ServerEvent.CHANNEL_RELAY);
+    const envelope: ChannelEnvelopeWire = {
+      tag: 'ge-channel',
+      channel: 'ge:store:preference:theme',
+      type: 'set',
+      payload: { theme: 'dark' },
+      sender: 'tab-a',
+      id: randomUUID(),
+    };
+
+    onA.emit(ClientEvent.CHANNEL_RELAY, envelope);
+
+    expect(await received).toEqual(envelope);
   });
 });

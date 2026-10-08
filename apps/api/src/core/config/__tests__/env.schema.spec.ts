@@ -2,7 +2,14 @@ import { generateKeyPairSync, randomBytes } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { EnvSchema, isWeakSecret, listenHostOf, parseTrustProxy, validateEnv } from '../env.schema';
+import {
+  EnvSchema,
+  isWeakSecret,
+  listenHostOf,
+  parseTrustProxy,
+  rateLimitStoreOf,
+  validateEnv,
+} from '../env.schema';
 
 describe('parseTrustProxy（TRUST_PROXY → Express trust proxy）', () => {
   it.each([
@@ -253,16 +260,18 @@ describe('MONITORING_ENABLED（監控整套的開關，docs/architecture/08-moni
   });
 });
 
-describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/features/multi-instance.md D5）', () => {
-  const development = (overrides: Record<string, string> = {}) => ({
+function development(overrides: Record<string, string> = {}) {
+  return {
     PLATFORM_DATABASE_URL: 'postgres://u:p@db:5432/platform',
     JWT_SECRET: 'change-me-in-production-min-32-chars',
     FILE_STORAGE_ACCESS_KEY_ID: 'dev-access-key',
     FILE_STORAGE_SECRET_ACCESS_KEY: 'dev-secret-key',
     SUPER_ADMIN_EMAIL: 'admin@example.com',
     ...overrides,
-  });
+  };
+}
 
+describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/features/multi-instance.md D5）', () => {
   it('預設是單體（all）、standalone', () => {
     const env = validateEnv(development());
     expect(env.APP_ROLES).toBe('all');
@@ -298,5 +307,34 @@ describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/features/multi-instance.md D5）'
       validateEnv(development({ DEPLOYMENT_MODE: 'cluster', API_SURFACE: 'external' }))
         .DEPLOYMENT_MODE,
     ).toBe('cluster');
+  });
+});
+
+describe('RATE_LIMIT_STORE（docs/features/multi-instance.md D6）', () => {
+  it('沒設定時 standalone 用記憶體、cluster 用 Postgres', () => {
+    expect(rateLimitStoreOf(validateEnv(development()))).toBe('memory');
+    const cluster = validateEnv(
+      development({ DEPLOYMENT_MODE: 'cluster', OIDC_JWKS: JWKS, OIDC_COOKIE_KEYS: secretKey() }),
+    );
+    expect(rateLimitStoreOf(cluster)).toBe('postgres');
+  });
+
+  it('standalone 也可以明確用 Postgres', () => {
+    expect(rateLimitStoreOf(validateEnv(development({ RATE_LIMIT_STORE: 'postgres' })))).toBe(
+      'postgres',
+    );
+  });
+
+  it('cluster 不能用 memory', () => {
+    expect(() =>
+      validateEnv(
+        development({
+          DEPLOYMENT_MODE: 'cluster',
+          RATE_LIMIT_STORE: 'memory',
+          OIDC_JWKS: JWKS,
+          OIDC_COOKIE_KEYS: secretKey(),
+        }),
+      ),
+    ).toThrow('RATE_LIMIT_STORE');
   });
 });

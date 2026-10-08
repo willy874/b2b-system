@@ -7,7 +7,7 @@ import { RATE_LIMIT_WINDOW_MS } from '@/common/rate-limit';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import { rateLimited } from '@/core/metrics';
-import { ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
+import { hitOrAllow, ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
 import { currentTenant } from '@/core/tenant';
 
 import type { ExternalRequest } from './api-token-auth.guard';
@@ -44,8 +44,8 @@ export class ExternalRateLimitGuard implements CanActivate {
             ipPrefixOf(req.ip ?? req.socket.remoteAddress),
             this.anonymousLimit,
           ];
-    const record = await this.store.hit(`${name}:${key}`, RATE_LIMIT_WINDOW_MS);
-    if (record.count > limit) {
+    const record = await hitOrAllow(this.store, `${name}:${key}`, RATE_LIMIT_WINDOW_MS);
+    if (record && record.count > limit) {
       const retryAfterSeconds = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
       rateLimited.inc({ bucket: name });
       http.getResponse<Response>().setHeader('Retry-After', String(retryAfterSeconds));

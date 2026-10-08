@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
@@ -8,7 +8,7 @@ import type { Request, Response } from 'express';
 
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
-import { rateLimited } from '@/core/metrics';
+import { rateLimited, rateLimitStoreFailures } from '@/core/metrics';
 import { cidrMatcher, ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
 import {
   currentTenant,
@@ -34,15 +34,19 @@ import { extractBearer } from './jwt-auth.guard';
  */
 const SKIP_THROTTLE_METADATA = 'THROTTLER:SKIPdefault';
 
+/** 計數存不了而拒絕登入類請求時，請前端等多久再試（前端以它倒數，docs/architecture/backend/04-auth.md §12 D7）。 */
+const STORE_FAILURE_RETRY_SECONDS = 5;
+
 /**
  * 全域的速率限制（取代 `ThrottlerGuard`；規則見 `common/rate-limit.ts`）。
  *
  * 在 `JwtAuthGuard` 之前執行（沒帶或帶錯 token 的請求也要被限流），所以這裡自己驗簽取出使用者：
  * 只驗簽與網域，不查 DB——使用者被停用之類的判斷留給 `JwtAuthGuard`。計數存在 `RateLimitStore`
- * （目前是程序內的記憶體；多實例的共享計數見 docs/features/multi-instance.md，換實作即可）。
+ * （程序內的記憶體，或多個程序共用的 Postgres；docs/features/multi-instance.md D6）。
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
+  private readonly logger = new Logger(RateLimitGuard.name);
   private readonly settings: RateLimitSettings;
   private readonly refreshCookieName: string;
   /** 監控探針、內部服務：豁免以 IP 計的桶（不豁免任何帳號層級的限制）。 */
@@ -85,8 +89,8 @@ export class RateLimitGuard implements CanActivate {
       // 豁免的來源只略過以 IP 計的桶（帳號、身分、租戶、session 照常計）
       if (subject.exempt && bucket.key === subject.ip) continue;
       // oxlint-disable-next-line no-await-in-loop -- 桶數最多三個；超過一個就不必再計下一個
-      const record = await this.store.hit(`${bucket.name}:${bucket.key}`, RATE_LIMIT_WINDOW_MS);
-      if (record.count > bucket.limit) {
+      const record = await this.hit(`${bucket.name}:${bucket.key}`, policy);
+      if (record && record.count > bucket.limit) {
         const retryAfterSeconds = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
         rateLimited.inc({ bucket: bucket.name });
         http.getResponse<Response>().setHeader('Retry-After', String(retryAfterSeconds));
@@ -94,6 +98,26 @@ export class RateLimitGuard implements CanActivate {
       }
     }
     return true;
+  }
+
+  /**
+   * 計一次；計數存不了時（共享計數的平台 DB 連不上）依政策決定（docs/features/multi-instance.md D6）：
+   * 登入類（`auth`、`authMail`、`refresh`）拒絕——平台 DB 掛了本來就登入不了，不能讓猜密碼的流量趁機不受限；
+   * 一般請求放行（回 `undefined`）——已登入的使用者還能用，租戶 DB 在另一台時業務照常。
+   */
+  private async hit(key: string, policy: RateLimitPolicy | undefined) {
+    try {
+      return await this.store.hit(key, RATE_LIMIT_WINDOW_MS);
+    } catch (error) {
+      if (policy) {
+        rateLimitStoreFailures.inc({ outcome: 'rejected' });
+        this.logger.error({ err: error, policy }, '速率限制的計數失敗，拒絕登入類請求');
+        throw new AppException('AUTH_BUSY', { retryAfterSeconds: STORE_FAILURE_RETRY_SECONDS });
+      }
+      rateLimitStoreFailures.inc({ outcome: 'allowed' });
+      this.logger.error({ err: error }, '速率限制的計數失敗，放行');
+      return undefined;
+    }
   }
 
   private async subjectOf(

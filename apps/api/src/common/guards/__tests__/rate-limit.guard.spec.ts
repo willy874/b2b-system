@@ -9,6 +9,7 @@ import { RateLimit } from '@/common/rate-limit';
 import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { MemoryRateLimitStore } from '@/core/rate-limit';
+import type { RateLimitStore } from '@/core/rate-limit';
 import { runInTenantContext } from '@/core/tenant';
 
 import { RateLimitGuard } from '../rate-limit.guard';
@@ -66,7 +67,7 @@ interface CallOptions {
 
 const storages: MemoryRateLimitStore[] = [];
 
-function createGuard() {
+function createGuard(store?: RateLimitStore) {
   const storage = new MemoryRateLimitStore();
   storages.push(storage);
   const verifier = {
@@ -74,7 +75,7 @@ function createGuard() {
       Promise.resolve(token?.startsWith('user:') ? { sub: token.slice(5) } : undefined),
   } as unknown as AccessTokenVerifier;
   const config = { get: (key: string) => LIMITS[key] } as unknown as ConfigService<never, true>;
-  const guard = new RateLimitGuard(storage, new Reflector(), verifier, config);
+  const guard = new RateLimitGuard(store ?? storage, new Reflector(), verifier, config);
 
   return async (method: keyof TestController, options: CallOptions = {}) => {
     const headers: Record<string, string> = {};
@@ -219,5 +220,27 @@ describe('RateLimitGuard（docs/architecture/backend/03-api-conventions.md §8�
     expect(trusted.every((result) => result.status === 200)).toBe(true);
     const others = await repeat(5, () => login('203.0.113.99'));
     expect(others.map((result) => result.status)).toEqual([200, 200, 200, 200, 429]);
+  });
+
+  describe('計數存不了時（docs/features/multi-instance.md D6）', () => {
+    const failing = {
+      hit: () => Promise.reject(new Error('platform db down')),
+      peek: () => Promise.reject(new Error('platform db down')),
+      reset: () => Promise.reject(new Error('platform db down')),
+    } as unknown as RateLimitStore;
+
+    it('一般請求放行', async () => {
+      const call = createGuard(failing);
+      expect((await call('list', { token: 'user:alice' })).status).toBe(200);
+      expect((await call('list')).status).toBe(200);
+    });
+
+    it('登入類拒絕：AUTH_BUSY ＋ retryAfterSeconds（前端照常倒數）', async () => {
+      const call = createGuard(failing);
+      const login = await call('login', { body: { email: 'a@example.com' } });
+      expect(login.error?.code).toBe('AUTH_BUSY');
+      expect(login.error?.details?.retryAfterSeconds).toBeGreaterThan(0);
+      expect((await call('refresh', { cookie: 'session-1' })).error?.code).toBe('AUTH_BUSY');
+    });
   });
 });

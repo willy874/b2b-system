@@ -1,7 +1,7 @@
 # 多實例部署與服務拆分
 
 - 優先度：P2
-- 狀態：實作中（branch：`feat/multi-instance`；M1、M2 完成）
+- 狀態：實作中（branch：`feat/multi-instance`；M1～M3 完成）
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.4（部署拓撲、擴展前提、程序之間的一致性）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7.6、§8、§10.3、
   [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §5、§9（背景工作的位置）、[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2（連線預算、PgBouncer 的觸發條件）、
@@ -180,6 +180,12 @@ api 已經不完全是「一個程序」了：
 
 1. 共享速率限制用 Postgres 撐得住嗎？全域 guard 對每個請求都計數，尖峰時的寫入量要先估。
    **結論**（2026-10-08，待壓測確認）：先用 Postgres（D6）。估算：1000 人在線約 600 qps（[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2 的估算），每個請求一次 upsert，共約 600 次／秒的單列 upsert；寫在 `UNLOGGED` 表上、key 分散（每人一列），Postgres 可以負擔，但會占平台 DB 的寫入與連線。M3 以 k6 壓測驗收：`hit` 的 p99 < 5 ms、平台 DB 的 CPU 增加 < 20%。不達標時依 D10 的順序升級。
+   **壓測紀錄**（2026-10-08，開發機 Docker Desktop、機器另有其他工作，load average ≈ 20）：
+   - 資料庫端（pgbench 在容器內跑同一條 upsert，1,000 個 key ＋ 一成落在 5 個熱門 key）：8 個連線 6,300 次／秒、平均 1.3 ms；32 個連線 17,000 次／秒、平均 1.9 ms。
+     容量約是估算需求（600 次／秒）的 25 倍以上，熱門 key 的列鎖沒有成為瓶頸。
+   - 從 Node 經 Docker 的埠轉發打（`bench:rate-limit`）：p50 3.7 ms（並行 8）、p99 數十到數百 ms——被開發機的負載與埠轉發主導，不能代表正式環境。
+   - 結論：吞吐量足夠，採用 Postgres；p99 < 5 ms 的門檻要在接近正式的環境（api 與 postgres 在同一個網段、沒有其他負載）以 `bench:rate-limit` 重量一次，
+     上線後看 `api_rate_limit_store_duration_seconds`，超過即依 D10 換 Valkey。
 2. 稽核日誌分區要現在做，還是等熱表真的撐不住？
    **結論**（2026-10-07）：不把熱表與冷表併成一張分區表；只把冷表按月分區，保留期限以 DROP 整個月份執行（`backend/06-audit-log.md` §10 D1）。
 3. 部署時要滾動更新，前提是 migration 一律對上一版相容（已是規則，[`backend/02-database.md`](../architecture/backend/02-database.md) §5.1「破壞性變更拆成兩次部署」）。要不要在 CI 加檢查？
@@ -352,7 +358,7 @@ nginx 變數化 `proxy_pass` 會失去 `upstream` 的 `keepalive`；compose clus
 | --- | --- | --- |
 | M1 程序內的補強（**完成**） | feature flag 接上廣播；對外 API 與 WebSocket handshake 的限流改走 `RateLimitStore`（仍是記憶體）；readiness 的 503 與排空（D13） | `cross-process.spec.ts` 加 feature flag 的案例；既有限流測試全過 |
 | M2 角色（**完成**） | `APP_ROLES`、`DEPLOYMENT_MODE`、`SurfaceGuard` 的集合、`RealtimeModule` 依角色載入、D3 的開機工作、服務名稱帶角色；移除 `JOBS_WORKER_ENABLED` | 整合測試：`http` 程序沒有 gateway、`realtime` 程序的業務路由 404、`worker` 只有 `/health`；三個角色分開時推播與入列照常 |
-| M3 共享狀態 | `PostgresRateLimitStore` ＋ 清理排程；`cluster` 的啟動檢查；`channel.relay` 跨節點（D8） | 兩個程序共用計數（登入失敗在 A、B 合計）；k6 壓測達開放問題 1 的門檻 |
+| M3 共享狀態（**完成**） | `PostgresRateLimitStore` ＋ 清理排程；`cluster` 的啟動檢查；`channel.relay` 跨節點（D8） | 兩個程序共用計數（登入失敗在 A、B 合計）；k6 壓測達開放問題 1 的門檻 |
 | M4 影像變體 | 改成背景工作（D9） | 既有影像變體的測試改成跑 worker；`http` 程序不再載入 sharp 的 limiter |
 | M5 部署 | `docker-compose.cluster.yml`、nginx 的動態 upstream、Prometheus 服務探索、`deploy/smoke-test.sh` 加 cluster 版本；k8s 參考部署（D15，含 kind smoke）；migration 相容檢查（D14） | E2E：`api-http` ×2、`api-realtime` ×2、`api-worker` ×1，在 A 改權限、連在 B 的使用者即時收到；滾動重啟期間 E2E 不失敗 |
 
@@ -369,6 +375,8 @@ M1 不依賴其他期，可以先做。
 | M1 | readiness 的 503 | 回 503 | 新錯誤碼 `SERVICE_NOT_READY`（`details.draining`、`details.checks`） | Service 拋 `AppException`、controller 不寫判斷（coding-standards 03 §1） |
 | M2 | `JOBS_WORKER_ENABLED` | 移除，改由 `APP_ROLES` 決定 | 保留：`worker` 角色裡是否真的執行工作（`false` 只入列）；角色決定的是開機工作與誰有資格執行 | 測試（預設不跑工作，但要有開機時補的系統資料夾）與共用 dev DB 的驗證流程都依賴「不執行工作、其他照舊」；拿掉它就要另外發明一個測試用的開關 |
 | M2 | 角色的讀取時機 | `ProcessRoles` provider | `APP_ROLES` 以字串保存，`processRolesOf()` 解析；`app.module.ts` 在 import 時從 `process.env` 讀 | Nest 的模組清單是靜態的，推播的 gateway 只要被 import 就會掛上 Socket.io；`./core/config` 先被載入時已把 `.env` 寫進 `process.env` |
+| M3 | 計數存不了時拒絕登入類請求的錯誤碼 | 503 | 沿用 `AUTH_BUSY`（`retryAfterSeconds`） | 前端遇到它已經會倒數並停用送出鈕（`backend/04-auth.md` §12 D7）；不必新增錯誤碼 |
+| M3 | 壓測 | k6 對整個 api | `apps/api/scripts/bench-rate-limit-store.ts`（`pnpm --filter @b2b-system/api bench:rate-limit`）直接壓 `PostgresRateLimitStore.hit` | 門檻定在儲存的延遲（D10 的觸發條件）；整個 api 的壓測混了其他成本，量不出這一項 |
 | M2 | `/oidc/*` | `SurfaceGuard` 擋 | OIDC 的 middleware 自己判斷：沒有 `http` 角色就交回 Nest（404） | `/oidc/*` 是 middleware，不經全域 guard |
 
 ## 歸檔去向

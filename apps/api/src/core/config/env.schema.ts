@@ -37,6 +37,16 @@ export const EnvSchema = z.object({
    * `cluster` 時多個程序共用的東西（各程序的金鑰、共享的計數）必須真的共享，否則拒絕啟動。
    */
   DEPLOYMENT_MODE: z.enum(['standalone', 'cluster']).default('standalone'),
+  /**
+   * 速率限制的計數存在哪裡（docs/features/multi-instance.md D6）：`memory`（程序內，只適合單一程序）或 `postgres`
+   * （平台 DB 的共享計數）。沒設定時依 `DEPLOYMENT_MODE`（`rateLimitStoreOf()`）；`cluster` 不能是 `memory`。
+   */
+  RATE_LIMIT_STORE: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.enum(['memory', 'postgres']).optional(),
+  ),
+  /** 共享計數的過期列清理（UTC）；記憶體實作時這個工作什麼都不做。空字串停用。 */
+  RATE_LIMIT_CLEANUP_CRON: z.string().default('* * * * *'),
   PORT: z.coerce.number().int().default(3000),
   /**
    * 監聽的位址（`listenHostOf()`）。沒設定時 production 聽所有介面（nginx 從另一個容器連進來），
@@ -631,6 +641,13 @@ const PUBLIC_URL_KEYS = ['APP_PUBLIC_URL', 'PLATFORM_APP_URL', 'OIDC_ISSUER'] as
 
 /** production 不接受開發用的預設值：範例或低熵的金鑰、本機的公開網址、`console` 寄信。 */
 const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
+  if (env.DEPLOYMENT_MODE === 'cluster' && env.RATE_LIMIT_STORE === 'memory') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['RATE_LIMIT_STORE'],
+      message: 'DEPLOYMENT_MODE=cluster 不能用 memory：每個程序各自計數，上限會變成程序數的倍數',
+    });
+  }
   if (env.DEPLOYMENT_MODE === 'cluster' && env.API_SURFACE === 'internal') {
     // 開發環境沒設時每個程序各自產生隨機金鑰：ID token 與互動的 cookie 換一個程序就驗不過
     for (const key of ['OIDC_JWKS', 'OIDC_COOKIE_KEYS'] as const) {
@@ -752,6 +769,13 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
 });
 
 export type Env = z.infer<typeof EnvSchema>;
+
+/** 實際使用的計數儲存：沒指定時 cluster 用 Postgres、standalone 用記憶體（docs/features/multi-instance.md D6）。 */
+export function rateLimitStoreOf(
+  env: Pick<Env, 'RATE_LIMIT_STORE' | 'DEPLOYMENT_MODE'>,
+): 'memory' | 'postgres' {
+  return env.RATE_LIMIT_STORE ?? (env.DEPLOYMENT_MODE === 'cluster' ? 'postgres' : 'memory');
+}
 
 /** `app.listen()` 的位址：`undefined` 是 Node 的預設（所有介面）。 */
 export function listenHostOf(env: Pick<Env, 'NODE_ENV' | 'LISTEN_HOST'>): string | undefined {

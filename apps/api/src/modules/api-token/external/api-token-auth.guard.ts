@@ -12,7 +12,7 @@ import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import { setContextApiToken, setContextUser } from '@/core/http';
 import { rateLimited } from '@/core/metrics';
-import { ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
+import { hitOrAllow, ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
 
 import { ApiTokenUsageService } from '../api-token-usage.service';
 import { ApiTokenVerifier } from '../api-token.verifier';
@@ -69,8 +69,8 @@ export class ApiTokenAuthGuard implements CanActivate {
 
   private async countFailure(req: ExternalRequest, res: Response): Promise<void> {
     const ip = ipPrefixOf(req.ip ?? req.socket.remoteAddress);
-    const record = await this.store.hit(`externalAuthFailure:${ip}`, RATE_LIMIT_WINDOW_MS);
-    if (record.count > this.failureLimit) {
+    const record = await hitOrAllow(this.store, `externalAuthFailure:${ip}`, RATE_LIMIT_WINDOW_MS);
+    if (record && record.count > this.failureLimit) {
       const retryAfterSeconds = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
       rateLimited.inc({ bucket: 'externalAuthFailure' });
       res.setHeader('Retry-After', String(retryAfterSeconds));

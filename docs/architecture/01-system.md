@@ -312,8 +312,8 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 4. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
    Socket.io 只用 websocket 傳輸，**不需要** sticky session。
 
-另外還沒跨節點的：HTTP 與 WebSocket 的速率限制（都經 `RateLimitStore`，但實作仍是每個節點各自的記憶體），
-見 [`../features/multi-instance.md`](../features/multi-instance.md)。
+速率限制（HTTP、對外 API、WebSocket handshake）都經 `RateLimitStore`：`DEPLOYMENT_MODE=cluster` 時是平台 DB 的共享計數，
+standalone 預設是程序內的記憶體（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）。部署的角色與形態見 [`../features/multi-instance.md`](../features/multi-instance.md)。
 
 ### 4.4 程序之間的一致性
 
@@ -330,6 +330,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | `notification_policy` | `{ tenant }` | 那個租戶的通知政策快取作廢 | `NotificationPolicyService.invalidate()`（[`backend/16-notification-event.md`](./backend/16-notification-event.md) §3） |
 | `feature_flags` | `{}` | 全平台層的 feature flag 覆寫重新讀取 | `FeatureFlagService.changed()`（[`05-tenancy.md`](./05-tenancy.md) §11） |
 | `api_token_cache` | `{ tenant, tokens }` | 這些 API token 的驗證快取作廢 | `ApiTokenCacheService.invalidate()`（撤銷之後；[`06-external-api.md`](./06-external-api.md) §5） |
+| `user_relay` | `{ room, envelope }` | 跨裝置中繼送給本節點那個人的連線 | `RealtimeGateway`（[`backend/08-realtime.md`](./backend/08-realtime.md) §10.3） |
 | `domain_event` | 推播類的領域事件 | 在那個租戶的脈絡裡交給本機的推播 | `DomainEventRelay`（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6） |
 
 - 除了 `authz_revision`，訊息都經 `BroadcastService.channel()` 包上送出的程序 id，**自己送的不會收回來**（本機在送出前已處理過）。
