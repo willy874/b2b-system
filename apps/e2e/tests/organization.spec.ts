@@ -73,8 +73,7 @@ test.describe('組織管理（docs/architecture/backend/23-organization.md）', 
     await expect(page.getByTestId('org-unit-path')).toContainText(parentName);
 
     try {
-      // ③ 加成員 → 設為主管與主要部門，各自立即生效。
-      // 以畫面加成員目前會 500（docs/issues/org-unit-member-add-without-fields-500.md，下方另一個案例），這裡先經 API 加入
+      // ③ 加成員（以畫面加入見下方另一個案例）→ 設為主管與主要部門，各自立即生效
       const added = await apiRequest(token, 'patch', `/org-units/${childId}/members`, {
         add: [{ userId, isManager: false, isPrimary: false }],
       });
@@ -129,8 +128,6 @@ test.describe('組織管理（docs/architecture/backend/23-organization.md）', 
   });
 
   test('在部門頁以畫面加成員（伺服器端搜尋使用者）', async ({ page }) => {
-    // 已知問題：只帶 userId 的 add 回 500（docs/issues/org-unit-member-add-without-fields-500.md）；修好後拿掉這一行
-    test.fail();
     const token = await apiLogin('admin');
     const userName = unique('E2E 畫面加入');
     const userId = await createUser(token, userName);
@@ -178,9 +175,6 @@ test.describe('組織管理（docs/architecture/backend/23-organization.md）', 
       // ③ 回收桶的「部門」分頁還原 → 回到樹上原本的位置
       await page.goto('/trash?type=orgUnit');
       await getByTestIdAndValue(page, 'org-unit-restore', childId).click();
-      await expect(getByTestIdAndValue(page, 'toast', 'success')).toBeVisible();
-      // 還原後列表不一定立刻更新（docs/issues/trash-list-not-invalidated-by-org-unit.md）：重新整理看伺服器上的狀態
-      await page.reload();
       await expect(getByTestIdAndValue(page, 'org-unit-restore', childId)).toHaveCount(0);
       await page.goto(`/organization?unitId=${childId}`);
       await expect(page.getByTestId('org-unit-name')).toHaveText(childName);

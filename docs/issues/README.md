@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 低 | 三處 `data-testid` 以字串模板組成 | [`testid-template-literals.md`](./testid-template-literals.md) | E2E 補齊（2026-10-08） |
 | 中 | 外部 IdP 的 ID token：註解說會驗簽章，實際沒有驗 | [external-oidc-id-token-signature.md](./external-oidc-id-token-signature.md) | 2026-10-08 補單元測試 |
 | 中 | 匯入分析的 worker 掛掉或程序關閉時，排隊中的請求沒有被處理 | [parse-pool-worker-exit-queue.md](./parse-pool-worker-exit-queue.md) | 2026-10-08 補單元測試 |
 | 低 | 月曆：鍵盤換月後焦點掉到 body | [calendar-focus-lost-on-month-change.md](./calendar-focus-lost-on-month-change.md) | 2026-10-08 補單元測試 |

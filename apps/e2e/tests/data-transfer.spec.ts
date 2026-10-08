@@ -214,7 +214,10 @@ test.describe('匯入／匯出（docs/architecture/backend/22-data-transfer.md�
 
     await page.getByTestId('import-submit').click();
     const dialog = page.getByTestId('import-submit-dialog');
-    await expect(getByTestIdAndValue(dialog, 'import-submit-errors', '1')).toBeVisible();
+    await expect(getByTestIdAndValue(dialog, 'import-submit-stat', 'errors')).toHaveAttribute(
+      'data-count',
+      '1',
+    );
     await dialog.getByTestId('import-skip-invalid').click();
     await dialog.getByTestId('import-submit-confirm').click();
     await expect(page.getByTestId('import-result')).toBeVisible({ timeout: 30_000 });

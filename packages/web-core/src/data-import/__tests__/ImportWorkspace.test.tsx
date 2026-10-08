@@ -14,6 +14,23 @@ import { ImportWorkspace } from '../ImportWorkspace';
 import type { ImportWorkspaceProps } from '../ImportWorkspace';
 import { COLUMNS, fakeImportApi, importColumn, signIn, transfer } from './fakeImportApi';
 
+/** 送出前對話框的統計（testid 固定，種類以 data-value 區分、筆數在 data-count）。 */
+function submitStat(scope: HTMLElement, key: string): HTMLElement {
+  const stat = scope.querySelector<HTMLElement>(
+    `[data-testid="import-submit-stat"][data-value="${key}"]`,
+  );
+  if (!stat) throw new Error(`找不到 import-submit-stat（data-value="${key}"）`);
+  return stat;
+}
+
+/** 下載範本的按鈕（testid 固定，格式以 data-value 區分）。 */
+async function templateButton(format: string): Promise<HTMLElement> {
+  const buttons = await screen.findAllByTestId('import-template');
+  const button = buttons.find((element) => element.dataset.value === format);
+  if (!button) throw new Error(`找不到 import-template（data-value="${format}"）`);
+  return button;
+}
+
 // jsdom 沒有 ResizeObserver（預覽表格用它量測可視範圍）與 scrollIntoView（結束編輯時捲到儲存格）
 Element.prototype.scrollIntoView ??= () => {};
 globalThis.ResizeObserver ??= class {
@@ -64,8 +81,8 @@ describe('ImportWorkspace（docs/architecture/backend/22-data-transfer.md §7.2�
     await userEvent.click(screen.getByTestId('import-submit'));
     expect(screen.getByTestId('import-submit-confirm')).toBeDisabled();
     // 確認對話框：要新增幾列、幾列有錯誤（有錯誤的列不算在新增裡）
-    expect(screen.getByTestId('import-submit-create')).toHaveAttribute('data-value', '1');
-    expect(screen.getByTestId('import-submit-errors')).toHaveAttribute('data-value', '1');
+    expect(submitStat(document.body, 'create')).toHaveAttribute('data-count', '1');
+    expect(submitStat(document.body, 'errors')).toHaveAttribute('data-count', '1');
     await userEvent.click(screen.getByRole('checkbox', { name: /略過有錯誤的列/ }));
     await userEvent.click(screen.getByTestId('import-submit-confirm'));
     await waitFor(() => expect(onTransferChange).toHaveBeenCalledWith('transfer-1'));
@@ -241,11 +258,11 @@ describe('ImportWorkspace（上傳與分析）', () => {
     try {
       renderWorkspace({ api: fakeImportApi({ downloadTemplate }) });
 
-      await userEvent.click(await screen.findByTestId('import-template-csv'));
+      await userEvent.click(await templateButton('csv'));
       await waitFor(() => expect(click).toHaveBeenCalled());
       expect(downloadTemplate).toHaveBeenCalledWith('user', 'create', 'csv');
 
-      await userEvent.click(screen.getByTestId('import-template-xlsx'));
+      await userEvent.click(await templateButton('xlsx'));
       expect(await screen.findByText('這種資料不支援這個匯入或匯出方式。')).toBeInTheDocument();
     } finally {
       Object.assign(URL, original);
@@ -476,11 +493,8 @@ describe('ImportWorkspace（預覽與修正）', () => {
 
     await userEvent.click(screen.getByTestId('import-submit'));
     const dialog = await screen.findByTestId('import-submit-dialog');
-    expect(within(dialog).getByTestId('import-submit-update')).toHaveAttribute('data-value', '1');
-    expect(within(dialog).getByTestId('import-submit-unchanged')).toHaveAttribute(
-      'data-value',
-      '1',
-    );
+    expect(submitStat(dialog, 'update')).toHaveAttribute('data-count', '1');
+    expect(submitStat(dialog, 'unchanged')).toHaveAttribute('data-count', '1');
     await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
 
     await userEvent.click(screen.getByTestId('import-revalidate'));
