@@ -16,12 +16,14 @@ db/schema/announcements.ts                  announcements、announcement_dispatc
 db/migrations/0030_announcements.sql        兩張表、notifications.source_id ＋ 部分唯一索引（純加法）
 db/migrations/0031_announcement_system_roles.sql  手寫：既有租戶的 admin 補 announcement:*、auditor 補 read
 db/migrations/0032_announcement_event_triggers.sql  事件點：trigger_subject_id、唯一索引分成排程與事件兩種、事件查詢的索引
+db/migrations/0050_announcement_body_doc.sql   內文改成富文本：兩張表加 body_doc（jsonb）並由純文字回填（D22）
 db/platform/migrations/0011_announcement_feature.sql  feature 預設值 ＋ 既有租戶啟用
 
 modules/announcement/
 ├── announcement.controller.ts             /announcements（@RequireFeature('announcement')）
 ├── announcement-message.controller.ts     GET /me/announcement-messages/:dispatchId（只需要登入）
 ├── announcement.service.ts                CRUD、送出、暫停、恢復、刪除、還原、撤回、受眾預覽、讀全文
+├── announcement.body.ts                   內文的兩個欄位：讀（body_doc，沒有時由 body 轉換）、寫（文件 ＋ 純文字）
 ├── announcement-dispatch.service.ts       背景工作：排程時間到（runScheduled）、分批寫入（fanOut）
 ├── announcement.audience.ts               受眾 → 收件人（AnnouncementAudienceResolver）
 ├── announcement.triggers.ts               defineAnnouncementTrigger()、比對方式（純函式）
@@ -49,7 +51,9 @@ modules/announcement/
 
 | 欄位 | 說明 |
 | --- | --- |
-| `title`、`body` | 標題（≤ 120）、純文字內文（≤ 5000） |
+| `title` | 標題（≤ 120） |
+| `body_doc` | 內文：富文本的文件 JSON（`@b2b-system/rich-text`，[`../frontend/07-ui-system.md`](../frontend/07-ui-system.md) §3.16），顯示以它為準。nullable：部署期間舊版 api 寫入的列沒有它，讀取時由 `body` 轉換（D22） |
+| `body` | 內文的純文字（`richTextToPlainText(body_doc)`，≤ 5000 字）：關鍵字搜尋、字數上限、稽核的 `bodyLength` |
 | `audience` | `jsonb`：`{ all, userIds, groupIds, roleIds }`（各 ≤ 200）；存定義，不存人名單 |
 | `trigger` | `jsonb`：`{ kind: 'immediate' }`、`{ kind: 'once', at }`、週期 `{ kind: 'recurring', frequency, interval, weekdays?, monthDay?, time, startsOn, endsOn?, maxOccurrences? }`（§5.1），或事件點 `{ kind: 'event', event, delayMinutes }`（§5.3） |
 | `status` | `draft` → `scheduled` ⇄ `paused` → `completed`（立即發送直接 `completed`；週期發完最後一次才 `completed`） |
@@ -59,7 +63,7 @@ modules/announcement/
 
 ### 2.2 `announcement_dispatches`
 
-每一次實際送出一列：內容與受眾定義的 **快照**（之後改公告不影響）、`scheduled_for`、`status`
+每一次實際送出一列：內容（`title`、`body`、`body_doc`，同 §2.1）與受眾定義的 **快照**（之後改公告不影響）、`scheduled_for`、`status`
 （`pending` → `sending` → `sent`／`failed`；任何時候都能 `revoked`）、`recipient_count`（實際寫入的通知數）、
 `details`（略過的來源 `skipped`、失敗原因 `reason`）、`trigger_subject_id`（事件點：只發給這個人）。
 排程的發送 `(announcement_id, scheduled_for) WHERE trigger_subject_id IS NULL` 唯一：同一個時間只發一次；
@@ -307,10 +311,17 @@ modules/announcement/
 | D19 | **軟刪除 ＋ 回收桶**（`TrashHandler`），還原後是 `paused`、不會自己開始發。發送紀錄隨公告永久刪除 CASCADE；另由 `announcement.dispatchRetentionDays`（預設 365）清理舊的發送紀錄（提案問題 12） | 公告是使用者編輯的內容，與角色、群組同一套 |
 | D20 | **可關閉的 feature `announcement`**：停用時端點 `FEATURE_DISABLED`、排程的工作 no-op（`output = { skipped }`）、事件點不入列；資料保留 | 與 webhook（[`backend/17-webhook.md`](17-webhook.md) §9.2 D8）相同 |
 
+#### 內文（2026-10-08 補充）
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D21 | **內文是富文本**：API 的 `body` 是 ProseMirror 的文件 JSON（OpenAPI 元件 `RichTextDocument`／`RichTextNode`），請求以 `@b2b-system/rich-text/schema` 驗證——與編輯器 schema 相同的節點、標記與父子規則，連結只接受 `http`、`https`、`mailto` 與站內路徑，深度 ≤ 20、節點 ≤ 5000，純文字 1～5000 字；不合法回 `400 VALIDATION_FAILED`，`details.fields` 的鍵指到出錯的節點（例：`body.content.0.content.0.marks.0.attrs.href`）。**正本是 JSON，HTML 只在需要時產生**（`richTextToHtml`；外部送來的 HTML 以 `@b2b-system/rich-text/html` 的 `htmlToRichText` 轉入，兩個方向都只留白名單內的格式） | JSON 有結構：比對、匯出、驗證都不必解析 HTML；存 HTML 要在每個讀取端清理，而且無法得知格式是否合法 |
+| D22 | **欄位純加法**（migration 0050）：保留 `body`（text）當純文字，新增 `body_doc`（jsonb，nullable）存文件並以 SQL 由純文字回填（每行一段，與 `plainTextToRichText` 相同）；讀取時 `body_doc ?? plainTextToRichText(body)`。不把 `body` 直接改成 jsonb | 依 [`02-database.md`](02-database.md) §5.1 的「破壞性變更拆成兩次部署」：部署期間舊版 api 仍會寫入純文字的 `body`；純文字欄位本來就要給搜尋與字數用，不必之後再移除 |
+
 不做：
 
 - 管道 `email`（之後在事件目錄加管道；大量寄信的節流與退訂另開提案，提案問題 9）。
-- 富文本、附件、多語系內容、排除名單、依屬性的動態受眾、自訂 cron、drip 序列、發送前的審批。
+- 附件、內文裡的圖片、多語系內容、排除名單、依屬性的動態受眾、自訂 cron、drip 序列、發送前的審批。
 - 平台管理者對所有租戶的公告。
 - 修改 `notify()` 的單次上限，或改成廣播模型。
 

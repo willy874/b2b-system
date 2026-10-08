@@ -9297,6 +9297,79 @@
       }
     },
     "schemas": {
+      "RichTextMark": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["bold", "italic", "underline", "strike", "code", "link"]
+          },
+          "attrs": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": ["type"],
+        "additionalProperties": false
+      },
+      "RichTextNode": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "paragraph",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "codeBlock",
+              "horizontalRule",
+              "hardBreak",
+              "text"
+            ]
+          },
+          "attrs": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RichTextNode"
+            }
+          },
+          "text": {
+            "type": "string"
+          },
+          "marks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RichTextMark"
+            }
+          }
+        },
+        "required": ["type"],
+        "additionalProperties": false
+      },
+      "RichTextDocument": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["doc"]
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RichTextNode"
+            }
+          }
+        },
+        "required": ["type", "content"],
+        "additionalProperties": false
+      },
       "NotificationChannel": {
         "type": "string",
         "enum": ["inApp", "email"]
@@ -10002,7 +10075,7 @@
             "type": "string"
           },
           "body": {
-            "type": "string"
+            "$ref": "#/components/schemas/RichTextDocument"
           },
           "audience": {
             "$ref": "#/components/schemas/AnnouncementAudience"
@@ -10119,9 +10192,11 @@
             "maxLength": 120
           },
           "body": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 5000
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RichTextDocument"
+              }
+            ]
           },
           "audience": {
             "$ref": "#/components/schemas/AnnouncementAudience"
@@ -10142,9 +10217,11 @@
             "maxLength": 120
           },
           "body": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 5000
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RichTextDocument"
+              }
+            ]
           },
           "audience": {
             "allOf": [
@@ -10244,7 +10321,7 @@
             "type": "string"
           },
           "body": {
-            "type": "string"
+            "$ref": "#/components/schemas/RichTextDocument"
           },
           "audience": {
             "$ref": "#/components/schemas/AnnouncementAudience"
@@ -10349,7 +10426,7 @@
             "type": "string"
           },
           "body": {
-            "type": "string"
+            "$ref": "#/components/schemas/RichTextDocument"
           },
           "sentAt": {
             "type": "string"

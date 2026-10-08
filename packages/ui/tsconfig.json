@@ -23,5 +23,5 @@
     "uno.config.ts",
     ".storybook/**/*"
   ],
-  "references": [{ "path": "../web-shared" }]
+  "references": [{ "path": "../web-shared" }, { "path": "../rich-text" }]
 }

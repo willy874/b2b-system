@@ -24,21 +24,36 @@ beforeEach(() => {
   fetchMessage.mockReset().mockResolvedValue({
     dispatchId: 'd1',
     title: '系統維護通知',
-    body: '本週六停機。\n請提前存檔。',
+    body: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: '本週六停機。' }] },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: '請提前存檔', marks: [{ type: 'bold' }] },
+            { type: 'text', text: '。' },
+          ],
+        },
+      ],
+    },
     sentAt: '2026-10-01T00:00:00.000Z',
     sender: { id: 'u1', displayName: '管理員' },
   });
 });
 
 describe('AnnouncementMessagePage（收件人看全文，docs/architecture/backend/19-announcement.md §9.2 D4）', () => {
-  it('沒有任何權限也看得到自己收到的全文（保留換行）與送出者', async () => {
+  it('沒有任何權限也看得到自己收到的全文（富文本：段落、粗體）與送出者', async () => {
     renderRoute(routes, '/announcement/message/d1', []);
     expect(
       await screen.findByTestId('announcement-message-title', undefined, { timeout: 5000 }),
     ).toHaveTextContent('系統維護通知');
-    expect(screen.getByTestId('announcement-message-body').textContent).toBe(
-      '本週六停機。\n請提前存檔。',
-    );
+    const body = screen.getByTestId('announcement-message-body');
+    expect(Array.from(body.querySelectorAll('p'), (p) => p.textContent)).toEqual([
+      '本週六停機。',
+      '請提前存檔。',
+    ]);
+    expect(screen.getByText('請提前存檔').tagName).toBe('STRONG');
     expect(screen.getByText(/管理員/)).toBeInTheDocument();
     expect(fetchMessage.mock.calls[0]![0]).toMatchObject({ params: { dispatchId: 'd1' } });
   });

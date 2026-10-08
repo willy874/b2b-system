@@ -3,6 +3,20 @@ import { request } from '@playwright/test';
 import { apiLogin, apiRequest } from '../helpers/api';
 import { PLATFORM_URL } from '../helpers/auth';
 
+/** 公告的內文是富文本：純文字每一行一個段落（docs/architecture/backend/19-announcement.md §9.2 D22）。 */
+function richText(text: string) {
+  return {
+    type: 'doc',
+    content: text
+      .split('\n')
+      .map((line) =>
+        line
+          ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
+          : { type: 'paragraph' },
+      ),
+  };
+}
+
 /**
  * 導覽用的示範資料：全部經 API 建立（和使用者在畫面上做的事走同一條路，稽核、通知、背景工作都會跟著產生）。
  * 名稱刻意用領域中立的組織情境（docs/README.md §4）。
@@ -245,7 +259,9 @@ export async function createDemoData(
     '/announcements',
     {
       title: '十月系統維護通知',
-      body: '10 月 18 日（六）22:00–23:00 進行例行維護，期間後台暫停服務。請提前儲存手上的編輯。',
+      body: richText(
+        '10 月 18 日（六）22:00–23:00 進行例行維護，期間後台暫停服務。請提前儲存手上的編輯。',
+      ),
       audience: { all: true },
       trigger: { kind: 'immediate' },
     },
@@ -256,7 +272,7 @@ export async function createDemoData(
   await attempt('週期公告', () =>
     call(token, 'post', '/announcements', {
       title: '每週一提醒：更新營運週報',
-      body: '請在週一中午前把上週的營運數字更新到共用資料夾。',
+      body: richText('請在週一中午前把上週的營運數字更新到共用資料夾。'),
       audience: { all: true },
       trigger: {
         kind: 'recurring',

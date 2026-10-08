@@ -6,6 +6,12 @@ import { loginAndWaitForHome } from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
 
+/** 以 API 建立公告時的內文：富文本的文件 JSON（docs/architecture/backend/19-announcement.md §9.2 D22）。 */
+const E2E_BODY = {
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'E2E' }] }],
+};
+
 /**
  * 公告（docs/architecture/backend/19-announcement.md）：草稿 → 發布（立即）→ 背景工作展開給收件人 →
  * 收件人的鈴鐺出現 `announcement.published`，點開看到內文。收件人用專用帳號 `announceTarget`。
@@ -44,7 +50,15 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
     await page.goto('/announcement');
     await page.getByTestId('announcement-create-button').click();
     await page.getByTestId('announcement-title-input').fill(title);
-    await page.getByTestId('announcement-body-input').fill(body);
+    // 內文是富文本編輯器（延遲載入）：輸入後全選、按工具列的粗體
+    const bodyEditor = page.getByTestId('announcement-body-input');
+    await bodyEditor.getByRole('textbox').fill(body);
+    await bodyEditor.getByRole('textbox').press('ControlOrMeta+a');
+    await getByTestIdAndValue(bodyEditor, 'toolbar-item', 'bold').click();
+    await expect(getByTestIdAndValue(bodyEditor, 'toolbar-item', 'bold')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await page.getByTestId('announcement-audience-users').click();
     await page.getByTestId('select-search').fill(ACCOUNTS.announceTarget);
     await getByTestIdAndValue(page, 'select-item', targetId).click();
@@ -78,7 +92,9 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
     await item.getByTestId('notification-item-link').click();
     await expect(recipient.getByTestId('announcement-message-page')).toBeVisible();
     await expect(recipient.getByTestId('announcement-message-title')).toHaveText(title);
-    await expect(recipient.getByTestId('announcement-message-body')).toContainText(body);
+    await expect(recipient.getByTestId('announcement-message-body').locator('strong')).toHaveText(
+      body,
+    );
     await snapshot(recipient, 'announcement-message');
     await recipientContext.close();
   });
@@ -126,7 +142,7 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
       const title = unique('E2E 不通知');
       const created = await apiRequest(adminToken, 'post', '/announcements', {
         title,
-        body: 'E2E',
+        body: E2E_BODY,
         audience: {
           all: false,
           userIds: [await userIdOf(adminToken, ACCOUNTS.announceTarget)],
@@ -175,7 +191,7 @@ test.describe('公告（docs/architecture/backend/19-announcement.md）', () => 
     const token = await apiLogin('admin');
     const created = await apiRequest(token, 'post', '/announcements', {
       title: unique('E2E 空收件人'),
-      body: 'E2E',
+      body: E2E_BODY,
       audience: { all: false, userIds: [], groupIds: [], roleIds: [] },
       trigger: { kind: 'immediate' },
     });

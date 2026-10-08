@@ -42,6 +42,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | `packages/error-codes` | api 與前端共用的錯誤碼（build 到 `dist/`） |
 | `packages/mail-components` | api 郵件範本用的 React Email 元件與 `render`，建置時打包成單一檔案（build 到 `dist/`） |
 | `packages/realtime` | 推播事件的契約（api 與前端共用，build 到 `dist/`） |
+| `packages/rich-text` | 富文本的格式定義與轉換：內容規則、純文字、連結白名單、JSON ⇄ HTML、api 的 zod schema（api 與 `ui` 共用，build 到 `dist/`；[`docs/architecture/frontend/07-ui-system.md`](docs/architecture/frontend/07-ui-system.md) §3.16） |
 | `packages/api-sdk` | 由 api 的 OpenAPI 產生的前端 SDK（build 到 `dist/`） |
 
 - 前端 package 只有原始碼，由 app 的 Vite 編譯；以子路徑匯入：`@b2b-system/web-core/store`、`@b2b-system/ui/Button`、`@b2b-system/web-shared/utils`。
@@ -102,7 +103,7 @@ pnpm --filter @b2b-system/apm-service upload-sourcemaps --project backstage --re
 pnpm bundle:check   # 建置兩個前端並檢查 bundle 預算（apps/*/bundle-budget.json；CI 的 bundle job 也跑）
 pnpm dev:mock-idp   # 模擬的外部 IdP（:4455，client b2b-mock／mock-secret）；外部 IdP 登入的開發與 E2E 用
 pnpm dev:external-api  # 對外 API（:3001，只認 API token；docs/architecture/06-external-api.md）
-pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、api-sdk、mail-components）；拉下新的 main 後先 pnpm install 再跑這個
+pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、rich-text、api-sdk、mail-components）；拉下新的 main 後先 pnpm install 再跑這個
 pnpm typecheck      # tsc -b（全 workspace）
 pnpm lint / pnpm format / pnpm format:check
 pnpm test           # 單元 + 整合（後端整合測試會用 Testcontainers 起一個 postgres）

@@ -1,3 +1,4 @@
+import type { RichTextDocument } from '@b2b-system/rich-text';
 import { sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import {
@@ -84,7 +85,13 @@ export const announcements = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     title: text('title').notNull(),
+    /** 內文的純文字（`richTextToPlainText(body_doc)`）：搜尋、字數上限、稽核用，寫入 `body_doc` 時一起更新。 */
     body: text('body').notNull(),
+    /**
+     * 內文：富文本的文件 JSON（docs/architecture/frontend/07-ui-system.md §3.16），顯示以它為準。
+     * migration 0050 才加入：部署期間舊版 api 寫入的列沒有它，讀取時以 `body` 的純文字補上（§9.2 D22）。
+     */
+    bodyDoc: jsonb('body_doc').$type<RichTextDocument>(),
     audience: jsonb('audience').$type<AnnouncementAudienceValue>().notNull(),
     trigger: jsonb('trigger').$type<AnnouncementTriggerValue>().notNull(),
     status: text('status').$type<AnnouncementStatus>().notNull().default('draft'),
@@ -131,6 +138,7 @@ export const announcementDispatches = pgTable(
     scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
     title: text('title').notNull(),
     body: text('body').notNull(),
+    bodyDoc: jsonb('body_doc').$type<RichTextDocument>(),
     audience: jsonb('audience').$type<AnnouncementAudienceValue>().notNull(),
     status: text('status').$type<AnnouncementDispatchStatus>().notNull().default('pending'),
     /** 事件點：觸發的使用者（這次只發給他）；排程的發送為 null。不加外鍵：使用者永久刪除後紀錄保留。 */

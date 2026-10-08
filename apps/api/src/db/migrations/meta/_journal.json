@@ -351,6 +351,13 @@
       "when": 1791428471975,
       "tag": "0049_data_transfer_resources",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791431705178,
+      "tag": "0050_announcement_body_doc",
+      "breakpoints": true
     }
   ]
 }

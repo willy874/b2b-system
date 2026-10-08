@@ -1,5 +1,7 @@
 import { Field } from '@b2b-system/ui/Field';
-import { Input, Textarea } from '@b2b-system/ui/Input';
+import { Input } from '@b2b-system/ui/Input';
+import { LazyRichTextEditor } from '@b2b-system/ui/LazyRichTextEditor';
+import type { RichTextDocument } from '@b2b-system/ui/RichTextViewer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
 import type { AnnouncementAudience } from '@/shared/api-sdk';
@@ -12,7 +14,8 @@ import { TriggerField } from './TriggerField';
 /** 表單的草稿（建立與編輯共用）。 */
 export interface AnnouncementDraft {
   title: string;
-  body: string;
+  /** 富文本（docs/architecture/backend/19-announcement.md §9.2 D22）。 */
+  body: RichTextDocument;
   audience: AnnouncementAudience;
   trigger: TriggerDraft;
 }
@@ -27,7 +30,10 @@ interface AnnouncementFormProps {
   disabled?: boolean;
 }
 
-/** 標題、純文字內文、受眾、發送時間（docs/architecture/backend/19-announcement.md §9）。 */
+/**
+ * 標題、富文本內文、受眾、發送時間（docs/architecture/backend/19-announcement.md §9）。
+ * 內文的編輯器延遲載入（`LazyRichTextEditor`）：Tiptap 只在打開表單時才下載，列表與詳情頁不含它。
+ */
 export function AnnouncementForm({
   id,
   value,
@@ -61,12 +67,13 @@ export function AnnouncementForm({
         description={t('announcement.field.bodyHint', { max: ANNOUNCEMENT_BODY_MAX })}
         required
       >
-        <Textarea
-          rows={6}
+        <LazyRichTextEditor
           value={value.body}
           maxLength={ANNOUNCEMENT_BODY_MAX}
+          minHeight="8rem"
+          maxHeight="24rem"
           disabled={disabled}
-          onChange={(event) => onChange({ ...value, body: event.target.value })}
+          onChange={(body) => onChange({ ...value, body })}
           data-testid="announcement-body-input"
         />
       </Field>

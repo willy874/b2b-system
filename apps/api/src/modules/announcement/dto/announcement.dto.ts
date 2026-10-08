@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { PaginationSchema } from '@/core/http';
-import { defineSchema } from '@/core/validation';
+import { defineSchema, RichTextDocumentSchema, richTextInput } from '@/core/validation';
 import { ANNOUNCEMENT_DISPATCH_STATUSES, ANNOUNCEMENT_STATUSES } from '@/db/schema';
 
 import {
@@ -130,7 +130,7 @@ export const AnnouncementSchema = defineSchema(
   z.object({
     id: z.string().uuid(),
     title: z.string(),
-    body: z.string(),
+    body: RichTextDocumentSchema,
     audience: AnnouncementAudienceSchema,
     trigger: AnnouncementTriggerSchema,
     status: AnnouncementStatusSchema,
@@ -155,6 +155,12 @@ export const AnnouncementSchema = defineSchema(
   }),
 );
 
+/** 內文：富文本，純文字的字數上限與編輯器的 `maxLength` 相同。 */
+const AnnouncementBodyInputSchema = richTextInput({
+  maxLength: ANNOUNCEMENT_BODY_MAX,
+  required: true,
+});
+
 export const ListAnnouncementSchema = PaginationSchema.extend({
   keyword: z.string().trim().max(100).optional(),
   status: AnnouncementStatusSchema.optional(),
@@ -164,7 +170,8 @@ export const CreateAnnouncementSchema = defineSchema(
   'CreateAnnouncementRequest',
   z.object({
     title: z.string().trim().min(1).max(ANNOUNCEMENT_TITLE_MAX),
-    body: z.string().trim().min(1).max(ANNOUNCEMENT_BODY_MAX),
+    /** 富文本；純文字（`richTextToPlainText`）1～ANNOUNCEMENT_BODY_MAX 字。 */
+    body: AnnouncementBodyInputSchema,
     audience: AnnouncementAudienceSchema,
     trigger: AnnouncementTriggerSchema,
   }),
@@ -175,7 +182,7 @@ export const UpdateAnnouncementSchema = defineSchema(
   z
     .object({
       title: z.string().trim().min(1).max(ANNOUNCEMENT_TITLE_MAX).optional(),
-      body: z.string().trim().min(1).max(ANNOUNCEMENT_BODY_MAX).optional(),
+      body: AnnouncementBodyInputSchema.optional(),
       audience: AnnouncementAudienceSchema.optional(),
       trigger: AnnouncementTriggerSchema.optional(),
       /** 樂觀鎖：編輯開始時看到的 `version`（必填）。 */
@@ -218,7 +225,7 @@ export const AnnouncementDispatchSchema = defineSchema(
     announcementId: z.string().uuid(),
     scheduledFor: z.string(),
     title: z.string(),
-    body: z.string(),
+    body: RichTextDocumentSchema,
     audience: AnnouncementAudienceSchema,
     status: AnnouncementDispatchStatusSchema,
     /** 實際寫入的通知數；發送完成才有值。撤回後保留原本的數字。 */
@@ -244,7 +251,7 @@ export const AnnouncementMessageSchema = defineSchema(
   z.object({
     dispatchId: z.string().uuid(),
     title: z.string(),
-    body: z.string(),
+    body: RichTextDocumentSchema,
     sentAt: z.string(),
     /** 送出的人；那個人已被永久刪除時為 null。 */
     sender: PersonSchema,

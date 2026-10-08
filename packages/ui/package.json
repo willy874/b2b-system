@@ -26,6 +26,7 @@
     "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {
+    "@b2b-system/rich-text": "workspace:*",
     "@b2b-system/web-shared": "workspace:*",
     "@base-ui/react": "^1.8.0",
     "@codemirror/autocomplete": "^6.20.3",
@@ -41,6 +42,11 @@
     "@lezer/highlight": "^1.2.5",
     "@tanstack/react-table": "^9.2.4",
     "@tanstack/react-virtual": "^3.14.13",
+    "@tiptap/core": "^3.31.4",
+    "@tiptap/extensions": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
     "@xyflow/react": "^12.12.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",

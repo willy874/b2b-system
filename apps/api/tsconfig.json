@@ -28,6 +28,7 @@
   "references": [
     { "path": "../../packages/error-codes" },
     { "path": "../../packages/realtime" },
+    { "path": "../../packages/rich-text" },
     { "path": "../../packages/mail-components" }
   ]
 }

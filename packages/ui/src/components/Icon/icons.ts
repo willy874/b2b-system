@@ -2,6 +2,7 @@ import ArrowDown from '../../icons/arrow-down.svg?react';
 import ArrowUpDown from '../../icons/arrow-up-down.svg?react';
 import ArrowUp from '../../icons/arrow-up.svg?react';
 import Bell from '../../icons/bell.svg?react';
+import Bold from '../../icons/bold.svg?react';
 import Bot from '../../icons/bot.svg?react';
 import Calendar from '../../icons/calendar.svg?react';
 import Check from '../../icons/check.svg?react';
@@ -12,6 +13,8 @@ import ChevronsDownUp from '../../icons/chevrons-down-up.svg?react';
 import ChevronsUpDown from '../../icons/chevrons-up-down.svg?react';
 import CircleUser from '../../icons/circle-user.svg?react';
 import Close from '../../icons/close.svg?react';
+import CodeBlock from '../../icons/code-block.svg?react';
+import Code from '../../icons/code.svg?react';
 import Copy from '../../icons/copy.svg?react';
 import Download from '../../icons/download.svg?react';
 import Edit from '../../icons/edit.svg?react';
@@ -34,9 +37,14 @@ import FolderUpload from '../../icons/folder-upload.svg?react';
 import Folder from '../../icons/folder.svg?react';
 import Globe from '../../icons/globe.svg?react';
 import Grid from '../../icons/grid.svg?react';
+import Heading2 from '../../icons/heading-2.svg?react';
+import Heading3 from '../../icons/heading-3.svg?react';
 import Home from '../../icons/home.svg?react';
 import Info from '../../icons/info.svg?react';
+import Italic from '../../icons/italic.svg?react';
 import Key from '../../icons/key.svg?react';
+import Link from '../../icons/link.svg?react';
+import ListOrdered from '../../icons/list-ordered.svg?react';
 import List from '../../icons/list.svg?react';
 import Lock from '../../icons/lock.svg?react';
 import LogIn from '../../icons/log-in.svg?react';
@@ -53,6 +61,7 @@ import Network from '../../icons/network.svg?react';
 import PinOff from '../../icons/pin-off.svg?react';
 import Pin from '../../icons/pin.svg?react';
 import Plus from '../../icons/plus.svg?react';
+import Quote from '../../icons/quote.svg?react';
 import Redo from '../../icons/redo.svg?react';
 import Refresh from '../../icons/refresh.svg?react';
 import Search from '../../icons/search.svg?react';
@@ -60,10 +69,13 @@ import Settings from '../../icons/settings.svg?react';
 import Shield from '../../icons/shield.svg?react';
 import Sliders from '../../icons/sliders.svg?react';
 import Smartphone from '../../icons/smartphone.svg?react';
+import Strikethrough from '../../icons/strikethrough.svg?react';
 import Sun from '../../icons/sun.svg?react';
 import Tag from '../../icons/tag.svg?react';
 import Trash from '../../icons/trash.svg?react';
+import Underline from '../../icons/underline.svg?react';
 import Undo from '../../icons/undo.svg?react';
+import Unlink from '../../icons/unlink.svg?react';
 import Unlock from '../../icons/unlock.svg?react';
 import Upload from '../../icons/upload.svg?react';
 import User from '../../icons/user.svg?react';
@@ -82,6 +94,7 @@ export const ICONS = {
   'arrow-up': ArrowUp,
   'arrow-up-down': ArrowUpDown,
   bell: Bell,
+  bold: Bold,
   bot: Bot,
   calendar: Calendar,
   check: Check,
@@ -92,6 +105,8 @@ export const ICONS = {
   'chevrons-up-down': ChevronsUpDown,
   'circle-user': CircleUser,
   close: Close,
+  code: Code,
+  'code-block': CodeBlock,
   copy: Copy,
   download: Download,
   edit: Edit,
@@ -114,10 +129,15 @@ export const ICONS = {
   'folder-upload': FolderUpload,
   globe: Globe,
   grid: Grid,
+  'heading-2': Heading2,
+  'heading-3': Heading3,
   home: Home,
   info: Info,
+  italic: Italic,
   key: Key,
+  link: Link,
   list: List,
+  'list-ordered': ListOrdered,
   lock: Lock,
   'log-in': LogIn,
   logout: Logout,
@@ -133,6 +153,7 @@ export const ICONS = {
   pin: Pin,
   'pin-off': PinOff,
   plus: Plus,
+  quote: Quote,
   redo: Redo,
   refresh: Refresh,
   search: Search,
@@ -140,10 +161,13 @@ export const ICONS = {
   shield: Shield,
   sliders: Sliders,
   smartphone: Smartphone,
+  strikethrough: Strikethrough,
   sun: Sun,
   tag: Tag,
   trash: Trash,
+  underline: Underline,
   undo: Undo,
+  unlink: Unlink,
   unlock: Unlock,
   upload: Upload,
   user: User,

@@ -22,6 +22,7 @@ import { PermissionService } from '@/modules/permission/permission.service';
 
 import { AnnouncementTriggerCatalog } from './announcement-trigger.catalog';
 import { AnnouncementAudienceResolver, isEmptyAudience } from './announcement.audience';
+import { bodyColumns, bodyDocumentOf } from './announcement.body';
 import { ANNOUNCEMENT_RECURRENCE_PREVIEW_COUNT } from './announcement.constants';
 import { ANNOUNCEMENT_FAN_OUT_JOB } from './announcement.job-types';
 import type { AnnouncementWithPeople, DispatchWithPeople } from './announcement.repository';
@@ -53,7 +54,7 @@ function toDto(
   return {
     id: row.id,
     title: row.title,
-    body: row.body,
+    body: bodyDocumentOf(row),
     audience: row.audience,
     trigger: row.trigger,
     status: row.status,
@@ -81,7 +82,7 @@ function toDispatchDto(row: DispatchWithPeople, stats: DispatchStats): Announcem
     announcementId: row.announcementId,
     scheduledFor: row.scheduledFor.toISOString(),
     title: row.title,
-    body: row.body,
+    body: bodyDocumentOf(row),
     audience: row.audience,
     status: row.status,
     recipientCount: row.recipientCount,
@@ -96,7 +97,7 @@ function toDispatchDto(row: DispatchWithPeople, stats: DispatchStats): Announcem
   };
 }
 
-/** 稽核用的快照：內文可能很長，只記長度。 */
+/** 稽核用的快照：內文可能很長，只記純文字的長度。 */
 function auditSnapshot(row: Pick<AnnouncementRow, 'title' | 'body' | 'audience' | 'trigger'>) {
   return {
     title: row.title,
@@ -160,7 +161,7 @@ export class AnnouncementService {
       const row = await this.repo.create(
         {
           title: dto.title,
-          body: dto.body,
+          ...bodyColumns(dto.body),
           audience: dto.audience,
           trigger: dto.trigger,
           status: 'draft',
@@ -191,7 +192,7 @@ export class AnnouncementService {
    * 只影響之後的發送：已發出的內容是發送紀錄的快照（D17）。
    */
   async update(id: string, dto: UpdateAnnouncementDto, actor: AuthUser): Promise<AnnouncementDto> {
-    const { version, ...fields } = dto;
+    const { version, body, ...fields } = dto;
     const current = await this.getExisting(id);
     if (version !== current.version) {
       throw new AppException('ANNOUNCEMENT_VERSION_CONFLICT', { current: current.version });
@@ -221,6 +222,7 @@ export class AnnouncementService {
         id,
         {
           ...fields,
+          ...(body && bodyColumns(body)),
           ...(schedule && { nextRunAt: schedule.nextRunAt }),
           updatedBy: actor.id,
         },
@@ -286,6 +288,7 @@ export class AnnouncementService {
             scheduledFor: new Date(),
             title: updated.title,
             body: updated.body,
+            bodyDoc: bodyDocumentOf(updated),
             audience: updated.audience,
             createdBy: actor.id,
           },
@@ -465,7 +468,7 @@ export class AnnouncementService {
     return {
       dispatchId,
       title: dispatch.title,
-      body: dispatch.body,
+      body: bodyDocumentOf(dispatch),
       sentAt: (dispatch.startedAt ?? dispatch.scheduledFor).toISOString(),
       sender: dispatch.creator,
     };

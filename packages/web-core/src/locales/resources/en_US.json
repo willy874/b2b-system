@@ -381,6 +381,27 @@
       "redo": "Redo",
       "more": "More",
       "empty": "No nodes yet"
+    },
+    "richTextEditor": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "strike": "Strikethrough",
+      "code": "Inline code",
+      "heading2": "Heading",
+      "heading3": "Subheading",
+      "bulletList": "Bulleted list",
+      "orderedList": "Numbered list",
+      "blockquote": "Quote",
+      "codeBlock": "Code block",
+      "horizontalRule": "Divider",
+      "link": "Link",
+      "undo": "Undo",
+      "redo": "Redo",
+      "linkUrl": "Link URL",
+      "linkRemove": "Remove link",
+      "linkInvalid": "Enter a URL starting with http, https, or mailto",
+      "characterCount": "{{current}} / {{max}}"
     }
   },
   "theme": {

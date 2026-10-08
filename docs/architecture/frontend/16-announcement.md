@@ -16,12 +16,12 @@ features/announcement/                 可啟用的 feature（`announcement`，a
 │   ├── useAnnouncementPermission.ts   canCreate／canUpdate／canDelete ＋ canPublish
 │   └── useAnnouncementMutations.ts    建立、修改、送出、暫停、恢復、刪除（含復原）、還原、撤回
 ├── components/
-│   ├── AnnouncementForm.tsx           標題、內文、受眾、發送時間（建立與編輯共用）
+│   ├── AnnouncementForm.tsx           標題、內文（`LazyRichTextEditor`）、受眾、發送時間（建立與編輯共用）
 │   ├── AudiencePicker.tsx             「全部」開關、使用者（伺服器端搜尋）／群組／角色多選、預覽人數
 │   ├── TriggerField.tsx               立即／指定時間（偏好時區的日期 ＋ 時間）／週期（租戶時區；接下來 5 次的預覽）／事件點（觸發點 ＋ 延遲）
 │   ├── triggerDraft.ts                發送時間的草稿 ⇄ API 的觸發方式（純函式）
 │   ├── triggerSummary.ts              觸發方式的一行摘要（列表、詳情、送出的確認）
-│   ├── draft.ts                       表單草稿 ⇄ API
+│   ├── draft.ts                       表單草稿 ⇄ API；`isDraftDirty`、還原舊版（純文字內文）草稿的 `restoreDraft`
 │   └── AnnouncementRestoreAction.tsx  回收桶的還原按鈕
 └── pages/
     ├── AnnouncementList/              表格：標題、狀態、發送時間、最近一次已讀率、更新時間；關鍵字與狀態篩選
@@ -47,6 +47,11 @@ shared/date                            zonedDateTime()、toZonedParts()：偏好
 
 ## 3. 表單
 
+- **內文是富文本**（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D21）：`@b2b-system/ui/LazyRichTextEditor`，
+  `maxLength` 與後端的字數上限相同。編輯器（Tiptap，約 123 KB gzip）是獨立的 chunk：表單第一次渲染時才下載，期間顯示同尺寸的骨架；
+  列表的「新增」與詳情的「編輯」按鈕在滑過或聚焦時 `preloadRichTextEditor()` 先下載。詳情與收件人的全文頁以 `RichTextViewer` 顯示（不載入編輯器）。
+  送出前 `toRequest` 以與後端相同的規則檢查內文（`isRichTextEmpty`、`isValidRichTextDocument`），不合法時送出鈕停用。
+  session 結束時存下的草稿若是改成富文本之前的（內文是字串），還原時轉成文件（`restoreDraft`）。
 - 建立只存成草稿：送出在詳情頁做，確認框說明立即或排定的時間（`publish` 獨立於 `create`，D15）。
 - 受眾的人數預覽隨選擇即時重抓（key 是排序過的 id 串）；已選但不在搜尋結果裡的使用者另外取名稱，標籤才顯示得出來。
 - 指定時間以使用者偏好的時區輸入並標示時區；送出前換成 ISO。夏令時間的處理與後端的週期相同（[`backend/19-announcement.md`](../backend/19-announcement.md) §5.1 的 `time`）：不存在的時段順延，重複的時段取較早的一次。已送出的公告不能改成「立即」。

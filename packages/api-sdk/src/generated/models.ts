@@ -1,6 +1,34 @@
 // 由 api-sdk codegen 產生，請勿手動編輯。
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
+export interface RichTextMark {
+  type: 'bold' | 'italic' | 'underline' | 'strike' | 'code' | 'link';
+  attrs?: Record<string, unknown>;
+}
+
+export interface RichTextNode {
+  type:
+    | 'paragraph'
+    | 'heading'
+    | 'bulletList'
+    | 'orderedList'
+    | 'listItem'
+    | 'blockquote'
+    | 'codeBlock'
+    | 'horizontalRule'
+    | 'hardBreak'
+    | 'text';
+  attrs?: Record<string, unknown>;
+  content?: Array<RichTextNode>;
+  text?: string;
+  marks?: Array<RichTextMark>;
+}
+
+export interface RichTextDocument {
+  type: 'doc';
+  content: Array<RichTextNode>;
+}
+
 export const NotificationChannel = {
   inApp: 'inApp',
   email: 'email',
@@ -199,7 +227,7 @@ export interface AnnouncementRecurrencePreview {
 export interface Announcement {
   id: string;
   title: string;
-  body: string;
+  body: RichTextDocument;
   audience: AnnouncementAudience;
   trigger: AnnouncementTrigger;
   status: 'draft' | 'scheduled' | 'paused' | 'completed';
@@ -226,14 +254,14 @@ export interface Announcement {
 
 export interface CreateAnnouncementRequest {
   title: string;
-  body: string;
+  body: RichTextDocument;
   audience: AnnouncementAudience;
   trigger: AnnouncementTrigger;
 }
 
 export interface UpdateAnnouncementRequest {
   title?: string;
-  body?: string;
+  body?: RichTextDocument;
   audience?: AnnouncementAudience;
   trigger?: AnnouncementTrigger;
   version: number;
@@ -257,7 +285,7 @@ export interface AnnouncementDispatch {
   announcementId: string;
   scheduledFor: string;
   title: string;
-  body: string;
+  body: RichTextDocument;
   audience: AnnouncementAudience;
   status: 'pending' | 'sending' | 'sent' | 'failed' | 'revoked';
   recipientCount: number | null;
@@ -280,7 +308,7 @@ export interface AnnouncementDispatch {
 export interface AnnouncementMessage {
   dispatchId: string;
   title: string;
-  body: string;
+  body: RichTextDocument;
   sentAt: string;
   sender: {
     id: string;

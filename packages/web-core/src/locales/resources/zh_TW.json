@@ -365,6 +365,27 @@
       "redo": "重做",
       "more": "更多",
       "empty": "還沒有任何節點"
+    },
+    "richTextEditor": {
+      "bold": "粗體",
+      "italic": "斜體",
+      "underline": "底線",
+      "strike": "刪除線",
+      "code": "行內程式碼",
+      "heading2": "標題",
+      "heading3": "小標題",
+      "bulletList": "項目清單",
+      "orderedList": "編號清單",
+      "blockquote": "引言",
+      "codeBlock": "程式碼區塊",
+      "horizontalRule": "分隔線",
+      "link": "連結",
+      "undo": "復原",
+      "redo": "重做",
+      "linkUrl": "連結網址",
+      "linkRemove": "移除連結",
+      "linkInvalid": "請輸入 http、https 或 mailto 開頭的網址",
+      "characterCount": "{{current}} / {{max}}"
     }
   },
   "theme": {

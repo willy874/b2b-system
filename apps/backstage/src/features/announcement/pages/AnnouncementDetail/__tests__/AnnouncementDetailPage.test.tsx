@@ -45,10 +45,16 @@ vi.mock('@/apis/announcement/delete-announcement/fetcher', () => ({
   fetchAnnouncementDeleteMutation: remove,
 }));
 
+/** 內文（富文本）。 */
+const BODY = {
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text: '週六停機' }] }],
+};
+
 const DRAFT = {
   id: 'a1',
   title: '系統維護通知',
-  body: '週六停機',
+  body: BODY,
   audience: { all: false, userIds: [], groupIds: ['g1', 'g2'], roleIds: [] },
   trigger: { kind: 'immediate' },
   status: 'draft',
@@ -71,7 +77,7 @@ const DISPATCH = {
   announcementId: 'a1',
   scheduledFor: '2026-10-01T00:00:00.000Z',
   title: '系統維護通知',
-  body: '週六停機',
+  body: BODY,
   audience: DRAFT.audience,
   status: 'sent',
   recipientCount: 10,

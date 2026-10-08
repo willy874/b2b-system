@@ -17,6 +17,37 @@ export interface TreeEditorTextLabels {
   empty: string;
 }
 
+/** `RichTextEditor` 工具列、連結列與字數的文案（格式按鈕只顯示圖示，這些字就是按鈕的名稱與提示）。 */
+export interface RichTextEditorTextLabels {
+  bold: string;
+  italic: string;
+  underline: string;
+  strike: string;
+  code: string;
+  heading2: string;
+  heading3: string;
+  bulletList: string;
+  orderedList: string;
+  blockquote: string;
+  codeBlock: string;
+  horizontalRule: string;
+  /** 工具列的連結按鈕，也是連結列（`role="group"`）的名稱。 */
+  link: string;
+  undo: string;
+  redo: string;
+  /** 工具列放不下時，收起其餘按鈕的下拉按鈕。 */
+  more: string;
+  /** 連結列的網址輸入框。 */
+  linkUrl: string;
+  linkApply: string;
+  linkRemove: string;
+  linkCancel: string;
+  /** 網址不能用（只接受 http、https、mailto 與站內路徑）。 */
+  linkInvalid: string;
+  /** 設了 `maxLength` 時編輯區下方的字數，例如「12 / 500」。 */
+  characterCount: (count: number, max: number) => string;
+}
+
 /**
  * 設計系統元件自己的文案（報讀器用的名稱、預設提示）。
  *
@@ -51,6 +82,7 @@ export interface ComponentLabels {
   /** `DatePicker`／`DateRangePicker` 的觸發鈕（沒有 `aria-label`、也不在 `Field` 裡時）。 */
   datePickerOpen: string;
   treeEditor: TreeEditorTextLabels;
+  richTextEditor: RichTextEditorTextLabels;
 }
 
 export const DEFAULT_COMPONENT_LABELS: ComponentLabels = {
@@ -85,6 +117,30 @@ export const DEFAULT_COMPONENT_LABELS: ComponentLabels = {
     redo: '重做',
     more: '更多',
     empty: '還沒有任何節點',
+  },
+  richTextEditor: {
+    bold: '粗體',
+    italic: '斜體',
+    underline: '底線',
+    strike: '刪除線',
+    code: '行內程式碼',
+    heading2: '標題',
+    heading3: '小標題',
+    bulletList: '項目清單',
+    orderedList: '編號清單',
+    blockquote: '引言',
+    codeBlock: '程式碼區塊',
+    horizontalRule: '分隔線',
+    link: '連結',
+    undo: '復原',
+    redo: '重做',
+    more: '更多',
+    linkUrl: '連結網址',
+    linkApply: '套用',
+    linkRemove: '移除連結',
+    linkCancel: '取消',
+    linkInvalid: '請輸入 http、https 或 mailto 開頭的網址',
+    characterCount: (count, max) => `${count} / ${max}`,
   },
 };
 

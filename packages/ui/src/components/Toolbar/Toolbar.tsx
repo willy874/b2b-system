@@ -29,6 +29,11 @@ export interface ToolbarItem {
   tooltip?: ReactNode;
   /** 這顆按鈕只顯示圖示（沒有 `icon` 時仍顯示文字）。 */
   iconOnly?: boolean;
+  /**
+   * 開關按鈕（例如粗體）：`true`／`false` 時按鈕帶 `aria-pressed` 並以 `data-pressed` 顯示按下的外觀；
+   * 收進「更多」下拉時以勾號表示。`undefined` 是一般按鈕。
+   */
+  pressed?: boolean;
   /** `end`：排在工具列右側（從第一個 `end` 項目起靠右）。預設 `start`。 */
   align?: 'start' | 'end';
   /** 覆寫這顆按鈕的 `data-testid`（預設 `toolbar-item`）；`data-value` 一律是 `key`。 */
@@ -137,6 +142,8 @@ export function Toolbar({
       'data-testid': item['data-testid'] ?? itemSlot['data-testid'],
       'data-value': item.key,
       'data-push': index === firstEnd || undefined,
+      'aria-pressed': item.pressed,
+      'data-pressed': item.pressed || undefined,
       variant: item.variant ?? variant,
       size,
       disabled: item.disabled,
@@ -166,6 +173,7 @@ export function Toolbar({
       <span className={styles.menuLabel}>
         {item.icon}
         {item.label}
+        {item.pressed && <Icon name="check" size={14} className={styles.menuCheck} />}
       </span>
     ),
     disabled: item.disabled || item.loading,

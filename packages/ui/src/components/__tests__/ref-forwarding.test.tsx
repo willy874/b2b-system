@@ -17,6 +17,8 @@ import { JsonViewer } from '../JsonViewer';
 import { Link } from '../Link';
 import { Pagination } from '../Pagination';
 import { Progress } from '../Progress';
+import { RichTextEditor } from '../RichTextEditor';
+import { RichTextViewer } from '../RichTextViewer';
 import { ScrollArea } from '../ScrollArea';
 import { Select } from '../Select';
 import { Separator } from '../Separator';
@@ -104,6 +106,11 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
   ['JsonViewer', (ref) => <JsonViewer ref={ref} value={{}} />],
   ['JsonDiff', (ref) => <JsonDiff ref={ref} before={{}} after={{ a: 1 }} />],
   ['JsonEditor', (ref) => <JsonEditor ref={ref as RefObject<HTMLDivElement>} />],
+  ['RichTextEditor', (ref) => <RichTextEditor ref={ref as RefObject<HTMLDivElement>} />],
+  [
+    'RichTextViewer',
+    (ref) => <RichTextViewer ref={ref as RefObject<HTMLDivElement>} value={undefined} />,
+  ],
   [
     'Field',
     (ref) => (

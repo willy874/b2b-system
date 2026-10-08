@@ -304,7 +304,7 @@ describe('前端的層級依賴（docs/coding-standards/07-layer-dependencies.md
 /** 每個前端 package 可以依賴的 workspace package（§1；與各自的 package.json 一致）。 */
 const PACKAGE_DEPENDENCIES: Record<FrontendPackage, readonly string[]> = {
   'web-shared': ['realtime'],
-  ui: ['web-shared'],
+  ui: ['web-shared', 'rich-text'],
   'web-core': ['ui', 'web-shared', 'error-codes', 'realtime'],
 };
 

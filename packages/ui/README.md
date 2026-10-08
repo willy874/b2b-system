@@ -11,7 +11,7 @@ backstage 與 apps/platform 共用的 **設計系統**：Base UI 之上的元件
 import { Button } from '@b2b-system/ui/Button'; // 一個元件一個子路徑，對應 src/components/<Name>/index.ts
 import { createSlots } from '@b2b-system/ui/slots'; // 另有 labels、types、useControllableState、useLatestRef
 import ChevronDown from '@b2b-system/ui/icons/chevron-down.svg?react';
-import { installFakeLayout } from '@b2b-system/ui/testing'; // 測試替身（jsdom 沒有布局）
+import { installFakeLayout, insertRichText } from '@b2b-system/ui/testing'; // 測試替身（jsdom 沒有布局、不能在 contenteditable 輸入）
 ```
 
 ```css
@@ -36,7 +36,7 @@ app 的 `uno.config.ts` 轉出 `@b2b-system/ui/uno.config`。另有 barrel `@b2b
 ## 規則
 
 - **不出現業務名詞**：props、檔名、story 的範例資料都要領域中立；業務元件放 app 的 `features/<name>/components/`。
-- 只依賴 `@b2b-system/web-shared` 與第三方套件；不 import `@b2b-system/web-core`、任何 app 的程式碼（`@/…`）、`api-sdk`、`realtime`。不依賴語系，預設文案寫死、由 `@b2b-system/web-core/shell` 的 `ComponentLabelsHost` 經 `ComponentLabelsContext` 傳入。
+- 只依賴 `@b2b-system/web-shared`、`@b2b-system/rich-text`（富文本的格式定義，`RichTextViewer` 轉出給 app）與第三方套件；不 import `@b2b-system/web-core`、任何 app 的程式碼（`@/…`）、`api-sdk`、`realtime`。不依賴語系，預設文案寫死、由 `@b2b-system/web-core/shell` 的 `ComponentLabelsHost` 經 `ComponentLabelsContext` 傳入。
 - 依賴語系或 store 的元件（例：`RichTable`）放 `@b2b-system/web-core/components`，不放這裡。
 - 新增元件：`src/components/<Name>/` 要有 `index.ts`、`*.test.tsx`、`*.stories.tsx`（🔒 `design-system.test.ts`），並加進 `src/components/index.ts`。
 - 顏色一律走 `tokens.css` 的 alias；CSS 不寫十六進位色碼、`rgb()`、seed 色（🔒 `design-system.test.ts`），樣式用 CSS Module 包在 `@layer components`。

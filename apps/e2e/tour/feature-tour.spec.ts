@@ -360,6 +360,7 @@ test('通知、公告、Webhook', async ({ page }) => {
     await dialog.getByTestId('announcement-title-input').fill('新版請假流程上線');
     await dialog
       .getByTestId('announcement-body-input')
+      .getByRole('textbox')
       .fill('自下週一起，請假改由後台送出申請，主管在通知中心審核。');
     await dialog.getByTestId('announcement-audience-all').click();
     await expect(dialog.getByTestId('announcement-audience-count')).not.toContainText(' 0 ');

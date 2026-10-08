@@ -26,9 +26,20 @@
     margin-inline-start: auto;
   }
 
+  /* 開關按鈕按下時（pressed）；多一層 .root 才蓋得過 Button 的 variant 樣式（同在 components 層） */
+  .root .item[data-pressed] {
+    background: var(--color-fill);
+    color: var(--color-fg);
+  }
+
   .menuLabel {
     display: inline-flex;
     align-items: center;
     gap: var(--seed-space-2);
+  }
+
+  .menuCheck {
+    margin-inline-start: auto;
+    color: var(--color-brand);
   }
 }

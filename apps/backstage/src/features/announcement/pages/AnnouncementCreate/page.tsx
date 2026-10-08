@@ -9,7 +9,7 @@ import { useId, useState } from 'react';
 
 import { AnnouncementForm } from '../../components/AnnouncementForm';
 import type { AnnouncementDraft } from '../../components/AnnouncementForm';
-import { EMPTY_DRAFT, toRequest } from '../../components/draft';
+import { EMPTY_DRAFT, isDraftDirty, restoreDraft, toRequest } from '../../components/draft';
 import { useAnnouncementCreateMutation } from '../../hooks/useAnnouncementMutations';
 import {
   AnnouncementCreateRoute,
@@ -29,14 +29,14 @@ export default function AnnouncementCreatePage() {
   const formId = useId();
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
   const [formError, setFormError] = useState<string>();
-  const dirty = Boolean(draft.title || draft.body);
+  const dirty = isDraftDirty(draft);
   useUnsavedChangesGuard(dirty);
   // session 非自願結束時保留輸入的內容（docs/architecture/frontend/09-state-and-storage.md §4.4）
   const formDraft = useFormDraft({
     key: 'announcement.create',
     values: draft,
     dirty,
-    onRestore: (saved) => setDraft((current) => ({ ...current, ...saved })),
+    onRestore: (saved) => setDraft((current) => ({ ...current, ...restoreDraft(saved) })),
   });
 
   const request = toRequest(draft);
