@@ -16,6 +16,8 @@ import type {
   PlatformTenantControllerFeatureImpactResult,
   PlatformTenantControllerGetInput,
   PlatformTenantControllerGetResult,
+  PlatformTenantControllerGetUsageInput,
+  PlatformTenantControllerGetUsageResult,
   PlatformTenantControllerListResult,
   PlatformTenantControllerRemoveDomainInput,
   PlatformTenantControllerRemoveDomainResult,
@@ -34,6 +36,7 @@ import {
   PlatformTenantListSchema,
   PlatformTenantSchema,
   TenantFeatureImpactSchema,
+  TenantUsageSchema,
   UpdateTenantRequestSchema,
 } from '../components';
 
@@ -55,7 +58,7 @@ const platformTenantControllerListOperation: OperationDefinition = {
   schemas: PlatformTenantControllerListSchemas,
 };
 
-/** 租戶（未刪除）與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status） */
+/** 租戶（未刪除）、用量摘要與預設網域的上層；分頁、代碼／名稱／網域搜尋（q）、狀態篩選（status）、排序（sort） */
 export function platformTenantControllerList(
   options?: RequestOptions,
 ): Promise<PlatformTenantControllerListResult> {
@@ -189,6 +192,39 @@ export function platformTenantControllerUpdate(
 ): Promise<PlatformTenantControllerUpdateResult> {
   return request<PlatformTenantControllerUpdateResult>(
     platformTenantControllerUpdateOperation,
+    input,
+    options,
+  );
+}
+
+// GET /platform/tenants/{id}/usage
+
+export const PlatformTenantControllerGetUsageSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: TenantUsageSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformTenantControllerGetUsageOperation: OperationDefinition = {
+  id: 'PlatformTenantController_getUsage',
+  method: 'GET',
+  path: '/platform/tenants/{id}/usage',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformTenantControllerGetUsageSchemas,
+};
+
+/** 用量：最近一次快照的摘要與近 days 天（含今天，UTC）每天一筆（docs/architecture/05-tenancy.md §5.4） */
+export function platformTenantControllerGetUsage(
+  input: PlatformTenantControllerGetUsageInput,
+  options?: RequestOptions,
+): Promise<PlatformTenantControllerGetUsageResult> {
+  return request<PlatformTenantControllerGetUsageResult>(
+    platformTenantControllerGetUsageOperation,
     input,
     options,
   );

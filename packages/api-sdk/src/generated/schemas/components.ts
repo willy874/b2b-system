@@ -188,6 +188,7 @@ import type {
   PlatformProfile,
   PlatformTenant,
   PlatformTenantList,
+  PlatformTenantListItem,
   PreviewApprovalFlowRequest,
   Profile,
   PublicSystemSettings,
@@ -245,6 +246,9 @@ import type {
   TenantLookup,
   TenantLookupQuery,
   TenantMfaMethodOverrides,
+  TenantUsage,
+  TenantUsageDay,
+  TenantUsageSummary,
   TrashItem,
   TrashResourceType,
   UpdateAnnouncementRequest,
@@ -2711,6 +2715,37 @@ export const MfaMethodImpactSchema = z.object({
   skippedTenants: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<MfaMethodImpact>;
 
+export const TenantUsageSummarySchema = z.object({
+  usersActive: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  usersTotal: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  serviceAccounts: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  storageUsedBytes: z.number().nullable(),
+  storageQuotaBytes: z.number().nullable(),
+  storageUsageRatio: z.number().nullable(),
+  recentRequests: z.int().min(-9007199254740991).max(9007199254740991),
+  lastActivityAt: z.string().nullable(),
+  snapshotAt: z.string().nullable(),
+}) satisfies z.ZodType<TenantUsageSummary>;
+
+export const TenantUsageDaySchema = z.object({
+  date: z.string(),
+  usersActive: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  usersTotal: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  serviceAccounts: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  storageUsedBytes: z.number().nullable(),
+  storageQuotaBytes: z.number().nullable(),
+  requestsInternal: z.int().min(-9007199254740991).max(9007199254740991),
+  requestsExternal: z.int().min(-9007199254740991).max(9007199254740991),
+  jobsExecuted: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<TenantUsageDay>;
+
+export const TenantUsageSchema = z.object({
+  summary: TenantUsageSummarySchema,
+  warningRatio: z.number(),
+  recentDays: z.int().min(-9007199254740991).max(9007199254740991),
+  daily: z.array(TenantUsageDaySchema),
+}) satisfies z.ZodType<TenantUsage>;
+
 export const TenantFeatureSchema = z.enum([
   'file',
   'auditLog',
@@ -2790,14 +2825,41 @@ export const PlatformTenantSchema = z.object({
   updatedAt: z.string(),
 }) satisfies z.ZodType<PlatformTenant>;
 
+export const PlatformTenantListItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  code: z.string(),
+  name: z.string(),
+  status: z.enum(['provisioning', 'active', 'disabled', 'failed']),
+  domains: z.array(z.string()),
+  storageBucket: z.string(),
+  features: z.array(TenantFeatureSchema),
+  flags: TenantFlagOverridesSchema,
+  mfaMethods: TenantMfaMethodOverridesSchema,
+  featureParams: z.array(TenantFeatureParamSchema),
+  adminEmail: z.string().nullable(),
+  provisionError: z.string().nullable(),
+  provisionedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  usage: TenantUsageSummarySchema,
+}) satisfies z.ZodType<PlatformTenantListItem>;
+
 export const PlatformTenantListSchema = z.object({
-  items: z.array(PlatformTenantSchema),
+  items: z.array(PlatformTenantListItemSchema),
   pagination: z.object({
     offset: z.number(),
     limit: z.number(),
     total: z.number(),
   }),
   baseDomain: z.string(),
+  usageRecentDays: z.int().min(-9007199254740991).max(9007199254740991),
+  usageWarningRatio: z.number(),
 }) satisfies z.ZodType<PlatformTenantList>;
 
 export const CreateTenantRequestSchema = z.object({

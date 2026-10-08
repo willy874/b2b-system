@@ -31,6 +31,7 @@ import { SettingsModule } from './core/settings';
 import { StorageModule } from './core/storage';
 import { TenancyModule, TenantMiddleware } from './core/tenant';
 import { TracingModule } from './core/tracing';
+import { UsageModule, UsageRequestMiddleware } from './core/usage';
 import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { ApiTokenModule } from './modules/api-token/api-token.module';
 import { ApprovalModule } from './modules/approval/approval.module';
@@ -86,6 +87,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     EventsModule,
     // 背景工作佇列（pg-boss）；handler 由各模組註冊（docs/architecture/backend/10-jobs.md）
     JobsModule,
+    // 租戶用量的計數與快照來源；彙總在 TenantModule（docs/architecture/05-tenancy.md §5.4）
+    UsageModule,
     // 物件儲存的抽象層（ObjectStorage）；實作是 S3 SDK（docs/architecture/backend/09-file.md §2）
     StorageModule,
     // 寄信的抽象層（MailTransport）；smtp 或 console（docs/architecture/backend/11-mail.md）
@@ -168,6 +171,6 @@ import { WebhookModule } from './modules/webhook/webhook.module';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     // 租戶要在所有路由之前決定（含 OidcProviderModule 掛的 /oidc/*：查帳號要連租戶 DB）
-    consumer.apply(RequestIdMiddleware, TenantMiddleware).forRoutes('*');
+    consumer.apply(RequestIdMiddleware, TenantMiddleware, UsageRequestMiddleware).forRoutes('*');
   }
 }

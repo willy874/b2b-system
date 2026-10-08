@@ -21,6 +21,7 @@ import {
   TenantDirectory,
 } from '../tenant';
 import { inSpan } from '../tracing';
+import { UsageMeter } from '../usage';
 import { JOB_SCHEMA, JobStore } from './job-store';
 import { defineJob } from './job-type';
 import type { JobType } from './job-type';
@@ -142,6 +143,7 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
     private readonly directory: TenantDirectory,
     @Inject(TENANT_DB) private readonly tenantDb: Database,
     private readonly store: JobStore,
+    private readonly usage: UsageMeter,
   ) {
     this.workerEnabled = config.get('JOBS_WORKER_ENABLED', { infer: true });
     this.boss = new PgBoss({
@@ -474,7 +476,11 @@ export class JobQueue implements OnApplicationBootstrap, OnApplicationShutdown {
       : await this.deferIfTenantBusy(type, envelope.tenantId, context.id);
     if (deferred) return deferred;
     try {
-      return await this.tenancy.run(envelope.tenantId, () => handler(envelope.payload, context));
+      return await this.tenancy.run(envelope.tenantId, () => {
+        // 租戶的用量：開始執行的工作數，重試也算一次（docs/architecture/05-tenancy.md §14.2 D11）
+        this.usage.count('jobsExecuted');
+        return handler(envelope.payload, context);
+      });
     } catch (error) {
       // 租戶在入列之後被刪除或停用：重試也不會成功，直接結束（停用就是暫停服務，排隊的工作不保留）。
       // migration 落後、DB 連不上是暫時的：照一般失敗處理，由 pg-boss 重試

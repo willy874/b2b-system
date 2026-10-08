@@ -7,6 +7,11 @@ export const PlatformNotificationType = {
   TENANT_PROVISIONED: 'tenant.provisioned',
   /** 租戶佈建失敗，要看原因並重試。收件人同上。 */
   TENANT_PROVISION_FAILED: 'tenant.provisionFailed',
+  /**
+   * 租戶的儲存使用率越過警示門檻（docs/architecture/05-tenancy.md §14.2 D8）：越過時發一次，停在門檻以上不重發。
+   * 收件人：能改租戶（調整配額）的平台管理者。
+   */
+  TENANT_STORAGE_NEAR_QUOTA: 'tenant.storageNearQuota',
   /** 自己的角色被其他平台管理者換了。收件人：那位管理者。 */
   PLATFORM_ADMIN_ROLE_CHANGED: 'platformAdmin.roleChanged',
 } as const;

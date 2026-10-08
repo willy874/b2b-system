@@ -7,6 +7,7 @@ import type {
   PlatformTenant,
   PlatformTenantList,
   TenantFeatureImpact,
+  TenantUsage,
   UpdateTenantRequest,
 } from '../models';
 import type { ApiResponse } from '../runtime';
@@ -142,6 +143,36 @@ export function getPlatformTenantControllerUpdateUrl(
   path: PlatformTenantControllerUpdatePathParams,
 ): string {
   return buildUrl('/platform/tenants/{id}', path);
+}
+
+// GET /platform/tenants/{id}/usage
+
+export interface PlatformTenantControllerGetUsagePathParams {
+  id: string;
+}
+
+export interface PlatformTenantControllerGetUsageInput {
+  path: PlatformTenantControllerGetUsagePathParams;
+}
+
+export interface PlatformTenantControllerGetUsageResponses {
+  200: {
+    data: TenantUsage;
+  };
+}
+
+export type PlatformTenantControllerGetUsageResponse =
+  PlatformTenantControllerGetUsageResponses[200];
+
+export type PlatformTenantControllerGetUsageResult = ApiResponse<
+  200,
+  PlatformTenantControllerGetUsageResponses[200]
+>;
+
+export function getPlatformTenantControllerGetUsageUrl(
+  path: PlatformTenantControllerGetUsagePathParams,
+): string {
+  return buildUrl('/platform/tenants/{id}/usage', path);
 }
 
 // GET /platform/tenants/{id}/features/{feature}/impact

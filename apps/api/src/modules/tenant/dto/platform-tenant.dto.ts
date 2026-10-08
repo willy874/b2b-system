@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { FEATURE_FLAG_KEY_PATTERN } from '@/core/feature-flags';
-import { OffsetSchema } from '@/core/http';
+import { OffsetSchema, SortSchema } from '@/core/http';
 import {
   TENANT_FEATURE_IMPACT_KEYS,
   TENANT_FEATURE_PARAM_KEYS,
@@ -9,6 +9,8 @@ import {
   TENANT_FEATURES,
 } from '@/core/tenant';
 import { defineSchema, uniqueItems } from '@/core/validation';
+
+import { TenantUsageSummarySchema } from './tenant-usage.dto';
 
 /**
  * 租戶代碼：網域的第一段（`{code}.<TENANT_BASE_DOMAIN>`）與「進入租戶」頁輸入的值，
@@ -132,22 +134,47 @@ export const PlatformTenantSchema = defineSchema(
   }),
 );
 
-/** 租戶清單的查詢：伺服器分頁、代碼／名稱／網域搜尋、狀態篩選（依建立時間舊到新）。 */
-export const ListPlatformTenantSchema = z.object({
-  offset: OffsetSchema,
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  /** 代碼、名稱或任一網域的部分相符（不分大小寫）。 */
-  q: z.string().trim().max(100).optional(),
-  status: TenantStatusSchema.optional(),
-});
+/**
+ * 租戶清單可排序的欄位：建立時間、代碼，與用量（docs/architecture/05-tenancy.md §14.2 D12）。
+ * 用量的欄位降冪時沒有快照的排最後、升冪時排最前（「從沒活動過」的租戶在找沉睡租戶時排第一）。
+ */
+export const TENANT_LIST_SORT_FIELDS = [
+  'createdAt',
+  'code',
+  'usersActive',
+  'storageUsage',
+  'recentRequests',
+  'lastActivityAt',
+] as const;
+
+/** 租戶清單的查詢：伺服器分頁、代碼／名稱／網域搜尋、狀態篩選；沒帶排序時依建立時間舊到新。 */
+export const ListPlatformTenantSchema = z
+  .object({
+    offset: OffsetSchema,
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    /** 代碼、名稱或任一網域的部分相符（不分大小寫）。 */
+    q: z.string().trim().max(100).optional(),
+    status: TenantStatusSchema.optional(),
+  })
+  .extend(SortSchema(TENANT_LIST_SORT_FIELDS, [{ sort: 'createdAt', order: 'asc' }]).shape);
+
+/** 租戶清單的一列：租戶 ＋ 用量摘要。 */
+export const PlatformTenantListItemSchema = defineSchema(
+  'PlatformTenantListItem',
+  PlatformTenantSchema.extend({ usage: TenantUsageSummarySchema }),
+);
 
 export const PlatformTenantListSchema = defineSchema(
   'PlatformTenantList',
   z.object({
-    items: z.array(PlatformTenantSchema),
+    items: z.array(PlatformTenantListItemSchema),
     pagination: z.object({ offset: z.number(), limit: z.number(), total: z.number() }),
     /** 建立時預設網域的上層：租戶 `acme` 的預設網域是 `acme.<baseDomain>`。 */
     baseDomain: z.string(),
+    /** 用量摘要的「近期請求數」是近幾天（含今天）。 */
+    usageRecentDays: z.number().int(),
+    /** 儲存使用率達到這個比例就標成警示（§14.2 D8）。 */
+    usageWarningRatio: z.number(),
   }),
 );
 
@@ -220,6 +247,7 @@ export const AddTenantDomainSchema = defineSchema(
 export type PlatformTenantDto = z.infer<typeof PlatformTenantSchema>;
 export type TenantFeatureParamDto = z.infer<typeof TenantFeatureParamSchema>;
 export type PlatformTenantListDto = z.infer<typeof PlatformTenantListSchema>;
+export type PlatformTenantListItemDto = z.infer<typeof PlatformTenantListItemSchema>;
 export type ListPlatformTenantDto = z.infer<typeof ListPlatformTenantSchema>;
 export type CreateTenantDto = z.infer<typeof CreateTenantSchema>;
 export type UpdateTenantDto = z.infer<typeof UpdateTenantSchema>;
