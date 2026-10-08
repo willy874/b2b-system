@@ -12,7 +12,9 @@ export default defineConfig({
   globalSetup: './tour/global-setup.ts',
   fullyParallel: false,
   workers: 1,
-  timeout: 180_000,
+  timeout: 300_000,
+  // 拍照不是測試：等待放寬，機器忙（例如同時跑著整合測試）時不至於一路逾時
+  expect: { timeout: 20_000 },
   reporter: [['list']],
   use: {
     ...devices['Desktop Chrome'],
@@ -22,7 +24,7 @@ export default defineConfig({
     locale: 'zh-TW',
     timezoneId: 'Asia/Taipei',
     colorScheme: 'light',
-    actionTimeout: 10_000,
+    actionTimeout: 20_000,
   },
   projects: [{ name: 'tour' }],
 });

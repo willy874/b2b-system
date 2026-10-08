@@ -1,14 +1,12 @@
 import { expect, test } from '@playwright/test';
 import type { Browser, Locator, Page } from '@playwright/test';
 
-import {
-  expectIdpLogin,
-  login,
-  loginAndWaitForHome,
-  loginPlatform,
-  PLATFORM_URL,
-} from '../helpers/auth';
+import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
+import type { AccountKey } from '../fixtures/accounts';
+import { apiLogin, apiRequest } from '../helpers/api';
+import { expectIdpLogin, login, loginPlatform, PLATFORM_URL } from '../helpers/auth';
 import { getByTestIdAndValue } from '../helpers/selectors';
+import { freshTotp } from '../helpers/totp';
 import { createDemoData } from './demo-data';
 import type { DemoData } from './demo-data';
 import { shoot } from './shoot';
@@ -23,12 +21,28 @@ test.describe.configure({ mode: 'serial' });
 const failures: string[] = [];
 let demo: DemoData;
 
+/** 多重驗證的場景結束後重設那個帳號，下一次導覽與 E2E 從沒有驗證方式開始。 */
+async function attemptResetMfa(): Promise<void> {
+  const token = await apiLogin('superAdmin');
+  const users = (
+    await apiRequest(token, 'get', `/users?keyword=${encodeURIComponent(ACCOUNTS.mfaTotp)}`)
+  ).body as { data: { items: Array<{ id: string; email: string }> } };
+  const id = users.data.items.find((user) => user.email === ACCOUNTS.mfaTotp)?.id;
+  if (id) await apiRequest(token, 'post', `/users/${id}/mfa/reset`);
+}
+
 async function scene(name: string, run: () => Promise<void>): Promise<void> {
   try {
     await run();
   } catch (error) {
     failures.push(`${name}：${(error as Error).message.split('\n')[0]}`);
   }
+}
+
+/** 登入並等首頁。導覽緊接在重置與大量示範資料之後，背景工作還在消化，回到 backstage 比 E2E 慢，等久一點。 */
+async function signIn(page: Page, account: AccountKey): Promise<void> {
+  await login(page, account);
+  await expect(page.getByTestId('home-page')).toBeVisible({ timeout: 30_000 });
 }
 
 async function open(page: Page, path: string, testId: string): Promise<Locator> {
@@ -84,6 +98,8 @@ test('準備示範資料', async ({ browser }) => {
 test('登入與首頁', async ({ page, browser }) => {
   await scene('login', async () => {
     await page.goto('/auth/login');
+    // 第一個畫面：Vite 要冷編譯整個 app，等久一點
+    await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 60_000 });
     await expectIdpLogin(page);
     await shoot(page, 'login');
   });
@@ -95,8 +111,7 @@ test('登入與首頁', async ({ page, browser }) => {
     await shoot(register, 'register');
     await context.close();
   });
-  await login(page, 'superAdmin');
-  await expect(page.getByTestId('home-page')).toBeVisible();
+  await signIn(page, 'superAdmin');
   await scene('home', () => shoot(page, 'home'));
   await scene('notification-bell', async () => {
     await page.getByTestId('notification-bell').click();
@@ -104,10 +119,53 @@ test('登入與首頁', async ({ page, browser }) => {
     await shoot(page, 'notification-bell');
     await page.keyboard.press('Escape');
   });
+  await scene('command-palette', async () => {
+    await page.getByTestId('command-palette-trigger').click();
+    await page.getByTestId('command-palette-input').fill('營運');
+    await expect(page.getByTestId('command-palette-section').first()).toBeVisible();
+    await page.waitForTimeout(800);
+    await shoot(page, 'command-palette');
+    await page.keyboard.press('Escape');
+  });
+});
+
+test('多重驗證', async ({ browser }) => {
+  // 用專屬帳號（E2E 的 mfaTotp）：設定驗證器 App → 登出 → 登入時的第二步；最後由 super-admin 重設，回到起點
+  const viewport = { width: 1440, height: 900 };
+  await scene('mfa', async () => {
+    const context = await browser.newContext({ viewport });
+    const page = await context.newPage();
+    await signIn(page, 'mfaTotp');
+    await page.goto('/profile');
+    await page.getByTestId('mfa-add').click();
+    await getByTestIdAndValue(page, 'mfa-enroll-method', 'totp').click();
+    await expect(page.getByTestId('mfa-totp-show-secret')).toBeVisible();
+    await shoot(page, 'mfa-enroll');
+    await page.getByTestId('mfa-totp-show-secret').click();
+    const secret = (await page.getByTestId('mfa-totp-secret').getAttribute('data-value')) ?? '';
+    await page.getByTestId('mfa-totp-code').fill((await freshTotp(secret)).code);
+    await page.getByTestId('mfa-totp-confirm').click();
+    await expect(page.getByTestId('mfa-recovery-dialog')).toBeVisible();
+    await shoot(page, 'mfa-recovery');
+    await page.getByTestId('mfa-recovery-saved').click();
+    await page.getByTestId('mfa-recovery-done').click();
+    await context.close();
+
+    const second = await browser.newContext({ viewport });
+    const loginPage = await second.newPage();
+    await loginPage.goto('/auth/login');
+    await loginPage.getByTestId('login-email').fill(ACCOUNTS.mfaTotp);
+    await loginPage.getByTestId('login-password').fill(E2E_PASSWORD);
+    await loginPage.getByTestId('login-submit').click();
+    await expect(loginPage.getByTestId('login-mfa')).toBeVisible();
+    await shoot(loginPage, 'login-mfa');
+    await second.close();
+  });
+  await attemptResetMfa();
 });
 
 test('人員與權限', async ({ page }) => {
-  await loginAndWaitForHome(page, 'superAdmin');
+  await signIn(page, 'superAdmin');
 
   await scene('user-list', async () => {
     await open(page, '/user', 'user-list-page');
@@ -139,6 +197,42 @@ test('人員與權限', async ({ page }) => {
     await dialog.getByTestId('user-tag-edit-button').click();
     await expect(page.getByTestId('tag-assign-dialog')).toBeVisible();
     await shoot(page, 'user-tag-assign');
+  });
+  await scene('user-comment', async () => {
+    const dialog = await open(page, `/user/${demo.userIds[0]}`, 'user-detail-dialog');
+    const panel = dialog.getByTestId('comment-panel');
+    await expect(panel.getByTestId('comment-item').first()).toBeVisible();
+    await panel.scrollIntoViewIfNeeded();
+    await shoot(page, 'user-comment');
+  });
+  await scene('user-export', async () => {
+    await open(page, '/user', 'user-list-page');
+    await page.getByTestId('user-export-button').click();
+    await expect(page.getByTestId('user-export-dialog')).toBeVisible();
+    await shoot(page, 'user-export');
+    // 真的匯出一次，「我的匯入匯出」才有紀錄
+    const download = page.waitForEvent('download', { timeout: 30_000 });
+    await page.getByTestId('user-export-dialog').getByTestId('export-submit').click();
+    await download;
+  });
+  await scene('user-import', async () => {
+    await open(page, '/user/import', 'user-import-page');
+    const csv =
+      '\uFEFF顯示名稱,Email\r\n王美玲,wang.meiling@example.com\r\n李志明,li.zhiming@example\r\n張雅婷,zhang.yating@example.com\r\n';
+    await page.getByTestId('file-upload-input').setInputFiles({
+      name: '新進人員.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv, 'utf8'),
+    });
+    await page.getByTestId('import-analyze').click();
+    await expect(page.getByTestId('import-grid')).toBeVisible();
+    await expect(page.getByTestId('import-validating')).toBeHidden();
+    await shoot(page, 'user-import');
+  });
+  await scene('data-transfer', async () => {
+    await open(page, '/data-transfer', 'data-transfer-page');
+    await expect(page.getByTestId('data-transfer-table')).toContainText('.csv');
+    await shoot(page, 'data-transfer');
   });
 
   await scene('role-list', async () => {
@@ -178,6 +272,19 @@ test('人員與權限', async ({ page }) => {
   await scene('group-detail', async () => {
     await open(page, `/group/${demo.groupId}`, 'group-detail-dialog');
     await shoot(page, 'group-detail');
+  });
+
+  await scene('organization', async () => {
+    if (!demo.orgUnitId) throw new Error('沒有部門');
+    await open(page, `/organization?unitId=${demo.orgUnitId}`, 'org-unit-tree');
+    await expect(page.getByTestId('org-unit-member').first()).toBeVisible();
+    await shoot(page, 'organization');
+  });
+  await scene('organization-chart', async () => {
+    await open(page, '/organization?view=chart', 'org-chart');
+    await expect(page.getByTestId('org-chart-node').first()).toBeVisible();
+    await page.waitForTimeout(800);
+    await shoot(page, 'organization-chart');
   });
 
   await scene('permission-list', async () => {
@@ -231,7 +338,7 @@ test('人員與權限', async ({ page }) => {
 });
 
 test('資料與內容', async ({ page }) => {
-  await loginAndWaitForHome(page, 'superAdmin');
+  await signIn(page, 'superAdmin');
 
   await scene('file-manager', async () => {
     await page.goto(`/file?folder=${demo.folderId}`);
@@ -266,8 +373,19 @@ test('資料與內容', async ({ page }) => {
   });
   await scene('approval-detail', async () => {
     if (!demo.approvalId) throw new Error('沒有申請');
-    await open(page, `/approval/${demo.approvalId}`, 'approval-detail-dialog');
+    const dialog = await open(page, `/approval/${demo.approvalId}`, 'approval-detail-dialog');
+    await expect(dialog.getByTestId('approval-timeline')).toBeVisible();
     await shoot(page, 'approval-detail');
+  });
+  await scene('approval-flow', async () => {
+    await open(page, '/approval-flow/user.register', 'approval-flow-edit-page');
+    await expect(page.getByTestId('approval-flow-steps-editor')).toBeVisible();
+    await shoot(page, 'approval-flow');
+  });
+  await scene('my-approvals', async () => {
+    await open(page, '/my-approvals', 'my-approval-page');
+    await expect(page.getByTestId('my-approval-table')).toBeVisible();
+    await shoot(page, 'my-approvals');
   });
 
   await scene('tag-list', async () => {
@@ -277,7 +395,7 @@ test('資料與內容', async ({ page }) => {
 });
 
 test('稽核、回收桶、背景工作、設定', async ({ page }) => {
-  await loginAndWaitForHome(page, 'superAdmin');
+  await signIn(page, 'superAdmin');
 
   await scene('audit-log', async () => {
     await open(page, '/audit-log', 'audit-log-page');
@@ -326,6 +444,10 @@ test('稽核、回收桶、背景工作、設定', async ({ page }) => {
     await open(page, '/system/settings', 'setting-page');
     await shoot(page, 'setting');
   });
+  await scene('security-mfa', async () => {
+    await open(page, '/system/security', 'security-mfa-page');
+    await shoot(page, 'security-mfa');
+  });
   await scene('identity-provider', async () => {
     await open(page, '/identity-provider', 'identity-provider-page');
     await shoot(page, 'identity-provider');
@@ -336,7 +458,7 @@ test('稽核、回收桶、背景工作、設定', async ({ page }) => {
 });
 
 test('通知、公告、Webhook', async ({ page }) => {
-  await loginAndWaitForHome(page, 'superAdmin');
+  await signIn(page, 'superAdmin');
 
   await scene('notification-list', async () => {
     await open(page, '/notification', 'notification-list-page');
@@ -377,12 +499,16 @@ test('通知、公告、Webhook', async ({ page }) => {
       .browser()!
       .newContext({ viewport: { width: 1440, height: 900 } });
     const member = await context.newPage();
-    await loginAndWaitForHome(member, 'member');
+    await signIn(member, 'member');
     await member.getByTestId('notification-bell').click();
     const panel = member.getByTestId('notification-panel');
     await expect(panel).toContainText('十月系統維護通知');
     await shoot(member, 'announcement-bell');
-    await panel.getByText('十月系統維護通知').first().click();
+    await panel
+      .getByTestId('notification-item')
+      .filter({ hasText: '十月系統維護通知' })
+      .getByTestId('notification-item-link')
+      .click();
     await expect(member.getByTestId('announcement-message-page')).toBeVisible();
     await shoot(member, 'announcement-message');
     await context.close();
@@ -412,7 +538,7 @@ test('通知、公告、Webhook', async ({ page }) => {
 });
 
 test('個人帳號與深色主題', async ({ page }) => {
-  await loginAndWaitForHome(page, 'superAdmin');
+  await signIn(page, 'superAdmin');
 
   await scene('profile', async () => {
     await open(page, '/profile', 'profile-page');
@@ -452,6 +578,9 @@ test('apps/platform', async ({ page }) => {
     await page.goto(`${url}?tab=features`);
     await expect(page.locator('[data-testid="tenant-feature"]').first()).toBeVisible();
     await shoot(page, 'platform-tenant-features');
+    await page.goto(`${url}?tab=usage`);
+    await expect(page.getByTestId('tenant-usage')).toBeVisible();
+    await shoot(page, 'platform-tenant-usage');
   });
   await scene('platform-tenant-create', async () => {
     await open(page, `${PLATFORM_URL}/tenant`, 'tenant-page');
@@ -466,6 +595,10 @@ test('apps/platform', async ({ page }) => {
   await scene('platform-admin', async () => {
     await open(page, `${PLATFORM_URL}/admin`, 'platform-admin-page');
     await shoot(page, 'platform-admin');
+  });
+  await scene('platform-mfa-method', async () => {
+    await open(page, `${PLATFORM_URL}/mfa-method`, 'mfa-method-page');
+    await shoot(page, 'platform-mfa-method');
   });
   await scene('platform-feature-flag', async () => {
     await open(page, `${PLATFORM_URL}/feature-flag`, 'feature-flag-page');
