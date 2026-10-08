@@ -17,6 +17,9 @@ import { useMentionableUsers } from '../hooks/useMentionableUsers';
 const BODY_MAX_LENGTH = 4000;
 const MAX_MENTIONS = 20;
 
+/** 新增時沒有被提及的人；穩定的參考，避免每次 render 換一個預設值。 */
+const NO_MENTIONS: readonly CommentUser[] = [];
+
 export interface CommentEditorInput {
   body: string;
   mentionIds: string[];
@@ -52,7 +55,7 @@ function toOption(user: CommentUser): SelectOption {
 export function CommentEditor({
   target,
   initialBody = '',
-  initialMentions = [],
+  initialMentions = NO_MENTIONS,
   submitLabel,
   onSubmit,
   onCancel,
