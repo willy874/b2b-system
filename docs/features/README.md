@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 多實例部署與服務拆分 | [`multi-instance.md`](./multi-instance.md) | 規劃中 | — |
+| P2 | 多實例部署與服務拆分 | [`multi-instance.md`](./multi-instance.md) | 實作中 | — |
 
 狀態只有三種：
 

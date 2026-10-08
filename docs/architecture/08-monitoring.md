@@ -171,7 +171,12 @@ trace 的 `http.route` 也用它。
 | `GET /health` | 存活（容器的 HEALTHCHECK） | 程序在、event loop 轉得動（回得了就是） |
 | `GET /health/ready` | 就緒（LB） | `database`：平台 DB `select 1`；`storage`：物件儲存；`jobs`：pg-boss 自己的連線池（它用 `pg`，與 api 的平台池分開）；`eventLoop`：最近 30 秒的 event loop 延遲 p99 ≤ `HEALTH_EVENT_LOOP_LAG_MS`（預設 1000，`0` 不檢查） |
 
-- 任一項失敗回 `{ status: 'degraded', checks }`（HTTP 200，照舊）。每一項最多等 2 秒，連線卡住時也能在探針的逾時（3 秒）內回應。
+- **回 503**（`SERVICE_NOT_READY`）只有兩種情況：程序正在排空（收到 `SIGTERM`，`details.draining: true`），或平台 DB 連不上
+  （`details.checks`；認不出租戶、驗不了 token，流量送過來也只會失敗）。LB／k8s 的 readinessProbe 依狀態碼把程序移出。
+- 其他項失敗回 `{ status: 'degraded', checks }`（HTTP 200）：一個非必要依賴的抖動不該讓所有程序同時被移出服務。每一項最多等 2 秒，連線卡住時也能在探針的逾時（3 秒）內回應。
+- **排空**（`core/lifecycle`，[`../features/multi-instance.md`](../features/multi-instance.md) D13）：進入點以 `enableGracefulShutdown(app)` 取代 `enableShutdownHooks()`。
+  收到 `SIGTERM`／`SIGINT` 後 readiness 改回 503、WebSocket 不收新連線並分批關閉既有的，等 `SHUTDOWN_DRAIN_SECONDS`（預設 0；k8s 建議 10）後才走 Nest 的關閉順序。
+  存活（`/health`）在排空中照常回 200，容器不會在排空期間被重啟。排空中再收到一次訊號就立即結束。
 - **租戶 DB 不在就緒檢查裡**（§9.2 D8）：單一租戶的 DB 掛掉不該讓整個程序被 LB 摘掉；`Tenancy.enter` 已經只對那個租戶回 503，
   看指標 `api_tenant_unavailable_total{reason="maintenance"}`（告警 `TenantUnavailable`）。
 

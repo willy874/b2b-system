@@ -22,6 +22,7 @@ import { FeatureFlagsModule } from './core/feature-flags';
 import { CacheControlInterceptor, RequestIdMiddleware, TransformInterceptor } from './core/http';
 import { ImageModule } from './core/image';
 import { JobsModule } from './core/jobs';
+import { LifecycleModule } from './core/lifecycle';
 import { LoggerModule } from './core/logger';
 import { MailModule } from './core/mail';
 import { MetricsModule } from './core/metrics';
@@ -71,6 +72,8 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     DiscoveryModule, // 路由稽核掃描 controller metadata 用
     ConfigModule,
     LoggerModule,
+    // 結束前的排空（readiness 503、WebSocket 分批斷線；docs/features/multi-instance.md D13）
+    LifecycleModule,
     // 給 Prometheus 的 /metrics（獨立的 port）與就緒檢查的 event loop 量測（docs/architecture/08-monitoring.md §2）
     MetricsModule,
     TracingModule,

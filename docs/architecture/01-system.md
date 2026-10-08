@@ -312,7 +312,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 4. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
    Socket.io 只用 websocket 傳輸，**不需要** sticky session。
 
-另外還沒跨節點的：HTTP 與 WebSocket 的速率限制（每個節點各自計數）、feature flag 的全平台快取（最多晚 `TENANT_CACHE_TTL` 秒），
+另外還沒跨節點的：HTTP 與 WebSocket 的速率限制（都經 `RateLimitStore`，但實作仍是每個節點各自的記憶體），
 見 [`../features/multi-instance.md`](../features/multi-instance.md)。
 
 ### 4.4 程序之間的一致性
@@ -328,6 +328,7 @@ Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service
 | `file_folder_tree` | `{ tenant }` | 那個租戶的資料夾結構快取作廢 | `FileFolderTree.invalidate()`（[`backend/09-file.md`](./backend/09-file.md) §11.1） |
 | `settings` | `{ tenant }` | 那個租戶的系統設定快取作廢 | `SettingService.invalidate()`（[`backend/12-settings.md`](./backend/12-settings.md)） |
 | `notification_policy` | `{ tenant }` | 那個租戶的通知政策快取作廢 | `NotificationPolicyService.invalidate()`（[`backend/16-notification-event.md`](./backend/16-notification-event.md) §3） |
+| `feature_flags` | `{}` | 全平台層的 feature flag 覆寫重新讀取 | `FeatureFlagService.changed()`（[`05-tenancy.md`](./05-tenancy.md) §11） |
 | `api_token_cache` | `{ tenant, tokens }` | 這些 API token 的驗證快取作廢 | `ApiTokenCacheService.invalidate()`（撤銷之後；[`06-external-api.md`](./06-external-api.md) §5） |
 | `domain_event` | 推播類的領域事件 | 在那個租戶的脈絡裡交給本機的推播 | `DomainEventRelay`（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6） |
 

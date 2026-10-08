@@ -12,6 +12,7 @@ import { AppModule } from './app.module';
 import { auditRoutes } from './common/route-audit';
 import { listenHostOf } from './core/config/env.schema';
 import type { Env } from './core/config/env.schema';
+import { enableGracefulShutdown } from './core/lifecycle';
 import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { registerDataTransferBodyParser } from './modules/data-transfer/data-transfer.http';
@@ -39,7 +40,7 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
   // 匯入的套用請求本體比一般 API 大：只對那一條路由放寬，要在 Nest 預設的 body parser 之前註冊
   registerDataTransferBodyParser(app);
-  app.enableShutdownHooks();
+  enableGracefulShutdown(app);
 
   // ★ 路由稽核：任何未宣告授權的路由讓程序啟動失敗（預設拒絕的守門員）
   auditRoutes(app);

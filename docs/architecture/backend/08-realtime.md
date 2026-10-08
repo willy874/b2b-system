@@ -667,12 +667,13 @@ Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEvent
 
 ## 11. 限制與防濫用
 
-`@nestjs/throttler` 只作用在 HTTP，WebSocket 要自己限：
+HTTP 的限流 guard 不作用在 WebSocket，gateway 自己限：
 
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
 | Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2） | 拒絕 handshake |
-| 每個 IP 的 handshake     | 每分鐘 1200 次（`REALTIME_HANDSHAKES_PER_IP`；整間公司共用一個 NAT 出口、部署後同時重連） | 拒絕 handshake       |
+| 排空中（收到結束訊號，[`../../features/multi-instance.md`](../../features/multi-instance.md) D13） | 不收新連線；既有連線在排空期內分批關閉傳輸，客戶端照斷線退避重連到其他節點 | 拒絕 handshake（`SERVICE_NOT_READY`） |
+| 每個 IP 的 handshake     | 每分鐘 1200 次（`REALTIME_HANDSHAKES_PER_IP`；整間公司共用一個 NAT 出口、部署後同時重連）；計數經 `RateLimitStore`（與 HTTP 限流同一份），計數失敗時放行 | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |
 | 每個使用者的連線數       | 20（`REALTIME_CONNECTIONS_PER_USER`）              | 拒絕新的 handshake   |

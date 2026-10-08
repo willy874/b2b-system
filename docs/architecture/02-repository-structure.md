@@ -285,6 +285,7 @@ MONITORING_ENABLED=true            # 監控整套的開關：false = 不開 /met
 METRICS_PORT=9464
 EXTERNAL_METRICS_PORT=9465
 HEALTH_EVENT_LOOP_LAG_MS=1000      # /health/ready 的 event loop 延遲門檻（毫秒，p99）；0 = 不檢查
+SHUTDOWN_DRAIN_SECONDS=0           # 收到 SIGTERM 後先排空幾秒（readiness 回 503、WebSocket 分批斷線）再關閉；k8s 建議 10
 OTEL_EXPORTER_OTLP_ENDPOINT=       # trace 送到哪裡（OTLP/HTTP）；留空 = 不送。本機 Tempo：http://localhost:4318
 OTEL_TRACES_SAMPLER_ARG=1          # trace 的取樣率（0～1）
 NODE_ENV=development

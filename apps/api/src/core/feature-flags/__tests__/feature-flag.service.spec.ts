@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { BroadcastChannelSubscriber, BroadcastService } from '@/core/broadcast';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { runInTenantContext } from '@/core/tenant';
@@ -33,8 +34,30 @@ const config = {
 
 function setup(rows: Array<{ key: string; state: string }> = [], catalog = CATALOG) {
   const repo = { listGlobal: vi.fn(async () => rows) };
-  const service = new FeatureFlagService(catalog, repo as unknown as FeatureFlagRepository, config);
-  return { service, repo };
+  const sent: unknown[] = [];
+  let subscriber: BroadcastChannelSubscriber<unknown> | undefined;
+  const broadcast = {
+    channel: vi.fn((name: string, sub: BroadcastChannelSubscriber<unknown>) => {
+      subscriber = sub;
+      return async (message: unknown) => {
+        sent.push({ name, message });
+      };
+    }),
+  };
+  const service = new FeatureFlagService(
+    catalog,
+    repo as unknown as FeatureFlagRepository,
+    broadcast as unknown as BroadcastService,
+    config,
+  );
+  service.onModuleInit();
+  /** 模擬其他程序送來的訊息（`channel()` 已略過自己送的）。 */
+  const receive = async (message: unknown) => {
+    const parsed = subscriber?.parse(message);
+    if (parsed !== null && parsed !== undefined) await subscriber?.onMessage(parsed);
+  };
+  const reconnect = async () => subscriber?.onReconnect?.();
+  return { service, repo, sent, receive, reconnect };
 }
 
 function tenantWith(flags: Record<string, boolean>): TenantContext {
@@ -110,5 +133,39 @@ describe('FeatureFlagService（docs/architecture/05-tenancy.md §11.2 D3、D4）
     repo.listGlobal.mockResolvedValueOnce([]);
     await service.reload();
     expect(service.globalStateOf('levelEditor.v2')).toBeUndefined();
+  });
+
+  it('changed：本機重新讀取後廣播給其他程序', async () => {
+    const { service, repo, sent } = setup();
+    await service.onApplicationBootstrap();
+    repo.listGlobal.mockResolvedValueOnce([{ key: 'levelEditor.v2', state: 'on' }]);
+
+    await service.changed();
+
+    expect(service.isEnabled('levelEditor.v2')).toBe(true);
+    expect(sent).toEqual([{ name: 'feature_flags', message: {} }]);
+  });
+
+  it('收到其他程序的廣播或監聽重新接上 → 重新讀取，不等 TTL', async () => {
+    const { service, repo, receive, reconnect } = setup();
+    await service.onApplicationBootstrap();
+
+    repo.listGlobal.mockResolvedValueOnce([{ key: 'levelEditor.v2', state: 'on' }]);
+    await receive({});
+    expect(service.isEnabled('levelEditor.v2')).toBe(true);
+
+    repo.listGlobal.mockResolvedValueOnce([]);
+    await reconnect();
+    expect(service.isEnabled('levelEditor.v2')).toBe(false);
+  });
+
+  it('格式不對的廣播略過', async () => {
+    const { service, repo, receive } = setup();
+    await service.onApplicationBootstrap();
+    const calls = repo.listGlobal.mock.calls.length;
+
+    await receive('nope');
+
+    expect(repo.listGlobal.mock.calls.length).toBe(calls);
   });
 });

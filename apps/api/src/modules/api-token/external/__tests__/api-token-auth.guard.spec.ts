@@ -1,7 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { ThrottlerStorageService } from '@nestjs/throttler';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Public } from '@/common/decorators';
@@ -9,6 +8,7 @@ import type { CachedUser } from '@/core/cache';
 import { AppException } from '@/core/errors';
 import { runWithRequestContext } from '@/core/http';
 import type { RequestContext } from '@/core/http';
+import { MemoryRateLimitStore } from '@/core/rate-limit';
 
 import type { ApiTokenUsageService } from '../../api-token-usage.service';
 import type { ApiTokenVerifier, ApiTokenVerifyResult } from '../../api-token.verifier';
@@ -44,17 +44,17 @@ interface CallOptions {
   type?: 'http' | 'ws';
 }
 
-const storages: ThrottlerStorageService[] = [];
+const storages: MemoryRateLimitStore[] = [];
 
 afterEach(() => {
-  for (const storage of storages.splice(0)) storage.onApplicationShutdown();
+  for (const storage of storages.splice(0)) storage.onModuleDestroy();
 });
 
 /**
  * fake verifier：`Bearer b2bt_valid` 有效，`Bearer <錯誤碼>` 以那個錯誤碼失敗，其他一律 AUTH_TOKEN_INVALID。
  */
 function setup() {
-  const storage = new ThrottlerStorageService();
+  const storage = new MemoryRateLimitStore();
   storages.push(storage);
   const verifier = {
     verify: vi.fn(async (raw: string | undefined): Promise<ApiTokenVerifyResult> => {

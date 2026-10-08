@@ -2,7 +2,7 @@ import type { IncomingMessage } from 'node:http';
 
 import proxyaddr from 'proxy-addr';
 
-/** 固定視窗計數器（in-memory，單一執行個體；docs/architecture/backend/08-realtime.md §11）。 */
+/** 程序內的固定視窗計數器：每條連線的訊息數（連線不會換節點；docs/architecture/backend/08-realtime.md §11）。 */
 export class FixedWindowCounter {
   private readonly windows = new Map<string, { count: number; resetAt: number }>();
 

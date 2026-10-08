@@ -186,7 +186,7 @@ key 在 OpenAPI 上是字串（目錄常常是空的），由伺服器依目錄�
 ```
 
 **判斷**：`FeatureFlagService.isEnabled(key)` 是同步的。租戶層的覆寫隨租戶登記載入 `TenantContext.flags`（`TenantDirectory`），
-全平台層快取在 `FeatureFlagService`，每 `TENANT_CACHE_TTL` 秒與切換時重新讀取；多個執行個體時其他程序最多晚 `TENANT_CACHE_TTL` 秒。
+全平台層快取在 `FeatureFlagService`：切換時本機重新讀取，並經 `core/broadcast`（頻道 `feature_flags`）通知其他程序立即重新讀取；另每 `TENANT_CACHE_TTL` 秒重讀一次，作為漏掉廣播時的上限。
 沒有租戶脈絡（平台的工作、平台端點）只看全平台層與預設值；不在目錄裡的 key 一律關。
 
 **用在哪裡**：

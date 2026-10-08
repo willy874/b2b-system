@@ -1,7 +1,7 @@
 # 多實例部署與服務拆分
 
 - 優先度：P2
-- 狀態：規劃中
+- 狀態：實作中（branch：`feat/multi-instance`；M1 完成）
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.4（部署拓撲、擴展前提、程序之間的一致性）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7.6、§8、§10.3、
   [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §5、§9（背景工作的位置）、[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2（連線預算、PgBouncer 的觸發條件）、
@@ -350,7 +350,7 @@ nginx 變數化 `proxy_pass` 會失去 `upstream` 的 `keepalive`；compose clus
 
 | 期 | 內容 | 驗收 |
 | --- | --- | --- |
-| M1 程序內的補強 | feature flag 接上廣播；對外 API 與 WebSocket handshake 的限流改走 `RateLimitStore`（仍是記憶體）；readiness 的 503 與排空（D13） | `cross-process.spec.ts` 加 feature flag 的案例；既有限流測試全過 |
+| M1 程序內的補強（**完成**） | feature flag 接上廣播；對外 API 與 WebSocket handshake 的限流改走 `RateLimitStore`（仍是記憶體）；readiness 的 503 與排空（D13） | `cross-process.spec.ts` 加 feature flag 的案例；既有限流測試全過 |
 | M2 角色 | `APP_ROLES`、`DEPLOYMENT_MODE`、`SurfaceGuard` 的集合、`RealtimeModule` 依角色載入、D3 的開機工作、服務名稱帶角色；移除 `JOBS_WORKER_ENABLED` | 整合測試：`http` 程序沒有 gateway、`realtime` 程序的業務路由 404、`worker` 只有 `/health`；三個角色分開時推播與入列照常 |
 | M3 共享狀態 | `PostgresRateLimitStore` ＋ 清理排程；`cluster` 的啟動檢查；`channel.relay` 跨節點（D8） | 兩個程序共用計數（登入失敗在 A、B 合計）；k6 壓測達開放問題 1 的門檻 |
 | M4 影像變體 | 改成背景工作（D9） | 既有影像變體的測試改成跑 worker；`http` 程序不再載入 sharp 的 limiter |

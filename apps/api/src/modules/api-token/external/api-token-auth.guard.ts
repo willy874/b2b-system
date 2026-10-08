@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { InjectThrottlerStorage, normalizeIp } from '@nestjs/throttler';
-import type { ThrottlerStorage } from '@nestjs/throttler';
 import type { Response } from 'express';
 
 import { IS_PUBLIC } from '@/common/decorators';
@@ -13,6 +11,8 @@ import type { AuthenticatedRequest } from '@/common/types';
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
 import { setContextApiToken, setContextUser } from '@/core/http';
+import { rateLimited } from '@/core/metrics';
+import { ipPrefixOf, RateLimitStore } from '@/core/rate-limit';
 
 import { ApiTokenUsageService } from '../api-token-usage.service';
 import { ApiTokenVerifier } from '../api-token.verifier';
@@ -39,7 +39,7 @@ export class ApiTokenAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly verifier: ApiTokenVerifier,
     private readonly usage: ApiTokenUsageService,
-    @InjectThrottlerStorage() private readonly storage: ThrottlerStorage,
+    private readonly store: RateLimitStore,
     config: ConfigService<Env, true>,
   ) {
     this.failureLimit = config.get('EXTERNAL_AUTH_FAILURE_RATE_LIMIT', { infer: true });
@@ -68,16 +68,11 @@ export class ApiTokenAuthGuard implements CanActivate {
   }
 
   private async countFailure(req: ExternalRequest, res: Response): Promise<void> {
-    const ip = normalizeIp(req.ip ?? req.socket.remoteAddress ?? 'unknown');
-    const record = await this.storage.increment(
-      `externalAuthFailure:${ip}`,
-      RATE_LIMIT_WINDOW_MS,
-      this.failureLimit,
-      RATE_LIMIT_WINDOW_MS,
-      'externalAuthFailure',
-    );
-    if (record.isBlocked) {
-      const retryAfterSeconds = Math.max(1, record.timeToBlockExpire);
+    const ip = ipPrefixOf(req.ip ?? req.socket.remoteAddress);
+    const record = await this.store.hit(`externalAuthFailure:${ip}`, RATE_LIMIT_WINDOW_MS);
+    if (record.count > this.failureLimit) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((record.resetAt - Date.now()) / 1000));
+      rateLimited.inc({ bucket: 'externalAuthFailure' });
       res.setHeader('Retry-After', String(retryAfterSeconds));
       throw new AppException('RATE_LIMITED', { retryAfterSeconds });
     }

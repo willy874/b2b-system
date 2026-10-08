@@ -294,6 +294,7 @@
     "CONFLICT": "The data was just changed by another request. Refresh and try again.",
     "RATE_LIMITED": "Too many requests. Please slow down.",
     "INTERNAL_ERROR": "Server error. Please try again later.",
+    "SERVICE_NOT_READY": "The server is restarting. Please try again shortly.",
     "page": {
       "forbidden": {
         "title": "You do not have access to this page",

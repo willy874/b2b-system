@@ -214,6 +214,7 @@ export const ERROR_MESSAGE_KEY = {
   CONFLICT: 'error.CONFLICT',
   RATE_LIMITED: 'error.RATE_LIMITED',
   INTERNAL_ERROR: 'error.INTERNAL_ERROR',
+  SERVICE_NOT_READY: 'error.SERVICE_NOT_READY',
 } as const satisfies Record<ErrorCode, `error.${ErrorCode}`>;
 
 /** 前端認得的後端錯誤碼。 */

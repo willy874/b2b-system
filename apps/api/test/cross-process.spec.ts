@@ -18,12 +18,14 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { FeatureFlagService } from '@/core/feature-flags';
+import { featureFlagOverrides } from '@/db/platform/schema';
 import { users } from '@/db/schema';
 import { DEFAULT_REALTIME_LIMITS, REALTIME_LIMITS } from '@/modules/realtime/realtime.constants';
 import { RealtimeGateway } from '@/modules/realtime/realtime.gateway';
 
-import type { TestDatabase } from './db';
-import { createTestDatabase, truncateAll } from './db';
+import type { PlatformTestDatabase, TestDatabase } from './db';
+import { createPlatformTestDatabase, createTestDatabase, truncateAll } from './db';
 import { listenOnLoopback } from './http';
 import { testTenantContext } from './tenant';
 
@@ -45,6 +47,7 @@ interface Process {
 let a: Process;
 let b: Process;
 let db: TestDatabase;
+let platformDb: PlatformTestDatabase;
 let closeDb: () => Promise<void>;
 let jwt: JwtService;
 let tenantId: string;
@@ -117,6 +120,10 @@ function waitFor<T>(
   });
 }
 
+function flagsOf(process: Process): FeatureFlagService {
+  return process.app.get(FeatureFlagService);
+}
+
 async function publicSetting(process: Process, key: string): Promise<unknown> {
   const response = await request(process.http).get('/system/settings/public').expect(200);
   return (response.body as { data: { values: Record<string, unknown> } }).data.values[key];
@@ -129,8 +136,13 @@ describe('兩個程序之間的一致性（docs/architecture/06-external-api.md 
     process.env.SUPER_ADMIN_PASSWORD = 'Quiet-Harbor-Lantern-26';
 
     const created = createTestDatabase();
+    const platform = createPlatformTestDatabase();
     db = created.db;
-    closeDb = async () => created.client.end();
+    platformDb = platform.db;
+    closeDb = async () => {
+      await created.client.end();
+      await platform.client.end();
+    };
     await truncateAll(db);
     const { runSeed } = await import('@/db/seeds/index');
     await runSeed(db as never);
@@ -213,5 +225,22 @@ describe('兩個程序之間的一致性（docs/architecture/06-external-api.md 
     await vi.waitFor(async () => expect(await publicSetting(b, REGISTRATION)).toBe(!before), {
       timeout: 2_000,
     });
+  });
+
+  it('在 A 改 feature flag 的全平台覆寫：B 不等 TENANT_CACHE_TTL 就讀到新值', async () => {
+    // 目錄裡沒有的 key 也會載入全平台層（isEnabled 才看目錄），不必為測試加一個 flag
+    const key = 'crossProcess.test';
+    expect(flagsOf(b).globalStateOf(key)).toBeUndefined();
+
+    await platformDb.insert(featureFlagOverrides).values({ key, state: 'on' });
+    try {
+      await flagsOf(a).changed();
+
+      await vi.waitFor(() => expect(flagsOf(b).globalStateOf(key)).toBe('on'), {
+        timeout: 2_000,
+      });
+    } finally {
+      await platformDb.delete(featureFlagOverrides).where(eq(featureFlagOverrides.key, key));
+    }
   });
 });

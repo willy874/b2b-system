@@ -110,8 +110,8 @@ apps/platform 顯示為「服務帳號與對外 API」）。服務帳號不能�
 | 每個 IP 的驗證失敗 | `externalAuthFailure:{ip}` | `EXTERNAL_AUTH_FAILURE_RATE_LIMIT`（預設 30）；超過之後的失敗回 `429`，成功的請求不計 |
 | 沒有 token 的請求（健康檢查） | IP | `ANONYMOUS_RATE_LIMIT` |
 
-每個整合有自己的額度，不和本人的瀏覽器、也不和同一個 NAT 後面的其他整合共用。計數在程序的記憶體（共享計數見
-[`../features/multi-instance.md`](../features/multi-instance.md)）。
+每個整合有自己的額度，不和本人的瀏覽器、也不和同一個 NAT 後面的其他整合共用。計數與內部 api 共用 `RateLimitStore`
+（[`backend/03-api-conventions.md`](backend/03-api-conventions.md) §8；共享計數見 [`../features/multi-instance.md`](../features/multi-instance.md) D6），被擋下的請求計入 `api_rate_limited_total{bucket}`。
 
 ## 5. 快取與最後使用時間
 

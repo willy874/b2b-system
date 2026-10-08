@@ -56,6 +56,11 @@ export const EnvSchema = z.object({
    */
   HEALTH_EVENT_LOOP_LAG_MS: z.coerce.number().int().min(0).default(1000),
   /**
+   * 收到 `SIGTERM` 之後、關閉 HTTP server 之前的排空秒數：期間 `/health/ready` 回 503，讓 LB／Ingress 把程序移出，
+   * WebSocket 分批斷線（docs/features/multi-instance.md D13）。單一程序直接結束即可（0）；k8s 建議 10。
+   */
+  SHUTDOWN_DRAIN_SECONDS: z.coerce.number().int().min(0).max(120).default(0),
+  /**
    * OpenTelemetry 的 trace 收件位址（OTLP/HTTP，例 `http://tempo:4318`；docs/architecture/08-monitoring.md §3）。
    * 沒設定（或 `MONITORING_ENABLED=false`）= 不載入 tracing。SDK 在 `src/instrumentation.ts` 讀 `process.env`（要早於任何 import），這裡只做格式驗證。
    */

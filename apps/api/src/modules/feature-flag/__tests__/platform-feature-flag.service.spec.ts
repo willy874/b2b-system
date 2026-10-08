@@ -49,6 +49,9 @@ function setup(initial?: 'on' | 'off') {
     reload: vi.fn(async () => {
       calls.push('reload');
     }),
+    changed: vi.fn(async () => {
+      calls.push('changed');
+    }),
   };
   const directory = { listActive: vi.fn(async () => [{ id: 't1' }, { id: 't2' }]) };
   const events = { publish: vi.fn(() => calls.push('publish')) };
@@ -87,7 +90,7 @@ describe('PlatformFeatureFlagService（docs/architecture/05-tenancy.md §11.2 D7
     ]);
   });
 
-  it('緊急關閉：交易內寫入與稽核，重新載入後對每個 active 租戶發佈', async () => {
+  it('緊急關閉：交易內寫入與稽核，重新載入並廣播給其他程序後對每個 active 租戶發佈', async () => {
     const { service, repo, audit, events, calls } = setup();
 
     const result = await service.update('levelEditor.v2', { state: 'off' }, ACTOR);
@@ -110,7 +113,7 @@ describe('PlatformFeatureFlagService（docs/architecture/05-tenancy.md §11.2 D7
         { changes: [{ resource: 'platformFeatureFlag', kind: 'update', id: 'levelEditor.v2' }] },
       ],
     ]);
-    expect(calls.slice(0, 4)).toEqual(['transaction', 'audit', 'reload', 'publish']);
+    expect(calls.slice(0, 4)).toEqual(['transaction', 'audit', 'changed', 'publish']);
     expect(result.globalState).toBe('off');
   });
 

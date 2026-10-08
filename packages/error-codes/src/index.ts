@@ -369,6 +369,11 @@ export const ErrorCode = {
   CONFLICT: { status: 409 },
   RATE_LIMITED: { status: 429 },
   INTERNAL_ERROR: { status: 500 },
+  /**
+   * 就緒檢查（`/health/ready`）：程序正在排空（收到結束訊號）或平台 DB 連不上，LB 不該再送流量過來；
+   * `details` 帶 `draining` 與各項檢查（docs/architecture/08-monitoring.md §4）。
+   */
+  SERVICE_NOT_READY: { status: 503 },
 } as const;
 
 export type ErrorCode = keyof typeof ErrorCode;
