@@ -253,7 +253,8 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
   │                               │ 大小不符 → 刪物件、422 FILE_SIZE_MISMATCH
   │                               │ HeadObject(thumbnails/<id>)：存在且合規格 → has_thumbnail；不合規格 → 刪縮圖
   │                               │ 交易：UPDATE … SET status='ready' WHERE status='pending' ＋ 稽核 file.upload
-  │                               │ 交易後：推播 file create；圖片排入產生影像變體（§5.4，不等它完成）
+  │                               │ 同一個交易：圖片排入背景工作 file.imageVariants（§5.4）
+  │                               │ 交易後：推播 file create（變體好了另推 update）
   │ 200 StoredFile（ready，帶 url / downloadUrl / thumbnailUrl）
   │◀──────────────────────────────│
 ```
@@ -373,21 +374,22 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   SVG 不處理（向量圖由瀏覽器直接顯示，也不讓 api 解析使用者給的 XML）；其他檔案 `variant_status = 'none'`。
 - **主格式**：**progressive JPEG**（mozjpeg，品質 82）——大圖在下載途中就由模糊到清楚逐步顯示；
   有透明度的圖改用 WebP（JPEG 沒有透明度）。一律依 EXIF 轉正、移除中繼資料（GPS 等）、等比縮小不放大。
-- **何時產生**：`complete` 的交易之後排入 `FileImageService.schedule()`（同一個 api 執行個體同時最多 2 張，
-  同一個檔案不重複排入），**不等它完成**。完成後 `variant_status = 'ready'` 並推播，前端重抓就拿到網址
-  （剛上傳的圖片與 `create` 合併成一次推播，§7）。
+- **何時產生**：`complete` 的交易內排入背景工作 `file.imageVariants`（`FileImageService.enqueueVariants()`，outbox；
+  每個 worker 程序同時最多 2 張），**不等它完成**：交易後先推 `create`，變體好了 `variant_status = 'ready'` 再推 `update`，前端重抓就拿到網址。
+  在 worker 產生（[`../../features/multi-instance.md`](../../features/multi-instance.md) D9），sharp 的 CPU 不佔 http 程序的 event loop。
+  同一個檔案重複排入時，後執行的看到已經不是 `pending` 就直接結束。
   在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
 - **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；
-  儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。執行個體在產生途中重啟同理。
+  儲存服務暫時不可用 → 維持 `pending`，由維護排程（§9）在 5 分鐘後重新排入。worker 在產生途中重啟時，工作逾時後由 pg-boss 重試。
 - **補產生**：`variant_status = 'pending'` 的圖片由維護排程逐批補產生。
-- **影像處理在 api 內**（`core/image` 的 `ImageProcessor`，實作是 sharp）：sharp 是預編譯的原生套件，
+- **影像處理在 api 的映像內**（`core/image` 的 `ImageProcessor`，實作是 sharp；變體在 `worker` 角色、依請求轉出的其他格式在 `http` 角色）：sharp 是預編譯的原生套件，
   平台二進位檔隨 `@img/sharp-*` 安裝（macOS、Linux glibc / musl 都有），不需要編譯環境。取捨見 §12.3、§12.4。
-- **記憶體**（與服務 WebSocket 的是同一個程序）：
+- **記憶體**（單體時與服務 HTTP、WebSocket 的是同一個程序）：
   - 原圖串流先寫到暫存檔（`os.tmpdir()`，超過 128 MiB 就中斷），libvips 再從檔案逐列解碼（`sequentialRead`），不整份讀成 Buffer；
     用完 `DecodedImage.dispose()` 刪掉暫存檔；
   - 全螢幕預覽與圖示預覽 **依序** render，尖峰只有一份解碼緩衝；
   - libvips 每張圖最多 2 條執行緒、操作快取 16 MB（`sharp.concurrency` / `sharp.cache`）；
-  - 還是在同一個程序：移到獨立 worker 容器要等背景工作能分開部署（見 [`10-jobs.md`](./10-jobs.md) §5），目前以上面的限制壓住尖峰。
+  - 拆開部署時變體在 `api-worker` 容器（[`10-jobs.md`](./10-jobs.md) §5），可以給它不同的記憶體規格；單體時以上面的限制壓住尖峰。
   - **還沒實測**。量測的觸發條件（任一）：要調高 `IMAGE_VARIANT_CONCURRENCY`（程式常數 2）或調低 api 的記憶體上限（`API_MEM_LIMIT` 2g、`--max-old-space-size` 1536）；
     影像變體移到獨立 worker 時決定它的記憶體規格；正式環境出現 OOM 或 RSS 持續接近上限。
     量測方式：在與正式相同的容器限制下，以 1 億像素的 PNG、大尺寸漸進式 JPEG、含透明的大圖各跑「並行 = 1、2、4」，記錄 RSS 峰值

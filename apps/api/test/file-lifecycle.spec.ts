@@ -6,6 +6,8 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { PLATFORM_DB } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
 import { ObjectStorage } from '@/core/storage';
 import {
   auditLogs,
@@ -655,7 +657,14 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .post(`/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    await app.get(FileImageService).whenIdle();
+    // 變體在 worker 產生（docs/features/multi-instance.md D9）：完成上傳時已入列，這裡直接執行工作的本體
+    const [queued] = await app
+      .get<PlatformDatabase>(PLATFORM_DB)
+      .execute<{ data: { payload: { fileId: string } } }>(
+        sql`SELECT data FROM pgboss.job WHERE name = 'file.imageVariants' ORDER BY created_on DESC LIMIT 1`,
+      );
+    expect(queued?.data.payload.fileId).toBe(file.id);
+    await inTestTenant(app, () => app.get(FileImageService).generateVariants(file.id));
 
     const detail = (
       (

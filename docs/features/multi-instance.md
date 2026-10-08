@@ -1,7 +1,7 @@
 # 多實例部署與服務拆分
 
 - 優先度：P2
-- 狀態：實作中（branch：`feat/multi-instance`；M1～M3 完成）
+- 狀態：實作中（branch：`feat/multi-instance`；M1～M4 完成）
 - 依賴：—
 - 相關：[`../architecture/01-system.md`](../architecture/01-system.md) §4.2–§4.4（部署拓撲、擴展前提、程序之間的一致性）、[`backend/08-realtime.md`](../architecture/backend/08-realtime.md) §7.6、§8、§10.3、
   [`backend/10-jobs.md`](../architecture/backend/10-jobs.md) §5、§9（背景工作的位置）、[`backend/02-database.md`](../architecture/backend/02-database.md) §6.2（連線預算、PgBouncer 的觸發條件）、
@@ -359,7 +359,7 @@ nginx 變數化 `proxy_pass` 會失去 `upstream` 的 `keepalive`；compose clus
 | M1 程序內的補強（**完成**） | feature flag 接上廣播；對外 API 與 WebSocket handshake 的限流改走 `RateLimitStore`（仍是記憶體）；readiness 的 503 與排空（D13） | `cross-process.spec.ts` 加 feature flag 的案例；既有限流測試全過 |
 | M2 角色（**完成**） | `APP_ROLES`、`DEPLOYMENT_MODE`、`SurfaceGuard` 的集合、`RealtimeModule` 依角色載入、D3 的開機工作、服務名稱帶角色；移除 `JOBS_WORKER_ENABLED` | 整合測試：`http` 程序沒有 gateway、`realtime` 程序的業務路由 404、`worker` 只有 `/health`；三個角色分開時推播與入列照常 |
 | M3 共享狀態（**完成**） | `PostgresRateLimitStore` ＋ 清理排程；`cluster` 的啟動檢查；`channel.relay` 跨節點（D8） | 兩個程序共用計數（登入失敗在 A、B 合計）；k6 壓測達開放問題 1 的門檻 |
-| M4 影像變體 | 改成背景工作（D9） | 既有影像變體的測試改成跑 worker；`http` 程序不再載入 sharp 的 limiter |
+| M4 影像變體（**完成**） | 改成背景工作（D9） | 既有影像變體的測試改成跑 worker；`http` 程序不再載入 sharp 的 limiter |
 | M5 部署 | `docker-compose.cluster.yml`、nginx 的動態 upstream、Prometheus 服務探索、`deploy/smoke-test.sh` 加 cluster 版本；k8s 參考部署（D15，含 kind smoke）；migration 相容檢查（D14） | E2E：`api-http` ×2、`api-realtime` ×2、`api-worker` ×1，在 A 改權限、連在 B 的使用者即時收到；滾動重啟期間 E2E 不失敗 |
 
 M1 不依賴其他期，可以先做。
@@ -377,6 +377,9 @@ M1 不依賴其他期，可以先做。
 | M2 | 角色的讀取時機 | `ProcessRoles` provider | `APP_ROLES` 以字串保存，`processRolesOf()` 解析；`app.module.ts` 在 import 時從 `process.env` 讀 | Nest 的模組清單是靜態的，推播的 gateway 只要被 import 就會掛上 Socket.io；`./core/config` 先被載入時已把 `.env` 寫進 `process.env` |
 | M3 | 計數存不了時拒絕登入類請求的錯誤碼 | 503 | 沿用 `AUTH_BUSY`（`retryAfterSeconds`） | 前端遇到它已經會倒數並停用送出鈕（`backend/04-auth.md` §12 D7）；不必新增錯誤碼 |
 | M3 | 壓測 | k6 對整個 api | `apps/api/scripts/bench-rate-limit-store.ts`（`pnpm --filter @b2b-system/api bench:rate-limit`）直接壓 `PostgresRateLimitStore.hit` | 門檻定在儲存的延遲（D10 的觸發條件）；整個 api 的壓測混了其他成本，量不出這一項 |
+| M4 | 剛上傳圖片的推播 | — | 交易後一律先推 `create`，變體好了再推 `update`；拿掉「3 秒內好了就合併成一次」 | 變體在另一個程序產生，http 程序不知道它何時完成；多一次推播只是前端多重抓一次 |
+| M4 | 重複排入的去重 | `exclusive`（以檔案 id 為 singleton key） | 不用 `exclusive`；後執行的看到不是 `pending` 就結束 | `exclusive` 是每個租戶一筆（`job-queue.ts` 的 singleton key 是租戶），會讓同租戶的圖片排隊一張一張做 |
+| M4 | 依請求轉出其他格式 | — | 仍在 http 程序（程序內 limiter） | 使用者正在等那張圖；D9 的範圍只有上傳後的變體 |
 | M2 | `/oidc/*` | `SurfaceGuard` 擋 | OIDC 的 middleware 自己判斷：沒有 `http` 角色就交回 Nest（404） | `/oidc/*` 是 middleware，不經全域 guard |
 
 ## 歸檔去向

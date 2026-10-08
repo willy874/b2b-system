@@ -87,7 +87,7 @@ function setup(usage: { usedBytes: number; reconciledAt: Date | null } = USAGE_U
       for (const upload of uploads) if (upload.key.startsWith(prefix)) yield upload;
     },
   };
-  const images = { schedule: vi.fn() };
+  const images = { enqueueVariants: vi.fn(async () => undefined) };
   const config = {
     get: vi.fn(
       (key: keyof Env) =>
@@ -162,7 +162,7 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     expect(storage.delete).not.toHaveBeenCalledWith(storageKeyOf(TRASHED));
     expect(storage.delete).not.toHaveBeenCalledWith(thumbnailKeyOf(TRASHED));
     // 卡住的變體重新排入
-    expect(images.schedule).toHaveBeenCalledWith(LIVE);
+    expect(images.enqueueVariants).toHaveBeenCalledWith(LIVE);
   });
 
   it('dryRun：只偵測、不刪除任何東西', async () => {
@@ -179,7 +179,7 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     expect(repo.discardPending).not.toHaveBeenCalled();
     expect(storage.delete).not.toHaveBeenCalled();
     expect(storage.abortMultipartUpload).not.toHaveBeenCalled();
-    expect(images.schedule).not.toHaveBeenCalled();
+    expect(images.enqueueVariants).not.toHaveBeenCalled();
   });
 
   it('與使用者的 complete 並行、紀錄已經 ready → 不刪內容', async () => {
@@ -205,7 +205,7 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     };
     const report = await service.sweep({ now: NOW });
     expect(report).toMatchObject({ stalePendingFiles: 1, orphanObjects: 3, failures: 1 });
-    expect(images.schedule).toHaveBeenCalledWith(LIVE);
+    expect(images.enqueueVariants).toHaveBeenCalledWith(LIVE);
   });
 
   describe('已用量的對帳（docs/architecture/05-tenancy.md §13.3 D8）', () => {

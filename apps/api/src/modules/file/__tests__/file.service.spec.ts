@@ -146,7 +146,7 @@ function setup(
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
   const images = {
-    schedule: vi.fn(),
+    enqueueVariants: vi.fn(async () => undefined),
     deleteVariants: vi.fn(async () => undefined),
     signedUrls: vi.fn((file: FileWithUploader) =>
       file.status === 'ready' && file.variantStatus === 'ready'
@@ -718,7 +718,7 @@ describe('FileService：縮圖', () => {
 describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.4）', () => {
   const head = { size: 10, etag: 'abc', contentType: 'image/png' };
 
-  it('complete：伺服器能處理的圖片 → 變體 pending，交易後排入產生；create 推播交給變體產生', async () => {
+  it('complete：伺服器能處理的圖片 → 變體 pending，交易內排入背景工作；先推 create（變體好了再推 update）', async () => {
     const { service, repo, images, events } = setup({ file: fileRow(), head });
     await service.completeUpload(FILE_ID, {}, ALICE);
     expect(repo.markReady).toHaveBeenCalledWith(
@@ -726,8 +726,11 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
       expect.objectContaining({ variantStatus: 'pending' }),
       'tx',
     );
-    expect(images.schedule).toHaveBeenCalledWith(FILE_ID, { announce: { folderId: null } });
-    expect(events.publish).not.toHaveBeenCalled();
+    expect(images.enqueueVariants).toHaveBeenCalledWith(FILE_ID, 'tx');
+    expect(events.publish).toHaveBeenCalledWith(
+      'resource.changed',
+      expect.objectContaining({ changes: [expect.objectContaining({ kind: 'create' })] }),
+    );
   });
 
   it('complete：其他型別（含 SVG）→ 變體 none，不排入', async () => {
@@ -741,7 +744,7 @@ describe('FileService：影像變體（docs/architecture/backend/09-file.md §5.
       expect.objectContaining({ variantStatus: 'none' }),
       'tx',
     );
-    expect(images.schedule).not.toHaveBeenCalled();
+    expect(images.enqueueVariants).not.toHaveBeenCalled();
   });
 
   it('變體已產生 → image 帶三個版本，thumbnailUrl 優先用伺服器的圖示預覽', async () => {
@@ -1110,7 +1113,7 @@ describe('FileService.restore（docs/architecture/backend/13-trash.md §7.2、do
       expect.objectContaining({ action: 'file.restore', resourceId: FILE_ID }),
       'tx',
     );
-    expect(images.schedule).toHaveBeenCalledWith(FILE_ID);
+    expect(images.enqueueVariants).toHaveBeenCalledWith(FILE_ID);
     expect(events.publish).toHaveBeenCalledWith(
       'resource.changed',
       expect.objectContaining({

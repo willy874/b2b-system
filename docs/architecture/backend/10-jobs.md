@@ -113,6 +113,8 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `webhook.cleanup` | `modules/webhook` | `WEBHOOK_CLEANUP_CRON` | `15 5 * * *`（每天 05:15 UTC；刪除超過 30 天的對外事件，投遞紀錄隨之刪除，[`17-webhook.md`](./17-webhook.md) §4） |
 | `dataTransfer.cleanup` | `modules/data-transfer` | `DATA_TRANSFER_CLEANUP_CRON` | `25 5 * * *`（每天 05:25 UTC；到期的匯出檔與套用列、90 天前的傳輸紀錄，[`22-data-transfer.md`](./22-data-transfer.md) §10） |
 | `dataTransfer.export`、`dataTransfer.applyImport` | `modules/data-transfer` | — | 由程式入列（建立匯出、送出套用時；[`22-data-transfer.md`](./22-data-transfer.md) §6.3、§7.6） |
+| `file.imageVariants` | `modules/file` | — | 由程式入列：上傳完成的交易內、還原時變體遺失、維護排程補產生（[`09-file.md`](./09-file.md) §5.4）；每個 worker 程序並行 2 |
+| `rateLimit.cleanup`（平台） | `core/rate-limit` | `RATE_LIMIT_CLEANUP_CRON` | `* * * * *`（每分鐘；共享的速率限制計數的過期列，記憶體實作時什麼都不做） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/platform、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |
 | `approval.resultMail` | `modules/approval` | — | 由程式入列 |

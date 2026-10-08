@@ -1,19 +1,21 @@
 import { randomBytes } from 'node:crypto';
-import { PassThrough, Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 
 import type { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '@/core/config';
+import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import { SharpImageProcessor } from '@/core/image/sharp-image-processor';
+import type { JobQueue } from '@/core/jobs';
 import type { ObjectStorage } from '@/core/storage';
 import type { FileRow } from '@/db/schema';
 
-import { negotiateFormat, FileImageService } from '../file-image.service';
-import { IMAGE_VARIANT_ANNOUNCE_WAIT_MS, storageKeyOf, variantKeyOf } from '../file.constants';
+import { FILE_IMAGE_VARIANTS_JOB, negotiateFormat, FileImageService } from '../file-image.service';
+import { storageKeyOf, variantKeyOf } from '../file.constants';
 import type { FileRepository } from '../file.repository';
 
 /** 轉出上限調小：測試不必真的產生 128 MiB 的圖。其他測試的純色圖遠小於它。 */
@@ -110,6 +112,7 @@ function setup(file: FileRow | undefined) {
   };
   const storage = memoryStorage();
   const events = { publish: vi.fn() };
+  const jobs = { register: vi.fn(), enqueue: vi.fn(async () => 'job-1') };
   const config = {
     get: vi.fn(
       (key: keyof Env) =>
@@ -121,9 +124,10 @@ function setup(file: FileRow | undefined) {
     storage as unknown as ObjectStorage,
     new SharpImageProcessor(),
     events as unknown as DomainEventBus,
+    jobs as unknown as JobQueue,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, events, current: () => row };
+  return { service, repo, storage, events, jobs, current: () => row };
 }
 
 async function png(width: number, height: number, alpha = false): Promise<Buffer> {
@@ -144,12 +148,6 @@ async function noisePng(width: number, height: number): Promise<Buffer> {
   return sharp(randomBytes(width * height * 3), { raw: { width, height, channels: 3 } })
     .png()
     .toBuffer();
-}
-
-/** 內容由測試決定何時送達的串流（模擬很慢的原圖下載）。 */
-function deferredStream() {
-  const stream = new PassThrough();
-  return { stream, end: (data: Buffer) => stream.end(data) };
 }
 
 /** 從影像網址取出 query（`exp`、`sig`）。 */
@@ -173,8 +171,7 @@ describe('FileImageService：產生變體', () => {
       contentType: 'image/png',
     });
 
-    service.schedule(FILE_ID);
-    await service.whenIdle();
+    await service.generateVariants(FILE_ID);
 
     expect(current()).toMatchObject({
       variantStatus: 'ready',
@@ -200,61 +197,15 @@ describe('FileImageService：產生變體', () => {
     });
   });
 
-  it('剛上傳的圖片（announce）：變體很快就好 → 只推一次 create，不再推 update', async () => {
-    const { service, storage, events, current } = setup(fileRow());
-    storage.objects.set(storageKeyOf(FILE_ID), {
-      data: await png(10, 10),
-      contentType: 'image/png',
-    });
-    service.schedule(FILE_ID, { announce: { folderId: null } });
-    await service.whenIdle();
-    expect(current()?.variantStatus).toBe('ready');
-    expect(events.publish).toHaveBeenCalledTimes(1);
-    expect(events.publish).toHaveBeenCalledWith('resource.changed', {
-      changes: [{ resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: ['root'] } }],
-    });
-  });
+  it('排入：在呼叫端的交易內入列 file.imageVariants（docs/features/multi-instance.md D9）', async () => {
+    const { service, jobs } = setup(fileRow());
+    service.onModuleInit();
+    const tx = {} as Transaction;
 
-  it('剛上傳的圖片：變體超過等待時間 → 先推 create，好了再推 update', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    try {
-      const { service, storage, events } = setup(fileRow());
-      const source = deferredStream();
-      storage.getObject.mockImplementationOnce(async () => source.stream);
-      service.schedule(FILE_ID, { announce: { folderId: 'f1' } });
-      await vi.advanceTimersByTimeAsync(IMAGE_VARIANT_ANNOUNCE_WAIT_MS);
-      expect(events.publish).toHaveBeenCalledTimes(1);
-      expect(events.publish).toHaveBeenLastCalledWith('resource.changed', {
-        changes: [{ resource: 'file', kind: 'create', id: FILE_ID, refs: { fileFolder: ['f1'] } }],
-      });
+    await service.enqueueVariants(FILE_ID, tx);
 
-      source.end(await png(10, 10));
-      vi.useRealTimers();
-      await service.whenIdle();
-      expect(events.publish).toHaveBeenCalledTimes(2);
-      expect(events.publish).toHaveBeenLastCalledWith(
-        'resource.changed',
-        expect.objectContaining({ changes: [expect.objectContaining({ kind: 'update' })] }),
-      );
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('剛上傳的圖片：變體失敗也照樣推 create（其他人要看得到這個檔案）', async () => {
-    const { service, storage, events, current } = setup(fileRow());
-    storage.objects.set(storageKeyOf(FILE_ID), {
-      data: Buffer.from('nope'),
-      contentType: 'image/png',
-    });
-    service.schedule(FILE_ID, { announce: { folderId: null } });
-    await service.whenIdle();
-    expect(current()?.variantStatus).toBe('failed');
-    expect(events.publish).toHaveBeenCalledTimes(1);
-    expect(events.publish).toHaveBeenCalledWith(
-      'resource.changed',
-      expect.objectContaining({ changes: [expect.objectContaining({ kind: 'create' })] }),
-    );
+    expect(jobs.register).toHaveBeenCalledWith(FILE_IMAGE_VARIANTS_JOB, expect.any(Function));
+    expect(jobs.enqueue).toHaveBeenCalledWith(FILE_IMAGE_VARIANTS_JOB, { fileId: FILE_ID }, { tx });
   });
 
   it('有透明度的圖改用 WebP 當主格式', async () => {
@@ -263,8 +214,7 @@ describe('FileImageService：產生變體', () => {
       data: await png(10, 10, true),
       contentType: 'image/png',
     });
-    service.schedule(FILE_ID);
-    await service.whenIdle();
+    await service.generateVariants(FILE_ID);
     expect(current()?.variantFormat).toBe('webp');
     expect(storage.objects.has(variantKeyOf(FILE_ID, 'preview', 'webp'))).toBe(true);
   });
@@ -275,8 +225,7 @@ describe('FileImageService：產生變體', () => {
       data: Buffer.from('nope'),
       contentType: 'image/png',
     });
-    service.schedule(FILE_ID);
-    await service.whenIdle();
+    await service.generateVariants(FILE_ID);
     expect(current()?.variantStatus).toBe('failed');
     expect(events.publish).not.toHaveBeenCalled();
   });
@@ -284,8 +233,7 @@ describe('FileImageService：產生變體', () => {
   it('儲存服務不可用 → 維持 pending，留給維護排程重試', async () => {
     const { service, storage, repo, current } = setup(fileRow());
     storage.getObject.mockRejectedValueOnce(new AppException('FILE_STORAGE_UNAVAILABLE'));
-    service.schedule(FILE_ID);
-    await service.whenIdle();
+    await service.generateVariants(FILE_ID);
     expect(current()?.variantStatus).toBe('pending');
     expect(repo.markVariantsFailed).not.toHaveBeenCalled();
   });
@@ -297,22 +245,19 @@ describe('FileImageService：產生變體', () => {
       contentType: 'image/png',
     });
     repo.markVariantsReady.mockResolvedValueOnce(undefined);
-    service.schedule(FILE_ID);
-    await service.whenIdle();
+    await service.generateVariants(FILE_ID);
     expect([...storage.objects.keys()]).toEqual([storageKeyOf(FILE_ID)]);
   });
 
-  it('同一個檔案重複排入只產生一次；不是 pending 的不處理', async () => {
+  it('重複執行只產生一次：不是 pending 的不處理', async () => {
     const { service, storage } = setup(fileRow());
     storage.objects.set(storageKeyOf(FILE_ID), {
       data: await png(10, 10),
       contentType: 'image/png',
     });
-    service.schedule(FILE_ID);
-    service.schedule(FILE_ID);
-    await service.whenIdle();
-    service.schedule(FILE_ID);
-    await service.whenIdle();
+    await service.generateVariants(FILE_ID);
+    // 同一個檔案又被排入一次（例：維護排程重排）：已經不是 pending，什麼都不做
+    await service.generateVariants(FILE_ID);
     expect(storage.putObject).toHaveBeenCalledTimes(2);
   });
 });
