@@ -269,7 +269,8 @@ function PinToggle({ id, label, value, onChange, slot }: PinToggleProps) {
           aria-label={t(labelKey, { name: label })}
           aria-pressed={value === side}
           onClick={() => onChange(id, value === side ? undefined : side)}
-          data-testid={`table-settings-pin-${side}`}
+          data-testid="table-settings-pin"
+          data-value={side}
         >
           <Icon name={icon} size={14} />
         </IconButton>

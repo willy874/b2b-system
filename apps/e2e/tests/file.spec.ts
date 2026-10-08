@@ -181,6 +181,11 @@ test.describe('檔案管理（docs/architecture/backend/09-file.md）', () => {
     await getByTestIdAndValue(shareDialog, 'file-share-grant', targetId)
       .getByTestId('file-share-grant-remove')
       .click();
+    // 移除立即生效：先確認
+    await owner
+      .getByTestId('file-share-remove-confirm')
+      .getByTestId('alert-dialog-confirm')
+      .click();
     await expect(getByTestIdAndValue(shareDialog, 'file-share-grant', targetId)).toHaveCount(0);
     const files = await apiRequest(targetToken, 'get', `/files?folderId=${folderId}`);
     expect(files.status).toBe(403);

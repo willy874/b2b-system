@@ -98,6 +98,19 @@ test.describe('平台管理者（apps/platform）', () => {
     await expect(operator.getByTestId('platform-admin-edit')).toHaveCount(0);
     await snapshot(operator, 'operator-read-only-admins');
 
+    // operator 能改租戶但不能刪；平台的驗證方式開關只有 super-admin 能改
+    await operator.goto(`${PLATFORM_URL}/tenant`);
+    await getByTestIdAndValue(operator, 'tenant-link', 'default').click();
+    await expect(operator.getByTestId('tenant-rename')).toBeVisible();
+    await expect(operator.getByTestId('tenant-remove')).toHaveCount(0);
+    await operator.goto(`${PLATFORM_URL}/mfa-method`);
+    await expect(operator.getByTestId('mfa-method-page')).toBeVisible();
+    for (const select of await operator.getByTestId('mfa-method-select').all()) {
+      // oxlint-disable-next-line no-await-in-loop -- 逐一斷言，失敗訊息指出是哪一個
+      await expect(select).toBeDisabled();
+    }
+    await snapshot(operator, 'operator-mfa-method-read-only');
+
     // 啟用後，super-admin 的列表顯示為啟用中
     await page.reload();
     await expect(getByTestIdAndValue(row, 'platform-admin-status', 'active')).toBeVisible();

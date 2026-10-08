@@ -205,6 +205,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |
 | E2E        | `apps/e2e/tests/approval.spec.ts`：申請 → 核准並指派角色 → 啟用前登入被擋 → 從 Mailpit 的啟用信設定密碼 → 登入；快速審核；auditor 唯讀、member 403 |
+| E2E（多階段） | 同一個檔案（與單關的案例依序執行）：兩關的註冊申請依序同意後定案；流程編輯頁加一關（指定使用者、條件）並調整順序 → 試算 → 儲存；auditor 唯讀、member 403 |
 
 ---
 

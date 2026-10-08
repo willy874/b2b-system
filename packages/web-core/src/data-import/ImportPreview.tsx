@@ -559,8 +559,9 @@ export function ImportPreview({ api, type, workspace, onSubmitted }: ImportPrevi
               <div
                 key={stat.key}
                 className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-fill-subtle)] px-3 py-2"
-                data-testid={`import-submit-${stat.key}`}
-                data-value={stat.rows}
+                data-testid="import-submit-stat"
+                data-value={stat.key}
+                data-count={stat.rows}
               >
                 <dt className="text-[var(--color-fg-muted)]">{stat.label}</dt>
                 <dd

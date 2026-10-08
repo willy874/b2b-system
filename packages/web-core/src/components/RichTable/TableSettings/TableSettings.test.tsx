@@ -5,6 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { TableSettings } from './TableSettings';
 import type { TableSettingsProps } from './TableSettings';
 
+/** 某一欄的固定按鈕（testid 固定，左右以 data-value 區分）。 */
+function pinButton(scope: HTMLElement, side: 'start' | 'end'): HTMLElement {
+  const button = scope.querySelector<HTMLElement>(
+    `[data-testid="table-settings-pin"][data-value="${side}"]`,
+  );
+  if (!button) throw new Error(`找不到 table-settings-pin（data-value="${side}"）`);
+  return button;
+}
+
 const COLUMNS = [
   { id: 'name', label: '名稱' },
   { id: 'email', label: 'Email' },
@@ -117,16 +126,13 @@ describe('TableSettings', () => {
     const { onChange } = renderSettings();
     const popup = await openPanel();
     const item = items(popup).find((element) => element.dataset.value === 'name') as HTMLElement;
-    await userEvent.click(within(item).getByTestId('table-settings-pin-start'));
-    expect(within(item).getByTestId('table-settings-pin-start')).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await userEvent.click(pinButton(item, 'start'));
+    expect(pinButton(item, 'start')).toHaveAttribute('aria-pressed', 'true');
 
     const actions = within(popup).getByTestId('table-settings-fixed-item');
     // 操作欄預設在 end：按 end 取消、再改到 start
-    await userEvent.click(within(actions).getByTestId('table-settings-pin-end'));
-    await userEvent.click(within(actions).getByTestId('table-settings-pin-start'));
+    await userEvent.click(pinButton(actions, 'end'));
+    await userEvent.click(pinButton(actions, 'start'));
     await userEvent.click(within(popup).getByTestId('table-settings-sticky-header'));
     expect(onChange).not.toHaveBeenCalled();
 

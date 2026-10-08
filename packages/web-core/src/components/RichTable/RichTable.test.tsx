@@ -8,6 +8,15 @@ import { clearPinnedRowData, useTableColumnSettingsStore } from '../../store';
 import type { FilterBarProps } from './FilterBar';
 import { RichTable } from './RichTable';
 
+/** 某一欄的固定按鈕（testid 固定，左右以 data-value 區分）。 */
+function pinButton(scope: HTMLElement, side: 'start' | 'end'): HTMLElement {
+  const button = scope.querySelector<HTMLElement>(
+    `[data-testid="table-settings-pin"][data-value="${side}"]`,
+  );
+  if (!button) throw new Error(`找不到 table-settings-pin（data-value="${side}"）`);
+  return button;
+}
+
 const getId = (row: { id: string }) => row.id;
 
 interface Row {
@@ -216,7 +225,7 @@ describe('RichTable 的欄位固定與固定表頭（依每張表的欄位設定
     await userEvent.click(screen.getByTestId('table-settings-trigger'));
     const popup = await screen.findByTestId('table-settings-popup');
     const actions = within(popup).getByTestId('table-settings-fixed-item');
-    await userEvent.click(within(actions).getByTestId('table-settings-pin-end'));
+    await userEvent.click(pinButton(actions, 'end'));
     await userEvent.click(screen.getByTestId('table-settings-submit'));
     expect(useTableColumnSettingsStore.getState().settings.sample).toMatchObject({
       pinnedColumns: {},

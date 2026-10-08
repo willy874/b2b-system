@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -254,6 +254,33 @@ describe('組織管理（docs/architecture/backend/23-organization.md）', () =>
       isPrimary: true,
       path: [{ id: ids.sales, name: '業務部' }],
     });
+  });
+
+  it('成員：只帶 userId 加入 → 預設不是主管、不是主要部門；已是成員時不變（畫面的「加入」）', async () => {
+    const admin = await as(ADMIN);
+    await admin
+      .patch(`/org-units/${ids.sales}/members`, { add: [{ userId: ids.amy }] })
+      .expect(200);
+    const row = async () =>
+      (
+        await db
+          .select()
+          .from(orgUnitMembers)
+          .where(and(eq(orgUnitMembers.unitId, ids.sales), eq(orgUnitMembers.userId, ids.amy)))
+      )[0];
+    expect(await row()).toMatchObject({ isManager: false, isPrimary: false, title: null });
+
+    // 已是成員（ben 是業務部的主管）：只帶 userId 等於沒有要改的欄位
+    await admin
+      .patch(`/org-units/${ids.sales}/members`, { add: [{ userId: ids.ben }] })
+      .expect(200);
+    const ben = await db
+      .select()
+      .from(orgUnitMembers)
+      .where(and(eq(orgUnitMembers.unitId, ids.sales), eq(orgUnitMembers.userId, ids.ben)));
+    expect(ben[0]).toMatchObject({ isManager: true, isPrimary: true });
+
+    await admin.patch(`/org-units/${ids.sales}/members`, { remove: [ids.amy] }).expect(200);
   });
 
   it('主管的解析：沿主要部門往上、跳過自己（D5）', async () => {

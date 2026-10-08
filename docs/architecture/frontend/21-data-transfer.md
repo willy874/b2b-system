@@ -218,4 +218,4 @@ interface ImportState {
 | web-core（`ExportDialog.test.tsx`、`ImportWorkspace.test.tsx`） | 範圍與欄位、完成後自動下載；上傳 → 分析 → 預覽標出錯誤 → 確認框的數字 → 勾選略過後套用；復原／重做的快捷鍵與離開後取消登記 |
 | web-core（`BatchBar.test.tsx`） | `kind: 'run'` 的動作不出確認框、不入列 |
 | backstage | 各列表的入口（有權限、沒有權限、feature 未啟用、未水合；角色、群組、組織、標籤、審批、服務帳號）；「我的匯入匯出」的列表與下載；各匯入頁的模式依權限 |
-| E2E（`data-transfer.spec.ts`） | 匯出使用者 CSV；匯入使用者（修正、草稿接續、套用）；匯入部門（子部門寫在上層之前，以同檔引用依序建立） |
+| E2E（`data-transfer.spec.ts`） | 匯出使用者 CSV；匯入使用者（修正、草稿接續、套用）；匯入部門（子部門寫在上層之前，以同檔引用依序建立）；匯出角色；匯入角色的反提權（略過錯誤列） |

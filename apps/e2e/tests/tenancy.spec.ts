@@ -3,6 +3,7 @@ import type { Browser, Page } from '@playwright/test';
 
 import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
 import { PLATFORM_URL, expectIdpLogin, loginPlatform } from '../helpers/auth';
+import { fetchOn } from '../helpers/browser-fetch';
 import { linkIn, waitForMail } from '../helpers/mailpit';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { snapshot } from '../helpers/snapshot';
@@ -27,34 +28,6 @@ test.describe.configure({ mode: 'serial' });
 async function newPage(browser: Browser): Promise<Page> {
   const context = await browser.newContext();
   return context.newPage();
-}
-
-/**
- * 從瀏覽器對某個網域的 api 發請求：`*.localhost` 只有瀏覽器會解析到本機（Node 的 request 解析不到）。
- * 先開那個網域的一個 api 網址，同源的 fetch 才不必處理 CORS。
- */
-async function fetchOn(
-  browser: Browser,
-  origin: string,
-  path: string,
-  init: { method?: string; body?: string } = {},
-): Promise<{ status: number; code?: string }> {
-  const page = await newPage(browser);
-  await page.goto(`${origin}/api/health`);
-  const result = await page.evaluate(
-    async ({ path, init }) => {
-      const response = await fetch(path, {
-        method: init.method ?? 'GET',
-        headers: init.body ? { 'content-type': 'application/json' } : undefined,
-        body: init.body,
-      });
-      const body = (await response.json().catch(() => ({}))) as { error?: { code?: string } };
-      return { status: response.status, code: body.error?.code };
-    },
-    { path: `/api${path}`, init },
-  );
-  await page.context().close();
-  return result;
 }
 
 test.describe('租戶實體隔離（兩個租戶）', () => {

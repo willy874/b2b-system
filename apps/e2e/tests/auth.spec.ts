@@ -89,7 +89,12 @@ test.describe('認證流程', () => {
   test('連續 5 次錯誤密碼後帳號被鎖定', async ({ page }) => {
     const attempt = async (password?: string) => {
       for (;;) {
-        const response = page.waitForResponse((res) => res.url().endsWith('/auth/login'));
+        // 登入互動頁送出的是 POST /api/oidc-interaction/:uid/login（不是 backstage 的 /auth/login 頁面）
+        const response = page.waitForResponse(
+          (res) =>
+            res.request().method() === 'POST' &&
+            /\/oidc-interaction\/[^/]+\/login$/.test(res.url()),
+        );
         await login(page, 'lockTarget', password);
         const res = await response;
         if (res.status() !== 429) return;

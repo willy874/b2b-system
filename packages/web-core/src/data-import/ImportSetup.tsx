@@ -158,7 +158,8 @@ export function ImportSetup({
               variant="secondary"
               startIcon={<Icon name="download" size={14} />}
               onClick={() => downloadTemplate(format)}
-              data-testid={`import-template-${format}`}
+              data-testid="import-template"
+              data-value={format}
             >
               {t(TEMPLATE_LABEL_KEY[format])}
             </Button>

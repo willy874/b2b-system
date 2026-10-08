@@ -174,6 +174,7 @@
 | 單元 `org-chart.service.spec.ts` | 第 N 層主管（沒有主管的部門往上跳過）、扣掉申請人、未啟用時回空 |
 | 整合 `test/organization.spec.ts` | 部門樹的建立與唯一性、關鍵字、搬移的循環與撞名與樂觀鎖、深度上限、成員與主要部門、主管的解析（主管本人、兩位主管、停用的主管）、使用者列表的篩選、刪除與回收桶與還原的順序、auditor 唯讀、`organization` 停用 |
 | 整合 `test/approval-chain.spec.ts` | `manager` 規則經組織解析；`organization` 停用時展開為空 |
+| E2E `apps/e2e/tests/organization.spec.ts` | 建部門與下層部門、主管與主要部門、使用者詳情的「所屬部門」、使用者列表的部門篩選（含下層）；以畫面加成員；有下層不能刪、回收桶還原；組織圖的新增與改名後儲存；auditor 唯讀、member 403 |
 
 開發資料：`db:seed:dev` 建一棵 12 個部門的樹（`db/seeds/dev-fixtures/organization.ts`），與 dev 群組的分工對得上：總經理室（dev30）之下有技術處（dev13；前端組 dev01、後端組 dev07）、
 營運處（dev32；客服中心有兩位主管 dev14／dev15、內容團隊 dev21）、管理處（dev33；財務組 dev34、沒有主管的人資組），另有獨立的外部協力與一個在回收桶的部門；

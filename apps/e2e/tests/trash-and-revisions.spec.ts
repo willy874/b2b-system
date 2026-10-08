@@ -188,15 +188,23 @@ test.describe('回收桶（docs/architecture/backend/14-revisions.md §9.2 D6–
 
   test('刪除含檔案的資料夾後從回收桶還原，資料夾與檔案都回來', async ({ page }) => {
     const token = await apiLogin('admin');
+    // 放在另一個資料夾底下：根目錄沒有網址，而 `/file` 在 admin 已經有個人資料夾時會落在那裡
+    // （個人資料夾在執行途中由 permissions.changed 補建，先後不一定）
+    const parent = await apiRequest(token, 'post', '/file-folders', {
+      name: unique('E2E 回收桶上層'),
+    });
+    expect(parent.status).toBe(201);
+    const parentId = (parent.body as Created).data.id;
     const folder = await apiRequest(token, 'post', '/file-folders', {
       name: unique('E2E 回收桶資料夾'),
+      parentId,
     });
     expect(folder.status).toBe(201);
     const folderId = (folder.body as Created).data.id;
     const fileId = await uploadTextFile(token, folderId, `${unique('e2e-trash')}.txt`);
 
     await loginAndWaitForHome(page, 'admin');
-    await page.goto('/file');
+    await page.goto(`/file?folder=${parentId}`);
     const folderItem = getByTestIdAndValue(page, 'file-folder-item', folderId);
     await expect(folderItem).toBeVisible();
     await folderItem.getByTestId('file-item-checkbox').click();
@@ -212,7 +220,7 @@ test.describe('回收桶（docs/architecture/backend/14-revisions.md §9.2 D6–
     await restore.click();
     await expect(restore).toHaveCount(0);
 
-    await page.goto('/file');
+    await page.goto(`/file?folder=${parentId}`);
     await expect(getByTestIdAndValue(page, 'file-folder-item', folderId)).toBeVisible();
     await page.goto(`/file?folder=${folderId}`);
     await expect(getByTestIdAndValue(page, 'file-item', fileId)).toBeVisible();
