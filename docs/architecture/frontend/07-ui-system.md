@@ -88,6 +88,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `JsonDiff`                       | 自製：Myers 逐行差異 ＋ `useVirtualRows`，外觀沿用 `JsonViewer`（§3.12） |
 | `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用 `Toolbar`（§3.13、§12） |
 | `Toolbar`                        | 自製：`role="toolbar"` ＋ 方向鍵移動焦點；放不下的按鈕收進「更多」下拉（`Menu`），量測與 `BoxEllipsis` 共用 `useFitItems`（§3.14） |
+| `RichTextEditor` / `LazyRichTextEditor` / `RichTextViewer` | `RichTextEditor` 是 Tiptap 3（ProseMirror），頁面用延遲載入的 `LazyRichTextEditor`；`RichTextViewer` 自製（JSON → React 元素，不載入編輯器），兩者共用排版；格式定義與轉換在 `@b2b-system/rich-text`（§3.16、§14） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -691,7 +692,8 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 
 | 功能 | props / 行為 |
 | ---- | ---- |
-| 項目 | `items: ToolbarItem[]`（`key`、`label`、`icon`、`onClick`、`disabled`、`loading`、`variant`、`tooltip`、`iconOnly`、`align`、`data-testid`）；同一份資料渲染成按鈕與下拉選項，`variant: 'danger'` 在下拉中顯示為危險色 |
+| 項目 | `items: ToolbarItem[]`（`key`、`label`、`icon`、`onClick`、`disabled`、`loading`、`variant`、`tooltip`、`iconOnly`、`align`、`pressed`、`data-testid`）；同一份資料渲染成按鈕與下拉選項，`variant: 'danger'` 在下拉中顯示為危險色 |
+| 開關 | `pressed`（`true`／`false`）：按鈕帶 `aria-pressed` 並以 `data-pressed` 顯示按下的底色（例：編輯器的粗體）；收進「更多」時以勾號表示（下拉選項沒有 `menuitemcheckbox` 語意）。`undefined` 是一般按鈕 |
 | 靠右 | `align: 'end'`：從第一個 `end` 項目起靠右（`data-push`）；`end` 項目都收起時改由「更多」靠右 |
 | 只顯示圖示 | 項目的 `iconOnly`，或整列的 `iconOnly`（`true`，或數字：寬度小於此 px 時）——先縮成圖示，仍放不下的才收起；`label` 成為無障礙名稱與提示 |
 | 收合 | `fit`（預設 `true`）；從 **尾端** 收，所以把較少用的操作排在後面 |
@@ -725,6 +727,94 @@ CodeMirror 的版面（`.cm-gutters`、`.cm-lineNumbers`、`.cm-line`…）在 `
 編輯器依欄位設定：文字（`loadSuggestions` 加上自動完成）、下拉選單（`options`／`rowOptions`／`loadOptions`，`multiple` 多選）。
 下拉選單 **直接包 §3.10 的 `Select`**，只把觸發鈕的樣式改成儲存格（`DataGrid.module.css` 的 `.selectTrigger`），搜尋、虛擬捲動、多選與鍵盤操作都是 `Select` 的，不另寫一份。
 行為與鍵盤見 [`21-data-transfer.md`](21-data-transfer.md) §3。
+
+### 3.16 富文本：`RichTextEditor` / `RichTextViewer`
+
+`RichTextEditor` 以 **Tiptap 3**（ProseMirror）實作；`RichTextViewer` 自製、不載入編輯器，把文件 JSON 直接轉成 React 元素。
+兩者共用排版（`RichTextViewer/richTextContent.module.css`），並排時看起來是同一份內容。決策見 §14。
+
+**值**：ProseMirror 的文件 JSON（`RichTextDocument`，根節點 `doc`；`editor.getJSON()` 的形狀）。存進資料庫、送給 API、
+進版本歷史（`JsonDiff`）與匯入匯出的都是這份 JSON，**不存 HTML**。要純文字（通知摘要、搜尋、字數）用 `richTextToPlainText`，
+必填檢查用 `isRichTextEmpty`（只有空段落或分隔線也算空），不要比對 JSON。
+
+格式定義與轉換在 **`@b2b-system/rich-text`**（`packages/rich-text`，api 與 ui 共用，[README](../../../packages/rich-text/README.md)）：
+
+| 函式 | 用途 |
+| ---- | ---- |
+| `findRichTextIssue` / `isValidRichTextDocument` | 與編輯器 schema 相同的內容規則（節點、標記、父子關係、標題層級、連結網址、深度與節點數）。前端送出前檢查，通過後型別縮小成 API 接受的形狀；api 經由 `/schema` 的 `createRichTextDocumentSchema` 驗證請求 |
+| `richTextToHtml` | JSON → HTML（Email、對外 API、Webhook）：不需要 DOM，只輸出白名單元素，文字與屬性跳脫 |
+| `htmlToRichText`（`@b2b-system/rich-text/html`） | HTML → JSON（外部系統、匯入）：htmlparser2 解析，只留白名單內的格式，`<script>` 等連同內容丟掉；結果一定通過內容規則。`richTextToHtml` 的輸出轉回來得到相同的內容（段落裡連續的空白依 HTML 規則合併；連結只留 `href`） |
+| `plainTextToRichText` | 既有的純文字資料轉成文件（每行一段），migration 的回填用同樣的規則 |
+
+app 不直接依賴 `@b2b-system/rich-text`，型別與純函式由 `@b2b-system/ui/RichTextViewer` 轉出。
+
+| 節點 | 標記 |
+| ---- | ---- |
+| `paragraph`、`heading`（level 2、3）、`bulletList`、`orderedList`、`listItem`、`blockquote`、`codeBlock`、`horizontalRule`、`hardBreak`、`text` | `bold`、`italic`、`underline`、`strike`、`code`、`link`（`attrs.href`） |
+
+**`RichTextEditor`**（`components/RichTextEditor/`）
+
+| 功能 | props / 行為 |
+| ---- | ---- |
+| 值 | `value` / `defaultValue` / `onChange`（受控／非受控），每次編輯回報整份文件。傳入的值與最後一次回報的不是同一個參考時，整份內容重建，復原紀錄清空、不回報 `onChange`（與 `JsonEditor` 相同的語意） |
+| 格式 | `formats`（預設全部 `RICH_TEXT_FORMATS`）：關掉的格式 **不進 schema**——沒有按鈕，貼上的 HTML 也只留下允許的節點與標記。既有內容含沒開放的格式時，`fitToSchema` 把它整理成段落與純文字（Tiptap 對不合 schema 的 JSON 會整份清空，這裡不讓內容消失）。內容改變時重建編輯器 |
+| 編輯 | 工具列與快捷鍵（⌘/Ctrl + B / I / U、⌘/Ctrl + Shift + S、⌘/Ctrl + E、⌘/Ctrl + Alt + 2 / 3、⌘/Ctrl + Shift + 7 / 8、⌘/Ctrl + Shift + B）；Markdown 式輸入（`## `、`- `、`1. `、`> `、```` ``` ````、`---`）。最後一個區塊不是段落時，尾端自動補一個空段落 |
+| 連結 | 工具列的連結鈕或 ⌘/Ctrl + K：工具列下方出現連結列（`fieldset`：網址、套用、移除、取消；Enter 套用、Esc 取消並把焦點還給編輯區）。沒寫協定的補上 `https://`；只接受 `isSafeLinkHref`（`http:`、`https:`、`mailto:`、站內的 `/path`）。沒有選取文字時插入網址本身。貼上網址自動成為連結 |
+| 字數 | `maxLength`：純文字的字元數上限；超過的編輯整筆擋下（貼上則截斷），下方顯示 `labels.characterCount`，到上限時 `data-full` |
+| 狀態 | `readOnly`（沒有工具列、`aria-readonly`）、`disabled`（不能編輯、工具列停用、`aria-disabled`）、`invalid`（外框變色、`aria-invalid`）；`placeholder`（空白時顯示，並標在 `aria-placeholder`） |
+| 表單 | 放在 `Field` 裡時：編輯區帶 `controlId`（點標籤會聚焦）、沒有 `aria-label` 時以標籤命名、說明與錯誤接到 `aria-describedby`、`Field` 的 `error` 讓它成為 invalid；`onBlur` 給表單標記 touched |
+| 可近性 | 編輯區是 `role="textbox"`、`aria-multiline`；格式按鈕只顯示圖示，`label` 是名稱與提示，按下時 `aria-pressed`；按鈕在目前的選取範圍不能用時停用（例：游標在標題裡時清單按鈕） |
+| 高度 | `minHeight`（預設 `6rem`）、`maxHeight`（預設 `20rem`，超過在框內捲動） |
+| 文案 | `labels`；沒有傳的鍵用 `ComponentLabelsContext` 的 `richTextEditor`（目前語系，[`08-i18n.md`](./08-i18n.md) §3.3） |
+| slot | `toolbar` / `link` / `content` / `footer`；`className` / `data-testid` 落在最外層 |
+| testid | 工具列 `rich-text-editor-toolbar`（按鈕 `toolbar-item` ＋ `data-value`：`bold` / `italic` / `underline` / `strike` / `code` / `heading-2` / `heading-3` / `bullet-list` / `ordered-list` / `blockquote` / `code-block` / `horizontal-rule` / `link` / `undo` / `redo`）、連結列 `rich-text-editor-link`（輸入 `-link-input`、套用 `-link-apply`、移除 `-link-remove`）、編輯區的捲動框 `rich-text-editor-content`、字數 `rich-text-editor-footer` |
+
+**`LazyRichTextEditor`**（`components/LazyRichTextEditor/`）：**頁面一律用它**，不直接 import `RichTextEditor`。props 與 `RichTextEditor` 完全相同；
+第一次渲染時以 `React.lazy` 下載編輯器（獨立的 chunk），期間顯示同尺寸的骨架（`<output aria-busy>`，名稱是 `labels.loading`；`data-testid="rich-text-editor-loading"`），
+版面不跳動。`preloadRichTextEditor()` 先開始下載（重複呼叫只下載一次、失敗時不丟錯，可直接當事件處理函式），
+放在會打開編輯器的按鈕的 `onPointerEnter`／`onFocus`。檔案只以 `import type` 參照 `RichTextEditor`，Tiptap 不會跟著它進到呼叫端的 chunk。
+
+**`RichTextViewer`**（`components/RichTextViewer/`）：`value` 是同一份 JSON。只認得上表的節點與標記；認不得的節點只顯示裡面的文字、
+認不得的標記忽略；連結只渲染 `isSafeLinkHref` 的網址（`target="_blank"`、`rel="noopener noreferrer nofollow"`），其餘只顯示文字。
+不用 `innerHTML`；超過 32 層的巢狀只顯示純文字。
+
+檔案分工：
+
+| 檔案 | 內容 |
+| ---- | ---- |
+| `packages/rich-text/src/` | 型別、格式清單、內容規則、純文字、連結白名單、JSON ⇄ HTML、zod schema（見上表） |
+| `RichTextViewer/index.ts` | 元件 ＋ 轉出 `@b2b-system/rich-text` 給 app 用的型別與純函式 |
+| `LazyRichTextEditor/LazyRichTextEditor.tsx` | 延遲載入、骨架、`preloadRichTextEditor` |
+| `RichTextViewer/richTextContent.module.css` | 兩個元件共用的排版（`.content`） |
+| `RichTextEditor/richTextExtensions.ts` | Tiptap 的 extension 組裝：`formats` → StarterKit 的開關、連結的網址檢查、Placeholder、字數上限、⌘/Ctrl + K |
+| `RichTextEditor/richTextToolbar.tsx` | 格式按鈕的表（`FORMAT_BUTTONS`）、以 `useEditorState` 訂閱的工具列狀態、`Toolbar` 的項目 |
+| `RichTextEditor/fitToSchema.ts` | 內容整理成目前 schema 接受的形狀 |
+| `RichTextEditor/LinkBar.tsx` | 連結列 |
+| `RichTextEditor/RichTextEditor.tsx` | 元件：props、受控的值與編輯器狀態的同步、編輯區的 ARIA |
+
+**樣式**：`injectCSS: false`，Tiptap 不插入自己的 `<style>`（不分層，會蓋過 `@layer components`）；
+ProseMirror 必要的樣式（`white-space: break-spaces`、`.ProseMirror-hideselection`、選取節點的外框）改寫在 `RichTextEditor.module.css`，
+提示文字以 `.is-editor-empty::before` 顯示。gapcursor 關掉（沒有圖片、表格這類需要它的節點）。
+
+**Bundle**（2026-10-08 以 backstage 的正式建置量測）：編輯器的 chunk（`RichTextEditor-*.js`：Tiptap ＋ ProseMirror ＋ linkifyjs）約 123 KB gzip，
+只有 `LazyRichTextEditor` 以動態 `import()` 載入；`RichTextViewer` 約 1 KB；首屏的 chunk 裡沒有任何富文本的程式；
+`@b2b-system/rich-text` 的 `/schema`（zod）與 `/html`（htmlparser2）不在任何前端 chunk。預覽一律用 `RichTextViewer`。
+
+**編輯器可能暫時不存在**：Tiptap 會銷毀沒有掛載的編輯器（外層 Suspense 顯示 fallback、`<Activity mode="hidden">`、StrictMode 的重新掛載），
+`useEditor` 回傳 null，重新顯示時才建新的；這段空檔裡元件仍可能 render，`useEditorState` 的訂閱也可能對已銷毀的編輯器再算一次 selector。
+元件把它收斂成「可用的編輯器或 null」，空檔裡工具列全部停用（`INACTIVE_TOOLBAR_STATE`）、字數是 0。
+
+**測試**：與 `JsonEditor` 相同，jsdom 沒有 `Range.getClientRects`（補替身）、無法模擬 contenteditable 的輸入：
+測試從編輯區的 DOM 取得 Tiptap 的 `Editor`（`TiptapEditorHTMLElement.editor`）直接下指令；工具列、連結列、快捷鍵仍以 user-event 操作。
+app 的頁面測試用 `@b2b-system/ui/testing` 的 `installRangeLayoutStub()` 與 `insertRichText(textbox, text)`（不必直接依賴 Tiptap）；
+E2E 以 `getByTestId('<欄位>').getByRole('textbox').fill(...)` 輸入（Playwright 支援 contenteditable）。
+真實的輸入（Markdown 式輸入、⌘/Ctrl + B、⌘/Ctrl + K）以 Storybook 手動確認。
+
+**後端**：DTO 以 `core/validation` 的 `richTextInput({ maxLength, required })`（包 `@b2b-system/rich-text/schema`）驗證請求，
+回應用具名元件 `RichTextDocumentSchema`（OpenAPI 的 `RichTextDocument`／`RichTextNode`／`RichTextMark`，節點以 `$ref` 遞迴）。
+資料庫存文件 JSON（jsonb），另存一欄純文字給搜尋與字數。第一個使用者是公告的內文（[`../backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D21、D22）。
+
+尚未實作：圖片與附件（存 `fileId`，渲染時換成網址；`modules/file`）、@提及節點、表格、多人同時編輯（Yjs）。
 
 ---
 
@@ -1502,3 +1592,60 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 | --- | --- |
 | 後端 `POST /<resource>/bulk-<action>`（帶篩選條件）＋ 背景工作 ＋ 進度 API | 不採用為這一版：與 D13 與 §13.2 的決定衝突，進度 API 是另一個功能 |
 | 新增輕量端點 `GET /<resource>/ids?<篩選>`，一次回傳全部 id | 不採用為第一版：每個資源都要加端點與 OpenAPI；10 000 筆內逐頁收集只要 50 次請求。量測到收集太慢再加 |
+
+---
+
+## 14. 設計決策：富文本以 Tiptap 3 實作，值存 ProseMirror 的 JSON
+
+> 2026-10-08 決定。規格見 §3.16。
+
+### 14.1 背景
+
+留言（[`features/comments-watches.md`](../../features/comments-watches.md)：第一版先做純文字）、公告（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 列為不做）
+與之後的說明欄位都會需要富文本。這份內容不只在前端顯示，還會進到版本歷史（`JsonDiff`）、匯入匯出（JSON／YAML）、Webhook 的 payload、
+通知摘要與 Email（React Email），所以要求：
+
+- 外觀全部由設計系統決定（Base UI ＋ Design Token ＋ CSS Module），不引入第二套 UI 與主題。
+- 內容是有結構的格式，能比對差異、匯出、在 Node 上轉成純文字或 HTML，不必先解析 HTML。
+- 不靠 `innerHTML` ＋ sanitizer 防 XSS。
+- 授權不能是 GPL 或需要付費金鑰；體積要能延遲載入。
+
+### 14.2 決定
+
+- **編輯器用 Tiptap 3**（`@tiptap/react`、`@tiptap/starter-kit`、`@tiptap/extensions`，MIT；底層 ProseMirror）。只用核心與免費的 extension，不用 Pro。
+- **值是 ProseMirror 的文件 JSON**，不存 HTML。可用的格式由 `formats` 決定，並且 **決定 schema**：關掉的格式連貼上也進不來。
+- **唯讀顯示自製 `RichTextViewer`**：JSON → React 元素，只認得固定的節點與標記，連結以白名單協定檢查；不載入編輯器、不用 `innerHTML`。
+- 工具列用設計系統的 `Toolbar`（新增 `pressed`），連結編輯用 `Input` ＋ `Button` 的連結列；不用 Tiptap 的任何 UI。
+- 文案經 `ComponentLabelsContext`（`richTextEditor`），跟著語系。
+
+### 14.3 理由
+
+1. **無頭（headless）。** Tiptap 不附 UI，樣式可以完全交給 CSS Module 與 token；`injectCSS: false` 之後連它的 `<style>` 都沒有。
+2. **JSON 是一等公民。** ProseMirror 的文件模型就是 JSON 樹；版本歷史、匯入匯出直接沿用既有機制，`@tiptap/core` 的 `generateText`／`generateHTML`
+   （與 `@tiptap/static-renderer`）不需要 DOM，後端之後可以在 Node 上驗證與轉換。
+3. **schema 就是白名單。** 貼上的 HTML 經過 schema 解析，只留下允許的節點與標記；連結的網址在解析、貼上、輸入時都經過 `isSafeLinkHref`。
+   顯示端再檢查一次，資料被改過也不會渲染出可執行的連結。
+4. **與 CodeMirror 6 同一位作者、同一種模型**（state／transaction／view），`JsonEditor` 的經驗（受控同步、jsdom 測試以指令代替輸入）可以直接沿用。
+5. **生態與延伸。** Mention、圖片、表格、Yjs 協作（`y-prosemirror`）都有現成的 MIT extension，之後要加不必換底層。
+
+### 14.4 代價
+
+| 代價 | 緩解 |
+| ---- | ---- |
+| 編輯器的 chunk 約 123 KB gzip | 頁面用 `LazyRichTextEditor`，只在第一次渲染（或 `preloadRichTextEditor()`）時下載；預覽用約 1 KB 的 `RichTextViewer` |
+| Tiptap 遇到不合 schema 的 JSON 會整份換成空文件 | `fitToSchema` 先把內容整理成目前的 schema（標記拿掉、節點以內容取代），整理後仍不合法就退回純文字段落 |
+| 檢視器、編輯器的 schema（Tiptap extension）與內容規則是三處節點清單 | 清單與規則集中在 `@b2b-system/rich-text`（api 與 ui 共用）；檢視器對認不得的節點保留文字，不會因為漏改而遺失內容；新增格式時依它的 README 同一批修改 |
+| jsdom 無法模擬 contenteditable 的輸入 | 測試直接對 `Editor` 下指令；真實輸入以 Storybook 手動確認 |
+| 連結的 mark 會帶 Tiptap 的預設屬性（`target`、`rel`、`class`、`title`） | 顯示端只讀 `href`，其餘忽略 |
+
+### 14.5 替代方案
+
+| 方案 | 不採用的理由 |
+| ---- | ---- |
+| Lexical（Meta） | 核心較小、效能好，但仍是 0.x、常有破壞性變更；後端轉換要 `@lexical/headless` 加 DOM 模擬；提及等節點要自己寫 |
+| Plate（Slate） | 和 shadcn／Tailwind 綁得深，與 UnoCSS ＋ Base UI 的 token 體系衝突；Slate 的 IME（中文輸入法）問題較多 |
+| BlockNote | Notion 式的區塊編輯，UI 寫死（Mantine 或 shadcn），進階功能是 GPL／商業授權；對表單欄位太重 |
+| CKEditor 5 / TinyMCE | GPL 或要付費金鑰；自帶 UI 與主題，難以對上 token 與深色主題；以 HTML 為主要格式、體積大 |
+| Quill 2 | 格式是 Delta，擴充性弱，React 整合陽春 |
+| Milkdown | 同為 ProseMirror，但以 Markdown 為核心、生態較小 |
+| Markdown ＋ `textarea` | 不需要 contenteditable，但使用者要會語法；顯示端仍要解析與清理 HTML |

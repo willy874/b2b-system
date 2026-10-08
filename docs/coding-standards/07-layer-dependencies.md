@@ -16,6 +16,7 @@
 apps/backstage ─┬────▶ packages/api-sdk
 apps/platform ──┤
                 ├────▶ packages/web-core ─┬──▶ packages/ui ──▶ packages/web-shared ──▶ packages/realtime ◀──── apps/api
+                │                         │        └─────▶ packages/rich-text ◀──────────────────────────────── apps/api
                 │                         ├──▶ packages/web-shared
                 │                         ├──▶ packages/realtime
                 │                         └──▶ packages/error-codes ◀──── apps/api
@@ -34,12 +35,13 @@ apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；�
 | `packages/api-sdk`     | 無                                       | 任何 workspace package；手改 `src/generated/`                 | 👀   |
 | `packages/realtime`    | 無（只依賴 `zod`）                       | 任何 workspace package；DOM / Node 專屬 API                   | 👀   |
 | `packages/error-codes` | 無（零依賴）                             | 任何依賴；常數以外的程式碼                                    | 👀   |
+| `packages/rich-text`   | 無（主入口零依賴；`/schema` 用 `zod`、`/html` 用 `htmlparser2`） | 任何 workspace package；React；DOM / Node 專屬 API（兩邊都要能跑） | 👀   |
 | `packages/web-shared`  | `realtime`                               | `ui`、`api-sdk`、`apps/*`                                     | 🔒 `package.json`、測試 |
-| `packages/ui`          | `web-shared`                             | `web-core`、`api-sdk`、`realtime`、`apps/*`；業務名詞         | 🔒 `package.json`、測試（業務名詞 👀） |
+| `packages/ui`          | `web-shared`、`rich-text`                | `web-core`、`api-sdk`、`realtime`、`apps/*`；業務名詞         | 🔒 `package.json`、測試（業務名詞 👀） |
 | `packages/web-core`    | `ui`、`web-shared`、`error-codes`、`realtime` | `api-sdk`（各 app 的端點不同）、`apps/*`；業務名詞            | 🔒 `package.json`、測試（業務名詞 👀） |
 | `apps/backstage`       | `api-sdk`、`realtime`、`web-core`、`web-shared`、`ui` | `apps/*`（錯誤碼經由 `web-core/errors`）             | 🔒 `package.json` |
 | `apps/platform`        | `api-sdk`、`realtime`、`web-core`、`web-shared`、`ui` | `apps/*`（兩個前端共用的機制都在 `web-core`；[`architecture/04-sso.md`](../architecture/04-sso.md) §12.2 D14） | 🔒 `package.json` |
-| `apps/api`             | `realtime`、`error-codes`                | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`web-shared`、`ui`、`apps/*` | 🔒 `package.json` |
+| `apps/api`             | `realtime`、`error-codes`、`rich-text`   | `api-sdk`（後端才是型別的來源，不能反過來依賴產物）、`web-shared`、`ui`、`apps/*` | 🔒 `package.json` |
 | `apps/e2e`             | 無                                       | 任何 `apps/*` 原始碼；只透過瀏覽器與 HTTP 操作系統            | 👀   |
 | `apps/file-storage`    | 無                                       | 任何 workspace package；其他 app 只透過 S3 HTTP API 與它溝通 | 🔒 `package.json` |
 | `apps/apm-service`     | 無                                       | 任何 workspace package；前端只透過 Sentry 的收件 API（`@sentry/browser`）與它溝通 | 🔒 `package.json` |
@@ -47,6 +49,7 @@ apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；�
 - `apps/*` 之間 **永不互相 import**；packages 永不 import apps；下層 package 永不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）。🔒 測試（§4）
 - 新增 workspace 依賴要先在 `package.json` 宣告；pnpm 的隔離會讓未宣告的 import 解析失敗。
 - `apps/platform` 的資料夾層級與 §2 的 `apps/backstage` 相同，§2 的矩陣同樣適用。
+- app 不直接 import `@b2b-system/rich-text`：富文本的型別與純函式經由 `@b2b-system/ui/RichTextViewer` 轉出（矩陣沒有這一欄，🔒 測試）。
 - `apps/backstage` 只在 `src/shared/api-sdk/` 這 **一個地方** import `@b2b-system/api-sdk`，其餘一律 `@/shared/api-sdk`。
   只轉出主入口（型別、URL builder、enum），不 import `@b2b-system/api-sdk/schemas`（zod schema 會整批進首屏；[`architecture/frontend/17-shared-packages.md`](../architecture/frontend/17-shared-packages.md) §1）。
   `@b2b-system/realtime` 同理，只經由 `src/shared/websocket-sdk/`（`packages/web-shared` 內部直接 import `@b2b-system/realtime`）。🔒 測試（§4；兩個 app 都適用）

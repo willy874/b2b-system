@@ -1,0 +1,143 @@
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .root:focus-within {
+    border-color: var(--color-brand);
+  }
+
+  .root[data-invalid] {
+    border-color: var(--color-danger);
+  }
+
+  .root[data-disabled] {
+    background: var(--color-fill-subtle);
+    cursor: not-allowed;
+  }
+
+  .root[data-readonly] {
+    border-color: var(--color-border);
+  }
+
+  /* 工具列：格式按鈕在左，復原／重做在右 */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    padding: var(--seed-space-1) var(--seed-space-2);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  /* 連結列（fieldset）：工具列下方，打開時才出現 */
+  .link {
+    min-inline-size: 0;
+    margin: 0;
+    padding: var(--seed-space-2);
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .linkRow {
+    display: flex;
+    align-items: center;
+    gap: var(--seed-space-2);
+  }
+
+  .linkInput {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .linkError {
+    margin: var(--seed-space-1) 0 0;
+    color: var(--color-danger-text);
+    font-size: 0.75rem;
+  }
+
+  /* 編輯區的捲動框（EditorContent） */
+  .content {
+    max-height: var(--rich-text-editor-max-height);
+    overflow-y: auto;
+  }
+
+  /*
+   * ProseMirror 的 contenteditable：排版來自 richTextContent.module.css；
+   * 下面是 Tiptap 關掉 injectCSS 後要自己補的 ProseMirror 必要樣式（prosemirror-view/style/prosemirror.css）
+   */
+  .editable {
+    position: relative;
+    min-height: var(--rich-text-editor-min-height);
+    padding: var(--seed-space-2) var(--seed-space-3);
+    outline: none;
+    white-space: break-spaces;
+    font-variant-ligatures: none;
+    font-feature-settings: 'liga' 0;
+  }
+
+  .editable pre {
+    white-space: pre-wrap;
+  }
+
+  .editable li {
+    position: relative;
+  }
+
+  .editable:global(.ProseMirror-hideselection) *::selection {
+    background: transparent;
+  }
+
+  .editable:global(.ProseMirror-hideselection) {
+    caret-color: transparent;
+  }
+
+  .editable [draggable][contenteditable='false'] {
+    user-select: text;
+  }
+
+  /* 選取整個節點（分隔線）時 */
+  .editable :global(.ProseMirror-selectednode) {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  .editable :global(img.ProseMirror-separator) {
+    display: inline;
+    margin: 0;
+    border: none;
+  }
+
+  .root[data-disabled] .editable {
+    color: var(--color-fg-muted);
+    cursor: not-allowed;
+  }
+
+  /* 空白時的提示：Placeholder extension 在第一個空段落標上 is-editor-empty 與 data-placeholder */
+  .editable :global(.is-editor-empty):first-child::before {
+    content: attr(data-placeholder);
+    float: inline-start;
+    height: 0;
+    color: var(--color-fg-muted);
+    pointer-events: none;
+  }
+
+  /* 字數：設了 maxLength 才有，到上限時改成警告色 */
+  .footer {
+    padding: var(--seed-space-1) var(--seed-space-3);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+
+  .footer[data-full] {
+    color: var(--color-warning-text);
+  }
+}

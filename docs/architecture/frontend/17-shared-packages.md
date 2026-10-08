@@ -30,9 +30,10 @@
                               │  @b2b-system/web-shared       │  框架無關的工具：store、channel、registry、date…
                               └───────────────┬───────────────┘
                                               ▼
-              ┌───────────────────────────┐   ┌──────────────────────────┐
-              │ @b2b-system/error-codes   │   │ @b2b-system/realtime     │   前後端共用的契約（api 也依賴）
-              └───────────────────────────┘   └──────────────────────────┘
+              ┌───────────────────────────┐   ┌──────────────────────────┐   ┌──────────────────────────┐
+              │ @b2b-system/error-codes   │   │ @b2b-system/realtime     │   │ @b2b-system/rich-text    │
+              └───────────────────────────┘   └──────────────────────────┘   └──────────────────────────┘
+                前後端共用的契約（api 也依賴）；rich-text 由 ui 依賴（app 經由 `@b2b-system/ui/RichTextViewer` 取用）
 
   @b2b-system/api-sdk：只有 app 的 apis/ 與 core/permission/enums.ts 使用（產物，由 api 的 OpenAPI 產生）
 ```
@@ -50,6 +51,7 @@ zod schema 與 SDK 自己的 fetch client 在 `@b2b-system/api-sdk/schemas`，�
 | `@b2b-system/ui` | `packages/ui` | 只有原始碼 | 設計系統元件、`icons/`、`styles/`（token、全域樣式）、`uno.config.ts`、Storybook | [README](../../../packages/ui/README.md)、[`07-ui-system.md`](07-ui-system.md) |
 | `@b2b-system/web-core` | `packages/web-core` | 只有原始碼 | 原 `core/` 兩個 app 共用的模組、`plugins/{fetcher,app}`、`shell`（providers）、`layout`（外框 `DashboardShell`、側欄、頂列工具）、`components`（錯誤頁、`AuthShell`、變更密碼…）、背景工作與稽核列表的展示元件（`job`、`audit-log`）、站內通知的一列（`notification`）、共用語系、測試輔助 | [README](../../../packages/web-core/README.md) |
 | `@b2b-system/error-codes` | `packages/error-codes` | `tsc` → `dist/` | api 的 `ErrorCode`、`ALL_ERROR_CODES`、`statusOf` | [README](../../../packages/error-codes/README.md) |
+| `@b2b-system/rich-text` | `packages/rich-text` | `tsc` → `dist/` | 富文本的格式定義與轉換：文件型別、內容規則（`findRichTextIssue`）、純文字、連結白名單、JSON → HTML；子路徑 `/schema`（zod，api 的 DTO）、`/html`（HTML → JSON，htmlparser2） | [README](../../../packages/rich-text/README.md)、[`07-ui-system.md`](07-ui-system.md) §3.16 |
 
 匯入一律走子路徑，一個模組一個入口：`@b2b-system/web-shared/store`、`@b2b-system/ui/Button`、`@b2b-system/web-core/permission`。
 package 內部用相對路徑，不用 `@/`。
@@ -67,7 +69,7 @@ package 內部用相對路徑，不用 `@/`。
 | 3 | 依賴 AppContext、session、i18n、全域 store、TanStack Query／Router？ | `@b2b-system/web-core` |
 | 4 | 是畫面元件，只依賴 props 與 token（文案由 `ComponentLabelsHost` 或 props 傳入）？ | `@b2b-system/ui` |
 | 5 | 不依賴 React 以外的任何框架、也不碰 DOM 以外的環境？ | `@b2b-system/web-shared` |
-| 6 | 前後端都要用的常數或型別（錯誤碼、推播事件）？ | `@b2b-system/error-codes`、`@b2b-system/realtime` |
+| 6 | 前後端都要用的常數、型別或純函式（錯誤碼、推播事件、富文本的格式與轉換）？ | `@b2b-system/error-codes`、`@b2b-system/realtime`、`@b2b-system/rich-text` |
 
 一段程式第一次被第二個前端需要時，**搬進 package，不要複製**；先把它對 app 的依賴改成參數。
 

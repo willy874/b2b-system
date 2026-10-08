@@ -105,4 +105,20 @@ describe('Toolbar', () => {
     await userEvent.keyboard('{ArrowLeft}');
     expect(queryItem('delete')).toHaveFocus();
   });
+
+  it('pressed：開關按鈕帶 aria-pressed 與 data-pressed；一般按鈕兩者都沒有', () => {
+    layout.setSize('toolbar', { clientWidth: 400 });
+    renderToolbar({
+      items: [
+        { key: 'on', label: '開', pressed: true },
+        { key: 'off', label: '關', pressed: false },
+        { key: 'plain', label: '一般' },
+      ],
+    });
+    expect(queryItem('on')).toHaveAttribute('aria-pressed', 'true');
+    expect(queryItem('on')).toHaveAttribute('data-pressed');
+    expect(queryItem('off')).toHaveAttribute('aria-pressed', 'false');
+    expect(queryItem('off')).not.toHaveAttribute('data-pressed');
+    expect(queryItem('plain')).not.toHaveAttribute('aria-pressed');
+  });
 });
