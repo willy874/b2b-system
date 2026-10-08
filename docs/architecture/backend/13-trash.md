@@ -154,6 +154,9 @@ db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_i
 | `relation_tuples.created_by` | `SET NULL` | 自動 |
 | `resource_tags`（`resource_type = 'user'`；檔案、資料夾的 handler 同樣清 `file`、`fileFolder`） | 多型，沒有外鍵 | `purge` 內以 `TagService.removeAllFor()` 刪除（[`18-tag.md`](./18-tag.md) §1.1） |
 | `tags.created_by`／`updated_by`、`resource_tags.created_by` | `SET NULL` | 自動 |
+| `comments`、`watches`（`resource_type = 'user'`：這個人身上的留言與關注） | 多型，沒有外鍵 | `purge` 內以 `CommentService.removeAllFor()` 刪除（[`24-comment.md`](./24-comment.md) §1.1） |
+| `comments.author_id`（他寫的留言） | `SET NULL` | 自動；留言保留，作者顯示為「已刪除的使用者」 |
+| `watches.user_id`（他關注的資源） | `CASCADE` | 自動 |
 | `refresh_tokens.user_id`、`auth_tokens.user_id`、`user_identities.user_id` | `CASCADE` | 自動 |
 | `file_folders.owner_id` | `RESTRICT` | `findExpired` 排除；並行建立的由 savepoint 捕捉外鍵違反，當作略過 |
 | `file_folders.created_by`／`updated_by`、`files.created_by`／`updated_by` | `SET NULL` | 自動 |

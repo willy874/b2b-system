@@ -121,6 +121,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `announcement.fanOut` | `modules/announcement` | — | 一次發送的分批寫入（每 500 人一個交易）；重做安全 |
 | `announcement.maintenance` | `modules/announcement` | `ANNOUNCEMENT_MAINTENANCE_CRON` | `20 5 * * *`（每天 05:20 UTC；補排程與發送紀錄的保留清理，[`19-announcement.md`](./19-announcement.md) §5.2） |
 | `webhook.deliver` | `modules/webhook` | — | 由 `WebhookService.emit()` 在業務交易內入列；重試 8 次、60 秒起退避、並行 10（[`17-webhook.md`](./17-webhook.md) §4） |
+| `watch.notify` | `modules/comment` | — | 擁有者在業務交易內以 `WatchService.resourceChanged()` 入列（有人關注時；同一個資源 60 秒內一次）；通知關注者資源被修改（[`24-comment.md`](./24-comment.md) §4） |
 | `oidc.cleanup`（平台） | `modules/oidc-provider` | `OIDC_CLEANUP_CRON` | `45 3 * * *`（每天 03:45 UTC；清除過期的 IdP 狀態） |
 | `tenant.provisionSweep`（平台） | `modules/tenant` | — | `*/5 * * * *`（每 5 分鐘；佈建逾時仍在 `provisioning` 的租戶改成 `failed`，[`../05-tenancy.md`](../05-tenancy.md) §5） |
 | `auth.tokenCleanup`、`auth.platformTokenCleanup`（平台） | `modules/credential`、`modules/platform-admin`（平台） | `AUTH_TOKEN_CLEANUP_CRON` | `15 4 * * *`（每天 04:15 UTC；清除過期的 refresh token 與啟用／重設 token，[`04-auth.md`](./04-auth.md) §8） |

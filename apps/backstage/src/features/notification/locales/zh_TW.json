@@ -30,17 +30,25 @@
       "announcementPublished": "公告：{{title}}",
       "approvalPendingStep": "{{requester}} 的{{type}}申請輪到「{{step}}」，等待你審核",
       "approvalProgress": "你的{{type}}申請已通過「{{step}}」，接下來是「{{next}}」",
-      "approvalUnassigned": "{{type}}申請的「{{step}}」找不到足夠的審核者，需要處理"
+      "approvalUnassigned": "{{type}}申請的「{{step}}」找不到足夠的審核者，需要處理",
+      "commentMentioned": "在{{resourceType}}「{{name}}」的留言中提及了你",
+      "commentCreated": "你關注的{{resourceType}}「{{name}}」有新留言",
+      "watchResourceUpdated": "你關注的{{resourceType}}「{{name}}」已更新"
     },
     "detail": {
       "subject": "{{subject}}",
       "rolesAdded": "新增：{{roles}}",
-      "rolesRemoved": "移除：{{roles}}"
+      "rolesRemoved": "移除：{{roles}}",
+      "excerpt": "{{excerpt}}"
     },
     "approvalType": {
       "userRegister": "帳號註冊",
       "fileFolderAccess": "資料夾存取",
       "unknown": "審批"
+    },
+    "resourceType": {
+      "user": "使用者",
+      "unknown": "項目"
     },
     "event": {
       "description": "系統會在這些事件發生時通知相關的人。關掉某個管道後就不再送出；已送出的通知不受影響，重新開啟也不會補發。",
@@ -67,7 +75,8 @@
         "approval": "審批",
         "user": "使用者",
         "webhook": "Webhook",
-        "announcement": "公告"
+        "announcement": "公告",
+        "comment": "留言與關注"
       },
       "type": {
         "approvalPending": {
@@ -104,6 +113,21 @@
           "name": "審批找不到審核者",
           "description": "多階段的申請進入某一關時，依規則找不到（足夠的）審核者。",
           "recipients": "持有「強制定案審批」權限的人"
+        },
+        "commentMentioned": {
+          "name": "留言中被提及",
+          "description": "有人在留言中提及你時通知。",
+          "recipients": "被提及、而且看得到該項目的人"
+        },
+        "commentCreated": {
+          "name": "關注的項目有新留言",
+          "description": "你關注的項目有新留言時通知（留言的人會自動關注）。",
+          "recipients": "關注者（不含留言的人與已被提及的人）"
+        },
+        "watchResourceUpdated": {
+          "name": "關注的項目被修改",
+          "description": "你關注的項目被修改時通知；同一個項目 1 分鐘內只通知一次。",
+          "recipients": "關注者（不含修改的人）"
         }
       }
     },

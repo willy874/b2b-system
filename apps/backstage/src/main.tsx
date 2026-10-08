@@ -18,6 +18,7 @@ import { appContextPlugin } from '@/app/plugin';
 import { accountFeaturePlugin } from '@/features/account';
 import { approvalFeaturePlugin } from '@/features/approval';
 import { authFeaturePlugin } from '@/features/auth';
+import { commentFeaturePlugin } from '@/features/comment';
 import { homeFeaturePlugin } from '@/features/home';
 import { notificationFeaturePlugin } from '@/features/notification';
 import { permissionFeaturePlugin } from '@/features/permission';
@@ -104,6 +105,7 @@ async function bootstrap(): Promise<void> {
     .use(userFeaturePlugin())
     .use(roleFeaturePlugin())
     .use(tagFeaturePlugin())
+    .use(commentFeaturePlugin())
     .use(permissionFeaturePlugin())
     .use(approvalFeaturePlugin())
     .use(accountFeaturePlugin())

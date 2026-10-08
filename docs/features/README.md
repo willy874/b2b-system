@@ -17,7 +17,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 留言、關注 | [`comments-watches.md`](./comments-watches.md) | 提案 | [站內通知](../architecture/backend/15-notification.md)（已完成）、[標籤](../architecture/backend/18-tag.md)（已完成，同一種登記方式） |
 | P2 | 租戶用量總覽 | [`tenant-usage.md`](./tenant-usage.md) | 提案 | — |
 | P3 | 多實例部署 | [`multi-instance.md`](./multi-instance.md) | 提案 | — |
 
@@ -35,6 +34,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `comments-watches`（留言、@提及、關注；擁有者登記資源類型，第一批是使用者；資源頁的面板註冊表）：[`backend/24-comment.md`](../architecture/backend/24-comment.md) §8、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md)
 - `organization`（部門樹、成員、主管的解析；平台可關閉）：[`backend/23-organization.md`](../architecture/backend/23-organization.md) §10
 - `approval-chains`（多階段審批：依序多關、會簽、條件分流、override、我的審批與撤回；平台可關閉）：[`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、§10
 
@@ -62,8 +62,7 @@
 
 接下來：
 
-1. 資源的協作（`comments-watches`；照標籤的登記方式做）。
-2. `tenant-usage`（租戶用量總覽）。
+1. `tenant-usage`（租戶用量總覽）。
 
 ### 1.2 撰寫提案時的架構前提
 

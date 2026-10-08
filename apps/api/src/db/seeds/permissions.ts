@@ -101,6 +101,9 @@ export const PERMISSION_SEED = [
   // 多階段審批的流程設定（docs/architecture/backend/20-approval.md §9、D11）；update 受反提權限制
   ['approvalFlow', 'read', 'permission.approvalFlow.read', 2100],
   ['approvalFlow', 'update', 'permission.approvalFlow.update', 2101],
+
+  // 刪除別人的留言（管理）；自己的留言作者本人就能改與刪，看得到資源就能留言（docs/architecture/backend/24-comment.md §1）
+  ['comment', 'delete', 'permission.comment.delete', 2200],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
 
 type SeedList = typeof PERMISSION_SEED;

@@ -88,6 +88,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'approval:override',
       'approvalFlow:read',
       'approvalFlow:update',
+      'comment:delete',
     ],
   },
   {

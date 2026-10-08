@@ -354,6 +354,7 @@ export const PermissionKey = {
   'orgUnit:delete': 'orgUnit:delete',
   'approvalFlow:read': 'approvalFlow:read',
   'approvalFlow:update': 'approvalFlow:update',
+  'comment:delete': 'comment:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
 
@@ -893,6 +894,51 @@ export interface PlatformAuditLog {
   result: 'success' | 'failure';
   errorCode: string | null;
   metadata: Record<string, unknown> | null;
+}
+
+export interface CommentUser {
+  id: string;
+  displayName: string;
+  email: string;
+}
+
+export interface Comment {
+  id: string;
+  resourceType: string;
+  resourceId: string;
+  body: string;
+  author: CommentUser | null;
+  mentions: Array<CommentUser>;
+  version: number;
+  createdAt: string;
+  editedAt: string | null;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface CommentPage {
+  items: Array<Comment>;
+  nextCursor: string | null;
+}
+
+export interface CreateCommentRequest {
+  body: string;
+  mentionIds: Array<string>;
+}
+
+export interface UpdateCommentRequest {
+  body: string;
+  mentionIds: Array<string>;
+  version: number;
+}
+
+export interface MentionableList {
+  items: Array<CommentUser>;
+}
+
+export interface WatchState {
+  watching: boolean;
+  watcherCount: number;
 }
 
 export interface DataTransfer {

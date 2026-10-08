@@ -34,6 +34,7 @@ modules/notification/                    通用模組：不 import 任何業務�
 
 modules/approval/approval.notifications.ts   approval.pending、approval.result 的宣告與參數型別
 modules/user/user.notifications.ts           user.rolesChanged 的宣告與參數型別
+modules/comment/comment.notifications.ts     comment.mentioned、comment.created、watch.resourceUpdated 的宣告與參數型別
 ```
 
 - **通知模組不認識業務**（D2）：類型、參數、收件人與連結都由擁有者模組決定，在自己的業務交易內呼叫 `notify()`。
@@ -140,6 +141,9 @@ await withTransaction(this.db, async (tx) => {
 | `announcement.published` | 公告受眾解析出的人（不含送出者） | `title` | `announcement.message`（`{ dispatchId }`） | `AnnouncementDispatchService.fanOut()` 每 500 人一個交易（帶 `sourceId`；[`19-announcement.md`](./19-announcement.md) §5） |
 | `webhook.disabled` | webhook 連續失敗而自動停用時，當下持有 `webhook:update` 的人 | `webhookName`、`consecutiveFailures`、`url`（到達門檻的網址；[`architecture/05-tenancy.md`](../05-tenancy.md) §13 前寫入的沒有） | `webhook.detail`（`{ webhookId }`） | `WebhookDeliveryService.attempt()` 的交易內（觸發者是系統；[`17-webhook.md`](./17-webhook.md) §4） |
 | `dataTransfer.exportFinished`／`dataTransfer.importFinished` | 匯出或匯入套用完成（或失敗）時，傳輸的建立者 | `status`、`type`、`format`／`mode`、筆數、`errorCode` | `dataTransfer.detail`（`{ transferId }`） | 完成或失敗的交易內（觸發者是系統；[`22-data-transfer.md`](./22-data-transfer.md) §9.3） |
+| `comment.mentioned` | 留言裡被提及、而且看得到資源的人 | `resourceType`、`resourceName`、`excerpt` | 擁有者給的連結（使用者：`user.detail`） | `CommentService.create()`／`update()`（只有新加入的人）的交易內（[`24-comment.md`](./24-comment.md) §4） |
+| `comment.created` | 關注者（看得到資源；不含作者與已被提及的人） | 同上 | 同上 | `CommentService.create()` 的交易內 |
+| `watch.resourceUpdated` | 關注者（看得到資源；不含修改的人） | `resourceType`、`resourceName` | 同上 | 背景工作 `watch.notify`（擁有者在業務交易內以 `WatchService.resourceChanged()` 入列；同一個資源 60 秒內一次） |
 
 - `subject` 由各審批類型的 `ApprovalHandler.summarize(payload)` 提供（handler 在擁有資源的模組）：
   `user.register` 是申請人填的顯示名稱，`fileFolder.access` 是資料夾名稱。解析不了（舊資料）時是空字串。
@@ -163,6 +167,7 @@ await withTransaction(this.db, async (tx) => {
 | `announcement.message` | `dispatchId` | `/announcement/message/$dispatchId`（`AnnouncementMessageRoute`，收件人看全文；feature `announcement` 沒啟用時不登記） | `announcement.published` |
 | `webhook.detail` | `webhookId` | `/webhook/$webhookId`（`WebhookDetailRoute`，詳情對話框疊在列表上；feature `webhook` 沒啟用時不登記） | `webhook.disabled` |
 | `dataTransfer.detail` | `transferId` | `/data-transfer?transfer=<id>`（`DataTransferListRoute`；feature `dataTransfer` 沒啟用時不登記） | `dataTransfer.exportFinished`、`dataTransfer.importFinished` |
+| `user.detail` | `userId` | `/user/$userId`（`UserDetailRoute`，詳情對話框疊在列表上） | `comment.mentioned`、`comment.created`、`watch.resourceUpdated`（使用者） |
 
 ---
 

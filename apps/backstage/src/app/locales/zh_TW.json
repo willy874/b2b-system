@@ -82,7 +82,8 @@
       "announcement": "公告",
       "mfaPolicy": "MFA 政策",
       "orgUnit": "組織",
-      "approvalFlow": "審批流程"
+      "approvalFlow": "審批流程",
+      "comment": "留言"
     },
     "user": {
       "create": "建立使用者",
@@ -186,6 +187,9 @@
     "approvalFlow": {
       "read": "檢視審批流程",
       "update": "設定審批流程"
+    },
+    "comment": {
+      "delete": "刪除留言"
     }
   },
   "validation": {

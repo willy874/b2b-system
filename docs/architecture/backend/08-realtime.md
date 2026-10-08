@@ -288,9 +288,11 @@ super-admin 加入自己租戶的所有 perm room。
 | `webhook`          | `webhook:read`                             | —                                  | Webhook 的列表與詳情（[`17-webhook.md`](./17-webhook.md)）；自動停用也推 |
 | `tag`              | `file:access`、`file:read`、`user:read`    | —                                  | 標籤的定義（[`18-tag.md`](./18-tag.md) §4）；貼與移除由擁有者推自己的資源 |
 | `announcement`     | `announcement:read`                        | —                                  | 公告與發送紀錄（[`19-announcement.md`](./19-announcement.md)）；背景發送的狀態也推 |
+| `comment`          | `refs` 裡那個來源的規則（使用者：`user:read`、`role:read`） | —                       | 資源上的留言（[`24-comment.md`](./24-comment.md) §5）；受眾等於所在資源的受眾。只有管理者刪別人的留言寫稽核，所以 **不** 加 `auditLog:read` |
+| `watch`            | —                                          | 本人（`affectedUserIds`；`id` 是資源 id） | 自己的關注（[`24-comment.md`](./24-comment.md) §5）；不寫稽核 |
 | `webhookDelivery`  | `webhook:read`                             | —                                  | 每一次投遞嘗試（`refs.webhook`）；投遞不寫稽核，所以 **不** 加 `auditLog:read` |
 | `notificationPreference` | —                                    | 本人（`affectedUserIds`）          | 自己的通知設定（[`16-notification-event.md`](./16-notification-event.md) §5）；不寫稽核，所以 **不** 加 `auditLog:read` |
-| 任何來源（`notification`、`notificationPreference`、`webhookDelivery` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
+| 任何來源（`notification`、`notificationPreference`、`webhookDelivery`、`comment`、`watch` 除外） | `auditLog:read`                 | —                                  | 每次寫入都會新增一筆稽核（`derivesFromAnyChange`）；規則上標 `recordsAudit: false` 的來源不算 |
 
 - `io.to([...rooms]).emit()` 會對多個 room 的聯集 **去重**，同一條連線只收到一次。
 - 「持有該角色的所有人」含 **經由群組（含巢狀）持有** 的人（[`iam/07-groups.md`](../iam/07-groups.md) §1），由 service 以
@@ -588,6 +590,10 @@ export const ChangeSource = {
   ANNOUNCEMENT: 'announcement',
   /** 匯入匯出的傳輸：只推給建立者（`perRecipient`），不寫稽核（[`backend/22-data-transfer.md`](22-data-transfer.md) §9.4）。 */
   DATA_TRANSFER: 'dataTransfer',
+  /** 資源上的留言；`refs` 帶所在的資源，受眾沿用那個來源（[`backend/24-comment.md`](24-comment.md) §5）。 */
+  COMMENT: 'comment',
+  /** 自己的關注（id = 資源 id）；只推給本人。 */
+  WATCH: 'watch',
   /** 平台的來源：只推給 apps/platform 上平台管理者的連線（§3.6）。 */
   PLATFORM_TENANT: 'platformTenant',
   PLATFORM_ADMIN: 'platformAdmin',

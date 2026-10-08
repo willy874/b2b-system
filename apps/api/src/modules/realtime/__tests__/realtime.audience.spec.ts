@@ -117,6 +117,18 @@ describe('來源 → 受眾（docs/architecture/backend/08-realtime.md §6.1）'
     expect(sorted(rooms)).toEqual(['t:t1:perm:auditLog:read', 't:t1:user:u1']);
   });
 
+  it('comment：沿用所在資源的受眾（refs），不帶留言的作者，也不讓稽核的讀者重抓（docs/architecture/backend/24-comment.md §5）', () => {
+    const rooms = resolveAudienceRooms([
+      { resource: 'comment', kind: 'create', id: 'c1', refs: { user: ['u1'] } },
+    ]);
+    expect(sorted(rooms)).toEqual(['t:t1:perm:role:read', 't:t1:perm:user:read']);
+  });
+
+  it('watch：只推給本人', () => {
+    const rooms = resolveAudienceRooms([{ resource: 'watch', kind: 'update', id: 'u1' }], ['me']);
+    expect(rooms).toEqual(['t:t1:user:me']);
+  });
+
   it('沒有變更就沒有受眾', () => {
     expect(resolveAudienceRooms([], ['u1'])).toEqual([]);
   });

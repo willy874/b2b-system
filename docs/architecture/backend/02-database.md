@@ -460,6 +460,11 @@ migration 0017 手寫兩個 trigger：`deleted_at` 改變時 `authz_revision` +1
 欄位、約束與篩選條件 `hasAnyTag()` 見 [`18-tag.md`](./18-tag.md) §2（[`backend/18-tag.md`](18-tag.md) §7）。`resource_tags` 是多型關聯（`resource_type` ＋ `resource_id`），
 沒有指向資源的外鍵：資源永久刪除時由擁有者清掉（[`13-trash.md`](./13-trash.md)）。
 
+### 2.18 `comments`、`watches`（留言與關注）
+
+欄位與索引見 [`24-comment.md`](./24-comment.md) §2。與標籤一樣是多型關聯、沒有指向資源的外鍵，資源永久刪除時由擁有者清掉。
+留言是硬刪除（沒有 `deleted_at`）；`comments.author_id` 是 `SET NULL`、`watches.user_id` 是 CASCADE。
+
 ---
 
 ## 3. 不變條件的 DB 層強制
@@ -671,6 +676,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 ├── 0036_file_storage_usage.sql         檔案已用量的單列計數 file_storage_usage ＋ 手寫：以既有檔案的 SUM(size) 回填
 │                                       （[`backend/09-file.md`](09-file.md) §5.0；純加法）
 ├── 0040_user_login_sources.sql         user_login_sources（§2.7 之後，[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
+├── 0048_comments.sql                   comments、watches（§2.18，[`backend/24-comment.md`](24-comment.md) §8；純加法）＋ 手寫：既有租戶的 admin 補 comment:delete
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

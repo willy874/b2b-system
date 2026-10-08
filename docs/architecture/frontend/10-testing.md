@@ -225,6 +225,7 @@ export const authHandlers = [
 | 23  | 平台關掉租戶的 feature → 停在那頁的人被推播帶回首頁、選單消失、端點 404；再打開後恢復 | 平台 DB → 租戶推播（[`05-tenancy.md`](../05-tenancy.md) §12） |
 | 24  | 平台新增 operator → 啟用信設定密碼 → 登入 apps/platform，看得到租戶但不能管理平台管理者 | 平台 DB 的帳號、權限不同的平台角色 |
 | 25  | super-admin 不能刪除、停用自己或拿掉自己的 super-admin；admin 不能動 super-admin | 最後一位 super-admin 的保護（`LAST_SUPER_ADMIN` 走不到，由 api 整合測試守住） |
+| 26  | 在使用者詳情留言並提及別人 → 作者自動關注 → 被提及的人收到通知、看得到留言但不能改 → 作者刪除 | 留言、提及的權限過濾、通知（[`backend/24-comment.md`](../backend/24-comment.md)） |
 
 ### 4.2 結構
 

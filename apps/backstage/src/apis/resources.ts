@@ -25,6 +25,7 @@ import { APPROVAL_LIST_QUERY_KEY } from '@/apis/approval/get-approval-list/query
 import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
 import { AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/audit-log/get-audit-log-list/query';
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
+import { COMMENT_LIST_QUERY_KEY } from '@/apis/comment/get-comment-list/query';
 import { DATA_TRANSFER_LIST_QUERY_KEY } from '@/apis/data-transfer/get-transfer-list/query';
 import { DATA_TRANSFER_ROWS_QUERY_KEY } from '@/apis/data-transfer/get-transfer-rows/query';
 import { DATA_TRANSFER_DETAIL_QUERY_KEY } from '@/apis/data-transfer/get-transfer/query';
@@ -73,6 +74,7 @@ import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { PERMISSION_SOURCES_QUERY_KEY } from '@/apis/user/get-user-permission-sources/query';
+import { WATCH_STATE_QUERY_KEY } from '@/apis/watch/get-watch-state/query';
 import { WEBHOOK_DELIVERIES_QUERY_KEY } from '@/apis/webhook/get-webhook-deliveries/query';
 import { WEBHOOK_DETAIL_QUERY_KEY } from '@/apis/webhook/get-webhook-detail/query';
 import { WEBHOOK_LIST_QUERY_KEY } from '@/apis/webhook/get-webhook-list/query';
@@ -165,6 +167,13 @@ export const Resource = {
   ORG_UNIT: 'orgUnit',
   /** 審批流程的設定（`id` = 審批類型；docs/architecture/backend/20-approval.md §9）。 */
   APPROVAL_FLOW: 'approvalFlow',
+  /**
+   * 資源上的留言（`id` = 留言 id，`refs` 帶所在的資源；docs/architecture/backend/24-comment.md §5）。
+   * 只有管理者刪別人的留言寫稽核，其餘不寫
+   */
+  COMMENT: 'comment',
+  /** 自己對某個資源的關注（`id` = 資源 id）：後端只推給本人，關注不寫稽核 */
+  WATCH: 'watch',
   /**
    * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/platform 的連線
    * （docs/architecture/backend/08-realtime.md §3.6），backstage 永遠收不到；列在這裡只為了滿足 `ServerChangeSource` 的檢查。
@@ -262,6 +271,8 @@ const graph = createResourceGraph<Resource>({
         Resource.WEBHOOK_DELIVERY,
         Resource.FILE_STORAGE_USAGE,
         Resource.DATA_TRANSFER,
+        Resource.COMMENT,
+        Resource.WATCH,
       ],
     },
   },
@@ -278,6 +289,22 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.GROUP, kinds: ['update', 'delete'], id: 'none' },
       { from: Resource.ROLE, kinds: ['update', 'delete'], id: 'none' },
       { from: Resource.ORG_UNIT, kinds: ['update', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.COMMENT]: {
+    // 一次只開著一兩個資源的留言：任何留言的變更都整批重抓（keyset，只抓已載入的頁數）
+    collection: [COMMENT_LIST_QUERY_KEY],
+    derivesFrom: [
+      // 留言嵌入作者與被提及者的名稱
+      { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
+    ],
+  },
+  [Resource.WATCH]: {
+    // key 的第二、三個元素是資源類型與 id，推播的 id 只有資源 id：整批重抓（畫面上通常只有一個）
+    collection: [WATCH_STATE_QUERY_KEY],
+    derivesFrom: [
+      // 留言的作者自動關注：關注人數變了
+      { from: Resource.COMMENT, kinds: ['create'], id: 'none' },
     ],
   },
   [Resource.ORG_UNIT]: {

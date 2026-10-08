@@ -41,10 +41,14 @@ import type {
   AuditLogSummary,
   CancelDataTransferRequest,
   ChangePasswordRequest,
+  Comment,
+  CommentPage,
+  CommentUser,
   CompleteFileUploadRequest,
   ConfirmMfaEnrollmentRequest,
   CreateAnnouncementRequest,
   CreateApiTokenRequest,
+  CreateCommentRequest,
   CreateExportRequest,
   CreateFileAccessRequest,
   CreateFileFolderRequest,
@@ -123,6 +127,7 @@ import type {
   JobQueueList,
   JobSummary,
   LoginRequest,
+  MentionableList,
   MfaAccountStatus,
   MfaChallengeInfo,
   MfaEnrollment,
@@ -240,6 +245,7 @@ import type {
   TrashItem,
   TrashResourceType,
   UpdateAnnouncementRequest,
+  UpdateCommentRequest,
   UpdateFeatureFlagRequest,
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
@@ -272,6 +278,7 @@ import type {
   UserStatus,
   ValidateImportRequest,
   ValidateImportResult,
+  WatchState,
   Webhook,
   WebhookDelivery,
   WebhookEventList,
@@ -833,6 +840,7 @@ export const PermissionKeySchema = z.enum([
   'orgUnit:delete',
   'approvalFlow:read',
   'approvalFlow:update',
+  'comment:delete',
 ]) satisfies z.ZodType<PermissionKey>;
 
 export const PermissionSchema = z.object({
@@ -1635,6 +1643,91 @@ export const PlatformAuditLogSchema = z.object({
   errorCode: z.string().nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
+
+export const CommentUserSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  displayName: z.string(),
+  email: z.string(),
+}) satisfies z.ZodType<CommentUser>;
+
+export const CommentSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  resourceType: z.string(),
+  resourceId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  body: z.string(),
+  author: CommentUserSchema.nullable(),
+  mentions: z.array(CommentUserSchema),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  editedAt: z.string().nullable(),
+  canEdit: z.boolean(),
+  canDelete: z.boolean(),
+}) satisfies z.ZodType<Comment>;
+
+export const CommentPageSchema = z.object({
+  items: z.array(CommentSchema),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<CommentPage>;
+
+export const CreateCommentRequestSchema = z.object({
+  body: z.string().min(1).max(4000),
+  mentionIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<CreateCommentRequest>;
+
+export const UpdateCommentRequestSchema = z.object({
+  body: z.string().min(1).max(4000),
+  mentionIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateCommentRequest>;
+
+export const MentionableListSchema = z.object({
+  items: z.array(CommentUserSchema),
+}) satisfies z.ZodType<MentionableList>;
+
+export const WatchStateSchema = z.object({
+  watching: z.boolean(),
+  watcherCount: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<WatchState>;
 
 export const DataTransferSchema = z.object({
   id: z

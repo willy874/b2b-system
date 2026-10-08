@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 65 項）
+## 2. 權限清單（共 66 項）
 
 ### 2.1 `user` — 使用者
 
@@ -190,7 +190,7 @@
 | ------------------- | ----------------- | ---- |
 | `notification:read` | 檢視所有通知      | 通知總覽：租戶內 **所有人** 的站內通知，依類型、收件人、觸發者、時間、已讀篩選（[`backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D1） |
 
-> 每個人看自己的通知不需要這個鍵（§2.20）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
+> 每個人看自己的通知不需要這個鍵（§2.21）。通知的參數帶申請人名稱、角色名稱等，所以只預設給 `admin`，`auditor` 不預設（D2）。
 
 ### 2.16 `announcement` — 公告
 
@@ -202,7 +202,7 @@
 | `announcement:delete`   | 刪除公告          | 軟刪除（進回收桶）與還原；排程中的刪除時改成暫停 |
 | `announcement:publish`  | 發送公告          | 送出（立即或排程）、暫停與恢復排程、修改已送出的公告、撤回一次發送 |
 
-> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.20）。
+> `publish` 獨立於 `update`：能寫草稿的人不一定能對全租戶發話。收件人讀自己收到的公告不需要權限（§2.21）。
 
 ### 2.17 `mfaPolicy` — MFA 政策
 
@@ -211,7 +211,7 @@
 | `mfaPolicy:read`        | 檢視 MFA 政策     | 允許的方式、全員或指定角色必須啟用、不符合政策的人數；預覽變更的影響（[`backend/21-mfa.md`](../backend/21-mfa.md) §6） |
 | `mfaPolicy:update`      | 修改 MFA 政策     | 修改上述政策（樂觀鎖、稽核 `mfaPolicy.update`）。預設只給 super-admin：放寬 MFA 等於削弱所有人的保護（D11） |
 
-> 自己的驗證方式（設定、移除、備用碼）屬於個人範圍（§2.20）；管理員檢視與重設別人的 MFA 用 `user:read`／`user:update`。
+> 自己的驗證方式（設定、移除、備用碼）屬於個人範圍（§2.21）；管理員檢視與重設別人的 MFA 用 `user:read`／`user:update`。
 
 ### 2.18 `orgUnit` — 組織
 
@@ -234,7 +234,16 @@
 
 > 設定流程等於決定「誰可以代為執行某操作」，所以列進 §9.2 G4（不能被任何鍵包含）。
 
-### 2.20 個人範圍（不需要權限）
+### 2.20 `comment` — 留言
+
+| 權限鍵           | 顯示名稱（zh-TW） | 說明 |
+| ---------------- | ----------------- | ---- |
+| `comment:delete` | 刪除留言          | 刪除 **別人** 的留言（管理）；寫稽核 `comment.delete`（[`backend/24-comment.md`](../backend/24-comment.md) §8.2 D4） |
+
+> 沒有 `comment:read`／`comment:create`：留言跟著所在的資源，**看得到資源就能讀留言、留言、關注**（使用者：`user:read`）。
+> 編輯只有作者本人；刪除自己的留言不需要這個鍵。
+
+### 2.21 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -250,6 +259,7 @@
   [`backend/20-approval.md`](../backend/20-approval.md) §9.10）
 - 建立、檢視、撤銷自己的個人 API token（`GET|POST /auth/api-tokens`、`DELETE /auth/api-tokens/:tokenId`；[`architecture/06-external-api.md`](../06-external-api.md) §9.2 D14）。
   管理者檢視、撤銷別人的個人 token 用 `user:update`
+- 編輯、刪除自己的留言；關注與取消關注看得到的資源（`PATCH`／`DELETE /comments/:id`、`PUT`／`DELETE /watches/:resourceType/:resourceId`；[`backend/24-comment.md`](../backend/24-comment.md) §3）
 - 登出
 
 ---
@@ -279,6 +289,7 @@
 | `mfaPolicy`       |   —    |  ✓   |   ✓    |   —    | —                             |
 | `orgUnit`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 | `approvalFlow`    |   —    |  ✓   |   ✓    |   —    | —                             |
+| `comment`         |   —    |  —   |   —    |   ✓    | —                             |
 
 ---
 
@@ -351,6 +362,7 @@
 | `orgUnit:delete`       |      ✓*       |    ✓    |           |          |
 | `approvalFlow:read`    |      ✓*       |    ✓    |     ✓     |          |
 | `approvalFlow:update`  |      ✓*       |    ✓    |           |          |
+| `comment:delete`       |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。

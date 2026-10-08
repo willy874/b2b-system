@@ -10,6 +10,8 @@ import {
   NOTIFICATION_FALLBACK_ICON,
   NOTIFICATION_ICON,
   NOTIFICATION_MESSAGE_KEY,
+  RESOURCE_TYPE_FALLBACK_KEY,
+  RESOURCE_TYPE_LABEL_KEY,
 } from './constants';
 
 /**
@@ -73,6 +75,28 @@ function subjectDetail(params: Params): TranslatableMessage[] {
   return subject
     ? [{ key: NOTIFICATION_DETAIL_KEY.subject, args: { subject: { text: subject } } }]
     : [];
+}
+
+function resourceTypeLabel(params: Params): MessageArg {
+  const type = stringParam(params, 'resourceType');
+  return { key: (type && RESOURCE_TYPE_LABEL_KEY[type]) || RESOURCE_TYPE_FALLBACK_KEY };
+}
+
+/** 留言與關注：資源的名詞與名稱；留言的通知另帶摘要（使用者輸入的資料，原樣顯示）。 */
+function describeWatched(
+  params: Params,
+  key: string,
+  withExcerpt: boolean,
+): Pick<NotificationVM, 'message' | 'details'> | undefined {
+  const name = stringParam(params, 'resourceName');
+  if (name === undefined) return undefined;
+  const excerpt = withExcerpt ? stringParam(params, 'excerpt') : undefined;
+  return {
+    message: { key, args: { resourceType: resourceTypeLabel(params), name: { text: name } } },
+    details: excerpt
+      ? [{ key: NOTIFICATION_DETAIL_KEY.excerpt, args: { excerpt: { text: excerpt } } }]
+      : [],
+  };
 }
 
 const UNKNOWN: Pick<NotificationVM, 'message' | 'details'> = {
@@ -187,6 +211,14 @@ export function describeNotification(
         details: [],
       };
     }
+    case 'comment.mentioned':
+      return describeWatched(params, NOTIFICATION_MESSAGE_KEY.commentMentioned, true) ?? UNKNOWN;
+    case 'comment.created':
+      return describeWatched(params, NOTIFICATION_MESSAGE_KEY.commentCreated, true) ?? UNKNOWN;
+    case 'watch.resourceUpdated':
+      return (
+        describeWatched(params, NOTIFICATION_MESSAGE_KEY.watchResourceUpdated, false) ?? UNKNOWN
+      );
     default:
       return UNKNOWN;
   }

@@ -431,7 +431,8 @@
           "orgUnit:update",
           "orgUnit:delete",
           "approvalFlow:read",
-          "approvalFlow:update"
+          "approvalFlow:update",
+          "comment:delete"
         ]
       },
       "ExternalMe": {

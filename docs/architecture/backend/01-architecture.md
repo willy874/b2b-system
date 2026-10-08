@@ -212,7 +212,7 @@ app.module
   ├─ MfaModule             ──▶ Credential · User · OidcProvider
   ├─ TenantModule          ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
-  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Announcement · DataTransfer · Organization
+  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Comment · Announcement · DataTransfer · Organization
   ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag
   ├─ GroupModule           ──▶ Trash · Announcement
   ├─ OrganizationModule    ──▶ Trash · Approval
@@ -221,6 +221,7 @@ app.module
   ├─ AnnouncementModule    ──▶ Notification · Trash
   ├─ WebhookModule         ──▶ Notification
   ├─ DataTransferModule    ──▶ Notification
+  ├─ CommentModule         ──▶ Notification
   ├─ ServiceAccountModule  ──▶ ApiToken
   ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
   ├─ PlatformAdminModule   ──▶ PlatformNotification

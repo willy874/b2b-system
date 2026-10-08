@@ -123,7 +123,8 @@ docs/
 │   │   ├── 18-command-palette.md      命令面板（⌘K）：頁面、最近造訪、資料搜尋、動作；選單註冊表；全域快捷鍵
 │   │   ├── 19-observability.md        可觀測性：錯誤回報（@sentry/browser → apm-service）、release、Web Vitals、bundle 預算
 │   │   ├── 20-mfa.md                  MFA：web-core/mfa 的方式註冊表與共用元件、第二步、帳號設定、政策與平台開關頁
-│   │   └── 21-data-transfer.md        匯入／匯出：匯出對話框、我的匯入匯出、DataGrid、匯入工作區（預覽、草稿、結果）
+│   │   ├── 21-data-transfer.md        匯入／匯出：匯出對話框、我的匯入匯出、DataGrid、匯入工作區（預覽、草稿、結果）
+│   │   └── 22-comment.md              留言與關注：資源頁的面板註冊表（core/resource-panel）、留言面板
 │   │
 │   └── backend/
 │       ├── README.md
@@ -149,7 +150,8 @@ docs/
 │       ├── 20-approval.md             審批：請求 → 核准 → 套用；類型 handler；使用者註冊、資料夾存取申請；多階段流程
 │       ├── 21-mfa.md                  MFA：MfaMethod 介面與註冊表、TOTP 與 Email、登入的第二步、平台開關與租戶政策
 │       ├── 22-data-transfer.md        匯入／匯出：資源登記、CSV／XLSX／JSON／YAML／SQL 匯出、分析與驗證、逐列交易的套用、清理
-│       └── 23-organization.md         組織管理：部門樹、成員、主管的解析
+│       ├── 23-organization.md         組織管理：部門樹、成員、主管的解析
+│       └── 24-comment.md              留言與關注：資源類型的登記、@提及、關注的通知、清理
 │
 ├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）

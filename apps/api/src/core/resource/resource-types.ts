@@ -19,6 +19,7 @@ export const RESOURCE_TYPE = {
   ORG_UNIT: 'orgUnit',
   APPROVAL: 'approval',
   APPROVAL_FLOW: 'approvalFlow',
+  COMMENT: 'comment',
 } as const;
 
 export type ResourceType = (typeof RESOURCE_TYPE)[keyof typeof RESOURCE_TYPE];

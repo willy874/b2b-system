@@ -199,6 +199,15 @@ export const ErrorCode = {
   /** 一個標籤組的標籤數、或一個資源的標籤數超過上限（`details.max`）。 */
   TAG_LIMIT_REACHED: { status: 409 },
 
+  /** 留言不存在（含所在的資源已看不到時，docs/architecture/backend/24-comment.md §3.1）。 */
+  COMMENT_NOT_FOUND: { status: 404 },
+  /** 樂觀鎖：`details.current` 帶目前版本。 */
+  COMMENT_VERSION_CONFLICT: { status: 409 },
+  /** 這種資源沒有登記留言與關注（或所屬 feature 沒啟用時以 `FEATURE_DISABLED` 回應）。 */
+  COMMENT_RESOURCE_TYPE_UNKNOWN: { status: 404 },
+  /** @提及的人不存在、已停用或看不到這個資源（`details.userIds`）。 */
+  COMMENT_MENTION_INVALID: { status: 422 },
+
   // ── 版本歷史（docs/architecture/backend/14-revisions.md） ──
   /** 指定的版本不存在（或已被保留清理刪除）。 */
   REVISION_NOT_FOUND: { status: 404 },

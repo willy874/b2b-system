@@ -73,6 +73,13 @@ export const ChangeSource = {
   ORG_UNIT: 'orgUnit',
   /** 審批流程的設定（`id` = 審批類型；docs/architecture/backend/20-approval.md §9）。 */
   APPROVAL_FLOW: 'approvalFlow',
+  /**
+   * 資源上的留言（`id` = 留言 id；docs/architecture/backend/24-comment.md §5）：新增、編輯、刪除。
+   * `refs` 帶所在的資源（例：`{ user: [<使用者 id>] }`），受眾是看得到那個資源的人。
+   */
+  COMMENT: 'comment',
+  /** 自己對某個資源的關注（`id` = 資源 id）：只推給本人，其他分頁的「關注」按鈕跟著更新。 */
+  WATCH: 'watch',
   // ── 平台（apps/platform 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
   /** 租戶登記（`id` = 租戶 id）：建立、改名、網域、啟用的 feature、停用與啟用、刪除，以及背景佈建的結果。 */
   PLATFORM_TENANT: 'platformTenant',
@@ -125,6 +132,8 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.DATA_TRANSFER,
   ChangeSource.ORG_UNIT,
   ChangeSource.APPROVAL_FLOW,
+  ChangeSource.COMMENT,
+  ChangeSource.WATCH,
   ChangeSource.PLATFORM_TENANT,
   ChangeSource.PLATFORM_ADMIN,
   ChangeSource.PLATFORM_FEATURE_FLAG,

@@ -17,5 +17,6 @@ export const PermissionResource = {
   MFA_POLICY: 'mfaPolicy',
   ORG_UNIT: 'orgUnit',
   APPROVAL_FLOW: 'approvalFlow',
+  COMMENT: 'comment',
 } as const;
 export type PermissionResource = (typeof PermissionResource)[keyof typeof PermissionResource];

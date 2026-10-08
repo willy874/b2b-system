@@ -220,7 +220,7 @@ migration 當下的名稱、說明與權限鍵（`COLLATE "C"` 排序，與 JS �
 相關的還有 [`iam/01-model.md`](../iam/01-model.md) §9（關係圖；刪除角色時持有者邊的處理）、
 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §13.6（批次操作逐筆回報失敗）、[`backend/10-jobs.md`](10-jobs.md) §9（背景工作），
 以及 [`02-database.md`](./02-database.md) §1、§5.1、[`06-audit-log.md`](./06-audit-log.md)、[`09-file.md`](./09-file.md) §6.2、§9、[`12-settings.md`](./12-settings.md)。
-這份決定也回答了提案「標籤、留言、關注」的開放問題 2（標籤已由 [`backend/18-tag.md`](18-tag.md) §7 實作，留言與關注見 [`../../features/comments-watches.md`](../../features/comments-watches.md)）。
+這份決定也回答了提案「標籤、留言、關注」的開放問題 2（標籤已由 [`backend/18-tag.md`](18-tag.md) §7 實作，留言與關注見 [`backend/24-comment.md`](24-comment.md) §8）。
 
 決定當下（2026-09-30）影響決策的程式現況：
 

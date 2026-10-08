@@ -21,6 +21,7 @@ import {
 import { AnnouncementTriggerService } from '@/modules/announcement/announcement-trigger.service';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { WatchService } from '@/modules/comment/watch.service';
 import {
   ACTIVATION_MAIL_JOB,
   PASSWORD_RESET_MAIL_JOB,
@@ -141,6 +142,7 @@ export class UserService {
     private readonly tags: TagService,
     private readonly announcementTriggers: AnnouncementTriggerService,
     private readonly orgChart: OrgChartService,
+    private readonly watches: WatchService,
   ) {}
 
   async list(query: ListUserDto) {
@@ -303,6 +305,13 @@ export class UserService {
       },
       tx,
     );
+    // 關注這位使用者的人（docs/architecture/backend/24-comment.md §4）；沒有實際改變時不通知
+    if (changes) {
+      await this.watches.resourceChanged(
+        { resourceType: RESOURCE_TYPE.USER, resourceId: id, actorId: actor.id },
+        tx,
+      );
+    }
     if (statusChanging) await this.accounts.emitStatusChanged(id, next.status, user.status, tx);
 
     const roles = await this.repo.listRoles(id, tx);
@@ -485,6 +494,10 @@ export class UserService {
       );
     }
     if (added.length || removed.length) {
+      await this.watches.resourceChanged(
+        { resourceType: RESOURCE_TYPE.USER, resourceId: id, actorId: actor.id },
+        tx,
+      );
       await this.notifications.notify(
         notification(USER_ROLES_CHANGED_NOTIFICATION, {
           recipientId: id,

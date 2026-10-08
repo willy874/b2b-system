@@ -1,0 +1,29 @@
+{
+  "comment": {
+    "title": "留言",
+    "empty": "還沒有留言。",
+    "loadMore": "載入較舊的留言",
+    "edited": "（已編輯）",
+    "deletedUser": "已刪除的使用者",
+    "actions": "留言的操作",
+    "editor": {
+      "label": "留言內容",
+      "placeholder": "寫下留言……（⌘／Ctrl + Enter 送出）",
+      "submit": "留言",
+      "mentionLabel": "提及的人",
+      "mentionPlaceholder": "提及的人（會收到通知）",
+      "mentionSearch": "搜尋名稱或 email",
+      "mentionEmpty": "沒有看得到這個項目的人"
+    },
+    "delete": {
+      "title": "刪除留言",
+      "confirm": "刪除後無法復原。",
+      "success": "已刪除留言"
+    },
+    "watch": {
+      "action": "關注",
+      "watching": "關注中",
+      "count_other": "{{count}} 人關注；有新留言或內容被修改時通知"
+    }
+  }
+}

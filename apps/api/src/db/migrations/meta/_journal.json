@@ -337,6 +337,13 @@
       "when": 1791421057391,
       "tag": "0047_organization_approval_chains",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791426128422,
+      "tag": "0048_comments",
+      "breakpoints": true
     }
   ]
 }

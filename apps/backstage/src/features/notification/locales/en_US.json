@@ -33,17 +33,25 @@
       "announcementPublished": "Announcement: {{title}}",
       "approvalPendingStep": "{{requester}}'s {{type}} request reached \"{{step}}\" and is waiting for your review",
       "approvalProgress": "Your {{type}} request passed \"{{step}}\"; next is \"{{next}}\"",
-      "approvalUnassigned": "\"{{step}}\" of a {{type}} request has no (or too few) reviewers and needs attention"
+      "approvalUnassigned": "\"{{step}}\" of a {{type}} request has no (or too few) reviewers and needs attention",
+      "commentMentioned": "Mentioned you in a comment on {{resourceType}} “{{name}}”",
+      "commentCreated": "New comment on {{resourceType}} “{{name}}” you watch",
+      "watchResourceUpdated": "{{resourceType}} “{{name}}” you watch was updated"
     },
     "detail": {
       "subject": "{{subject}}",
       "rolesAdded": "Added: {{roles}}",
-      "rolesRemoved": "Removed: {{roles}}"
+      "rolesRemoved": "Removed: {{roles}}",
+      "excerpt": "{{excerpt}}"
     },
     "approvalType": {
       "userRegister": "account registration",
       "fileFolderAccess": "folder access",
       "unknown": "approval"
+    },
+    "resourceType": {
+      "user": "user",
+      "unknown": "item"
     },
     "event": {
       "description": "The system notifies the people involved when these events happen. Turning a channel off stops future deliveries; notifications already sent are kept, and turning it back on does not resend them.",
@@ -70,7 +78,8 @@
         "approval": "Approvals",
         "user": "Users",
         "webhook": "Webhooks",
-        "announcement": "Announcements"
+        "announcement": "Announcements",
+        "comment": "Comments and watching"
       },
       "type": {
         "approvalPending": {
@@ -107,6 +116,21 @@
           "name": "No reviewers for an approval step",
           "description": "A step of a multi-step request found no (or too few) reviewers by its rule.",
           "recipients": "People with \"Override approvals\""
+        },
+        "commentMentioned": {
+          "name": "Mentioned in a comment",
+          "description": "Notifies you when someone mentions you in a comment.",
+          "recipients": "Mentioned people who can see the item"
+        },
+        "commentCreated": {
+          "name": "New comment on a watched item",
+          "description": "Notifies you of new comments on items you watch (commenters watch automatically).",
+          "recipients": "Watchers (except the commenter and people already mentioned)"
+        },
+        "watchResourceUpdated": {
+          "name": "Watched item changed",
+          "description": "Notifies you when an item you watch is changed; at most once a minute per item.",
+          "recipients": "Watchers (except the person who made the change)"
         }
       }
     },

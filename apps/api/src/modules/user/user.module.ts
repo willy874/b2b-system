@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AnnouncementTriggerCatalog } from '@/modules/announcement/announcement-trigger.catalog';
 import { AnnouncementModule } from '@/modules/announcement/announcement.module';
 import { ApprovalModule } from '@/modules/approval/approval.module';
+import { CommentModule } from '@/modules/comment/comment.module';
 import { CredentialModule } from '@/modules/credential/credential.module';
 import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module';
 import { IdentityProviderModule } from '@/modules/identity-provider/identity-provider.module';
@@ -17,6 +18,7 @@ import { WebhookModule } from '@/modules/webhook/webhook.module';
 import { UserExternalController } from './external/user.external.controller';
 import { UserExternalService } from './external/user.external.service';
 import { UserAccountService } from './user-account.service';
+import { UserCommentResource } from './user-comment.resource';
 import { UserLoginService } from './user-login.service';
 import { UserRegistrationApprovalHandler } from './user-registration.approval';
 import { UserTagResource } from './user-tag.resource';
@@ -38,6 +40,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     NotificationModule,
     WebhookModule,
     TagModule,
+    CommentModule,
     AnnouncementModule,
     DataTransferModule,
     OrganizationModule,
@@ -52,6 +55,7 @@ import { USER_WEBHOOK_EVENTS } from './user.webhooks';
     UserRegistrationApprovalHandler,
     UserTrashHandler,
     UserTagResource,
+    UserCommentResource,
     UserExternalService,
     UserTransferResource,
   ],

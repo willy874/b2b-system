@@ -82,7 +82,8 @@
       "announcement": "Announcements",
       "mfaPolicy": "MFA policy",
       "orgUnit": "Organization",
-      "approvalFlow": "Approval flows"
+      "approvalFlow": "Approval flows",
+      "comment": "Comments"
     },
     "user": {
       "create": "Create user",
@@ -186,6 +187,9 @@
     "approvalFlow": {
       "read": "View approval flows",
       "update": "Configure approval flows"
+    },
+    "comment": {
+      "delete": "Delete comments"
     }
   },
   "validation": {

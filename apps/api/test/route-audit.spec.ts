@@ -361,6 +361,15 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /tags/:id': 'tag:update',
       'DELETE /tags/:id': 'tag:delete',
       'PUT /tags/assignments/:resourceType/:resourceId': 'authenticated',
+      // 留言與關注：看不看得到由擁有者判斷，刪別人的留言要 comment:delete（docs/architecture/backend/24-comment.md §3）
+      'GET /comments/:resourceType/:resourceId': 'authenticated',
+      'POST /comments/:resourceType/:resourceId': 'authenticated',
+      'GET /comments/:resourceType/:resourceId/mentionable': 'authenticated',
+      'PATCH /comments/:id': 'authenticated',
+      'DELETE /comments/:id': 'authenticated',
+      'GET /watches/:resourceType/:resourceId': 'authenticated',
+      'PUT /watches/:resourceType/:resourceId': 'authenticated',
+      'DELETE /watches/:resourceType/:resourceId': 'authenticated',
       'GET /trash':
         'user:delete|role:delete|group:delete|file:delete|announcement:delete|orgUnit:delete',
       'GET /roles': 'role:read',

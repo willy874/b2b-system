@@ -10,6 +10,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
+import { ResourcePanels } from '@/core/resource-panel';
 
 import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserDetailRoute, UserListRoute } from '../../routes';
@@ -82,6 +83,8 @@ export default function UserDetailPage() {
           )}
           {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}
           <UserMfaSection userId={userId} canReset={permission.canResetMfa && !isSelf} />
+          {/* 通用面板（留言與關注，docs/architecture/frontend/22-comment.md §2）：由提供面板的 feature 登記 */}
+          <ResourcePanels resourceType="user" resourceId={userId} />
         </div>
       )}
     </Dialog>

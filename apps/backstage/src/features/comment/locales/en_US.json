@@ -1,0 +1,30 @@
+{
+  "comment": {
+    "title": "Comments",
+    "empty": "No comments yet.",
+    "loadMore": "Load older comments",
+    "edited": "(edited)",
+    "deletedUser": "Deleted user",
+    "actions": "Comment actions",
+    "editor": {
+      "label": "Comment",
+      "placeholder": "Write a comment… (⌘/Ctrl + Enter to send)",
+      "submit": "Comment",
+      "mentionLabel": "Mentioned people",
+      "mentionPlaceholder": "Mention people (they'll be notified)",
+      "mentionSearch": "Search by name or email",
+      "mentionEmpty": "No one who can see this item"
+    },
+    "delete": {
+      "title": "Delete comment",
+      "confirm": "This can't be undone.",
+      "success": "Comment deleted"
+    },
+    "watch": {
+      "action": "Watch",
+      "watching": "Watching",
+      "count_one": "{{count}} watching; notified of new comments and changes",
+      "count_other": "{{count}} watching; notified of new comments and changes"
+    }
+  }
+}

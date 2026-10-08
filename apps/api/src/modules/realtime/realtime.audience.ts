@@ -110,6 +110,18 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     perms: () => [PERMISSION.ANNOUNCEMENT_READ],
     includesSubject: false,
   },
+  // 資源上的留言（docs/architecture/backend/24-comment.md §5）：受眾是看得到所在資源的人，`refs` 帶那個資源，
+  // 沿用該資源的規則。看不到的人收到也只會多重抓一次留言列表（端點照樣檢查）。只有管理者刪別人的留言才寫稽核
+  [ChangeSource.COMMENT]: {
+    perms: (change) =>
+      Object.keys(change.refs ?? {}).flatMap((source) =>
+        source === ChangeSource.COMMENT ? [] : AUDIENCE[source as ChangeSource].perms(change),
+      ),
+    includesSubject: false,
+    recordsAudit: false,
+  },
+  // 只推給本人（呼叫端以 `affectedUserIds` 帶入；id 是資源 id）；關注不寫稽核
+  [ChangeSource.WATCH]: { perms: () => [], includesSubject: false, recordsAudit: false },
   // 事件管理頁（與系統設定同一群讀者，docs/architecture/backend/16-notification-event.md §9.2 D10）
   [ChangeSource.NOTIFICATION_POLICY]: {
     perms: () => [PERMISSION.SYSTEM_READ],

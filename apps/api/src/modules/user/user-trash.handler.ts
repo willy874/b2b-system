@@ -7,6 +7,7 @@ import { UserCacheService } from '@/core/cache';
 import type { Transaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
+import { CommentService } from '@/modules/comment/comment.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { TagService } from '@/modules/tag/tag.service';
 import { TrashService } from '@/modules/trash/trash.service';
@@ -37,6 +38,7 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
     private readonly userCache: UserCacheService,
     private readonly events: DomainEventBus,
     private readonly tags: TagService,
+    private readonly comments: CommentService,
   ) {}
 
   onModuleInit(): void {
@@ -70,6 +72,8 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
     if (!(await this.repo.hardDelete(item.id, tx))) return false;
     // 標籤的指派是多型關聯、沒有外鍵：一起清掉（docs/architecture/backend/18-tag.md §7.2 D9）
     await this.tags.removeAllFor(RESOURCE_TYPE.USER, [item.id], tx);
+    // 留言與關注同理（docs/architecture/backend/24-comment.md §8.2 D10）
+    await this.comments.removeAllFor(RESOURCE_TYPE.USER, [item.id], tx);
     return true;
   }
 

@@ -37,6 +37,7 @@ import { ApprovalModule } from './modules/approval/approval.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthzExplainModule } from './modules/authz-explain/authz-explain.module';
+import { CommentModule } from './modules/comment/comment.module';
 import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { DataTransferModule } from './modules/data-transfer/data-transfer.module';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
@@ -136,6 +137,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
     WebhookModule,
     // 標籤；標籤組與資源類型由擁有者模組登記（docs/architecture/backend/18-tag.md §7）
     TagModule,
+    CommentModule,
     AnnouncementModule,
     AuthzExplainModule,
     SystemModule,

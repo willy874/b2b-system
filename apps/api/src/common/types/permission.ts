@@ -80,6 +80,8 @@ export const PERMISSION = {
   TAG_UPDATE: 'tag:update',
   TAG_DELETE: 'tag:delete',
 
+  COMMENT_DELETE: 'comment:delete',
+
   NOTIFICATION_READ: 'notification:read',
 
   ANNOUNCEMENT_CREATE: 'announcement:create',

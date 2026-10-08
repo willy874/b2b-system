@@ -21,6 +21,10 @@ export const NOTIFICATION_MESSAGE_KEY = {
   userRolesChanged: 'notification.message.userRolesChanged',
   webhookDisabled: 'notification.message.webhookDisabled',
   announcementPublished: 'notification.message.announcementPublished',
+  /** 留言與關注（docs/architecture/backend/24-comment.md §4）。 */
+  commentMentioned: 'notification.message.commentMentioned',
+  commentCreated: 'notification.message.commentCreated',
+  watchResourceUpdated: 'notification.message.watchResourceUpdated',
   /** 不認得的 `type`（前端比後端舊）或參數不合預期：只說有一則通知。 */
   unknown: 'notification.message.unknown',
 } as const;
@@ -31,6 +35,8 @@ export const NOTIFICATION_DETAIL_KEY = {
   subject: 'notification.detail.subject',
   rolesAdded: 'notification.detail.rolesAdded',
   rolesRemoved: 'notification.detail.rolesRemoved',
+  /** 留言的前幾個字，原樣顯示。 */
+  excerpt: 'notification.detail.excerpt',
 } as const;
 
 /** 審批類型的名稱；後端新增類型而這裡沒跟上時編譯失敗。 */
@@ -42,6 +48,14 @@ export const APPROVAL_TYPE_LABEL_KEY = {
 /** 參數裡的審批類型不認得時（舊通知、後端比前端新）。 */
 export const APPROVAL_TYPE_FALLBACK_KEY = 'notification.approvalType.unknown';
 
+/** 留言與關注的通知裡，資源類型的名詞（`params.resourceType`，docs/architecture/backend/24-comment.md §4）。 */
+export const RESOURCE_TYPE_LABEL_KEY: Readonly<Partial<Record<string, string>>> = {
+  user: 'notification.resourceType.user',
+};
+
+/** 不認得的資源類型（後端比前端新）。 */
+export const RESOURCE_TYPE_FALLBACK_KEY = 'notification.resourceType.unknown';
+
 /** 每種通知的圖示（依後端的 `type`）；不認得的類型用鈴鐺。 */
 export const NOTIFICATION_ICON = {
   'approval.pending': 'flag',
@@ -51,6 +65,9 @@ export const NOTIFICATION_ICON = {
   'user.rolesChanged': 'user',
   'webhook.disabled': 'warning',
   'announcement.published': 'megaphone',
+  'comment.mentioned': 'circle-user',
+  'comment.created': 'edit',
+  'watch.resourceUpdated': 'refresh',
 } as const satisfies Record<string, IconName>;
 
 export const NOTIFICATION_FALLBACK_ICON: IconName = 'bell';
@@ -113,6 +130,21 @@ export const NOTIFICATION_EVENT_LABEL: Readonly<Partial<Record<string, Notificat
     descriptionKey: 'notification.event.type.announcementPublished.description',
     recipientsKey: 'notification.event.type.announcementPublished.recipients',
   },
+  'comment.mentioned': {
+    nameKey: 'notification.event.type.commentMentioned.name',
+    descriptionKey: 'notification.event.type.commentMentioned.description',
+    recipientsKey: 'notification.event.type.commentMentioned.recipients',
+  },
+  'comment.created': {
+    nameKey: 'notification.event.type.commentCreated.name',
+    descriptionKey: 'notification.event.type.commentCreated.description',
+    recipientsKey: 'notification.event.type.commentCreated.recipients',
+  },
+  'watch.resourceUpdated': {
+    nameKey: 'notification.event.type.watchResourceUpdated.name',
+    descriptionKey: 'notification.event.type.watchResourceUpdated.description',
+    recipientsKey: 'notification.event.type.watchResourceUpdated.recipients',
+  },
 };
 
 /** 分類的標題；不認得的分類以分類名稱本身顯示。 */
@@ -121,6 +153,7 @@ export const NOTIFICATION_EVENT_CATEGORY_LABEL_KEY: Readonly<Partial<Record<stri
   user: 'notification.event.category.user',
   webhook: 'notification.event.category.webhook',
   announcement: 'notification.event.category.announcement',
+  comment: 'notification.event.category.comment',
 };
 
 /** 管道的名稱；後端新增管道而這裡沒跟上時編譯失敗。 */

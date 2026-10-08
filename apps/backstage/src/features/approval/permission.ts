@@ -10,7 +10,7 @@ import {
 import { ApprovalListRoute, MyApprovalRoute } from './routes/pages';
 
 export const APPROVAL_PAGE = definePageKey('APPROVAL');
-/** 「我的審批」：個人範圍，不需要權限（docs/architecture/iam/02-permission-catalog.md §2.20）。 */
+/** 「我的審批」：個人範圍，不需要權限（docs/architecture/iam/02-permission-catalog.md §2.21）。 */
 export const MY_APPROVAL_PAGE = definePageKey('MY_APPROVAL');
 
 export function registerApprovalPagePermissions(): void {

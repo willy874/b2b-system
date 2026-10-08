@@ -71,6 +71,36 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       'notification.message.announcementPublished{"title":"系統維護"}',
       [],
     ],
+    [
+      'comment.mentioned：資源的名詞與名稱、留言摘要（docs/architecture/backend/24-comment.md §4）',
+      {
+        ...base,
+        type: 'comment.mentioned',
+        params: { resourceType: 'user', resourceName: '王小明', excerpt: '請確認權限' },
+      },
+      'notification.message.commentMentioned{"resourceType":"notification.resourceType.user","name":"王小明"}',
+      ['notification.detail.excerpt{"excerpt":"請確認權限"}'],
+    ],
+    [
+      'comment.created：不認得的資源類型用通用的名詞',
+      {
+        ...base,
+        type: 'comment.created',
+        params: { resourceType: 'future', resourceName: 'X', excerpt: '' },
+      },
+      'notification.message.commentCreated{"resourceType":"notification.resourceType.unknown","name":"X"}',
+      [],
+    ],
+    [
+      'watch.resourceUpdated：沒有摘要',
+      {
+        ...base,
+        type: 'watch.resourceUpdated',
+        params: { resourceType: 'user', resourceName: '王小明' },
+      },
+      'notification.message.watchResourceUpdated{"resourceType":"notification.resourceType.user","name":"王小明"}',
+      [],
+    ],
   ])('%s', (_name, notification, message, details) => {
     const described = describeNotification(notification);
     expect(translateMessage(fakeT, 'en', described.message)).toBe(message);
@@ -83,6 +113,10 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
     ['不認得的 type', { type: 'future.event', params: {} }],
     ['webhook.disabled 缺失敗次數', { type: 'webhook.disabled', params: { webhookName: 'CI' } }],
     ['announcement.published 缺標題', { type: 'announcement.published', params: {} }],
+    [
+      'comment.mentioned 缺資源名稱',
+      { type: 'comment.mentioned', params: { resourceType: 'user' } },
+    ],
     ['approval.pending 缺申請人', { type: 'approval.pending', params: { subject: 'x' } }],
     ['approval.result 的 status 不合預期', { type: 'approval.result', params: { status: 'x' } }],
     ['rolesChanged 的角色不是字串陣列', { type: 'user.rolesChanged', params: { added: [1] } }],
