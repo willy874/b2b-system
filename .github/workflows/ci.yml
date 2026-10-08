@@ -1,7 +1,7 @@
 # CI（docs/coding-standards/05-git.md §2.4）：PR 與 push 到 main 時跑。四個 job 互不依賴、並行：
-#   check   typecheck、lint、format、單元與整合測試（api 的整合測試以 Testcontainers 起 Postgres）、依賴稽核
+#   check   typecheck、lint、format、migration 的相容檢查、單元與整合測試（api 的整合測試以 Testcontainers 起 Postgres）、依賴稽核
 #   secrets gitleaks 掃整段 git 歷史（設定在 .gitleaks.toml）
-#   deploy  docker-compose.prod.yml 整套建置啟動（deploy/smoke-test.sh）＋ nginx 設定（deploy/check-nginx.sh）＋ 監控設定（deploy/check-monitoring.sh）
+#   deploy  docker-compose.prod.yml 整套建置啟動（deploy/smoke-test.sh，單體與多實例各一次）＋ nginx 設定（deploy/check-nginx.sh）＋ 監控設定（deploy/check-monitoring.sh）＋ k8s 的參考部署（deploy/check-k8s.sh）
 #   bundle  兩個前端的 bundle 預算（scripts/check-bundle-budget.mjs；結果寫進 job summary）
 # 第三方 action 與映像都釘 commit SHA／digest：tag 可以被移動，SHA 不行。
 name: CI
@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # migration 的相容檢查要比對 base（PR 的目標分支、push 之前的 commit）
+          fetch-depth: 0
           persist-credentials: false
       # 版本取自 package.json 的 packageManager
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -39,6 +41,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
+      # 新增的 migration 不能有破壞性語句（docs/architecture/01-system.md §7 D14）
+      - run: pnpm --filter @b2b-system/api migrations:check
+        env:
+          MIGRATION_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
       - run: pnpm test
       # 只看正式依賴的高風險漏洞；開發依賴（drizzle-kit 帶的舊 esbuild 等）不擋
       - run: pnpm audit --prod --audit-level=high
@@ -87,5 +93,9 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: sh deploy/smoke-test.sh
+      # 多實例（docs/architecture/01-system.md §7）：api、api-realtime、api-worker 分開
+      - run: sh deploy/smoke-test.sh --cluster
       - run: sh deploy/check-nginx.sh
       - run: sh deploy/check-monitoring.sh
+      # k8s 的參考部署：kustomize 產生 ＋ schema 檢查（runner 內建 kubectl）
+      - run: sh deploy/check-k8s.sh

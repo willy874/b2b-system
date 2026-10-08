@@ -13,7 +13,7 @@ import type { FeatureFlagDefinition, FeatureFlagGlobalState } from './feature-fl
 /** flag 的目錄（預設 `FEATURE_FLAGS`）；測試以 `overrideProvider` 換成自己的目錄。 */
 export const FEATURE_FLAG_CATALOG = Symbol('FEATURE_FLAG_CATALOG');
 
-/** 全平台層的覆寫變更時通知其他程序重新讀取（docs/features/multi-instance.md 的盤點）。 */
+/** 全平台層的覆寫變更時通知其他程序重新讀取（docs/architecture/01-system.md §4.3）。 */
 export const FEATURE_FLAG_CHANNEL = 'feature_flags';
 
 /**

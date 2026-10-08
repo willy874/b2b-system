@@ -13,7 +13,7 @@ import type { RateLimitRecord } from './rate-limit-store';
 const CLEANUP_BATCH_SIZE = 5_000;
 
 /**
- * 共享的計數（docs/features/multi-instance.md D6）：平台 DB 的 `rate_limit_counters`（UNLOGGED）。
+ * 共享的計數（docs/architecture/01-system.md §7 D6）：平台 DB 的 `rate_limit_counters`（UNLOGGED）。
  * `hit` 是一條 `INSERT … ON CONFLICT DO UPDATE … RETURNING`：一次往返、沒有讀後寫的競態，多個程序同時計數也不會少算。
  * 時間一律用資料庫的時鐘，程序之間的時鐘誤差不影響時間窗。
  */

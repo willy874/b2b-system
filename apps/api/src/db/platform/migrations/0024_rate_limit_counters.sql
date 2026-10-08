@@ -1,4 +1,4 @@
--- 手改：UNLOGGED（drizzle 不支援）。計數當機後清空即可，換到的是不寫 WAL（docs/features/multi-instance.md D6）
+-- 手改：UNLOGGED（drizzle 不支援）。計數當機後清空即可，換到的是不寫 WAL（docs/architecture/01-system.md §7 D6）
 CREATE UNLOGGED TABLE "rate_limit_counters" (
 	"key" text PRIMARY KEY NOT NULL,
 	"count" integer NOT NULL,

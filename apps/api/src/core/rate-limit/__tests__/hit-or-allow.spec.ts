@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { hitOrAllow, MemoryRateLimitStore } from '../rate-limit-store';
 import type { RateLimitStore } from '../rate-limit-store';
 
-describe('hitOrAllow（docs/features/multi-instance.md D6）', () => {
+describe('hitOrAllow（docs/architecture/01-system.md §7 D6）', () => {
   it('正常時回傳計數', async () => {
     const store = new MemoryRateLimitStore();
     try {

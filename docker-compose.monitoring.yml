@@ -28,6 +28,23 @@ services:
       OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
       APP_RELEASE: ${APP_RELEASE:-unknown}
 
+  # 拆開部署的角色（worker profile、docker-compose.cluster.yml）：同 api
+  api-worker:
+    networks: [monitoring]
+    environment:
+      MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+
+  api-realtime:
+    networks: [monitoring]
+    environment:
+      MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.2}
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+
   external-api:
     networks: [monitoring]
     environment:

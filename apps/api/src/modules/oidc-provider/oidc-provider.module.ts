@@ -36,7 +36,7 @@ class OidcProviderMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: () => void): void {
     // 沒有 http 角色的程序（只跑推播或背景工作）不提供登入：交回 Nest，同其他路由回 404
-    // （docs/features/multi-instance.md §初步構想 1；/oidc/* 不是 Nest 的路由，SurfaceGuard 擋不到）
+    // （docs/architecture/01-system.md §4.3；/oidc/* 不是 Nest 的路由，SurfaceGuard 擋不到）
     if (!this.isHttpRole) {
       next();
       return;

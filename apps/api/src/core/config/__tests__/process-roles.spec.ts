@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseProcessRoles, processRolesOf, serviceNameOf } from '../process-roles';
+import { parseProcessRoles, processRolesOf, rolesLabelOf } from '../process-roles';
 
-describe('程序角色（docs/features/multi-instance.md §初步構想 1）', () => {
+describe('程序角色（docs/architecture/01-system.md §4.3）', () => {
   it('all 是三個角色', () => {
     expect([...(parseProcessRoles('all') ?? [])]).toEqual(['http', 'realtime', 'worker']);
   });
@@ -20,11 +20,11 @@ describe('程序角色（docs/features/multi-instance.md §初步構想 1）', (
   });
 
   it.each([
-    ['all', 'api'],
-    ['http', 'api-http'],
-    ['worker,http', 'api-http-worker'],
-    ['realtime', 'api-realtime'],
-  ])('服務名稱：%s → %s', (value, expected) => {
-    expect(serviceNameOf(processRolesOf({ APP_ROLES: value }))).toBe(expected);
+    ['all', 'all'],
+    ['http,realtime,worker', 'all'],
+    ['http', 'http'],
+    ['worker,http', 'http,worker'],
+  ])('角色的標籤：%s → %s', (value, expected) => {
+    expect(rolesLabelOf(processRolesOf({ APP_ROLES: value }))).toBe(expected);
   });
 });

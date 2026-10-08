@@ -42,7 +42,7 @@ const STORE_FAILURE_RETRY_SECONDS = 5;
  *
  * 在 `JwtAuthGuard` 之前執行（沒帶或帶錯 token 的請求也要被限流），所以這裡自己驗簽取出使用者：
  * 只驗簽與網域，不查 DB——使用者被停用之類的判斷留給 `JwtAuthGuard`。計數存在 `RateLimitStore`
- * （程序內的記憶體，或多個程序共用的 Postgres；docs/features/multi-instance.md D6）。
+ * （程序內的記憶體，或多個程序共用的 Postgres；docs/architecture/01-system.md §7 D6）。
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
@@ -101,7 +101,7 @@ export class RateLimitGuard implements CanActivate {
   }
 
   /**
-   * 計一次；計數存不了時（共享計數的平台 DB 連不上）依政策決定（docs/features/multi-instance.md D6）：
+   * 計一次；計數存不了時（共享計數的平台 DB 連不上）依政策決定（docs/architecture/01-system.md §7 D6）：
    * 登入類（`auth`、`authMail`、`refresh`）拒絕——平台 DB 掛了本來就登入不了，不能讓猜密碼的流量趁機不受限；
    * 一般請求放行（回 `undefined`）——已登入的使用者還能用，租戶 DB 在另一台時業務照常。
    */

@@ -657,7 +657,7 @@ location /api/socket.io/ {
 | ------------------ | ------------------------------------------------------------------------------------------ |
 | Sticky session     | **不需要**：只用 websocket 傳輸，連線建立後就固定在同一個節點                               |
 | 伺服器端推播       | **已做**：每個節點收到其他節點轉送的事件後推給自己的連線（§7.6）。因此 **不要** 再裝 adapter 的跨節點 emit，否則同一則推播會送兩次 |
-| 跨裝置中繼（§8）   | **已做**：gateway 送給本節點的連線後，再經 `core/broadcast` 的頻道 `user_relay`（`{ room, envelope }`）交給其他節點，各自送給自己的連線；收到時重新驗證外框、白名單與 room 的格式（[`../../features/multi-instance.md`](../../features/multi-instance.md) D8） |
+| 跨裝置中繼（§8）   | **已做**：gateway 送給本節點的連線後，再經 `core/broadcast` 的頻道 `user_relay`（`{ room, envelope }`）交給其他節點，各自送給自己的連線；收到時重新驗證外框、白名單與 room 的格式（[`../01-system.md`](../01-system.md) §7 D8） |
 | 每個使用者的連線數（§11） | 每個節點各自計算（數本機 room 的大小）：上限的語意是「每個 realtime 節點每人 `REALTIME_CONNECTIONS_PER_USER` 條」（D7） |
 | 權限／使用者快取   | 仍是各節點的 in-memory，失效經平台 DB 的 `LISTEN/NOTIFY` 跨節點（`core/broadcast`；權限快取見 [05 §5.1](./05-rbac.md)，使用者快取見 [`../01-system.md`](../01-system.md) §4.4） |
 | Token 到期計時器   | 每個節點只管自己的連線，不需要協調                                                         |
@@ -673,7 +673,7 @@ HTTP 的限流 guard 不作用在 WebSocket，gateway 自己限：
 | 項目                     | 限制                                              | 超過時               |
 | ------------------------ | ------------------------------------------------- | -------------------- |
 | Origin                   | `allowRequest` 檢查 `Origin` 屬於 `REALTIME_ALLOWED_ORIGINS`，或與連線的網域同源（每個租戶自己的網域，[`architecture/05-tenancy.md`](../05-tenancy.md) §10.2 D2） | 拒絕 handshake |
-| 排空中（收到結束訊號，[`../../features/multi-instance.md`](../../features/multi-instance.md) D13） | 不收新連線；既有連線在排空期內分批關閉傳輸，客戶端照斷線退避重連到其他節點 | 拒絕 handshake（`SERVICE_NOT_READY`） |
+| 排空中（收到結束訊號，[`../01-system.md`](../01-system.md) §7 D13） | 不收新連線；既有連線在排空期內分批關閉傳輸，客戶端照斷線退避重連到其他節點 | 拒絕 handshake（`SERVICE_NOT_READY`） |
 | 每個 IP 的 handshake     | 每分鐘 1200 次（`REALTIME_HANDSHAKES_PER_IP`；整間公司共用一個 NAT 出口、部署後同時重連）；計數經 `RateLimitStore`（與 HTTP 限流同一份），計數失敗時放行 | 拒絕 handshake       |
 | 每條連線的訊息           | 每 10 秒 30 則                                    | 略過；持續超過就斷線 |
 | 單一 frame               | `maxHttpBufferSize` = 16 KB                       | Socket.io 直接斷線   |

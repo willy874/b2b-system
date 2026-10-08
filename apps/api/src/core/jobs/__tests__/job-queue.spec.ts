@@ -551,7 +551,7 @@ describe('JobQueue：啟動時建立佇列、worker 與排程（docs/architectur
     ['worker', true],
     ['http,realtime', false],
   ])(
-    'APP_ROLES=%s → 執行背景工作 = %s（docs/features/multi-instance.md）',
+    'APP_ROLES=%s → 執行背景工作 = %s（docs/architecture/01-system.md §7）',
     (appRoles, expected) => {
       const { boss } = createQueue({ appRoles });
       expect(boss.options).toMatchObject({ schedule: expected, supervise: expected });

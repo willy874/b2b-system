@@ -132,7 +132,7 @@ export class RealtimeGateway
   }
 
   /**
-   * 跨裝置中繼跨節點（docs/features/multi-instance.md D8）：同一個人連在別的節點的裝置，由那個節點送給它自己的連線。
+   * 跨裝置中繼跨節點（docs/architecture/01-system.md §7 D8）：同一個人連在別的節點的裝置，由那個節點送給它自己的連線。
    * 不裝 Socket.io 的 adapter：伺服器端推播已經經 DomainEventRelay 跨節點，裝了會重複推。
    */
   onModuleInit(): void {
@@ -328,7 +328,7 @@ export class RealtimeGateway
 
   /**
    * 每個 IP 的 handshake 次數（`REALTIME_HANDSHAKES_PER_IP`）。計數存不了時放行：這是防濫用，不是授權，
-   * 不能因為計數的儲存出問題就讓所有人連不上推播（docs/features/multi-instance.md D6）。
+   * 不能因為計數的儲存出問題就讓所有人連不上推播（docs/architecture/01-system.md §7 D6）。
    */
   private async isHandshakeLimited(ip: string): Promise<boolean> {
     const record = await hitOrAllow(
@@ -420,7 +420,7 @@ export class RealtimeGateway
   }
 }
 
-/** 跨裝置中繼的廣播頻道（docs/features/multi-instance.md D8）。外框已限制 ≤ 4 KB，放得進 `NOTIFY` 的 8000 位元組。 */
+/** 跨裝置中繼的廣播頻道（docs/architecture/01-system.md §7 D8）。外框已限制 ≤ 4 KB，放得進 `NOTIFY` 的 8000 位元組。 */
 const USER_RELAY_CHANNEL = 'user_relay';
 
 interface RemoteRelay {

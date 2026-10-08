@@ -477,7 +477,7 @@ async login(...) {}
 - 登入另有 **漸進延遲**（同一個「租戶 × email × IP 前綴」15 分鐘內第 3 次錯誤之後）與已知來源不累計鎖定，見 [`04-auth.md`](./04-auth.md) §3.4；延遲同樣回 `429 RATE_LIMITED`。
 - 計數存在 `RateLimitStore`（`core/rate-limit/`；固定時間窗，`hit`／`peek`／`reset`）。所有限流都經過它：這個 guard、登入的漸進延遲、
   對外 API 的兩個 guard（[`../06-external-api.md`](../06-external-api.md) §4）、WebSocket 的每 IP handshake（[`08-realtime.md`](./08-realtime.md) §11）。
-  實作由 `RATE_LIMIT_STORE` 選擇（[`../../features/multi-instance.md`](../../features/multi-instance.md) D6）：`memory`（`MemoryRateLimitStore`，程序內，只適合單一程序）或
+  實作由 `RATE_LIMIT_STORE` 選擇（[`../01-system.md`](../01-system.md) §7 D6）：`memory`（`MemoryRateLimitStore`，程序內，只適合單一程序）或
   `postgres`（`PostgresRateLimitStore`，平台 DB 的 UNLOGGED 表 `rate_limit_counters`，一條 `INSERT … ON CONFLICT DO UPDATE` 計數，多個程序共用；
   過期的列由排程 `rateLimit.cleanup` 每分鐘清掉）。沒設定時 `DEPLOYMENT_MODE=standalone` 用 `memory`、`cluster` 用 `postgres`；`cluster` 不能設 `memory`。
   `@nestjs/throttler` 只剩 `normalizeIp`（`ipPrefixOf`）與 `@SkipThrottle()` 的 metadata。

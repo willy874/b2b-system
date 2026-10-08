@@ -1,6 +1,6 @@
 /**
  * 對外 API 程序固定的環境（docs/architecture/06-external-api.md §9.2 D19）：
- * - 只有 `http` 角色：只入列、不執行背景工作與排程（docs/features/multi-instance.md）
+ * - 只有 `http` 角色：只入列、不執行背景工作與排程（docs/architecture/01-system.md §7）
  * - 環境變數驗證以對外 API 的範圍檢查：production 不要求這個程序用不到的金鑰（§6）
  *
  * 同一份 env 給兩個程序用，所以在這裡覆寫，不靠部署記得設。

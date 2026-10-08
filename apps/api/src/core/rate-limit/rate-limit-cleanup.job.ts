@@ -7,7 +7,7 @@ import { defineJob, JobQueue } from '../jobs';
 import { PostgresRateLimitStore } from './postgres-rate-limit-store';
 import { RateLimitStore } from './rate-limit-store';
 
-/** 共享計數的過期列清理（docs/features/multi-instance.md D6）；記憶體實作時什麼都不做。 */
+/** 共享計數的過期列清理（docs/architecture/01-system.md §7 D6）；記憶體實作時什麼都不做。 */
 export const RATE_LIMIT_CLEANUP_JOB = defineJob<Record<string, never>>('rateLimit.cleanup', {
   exclusive: true,
   retryLimit: 0,

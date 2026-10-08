@@ -17,6 +17,7 @@
     "openapi:generate": "node -r @swc-node/register scripts/generate-openapi.ts",
     "mock-idp": "node -r @swc-node/register scripts/mock-oidc-idp.ts",
     "bench:rate-limit": "node -r @swc-node/register scripts/bench-rate-limit-store.ts",
+    "migrations:check": "node -r @swc-node/register scripts/check-migration-compat.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seeds/index.ts",

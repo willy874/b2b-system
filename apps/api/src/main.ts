@@ -12,7 +12,7 @@ import { AppModule } from './app.module';
 import { auditRoutes } from './common/route-audit';
 import { listenHostOf } from './core/config/env.schema';
 import type { Env } from './core/config/env.schema';
-import { processRolesOf } from './core/config/process-roles';
+import { processRolesOf, rolesLabelOf } from './core/config/process-roles';
 import { enableGracefulShutdown } from './core/lifecycle';
 import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
@@ -62,9 +62,11 @@ async function bootstrap(): Promise<void> {
   const server = app.getHttpServer();
   server.keepAliveTimeout = HTTP_KEEP_ALIVE_TIMEOUT_MS;
   server.headersTimeout = HTTP_KEEP_ALIVE_TIMEOUT_MS + 1000;
-  const roles = [...processRolesOf({ APP_ROLES: config.get('APP_ROLES', { infer: true }) })];
+  const roles = rolesLabelOf(
+    processRolesOf({ APP_ROLES: config.get('APP_ROLES', { infer: true }) }),
+  );
   Logger.log(
-    `API listening on http://localhost:${port}（角色：${roles.join(',')}；${config.get('DEPLOYMENT_MODE', { infer: true })}）`,
+    `API listening on http://localhost:${port}（角色：${roles}；${config.get('DEPLOYMENT_MODE', { infer: true })}）`,
     'Bootstrap',
   );
 }

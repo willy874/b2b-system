@@ -222,7 +222,7 @@ describe('RateLimitGuard（docs/architecture/backend/03-api-conventions.md §8�
     expect(others.map((result) => result.status)).toEqual([200, 200, 200, 200, 429]);
   });
 
-  describe('計數存不了時（docs/features/multi-instance.md D6）', () => {
+  describe('計數存不了時（docs/architecture/01-system.md §7 D6）', () => {
     const failing = {
       hit: () => Promise.reject(new Error('platform db down')),
       peek: () => Promise.reject(new Error('platform db down')),

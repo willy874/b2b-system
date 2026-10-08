@@ -659,7 +659,7 @@ describe('FileSystemFolderService 的生命週期與事件訂閱（docs/architec
     expect(personalOf(CAROL.id)).toBeUndefined();
   });
 
-  it('沒有 worker 角色的程序啟動時不進入每個租戶（docs/features/multi-instance.md D3）', async () => {
+  it('沒有 worker 角色的程序啟動時不進入每個租戶（docs/architecture/01-system.md §7 D3）', async () => {
     const { service, tenancy } = systemSetup({ appRoles: 'http,realtime' });
     await service.onApplicationBootstrap();
     expect(tenancy.forEachActive).not.toHaveBeenCalled();

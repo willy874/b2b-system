@@ -176,7 +176,7 @@ await withTransaction(this.db, async (tx) => {
 | 部署 | 設定 |
 | --- | --- |
 | 單一容器（預設） | `APP_ROLES=all`：同一個程序處理 HTTP、推播與工作 |
-| 拆開 | 同一個映像多起一個容器 `APP_ROLES=worker`；api 容器設 `APP_ROLES=http,realtime`（仍可入列）。角色見 [`../../features/multi-instance.md`](../../features/multi-instance.md) |
+| 拆開 | 同一個映像多起一個容器 `APP_ROLES=worker`；api 容器設 `APP_ROLES=http,realtime`（仍可入列）。角色見 [`../01-system.md`](../01-system.md) §7 |
 
 `worker` 角色另外負責「整個系統做一次」的開機工作（為每個租戶補系統資料夾與個人資料夾）。
 `JOBS_WORKER_ENABLED=false` 讓 `worker` 角色也只入列、不執行工作與排程（開機工作照做）：給測試與共用的 dev DB 用，不和別人的程序搶工作。
@@ -288,7 +288,7 @@ await withTransaction(this.db, async (tx) => {
 | handler 與 HTTP 共用 CPU（例：影像處理） | 會拖慢 API 時照 D5 拆成獨立容器，不必改程式 |
 | `SECURITY DEFINER` 函式寫錯會變成提權的入口 | 函式只接受時間與批次大小、不組動態 SQL，並固定 `search_path`；整合測試證明沒有 DELETE 的 role 只能透過它搬移 |
 | 管理頁直接讀 pg-boss 的表結構 | 只在 `core/jobs/job-store.ts` 一處；升級 pg-boss 時對照它的 migration |
-| 引入 [`multi-instance.md`](../../features/multi-instance.md) 的 Redis 後，可能想改用 BullMQ | 那時再開新的設計決策；handler 介面在 `core/jobs`，換底層不影響模組 |
+| 引入 [`../01-system.md`](../01-system.md) §7 的 Redis 後，可能想改用 BullMQ | 那時再開新的設計決策；handler 介面在 `core/jobs`，換底層不影響模組 |
 
 ### 9.4 評估過的方案
 

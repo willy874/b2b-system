@@ -39,7 +39,7 @@ async function startWithRoles(roles: string): Promise<Started> {
   return { app, http, hasGateway };
 }
 
-describe('程序角色（APP_ROLES；docs/features/multi-instance.md §初步構想 1、D3）', () => {
+describe('程序角色（APP_ROLES；docs/architecture/01-system.md §4.3、§7 D3）', () => {
   afterEach(async () => {
     await started?.app.close();
     started = undefined;

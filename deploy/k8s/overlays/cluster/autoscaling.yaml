@@ -1,0 +1,55 @@
+# 擴縮的起點（實際的門檻上線後依指標調整；docs/features/multi-instance.md 範圍外）。
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: api }
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-realtime
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: api-realtime }
+  minReplicas: 2
+  maxReplicas: 6
+  # 縮容放慢：每次縮容都讓那個 Pod 上的連線重連
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 300 }
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 60 }
+---
+# 滾動更新與節點維護時，每個角色至少留一個在服務
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-realtime
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-realtime

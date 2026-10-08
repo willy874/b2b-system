@@ -110,7 +110,7 @@ export const rateLimited = new Counter({
 
 /**
  * 速率限制計數的儲存（`RateLimitStore`）每次操作的時間：共享實作（Postgres）換成 Valkey 的依據
- * （docs/features/multi-instance.md D10：`hit` 的 p99 > 5 ms）。
+ * （docs/architecture/01-system.md §7 D10：`hit` 的 p99 > 5 ms）。
  */
 export const rateLimitStoreDuration = new Histogram({
   name: 'api_rate_limit_store_duration_seconds',
@@ -122,7 +122,7 @@ export const rateLimitStoreDuration = new Histogram({
 
 export const rateLimitStoreFailures = new Counter({
   name: 'api_rate_limit_store_failures_total',
-  help: '速率限制計數的儲存失敗（依政策放行或拒絕；docs/features/multi-instance.md D6）',
+  help: '速率限制計數的儲存失敗（依政策放行或拒絕；docs/architecture/01-system.md §7 D6）',
   labelNames: ['outcome'] as const,
   registers,
 });

@@ -197,7 +197,7 @@ describe('FileImageService：產生變體', () => {
     });
   });
 
-  it('排入：在呼叫端的交易內入列 file.imageVariants（docs/features/multi-instance.md D9）', async () => {
+  it('排入：在呼叫端的交易內入列 file.imageVariants（docs/architecture/01-system.md §7 D9）', async () => {
     const { service, jobs } = setup(fileRow());
     service.onModuleInit();
     const tx = {} as Transaction;

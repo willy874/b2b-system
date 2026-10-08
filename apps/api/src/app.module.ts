@@ -68,7 +68,7 @@ import { UserModule } from './modules/user/user.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 
 /**
- * 這個程序的角色（docs/features/multi-instance.md §初步構想 1）。在 import 時決定：Nest 的模組清單是靜態的，
+ * 這個程序的角色（docs/architecture/01-system.md §4.3）。在 import 時決定：Nest 的模組清單是靜態的，
  * 推播的 gateway 只要被 import 就會掛上 Socket.io。`./core/config` 在上面先被載入時已把 `.env` 寫進 `process.env`。
  */
 const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
@@ -79,7 +79,7 @@ const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
     DiscoveryModule, // 路由稽核掃描 controller metadata 用
     ConfigModule,
     LoggerModule,
-    // 結束前的排空（readiness 503、WebSocket 分批斷線；docs/features/multi-instance.md D13）
+    // 結束前的排空（readiness 503、WebSocket 分批斷線；docs/architecture/01-system.md §7 D13）
     LifecycleModule,
     // 給 Prometheus 的 /metrics（獨立的 port）與就緒檢查的 event loop 量測（docs/architecture/08-monitoring.md §2）
     MetricsModule,

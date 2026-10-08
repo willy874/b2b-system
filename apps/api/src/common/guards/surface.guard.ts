@@ -11,7 +11,7 @@ import type { ApiSurface } from '../decorators';
 export const PROCESS_SURFACE = Symbol('PROCESS_SURFACE');
 /**
  * `ops`：內部 api 的程序沒有 `http` 角色（只跑推播或背景工作）——只開兩邊都有的路由（健康檢查），
- * 讓探針有東西可打（docs/features/multi-instance.md §初步構想 1）。
+ * 讓探針有東西可打（docs/architecture/01-system.md §4.3）。
  */
 export type ProcessSurface = Exclude<ApiSurface, 'both'> | 'ops';
 

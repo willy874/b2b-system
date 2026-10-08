@@ -1,5 +1,5 @@
 /**
- * `PostgresRateLimitStore.hit` 的壓測（docs/features/multi-instance.md 開放問題 1、D10）：在一個 **暫用的** 平台 DB 上，
+ * `PostgresRateLimitStore.hit` 的壓測（docs/architecture/01-system.md §7.4、D10）：在一個 **暫用的** 平台 DB 上，
  * 以固定的並行度打 `hit`，量吞吐與延遲分位。驗收門檻：p99 < 5 ms。
  *
  *   BENCH_DATABASE_URL=postgres://… pnpm --filter @b2b-system/api bench:rate-limit
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
   await client`DROP TABLE rate_limit_counters`;
   await client.end();
   if (report.p99Ms >= 5) {
-    console.error(`p99 ${report.p99Ms} ms ≥ 5 ms：未達 docs/features/multi-instance.md 的門檻`);
+    console.error(`p99 ${report.p99Ms} ms ≥ 5 ms：未達 docs/architecture/01-system.md §7.4 的門檻`);
     process.exitCode = 1;
   }
 }

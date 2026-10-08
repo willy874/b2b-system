@@ -10,7 +10,7 @@ import { MemoryRateLimitStore, RateLimitStore } from './rate-limit-store';
 
 /**
  * 速率限制的計數（全域）：限流 guard、登入的漸進延遲、對外 API 與 WebSocket handshake 共用同一份計數。
- * 實作依 `RATE_LIMIT_STORE`（沒設定時 standalone 用記憶體、cluster 用 Postgres；docs/features/multi-instance.md D6）。
+ * 實作依 `RATE_LIMIT_STORE`（沒設定時 standalone 用記憶體、cluster 用 Postgres；docs/architecture/01-system.md §7 D6）。
  */
 @Global()
 @Module({

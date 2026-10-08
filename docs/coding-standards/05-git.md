@@ -65,7 +65,7 @@ docs/restructure
   | --- | --- | --- |
   | commit | staged 檔案的 `oxfmt --check`、`oxlint` | `lefthook.yml` 的 pre-commit |
   | push | `pnpm typecheck`（整個 workspace） | `lefthook.yml` 的 pre-push |
-  | PR、push 到 `main` | typecheck、lint、format、`pnpm test`（含 api 的整合測試）、`pnpm audit --prod`、gitleaks 掃 git 歷史、`docker-compose.prod.yml` 整套建置啟動（`deploy/smoke-test.sh`）、`deploy/check-nginx.sh`、`deploy/check-monitoring.sh` | `.github/workflows/ci.yml` |
+  | PR、push 到 `main` | typecheck、lint、format、migration 的相容檢查（`migrations:check`）、`pnpm test`（含 api 的整合測試）、`pnpm audit --prod`、gitleaks 掃 git 歷史、`docker-compose.prod.yml` 整套建置啟動（`deploy/smoke-test.sh`，單體與 `--cluster`）、`deploy/check-nginx.sh`、`deploy/check-monitoring.sh`、`deploy/check-k8s.sh` | `.github/workflows/ci.yml` |
 
   `--no-verify` 只略過本機的 hook，CI 照樣會跑。E2E（`pnpm test:e2e`）不在 CI 裡，動到使用者流程時自己跑。
 - 「三處同步」（`features/`、`modules/`、`docs/`）的變更放在 **同一個 commit 或同一個 PR**，

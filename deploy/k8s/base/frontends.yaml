@@ -1,0 +1,126 @@
+# 兩個前端（nginx：靜態檔 ＋ /api 反向代理到 api）。nginx 的 resolver 不套 search domain，upstream 要寫完整的服務名稱：
+# 以 downward API 取得 namespace 組出來（deploy/nginx-upstreams.sh）。TLS 在 Ingress 終結。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  labels:
+    app.kubernetes.io/name: backstage
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backstage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backstage
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: b2b-system-backstage
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef: { fieldPath: metadata.namespace }
+            - name: API_UPSTREAM
+              value: api.$(POD_NAMESPACE).svc.cluster.local:3000
+            # Ingress controller 的 Pod 網段（只採用它帶來的 X-Forwarded-For；deploy/nginx-real-ip.sh）
+            - name: TRUSTED_PROXY_CIDRS
+              value: 10.0.0.0/8
+            - name: APM_ENABLED
+              value: 'false'
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage
+spec:
+  selector:
+    app.kubernetes.io/name: backstage
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform
+  labels:
+    app.kubernetes.io/name: platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: b2b-system-platform
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef: { fieldPath: metadata.namespace }
+            - name: API_UPSTREAM
+              value: api.$(POD_NAMESPACE).svc.cluster.local:3000
+            - name: TRUSTED_PROXY_CIDRS
+              value: 10.0.0.0/8
+            - name: APM_ENABLED
+              value: 'false'
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform
+spec:
+  selector:
+    app.kubernetes.io/name: platform
+  ports:
+    - { name: http, port: 8080, targetPort: http }

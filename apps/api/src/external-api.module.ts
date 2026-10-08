@@ -64,7 +64,7 @@ import { UserModule } from './modules/user/user.module';
     DiscoveryModule, // 路由稽核掃描 controller metadata 用
     ConfigModule,
     LoggerModule,
-    // 結束前的排空（readiness 503、WebSocket 分批斷線；docs/features/multi-instance.md D13）
+    // 結束前的排空（readiness 503、WebSocket 分批斷線；docs/architecture/01-system.md §7 D13）
     LifecycleModule,
     // 給 Prometheus 的 /metrics（獨立的 port）與就緒檢查的 event loop 量測（docs/architecture/08-monitoring.md §2）
     MetricsModule,

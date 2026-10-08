@@ -657,7 +657,7 @@ describe('檔案生命週期（docs/architecture/backend/09-file.md）', () => {
       .post(`/files/${file.id}/complete`)
       .set('authorization', `Bearer ${token}`)
       .expect(200);
-    // 變體在 worker 產生（docs/features/multi-instance.md D9）：完成上傳時已入列，這裡直接執行工作的本體
+    // 變體在 worker 產生（docs/architecture/01-system.md §7 D9）：完成上傳時已入列，這裡直接執行工作的本體
     const [queued] = await app
       .get<PlatformDatabase>(PLATFORM_DB)
       .execute<{ data: { payload: { fileId: string } } }>(

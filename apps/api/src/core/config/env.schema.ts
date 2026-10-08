@@ -23,7 +23,7 @@ export const EnvSchema = z.object({
   API_SURFACE: z.enum(['internal', 'external']).default('internal'),
   /**
    * 這個程序扮演的角色（逗號分隔：`http`、`realtime`、`worker`；`all` = 三個都是，預設）。同一個映像，
-   * 拆開部署時各容器設不同的值（docs/features/multi-instance.md §初步構想 1）。對外 API 的程序固定是 `http`。
+   * 拆開部署時各容器設不同的值（docs/architecture/01-system.md §4.3）。對外 API 的程序固定是 `http`。
    * 以字串保存（`processRolesOf()` 解析）：`app.module.ts` 在 Nest 啟動之前就要從 `process.env` 讀到它。
    */
   APP_ROLES: z
@@ -33,12 +33,12 @@ export const EnvSchema = z.object({
       message: '格式是 all，或 http、realtime、worker 的逗號分隔清單',
     }),
   /**
-   * 部署模式（docs/features/multi-instance.md D5）：`standalone` 宣告「只有一個程序」，允許程序內的共享狀態；
+   * 部署模式（docs/architecture/01-system.md §7 D5）：`standalone` 宣告「只有一個程序」，允許程序內的共享狀態；
    * `cluster` 時多個程序共用的東西（各程序的金鑰、共享的計數）必須真的共享，否則拒絕啟動。
    */
   DEPLOYMENT_MODE: z.enum(['standalone', 'cluster']).default('standalone'),
   /**
-   * 速率限制的計數存在哪裡（docs/features/multi-instance.md D6）：`memory`（程序內，只適合單一程序）或 `postgres`
+   * 速率限制的計數存在哪裡（docs/architecture/01-system.md §7 D6）：`memory`（程序內，只適合單一程序）或 `postgres`
    * （平台 DB 的共享計數）。沒設定時依 `DEPLOYMENT_MODE`（`rateLimitStoreOf()`）；`cluster` 不能是 `memory`。
    */
   RATE_LIMIT_STORE: z.preprocess(
@@ -84,7 +84,7 @@ export const EnvSchema = z.object({
   HEALTH_EVENT_LOOP_LAG_MS: z.coerce.number().int().min(0).default(1000),
   /**
    * 收到 `SIGTERM` 之後、關閉 HTTP server 之前的排空秒數：期間 `/health/ready` 回 503，讓 LB／Ingress 把程序移出，
-   * WebSocket 分批斷線（docs/features/multi-instance.md D13）。單一程序直接結束即可（0）；k8s 建議 10。
+   * WebSocket 分批斷線（docs/architecture/01-system.md §7 D13）。單一程序直接結束即可（0）；k8s 建議 10。
    */
   SHUTDOWN_DRAIN_SECONDS: z.coerce.number().int().min(0).max(120).default(0),
   /**
@@ -770,7 +770,7 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
 
 export type Env = z.infer<typeof EnvSchema>;
 
-/** 實際使用的計數儲存：沒指定時 cluster 用 Postgres、standalone 用記憶體（docs/features/multi-instance.md D6）。 */
+/** 實際使用的計數儲存：沒指定時 cluster 用 Postgres、standalone 用記憶體（docs/architecture/01-system.md §7 D6）。 */
 export function rateLimitStoreOf(
   env: Pick<Env, 'RATE_LIMIT_STORE' | 'DEPLOYMENT_MODE'>,
 ): 'memory' | 'postgres' {

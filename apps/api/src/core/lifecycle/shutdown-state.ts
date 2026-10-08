@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 export type DrainListener = (drainMs: number) => void;
 
 /**
- * 程序是否正在結束（docs/features/multi-instance.md D13）。收到 `SIGTERM` 之後先進入排空：readiness 回 503，
+ * 程序是否正在結束（docs/architecture/01-system.md §7 D13）。收到 `SIGTERM` 之後先進入排空：readiness 回 503，
  * 讓 LB／Ingress 把這個程序移出，等 `SHUTDOWN_DRAIN_SECONDS` 再關 HTTP server 與各模組。
  */
 @Injectable()

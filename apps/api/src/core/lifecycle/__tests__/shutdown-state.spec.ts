@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ShutdownState } from '../shutdown-state';
 
-describe('ShutdownState（docs/features/multi-instance.md D13）', () => {
+describe('ShutdownState（docs/architecture/01-system.md §7 D13）', () => {
   it('開始排空前 draining 是 false，之後是 true', () => {
     const state = new ShutdownState();
     expect(state.draining).toBe(false);

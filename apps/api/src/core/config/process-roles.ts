@@ -1,5 +1,5 @@
 /**
- * 程序的角色（docs/features/multi-instance.md §初步構想 1、D1）：同一個映像，以 `APP_ROLES` 決定這個程序打開哪些入口。
+ * 程序的角色（docs/architecture/01-system.md §4.3、§7 D1）：同一個映像，以 `APP_ROLES` 決定這個程序打開哪些入口。
  * 純函式、不依賴任何模組：`instrumentation.ts` 與 `app.module.ts` 在 Nest 啟動之前就要用。
  */
 export const PROCESS_ROLES = ['http', 'realtime', 'worker'] as const;
@@ -30,10 +30,10 @@ export function processRolesOf(env: { APP_ROLES?: string }): ReadonlySet<Process
 }
 
 /**
- * 服務名稱（trace 的 `service.name`、日誌）：單體是 `api`，拆開時帶角色（`api-http`、`api-http-realtime`）。
- * 依 `PROCESS_ROLES` 的順序，同一組角色永遠是同一個名稱。
+ * 角色的標籤（trace 的資源屬性 `b2b.roles`、啟動日誌）：單體是 `all`，拆開時是角色的逗號清單（`http,realtime`）。
+ * 依 `PROCESS_ROLES` 的順序，同一組角色永遠是同一個字串。`service.name` 不帶角色：要與 Prometheus 的 job 名稱相同。
  */
-export function serviceNameOf(roles: ReadonlySet<ProcessRole>): string {
-  if (roles.size === PROCESS_ROLES.length) return 'api';
-  return ['api', ...PROCESS_ROLES.filter((role) => roles.has(role))].join('-');
+export function rolesLabelOf(roles: ReadonlySet<ProcessRole>): string {
+  if (roles.size === PROCESS_ROLES.length) return ALL_PROCESS_ROLES;
+  return PROCESS_ROLES.filter((role) => roles.has(role)).join(',');
 }

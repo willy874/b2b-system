@@ -376,7 +376,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   有透明度的圖改用 WebP（JPEG 沒有透明度）。一律依 EXIF 轉正、移除中繼資料（GPS 等）、等比縮小不放大。
 - **何時產生**：`complete` 的交易內排入背景工作 `file.imageVariants`（`FileImageService.enqueueVariants()`，outbox；
   每個 worker 程序同時最多 2 張），**不等它完成**：交易後先推 `create`，變體好了 `variant_status = 'ready'` 再推 `update`，前端重抓就拿到網址。
-  在 worker 產生（[`../../features/multi-instance.md`](../../features/multi-instance.md) D9），sharp 的 CPU 不佔 http 程序的 event loop。
+  在 worker 產生（[`../01-system.md`](../01-system.md) §7 D9），sharp 的 CPU 不佔 http 程序的 event loop。
   同一個檔案重複排入時，後執行的看到已經不是 `pending` 就直接結束。
   在那之前 `thumbnailUrl` 是瀏覽器縮圖（有的話），LightBox 用原圖。
 - **失敗**：解碼失敗（損毀、超過 128 MiB 或 1 億像素）→ `failed`，不再重試，前端退回瀏覽器縮圖或類型圖示；

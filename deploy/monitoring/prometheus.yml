@@ -8,13 +8,26 @@ rule_files:
   - /etc/prometheus/rules/*.yml
 
 scrape_configs:
-  # api 的 METRICS_PORT（9464）與 external-api 的 EXTERNAL_METRICS_PORT（9465）
+  # api 的 METRICS_PORT（9464）與 external-api 的 EXTERNAL_METRICS_PORT（9465）。以 DNS 找目標：多實例時 docker 的 DNS
+  # 回傳每個實例的位址，每個實例各自是一個 target（docs/architecture/01-system.md §7 D12）。名稱不存在（沒有啟用那個 profile）
+  # 時只是沒有 target，不會被當成 down。內部 api 的角色同一個 job（與 trace 的 service.name 相同），拆出去的角色帶 role 標籤
   - job_name: api
-    static_configs:
-      - targets: ['api:9464']
+    dns_sd_configs:
+      - names: [api, api-realtime, api-worker]
+        type: A
+        port: 9464
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__meta_dns_name]
+        target_label: role
+        regex: api-(.+)
+        replacement: $1
   - job_name: external-api
-    static_configs:
-      - targets: ['external-api:9465']
+    dns_sd_configs:
+      - names: [external-api]
+        type: A
+        port: 9465
+        refresh_interval: 30s
   # 前端的 Web Vitals 與錯誤事件數（docs/architecture/07-apm-service.md §3.4）
   - job_name: apm-service
     static_configs:

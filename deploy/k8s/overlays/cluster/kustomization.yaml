@@ -1,0 +1,30 @@
+# 多實例（docs/features/multi-instance.md）：api 改成 http 角色，另加 api-realtime、api-worker；DEPLOYMENT_MODE=cluster
+# （速率限制改用平台 DB 的共享計數）；租戶 DB 經 PgBouncer（transaction mode，平台 DB 直連：LISTEN 與 pg-boss 需要 session）。
+# 每個角色各自擴展：http 看 CPU、realtime 看連線數（這裡先以 CPU 近似）、worker 看佇列深度（api_jobs_queue_depth，可接 KEDA）。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - roles.yaml
+  - autoscaling.yaml
+  - pgbouncer.yaml
+patches:
+  - target: { kind: ConfigMap, name: b2b-api-env }
+    patch: |-
+      - op: replace
+        path: /data/DEPLOYMENT_MODE
+        value: cluster
+  - target: { kind: Deployment, name: api }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - { name: APP_ROLES, value: http }
+  - target: { kind: Deployment, name: backstage }
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: { name: REALTIME_UPSTREAM, value: api-realtime.$(POD_NAMESPACE).svc.cluster.local:3000 }

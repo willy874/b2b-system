@@ -382,7 +382,7 @@ export class FileService {
         tx,
       );
       await this.webhooks.emit(FILE_UPLOADED_WEBHOOK, { fileId: id, folderId: file.folderId }, tx);
-      // 變體在 worker 產生（docs/features/multi-instance.md D9）；交易回滾就沒有工作
+      // 變體在 worker 產生（docs/architecture/01-system.md §7 D9）；交易回滾就沒有工作
       if (hasVariants) await this.images.enqueueVariants(id, tx);
     });
 

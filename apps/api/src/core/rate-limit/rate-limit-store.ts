@@ -18,7 +18,7 @@ export interface RateLimitRecord {
  * 窗結束後下一次計數重新開始。
  *
  * 規則（計什麼、上限多少）在呼叫端；這裡只負責「存」。實作有兩個：程序內的記憶體（單一程序）與平台 DB 的共享計數
- * （`PostgresRateLimitStore`，多個程序；docs/features/multi-instance.md D6），由 `RATE_LIMIT_STORE` 選擇。
+ * （`PostgresRateLimitStore`，多個程序；docs/architecture/01-system.md §7 D6），由 `RATE_LIMIT_STORE` 選擇。
  */
 export abstract class RateLimitStore {
   /** 計一次並回傳計數後的狀態。 */
@@ -33,7 +33,7 @@ const fallbackLogger = new Logger('RateLimitStore');
 
 /**
  * 計一次；計數存不了時放行（回 `undefined`）並記錄。給「放寬也不會造成傷害」的限流用：對外 API 的額度、
- * WebSocket 的 handshake（docs/features/multi-instance.md D6）。登入類的限流不要用它。
+ * WebSocket 的 handshake（docs/architecture/01-system.md §7 D6）。登入類的限流不要用它。
  */
 export async function hitOrAllow(
   store: RateLimitStore,

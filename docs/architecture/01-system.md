@@ -224,12 +224,13 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | ---------- | ----------------------------- | ---------------------------------------------------- | ------------------------------- |
 | `postgres` | `postgres:17-alpine`（digest 釘住） | 唯一的狀態儲存：平台 DB ＋ 每個租戶一個 database     | —                               |
 | `migrate`  | `b2b-system-api`（同 api）   | `migrate.js` ＋ `seeds/index.js`，跑完即結束         | postgres healthy                |
-| `api`      | `b2b-system-api`             | REST、Socket.io、權限快取                            | migrate **成功結束**、file-storage healthy |
+| `api`      | `b2b-system-api`             | REST、Socket.io、背景工作（`APP_ROLES=all`；多實例時只有 REST，§4.3） | migrate **成功結束**、file-storage healthy |
+| `api-worker`／`api-realtime` | `b2b-system-api` | 背景工作／推播（`worker` profile、`docker-compose.cluster.yml` 才啟動，§4.3） | 同 api |
 | `file-storage` | `apps/file-storage/Dockerfile` | S3 相容的物件儲存（[`03-file-storage.md`](./03-file-storage.md)） | —                     |
 | `apm-service` | `apps/apm-service/Dockerfile` | 前端錯誤與 Web Vitals 的收件，模擬 Sentry API（[`07-apm-service.md`](./07-apm-service.md)）；`127.0.0.1:9100` 給上傳 sourcemap、查詢與 `/metrics`。compose 的 `apm` profile：可整套關閉（[`07-apm-service.md`](./07-apm-service.md) §8.1） | — |
 | `backstage` | `apps/backstage/Dockerfile`（nginx）| 靜態檔、反向代理、安全標頭                 | api healthy；APM 開啟時另等 apm-service |
 | `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy；APM 開啟時另等 apm-service |
-| `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)） | migrate 成功結束、file-storage healthy |
+| `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)）；compose 的 `external` profile | migrate 成功結束、file-storage healthy |
 | `external-gateway` | `nginxinc/nginx-unprivileged:1.30.5-alpine`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
 
 - **變數放在獨立的 env 檔**：`docker compose --env-file deploy/prod.env -f docker-compose.prod.yml …`，範本是 `deploy/prod.env.example`。
@@ -291,29 +292,67 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
   按「整間公司在同一個 IP」估算（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）；
   數值不夠時調環境變數，不必改程式。
 
-### 4.3 為什麼不拆成更多服務，以及何時要拆
+### 4.3 角色與擴展：單體是預設，以環境變數拆開
 
-Phase 0 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互動，將來要拆有清楚的邊界，
-但現在拆只會多出網路呼叫與分散式交易。必須存在的服務只有上表六個；`file-storage` 是可替換的基礎設施
-（等同 S3），不是業務服務。
+api 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互動。擴展不拆 codebase，而是把 **同一個映像** 依「打開哪些入口」
+分成角色，各自部署、各自擴展（§7 D1）。負載低時只跑一個程序，所有角色都在裡面。
+
+| 角色（`APP_ROLES`） | 做什麼 | 本機狀態 | 怎麼擴展 |
+| --- | --- | --- | --- |
+| `http` | 內部 api 的 REST、OIDC Provider、匯入的分析、依請求轉出的影像格式 | 只有可失效的快取 | 依 CPU／請求數 |
+| `realtime` | Socket.io gateway、跨裝置中繼、接收其他程序轉送的推播 | 只有 **連線本身**（不可搬移；斷了客戶端重連到別台） | 依連線數 |
+| `worker` | pg-boss 的 worker 與排程、開機時的租戶初始化、影像變體 | 無（工作狀態在 pg-boss） | 依佇列深度 |
+| （另一個進入點）對外 API | `main.external.ts`，固定只有 `http`、只入列 | 無 | 依請求數 |
+| （一次性）`migrate` | migration ＋ 冪等 seed | — | 每次部署跑一次 |
+
+- `APP_ROLES` 是逗號分隔的清單，預設 `all`（三個都是）。角色只決定入口，每個角色都 import 同樣的業務模組：
+  沒有 `http` 時 `SurfaceGuard` 只開健康檢查（`ops`）、`/oidc/*` 回 404；沒有 `realtime` 時不載入 `RealtimeModule`，
+  推播由 `DomainEventRelay` 交給有連線的程序（§4.4）；沒有 `worker` 時只入列。`JOBS_WORKER_ENABLED=false` 讓 `worker` 角色也只入列
+  （測試、共用的 dev DB；[`backend/10-jobs.md`](./backend/10-jobs.md) §5）。
+- `DEPLOYMENT_MODE`：`standalone`（預設）宣告只有一個程序，允許程序內的共享狀態；`cluster` 時多個程序共用的東西必須真的共享，
+  否則拒絕啟動（`RATE_LIMIT_STORE=memory`、內部 api 沒設 `OIDC_JWKS`／`OIDC_COOKIE_KEYS`；§7 D5）。開兩個 standalone 程序不會被偵測到：速率限制會變成兩倍。
+- trace 的 `service.name` 維持 `api`（與 Prometheus 的 job 相同），角色在資源屬性 `b2b.roles`（單體是 `all`）；啟動日誌也印出角色與部署模式。
+
+**stateless 的判準**（§7 D4）：程序掛掉、或下一個請求落到別台時，不丟已確認的資料（長期狀態在 Postgres 或物件儲存）、
+不給錯的結果（快取有失效廣播，TTL 是最壞情況的上限）、共享的計數不因實例數改變語意（速率限制走共享的 `RateLimitStore`）。
+連線是唯一的例外，所以 `realtime` 可以水平擴展、不需要 sticky session 或 StatefulSet。真正有本機儲存的只有 `postgres`、
+`apps/file-storage`、`apps/apm-service`：多實例時換成託管服務或各自單一實例。
+
+| 程序內的狀態 | 處理 |
+| --- | --- |
+| 權限、使用者、租戶登記、資料夾樹、系統設定、通知政策、API token、MFA 方式、feature flag 的快取 | 失效經 `core/broadcast` 跨程序，TTL 兜底（§4.4） |
+| HTTP、對外 API、WebSocket handshake 的速率限制，登入的漸進延遲 | `RateLimitStore`：standalone 預設程序記憶體，cluster 預設平台 DB 的共享計數（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8） |
+| WebSocket 每人連線數、每條連線的訊息數、token 到期計時器 | 每個節點各自計算（連線不會換節點；§7 D7） |
+| 跨裝置中繼 | 經廣播頻道 `user_relay` 送到其他節點（§7 D8） |
+| 影像變體 | 背景工作 `file.imageVariants`（§7 D9） |
+| 用量計數、API token 的 `last_used_at` | 每程序累計、以加法或單調更新寫入，多程序天然相加 |
+| 影像處理的暫存檔 | 單次呼叫內使用；容器的 `/tmp` 設大小上限 |
+
+**部署形態**：
+
+| 形態 | 怎麼起 | 什麼時候用 |
+| --- | --- | --- |
+| 單體（預設） | `docker-compose.prod.yml`：一個 `api`（`all`） | 負載低、單台主機 |
+| 背景工作分開 | `COMPOSE_PROFILES` 加 `worker`、`API_ROLES=http,realtime`：多一個 `api-worker` 容器，仍是 standalone | 影像處理或大量寄信拖慢 API；還不需要多台 api |
+| 多實例（compose） | 疊 `docker-compose.cluster.yml`：`api`（`http`）×`API_HTTP_REPLICAS`、`api-realtime`×`API_REALTIME_REPLICAS`、`api-worker`×`API_WORKER_REPLICAS`，`DEPLOYMENT_MODE=cluster` | 單一程序撐不住、要滾動部署 |
+| k8s | `deploy/k8s/overlays/standalone` 或 `overlays/cluster`（Kustomize：每個角色一個 Deployment、HPA、PDB、PgBouncer、`migrate` Job；§7 D15） | 要依負載自動擴縮 |
+
+- 前端的 nginx 以 `deploy/nginx-upstreams.sh` 產生 upstream：`API_UPSTREAM`（預設 `api:3000`）、`REALTIME_UPSTREAM`（`/api/socket.io/`，預設同 api），
+  `server … resolve` 在執行期重新解析，多實例時每個實例都收得到流量、擴縮後跟得上（§7 D12）。k8s 要寫完整的服務名稱（nginx 的 resolver 不套 search domain）。
+- Prometheus 以 DNS 找目標（`deploy/monitoring/prometheus.yml`）：所有角色同一個 job `api`，`api-realtime`、`api-worker` 的目標另帶 `role` 標籤。
+- **優雅關閉**（§7 D13）：收到 `SIGTERM` 後 readiness 回 503、WebSocket 不收新連線並在排空期內分批關閉傳輸，等 `SHUTDOWN_DRAIN_SECONDS`
+  （compose 單體 0、多實例與 k8s 10）後才關 HTTP server 與各模組；背景工作最多再等 30 秒。容器的 `stop_grace_period`／`terminationGracePeriodSeconds` 要大於兩者之和。
+- **滾動部署的前提**：migration 對上一版相容。CI 掃描新增的 migration，破壞性語句要有 `-- breaking-ok:`（§7 D14，[`backend/02-database.md`](./backend/02-database.md) §5.1）。
+- **連線預算**乘上程序數，依角色調小各自的池（[`backend/02-database.md`](./backend/02-database.md) §6.2）；程序數 ≥ 2 且活躍的租戶多時在前面加 PgBouncer。
+
+**仍然不拆成獨立服務的東西**：
 
 | 想拆出來的東西            | 現在不拆的理由                                                               | 拆的前提                                                                 |
 | ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Socket.io 獨立成 realtime 服務 | 推播必須在寫入交易之後、由同一個 service 觸發；拆開就要一條可靠的事件匯流排 | 有了 outbox 或 `LISTEN/NOTIFY` 事件流；連線數大到影響 REST 的延遲        |
+| 業務模組各自成為服務（各自的 codebase 與資料庫） | 業務呼叫在同一個交易裡（稽核、outbox）；拆開就是分散式交易，授權每次多一跳；每個租戶一個 database 已經是資料層的隔離（§7 D1） | 某個模組要給本平台以外的系統用，且負載或發版節奏明顯不同 |
 | auth 獨立（後端）服務     | 每個請求都要驗 token 與權限；拆開就是每個請求多一跳。有了第二個產品之後只拆了 **前端**（`apps/platform`，[`architecture/04-sso.md`](04-sso.md) §12.2 D2），OIDC Provider 仍是 api 的模組 | 身分服務要給本平台以外的系統用，且負載或發版節奏與 api 明顯不同         |
-| Redis                     | 快取與 room 都在單一程序的記憶體裡就夠                                       | 見下一段；Postgres `LISTEN/NOTIFY` 能滿足時仍不需要                      |
-
-**api 水平擴展（`replicas > 1`）要同時具備四件事**，缺一就會出錯，所以 compose 目前固定單一執行個體：
-
-1. 推播跨節點：伺服器端的推播 **已完成**（領域事件經平台 DB 轉送，每個節點推給自己的連線，[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6）；
-   跨裝置中繼（`channel.relay`）仍只在本節點（同 §10.3）。
-2. 權限／使用者快取跨節點失效：**已完成**（§4.4）。
-3. 租戶登記的快取跨節點失效（停用、網域的變更）：**已完成**（§4.4）。
-4. nginx 的 upstream 要能看到每個執行個體（`resolver 127.0.0.11` ＋ 變數化的 `proxy_pass`，或改用 LB）；
-   Socket.io 只用 websocket 傳輸，**不需要** sticky session。
-
-速率限制（HTTP、對外 API、WebSocket handshake）都經 `RateLimitStore`：`DEPLOYMENT_MODE=cluster` 時是平台 DB 的共享計數，
-standalone 預設是程序內的記憶體（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8）。部署的角色與形態見 [`../features/multi-instance.md`](../features/multi-instance.md)。
+| Redis／Valkey             | 共享計數與程序之間的訊息都由 Postgres 承擔（§7 D10）                          | `RateLimitStore` 的 p99 > 5 ms、平台 DB 的 CPU 因計數 > 60%，或 `NOTIFY` 佇列使用率持續 > 10% |
+| 訊息佇列（RabbitMQ、Kafka、NATS） | 入列必須與業務交易一致，pg-boss ＋ outbox 已經做到（§7 D11）            | 持續每秒數百筆以上的工作、跨語言的消費者、事件重播                        |
 
 ### 4.4 程序之間的一致性
 
@@ -402,7 +441,7 @@ nginx 的存取日誌與 api 的 pino 日誌每個請求一筆，不輪替會塞
 | Request ID   | `RequestIdMiddleware` 產生 `x-request-id`，出現在回應 header、日誌與稽核紀錄中                                                                                    |
 | 結構化日誌   | Pino（JSON）：HTTP 存取日誌與應用程式日誌（`new Logger(Xxx.name)`，進入點以 `app.useLogger()` 接上）共用同一個 Pino。請求內的每一筆都帶 `requestId`（與回應的 `x-request-id`、稽核紀錄相同），應用程式日誌另有 `context`（類別名稱），存取日誌另有 `req`／`res`／`responseTime`；背景工作的日誌沒有 `requestId`。等級：development `debug`、production `info`、test 靜音 |
 | 授權失敗     | 每一次 403 都寫入 `audit_logs`（`action = 'authz.denied'`），含缺少的權限鍵                                                                                       |
-| 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB、物件儲存、背景工作的連線池、event loop 延遲；失敗回 `degraded`；[`08-monitoring.md`](./08-monitoring.md) §4） |
+| 健康檢查     | `GET /health`（liveness）、`GET /health/ready`（平台 DB、物件儲存、背景工作的連線池、event loop 延遲；排空中或平台 DB 連不上回 503，其他失敗回 `degraded`；[`08-monitoring.md`](./08-monitoring.md) §4） |
 | 指標         | 每個 api 程序另開 `/metrics`（`METRICS_PORT` 9464／`EXTERNAL_METRICS_PORT` 9465，Prometheus 格式）：依路由的請求與延遲、快取、租戶連線池、交易、背景工作、推播、限流；不帶租戶標籤。見 [`08-monitoring.md`](./08-monitoring.md) §2 |
 | Tracing      | OpenTelemetry → Tempo（`OTEL_EXPORTER_OTLP_ENDPOINT` 有值才載入）：HTTP、controller、交易、背景工作、對外連線、物件儲存；span 帶 `b2b.tenant`，日誌帶 `trace_id`。見 [`08-monitoring.md`](./08-monitoring.md) §3 |
 | 監控部署     | `docker-compose.monitoring.yml` 疊在正式的 compose 上：Prometheus、Tempo、Grafana（儀表板與告警）、postgres-exporter。見 [`08-monitoring.md`](./08-monitoring.md) §6 |
@@ -425,3 +464,85 @@ nginx 的存取日誌與 api 的 pino 日誌每個請求一筆，不輪替會塞
 | 自我保護      | 使用者不能刪除自己、不能改自己的角色；改自己持有的角色時不能拿掉自己管理角色所需的權限（`ROLE_SELF_LOCKOUT`） |
 | SQL injection | Drizzle 參數化查詢；禁止字串拼接 SQL                                                                       |
 | 稽核不可變    | `audit_logs` 只有 INSERT 權限的 DB role；無 UPDATE / DELETE                                                |
+
+---
+
+## 7. 設計決策：多實例部署與服務拆分
+
+> 2026-10-08 決定並實作（原提案 `multi-instance`，branch `feat/multi-instance`）。相關：[`06-external-api.md`](./06-external-api.md) §9 T0（失效廣播與事件轉送）、
+> [`backend/04-auth.md`](./backend/04-auth.md) §12（`RateLimitStore`）、[`backend/10-jobs.md`](./backend/10-jobs.md) §9（pg-boss）。
+
+### 7.1 背景
+
+api 原本假設一個程序服務所有租戶：HTTP、Socket.io、OIDC Provider、背景工作都寫死在同一個程序，compose 固定單一 `api`，
+nginx 的 upstream 與 Prometheus 的 target 都只有一台。部署即全員斷線、背景工作與 API 搶同一個 event loop、沒有滾動部署的可能。
+要求：負載低時仍是單體、不浪費資源；以環境變數切換成多實例，能搬到 k8s；不需要伺服器儲存的部分做到 stateless；
+Memory Storage、Queue 之類的元件經過分析才引入。
+
+逐檔盤點 `apps/api/src` 的程序內狀態後（§4.3 的表），大部分已經跨程序（快取的失效廣播、推播的轉送、DB 裡的 OIDC 狀態與 MFA challenge、
+pg-boss 的排程鎖）。剩下的是：feature flag 的全平台快取只有 TTL、三處速率限制在程序記憶體、`channel.relay` 只到本節點、
+影像變體在請求的程序裡產生、開機工作每個程序都做，以及角色寫死。
+
+### 7.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **「服務」是同一個映像的部署角色，不是獨立的 codebase**：`APP_ROLES`（`http`、`realtime`、`worker`），預設 `all` | 擴展的需求來自負載的形狀（請求、長連線、背景工作的 CPU），不是業務邊界。業務呼叫在同一個交易裡（稽核、outbox），拆服務就是分散式交易；每個租戶一個 database 已經是資料層的隔離，服務各自一個 DB 會變成「租戶數 × 服務數」。角色化部署也是之後真的拆服務的前置步驟：程序之間只靠 Postgres 溝通 |
+| D2 | **對外 API 維持獨立的進入點**，不併進 `APP_ROLES`；compose 改成 `external` profile | 它的 guard 鏈（只認 API token）是刻意的攻擊面分離（[`06-external-api.md`](./06-external-api.md) §9 D9、D10）；不用的部署少跑兩個容器 |
+| D3 | **「整個系統做一次」的工作只在 `worker` 角色**：pg-boss 的 worker、排程同步、佇列深度指標、開機時為每個租戶補系統資料夾 | 多個 http／realtime 程序同時開機不必每個都進入每個租戶 DB；`syncSchedules` 會取消本程序設定裡是空字串的排程，只有 worker 做、設定來自同一份 env 才不會在滾動部署時互相覆寫。租戶 schema 的檢查、建立 bucket 維持每個程序做（各自要知道／冪等便宜） |
+| D4 | **stateless 的判準**：掛掉或換一台處理時不丟資料、不給錯的結果、共享計數不因實例數改變語意；連線是唯一的例外 | `realtime` 是「有連線、沒有資料」：可以水平擴展、不需要 sticky session、不需要 StatefulSet |
+| D5 | **`DEPLOYMENT_MODE=cluster` 的啟動檢查**：`RATE_LIMIT_STORE=memory`、內部 api 沒設 `OIDC_JWKS`／`OIDC_COOKIE_KEYS`（非 production 也檢查）就拒絕啟動 | 忘了設定共享儲存時不要默默變成 N 倍的限流；開發環境沒設 OIDC 金鑰時每個程序各自產生，ID token 換一台就驗不過。standalone 無從得知實例數，不檢查 |
+| D6 | **共享速率限制：平台 DB 的 UNLOGGED 表 `rate_limit_counters`**，一條 `INSERT … ON CONFLICT DO UPDATE … RETURNING` 計數；排程 `rateLimit.cleanup` 每分鐘清過期的列。所有限流（`RateLimitGuard`、`LoginThrottle`、對外 API 的兩個 guard、WebSocket handshake）都走 `RateLimitStore`。計數存不了時登入類政策回 `503 AUTH_BUSY`、其他放行 | 不加元件；量級可負擔（§7.4）。UNLOGGED 不寫 WAL，計數當機後清空本來就可以接受。平台 DB 掛了本來就登入不了，但已登入的使用者還能用（租戶 DB 在另一台時） |
+| D7 | **WebSocket 每人連線數維持「每個節點」** | 跨節點計算要一張 presence 表與心跳清除，成本與錯誤模式不成比例；它是防濫用，前端每個瀏覽器只有 leader 分頁連線 |
+| D8 | **`channel.relay` 經 `core/broadcast`（頻道 `user_relay`）送到其他節點，不裝 Socket.io adapter** | 伺服器端推播已經由事件轉送跨節點，裝 adapter 每則推播會送兩次；外框 ≤ 4 KB 放得進 `NOTIFY` |
+| D9 | **影像變體改成背景工作 `file.imageVariants`**（上傳完成的交易內入列） | http 程序不再有 sharp 的 CPU 尖峰；worker 可以給更多 CPU、依佇列深度擴展 |
+| D10 | **Memory Storage（Valkey／Redis）這一版不引入**，介面留在 `RateLimitStore`、`BroadcastService`；要加時選 Valkey（BSD 授權、與 Redis 協定相容） | 跨程序的記憶體儲存只有兩個用途，都有 Postgres 的實作。觸發條件：`hit` 的 p99 > 5 ms、計數讓平台 DB 的 CPU > 60%、UNLOGGED 表的 autovacuum 跟不上；`pg_notification_queue_usage()` 持續 > 10% 或廣播每秒數千則。共享的資料快取與 session store 不規劃：本機快取＋失效廣播少一次網路往返，session 本來就在 JWT 與 DB |
+| D11 | **Queue 繼續用 pg-boss**，不引入 RabbitMQ／Kafka／NATS | 入列必須與業務交易一致（outbox）；外部佇列要再寫一套 outbox → broker 的搬運。多個 worker 以 `SKIP LOCKED` 分攤，排程有分散式鎖，每租戶的並行上限由 DB 強制。持續每秒數百筆以上、跨語言消費者、事件重播時再評估 NATS JetStream／Kafka |
+| D12 | **服務探索**：前端 nginx 的 upstream 以 `server … resolve` 在執行期解析（`deploy/nginx-upstreams.sh` 產生，位址由 `API_UPSTREAM`／`REALTIME_UPSTREAM` 指定）；Prometheus 以 `dns_sd_configs`；程序之間不互相呼叫 | Docker DNS 回傳每個實例的位址；`resolve`（nginx 1.27.3 起開源版支援）保留 upstream 的 keepalive，變數化的 `proxy_pass` 做不到。不需要 service mesh |
+| D13 | **優雅關閉與探針**：readiness 在排空中或平台 DB 連不上時回 `503 SERVICE_NOT_READY`，其他依賴的異常仍是 200 ＋ `degraded`；`SIGTERM` 後排空 `SHUTDOWN_DRAIN_SECONDS` 再關閉，WebSocket 在排空期內分批關閉傳輸 | 一個非必要依賴的抖動不該讓所有程序同時被移出服務；分批讓上千條連線不在同一秒重連到其他節點 |
+| D14 | **migration 相容的 CI 檢查**：掃描新增的 migration，破壞性語句（`DROP TABLE`／`COLUMN`、`RENAME`、改型別、`SET NOT NULL`、不帶 `DEFAULT` 的 `ADD COLUMN … NOT NULL`）要有 `-- breaking-ok: <理由>` | 滾動部署時新舊兩版程式同時連到新 schema。幾十行、秒級完成，擋下最常見的錯誤 |
+| D15 | **k8s 的參考部署用 Kustomize**（`deploy/k8s`：base ＋ `standalone`／`cluster` overlay）；單體與 cluster 之間有「`api` ＋ `api-worker`」的中間階段（仍是 standalone） | `kubectl apply -k` 不需要額外工具，覆寫值用 overlay 就夠；中間階段讓背景工作的 CPU 不影響 API，又不必先準備共享的速率限制 |
+
+### 7.3 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 依業務拆成獨立服務（各自的 repo、資料庫，服務之間以 HTTP／訊息溝通） | 不採用：見 D1 |
+| 共享速率限制用 Valkey 的 `INCR` ＋ `PEXPIRE` | 這一版不採用：D10 的升級目標 |
+| 本機計數 ＋ 每秒同步到共享儲存（近似） | 不採用為預設：登入延遲與鎖定需要精確計數。D10 的觸發條件出現時，可以只對 `DEFAULT`／`ANONYMOUS` 啟用 |
+| 每台的上限除以實例數 | 不採用：程序不知道實例數，自動擴展時上限會跟著變 |
+| 裝 `@socket.io/postgres-adapter` | 不採用：見 D8 |
+| 以上一版的程式碼對新 schema 跑整合測試（migration 相容） | 不採用：CI 時間翻倍，能抓到的與掃描重疊 |
+| Helm chart | 不採用（這一版）：見 D15；要發布給別人安裝時再評估 |
+| api 的 initContainer 跑 migration | 不採用：多個 Pod 同時跑會互搶；`migrate` 是部署流程裡的一個 Job |
+
+### 7.4 共享計數的壓測
+
+2026-10-08 在開發機（Docker Desktop、機器另有其他工作，load average ≈ 20）量測：
+
+- 資料庫端（pgbench 在容器內跑同一條 upsert，1,000 個 key ＋ 一成落在 5 個熱門 key）：8 個連線 6,300 次／秒、平均 1.3 ms；32 個連線 17,000 次／秒、平均 1.9 ms。
+  約是估算需求（1000 人在線 ≈ 600 次／秒）的 25 倍以上，熱門 key 的列鎖沒有成為瓶頸。
+- 從 Node 經 Docker 的埠轉發打（`pnpm --filter @b2b-system/api bench:rate-limit`）：p50 3.7 ms（並行 8），p99 數十到數百 ms——被開發機的負載與埠轉發主導。
+- 結論：吞吐量足夠，採用 Postgres。p99 < 5 ms 的門檻要在接近正式的環境（api 與 postgres 在同一個網段、沒有其他負載）重量一次；
+  上線後看 `api_rate_limit_store_duration_seconds`，超過即依 D10 換 Valkey。
+
+### 7.5 實作紀錄
+
+| 項目 | 構想 | 實作 | 原因 |
+| --- | --- | --- | --- |
+| 排空的位置 | 在 Nest 的關閉 hook 裡等 | `core/lifecycle` 的 `enableGracefulShutdown()` 取代 `enableShutdownHooks()`，在訊號處理裡先排空再 `app.close()` | Nest 的關閉順序從 `onModuleDestroy` 開始，沒有「關 HTTP 之前先等」的位置；排空期間推播、廣播都還要運作 |
+| WebSocket 的排空 | 分批斷線 | 分批關閉底層傳輸（`socket.conn.close()`），排空中拒絕新的 handshake | `socket.disconnect()` 在客戶端是「伺服器要你走」，Socket.io 不會自動重連 |
+| readiness 的 503 | 回 503 | 新錯誤碼 `SERVICE_NOT_READY`（`details.draining`、`details.checks`） | Service 拋 `AppException`、controller 不寫判斷 |
+| `JOBS_WORKER_ENABLED` | 移除，由 `APP_ROLES` 決定 | 保留：`worker` 角色裡是否真的執行工作（`false` 只入列，開機工作照做） | 測試與共用 dev DB 的驗證都依賴「不執行工作、其他照舊」 |
+| 角色的讀取時機 | `ProcessRoles` provider | `APP_ROLES` 以字串保存、`processRolesOf()` 解析；`app.module.ts` 在 import 時從 `process.env` 讀 | Nest 的模組清單是靜態的，gateway 只要被 import 就會掛上 Socket.io；`./core/config` 先載入時已把 `.env` 寫進 `process.env` |
+| `/oidc/*` | `SurfaceGuard` 擋 | OIDC 的 middleware 自己判斷：沒有 `http` 角色就交回 Nest（404） | `/oidc/*` 是 middleware，不經全域 guard |
+| 計數存不了時的錯誤碼 | 503 | 沿用 `AUTH_BUSY`（`retryAfterSeconds`） | 前端已經會倒數並停用送出鈕（[`backend/04-auth.md`](./backend/04-auth.md) §12 D7） |
+| 共享計數的壓測 | k6 對整個 api | `scripts/bench-rate-limit-store.ts` 直接壓 `hit`，另以 pgbench 量資料庫端 | 門檻定在儲存的延遲；整個 api 的壓測混了其他成本 |
+| 剛上傳圖片的推播 | — | 交易後一律先推 `create`，變體好了再推 `update`（拿掉「3 秒內合併成一次」） | 變體在另一個程序產生，http 程序不知道它何時完成 |
+| 影像變體的去重 | `exclusive`（以檔案 id） | 不用 `exclusive`；後執行的看到不是 `pending` 就結束 | `exclusive` 是每個租戶一筆，會讓同租戶的圖片排隊一張一張做 |
+| 依請求轉出其他格式 | — | 仍在 http 程序 | 使用者正在等那張圖 |
+| D5 的物件儲存檢查 | `cluster` 時 `FILE_STORAGE_*` 指向 apps/file-storage 要警告 | 沒做 | 小型 cluster 仍可能用單一實例的 file-storage；只寫在 §4.3 |
+| nginx 的 upstream | 變數化的 `proxy_pass` 或 `resolve` | 啟動時由 `deploy/nginx-upstreams.sh` 產生 `resolve` 的 upstream（resolver 取自 `/etc/resolv.conf`） | 同一份設定在 compose（127.0.0.11）與 k8s（叢集的 DNS）都能用 |
+| compose 的多實例 | 新的 `api-http` 服務 | `api` 本身改成 `http` 角色並設 `deploy.replicas`；`api-realtime`、`api-worker` 以 profile 定義在 `docker-compose.prod.yml`，`docker-compose.cluster.yml` 以 `!reset` 啟用 | 其他服務的 `depends_on: api` 與 nginx 的預設 upstream 不必改 |
+| k8s 的驗證 | CI 以 kind 起叢集、經 Ingress 打 `/api/health/ready` | `deploy/check-k8s.sh`：kustomize 產生 ＋ kubeconform（strict）；行為由 `deploy/smoke-test.sh --cluster` 驗證 | 沒有能在本機先驗證的 kind 環境，不加一個驗證不了的 CI job；角色、探針與排空的行為已由 compose 的多實例驗證 |
+| 多實例的 E2E | Playwright：api ×2、realtime ×2、worker ×1，滾動重啟期間不失敗 | 整合測試（`test/cross-process.spec.ts`：兩個程序之間的失效、推播、跨裝置中繼；`test/shared-rate-limit.spec.ts`；`test/process-roles.spec.ts`）＋ `deploy/smoke-test.sh --cluster` | Playwright 對多實例的整套環境沒有做；滾動重啟的行為由排空的單元測試與 readiness 的整合測試涵蓋 |

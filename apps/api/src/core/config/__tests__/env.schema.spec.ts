@@ -271,7 +271,7 @@ function development(overrides: Record<string, string> = {}) {
   };
 }
 
-describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/features/multi-instance.md D5）', () => {
+describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/architecture/01-system.md §7 D5）', () => {
   it('預設是單體（all）、standalone', () => {
     const env = validateEnv(development());
     expect(env.APP_ROLES).toBe('all');
@@ -310,7 +310,7 @@ describe('APP_ROLES 與 DEPLOYMENT_MODE（docs/features/multi-instance.md D5）'
   });
 });
 
-describe('RATE_LIMIT_STORE（docs/features/multi-instance.md D6）', () => {
+describe('RATE_LIMIT_STORE（docs/architecture/01-system.md §7 D6）', () => {
   it('沒設定時 standalone 用記憶體、cluster 用 Postgres', () => {
     expect(rateLimitStoreOf(validateEnv(development()))).toBe('memory');
     const cluster = validateEnv(

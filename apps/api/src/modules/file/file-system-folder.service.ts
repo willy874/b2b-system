@@ -75,7 +75,7 @@ export class FileSystemFolderService
 
   /**
    * 每個 `active` 的租戶各一套系統資料夾（docs/architecture/05-tenancy.md §10.2 D3）。只在 `worker` 角色做：
-   * 多個 http／realtime 程序同時開機時不必每個都進入每個租戶 DB（docs/features/multi-instance.md D3）。
+   * 多個 http／realtime 程序同時開機時不必每個都進入每個租戶 DB（docs/architecture/01-system.md §7 D3）。
    */
   async onApplicationBootstrap(): Promise<void> {
     const roles = processRolesOf({ APP_ROLES: this.config.get('APP_ROLES', { infer: true }) });

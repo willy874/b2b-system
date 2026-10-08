@@ -245,7 +245,7 @@ describe('兩個程序之間的一致性（docs/architecture/06-external-api.md 
     }
   });
 
-  it('跨裝置中繼：同一個人連在 A 的分頁送出，連在 B 的裝置收到（docs/features/multi-instance.md D8）', async () => {
+  it('跨裝置中繼：同一個人連在 A 的分頁送出，連在 B 的裝置收到（docs/architecture/01-system.md §7 D8）', async () => {
     const member = await createMember('cross-relay@example.com');
     const token = await tokenFor(member.id);
     const onA = await connect(a, token);

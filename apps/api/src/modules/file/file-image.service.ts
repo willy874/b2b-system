@@ -34,7 +34,7 @@ import type { ImageVariant } from './file.constants';
 import { FileRepository } from './file.repository';
 
 /**
- * 產生一個檔案的影像變體（docs/features/multi-instance.md D9）：在 worker 執行，sharp 的 CPU 不佔 API 的 event loop。
+ * 產生一個檔案的影像變體（docs/architecture/01-system.md §7 D9）：在 worker 執行，sharp 的 CPU 不佔 API 的 event loop。
  * 不用 `exclusive`（那是每個租戶一筆）：同一個檔案重複排入時，第二筆看到變體已經不是 `pending` 就直接結束。
  */
 export const FILE_IMAGE_VARIANTS_JOB = defineJob<{ fileId: string }>('file.imageVariants', {

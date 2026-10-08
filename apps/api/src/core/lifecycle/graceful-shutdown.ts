@@ -10,7 +10,7 @@ import { ShutdownState } from './shutdown-state';
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
 
 /**
- * 取代 `app.enableShutdownHooks()`（docs/features/multi-instance.md D13）：收到訊號後先排空（readiness 回 503、
+ * 取代 `app.enableShutdownHooks()`（docs/architecture/01-system.md §7 D13）：收到訊號後先排空（readiness 回 503、
  * 等 `SHUTDOWN_DRAIN_SECONDS`），再 `app.close()` 走 Nest 原本的關閉順序。Nest 的 hook 從 `onModuleDestroy` 開始，
  * 沒有「關 HTTP 之前先等一下」的位置，所以排空放在訊號處理裡。
  *

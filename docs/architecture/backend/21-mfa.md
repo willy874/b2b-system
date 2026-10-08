@@ -290,7 +290,7 @@ apps/platform /interaction/:uid
 
 - `GET /platform/mfa-methods`（`mfaMethod:read`）：註冊表裡的方式、全平台狀態、「覆寫成開／關的租戶數」、各方式已設定的因子數（平台工作 `mfa.factorStats` 每日統計進 `mfa_method_stats`，不即時查每個租戶 DB）、平台管理者能不能用（`PLATFORM_MFA_METHODS`）。
 - 租戶覆寫隨租戶登記載入 `TenantContext.mfaMethods`（`TenantDirectory`），變更時 `invalidate()` 並廣播，與 `flags` 相同；
-  全平台層快取在 `MfaMethodOverrideService`，**接上 `BroadcastService`**（不要重蹈 `FeatureFlagService` 只靠 TTL 的覆轍，[`multi-instance.md`](../../features/multi-instance.md)）。
+  全平台層快取在 `MfaMethodOverrideService`，**接上 `BroadcastService`**（不要重蹈 `FeatureFlagService` 只靠 TTL 的覆轍，[`../01-system.md`](../01-system.md) §7）。
 - 寫入與平台稽核（`mfaMethod.update`；租戶的併入 `tenant.update` 的 `before`／`after`）同一個交易。
 - **關掉前先看影響**：apps/platform 的切換對話框顯示「這個方式在這個租戶（或全平台）有幾個人只有這種因子、沒有備用碼」——這些人關掉後會 `AUTH_MFA_UNAVAILABLE`。
   照 [`05-tenancy.md`](../05-tenancy.md) §12.5 的做法：`GET /platform/mfa-methods/:id/impact?tenantId=` 逐一進租戶（`Tenancy.run`）以

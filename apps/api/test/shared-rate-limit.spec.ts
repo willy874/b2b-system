@@ -33,7 +33,7 @@ afterAll(async () => {
   await closeDb?.();
 });
 
-describe('PostgresRateLimitStore（docs/features/multi-instance.md D6）', () => {
+describe('PostgresRateLimitStore（docs/architecture/01-system.md §7 D6）', () => {
   it('同一個時間窗內累加，時間窗的結束時刻不變', async () => {
     const first = await store.hit('test:accumulate', 60_000);
     const second = await store.hit('test:accumulate', 60_000);

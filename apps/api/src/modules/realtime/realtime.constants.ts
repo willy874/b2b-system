@@ -6,7 +6,7 @@ export const REALTIME_MAX_FRAME_BYTES = 16 * 1024;
 export const REALTIME_LIMITS = Symbol('REALTIME_LIMITS');
 
 /**
- * 排空時把本節點的連線分成幾批斷開、攤在排空期的前幾成（docs/features/multi-instance.md D13）：
+ * 排空時把本節點的連線分成幾批斷開、攤在排空期的前幾成（docs/architecture/01-system.md §7 D13）：
  * 上千條連線不在同一秒重連到其他節點，最後一段留給最後一批完成重連。
  */
 export const REALTIME_DRAIN_BATCHES = 10;

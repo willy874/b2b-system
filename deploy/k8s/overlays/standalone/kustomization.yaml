@@ -1,0 +1,5 @@
+# 單體：api 一個 Pod 跑 HTTP、推播、背景工作（APP_ROLES=all）。負載低時用這個，資源最省。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base

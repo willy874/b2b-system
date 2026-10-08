@@ -17,7 +17,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 多實例部署與服務拆分 | [`multi-instance.md`](./multi-instance.md) | 實作中 | — |
+| — | 目前沒有待製作的功能 | — | — | — |
 
 狀態只有三種：
 
@@ -33,6 +33,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `multi-instance`（多實例部署與服務拆分：程序角色 `APP_ROLES`、部署模式 `DEPLOYMENT_MODE`、共享的速率限制計數、跨裝置中繼跨節點、影像變體改成背景工作、排空與 readiness、compose 的多實例與 k8s 的參考部署、migration 相容檢查）：[`01-system.md`](../architecture/01-system.md) §4.3、§7
 - `tenant-usage`（租戶用量：每小時的快照、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與用量分頁、儲存配額警示）：[`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14
 - `comments-watches`（留言、@提及、關注；擁有者登記資源類型，第一批是使用者；資源頁的面板註冊表）：[`backend/24-comment.md`](../architecture/backend/24-comment.md) §8、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md)
 - `organization`（部門樹、成員、主管的解析；平台可關閉）：[`backend/23-organization.md`](../architecture/backend/23-organization.md) §10
@@ -60,9 +61,7 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：
-
-1. `multi-instance`（多實例部署與服務拆分）：預設維持單體，以 `APP_ROLES`／`DEPLOYMENT_MODE` 切換成 `http`／`realtime`／`worker` 分開部署、可搬到 k8s。開放問題已有結論（D1～D15）；分五期，M1（feature flag 廣播、限流統一走 `RateLimitStore`、readiness 與排空）不依賴其他期，可以先做。
+接下來：清單是空的。新的構想照 §2 新增提案。
 
 ### 1.2 撰寫提案時的架構前提
 
