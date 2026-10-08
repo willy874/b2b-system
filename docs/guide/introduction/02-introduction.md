@@ -256,7 +256,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ### 9.3 還沒做到的部分
 
-- repo 沒有 CI。pre-commit（`lefthook.yml`）只跑 `oxfmt` 與 `oxlint`，[`backend/03-api-conventions.md`](../../architecture/backend/03-api-conventions.md) §12 提到的 OpenAPI diff 檢查尚未落地。
+- CI（`.github/workflows/ci.yml`）跑 typecheck、lint、format、單元與整合測試、依賴稽核、秘密掃描、bundle 預算與正式映像，但不跑 E2E，也還沒有 [`backend/03-api-conventions.md`](../../architecture/backend/03-api-conventions.md) §7.2 的 OpenAPI diff 檢查；Phase 0 訂的覆蓋率目標沒有寫成門檻。
 - 前端完整的層級依賴矩陣（[`coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review 與 `git grep` 自查；「識別字串必須是完整字面量」規則（[`coding-standards/06-literal-strings.md`](../../coding-standards/06-literal-strings.md)）也只靠 review。
 - 已知問題記錄在 [`issues/`](../../issues/README.md)。
 
@@ -264,8 +264,8 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 10. 現況
 
-**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理、公告、Webhook、標籤、命令面板（⌘K）、服務帳號與 API token、對外 API（`/v1`）、可由平台關閉的 feature 與 feature flag、深色主題。完整的能力地圖見 [`01-overview.md`](./01-overview.md) §3，畫面見 [`03-feature-tour.md`](./03-feature-tour.md)。
+**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理、公告、Webhook、標籤、命令面板（⌘K）、服務帳號與 API token、對外 API（`/v1`）、可由平台關閉的 feature 與 feature flag、MFA、組織管理與多階段審批、匯入／匯出、留言與關注、富文本、租戶用量、監控與前端錯誤回報、深色主題。完整的能力地圖見 [`01-overview.md`](./01-overview.md) §3，畫面見 [`03-feature-tour.md`](./03-feature-tour.md)。
 
-**待做**：留言與關注、多實例部署。每項都有提案文件，清單與優先度只維護在 [`features/README.md`](../../features/README.md)；時間軸見 [`../../features/roadmap.md`](../../features/roadmap.md)。
+**待做**：多實例部署（提案文件，只剩部署第二個 api 實例時才需要的部分）。清單與優先度只維護在 [`features/README.md`](../../features/README.md)；時間軸見 [`../../features/roadmap.md`](../../features/roadmap.md)。
 
-**技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`../../architecture/09-technology-selection.md`](../../architecture/09-technology-selection.md)。
+**技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、Tiptap 3、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`../../architecture/09-technology-selection.md`](../../architecture/09-technology-selection.md)。

@@ -435,8 +435,8 @@ pnpm sdk:generate
 # → packages/api-sdk/src/generated/（主入口：TS 型別 ＋ URL builder；/schemas：zod schema ＋ fetch 函式）
 ```
 
-CI 會檢查 `openapi.json` 與原始碼一致（重新產生後 `git diff` 必須為空），
-避免有人改了 controller 卻忘記重新產生 SDK。
+`openapi.json` 必須與原始碼一致（重新產生後 `git diff` 必須為空），避免有人改了 controller 卻忘記重新產生 SDK。
+**這項檢查還沒有自動化**：CI 不跑，目前靠 PR 檢查清單（[`coding-standards/05-git.md`](../../coding-standards/05-git.md) §3.2）。
 
 ---
 
@@ -595,7 +595,7 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
   出現在 spec 裡，於是 SDK 會產生對應的 const 物件（§7.1）
 - 前端的 `core/permission/enums.ts` 只做一層 re-export
 - `apps/backstage/src/shared/api-sdk/index.ts` 是整個前端對 SDK 的 **唯一** 引用點
-- CI 檢查：重新產生 `openapi.json` 後 `git diff` 必須為空（§7.2）
+- 重新產生 `openapi.json` 後 `git diff` 必須為空（§7.2；尚未由 CI 檢查）
 
 ### 12.3 理由
 
@@ -612,7 +612,7 @@ apps/api  ──(@nestjs/swagger + zod-openapi)──▶  openapi.json
 
 | 代價 | 緩解 |
 | --- | --- |
-| 多一個產生步驟，忘記跑會不一致 | CI 檢查 `openapi.json` 的 diff；`pnpm build` 會先跑 `sdk:generate` |
+| 多一個產生步驟，忘記跑會不一致 | 重新產生後檢查 `openapi.json` 的 diff（尚未進 CI，§7.2）；產生的 `packages/api-sdk/src/generated/` 也進版控，diff 在 review 時看得到（`pnpm build` 只編譯，不重新產生） |
 | 產生的程式碼可讀性不如手寫 | 它不需要被讀，只需要被用；`shared/api-sdk` 隔離了它 |
 | 後端未啟動時無法產生 | 從版控中的 `openapi.json` 產生即可，不需要跑起 server |
 | 產生器的 API 風格未必符合喜好 | 前端不直接用產生的 client，而是在 `apis/*/fetcher.ts` 包一層 |

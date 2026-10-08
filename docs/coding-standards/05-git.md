@@ -65,7 +65,7 @@ docs/restructure
   | --- | --- | --- |
   | commit | staged 檔案的 `oxfmt --check`、`oxlint` | `lefthook.yml` 的 pre-commit |
   | push | `pnpm typecheck`（整個 workspace） | `lefthook.yml` 的 pre-push |
-  | PR、push 到 `main` | typecheck、lint、format、`pnpm test`（含 api 的整合測試）、`pnpm audit --prod`、gitleaks 掃 git 歷史、`docker-compose.prod.yml` 整套建置啟動（`deploy/smoke-test.sh`）、`deploy/check-nginx.sh`、`deploy/check-monitoring.sh` | `.github/workflows/ci.yml` |
+  | PR、push 到 `main` | typecheck、lint、format、`pnpm test`（含 api 的整合測試）、`pnpm audit --prod`、gitleaks 掃 git 歷史、兩個前端的 bundle 預算、`docker-compose.prod.yml` 整套建置啟動（`deploy/smoke-test.sh`）、`deploy/check-nginx.sh`、`deploy/check-monitoring.sh` | `.github/workflows/ci.yml` |
 
   `--no-verify` 只略過本機的 hook，CI 照樣會跑。E2E（`pnpm test:e2e`）不在 CI 裡，動到使用者流程時自己跑。
 - 「三處同步」（`features/`、`modules/`、`docs/`）的變更放在 **同一個 commit 或同一個 PR**，
@@ -84,7 +84,7 @@ docs/restructure
 ### 3.2 送出前檢查清單
 
 ```
-- [ ] CI 通過（typecheck、lint、format、pnpm test、依賴稽核、秘密掃描、正式映像；§2.4）
+- [ ] CI 通過（typecheck、lint、format、pnpm test、依賴稽核、秘密掃描、bundle 預算、正式映像；§2.4）
 - [ ] 動到使用者流程：pnpm test:e2e
 - [ ] 動到 controller / DTO：已重新產生 openapi 與 SDK，且無多餘 diff
 - [ ] 動到 schema：已附 migration，並人工檢視過 SQL

@@ -8,7 +8,7 @@
 
 ---
 
-## 1. 現況（2026-10-04）
+## 1. 現況（2026-10-08）
 
 Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、非同步與溝通四組通用機制。各能力已在 main 上，規格寫在 `docs/architecture/`（身分與權限在 `docs/architecture/iam/`）；
 每份規格最後的「設計決策」章節記錄當時的取捨（原本的 `docs/adr/`，2026-10-02 併入）。
@@ -17,9 +17,9 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 
 | 項目 | 狀態 |
 | --- | --- |
-| CI | repo 沒有 CI；pre-commit（lefthook）只跑 oxfmt 與 oxlint，OpenAPI 的 diff 檢查尚未自動化 |
+| CI | `.github/workflows/ci.yml` 在 PR 與 push 到 `main` 時跑 typecheck、lint、format、`pnpm test`、依賴稽核、秘密掃描、bundle 預算、正式映像（[`coding-standards/05-git.md`](../coding-standards/05-git.md) §2.4）。還沒有的：E2E、`openapi.json` 與原始碼一致的檢查（[`backend/03-api-conventions.md`](../architecture/backend/03-api-conventions.md) §7.2） |
 | 前端層級依賴 | 依賴矩陣（[`coding-standards/07-layer-dependencies.md`](../coding-standards/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review |
-| 覆蓋率 | Phase 0 訂的目標（前端 75%、後端 80%，`core/permission`、`common/guards` 100%）沒有寫成測試設定的門檻，也沒有 CI 檢查 |
+| 覆蓋率 | Phase 0 訂的目標（前端 75%、後端 80%，`core/permission`、`common/guards` 100%）沒有寫成測試設定的門檻；`test:cov` 只能手動跑，CI 不檢查 |
 | 業務功能 | 沒有，這是骨架 |
 
 ---
@@ -42,13 +42,16 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-04 | `apps/auth` 改名 `apps/platform`；功能導覽與截圖劇本 | [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md) |
 | 10-07 | 命令面板（⌘K）、側欄改由 feature 登記的選單註冊表、全域快捷鍵 | [`frontend/18-command-palette.md`](../architecture/frontend/18-command-palette.md) |
 | 10-07 | 前端可觀測性：apps/apm-service（模擬 Sentry API）、錯誤回報與 release、Web Vitals、bundle 預算 | [`frontend/19-observability.md`](../architecture/frontend/19-observability.md) |
+| 10-07 | 監控：api 的 Prometheus 指標與 OpenTelemetry tracing、就緒檢查補上背景工作與 event loop；Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警，apm-service 的錯誤數與 issues 接進 Grafana | [`08-monitoring.md`](../architecture/08-monitoring.md) |
+| 10-07 | 安全與容量的強化：access token 金鑰環、速率限制第二版、獨立的檔案網域、個人資料夾、稽核冷表按月分區與保留期限、HTTP 快取 | [`backend/04-auth.md`](../architecture/backend/04-auth.md) §11、§12、[`backend/06-audit-log.md`](../architecture/backend/06-audit-log.md) §10 |
+| 10-07 | MFA：TOTP、Email 驗證碼、備用碼；登入的第二步、平台兩級開關、租戶政策；系統設定整併 | [`backend/21-mfa.md`](../architecture/backend/21-mfa.md)、[`backend/12-settings.md`](../architecture/backend/12-settings.md) |
 | 10-08 | 匯入／匯出：資源登記的欄位定義、CSV／XLSX／SQL 匯出、worker thread 的分析與無狀態驗證、`DataGrid` 預覽、逐列交易的背景套用；第一批是使用者與稽核日誌 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md)、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
 | 10-08 | 匯入／匯出的強化：JSON／YAML 匯入匯出與範本、預覽的下拉選單（包成儲存格的 `Select`，可多選）與自動完成、手動指定或撤回比對目標、復原／重做快捷鍵、編輯中的複製貼上、可讀的套用確認框 | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §13 D32～D39、[`frontend/21-data-transfer.md`](../architecture/frontend/21-data-transfer.md) |
 | 10-08 | 匯入／匯出擴充到角色、群組與群組成員、部門與部門成員、標籤（匯入＋匯出）與審批、服務帳號（只匯出）；同一份檔案內的引用（部門的上層） | [`backend/22-data-transfer.md`](../architecture/backend/22-data-transfer.md) §12、§7.8 |
 | 10-08 | 組織管理（部門樹、成員、主管）與多階段審批（依序多關、會簽、條件分流、override、我的審批與撤回）；兩者都可由平台關閉、預設啟用 | [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9、[`backend/23-organization.md`](../architecture/backend/23-organization.md) |
 | 10-08 | 租戶用量：每小時的快照（使用者、儲存與配額）、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與排序、詳情的用量分頁、儲存配額越過 80% 的平台通知 | [`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14 |
 | 10-08 | 留言與關注：擁有者登記的資源類型、@提及、關注的通知（背景工作）、資源頁的面板註冊表；第一批接上使用者 | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
-| 10-07 | 監控：api 的 Prometheus 指標與 OpenTelemetry tracing、就緒檢查補上背景工作與 event loop；Grafana ＋ Prometheus ＋ Tempo 的部署、儀表板與告警，apm-service 的錯誤數與 issues 接進 Grafana | [`08-monitoring.md`](../architecture/08-monitoring.md) |
+| 10-08 | 富文本：`@b2b-system/rich-text`（格式定義、純文字、連結白名單、JSON ⇄ HTML）、Tiptap 編輯器與自製檢視器；第一個用在公告內文 | [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.16 |
 | 10-08 | 功能導覽補上命令面板、MFA、組織、多階段審批、匯入／匯出、留言與關注、租戶用量，並重拍全部截圖（導覽劇本改用 `db:seed:dev` 的部門樹與 Webhook） | [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md) |
 
 ### 2.1 推翻過的決定
