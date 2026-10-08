@@ -49,7 +49,7 @@ const tenantOf = (id: string) => ({
 });
 
 interface FakeRequest {
-  ip: string;
+  ip: string | undefined;
   headers: Record<string, string>;
   body?: unknown;
   cookies?: Record<string, string>;
@@ -57,7 +57,9 @@ interface FakeRequest {
 }
 
 interface CallOptions {
-  ip?: string;
+  /** `null`：req.ip 沒有值（改看 socket.remoteAddress）。 */
+  ip?: string | null;
+  remoteAddress?: string;
   /** Bearer token；fake verifier 把 `user:<id>` 當成有效的 token。 */
   token?: string;
   body?: unknown;
@@ -81,11 +83,11 @@ function createGuard(store?: RateLimitStore) {
     const headers: Record<string, string> = {};
     if (options.token) headers.authorization = `Bearer ${options.token}`;
     const request: FakeRequest = {
-      ip: options.ip ?? '203.0.113.10',
+      ip: options.ip === null ? undefined : (options.ip ?? '203.0.113.10'),
       headers,
       body: options.body,
       cookies: options.cookie ? { refresh_token: options.cookie } : {},
-      socket: {},
+      socket: { remoteAddress: options.remoteAddress },
     };
     const responseHeaders: Record<string, string> = {};
     const instance = new TestController();
@@ -242,5 +244,62 @@ describe('RateLimitGuard（docs/architecture/backend/03-api-conventions.md §8�
       expect(login.error?.details?.retryAfterSeconds).toBeGreaterThan(0);
       expect((await call('refresh', { cookie: 'session-1' })).error?.code).toBe('AUTH_BUSY');
     });
+  });
+});
+
+describe('RateLimitGuard：其餘分支', () => {
+  it('req.ip 沒有值時以 socket.remoteAddress 計', async () => {
+    const call = createGuard();
+    const anonymous = () => call('list', { ip: null, remoteAddress: '192.0.2.1' });
+    await repeat(2, anonymous);
+    expect((await anonymous()).status).toBe(429);
+    expect((await call('list', { ip: null, remoteAddress: '192.0.2.2' })).status).toBe(200);
+  });
+
+  it('租戶覆寫 rateLimit.authPerMinute 時，租戶的登入合計以覆寫值為上限', async () => {
+    const call = createGuard();
+    const tenant = { ...tenantOf('acme'), featureParams: { 'rateLimit.authPerMinute': 60 } };
+    // 每次換 IP 與帳號：只有租戶桶會累積
+    const login = (index: number) =>
+      runInTenantContext(tenant, () =>
+        call('login', { ip: `198.18.0.${index}`, body: { email: `u${index}@example.com` } }),
+      );
+    const results: number[] = [];
+    for (let index = 1; index <= 61; index += 1) {
+      // oxlint-disable-next-line no-await-in-loop -- 依序計數
+      results.push((await login(index)).status);
+    }
+    expect(results.slice(0, 60).every((status) => status === 200)).toBe(true);
+    expect(results[60]).toBe(429);
+  });
+
+  it('已登入、body 沒有 email 的帳號類端點（改密碼）以身分計，換 IP 也一樣受限', async () => {
+    const call = createGuard();
+    const change = (ip: string) => call('login', { ip, token: 'user:alice', body: {} });
+    await change('203.0.113.1');
+    await change('203.0.113.2');
+    expect((await change('203.0.113.3')).status).toBe(429);
+    // 另一個身分不受影響
+    expect((await call('login', { ip: '203.0.113.4', token: 'user:bob', body: {} })).status).toBe(
+      200,
+    );
+  });
+
+  it('帳號類端點在租戶裡以「租戶＋身分」計', async () => {
+    const call = createGuard();
+    const change = (tenantId: string, ip: string) =>
+      runInTenantContext(tenantOf(tenantId), () =>
+        call('login', { ip, token: 'user:same-id', body: {} }),
+      );
+    await change('acme', '203.0.113.1');
+    await change('acme', '203.0.113.2');
+    expect((await change('acme', '203.0.113.3')).status).toBe(429);
+    expect((await change('beta', '203.0.113.4')).status).toBe(200);
+  });
+
+  it('續期沒有 refresh cookie 時只計 IP 桶', async () => {
+    const call = createGuard();
+    const results = await repeat(5, () => call('refresh'));
+    expect(results.map((result) => result.status)).toEqual([200, 200, 200, 200, 429]);
   });
 });

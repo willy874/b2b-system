@@ -91,7 +91,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `RichTextEditor` / `LazyRichTextEditor` / `RichTextViewer` | `RichTextEditor` 是 Tiptap 3（ProseMirror），頁面用延遲載入的 `LazyRichTextEditor`；`RichTextViewer` 自製（JSON → React 元素，不載入編輯器），兩者共用排版；格式定義與轉換在 `@b2b-system/rich-text`（§3.16、§14） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
-> [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
+> [`../../features/roadmap.md`](../../features/roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
 > `Calendar`（真正的 `<table>` ＋ roving tabindex）、`DatePicker` 與
 > `DateRangePicker`，稽核日誌的時間篩選用的就是它。
 
@@ -1295,7 +1295,7 @@ Vite 設定是 `packages/ui/vite.config.ts`（UnoCSS、svgr、CSS Module 命名�
 
 | 代價 | 評估 |
 | --- | --- |
-| **`components/` 的初期工作量大幅增加** | 這是主要代價。約 20 個元件要從零寫樣式。排入 [`../../overview/03-roadmap.md`](../../overview/03-roadmap.md) M1–M2 |
+| **`components/` 的初期工作量大幅增加** | 這是主要代價。約 20 個元件要從零寫樣式。排入 [`../../features/roadmap.md`](../../features/roadmap.md) M1–M2 |
 | Table / DatePicker 等要自己做 | Table 用 TanStack Table（本來就要用）；DatePicker 是 M2 的一整項工作 |
 | 沒有現成的視覺參考 | 需要先定 Design Token 與元件規格，不能邊做邊想 |
 | 社群範例比 MUI 少 | Base UI 文件完整；且它的 API 面比 MUI 小得多 |

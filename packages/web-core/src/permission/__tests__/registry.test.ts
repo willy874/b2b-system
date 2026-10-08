@@ -66,4 +66,38 @@ describe('頁面權限註冊表', () => {
     registerPagePermission(HOME_PAGE, { route: '/', rule });
     expect(new Set(getRegisteredPageKeys())).toEqual(new Set([ROLE_PAGE, HOME_PAGE]));
   });
+
+  it('多個 base path 都命中時取最長的（子頁面規則不被父規則蓋掉）', () => {
+    const CREATE_PAGE = definePageKey('ROLE_CREATE');
+    registerPagePermission(ROLE_PAGE, { route: '/role', rule });
+    registerPagePermission(CREATE_PAGE, { route: '/role/create', rule });
+    expect(resolvePageKey('/role/create')).toBe(CREATE_PAGE);
+    expect(resolvePageKey('/role/abc')).toBe(ROLE_PAGE);
+  });
+
+  it('最長命中與註冊順序無關（子頁面先註冊也一樣）', () => {
+    const CREATE_PAGE = definePageKey('ROLE_CREATE');
+    registerPagePermission(CREATE_PAGE, { route: '/role/create', rule });
+    registerPagePermission(ROLE_PAGE, { route: '/role', rule });
+    expect(resolvePageKey('/role/create/step-2')).toBe(CREATE_PAGE);
+  });
+
+  it('前綴相同但不是路徑段落的不命中', () => {
+    registerPagePermission(ROLE_PAGE, { route: '/role', rule });
+    expect(resolvePageKey('/roles')).toBeUndefined();
+  });
+
+  it('routeBasePath 沿 getParentRoute 接起上層 path，略過沒有 path 的 layout route', () => {
+    const root = { options: {} };
+    const layout = { options: { getParentRoute: () => root } };
+    const user = { options: { path: '/user/', getParentRoute: () => layout } };
+    const create = { options: { path: 'create', getParentRoute: () => user } };
+    expect(routeBasePath(create)).toBe('/user/create');
+  });
+
+  it('反註冊後頁面不再命中', () => {
+    const unregister = registerPagePermission(ROLE_PAGE, { route: '/role', rule });
+    unregister();
+    expect(resolvePageKey('/role')).toBeUndefined();
+  });
 });

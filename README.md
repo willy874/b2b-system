@@ -3,7 +3,7 @@
 一套 **通用型的多租戶 B2B 後台**。它不綁定任何業務領域，而是把每個後台都會重寫一次的基礎能力——
 帳號與登入、權限、稽核、檔案、背景工作、通知——一次做好，讓之後的業務功能只要「接上去」。
 
-規格在 [`docs/`](./docs/README.md)（單一事實來源），實作進度見 [`docs/overview/03-roadmap.md`](./docs/overview/03-roadmap.md)，
+規格在 [`docs/`](./docs/README.md)（單一事實來源），實作進度見 [`docs/features/roadmap.md`](./docs/features/roadmap.md)，
 待製作的功能見 [`docs/features/`](./docs/features/README.md)。
 
 ## 已經有什麼

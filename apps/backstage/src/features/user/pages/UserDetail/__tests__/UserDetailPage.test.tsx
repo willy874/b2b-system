@@ -416,3 +416,82 @@ describe('UserDetailPage 的所屬部門（docs/architecture/backend/23-organiza
     expect(screen.queryByTestId('user-org-unit-section')).not.toBeInTheDocument();
   });
 });
+
+describe('UserDetailPage 的基本資料（UserBasicSection）', () => {
+  it('沒有改任何欄位就儲存 → 直接回到檢視，不送出', async () => {
+    renderRoute(routes, PATH, EDITOR);
+    await startEditing();
+    fireEvent.submit(screen.getByTestId('user-edit-form'));
+    await waitFor(() => expect(screen.queryByTestId('user-edit-form')).toBeNull());
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it('開始編輯時聚焦顯示名稱；取消回到檢視', async () => {
+    renderRoute(routes, PATH, EDITOR);
+    const input = await startEditing();
+    await waitFor(() => expect(input).toHaveFocus());
+    fireEvent.click(
+      within(screen.getByTestId('user-edit-form')).getByRole('button', { name: '取消' }),
+    );
+    expect(screen.queryByTestId('user-edit-form')).toBeNull();
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it('已停用的人改回啟用 → 不必確認，直接送出', async () => {
+    fetchUser.mockResolvedValue({ ...base, status: 'inactive' });
+    renderRoute(routes, PATH, EDITOR);
+    await startEditing();
+    fireEvent.click(screen.getByTestId('user-status-select'));
+    fireEvent.click(await screen.findByRole('option', { name: '啟用' }));
+    fireEvent.click(screen.getByTestId('user-save-button'));
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(1));
+    expect(updateUser.mock.calls[0]![0].params.body).toEqual({ status: 'active', version: 3 });
+    expect(screen.queryByTestId('user-deactivate-confirm')).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId('user-edit-form')).toBeNull());
+  });
+
+  it('停用時其他錯誤 → 留在確認框讓人重試，編輯區保留', async () => {
+    updateUser.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, PATH, EDITOR);
+    await startEditing();
+    fireEvent.click(screen.getByTestId('user-status-select'));
+    fireEvent.click(await screen.findByRole('option', { name: '停用' }));
+    fireEvent.click(screen.getByTestId('user-save-button'));
+    const confirm = await screen.findByTestId('user-deactivate-confirm');
+    fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
+
+    await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('user-deactivate-confirm')).toBeInTheDocument();
+    expect(screen.getByTestId('user-edit-form')).toBeInTheDocument();
+  });
+
+  it('停用的確認按取消 → 不送出，編輯區保留', async () => {
+    renderRoute(routes, PATH, EDITOR);
+    await startEditing();
+    fireEvent.click(screen.getByTestId('user-status-select'));
+    fireEvent.click(await screen.findByRole('option', { name: '停用' }));
+    fireEvent.click(screen.getByTestId('user-save-button'));
+    fireEvent.click(
+      within(await screen.findByTestId('user-deactivate-confirm')).getByTestId(
+        'alert-dialog-cancel',
+      ),
+    );
+    await waitFor(() => expect(screen.queryByTestId('user-deactivate-confirm')).toBeNull());
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(screen.getByTestId('user-edit-form')).toBeInTheDocument();
+  });
+
+  it('重新載入失敗 → 以 toast 顯示錯誤', async () => {
+    updateUser.mockRejectedValueOnce(conflict());
+    renderRoute(routes, PATH, EDITOR);
+    const input = await startEditing();
+    fireEvent.change(input, { target: { value: 'Mine' } });
+    fireEvent.submit(screen.getByTestId('user-edit-form'));
+    await screen.findByTestId('version-conflict-alert');
+
+    fetchUser.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+    fireEvent.click(screen.getByTestId('version-conflict-reload'));
+    expect(await screen.findByTestId('toast')).toHaveAttribute('data-value', 'error');
+  });
+});

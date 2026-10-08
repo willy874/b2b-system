@@ -11,16 +11,25 @@ import { initTestI18n } from '@/test/i18n';
 import { registerServiceAccountPagePermissions, Routes } from '../../..';
 import serviceAccountZhTW from '../../../locales/zh_TW.json';
 
-const { fetchList, fetchAccount, fetchTokens, fetchRoles, createToken, revokeToken, replaceRoles } =
-  vi.hoisted(() => ({
-    fetchList: vi.fn(),
-    fetchAccount: vi.fn(),
-    fetchTokens: vi.fn(),
-    fetchRoles: vi.fn(),
-    createToken: vi.fn(),
-    revokeToken: vi.fn(),
-    replaceRoles: vi.fn(),
-  }));
+const {
+  fetchList,
+  fetchAccount,
+  fetchTokens,
+  fetchRoles,
+  createToken,
+  revokeToken,
+  replaceRoles,
+  updateAccount,
+} = vi.hoisted(() => ({
+  updateAccount: vi.fn(),
+  fetchList: vi.fn(),
+  fetchAccount: vi.fn(),
+  fetchTokens: vi.fn(),
+  fetchRoles: vi.fn(),
+  createToken: vi.fn(),
+  revokeToken: vi.fn(),
+  replaceRoles: vi.fn(),
+}));
 vi.mock('@/apis/service-account/get-service-account-list/fetcher', () => ({
   fetchServiceAccountListQuery: fetchList,
 }));
@@ -36,6 +45,9 @@ vi.mock('@/apis/service-account/create-service-account-token/fetcher', () => ({
 }));
 vi.mock('@/apis/service-account/revoke-service-account-token/fetcher', () => ({
   fetchServiceAccountTokenRevokeMutation: revokeToken,
+}));
+vi.mock('@/apis/service-account/update-service-account/fetcher', () => ({
+  fetchServiceAccountUpdateMutation: updateAccount,
 }));
 vi.mock('@/apis/service-account/replace-service-account-roles/fetcher', () => ({
   fetchServiceAccountRolesReplaceMutation: replaceRoles,
@@ -107,8 +119,21 @@ beforeEach(() => {
   createToken.mockReset().mockResolvedValue({ token: TOKEN, apiToken: { ...apiToken, id: 't2' } });
   revokeToken.mockReset().mockResolvedValue(undefined);
   replaceRoles.mockReset().mockResolvedValue({ roles: [] });
+  updateAccount
+    .mockReset()
+    .mockImplementation(({ params }) =>
+      Promise.resolve({ id: 'sa1', name: params.body.name ?? 'CI 建置', version: 2 }),
+    );
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
+
+async function openEditor() {
+  renderRoute(routes, '/service-account/sa1', MANAGER);
+  fireEvent.click(
+    await screen.findByTestId('service-account-edit-button', undefined, { timeout: 5000 }),
+  );
+  return screen.findByTestId('service-account-edit-form');
+}
 
 describe('ServiceAccountDetailPage（docs/architecture/06-external-api.md §9 T4）', () => {
   it('只有 serviceAccount:read → 看得到 token 列表，不能建立、撤銷、編輯', async () => {
@@ -207,6 +232,111 @@ describe('ServiceAccountDetailPage（docs/architecture/06-external-api.md §9 T4
       expect(replaceRoles.mock.calls[1]![0]).toMatchObject({
         params: { body: { roleIds: ['r1', 'r2'], expectedRoleIds: ['r1'] } },
       });
+    });
+  });
+
+  describe('基本資料（ServiceAccountBasicSection）', () => {
+    it('停用要先確認（token 會全部失效），確認後帶版本送出 inactive', async () => {
+      renderRoute(routes, '/service-account/sa1', MANAGER);
+      const button = await screen.findByTestId('service-account-status-button', undefined, {
+        timeout: 5000,
+      });
+      expect(button).toHaveTextContent('停用');
+      fireEvent.click(button);
+
+      const dialog = await screen.findByTestId('service-account-deactivate-confirm');
+      expect(dialog).toHaveTextContent('1 把有效 token 會立即失效');
+      expect(updateAccount).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole('button', { name: '停用' }));
+
+      await waitFor(() => expect(updateAccount).toHaveBeenCalledTimes(1));
+      expect(updateAccount.mock.calls[0]![0]).toMatchObject({
+        params: { serviceAccountId: 'sa1', body: { status: 'inactive', version: 1 } },
+      });
+    });
+
+    it('已停用 → 啟用不必確認，直接送出 active', async () => {
+      fetchAccount.mockResolvedValue({ ...(await fetchAccount()), status: 'inactive' });
+      renderRoute(routes, '/service-account/sa1', MANAGER);
+      const button = await screen.findByTestId('service-account-status-button', undefined, {
+        timeout: 5000,
+      });
+      expect(button).toHaveTextContent('啟用');
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(updateAccount.mock.calls[0]![0]).toMatchObject({
+          params: { body: { status: 'active', version: 1 } },
+        }),
+      );
+      expect(screen.queryByTestId('service-account-deactivate-confirm')).toBeNull();
+    });
+
+    it('改名：送出去頭尾空白的名稱與開始編輯時的版本，成功後回到檢視', async () => {
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('service-account-name-edit-input'), {
+        target: { value: '  部署機  ' },
+      });
+      fireEvent.click(within(form).getByTestId('service-account-save-button'));
+
+      await waitFor(() => expect(updateAccount).toHaveBeenCalledTimes(1));
+      expect(updateAccount.mock.calls[0]![0]).toMatchObject({
+        params: { serviceAccountId: 'sa1', body: { name: '部署機', version: 1 } },
+      });
+      await waitFor(() => expect(screen.queryByTestId('service-account-edit-form')).toBeNull());
+    });
+
+    it('名稱空白不能儲存；取消回到檢視', async () => {
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('service-account-name-edit-input'), {
+        target: { value: ' ' },
+      });
+      expect(within(form).getByTestId('service-account-save-button')).toBeDisabled();
+      fireEvent.click(within(form).getByRole('button', { name: '取消' }));
+      expect(screen.queryByTestId('service-account-edit-form')).toBeNull();
+    });
+
+    it('儲存失敗（非衝突）→ 以 toast 顯示錯誤，輸入保留', async () => {
+      updateAccount.mockRejectedValue(new AppError('SERVICE_ACCOUNT_NOT_FOUND', 404));
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('service-account-name-edit-input'), {
+        target: { value: '新名稱' },
+      });
+      fireEvent.click(within(form).getByTestId('service-account-save-button'));
+      expect(await screen.findByText('找不到這個服務帳號，可能已被刪除。')).toBeInTheDocument();
+      expect(screen.getByTestId('service-account-name-edit-input')).toHaveValue('新名稱');
+    });
+
+    it('版本衝突 → 重新載入後以最新的名稱與版本為基礎', async () => {
+      updateAccount.mockRejectedValueOnce(new AppError('SERVICE_ACCOUNT_VERSION_CONFLICT', 409));
+      const form = await openEditor();
+      fireEvent.change(within(form).getByTestId('service-account-name-edit-input'), {
+        target: { value: '我的修改' },
+      });
+      fireEvent.click(within(form).getByTestId('service-account-save-button'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchAccount.mockResolvedValue({ ...(await fetchAccount()), name: '別人的修改', version: 4 });
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      await waitFor(() =>
+        expect(screen.getByTestId('service-account-name-edit-input')).toHaveValue('別人的修改'),
+      );
+
+      fireEvent.click(screen.getByTestId('service-account-save-button'));
+      await waitFor(() => expect(updateAccount).toHaveBeenCalledTimes(2));
+      expect(updateAccount.mock.calls[1]![0]).toMatchObject({
+        params: { body: { name: '別人的修改', version: 4 } },
+      });
+    });
+
+    it('重新載入失敗 → 以 toast 顯示錯誤', async () => {
+      updateAccount.mockRejectedValueOnce(new AppError('SERVICE_ACCOUNT_VERSION_CONFLICT', 409));
+      const form = await openEditor();
+      fireEvent.click(within(form).getByTestId('service-account-save-button'));
+      await screen.findByTestId('version-conflict-alert');
+
+      fetchAccount.mockRejectedValue(new AppError('SERVICE_ACCOUNT_NOT_FOUND', 404));
+      fireEvent.click(screen.getByTestId('version-conflict-reload'));
+      expect(await screen.findByText('找不到這個服務帳號，可能已被刪除。')).toBeInTheDocument();
     });
   });
 });

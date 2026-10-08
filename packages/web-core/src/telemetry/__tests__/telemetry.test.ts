@@ -1,9 +1,11 @@
-import { getClient } from '@sentry/browser';
+import { addBreadcrumb, captureException, getClient, init, setTag, setUser } from '@sentry/browser';
+import type * as SentryBrowser from '@sentry/browser';
 import type { ErrorEvent, StreamedSpanJSON, TransactionEvent } from '@sentry/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AbortReason, NetworkError, RequestAbortedError } from '../../client';
 import { AppError } from '../../errors';
+import { scrubText } from '../scrub';
 import {
   beforeBreadcrumb,
   beforeSendError,
@@ -17,7 +19,21 @@ import {
   isExpectedError,
   resetTelemetryStateForTest,
   resolveDsn,
+  addTelemetryBreadcrumb,
+  setTelemetryUser,
+  telemetryRootOptions,
 } from '../telemetry';
+
+// SDK 的全域副作用（init、上報）換成假的：只驗證這裡交給 SDK 的內容；事件處理的純函式仍用真的
+vi.mock('@sentry/browser', async (importOriginal) => ({
+  ...(await importOriginal<typeof SentryBrowser>()),
+  init: vi.fn(),
+  captureException: vi.fn(() => 'event-1'),
+  lastEventId: vi.fn(() => 'event-1'),
+  setUser: vi.fn(),
+  setTag: vi.fn(),
+  addBreadcrumb: vi.fn(),
+}));
 
 function errorEvent(value = "Cannot read properties of undefined (reading 'id')"): ErrorEvent {
   return {
@@ -294,5 +310,170 @@ describe('initTelemetry({ enabled: false })（APM 整套關閉，docs/architectu
     expect(getClient()).toBeUndefined();
     expect(captureError(new Error('boom'), 'manual')).toBeUndefined();
     expect(getTelemetryContext().eventId).toBeUndefined();
+  });
+});
+
+describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observability.md）', () => {
+  const base = { app: 'backstage', release: 'r1', environment: 'production' };
+  type InitOptions = NonNullable<Parameters<typeof init>[0]>;
+  const initOptions = () => vi.mocked(init).mock.calls.at(-1)?.[0] as InitOptions;
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('沒有 DSN：給一個不連線的 DSN 與印到 console 的 transport，不取樣 Web Vitals', () => {
+    initTelemetry(base);
+
+    expect(initOptions()).toMatchObject({
+      dsn: 'http://dev@localhost/0',
+      release: 'r1',
+      environment: 'production',
+      defaultIntegrations: false,
+      tracesSampleRate: 0,
+      tracePropagationTargets: [],
+      initialScope: { tags: { app: 'backstage' } },
+    });
+    expect(initOptions().transport).toEqual(expect.any(Function));
+    expect(getTelemetryContext()).toEqual({ eventId: 'event-1', release: 'r1', route: undefined });
+  });
+
+  it('有 DSN：送到同源的 apm-service，Web Vitals 預設取樣 0.1；可以覆寫', () => {
+    initTelemetry({ ...base, projectId: '1', publicKey: 'abc' });
+    expect(initOptions()).toMatchObject({
+      dsn: `${globalThis.location.protocol}//abc@${globalThis.location.host}/apm/1`,
+      tracesSampleRate: 0.1,
+    });
+    expect(initOptions().transport).toBeUndefined();
+
+    resetTelemetryStateForTest();
+    initTelemetry({ ...base, dsn: 'https://k@sentry.example.com/9', tracesSampleRate: 0.5 });
+    expect(initOptions()).toMatchObject({
+      dsn: 'https://k@sentry.example.com/9',
+      tracesSampleRate: 0.5,
+    });
+  });
+
+  it('只初始化一次', () => {
+    initTelemetry(base);
+    initTelemetry({ ...base, release: 'r2' });
+
+    expect(init).toHaveBeenCalledTimes(1);
+    expect(getTelemetryContext().release).toBe('r1');
+  });
+
+  it('SDK 的 beforeSend 交給 beforeSendError（遮罩、只留使用者 id）', () => {
+    initTelemetry(base);
+
+    const sent = initOptions().beforeSend?.(errorEvent(), {}) as ErrorEvent;
+
+    expect(sent.user).toEqual({ id: 'u-1' });
+  });
+
+  it('captureError 帶上來源與是否已處理，回傳事件 id', () => {
+    const error = new Error('boom');
+    expect(captureError(error, 'manual')).toBeUndefined();
+    expect(captureException).not.toHaveBeenCalled();
+
+    initTelemetry(base);
+
+    expect(captureError(error, 'worker', false)).toBe('event-1');
+    expect(captureException).toHaveBeenCalledWith(error, {
+      captureContext: { tags: { source: 'worker' } },
+      mechanism: { type: 'worker', handled: false },
+    });
+  });
+
+  it('setTelemetryUser 只帶 id；登出時清掉；未初始化時不做事', () => {
+    setTelemetryUser('u-1');
+    expect(setUser).not.toHaveBeenCalled();
+
+    initTelemetry(base);
+    setTelemetryUser('u-1');
+    setTelemetryUser(undefined);
+
+    expect(vi.mocked(setUser).mock.calls).toEqual([[{ id: 'u-1' }], [null]]);
+  });
+
+  it('addTelemetryBreadcrumb 遮罩訊息；未初始化時不做事', () => {
+    addTelemetryBreadcrumb('realtime', 'x');
+    expect(addBreadcrumb).not.toHaveBeenCalled();
+
+    initTelemetry(base);
+    const message = '連線中斷 alice@example.com';
+    addTelemetryBreadcrumb('realtime', message, { reason: 'timeout' });
+    addTelemetryBreadcrumb('navigation', 'go');
+
+    expect(vi.mocked(addBreadcrumb).mock.calls).toEqual([
+      [{ category: 'realtime', message: scrubText(message, 200), data: { reason: 'timeout' } }],
+      [{ category: 'navigation', message: 'go' }],
+    ]);
+  });
+
+  it('初始化後換頁：設定 route tag、加導覽的 breadcrumb；同一個目的地只算一次', () => {
+    initTelemetry(base);
+    let listener: ((event: unknown) => void) | undefined;
+    const router = {
+      state: { location: { pathname: '/' } },
+      matchRoutes: (pathname: string) => [{ fullPath: pathname }],
+      subscribe: (_type: string, fn: (event: unknown) => void) => {
+        listener = fn;
+        return () => undefined;
+      },
+    } as unknown as Parameters<typeof bindTelemetryRouter>[0];
+    bindTelemetryRouter(router);
+    const navigate = {
+      pathChanged: true,
+      fromLocation: { pathname: '/' },
+      toLocation: { pathname: '/role', href: '/role' },
+    };
+
+    listener?.(navigate);
+    listener?.(navigate);
+    listener?.({ ...navigate, pathChanged: false });
+
+    expect(setTag).toHaveBeenLastCalledWith('route', '/role');
+    expect(addBreadcrumb).toHaveBeenCalledTimes(1);
+    expect(addBreadcrumb).toHaveBeenCalledWith({
+      category: 'navigation',
+      data: { from: '/', to: '/role' },
+    });
+  });
+});
+
+describe('telemetryRootOptions（交給 createRoot 的錯誤回呼）', () => {
+  beforeEach(() => {
+    initTelemetry({ app: 'backstage', release: 'r1', environment: 'test' });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it('未捕捉的錯誤標為未處理，並保留 console 輸出', () => {
+    const error = new Error('uncaught');
+    telemetryRootOptions().onUncaughtError(error);
+
+    expect(captureException).toHaveBeenCalledWith(error, {
+      captureContext: { tags: { source: 'react' } },
+      mechanism: { type: 'react', handled: false },
+    });
+    expect(console.error).toHaveBeenCalledWith(error);
+  });
+
+  it('錯誤邊界接住的錯誤與可復原的錯誤標為已處理；可復原的不印 console', () => {
+    const options = telemetryRootOptions();
+    options.onCaughtError(new Error('caught'));
+    options.onRecoverableError(new Error('recoverable'));
+
+    const handled = vi
+      .mocked(captureException)
+      .mock.calls.map(
+        ([, hint]) => (hint as { mechanism: { handled: boolean } }).mechanism.handled,
+      );
+    expect(handled).toEqual([true, true]);
+    expect(console.error).toHaveBeenCalledTimes(1);
   });
 });

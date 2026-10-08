@@ -1,21 +1,26 @@
 import { sessionStore } from '@b2b-system/web-core/auth';
+import { AppError } from '@b2b-system/web-core/errors';
 import { resetRouteLinkRegistry } from '@b2b-system/web-core/route-link';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resetPagePermissionRegistry } from '@/core/permission';
+import { registerTenantPagePermissions } from '@/features/tenant';
+import { registerTenantRouteLinks } from '@/features/tenant/routeLinks';
+import { TenantDetailRoute } from '@/features/tenant/routes/pages';
 import { initTestI18n } from '@/test/i18n';
 
 import { registerNotificationPagePermissions, Routes } from '..';
 import { NotificationBell } from '../components/NotificationBell';
 import notificationZhTW from '../locales/zh_TW.json';
 
-const { fetchCount, fetchList, markAll, markRead } = vi.hoisted(() => ({
+const { fetchCount, fetchList, markAll, markRead, deleteOne } = vi.hoisted(() => ({
   fetchCount: vi.fn(),
   fetchList: vi.fn(),
   markAll: vi.fn(),
   markRead: vi.fn(),
+  deleteOne: vi.fn(),
 }));
 vi.mock('@/apis/platform-notification/get-notification-unread-count/fetcher', () => ({
   fetchNotificationUnreadCountQuery: fetchCount,
@@ -28,6 +33,9 @@ vi.mock('@/apis/platform-notification/mark-all-notifications-read/fetcher', () =
 }));
 vi.mock('@/apis/platform-notification/mark-notification-read/fetcher', () => ({
   fetchMarkNotificationReadMutation: markRead,
+}));
+vi.mock('@/apis/platform-notification/delete-notification/fetcher', () => ({
+  fetchDeleteNotificationMutation: deleteOne,
 }));
 
 beforeAll(() => initTestI18n(notificationZhTW));
@@ -53,6 +61,7 @@ beforeEach(() => {
   });
   markAll.mockReset().mockResolvedValue({ updated: 3 });
   markRead.mockReset().mockResolvedValue({});
+  deleteOne.mockReset().mockResolvedValue(undefined);
 });
 
 function renderBell() {
@@ -112,5 +121,83 @@ describe('NotificationBell（頂列的通知）', () => {
     await waitFor(() =>
       expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n1' }),
     );
+  });
+
+  it('未讀超過 99 → 徽章顯示 99+', async () => {
+    fetchCount.mockResolvedValue({ count: 150 });
+    renderBell();
+    const badge = await screen.findByTestId('notification-unread-count');
+    expect(badge).toHaveTextContent('99+');
+    expect(badge).toHaveAttribute('data-value', '150');
+  });
+
+  it('沒有未讀 → 沒有徽章，名稱不帶數量，「全部已讀」停用', async () => {
+    fetchCount.mockResolvedValue({ count: 0 });
+    renderBell();
+    expect(await screen.findByRole('button', { name: '通知中心' })).toBeInTheDocument();
+    expect(screen.queryByTestId('notification-unread-count')).toBeNull();
+    fireEvent.click(screen.getByTestId('notification-bell'));
+    expect(await screen.findByTestId('notification-mark-all-read')).toBeDisabled();
+  });
+
+  it('沒有通知 → 顯示空狀態', async () => {
+    fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 10, total: 0 } });
+    renderBell();
+    fireEvent.click(await screen.findByTestId('notification-bell'));
+    expect(await screen.findByTestId('notification-empty')).toHaveTextContent('還沒有通知');
+  });
+
+  it('列表取不到 → 顯示錯誤，重試後再抓一次', async () => {
+    fetchList.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+    renderBell();
+    fireEvent.click(await screen.findByTestId('notification-bell'));
+    expect(await screen.findByTestId('notification-error')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('query-error-retry'));
+    expect(await screen.findByTestId('notification-item')).toBeInTheDocument();
+    expect(fetchList).toHaveBeenCalledTimes(2);
+  });
+
+  it('全部已讀被拒絕（403）→ 顯示錯誤提示', async () => {
+    markAll.mockRejectedValue(new AppError('AUTHZ_FORBIDDEN', 403));
+    renderBell();
+    await screen.findByTestId('notification-unread-count');
+    fireEvent.click(screen.getByTestId('notification-bell'));
+    fireEvent.click(await screen.findByTestId('notification-mark-all-read'));
+    expect(await screen.findByTestId('toast')).toBeInTheDocument();
+  });
+
+  it('「查看全部」關閉 Popover', async () => {
+    renderBell();
+    fireEvent.click(await screen.findByTestId('notification-bell'));
+    fireEvent.click(await screen.findByTestId('notification-view-all'));
+    await waitFor(() => expect(screen.queryByTestId('notification-panel')).toBeNull());
+  });
+
+  it('詳細內容裡刪除 → 送出刪除', async () => {
+    renderBell();
+    fireEvent.click(await screen.findByTestId('notification-bell'));
+    fireEvent.click(await screen.findByTestId('notification-item-open'));
+    fireEvent.click(await screen.findByTestId('notification-detail-delete'));
+    await waitFor(() =>
+      expect(deleteOne.mock.calls[0]![0].params).toEqual({ notificationId: 'n1' }),
+    );
+  });
+
+  it('有權限看連結的目標 → 快速連結：標為已讀、關閉 Popover 並前往', async () => {
+    registerTenantPagePermissions();
+    registerTenantRouteLinks();
+    Routes.NotificationListRoute.update({ component: () => <NotificationBell /> });
+    const { router } = renderRoute(
+      [Routes.NotificationListRoute, TenantDetailRoute],
+      '/notification',
+      ['tenant:read'],
+    );
+    fireEvent.click(await screen.findByTestId('notification-bell'));
+    fireEvent.click(await screen.findByTestId('notification-item-link'));
+    await waitFor(() =>
+      expect(markRead.mock.calls[0]![0].params).toEqual({ notificationId: 'n1' }),
+    );
+    await waitFor(() => expect(screen.queryByTestId('notification-panel')).toBeNull());
+    await waitFor(() => expect(router.state.location.pathname).toBe('/tenant/t1'));
   });
 });

@@ -101,6 +101,38 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       'notification.message.watchResourceUpdated{"resourceType":"notification.resourceType.user","name":"王小明"}',
       [],
     ],
+    [
+      'approval.pending 多階段：帶關卡名稱（docs/architecture/backend/20-approval.md §9.15）',
+      { ...base, params: { ...base.params, stepName: '主管' } },
+      'notification.message.approvalPendingStep{"requester":"carol@example.com","type":"notification.approvalType.userRegister","step":"主管"}',
+      ['notification.detail.subject{"subject":"Carol"}'],
+    ],
+    [
+      'approval.progress：目前與下一關',
+      {
+        ...base,
+        type: 'approval.progress',
+        params: { approvalType: 'user.register', stepName: '主管', nextStepName: '人資' },
+      },
+      'notification.message.approvalProgress{"type":"notification.approvalType.userRegister","step":"主管","next":"人資"}',
+      [],
+    ],
+    [
+      'approval.unassigned：沒有審核者的關卡',
+      {
+        ...base,
+        type: 'approval.unassigned',
+        params: { approvalType: 'user.register', stepName: '主管', subject: 'Carol' },
+      },
+      'notification.message.approvalUnassigned{"type":"notification.approvalType.userRegister","step":"主管"}',
+      ['notification.detail.subject{"subject":"Carol"}'],
+    ],
+    [
+      'user.rolesChanged：只有移除的角色',
+      { ...base, type: 'user.rolesChanged', params: { added: [], removed: ['稽核'] } },
+      'notification.message.userRolesChanged',
+      ['notification.detail.rolesRemoved{"roles":"稽核"}'],
+    ],
   ])('%s', (_name, notification, message, details) => {
     const described = describeNotification(notification);
     expect(translateMessage(fakeT, 'en', described.message)).toBe(message);
@@ -120,6 +152,10 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
     ['approval.pending 缺申請人', { type: 'approval.pending', params: { subject: 'x' } }],
     ['approval.result 的 status 不合預期', { type: 'approval.result', params: { status: 'x' } }],
     ['rolesChanged 的角色不是字串陣列', { type: 'user.rolesChanged', params: { added: [1] } }],
+    ['approval.progress 缺下一關', { type: 'approval.progress', params: { stepName: '主管' } }],
+    ['approval.unassigned 缺關卡名稱', { type: 'approval.unassigned', params: {} }],
+    ['watch.resourceUpdated 缺資源名稱', { type: 'watch.resourceUpdated', params: {} }],
+    ['comment.created 缺資源名稱', { type: 'comment.created', params: {} }],
   ])('%s → 通用文字、沒有補充', (_name, notification) => {
     expect(describeNotification(notification)).toEqual({
       message: { key: 'notification.message.unknown', args: {} },
@@ -158,5 +194,15 @@ describe('translateMessage', () => {
   it('清單依語系串起來', () => {
     const message = { key: 'k', args: { roles: { list: ['A', 'B', 'C'] } } };
     expect(translateMessage(fakeT, 'zh-TW', message)).toBe('k{"roles":"A、B和C"}');
+  });
+
+  it('語系不合法時退回逗號串接', () => {
+    const message = { key: 'k', args: { roles: { list: ['A', 'B'] } } };
+    expect(translateMessage(fakeT, '!!', message)).toBe('k{"roles":"A, B"}');
+  });
+
+  it('key 參數先翻譯再代入', () => {
+    const message = { key: 'k', args: { type: { key: 'inner' } } };
+    expect(translateMessage(fakeT, 'en', message)).toBe('k{"type":"inner"}');
   });
 });

@@ -3,6 +3,7 @@
 這個資料夾放 **還沒做的功能提案**，一個功能一份文件。
 它是暫存區，不是規格：功能做完之後，提案文件要 **刪掉**，內容改寫成正式的設計文件，
 歸檔到 `docs/` 的對應分區（見 §4）。
+同一個資料夾的 [`roadmap.md`](./roadmap.md) 記錄已完成的時間軸與現況，和這份清單一起看就是專案的進度；它不是提案，不會被刪除。
 
 > 為什麼要分開：`architecture/` 描述的是 **系統現在長什麼樣子**，
 > 必須與程式碼同步（[`../README.md`](../README.md) §5）。尚未實作的構想若寫進去，
@@ -126,8 +127,8 @@
 2. **設計決策** 搬進主要那份規格的最後一章「`## N. 設計決策：<主題>`」（格式見 [`../README.md`](../README.md) §4）：
    提案中被否決的方案、實作時改掉的做法，寫進該章的「評估過的方案」「實作紀錄」；`D` 編號不重排，程式碼註解以 `<文件> §N.x Dn` 引用。
 3. **更新索引**：[`../README.md`](../README.md) §3 文件地圖、對應分區的 `README.md`（如 `architecture/backend/README.md`）。
-4. **連帶更新**：權限目錄、[`../overview/01-overview.md`](../overview/01-overview.md) 的範圍表、
-   [`../overview/03-roadmap.md`](../overview/03-roadmap.md)、[`../../CLAUDE.md`](../../CLAUDE.md)（指令、與文件不同的實作決定）。
+4. **連帶更新**：權限目錄、[`../guide/introduction/01-overview.md`](../guide/introduction/01-overview.md) 的範圍表、
+   [`roadmap.md`](./roadmap.md)、[`../../CLAUDE.md`](../../CLAUDE.md)（指令、與文件不同的實作決定）。
 5. **刪除提案文件**，並刪掉 §1 表格中的那一列。
 6. 若其他提案依賴它，把對方「依賴」欄的連結改成指向正式文件。
 
@@ -150,7 +151,7 @@
 | 橫跨前後端或部署的系統設計 | `docs/architecture/NN-<主題>.md` |
 | 權限、授權、身分的規則 | `docs/architecture/iam/NN-<主題>.md` ＋ `iam/02-permission-catalog.md` |
 | 寫程式的新規則 | `docs/coding-standards/` |
-| 範圍、里程碑 | `docs/overview/01-overview.md`、`03-roadmap.md` |
+| 範圍、里程碑 | `docs/guide/introduction/01-overview.md`、`docs/features/roadmap.md` |
 
 一份提案通常會拆成 **一到兩份規格**，設計決策放在其中主要的那份，例如檔案管理器的資料夾授權就是
 [`iam/06-resource-grants.md`](../architecture/iam/06-resource-grants.md)（決策在 §13）＋ [`backend/09-file.md`](../architecture/backend/09-file.md) §11。

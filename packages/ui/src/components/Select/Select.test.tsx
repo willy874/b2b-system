@@ -333,6 +333,31 @@ describe('Select（可展開的列）', () => {
     expect(onValueChange).toHaveBeenCalledWith('apple');
   });
 
+  it('selectableGroups：點群組列的展開圖示只展開／收合，不選取；葉節點的圖示位置點了照常選取', async () => {
+    const onValueChange = vi.fn();
+    render(
+      <Select
+        options={tree}
+        selectableGroups
+        onValueChange={onValueChange}
+        testIds={{ expander: 'expander' }}
+        aria-label="分類"
+      />,
+    );
+    await userEvent.click(screen.getByRole('combobox', { name: '分類' }));
+    await screen.findByRole('tree');
+    const expanderOf = (value: string) => within(getRow(value)).getByTestId('expander');
+
+    await userEvent.click(expanderOf('fruit'));
+    expect(getRow('fruit')).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(expanderOf('fruit'));
+    expect(getRow('fruit')).toHaveAttribute('aria-expanded', 'false');
+    expect(onValueChange).not.toHaveBeenCalled();
+
+    await userEvent.click(expanderOf('rice'));
+    expect(onValueChange).toHaveBeenCalledWith('rice');
+  });
+
   it('←／→ 收合與展開，← 在子列時回到父列', async () => {
     render(<Select options={tree} aria-label="分類" />);
     const list = await openSelect('分類', 'tree');

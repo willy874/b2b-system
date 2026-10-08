@@ -167,7 +167,7 @@ test.describe('RBAC 生命週期', () => {
     expect(response.body).toMatchObject({ error: { code: 'ROLE_SYSTEM_PROTECTED' } });
   });
 
-  // 最後一位 super-admin（docs/overview/03-roadmap.md M4）：唯一能拿掉 super-admin 的人是 super-admin，
+  // 最後一位 super-admin（docs/features/roadmap.md M4）：唯一能拿掉 super-admin 的人是 super-admin，
   // 而動到自己先被 AUTHZ_SELF_MODIFY 擋下，所以「拿掉最後一位」在 UI 與 API 都走不到（LAST_SUPER_ADMIN 由 api 的整合測試 test/rbac-lifecycle.spec.ts 守住）
   test('super-admin 不能刪除、停用自己或拿掉自己的 super-admin；自己那一列的刪除按鈕是 disabled', async ({
     page,
