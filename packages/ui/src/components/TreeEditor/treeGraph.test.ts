@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   computeGroupBounds,
   computeTreeLayout,
+  fillMissingPositions,
   GROUP_LABEL_HEIGHT,
+  layoutTree,
   GROUP_PADDING,
   placeChild,
   placeRoot,
@@ -165,6 +167,51 @@ describe('排版', () => {
     expect(placeRoot({ nodes: [], edges: [] }, options)).toEqual({ x: 0, y: 0 });
     const placed = { nodes: [node('a', { x: 10, y: 5 }), node('b', { x: 300, y: 80 })], edges: [] };
     expect(placeRoot(placed, options)).toEqual({ x: 300 + 100 + 40, y: 5 });
+  });
+
+  it('placeRoot 依方向：BT 對齊最下方、LR 往下接並對齊最左、RL 對齊最右', () => {
+    const placed = { nodes: [node('a', { x: 10, y: 5 }), node('b', { x: 300, y: 80 })], edges: [] };
+    expect(placeRoot(placed, { ...options, direction: 'BT' })).toEqual({ x: 440, y: 80 });
+    expect(placeRoot(placed, { ...options, direction: 'LR' })).toEqual({ x: 10, y: 80 + 40 + 40 });
+    expect(placeRoot(placed, { ...options, direction: 'RL' })).toEqual({ x: 300, y: 160 });
+    // 沒有座標的節點不算
+    expect(placeRoot({ nodes: [node('x')], edges: [] }, options)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('LR／RL：子節點在父節點的右邊／左邊', () => {
+    const lr = computeTreeLayout(tree, { ...options, direction: 'LR' });
+    expect(lr.get('a')?.x).toBeGreaterThan(lr.get('root')?.x ?? 0);
+    const rl = computeTreeLayout(tree, { ...options, direction: 'RL' });
+    expect(rl.get('a')?.x).toBeLessThan(rl.get('root')?.x ?? 0);
+  });
+
+  it('layoutTree 替每個節點換上自動排版的座標，連線不變', () => {
+    const moved = {
+      nodes: tree.nodes.map((item) => ({ ...item, position: { x: 999, y: 999 } })),
+      edges: tree.edges,
+    };
+    const result = layoutTree(moved, options);
+    const positions = computeTreeLayout(tree, options);
+    expect(result.nodes.map((item) => item.position)).toEqual(
+      tree.nodes.map((item) => positions.get(item.id)),
+    );
+    expect(result.edges).toBe(tree.edges);
+  });
+
+  it('fillMissingPositions 只補沒有座標的節點；全部都有座標時原樣回傳', () => {
+    const partial = {
+      nodes: [node('root', { x: 1, y: 2 }), node('a'), node('a1'), node('b', { x: 3, y: 4 })],
+      edges: tree.edges,
+    };
+    const filled = fillMissingPositions(partial, options);
+    const positions = computeTreeLayout(partial, options);
+    expect(filled.nodes.map((item) => item.position)).toEqual([
+      { x: 1, y: 2 },
+      positions.get('a'),
+      positions.get('a1'),
+      { x: 3, y: 4 },
+    ]);
+    expect(fillMissingPositions(filled, options)).toBe(filled);
   });
 });
 
