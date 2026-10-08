@@ -158,4 +158,33 @@ describe('FilterBar 的 sort 欄位（多欄排序）', () => {
     expect(handles).toHaveLength(2);
     for (const handle of handles) expect(handle).toHaveAttribute('tabindex', '0');
   });
+
+  it('換掉某一列的欄位，保留它的方向與位置', async () => {
+    const { onSubmit } = renderSort({
+      value: {
+        sort: [
+          { sort: 'createdAt', order: 'desc' },
+          { sort: 'name', order: 'asc' },
+        ],
+      },
+    });
+    await openPanel();
+    await userEvent.click(within(rows()[0]!).getAllByRole('combobox')[0]!);
+    await userEvent.click(await screen.findByRole('option', { name: '識別碼' }));
+
+    await submit();
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      sort: [
+        { sort: 'slug', order: 'desc' },
+        { sort: 'name', order: 'asc' },
+      ],
+    });
+  });
+
+  it('值不是排序條件的陣列時當作沒有條件', async () => {
+    renderSort({ value: { sort: 'createdAt' as unknown as Array<SortEntry<Field>> } });
+    await openPanel();
+    expect(screen.queryAllByTestId('filter-bar-sort-row')).toHaveLength(0);
+  });
 });

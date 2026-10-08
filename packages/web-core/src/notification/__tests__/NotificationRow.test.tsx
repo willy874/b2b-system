@@ -6,8 +6,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { RootRoute } from '../../router';
 import { initTestI18n } from '../../testing/i18n';
 import { renderRoute } from '../../testing/renderRoute';
-import { NotificationRow } from '../NotificationRow';
-import type { NotificationRowProps } from '../NotificationRow';
+import { bindNotificationRowActions, NotificationRow } from '../NotificationRow';
+import type { NotificationContent, NotificationRowProps } from '../NotificationRow';
 
 beforeAll(() => initTestI18n());
 
@@ -113,5 +113,54 @@ describe('NotificationRow（鈴鐺與通知列表的一列，docs/architecture/f
     await userEvent.click(await screen.findByRole('button', { name: '刪除' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onOpenDetail).not.toHaveBeenCalled();
+  });
+});
+
+describe('bindNotificationRowActions（把列表的動作綁到一則通知）', () => {
+  const item = { id: 'n1' };
+  const content: NotificationContent = {
+    id: 'n1',
+    isRead: false,
+    icon: 'bell',
+    message: '你被指派了新的角色',
+    details: [],
+    createdAt: '2026-10-08T00:00:00.000Z',
+    link: undefined,
+  };
+  const actions = () => ({
+    onOpenDetail: vi.fn(),
+    onFollowLink: vi.fn(),
+    onMarkRead: vi.fn(),
+    onDelete: vi.fn(),
+  });
+
+  it('每個回呼都帶著這一則', () => {
+    const list = actions();
+    const bound = bindNotificationRowActions(item, content, list, false);
+
+    bound.onOpenDetail();
+    bound.onFollowLink();
+    bound.onMarkRead();
+    bound.onDelete?.();
+
+    expect(list.onOpenDetail).toHaveBeenCalledWith(item, content);
+    expect(list.onFollowLink).toHaveBeenCalledWith(item);
+    expect(list.onMarkRead).toHaveBeenCalledWith(item);
+    expect(list.onDelete).toHaveBeenCalledWith(item);
+  });
+
+  it('有 onSelectedChange 才有勾選，勾選狀態與變更都帶著這一則', () => {
+    expect(bindNotificationRowActions(item, content, actions(), false).selection).toBeUndefined();
+
+    const onSelectedChange = vi.fn();
+    const { selection } = bindNotificationRowActions(
+      item,
+      content,
+      { ...actions(), onSelectedChange },
+      true,
+    );
+    expect(selection?.checked).toBe(true);
+    selection?.onCheckedChange(false);
+    expect(onSelectedChange).toHaveBeenCalledWith(item, false);
   });
 });

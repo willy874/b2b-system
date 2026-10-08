@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createAuthorizationUrl,
@@ -77,5 +77,55 @@ describe('SSO 的瀏覽器端（docs/architecture/04-sso.md §12）', () => {
     [undefined, '/'],
   ])('safeReturnTo(%s) → %s（只接受同 origin 的路徑）', (input, expected) => {
     expect(safeReturnTo(input)).toBe(expected);
+  });
+
+  it('extraParams 會附加到授權網址（例：backstage 的 tenant）', async () => {
+    const url = new URL(await createAuthorizationUrl(CONFIG, '/', { tenant: 'acme' }));
+    expect(url.searchParams.get('tenant')).toBe('acme');
+  });
+
+  it('外站的 returnTo 在存入時就被換成 /', async () => {
+    const url = new URL(await createAuthorizationUrl(CONFIG, 'https://evil.example.com'));
+    expect(readPendingLogin(url.searchParams.get('state') ?? undefined)?.returnTo).toBe('/');
+  });
+
+  it('沒有 state 時取不到', () => {
+    expect(readPendingLogin(undefined)).toBeUndefined();
+    expect(readPendingLogin('')).toBeUndefined();
+  });
+
+  it('存的內容不是 JSON → 視同沒有，不能兌換', () => {
+    sessionStorage.setItem('sso:pending:broken', '{not-json');
+    expect(readPendingLogin('broken')).toBeUndefined();
+  });
+
+  it('存的內容缺 verifier → 視同沒有', () => {
+    sessionStorage.setItem('sso:pending:no-verifier', JSON.stringify({ returnTo: '/users' }));
+    expect(readPendingLogin('no-verifier')).toBeUndefined();
+  });
+
+  it('存的 returnTo 被竄改成外站 → 讀出時換成 /', () => {
+    sessionStorage.setItem(
+      'sso:pending:tampered',
+      JSON.stringify({ verifier: 'v', returnTo: '//evil.example.com' }),
+    );
+    expect(readPendingLogin('tampered')).toEqual({ verifier: 'v', returnTo: '/' });
+  });
+
+  it('discardPendingLogin(undefined) 不動到其他分頁發起的登入', () => {
+    sessionStorage.setItem('sso:pending:other', JSON.stringify({ verifier: 'v', returnTo: '/' }));
+    discardPendingLogin(undefined);
+    expect(readPendingLogin('other')).toEqual({ verifier: 'v', returnTo: '/' });
+  });
+});
+
+describe('safeReturnTo（無法解析的網址）', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('瀏覽器無法解析時回 /', () => {
+    vi.spyOn(URL, 'canParse').mockReturnValue(false);
+    expect(safeReturnTo('/users')).toBe('/');
   });
 });
