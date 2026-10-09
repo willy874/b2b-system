@@ -129,7 +129,7 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 | **縮放與平移** | `@b2b-system/ui` 的 `ImageViewer`：滾輪與觸控板以游標為中心縮放、拖曳平移、雙擊在「符合視窗」與「100%」之間切換、雙指縮放；`+`／`-`／`0` |
 | **漸進載入** | 依目前的縮放倍率選解析度：先 `medium`，放大後 `large`，超過 `large` 的解析度才載入原檔（轉過方向的圖沒有原檔，停在 `large`） |
 | **上一張／下一張** | ← / →、按鈕、觸控左右滑；範圍是整個結果：到了已載入的最後幾張就載入下一頁。從分享的網址直接打開、目前這張不在已載入的範圍時，以 `GET /gallery/items/:id/neighbors` 取前後 |
-| **預先載入** | 前後各兩張的 `large` |
+| **預先載入** | 前後各兩張的 `large`；以與檢視器相同的 `<picture>` 結構（`preload.ts`），抓的是瀏覽器會顯示的格式（例：WebP），不是 `<img>` 的主格式 |
 | **底片列** | 下方一列小圖，標出目前的位置；窄螢幕隱藏 |
 | **幻燈片** | 空白鍵開始／暫停，間隔 3／5／10 秒；`prefers-reduced-motion` 時不做轉場 |
 | **全螢幕** | F 鍵或按鈕（Fullscreen API） |
@@ -149,6 +149,8 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 | `features/gallery/hooks/__tests__/useGalleryPermission.test.tsx` | 權限 hook |
 | `pages/Gallery/__tests__/GalleryPage.test.tsx` | 頁面的三個權限案例、閱覽（空狀態、篩選、相簿頁）、檢視器（開啟、切換、資訊面板） |
 | `pages/Gallery/__tests__/useGallerySelection.test.tsx` | 點選、Shift 連續選取、區段全選、框選的套用 |
+| `pages/Gallery/__tests__/preload.test.ts` | 預先載入的 `<picture>` 結構 |
+| `apps/e2e/tests/gallery.spec.ts` | 上傳 → 時間軸 → 檢視器切換、放大後載入原檔（轉向與 TIFF 不載）、檔案管理器的「加入圖片庫」、member／auditor 唯讀、關掉 feature 後入口消失 |
 | `packages/ui` 的 `JustifiedGrid`、`ImageViewer` | 版面計算、命中、虛擬捲動；縮放、平移、解析度的選擇（[`07-ui-system.md`](./07-ui-system.md) §9） |
 | `packages/web-core` 的 `MultiImageSourceDialog` | 多選模式的來源篩選與送出 |
 
