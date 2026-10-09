@@ -233,6 +233,7 @@ export const authHandlers = [
 | 31  | 匯出角色（權限鍵以分號串在同一格）；匯入角色時含自己沒有的權限的列標成錯誤，略過後只建立合法的列 | 匯入的反提權（[`backend/22-data-transfer.md`](../backend/22-data-transfer.md)） |
 | 32  | 建立使用者時 email 重複；編輯顯示名稱並停用；連續打錯密碼被鎖定 → 管理員解鎖 → 管理員寄重設密碼信 → 新密碼登入 | 鎖定、漸進延遲與已知來源（[`backend/04-auth.md`](../backend/04-auth.md) §3）、Mailpit |
 | 33  | 新增外部 IdP 連線 → 登入頁對那個網域多出外部登入 → 改名 → 刪除後消失；權限目錄的篩選、技能樹與「我持有的」 | 租戶設定影響 apps/platform 的登入頁；權限目錄依登入者的權限 |
+| 34  | 上傳圖片 → 處理完出現在今天的區段 → 檢視器 ← / → 切換；放大超過 `large` 才載入原檔、轉過方向的不載；檔案管理器「加入圖片庫」略過非圖片；member／auditor 唯讀（沒有入口、API 403、檔案管理器沒有「加入圖片庫」）；平台關掉 `gallery` 後入口消失 | 背景工作 `gallery.process` 與推播、presigned 直傳、兩個 feature 經註冊表互動、可關閉的 feature（[`backend/26-gallery.md`](../backend/26-gallery.md)） |
 
 ### 4.2 結構
 
@@ -280,7 +281,7 @@ global setup 的 `db:reset` 會 **清空** `PLATFORM_DATABASE_URL` 與它登記�
 `e2e-shareme`（被授予、撤銷資料夾存取）、`e2e-mfame`／`e2e-mfamail`／`e2e-mfapolicy`（MFA 的驗證方式會被設定與重設），見 `apps/api/src/db/seeds/e2e.ts`），不和其他並行的案例共用。
 
 會動到 **整個租戶** 的設定的案例，挑其他 spec 不碰的對象，並在 `finally` 還原：系統設定改 `trash.retentionDays`、
-平台關閉的 feature 用 `job`、事件管理只改 `announcement.published`（與公告的案例放在同一個檔案、依序執行）。
+平台關閉的 feature 用 `job`（`gallery.spec.ts` 另外關 `gallery`，整個檔案依序執行，其他 spec 不碰圖片庫）、事件管理只改 `announcement.published`（與公告的案例放在同一個檔案、依序執行）。
 背景工作頁的案例和「平台關閉 `job`」放在同一個檔案（`tenant-features.spec.ts`，`mode: 'default'` 依序執行），不會在 feature 關閉的期間打開那一頁；
 註冊審批（單關）與多階段審批的案例都送出註冊申請、讀寫同一份 `user.register` 的流程，全部放在 `approval.spec.ts` 依序執行（`mode: 'default'`）：
 多階段的案例打開流程的那段時間，並行送出的單關申請會變成多關。流程編輯頁的案例存成 **停用**。

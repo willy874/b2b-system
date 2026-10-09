@@ -58,7 +58,7 @@ export async function seedTagFixtures(
       .map((serial) => ctx.userIds[serial - 1])
       .filter((id): id is string => Boolean(id));
     // oxlint-disable-next-line no-await-in-loop -- 同上
-    assignments += await assign(db, ctx, tagId, RESOURCE_TYPE.USER, userIds);
+    assignments += await assignTag(db, ctx, tagId, RESOURCE_TYPE.USER, userIds);
   }
 
   for (const [index, seed] of FILE_TAGS.entries()) {
@@ -68,14 +68,14 @@ export async function seedTagFixtures(
       .map((name) => folderIds.get(name))
       .filter((id): id is string => Boolean(id));
     // oxlint-disable-next-line no-await-in-loop -- 同上
-    assignments += await assign(db, ctx, tagId, RESOURCE_TYPE.FILE_FOLDER, ids);
+    assignments += await assignTag(db, ctx, tagId, RESOURCE_TYPE.FILE_FOLDER, ids);
   }
 
   return { tags: USER_TAGS.length + FILE_TAGS.length, assignments };
 }
 
 /** 同一組裡同名（不分大小寫）的標籤已存在就沿用它（可能是有人在畫面上建的）。 */
-async function ensureTag(
+export async function ensureTag(
   db: ScriptDatabase,
   ctx: DevFixtureContext,
   scope: string,
@@ -106,7 +106,8 @@ async function ensureTag(
   return row.id;
 }
 
-async function assign(
+/** 貼標籤；已經貼過的略過。回傳要貼的筆數。 */
+export async function assignTag(
   db: ScriptDatabase,
   ctx: DevFixtureContext,
   tagId: string,

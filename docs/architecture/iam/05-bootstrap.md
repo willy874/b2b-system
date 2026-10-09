@@ -232,6 +232,8 @@ pnpm db:seed:dev
 ├─ 隨機的角色指派（role:<id>#holder@user:<id>）
 ├─ 9 個群組（含巢狀與持有角色）
 ├─ 300 筆 audit_logs（跨 90 天，涵蓋各種 action 與 result）
+├─ 持有系統角色的固定帳號：dev-admin（admin）、dev-auditor（auditor）、dev-member（member），@dev.local
+├─ apps/platform 的平台管理者（平台 DB）：dev-platform-operator（operator）、dev-platform-auditor（auditor），@dev.local
 └─ dev-fixtures/：讓下面幾頁有資料可看
    ├─ 回收桶：已刪除的使用者 3、角色 2、群組 2、資料夾 1（內含子資料夾與 4 個檔案）、個別刪除的檔案 3、公告 1
    │    （刪除時間 1～12 天前，在預設 30 天的保留期內）
@@ -240,14 +242,31 @@ pnpm db:seed:dev
    │    近 9 天的 27 個對外事件與約 75 筆投遞紀錄（成功、HTTP 錯誤、逾時、重試）
    ├─ 公告：9 則——已完成 3（其中 1 則的發送已撤回）、排程中 3（指定時間、每週週期、事件點 user.activated）、
    │    暫停 1、草稿 1、已刪除 1；已發出的有發送紀錄與收件人的 announcement.published 通知
-   └─ 其他站內通知：user.rolesChanged、approval.pending／result、webhook.disabled 共約 19 則（已讀未讀混合）
+   ├─ 其他站內通知：user.rolesChanged、approval.pending／result、webhook.disabled 共約 19 則（已讀未讀混合）
+   │
+   │  以下三項要寫物件儲存（file-storage 連不上就略過，其他照常）：
+   ├─ 檔案管理：資料夾「設計素材」與底下的「產品照片」「活動照片 2026」，加上「對外簡報」裡一張；
+   │    17 個檔案混放照片（JPEG、PNG、WebP，部分帶 EXIF 與 GPS）、PDF、SVG（驗證「加入圖片庫」略過非點陣圖）
+   ├─ 圖片庫（backend/26-gallery.md）：42 張，直式、橫式、正方形、全景；拍攝時間跨 14 個月；
+   │    多數帶 EXIF（相機、鏡頭、曝光），14 張帶 GPS（處理後原檔的位置被移除）、6 張是沒有 EXIF 的 PNG（以加入時間排序）、
+   │    1 張與另一張內容相同（重複的提示）、2 張在回收桶；5 個相簿（其中「年度精選」與分類相簿重疊、「待整理」是空的）、
+   │    圖片庫標籤 4 個、留言 8 則（作者自動關注）
+   └─ 頭像（backend/25-image.md §15.8）：dev01～06、13、14、21、22、30 的頭像是圖片資產（user.avatar），正方形與長方形都有
 ```
+
+圖片與檔案都在 seed 裡以 sharp 產生（漸層、色塊加文字，固定的規格與日期，同一份規格產生同一份位元組；`dev-fixtures/images.ts`），
+不下載、也不放進 repo。物件寫進目標租戶的 bucket（`FILE_STORAGE_*`），資料列寫成「已上傳、等處理」的狀態，
+並在同一個交易寫入 `job_outbox`（`gallery.process`、`image.process`、`file.imageVariants`）：**變體由正在跑的 api worker 產生**，
+seed 不自己處理。api 的定期清掃（`JOBS_OUTBOX_SWEEP_CRON`，預設每 10 分鐘）把它們搬進佇列，處理完圖片才出現在圖片庫、
+頭像與檔案的預覽才出來；api 沒在跑時，下次啟動後的清掃也會補上。
 
 假資料以固定 id（`fixtureId(key)`）寫入、`ON CONFLICT DO NOTHING`：重跑不重複，已存在的列（含在畫面上改過的）不覆寫；
 過了保留期被清掉的（回收桶、通知、投遞紀錄）重跑時再補回來。幾點要知道：
 
 - 排程中的公告是真的排程：api 的每日維護會補上延遲工作，時間到了會真的發給 dev 使用者。
-- 回收桶裡的檔案只有資料列，物件儲存裡沒有內容：還原後下載會失敗。
+- 回收桶裡的檔案（`trash.ts`）只有資料列，物件儲存裡沒有內容：還原後下載會失敗。檔案管理、圖片庫、頭像的假資料（`files.ts`、`gallery.ts`、`avatars.ts`）有真的物件。
+- 已經有頭像的 dev 使用者不換；相簿與標籤只指派給這次新建的圖片，之後在畫面上移出相簿、拿掉標籤的不會被補回來。
+- 平台管理者與持有系統角色的帳號已存在時不動（不重設密碼與角色）。
 - Webhook 的網址都是 `example.com`／`example.org`；啟用中的訂閱之後收到真的事件時，api 會真的投遞（會失敗、重試）。
 - 審批的通知沒有連結：seed 不建立審批申請。
 - 名稱避開導覽截圖以 API 建立的示範資料（`apps/e2e/tour/demo-data.ts`），兩者可以先後執行。
@@ -257,7 +276,7 @@ pnpm db:seed:dev
 - 前端分頁／篩選／排序的真實體驗
 - E2E 測試的固定 fixture（使用固定亂數種子，確保可重現）
 
-所有假使用者密碼統一為 `Dev!Password123`，email 網域固定 `@dev.local`，
+所有假使用者密碼統一為 `Dev!Password123`（含平台管理者與 dev-admin／auditor／member），email 網域固定 `@dev.local`，
 避免誤寄信。
 
 ---
