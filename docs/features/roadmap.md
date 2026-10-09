@@ -86,4 +86,4 @@ Phase 0 的目標是「先把誰能做什麼一次做對」，分六個里程碑
 | M5 | 稽核日誌、個人帳號、收尾 | `core/` 不 import `features/`、`modules/`（結構測試）；註解掉任一 feature plugin 仍能啟動；每個錯誤碼與權限鍵都有兩個語系的翻譯（語系測試） |
 
 Phase 0 刻意不做、後來補上的：SSO（09-29）、資源層級授權（檔案資料夾，09-29；之後由權限圖一般化，[`iam/01-model.md`](../architecture/iam/01-model.md) §9）、深色主題（09-25）、服務帳號與 API token（10-01）。
-待製作的功能在 [`features/README.md`](README.md)（目前沒有提案）。
+待製作的功能在 [`features/README.md`](README.md)。
