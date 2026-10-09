@@ -53,6 +53,7 @@ Phase 0（RBAC 骨架）完成後，又加上身分、租戶、資料保護、�
 | 10-08 | 留言與關注：擁有者登記的資源類型、@提及、關注的通知（背景工作）、資源頁的面板註冊表；第一批接上使用者 | [`backend/24-comment.md`](../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) |
 | 10-08 | 富文本：`@b2b-system/rich-text`（格式定義、純文字、連結白名單、JSON ⇄ HTML）、Tiptap 編輯器與自製檢視器；第一個用在公告內文 | [`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §3.16 |
 | 10-09 | 多實例部署與服務拆分：程序角色 `APP_ROLES`（http、realtime、worker，預設單體）與 `DEPLOYMENT_MODE`、平台 DB 的共享速率限制計數、跨裝置中繼跨節點、影像變體改成背景工作、排空與 readiness 503、compose 的多實例與 k8s 的參考部署（Kustomize）、migration 相容檢查 | [`01-system.md`](../architecture/01-system.md) §4.3、§7 |
+| 10-09 | MFA 的新方式：WebAuthn（安全金鑰、通行金鑰；租戶的使用者經「重新登入並新增」）、簡訊（Twilio、自訂閘道、國碼白名單）、Telegram、LINE（綁定碼與 Bot 的 webhook）；方式的平台參數（加密存放、儲存時以金鑰呼叫供應商檢查、填齊之前不能開啟）；開發與測試用的模擬供應商 | [`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §5.1、§7.1、§9.3–§9.5、§15.4 M4 |
 | 10-08 | 功能導覽補上命令面板、MFA、組織、多階段審批、匯入／匯出、留言與關注、租戶用量，並重拍全部截圖（導覽劇本改用 `db:seed:dev` 的部門樹與 Webhook） | [`../guide/introduction/03-feature-tour.md`](../guide/introduction/03-feature-tour.md) |
 
 ### 2.1 推翻過的決定

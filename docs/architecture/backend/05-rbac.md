@@ -639,8 +639,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/platform/admins/:id/password-link` | `@RequirePlatformPermissions('platformAdmin:update')` |
 | GET    | `/platform/admins/:id/mfa` | `@RequirePlatformPermissions('platformAdmin:read')`（[`backend/21-mfa.md`](21-mfa.md) §8） |
 | POST   | `/platform/admins/:id/mfa/reset` | `@RequirePlatformPermissions('platformAdmin:resetMfa')`（不能重設自己） |
-| GET    | `/platform/mfa-methods`、`/platform/mfa-methods/:id/impact` | `@RequirePlatformPermissions('mfaMethod:read')`（[`backend/21-mfa.md`](21-mfa.md) §5） |
-| PUT    | `/platform/mfa-methods/:id` | `@RequirePlatformPermissions('mfaMethod:update')` |
+| GET    | `/platform/mfa-methods`、`/platform/mfa-methods/:id/impact`、`/platform/mfa-methods/:id/settings` | `@RequirePlatformPermissions('mfaMethod:read')`（[`backend/21-mfa.md`](21-mfa.md) §5、§5.1） |
+| PUT    | `/platform/mfa-methods/:id`、`/platform/mfa-methods/:id/settings` | `@RequirePlatformPermissions('mfaMethod:update')` |
+| DELETE | `/platform/mfa-methods/:id/settings` | `@RequirePlatformPermissions('mfaMethod:update')` |
 | GET    | `/platform/audit-logs` | `@RequirePlatformPermissions('platformAuditLog:read')` |
 | GET    | `/platform/jobs/queues` | `@RequirePlatformPermissions('platformJob:read')` |
 | GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |
@@ -662,7 +663,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
 | POST   | `/oidc-interaction/:uid/login` | `@Public`                     |
 | POST   | `/oidc-interaction/:uid/abort` | `@Public`                     |
-| POST   | `/oidc-interaction/:uid/mfa/challenge`、`/mfa/verify`、`/mfa/enroll`、`/mfa/enroll/:factorId/challenge`、`/mfa/enroll/:factorId/confirm` | `@Public`（互動 cookie ＋ 密碼步驟留下的 `MfaPending`，[`backend/21-mfa.md`](21-mfa.md) §4） |
+| POST   | `/oidc-interaction/:uid/mfa/challenge`、`/mfa/verify`、`/mfa/enroll`、`/mfa/enroll/skip`、`/mfa/enroll/:factorId/challenge`、`/mfa/enroll/:factorId/confirm` | `@Public`（互動 cookie ＋ 密碼步驟留下的 `MfaPending`，[`backend/21-mfa.md`](21-mfa.md) §4、§7.1） |
+| POST   | `/mfa-channels/telegram/webhook`、`/mfa-channels/line/webhook` | `@Public`（Telegram 的 secret token、LINE 的 HMAC 簽章；[`backend/21-mfa.md`](21-mfa.md) §9.5） |
 | GET    | `/oidc-interaction/external/callback` | `@Public`（外部 IdP 跳回；state 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D8） |
 | GET    | `/oidc-interaction/:uid/discover` | `@Public`（email 網域 → 外部 IdP 連線） |
 | POST   | `/oidc-interaction/:uid/external` | `@Public`                  |

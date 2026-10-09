@@ -82,7 +82,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `deleteAfterSeconds` | 結束後在表裡保留幾秒（預設 7 天）；高流量的工作用 `HIGH_VOLUME_RETENTION_SECONDS`（1 天） |
 | `exclusive` | 同時最多一筆排隊、一筆執行（pg-boss 的 `stately`）。排程工作用它避免越積越多；寄信這類每筆都要做的不能開 |
 | `concurrency` | 這個程序同時執行幾筆（pg-boss 的 `localConcurrency`，預設 1）。寄信（`MAIL_JOB_OPTIONS`）是 5；吃 CPU／記憶體的工作維持 1，免得拖慢同一個程序上的 API |
-| `ignoreTenantConcurrency` | 不受下面的「租戶的同時執行上限」限制、也不佔它的名額（預設 `false`）。只給使用者正在等、而且很快的工作：MFA 的驗證碼信（`mfa.emailCodeMail`，[`21-mfa.md`](./21-mfa.md) §9.2），公告大量寄信時不能被放回佇列 |
+| `ignoreTenantConcurrency` | 不受下面的「租戶的同時執行上限」限制、也不佔它的名額（預設 `false`）。只給使用者正在等、而且很快的工作：MFA 的驗證碼信（`mfa.emailCodeMail`，[`21-mfa.md`](./21-mfa.md) §9.2）與簡訊、Telegram、LINE 的驗證碼（`mfa.smsCode`、`mfa.telegramCode`、`mfa.lineCode`，§9.4、§9.5），公告大量寄信時不能被放回佇列 |
 
 - **租戶的同時執行上限**：`concurrency` 是每個程序、每種工作的上限；另外每個租戶 **所有種類** 的工作同時執行的筆數不超過
   feature 參數 `job.maxConcurrency`（預設 10，平台管理者設定；[`architecture/05-tenancy.md`](../05-tenancy.md) §13.3 D9）。

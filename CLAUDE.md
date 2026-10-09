@@ -16,7 +16,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的程式在 `packages/`（下方「Monorepo 結構」） |
 | 改兩個前端共用的程式、判斷程式該放 app 還是 package、加第三個前端 | [`docs/architecture/frontend/17-shared-packages.md`](docs/architecture/frontend/17-shared-packages.md)（§2 程式放哪、§3 app 怎麼接上 web-core、§7 常見陷阱）；各 package 的 README |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、用量 §5.4、部署） |
-| 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19`；審批（申請 → 核准 → 套用；多階段流程在 §9）看 `20`；MFA（驗證方式的註冊表、登入的第二步、平台開關與租戶政策）看 `21`；匯入／匯出（資源登記、匯出工作、分析與驗證、套用）看 `22`，前端看 `frontend/21`；組織管理（部門樹、成員、主管的解析）看 `23`；留言與關注（擁有者登記資源類型、@提及、關注的通知）看 `24`，前端的資源頁面板看 `frontend/22` |
+| 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19`；審批（申請 → 核准 → 套用；多階段流程在 §9）看 `20`；MFA（驗證方式的註冊表、登入的第二步、平台開關與參數、租戶政策；WebAuthn、簡訊、Telegram／LINE 在 §9.3–§9.5）看 `21`；匯入／匯出（資源登記、匯出工作、分析與驗證、套用）看 `22`，前端看 `frontend/21`；組織管理（部門樹、成員、主管的解析）看 `23`；留言與關注（擁有者登記資源類型、@提及、關注的通知）看 `24`，前端的資源頁面板看 `frontend/22` |
 | 前端錯誤回報、release、Web Vitals、bundle 預算 | [`docs/architecture/frontend/19-observability.md`](docs/architecture/frontend/19-observability.md)（機制在 `web-core/telemetry`）、[`docs/architecture/07-apm-service.md`](docs/architecture/07-apm-service.md)（收件服務） |
 | api 的指標、tracing、健康檢查、Grafana／Prometheus／Tempo 的部署與告警 | [`docs/architecture/08-monitoring.md`](docs/architecture/08-monitoring.md)（指標清單在 `core/metrics/instruments.ts`，§2.4 加指標的方式；tracing 在 `src/instrumentation.ts`） |
 | 多實例、程序角色（`APP_ROLES`）、部署形態（compose 的多實例、k8s）、共享的速率限制、優雅關閉 | [`docs/architecture/01-system.md`](docs/architecture/01-system.md) §4.3（角色與擴展）、§4.4（程序之間的一致性）、§7（設計決策）；k8s 在 `deploy/k8s/` |
@@ -103,6 +103,7 @@ pnpm --filter @b2b-system/apm-service upload-sourcemaps --project backstage --re
                     # 以 BUILD_SOURCEMAP=hidden 建置後把 .map 上傳到 apm-service（docs/architecture/07-apm-service.md §5）
 pnpm bundle:check   # 建置兩個前端並檢查 bundle 預算（apps/*/bundle-budget.json；CI 的 bundle job 也跑）
 pnpm dev:mock-idp   # 模擬的外部 IdP（:4455，client b2b-mock／mock-secret）；外部 IdP 登入的開發與 E2E 用
+pnpm dev:mock-messaging   # 模擬的簡訊與通訊軟體服務（:4466：Twilio、自訂閘道、Telegram、LINE）；api 設 MFA_*_API_URL 指向它，平台參數填它的預設值（docs/architecture/backend/21-mfa.md §13）
 pnpm dev:external-api  # 對外 API（:3001，只認 API token；docs/architecture/06-external-api.md）
 pnpm build:packages # build 到 dist/ 的 packages（error-codes、realtime、rich-text、api-sdk、mail-components）；拉下新的 main 後先 pnpm install 再跑這個
 pnpm typecheck      # tsc -b（全 workspace）
