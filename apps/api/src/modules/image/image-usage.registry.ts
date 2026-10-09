@@ -26,6 +26,11 @@ export interface ImageUsageDefinition {
   visibility: 'signed';
   /** 只允許這些來源；省略時是全部。 */
   sources?: readonly string[];
+  /**
+   * 只用來讓來源過濾出符合的圖（例：圖片庫的「從其他來源加入」，docs/architecture/backend/26-gallery.md §8），
+   * 不能以它建立圖片資產（上傳、從來源複製都回 400）。
+   */
+  filterOnly?: boolean;
 }
 
 /** 頭像等常見圖片收的型別（第一格；GIF 動畫只取第一格，docs/architecture/backend/25-image.md §16.2 D9）。 */

@@ -1,0 +1,79 @@
+@layer components {
+  .root {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-fill-subtle);
+    user-select: none;
+    /* 手勢全部自己處理：瀏覽器不捲動、不縮放頁面 */
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
+
+  .root[data-zoomed] {
+    cursor: grab;
+  }
+
+  .root[data-zoomed][data-gesture] {
+    cursor: grabbing;
+  }
+
+  /* 以原圖尺寸擺放，transform 平移與縮放（transform-origin 在左上角） */
+  .stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+
+  .stage:not([data-measured]) {
+    visibility: hidden;
+  }
+
+  /*
+   * 只在手勢進行中提示合成層：一直掛著 will-change 時，瀏覽器以開始時的縮放點陣化，
+   * 放大後的圖會一直是糊的
+   */
+  .root[data-gesture] .stage {
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .stage[data-animate] {
+      transition: transform 200ms ease-out;
+    }
+  }
+
+  .picture {
+    display: contents;
+  }
+
+  .image,
+  .placeholder {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .placeholder {
+    filter: blur(16px);
+  }
+
+  /* 背景載入中的大圖：疊在上面但看不見，載好才換上 */
+  .image[data-pending] {
+    opacity: 0;
+  }
+
+  .controls {
+    position: absolute;
+    right: var(--seed-space-3);
+    bottom: var(--seed-space-3);
+    display: flex;
+    gap: var(--seed-space-1);
+    padding: var(--seed-space-1);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-popover);
+  }
+}

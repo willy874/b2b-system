@@ -8,16 +8,19 @@ type TagColor = Tag['color'];
 export const TAG_SCOPE_LABEL_KEY = {
   file: 'tagAdmin.scope.file',
   user: 'tagAdmin.scope.user',
+  gallery: 'tagAdmin.scope.gallery',
 } as const satisfies Record<TagScope, string>;
 
 export const TAG_SCOPE_DESCRIPTION_KEY = {
   file: 'tagAdmin.scope.fileDescription',
   user: 'tagAdmin.scope.userDescription',
+  gallery: 'tagAdmin.scope.galleryDescription',
 } as const satisfies Record<TagScope, string>;
 
 /** 標籤組跟著哪個可啟用的 feature（docs/architecture/backend/18-tag.md §7.2 D12）；常駐的不列。 */
 export const TAG_SCOPE_FEATURE: Partial<Record<TagScope, TenantFeature>> = {
   file: TenantFeature.file,
+  gallery: TenantFeature.gallery,
 };
 
 export const TAG_COLORS = [

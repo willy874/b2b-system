@@ -1,0 +1,38 @@
+@layer components {
+  .root {
+    position: relative;
+    overflow: auto;
+    /* 捲軸出現或消失時內容寬度不變，版面不會因此整份重算 */
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+  }
+
+  .scroller {
+    position: relative;
+  }
+
+  /* 區段的定位容器：黏住的標題以它為界，捲過區段底部時被推出去 */
+  .section {
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-weight: 600;
+  }
+
+  .item {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+}

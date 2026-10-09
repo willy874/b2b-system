@@ -5,7 +5,7 @@
 
 共用的底層是 `core/storage` 的 `ObjectUrlSigner`、`core/image` 的格式政策與 `ImageUrlService`、`web-core/image` 的 `SignedImage`、
 `Avatar` 的圖片插槽、儲存的止水線。第一個使用它們的是圖片資產（`modules/image`，第一個 consumer 是使用者頭像）；選圖的前端在
-[`../frontend/23-image-picker.md`](../frontend/23-image-picker.md)。圖片庫還在規劃（[`../../features/image-gallery.md`](../../features/image-gallery.md)）；
+[`../frontend/23-image-picker.md`](../frontend/23-image-picker.md)。圖片庫見 [`26-gallery.md`](./26-gallery.md)；
 CDN 是 `ObjectUrlSigner` 的另一個實作（[`../../features/image-cdn.md`](../../features/image-cdn.md)）。
 
 ```
@@ -35,7 +35,7 @@ CDN 是 `ObjectUrlSigner` 的另一個實作（[`../../features/image-cdn.md`](.
 | --- | --- | --- | --- |
 | 檔案管理器的圖片 | `files/<id>`、`variants/<id>/…` | 影像 API（HMAC → 查 DB → 302；[`09-file.md`](./09-file.md) §5.4） | 不變（§10）；簽 presigned 網址改經 `ObjectUrlSigner` |
 | 圖片資產（頭像等） | `images/<id>/r<rev>/<preset>.<格式>` | `ImageUrlService` 直接簽 | §15 |
-| 圖片庫 | `gallery/<id>/original`、`gallery/<id>/r<rev>/<尺寸>.<格式>` | `ImageUrlService` 直接簽；原檔下載另簽帶 `Content-Disposition` 的網址 | 規劃中（[`../../features/image-gallery.md`](../../features/image-gallery.md)） |
+| 圖片庫 | `gallery/<id>/original`、`gallery/<id>/r<rev>/<尺寸>.<格式>` | `ImageUrlService` 直接簽；原檔下載另簽帶 `Content-Disposition` 的網址 | [`26-gallery.md`](./26-gallery.md) §6 |
 
 圖片資產與圖片庫的物件是 **處理時一次產生好的**（R2），每個物件的 key、格式、尺寸在 DB 裡都有，組回應時就能算出全部網址；
 不像檔案的影像 API 要在請求時查狀態、決定是否轉檔。所以這兩種圖片不需要中間那一跳（D1）。
@@ -214,7 +214,7 @@ ImageUrlService ──▶ ObjectUrlSigner
 | `RenderOptions.extract` | 先裁切再縮放；座標以轉正之後的方向為準（使用者在裁切框裡看到的方向）。超出影像或不是正整數拋 `ImageDecodeError` |
 
 一律依 EXIF 轉正並移除中繼資料（GPS 等）、等比縮小不放大（`DecodedImage.render` 的保證，[`09-file.md`](./09-file.md) §5.4）。
-EXIF 的讀取（拍攝時間、相機）只有圖片庫需要，與它一起做（[`../../features/image-gallery.md`](../../features/image-gallery.md)）。
+EXIF 的讀取（拍攝時間、相機）與原檔的 GPS 移除（`core/image/exif.ts`）、主色與 BlurHash（`DecodedImage.analyze`、`blurhash.ts`）、旋轉（`RenderOptions.rotate`）由圖片庫加入（[`26-gallery.md`](./26-gallery.md) §5）。
 
 ---
 
@@ -310,7 +310,7 @@ STORAGE_TOTAL_LIMIT_MB（環境變數，0 = 不啟用）
 
 ## 15. 圖片資產（`modules/image`）
 
-與檔案管理器無關的圖片（第一個是使用者頭像，之後是租戶 Logo、留言與審批的附件）。所有來源（上傳、檔案管理、最近使用、之後的圖片庫）的結果
+與檔案管理器無關的圖片（第一個是使用者頭像，之後是租戶 Logo、留言與審批的附件）。所有來源（上傳、檔案管理、最近使用、圖片庫）的結果
 都是 **一筆新的圖片資產**；使用圖片的資源（consumer）只存資產的 id（R1），不知道圖片從哪裡來。前端的選圖見 [`../frontend/23-image-picker.md`](../frontend/23-image-picker.md)。
 
 ```
@@ -357,7 +357,7 @@ modules/image（通用模組，只依賴 core 與回收桶）
 
 ```ts
 interface ImageSource {
-  id: string;                    // 'file'、'recent'；之後 'gallery'。前端送來的是字串，呼叫端不知道它代表什麼
+  id: string;                    // 'file'、'recent'、'gallery'。前端送來的是字串，呼叫端不知道它代表什麼
   feature?: TenantFeature;       // 沒啟用時 404 FEATURE_DISABLED
   resolve(refId, actor, purpose): Promise<ResolvedImage>;   // 以呼叫者的身分讀取；purpose 例：'imageAsset:user.avatar'
 }
@@ -376,6 +376,7 @@ interface ResolvedImage {
 | --- | --- | --- | --- |
 | `file` | `modules/file` 的 `FileImageSource`（feature `file`） | 看得到所在的資料夾（`FileService.resolveImageForCopy`）；還在上傳中、不是圖片、變體處理失敗的當作不存在；寫 `file.copy` | 原檔 `files/<id>` |
 | `recent` | 內建（`ImageRecentSource`） | `created_by = 自己`（§16.2 D10） | 那筆資產的主檔（`normalized`：新的資產直接沿用，內容雜湊相同） |
+| `gallery` | `modules/gallery` 的 `GalleryImageSource`（feature `gallery`） | `gallery:read`；只認處理完、沒刪除的圖；寫 `galleryItem.copy` | 原檔 `gallery/<id>/original`（已依設定移除位置資訊）；轉過顯示方向的是 `large` 的變體（[`26-gallery.md`](./26-gallery.md) §9） |
 
 ### 15.3 用途（usage）
 
@@ -392,6 +393,9 @@ interface ResolvedImage {
 | `urlTtl` | 12 小時（§4） |
 | `visibility` | `signed`（`public` 保留給租戶 Logo，§16.2 D6） |
 | `sources` | 省略（全部） |
+
+**只用來過濾的用途**（`filterOnly: true`）：不能建立圖片資產（`POST /images`、`POST /images/from-source` 回 `VALIDATION_FAILED`），只讓來源以 `imageUsage=` 過濾出符合的圖。
+目前是圖片庫的 `gallery.item`：「從其他來源加入」時讓檔案管理只列出圖片庫收得下的圖（[`26-gallery.md`](./26-gallery.md) §8、D19）。`GET /images/usages` 照樣列出它（前端的過濾要用）。
 
 ### 15.4 建立：上傳與從來源複製
 
@@ -517,8 +521,8 @@ interface ResolvedImage {
 | --- | --- | --- | --- |
 | D1 | **圖片資產另開 `image_assets` 表**（租戶 DB），物件放 `images/<id>/`；有自己的清理排程 `image.maintenance` | `files` 的列表、容量、維護排程、推播、回收桶都假設每一列是檔案管理器裡的檔案，且 `folder_id = null` 已經代表根目錄；混在一起每個查詢都要排除 | `files` 加 `purpose` 欄：改動散在檔案模組各處，而且 `file` 被關掉時要另外放行 |
 | D2 | **格式政策抽到 `core/image`**：見 §14.2 D9 | — | — |
-| D3 | **容量依租戶、檔案與圖片資產（之後的圖片庫）共用一個上限，沿用現有的名稱**：`file.storageQuotaMb`、`file_storage_usage`、`FILE_STORAGE_QUOTA_EXCEEDED` 不改名；主檔計入，變體不計；`file` 關掉時照樣計算。所有租戶的合計另由平台計算（§12） | 容量是租戶「買了多少空間」，與用哪個功能無關；參數 key 與錯誤碼上線後不改名 | 改名成 `storage.quotaMb`／`storage_usage`：要搬移覆寫值、新舊錯誤碼並存、表改名拆兩次部署；各自一個上限：平台要分別設定，租戶看不懂哪個滿了 |
-| D4 | **從圖片庫選的圖複製成圖片資產**（[`../../features/image-gallery.md`](../../features/image-gallery.md) D1） | 所有來源的生命週期一致 | 見圖片庫 D1 |
+| D3 | **容量依租戶、檔案、圖片資產與圖片庫共用一個上限，沿用現有的名稱**：`file.storageQuotaMb`、`file_storage_usage`、`FILE_STORAGE_QUOTA_EXCEEDED` 不改名；主檔計入，變體不計；`file` 關掉時照樣計算。所有租戶的合計另由平台計算（§12） | 容量是租戶「買了多少空間」，與用哪個功能無關；參數 key 與錯誤碼上線後不改名 | 改名成 `storage.quotaMb`／`storage_usage`：要搬移覆寫值、新舊錯誤碼並存、表改名拆兩次部署；各自一個上限：平台要分別設定，租戶看不懂哪個滿了 |
+| D4 | **從圖片庫選的圖複製成圖片資產**（[`26-gallery.md`](./26-gallery.md) D1） | 所有來源的生命週期一致 | 見圖片庫 D1 |
 | D5 | **複製時來源寫稽核 `<resource>.copy`**（`file.copy`，之後 `galleryItem.copy`）：`resolve(refId, actor, purpose)` 的 `purpose` 寫進 `changes.after.purpose`，來源不解讀它 | 複製是把內容帶到原本授權之外的動作，管理者要追得到；`purpose` 讓來源記下去處，又不必認識呼叫端 | 不寫：追不到內容的去向；呼叫端寫：呼叫端要知道來源的 `resourceType` |
 | D6 | **用途預留 `visibility`**（`signed` ｜ `public`），這一版只實作 `signed`；公開網址在第二批做租戶 Logo 時決定（§8） | 登入頁要的不過期網址牽涉快取、撤銷、獨立網域，現在決定缺少實際的使用情境 | 現在就做公開資產：沒有第二個需求驗證設計 |
 | D7 | **第一個 consumer 是使用者頭像**：`users.avatar_image_id`、`PATCH /users/:id` 與 `PATCH /auth/profile` 的 `avatarImageId`／`avatarCrop`、`Avatar` 接受圖片並保留縮寫當退路 | 同時驗證裁切、多處顯示（頂列、留言、使用者列表）、他人代換（`user:update`） | 租戶 Logo：卡在 D6 的公開網址 |

@@ -8,7 +8,9 @@
       "file": "Files",
       "fileDescription": "Files and folders share this set: select items in the file manager to tag them, and filter by tag.",
       "user": "Users",
-      "userDescription": "Tag users from their details; the user list can be filtered by tag."
+      "userDescription": "Tag users from their details; the user list can be filtered by tag.",
+      "gallery": "Gallery",
+      "galleryDescription": "Tag images from the gallery viewer or in bulk; the gallery can be filtered by tag."
     },
     "field": {
       "name": "Name",

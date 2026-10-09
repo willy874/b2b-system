@@ -20,6 +20,8 @@ export const RESOURCE_TYPE = {
   APPROVAL: 'approval',
   APPROVAL_FLOW: 'approvalFlow',
   COMMENT: 'comment',
+  GALLERY_ITEM: 'galleryItem',
+  GALLERY_ALBUM: 'galleryAlbum',
 } as const;
 
 export type ResourceType = (typeof RESOURCE_TYPE)[keyof typeof RESOURCE_TYPE];

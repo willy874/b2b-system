@@ -187,7 +187,7 @@ FILE_CDN_ENABLED = true
 - 回 `202 { jobIds }`：排入 `cdn.purge`（`manual: true`、`requestedBy`），每個節點的結果在平台的背景工作列表（`platformJob:read`）看得到；頁面直接連過去。
 - 環境變數沒開時回 `409 CDN_NOT_DEPLOYED`；執行期關閉時照樣可以清理（D3）。
 - `all` 的確認框列出節點數，並提醒「之後一段時間所有圖片都會回源，源站的負載會升高」；同一時間只能有一筆尚未完成的 `all`（`409 CDN_PURGE_IN_PROGRESS`）。
-- 找不到那筆資源回 `404 CDN_PURGE_TARGET_NOT_FOUND`；資源類型沒登記解析器時同樣 404（例：圖片庫還沒做）。
+- 找不到那筆資源回 `404 CDN_PURGE_TARGET_NOT_FOUND`；資源類型沒登記解析器時同樣 404（例：圖片庫接上 CDN 之前，[`backend/26-gallery.md`](../architecture/backend/26-gallery.md) D21）。
 - `cli:cdn-purge`（[`image-cdn.md`](./image-cdn.md) §7.7）改用同一個 `CdnPathResolver`，兩邊列出的路徑一致。
 
 ### 8. apps/platform：CDN 頁面

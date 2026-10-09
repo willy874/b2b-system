@@ -85,6 +85,14 @@ export const ChangeSource = {
   COMMENT: 'comment',
   /** 自己對某個資源的關注（`id` = 資源 id）：只推給本人，其他分頁的「關注」按鈕跟著更新。 */
   WATCH: 'watch',
+  /**
+   * 圖片庫的圖片（`id` = 圖片 id；docs/architecture/backend/26-gallery.md §11）：處理完成（`create`，只在 ready 時推一次）、
+   * 標題與說明、顯示方向、標籤、加入與移出相簿（`update`）、刪除與永久刪除（`delete`）、還原（`create`）。
+   * 加入與移出相簿時 `refs.galleryAlbum` 帶上那個相簿（它的張數與封面會變）。
+   */
+  GALLERY_ITEM: 'galleryItem',
+  /** 圖片庫的相簿（`id` = 相簿 id）：建立、改名、封面、刪除、還原；張數變化由 `galleryItem` 的 `refs` 宣告。 */
+  GALLERY_ALBUM: 'galleryAlbum',
   // ── 平台（apps/platform 的平台管理者，只推給平台的連線；docs/architecture/backend/08-realtime.md §3.6）──
   /** 租戶登記（`id` = 租戶 id）：建立、改名、網域、啟用的 feature、停用與啟用、刪除，以及背景佈建的結果。 */
   PLATFORM_TENANT: 'platformTenant',
@@ -140,6 +148,8 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.APPROVAL_FLOW,
   ChangeSource.COMMENT,
   ChangeSource.WATCH,
+  ChangeSource.GALLERY_ITEM,
+  ChangeSource.GALLERY_ALBUM,
   ChangeSource.PLATFORM_TENANT,
   ChangeSource.PLATFORM_ADMIN,
   ChangeSource.PLATFORM_FEATURE_FLAG,

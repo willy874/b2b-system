@@ -219,3 +219,23 @@ export const storageTotalChecks = new Counter({
   labelNames: ['result'] as const,
   registers,
 });
+
+/**
+ * 圖片庫的處理（`gallery.process`，docs/architecture/backend/26-gallery.md §11）：一次處理的秒數，
+ * `step` 是 `original`（寫原檔、讀 EXIF）或 `variants`（產生一個版本的變體），`result` 是 ok／failed。
+ */
+export const galleryProcessDuration = new Histogram({
+  name: 'api_gallery_process_duration_seconds',
+  help: '圖片庫處理一張圖的秒數（依步驟、結果）',
+  labelNames: ['step', 'result'] as const,
+  buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60],
+  registers,
+});
+
+/** 圖片庫處理失敗的張數（依原因：notImage、typeNotAllowed、tooLarge、missing）。 */
+export const galleryProcessFailures = new Counter({
+  name: 'api_gallery_process_failures_total',
+  help: '圖片庫處理失敗的張數（依原因）',
+  labelNames: ['reason'] as const,
+  registers,
+});

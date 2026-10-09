@@ -57,13 +57,14 @@ export const tenants = pgTable(
      * `group`（群組）由 docs/architecture/iam/07-groups.md §8 加入，既有租戶由 migration 0020 啟用；
      * `dataTransfer`（匯入／匯出）由 docs/architecture/backend/22-data-transfer.md 加入，既有租戶由 migration 0021 啟用；
      * `organization`（組織管理）與 `approvalChain`（多階段審批）由 docs/architecture/backend/23-organization.md、
-     * docs/architecture/backend/20-approval.md §9 加入，既有租戶由 migration 0022 啟用。
+     * docs/architecture/backend/20-approval.md §9 加入，既有租戶由 migration 0022 啟用；
+     * `gallery`（圖片庫）由 docs/architecture/backend/26-gallery.md 加入，既有租戶由 migration 0028 啟用（D3）。
      */
     features: text('features')
       .array()
       .notNull()
       .default(
-        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group,dataTransfer,organization,approvalChain}'::text[]`,
+        sql`'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group,dataTransfer,organization,approvalChain,gallery}'::text[]`,
       ),
     /**
      * 租戶層的 feature flag 覆寫（docs/architecture/05-tenancy.md §11.2 D2）：`{ [key]: boolean }`，沒列出 = 跟著全平台與預設值。

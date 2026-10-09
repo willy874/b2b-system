@@ -46,7 +46,9 @@
     "tagImport": "匯入標籤",
     "organization": "組織",
     "approvalFlow": "審批流程",
-    "myApproval": "我的審批"
+    "myApproval": "我的審批",
+    "gallery": "圖片庫",
+    "galleryAlbum": "相簿"
   },
   "commandPalette": {
     "command": {
@@ -89,7 +91,8 @@
       "mfaPolicy": "MFA 政策",
       "orgUnit": "組織",
       "approvalFlow": "審批流程",
-      "comment": "留言"
+      "comment": "留言",
+      "gallery": "圖片庫"
     },
     "user": {
       "create": "建立使用者",
@@ -202,6 +205,12 @@
     },
     "comment": {
       "delete": "刪除留言"
+    },
+    "gallery": {
+      "create": "上傳圖片",
+      "read": "檢視圖片庫",
+      "update": "編輯圖片庫",
+      "delete": "刪除圖片"
     }
   },
   "validation": {
@@ -331,7 +340,8 @@
       "remove": "從最近使用移除「{{name}}」"
     },
     "source": {
-      "file": "檔案管理"
+      "file": "檔案管理",
+      "gallery": "圖片庫"
     }
   }
 }

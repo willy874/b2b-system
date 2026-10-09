@@ -1,11 +1,13 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Empty } from '@b2b-system/ui/Empty';
+import { Icon } from '@b2b-system/ui/Icon';
 import { Select } from '@b2b-system/ui/Select';
 import type { SelectOption } from '@b2b-system/ui/Select';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import type { ImageSourceProps, ImageUsage } from '@b2b-system/web-core/image-picker';
 import { isLargeEnough } from '@b2b-system/web-core/image-picker';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { cn } from '@b2b-system/web-shared/utils';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
@@ -41,11 +43,12 @@ function unusableReason(file: StoredFile, usage: ImageUsage): 'small' | undefine
 }
 
 /**
- * 來源「檔案管理」（docs/architecture/frontend/23-image-picker.md §7）：唯讀、單選的資料夾＋縮圖格。
+ * 來源「檔案管理」（docs/architecture/frontend/23-image-picker.md §7）：唯讀的資料夾＋縮圖格，預設單選。
  * 伺服器已濾掉不能用的（型別、大小、處理失敗，`imageUsage`）；選了之後由伺服器複製成一張新的圖片，
  * 原檔之後被移動、刪除都不影響。看不到任何資料夾時照樣顯示，提示改用上傳。
+ * 多選模式（`multiple`，docs/architecture/frontend/23-image-picker.md §2.1）：點一張切換勾選；勾選是 refId 的集合，換資料夾時保留。
  */
-export function FileImageSource({ usage, onSelect }: ImageSourceProps) {
+export function FileImageSource({ usage, onSelect, multiple }: ImageSourceProps) {
   const { t } = useTranslation();
   const [folderId, setFolderId] = useState<string>(ROOT_FOLDER);
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -95,6 +98,11 @@ export function FileImageSource({ usage, onSelect }: ImageSourceProps) {
         searchPlaceholder={t('file.move.search')}
         data-testid="file-image-source-folder"
       />
+      {multiple && (
+        <p className="m-0 text-xs text-[var(--color-fg-muted)]">
+          {t('file.imageSource.multipleHint')}
+        </p>
+      )}
       {files.isPending ? (
         <Skeleton width="100%" height={160} />
       ) : items.length === 0 ? (
@@ -111,6 +119,7 @@ export function FileImageSource({ usage, onSelect }: ImageSourceProps) {
                 })
               : file.name;
             const thumbnail = file.image?.thumbnailUrl ?? file.thumbnailUrl;
+            const isSelected = multiple?.selected.has(file.id) ?? false;
             return (
               <li key={file.id}>
                 <button
@@ -118,27 +127,36 @@ export function FileImageSource({ usage, onSelect }: ImageSourceProps) {
                   disabled={reason !== undefined}
                   title={label}
                   aria-label={label}
+                  aria-pressed={multiple ? isSelected : undefined}
                   className="flex w-full cursor-pointer flex-col gap-1 border-0 bg-transparent p-0 text-left disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() =>
-                    onSelect({
-                      kind: 'source',
-                      source: FILE_IMAGE_SOURCE_ID,
-                      refId: file.id,
-                      name: file.name,
-                      // 裁切用全螢幕預覽（縮小版），比例以原圖的尺寸換算
-                      preview: file.image
-                        ? {
-                            src: file.image.previewUrl,
-                            width: file.image.width,
-                            height: file.image.height,
-                          }
-                        : null,
-                    })
+                    multiple
+                      ? multiple.onToggle({ refId: file.id, name: file.name })
+                      : onSelect({
+                          kind: 'source',
+                          source: FILE_IMAGE_SOURCE_ID,
+                          refId: file.id,
+                          name: file.name,
+                          // 裁切用全螢幕預覽（縮小版），比例以原圖的尺寸換算
+                          preview: file.image
+                            ? {
+                                src: file.image.previewUrl,
+                                width: file.image.width,
+                                height: file.image.height,
+                              }
+                            : null,
+                        })
                   }
                   data-testid="file-image-source-item"
                   data-value={file.id}
+                  data-selected={isSelected || undefined}
                 >
-                  <span className="block aspect-square w-full overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-fill-subtle)]">
+                  <span
+                    className={cn(
+                      'relative block aspect-square w-full overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-fill-subtle)]',
+                      isSelected && 'ring-2 ring-[var(--color-brand)]',
+                    )}
+                  >
                     {thumbnail && (
                       <img
                         src={thumbnail}
@@ -146,6 +164,11 @@ export function FileImageSource({ usage, onSelect }: ImageSourceProps) {
                         loading="lazy"
                         className="h-full w-full object-cover"
                       />
+                    )}
+                    {isSelected && (
+                      <span className="absolute right-1 top-1 flex rounded-full bg-[var(--color-brand)] p-0.5 text-[var(--color-brand-fg)]">
+                        <Icon name="check" size={14} />
+                      </span>
                     )}
                   </span>
                   <span className="truncate text-xs">{file.name}</span>

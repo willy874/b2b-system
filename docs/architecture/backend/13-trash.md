@@ -36,6 +36,7 @@ modules/file/file-folder-trash.handler.ts  資料夾的 TrashHandler
 modules/file/file.service.ts               restore()：POST /files/:id/restore
 modules/file/file-folder.service.ts        restore()：POST /file-folders/:id/restore
 modules/file/file-objects.service.ts       一個檔案的所有物件：刪除（刪除檔案、永久刪除共用）、還原前確認還在
+modules/gallery/gallery-trash.handlers.ts  圖片庫的圖片與相簿的 TrashHandler；還原是 POST /gallery/items/:id/restore、/gallery/albums/:id/restore（[`26-gallery.md`](./26-gallery.md) §11.3）
 db/migrations/0012_*.sql             roles.deleted_at 改變時關係圖的 revision +1（§6.1）
 db/migrations/0013_*.sql             files.deletion_id、file_folders.deletion_id（§7.0）
 ```

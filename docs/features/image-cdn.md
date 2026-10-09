@@ -5,7 +5,7 @@
 - 依賴：[`backend/25-image.md`](../architecture/backend/25-image.md)（`ObjectUrlSigner`：CDN 是它的一個實作；每個物件只寫一次）、
   獨立的檔案網域（[`backend/09-file.md`](../architecture/backend/09-file.md) §3.2、§13）、影像 API（[`backend/09-file.md`](../architecture/backend/09-file.md) §5.4）、
   背景工作（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)；清理快取的 `cdn.purge`）
-- 相關：[`backend/25-image.md`](../architecture/backend/25-image.md) §15（圖片資產）、[`image-gallery.md`](./image-gallery.md)（圖片最多的頁面）；
+- 相關：[`backend/25-image.md`](../architecture/backend/25-image.md) §15（圖片資產）、[`backend/26-gallery.md`](../architecture/backend/26-gallery.md)（圖片庫，圖片最多的頁面）；
   部署（[`01-system.md`](../architecture/01-system.md) §4.3、`deploy/k8s/`）；
   [`cdn-settings.md`](./cdn-settings.md)（在 apps/platform 管理執行期的開關與參數、邊緣的狀態檢查、手動清理；環境變數改為部署層的能力與上限）
 
@@ -13,7 +13,7 @@
 
 ## 背景
 
-圖片之後會出現在大多數頁面上，例如使用者列表、留言、審批的頭像，以及圖片庫（[`backend/25-image.md`](../architecture/backend/25-image.md) §15、[`image-gallery.md`](./image-gallery.md)）。
+圖片之後會出現在大多數頁面上，例如使用者列表、留言、審批的頭像，以及圖片庫（[`backend/25-image.md`](../architecture/backend/25-image.md) §15、[`backend/26-gallery.md`](../architecture/backend/26-gallery.md)）。
 現在每張圖的讀取路徑是：
 
 ```

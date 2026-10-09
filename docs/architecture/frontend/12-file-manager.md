@@ -171,7 +171,7 @@ registerFilePreviewer({
 
 ### 6.2 檔案動作（`registerFileAction`）
 
-其他 feature 對檔案提供的動作（例：圖片庫的「加入圖片庫」），檔案管理器不認識它們，只依註冊表列出按鈕（`core/file/actions.ts`）：
+其他 feature 對檔案提供的動作（例：圖片庫的「加入圖片庫」，[`24-gallery.md`](./24-gallery.md) §6.1），檔案管理器不認識它們，只依註冊表列出按鈕（`core/file/actions.ts`）：
 
 ```ts
 // features/gallery/plugin.ts（示意）

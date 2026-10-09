@@ -8,6 +8,7 @@ import { Routes as AuditLogRoutes } from '@/features/audit-log';
 import { Routes as AuthRoutes } from '@/features/auth';
 import { Routes as DataTransferRoutes } from '@/features/data-transfer';
 import { Routes as FileRoutes } from '@/features/file';
+import { Routes as GalleryRoutes } from '@/features/gallery';
 import { Routes as GroupRoutes } from '@/features/group';
 import { Routes as HomeRoutes } from '@/features/home';
 import { Routes as IdentityProviderRoutes } from '@/features/identity-provider';
@@ -70,6 +71,8 @@ export const routeTree = RootRoute.addChildren([
   ApprovalFlowRoutes.ApprovalFlowListRoute,
   ApprovalFlowRoutes.ApprovalFlowEditRoute,
   FileRoutes.FileListRoute,
+  GalleryRoutes.GalleryRoute,
+  GalleryRoutes.GalleryAlbumRoute,
   JobRoutes.JobListRoute,
   IdentityProviderRoutes.IdentityProviderListRoute,
   WebhookRoutes.WebhookListRoute.addChildren([

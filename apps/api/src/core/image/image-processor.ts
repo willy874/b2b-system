@@ -43,8 +43,13 @@ export interface ImageRegion {
   height: number;
 }
 
+/** 在 EXIF 轉正之後再順時針旋轉的角度（圖片庫的「顯示方向」，docs/architecture/backend/26-gallery.md §5）。 */
+export type ImageRotation = 0 | 90 | 180 | 270;
+
 export interface RenderOptions {
   format: ImageFormat;
+  /** 轉正之後再旋轉（先旋轉、再裁切與縮放；`extract` 的座標以旋轉後的方向為準）。 */
+  rotate?: ImageRotation;
   /** 先裁切再縮放；範圍超出影像時拋 `ImageDecodeError`。 */
   extract?: ImageRegion;
   /** 長邊上限（px），等比縮小、不放大；省略時維持原尺寸。 */
@@ -60,8 +65,20 @@ export interface RenderedImage {
   height: number;
 }
 
+/** 小尺寸的原始像素與主色：給佔位用（BlurHash、載入前的背景色）。 */
+export interface ImageAnalysis {
+  /** 長邊縮到 `maxEdge` 的 RGBA 像素。 */
+  preview: { data: Buffer; width: number; height: number };
+  /** 主色（0～255）。 */
+  dominant: { r: number; g: number; b: number };
+}
+
 export interface DecodedImage {
   info: ImageInfo;
+  /** 原檔的 EXIF 區塊（JPEG 是 `Exif\0\0` 開頭的 APP1 內容）；沒有時是 undefined。 */
+  exif?: Buffer;
+  /** 縮小的像素與主色（套用轉正與 `rotate`）。 */
+  analyze(options: { maxEdge: number; rotate?: ImageRotation }): Promise<ImageAnalysis>;
   /**
    * 以同一份解碼結果輸出一個版本；可以呼叫多次（例：同時產生全螢幕預覽與圖示預覽）。
    * 一律套用 EXIF 方向並移除中繼資料（GPS 等）；JPEG 一律是 progressive，有透明度時鋪白底。

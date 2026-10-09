@@ -78,6 +78,7 @@ export const TENANT_FEATURE_LABEL_KEY = {
   dataTransfer: 'tenant.feature.dataTransfer',
   organization: 'tenant.feature.organization',
   approvalChain: 'tenant.feature.approvalChain',
+  gallery: 'tenant.feature.gallery',
 } as const satisfies Record<TenantFeature, string>;
 
 export const TENANT_FEATURE_DESCRIPTION_KEY = {
@@ -95,6 +96,7 @@ export const TENANT_FEATURE_DESCRIPTION_KEY = {
   dataTransfer: 'tenant.feature.dataTransferDescription',
   organization: 'tenant.feature.organizationDescription',
   approvalChain: 'tenant.feature.approvalChainDescription',
+  gallery: 'tenant.feature.galleryDescription',
 } as const satisfies Record<TenantFeature, string>;
 
 /**
@@ -108,6 +110,7 @@ export const TENANT_FEATURE_DISABLE_WARNING_KEY: Partial<Record<TenantFeature, s
   group: 'tenant.feature.groupDisableWarning',
   organization: 'tenant.feature.organizationDisableWarning',
   approvalChain: 'tenant.feature.approvalChainDisableWarning',
+  gallery: 'tenant.feature.galleryDisableWarning',
 };
 
 /** 關閉 feature 會影響的項目（`GET /platform/tenants/:id/features/:feature/impact`）。 */
@@ -123,6 +126,8 @@ export const TENANT_FEATURE_IMPACT_LABEL_KEY = {
   approvalFlowsUsingOrg: 'tenant.feature.impact.approvalFlowsUsingOrg',
   approvalFlows: 'tenant.feature.impact.approvalFlows',
   approvalRequestsInChain: 'tenant.feature.impact.approvalRequestsInChain',
+  galleryItems: 'tenant.feature.impact.galleryItems',
+  galleryAlbums: 'tenant.feature.impact.galleryAlbums',
 } as const satisfies Record<TenantFeatureImpact['items'][number]['key'], string>;
 
 /**
@@ -139,6 +144,7 @@ export const TENANT_FEATURE_PARAM_LABEL_KEY = {
   'dataTransfer.importMaxRows': 'tenant.param.dataTransfer.importMaxRows',
   'dataTransfer.importMaxSizeMb': 'tenant.param.dataTransfer.importMaxSizeMb',
   'dataTransfer.exportMaxRows': 'tenant.param.dataTransfer.exportMaxRows',
+  'gallery.maxItemSizeMb': 'tenant.param.gallery.maxItemSizeMb',
   'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinute',
   'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrs',
 } as const satisfies Record<TenantFeatureParamKey, string>;
@@ -153,6 +159,7 @@ export const TENANT_FEATURE_PARAM_DESCRIPTION_KEY = {
   'dataTransfer.importMaxRows': 'tenant.param.dataTransfer.importMaxRowsDescription',
   'dataTransfer.importMaxSizeMb': 'tenant.param.dataTransfer.importMaxSizeMbDescription',
   'dataTransfer.exportMaxRows': 'tenant.param.dataTransfer.exportMaxRowsDescription',
+  'gallery.maxItemSizeMb': 'tenant.param.gallery.maxItemSizeMbDescription',
   'rateLimit.authPerMinute': 'tenant.param.rateLimit.authPerMinuteDescription',
   'rateLimit.trustedCidrs': 'tenant.param.rateLimit.trustedCidrsDescription',
 } as const satisfies Record<TenantFeatureParamKey, string>;

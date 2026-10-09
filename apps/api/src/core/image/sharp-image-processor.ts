@@ -15,7 +15,9 @@ import { IMAGE_FORMAT_CONTENT_TYPE, ImageDecodeError, ImageProcessor } from './i
 import type {
   DecodedImage,
   DecodeOptions,
+  ImageAnalysis,
   ImageInfo,
+  ImageRotation,
   RenderedImage,
   RenderOptions,
 } from './image-processor';
@@ -114,18 +116,53 @@ export class SharpImageProcessor extends ImageProcessor {
 
     return {
       info,
+      exif: metadata.exif,
       render: (renderOptions) => render(image.clone(), info, renderOptions),
+      analyze: (analyzeOptions) => analyze(image.clone(), analyzeOptions),
       dispose,
     };
   }
 }
 
+/** 旋轉 90／270 度時寬高互換。 */
+function rotatedInfo(info: ImageInfo, rotate: ImageRotation | undefined): ImageInfo {
+  return rotate === 90 || rotate === 270
+    ? { ...info, width: info.height, height: info.width }
+    : info;
+}
+
+async function analyze(
+  image: Sharp,
+  options: { maxEdge: number; rotate?: ImageRotation },
+): Promise<ImageAnalysis> {
+  if (options.rotate) image.rotate(options.rotate);
+  image.resize({
+    width: options.maxEdge,
+    height: options.maxEdge,
+    fit: 'inside',
+    withoutEnlargement: true,
+  });
+  try {
+    // 先縮小再算：主色與 BlurHash 只需要大略的顏色分布，原尺寸的 stats 要掃過每個像素
+    const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const { dominant } = await sharp(data, {
+      raw: { width: info.width, height: info.height, channels: 4 },
+    }).stats();
+    return { preview: { data, width: info.width, height: info.height }, dominant };
+  } catch (error) {
+    throw new ImageDecodeError('無法分析影像', { cause: error });
+  }
+}
+
 async function render(
   image: Sharp,
-  info: ImageInfo,
+  original: ImageInfo,
   options: RenderOptions,
 ): Promise<RenderedImage> {
-  const { extract } = options;
+  const { extract, rotate } = options;
+  // autoOrient 在建構時已套用；這裡的旋轉疊在轉正之後
+  if (rotate) image.rotate(rotate);
+  const info = rotatedInfo(original, rotate);
   if (extract) {
     const inside =
       [extract.left, extract.top, extract.width, extract.height].every(Number.isInteger) &&
@@ -136,7 +173,7 @@ async function render(
       extract.left + extract.width <= info.width &&
       extract.top + extract.height <= info.height;
     if (!inside) throw new ImageDecodeError('裁切範圍超出影像');
-    // autoOrient 在建構時已套用：座標是轉正之後的方向
+    // 座標是轉正（與 rotate）之後的方向
     image.extract(extract);
   }
   if (options.maxEdge !== undefined) {

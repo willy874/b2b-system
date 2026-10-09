@@ -48,7 +48,9 @@
       "trashPurge": "回收桶到期清除",
       "watchNotify": "關注項目的更新通知",
       "webhookCleanup": "Webhook 紀錄清理",
-      "webhookDeliver": "Webhook 投遞"
+      "webhookDeliver": "Webhook 投遞",
+      "galleryMaintenance": "圖片庫清理",
+      "galleryProcess": "圖片庫處理"
     },
     "scope": {
       "tenant": "每個租戶",

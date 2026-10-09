@@ -281,6 +281,7 @@ export const PlatformTenantControllerFeatureImpactSchemas = {
       'dataTransfer',
       'organization',
       'approvalChain',
+      'gallery',
     ]),
   }),
   responses: {

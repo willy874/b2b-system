@@ -32,6 +32,8 @@ export const TENANT_FEATURES = [
   'organization',
   // docs/architecture/backend/20-approval.md §9：多階段審批（審批本身常駐）。同上，預設啟用（D17）
   'approvalChain',
+  // docs/architecture/backend/26-gallery.md：圖片庫。預設啟用，既有租戶由平台 migration 0028 啟用（D3）
+  'gallery',
 ] as const;
 
 export type TenantFeature = (typeof TENANT_FEATURES)[number];

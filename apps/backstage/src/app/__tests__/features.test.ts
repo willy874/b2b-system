@@ -32,6 +32,7 @@ import { APPROVAL_FLOW_PAGE } from '@/features/approval-flow';
 import { AUDIT_LOG_PAGE } from '@/features/audit-log';
 import { DATA_TRANSFER_PAGE } from '@/features/data-transfer';
 import { FILE_PAGE } from '@/features/file';
+import { GALLERY_PAGE } from '@/features/gallery';
 import {
   GROUP_CREATE_PAGE,
   GROUP_IMPORT_PAGE,
@@ -73,6 +74,7 @@ const EXPECTED_PAGES = {
   dataTransfer: [DATA_TRANSFER_PAGE],
   organization: [ORG_UNIT_PAGE, ORG_UNIT_IMPORT_PAGE, ORG_UNIT_MEMBER_IMPORT_PAGE],
   approvalChain: [APPROVAL_FLOW_PAGE],
+  gallery: [GALLERY_PAGE],
 } satisfies Record<keyof typeof FEATURE_CATALOG, unknown[]>;
 
 function createContext() {

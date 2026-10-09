@@ -48,7 +48,9 @@
       "trashPurge": "Trash purge",
       "watchNotify": "Watched item update notification",
       "webhookCleanup": "Webhook log cleanup",
-      "webhookDeliver": "Webhook delivery"
+      "webhookDeliver": "Webhook delivery",
+      "galleryMaintenance": "Gallery cleanup",
+      "galleryProcess": "Gallery processing"
     },
     "scope": {
       "tenant": "Per tenant",

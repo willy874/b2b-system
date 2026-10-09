@@ -29,6 +29,7 @@ import {
   Routes as DataTransferRoutes,
 } from '@/features/data-transfer';
 import { FILE_FEATURE, fileFeaturePlugin, Routes as FileRoutes } from '@/features/file';
+import { GALLERY_FEATURE, galleryFeaturePlugin, Routes as GalleryRoutes } from '@/features/gallery';
 import { GROUP_FEATURE, groupFeaturePlugin, Routes as GroupRoutes } from '@/features/group';
 import {
   IDENTITY_PROVIDER_FEATURE,
@@ -124,6 +125,11 @@ export const FEATURE_CATALOG = {
   },
   // 多階段審批的流程設定（docs/architecture/backend/20-approval.md §9）；審批本身常駐，
   // 審批頁的關卡操作與「待我審核」以 `useIsFeatureReady` 決定是否顯示
+  // 圖片庫（docs/architecture/frontend/24-gallery.md）：檔案管理器的「加入圖片庫」與選圖的「圖片庫」分頁跟著 plugin 安裝與卸載
+  [GALLERY_FEATURE]: {
+    plugin: galleryFeaturePlugin(),
+    routes: [GalleryRoutes.GalleryRoute, GalleryRoutes.GalleryAlbumRoute],
+  },
   [APPROVAL_FLOW_FEATURE]: {
     plugin: approvalFlowFeaturePlugin(),
     routes: [ApprovalFlowRoutes.ApprovalFlowListRoute],

@@ -21,12 +21,13 @@ GET／POST /comments/:resourceType/:resourceId、PATCH／DELETE /comments/:id、
 | 資源類型 | 看得到（讀留言、留言、關注） | 通知的名稱與連結 | 推播的 `refs` | 登記者 |
 | --- | --- | --- | --- | --- |
 | `user`（不含服務帳號） | `user:read` | 顯示名稱；`user.detail`（`{ userId }`） | `user` | `UserCommentResource` |
+| `galleryItem` | `gallery:read`（整個圖片庫對它可見，[`26-gallery.md`](./26-gallery.md) D4）；處理完、沒刪除的圖 | 標題；`gallery.item`（`{ itemId }`，檢視器） | `galleryItem` | `GalleryCommentResource` |
 
 - 看不到或不存在的資源由擁有者回自己的錯誤（`USER_NOT_FOUND`、`403 AUTHZ_FORBIDDEN`）。端點只宣告 `@Authenticated()`，所以權限鍵的判斷一律經
   `PermissionService.assertHasAll`（帶 `{ route, metadata }`），拒絕寫 `authz.denied`。
 - **編輯** 只有作者本人；**刪除** 是作者本人，或持有 `comment:delete`（刪別人的留言，管理用；[`iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §2.20）。
   兩者都還要看得到資源。
-- 所屬 feature 沒啟用時端點回 `404 FEATURE_DISABLED`、關注的通知不送；資料保留。`user` 不屬於可關閉的 feature。
+- 所屬 feature 沒啟用時端點回 `404 FEATURE_DISABLED`、關注的通知不送；資料保留。`user` 不屬於可關閉的 feature；`galleryItem` 屬於 `gallery`。
 
 ### 1.1 加入一種可以留言的資源
 

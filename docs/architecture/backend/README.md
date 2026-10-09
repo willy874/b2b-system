@@ -36,6 +36,7 @@ Nest 12 的套件只發 ESM；`apps/api` 仍編譯成 CommonJS，靠 Node 的 `r
 | 23  | [`23-organization.md`](./23-organization.md)       | 組織管理：部門樹、成員與主要部門、主管的解析（給審批）、平台可關閉 |
 | 24  | [`24-comment.md`](./24-comment.md)                 | 留言與關注：可留言的資源（`CommentService.registerResource`）、`comments`／`watches`、@提及、關注的通知（`watch.notify`）、永久刪除時清理 |
 | 25  | [`25-image.md`](./25-image.md)                     | 圖片的讀取與遞送：存參照不存網址、`ObjectUrlSigner`、`ImageUrlService` 與 `ImageSources`、效期與具名尺寸、格式政策、`SignedImage`；所有租戶合計的儲存止水線；圖片資產（`modules/image`：用途與來源的登記、上傳與複製、`image.process`、清理、最近使用）與第一個 consumer 頭像 |
+| 26  | [`26-gallery.md`](./26-gallery.md)                 | 圖片庫（`modules/gallery`）：與檔案管理平行、互不認識；上傳與從其他來源複製、`gallery.process`（EXIF、移除原檔的位置資訊、變體的版本、主色與 BlurHash）、keyset 列表與時間軸、相簿、選圖的來源 `'gallery'`、`gallery.maintenance` |
 | 18  | [`18-tag.md`](./18-tag.md)                         | 標籤：標籤組（`TagService.registerScope`）、可貼標籤的資源（`registerResource`）、`tags`／`resource_tags`、`hasAnyTag()` 篩選、永久刪除時清理 |
 
 ## 四條必須記住的規則

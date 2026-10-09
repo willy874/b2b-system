@@ -108,6 +108,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `auditLog.archive` | `modules/audit-log` | `AUDIT_LOG_ARCHIVE_CRON` | `30 3 * * *`（每天 03:30 UTC） |
 | `file.maintenance` | `modules/file` | `FILE_MAINTENANCE_CRON` | `0 * * * *`（每小時整點） |
 | `image.maintenance` | `modules/image` | `IMAGE_MAINTENANCE_CRON` | `30 * * * *`（每小時第 30 分；沒被使用的上傳、被換掉的圖、舊版本的變體、殘留物件，[`25-image.md`](./25-image.md) §15.6） |
+| `gallery.maintenance` | `modules/gallery` | `GALLERY_MAINTENANCE_CRON` | `45 * * * *`（每小時第 45 分；逾時的上傳、過期的失敗紀錄、舊版本的變體、卡住的處理、殘留物件，[`26-gallery.md`](./26-gallery.md) §11.5） |
 | `trash.purge` | `modules/trash` | `TRASH_PURGE_CRON` | `30 4 * * *`（每天 04:30 UTC；回收桶到期永久刪除，保留天數是系統設定 `trash.retentionDays`，[`13-trash.md`](./13-trash.md) §5） |
 | `revision.prune` | `modules/revision` | `REVISION_PRUNE_CRON` | `45 4 * * *`（每天 04:45 UTC；版本歷史的保留清理，保留條件是系統設定 `revision.keepVersions`／`revision.keepDays`，[`14-revisions.md`](./14-revisions.md) §5） |
 | `notification.cleanup` | `modules/notification` | `NOTIFICATION_CLEANUP_CRON` | `0 5 * * *`（每天 05:00 UTC；站內通知的保留清理：已讀超過 `notification.retentionDays` 天、每人超過 `notification.maxPerUser` 則的最舊通知，[`15-notification.md`](./15-notification.md) §8） |
@@ -115,6 +116,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `dataTransfer.cleanup` | `modules/data-transfer` | `DATA_TRANSFER_CLEANUP_CRON` | `25 5 * * *`（每天 05:25 UTC；到期的匯出檔與套用列、90 天前的傳輸紀錄，[`22-data-transfer.md`](./22-data-transfer.md) §10） |
 | `dataTransfer.export`、`dataTransfer.applyImport` | `modules/data-transfer` | — | 由程式入列（建立匯出、送出套用時；[`22-data-transfer.md`](./22-data-transfer.md) §6.3、§7.6） |
 | `file.imageVariants` | `modules/file` | — | 由程式入列：上傳完成的交易內、還原時變體遺失、維護排程補產生（[`09-file.md`](./09-file.md) §5.4）；每個 worker 程序並行 2 |
+| `gallery.process` | `modules/gallery` | — | 由程式入列：完成上傳、從其他來源加入、調整顯示方向的交易內，清理排程重新排入卡住的；寫原檔、讀 EXIF、產生變體（[`26-gallery.md`](./26-gallery.md) §5）；每個 worker 程序並行 2 |
 | `rateLimit.cleanup`（平台） | `core/rate-limit` | `RATE_LIMIT_CLEANUP_CRON` | `* * * * *`（每分鐘；共享的速率限制計數的過期列，記憶體實作時什麼都不做） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/platform、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |

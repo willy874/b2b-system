@@ -129,7 +129,11 @@
         "approvalFlows_one": "{{count}} enabled approval flow",
         "approvalFlows_other": "{{count}} enabled approval flows",
         "approvalRequestsInChain_one": "{{count}} in-flight multi-step request",
-        "approvalRequestsInChain_other": "{{count}} in-flight multi-step requests"
+        "approvalRequestsInChain_other": "{{count}} in-flight multi-step requests",
+        "galleryItems_one": "{{count}} image",
+        "galleryItems_other": "{{count}} images",
+        "galleryAlbums_one": "{{count}} album",
+        "galleryAlbums_other": "{{count}} albums"
       },
       "disableAction": "Turn off",
       "announcement": "Announcements",
@@ -149,7 +153,10 @@
       "organizationDisableWarning": "Approval steps of {{code}} that use managers or department managers as reviewers will find no reviewers and go to people with \"Override approvals\".",
       "approvalChain": "Multi-step approvals",
       "approvalChainDescription": "Sequential steps, multi-person sign-off and conditional routing for approval types. Single-step approvals are not affected.",
-      "approvalChainDisableWarning": "New requests of {{code}} become single-step; in-flight multi-step requests are decided in one go by people with \"Review requests\". Flows are kept; undecided requests continue from their step when turned on again."
+      "approvalChainDisableWarning": "New requests of {{code}} become single-step; in-flight multi-step requests are decided in one go by people with \"Review requests\". Flows are kept; undecided requests continue from their step when turned on again.",
+      "gallery": "Gallery",
+      "galleryDescription": "A shared library for brand assets, product shots and event photos, built for viewing: justified layout, timeline, viewer, albums and tags. Adds a “Gallery” tab to the image picker and lets the file manager add images. When off, the gallery page disappears; images and albums are kept and come back when turned on again.",
+      "galleryDisableWarning": "The file manager of {{code}} no longer shows “Add to gallery” and the image picker loses its “Gallery” tab. Images already used elsewhere (avatars) are not affected."
     },
     "flag": {
       "title": "Feature flags",
@@ -221,6 +228,10 @@
         "importMaxSizeMbDescription": "Maximum size of a file uploaded for analysis; the data submitted for applying may be up to twice this size.",
         "exportMaxRows": "Export row limit",
         "exportMaxRowsDescription": "Maximum rows in one export. Users are asked to narrow the filters."
+      },
+      "gallery": {
+        "maxItemSizeMb": "Maximum size per image",
+        "maxItemSizeMbDescription": "The upload limit for one gallery image. Photos rarely exceed 50 MB; higher limits need more memory while processing."
       }
     },
     "tab": {

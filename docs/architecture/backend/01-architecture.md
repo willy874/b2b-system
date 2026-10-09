@@ -214,6 +214,7 @@ app.module
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
   ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Comment · Announcement · DataTransfer · Organization · ImageAsset
   ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag · ImageAsset
+  ├─ GalleryModule         ──▶ Trash · Tag · Comment · ImageAsset（與 File 互不認識，[`26-gallery.md`](./26-gallery.md) D0）
   ├─ GroupModule           ──▶ Trash · Announcement · DataTransfer
   ├─ OrganizationModule    ──▶ Trash · Approval · DataTransfer
   ├─ RoleModule            ──▶ Trash · Revision · DataTransfer

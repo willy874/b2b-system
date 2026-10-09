@@ -72,7 +72,8 @@
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
 | 檔案 | S3 直傳、分塊上傳、影像變體、檔案管理器、資料夾層級的授權與繼承 | [§3.1](./03-feature-tour.md#31-檔案管理器) | [`backend/09-file.md`](../../architecture/backend/09-file.md)、[`iam/06-resource-grants.md`](../../architecture/iam/06-resource-grants.md) |
-| 圖片與頭像 | 使用者頭像：上傳（含拖曳與貼上）、從最近使用或檔案管理挑選、裁切；顯示在頂列、使用者列表與詳情、留言；圖片的網址會過期、讀圖不經過 api | — | [`backend/25-image.md`](../../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../../architecture/frontend/23-image-picker.md) |
+| 圖片與頭像 | 使用者頭像：上傳（含拖曳與貼上）、從最近使用、圖片庫或檔案管理挑選、裁切；顯示在頂列、使用者列表與詳情、留言；圖片的網址會過期、讀圖不經過 api | — | [`backend/25-image.md`](../../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../../architecture/frontend/23-image-picker.md) |
+| 圖片庫 | 以看圖為主的素材庫：上傳（拖曳資料夾、貼上）或從檔案管理加入（複製，兩者互不認識）；依拍攝時間的等高排列或方格、日期捲軸；縮放平移的檢視器（整個結果之間切換、幻燈片、EXIF 資訊、留言）；相簿（一張圖可在多個相簿）、標籤、篩選、批次操作；原檔的位置資訊依設定移除；可由平台關閉 | — | [`backend/26-gallery.md`](../../architecture/backend/26-gallery.md)、[`frontend/24-gallery.md`](../../architecture/frontend/24-gallery.md) |
 | 標籤 | 依資源類型分開的標籤組、列表依標籤篩選 | [§3.3](./03-feature-tour.md#33-標籤) | [`backend/18-tag.md`](../../architecture/backend/18-tag.md) |
 | 留言與關注 | 資源上的留言與 @提及、關注（有新留言或被修改時通知）；第一批接上使用者 | [§3.5](./03-feature-tour.md#35-留言與關注) | [`backend/24-comment.md`](../../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../../architecture/frontend/22-comment.md) |
 | 稽核日誌 | 所有寫入與授權決策；前後差異；熱冷分層 | [§4.1](./03-feature-tour.md#41-稽核日誌) | [`backend/06-audit-log.md`](../../architecture/backend/06-audit-log.md) |

@@ -1,7 +1,7 @@
 # 23 — 選圖：`ImageField` 與圖片來源
 
 使用圖片的地方（第一個是使用者頭像）放一個 `ImageField`：顯示目前的圖，「更換」「裁切」「移除」；更換時依 feature、權限、用途與「有沒有內容」
-決定可以從哪裡挑（上傳、最近使用、檔案管理，之後的圖片庫）；只剩上傳時不顯示來源選擇，直接打開選檔視窗。
+決定可以從哪裡挑（上傳、最近使用、圖片庫、檔案管理）；只剩上傳時不顯示來源選擇，直接打開選檔視窗。
 後端的圖片資產（上傳、複製、處理、清理）見 [`../backend/25-image.md`](../backend/25-image.md) §15，決定與理由見 §16 與本文 §9。
 
 ```
@@ -10,7 +10,7 @@ features/account（頭像）、features/user（幫別人換）
         ├─ useImagePicker：判斷可用的來源 → 選（選檔、拖曳、貼上、來源分頁）→ 檢查 → 裁切 → 上傳或複製 → onChange(assetId)
         ├─ ImageSourceDialog：「上傳」＋ 每個可用的來源一個分頁
         └─ ImageCropDialog：ui 的 ImageCropper ＋ 上傳進度
-  圖片來源的註冊表（web-core）  ← app/image-picker 登記「最近使用」與選圖的 api；features/file 登記「檔案管理」
+  圖片來源的註冊表（web-core）  ← app/image-picker 登記「最近使用」與選圖的 api；features/gallery 登記「圖片庫」；features/file 登記「檔案管理」
 ```
 
 ---
@@ -55,6 +55,19 @@ registerImageSource({
 
 滑過或聚焦「更換」時預先判斷，按下時通常已經有答案。結果只剩「上傳」→ 直接打開選檔視窗；有兩個以上 → 開 `ImageSourceDialog`。
 前端的判斷只是體驗：後端照樣把關（來源的 `feature`、以呼叫者的身分讀取）。
+
+目前的來源：「最近使用」（order 20，§6）、「圖片庫」（order 25，[`24-gallery.md`](./24-gallery.md) §7）、「檔案管理」（order 30，§7）。
+
+### 2.1 多選模式：`MultiImageSourceDialog`
+
+一次從其他來源挑多張（圖片庫的「從其他來源…」，[`24-gallery.md`](./24-gallery.md) §6.2）。與 `ImageSourceDialog` 是不同的元件：沒有「上傳」「最近使用」、沒有裁切。
+
+- 來源登記時帶 `supportsMultiple: true` 才列出；元件收到 `multiple: { selected, onToggle }` 時顯示勾選狀態（`aria-pressed`），點一張切換勾選，不呼叫 `onSelect`。
+  目前只有「檔案管理」與「圖片庫」支援。
+- `useMultiImageSources(usage, exclude)` 依序判斷：支援多選、用途允許、`isAvailable` 為真、不在 `exclude`（呼叫端自己）；
+  `useMultiImageSourcesAvailable` 讓呼叫端決定要不要顯示入口（還在判斷時是 `undefined`，先不顯示，避免選單項目閃一下又消失）。
+- 勾選只在一個來源內（後端一次只收一個 `source`），切換分頁時清空；`max` 限制張數（api 的 `from-source` 上限 100）。
+  `onConfirm({ source, items })` 交給呼叫端送出，對話框不認識圖片庫。
 
 ## 3. 流程與 api 的注入
 
@@ -105,7 +118,7 @@ backstage 的實作在 `apps/backstage/src/app/image-picker/api.ts`，用 `apis/
 ## 7. 來源「檔案管理」
 
 `apps/backstage/src/features/file/imageSource/`（`file` feature 的 plugin 登記，order 30）：資料夾的下拉選單（看不到內容的資料夾不列）＋ 縮圖格，
-唯讀、單選；不帶上傳、改名、刪除、拖曳。是 `features/file` 自己的元件，不是別的 feature 拿去用（[`02-plugin-system.md`](./02-plugin-system.md) §3.1）。
+唯讀；單選，或在多選模式下勾選多張（§2.1）；不帶上傳、改名、刪除、拖曳。是 `features/file` 自己的元件，不是別的 feature 拿去用（[`02-plugin-system.md`](./02-plugin-system.md) §3.1）。
 
 | 層 | 條件 | 不符合時 |
 | --- | --- | --- |

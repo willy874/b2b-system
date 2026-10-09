@@ -55,6 +55,9 @@ import type {
   CreateFileFolderRequest,
   CreateFileUploadPartsRequest,
   CreateFileUploadRequest,
+  CreateGalleryAlbumRequest,
+  CreateGalleryFromSourceRequest,
+  CreateGalleryUploadRequest,
   CreateGroupRequest,
   CreateIdentityProviderRequest,
   CreateImageFromSourceRequest,
@@ -116,6 +119,21 @@ import type {
   FileUploadTarget,
   FileUploader,
   ForgotPasswordRequest,
+  GalleryAlbum,
+  GalleryAlbumItemsRequest,
+  GalleryAlbumItemsResult,
+  GalleryAlbumList,
+  GalleryExif,
+  GalleryFromSourceResult,
+  GalleryItem,
+  GalleryItemDetail,
+  GalleryItemList,
+  GalleryNeighbors,
+  GalleryTimeline,
+  GalleryUpload,
+  GalleryUploadItem,
+  GalleryUploadStatus,
+  GalleryUploadTarget,
   GetFileImageQuery,
   Group,
   GroupMember,
@@ -280,6 +298,8 @@ import type {
   UpdateFileFolderAccessRequest,
   UpdateFileFolderRequest,
   UpdateFileRequest,
+  UpdateGalleryAlbumRequest,
+  UpdateGalleryItemRequest,
   UpdateGroupMembersRequest,
   UpdateGroupRequest,
   UpdateGroupRolesRequest,
@@ -533,6 +553,8 @@ export const TrashResourceTypeSchema = z.enum([
   'fileFolder',
   'announcement',
   'orgUnit',
+  'galleryItem',
+  'galleryAlbum',
 ]) satisfies z.ZodType<TrashResourceType>;
 
 export const TrashItemSchema = z.object({
@@ -928,6 +950,10 @@ export const PermissionKeySchema = z.enum([
   'orgUnit:export',
   'approvalFlow:read',
   'approvalFlow:update',
+  'gallery:create',
+  'gallery:read',
+  'gallery:update',
+  'gallery:delete',
   'comment:delete',
 ]) satisfies z.ZodType<PermissionKey>;
 
@@ -3044,6 +3070,7 @@ export const TenantFeatureSchema = z.enum([
   'dataTransfer',
   'organization',
   'approvalChain',
+  'gallery',
 ]) satisfies z.ZodType<TenantFeature>;
 
 export const TenantFlagOverridesSchema = z.record(
@@ -3066,6 +3093,7 @@ export const TenantFeatureParamKeySchema = z.enum([
   'dataTransfer.importMaxRows',
   'dataTransfer.importMaxSizeMb',
   'dataTransfer.exportMaxRows',
+  'gallery.maxItemSizeMb',
   'rateLimit.authPerMinute',
   'rateLimit.trustedCidrs',
 ]) satisfies z.ZodType<TenantFeatureParamKey>;
@@ -3173,7 +3201,7 @@ export const CreateTenantRequestSchema = z.object({
 
 export const UpdateTenantRequestSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  features: z.array(TenantFeatureSchema).max(14).optional(),
+  features: z.array(TenantFeatureSchema).max(15).optional(),
   flags: TenantFlagOverridesSchema.optional(),
   mfaMethods: TenantMfaMethodOverridesSchema.optional(),
   featureParams: z
@@ -3198,6 +3226,8 @@ export const TenantFeatureImpactSchema = z.object({
         'approvalFlowsUsingOrg',
         'approvalFlows',
         'approvalRequestsInChain',
+        'galleryItems',
+        'galleryAlbums',
       ]),
       count: z.int().min(0).max(9007199254740991),
     }),
@@ -3991,6 +4021,321 @@ export const UpdateFileRequestSchema = z.object({
   version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateFileRequest>;
 
+export const GalleryAlbumSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  name: z.string(),
+  description: z.string().nullable(),
+  itemCount: z.int().min(-9007199254740991).max(9007199254740991),
+  coverItemId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  cover: ImageSourcesSchema.nullable(),
+  coverColor: z.string().nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}) satisfies z.ZodType<GalleryAlbum>;
+
+export const GalleryAlbumListSchema = z.object({
+  items: z.array(GalleryAlbumSchema),
+}) satisfies z.ZodType<GalleryAlbumList>;
+
+export const CreateGalleryAlbumRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(1000).nullable().optional(),
+}) satisfies z.ZodType<CreateGalleryAlbumRequest>;
+
+export const UpdateGalleryAlbumRequestSchema = z.object({
+  version: z.int().max(9007199254740991).gt(0),
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  coverItemId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+}) satisfies z.ZodType<UpdateGalleryAlbumRequest>;
+
+export const GalleryAlbumItemsRequestSchema = z.object({
+  itemIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .min(1)
+    .max(500),
+}) satisfies z.ZodType<GalleryAlbumItemsRequest>;
+
+export const GalleryAlbumItemsResultSchema = z.object({
+  changed: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<GalleryAlbumItemsResult>;
+
+export const GalleryItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  title: z.string(),
+  description: z.string().nullable(),
+  contentType: z.string(),
+  size: z.int().min(-9007199254740991).max(9007199254740991),
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+  displayRotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  dominantColor: z.string().nullable(),
+  placeholder: z.string().nullable(),
+  takenAt: z.string().nullable(),
+  sortAt: z.string(),
+  createdAt: z.string(),
+  image: ImageSourcesSchema,
+  tags: z.array(TagSummarySchema),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<GalleryItem>;
+
+export const GalleryItemListSchema = z.object({
+  items: z.array(GalleryItemSchema),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<GalleryItemList>;
+
+export const GalleryExifSchema = z.object({
+  make: z.string().optional(),
+  model: z.string().optional(),
+  lensMake: z.string().optional(),
+  lensModel: z.string().optional(),
+  focalLength: z.number().optional(),
+  focalLength35mm: z.number().optional(),
+  fNumber: z.number().optional(),
+  exposureTime: z.number().optional(),
+  iso: z.number().optional(),
+  flashFired: z.boolean().optional(),
+}) satisfies z.ZodType<GalleryExif>;
+
+export const GalleryItemDetailSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  title: z.string(),
+  description: z.string().nullable(),
+  contentType: z.string(),
+  size: z.int().min(-9007199254740991).max(9007199254740991),
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+  displayRotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  dominantColor: z.string().nullable(),
+  placeholder: z.string().nullable(),
+  takenAt: z.string().nullable(),
+  sortAt: z.string(),
+  createdAt: z.string(),
+  image: ImageSourcesSchema,
+  tags: z.array(TagSummarySchema),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  exif: GalleryExifSchema.nullable(),
+  locationStripped: z.boolean(),
+  source: z.string(),
+  sourceName: z.string().nullable(),
+  uploader: z
+    .object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    })
+    .nullable(),
+  albums: z.array(
+    z.object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      name: z.string(),
+    }),
+  ),
+  duplicates: z.array(
+    z.object({
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      title: z.string(),
+    }),
+  ),
+  original: z
+    .object({
+      url: z.string(),
+      width: z.int().min(-9007199254740991).max(9007199254740991),
+      height: z.int().min(-9007199254740991).max(9007199254740991),
+      expiresAt: z.string(),
+    })
+    .nullable(),
+  download: z.object({
+    original: z.string(),
+    large: z.string(),
+  }),
+}) satisfies z.ZodType<GalleryItemDetail>;
+
+export const GalleryNeighborsSchema = z.object({
+  previousId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+  nextId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
+}) satisfies z.ZodType<GalleryNeighbors>;
+
+export const GalleryTimelineSchema = z.object({
+  timeZone: z.string(),
+  months: z.array(
+    z.object({
+      month: z.string(),
+      count: z.int().min(-9007199254740991).max(9007199254740991),
+    }),
+  ),
+}) satisfies z.ZodType<GalleryTimeline>;
+
+export const CreateGalleryUploadRequestSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  title: z.string().min(1).max(255).optional(),
+  contentType: z.string().min(1).max(100),
+  size: z.int().max(9007199254740991).gt(0),
+  width: z.int().max(100000).gt(0).optional(),
+  height: z.int().max(100000).gt(0).optional(),
+  albumId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .optional(),
+}) satisfies z.ZodType<CreateGalleryUploadRequest>;
+
+export const GalleryUploadTargetSchema = z.object({
+  url: z.string(),
+  method: z.enum(['PUT']),
+  headers: z.record(z.string(), z.string()),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<GalleryUploadTarget>;
+
+export const GalleryUploadItemSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  title: z.string(),
+  status: z.enum(['pending', 'processing', 'ready', 'failed']),
+  failureReason: z.enum(['notImage', 'typeNotAllowed', 'tooLarge', 'missing']).nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<GalleryUploadItem>;
+
+export const GalleryUploadSchema = z.object({
+  item: GalleryUploadItemSchema,
+  upload: GalleryUploadTargetSchema,
+}) satisfies z.ZodType<GalleryUpload>;
+
+export const GalleryUploadStatusSchema = z.object({
+  processing: z.int().min(-9007199254740991).max(9007199254740991),
+  failed: z.array(GalleryUploadItemSchema),
+}) satisfies z.ZodType<GalleryUploadStatus>;
+
+export const CreateGalleryFromSourceRequestSchema = z.object({
+  source: z.string().max(50).regex(new RegExp('^[a-z][A-Za-z0-9]*$')),
+  refIds: z.array(z.string().min(1).max(200)).min(1).max(100),
+  albumId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .optional(),
+}) satisfies z.ZodType<CreateGalleryFromSourceRequest>;
+
+export const GalleryFromSourceResultSchema = z.object({
+  results: z.array(
+    z.object({
+      refId: z.string(),
+      status: z.enum(['added', 'skipped']),
+      itemId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        )
+        .nullable(),
+      reason: z.enum(['typeNotAllowed', 'tooLarge', 'alreadyAdded', 'notFound']).nullable(),
+      existingItemId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        )
+        .nullable(),
+      name: z.string().nullable(),
+    }),
+  ),
+}) satisfies z.ZodType<GalleryFromSourceResult>;
+
+export const UpdateGalleryItemRequestSchema = z.object({
+  version: z.int().max(9007199254740991).gt(0),
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  displayRotation: z
+    .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])
+    .optional(),
+}) satisfies z.ZodType<UpdateGalleryItemRequest>;
+
 export const CreateGroupRequestSchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().max(500).optional(),
@@ -4127,6 +4472,8 @@ export const TenantJobNameSchema = z.enum([
   'dataTransfer.export',
   'file.imageVariants',
   'file.maintenance',
+  'gallery.maintenance',
+  'gallery.process',
   'image.maintenance',
   'image.process',
   'mfa.cleanup',
@@ -4159,6 +4506,8 @@ export const JobNameSchema = z.enum([
   'dataTransfer.export',
   'file.imageVariants',
   'file.maintenance',
+  'gallery.maintenance',
+  'gallery.process',
   'image.maintenance',
   'image.process',
   'jobs.outboxSweep',
@@ -4481,6 +4830,7 @@ export const SystemSettingSchema = z.object({
     'revision',
     'notification',
     'dataTransfer',
+    'gallery',
   ]),
   type: z.enum(['string', 'number', 'boolean']),
   value: z.union([z.string().max(1000), z.number(), z.boolean()]),

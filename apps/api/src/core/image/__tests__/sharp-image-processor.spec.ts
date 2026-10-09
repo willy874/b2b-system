@@ -203,4 +203,34 @@ describe('SharpImageProcessor', () => {
     expect(sharp.concurrency()).toBeLessThanOrEqual(2);
     expect(sharp.cache().memory.max).toBeLessThanOrEqual(16);
   });
+  it('rotate：在轉正之後再旋轉，寬高互換；analyze 回縮小的 RGBA 與主色', async () => {
+    const decoded = await processor.decode(await solid(400, 200).png().toBuffer(), {
+      maxBytes: MAX_BYTES,
+    });
+    const rotated = await decoded.render({ format: 'jpeg', rotate: 90, maxEdge: 100 });
+    expect(rotated).toMatchObject({ width: 50, height: 100 });
+
+    const analysis = await decoded.analyze({ maxEdge: 32, rotate: 270 });
+    expect(analysis.preview).toMatchObject({ width: 16, height: 32 });
+    expect(analysis.preview.data.length).toBe(16 * 32 * 4);
+    expect(analysis.dominant.r).toBeGreaterThan(200);
+    expect(analysis.dominant.g).toBeLessThan(40);
+    await decoded.dispose();
+  });
+
+  it('exif：帶出原檔的 EXIF 區塊；沒有時是 undefined', async () => {
+    const withExif = await solid(20, 10)
+      .jpeg()
+      .withExif({ IFD0: { Make: 'Acme' } })
+      .toBuffer();
+    const decoded = await processor.decode(withExif, { maxBytes: MAX_BYTES });
+    expect(decoded.exif?.subarray(0, 4).toString('latin1')).toBe('Exif');
+    await decoded.dispose();
+
+    const plain = await processor.decode(await solid(20, 10).png().toBuffer(), {
+      maxBytes: MAX_BYTES,
+    });
+    expect(plain.exif).toBeUndefined();
+    await plain.dispose();
+  });
 });

@@ -214,7 +214,8 @@ export interface PlatformTenantControllerFeatureImpactPathParams {
     | 'group'
     | 'dataTransfer'
     | 'organization'
-    | 'approvalChain';
+    | 'approvalChain'
+    | 'gallery';
 }
 
 export interface PlatformTenantControllerFeatureImpactInput {

@@ -13,6 +13,7 @@ export * from './endpoints/auth';
 export * from './endpoints/comments';
 export * from './endpoints/data-transfers';
 export * from './endpoints/files';
+export * from './endpoints/gallery';
 export * from './endpoints/groups';
 export * from './endpoints/health';
 export * from './endpoints/identity-providers';

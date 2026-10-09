@@ -29,7 +29,7 @@
 
 ---
 
-## 2. 權限清單（共 72 項）
+## 2. 權限清單（共 76 項）
 
 ### 2.1 `user` — 使用者
 
@@ -249,7 +249,19 @@
 > 沒有 `comment:read`／`comment:create`：留言跟著所在的資源，**看得到資源就能讀留言、留言、關注**（使用者：`user:read`）。
 > 編輯只有作者本人；刪除自己的留言不需要這個鍵。
 
-### 2.21 個人範圍（不需要權限）
+### 2.21 `gallery` — 圖片庫
+
+| 權限鍵           | 顯示名稱（zh-TW） | 說明 |
+| ---------------- | ----------------- | ---- |
+| `gallery:create` | 上傳圖片          | 上傳、從其他來源（檔案管理）加入、建立相簿（[`backend/26-gallery.md`](../backend/26-gallery.md) §10） |
+| `gallery:read`   | 檢視圖片庫        | 瀏覽、檢視器、下載；選圖時看得到「圖片庫」分頁；讀標籤與留言 |
+| `gallery:update` | 編輯圖片庫        | 編輯標題、說明、顯示方向；貼標籤；管理相簿（改名、封面、加入與移出圖片） |
+| `gallery:delete` | 刪除圖片          | 刪除圖片與相簿（進回收桶）與還原 |
+
+> `create`、`update`、`delete` 都包含 `read`（三者互不包含）。這一版只有 RBAC：整個圖片庫對 `gallery:read` 的人全部可見，沒有相簿層級的授權（D4）。
+> 「從其他來源加入」另外由來源判斷讀取權限（例：檔案管理的資料夾授權），圖片庫不回頭問。
+
+### 2.22 個人範圍（不需要權限）
 
 以下操作 **任何已登入使用者都能做**，因為對象是自己，不進權限目錄：
 
@@ -296,6 +308,7 @@
 | `orgUnit`         |   ✓    |  ✓   |   ✓    |   ✓    | `export`                      |
 | `approvalFlow`    |   —    |  ✓   |   ✓    |   —    | —                             |
 | `comment`         |   —    |  —   |   —    |   ✓    | —                             |
+| `gallery`         |   ✓    |  ✓   |   ✓    |   ✓    | —                             |
 
 ---
 
@@ -375,11 +388,15 @@
 | `approvalFlow:read`    |      ✓*       |    ✓    |     ✓     |          |
 | `approvalFlow:update`  |      ✓*       |    ✓    |           |          |
 | `comment:delete`       |      ✓*       |    ✓    |           |          |
+| `gallery:create`       |      ✓*       |    ✓    |           |          |
+| `gallery:read`         |      ✓*       |    ✓    |     ✓     |    ✓     |
+| `gallery:update`       |      ✓*       |    ✓    |           |          |
+| `gallery:delete`       |      ✓*       |    ✓    |           |          |
 
 `*` super-admin 是 **隱含全集**，不逐筆登錄權限鍵的邊（只有 `tenant:self#superAdmin` 一條邊）；
 `GET /auth/profile` 回傳時才展開成完整清單。
 
-`member` 只有 `file:access`：進得了檔案管理器，看得到資料夾但全部鎖住，被授權之後才讀得到。
+`member` 只有 `file:access` 與 `gallery:read`（圖片庫是租戶共用的素材庫，人人能看、少數人維護，[`backend/26-gallery.md`](../backend/26-gallery.md) D3）。`file:access` 讓他進得了檔案管理器，看得到資料夾但全部鎖住，被授權之後才讀得到。
 `admin` 也持有 `file:access`：不擴大能力（已有全域 `file:*`），但指派 `member` 受反提權限制，要持有它的每個權限鍵。
 其餘只能存取個人範圍的頁面（首頁、個人資料）。
 這是刻意的：它是業務功能的權限掛載點——新功能的權限鍵授予 `member`（或自訂角色）即可開放給一般使用者。
@@ -408,6 +425,7 @@
 | 匯入群組     | `/group/import`（`?mode=create\|update`；新增模式要 `group:create`） | `GROUP_IMPORT` | `group:read` ＋ `group:update` | EVERY |
 | 匯入群組成員 | `/group/import-members`（只有新增模式） | `GROUP_MEMBER_IMPORT` | `group:read` ＋ `group:update` ＋ `user:read` | EVERY |
 | 組織         | `/organization`（`?unitId=` 選中的部門；成員要 `user:read`） | `ORG_UNIT` | `orgUnit:read` | EVERY |
+| 圖片庫       | `/gallery`（含 `/gallery/album/$albumId` 相簿頁、`?item=` 開著的檢視器；上傳要 `gallery:create`） | `GALLERY` | `gallery:read` | EVERY |
 | 匯入部門     | `/organization/import`（`?mode=create\|update`；新增模式要 `orgUnit:create`） | `ORG_UNIT_IMPORT` | `orgUnit:read` ＋ `orgUnit:update` | EVERY |
 | 匯入部門成員 | `/organization/import-members` | `ORG_UNIT_MEMBER_IMPORT` | `orgUnit:read` ＋ `orgUnit:update` ＋ `user:read` | EVERY |
 | 建立群組     | `/group/create`            | `GROUP_CREATE`  | `group:read` ＋ `group:create`   | EVERY |
@@ -650,6 +668,9 @@ Seed 行為：
 | `orgUnit:update` | `orgUnit:read` | `user:read` |
 | `orgUnit:export` | `orgUnit:read` | `user:read` |
 | `approvalFlow:update` | `approvalFlow:read` | `user:read`、`group:read`、`role:read`、`orgUnit:read` |
+| `gallery:create` | `gallery:read` | |
+| `gallery:update` | `gallery:read` | |
+| `gallery:delete` | `gallery:read` | |
 
 沒有列出的鍵是葉節點（`permission:read`、`auditLog:read`、各資源的 `read`、`file:access`）。
 

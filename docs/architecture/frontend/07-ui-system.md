@@ -89,6 +89,8 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `TreeEditor`                     | React Flow（`@xyflow/react`）＋ dagre 自動排版；樣式改寫進 CSS Module，工具列用 `Toolbar`（§3.13、§12） |
 | `Toolbar`                        | 自製：`role="toolbar"` ＋ 方向鍵移動焦點；放不下的按鈕收進「更多」下拉（`Menu`），量測與 `BoxEllipsis` 共用 `useFitItems`（§3.14） |
 | `RichTextEditor` / `LazyRichTextEditor` / `RichTextViewer` | `RichTextEditor` 是 Tiptap 3（ProseMirror），頁面用延遲載入的 `LazyRichTextEditor`；`RichTextViewer` 自製（JSON → React 元素，不載入編輯器），兩者共用排版；格式定義與轉換在 `@b2b-system/rich-text`（§3.16、§14） |
+| `JustifiedGrid`                  | 自製：等高排列或方格的分區段版面（純函式 `computeGridLayout`，增量快取）＋ 依捲動位置的虛擬渲染；`hitTestGrid` 給框選（§3.19） |
+| `ImageViewer`                    | 自製：可縮放與平移的單張圖片，依縮放倍率漸進換解析度（§3.20） |
 
 > **DatePicker 是最大的一塊自製工作**，排入
 > [`../../features/roadmap.md`](../../features/roadmap.md) 的 M2，已完成：`components/DatePicker/` 底下是
@@ -842,6 +844,41 @@ api 回的圖片是一組有效期的簽章網址（`ImageSources`：多個具�
 | `shape` | `circle` 顯示圓形參考線（頭像），範圍仍是方形 |
 
 只輸出範圍，不在瀏覽器重新編碼圖片：套用由伺服器做（[`../backend/25-image.md`](../backend/25-image.md) §15.5）。選圖的流程見 [`23-image-picker.md`](./23-image-picker.md) §5。
+
+### 3.19 圖片的版面：`JustifiedGrid`
+
+`@b2b-system/ui/JustifiedGrid`：分區段的等高排列（justified：每一列高度相同、寬度依寬高比分配、填滿容器）或正方形方格，
+只渲染可視範圍上下 `overscan` 內的項目與區段標題。輸入是寬高比，不必等圖片載入就算得出版面；版面計算是純函式（`computeGridLayout`），
+每個區段以輸入快取，無限捲動時只重算新載入的那一段。
+
+| prop | 用途 |
+| --- | --- |
+| `sections` | `{ key, label?, items: { key, width, height }[] }[]`；`label` 是預設的區段標題 |
+| `mode`、`rowHeight`、`gap`、`headerHeight`、`maxRowHeightRatio` | 排版（預設 `justified`、180、4、40、1：最後一列放不滿時不拉伸） |
+| `renderItem`、`renderHeader` | 項目與區段標題的內容；元件包一層絕對定位、尺寸等於格子的容器，標題黏在上方 |
+| `ref` | 根元素就是捲動容器，呼叫端可以設 `scrollTop`、做框選 |
+| `onLayoutChange`、`onEndReached`、`onVisibleSectionChange` | 版面重算之後（框選以 `hitTestGrid(layout, rect)` 算命中）、接近底部（無限捲動）、最上方的區段改變（外部的日期捲軸） |
+| slots | `scroller`、`section`、`header`、`item`（§3.1 規則 6） |
+
+不含業務名詞：日期分組、選取框、佔位由呼叫端在 `renderItem` 做（圖片庫，[`24-gallery.md`](./24-gallery.md) §3）。
+
+### 3.20 可縮放的圖片：`ImageViewer`
+
+`@b2b-system/ui/ImageViewer`：滾輪與觸控板以游標為中心縮放、拖曳平移、雙擊（觸控是點兩下）在「符合視窗」與「100%」之間切換、雙指縮放；
+平移限制在圖片不離開視窗的範圍。
+
+| prop | 用途 |
+| --- | --- |
+| `levels` | 由小到大的解析度 `{ src, width, height, srcSet?, sources? }[]`：第一個先顯示（通常已在快取），放大到需要時才換成更大的（漸進載入） |
+| `width`、`height`、`alt`、`maxZoom` | 原圖尺寸（決定「100%」）、替代文字、最大縮放（預設 4 倍） |
+| `placeholderColor`、`placeholderSrc` | 載入前的背景色（資料，只套 inline style）與模糊預覽 |
+| `controllerRef` | `zoomIn`／`zoomOut`／`fit`／`actualSize`／`toggle`：快捷鍵由呼叫端綁 |
+| `onZoomChange`、`onSwipe` | 縮放狀態；「符合視窗」時左右滑或拖曳超過門檻 → 呼叫端切換上一張／下一張 |
+| `showControls`、`labels` | 右下角的放大、縮小、符合視窗按鈕與它們的名稱（預設 zh-TW） |
+| slots | `stage`、`image`、`controls` |
+
+只處理一張圖；上一張與下一張、底片列、幻燈片、資訊面板是呼叫端的事（圖片庫的檢視器，[`24-gallery.md`](./24-gallery.md) §9）。
+檔案管理器的 LightBox 這一版不改用它（[`../backend/26-gallery.md`](../backend/26-gallery.md) D12）。
 
 ---
 

@@ -40,6 +40,12 @@ import {
   FILE_LIST_QUERY_KEY,
 } from '@/apis/file/get-file-list/query';
 import { FILE_STORAGE_USAGE_QUERY_KEY } from '@/apis/file/get-upload-policy/query';
+import { GALLERY_ALBUMS_QUERY_KEY } from '@/apis/gallery/get-gallery-albums/query';
+import { GALLERY_ITEM_QUERY_KEY } from '@/apis/gallery/get-gallery-item/query';
+import { GALLERY_ITEMS_QUERY_KEY } from '@/apis/gallery/get-gallery-items/query';
+import { GALLERY_NEIGHBORS_QUERY_KEY } from '@/apis/gallery/get-gallery-neighbors/query';
+import { GALLERY_TIMELINE_QUERY_KEY } from '@/apis/gallery/get-gallery-timeline/query';
+import { GALLERY_UPLOADS_QUERY_KEY } from '@/apis/gallery/get-gallery-uploads/query';
 import { GROUP_DETAIL_QUERY_KEY } from '@/apis/group/get-group-detail/query';
 import { GROUP_LIST_QUERY_KEY, GROUP_OPTIONS_QUERY_KEY } from '@/apis/group/get-group-list/query';
 import { GROUP_MEMBERS_QUERY_KEY } from '@/apis/group/get-group-members/query';
@@ -182,6 +188,13 @@ export const Resource = {
   COMMENT: 'comment',
   /** 自己對某個資源的關注（`id` = 資源 id）：後端只推給本人，關注不寫稽核 */
   WATCH: 'watch',
+  /**
+   * 圖片庫的圖片（`id` = 圖片 id；docs/architecture/backend/26-gallery.md §11）：處理完成才 create；加入與移出相簿時
+   * `refs.galleryAlbum` 帶上那個相簿。處理失敗只推給上傳的人（頁首的失敗清單）
+   */
+  GALLERY_ITEM: 'galleryItem',
+  /** 圖片庫的相簿（`id` = 相簿 id）；張數與封面跟著圖片變 */
+  GALLERY_ALBUM: 'galleryAlbum',
   /**
    * 平台的來源（租戶登記、平台管理者、全平台 flag、平台的背景工作與通知）：後端只推給 apps/platform 的連線
    * （docs/architecture/backend/08-realtime.md §3.6），backstage 永遠收不到；列在這裡只為了滿足 `ServerChangeSource` 的檢查。
@@ -331,6 +344,29 @@ const graph = createResourceGraph<Resource>({
       { from: Resource.USER, kinds: ['update', 'delete'], id: 'none' },
     ],
   },
+  [Resource.GALLERY_ITEM]: {
+    // 時間軸的月份與前後一張都跟著列表走；上傳中的計數只有自己的（任何一張處理完都重抓，無害）
+    collection: [
+      GALLERY_ITEMS_QUERY_KEY,
+      GALLERY_TIMELINE_QUERY_KEY,
+      GALLERY_NEIGHBORS_QUERY_KEY,
+      GALLERY_UPLOADS_QUERY_KEY,
+    ],
+    entity: [GALLERY_ITEM_QUERY_KEY],
+    derivesFrom: [
+      // 圖片嵌入標籤的名稱與顏色
+      { from: Resource.TAG, kinds: ['update', 'delete'], id: 'none' },
+      // 詳情的「所在的相簿」嵌入相簿名稱；刪除相簿讓相簿頁的列表變空
+      { from: Resource.GALLERY_ALBUM, kinds: ['update', 'delete', 'create'], id: 'none' },
+    ],
+  },
+  [Resource.GALLERY_ALBUM]: {
+    collection: [GALLERY_ALBUMS_QUERY_KEY],
+    derivesFrom: [
+      // 張數與封面（最新的一張）跟著圖片變
+      { from: Resource.GALLERY_ITEM, id: 'none' },
+    ],
+  },
   [Resource.JOB]: {
     // 佇列計數跟著工作的狀態走：重試一筆，失敗數就少一
     collection: [JOB_LIST_QUERY_KEY, JOB_QUEUE_LIST_QUERY_KEY],
@@ -402,6 +438,9 @@ const graph = createResourceGraph<Resource>({
       // 檔案與資料夾同理（docs/architecture/backend/14-revisions.md §9 R4）：上傳完成也是 file create，多一次回收桶的重抓無害
       { from: Resource.FILE, kinds: ['create', 'delete'], id: 'none' },
       { from: Resource.FILE_FOLDER, kinds: ['create', 'delete'], id: 'none' },
+      // 圖片庫的圖片與相簿同理（處理完成也是 create）
+      { from: Resource.GALLERY_ITEM, kinds: ['create', 'delete'], id: 'none' },
+      { from: Resource.GALLERY_ALBUM, kinds: ['create', 'delete'], id: 'none' },
     ],
   },
   [Resource.ROLE_REVISION]: {

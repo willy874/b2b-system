@@ -22,6 +22,8 @@ export function registerFileImageSource(): void {
     // 分頁標題用 app 的全域字串：feature 的語系包只在進入它的頁面時才載入（與選單的 `menu.*` 相同）
     labelKey: 'image.source.file',
     localeScope: FILE_LOCALE_SCOPE,
+    // 圖片庫的「從其他來源加入」可以一次勾選多張（docs/architecture/frontend/23-image-picker.md §2.1）
+    supportsMultiple: true,
     isAvailable: ({ can }) => can(PermissionKey['file:access']) || can(PermissionKey['file:read']),
     component: FileImageSource,
   });

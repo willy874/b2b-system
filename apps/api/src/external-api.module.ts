@@ -39,6 +39,7 @@ import { TokenTenantMiddleware } from './modules/api-token/external/token-tenant
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { FileModule } from './modules/file/file.module';
+import { GalleryModule } from './modules/gallery/gallery.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { OrganizationModule } from './modules/organization/organization.module';
@@ -111,6 +112,7 @@ import { UserModule } from './modules/user/user.module';
     GroupModule,
     OrganizationModule,
     AnnouncementModule,
+    GalleryModule,
   ],
   providers: [
     { provide: PROCESS_SURFACE, useValue: 'external' },

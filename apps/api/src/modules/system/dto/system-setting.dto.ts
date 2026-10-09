@@ -23,6 +23,7 @@ export const SystemSettingSchema = defineSchema(
       SettingCategory.REVISION,
       SettingCategory.NOTIFICATION,
       SettingCategory.DATA_TRANSFER,
+      SettingCategory.GALLERY,
     ]),
     type: z.enum(['string', 'number', 'boolean']),
     /** 生效值：有覆寫就是覆寫值，否則是預設值。 */

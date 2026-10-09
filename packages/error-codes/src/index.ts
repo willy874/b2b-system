@@ -388,6 +388,30 @@ export const ErrorCode = {
   /** 處理中的圖片太多（每人 `IMAGE_PENDING_PER_USER` 張），等前面的處理完再上傳。 */
   IMAGE_PENDING_LIMIT_REACHED: { status: 409 },
 
+  // ── 圖片庫（docs/architecture/backend/26-gallery.md） ──
+  GALLERY_ITEM_NOT_FOUND: { status: 404 },
+  GALLERY_ITEM_VERSION_CONFLICT: { status: 409 },
+  /** 還原：圖片沒有被刪除（或已被別人先還原）。 */
+  GALLERY_ITEM_NOT_DELETED: { status: 409 },
+  /** 還在處理的圖片不能編輯（處理完成後才出現在圖片庫）。 */
+  GALLERY_ITEM_NOT_READY: { status: 409 },
+  /** 不是圖片庫收的型別（`details.contentTypes`）；HEIC 在這裡擋下（D6）。 */
+  GALLERY_TYPE_NOT_ALLOWED: { status: 422 },
+  /** 超過單檔上限（`details.maxSize`，feature 參數 `gallery.maxItemSizeMb`）。 */
+  GALLERY_ITEM_TOO_LARGE: { status: 413 },
+  /** 完成上傳時物件儲存裡沒有內容、或大小與登記的不同。 */
+  GALLERY_UPLOAD_INCOMPLETE: { status: 409 },
+  GALLERY_ALREADY_UPLOADED: { status: 409 },
+  /** 登記了但還沒完成上傳的圖片太多（每人 `GALLERY_PENDING_PER_USER` 張）。 */
+  GALLERY_PENDING_LIMIT_REACHED: { status: 409 },
+  GALLERY_ALBUM_NOT_FOUND: { status: 404 },
+  /** 相簿名稱重複（不分大小寫；`details.conflictingAlbumId`）。 */
+  GALLERY_ALBUM_NAME_DUPLICATE: { status: 409 },
+  GALLERY_ALBUM_VERSION_CONFLICT: { status: 409 },
+  GALLERY_ALBUM_NOT_DELETED: { status: 409 },
+  /** 封面不是這個相簿裡的圖片。 */
+  GALLERY_ALBUM_COVER_INVALID: { status: 422 },
+
   // ── 系統設定 ──
   /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */
   SETTING_NOT_FOUND: { status: 404 },

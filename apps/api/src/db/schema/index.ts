@@ -29,3 +29,4 @@ export * from './announcements';
 export * from './data-transfers';
 export * from './org-units';
 export * from './comments';
+export * from './gallery';

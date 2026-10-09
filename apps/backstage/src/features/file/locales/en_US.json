@@ -297,7 +297,8 @@
       "empty": "No usable images in this folder",
       "emptyHint": "Choose another folder or upload instead",
       "tooSmall": "{{name}} (too small: at least {{width}} × {{height}} pixels)",
-      "more": "Load more"
+      "more": "Load more",
+      "multipleHint": "Select as many as you need. Your selection is kept when you switch folders"
     }
   }
 }

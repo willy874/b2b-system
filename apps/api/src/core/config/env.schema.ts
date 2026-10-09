@@ -369,6 +369,11 @@ export const EnvSchema = z.object({
    * 見 docs/architecture/backend/25-image.md §15.6。
    */
   IMAGE_MAINTENANCE_CRON: z.string().trim().default('30 * * * *'),
+  /**
+   * 圖片庫的清理排程（逾時的上傳、失敗的紀錄、卡住的處理、舊版本的變體、殘留物件）的 cron（UTC）；空字串停用。
+   * 見 docs/architecture/backend/26-gallery.md §11。
+   */
+  GALLERY_MAINTENANCE_CRON: z.string().trim().default('45 * * * *'),
   /** `true`：維護排程只偵測並記錄殘留，不刪除任何東西。 */
   FILE_MAINTENANCE_DRY_RUN: z
     .enum(['true', 'false'])

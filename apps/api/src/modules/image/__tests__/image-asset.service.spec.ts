@@ -157,6 +157,7 @@ function setup(options: { row?: ImageAssetRow; pending?: number; used?: number }
   return {
     service,
     repo,
+    usages,
     sources,
     storage,
     jobs,
@@ -168,6 +169,26 @@ function setup(options: { row?: ImageAssetRow; pending?: number; used?: number }
 const UPLOAD = { usage: 'user.avatar', name: 'me.png', contentType: 'image/png', size: 1000 };
 
 describe('ImageAssetService.createUpload（docs/architecture/backend/25-image.md §15.4）', () => {
+  it('只用來過濾的用途（filterOnly，docs/architecture/backend/26-gallery.md §8）不能建立圖片資產', async () => {
+    const { service, repo, usages } = setup();
+    usages.register({
+      id: 'gallery.item',
+      maxSize: 10 * MIB,
+      contentTypes: RASTER_IMAGE_TYPES,
+      minWidth: 1,
+      minHeight: 1,
+      presets: { thumb: 480 },
+      urlTtl: 3600,
+      visibility: 'signed',
+      filterOnly: true,
+    });
+    await expectCode(
+      inTenant(() => service.createUpload({ ...UPLOAD, usage: 'gallery.item' }, ACTOR)),
+      'VALIDATION_FAILED',
+    );
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
   it('登記一筆 pending 並發直傳網址（大小與型別簽進網址）', async () => {
     const { service, repo, storage } = setup();
     const result = await inTenant(() => service.createUpload(UPLOAD, ACTOR));

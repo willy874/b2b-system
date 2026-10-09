@@ -120,7 +120,7 @@
 
 | 欄位 | 值 | 效果 | 出處 |
 | --- | --- | --- | --- |
-| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group,dataTransfer,organization,approvalChain}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
+| `features` | `text[]`，預設全部（`{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group,dataTransfer,organization,approvalChain,gallery}`） | 可啟用 feature 的 id（`core/tenant/tenant-features.ts` 的 `TENANT_FEATURES`）。沒列出的 feature：api 以 `@RequireFeature()` 標的端點回 `404 FEATURE_DISABLED`（`common/guards/feature.guard.ts`；handler 與 class 的宣告合併，全部都要啟用）；`/auth/profile` 的 `features` 不含它，前端不安裝它。該 feature 的背景工作照常執行，資料保留 | [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D8、D11、§12、[`backend/17-webhook.md`](backend/17-webhook.md) §9.2 D8 |
 | `flags` | `jsonb`，預設 `{}` | feature flag 的租戶層覆寫 `{ [key]: boolean }`，沒列出 = 跟著全平台與預設值；見 §5.2 | §11.2 D2 |
 | `feature_params` | `jsonb`，預設 `{}` | feature 參數（配額與上限）的覆寫 `{ [key]: number \| string }`，沒列出 = 預設值；見 §5.3 | §13.2 D2 |
 | `mfa_methods` | `jsonb`，預設 `{}` | MFA 驗證方式的租戶層開關 `{ [方式 id]: boolean }`，規則與 `flags` 相同（`resolveToggle`）；在租戶詳情的「多重驗證」分頁設定 | [`backend/21-mfa.md`](backend/21-mfa.md) §5 |
@@ -143,6 +143,7 @@
 | `organization` | `/org-units`、`/users/:id/org-units` 回 404，`GET /users?orgUnitId=` 回 400；沒有組織頁、使用者詳情的「所屬部門」與列表的部門篩選；審批的 `manager`／`orgUnit` 規則展開為空（關卡短缺，交給 `approval:override`） | 部門、成員與主管；重新打開後一致（[`backend/23-organization.md`](./backend/23-organization.md) §6） |
 | `approvalChain` | `/approval-flows` 與關卡的決定、override、refresh 回 404；沒有審批流程頁與「待我審核」；新申請一律單關，進行中的多關請求改由 `approval:review` 一次定案（剩下的關卡 `cancelled`） | 流程與已做出的決定；重新打開後未定案的請求從原關卡繼續（[`backend/20-approval.md`](./backend/20-approval.md) §9.11） |
 | `dataTransfer` | `/data-transfers` 回 404；沒有「我的匯入匯出」與匯入頁，列表頁沒有匯出、匯入按鈕 | 進行中的匯出與套用照常完成；匯出檔與套用列照保留期限清除（[`backend/22-data-transfer.md`](./backend/22-data-transfer.md) §10） |
+| `gallery` | `/gallery/items`、`/gallery/albums` 回 404；沒有圖片庫頁，檔案管理器沒有「加入圖片庫」、選圖沒有「圖片庫」分頁（前端 plugin 卸載，登記的動作與來源一起消失）；`POST /images/from-source` 指定 `gallery` 來源回 404 | 圖片、相簿與物件；`gallery.process` 照常完成、`gallery.maintenance` 照常清理（[`backend/26-gallery.md`](./backend/26-gallery.md) §11.4） |
 
 - `PATCH /platform/tenants/:id` 的 `features` 是 **完整清單**（不是增減）；重複或不認得的 id 回 `VALIDATION_FAILED`，
   存進 DB 時依 `TENANT_FEATURES` 的順序。DB 裡殘留不認得的值（程式移除某個 feature 之後）讀取時濾掉。
@@ -223,6 +224,7 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 | `dataTransfer.importMaxRows` | 5000 | 100–20000 | 一次匯入的列數上限；超過時分析回 `422 DATA_TRANSFER_TOO_MANY_ROWS`（不截斷） | [`backend/22-data-transfer.md`](./backend/22-data-transfer.md) §10 |
 | `dataTransfer.importMaxSizeMb` | 10（MB） | 1–50 | 分析的檔案大小上限（`413 DATA_TRANSFER_FILE_TOO_LARGE`）；送出套用的請求本體上限是它的兩倍 | 同上 |
 | `dataTransfer.exportMaxRows` | 100000 | 1000–1000000 | 一次匯出的列數上限；超過回 `422 DATA_TRANSFER_TOO_MANY_ROWS` | 同上 |
+| `gallery.maxItemSizeMb` | 50（MB） | 1–200 | 圖片庫的單檔上限（單次 PUT、不分塊）；超過回 `413 GALLERY_ITEM_TOO_LARGE`，從其他來源加入時略過（`tooLarge`） | [`backend/26-gallery.md`](./backend/26-gallery.md) §4 |
 | `rateLimit.authPerMinute`（全租戶） | 1200（次／分） | 60–100000 | 這個租戶登入類請求每分鐘合計的上限，超過回 `429 RATE_LIMITED`；沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT` | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8 |
 | `rateLimit.trustedCidrs`（全租戶） | 空（未設定） | 字串，最長 1000，逗號或空白分隔的 CIDR／位址 | 客戶公司或 VPN 的網段：從這些網段登入時 `auth`／`authMail` 的 IP 桶上限 ×10，帳號桶、延遲、鎖定不變 | [`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8、[`backend/04-auth.md`](./backend/04-auth.md) §12 D5 |
 

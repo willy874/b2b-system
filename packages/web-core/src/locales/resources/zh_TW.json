@@ -288,6 +288,20 @@
     "IMAGE_ALREADY_UPLOADED": "這張圖片已經上傳完成。",
     "IMAGE_UPLOAD_INCOMPLETE": "圖片沒有上傳完成，請再試一次。",
     "IMAGE_PENDING_LIMIT_REACHED": "正在處理的圖片太多，請稍候再試。",
+    "GALLERY_ITEM_NOT_FOUND": "圖片不存在或已被刪除。",
+    "GALLERY_ITEM_VERSION_CONFLICT": "這張圖片已被其他人修改，請重新整理後再試。",
+    "GALLERY_ITEM_NOT_DELETED": "這張圖片沒有被刪除。",
+    "GALLERY_ITEM_NOT_READY": "圖片還在處理中，請稍候再試。",
+    "GALLERY_TYPE_NOT_ALLOWED": "圖片庫只收 JPEG、PNG、WebP、GIF、AVIF、TIFF；HEIC 請先在相簿 App 匯出成 JPEG。",
+    "GALLERY_ITEM_TOO_LARGE": "圖片超過大小上限。",
+    "GALLERY_UPLOAD_INCOMPLETE": "圖片沒有上傳完成，請重新上傳。",
+    "GALLERY_ALREADY_UPLOADED": "這張圖片已經上傳過了。",
+    "GALLERY_PENDING_LIMIT_REACHED": "同時上傳中的圖片太多，請等前面的完成後再試。",
+    "GALLERY_ALBUM_NOT_FOUND": "相簿不存在或已被刪除。",
+    "GALLERY_ALBUM_NAME_DUPLICATE": "已經有同名的相簿。",
+    "GALLERY_ALBUM_VERSION_CONFLICT": "這個相簿已被其他人修改，請重新整理後再試。",
+    "GALLERY_ALBUM_NOT_DELETED": "這個相簿沒有被刪除。",
+    "GALLERY_ALBUM_COVER_INVALID": "封面必須是相簿裡的圖片。",
     "FILE_ACCESS_ALREADY_GRANTED": "你已經有這個資料夾的存取權，不需要再申請。",
     "FILE_ACCESS_REQUEST_NOT_FOUND": "這筆存取申請已不存在，可能已被處理或撤回。",
     "SETTING_NOT_FOUND": "找不到這個設定。",
@@ -1106,6 +1120,12 @@
     },
     "unusable": {
       "small": "圖片太小：至少 {{width}} × {{height}} 像素"
+    },
+    "multiple": {
+      "count_other": "已選 {{count}} 張（最多 {{max}} 張）",
+      "limit": "一次最多選 {{max}} 張",
+      "empty": "沒有其他可以加入的來源",
+      "emptyHint": "改用上傳，或請管理者開放其他來源"
     }
   }
 }
