@@ -133,6 +133,68 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       'notification.message.userRolesChanged',
       ['notification.detail.rolesRemoved{"roles":"稽核"}'],
     ],
+    [
+      'dataTransfer.exportFinished 完成：資源名稱與筆數（count 原樣傳入才會選到複數形）',
+      {
+        ...base,
+        type: 'dataTransfer.exportFinished',
+        params: { status: 'completed', type: 'user', format: 'csv', rows: 12, errorCode: null },
+      },
+      'notification.message.dataTransferExportCompleted{"resourceType":"notification.dataTransferResource.user","count":12}',
+      [],
+    ],
+    [
+      'dataTransfer.exportFinished 失敗：認得的錯誤碼用共用的錯誤訊息',
+      {
+        ...base,
+        type: 'dataTransfer.exportFinished',
+        params: {
+          status: 'failed',
+          type: 'role',
+          format: 'xlsx',
+          rows: 0,
+          errorCode: 'AUTHZ_FORBIDDEN',
+        },
+      },
+      'notification.message.dataTransferExportFailed{"resourceType":"notification.dataTransferResource.role"}',
+      ['error.AUTHZ_FORBIDDEN'],
+    ],
+    [
+      'dataTransfer.importFinished 完成：成功、失敗、略過的筆數',
+      {
+        ...base,
+        type: 'dataTransfer.importFinished',
+        params: {
+          status: 'completed',
+          type: 'orgUnit',
+          mode: 'create',
+          succeeded: 8,
+          failed: 1,
+          skipped: 2,
+          errorCode: null,
+        },
+      },
+      'notification.message.dataTransferImportCompleted{"resourceType":"notification.dataTransferResource.orgUnit"}',
+      ['notification.detail.importCounts{"succeeded":"8","failed":"1","skipped":"2"}'],
+    ],
+    [
+      'dataTransfer.importFinished 失敗：不認得的資源與錯誤碼（後端比前端新）用通用文字',
+      {
+        ...base,
+        type: 'dataTransfer.importFinished',
+        params: {
+          status: 'failed',
+          type: 'widget',
+          mode: 'update',
+          succeeded: 0,
+          failed: 0,
+          skipped: 0,
+          errorCode: 'FUTURE_ERROR',
+        },
+      },
+      'notification.message.dataTransferImportFailed{"resourceType":"notification.dataTransferResource.unknown"}',
+      ['notification.detail.dataTransferError'],
+    ],
   ])('%s', (_name, notification, message, details) => {
     const described = describeNotification(notification);
     expect(translateMessage(fakeT, 'en', described.message)).toBe(message);
@@ -156,6 +218,21 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
     ['approval.unassigned 缺關卡名稱', { type: 'approval.unassigned', params: {} }],
     ['watch.resourceUpdated 缺資源名稱', { type: 'watch.resourceUpdated', params: {} }],
     ['comment.created 缺資源名稱', { type: 'comment.created', params: {} }],
+    [
+      'dataTransfer.exportFinished 的 status 不合預期',
+      { type: 'dataTransfer.exportFinished', params: { status: 'running', type: 'user', rows: 1 } },
+    ],
+    [
+      'dataTransfer.exportFinished 完成但缺筆數',
+      { type: 'dataTransfer.exportFinished', params: { status: 'completed', type: 'user' } },
+    ],
+    [
+      'dataTransfer.importFinished 完成但筆數不是數字',
+      {
+        type: 'dataTransfer.importFinished',
+        params: { status: 'completed', succeeded: '1', failed: 0, skipped: 0 },
+      },
+    ],
   ])('%s → 通用文字、沒有補充', (_name, notification) => {
     expect(describeNotification(notification)).toEqual({
       message: { key: 'notification.message.unknown', args: {} },

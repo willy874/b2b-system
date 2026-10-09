@@ -3,12 +3,12 @@ import type { JobDetailVM, JobQueueVM, JobRowVM } from '@b2b-system/web-core/job
 
 import type { Job, JobQueue, JobSummary } from '@/shared/api-sdk';
 
-import { JOB_NAME_LABEL_KEY } from '../../constants';
+import { jobNameLabelKey } from '../../constants';
 
 export function toJobQueueVM(dto: JobQueue): JobQueueVM {
   return {
     name: dto.name,
-    labelKey: JOB_NAME_LABEL_KEY[dto.name],
+    labelKey: jobNameLabelKey(dto.name),
     cron: dto.cron,
     readyCount: dto.readyCount,
     deferredCount: dto.deferredCount,
@@ -29,7 +29,7 @@ export function toJobRowVM(
   return {
     id: dto.id,
     name: dto.name,
-    labelKey: JOB_NAME_LABEL_KEY[dto.name],
+    labelKey: jobNameLabelKey(dto.name),
     state: dto.state,
     stateLabelKey: JOB_STATE_LABEL_KEY[dto.state],
     stateTone: JOB_STATE_TONE[dto.state],

@@ -210,6 +210,11 @@ await withTransaction(this.db, async (tx) => {
 | `JOB_NOT_FOUND` | 404 | 沒有這筆工作、已超過保留期被清除，或不屬於已註冊的工作 |
 | `JOB_NOT_RETRYABLE` | 409 | 不是 `failed`（等待、執行中、已完成），或被別人搶先重試 |
 
+- 工作名稱在 OpenAPI 是 enum：`TenantJobName`（租戶的端點）與 `JobName`（平台的端點，全部的工作）。工作在執行期註冊，DTO 的 zod schema 只能寫 `string`，
+  `buildOpenApiDocument()`（`src/swagger.ts`）產生文件時依已註冊的工作補上 `enum`。前端兩個 app 的 `JOB_NAME_LABEL_KEY`
+  （`features/job/constants.ts`）以 `satisfies Record<TenantJobName | JobName, string>` 檢查：**新增工作要重產 openapi 與 SDK，並在兩個 app 補顯示名稱與兩個語系檔**，
+  否則 typecheck 失敗（CI 也會擋 openapi 沒重產）。執行期遇到不認得的名稱（前端比後端舊）顯示名稱本身。
+
 前端頁面 `/job`（`features/job`）：分成「工作列表」與「佇列概況」兩個分頁（網址的 `view`）；
 「佇列概況」是每種工作一張卡片，只顯示各佇列的筆數，失敗總數掛在分頁上。依工作種類、狀態篩選走列表的篩選面板，兩者都是多選。展開列看資料與結果，
 失敗的列有重試按鈕。工作在背景變化，頁面每 10 秒重新整理；展開中且還沒結束的工作詳情也跟著重取。

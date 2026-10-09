@@ -964,6 +964,7 @@ POST /data-transfers/imports
 
 - `actorId` 傳 `null`（系統）。`notify()` 對「actor 就是收件人」不建立通知，而這裡的收件人一定是建立者本人。
 - 使用者可以在個人通知設定關掉（[`backend/16-notification-event.md`](16-notification-event.md)）。
+- 前端的句子：「{資源}匯出完成，共 N 筆」「{資源}匯入完成」＋成功／失敗／略過的筆數、失敗時附錯誤碼的訊息（[`../frontend/15-notification.md`](../frontend/15-notification.md) §5）。
 
 ### 9.4 推播
 
@@ -1076,7 +1077,7 @@ POST /data-transfers/imports
 `tag/tag.transfer.ts`、`approval/approval.transfer.ts`、`service-account/service-account.transfer.ts`。
 
 加一種資源：在擁有者模組寫 `<name>.transfer.ts`（以 `UserTransferResource` 為範本），`onModuleInit` 登記；
-需要套用的寫入要有交易內的版本（`createInTx` 這類，§7.4「對既有 service 的要求」）。前端只要在該資源的列表加入口、寫一個幾十行的匯入頁。
+需要套用的寫入要有交易內的版本（`createInTx` 這類，§7.4「對既有 service 的要求」）。前端只要在該資源的列表加入口、寫一個幾十行的匯入頁，並在 backstage 通知的 `DATA_TRANSFER_RESOURCE_LABEL_KEY`（`features/notification/constants.ts`）與兩個語系檔加上資源名稱（完成通知的句子用；沒補時顯示「資料」，[`../frontend/15-notification.md`](../frontend/15-notification.md) §5）。
 
 ## 12. 其他資源：角色、群組、組織、標籤、審批、服務帳號
 

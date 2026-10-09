@@ -33,13 +33,19 @@
       "approvalUnassigned": "{{type}}申請的「{{step}}」找不到足夠的審核者，需要處理",
       "commentMentioned": "在{{resourceType}}「{{name}}」的留言中提及了你",
       "commentCreated": "你關注的{{resourceType}}「{{name}}」有新留言",
-      "watchResourceUpdated": "你關注的{{resourceType}}「{{name}}」已更新"
+      "watchResourceUpdated": "你關注的{{resourceType}}「{{name}}」已更新",
+      "dataTransferExportCompleted_other": "{{resourceType}}匯出完成，共 {{count}} 筆",
+      "dataTransferExportFailed": "{{resourceType}}匯出失敗",
+      "dataTransferImportCompleted": "{{resourceType}}匯入完成",
+      "dataTransferImportFailed": "{{resourceType}}匯入失敗"
     },
     "detail": {
       "subject": "{{subject}}",
       "rolesAdded": "新增：{{roles}}",
       "rolesRemoved": "移除：{{roles}}",
-      "excerpt": "{{excerpt}}"
+      "excerpt": "{{excerpt}}",
+      "importCounts": "成功 {{succeeded}} 筆、失敗 {{failed}} 筆、略過 {{skipped}} 筆",
+      "dataTransferError": "發生錯誤，詳情請到「我的匯入匯出」查看"
     },
     "approvalType": {
       "userRegister": "帳號註冊",
@@ -49,6 +55,20 @@
     "resourceType": {
       "user": "使用者",
       "unknown": "項目"
+    },
+    "dataTransferResource": {
+      "user": "使用者",
+      "role": "角色",
+      "group": "群組",
+      "groupMember": "群組成員",
+      "orgUnit": "部門",
+      "orgUnitMember": "部門成員",
+      "tag": "標籤",
+      "serviceAccount": "服務帳號",
+      "approvalRequest": "審批請求",
+      "approvalDecision": "審批決定",
+      "auditLog": "稽核日誌",
+      "unknown": "資料"
     },
     "event": {
       "description": "系統會在這些事件發生時通知相關的人。關掉某個管道後就不再送出；已送出的通知不受影響，重新開啟也不會補發。",
@@ -76,7 +96,8 @@
         "user": "使用者",
         "webhook": "Webhook",
         "announcement": "公告",
-        "comment": "留言與關注"
+        "comment": "留言與關注",
+        "dataTransfer": "匯入匯出"
       },
       "type": {
         "approvalPending": {
@@ -128,6 +149,16 @@
           "name": "關注的項目被修改",
           "description": "你關注的項目被修改時通知；同一個項目 1 分鐘內只通知一次。",
           "recipients": "關注者（不含修改的人）"
+        },
+        "dataTransferExportFinished": {
+          "name": "匯出完成",
+          "description": "匯出完成或失敗時通知；點開到「我的匯入匯出」下載檔案。",
+          "recipients": "建立匯出的人"
+        },
+        "dataTransferImportFinished": {
+          "name": "匯入完成",
+          "description": "匯入套用完成或失敗時通知，附成功、失敗與略過的筆數。",
+          "recipients": "建立匯入的人"
         }
       }
     },

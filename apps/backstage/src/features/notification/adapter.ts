@@ -1,4 +1,5 @@
 import type { IconName } from '@b2b-system/ui/Icon';
+import { getErrorMessageKey } from '@b2b-system/web-core/errors';
 import type { ResolvedRouteLink, RouteLinkRef } from '@b2b-system/web-core/route-link';
 
 import type { Notification } from '@/shared/api-sdk';
@@ -6,6 +7,8 @@ import type { Notification } from '@/shared/api-sdk';
 import {
   APPROVAL_TYPE_FALLBACK_KEY,
   APPROVAL_TYPE_LABEL_KEY,
+  DATA_TRANSFER_RESOURCE_FALLBACK_KEY,
+  DATA_TRANSFER_RESOURCE_LABEL_KEY,
   NOTIFICATION_DETAIL_KEY,
   NOTIFICATION_FALLBACK_ICON,
   NOTIFICATION_ICON,
@@ -53,6 +56,11 @@ function stringParam(params: Params, name: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+function numberParam(params: Params, name: string): number | undefined {
+  const value = params[name];
+  return typeof value === 'number' ? value : undefined;
+}
+
 function stringListParam(params: Params, name: string): string[] | undefined {
   const value = params[name];
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
@@ -96,6 +104,70 @@ function describeWatched(
     details: excerpt
       ? [{ key: NOTIFICATION_DETAIL_KEY.excerpt, args: { excerpt: { text: excerpt } } }]
       : [],
+  };
+}
+
+function dataTransferResourceLabel(params: Params): MessageArg {
+  const type = stringParam(params, 'type');
+  return {
+    key: (type && DATA_TRANSFER_RESOURCE_LABEL_KEY[type]) || DATA_TRANSFER_RESOURCE_FALLBACK_KEY,
+  };
+}
+
+/** 失敗的原因：認得的錯誤碼用共用的錯誤訊息，不認得的（後端比前端新）用通用的一句；沒有錯誤碼不顯示。 */
+function dataTransferErrorDetail(params: Params): TranslatableMessage[] {
+  const code = stringParam(params, 'errorCode');
+  if (!code) return [];
+  return [{ key: getErrorMessageKey(code) ?? NOTIFICATION_DETAIL_KEY.dataTransferError, args: {} }];
+}
+
+/** 匯入匯出完成或失敗（docs/architecture/backend/22-data-transfer.md §9.3）；`status` 只會是 `completed`／`failed`。 */
+function describeDataTransfer(
+  params: Params,
+  direction: 'export' | 'import',
+): Pick<NotificationVM, 'message' | 'details'> | undefined {
+  const status = stringParam(params, 'status');
+  const resourceType = dataTransferResourceLabel(params);
+  if (status === 'failed') {
+    return {
+      message: {
+        key:
+          direction === 'export'
+            ? NOTIFICATION_MESSAGE_KEY.dataTransferExportFailed
+            : NOTIFICATION_MESSAGE_KEY.dataTransferImportFailed,
+        args: { resourceType },
+      },
+      details: dataTransferErrorDetail(params),
+    };
+  }
+  if (status !== 'completed') return undefined;
+  if (direction === 'export') {
+    const rows = numberParam(params, 'rows');
+    if (rows === undefined) return undefined;
+    return {
+      message: {
+        key: NOTIFICATION_MESSAGE_KEY.dataTransferExportCompleted,
+        args: { resourceType, count: { count: rows } },
+      },
+      details: [],
+    };
+  }
+  const succeeded = numberParam(params, 'succeeded');
+  const failed = numberParam(params, 'failed');
+  const skipped = numberParam(params, 'skipped');
+  if (succeeded === undefined || failed === undefined || skipped === undefined) return undefined;
+  return {
+    message: { key: NOTIFICATION_MESSAGE_KEY.dataTransferImportCompleted, args: { resourceType } },
+    details: [
+      {
+        key: NOTIFICATION_DETAIL_KEY.importCounts,
+        args: {
+          succeeded: { text: String(succeeded) },
+          failed: { text: String(failed) },
+          skipped: { text: String(skipped) },
+        },
+      },
+    ],
   };
 }
 
@@ -219,6 +291,10 @@ export function describeNotification(
       return (
         describeWatched(params, NOTIFICATION_MESSAGE_KEY.watchResourceUpdated, false) ?? UNKNOWN
       );
+    case 'dataTransfer.exportFinished':
+      return describeDataTransfer(params, 'export') ?? UNKNOWN;
+    case 'dataTransfer.importFinished':
+      return describeDataTransfer(params, 'import') ?? UNKNOWN;
     default:
       return UNKNOWN;
   }

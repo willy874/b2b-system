@@ -123,6 +123,7 @@ import type {
   IdentityProviderDomain,
   IdentityProviderList,
   Job,
+  JobName,
   JobQueue,
   JobQueueList,
   JobSummary,
@@ -243,6 +244,7 @@ import type {
   TenantFeatureParam,
   TenantFeatureParamKey,
   TenantFlagOverrides,
+  TenantJobName,
   TenantLookup,
   TenantLookupQuery,
   TenantMfaMethodOverrides,
@@ -3800,8 +3802,73 @@ export const UpdateGroupRolesRequestSchema = z.object({
     .default([]),
 }) satisfies z.ZodType<UpdateGroupRolesRequest>;
 
+export const TenantJobNameSchema = z.enum([
+  'announcement.dispatch',
+  'announcement.eventDispatch',
+  'announcement.fanOut',
+  'announcement.maintenance',
+  'approval.resultMail',
+  'auditLog.archive',
+  'auth.activationMail',
+  'auth.passwordResetMail',
+  'auth.tokenCleanup',
+  'dataTransfer.applyImport',
+  'dataTransfer.cleanup',
+  'dataTransfer.export',
+  'file.imageVariants',
+  'file.maintenance',
+  'mfa.cleanup',
+  'mfa.emailCodeMail',
+  'mfa.securityNoticeMail',
+  'notification.cleanup',
+  'revision.prune',
+  'trash.purge',
+  'watch.notify',
+  'webhook.cleanup',
+  'webhook.deliver',
+]) satisfies z.ZodType<TenantJobName>;
+
+export const JobNameSchema = z.enum([
+  'announcement.dispatch',
+  'announcement.eventDispatch',
+  'announcement.fanOut',
+  'announcement.maintenance',
+  'approval.resultMail',
+  'auditLog.archive',
+  'auth.activationMail',
+  'auth.passwordResetMail',
+  'auth.platformTokenCleanup',
+  'auth.tokenCleanup',
+  'dataTransfer.applyImport',
+  'dataTransfer.cleanup',
+  'dataTransfer.export',
+  'file.imageVariants',
+  'file.maintenance',
+  'jobs.outboxSweep',
+  'mfa.cleanup',
+  'mfa.emailCodeMail',
+  'mfa.factorStats',
+  'mfa.platformCleanup',
+  'mfa.platformEmailCodeMail',
+  'mfa.platformSecurityNoticeMail',
+  'mfa.securityNoticeMail',
+  'notification.cleanup',
+  'oidc.cleanup',
+  'platformAdmin.accountMail',
+  'platformNotification.cleanup',
+  'rateLimit.cleanup',
+  'revision.prune',
+  'tenant.provision',
+  'tenant.provisionSweep',
+  'tenant.usageRollup',
+  'trash.purge',
+  'watch.notify',
+  'webhook.cleanup',
+  'webhook.deliver',
+]) satisfies z.ZodType<JobName>;
+
 export const JobQueueSchema = z.object({
-  name: z.string(),
+  name: TenantJobNameSchema,
   cron: z.string().nullable(),
   readyCount: z.int().min(-9007199254740991).max(9007199254740991),
   deferredCount: z.int().min(-9007199254740991).max(9007199254740991),
@@ -3816,7 +3883,7 @@ export const JobQueueListSchema = z.object({
 
 export const JobSummarySchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: TenantJobNameSchema,
   state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
   retryCount: z.int().min(-9007199254740991).max(9007199254740991),
   retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
@@ -3828,7 +3895,7 @@ export const JobSummarySchema = z.object({
 
 export const JobSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: TenantJobNameSchema,
   state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
   retryCount: z.int().min(-9007199254740991).max(9007199254740991),
   retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
@@ -3841,7 +3908,7 @@ export const JobSchema = z.object({
 }) satisfies z.ZodType<Job>;
 
 export const PlatformJobQueueSchema = z.object({
-  name: z.string(),
+  name: JobNameSchema,
   cron: z.string().nullable(),
   readyCount: z.int().min(-9007199254740991).max(9007199254740991),
   deferredCount: z.int().min(-9007199254740991).max(9007199254740991),
@@ -3857,7 +3924,7 @@ export const PlatformJobQueueListSchema = z.object({
 
 export const PlatformJobSummarySchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: JobNameSchema,
   state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
   retryCount: z.int().min(-9007199254740991).max(9007199254740991),
   retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
@@ -3871,7 +3938,7 @@ export const PlatformJobSummarySchema = z.object({
 
 export const PlatformJobSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: JobNameSchema,
   state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
   retryCount: z.int().min(-9007199254740991).max(9007199254740991),
   retryLimit: z.int().min(-9007199254740991).max(9007199254740991),
