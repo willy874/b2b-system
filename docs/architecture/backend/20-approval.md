@@ -337,7 +337,7 @@ interface ApprovalFlowSupport {
 
 | 表 | 內容 |
 | --- | --- |
-| `approval_flows` | `type`（唯一）、`enabled`、`allow_repeat_approver`、`steps`（jsonb：`[{ key, name, assignee, requiredApprovals, conditions }]`，zod 驗證）、`version`。**不刪除**，只能停用 |
+| `approval_flows` | `type`（唯一）、`enabled`、`allow_repeat_approver`、`steps`（jsonb：`[{ key, name, assignee, requiredApprovals, conditions }]`，zod 驗證）、`version`。停用保留設定；重設刪掉這一列（§12 D10），已送出的請求帶著關卡的快照與 `flow_version` 照舊走完 |
 | `approval_requests`（新增欄位） | `flow_id`、`flow_version`、`allow_repeat_approver`（送出時的快照）、`current_step`、`resubmitted_from`；`status` 多 `withdrawn` |
 | `approval_steps` | 送出時從流程複製：`ordinal`、`key`、`name`、`assignee`（規則 ＋ 送出當下的顯示名稱 `label`）、`required_mode`（`count`／`all`）、`required_approvals`（`all` 在啟動時填入候選人數）、`conditions`、`status`（`waiting`／`active`／`approved`／`rejected`／`skipped`／`cancelled`）、`shortage`、`close_reason`（`rejected`／`withdrawn`／`chainDisabled`／`override`）。`UNIQUE (request_id) WHERE status = 'active'`：同時只有一個進行中的關卡 |
 | `approval_step_assignees` | 啟動時展開的候選人（`added_by`：`activation`／`refresh`）；冗餘 `request_id` 給「待我審核」 |
@@ -462,6 +462,7 @@ COMMIT → 最後一關才 handler.afterApply → 推播
 | GET | `/approval-flows` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 支援流程的類型（各帶欄位定義、流程）、`assigneeKinds`（各種規則能不能用） |
 | GET | `/approval-flows/:type` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 流程；每一關帶 `assigneeStatus`（名稱、`available`、`deleted`）。另帶欄位的 `example`（試算的預設值）、`requiredPermissions`（核准所需的權限與顯示名稱的語系鍵，最後一關的說明用）、`inFlightCount`（照這個流程送出、還在審的筆數） |
 | GET | `/approval-flows/:type/stats` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 實際運作：近 30 天送出的請求依狀態計數、定案的平均小時數；目前所有進行中的請求停在哪一關（依關卡名稱，含短缺的筆數）。開頁時即時彙總（§12 D9） |
+| DELETE | `/approval-flows/:type?version=` | 🛡 `approvalFlow:update` ＋ `approvalChain` | 重設成未設定：刪掉流程，這個類型回到單關審批。版本不符 `409 APPROVAL_FLOW_VERSION_CONFLICT`、反提權同 PUT；已經沒有流程時 204。稽核 `approvalFlow.reset`（`before` 是整份流程） |
 | PUT | `/approval-flows/:type` | 🛡 `approvalFlow:update` ＋ `approvalChain` | 建立或取代；修改帶 `version`（`409 APPROVAL_FLOW_VERSION_CONFLICT`）；不支援的類型 `422 APPROVAL_FLOW_NOT_SUPPORTED`；內容與 handler 的宣告不符 `400 VALIDATION_FAILED`（`fields["steps.1.conditions.0.op"]`）；反提權（D11） |
 | POST | `/approval-flows/:type/preview` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 試算：`{ steps?（草稿）, requesterId?, fields }` → 每一關略過與否、候選人、同意數、短缺。與 §9.6 共用解析，沒有前面的決定 |
 
@@ -499,7 +500,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 | --- | --- |
 | 審批頁（`features/approval`） | 側欄「人員管理」。列表多一欄「進度」（`財務 1／2`、等待誰、多久，短缺時標示）；進行中的多關請求不能快速／批次審核（`approvalChain` 停用時可以）。整頁的詳情 `ApprovalDetailView`（§11.3）：審核流程 `ApprovalTimeline` 逐人列出決定、依 `viewer` 顯示關卡的同意／駁回與撤回，強制定案（意見必填）與重新展開在「管理員操作」 |
 | 我的審批 | `/my-approvals`（Page Key `MY_APPROVAL`，不需要權限，側欄「人員管理」，排在「審批」之後）：「待我審核」（`approvalChain` 已安裝時才有）、「我的申請」；詳情 `/my-approvals/$approvalId`（route id `approval.myDetail`） |
-| 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | 系統設定的「審批流程」分頁 `/system/approval-flows`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`；側欄沒有另外的入口，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5）：每個支援流程的類型一張卡片，寫明目前的審批方式——沒有流程是「單關審批」（照常運作，不是空白的欄位）、啟用中列出依序的關卡、停用時說明回到單關並列出保留的關卡——另有版本與有無不可用的規則；動作鈕依權限是「設定流程」／「編輯流程」或「檢視」。卡片另有一行實際運作（近 30 天送出、進行中，找不到審核者時標示）。`/system/approval-flows/$type`：整頁編輯（仍在系統設定的外框裡）。還沒有流程而且能編輯時先選範本（`templates.ts`：申請人的主管、主管 → 指定角色、指定角色的任一人、初審 → 複審、從空白開始；匿名的類型不列出主管，規則不能用的不列出），範本只產生草稿。左邊是整條流程的摘要（申請 → 每一關的審核者、同意數、條件數 → 核准後；點節點展開那一關），開關，與關卡卡片：已儲存的收合成一行、還沒儲存的與有錯誤的展開，上移／下移、規則、同意數（附「任 M 人」與會簽的說明）、條件列；最後一關說明審核者還要有 `requiredPermissions`（D3）。右邊是試算與實際運作：試算以欄位的 `example` 預填，草稿、申請人或欄位值停止變動 500ms 後自動送出（草稿不完整時不送），結果另疊在摘要上（略過虛線、短缺紅框、幾位審核者）。儲存前說明影響：有 `inFlightCount` 時「進行中的 N 筆照送出時的版本」、停用或第一次啟用時說明新申請怎麼審。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
+| 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | 系統設定的「審批流程」分頁 `/system/approval-flows`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`；側欄沒有另外的入口，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5）：每個支援流程的類型一張卡片，寫明目前的審批方式——沒有流程是「單關審批」（照常運作，不是空白的欄位）、啟用中列出依序的關卡、停用時說明回到單關並列出保留的關卡——另有版本與有無不可用的規則；動作鈕依權限是「設定流程」／「編輯流程」或「檢視」。卡片另有一行實際運作（近 30 天送出、進行中，找不到審核者時標示）。`/system/approval-flows/$type`：整頁編輯（仍在系統設定的外框裡）。還沒有流程而且能編輯時先選範本（`templates.ts`：申請人的主管、主管 → 指定角色、指定角色的任一人、初審 → 複審、從空白開始；匿名的類型不列出主管，規則不能用的不列出），範本只產生草稿。左邊是整條流程的摘要（申請 → 每一關的審核者、同意數、條件數 → 核准後；點節點展開那一關），開關，與關卡卡片：已儲存的收合成一行、還沒儲存的與有錯誤的展開，上移／下移、規則、同意數（附「任 M 人」與會簽的說明）、條件列；最後一關說明審核者還要有 `requiredPermissions`（D3）。右邊是試算與實際運作：試算以欄位的 `example` 預填，草稿、申請人或欄位值停止變動 500ms 後自動送出（草稿不完整時不送），結果另疊在摘要上（略過虛線、短缺紅框、幾位審核者）。儲存前說明影響：有 `inFlightCount` 時「進行中的 N 筆照送出時的版本」、停用或第一次啟用時說明新申請怎麼審；儲存成功後回到「審批流程」分頁。已有流程時另有「重設流程」：確認後刪掉流程（`DELETE`），回到單關審批與分頁，下次設定從範本開始。「放棄修改」只丟掉這次未儲存的修改。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
 | 通知 | `approval.pending` 帶關卡名稱時換句子；`approval.progress`、`approval.unassigned` 的句子與事件管理的說明 |
 
 ### 9.17 測試
@@ -652,6 +653,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 | D7 | **核准的結果句由前端依類型產生**（`APPROVAL_OUTCOME_KEY`，`satisfies` 強制補齊） | 顯示文字本來就在前端語系；不加 handler 方法 |
 | D8 | **重新送出：前端依類型導回原申請入口並預填；後端在 `ApprovalService.submit()` 統一驗證 `resubmittedFrom`** | 申請的入口在擁有者的頁面；驗證放在通用模組，各類型不必各寫一份 |
 | D9 | **流程的實際運作開頁時即時查詢近 30 天**，不做快照 | 量小、只有設定者會看；以 `(status, created_at)` 的索引就查得到，慢了再改快照 |
+| D10 | **流程可以重設（刪掉）**，取代原本的「不刪除，只能停用」（§10）；整份設定留在稽核 `approvalFlow.reset` | 使用者要能「回到初始」：停用會留下一份看似還在的設定，重新開始時還得逐關刪除。已送出的請求帶著關卡的快照，流程本身不需要留著；需要舊設定時稽核裡有完整的一份 |
 
 ### 12.3 評估過的方案
 
@@ -665,6 +667,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 | handler 加 `describeOutcome`／`resubmit` | 後端回傳顯示文字或前端路由，違反「後端只給 key」的約定 |
 | 租戶自訂流程範本（存成資料） | 每個類型只有一個流程，設定一次就很少再從頭來（D6） |
 | 流程的實際運作由背景工作每小時彙總 | 多一個工作與一張表，量還不需要（D9） |
+| 重設以軟刪除或版本歷史保留舊流程 | 沒有畫面會讀它；稽核已有整份設定，另存一份只是第二個事實來源（D10） |
 
 ### 12.4 實作紀錄
 

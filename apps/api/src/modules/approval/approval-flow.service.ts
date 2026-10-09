@@ -28,6 +28,7 @@ import type {
   ApprovalFlowStepInputDto,
   PreviewApprovalFlowDto,
   PutApprovalFlowDto,
+  ResetApprovalFlowDto,
 } from './dto/approval-flow.dto';
 
 /** 流程頁的「實際運作」看幾天（§12 D9）。 */
@@ -35,7 +36,8 @@ const FLOW_STATS_DAYS = 30;
 
 /**
  * 審批流程的設定（docs/architecture/backend/20-approval.md §9、D1、D11）：每一種宣告了 `flow` 的審批類型最多一個流程。
- * 流程不刪除，只能停用；版本以 `version`（樂觀鎖）遞增，完整的前後內容在稽核 `approvalFlow.update`。
+ * 版本以 `version`（樂觀鎖）遞增，完整的前後內容在稽核 `approvalFlow.update`；停用保留設定，重設（§12 D10）刪掉流程、
+ * 整份設定留在稽核 `approvalFlow.reset`。
  */
 @Injectable()
 export class ApprovalFlowService {
@@ -163,6 +165,53 @@ export class ApprovalFlowService {
       ],
     });
     return this.toDto(handler, saved);
+  }
+
+  /**
+   * 重設成未設定（§9.3、§12 D10）：刪掉流程，這個類型回到單關審批；下次設定從範本開始。
+   * 已送出的請求帶著關卡的快照照舊走完。與修改同樣受反提權限制（D11），版本不符 409；已經沒有流程時不做任何事。
+   * 稽核 `approvalFlow.reset` 帶整份被刪掉的流程，需要時可以照著重建。
+   */
+  async reset(type: string, dto: ResetApprovalFlowDto, actor: AuthUser): Promise<void> {
+    const handler = this.supportedHandler(type);
+    await this.permissionService.assertHasAll(
+      actor,
+      handler.requiredPermissions({ request: null, options: { roleIds: [] } }),
+      { route: 'DELETE /approval-flows/:type', metadata: { type } },
+    );
+
+    const removed = await withTransaction(this.db, async (tx) => {
+      const locked = await this.repo.lockFlow(type, tx);
+      if (!locked) return undefined;
+      if (locked.version !== dto.version) {
+        throw new AppException('APPROVAL_FLOW_VERSION_CONFLICT', { current: locked.version });
+      }
+      await this.repo.deleteFlow(type, tx);
+      await this.audit.record(
+        {
+          action: 'approvalFlow.reset',
+          resourceType: RESOURCE_TYPE.APPROVAL_FLOW,
+          resourceId: locked.id,
+          resourceName: type,
+          changes: {
+            before: {
+              enabled: locked.enabled,
+              allowRepeatApprover: locked.allowRepeatApprover,
+              steps: locked.steps,
+            },
+            after: null,
+          },
+          metadata: { version: locked.version },
+        },
+        tx,
+      );
+      return locked;
+    });
+    if (!removed) return;
+
+    this.events.publish(DomainEvent.RESOURCE_CHANGED, {
+      changes: [{ resource: ChangeSource.APPROVAL_FLOW, kind: ChangeKind.DELETE, id: type }],
+    });
   }
 
   /**

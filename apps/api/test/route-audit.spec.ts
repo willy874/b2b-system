@@ -487,6 +487,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /approval-flows/:type': 'approvalFlow:read',
       'GET /approval-flows/:type/stats': 'approvalFlow:read',
       'PUT /approval-flows/:type': 'approvalFlow:update',
+      'DELETE /approval-flows/:type': 'approvalFlow:update',
       'POST /approval-flows/:type/preview': 'approvalFlow:read',
       'GET /jobs/queues': 'job:read',
       'GET /jobs': 'job:read',

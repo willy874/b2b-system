@@ -57,7 +57,7 @@ export const approvalRequests = pgTable(
     resultResourceId: text('result_resource_id'),
 
     // ── 多階段（docs/architecture/backend/20-approval.md §9）：單關請求這四欄都是 null ──
-    /** 送出時依的流程（外鍵不加：流程不刪除，只停用）。 */
+    /** 送出時依的流程（外鍵不加：流程可以重設刪掉，請求帶著關卡的快照與 `flow_version` 照舊走完）。 */
     flowId: uuid('flow_id'),
     flowVersion: integer('flow_version'),
     /** 送出時流程的「同一個人能不能審兩關」（D6）的快照：之後改流程不影響進行中的請求。 */

@@ -165,6 +165,14 @@ export class ApprovalChainRepository {
     return row;
   }
 
+  /**
+   * 重設：刪掉這個類型的流程（docs/architecture/backend/20-approval.md §9.3、§12 D10）。已送出的請求帶著關卡的快照，
+   * `approval_requests.flow_id` 沒有外鍵，照舊走完。
+   */
+  async deleteFlow(type: string, tx: DbOrTx): Promise<void> {
+    await tx.delete(approvalFlows).where(eq(approvalFlows.type, type));
+  }
+
   // ── 關卡 ─────────────────────────────────────────────
 
   async insertSteps(values: ApprovalStepInsert[], tx: DbOrTx): Promise<ApprovalStepRow[]> {

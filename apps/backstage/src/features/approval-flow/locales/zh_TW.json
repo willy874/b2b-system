@@ -198,6 +198,13 @@
       "minutes_other": "{{count}} 分鐘",
       "hours_other": "{{count}} 小時",
       "days_other": "{{count}} 天"
+    },
+    "reset": {
+      "action": "重設流程",
+      "title": "重設流程",
+      "description": "這個類型會回到單關審批：新的申請由持有審批權限的人一次核准或駁回。目前的關卡設定會清除（記錄在稽核日誌），下次設定時從範本開始。",
+      "inFlight_other": "進行中的 {{count}} 筆申請照送出時的關卡走完。",
+      "success": "已重設流程，回到單關審批"
     }
   }
 }

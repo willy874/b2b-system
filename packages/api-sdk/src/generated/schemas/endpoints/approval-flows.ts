@@ -11,6 +11,8 @@ import type {
   ApprovalFlowControllerPreviewResult,
   ApprovalFlowControllerPutInput,
   ApprovalFlowControllerPutResult,
+  ApprovalFlowControllerResetInput,
+  ApprovalFlowControllerResetResult,
   ApprovalFlowControllerStatsInput,
   ApprovalFlowControllerStatsResult,
 } from '../../endpoints/approval-flows';
@@ -116,6 +118,34 @@ export function approvalFlowControllerPut(
 ): Promise<ApprovalFlowControllerPutResult> {
   return request<ApprovalFlowControllerPutResult>(
     approvalFlowControllerPutOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /approval-flows/{type}
+
+export const ApprovalFlowControllerResetSchemas = {
+  path: z.object({
+    type: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const approvalFlowControllerResetOperation: OperationDefinition = {
+  id: 'ApprovalFlowController_reset',
+  method: 'DELETE',
+  path: '/approval-flows/{type}',
+  responseTypes: { 204: 'none' },
+  schemas: ApprovalFlowControllerResetSchemas,
+};
+
+/** 重設流程（回到單關審批） */
+export function approvalFlowControllerReset(
+  input: ApprovalFlowControllerResetInput,
+  options?: RequestOptions,
+): Promise<ApprovalFlowControllerResetResult> {
+  return request<ApprovalFlowControllerResetResult>(
+    approvalFlowControllerResetOperation,
     input,
     options,
   );

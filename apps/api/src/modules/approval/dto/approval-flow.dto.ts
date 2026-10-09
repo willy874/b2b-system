@@ -67,6 +67,11 @@ export const PutApprovalFlowSchema = defineSchema(
   }),
 );
 
+/** 重設流程（`DELETE /approval-flows/:type?version=`）：帶開始時看到的版本，別人改過時 409。 */
+export const ResetApprovalFlowSchema = z.object({
+  version: z.coerce.number().int().min(1),
+});
+
 /** 規則指到的對象目前的狀態：顯示名稱、是否已刪除、這種規則現在能不能用（feature 是否啟用）。 */
 export const ApprovalAssigneeStatusSchema = defineSchema(
   'ApprovalAssigneeStatus',
@@ -199,6 +204,7 @@ export const ApprovalFlowPreviewSchema = defineSchema(
 );
 
 export type PutApprovalFlowDto = z.infer<typeof PutApprovalFlowSchema>;
+export type ResetApprovalFlowDto = z.infer<typeof ResetApprovalFlowSchema>;
 export type ApprovalFlowStepInputDto = z.infer<typeof ApprovalFlowStepInputSchema>;
 export type ApprovalFlowDto = z.infer<typeof ApprovalFlowSchema>;
 export type ApprovalFlowListDto = z.infer<typeof ApprovalFlowListSchema>;

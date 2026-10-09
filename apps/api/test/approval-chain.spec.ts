@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
@@ -12,6 +12,7 @@ import type { TenantFeature } from '@/core/tenant';
 import { tenants as platformTenants } from '@/db/platform/schema';
 import {
   approvalRequests,
+  auditLogs,
   approvalSteps,
   groupMemberTuple,
   groups,
@@ -99,6 +100,7 @@ async function as(name: string) {
       request(http).post(path).set('authorization', `Bearer ${token}`).send(body),
     put: (path: string, body: object) =>
       request(http).put(path).set('authorization', `Bearer ${token}`).send(body),
+    delete: (path: string) => request(http).delete(path).set('authorization', `Bearer ${token}`),
   };
 }
 
@@ -513,6 +515,57 @@ describe('多階段審批（docs/architecture/backend/20-approval.md §9）', ()
       const after = await (await as('admin')).get(`/approval-flows/${PURCHASE}`).expect(200);
       expect(after.body.data.inFlightCount).toBe(before.body.data.inFlightCount + 1);
       await (await as('carl')).post(`/approvals/${id}/withdraw`).expect(200);
+    });
+
+    it('重設：版本不符 409；成功後回到未設定，進行中的請求照舊走完，稽核帶被刪掉的流程', async () => {
+      const id = await submit(20000);
+      const current = await (await as('admin')).get(`/approval-flows/${PURCHASE}`).expect(200);
+      const version = current.body.data.flow.version as number;
+
+      const stale = await (
+        await as('admin')
+      )
+        .delete(`/approval-flows/${PURCHASE}?version=${version + 1}`)
+        .expect(409);
+      expect(stale.body.error.code).toBe('APPROVAL_FLOW_VERSION_CONFLICT');
+      // 沒有 approvalFlow:update（member）→ 403
+      await (await as('carl')).delete(`/approval-flows/${PURCHASE}?version=${version}`).expect(403);
+
+      await (
+        await as('admin')
+      )
+        .delete(`/approval-flows/${PURCHASE}?version=${version}`)
+        .expect(204);
+      const after = await (await as('admin')).get(`/approval-flows/${PURCHASE}`).expect(200);
+      expect(after.body.data.flow).toBeNull();
+      const [audit] = await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.action, 'approvalFlow.reset'))
+        .orderBy(desc(auditLogs.occurredAt))
+        .limit(1);
+      expect(audit?.changes).toMatchObject({ before: { steps: expect.any(Array) }, after: null });
+      // 已經沒有流程：再重設一次不做任何事
+      await (
+        await as('admin')
+      )
+        .delete(`/approval-flows/${PURCHASE}?version=${version}`)
+        .expect(204);
+
+      // 進行中的請求帶著關卡的快照，照舊由主管決定
+      await (
+        await as('amy')
+      )
+        .post(`/approvals/${id}/steps/0/decisions`, { decision: 'reject' })
+        .expect(200);
+      // 新的申請是單關
+      const single = await submit(20000);
+      expect((await detail(single)).steps).toEqual([]);
+      await (await as('carl')).post(`/approvals/${single}/withdraw`).expect(200);
+
+      // 還原這個檔案其他案例用的流程
+      flowVersion = undefined;
+      await putFlow(STANDARD_FLOW());
     });
 
     it('實際運作：近 30 天依狀態計數，進行中的停在哪一關', async () => {

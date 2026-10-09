@@ -14,12 +14,13 @@ import { saveImpacts } from './saveImpacts';
 export function useSaveWithImpacts(
   item: ApprovalFlow | undefined,
   draft: FlowDraft | undefined,
-  submit: () => Promise<void>,
+  submit: () => Promise<boolean>,
 ) {
   const { t } = useTranslation();
   const confirm = useConfirm();
-  return async () => {
-    if (!item || !draft) return;
+  /** 回傳是否已儲存；取消確認或驗證不過時為 false。 */
+  return async (): Promise<boolean> => {
+    if (!item || !draft) return false;
     const impacts = saveImpacts(item, draft, t);
     if (impacts.length) {
       const confirmed = await confirm({
@@ -34,8 +35,8 @@ export function useSaveWithImpacts(
         tone: 'primary',
         'data-testid': 'approval-flow-save-confirm',
       });
-      if (!confirmed) return;
+      if (!confirmed) return false;
     }
-    await submit();
+    return submit();
   };
 }
