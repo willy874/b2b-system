@@ -2,7 +2,7 @@
 
 - 優先度：P1
 - 狀態：規劃中
-- 依賴：審批與多階段流程（[`backend/20-approval.md`](../architecture/backend/20-approval.md)，已完成）；系統設定的「審批流程」分頁（流程設定搬進系統設定，進行中）
+- 依賴：審批與多階段流程（[`backend/20-approval.md`](../architecture/backend/20-approval.md)，已完成）；系統設定的「審批流程」分頁（已完成）
 - 相關：審批的互動與引導（第 1、2 批，已歸檔到 [`backend/20-approval.md`](../architecture/backend/20-approval.md) §11、§12）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
@@ -11,7 +11,7 @@
 
 2026-10-09 逐頁檢視審批的畫面後提出三批改善。第 1 批（待辦的入口）與第 2 批（整頁的詳情、留言、重新送出）已於 2026-10-10 完成，
 規格與設計決策 D1～D5、D7、D8 在 [`backend/20-approval.md`](../architecture/backend/20-approval.md) §11、§12。
-這份只剩第 3 批：流程設定（`features/approval-flow`）的引導。它等流程設定搬進系統設定的改動合併後再做，避免改同一批檔案。
+這份只剩第 3 批：流程設定（`features/approval-flow`，已搬進系統設定的「審批流程」分頁）的引導。
 
 ### 流程設定者：一進編輯頁就是空白表單
 

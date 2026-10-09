@@ -18,7 +18,7 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P1 | 審批流程設定的引導 | [`approval-experience.md`](./approval-experience.md) | 規劃中 | 審批流程搬進系統設定（進行中） |
+| P1 | 審批流程設定的引導 | [`approval-experience.md`](./approval-experience.md) | 規劃中 | 審批與多階段流程（已完成） |
 
 狀態只有三種：
 
