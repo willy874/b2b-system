@@ -95,6 +95,8 @@ export interface ApprovalConditionField {
   type: 'number' | 'string' | 'enum';
   /** `enum` 的值。 */
   options?: readonly string[];
+  /** 試算時預填的範例值（流程設定頁一打開就自動試算）。 */
+  example?: number | string;
   /** 從 payload 取值；取不到回 null（條件不成立，D2）。 */
   read(payload: Record<string, unknown>): number | string | null;
 }

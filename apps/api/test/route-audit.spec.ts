@@ -485,6 +485,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /approvals/:id/steps/:ordinal/refresh': 'approval:override',
       'GET /approval-flows': 'approvalFlow:read',
       'GET /approval-flows/:type': 'approvalFlow:read',
+      'GET /approval-flows/:type/stats': 'approvalFlow:read',
       'PUT /approval-flows/:type': 'approvalFlow:update',
       'POST /approval-flows/:type/preview': 'approvalFlow:read',
       'GET /jobs/queues': 'job:read',

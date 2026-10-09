@@ -361,14 +361,25 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
       'E2E Member',
     );
     await expect(previewFirst.getByTestId('approval-flow-preview-skipped')).toHaveCount(0);
+    // 修改後自動重新試算（不必按「試算」）；流程摘要跟著標出略過的關卡
     await domain.fill('other.test');
-    await preview.getByTestId('approval-flow-preview-run').click();
     await expect(previewFirst.getByTestId('approval-flow-preview-skipped')).toBeVisible();
+    await expect(getByTestIdAndValue(editor, 'approval-flow-summary-step', '0')).toHaveAttribute(
+      'data-state',
+      'skipped',
+    );
     await snapshot(page, 'approval-flow-preview');
 
-    // ③ 儲存 → 回到列表看到兩關（仍是停用）；伺服器上的條件與審核者照設定存下
+    // ③ 儲存 → 回到列表看到兩關（仍是停用）；伺服器上的條件與審核者照設定存下。
+    // 有進行中的申請時先說明它們照舊版本（其他案例可能留下待審的申請）
     await editor.getByTestId('approval-flow-save').click();
-    await expect(getByTestIdAndValue(page, 'toast', 'success')).toBeVisible();
+    const saveConfirm = page
+      .getByTestId('approval-flow-save-confirm')
+      .getByTestId('alert-dialog-confirm');
+    const savedToast = getByTestIdAndValue(page, 'toast', 'success');
+    await expect(saveConfirm.or(savedToast).first()).toBeVisible();
+    if (await saveConfirm.isVisible()) await saveConfirm.click();
+    await expect(savedToast).toBeVisible();
     const saved = (await apiRequest(adminToken, 'get', '/approval-flows/user.register')).body as {
       data: {
         flow: {

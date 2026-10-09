@@ -95,6 +95,8 @@ export const ApprovalConditionFieldSchema = defineSchema(
     key: z.string(),
     type: z.enum(['number', 'string', 'enum']),
     options: z.array(z.string()).nullable(),
+    /** 試算預填的範例值；沒有宣告時為 null。 */
+    example: z.union([z.number(), z.string()]).nullable(),
   }),
 );
 
@@ -105,6 +107,13 @@ export const ApprovalFlowSchema = defineSchema(
     type: z.string(),
     requester: z.enum(['user', 'anonymous']),
     fields: z.array(ApprovalConditionFieldSchema),
+    /**
+     * 核准這個類型還需要的權限（handler 的 `requiredPermissions`）：最後一個會執行的關卡只留下持有它們的審核者（D3）。
+     * `nameI18nKey` 是權限目錄的顯示名稱。
+     */
+    requiredPermissions: z.array(z.object({ key: z.string(), nameI18nKey: z.string() })),
+    /** 照目前流程送出、還在審的請求數：儲存修改前提醒它們照送出時的版本繼續（§9.5）。 */
+    inFlightCount: z.number().int(),
     flow: z
       .object({
         id: z.string().uuid(),
@@ -130,6 +139,27 @@ export const ApprovalFlowListSchema = defineSchema(
       manager: z.boolean(),
       orgUnit: z.boolean(),
     }),
+  }),
+);
+
+/** 近 30 天的實際運作（docs/architecture/backend/20-approval.md §9.16、§12 D9）：開頁時即時彙總。 */
+export const ApprovalFlowStatsSchema = defineSchema(
+  'ApprovalFlowStats',
+  z.object({
+    days: z.number().int(),
+    /** 近 `days` 天送出的請求，依目前的狀態。 */
+    submitted: z.number().int(),
+    approved: z.number().int(),
+    rejected: z.number().int(),
+    withdrawn: z.number().int(),
+    /** 近 `days` 天定案（核准或駁回）的請求，從送出到定案的平均小時數；沒有時為 null。 */
+    averageHours: z.number().nullable(),
+    /** 目前所有進行中的請求（不限天數）。 */
+    pending: z.number().int(),
+    /** 進行中的請求停在哪一關（依關卡名稱；單關請求不列）。 */
+    currentSteps: z.array(
+      z.object({ name: z.string(), pending: z.number().int(), shortage: z.number().int() }),
+    ),
   }),
 );
 
@@ -172,5 +202,6 @@ export type PutApprovalFlowDto = z.infer<typeof PutApprovalFlowSchema>;
 export type ApprovalFlowStepInputDto = z.infer<typeof ApprovalFlowStepInputSchema>;
 export type ApprovalFlowDto = z.infer<typeof ApprovalFlowSchema>;
 export type ApprovalFlowListDto = z.infer<typeof ApprovalFlowListSchema>;
+export type ApprovalFlowStatsDto = z.infer<typeof ApprovalFlowStatsSchema>;
 export type PreviewApprovalFlowDto = z.infer<typeof PreviewApprovalFlowSchema>;
 export type ApprovalFlowPreviewDto = z.infer<typeof ApprovalFlowPreviewSchema>;

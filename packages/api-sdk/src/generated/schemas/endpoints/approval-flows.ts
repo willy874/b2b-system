@@ -11,6 +11,8 @@ import type {
   ApprovalFlowControllerPreviewResult,
   ApprovalFlowControllerPutInput,
   ApprovalFlowControllerPutResult,
+  ApprovalFlowControllerStatsInput,
+  ApprovalFlowControllerStatsResult,
 } from '../../endpoints/approval-flows';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
@@ -18,6 +20,7 @@ import {
   ApprovalFlowListSchema,
   ApprovalFlowPreviewSchema,
   ApprovalFlowSchema,
+  ApprovalFlowStatsSchema,
   PreviewApprovalFlowRequestSchema,
   PutApprovalFlowRequestSchema,
 } from '../components';
@@ -113,6 +116,39 @@ export function approvalFlowControllerPut(
 ): Promise<ApprovalFlowControllerPutResult> {
   return request<ApprovalFlowControllerPutResult>(
     approvalFlowControllerPutOperation,
+    input,
+    options,
+  );
+}
+
+// GET /approval-flows/{type}/stats
+
+export const ApprovalFlowControllerStatsSchemas = {
+  path: z.object({
+    type: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: ApprovalFlowStatsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const approvalFlowControllerStatsOperation: OperationDefinition = {
+  id: 'ApprovalFlowController_stats',
+  method: 'GET',
+  path: '/approval-flows/{type}/stats',
+  responseTypes: { 200: 'json' },
+  schemas: ApprovalFlowControllerStatsSchemas,
+};
+
+/** 流程的實際運作（近 30 天） */
+export function approvalFlowControllerStats(
+  input: ApprovalFlowControllerStatsInput,
+  options?: RequestOptions,
+): Promise<ApprovalFlowControllerStatsResult> {
+  return request<ApprovalFlowControllerStatsResult>(
+    approvalFlowControllerStatsOperation,
     input,
     options,
   );

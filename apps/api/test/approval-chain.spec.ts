@@ -500,6 +500,52 @@ describe('多階段審批（docs/architecture/backend/20-approval.md §9）', ()
     });
   });
 
+  describe('流程設定的引導（docs/architecture/backend/20-approval.md §9.16）', () => {
+    it('流程帶核准所需的權限（顯示名稱）、欄位的範例值與進行中的筆數', async () => {
+      requiredKeys = ['user:create'];
+      const before = await (await as('admin')).get(`/approval-flows/${PURCHASE}`).expect(200);
+      expect(before.body.data.requiredPermissions).toEqual([
+        { key: 'user:create', nameI18nKey: expect.stringMatching(/^permission\./) },
+      ]);
+      expect(before.body.data.fields[0]).toMatchObject({ key: 'amount', example: null });
+
+      const id = await submit(20000);
+      const after = await (await as('admin')).get(`/approval-flows/${PURCHASE}`).expect(200);
+      expect(after.body.data.inFlightCount).toBe(before.body.data.inFlightCount + 1);
+      await (await as('carl')).post(`/approvals/${id}/withdraw`).expect(200);
+    });
+
+    it('實際運作：近 30 天依狀態計數，進行中的停在哪一關', async () => {
+      const read = async () =>
+        (await (await as('admin')).get(`/approval-flows/${PURCHASE}/stats`).expect(200)).body
+          .data as {
+          days: number;
+          submitted: number;
+          withdrawn: number;
+          pending: number;
+          currentSteps: Array<{ name: string; pending: number; shortage: number }>;
+        };
+      const before = await read();
+      expect(before.days).toBe(30);
+
+      const id = await submit(20000);
+      let stats = await read();
+      expect(stats.submitted).toBe(before.submitted + 1);
+      expect(stats.pending).toBe(before.pending + 1);
+      expect(stats.currentSteps.find((step) => step.name === '部門主管')?.pending).toBeGreaterThan(
+        0,
+      );
+
+      await (await as('carl')).post(`/approvals/${id}/withdraw`).expect(200);
+      stats = await read();
+      expect(stats.withdrawn).toBe(before.withdrawn + 1);
+      expect(stats.pending).toBe(before.pending);
+
+      // 沒有 approvalFlow:read（member）→ 403
+      await (await as('carl')).get(`/approval-flows/${PURCHASE}/stats`).expect(403);
+    });
+  });
+
   describe('申請人', () => {
     it('「我的申請」與撤回；別人撤回 → 403', async () => {
       const id = await submit(20000);

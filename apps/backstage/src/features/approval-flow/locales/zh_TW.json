@@ -41,7 +41,13 @@
       "allowRepeatApproverHint": "預設不行：前面關卡做過決定的人不會再成為後面關卡的審核者。"
     },
     "save": {
-      "success": "已儲存流程"
+      "success": "已儲存流程",
+      "confirmTitle": "儲存流程",
+      "impact": {
+        "inFlight_other": "進行中的 {{count}} 筆申請照送出時的關卡繼續；只有新的申請走這次的設定。",
+        "disable": "停用後，新的申請改為單關審批：由持有審批權限的人核准或駁回。",
+        "enable": "啟用後，新的申請會依這個流程逐關審核。"
+      }
     },
     "step": {
       "ordinal": "第 {{ordinal}} 關",
@@ -58,7 +64,11 @@
       "increase": "增加",
       "decrease": "減少",
       "conditions": "條件（全部符合才經過這一關）",
-      "noCondition": "沒有條件：每一筆申請都會經過這一關。"
+      "noCondition": "沒有條件：每一筆申請都會經過這一關。",
+      "requiredCountHint_other": "任 {{count}} 位審核者同意就通過這一關；任一人駁回則整筆駁回。",
+      "requiredAllHint": "這一關開始時的所有審核者都要同意（會簽）；任一人駁回則整筆駁回。",
+      "lastStepPermission": "流程最後執行的那一關（略過的不算）只會讓同時有「{{permissions}}」權限的人當審核者：核准等同代為執行這個操作。",
+      "listSeparator": "、"
     },
     "assignee": {
       "kindLabel": "審核者的種類",
@@ -120,7 +130,74 @@
         "insufficient": "候選人不足"
       },
       "required_other": "需要 {{count}} 人同意",
-      "stepTitle": "第 {{ordinal}} 關：{{name}}"
+      "stepTitle": "第 {{ordinal}} 關：{{name}}",
+      "auto": "修改後會自動重新試算。"
+    },
+    "outcome": {
+      "userRegister": "建立帳號並寄出啟用信",
+      "default": "套用申請的內容"
+    },
+    "summary": {
+      "title": "流程摘要",
+      "submit": "送出申請",
+      "stepTitle": "{{ordinal}}. {{name}}",
+      "untitled": "（未命名）",
+      "requiredAll": "全部同意（會簽）",
+      "requiredCount_other": "{{count}} 人同意",
+      "conditions_other": "{{count}} 個條件",
+      "candidates_other": "{{count}} 位審核者",
+      "outcome": "核准後",
+      "previewHint": "依右側試算的申請標示：虛線是會略過的關卡，紅框是找不到足夠審核者的關卡。"
+    },
+    "template": {
+      "title": "從範本開始",
+      "description": "選一個最接近的流程，之後都可以修改；需要指定的審核者會留空讓你選。",
+      "use": "使用這個範本",
+      "manager": {
+        "label": "申請人的主管",
+        "description": "一關：由申請人的直屬主管核准。"
+      },
+      "managerThenRole": {
+        "label": "主管 → 指定角色",
+        "description": "兩關：先由直屬主管核准，再由某個角色（例如管理員）最後核准。"
+      },
+      "role": {
+        "label": "指定角色的任一人",
+        "description": "一關：某個角色的任一位持有者核准即可。"
+      },
+      "reviewThenApprove": {
+        "label": "初審 → 複審",
+        "description": "兩關：先由指定的人初審，再由某個角色複審。"
+      },
+      "blank": {
+        "label": "從空白開始",
+        "description": "一張空白的關卡，自己設定審核者、同意數與條件。"
+      },
+      "stepName": {
+        "manager": "主管審核",
+        "final": "最終核准",
+        "review": "審核",
+        "first": "初審"
+      }
+    },
+    "stats": {
+      "title": "實際運作（近 {{days}} 天）",
+      "empty": "近期沒有這個類型的申請。",
+      "submitted": "送出",
+      "approved": "核准",
+      "rejected": "駁回",
+      "withdrawn": "撤回",
+      "average": "平均定案時間",
+      "pending": "進行中（全部）",
+      "currentSteps": "進行中的申請停在",
+      "stepPending_other": "{{name}}：{{count}} 筆",
+      "shortage_other": "{{count}} 筆找不到審核者",
+      "line": "近 {{days}} 天送出 {{submitted}} 筆，目前進行中 {{pending}} 筆"
+    },
+    "duration": {
+      "minutes_other": "{{count}} 分鐘",
+      "hours_other": "{{count}} 小時",
+      "days_other": "{{count}} 天"
     }
   }
 }

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
@@ -62,6 +62,77 @@ export class ApprovalChainRepository {
       .where(eq(approvalFlows.type, type))
       .limit(1);
     return row;
+  }
+
+  /** 照這個流程送出、還在審的請求數（儲存修改前的提醒）。 */
+  async countInFlight(flowId: string): Promise<number> {
+    return this.db.$count(
+      approvalRequests,
+      and(eq(approvalRequests.flowId, flowId), eq(approvalRequests.status, 'pending')),
+    );
+  }
+
+  /**
+   * 一種類型的實際運作（docs/architecture/backend/20-approval.md §9.16）：`since` 之後送出的請求依狀態計數、定案的平均時間；
+   * 目前所有進行中的請求停在哪一關。走 `(status, created_at)` 的索引；量大時再改快照（§12 D9）。
+   */
+  async flowStats(
+    type: string,
+    since: Date,
+  ): Promise<{
+    byStatus: Map<string, number>;
+    averageHours: number | null;
+    pending: number;
+    currentSteps: Array<{ name: string; pending: number; shortage: number }>;
+  }> {
+    const [statusRows, averageRows, pending, stepRows] = await Promise.all([
+      this.db
+        .select({ status: approvalRequests.status, count: sql<number>`count(*)::int` })
+        .from(approvalRequests)
+        .where(and(eq(approvalRequests.type, type), gte(approvalRequests.createdAt, since)))
+        .groupBy(approvalRequests.status),
+      this.db
+        .select({
+          hours: sql<
+            number | null
+          >`avg(extract(epoch from (${approvalRequests.reviewedAt} - ${approvalRequests.createdAt})) / 3600)::float8`,
+        })
+        .from(approvalRequests)
+        .where(
+          and(
+            eq(approvalRequests.type, type),
+            gte(approvalRequests.createdAt, since),
+            inArray(approvalRequests.status, ['approved', 'rejected']),
+          ),
+        ),
+      this.db.$count(
+        approvalRequests,
+        and(eq(approvalRequests.type, type), eq(approvalRequests.status, 'pending')),
+      ),
+      this.db
+        .select({
+          name: approvalSteps.name,
+          pending: sql<number>`count(*)::int`,
+          shortage: sql<number>`count(${approvalSteps.shortage})::int`,
+        })
+        .from(approvalSteps)
+        .innerJoin(approvalRequests, eq(approvalRequests.id, approvalSteps.requestId))
+        .where(
+          and(
+            eq(approvalRequests.type, type),
+            eq(approvalRequests.status, 'pending'),
+            eq(approvalSteps.status, 'active'),
+          ),
+        )
+        .groupBy(approvalSteps.name)
+        .orderBy(sql`count(*) desc`, asc(approvalSteps.name)),
+    ]);
+    return {
+      byStatus: new Map(statusRows.map((row) => [row.status, row.count])),
+      averageHours: averageRows[0]?.hours ?? null,
+      pending,
+      currentSteps: stepRows,
+    };
   }
 
   async lockFlow(type: string, tx: DbOrTx): Promise<ApprovalFlowRow | undefined> {

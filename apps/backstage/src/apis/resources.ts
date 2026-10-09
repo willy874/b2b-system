@@ -8,6 +8,7 @@ import { MY_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-my-api-tokens/quer
 import { USER_API_TOKENS_QUERY_KEY } from '@/apis/api-token/get-user-api-tokens/query';
 import { APPROVAL_FLOW_DETAIL_QUERY_KEY } from '@/apis/approval-flow/get-approval-flow-detail/query';
 import { APPROVAL_FLOW_LIST_QUERY_KEY } from '@/apis/approval-flow/get-approval-flow-list/query';
+import { APPROVAL_FLOW_STATS_QUERY_KEY } from '@/apis/approval-flow/get-approval-flow-stats/query';
 /**
  * 本專案的資源依賴圖（機制見 `web-core/cache/resourceGraph.ts`）。
  *
@@ -306,8 +307,8 @@ const graph = createResourceGraph<Resource>({
     entity: [IMAGE_DETAIL_QUERY_KEY],
   },
   [Resource.APPROVAL]: {
-    // 待審數跟著列表：任何一筆送出、決定、撤回都可能改變它
-    collection: [APPROVAL_LIST_QUERY_KEY, APPROVAL_COUNTS_QUERY_KEY],
+    // 待審數與流程的實際運作跟著列表：任何一筆送出、決定、撤回都可能改變它們
+    collection: [APPROVAL_LIST_QUERY_KEY, APPROVAL_COUNTS_QUERY_KEY, APPROVAL_FLOW_STATS_QUERY_KEY],
     entity: [APPROVAL_DETAIL_QUERY_KEY],
   },
   [Resource.APPROVAL_FLOW]: {

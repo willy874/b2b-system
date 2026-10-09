@@ -896,6 +896,41 @@
         "tags": ["approval-flows"]
       }
     },
+    "/approval-flows/{type}/stats": {
+      "get": {
+        "operationId": "ApprovalFlowController_stats",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalFlowStats"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "流程的實際運作（近 30 天）",
+        "tags": ["approval-flows"]
+      }
+    },
     "/approval-flows/{type}/preview": {
       "post": {
         "operationId": "ApprovalFlowController_preview",
@@ -14505,9 +14540,20 @@
             "items": {
               "type": "string"
             }
+          },
+          "example": {
+            "nullable": true,
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
           }
         },
-        "required": ["key", "type", "options"],
+        "required": ["key", "type", "options", "example"],
         "additionalProperties": false
       },
       "ApprovalFlow": {
@@ -14525,6 +14571,27 @@
             "items": {
               "$ref": "#/components/schemas/ApprovalConditionField"
             }
+          },
+          "requiredPermissions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "nameI18nKey": {
+                  "type": "string"
+                }
+              },
+              "required": ["key", "nameI18nKey"],
+              "additionalProperties": false
+            }
+          },
+          "inFlightCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "flow": {
             "nullable": true,
@@ -14560,7 +14627,7 @@
             "additionalProperties": false
           }
         },
-        "required": ["type", "requester", "fields", "flow"],
+        "required": ["type", "requester", "fields", "requiredPermissions", "inFlightCount", "flow"],
         "additionalProperties": false
       },
       "ApprovalFlowList": {
@@ -14596,6 +14663,79 @@
           }
         },
         "required": ["items", "assigneeKinds"],
+        "additionalProperties": false
+      },
+      "ApprovalFlowStats": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "submitted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "approved": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "rejected": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "withdrawn": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "averageHours": {
+            "nullable": true,
+            "type": "number"
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currentSteps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "pending": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "shortage": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["name", "pending", "shortage"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "days",
+          "submitted",
+          "approved",
+          "rejected",
+          "withdrawn",
+          "averageHours",
+          "pending",
+          "currentSteps"
+        ],
         "additionalProperties": false
       },
       "PreviewApprovalFlowRequest": {

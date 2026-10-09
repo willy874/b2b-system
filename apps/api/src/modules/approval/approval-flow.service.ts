@@ -23,11 +23,15 @@ import type { ApprovalHandler } from './approval.types';
 import type {
   ApprovalFlowDto,
   ApprovalFlowListDto,
+  ApprovalFlowStatsDto,
   ApprovalFlowPreviewDto,
   ApprovalFlowStepInputDto,
   PreviewApprovalFlowDto,
   PutApprovalFlowDto,
 } from './dto/approval-flow.dto';
+
+/** 流程頁的「實際運作」看幾天（§12 D9）。 */
+const FLOW_STATS_DAYS = 30;
 
 /**
  * 審批流程的設定（docs/architecture/backend/20-approval.md §9、D1、D11）：每一種宣告了 `flow` 的審批類型最多一個流程。
@@ -229,6 +233,24 @@ export class ApprovalFlowService {
     return { steps: result };
   }
 
+  /** 近 30 天的實際運作（§9.16、§12 D9）：送出、定案、平均時間；目前進行中的停在哪一關。 */
+  async stats(type: string): Promise<ApprovalFlowStatsDto> {
+    this.supportedHandler(type);
+    const since = new Date(Date.now() - FLOW_STATS_DAYS * 24 * 60 * 60 * 1000);
+    const stats = await this.repo.flowStats(type, since);
+    const count = (status: string) => stats.byStatus.get(status) ?? 0;
+    return {
+      days: FLOW_STATS_DAYS,
+      submitted: [...stats.byStatus.values()].reduce((sum, value) => sum + value, 0),
+      approved: count('approved'),
+      rejected: count('rejected'),
+      withdrawn: count('withdrawn'),
+      averageHours: stats.averageHours,
+      pending: stats.pending,
+      currentSteps: stats.currentSteps,
+    };
+  }
+
   /** 平台關閉 `approvalChain`、`organization` 前的確認框列出的數量。 */
   countImpact(): Promise<{ flows: number; inChain: number; usingOrg: number }> {
     return this.repo.countImpact();
@@ -297,6 +319,11 @@ export class ApprovalFlowService {
         },
       });
     }
+    const [catalog, inFlightCount] = await Promise.all([
+      this.permissionService.getCatalog(),
+      flow ? this.repo.countInFlight(flow.id) : Promise.resolve(0),
+    ]);
+    const names = new Map(catalog.items.map((item) => [item.key, item.nameI18nKey]));
     return {
       type: handler.type,
       requester: support?.requester ?? 'user',
@@ -304,7 +331,13 @@ export class ApprovalFlowService {
         key: field.key,
         type: field.type,
         options: field.options ? [...field.options] : null,
+        example: field.example ?? null,
       })),
+      // 不含依選項而定的部分（例：核准時一併指派角色），與反提權的檢查相同（D11）
+      requiredPermissions: handler
+        .requiredPermissions({ request: null, options: { roleIds: [] } })
+        .map((key) => ({ key, nameI18nKey: names.get(key) ?? key })),
+      inFlightCount,
       flow: flow
         ? {
             id: flow.id,

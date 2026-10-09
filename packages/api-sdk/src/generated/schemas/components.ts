@@ -27,6 +27,7 @@ import type {
   ApprovalFlow,
   ApprovalFlowList,
   ApprovalFlowPreview,
+  ApprovalFlowStats,
   ApprovalFlowStep,
   ApprovalFlowStepInput,
   ApprovalRequest,
@@ -1786,12 +1787,20 @@ export const ApprovalConditionFieldSchema = z.object({
   key: z.string(),
   type: z.enum(['number', 'string', 'enum']),
   options: z.array(z.string()).nullable(),
+  example: z.union([z.number(), z.string()]).nullable(),
 }) satisfies z.ZodType<ApprovalConditionField>;
 
 export const ApprovalFlowSchema = z.object({
   type: z.string(),
   requester: z.enum(['user', 'anonymous']),
   fields: z.array(ApprovalConditionFieldSchema),
+  requiredPermissions: z.array(
+    z.object({
+      key: z.string(),
+      nameI18nKey: z.string(),
+    }),
+  ),
+  inFlightCount: z.int().min(-9007199254740991).max(9007199254740991),
   flow: z
     .object({
       id: z
@@ -1820,6 +1829,23 @@ export const ApprovalFlowListSchema = z.object({
     orgUnit: z.boolean(),
   }),
 }) satisfies z.ZodType<ApprovalFlowList>;
+
+export const ApprovalFlowStatsSchema = z.object({
+  days: z.int().min(-9007199254740991).max(9007199254740991),
+  submitted: z.int().min(-9007199254740991).max(9007199254740991),
+  approved: z.int().min(-9007199254740991).max(9007199254740991),
+  rejected: z.int().min(-9007199254740991).max(9007199254740991),
+  withdrawn: z.int().min(-9007199254740991).max(9007199254740991),
+  averageHours: z.number().nullable(),
+  pending: z.int().min(-9007199254740991).max(9007199254740991),
+  currentSteps: z.array(
+    z.object({
+      name: z.string(),
+      pending: z.int().min(-9007199254740991).max(9007199254740991),
+      shortage: z.int().min(-9007199254740991).max(9007199254740991),
+    }),
+  ),
+}) satisfies z.ZodType<ApprovalFlowStats>;
 
 export const PreviewApprovalFlowRequestSchema = z.object({
   steps: z.array(ApprovalFlowStepInputSchema).min(1).max(10).optional(),

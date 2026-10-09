@@ -11,10 +11,24 @@ import { initTestI18n } from '@/test/i18n';
 import { registerApprovalFlowPagePermissions, Routes } from '../../..';
 import zhTW from '../../../locales/zh_TW.json';
 
-const { fetchList } = vi.hoisted(() => ({ fetchList: vi.fn() }));
+const { fetchList, fetchStats } = vi.hoisted(() => ({ fetchList: vi.fn(), fetchStats: vi.fn() }));
 vi.mock('@/apis/approval-flow/get-approval-flow-list/fetcher', () => ({
   fetchApprovalFlowListQuery: fetchList,
 }));
+vi.mock('@/apis/approval-flow/get-approval-flow-stats/fetcher', () => ({
+  fetchApprovalFlowStatsQuery: fetchStats,
+}));
+
+const NO_STATS = {
+  days: 30,
+  submitted: 0,
+  approved: 0,
+  rejected: 0,
+  withdrawn: 0,
+  averageHours: null,
+  pending: 0,
+  currentSteps: [],
+};
 
 const STEP = {
   key: 'k1',
@@ -29,7 +43,9 @@ const ITEMS: ApprovalFlow[] = [
   {
     type: 'user.register',
     requester: 'anonymous',
-    fields: [{ key: 'emailDomain', type: 'string', options: null }],
+    requiredPermissions: [],
+    inFlightCount: 0,
+    fields: [{ key: 'emailDomain', type: 'string', options: null, example: null }],
     flow: {
       id: 'f1',
       enabled: true,
@@ -48,7 +64,14 @@ const ITEMS: ApprovalFlow[] = [
       ],
     },
   },
-  { type: 'future.type', requester: 'user', fields: [], flow: null },
+  {
+    type: 'future.type',
+    requester: 'user',
+    fields: [],
+    requiredPermissions: [],
+    inFlightCount: 0,
+    flow: null,
+  },
 ];
 
 const READER = ['approvalFlow:read'] as PermissionKey[];
@@ -64,6 +87,7 @@ beforeEach(() => {
     items: ITEMS,
     assigneeKinds: { user: true, group: true, role: true, manager: false, orgUnit: false },
   });
+  fetchStats.mockReset().mockResolvedValue(NO_STATS);
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
@@ -169,5 +193,29 @@ describe('ApprovalFlowListPage（docs/architecture/backend/20-approval.md §9.16
     expect(
       await screen.findByTestId('approval-flow-list-empty', undefined, { timeout: 5000 }),
     ).toHaveTextContent('目前沒有支援多階段流程的審批類型。');
+  });
+
+  it('卡片上一行實際運作；有找不到審核者的申請時標示，沒有任何申請時不顯示', async () => {
+    fetchStats.mockImplementation(({ params }: { params: { type: string } }) =>
+      Promise.resolve(
+        params.type === 'user.register'
+          ? {
+              ...NO_STATS,
+              submitted: 4,
+              pending: 2,
+              currentSteps: [{ name: '管理者', pending: 2, shortage: 1 }],
+            }
+          : NO_STATS,
+      ),
+    );
+    renderRoute(routes, '/system/approval-flows', READER);
+    const line = await screen.findByTestId('approval-flow-stats-line', undefined, {
+      timeout: 5000,
+    });
+    expect(line).toHaveTextContent('近 30 天送出 4 筆，目前進行中 2 筆');
+    expect(within(line).getByTestId('approval-flow-stats-line-shortage')).toHaveTextContent(
+      '1 筆找不到審核者',
+    );
+    expect(screen.getAllByTestId('approval-flow-stats-line')).toHaveLength(1);
   });
 });

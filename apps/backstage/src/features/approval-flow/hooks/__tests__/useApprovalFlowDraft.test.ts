@@ -9,6 +9,8 @@ import { useApprovalFlowDraft } from '../useApprovalFlowDraft';
 const flow = (version: number, name: string): ApprovalFlow => ({
   type: 'user.register',
   requester: 'anonymous',
+  requiredPermissions: [],
+  inFlightCount: 0,
   fields: [],
   flow: {
     id: 'f1',
