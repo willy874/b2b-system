@@ -9,18 +9,21 @@ import type { PlatformDatabase } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { resolveToggle } from '@/core/feature-flags';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { MfaMethodRegistry } from '@/core/mfa';
+import { MfaMethodRegistry, MfaMethodSettings } from '@/core/mfa';
 import { Tenancy, TenantDirectory } from '@/core/tenant';
 import { PlatformAuditService } from '@/modules/platform-admin/platform-audit.service';
 
 import type {
   MfaMethodImpactDto,
+  MfaMethodSettingsDto,
   PlatformMfaMethodDto,
+  UpdateMfaMethodSettingsDto,
   UpdatePlatformMfaMethodDto,
 } from './dto/mfa.dto';
 import { MfaAvailability } from './mfa-availability.service';
 import { MfaMethodOverrideRepository } from './mfa-method-override.repository';
 import { MfaMethodOverrideService } from './mfa-method-override.service';
+import { MfaMethodSettingsService } from './mfa-method-settings.service';
 import { methodInfoOf } from './mfa.service';
 import { PlatformMfaRepository } from './platform-mfa.repository';
 import { TenantMfaRepository } from './tenant-mfa.repository';
@@ -54,6 +57,8 @@ export class PlatformMfaMethodService implements OnModuleInit {
     private readonly platformFactors: PlatformMfaRepository,
     private readonly jobs: JobQueue,
     private readonly config: ConfigService<Env, true>,
+    private readonly settings: MfaMethodSettingsService,
+    private readonly settingsAccess: MfaMethodSettings,
   ) {}
 
   onModuleInit(): void {
@@ -76,6 +81,7 @@ export class PlatformMfaMethodService implements OnModuleInit {
         const stat = statsByMethod.get(id);
         return {
           ...methodInfoOf(method),
+          settings: this.settings.summaryOf(method),
           realms: [...realms],
           defaultEnabled,
           globalState: global ?? 'default',
@@ -89,7 +95,9 @@ export class PlatformMfaMethodService implements OnModuleInit {
                 computedAt: stat.computedAt.toISOString(),
               }
             : null,
-          platformAdminEnabled: platformAdminMethods.has(id),
+          // env 列了但參數還沒填齊時平台管理者實際上不能用
+          platformAdminEnabled:
+            platformAdminMethods.has(id) && this.settingsAccess.isConfigured(method),
         };
       }),
     };
@@ -100,7 +108,19 @@ export class PlatformMfaMethodService implements OnModuleInit {
     dto: UpdatePlatformMfaMethodDto,
     actor: AuthUser,
   ): Promise<PlatformMfaMethodDto> {
-    if (!this.registry.get(methodId)) throw new AppException('MFA_METHOD_NOT_FOUND');
+    const method = this.registry.get(methodId);
+    if (!method) throw new AppException('MFA_METHOD_NOT_FOUND');
+    // 必填的平台參數沒有填齊之前不能開啟（§5.1）；關閉、回到預設（需要參數的方式預設一律是關）都可以
+    if (
+      resolveToggle(
+        method.definition.defaultEnabled,
+        dto.state === 'default' ? undefined : dto.state,
+        undefined,
+      ) &&
+      !this.settingsAccess.isConfigured(method)
+    ) {
+      throw new AppException('MFA_METHOD_NOT_CONFIGURED', { methods: [methodId] });
+    }
     const before = this.overrides.globalStateOf(methodId) ?? 'default';
     await withTransaction(this.db, async (tx) => {
       await this.repo.setGlobal(methodId, dto.state === 'default' ? null : dto.state, actor.id, tx);
@@ -121,6 +141,33 @@ export class PlatformMfaMethodService implements OnModuleInit {
     const item = (await this.list()).items.find((candidate) => candidate.id === methodId);
     if (!item) throw new AppException('MFA_METHOD_NOT_FOUND');
     return item;
+  }
+
+  // ── 平台參數（§5.1）──────────────────────────────────
+
+  getSettings(methodId: string): MfaMethodSettingsDto {
+    return this.settings.view(methodId);
+  }
+
+  saveSettings(
+    methodId: string,
+    dto: UpdateMfaMethodSettingsDto,
+    actor: AuthUser,
+  ): Promise<MfaMethodSettingsDto> {
+    return this.settings.save(methodId, dto, actor);
+  }
+
+  async clearSettings(methodId: string, actor: AuthUser): Promise<MfaMethodSettingsDto> {
+    const overrides = await this.repo.countTenantOverrides();
+    return this.settings.clear(
+      methodId,
+      {
+        globalOn: this.overrides.globalStateOf(methodId) === 'on',
+        tenantsOn: overrides.get(methodId)?.on ?? 0,
+        platformAdmins: this.availability.platformAdminMethodIds().has(methodId),
+      },
+      actor,
+    );
   }
 
   /**

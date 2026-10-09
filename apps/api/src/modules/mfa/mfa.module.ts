@@ -12,6 +12,8 @@ import { MfaInteractionController } from './mfa-interaction.controller';
 import { MfaLoginService } from './mfa-login.service';
 import { MfaMethodOverrideRepository } from './mfa-method-override.repository';
 import { MfaMethodOverrideService } from './mfa-method-override.service';
+import { MfaMethodSettingsRepository } from './mfa-method-settings.repository';
+import { MfaMethodSettingsService } from './mfa-method-settings.service';
 import { MfaNotifier } from './mfa-notifier';
 import { MfaPolicyController } from './mfa-policy.controller';
 import { MfaPolicyRepository } from './mfa-policy.repository';
@@ -55,6 +57,8 @@ import { TenantMfaStore } from './tenant-mfa.store';
     MfaCleanupJobs,
     MfaMethodOverrideRepository,
     MfaMethodOverrideService,
+    MfaMethodSettingsRepository,
+    MfaMethodSettingsService,
     MfaPolicyRepository,
     MfaPolicyService,
     PlatformMfaMethodService,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 
@@ -9,11 +9,17 @@ import { ApiZodBody, ApiZodResponse, ZodValidationPipe } from '@/core/validation
 import {
   MfaMethodImpactQuerySchema,
   MfaMethodImpactSchema,
+  MfaMethodSettingsSchema,
   PlatformMfaMethodListSchema,
   PlatformMfaMethodSchema,
+  UpdateMfaMethodSettingsSchema,
   UpdatePlatformMfaMethodSchema,
 } from './dto/mfa.dto';
-import type { MfaMethodImpactQueryDto, UpdatePlatformMfaMethodDto } from './dto/mfa.dto';
+import type {
+  MfaMethodImpactQueryDto,
+  UpdateMfaMethodSettingsDto,
+  UpdatePlatformMfaMethodDto,
+} from './dto/mfa.dto';
 import { PlatformMfaMethodService } from './platform-mfa-method.service';
 
 const MethodIdPipe = new ZodValidationPipe(z.string().regex(/^[a-z][a-zA-Z0-9]*$/));
@@ -41,6 +47,37 @@ export class PlatformMfaMethodController {
     @Query(new ZodValidationPipe(MfaMethodImpactQuerySchema)) query: MfaMethodImpactQueryDto,
   ) {
     return this.methods.impact(id, query.tenantId);
+  }
+
+  @Get(':id/settings')
+  @RequirePlatformPermissions('mfaMethod:read')
+  @ApiOperation({ summary: '方式的平台參數（機密欄位只回傳有沒有設定）' })
+  @ApiZodResponse(200, MfaMethodSettingsSchema)
+  getSettings(@Param('id', MethodIdPipe) id: string) {
+    return this.methods.getSettings(id);
+  }
+
+  @Put(':id/settings')
+  @RequirePlatformPermissions('mfaMethod:update')
+  @ApiOperation({
+    summary: '儲存方式的平台參數：必填、格式與方式自己的檢查（例：以金鑰呼叫供應商）全部通過才寫入',
+  })
+  @ApiZodBody(UpdateMfaMethodSettingsSchema)
+  @ApiZodResponse(200, MfaMethodSettingsSchema)
+  saveSettings(
+    @Param('id', MethodIdPipe) id: string,
+    @Body(new ZodValidationPipe(UpdateMfaMethodSettingsSchema)) dto: UpdateMfaMethodSettingsDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.methods.saveSettings(id, dto, actor);
+  }
+
+  @Delete(':id/settings')
+  @RequirePlatformPermissions('mfaMethod:update')
+  @ApiOperation({ summary: '刪除方式的平台參數（方式還開著時拒絕）' })
+  @ApiZodResponse(200, MfaMethodSettingsSchema)
+  clearSettings(@Param('id', MethodIdPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.methods.clearSettings(id, actor);
   }
 
   @Put(':id')

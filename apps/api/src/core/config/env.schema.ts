@@ -474,6 +474,23 @@ export const EnvSchema = z.object({
   ),
 
   /**
+   * MFA 方式呼叫的供應商 API 位址（docs/architecture/backend/21-mfa.md §13）：預設是各家的正式位址，只有開發與 E2E
+   * 改指向模擬的服務（`pnpm dev:mock-messaging`）。金鑰、Bot token 不在 env，是平台管理者在 apps/platform 填寫的參數（§5.1）。
+   */
+  MFA_TWILIO_API_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().url().default('https://api.twilio.com'),
+  ),
+  MFA_TELEGRAM_API_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().url().default('https://api.telegram.org'),
+  ),
+  MFA_LINE_API_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().url().default('https://api.line.me'),
+  ),
+
+  /**
    * 平台管理者必須啟用 MFA（docs/architecture/backend/21-mfa.md §13、D10）。留空時 production 為 true、其他環境 false；
    * production 設成 false 會啟動失敗：平台管理者的權限最大，不提供執行期放寬的開關。
    */
@@ -688,6 +705,10 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
   }
   if (isWeakSecret(env.FILE_STORAGE_SECRET_ACCESS_KEY)) {
     issue('FILE_STORAGE_SECRET_ACCESS_KEY', WEAK_SECRET_MESSAGE);
+  }
+  // 供應商的 API 帶著金鑰與驗證碼：正式環境不能走明文（指向模擬服務只在開發與 E2E）
+  for (const key of ['MFA_TWILIO_API_URL', 'MFA_TELEGRAM_API_URL', 'MFA_LINE_API_URL'] as const) {
+    if (!env[key].startsWith('https://')) issue(key, '必須是 https');
   }
   // access token 的金鑰環只給內部 api：對外 API 的程序拿到金鑰環就能簽出任何人的 token（06-external-api.md §6）
   for (const key of ['JWT_SIGNING_KEYS', 'PLATFORM_JWT_SIGNING_KEYS'] as const) {

@@ -106,6 +106,7 @@ function setup(options: SetupOptions = {}) {
     incrementMfaPendingAttempts: vi.fn(async (): Promise<number | undefined> => 1),
     destroyMfaPending: vi.fn(async () => undefined),
     consumeMfaPending: vi.fn(async () => true),
+    advanceMfaPending: vi.fn(async () => true),
   };
   const tenancy = { run: vi.fn((_id: string, fn: () => unknown) => fn()) };
   const loginThrottle = {
@@ -193,6 +194,7 @@ describe('MfaLoginService（docs/architecture/backend/21-mfa.md §4）', () => {
           expect.objectContaining({ id: 'totp', challenge: 'none' }),
           expect.objectContaining({ id: 'email', challenge: 'server' }),
         ],
+        optional: false,
       });
     });
 
@@ -489,15 +491,15 @@ describe('MfaLoginService（docs/architecture/backend/21-mfa.md §4）', () => {
 
     it('startEnrollment 以互動 uid 開始設定', async () => {
       const { service, mfa } = setup(enrollPending);
-      expect(await service.startEnrollment(req, res, UID, 'totp')).toEqual({
+      expect(await service.startEnrollment(req, res, UID, { method: 'totp' })).toEqual({
         factorId: 'factor-new',
       });
-      expect(mfa.startEnrollment).toHaveBeenCalledWith('tenant', USER_ID, 'totp', UID);
+      expect(mfa.startEnrollment).toHaveBeenCalledWith('tenant', USER_ID, 'totp', UID, undefined);
     });
 
     it('startEnrollment 在 next = mfa 的互動 → AUTH_MFA_PENDING_INVALID', async () => {
       const { service } = setup();
-      const error = await rejection(service.startEnrollment(req, res, UID, 'totp'));
+      const error = await rejection(service.startEnrollment(req, res, UID, { method: 'totp' }));
       expect(error.code).toBe('AUTH_MFA_PENDING_INVALID');
     });
 
@@ -598,6 +600,159 @@ describe('MfaLoginService（docs/architecture/backend/21-mfa.md §4）', () => {
         expect(error.code).toBe('AUTH_MFA_PENDING_INVALID');
         expect(tenant.store.completeLogin).not.toHaveBeenCalled();
       });
+    });
+  });
+});
+
+describe('MfaLoginService：產品要求新增驗證方式（docs/architecture/backend/21-mfa.md §7.1）', () => {
+  it('不需要第二步、要求的方式可用 → 存 optional 的 mfaEnroll，回傳只有那一種方式、不完成登入', async () => {
+    const { service, oidc, own } = setup({ available: ['totp', 'webauthn'] });
+    const result = await service.afterPassword(req, res, UID, 'tenant', USER_ID, {
+      enroll: 'webauthn',
+    });
+    expect(result).toEqual({
+      next: 'mfaEnroll',
+      methods: [expect.objectContaining({ id: 'webauthn' })],
+      optional: true,
+    });
+    expect(oidc.saveMfaPending).toHaveBeenCalledWith(
+      UID,
+      {
+        accountId: TENANT_ACCOUNT,
+        firstFactor: 'pwd',
+        next: 'mfaEnroll',
+        attempts: 0,
+        enroll: 'webauthn',
+        optional: true,
+        amr: ['pwd'],
+      },
+      MFA_PENDING_TTL_SECONDS,
+    );
+    expect(oidc.finishInteraction).not.toHaveBeenCalled();
+    expect(own.store.completeLogin).not.toHaveBeenCalled();
+  });
+
+  it('要求的方式目前不能用 → 當作沒要求，照常完成登入', async () => {
+    const { service, oidc } = setup({ available: ['totp'] });
+    expect(
+      await service.afterPassword(req, res, UID, 'tenant', USER_ID, { enroll: 'webauthn' }),
+    ).toEqual({ redirectTo: '/resume' });
+    expect(oidc.saveMfaPending).not.toHaveBeenCalled();
+  });
+
+  it('已有因子：先照常第二步（pending 記下要求的方式）', async () => {
+    const { service, oidc } = setup({
+      available: ['totp', 'webauthn'],
+      factors: [factor({ method: 'totp' })],
+    });
+    const result = await service.afterPassword(req, res, UID, 'tenant', USER_ID, {
+      enroll: 'webauthn',
+    });
+    expect(result).toMatchObject({ next: 'mfa' });
+    expect(oidc.saveMfaPending).toHaveBeenCalledWith(
+      UID,
+      expect.objectContaining({ next: 'mfa', enroll: 'webauthn' }),
+      MFA_PENDING_TTL_SECONDS,
+    );
+  });
+
+  it('第二步通過 → 換成 optional 的設定（記下已通過的 amr），不完成登入', async () => {
+    const { service, oidc, own } = setup({
+      available: ['totp', 'webauthn'],
+      pending: { enroll: 'webauthn' },
+      factors: [factor()],
+    });
+    own.repo.findFactor.mockResolvedValue(factor());
+    const result = await service.verify(req, res, UID, {
+      factorId: 'factor-1',
+      payload: { code: '123456' },
+    });
+    expect(result).toEqual({
+      next: 'mfaEnroll',
+      methods: [expect.objectContaining({ id: 'webauthn' })],
+      optional: true,
+    });
+    expect(oidc.advanceMfaPending).toHaveBeenCalledWith(
+      UID,
+      expect.objectContaining({
+        next: 'mfaEnroll',
+        optional: true,
+        attempts: 0,
+        amr: ['pwd', 'mfa', 'totpAmr'],
+      }),
+    );
+    expect(oidc.consumeMfaPending).not.toHaveBeenCalled();
+    expect(oidc.finishInteraction).not.toHaveBeenCalled();
+  });
+
+  it('併發的另一次驗證已經換掉狀態 → AUTH_MFA_PENDING_INVALID', async () => {
+    const { service, oidc, own } = setup({
+      available: ['totp', 'webauthn'],
+      pending: { enroll: 'webauthn' },
+    });
+    own.repo.findFactor.mockResolvedValue(factor());
+    oidc.advanceMfaPending.mockResolvedValue(false);
+    const error = await rejection(
+      service.verify(req, res, UID, { factorId: 'factor-1', payload: { code: '123456' } }),
+    );
+    expect(error.code).toBe('AUTH_MFA_PENDING_INVALID');
+  });
+
+  it('optional 的設定只能設定要求的那一種方式', async () => {
+    const { service, mfa } = setup({
+      pending: { next: 'mfaEnroll', enroll: 'webauthn', optional: true },
+    });
+    const error = await rejection(service.startEnrollment(req, res, UID, { method: 'totp' }));
+    expect(error.code).toBe('MFA_METHOD_DISABLED');
+    await service.startEnrollment(req, res, UID, { method: 'webauthn' });
+    expect(mfa.startEnrollment).toHaveBeenCalledWith('tenant', USER_ID, 'webauthn', UID, undefined);
+  });
+
+  it('略過：以已通過的 amr 完成登入', async () => {
+    const { service, oidc, own } = setup({
+      pending: {
+        next: 'mfaEnroll',
+        enroll: 'webauthn',
+        optional: true,
+        amr: ['pwd', 'mfa', 'otp'],
+      },
+    });
+    expect(await service.skipEnrollment(req, res, UID)).toEqual({ redirectTo: '/resume' });
+    expect(own.store.completeLogin).toHaveBeenCalledWith(expect.anything(), {
+      amr: ['pwd', 'mfa', 'otp'],
+      mfaMethod: 'otp',
+    });
+    expect(oidc.finishInteraction).toHaveBeenCalledWith(req, res, {
+      login: { accountId: TENANT_ACCOUNT, amr: ['pwd', 'mfa', 'otp'] },
+    });
+  });
+
+  it('政策要求的首次設定不能略過 → AUTH_MFA_ENROLL_REQUIRED', async () => {
+    const { service, oidc } = setup({ pending: { next: 'mfaEnroll' } });
+    const error = await rejection(service.skipEnrollment(req, res, UID));
+    expect(error.code).toBe('AUTH_MFA_ENROLL_REQUIRED');
+    expect(oidc.finishInteraction).not.toHaveBeenCalled();
+  });
+
+  it('先通過第二步再設定：完成登入的 amr 用第二步的', async () => {
+    const { service, oidc, mfa } = setup({
+      pending: {
+        next: 'mfaEnroll',
+        enroll: 'webauthn',
+        optional: true,
+        amr: ['pwd', 'mfa', 'otp'],
+      },
+    });
+    mfa.confirmEnrollment.mockResolvedValue({
+      factor: { method: 'webauthn' },
+      recoveryCodes: null,
+    });
+    expect(await service.confirmEnrollment(req, res, UID, 'factor-new', { payload: {} })).toEqual({
+      recoveryCodes: [],
+      redirectTo: '/resume',
+    });
+    expect(oidc.finishInteraction).toHaveBeenCalledWith(req, res, {
+      login: { accountId: TENANT_ACCOUNT, amr: ['pwd', 'mfa', 'otp'] },
     });
   });
 });

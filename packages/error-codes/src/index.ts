@@ -93,6 +93,8 @@ export const ErrorCode = {
   AUTH_MFA_UNAVAILABLE: { status: 403 },
   /** 登入互動的第二步已作廢或不存在（過期、帳號已停用、MFA 被重設）：要從密碼重新開始。 */
   AUTH_MFA_PENDING_INVALID: { status: 400 },
+  /** 政策要求必須設定驗證方式，不能略過首次設定（只有產品要求的新增可以略過，docs/architecture/backend/21-mfa.md §7.1）。 */
+  AUTH_MFA_ENROLL_REQUIRED: { status: 409 },
   /** 沒有這種驗證方式（不在伺服器的註冊表）。 */
   MFA_METHOD_NOT_FOUND: { status: 404 },
   /** 這種驗證方式目前沒有開放（平台或租戶政策關掉了）。 */
@@ -105,6 +107,16 @@ export const ErrorCode = {
   MFA_LAST_FACTOR: { status: 409 },
   /** MFA 政策已被別人修改（樂觀鎖）：重新整理後再改。 */
   MFA_POLICY_VERSION_CONFLICT: { status: 409 },
+  /** 這種驗證方式需要的平台參數還沒填齊，不能開啟（docs/architecture/backend/21-mfa.md §5.1）。`details.methods`：哪些方式。 */
+  MFA_METHOD_NOT_CONFIGURED: { status: 409 },
+  /** 平台參數的檢查沒有通過（例：簡訊供應商回報金鑰無效、Bot token 錯誤）。`details.fields`：欄位 → 原因；`details.reason`：整體的原因。 */
+  MFA_METHOD_SETTINGS_CHECK_FAILED: { status: 400 },
+  /** 參數已被別人修改（樂觀鎖）：重新整理後再改。 */
+  MFA_METHOD_SETTINGS_VERSION_CONFLICT: { status: 409 },
+  /** 方式還開著（全平台、任一租戶或平台管理者），不能刪除參數：先關掉再刪。 */
+  MFA_METHOD_SETTINGS_IN_USE: { status: 409 },
+  /** 通訊軟體還沒收到綁定碼：先在 Telegram／LINE 傳送綁定碼給 Bot，再請求驗證碼。 */
+  MFA_CHANNEL_NOT_LINKED: { status: 409 },
 
   // ── 授權 ──
   AUTHZ_FORBIDDEN: { status: 403 },

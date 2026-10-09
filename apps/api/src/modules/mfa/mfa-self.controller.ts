@@ -74,7 +74,7 @@ abstract class MfaSelfEndpoints {
     @CurrentUser() actor: AuthUser,
   ) {
     this.assertRealm();
-    return this.mfa.startEnrollment(this.realm, actor.id, dto.method);
+    return this.mfa.startEnrollment(this.realm, actor.id, dto.method, null, dto.input);
   }
 
   @Post('factors/:id/challenge')

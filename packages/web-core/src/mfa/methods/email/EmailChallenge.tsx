@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../../locales';
 import { CodeInput } from '../../components/CodeInput';
 import type { MfaChallengeProps } from '../../registry';
-import { useResendCountdown } from './useResendCountdown';
+import { useResendCountdown } from '../shared/useResendCountdown';
 
 /** 登入的第二步：先請伺服器寄出驗證碼，再輸入收到的 6 位數；可以重寄（冷卻倒數）。 */
 export default function EmailChallenge({

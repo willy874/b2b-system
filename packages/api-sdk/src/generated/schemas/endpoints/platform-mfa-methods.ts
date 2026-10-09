@@ -4,9 +4,15 @@
 import { z } from 'zod';
 
 import type {
+  PlatformMfaMethodControllerClearSettingsInput,
+  PlatformMfaMethodControllerClearSettingsResult,
+  PlatformMfaMethodControllerGetSettingsInput,
+  PlatformMfaMethodControllerGetSettingsResult,
   PlatformMfaMethodControllerImpactInput,
   PlatformMfaMethodControllerImpactResult,
   PlatformMfaMethodControllerListResult,
+  PlatformMfaMethodControllerSaveSettingsInput,
+  PlatformMfaMethodControllerSaveSettingsResult,
   PlatformMfaMethodControllerUpdateInput,
   PlatformMfaMethodControllerUpdateResult,
 } from '../../endpoints/platform-mfa-methods';
@@ -14,8 +20,10 @@ import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
   MfaMethodImpactSchema,
+  MfaMethodSettingsSchema,
   PlatformMfaMethodListSchema,
   PlatformMfaMethodSchema,
+  UpdateMfaMethodSettingsRequestSchema,
   UpdatePlatformMfaMethodRequestSchema,
 } from '../components';
 
@@ -76,6 +84,108 @@ export function platformMfaMethodControllerImpact(
 ): Promise<PlatformMfaMethodControllerImpactResult> {
   return request<PlatformMfaMethodControllerImpactResult>(
     platformMfaMethodControllerImpactOperation,
+    input,
+    options,
+  );
+}
+
+// GET /platform/mfa-methods/{id}/settings
+
+export const PlatformMfaMethodControllerGetSettingsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaMethodSettingsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaMethodControllerGetSettingsOperation: OperationDefinition = {
+  id: 'PlatformMfaMethodController_getSettings',
+  method: 'GET',
+  path: '/platform/mfa-methods/{id}/settings',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaMethodControllerGetSettingsSchemas,
+};
+
+/** 方式的平台參數（機密欄位只回傳有沒有設定） */
+export function platformMfaMethodControllerGetSettings(
+  input: PlatformMfaMethodControllerGetSettingsInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaMethodControllerGetSettingsResult> {
+  return request<PlatformMfaMethodControllerGetSettingsResult>(
+    platformMfaMethodControllerGetSettingsOperation,
+    input,
+    options,
+  );
+}
+
+// PUT /platform/mfa-methods/{id}/settings
+
+export const PlatformMfaMethodControllerSaveSettingsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  body: UpdateMfaMethodSettingsRequestSchema,
+  responses: {
+    200: z.object({
+      data: MfaMethodSettingsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaMethodControllerSaveSettingsOperation: OperationDefinition = {
+  id: 'PlatformMfaMethodController_saveSettings',
+  method: 'PUT',
+  path: '/platform/mfa-methods/{id}/settings',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaMethodControllerSaveSettingsSchemas,
+};
+
+/** 儲存方式的平台參數：必填、格式與方式自己的檢查（例：以金鑰呼叫供應商）全部通過才寫入 */
+export function platformMfaMethodControllerSaveSettings(
+  input: PlatformMfaMethodControllerSaveSettingsInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaMethodControllerSaveSettingsResult> {
+  return request<PlatformMfaMethodControllerSaveSettingsResult>(
+    platformMfaMethodControllerSaveSettingsOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /platform/mfa-methods/{id}/settings
+
+export const PlatformMfaMethodControllerClearSettingsSchemas = {
+  path: z.object({
+    id: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: MfaMethodSettingsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformMfaMethodControllerClearSettingsOperation: OperationDefinition = {
+  id: 'PlatformMfaMethodController_clearSettings',
+  method: 'DELETE',
+  path: '/platform/mfa-methods/{id}/settings',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformMfaMethodControllerClearSettingsSchemas,
+};
+
+/** 刪除方式的平台參數（方式還開著時拒絕） */
+export function platformMfaMethodControllerClearSettings(
+  input: PlatformMfaMethodControllerClearSettingsInput,
+  options?: RequestOptions,
+): Promise<PlatformMfaMethodControllerClearSettingsResult> {
+  return request<PlatformMfaMethodControllerClearSettingsResult>(
+    platformMfaMethodControllerClearSettingsOperation,
     input,
     options,
   );

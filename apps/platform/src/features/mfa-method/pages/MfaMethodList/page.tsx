@@ -1,3 +1,4 @@
+import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Select } from '@b2b-system/ui/Select';
@@ -9,6 +10,7 @@ import { useMfaMethodUis } from '@b2b-system/web-core/mfa';
 import { useToast } from '@b2b-system/web-core/notify';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { fetchMfaMethodImpact } from '@/apis/platform-mfa-method/get-mfa-method-impact/fetcher';
 import {
@@ -20,12 +22,16 @@ import { useConfirmMfaMethodOff } from '@/core/mfa';
 import { PermissionKey, usePermission } from '@/core/permission';
 import type { PlatformMfaMethod } from '@/shared/api-sdk';
 
+import { MfaMethodSettingsDialog } from './components/MfaMethodSettingsDialog';
+
 const STATES = ['default', 'on', 'off'] as const;
 type State = (typeof STATES)[number];
 
 /**
  * MFA 驗證方式的全平台開關（docs/architecture/backend/21-mfa.md §5、D4）：規則與 feature flag 相同——全平台 `off`
  * 蓋過租戶層（緊急開關，例：寄信服務故障時關掉 email），`on`／預設時租戶層的覆寫生效（在租戶詳情的「多重驗證」分頁設定）。
+ *
+ * 需要平台參數的方式（簡訊、通訊軟體、WebAuthn；§5.1）有「參數」按鈕；**參數填齊之前「開啟」不能選**（伺服器同樣會擋下）。
  */
 export default function MfaMethodListPage() {
   const { t } = useTranslation();
@@ -44,6 +50,7 @@ export default function MfaMethodListPage() {
     },
   });
   const confirmOff = useConfirmMfaMethodOff();
+  const [configuring, setConfiguring] = useState<PlatformMfaMethod>();
 
   const labelOf = (method: PlatformMfaMethod) => {
     const ui = uis.get(method.id);
@@ -103,6 +110,11 @@ export default function MfaMethodListPage() {
                     {method.platformAdminEnabled && (
                       <Chip tone="brand">{t('mfaMethod.platformAdmins')}</Chip>
                     )}
+                    {method.settings && !method.settings.configured && (
+                      <Chip tone="warning" data-testid="mfa-method-unconfigured">
+                        {t('mfaMethod.unconfigured')}
+                      </Chip>
+                    )}
                   </span>
                   <span className="text-xs text-[var(--color-fg-muted)]">
                     {t('mfaMethod.tenantOverrides', {
@@ -120,21 +132,46 @@ export default function MfaMethodListPage() {
                   </span>
                 </div>
               </div>
-              <Select
-                size="sm"
-                value={method.globalState}
-                disabled={!canUpdate || update.isPending}
-                onValueChange={(value) => change(method, value)}
-                options={STATES.map((state: State) => ({
-                  value: state,
-                  label: t(`mfaMethod.state.${state}`),
-                }))}
-                aria-label={labelOf(method)}
-                data-testid="mfa-method-select"
-              />
+              <div className="flex items-center gap-2">
+                {method.settings && (
+                  <Button
+                    size="sm"
+                    onClick={() => setConfiguring(method)}
+                    data-testid="mfa-method-settings"
+                  >
+                    {t('mfaMethod.settings.open')}
+                  </Button>
+                )}
+                <Select
+                  size="sm"
+                  value={method.globalState}
+                  disabled={!canUpdate || update.isPending}
+                  onValueChange={(value) => change(method, value)}
+                  options={STATES.map((state: State) => ({
+                    value: state,
+                    label: t(`mfaMethod.state.${state}`),
+                    // 參數沒有填齊之前不能開啟（§5.1）；關閉與回到預設（需要參數的方式預設是關）都可以
+                    disabled: state === 'on' && method.settings?.configured === false,
+                    ...(state === 'on' &&
+                      method.settings?.configured === false && {
+                        description: t('mfaMethod.needsSettings'),
+                      }),
+                  }))}
+                  aria-label={labelOf(method)}
+                  data-testid="mfa-method-select"
+                />
+              </div>
             </li>
           ))}
         </ul>
+      )}
+      {configuring && (
+        <MfaMethodSettingsDialog
+          method={configuring}
+          label={labelOf(configuring)}
+          canUpdate={canUpdate}
+          onClose={() => setConfiguring(undefined)}
+        />
       )}
     </div>
   );

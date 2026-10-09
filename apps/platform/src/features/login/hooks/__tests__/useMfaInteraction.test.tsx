@@ -5,12 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useMfaInteraction } from '../useMfaInteraction';
 
-const { challenge, verify, start, resend, confirm } = vi.hoisted(() => ({
+const { challenge, verify, start, resend, confirm, skip } = vi.hoisted(() => ({
   challenge: vi.fn(),
   verify: vi.fn(),
   start: vi.fn(),
   resend: vi.fn(),
   confirm: vi.fn(),
+  skip: vi.fn(),
 }));
 vi.mock('@/apis/sso-interaction/challenge-mfa-sso-interaction/fetcher', () => ({
   fetchChallengeMfaSsoInteractionMutation: challenge,
@@ -27,6 +28,9 @@ vi.mock('@/apis/sso-interaction/resend-mfa-enrollment-sso-interaction/fetcher', 
 vi.mock('@/apis/sso-interaction/confirm-mfa-enrollment-sso-interaction/fetcher', () => ({
   fetchConfirmMfaEnrollmentSsoInteractionMutation: confirm,
 }));
+vi.mock('@/apis/sso-interaction/skip-mfa-enrollment-sso-interaction/fetcher', () => ({
+  fetchSkipMfaEnrollmentSsoInteractionMutation: skip,
+}));
 
 const UID = 'uid-1';
 const RESUME = 'https://auth.example.com/api/oidc/auth/uid-1';
@@ -35,12 +39,15 @@ const assign = vi.fn();
 
 function renderMfa() {
   const onRestart = vi.fn();
-  const hook = renderHook(() => useMfaInteraction(UID, onRestart), { wrapper: AllProviders });
-  return { ...hook, onRestart };
+  const onNext = vi.fn();
+  const hook = renderHook(() => useMfaInteraction(UID, onRestart, onNext), {
+    wrapper: AllProviders,
+  });
+  return { ...hook, onRestart, onNext };
 }
 
 beforeEach(() => {
-  for (const fn of [challenge, verify, start, resend, confirm, assign]) fn.mockReset();
+  for (const fn of [challenge, verify, start, resend, confirm, skip, assign]) fn.mockReset();
   vi.stubGlobal('location', { ...window.location, assign });
 });
 
@@ -57,10 +64,16 @@ describe('useMfaInteraction（登入互動的第二步，docs/architecture/backe
 
     await act(() => result.current.requestChallenge('f1'));
     await act(() => result.current.startEnrollment('email'));
+    await act(() => result.current.startEnrollment('sms', { phone: '+886912345678' }));
     await act(() => result.current.resendEnrollment('f1'));
 
     expect(challenge.mock.calls[0]?.[0]).toEqual({ params: { uid: UID, factorId: 'f1' } });
-    expect(start.mock.calls[0]?.[0]).toEqual({ params: { uid: UID, method: 'email' } });
+    expect(start.mock.calls[0]?.[0]).toEqual({
+      params: { uid: UID, method: 'email', input: undefined },
+    });
+    expect(start.mock.calls[1]?.[0]).toEqual({
+      params: { uid: UID, method: 'sms', input: { phone: '+886912345678' } },
+    });
     expect(resend.mock.calls[0]?.[0]).toEqual({ params: { uid: UID, factorId: 'f1' } });
   });
 
@@ -76,6 +89,28 @@ describe('useMfaInteraction（登入互動的第二步，docs/architecture/backe
     });
     expect(assign).toHaveBeenCalledWith(RESUME);
     await waitFor(() => expect(result.current.redirecting).toBe(true));
+  });
+
+  it('驗證成功但產品要求新增驗證方式（§7.1）→ 交給 onNext 換到設定，不跳轉', async () => {
+    const next = { next: 'mfaEnroll', methods: [{ id: 'webauthn' }], optional: true };
+    verify.mockResolvedValue(next);
+    const { result, onNext } = renderMfa();
+
+    await act(() => result.current.verify('f1', { payload: { code: '123456' } }));
+
+    expect(onNext).toHaveBeenCalledWith(next);
+    expect(assign).not.toHaveBeenCalled();
+    expect(result.current.redirecting).toBe(false);
+  });
+
+  it('略過產品要求的設定 → 頂層跳轉回 provider', async () => {
+    skip.mockResolvedValue({ redirectTo: RESUME });
+    const { result } = renderMfa();
+
+    act(() => result.current.skipEnrollment());
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(RESUME));
+    expect(skip.mock.calls[0]?.[0]).toEqual({ params: { uid: UID } });
   });
 
   it('驗證失敗 → 錯誤交給呼叫端、不跳轉', async () => {

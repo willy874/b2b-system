@@ -8,6 +8,7 @@ import type { DomainEventBus } from '@/core/events';
 import type { FeatureFlagDefinition, FeatureFlagService } from '@/core/feature-flags';
 import type { JobQueue } from '@/core/jobs';
 import { MfaMethodRegistry } from '@/core/mfa';
+import type { MfaMethodSettings } from '@/core/mfa';
 import { TenantFeatureImpacts } from '@/core/tenant';
 import type { Tenancy, TenantDirectory } from '@/core/tenant';
 import type { RefreshTokenService } from '@/modules/credential/refresh-token.service';
@@ -69,7 +70,13 @@ function tenantRow(overrides: Partial<TenantWithDomains> = {}): TenantWithDomain
 /** 依呼叫順序記下副作用，驗證「交易 → 失效 → 發佈」的先後（CLAUDE.md 後端規則 6）。 */
 function setup(
   initial: TenantWithDomains = tenantRow(),
-  options: { tenancy?: Partial<Tenancy>; impacts?: TenantFeatureImpacts } = {},
+  options: {
+    tenancy?: Partial<Tenancy>;
+    impacts?: TenantFeatureImpacts;
+    mfaMethods?: MfaMethodRegistry;
+    /** 平台參數還沒填齊的 MFA 方式（docs/architecture/backend/21-mfa.md §5.1）。 */
+    unconfigured?: string[];
+  } = {},
 ) {
   const calls: string[] = [];
   let current = initial;
@@ -117,7 +124,11 @@ function setup(
     audit as unknown as PlatformAuditService,
     flagService,
     options.impacts ?? new TenantFeatureImpacts(),
-    new MfaMethodRegistry(),
+    options.mfaMethods ?? new MfaMethodRegistry(),
+    {
+      isConfigured: (method: { definition: { id: string } }) =>
+        !(options.unconfigured ?? []).includes(method.definition.id),
+    } as unknown as MfaMethodSettings,
     config,
   );
   return { service, repo, audit, directory, events, calls };
@@ -454,5 +465,56 @@ describe('PlatformTenantService.create 的 bucket 名稱（docs/architecture/bac
       details: { fields: { code: expect.any(String) } },
     });
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlatformTenantService.update：MFA 方式的租戶層開關（docs/architecture/backend/21-mfa.md §5、§5.1）', () => {
+  function mfaRegistry(): MfaMethodRegistry {
+    const registry = new MfaMethodRegistry();
+    for (const id of ['totp', 'sms']) {
+      registry.register({
+        definition: {
+          id,
+          amr: id,
+          realms: ['tenant', 'platform'],
+          maxFactorsPerAccount: 1,
+          challenge: 'none',
+          enrollAt: 'anywhere',
+          defaultEnabled: id === 'totp',
+          assurance: 'possession',
+        },
+        verifySchema: {} as never,
+        beginEnrollment: async () => ({ publicData: {} }),
+        verify: async () => ({ ok: true }),
+        describe: () => ({ label: null, hint: null }),
+      });
+    }
+    return registry;
+  }
+
+  it('平台參數還沒填齊的方式不能對租戶開啟 → MFA_METHOD_NOT_CONFIGURED，不寫入', async () => {
+    const { service, repo } = setup(tenantRow(), {
+      mfaMethods: mfaRegistry(),
+      unconfigured: ['sms'],
+    });
+    await expect(service.update(TENANT_ID, { mfaMethods: { sms: true } })).rejects.toMatchObject({
+      code: 'MFA_METHOD_NOT_CONFIGURED',
+      details: { methods: ['sms'] },
+    });
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('關閉沒有填參數的方式可以；已填齊的方式可以開啟', async () => {
+    const { service, repo } = setup(tenantRow(), {
+      mfaMethods: mfaRegistry(),
+      unconfigured: ['sms'],
+    });
+    await service.update(TENANT_ID, { mfaMethods: { sms: false, totp: true } });
+    expect(repo.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ mfaMethods: { sms: false, totp: true } }),
+      undefined,
+      'tx',
+    );
   });
 });

@@ -50,6 +50,7 @@ export default function InteractionPage() {
     cancel,
     mfaStep,
     restartMfa,
+    advanceMfa,
   } = useInteractionLogin(uid, search.error);
 
   // 互動已經找不到（過期、重複使用）：不知道是哪個產品或租戶，給「進入租戶」與平台管理者的登入
@@ -81,12 +82,24 @@ export default function InteractionPage() {
         />
       }
     >
+      {interaction.data?.mfaEnroll && (
+        <p
+          className="m-0 mb-3 rounded-[var(--radius-md)] bg-[var(--color-fill-subtle)] p-3 text-sm"
+          data-testid="login-mfa-enroll-notice"
+          data-value={interaction.data.mfaEnroll}
+        >
+          {t('login.interaction.mfaEnroll')}
+        </p>
+      )}
       {mfaStep ? (
         <MfaStepPanel
+          // 驗證通過後換成設定的步驟：重新掛載，讓第二步的表單狀態不帶到設定
+          key={mfaStep.next}
           uid={uid}
           step={mfaStep}
           email={form.state.values.email}
           onRestart={restartMfa}
+          onNext={advanceMfa}
         />
       ) : (
         <form

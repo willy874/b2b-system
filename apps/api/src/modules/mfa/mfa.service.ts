@@ -21,6 +21,7 @@ import type {
   MfaDeliveryResult,
   MfaChallenge,
   MfaFactor,
+  MfaFactorUpdate,
   MfaMethod,
   MfaPurpose,
   MfaRealm,
@@ -46,13 +47,14 @@ import { TenantMfaStore } from './tenant-mfa.store';
 
 /** 一次驗證的結果；失敗時帶要回給前端的錯誤碼（§4.2：第二步只有通過密碼的人看得到，可以區分）。 */
 export type MfaVerifyOutcome =
-  | { ok: true; method: MfaMethod; counter: number | null }
+  | { ok: true; method: MfaMethod; counter: number | null; factorUpdate?: MfaFactorUpdate }
   | { ok: false; reason: 'invalid' | 'expired' | 'replayed'; code: ErrorCode };
 
 /** 方式的定義 → API 的形狀。 */
 export function methodInfoOf(method: MfaMethod): MfaMethodInfoDto {
   const { id, challenge, enrollAt, assurance, maxFactorsPerAccount } = method.definition;
-  return { id, challenge, enrollAt, assurance, maxFactorsPerAccount };
+  const enrollChallenge = method.definition.enrollChallenge ?? 'immediate';
+  return { id, challenge, enrollChallenge, enrollAt, assurance, maxFactorsPerAccount };
 }
 
 /**
@@ -120,6 +122,11 @@ export class MfaService implements OnModuleInit {
       account,
       secrets: this.secrets,
       enqueue: (type, data) => store.enqueue(type, data, tx),
+      activeFactors: async (method) =>
+        (await store.repo.listFactors(account.id)).filter(
+          (factor) =>
+            factor.status === 'active' && (method === undefined || factor.method === method),
+        ),
     };
   }
 
@@ -190,11 +197,12 @@ export class MfaService implements OnModuleInit {
     accountId: string,
     methodId: string,
     interactionUid: string | null = null,
+    rawInput?: Record<string, unknown>,
   ): Promise<MfaEnrollmentDto> {
     const store = this.store(realm);
     const stored = await this.requireAccount(store, accountId);
     const method = await this.requireAvailableMethod(store, methodId);
-    // 綁 origin 的方式只能在 apps/platform 設定（D14）；這一版沒有這種方式，判斷留在這裡
+    // 綁 origin 的方式（WebAuthn）的租戶使用者只能在 apps/platform 的登入互動裡設定（D14、§7.1）
     if (method.definition.enrollAt === 'idp' && interactionUid === null && realm === 'tenant') {
       throw new AppException('MFA_METHOD_DISABLED', { reason: 'enrollAtIdp' });
     }
@@ -209,7 +217,22 @@ export class MfaService implements OnModuleInit {
       });
     }
 
-    const start = await method.beginEnrollment(this.context(store, stored.account));
+    let input: unknown;
+    if (method.enrollSchema) {
+      const parsed = method.enrollSchema.safeParse(rawInput ?? {});
+      if (!parsed.success) {
+        throw new AppException('VALIDATION_FAILED', {
+          fields: Object.fromEntries(
+            parsed.error.issues.map((issue) => [
+              ['input', ...issue.path.map(String)].join('.'),
+              issue.message,
+            ]),
+          ),
+        });
+      }
+      input = parsed.data;
+    }
+    const start = await method.beginEnrollment(this.context(store, stored.account), input);
     return store.transaction(async (tx) => {
       // 同一個人同時只留一個沒確認的設定：上一次放棄的設定作廢
       await store.repo.deletePendingFactors(accountId, tx);
@@ -224,8 +247,10 @@ export class MfaService implements OnModuleInit {
         },
         tx,
       );
+      // 通訊軟體要先綁定帳號才知道送到哪裡：第一個 challenge 等使用者請求（`enrollChallenge: 'onRequest'`）
       const challenge =
-        method.definition.challenge === 'server'
+        method.definition.challenge === 'server' &&
+        (method.definition.enrollChallenge ?? 'immediate') === 'immediate'
           ? await this.issueChallenge(
               store,
               stored.account,
@@ -308,6 +333,7 @@ export class MfaService implements OnModuleInit {
       hint: start.hint ?? null,
       expiresAt: challenge.expiresAt.toISOString(),
       resendAvailableAt: challenge.resendAfter.toISOString(),
+      publicData: start.publicData ?? null,
     };
   }
 
@@ -344,10 +370,18 @@ export class MfaService implements OnModuleInit {
 
     const recoveryCodes = await store.transaction(async (tx) => {
       const label = dto.label ?? null;
+      const update = outcome.factorUpdate;
       if (
         !(await store.repo.activateFactor(
           factor.id,
-          { label, lastUsedCounter: outcome.counter },
+          {
+            label,
+            lastUsedCounter: outcome.counter,
+            ...(update?.config && { config: { ...factor.config, ...update.config } }),
+            ...(update?.secret !== undefined && {
+              secretEncrypted: this.secrets.encrypt(update.secret),
+            }),
+          },
           tx,
         ))
       ) {
@@ -570,7 +604,7 @@ export class MfaService implements OnModuleInit {
       }
     }
     mfaVerifications.inc({ method: method.definition.id, purpose, result: 'ok' });
-    return { ok: true, method, counter };
+    return { ok: true, method, counter, factorUpdate: result.factorUpdate };
   }
 
   /** 以備用碼驗證（只能用一次）。 */

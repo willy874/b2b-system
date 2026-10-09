@@ -150,6 +150,8 @@ export function useInteractionLogin(uid: string, searchError: string | undefined
       setMfaStep(undefined);
       if (error !== undefined) fail(error);
     },
+    /** 第二步通過後還要設定新的驗證方式（產品要求，docs/architecture/backend/21-mfa.md §7.1）。 */
+    advanceMfa: setMfaStep,
     policy,
     form,
     emailRef,

@@ -30,6 +30,8 @@ import type {
   MfaInteractionControllerConfirmEnrollmentResult,
   MfaInteractionControllerResendEnrollmentInput,
   MfaInteractionControllerResendEnrollmentResult,
+  MfaInteractionControllerSkipEnrollmentInput,
+  MfaInteractionControllerSkipEnrollmentResult,
   MfaInteractionControllerStartEnrollmentInput,
   MfaInteractionControllerStartEnrollmentResult,
   MfaInteractionControllerVerifyInput,
@@ -74,6 +76,7 @@ import {
   MfaInteractionEnrollmentResultSchema,
   MfaLoginChallengeRequestSchema,
   MfaLoginVerifyRequestSchema,
+  MfaLoginVerifyResultSchema,
   MfaOverviewSchema,
   MfaPasswordConfirmRequestSchema,
   MfaRecoveryCodesSchema,
@@ -138,7 +141,7 @@ export const MfaInteractionControllerVerifySchemas = {
   body: MfaLoginVerifyRequestSchema,
   responses: {
     200: z.object({
-      data: SsoRedirectSchema,
+      data: MfaLoginVerifyResultSchema,
     }),
   },
 } satisfies OperationSchemas;
@@ -153,7 +156,7 @@ const mfaInteractionControllerVerifyOperation: OperationDefinition = {
   schemas: MfaInteractionControllerVerifySchemas,
 };
 
-/** 第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址 */
+/** 第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址（產品要求新增驗證方式時改成設定的下一步） */
 export function mfaInteractionControllerVerify(
   input: MfaInteractionControllerVerifyInput,
   options?: RequestOptions,
@@ -189,13 +192,46 @@ const mfaInteractionControllerStartEnrollmentOperation: OperationDefinition = {
   schemas: MfaInteractionControllerStartEnrollmentSchemas,
 };
 
-/** 必須啟用 MFA 而還沒設定：在互動中開始設定一種方式 */
+/** 必須啟用 MFA 而還沒設定、或產品要求新增：在互動中開始設定一種方式 */
 export function mfaInteractionControllerStartEnrollment(
   input: MfaInteractionControllerStartEnrollmentInput,
   options?: RequestOptions,
 ): Promise<MfaInteractionControllerStartEnrollmentResult> {
   return request<MfaInteractionControllerStartEnrollmentResult>(
     mfaInteractionControllerStartEnrollmentOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll/skip
+
+export const MfaInteractionControllerSkipEnrollmentSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: SsoRedirectSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const mfaInteractionControllerSkipEnrollmentOperation: OperationDefinition = {
+  id: 'MfaInteractionController_skipEnrollment',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/mfa/enroll/skip',
+  responseTypes: { 200: 'json' },
+  schemas: MfaInteractionControllerSkipEnrollmentSchemas,
+};
+
+/** 產品要求新增的驗證方式（§7.1）：略過，照常完成登入 */
+export function mfaInteractionControllerSkipEnrollment(
+  input: MfaInteractionControllerSkipEnrollmentInput,
+  options?: RequestOptions,
+): Promise<MfaInteractionControllerSkipEnrollmentResult> {
+  return request<MfaInteractionControllerSkipEnrollmentResult>(
+    mfaInteractionControllerSkipEnrollmentOperation,
     input,
     options,
   );

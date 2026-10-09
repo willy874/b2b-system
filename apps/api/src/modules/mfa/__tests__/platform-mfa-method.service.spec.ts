@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthUser } from '@/common/types';
 import { AppException } from '@/core/errors';
 import type { FeatureFlagGlobalState } from '@/core/feature-flags';
-import type { MfaMethodRegistry } from '@/core/mfa';
+import type { MfaMethod, MfaMethodRegistry } from '@/core/mfa';
 
 import { MFA_FACTOR_STATS_JOB, PlatformMfaMethodService } from '../platform-mfa-method.service';
 import { method, registryOf } from './mfa.fixture';
@@ -16,6 +16,7 @@ function setup(
     registry?: MfaMethodRegistry;
     global?: Record<string, FeatureFlagGlobalState>;
     tenants?: { id: string }[];
+    unconfigured?: string[];
   } = {},
 ) {
   const registry =
@@ -64,6 +65,10 @@ function setup(
   };
   const jobs = { register: vi.fn() };
   const config = { get: vi.fn(() => '0 3 * * *') };
+  const settings = { summaryOf: vi.fn(() => null) };
+  const settingsAccess = {
+    isConfigured: vi.fn((m: MfaMethod) => !(options.unconfigured ?? []).includes(m.definition.id)),
+  };
   const service = new PlatformMfaMethodService(
     db as never,
     registry,
@@ -77,6 +82,8 @@ function setup(
     platformFactors as never,
     jobs as never,
     config as never,
+    settings as never,
+    settingsAccess as never,
   );
   return {
     service,
@@ -133,9 +140,11 @@ describe('PlatformMfaMethodService（docs/architecture/backend/21-mfa.md §5、D
         {
           id: 'totp',
           challenge: 'none',
+          enrollChallenge: 'immediate',
           enrollAt: 'anywhere',
           assurance: 'possession',
           maxFactorsPerAccount: 5,
+          settings: null,
           realms: ['tenant', 'platform'],
           defaultEnabled: true,
           globalState: 'default',
@@ -178,6 +187,17 @@ describe('PlatformMfaMethodService（docs/architecture/backend/21-mfa.md §5、D
         'MFA_METHOD_NOT_FOUND',
       );
       expect(repo.setGlobal).not.toHaveBeenCalled();
+    });
+
+    it('需要平台參數而還沒填齊：開啟 → MFA_METHOD_NOT_CONFIGURED，不寫入；關閉、回到預設可以（§5.1）', async () => {
+      const { service, repo } = setup({ unconfigured: ['email'] });
+      expect(await codeOf(service.update('email', { state: 'on' }, ACTOR))).toBe(
+        'MFA_METHOD_NOT_CONFIGURED',
+      );
+      expect(repo.setGlobal).not.toHaveBeenCalled();
+      await service.update('email', { state: 'off' }, ACTOR);
+      await service.update('email', { state: 'default' }, ACTOR);
+      expect(repo.setGlobal).toHaveBeenCalledTimes(2);
     });
 
     it('在交易內寫入覆寫與稽核，之後通知其他程序並回傳更新後的方式', async () => {

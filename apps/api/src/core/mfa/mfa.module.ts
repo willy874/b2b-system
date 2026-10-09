@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 
 import { MfaChallengeDelivery } from './mfa-challenge-delivery';
+import { MfaMethodSettings } from './mfa-method-settings';
 import { MfaMethodRegistry } from './mfa-method.registry';
 import { MfaSecretService } from './mfa-secrets';
 
@@ -10,7 +11,7 @@ import { MfaSecretService } from './mfa-secrets';
  */
 @Global()
 @Module({
-  providers: [MfaMethodRegistry, MfaSecretService, MfaChallengeDelivery],
-  exports: [MfaMethodRegistry, MfaSecretService, MfaChallengeDelivery],
+  providers: [MfaMethodRegistry, MfaSecretService, MfaChallengeDelivery, MfaMethodSettings],
+  exports: [MfaMethodRegistry, MfaSecretService, MfaChallengeDelivery, MfaMethodSettings],
 })
 export class MfaCoreModule {}

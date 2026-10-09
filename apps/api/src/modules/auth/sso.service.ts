@@ -86,11 +86,11 @@ export class SsoService implements OnModuleInit {
     uid: string,
     dto: LoginDto,
   ): Promise<SsoLoginResult> {
-    const { tenant } = await this.requireInteraction(req, res, uid);
+    const { tenant, mfaEnroll } = await this.requireInteraction(req, res, uid);
     if (tenant) {
       return this.tenancy.run(tenant.id, async () => {
         const user = await this.auth.checkCredentials(dto);
-        return this.mfa.afterPassword(req, res, uid, 'tenant', user.id);
+        return this.mfa.afterPassword(req, res, uid, 'tenant', user.id, { enroll: mfaEnroll });
       });
     }
     const admin = await this.platformAdmins.verifyPassword(dto);

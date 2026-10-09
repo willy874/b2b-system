@@ -31,9 +31,11 @@ function methodFixture(overrides: Partial<PlatformMfaMethod> = {}): PlatformMfaM
   return {
     id: 'totp',
     challenge: 'none',
+    enrollChallenge: 'immediate',
     enrollAt: 'anywhere',
     assurance: 'possession',
     maxFactorsPerAccount: 5,
+    settings: null,
     realms: ['tenant', 'platform'],
     defaultEnabled: true,
     globalState: 'default',
@@ -169,5 +171,24 @@ describe('TenantMfaMethods（租戶的 MFA 方式開關，docs/architecture/back
     for (const select of screen.getAllByTestId('tenant-mfa-method-select')) {
       expect(select).toBeDisabled();
     }
+  });
+
+  it('平台參數還沒填齊的方式：標示出來，「開」不能選（docs/architecture/backend/21-mfa.md §5.1）', async () => {
+    listMethods.mockResolvedValue({
+      items: [
+        methodFixture({
+          id: 'sms',
+          defaultEnabled: false,
+          settings: { fields: [], configured: false },
+        }),
+      ],
+    });
+    render(tenantFixture());
+    expect(await screen.findByTestId('tenant-mfa-method-unconfigured')).toHaveTextContent(
+      tenantZhTW.tenant.mfa.unconfigured,
+    );
+    await userEvent.click(within(await row('sms')).getByTestId('tenant-mfa-method-select'));
+    const on = (await screen.findAllByRole('option')).find((el) => el.dataset.value === 'on');
+    expect(on).toHaveAttribute('aria-disabled', 'true');
   });
 });

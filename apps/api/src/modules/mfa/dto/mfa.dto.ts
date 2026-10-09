@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { MFA_RECOVERY_METHOD } from '@/core/mfa';
+import { MFA_ASSURANCES, MFA_RECOVERY_METHOD } from '@/core/mfa';
 import { defineSchema } from '@/core/validation';
 import { SsoRedirectSchema } from '@/modules/oidc-provider/sso-redirect.dto';
 
@@ -16,11 +16,13 @@ export const MfaMethodInfoSchema = defineSchema(
   'MfaMethodInfo',
   z.object({
     id: z.string(),
-    /** `server`：驗證前要先請伺服器發出 challenge（Email 寄信）。 */
+    /** `server`：驗證前要先請伺服器發出 challenge（Email 寄信、WebAuthn 產生 challenge）。 */
     challenge: z.enum(['none', 'server']),
+    /** 設定時第一個 challenge 的時機：`immediate`（開始設定時就發）；`onRequest`（使用者完成綁定之後才請求，通訊軟體）。 */
+    enrollChallenge: z.enum(['immediate', 'onRequest']),
     /** `idp`：只能在 apps/platform 設定（綁 origin 的方式）。 */
     enrollAt: z.enum(['anywhere', 'idp']),
-    assurance: z.enum(['possession', 'inbox']),
+    assurance: z.enum(MFA_ASSURANCES),
     maxFactorsPerAccount: z.number().int(),
   }),
 );
@@ -55,7 +57,11 @@ export const MfaOverviewSchema = defineSchema(
 
 export const StartMfaEnrollmentSchema = defineSchema(
   'StartMfaEnrollmentRequest',
-  z.object({ method: z.string().min(1).max(64) }),
+  z.object({
+    method: z.string().min(1).max(64),
+    /** 方式要的設定資料（簡訊：`{ phone }`）；框架以方式的 `enrollSchema` 驗證。 */
+    input: MfaPayloadSchema.optional(),
+  }),
 );
 
 export const MfaChallengeInfoSchema = defineSchema(
@@ -66,6 +72,8 @@ export const MfaChallengeInfoSchema = defineSchema(
     expiresAt: z.string(),
     /** 這個時間之後才能再發一次（重寄的倒數）。 */
     resendAvailableAt: z.string(),
+    /** 方式給前端的資料（WebAuthn：瀏覽器 API 要的 options）；其他方式是 null。 */
+    publicData: z.record(z.string(), z.unknown()).nullable(),
   }),
 );
 
@@ -163,7 +171,17 @@ export const SsoMfaEnrollNextSchema = defineSchema(
   z.object({
     next: z.literal('mfaEnroll'),
     methods: z.array(MfaMethodInfoSchema),
+    /**
+     * 產品要求新增驗證方式（authorize 帶 `mfa_enroll`，§7.1）而不是政策要求：可以略過，略過時照常完成登入。
+     */
+    optional: z.boolean(),
   }),
+);
+
+/** 第二步驗證成功：一般是 resume 網址；產品要求新增驗證方式時改成下一步（先設定，再完成登入）。 */
+export const MfaLoginVerifyResultSchema = defineSchema(
+  'MfaLoginVerifyResult',
+  z.union([SsoRedirectSchema, SsoMfaEnrollNextSchema]),
 );
 
 /**
@@ -190,6 +208,7 @@ export type MfaLoginChallengeDto = z.infer<typeof MfaLoginChallengeSchema>;
 export type MfaLoginVerifyDto = z.infer<typeof MfaLoginVerifySchema>;
 export type SsoMfaChallengeNextDto = z.infer<typeof SsoMfaChallengeNextSchema>;
 export type SsoMfaEnrollNextDto = z.infer<typeof SsoMfaEnrollNextSchema>;
+export type MfaLoginVerifyResultDto = z.infer<typeof MfaLoginVerifyResultSchema>;
 
 // ── 租戶的 MFA 政策（§6）──────────────────────────────────
 
@@ -233,9 +252,29 @@ export type MfaPolicyImpactDto = z.infer<typeof MfaPolicyImpactSchema>;
 
 // ── 平台的方式開關（§5）──────────────────────────────────
 
+export const MfaSettingFieldSchema = defineSchema(
+  'MfaSettingField',
+  z.object({
+    key: z.string(),
+    type: z.enum(['text', 'url', 'secret', 'select']),
+    required: z.boolean(),
+    requiredWhen: z.object({ key: z.string(), equals: z.string() }).optional(),
+    options: z.array(z.string()).optional(),
+    defaultValue: z.string().optional(),
+    maxLength: z.number().int().optional(),
+  }),
+);
+
 export const PlatformMfaMethodSchema = defineSchema(
   'PlatformMfaMethod',
   MfaMethodInfoSchema.extend({
+    /**
+     * 方式需要的平台參數（§5.1）；不需要的是 null。`configured = false` 時不能開啟（全平台與租戶層都一樣），
+     * 也不會出現在任何人的可用方式裡。
+     */
+    settings: z
+      .object({ fields: z.array(MfaSettingFieldSchema), configured: z.boolean() })
+      .nullable(),
     realms: z.array(z.enum(['tenant', 'platform'])),
     defaultEnabled: z.boolean(),
     /** 全平台層的覆寫；`default` = 沒有覆寫。 */
@@ -266,6 +305,36 @@ export const UpdatePlatformMfaMethodSchema = defineSchema(
   'UpdatePlatformMfaMethodRequest',
   z.object({ state: z.enum(['default', 'on', 'off']) }),
 );
+
+export const MfaMethodSettingsSchema = defineSchema(
+  'MfaMethodSettings',
+  z.object({
+    method: z.string(),
+    /** 一般欄位的值。 */
+    values: z.record(z.string(), z.string()),
+    /** 機密欄位：只告訴前端有沒有設定，不回傳值。 */
+    secrets: z.record(z.string(), z.boolean()),
+    configured: z.boolean(),
+    /** 樂觀鎖；還沒儲存過是 null。 */
+    version: z.number().int().nullable(),
+    updatedAt: z.string().nullable(),
+  }),
+);
+
+export const UpdateMfaMethodSettingsSchema = defineSchema(
+  'UpdateMfaMethodSettingsRequest',
+  z.object({
+    /** 一般欄位：整份取代（沒帶的欄位視為空）。 */
+    values: z.record(z.string(), z.string().max(2000)),
+    /** 機密欄位：沒帶 = 沿用、空字串 = 清除、其他 = 換新。 */
+    secrets: z.record(z.string(), z.string().max(4000)),
+    /** 讀到的版本；還沒儲存過是 null。 */
+    version: z.number().int().nullable(),
+  }),
+);
+
+export type MfaMethodSettingsDto = z.infer<typeof MfaMethodSettingsSchema>;
+export type UpdateMfaMethodSettingsDto = z.infer<typeof UpdateMfaMethodSettingsSchema>;
 
 export const MfaMethodImpactQuerySchema = z.object({ tenantId: z.string().uuid().optional() });
 

@@ -3,11 +3,17 @@
  * 這裡只描述元件用到的欄位，app 的 SDK 型別結構相容，直接傳進來。
  */
 
+/** 安全強度（docs/architecture/backend/21-mfa.md N2、D16），由強到弱。 */
+export type MfaAssurance = 'phishingResistant' | 'possession' | 'messaging' | 'inbox';
+
 export interface MfaMethodInfo {
   id: string;
   challenge: 'none' | 'server';
+  /** 設定時第一個 challenge 的時機：`onRequest` 的方式（通訊軟體）要使用者先完成綁定再請求。 */
+  enrollChallenge: 'immediate' | 'onRequest';
+  /** `idp`：只能在 apps/platform 設定（WebAuthn 綁 apps/platform 的網域）。 */
   enrollAt: 'anywhere' | 'idp';
-  assurance: 'possession' | 'inbox';
+  assurance: MfaAssurance;
   maxFactorsPerAccount: number;
 }
 
@@ -26,6 +32,8 @@ export interface MfaChallengeInfo {
   hint: string | null;
   expiresAt: string;
   resendAvailableAt: string;
+  /** 方式給前端的資料（WebAuthn：瀏覽器 API 的 options）。 */
+  publicData?: Record<string, unknown> | null;
 }
 
 export interface MfaEnrollment {

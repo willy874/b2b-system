@@ -39,6 +39,30 @@ export class OidcPayloadRepository {
       });
   }
 
+  /**
+   * 沒用掉、payload 含有 `expected` 的列才換成新的 payload（不動到期時間）。回傳是否換成功。
+   */
+  async replacePayloadIf(
+    type: string,
+    id: string,
+    expected: Record<string, unknown>,
+    payload: Record<string, unknown>,
+  ): Promise<boolean> {
+    const rows = await this.db
+      .update(oidcPayloads)
+      .set({ payload })
+      .where(
+        and(
+          eq(oidcPayloads.type, type),
+          eq(oidcPayloads.id, id),
+          isNull(oidcPayloads.consumedAt),
+          sql`${oidcPayloads.payload} @> ${JSON.stringify(expected)}::jsonb`,
+        ),
+      )
+      .returning({ id: oidcPayloads.id });
+    return rows.length > 0;
+  }
+
   async find(type: string, id: string): Promise<OidcPayloadRow | undefined> {
     const [row] = await this.db
       .select()

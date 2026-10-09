@@ -1411,8 +1411,9 @@ export interface SsoRedirect {
 export interface MfaMethodInfo {
   id: string;
   challenge: 'none' | 'server';
+  enrollChallenge: 'immediate' | 'onRequest';
   enrollAt: 'anywhere' | 'idp';
-  assurance: 'possession' | 'inbox';
+  assurance: 'phishingResistant' | 'possession' | 'messaging' | 'inbox';
   maxFactorsPerAccount: number;
 }
 
@@ -1432,8 +1433,9 @@ export interface MfaOverview {
   methods: Array<{
     id: string;
     challenge: 'none' | 'server';
+    enrollChallenge: 'immediate' | 'onRequest';
     enrollAt: 'anywhere' | 'idp';
-    assurance: 'possession' | 'inbox';
+    assurance: 'phishingResistant' | 'possession' | 'messaging' | 'inbox';
     maxFactorsPerAccount: number;
     enrolled: number;
   }>;
@@ -1442,6 +1444,7 @@ export interface MfaOverview {
 
 export interface StartMfaEnrollmentRequest {
   method: string;
+  input?: Record<string, unknown>;
 }
 
 export interface MfaChallengeInfo {
@@ -1449,6 +1452,7 @@ export interface MfaChallengeInfo {
   hint: string | null;
   expiresAt: string;
   resendAvailableAt: string;
+  publicData: Record<string, unknown> | null;
 }
 
 export interface MfaEnrollment {
@@ -1507,7 +1511,10 @@ export interface SsoMfaChallengeNext {
 export interface SsoMfaEnrollNext {
   next: 'mfaEnroll';
   methods: Array<MfaMethodInfo>;
+  optional: boolean;
 }
+
+export type MfaLoginVerifyResult = SsoRedirect | SsoMfaEnrollNext;
 
 export type SsoLoginResult = SsoRedirect | SsoMfaChallengeNext | SsoMfaEnrollNext;
 
@@ -1520,8 +1527,9 @@ export interface MfaPolicy {
   methods: Array<{
     id: string;
     challenge: 'none' | 'server';
+    enrollChallenge: 'immediate' | 'onRequest';
     enrollAt: 'anywhere' | 'idp';
-    assurance: 'possession' | 'inbox';
+    assurance: 'phishingResistant' | 'possession' | 'messaging' | 'inbox';
     maxFactorsPerAccount: number;
     platformEnabled: boolean;
   }>;
@@ -1540,12 +1548,30 @@ export interface MfaPolicyImpact {
   stranded: number;
 }
 
+export interface MfaSettingField {
+  key: string;
+  type: 'text' | 'url' | 'secret' | 'select';
+  required: boolean;
+  requiredWhen?: {
+    key: string;
+    equals: string;
+  };
+  options?: Array<string>;
+  defaultValue?: string;
+  maxLength?: number;
+}
+
 export interface PlatformMfaMethod {
   id: string;
   challenge: 'none' | 'server';
+  enrollChallenge: 'immediate' | 'onRequest';
   enrollAt: 'anywhere' | 'idp';
-  assurance: 'possession' | 'inbox';
+  assurance: 'phishingResistant' | 'possession' | 'messaging' | 'inbox';
   maxFactorsPerAccount: number;
+  settings: {
+    fields: Array<MfaSettingField>;
+    configured: boolean;
+  } | null;
   realms: Array<'tenant' | 'platform'>;
   defaultEnabled: boolean;
   globalState: 'default' | 'on' | 'off';
@@ -1569,6 +1595,21 @@ export interface PlatformMfaMethodList {
 
 export interface UpdatePlatformMfaMethodRequest {
   state: 'default' | 'on' | 'off';
+}
+
+export interface MfaMethodSettings {
+  method: string;
+  values: Record<string, string>;
+  secrets: Record<string, boolean>;
+  configured: boolean;
+  version: number | null;
+  updatedAt: string | null;
+}
+
+export interface UpdateMfaMethodSettingsRequest {
+  values: Record<string, string>;
+  secrets: Record<string, string>;
+  version: number | null;
 }
 
 export interface MfaMethodImpact {
@@ -1863,6 +1904,7 @@ export interface SsoInteraction {
     code: string;
     name: string;
   } | null;
+  mfaEnroll: string | null;
 }
 
 export interface SsoDiscovery {
@@ -2299,7 +2341,10 @@ export const TenantJobName = {
   'file.maintenance': 'file.maintenance',
   'mfa.cleanup': 'mfa.cleanup',
   'mfa.emailCodeMail': 'mfa.emailCodeMail',
+  'mfa.lineCode': 'mfa.lineCode',
   'mfa.securityNoticeMail': 'mfa.securityNoticeMail',
+  'mfa.smsCode': 'mfa.smsCode',
+  'mfa.telegramCode': 'mfa.telegramCode',
   'notification.cleanup': 'notification.cleanup',
   'revision.prune': 'revision.prune',
   'trash.purge': 'trash.purge',
@@ -2326,13 +2371,20 @@ export const JobName = {
   'file.imageVariants': 'file.imageVariants',
   'file.maintenance': 'file.maintenance',
   'jobs.outboxSweep': 'jobs.outboxSweep',
+  'mfa.channelLinkCleanup': 'mfa.channelLinkCleanup',
   'mfa.cleanup': 'mfa.cleanup',
   'mfa.emailCodeMail': 'mfa.emailCodeMail',
   'mfa.factorStats': 'mfa.factorStats',
+  'mfa.lineCode': 'mfa.lineCode',
   'mfa.platformCleanup': 'mfa.platformCleanup',
   'mfa.platformEmailCodeMail': 'mfa.platformEmailCodeMail',
+  'mfa.platformLineCode': 'mfa.platformLineCode',
   'mfa.platformSecurityNoticeMail': 'mfa.platformSecurityNoticeMail',
+  'mfa.platformSmsCode': 'mfa.platformSmsCode',
+  'mfa.platformTelegramCode': 'mfa.platformTelegramCode',
   'mfa.securityNoticeMail': 'mfa.securityNoticeMail',
+  'mfa.smsCode': 'mfa.smsCode',
+  'mfa.telegramCode': 'mfa.telegramCode',
   'notification.cleanup': 'notification.cleanup',
   'oidc.cleanup': 'oidc.cleanup',
   'platformAdmin.accountMail': 'platformAdmin.accountMail',

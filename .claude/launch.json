@@ -81,6 +81,15 @@
         "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm dev:mock-idp"
       ],
       "port": 4455
+    },
+    {
+      "name": "mock-messaging",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=$HOME/.nvm/versions/node/v24.21.0/bin:$PATH && pnpm dev:mock-messaging"
+      ],
+      "port": 4466
     }
   ]
 }

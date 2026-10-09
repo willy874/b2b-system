@@ -14,6 +14,55 @@ export const MFA_REALMS = ['tenant', 'platform'] as const satisfies readonly Mfa
 /** 驗證的用途：登入的第二步、設定時確認。之後加 `stepUp`（敏感操作的再驗證）。 */
 export type MfaPurpose = 'login' | 'enroll';
 
+/**
+ * 安全強度（docs/architecture/backend/21-mfa.md N2、D16）：由強到弱。
+ * - `phishingResistant`：綁 origin 的公鑰憑證（WebAuthn），釣魚網站拿不到可用的回應。
+ * - `possession`：持有的裝置產生的碼（驗證器 App）。
+ * - `messaging`：經第三方訊息網路送達的碼（簡訊、通訊軟體）；SIM 換卡、通訊帳號被盜時擋不住。
+ * - `inbox`：寄到信箱的碼；與「忘記密碼」同一個管道。
+ */
+export type MfaAssurance = 'phishingResistant' | 'possession' | 'messaging' | 'inbox';
+export const MFA_ASSURANCES = [
+  'phishingResistant',
+  'possession',
+  'messaging',
+  'inbox',
+] as const satisfies readonly MfaAssurance[];
+
+/**
+ * 方式需要的平台參數（docs/architecture/backend/21-mfa.md §5.1）：例如簡訊供應商的金鑰、Bot token。
+ * 平台管理者在 apps/platform 填寫；**必填的參數沒有填齊之前，這個方式不能開啟**（全平台與租戶層都一樣），
+ * 也不會出現在任何人的可用方式裡。標籤與說明在前端的 `mfa.method.<id>.settings.<key>`。
+ */
+export interface MfaSettingField {
+  /** camelCase；儲存與 API 上的鍵。 */
+  key: string;
+  /** `secret` 加密存放、API 不回傳值（只回傳有沒有設定）；`select` 從 `options` 選一個。 */
+  type: 'text' | 'url' | 'secret' | 'select';
+  /** 必填；`requiredWhen` 有值時只在條件成立時必填（例：選了 Twilio 才要填 Account SID）。 */
+  required: boolean;
+  requiredWhen?: { key: string; equals: string };
+  options?: readonly string[];
+  /** 表單的預設值（還沒儲存過時帶入）。 */
+  defaultValue?: string;
+  maxLength?: number;
+}
+
+export interface MfaMethodSettingsSpec {
+  fields: readonly MfaSettingField[];
+}
+
+/** 已儲存的參數：一般欄位與（解密後的）機密欄位合在一起；沒有填的欄位不存在。 */
+export type MfaSettingValues = Readonly<Record<string, string>>;
+
+/**
+ * 方式檢查參數的結果。`fields`：欄位 → 原因代碼（前端翻譯成 `mfa.settings.error.<code>`）；
+ * `derived`：檢查時從供應商取得、要一起存起來的值（例：Telegram Bot 的 username）。
+ */
+export type MfaSettingsCheck =
+  | { ok: true; derived?: Record<string, string> }
+  | { ok: false; fields?: Record<string, string>; reason?: string };
+
 export interface MfaMethodDefinition {
   /** camelCase，例：`totp`、`email`。上線後不改名：改名等於新方式，既有的因子與覆寫都會失效。 */
   id: string;
@@ -23,14 +72,21 @@ export interface MfaMethodDefinition {
   realms: readonly MfaRealm[];
   /** 每個帳號最多幾個這種因子：TOTP 5（多支手機）、Email 1（綁帳號 email）。 */
   maxFactorsPerAccount: number;
-  /** 驗證前要不要先由伺服器發出 challenge：TOTP `none`；Email `server`（寄信）。 */
+  /** 驗證前要不要先由伺服器發出 challenge：TOTP `none`；Email `server`（寄信）；WebAuthn `server`（產生 challenge）。 */
   challenge: 'none' | 'server';
+  /**
+   * 設定時第一個 challenge 什麼時候發（`challenge = 'server'` 才有意義）：`immediate`（開始設定時，Email、簡訊）；
+   * `onRequest`（使用者先完成別的步驟再請求，例：通訊軟體要先綁定帳號才知道要送到哪裡）。預設 `immediate`。
+   */
+  enrollChallenge?: 'immediate' | 'onRequest';
   /** 在哪裡設定：`anywhere`；綁 origin 的方式（之後的 WebAuthn）是 `idp`，只能在 apps/platform 設定（D14）。 */
   enrollAt: 'anywhere' | 'idp';
   /** 平台兩級都沒有覆寫時的值（照 feature flag 的 `defaultEnabled`）。 */
   defaultEnabled: boolean;
-  /** 安全強度（N2、D16）：`possession`（裝置）｜`inbox`（信箱，與重設密碼同一個管道）。這一版只顯示。 */
-  assurance: 'possession' | 'inbox';
+  /** 安全強度（N2、D16）。這一版只顯示。 */
+  assurance: MfaAssurance;
+  /** 方式需要的平台參數；沒有 = 不需要設定就能開啟（§5.1）。 */
+  settings?: MfaMethodSettingsSpec;
 }
 
 /** 方式看得到的帳號資訊；不知道自己在哪個 DB（D5）。 */
@@ -95,6 +151,8 @@ export interface MfaAccountContext {
    * 工作的 `scope` 必須與 `realm` 一致。
    */
   enqueue<TData extends object>(type: JobType<TData>, data: TData): Promise<void>;
+  /** 這個帳號 active 的因子（`method` 有值時只列那種方式）；WebAuthn 註冊時排除已註冊的憑證。 */
+  activeFactors(method?: string): Promise<MfaFactor[]>;
 }
 
 export interface MfaEnrollmentStart {
@@ -112,10 +170,20 @@ export interface MfaChallengeStart {
   resendAfterSeconds: number;
   /** 給前端的提示（Email：遮蔽過的收件地址）。 */
   hint?: string;
+  /** 給前端的資料（WebAuthn：瀏覽器 API 要的 options）。不存 DB，只出現在這個回應。 */
+  publicData?: Record<string, unknown>;
+}
+
+/** 驗證成功時要寫回因子的東西（只在設定確認時套用：WebAuthn 的公鑰、通訊軟體綁定的收件對象）。 */
+export interface MfaFactorUpdate {
+  /** 換掉 `secret_encrypted`（框架以 `MfaSecrets.encrypt` 加密）。 */
+  secret?: string;
+  /** 合併進 `config`。 */
+  config?: Record<string, unknown>;
 }
 
 export type MfaVerifyResult =
-  | { ok: true; counter?: number }
+  | { ok: true; counter?: number; factorUpdate?: MfaFactorUpdate }
   | { ok: false; reason: 'invalid' | 'expired' | 'replayed' };
 
 export interface MfaFactorSummary {
@@ -125,13 +193,18 @@ export interface MfaFactorSummary {
   hint: string | null;
 }
 
-export interface MfaMethod<TVerify = unknown> {
+export interface MfaMethod<TVerify = unknown, TEnroll = unknown> {
   readonly definition: MfaMethodDefinition;
   /** verify 的 payload（TOTP：`{ code }`）。框架以它驗證後才呼叫 `verify`。 */
   readonly verifySchema: z.ZodType<TVerify>;
+  /**
+   * 開始設定時使用者要給的資料（簡訊：`{ phone }`）；沒有 = 不需要。框架驗證失敗時回 `VALIDATION_FAILED`
+   * （`fields.input.<key>`），通過才呼叫 `beginEnrollment`。
+   */
+  readonly enrollSchema?: z.ZodType<TEnroll>;
 
   /** 開始設定：產生機密與要給前端的資料。不寫 DB，由框架存成 pending 的因子。 */
-  beginEnrollment(ctx: MfaAccountContext): Promise<MfaEnrollmentStart>;
+  beginEnrollment(ctx: MfaAccountContext, input: TEnroll | undefined): Promise<MfaEnrollmentStart>;
   /**
    * 發出 challenge（`challenge = 'server'` 的方式才實作）。`challengeId` 由框架先產生：
    * 方式可以把它放進自己入列的工作，challenge 與工作在同一個交易寫入。
@@ -150,6 +223,11 @@ export interface MfaMethod<TVerify = unknown> {
   ): Promise<MfaVerifyResult>;
   /** 列表上的顯示。不得含機密。 */
   describe(factor: MfaFactor, account: MfaAccount): MfaFactorSummary;
+  /**
+   * 檢查平台參數（有 `definition.settings` 的方式）：格式之外的檢查，例如以金鑰呼叫供應商確認可用、向通訊軟體登記 webhook。
+   * 必填欄位與 `select` 的選項由框架先檢查。儲存參數時呼叫；不通過就不儲存（§5.1）。
+   */
+  checkSettings?(values: MfaSettingValues): Promise<MfaSettingsCheck>;
 }
 
 /**

@@ -3,8 +3,10 @@
 
 import type {
   MfaMethodImpact,
+  MfaMethodSettings,
   PlatformMfaMethod,
   PlatformMfaMethodList,
+  UpdateMfaMethodSettingsRequest,
   UpdatePlatformMfaMethodRequest,
 } from '../models';
 import type { ApiResponse } from '../runtime';
@@ -57,6 +59,99 @@ export function getPlatformMfaMethodControllerImpactUrl(
   path: PlatformMfaMethodControllerImpactPathParams,
 ): string {
   return buildUrl('/platform/mfa-methods/{id}/impact', path);
+}
+
+// GET /platform/mfa-methods/{id}/settings
+
+export interface PlatformMfaMethodControllerGetSettingsPathParams {
+  id: string;
+}
+
+export interface PlatformMfaMethodControllerGetSettingsInput {
+  path: PlatformMfaMethodControllerGetSettingsPathParams;
+}
+
+export interface PlatformMfaMethodControllerGetSettingsResponses {
+  200: {
+    data: MfaMethodSettings;
+  };
+}
+
+export type PlatformMfaMethodControllerGetSettingsResponse =
+  PlatformMfaMethodControllerGetSettingsResponses[200];
+
+export type PlatformMfaMethodControllerGetSettingsResult = ApiResponse<
+  200,
+  PlatformMfaMethodControllerGetSettingsResponses[200]
+>;
+
+export function getPlatformMfaMethodControllerGetSettingsUrl(
+  path: PlatformMfaMethodControllerGetSettingsPathParams,
+): string {
+  return buildUrl('/platform/mfa-methods/{id}/settings', path);
+}
+
+// PUT /platform/mfa-methods/{id}/settings
+
+export interface PlatformMfaMethodControllerSaveSettingsPathParams {
+  id: string;
+}
+
+export type PlatformMfaMethodControllerSaveSettingsBody = UpdateMfaMethodSettingsRequest;
+
+export interface PlatformMfaMethodControllerSaveSettingsInput {
+  path: PlatformMfaMethodControllerSaveSettingsPathParams;
+  body: PlatformMfaMethodControllerSaveSettingsBody;
+}
+
+export interface PlatformMfaMethodControllerSaveSettingsResponses {
+  200: {
+    data: MfaMethodSettings;
+  };
+}
+
+export type PlatformMfaMethodControllerSaveSettingsResponse =
+  PlatformMfaMethodControllerSaveSettingsResponses[200];
+
+export type PlatformMfaMethodControllerSaveSettingsResult = ApiResponse<
+  200,
+  PlatformMfaMethodControllerSaveSettingsResponses[200]
+>;
+
+export function getPlatformMfaMethodControllerSaveSettingsUrl(
+  path: PlatformMfaMethodControllerSaveSettingsPathParams,
+): string {
+  return buildUrl('/platform/mfa-methods/{id}/settings', path);
+}
+
+// DELETE /platform/mfa-methods/{id}/settings
+
+export interface PlatformMfaMethodControllerClearSettingsPathParams {
+  id: string;
+}
+
+export interface PlatformMfaMethodControllerClearSettingsInput {
+  path: PlatformMfaMethodControllerClearSettingsPathParams;
+}
+
+export interface PlatformMfaMethodControllerClearSettingsResponses {
+  200: {
+    data: MfaMethodSettings;
+  };
+}
+
+export type PlatformMfaMethodControllerClearSettingsResponse =
+  PlatformMfaMethodControllerClearSettingsResponses[200];
+
+export type PlatformMfaMethodControllerClearSettingsResult = ApiResponse<
+  200,
+  PlatformMfaMethodControllerClearSettingsResponses[200]
+>;
+
+export function getPlatformMfaMethodControllerClearSettingsUrl(
+  path: PlatformMfaMethodControllerClearSettingsPathParams,
+): string {
+  return buildUrl('/platform/mfa-methods/{id}/settings', path);
 }
 
 // PUT /platform/mfa-methods/{id}

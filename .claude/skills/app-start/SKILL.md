@@ -1,6 +1,6 @@
 ---
 name: app-start
-description: 啟動本 repo 所有開發用的服務（postgres、Mailpit、api、backstage、platform、file-storage，選配 Grafana／Prometheus／Tempo 監控、apm／external-api／mock-idp／storybook），等到全部就緒後在內建瀏覽器逐一開分頁，並列出可點擊的服務清單。使用者說「/app-start」「把開發環境跑起來」「啟動全部服務」「開 dev」「開 Grafana／監控」「preview 全部服務」時使用。
+description: 啟動本 repo 所有開發用的服務（postgres、Mailpit、api、backstage、platform、file-storage，選配 Grafana／Prometheus／Tempo 監控、apm／external-api／mock-idp／mock-messaging／storybook），等到全部就緒後在內建瀏覽器逐一開分頁，並列出可點擊的服務清單。使用者說「/app-start」「把開發環境跑起來」「啟動全部服務」「開 dev」「開 Grafana／監控」「preview 全部服務」時使用。
 ---
 
 # app-start
@@ -14,7 +14,7 @@ description: 啟動本 repo 所有開發用的服務（postgres、Mailpit、api�
 | 參數 | 額外啟動 |
 | --- | --- |
 | （無） | 只有核心服務（`pnpm dev`） |
-| `all` | 核心 ＋ `monitoring`、`apm`、`external-api`、`mock-idp`、`storybook` |
+| `all` | 核心 ＋ `monitoring`、`apm`、`external-api`、`mock-idp`、`mock-messaging`、`storybook` |
 | 個別名稱，如 `monitoring apm` | 核心 ＋ 指定的那幾個 |
 
 `monitoring` 也接受 `grafana`、`監控` 這類說法。
@@ -37,6 +37,7 @@ description: 啟動本 repo 所有開發用的服務（postgres、Mailpit、api�
 | apm-service（選配） | launch.json `apm` | 9100 | 不開分頁（只有收件 API） | 埠在聽 |
 | external-api（選配） | launch.json `external-api` | 3001 | http://localhost:3001/docs | 埠在聽 |
 | mock-idp（選配） | launch.json `mock-idp` | 4455 | 不開分頁 | 埠在聽 |
+| mock-messaging（選配） | launch.json `mock-messaging` | 4466 | 不開分頁（`/_mock/messages` 看送出的簡訊與 Bot 訊息；api 要設 `MFA_*_API_URL=http://localhost:4466`） | 埠在聽 |
 | storybook（選配） | launch.json `storybook` | 6006 | http://localhost:6006 | HTTP 200 |
 
 Grafana 的儀表板（uid → 網址 `http://localhost:3300/d/<uid>`，定義在 `deploy/monitoring/grafana/dashboards/`）：

@@ -17,6 +17,7 @@ import { enableGracefulShutdown } from './core/lifecycle';
 import { httpMetricsMiddleware } from './core/metrics/http-metrics';
 import { assertPermissionDependencies } from './db/seeds/permissions';
 import { registerDataTransferBodyParser } from './modules/data-transfer/data-transfer.http';
+import { registerMfaChannelBodyParser } from './modules/mfa-messaging/messaging-webhook.http';
 import { setupSwagger } from './swagger';
 
 /** 要大於反向代理對 upstream 的 keepalive_timeout（60 秒）。 */
@@ -41,6 +42,8 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
   // 匯入的套用請求本體比一般 API 大：只對那一條路由放寬，要在 Nest 預設的 body parser 之前註冊
   registerDataTransferBodyParser(app);
+  // LINE 的 webhook 簽章要對原始本體驗證：保留它（同樣要在預設的 body parser 之前）
+  registerMfaChannelBodyParser(app);
   enableGracefulShutdown(app);
 
   // ★ 路由稽核：任何未宣告授權的路由讓程序啟動失敗（預設拒絕的守門員）

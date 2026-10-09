@@ -17,8 +17,17 @@ export interface MfaEnrollProps {
   /** 目前的 challenge（Email：開始設定時寄出的那封；重寄後換新的）。 */
   challenge: MfaChallengeInfo | null;
   onSubmit: (submission: MfaSubmission) => void;
-  /** `challenge = 'server'` 的方式才有：重寄。 */
+  /** `challenge = 'server'` 的方式才有：請伺服器發出（`enrollChallenge: 'onRequest'` 的第一次）或重寄。 */
   onResend?: () => void;
+  /** 正在請求 challenge。 */
+  requesting?: boolean;
+  pending: boolean;
+  error?: MfaFormError;
+}
+
+/** 方式的「開始設定前」元件：收集設定要的資料（簡訊的手機號碼），交給 `onStart`。 */
+export interface MfaEnrollStartProps {
+  onStart: (input: Record<string, unknown>) => void;
   pending: boolean;
   error?: MfaFormError;
 }
@@ -44,6 +53,8 @@ export interface MfaMethodUi {
   labelKey: string;
   descriptionKey: string;
   icon: IconName;
+  /** 開始設定前要使用者先填的資料；沒有 = 選了方式就直接開始。 */
+  EnrollStart?: ComponentType<MfaEnrollStartProps>;
   Enroll: ComponentType<MfaEnrollProps>;
   Challenge: ComponentType<MfaChallengeProps>;
 }

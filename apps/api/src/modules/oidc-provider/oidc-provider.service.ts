@@ -18,6 +18,7 @@ import { z } from 'zod';
 
 import type { Env } from '@/core/config';
 import { DomainEvent, DomainEventBus } from '@/core/events';
+import { MfaMethodRegistry } from '@/core/mfa';
 import { currentTenant, Tenancy, TenantDirectory } from '@/core/tenant';
 import type { TenantRecord } from '@/core/tenant';
 import { PlatformAdminService } from '@/modules/platform-admin/platform-admin.service';
@@ -65,6 +66,14 @@ const MfaPendingSchema = z.object({
   /** 第二步要做的事：驗證既有的因子，或必須啟用而先設定一個。 */
   next: z.enum(['mfa', 'mfaEnroll']),
   attempts: z.number().int().nonnegative(),
+  /**
+   * 產品要求新增的驗證方式（authorize 的 `mfa_enroll`，docs/architecture/backend/21-mfa.md §7.1）：通過第二步（或不需要第二步）之後
+   * 先設定它再完成登入；這時的設定可以略過（`optional`）。
+   */
+  enroll: z.string().optional(),
+  optional: z.boolean().optional(),
+  /** 已通過的第二步寫進 amr 的值（先驗證既有的因子、再設定新的因子時，完成登入用它）。 */
+  amr: z.array(z.string()).optional(),
 });
 
 export type MfaPending = z.infer<typeof MfaPendingSchema>;
@@ -82,6 +91,8 @@ export interface InteractionSummary {
   uiLocales: string | null;
   /** 這次要登入哪個租戶；沒有時是平台管理者的登入（docs/architecture/05-tenancy.md §10.2 D8）。 */
   tenant: { id: string; code: string; name: string } | null;
+  /** 產品要求登入後新增的驗證方式（authorize 的 `mfa_enroll`，docs/architecture/backend/21-mfa.md §7.1）；沒有是 null。 */
+  mfaEnroll: string | null;
 }
 
 /** 兌換授權碼的結果：誰、從哪個 IdP session 登入哪個產品。 */
@@ -153,6 +164,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     private readonly directory: TenantDirectory,
     private readonly tenancy: Tenancy,
     private readonly events: DomainEventBus,
+    private readonly mfaMethods: MfaMethodRegistry,
   ) {
     this.issuer = new URL(this.config.get('OIDC_ISSUER', { infer: true }));
   }
@@ -264,6 +276,33 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * authorize 的 `mfa_enroll`（docs/architecture/backend/21-mfa.md §7.1）：backstage 要求「重新登入並新增一種只能在 apps/platform
+   * 設定的驗證方式」（WebAuthn 的憑證綁 apps/platform 的網域）。只接受 `enrollAt: 'idp'` 的方式，而且必須同時帶 `prompt=login`：
+   * 沒有強制登入的話，已有 IdP session 的人不會進入互動，要求就被略過了。
+   */
+  private validateMfaEnrollParam(
+    ctx: KoaContextWithOIDC,
+    value: string | undefined,
+    clientId: string | undefined,
+  ): void {
+    if (!value) return;
+    if (clientId !== OIDC_CLIENT.BACKSTAGE) {
+      throw new errors.InvalidRequest('mfa_enroll is not allowed for this client');
+    }
+    const method = this.mfaMethods.get(value);
+    if (
+      !method ||
+      method.definition.enrollAt !== 'idp' ||
+      !method.definition.realms.includes('tenant')
+    ) {
+      throw new errors.InvalidRequest('unknown mfa_enroll method');
+    }
+    const prompt = String(ctx.oidc.params?.prompt ?? '').split(' ');
+    if (!prompt.includes('login'))
+      throw new errors.InvalidRequest('mfa_enroll requires prompt=login');
+  }
+
   /** 這次授權要求的身分範圍：backstage 是 `tenant` 參數指定的租戶，apps/platform 是平台。 */
   private async requestedRealm(
     params: Record<string, unknown> | undefined,
@@ -314,6 +353,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     const client = await this.provider.Client.find(clientId);
     const loginHint = details.params.login_hint;
     const uiLocales = details.params.ui_locales;
+    const mfaEnroll = details.params.mfa_enroll;
     const requested = await this.requestedRealm(details.params, clientId);
     // backstage 的互動一定帶租戶（authorize 已驗證）；找不到代表租戶在這之間被停用或刪除
     if (!requested) return undefined;
@@ -328,6 +368,7 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
         requested.realm === 'tenant'
           ? { id: requested.tenant.id, code: requested.tenant.code, name: requested.tenant.name }
           : null,
+      mfaEnroll: typeof mfaEnroll === 'string' && mfaEnroll ? mfaEnroll : null,
     };
   }
 
@@ -447,6 +488,13 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
     return this.repo.incrementPayloadCounter(MFA_PENDING, interactionUid, 'attempts');
   }
 
+  /**
+   * 第二步通過但還要設定新的驗證方式（§7.1）：把狀態從 `mfa` 換成 `mfaEnroll`。條件式更新：兩個併發的驗證只有一個成功。
+   */
+  advanceMfaPending(interactionUid: string, value: MfaPending): Promise<boolean> {
+    return this.repo.replacePayloadIf(MFA_PENDING, interactionUid, { next: 'mfa' }, { ...value });
+  }
+
   /** 第二步通過：條件式消耗，兩個併發的驗證只有一個能完成互動。 */
   consumeMfaPending(interactionUid: string): Promise<boolean> {
     return this.repo.consumeOnce(MFA_PENDING, interactionUid);
@@ -504,6 +552,8 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
       },
       extraParams: {
         tenant: (ctx, value, client) => this.validateTenantParam(ctx, value, client?.clientId),
+        mfa_enroll: (ctx, value, client) =>
+          this.validateMfaEnrollParam(ctx, value, client?.clientId),
       },
       findAccount: async (ctx, sub) => {
         const account = await this.findAccount(sub);

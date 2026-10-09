@@ -15,6 +15,7 @@ import {
   MfaEnrollmentSchema,
   MfaInteractionEnrollmentResultSchema,
   MfaLoginChallengeSchema,
+  MfaLoginVerifyResultSchema,
   MfaLoginVerifySchema,
   StartMfaEnrollmentSchema,
 } from './dto/mfa.dto';
@@ -57,9 +58,12 @@ export class MfaInteractionController {
   @HttpCode(200)
   @Public()
   @RateLimit('auth')
-  @ApiOperation({ summary: '第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址' })
+  @ApiOperation({
+    summary:
+      '第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址（產品要求新增驗證方式時改成設定的下一步）',
+  })
   @ApiZodBody(MfaLoginVerifySchema)
-  @ApiZodResponse(200, SsoRedirectSchema)
+  @ApiZodResponse(200, MfaLoginVerifyResultSchema)
   verify(
     @Param('uid', InteractionUidPipe) uid: string,
     @Body(new ZodValidationPipe(MfaLoginVerifySchema)) dto: MfaLoginVerifyDto,
@@ -73,7 +77,7 @@ export class MfaInteractionController {
   @HttpCode(200)
   @Public()
   @RateLimit('authMail')
-  @ApiOperation({ summary: '必須啟用 MFA 而還沒設定：在互動中開始設定一種方式' })
+  @ApiOperation({ summary: '必須啟用 MFA 而還沒設定、或產品要求新增：在互動中開始設定一種方式' })
   @ApiZodBody(StartMfaEnrollmentSchema)
   @ApiZodResponse(200, MfaEnrollmentSchema)
   startEnrollment(
@@ -82,7 +86,21 @@ export class MfaInteractionController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.login.startEnrollment(req, res, uid, dto.method);
+    return this.login.startEnrollment(req, res, uid, dto);
+  }
+
+  @Post(':uid/mfa/enroll/skip')
+  @HttpCode(200)
+  @Public()
+  @RateLimit('auth')
+  @ApiOperation({ summary: '產品要求新增的驗證方式（§7.1）：略過，照常完成登入' })
+  @ApiZodResponse(200, SsoRedirectSchema)
+  skipEnrollment(
+    @Param('uid', InteractionUidPipe) uid: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.login.skipEnrollment(req, res, uid);
   }
 
   @Post(':uid/mfa/enroll/:factorId/challenge')

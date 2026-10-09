@@ -3,28 +3,12 @@ import { Field } from '@b2b-system/ui/Field';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Input } from '@b2b-system/ui/Input';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useTranslation } from '../../../locales';
 import { CodeInput } from '../../components/CodeInput';
 import type { MfaEnrollProps } from '../../registry';
-
-/** `qrcode` 只在這個元件載入（docs/architecture/backend/21-mfa.md §11：不進主要 bundle）。 */
-function useQrCode(uri: string | undefined): string | undefined {
-  const [image, setImage] = useState<{ uri: string; dataUrl: string }>();
-  useEffect(() => {
-    if (!uri) return undefined;
-    let cancelled = false;
-    void import('qrcode').then(async (QRCode) => {
-      const dataUrl = await QRCode.toDataURL(uri, { margin: 1, width: 200 });
-      if (!cancelled) setImage({ uri, dataUrl });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [uri]);
-  return image && image.uri === uri ? image.dataUrl : undefined;
-}
+import { useQrCode } from '../shared/useQrCode';
 
 /** 驗證器 App 的設定：掃 QR code（或手動輸入金鑰）→ 輸入 App 顯示的第一個碼。 */
 export default function TotpEnroll({ enrollment, onSubmit, pending, error }: MfaEnrollProps) {

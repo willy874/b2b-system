@@ -151,7 +151,9 @@ describe('SsoService：IdP 的登入互動（docs/architecture/04-sso.md §12、
     });
     expect(ctx.tenancy.run).toHaveBeenCalledWith(TENANT_ID, expect.any(Function));
     expect(ctx.auth.checkCredentials).toHaveBeenCalledWith(credentials);
-    expect(ctx.mfa.afterPassword).toHaveBeenCalledWith(req, res, 'int-1', 'tenant', USER_ID);
+    expect(ctx.mfa.afterPassword).toHaveBeenCalledWith(req, res, 'int-1', 'tenant', USER_ID, {
+      enroll: undefined,
+    });
     expect(ctx.platformAdmins.verifyPassword).not.toHaveBeenCalled();
   });
 
