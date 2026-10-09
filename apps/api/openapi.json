@@ -3814,6 +3814,71 @@
         "tags": ["identity-providers"]
       }
     },
+    "/users/{userId}/identities": {
+      "get": {
+        "operationId": "UserIdentityController_list",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UserIdentityList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "這個帳號連結的外部身分（連線已刪除的也列出）",
+        "tags": ["users"]
+      }
+    },
+    "/users/{userId}/identities/{identityId}": {
+      "delete": {
+        "operationId": "UserIdentityController_unlink",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "解除連結；這個外部身分下一次登入會重新對應帳號。目標是 super-admin 時操作者也要是",
+        "tags": ["users"]
+      }
+    },
     "/tags": {
       "get": {
         "operationId": "TagController_list",
@@ -5594,6 +5659,49 @@
         "tags": ["auth"]
       }
     },
+    "/oidc-interaction/external/saml/acs": {
+      "post": {
+        "operationId": "SsoInteractionController_samlAcs",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "SAML 的 Assertion Consumer Service（HTTP-POST binding，固定路徑）：驗證後跳到互動路徑底下完成互動",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/external/saml/metadata/{tenantId}/{providerId}": {
+      "get": {
+        "operationId": "SsoInteractionController_samlMetadata",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "SAML 連線的 SP metadata（XML；網址就是 SP 的 entity ID）",
+        "tags": ["auth"]
+      }
+    },
     "/oidc-interaction/{uid}": {
       "get": {
         "operationId": "SsoInteractionController_toPage",
@@ -5693,6 +5801,86 @@
           }
         },
         "summary": "密碼登入；不需要 MFA 時回傳要頂層跳轉的 resume 網址，需要時回傳下一步（next）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/passkey/options": {
+      "post": {
+        "operationId": "SsoInteractionController_passkeyOptions",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoPasskeyOptions"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "通行金鑰登入：發出 challenge（不指定憑證，由瀏覽器列出這個網域的通行金鑰）",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/passkey/login": {
+      "post": {
+        "operationId": "SsoInteractionController_passkeyLogin",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoPasskeyLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "以通行金鑰登入（取代密碼與第二步）：回傳要頂層跳轉的 resume 網址",
         "tags": ["auth"]
       }
     },
@@ -13410,6 +13598,63 @@
         "required": ["domain", "ssoOnly"],
         "additionalProperties": false
       },
+      "SamlCertificate": {
+        "type": "object",
+        "properties": {
+          "pem": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "notAfter": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          }
+        },
+        "required": ["pem", "subject", "notAfter", "fingerprint"],
+        "additionalProperties": false
+      },
+      "SamlSettings": {
+        "type": "object",
+        "properties": {
+          "ssoUrl": {
+            "type": "string"
+          },
+          "certificates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SamlCertificate"
+            }
+          },
+          "nameIdFormat": {
+            "type": "string",
+            "enum": ["persistent", "emailAddress", "unspecified"]
+          },
+          "emailAttribute": {
+            "nullable": true,
+            "type": "string"
+          },
+          "nameAttribute": {
+            "nullable": true,
+            "type": "string"
+          },
+          "spEntityId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ssoUrl",
+          "certificates",
+          "nameIdFormat",
+          "emailAttribute",
+          "nameAttribute",
+          "spEntityId"
+        ],
+        "additionalProperties": false
+      },
       "IdentityProvider": {
         "type": "object",
         "properties": {
@@ -13421,10 +13666,19 @@
           "name": {
             "type": "string"
           },
+          "protocol": {
+            "type": "string",
+            "enum": ["oidc", "saml"]
+          },
+          "preset": {
+            "type": "string",
+            "enum": ["generic", "google", "microsoft", "okta", "keycloak"]
+          },
           "issuer": {
             "type": "string"
           },
           "clientId": {
+            "nullable": true,
             "type": "string"
           },
           "scopes": {
@@ -13443,6 +13697,14 @@
               "$ref": "#/components/schemas/IdentityProviderDomain"
             }
           },
+          "saml": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SamlSettings"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -13453,12 +13715,15 @@
         "required": [
           "id",
           "name",
+          "protocol",
+          "preset",
           "issuer",
           "clientId",
           "scopes",
           "enabled",
           "unmatchedPolicy",
           "domains",
+          "saml",
           "createdAt",
           "updatedAt"
         ],
@@ -13476,111 +13741,355 @@
           "callbackUrl": {
             "type": "string",
             "format": "uri"
+          },
+          "samlAcsUrl": {
+            "type": "string",
+            "format": "uri"
           }
         },
-        "required": ["items", "callbackUrl"],
+        "required": ["items", "callbackUrl", "samlAcsUrl"],
         "additionalProperties": false
       },
       "CreateIdentityProviderRequest": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "enabled": {
+                "default": true,
+                "type": "boolean"
+              },
+              "unmatchedPolicy": {
+                "default": "reject",
+                "type": "string",
+                "enum": ["reject", "auto_create"]
+              },
+              "domains": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IdentityProviderDomain"
+                }
+              },
+              "protocol": {
+                "default": "oidc",
+                "type": "string",
+                "enum": ["oidc"]
+              },
+              "preset": {
+                "default": "generic",
+                "type": "string",
+                "enum": ["generic", "google", "microsoft", "okta", "keycloak"]
+              },
+              "issuer": {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              "clientId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "clientSecret": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "scopes": {
+                "default": "openid email profile",
+                "type": "string",
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "name",
+              "enabled",
+              "unmatchedPolicy",
+              "domains",
+              "protocol",
+              "preset",
+              "issuer",
+              "clientId",
+              "clientSecret",
+              "scopes"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "enabled": {
+                "default": true,
+                "type": "boolean"
+              },
+              "unmatchedPolicy": {
+                "default": "reject",
+                "type": "string",
+                "enum": ["reject", "auto_create"]
+              },
+              "domains": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IdentityProviderDomain"
+                }
+              },
+              "protocol": {
+                "type": "string",
+                "enum": ["saml"]
+              },
+              "entityId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "ssoUrl": {
+                "type": "string",
+                "maxLength": 2000,
+                "format": "uri"
+              },
+              "certificates": {
+                "minItems": 1,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                }
+              },
+              "nameIdFormat": {
+                "default": "persistent",
+                "type": "string",
+                "enum": ["persistent", "emailAddress", "unspecified"]
+              },
+              "emailAttribute": {
+                "default": null,
+                "nullable": true,
+                "type": "string",
+                "maxLength": 255
+              },
+              "nameAttribute": {
+                "default": null,
+                "nullable": true,
+                "type": "string",
+                "maxLength": 255
+              }
+            },
+            "required": [
+              "name",
+              "enabled",
+              "unmatchedPolicy",
+              "domains",
+              "protocol",
+              "entityId",
+              "ssoUrl",
+              "certificates",
+              "nameIdFormat",
+              "emailAttribute",
+              "nameAttribute"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "UpdateIdentityProviderRequest": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "unmatchedPolicy": {
+                "type": "string",
+                "enum": ["reject", "auto_create"]
+              },
+              "domains": {
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IdentityProviderDomain"
+                }
+              },
+              "protocol": {
+                "default": "oidc",
+                "type": "string",
+                "enum": ["oidc"]
+              },
+              "preset": {
+                "type": "string",
+                "enum": ["generic", "google", "microsoft", "okta", "keycloak"]
+              },
+              "issuer": {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              "clientId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "clientSecret": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "scopes": {
+                "type": "string",
+                "maxLength": 500
+              }
+            },
+            "required": ["protocol"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "unmatchedPolicy": {
+                "type": "string",
+                "enum": ["reject", "auto_create"]
+              },
+              "domains": {
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IdentityProviderDomain"
+                }
+              },
+              "protocol": {
+                "type": "string",
+                "enum": ["saml"]
+              },
+              "entityId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "ssoUrl": {
+                "type": "string",
+                "maxLength": 2000,
+                "format": "uri"
+              },
+              "certificates": {
+                "minItems": 1,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                }
+              },
+              "nameIdFormat": {
+                "type": "string",
+                "enum": ["persistent", "emailAddress", "unspecified"]
+              },
+              "emailAttribute": {
+                "nullable": true,
+                "type": "string",
+                "maxLength": 255
+              },
+              "nameAttribute": {
+                "nullable": true,
+                "type": "string",
+                "maxLength": 255
+              }
+            },
+            "required": ["protocol"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "UserIdentity": {
         "type": "object",
         "properties": {
-          "name": {
+          "id": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "issuer": {
+          "providerId": {
             "type": "string",
-            "maxLength": 500,
-            "format": "uri"
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
-          "clientId": {
+          "providerName": {
+            "type": "string"
+          },
+          "protocol": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 255
+            "enum": ["oidc", "saml"]
           },
-          "clientSecret": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "scopes": {
-            "default": "openid email profile",
-            "type": "string",
-            "maxLength": 500
-          },
-          "enabled": {
-            "default": true,
+          "providerDeleted": {
             "type": "boolean"
           },
-          "unmatchedPolicy": {
-            "default": "reject",
-            "type": "string",
-            "enum": ["reject", "auto_create"]
+          "subject": {
+            "type": "string"
           },
-          "domains": {
-            "default": [],
-            "maxItems": 50,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IdentityProviderDomain"
-            }
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "linkedAt": {
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
-          "name",
-          "issuer",
-          "clientId",
-          "clientSecret",
-          "scopes",
-          "enabled",
-          "unmatchedPolicy",
-          "domains"
+          "id",
+          "providerId",
+          "providerName",
+          "protocol",
+          "providerDeleted",
+          "subject",
+          "email",
+          "linkedAt",
+          "lastLoginAt"
         ],
         "additionalProperties": false
       },
-      "UpdateIdentityProviderRequest": {
+      "UserIdentityList": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "issuer": {
-            "type": "string",
-            "maxLength": 500,
-            "format": "uri"
-          },
-          "clientId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "clientSecret": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "scopes": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "unmatchedPolicy": {
-            "type": "string",
-            "enum": ["reject", "auto_create"]
-          },
-          "domains": {
-            "maxItems": 50,
+          "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/IdentityProviderDomain"
+              "$ref": "#/components/schemas/UserIdentity"
             }
           }
         },
+        "required": ["items"],
         "additionalProperties": false
       },
       "PlatformNotification": {
@@ -16612,6 +17121,9 @@
           "mfaEnroll": {
             "nullable": true,
             "type": "string"
+          },
+          "passkeyLogin": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -16622,8 +17134,31 @@
           "loginHint",
           "uiLocales",
           "tenant",
-          "mfaEnroll"
+          "mfaEnroll",
+          "passkeyLogin"
         ],
+        "additionalProperties": false
+      },
+      "SsoPasskeyOptions": {
+        "type": "object",
+        "properties": {
+          "publicData": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": ["publicData"],
+        "additionalProperties": false
+      },
+      "SsoPasskeyLoginRequest": {
+        "type": "object",
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": ["payload"],
         "additionalProperties": false
       },
       "SsoDiscovery": {

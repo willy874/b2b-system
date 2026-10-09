@@ -167,6 +167,8 @@
     "AUTH_SSO_LINK_NOT_ALLOWED": "This account cannot be linked to external sign-in automatically. Sign in with your password or ask an administrator for help.",
     "AUTH_SSO_PROVIDER_UNAVAILABLE": "This sign-in option is unavailable right now. Try again later or use another option.",
     "AUTH_SSO_EXTERNAL_FAILED": "External sign-in did not complete. Please sign in again.",
+    "AUTH_PASSKEY_UNAVAILABLE": "Passkey sign-in isn't available right now. Please use your password.",
+    "AUTH_PASSKEY_INVALID": "Couldn't sign in with this passkey. Try again or use your password.",
     "AUTH_BUSY": "Too many sign-ins right now. Please try again shortly.",
     "AUTH_MFA_REQUIRED": "This account requires multi-factor authentication. Please sign in from the sign-in page.",
     "AUTH_MFA_INVALID_CODE": "The verification code is incorrect. Please try again.",
@@ -263,6 +265,10 @@
     "IDENTITY_PROVIDER_NAME_DUPLICATE": "A connection with this name already exists.",
     "IDENTITY_PROVIDER_DOMAIN_TAKEN": "This domain already belongs to another connection.",
     "IDENTITY_PROVIDER_LIMIT_REACHED": "You've reached the identity provider limit ({{max}}). Delete unused connections first.",
+    "IDENTITY_PROVIDER_ISSUER_INVALID": "The issuer doesn't match the selected template. Check the URL.",
+    "IDENTITY_PROVIDER_CERTIFICATE_INVALID": "Signing certificate #{{position}} is not a valid X.509 certificate.",
+    "IDENTITY_PROVIDER_PROTOCOL_MISMATCH": "A connection's protocol can't be changed. Create a new connection instead.",
+    "USER_IDENTITY_NOT_FOUND": "This external identity no longer exists.",
     "AUDIT_LOG_NOT_FOUND": "This audit log entry was not found. It may have passed the retention period.",
     "JOB_NOT_FOUND": "This job does not exist or has been cleaned up.",
     "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
@@ -564,6 +570,10 @@
           "authenticatorAttachment": {
             "label": "Allowed authenticators",
             "description": "any; platform: built-in only (Touch ID, Windows Hello); crossPlatform: hardware keys only."
+          },
+          "passkeyLogin": {
+            "label": "Passkeys replace passwords",
+            "description": "enabled: the sign-in page offers \"Sign in with a passkey\", signing in with a registered passkey (with fingerprint, face or PIN) without a password or second step; disabled: second step only. Not available for SSO-only domains."
           }
         }
       },

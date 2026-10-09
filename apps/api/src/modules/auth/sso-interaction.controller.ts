@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -16,9 +27,12 @@ import {
   ExternalCallbackQuerySchema,
   ExternalCompleteQuerySchema,
   LoginSchema,
+  SamlAcsFormSchema,
   SsoDiscoveryQuerySchema,
   SsoDiscoverySchema,
   SsoInteractionSchema,
+  SsoPasskeyLoginSchema,
+  SsoPasskeyOptionsSchema,
   SsoRedirectSchema,
   StartExternalLoginSchema,
 } from './dto/auth.dto';
@@ -27,6 +41,7 @@ import type {
   ExternalCompleteQueryDto,
   LoginDto,
   SsoDiscoveryQueryDto,
+  SsoPasskeyLoginDto,
   StartExternalLoginDto,
 } from './dto/auth.dto';
 import { ExternalLoginService } from './external-login.service';
@@ -68,6 +83,40 @@ export class SsoInteractionController {
     res.redirect(302, result.location);
   }
 
+  @Post('external/saml/acs')
+  @Public()
+  @RateLimit('auth')
+  @ApiOperation({
+    summary:
+      'SAML 的 Assertion Consumer Service（HTTP-POST binding，固定路徑）：驗證後跳到互動路徑底下完成互動',
+  })
+  async samlAcs(
+    @Body() body: Record<string, unknown>,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    // 不經 ZodValidationPipe：這是 IdP 讓瀏覽器送來的表單，任何錯誤都要跳回登入頁而不是回 JSON
+    const form = SamlAcsFormSchema.safeParse(body);
+    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+    const result = await this.external.samlAcs(form.success ? form.data : {}, cookies);
+    for (const cookie of result.clearCookies) res.clearCookie(cookie.name, { path: cookie.path });
+    // 303：跨站 POST 之後一定以 GET 跳轉（互動 cookie 是 Lax，頂層 GET 才帶得上）
+    res.redirect(303, result.location);
+  }
+
+  @Get('external/saml/metadata/:tenantId/:providerId')
+  @Public()
+  @RateLimit('auth')
+  @ApiOperation({ summary: 'SAML 連線的 SP metadata（XML；網址就是 SP 的 entity ID）' })
+  async samlMetadata(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('providerId', ParseUUIDPipe) providerId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const xml = await this.external.samlMetadata(tenantId, providerId);
+    res.type('application/samlmetadata+xml').send(xml);
+  }
+
   @Get(':uid')
   @Public()
   @ApiOperation({ summary: '轉到 apps/platform 的登入互動頁（互動 cookie 已設在這個路徑）' })
@@ -104,6 +153,40 @@ export class SsoInteractionController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.sso.login(req, res, uid, dto);
+  }
+
+  @Post(':uid/passkey/options')
+  @HttpCode(200)
+  @Public()
+  @RateLimit('auth')
+  @ApiOperation({
+    summary: '通行金鑰登入：發出 challenge（不指定憑證，由瀏覽器列出這個網域的通行金鑰）',
+  })
+  @ApiZodResponse(200, SsoPasskeyOptionsSchema)
+  passkeyOptions(
+    @Param('uid', InteractionUidPipe) uid: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.sso.passkeyOptions(req, res, uid);
+  }
+
+  @Post(':uid/passkey/login')
+  @HttpCode(200)
+  @Public()
+  @RateLimit('auth')
+  @ApiOperation({
+    summary: '以通行金鑰登入（取代密碼與第二步）：回傳要頂層跳轉的 resume 網址',
+  })
+  @ApiZodBody(SsoPasskeyLoginSchema)
+  @ApiZodResponse(200, SsoRedirectSchema)
+  passkeyLogin(
+    @Param('uid', InteractionUidPipe) uid: string,
+    @Body(new ZodValidationPipe(SsoPasskeyLoginSchema)) dto: SsoPasskeyLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.sso.passkeyLogin(req, res, uid, dto);
   }
 
   @Get(':uid/discover')

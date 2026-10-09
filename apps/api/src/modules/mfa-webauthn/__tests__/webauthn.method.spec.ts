@@ -250,4 +250,65 @@ describe('WebAuthn（docs/architecture/backend/21-mfa.md §9.3）', () => {
       }),
     ).toEqual({ ok: false, reason: 'expired' });
   });
+
+  describe('通行金鑰取代密碼（docs/architecture/04-sso.md §3.6）', () => {
+    const base = { rpName: 'B2B', userVerification: 'preferred', authenticatorAttachment: 'any' };
+
+    it.each([
+      ['沒有設定（加欄位之前存的參數）', base, false],
+      ['disabled', { ...base, passkeyLogin: 'disabled' }, false],
+      ['enabled', { ...base, passkeyLogin: 'enabled' }, true],
+    ])('passkeyLogin %s → enabled() = %s', (_label, values, expected) => {
+      expect(build(values).passwordless.enabled()).toBe(expected);
+    });
+
+    it('begin：不指定憑證、要求使用者驗證，狀態記下 userVerification required', async () => {
+      lib.generateAuthenticationOptions.mockResolvedValue({ challenge: 'ch-1' });
+      const started = await build({ ...base, passkeyLogin: 'enabled' }).passwordless.begin();
+      expect(lib.generateAuthenticationOptions).toHaveBeenCalledWith(
+        expect.objectContaining({ rpID: 'auth.example.com', userVerification: 'required' }),
+      );
+      expect(lib.generateAuthenticationOptions.mock.calls[0]![0]).not.toHaveProperty(
+        'allowCredentials',
+      );
+      expect(started.state).toEqual({
+        challenge: 'ch-1',
+        rpId: 'auth.example.com',
+        userVerification: 'required',
+      });
+      expect(started.expiresInSeconds).toBe(300);
+    });
+
+    it('locate：憑證 id 與 user handle；accountHandle 與註冊時的 user handle 相同', () => {
+      const method = build();
+      expect(
+        method.passwordless.locate({
+          response: {
+            id: 'cred-1',
+            rawId: 'cred-1',
+            type: 'public-key',
+            response: { userHandle: 'uh-1' },
+          },
+        }),
+      ).toEqual({ configKey: 'credentialId', value: 'cred-1', accountHandle: 'uh-1' });
+      const handle = method.passwordless.accountHandle(ctx().account);
+      expect(Buffer.from(handle, 'base64url')).toHaveLength(32);
+    });
+
+    it('狀態要求使用者驗證時，即使平台參數是 preferred 也要求', async () => {
+      lib.verifyAuthenticationResponse.mockResolvedValue({
+        verified: true,
+        authenticationInfo: { newCounter: 0 },
+      });
+      await build().verify(
+        ctx(),
+        factor(),
+        challenge('login', { challenge: 'ch', rpId: 'example.com', userVerification: 'required' }),
+        { response: { id: 'cred-1', rawId: 'cred-1', type: 'public-key', response: {} } },
+      );
+      expect(lib.verifyAuthenticationResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ requireUserVerification: true }),
+      );
+    });
+  });
 });

@@ -58,6 +58,13 @@ import type {
   SsoInteractionControllerExternalCallbackResult,
   SsoInteractionControllerLoginInput,
   SsoInteractionControllerLoginResult,
+  SsoInteractionControllerPasskeyLoginInput,
+  SsoInteractionControllerPasskeyLoginResult,
+  SsoInteractionControllerPasskeyOptionsInput,
+  SsoInteractionControllerPasskeyOptionsResult,
+  SsoInteractionControllerSamlAcsResult,
+  SsoInteractionControllerSamlMetadataInput,
+  SsoInteractionControllerSamlMetadataResult,
   SsoInteractionControllerStartExternalInput,
   SsoInteractionControllerStartExternalResult,
   SsoInteractionControllerToPageInput,
@@ -90,6 +97,8 @@ import {
   SsoDiscoverySchema,
   SsoInteractionSchema,
   SsoLoginResultSchema,
+  SsoPasskeyLoginRequestSchema,
+  SsoPasskeyOptionsSchema,
   SsoRedirectSchema,
   StartExternalLoginRequestSchema,
   StartMfaEnrollmentRequestSchema,
@@ -825,6 +834,58 @@ export function ssoInteractionControllerExternalCallback(
   );
 }
 
+// POST /oidc-interaction/external/saml/acs
+
+export const SsoInteractionControllerSamlAcsSchemas = {} satisfies OperationSchemas;
+
+const ssoInteractionControllerSamlAcsOperation: OperationDefinition = {
+  id: 'SsoInteractionController_samlAcs',
+  method: 'POST',
+  path: '/oidc-interaction/external/saml/acs',
+  responseTypes: { 201: 'none' },
+  schemas: SsoInteractionControllerSamlAcsSchemas,
+};
+
+/** SAML 的 Assertion Consumer Service（HTTP-POST binding，固定路徑）：驗證後跳到互動路徑底下完成互動 */
+export function ssoInteractionControllerSamlAcs(
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerSamlAcsResult> {
+  return request<SsoInteractionControllerSamlAcsResult>(
+    ssoInteractionControllerSamlAcsOperation,
+    {},
+    options,
+  );
+}
+
+// GET /oidc-interaction/external/saml/metadata/{tenantId}/{providerId}
+
+export const SsoInteractionControllerSamlMetadataSchemas = {
+  path: z.object({
+    tenantId: z.string(),
+    providerId: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const ssoInteractionControllerSamlMetadataOperation: OperationDefinition = {
+  id: 'SsoInteractionController_samlMetadata',
+  method: 'GET',
+  path: '/oidc-interaction/external/saml/metadata/{tenantId}/{providerId}',
+  responseTypes: { 200: 'none' },
+  schemas: SsoInteractionControllerSamlMetadataSchemas,
+};
+
+/** SAML 連線的 SP metadata（XML；網址就是 SP 的 entity ID） */
+export function ssoInteractionControllerSamlMetadata(
+  input: SsoInteractionControllerSamlMetadataInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerSamlMetadataResult> {
+  return request<SsoInteractionControllerSamlMetadataResult>(
+    ssoInteractionControllerSamlMetadataOperation,
+    input,
+    options,
+  );
+}
+
 // GET /oidc-interaction/{uid}
 
 export const SsoInteractionControllerToPageSchemas = {
@@ -917,6 +978,75 @@ export function ssoInteractionControllerLogin(
 ): Promise<SsoInteractionControllerLoginResult> {
   return request<SsoInteractionControllerLoginResult>(
     ssoInteractionControllerLoginOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/passkey/options
+
+export const SsoInteractionControllerPasskeyOptionsSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: SsoPasskeyOptionsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const ssoInteractionControllerPasskeyOptionsOperation: OperationDefinition = {
+  id: 'SsoInteractionController_passkeyOptions',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/passkey/options',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerPasskeyOptionsSchemas,
+};
+
+/** 通行金鑰登入：發出 challenge（不指定憑證，由瀏覽器列出這個網域的通行金鑰） */
+export function ssoInteractionControllerPasskeyOptions(
+  input: SsoInteractionControllerPasskeyOptionsInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerPasskeyOptionsResult> {
+  return request<SsoInteractionControllerPasskeyOptionsResult>(
+    ssoInteractionControllerPasskeyOptionsOperation,
+    input,
+    options,
+  );
+}
+
+// POST /oidc-interaction/{uid}/passkey/login
+
+export const SsoInteractionControllerPasskeyLoginSchemas = {
+  path: z.object({
+    uid: z.string(),
+  }),
+  body: SsoPasskeyLoginRequestSchema,
+  responses: {
+    200: z.object({
+      data: SsoRedirectSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const ssoInteractionControllerPasskeyLoginOperation: OperationDefinition = {
+  id: 'SsoInteractionController_passkeyLogin',
+  method: 'POST',
+  path: '/oidc-interaction/{uid}/passkey/login',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: SsoInteractionControllerPasskeyLoginSchemas,
+};
+
+/** 以通行金鑰登入（取代密碼與第二步）：回傳要頂層跳轉的 resume 網址 */
+export function ssoInteractionControllerPasskeyLogin(
+  input: SsoInteractionControllerPasskeyLoginInput,
+  options?: RequestOptions,
+): Promise<SsoInteractionControllerPasskeyLoginResult> {
+  return request<SsoInteractionControllerPasskeyLoginResult>(
+    ssoInteractionControllerPasskeyLoginOperation,
     input,
     options,
   );

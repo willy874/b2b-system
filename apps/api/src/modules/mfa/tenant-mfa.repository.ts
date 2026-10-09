@@ -6,6 +6,7 @@ import type { Database, DbOrTx } from '@/core/database';
 import type { MfaChallenge, MfaFactor } from '@/core/mfa';
 import { mfaChallenges, mfaFactors, mfaRecoveryCodes, notDeleted, users } from '@/db/schema';
 
+import { identifierLiteral } from './mfa.repository';
 import type { MfaRepository, NewMfaChallenge, NewMfaFactor } from './mfa.repository';
 
 type FactorRow = typeof mfaFactors.$inferSelect;
@@ -73,6 +74,26 @@ export class TenantMfaRepository implements MfaRepository<DbOrTx> {
       .where(and(eq(mfaFactors.id, factorId), eq(mfaFactors.userId, accountId)))
       .limit(1);
     return row && toFactor(row);
+  }
+
+  async findActiveFactorsByConfig(
+    method: string,
+    configKey: string,
+    value: string,
+    limit: number,
+  ): Promise<MfaFactor[]> {
+    const rows = await this.db
+      .select()
+      .from(mfaFactors)
+      .where(
+        and(
+          sql`${mfaFactors.method} = ${identifierLiteral(method)}`,
+          eq(mfaFactors.status, 'active'),
+          sql`(${mfaFactors.config} ->> ${identifierLiteral(configKey)}) = ${value}`,
+        ),
+      )
+      .limit(limit);
+    return rows.map(toFactor);
   }
 
   async insertFactor(values: NewMfaFactor, tx: DbOrTx = this.db): Promise<MfaFactor> {

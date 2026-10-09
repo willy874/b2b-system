@@ -8,6 +8,7 @@ import type {
   ReplaceUserRolesRequest,
   UpdateUserRequest,
   User,
+  UserIdentityList,
   UserRoles,
 } from '../models';
 import type { ApiResponse } from '../runtime';
@@ -333,6 +334,63 @@ export type UserControllerUnlockResult = ApiResponse<200, UserControllerUnlockRe
 
 export function getUserControllerUnlockUrl(path: UserControllerUnlockPathParams): string {
   return buildUrl('/users/{id}/unlock', path);
+}
+
+// GET /users/{userId}/identities
+
+export interface UserIdentityControllerListPathParams {
+  userId: string;
+}
+
+export interface UserIdentityControllerListInput {
+  path: UserIdentityControllerListPathParams;
+}
+
+export interface UserIdentityControllerListResponses {
+  200: {
+    data: UserIdentityList;
+  };
+}
+
+export type UserIdentityControllerListResponse = UserIdentityControllerListResponses[200];
+
+export type UserIdentityControllerListResult = ApiResponse<
+  200,
+  UserIdentityControllerListResponses[200]
+>;
+
+export function getUserIdentityControllerListUrl(
+  path: UserIdentityControllerListPathParams,
+): string {
+  return buildUrl('/users/{userId}/identities', path);
+}
+
+// DELETE /users/{userId}/identities/{identityId}
+
+export interface UserIdentityControllerUnlinkPathParams {
+  userId: string;
+  identityId: string;
+}
+
+export interface UserIdentityControllerUnlinkInput {
+  path: UserIdentityControllerUnlinkPathParams;
+}
+
+export interface UserIdentityControllerUnlinkResponses {
+  204: undefined;
+}
+
+export type UserIdentityControllerUnlinkResponse = UserIdentityControllerUnlinkResponses[204];
+
+export type UserIdentityControllerUnlinkResult = ApiResponse<
+  204,
+  UserIdentityControllerUnlinkResponses[204]
+>;
+
+export function getUserIdentityControllerUnlinkUrl(
+  path: UserIdentityControllerUnlinkPathParams,
+): string {
+  return buildUrl('/users/{userId}/identities/{identityId}', path);
 }
 
 // GET /users/{id}/permission-sources

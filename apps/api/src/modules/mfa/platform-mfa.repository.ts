@@ -11,6 +11,7 @@ import {
   platformAdmins,
 } from '@/db/platform/schema';
 
+import { identifierLiteral } from './mfa.repository';
 import type { MfaRepository, NewMfaChallenge, NewMfaFactor } from './mfa.repository';
 
 type FactorRow = typeof platformAdminMfaFactors.$inferSelect;
@@ -82,6 +83,26 @@ export class PlatformMfaRepository implements MfaRepository<PlatformDbOrTx> {
       )
       .limit(1);
     return row && toFactor(row);
+  }
+
+  async findActiveFactorsByConfig(
+    method: string,
+    configKey: string,
+    value: string,
+    limit: number,
+  ): Promise<MfaFactor[]> {
+    const rows = await this.db
+      .select()
+      .from(platformAdminMfaFactors)
+      .where(
+        and(
+          sql`${platformAdminMfaFactors.method} = ${identifierLiteral(method)}`,
+          eq(platformAdminMfaFactors.status, 'active'),
+          sql`(${platformAdminMfaFactors.config} ->> ${identifierLiteral(configKey)}) = ${value}`,
+        ),
+      )
+      .limit(limit);
+    return rows.map(toFactor);
   }
 
   async insertFactor(values: NewMfaFactor, tx: PlatformDbOrTx = this.db): Promise<MfaFactor> {

@@ -1,7 +1,7 @@
 {
   "identityProvider": {
     "title": "外部 IdP 連線",
-    "description": "讓使用者以公司帳號（Google Workspace、Azure AD 等 OIDC 服務）登入。email 網域決定使用哪一個連線。",
+    "description": "讓使用者以公司帳號登入：Google Workspace、Microsoft Entra ID、Okta 等 OIDC 服務，或 ADFS 等 SAML 2.0 服務。email 網域決定使用哪一個連線。",
     "callbackUrl": "在外部 IdP 登記的 redirect URI",
     "empty": "還沒有任何外部 IdP 連線",
     "enabled": "啟用",
@@ -17,14 +17,30 @@
       "unmatchedPolicy": "找不到對應帳號時",
       "domains": "Email 網域",
       "status": "狀態",
-      "updatedAt": "更新時間"
+      "updatedAt": "更新時間",
+      "protocol": "協定",
+      "preset": "服務",
+      "directoryId": "目錄（租戶）ID",
+      "entityId": "IdP Entity ID",
+      "ssoUrl": "SSO 網址",
+      "certificates": "簽章憑證",
+      "nameIdFormat": "NameID 格式",
+      "emailAttribute": "Email 屬性",
+      "nameAttribute": "名稱屬性"
     },
     "hint": {
       "name": "顯示在登入頁的按鈕上，例：「Acme Azure AD」。",
       "issuer": "OIDC issuer 網址，會從 /.well-known/openid-configuration 取得端點。",
       "clientSecret": "只寫不讀：儲存後不會再顯示。",
       "clientSecretKeep": "留空表示不變更。",
-      "domains": "這些網域的使用者在登入頁輸入 email 後會看到這個連線；一個網域只能屬於一個連線。"
+      "domains": "這些網域的使用者在登入頁輸入 email 後會看到這個連線；一個網域只能屬於一個連線。",
+      "protocolLocked": "建立之後不能更換協定；要換請新增一個連線。",
+      "directoryId": "Issuer 會是 {{issuer}}。",
+      "entityId": "IdP 的識別（metadata 的 entityID）。更換之後已連結的使用者要重新對應帳號。",
+      "ssoUrl": "IdP 接收 AuthnRequest 的網址（HTTP-Redirect binding）。",
+      "certificates": "IdP 簽 assertion 用的 X.509 憑證（PEM）。IdP 輪替憑證時可以同時登記新舊兩張，最多 3 張。",
+      "nameIdFormat": "NameID 是比對帳號的依據。建議 persistent：email 格式在使用者改 email 之後會對應不到原本的帳號。",
+      "emailAttribute": "留空時依常見的名稱尋找（emailaddress claim、mail）；都沒有時，email 格式的 NameID 當作 email。"
     },
     "policy": {
       "reject": "拒絕登入",
@@ -55,12 +71,58 @@
     },
     "error": {
       "nameRequired": "請輸入名稱",
-      "issuerInvalid": "請輸入完整的網址",
+      "issuerInvalid": "請輸入完整的網址（格式要符合所選的服務）",
       "clientIdRequired": "請輸入 Client ID",
       "clientSecretRequired": "請輸入 Client secret",
       "scopesInvalid": "必須包含 openid",
       "domainInvalid": "網域格式不正確",
-      "domainDuplicate": "網域重複"
+      "domainDuplicate": "網域重複",
+      "directoryIdInvalid": "請輸入目錄 ID（GUID）",
+      "entityIdRequired": "請輸入 IdP 的 entity ID",
+      "ssoUrlInvalid": "請輸入完整的網址",
+      "certificateInvalid": "不是 PEM 格式的憑證"
+    },
+    "samlAcsUrl": "在 SAML IdP 登記的 ACS 網址（Assertion Consumer Service）",
+    "spEntityId": "SP Entity ID（也是 SP metadata 的網址，可以直接匯入 IdP）",
+    "protocol": {
+      "oidc": "OIDC",
+      "saml": "SAML 2.0"
+    },
+    "preset": {
+      "generic": "其他 OIDC 服務",
+      "google": "Google Workspace",
+      "microsoft": "Microsoft Entra ID",
+      "okta": "Okta",
+      "keycloak": "Keycloak"
+    },
+    "presetHint": {
+      "generic": "任何支援 OIDC discovery 的服務；只有 email_verified 為 true 的 email 會用來對應既有帳號。",
+      "google": "只有組織管理的 Workspace 帳號（ID token 帶 hd）會以 email 對應既有帳號或自動建立；一般的 Gmail 帳號不會。",
+      "microsoft": "只接受單一目錄的端點。Entra 不回 email_verified：請在應用程式註冊加上選用 claim「xms_edov」，才能以 email 對應既有帳號。",
+      "okta": "Okta 組織的網址（https://<org>.okta.com），或自訂授權伺服器的網址（…/oauth2/<id>）。",
+      "keycloak": "Realm 的網址（<base>/realms/<realm>）。"
+    },
+    "nameIdFormat": {
+      "persistent": "Persistent（建議）",
+      "emailAddress": "Email",
+      "unspecified": "未指定"
+    },
+    "metadata": {
+      "import": "從 IdP 的 metadata 匯入",
+      "placeholder": "貼上 IdP 的 metadata XML",
+      "apply": "填入欄位",
+      "applied_other": "已填入 entity ID、SSO 網址與 {{count}} 張憑證",
+      "error": {
+        "invalidXml": "不是有效的 XML",
+        "noIdpDescriptor": "找不到 IdP 的描述（IDPSSODescriptor）",
+        "noRedirectBinding": "IdP 沒有提供 HTTP-Redirect 的 SSO 網址"
+      }
+    },
+    "certificate": {
+      "label": "第 {{position}} 張憑證",
+      "add": "新增憑證",
+      "remove": "移除憑證",
+      "summary": "SHA-256 {{fingerprint}} · {{date}} 到期"
     }
   }
 }

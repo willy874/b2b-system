@@ -13,6 +13,7 @@
     "dev:apm": "pnpm --filter @b2b-system/apm-service dev",
     "dev:mock-idp": "pnpm --filter @b2b-system/api mock-idp",
     "dev:mock-messaging": "pnpm --filter @b2b-system/api mock-messaging",
+    "dev:mock-saml-idp": "pnpm --filter @b2b-system/api mock-saml-idp",
     "dev:e2e": "pnpm build:packages && pnpm mail:up && AUTH_RATE_LIMIT=1000 DEFAULT_RATE_LIMIT=10000 MAIL_TRANSPORT=smtp METRICS_PORT=0 pnpm --filter @b2b-system/api dev",
     "storybook": "pnpm --filter @b2b-system/ui storybook",
     "storybook:build": "pnpm --filter @b2b-system/ui storybook:build",

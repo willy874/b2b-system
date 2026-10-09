@@ -49,7 +49,8 @@ function internalFeaturesOf(method: string, path: string): string[] | undefined 
   if (/^\/audit-logs(\/|$)/.test(path)) return ['auditLog'];
   if (/^\/jobs(\/|$)/.test(path)) return ['job'];
   if (path === '/system/settings') return ['systemSetting'];
-  if (/^\/identity-providers(\/|$)/.test(path)) return ['identityProvider'];
+  if (/^\/(identity-providers|users\/:userId\/identities)(\/|$)/.test(path))
+    return ['identityProvider'];
   if (/^\/webhooks(\/|$)/.test(path)) return ['webhook'];
   if (/^\/data-transfers(\/|$)/.test(path)) return ['dataTransfer'];
   if (/^\/(service-accounts|auth\/api-tokens|users\/:userId\/api-tokens)(\/|$)/.test(path))
@@ -263,6 +264,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /oidc-interaction/:uid/details': 'public',
       'POST /oidc-interaction/:uid/login': 'public',
       'POST /oidc-interaction/:uid/abort': 'public',
+      'POST /oidc-interaction/:uid/passkey/options': 'public',
+      'POST /oidc-interaction/:uid/passkey/login': 'public',
       'POST /oidc-interaction/:uid/mfa/challenge': 'public',
       'POST /oidc-interaction/:uid/mfa/verify': 'public',
       'POST /oidc-interaction/:uid/mfa/enroll': 'public',
@@ -276,6 +279,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'DELETE /auth/mfa/factors/:id': 'authenticated',
       'POST /auth/mfa/recovery-codes': 'authenticated',
       'GET /oidc-interaction/external/callback': 'public',
+      'POST /oidc-interaction/external/saml/acs': 'public',
+      'GET /oidc-interaction/external/saml/metadata/:tenantId/:providerId': 'public',
       'GET /oidc-interaction/:uid/discover': 'public',
       'POST /oidc-interaction/:uid/external': 'public',
       'GET /oidc-interaction/:uid/external/complete': 'public',
@@ -337,6 +342,8 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'POST /users/:id/reset-password': 'user:resetPassword',
       'POST /users/:id/unlock': 'user:update',
       'GET /users/:id/mfa': 'user:read',
+      'GET /users/:userId/identities': 'user:read',
+      'DELETE /users/:userId/identities/:identityId': 'user:update',
       'POST /users/:id/mfa/reset': 'user:resetMfa',
       'GET /mfa/policy': 'mfaPolicy:read',
       'POST /mfa/policy/preview': 'mfaPolicy:read',

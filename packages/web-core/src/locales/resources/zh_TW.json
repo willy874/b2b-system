@@ -153,6 +153,8 @@
     "AUTH_SSO_LINK_NOT_ALLOWED": "這個帳號不能自動連結到外部登入，請改用密碼登入，或請管理員協助。",
     "AUTH_SSO_PROVIDER_UNAVAILABLE": "這個登入方式目前無法使用，請稍後再試或改用其他方式登入。",
     "AUTH_SSO_EXTERNAL_FAILED": "外部登入沒有完成，請重新登入。",
+    "AUTH_PASSKEY_UNAVAILABLE": "目前不能以通行金鑰登入，請改用密碼。",
+    "AUTH_PASSKEY_INVALID": "無法以這把通行金鑰登入，請再試一次或改用密碼。",
     "AUTH_BUSY": "登入的人太多，請稍後再試。",
     "AUTH_MFA_REQUIRED": "這個帳號需要多因素驗證，請從登入頁登入。",
     "AUTH_MFA_INVALID_CODE": "驗證碼不正確，請再試一次。",
@@ -247,6 +249,10 @@
     "IDENTITY_PROVIDER_NAME_DUPLICATE": "已有同名的連線。",
     "IDENTITY_PROVIDER_DOMAIN_TAKEN": "這個網域已屬於另一個連線。",
     "IDENTITY_PROVIDER_LIMIT_REACHED": "外部 IdP 連線已達上限（{{max}} 個），請先刪除不用的連線。",
+    "IDENTITY_PROVIDER_ISSUER_INVALID": "Issuer 的格式不符合所選的範本，請確認網址。",
+    "IDENTITY_PROVIDER_CERTIFICATE_INVALID": "第 {{position}} 張簽章憑證不是有效的 X.509 憑證。",
+    "IDENTITY_PROVIDER_PROTOCOL_MISMATCH": "連線的協定不能更換，請新增一個連線。",
+    "USER_IDENTITY_NOT_FOUND": "這個外部身分已經不存在。",
     "AUDIT_LOG_NOT_FOUND": "找不到這筆稽核紀錄，可能已超過保留期被清除。",
     "JOB_NOT_FOUND": "找不到這筆工作，可能已超過保留期被清除。",
     "JOB_NOT_RETRYABLE": "只有失敗的工作可以重試；它可能已經被其他人重試過了。",
@@ -542,6 +548,10 @@
           "authenticatorAttachment": {
             "label": "允許的驗證器",
             "description": "any：都可以；platform：只允許裝置內建（Touch ID、Windows Hello）；crossPlatform：只允許實體金鑰。"
+          },
+          "passkeyLogin": {
+            "label": "以通行金鑰取代密碼",
+            "description": "enabled：登入頁多一個「使用通行金鑰登入」，以已註冊的通行金鑰（含指紋、臉部辨識或 PIN）直接登入，不必輸入密碼與第二步；disabled：只當第二步。只允許 SSO 的網域不適用。"
           }
         }
       },

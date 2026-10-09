@@ -358,6 +358,13 @@
       "when": 1791431705178,
       "tag": "0050_announcement_body_doc",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791524356766,
+      "tag": "0051_sso_methods",
+      "breakpoints": true
     }
   ]
 }

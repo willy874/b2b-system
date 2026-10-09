@@ -72,6 +72,7 @@ import { SETTING_LIST_QUERY_KEY } from '@/apis/system/get-setting-list/query';
 import { TAG_LIST_QUERY_KEY } from '@/apis/tag/get-tag-list/query';
 import { TRASH_LIST_QUERY_KEY } from '@/apis/trash/get-trash-list/query';
 import { USER_DETAIL_QUERY_KEY } from '@/apis/user/get-user-detail/query';
+import { USER_IDENTITIES_QUERY_KEY } from '@/apis/user/get-user-identities/query';
 import { USER_LIST_QUERY_KEY } from '@/apis/user/get-user-list/query';
 import { PERMISSION_SOURCES_QUERY_KEY } from '@/apis/user/get-user-permission-sources/query';
 import { WATCH_STATE_QUERY_KEY } from '@/apis/watch/get-watch-state/query';
@@ -216,7 +217,8 @@ function selfHoldsRole(change: ResourceChangeEvent): boolean {
 const graph = createResourceGraph<Resource>({
   [Resource.USER]: {
     collection: [USER_LIST_QUERY_KEY],
-    entity: [USER_DETAIL_QUERY_KEY],
+    // 外部身分的連結（docs/architecture/04-sso.md §3.3.4）：解除以使用者的 update 宣告
+    entity: [USER_DETAIL_QUERY_KEY, USER_IDENTITIES_QUERY_KEY],
     derivesFrom: [
       // 使用者列表／詳情嵌入了角色摘要
       { from: Resource.USER_ROLE, id: 'self' },

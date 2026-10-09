@@ -183,6 +183,13 @@
       "when": 1791519322431,
       "tag": "0025_mfa_method_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791524357295,
+      "tag": "0026_passkey_credential_index",
+      "breakpoints": true
     }
   ]
 }

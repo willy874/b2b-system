@@ -151,6 +151,7 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
       'invalidate:ROLE_USERS_QUERY_KEY:r1',
       'invalidate:ROLE_USERS_QUERY_KEY:r2',
       'invalidate:USER_DETAIL_QUERY_KEY:u1',
+      'invalidate:USER_IDENTITIES_QUERY_KEY:u1',
       'invalidate:USER_LIST_QUERY_KEY',
     ]);
   });

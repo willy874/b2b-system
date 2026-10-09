@@ -48,6 +48,10 @@ export const mfaFactors = pgTable(
     index('mfa_factors_pending_idx')
       .on(t.createdAt)
       .where(sql`${t.status} = 'pending'`),
+    // 通行金鑰登入以憑證 id 找因子（docs/architecture/04-sso.md §3.6）；只有 WebAuthn 的因子有這個鍵
+    index('mfa_factors_credential_idx')
+      .on(sql`(${t.config} ->> 'credentialId')`)
+      .where(sql`${t.method} = 'webauthn'`),
     check('mfa_factors_status_check', sql`${t.status} IN ('pending', 'active')`),
   ],
 );

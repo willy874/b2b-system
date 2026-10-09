@@ -34,7 +34,8 @@
       "ssoOnly": "你的組織使用 {{name}} 登入。",
       "or": "或",
       "enterTenant": "要登入你的後台？輸入租戶代碼",
-      "mfaEnroll": "為了新增安全金鑰，請先重新驗證身分。"
+      "mfaEnroll": "為了新增安全金鑰，請先重新驗證身分。",
+      "passkey": "使用通行金鑰登入"
     },
     "client": {
       "backstage": "管理後台",

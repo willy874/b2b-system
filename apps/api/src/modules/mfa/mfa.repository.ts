@@ -1,3 +1,6 @@
+import { sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+
 import type { MfaChallenge, MfaFactor, MfaPurpose } from '@/core/mfa';
 
 export interface NewMfaFactor {
@@ -27,6 +30,16 @@ export interface NewMfaChallenge {
 export interface MfaRepository<TTx> {
   listFactors(accountId: string, tx?: TTx): Promise<MfaFactor[]>;
   findFactor(accountId: string, factorId: string, tx?: TTx): Promise<MfaFactor | undefined>;
+  /**
+   * active 的因子中 `config ->> configKey = value` 的（通行金鑰登入以憑證 id 找因子，docs/architecture/04-sso.md §3.6），最多 `limit` 筆。
+   * `method`、`configKey` 由方式的程式決定（不是使用者輸入），以字面量放進查詢才能用上部分索引。
+   */
+  findActiveFactorsByConfig(
+    method: string,
+    configKey: string,
+    value: string,
+    limit: number,
+  ): Promise<MfaFactor[]>;
   insertFactor(values: NewMfaFactor, tx?: TTx): Promise<MfaFactor>;
   /** pending → active；已不是 pending（併發的另一次確認）時回 false。 */
   activateFactor(
@@ -63,4 +76,13 @@ export interface MfaRepository<TTx> {
 
   /** 過期的 pending 因子與 challenge，一批最多 `batchSize`（各自）；回傳刪除筆數。 */
   deleteStaleBatch(pendingBefore: Date, challengesBefore: Date, batchSize: number): Promise<number>;
+}
+
+/** 識別字（方式 id、config 的鍵）只能是英數字：要以字面量放進 SQL（部分索引的條件與運算式必須是字面量才比對得上）。 */
+const IDENTIFIER = /^[a-zA-Z][a-zA-Z0-9]*$/;
+
+/** `'webauthn'` 這樣的 SQL 字面量；不是識別字時拋錯（程式錯誤，不是使用者輸入）。 */
+export function identifierLiteral(value: string): SQL {
+  if (!IDENTIFIER.test(value)) throw new Error(`不是合法的識別字：${value}`);
+  return sql.raw(`'${value}'`);
 }

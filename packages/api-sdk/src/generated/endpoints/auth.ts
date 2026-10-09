@@ -26,6 +26,8 @@ import type {
   SsoDiscovery,
   SsoInteraction,
   SsoLoginResult,
+  SsoPasskeyLoginRequest,
+  SsoPasskeyOptions,
   SsoRedirect,
   StartExternalLoginRequest,
   StartMfaEnrollmentRequest,
@@ -641,6 +643,52 @@ export function getSsoInteractionControllerExternalCallbackUrl(): string {
   return buildUrl('/oidc-interaction/external/callback');
 }
 
+// POST /oidc-interaction/external/saml/acs
+
+export interface SsoInteractionControllerSamlAcsResponses {
+  201: undefined;
+}
+
+export type SsoInteractionControllerSamlAcsResponse = SsoInteractionControllerSamlAcsResponses[201];
+
+export type SsoInteractionControllerSamlAcsResult = ApiResponse<
+  201,
+  SsoInteractionControllerSamlAcsResponses[201]
+>;
+
+export function getSsoInteractionControllerSamlAcsUrl(): string {
+  return buildUrl('/oidc-interaction/external/saml/acs');
+}
+
+// GET /oidc-interaction/external/saml/metadata/{tenantId}/{providerId}
+
+export interface SsoInteractionControllerSamlMetadataPathParams {
+  tenantId: string;
+  providerId: string;
+}
+
+export interface SsoInteractionControllerSamlMetadataInput {
+  path: SsoInteractionControllerSamlMetadataPathParams;
+}
+
+export interface SsoInteractionControllerSamlMetadataResponses {
+  200: undefined;
+}
+
+export type SsoInteractionControllerSamlMetadataResponse =
+  SsoInteractionControllerSamlMetadataResponses[200];
+
+export type SsoInteractionControllerSamlMetadataResult = ApiResponse<
+  200,
+  SsoInteractionControllerSamlMetadataResponses[200]
+>;
+
+export function getSsoInteractionControllerSamlMetadataUrl(
+  path: SsoInteractionControllerSamlMetadataPathParams,
+): string {
+  return buildUrl('/oidc-interaction/external/saml/metadata/{tenantId}/{providerId}', path);
+}
+
 // GET /oidc-interaction/{uid}
 
 export interface SsoInteractionControllerToPagePathParams {
@@ -727,6 +775,69 @@ export function getSsoInteractionControllerLoginUrl(
   path: SsoInteractionControllerLoginPathParams,
 ): string {
   return buildUrl('/oidc-interaction/{uid}/login', path);
+}
+
+// POST /oidc-interaction/{uid}/passkey/options
+
+export interface SsoInteractionControllerPasskeyOptionsPathParams {
+  uid: string;
+}
+
+export interface SsoInteractionControllerPasskeyOptionsInput {
+  path: SsoInteractionControllerPasskeyOptionsPathParams;
+}
+
+export interface SsoInteractionControllerPasskeyOptionsResponses {
+  200: {
+    data: SsoPasskeyOptions;
+  };
+}
+
+export type SsoInteractionControllerPasskeyOptionsResponse =
+  SsoInteractionControllerPasskeyOptionsResponses[200];
+
+export type SsoInteractionControllerPasskeyOptionsResult = ApiResponse<
+  200,
+  SsoInteractionControllerPasskeyOptionsResponses[200]
+>;
+
+export function getSsoInteractionControllerPasskeyOptionsUrl(
+  path: SsoInteractionControllerPasskeyOptionsPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/passkey/options', path);
+}
+
+// POST /oidc-interaction/{uid}/passkey/login
+
+export interface SsoInteractionControllerPasskeyLoginPathParams {
+  uid: string;
+}
+
+export type SsoInteractionControllerPasskeyLoginBody = SsoPasskeyLoginRequest;
+
+export interface SsoInteractionControllerPasskeyLoginInput {
+  path: SsoInteractionControllerPasskeyLoginPathParams;
+  body: SsoInteractionControllerPasskeyLoginBody;
+}
+
+export interface SsoInteractionControllerPasskeyLoginResponses {
+  200: {
+    data: SsoRedirect;
+  };
+}
+
+export type SsoInteractionControllerPasskeyLoginResponse =
+  SsoInteractionControllerPasskeyLoginResponses[200];
+
+export type SsoInteractionControllerPasskeyLoginResult = ApiResponse<
+  200,
+  SsoInteractionControllerPasskeyLoginResponses[200]
+>;
+
+export function getSsoInteractionControllerPasskeyLoginUrl(
+  path: SsoInteractionControllerPasskeyLoginPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/passkey/login', path);
 }
 
 // GET /oidc-interaction/{uid}/discover

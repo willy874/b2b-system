@@ -220,6 +220,8 @@ import type {
   RoleRevision,
   RoleRevisionSnapshot,
   RoleSummary,
+  SamlCertificate,
+  SamlSettings,
   ServiceAccount,
   ServiceAccountRoles,
   Session,
@@ -231,6 +233,8 @@ import type {
   SsoLoginResult,
   SsoMfaChallengeNext,
   SsoMfaEnrollNext,
+  SsoPasskeyLoginRequest,
+  SsoPasskeyOptions,
   SsoRedirect,
   StartExternalLoginRequest,
   StartMfaEnrollmentRequest,
@@ -285,6 +289,8 @@ import type {
   UpdateUserRequest,
   UpdateWebhookRequest,
   User,
+  UserIdentity,
+  UserIdentityList,
   UserOrgUnit,
   UserOrgUnits,
   UserRoles,
@@ -1861,6 +1867,22 @@ export const IdentityProviderDomainSchema = z.object({
   ssoOnly: z.boolean(),
 }) satisfies z.ZodType<IdentityProviderDomain>;
 
+export const SamlCertificateSchema = z.object({
+  pem: z.string(),
+  subject: z.string(),
+  notAfter: z.string(),
+  fingerprint: z.string(),
+}) satisfies z.ZodType<SamlCertificate>;
+
+export const SamlSettingsSchema = z.object({
+  ssoUrl: z.string(),
+  certificates: z.array(SamlCertificateSchema),
+  nameIdFormat: z.enum(['persistent', 'emailAddress', 'unspecified']),
+  emailAttribute: z.string().nullable(),
+  nameAttribute: z.string().nullable(),
+  spEntityId: z.string(),
+}) satisfies z.ZodType<SamlSettings>;
+
 export const IdentityProviderSchema = z.object({
   id: z
     .uuid()
@@ -1870,12 +1892,15 @@ export const IdentityProviderSchema = z.object({
       ),
     ),
   name: z.string(),
+  protocol: z.enum(['oidc', 'saml']),
+  preset: z.enum(['generic', 'google', 'microsoft', 'okta', 'keycloak']),
   issuer: z.string(),
-  clientId: z.string(),
+  clientId: z.string().nullable(),
   scopes: z.string(),
   enabled: z.boolean(),
   unmatchedPolicy: z.enum(['reject', 'auto_create']),
   domains: z.array(IdentityProviderDomainSchema),
+  saml: SamlSettingsSchema.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 }) satisfies z.ZodType<IdentityProvider>;
@@ -1883,29 +1908,92 @@ export const IdentityProviderSchema = z.object({
 export const IdentityProviderListSchema = z.object({
   items: z.array(IdentityProviderSchema),
   callbackUrl: z.url(),
+  samlAcsUrl: z.url(),
 }) satisfies z.ZodType<IdentityProviderList>;
 
-export const CreateIdentityProviderRequestSchema = z.object({
-  name: z.string().min(1).max(64),
-  issuer: z.url().max(500),
-  clientId: z.string().min(1).max(255),
-  clientSecret: z.string().min(1).max(2000),
-  scopes: z.string().max(500).default('openid email profile'),
-  enabled: z.boolean().default(true),
-  unmatchedPolicy: z.enum(['reject', 'auto_create']).default('reject'),
-  domains: z.array(IdentityProviderDomainSchema).max(50).default([]),
-}) satisfies z.ZodType<CreateIdentityProviderRequest>;
+export const CreateIdentityProviderRequestSchema = z.union([
+  z.object({
+    name: z.string().min(1).max(64),
+    enabled: z.boolean().default(true),
+    unmatchedPolicy: z.enum(['reject', 'auto_create']).default('reject'),
+    domains: z.array(IdentityProviderDomainSchema).max(50).default([]),
+    protocol: z.enum(['oidc']).default('oidc'),
+    preset: z.enum(['generic', 'google', 'microsoft', 'okta', 'keycloak']).default('generic'),
+    issuer: z.url().max(500),
+    clientId: z.string().min(1).max(255),
+    clientSecret: z.string().min(1).max(2000),
+    scopes: z.string().max(500).default('openid email profile'),
+  }),
+  z.object({
+    name: z.string().min(1).max(64),
+    enabled: z.boolean().default(true),
+    unmatchedPolicy: z.enum(['reject', 'auto_create']).default('reject'),
+    domains: z.array(IdentityProviderDomainSchema).max(50).default([]),
+    protocol: z.enum(['saml']),
+    entityId: z.string().min(1).max(500),
+    ssoUrl: z.url().max(2000),
+    certificates: z.array(z.string().min(1).max(10000)).min(1).max(3),
+    nameIdFormat: z.enum(['persistent', 'emailAddress', 'unspecified']).default('persistent'),
+    emailAttribute: z.string().max(255).nullable().default(null),
+    nameAttribute: z.string().max(255).nullable().default(null),
+  }),
+]) satisfies z.ZodType<CreateIdentityProviderRequest>;
 
-export const UpdateIdentityProviderRequestSchema = z.object({
-  name: z.string().min(1).max(64).optional(),
-  issuer: z.url().max(500).optional(),
-  clientId: z.string().min(1).max(255).optional(),
-  clientSecret: z.string().min(1).max(2000).optional(),
-  scopes: z.string().max(500).optional(),
-  enabled: z.boolean().optional(),
-  unmatchedPolicy: z.enum(['reject', 'auto_create']).optional(),
-  domains: z.array(IdentityProviderDomainSchema).max(50).optional(),
-}) satisfies z.ZodType<UpdateIdentityProviderRequest>;
+export const UpdateIdentityProviderRequestSchema = z.union([
+  z.object({
+    name: z.string().min(1).max(64).optional(),
+    enabled: z.boolean().optional(),
+    unmatchedPolicy: z.enum(['reject', 'auto_create']).optional(),
+    domains: z.array(IdentityProviderDomainSchema).max(50).optional(),
+    protocol: z.enum(['oidc']).default('oidc'),
+    preset: z.enum(['generic', 'google', 'microsoft', 'okta', 'keycloak']).optional(),
+    issuer: z.url().max(500).optional(),
+    clientId: z.string().min(1).max(255).optional(),
+    clientSecret: z.string().min(1).max(2000).optional(),
+    scopes: z.string().max(500).optional(),
+  }),
+  z.object({
+    name: z.string().min(1).max(64).optional(),
+    enabled: z.boolean().optional(),
+    unmatchedPolicy: z.enum(['reject', 'auto_create']).optional(),
+    domains: z.array(IdentityProviderDomainSchema).max(50).optional(),
+    protocol: z.enum(['saml']),
+    entityId: z.string().min(1).max(500).optional(),
+    ssoUrl: z.url().max(2000).optional(),
+    certificates: z.array(z.string().min(1).max(10000)).min(1).max(3).optional(),
+    nameIdFormat: z.enum(['persistent', 'emailAddress', 'unspecified']).optional(),
+    emailAttribute: z.string().max(255).nullable().optional(),
+    nameAttribute: z.string().max(255).nullable().optional(),
+  }),
+]) satisfies z.ZodType<UpdateIdentityProviderRequest>;
+
+export const UserIdentitySchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  providerId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  providerName: z.string(),
+  protocol: z.enum(['oidc', 'saml']),
+  providerDeleted: z.boolean(),
+  subject: z.string(),
+  email: z.string().nullable(),
+  linkedAt: z.string(),
+  lastLoginAt: z.string().nullable(),
+}) satisfies z.ZodType<UserIdentity>;
+
+export const UserIdentityListSchema = z.object({
+  items: z.array(UserIdentitySchema),
+}) satisfies z.ZodType<UserIdentityList>;
 
 export const PlatformNotificationSchema = z.object({
   id: z
@@ -3135,7 +3223,16 @@ export const SsoInteractionSchema = z.object({
     })
     .nullable(),
   mfaEnroll: z.string().nullable(),
+  passkeyLogin: z.boolean(),
 }) satisfies z.ZodType<SsoInteraction>;
+
+export const SsoPasskeyOptionsSchema = z.object({
+  publicData: z.record(z.string(), z.unknown()),
+}) satisfies z.ZodType<SsoPasskeyOptions>;
+
+export const SsoPasskeyLoginRequestSchema = z.object({
+  payload: z.record(z.string(), z.unknown()),
+}) satisfies z.ZodType<SsoPasskeyLoginRequest>;
 
 export const SsoDiscoverySchema = z.object({
   provider: z

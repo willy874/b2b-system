@@ -22,6 +22,7 @@ const PROVIDER: ExternalProviderConfig = {
   clientId: CLIENT_ID,
   clientSecret: 'secret-1',
   scopes: 'openid email profile',
+  preset: 'generic',
 };
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -309,6 +310,23 @@ describe('OpenIdExternalOidcClient（docs/architecture/04-sso.md §12.2 D8）', 
       });
       const userinfo = idp.requests.find((r) => r.url === `${ISSUER}/userinfo`)!;
       expect(userinfo.headers.get('authorization')).toMatch(/^Bearer access-token-1$/i);
+    });
+
+    it('範本 microsoft：沒有 email_verified，以 ID token 的 xms_edov 判斷（docs/architecture/04-sso.md §3.3.1）', async () => {
+      fakeIdp({ claims: { email: 'alice@acme.com', xms_edov: true } });
+      await expect(
+        oidcClient().exchange({ ...PROVIDER, preset: 'microsoft' }, EXCHANGE),
+      ).resolves.toMatchObject({ emailVerified: true });
+    });
+
+    it('範本 google：email 在 userinfo、hd 在 ID token → 合併後判斷（ID token 優先）', async () => {
+      fakeIdp({
+        claims: { hd: 'acme.com' },
+        userinfo: { sub: 'ext-sub-1', email: 'bob@acme.com', email_verified: true, hd: 'evil.com' },
+      });
+      await expect(
+        oidcClient().exchange({ ...PROVIDER, preset: 'google' }, EXCHANGE),
+      ).resolves.toMatchObject({ email: 'bob@acme.com', emailVerified: true });
     });
 
     it('userinfo 也沒有 email → email=null、emailVerified=false', async () => {

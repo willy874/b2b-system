@@ -17,6 +17,7 @@ import { UserDetailRoute, UserListRoute } from '../../routes';
 import { UserApiTokenSection } from './components/UserApiTokenSection';
 import { UserBasicSection } from './components/UserBasicSection';
 import { UserGroupSection } from './components/UserGroupSection';
+import { UserIdentitySection } from './components/UserIdentitySection';
 import { UserMfaSection } from './components/UserMfaSection';
 import { UserOrgUnitSection } from './components/UserOrgUnitSection';
 import { UserPermissionSourceSection } from './components/UserPermissionSourceSection';
@@ -82,6 +83,9 @@ export default function UserDetailPage() {
             <UserPermissionSourceSection userId={userId} displayName={user.data.displayName} />
           )}
           {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}
+          {permission.canReadIdentities && (
+            <UserIdentitySection userId={userId} canUnlink={permission.canUnlinkIdentity} />
+          )}
           <UserMfaSection userId={userId} canReset={permission.canResetMfa && !isSelf} />
           {/* 通用面板（留言與關注，docs/architecture/frontend/22-comment.md §2）：由提供面板的 feature 登記 */}
           <ResourcePanels resourceType="user" resourceId={userId} />

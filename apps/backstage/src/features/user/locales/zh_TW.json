@@ -128,6 +128,23 @@
       "noMatch": "沒有符合的部門",
       "primary": "主要部門",
       "manager": "主管"
+    },
+    "identities": {
+      "title": "外部身分",
+      "hint": "以外部 IdP（OIDC、SAML）登入時連結到這個帳號的身分。連錯人或員工換了 IdP 帳號時可以解除；之後那個身分登入會重新以 email 對應帳號。",
+      "empty": "沒有連結任何外部身分",
+      "provider": "連線",
+      "subject": "外部識別碼",
+      "lastLoginAt": "最後登入",
+      "providerDeleted": "連線已刪除",
+      "protocol": {
+        "oidc": "OIDC",
+        "saml": "SAML 2.0"
+      },
+      "unlink": "解除連結",
+      "unlinkTitle": "解除外部身分的連結",
+      "unlinkConfirm": "要解除「{{provider}}」的連結嗎？這位使用者之後以它登入時會重新對應帳號；只允許 SSO 又沒有密碼的帳號可能因此無法登入。",
+      "unlinked": "已解除連結"
     }
   }
 }

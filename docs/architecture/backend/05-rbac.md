@@ -663,12 +663,15 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/oidc-interaction/:uid/details` | `@Public`                   |
 | POST   | `/oidc-interaction/:uid/login` | `@Public`                     |
 | POST   | `/oidc-interaction/:uid/abort` | `@Public`                     |
+| POST   | `/oidc-interaction/:uid/passkey/options`、`/passkey/login` | `@Public`（互動 cookie ＋ 一次性的 `PasskeyLogin` challenge，[`architecture/04-sso.md`](../04-sso.md) §3.6） |
 | POST   | `/oidc-interaction/:uid/mfa/challenge`、`/mfa/verify`、`/mfa/enroll`、`/mfa/enroll/skip`、`/mfa/enroll/:factorId/challenge`、`/mfa/enroll/:factorId/confirm` | `@Public`（互動 cookie ＋ 密碼步驟留下的 `MfaPending`，[`backend/21-mfa.md`](21-mfa.md) §4、§7.1） |
 | POST   | `/mfa-channels/telegram/webhook`、`/mfa-channels/line/webhook` | `@Public`（Telegram 的 secret token、LINE 的 HMAC 簽章；[`backend/21-mfa.md`](21-mfa.md) §9.5） |
 | GET    | `/oidc-interaction/external/callback` | `@Public`（外部 IdP 跳回；state 就是憑證，[`architecture/04-sso.md`](../04-sso.md) §12.2 D8） |
 | GET    | `/oidc-interaction/:uid/discover` | `@Public`（email 網域 → 外部 IdP 連線） |
 | POST   | `/oidc-interaction/:uid/external` | `@Public`                  |
 | GET    | `/oidc-interaction/:uid/external/complete` | `@Public`（一次性 ticket ＋ 互動 cookie） |
+| POST   | `/oidc-interaction/external/saml/acs` | `@Public`（SAML 的 ACS；RelayState ＋ 綁定 cookie ＋ 簽章的回應就是憑證，[`architecture/04-sso.md`](../04-sso.md) §3.3.2） |
+| GET    | `/oidc-interaction/external/saml/metadata/:tenantId/:providerId` | `@Public`（SP metadata，公開資訊） |
 | POST   | `/auth/logout`              | `@Public`（有 bearer 時在 service 照 `JwtAuthGuard` 的規則驗證；沒有時以 refresh cookie 認人，要求 `x-refresh-request: 1`，[`architecture/04-sso.md`](../04-sso.md) §3.4） |
 | GET    | `/auth/profile`             | `@Authenticated`                 |
 | PATCH  | `/auth/profile`             | `@Authenticated`                 |
@@ -728,6 +731,8 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | POST   | `/users/:id/reset-password` | `user:resetPassword`             |
 | POST   | `/users/:id/unlock`         | `user:update`                    |
 | GET    | `/users/:id/mfa`            | `user:read`（[`backend/21-mfa.md`](21-mfa.md) §8） |
+| GET    | `/users/:userId/identities` | `user:read`（租戶啟用 `identityProvider`；[`architecture/04-sso.md`](../04-sso.md) §3.3.4） |
+| DELETE | `/users/:userId/identities/:identityId` | `user:update`（同上；目標是 super-admin 時操作者也要是） |
 | POST   | `/users/:id/mfa/reset`      | `user:resetMfa`（目標持有 super-admin 時操作者也要是 super-admin） |
 | GET    | `/mfa/policy`               | `mfaPolicy:read`（[`backend/21-mfa.md`](21-mfa.md) §6） |
 | POST   | `/mfa/policy/preview`       | `mfaPolicy:read`                 |

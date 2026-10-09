@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { Injectable } from '@nestjs/common';
@@ -6,7 +7,7 @@ import { AppException } from '@/core/errors';
 import type { ErrorCode } from '@/core/errors';
 import { getRequestContext } from '@/core/http';
 import { MFA_RECOVERY_METHOD } from '@/core/mfa';
-import type { MfaRealm } from '@/core/mfa';
+import type { MfaFactor, MfaMethod, MfaPasswordless, MfaRealm } from '@/core/mfa';
 import { ipPrefixOf, LoginThrottle } from '@/core/rate-limit';
 import { Tenancy } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
@@ -36,6 +37,12 @@ export type MfaRequirement = 'none' | 'challenge' | 'enroll' | 'unavailable';
 
 /** `POST /oidc-interaction/:uid/login` 的回應（§4）。 */
 export type SsoLoginResult = { redirectTo: string } | SsoMfaChallengeNextDto | SsoMfaEnrollNextDto;
+
+/** 通行金鑰登入時，同一個憑證 id 最多看幾個因子（正常只有一個；多的是被刻意複製的憑證 id）。 */
+const PASSKEY_CANDIDATES = 5;
+
+/** 通行金鑰登入通過之後、完成互動之前的檢查（例：只允許 SSO 的網域）；不通過就拋 AppException。 */
+export type PasskeyLoginGuard = (stored: MfaStoredAccount) => Promise<void>;
 
 /** 第二步的脈絡：互動、它的 MfaPending、帳號。 */
 interface PendingContext {
@@ -180,6 +187,128 @@ export class MfaLoginService {
         .map((factor) => this.mfa.factorDto(factor, stored.account, available)),
       recoveryAvailable: recoveryCodes > 0,
     };
+  }
+
+  // ── 通行金鑰登入（docs/architecture/04-sso.md §3.6）─────────────
+
+  /**
+   * 這個身分範圍（租戶的要在 `Tenancy.run` 裡）能不能以通行金鑰取代密碼：方式本身可用（平台開關 ∩ 租戶政策）、
+   * 而且它的 `passwordless` 開啟。回傳那個方式。
+   */
+  async passkeyMethod(
+    realm: MfaRealm,
+  ): Promise<(MfaMethod & { passwordless: MfaPasswordless<unknown> }) | null> {
+    const methods = await this.mfa.availableMethods(this.mfa.store(realm));
+    const method = methods.find((candidate) => candidate.passwordless?.enabled());
+    return method?.passwordless ? { ...method, passwordless: method.passwordless } : null;
+  }
+
+  /** 發出不指定憑證的 challenge；同一個互動重試時換新的。 */
+  async startPasskey(uid: string, realm: MfaRealm): Promise<Record<string, unknown>> {
+    const method = await this.passkeyMethod(realm);
+    if (!method) throw new AppException('AUTH_PASSKEY_UNAVAILABLE');
+    const started = await method.passwordless.begin();
+    await this.oidc.savePasskeyLogin(
+      uid,
+      { method: method.definition.id, state: started.state },
+      started.expiresInSeconds,
+    );
+    return started.publicData;
+  }
+
+  /**
+   * 驗證通行金鑰並完成互動（取代密碼 ＋ 第二步）。以回應的憑證 id 找因子，user handle 必須是那個因子的帳號；
+   * 驗證交給方式的 `verify`（框架把 challenge 存成一筆 login 的 challenge，計數與重放照舊）。
+   * 失敗一律 `AUTH_PASSKEY_INVALID`，不累計帳號的鎖定：拿得到別人的憑證 id 不代表能猜，卻能藉此把人鎖住。
+   */
+  async verifyPasskey(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+    realm: MfaRealm,
+    payload: unknown,
+    guard: PasskeyLoginGuard,
+  ): Promise<{ redirectTo: string }> {
+    const pending = await this.oidc.takePasskeyLogin(uid);
+    const method = await this.passkeyMethod(realm);
+    if (!pending || !method || method.definition.id !== pending.method) {
+      throw new AppException('AUTH_PASSKEY_INVALID');
+    }
+    const parsed = method.verifySchema.safeParse(payload);
+    const located = parsed.success ? method.passwordless.locate(parsed.data) : null;
+    if (!located?.accountHandle) throw new AppException('AUTH_PASSKEY_INVALID');
+
+    const store = this.mfa.store(realm);
+    const found = await this.findPasskeyOwner(store, method, located);
+    if (!found) throw new AppException('AUTH_PASSKEY_INVALID');
+    const { factor, stored } = found;
+
+    const challengeId = randomUUID();
+    await store.repo.insertChallenge({
+      id: challengeId,
+      accountId: stored.account.id,
+      factorId: factor.id,
+      purpose: 'login',
+      interactionUid: uid,
+      state: pending.state,
+      expiresAt: pending.expiresAt,
+      resendAfter: new Date(),
+    });
+    const outcome = await this.mfa.verifyFactor(
+      store,
+      stored,
+      factor,
+      challengeId,
+      payload,
+      'login',
+    );
+    if (!outcome.ok) {
+      await store.audit({
+        kind: 'loginFailure',
+        target: stored.account,
+        result: 'failure',
+        errorCode: 'AUTH_PASSKEY_INVALID',
+        metadata: { step: 'passkey', method: factor.method, mfaReason: outcome.reason },
+      });
+      throw new AppException('AUTH_PASSKEY_INVALID');
+    }
+    await guard(stored);
+
+    // 持有（綁 origin 的金鑰）＋ 使用者驗證（生物辨識或 PIN）：本身就是多因素（RFC 8176 的 `mfa`）
+    const amr = [method.definition.amr, 'mfa'];
+    await store.completeLogin(stored, { amr, mfaMethod: factor.method });
+    const redirectTo = await this.oidc.finishInteraction(req, res, {
+      login: { accountId: store.oidcAccountId(stored.account.id), amr },
+    });
+    return { redirectTo };
+  }
+
+  /**
+   * 憑證 id 對到的因子中，帳號識別與回應相符、而且帳號可以登入的那一個。鎖定中的帳號可以登入：鎖定是擋猜密碼，
+   * 通行金鑰猜不到（與外部 IdP 相同，docs/architecture/backend/04-auth.md §3.3）。
+   */
+  private async findPasskeyOwner(
+    store: MfaAccountStore,
+    method: MfaMethod & { passwordless: MfaPasswordless<unknown> },
+    located: { configKey: string; value: string; accountHandle: string | null },
+  ): Promise<{ factor: MfaFactor; stored: MfaStoredAccount } | null> {
+    const factors = await store.repo.findActiveFactorsByConfig(
+      method.definition.id,
+      located.configKey,
+      located.value,
+      PASSKEY_CANDIDATES,
+    );
+    for (const factor of factors) {
+      // oxlint-disable-next-line no-await-in-loop -- 候選最多幾筆，通常只有一筆
+      const stored = await store.findAccount(factor.accountId);
+      if (
+        stored?.active &&
+        method.passwordless.accountHandle(stored.account) === located.accountHandle
+      ) {
+        return { factor, stored };
+      }
+    }
+    return null;
   }
 
   // ── 互動的端點 ─────────────────────────────────────────

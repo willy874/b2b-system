@@ -136,6 +136,23 @@
       "noMatch": "No matching departments",
       "primary": "Primary",
       "manager": "Manager"
+    },
+    "identities": {
+      "title": "External identities",
+      "hint": "Identities from external IdPs (OIDC, SAML) linked to this account. Unlink one that belongs to someone else or that the person no longer uses; signing in with it later matches an account by email again.",
+      "empty": "No linked external identities",
+      "provider": "Connection",
+      "subject": "External identifier",
+      "lastLoginAt": "Last sign-in",
+      "providerDeleted": "connection deleted",
+      "protocol": {
+        "oidc": "OIDC",
+        "saml": "SAML 2.0"
+      },
+      "unlink": "Unlink",
+      "unlinkTitle": "Unlink external identity",
+      "unlinkConfirm": "Unlink \"{{provider}}\"? Signing in with it later matches an account again; an SSO-only account without a password may be unable to sign in.",
+      "unlinked": "Identity unlinked"
     }
   }
 }

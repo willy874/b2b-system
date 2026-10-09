@@ -1,9 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, countDistinct, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, countDistinct, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
-import type { IdentityProviderInsert, IdentityProviderRow, UserIdentityRow } from '@/db/schema';
+import type {
+  IdentityProviderInsert,
+  IdentityProviderProtocol,
+  IdentityProviderRow,
+  UserIdentityRow,
+} from '@/db/schema';
 import {
   identityProviderDomains,
   identityProviders,
@@ -19,6 +24,13 @@ export interface ProviderDomain {
 
 export interface ProviderWithDomains extends IdentityProviderRow {
   domains: ProviderDomain[];
+}
+
+/** 管理員檢視的外部身分：連線已刪除的也列出（名稱照舊）。 */
+export interface UserIdentityWithProvider extends UserIdentityRow {
+  providerName: string;
+  protocol: IdentityProviderProtocol;
+  providerDeleted: boolean;
 }
 
 // 單表 select 時 Drizzle 把 ${identityProviders.id} 輸出成不帶表名的 "id"；明確寫出表名才會關聯到外層
@@ -208,6 +220,59 @@ export class IdentityProviderRepository {
   /** 刪除單一連結（指向已刪除的帳號）。 */
   async deleteIdentity(id: string): Promise<void> {
     await this.db.delete(userIdentities).where(eq(userIdentities.id, id));
+  }
+
+  /** 帳號存在且未刪除（列出外部身分之前確認）。 */
+  async userExists(userId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, userId), notDeleted(users)))
+      .limit(1);
+    return Boolean(row);
+  }
+
+  async listIdentitiesOfUser(userId: string): Promise<UserIdentityWithProvider[]> {
+    const rows = await this.db
+      .select({
+        identity: userIdentities,
+        providerName: identityProviders.name,
+        protocol: identityProviders.protocol,
+        providerDeletedAt: identityProviders.deletedAt,
+      })
+      .from(userIdentities)
+      .innerJoin(identityProviders, eq(identityProviders.id, userIdentities.providerId))
+      .where(eq(userIdentities.userId, userId))
+      .orderBy(desc(userIdentities.linkedAt));
+    return rows.map((row) => ({
+      ...row.identity,
+      providerName: row.providerName,
+      protocol: row.protocol,
+      providerDeleted: row.providerDeletedAt !== null,
+    }));
+  }
+
+  /** 屬於這個（未刪除的）帳號的一筆外部身分，連同帳號的 email（稽核的資源名稱）。 */
+  async findIdentityOfUser(
+    userId: string,
+    identityId: string,
+  ): Promise<(UserIdentityRow & { userEmail: string }) | undefined> {
+    const [row] = await this.db
+      .select({ identity: userIdentities, userEmail: users.email })
+      .from(userIdentities)
+      .innerJoin(users, and(eq(users.id, userIdentities.userId), notDeleted(users)))
+      .where(and(eq(userIdentities.id, identityId), eq(userIdentities.userId, userId)))
+      .limit(1);
+    return row && { ...row.identity, userEmail: row.userEmail };
+  }
+
+  /** 刪除屬於這個帳號的一筆外部身分；回傳是否刪到（併發的另一次解除已刪掉時是 false）。 */
+  async deleteIdentityOfUser(userId: string, identityId: string, tx: DbOrTx): Promise<boolean> {
+    const rows = await tx
+      .delete(userIdentities)
+      .where(and(eq(userIdentities.id, identityId), eq(userIdentities.userId, userId)))
+      .returning({ id: userIdentities.id });
+    return rows.length > 0;
   }
 
   async touchIdentity(id: string): Promise<void> {

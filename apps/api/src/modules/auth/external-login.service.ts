@@ -15,10 +15,12 @@ import { AuditService } from '@/modules/audit-log/audit.service';
 import { sha256 } from '@/modules/credential/token-hash';
 import { ExternalOidcClient } from '@/modules/identity-provider/external-oidc.client';
 import type { ExternalIdentity } from '@/modules/identity-provider/external-oidc.client';
+import { ExternalSamlClient } from '@/modules/identity-provider/external-saml.client';
 import {
   domainOf,
   IdentityProviderService,
 } from '@/modules/identity-provider/identity-provider.service';
+import type { ProviderLoginConfig } from '@/modules/identity-provider/identity-provider.service';
 import { tenantAccountId } from '@/modules/oidc-provider/oidc-account';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import type {
@@ -43,16 +45,32 @@ export interface ExternalLoginCookie {
   options: {
     httpOnly: true;
     secure: boolean;
-    sameSite: 'lax';
+    /** OIDC 的 callback 是跨站的頂層 GET（Lax 會帶上）；SAML 的 ACS 是跨站的 POST，只有 None 會帶上。 */
+    sameSite: 'lax' | 'none';
     path: string;
     maxAge: number;
   };
+}
+
+/** SAML 的 ACS 收到的表單（HTTP-POST binding）。 */
+export interface SamlAcsForm {
+  SAMLResponse?: string;
+  RelayState?: string;
 }
 
 /** callback 的結果：瀏覽器要跳去哪裡，以及要清掉的綁定 cookie。 */
 export interface ExternalCallbackResult {
   location: string;
   clearCookies: Array<{ name: string; path: string }>;
+}
+
+/** 記錄失敗、作廢登入狀態，回傳要跳去的錯誤頁。 */
+type FailFn = (code: ErrorCode, reason: string, error?: unknown) => Promise<string>;
+
+/** 外部 IdP 驗證通過：外部身分與當下的連線設定（帳號對應要看連線的網域與政策）。 */
+interface Identified {
+  identity: ExternalIdentity;
+  login: ProviderLoginConfig;
 }
 
 function random(bytes = 32): string {
@@ -82,6 +100,7 @@ export class ExternalLoginService {
     @Inject(TENANT_DB) private readonly db: Database,
     private readonly providers: IdentityProviderService,
     private readonly client: ExternalOidcClient,
+    private readonly saml: ExternalSamlClient,
     private readonly oidc: OidcProviderService,
     private readonly users: UserAccountService,
     private readonly audit: AuditService,
@@ -126,18 +145,12 @@ export class ExternalLoginService {
     if (!login) throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
 
     const state = random();
-    const nonce = random();
-    const codeVerifier = random();
     let redirectTo: string;
+    let protocolState: { codeVerifier: string; nonce: string; samlRequestId?: string };
     try {
-      redirectTo = await this.client.authorizationUrl(login.config, {
-        redirectUri: this.providers.callbackUrl(),
-        state,
-        nonce,
-        codeChallenge: createHash('sha256').update(codeVerifier).digest('base64url'),
-      });
+      ({ redirectTo, protocolState } = await this.authorizationRequest(login, state));
     } catch (error) {
-      this.logger.warn({ err: error, providerId }, '外部 IdP discovery 失敗');
+      this.logger.warn({ err: error, providerId }, '外部 IdP 的授權請求產生失敗');
       throw new AppException('AUTH_SSO_PROVIDER_UNAVAILABLE');
     }
     const binding = random();
@@ -147,12 +160,13 @@ export class ExternalLoginService {
         interactionUid: uid,
         tenantId: tenant.id,
         providerId,
-        codeVerifier,
-        nonce,
+        protocol: login.protocol,
+        ...protocolState,
         bindingHash: sha256(binding),
       },
       EXTERNAL_LOGIN_TTL_SECONDS,
     );
+    const saml = login.protocol === 'saml';
     return {
       redirectTo,
       binding: {
@@ -160,23 +174,57 @@ export class ExternalLoginService {
         value: binding,
         options: {
           httpOnly: true,
-          secure: this.secureCookies,
-          // 外部 IdP 跳回 callback 是跨站的頂層 GET：Lax 會帶上
-          sameSite: 'lax',
-          // 只送到固定的 callback（瀏覽器看到的路徑，含反向代理的前綴）
-          path: this.bindingCookiePath(),
+          // SameSite=None 一定要 Secure（瀏覽器規定；http://localhost 也接受 Secure）
+          secure: saml || this.secureCookies,
+          // 外部 IdP 跳回 OIDC 的 callback 是跨站的頂層 GET：Lax 會帶上。SAML 的 IdP 以跨站的 POST 送到 ACS：
+          // Lax 不會帶上，只能 None；path 只到 ACS，其他請求都不帶
+          sameSite: saml ? 'none' : 'lax',
+          // 只送到固定的 callback／ACS（瀏覽器看到的路徑，含反向代理的前綴）
+          path: this.bindingCookiePath(login.protocol),
           maxAge: EXTERNAL_LOGIN_TTL_SECONDS * 1000,
         },
       },
     };
   }
 
+  /**
+   * 依協定產生要跳轉的授權網址與要記下的狀態：OIDC 是 PKCE ＋ nonce（state 在網址上）；
+   * SAML 是 AuthnRequest（HTTP-Redirect binding，state 放在 RelayState）與它的 ID。
+   */
+  private async authorizationRequest(
+    login: ProviderLoginConfig,
+    state: string,
+  ): Promise<{
+    redirectTo: string;
+    protocolState: { codeVerifier: string; nonce: string; samlRequestId?: string };
+  }> {
+    if (login.protocol === 'saml') {
+      const { url, requestId } = await this.saml.authorizationUrl(login.config, login.sp, {
+        relayState: state,
+      });
+      return {
+        redirectTo: url,
+        protocolState: { codeVerifier: '', nonce: '', samlRequestId: requestId },
+      };
+    }
+    const nonce = random();
+    const codeVerifier = random();
+    const redirectTo = await this.client.authorizationUrl(login.config, {
+      redirectUri: this.providers.callbackUrl(),
+      state,
+      nonce,
+      codeChallenge: createHash('sha256').update(codeVerifier).digest('base64url'),
+    });
+    return { redirectTo, protocolState: { codeVerifier, nonce } };
+  }
+
   private bindingCookieName(state: string): string {
     return `${BINDING_COOKIE_PREFIX}${sha256(state).slice(0, 16)}`;
   }
 
-  private bindingCookiePath(): string {
-    return new URL(this.providers.callbackUrl()).pathname;
+  private bindingCookiePath(protocol: ProviderLoginConfig['protocol']): string {
+    const url = protocol === 'saml' ? this.providers.samlAcsUrl() : this.providers.callbackUrl();
+    return new URL(url).pathname;
   }
 
   // ── 2. 外部 IdP 回來 ──────────────────────────────────────
@@ -193,15 +241,47 @@ export class ExternalLoginService {
     const { state } = query;
     if (!state)
       return { location: this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED'), clearCookies: [] };
+    return this.handleReturn(state, 'oidc', cookies, (pending, fail) =>
+      this.exchangeOidc(query, rawQuery, state, pending, fail),
+    );
+  }
+
+  /**
+   * SAML 的 Assertion Consumer Service（HTTP-POST binding，docs/architecture/04-sso.md §3.3.2）：以 RelayState 找回登入狀態，
+   * 之後與 OIDC 的 callback 相同（綁定 cookie、帳號對應、ticket）。同樣不拋例外。
+   */
+  async samlAcs(
+    form: SamlAcsForm,
+    cookies: Record<string, string | undefined> = {},
+  ): Promise<ExternalCallbackResult> {
+    const state = form.RelayState;
+    if (!state)
+      return { location: this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED'), clearCookies: [] };
+    return this.handleReturn(state, 'saml', cookies, (pending, fail) =>
+      this.validateSaml(form, pending, fail),
+    );
+  }
+
+  /**
+   * 外部 IdP 回來之後兩種協定共用的部分：找回登入狀態、進入它的租戶、比對綁定 cookie、取得外部身分（依協定）、
+   * 對應帳號、換成 ticket 跳到 complete。綁定 cookie 不論成敗都清掉。
+   */
+  private async handleReturn(
+    state: string,
+    protocol: ProviderLoginConfig['protocol'],
+    cookies: Record<string, string | undefined>,
+    identify: (pending: ExternalLoginState, fail: FailFn) => Promise<Identified | string>,
+  ): Promise<ExternalCallbackResult> {
     const name = this.bindingCookieName(state);
-    const clearCookies = [{ name, path: this.bindingCookiePath() }];
+    const clearCookies = [{ name, path: this.bindingCookiePath(protocol) }];
     const pending = await this.oidc.findExternalLogin(state);
-    if (!pending)
+    // 協定不符（拿 SAML 的 RelayState 打 OIDC 的 callback，或反過來）當作找不到
+    if (!pending || (pending.protocol ?? 'oidc') !== protocol)
       return { location: this.errorPage(undefined, 'AUTH_SSO_EXTERNAL_FAILED'), clearCookies };
     // 固定的 callback 不在任何租戶網域上：以登入狀態記下的租戶進入
     try {
       const location = await this.tenancy.run(pending.tenantId, () =>
-        this.finishCallback(query, rawQuery, state, pending, cookies[name]),
+        this.finishReturn(state, pending, cookies[name], identify),
       );
       return { location, clearCookies };
     } catch (error) {
@@ -213,46 +293,37 @@ export class ExternalLoginService {
     }
   }
 
-  private async finishCallback(
-    query: { error?: string },
-    rawQuery: string,
+  private async finishReturn(
     state: string,
     pending: ExternalLoginState,
     binding: string | undefined,
+    identify: (pending: ExternalLoginState, fail: FailFn) => Promise<Identified | string>,
   ): Promise<string> {
-    const fail = async (code: ErrorCode, reason: string, error?: unknown) => {
+    const fail: FailFn = async (code, reason, error) => {
       await this.oidc.consumeExternalLogin(state);
       await this.audit.recordSafely({
         action: 'auth.login.failure',
         resourceType: 'auth',
         result: 'failure',
         errorCode: code,
-        metadata: { method: 'sso', providerId: pending.providerId, reason },
+        metadata: {
+          method: 'sso',
+          protocol: pending.protocol ?? 'oidc',
+          providerId: pending.providerId,
+          reason,
+        },
       });
       if (error) this.logger.warn({ err: error, providerId: pending.providerId }, reason);
       return this.errorPage(pending.interactionUid, code);
     };
 
-    // 跳回來的不是發起登入的瀏覽器：在兌換授權碼之前就拒絕，也不寫 accountId
+    // 回來的不是發起登入的瀏覽器：在兌換授權碼（驗證 SAML 回應）之前就拒絕，也不寫 accountId
     if (!pending.bindingHash || !binding || sha256(binding) !== pending.bindingHash) {
       return fail('AUTH_SSO_EXTERNAL_FAILED', 'browser_mismatch');
     }
-    // 使用者在外部 IdP 按了取消，或外部 IdP 拒絕
-    if (query.error) return fail('AUTH_SSO_EXTERNAL_FAILED', `external_error:${query.error}`);
-    const login = await this.providers.loginConfig(pending.providerId);
-    if (!login) return fail('AUTH_SSO_PROVIDER_UNAVAILABLE', 'provider_unavailable');
-
-    let identity: ExternalIdentity;
-    try {
-      identity = await this.client.exchange(login.config, {
-        currentUrl: `${this.providers.callbackUrl()}${rawQuery ? `?${rawQuery}` : ''}`,
-        state,
-        nonce: pending.nonce,
-        codeVerifier: pending.codeVerifier,
-      });
-    } catch (error) {
-      return fail('AUTH_SSO_EXTERNAL_FAILED', 'exchange_failed', error);
-    }
+    const identified = await identify(pending, fail);
+    if (typeof identified === 'string') return identified;
+    const { identity, login } = identified;
 
     let user: UserRow;
     try {
@@ -269,7 +340,7 @@ export class ExternalLoginService {
       resourceId: user.id,
       actorId: user.id,
       actorEmail: user.email,
-      metadata: { method: 'sso', providerId: login.provider.id },
+      metadata: { method: 'sso', protocol: login.protocol, providerId: login.provider.id },
     });
     // 完成互動的 ticket 與 state 脫鉤：state 從一開始就在發起者手上，ticket 只交給通過綁定檢查的這個瀏覽器
     const ticket = random();
@@ -281,6 +352,73 @@ export class ExternalLoginService {
     await this.oidc.consumeExternalLogin(state);
     const complete = new URLSearchParams({ ticket });
     return `${this.apiBase}/oidc-interaction/${pending.interactionUid}/external/complete?${complete.toString()}`;
+  }
+
+  /** OIDC：兌換授權碼、驗證 ID token。失敗時回傳錯誤頁的網址（`fail` 的結果）。 */
+  private async exchangeOidc(
+    query: { error?: string },
+    rawQuery: string,
+    state: string,
+    pending: ExternalLoginState,
+    fail: FailFn,
+  ): Promise<Identified | string> {
+    // 使用者在外部 IdP 按了取消，或外部 IdP 拒絕
+    if (query.error) return fail('AUTH_SSO_EXTERNAL_FAILED', `external_error:${query.error}`);
+    const login = await this.providers.loginConfig(pending.providerId);
+    if (login?.protocol !== 'oidc')
+      return fail('AUTH_SSO_PROVIDER_UNAVAILABLE', 'provider_unavailable');
+    try {
+      const identity = await this.client.exchange(login.config, {
+        currentUrl: `${this.providers.callbackUrl()}${rawQuery ? `?${rawQuery}` : ''}`,
+        state,
+        nonce: pending.nonce,
+        codeVerifier: pending.codeVerifier,
+      });
+      return { identity, login };
+    } catch (error) {
+      return fail('AUTH_SSO_EXTERNAL_FAILED', 'exchange_failed', error);
+    }
+  }
+
+  /**
+   * SAML：驗證回應（簽章、Issuer、Audience、時間、`InResponseTo` 必須是這次的 AuthnRequest）。
+   * 同一份回應不能用兩次：RelayState 的登入狀態在成功或失敗時都作廢，`InResponseTo` 也只認那一次的 request。
+   */
+  private async validateSaml(
+    form: SamlAcsForm,
+    pending: ExternalLoginState,
+    fail: FailFn,
+  ): Promise<Identified | string> {
+    if (!form.SAMLResponse || !pending.samlRequestId) {
+      return fail('AUTH_SSO_EXTERNAL_FAILED', 'saml_response_missing');
+    }
+    const login = await this.providers.loginConfig(pending.providerId);
+    if (login?.protocol !== 'saml')
+      return fail('AUTH_SSO_PROVIDER_UNAVAILABLE', 'provider_unavailable');
+    try {
+      const identity = await this.saml.validate(login.config, login.sp, {
+        samlResponse: form.SAMLResponse,
+        requestId: pending.samlRequestId,
+      });
+      return { identity, login };
+    } catch (error) {
+      return fail('AUTH_SSO_EXTERNAL_FAILED', 'saml_validation_failed', error);
+    }
+  }
+
+  /**
+   * SAML 連線的 SP metadata（給 IdP 匯入）。固定的端點不在租戶網域上，租戶 id 在路徑裡（也是 SP 的 entity ID）。
+   * 租戶不存在、不能進入、連線不是 SAML 時一律 `IDENTITY_PROVIDER_NOT_FOUND`（不洩漏是哪一項）。
+   */
+  async samlMetadata(tenantId: string, providerId: string): Promise<string> {
+    try {
+      return await this.tenancy.run(tenantId, () =>
+        this.providers.serviceProviderMetadata(providerId),
+      );
+    } catch (error) {
+      if (error instanceof AppException) throw new AppException('IDENTITY_PROVIDER_NOT_FOUND');
+      throw error;
+    }
   }
 
   // ── 3. 完成互動 ───────────────────────────────────────────

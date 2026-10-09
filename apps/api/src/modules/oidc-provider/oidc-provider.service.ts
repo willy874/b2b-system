@@ -42,8 +42,13 @@ const ExternalLoginStateSchema = z.object({
   /** 這次登入的租戶（外部 IdP 連線屬於租戶，docs/architecture/05-tenancy.md §10.2 D18）。 */
   tenantId: z.string(),
   providerId: z.string(),
+  /** 沒有時是 OIDC（加入 SAML 之前存的列）。 */
+  protocol: z.enum(['oidc', 'saml']).optional(),
+  /** OIDC 才有意義；SAML 存空字串。 */
   codeVerifier: z.string(),
   nonce: z.string(),
+  /** SAML 的 AuthnRequest ID：回應的 `InResponseTo` 必須是它（docs/architecture/04-sso.md §3.3.2）。 */
+  samlRequestId: z.string().optional(),
   /** 發起登入的瀏覽器拿到的綁定 cookie 的 SHA-256：callback 必須來自同一個瀏覽器。 */
   bindingHash: z.string().optional(),
   /** 驗證通過、對應到帳號之後才有。 */
@@ -79,6 +84,21 @@ const MfaPendingSchema = z.object({
 export type MfaPending = z.infer<typeof MfaPendingSchema>;
 
 const MFA_PENDING = 'MfaPending';
+
+/**
+ * 通行金鑰登入（docs/architecture/04-sso.md §3.6）：發出的 challenge，id 是互動的 uid。還不知道是誰，所以不是 `MfaPending`；
+ * 驗證時只能用一次（條件式消耗），用掉或過期就要重新取得。
+ */
+const PasskeyLoginSchema = z.object({
+  /** 發 challenge 的方式（`MfaMethod.passwordless`）。 */
+  method: z.string(),
+  /** 方式的狀態（WebAuthn：challenge、RP ID），驗證時存成一筆 login 的 challenge 交給方式。 */
+  state: z.record(z.string(), z.unknown()),
+});
+
+export type PasskeyLogin = z.infer<typeof PasskeyLoginSchema>;
+
+const PASSKEY_LOGIN = 'PasskeyLogin';
 
 /** 互動頁需要的資訊（不含 provider 內部物件）。 */
 export interface InteractionSummary {
@@ -503,6 +523,43 @@ export class OidcProviderService implements OnModuleInit, OnModuleDestroy {
   /** 作廢（失敗太多次、帳號已不能登入）：要從密碼重新開始。 */
   async destroyMfaPending(interactionUid: string): Promise<void> {
     await this.repo.destroy(MFA_PENDING, interactionUid);
+  }
+
+  // ── 通行金鑰登入（docs/architecture/04-sso.md §3.6）──────────────
+
+  async savePasskeyLogin(
+    interactionUid: string,
+    value: PasskeyLogin,
+    ttlSeconds: number,
+  ): Promise<void> {
+    // 同一個互動重試時換新的 challenge：先刪掉舊的（upsert 不會清掉已消耗的標記）
+    await this.repo.destroy(PASSKEY_LOGIN, interactionUid);
+    await this.repo.upsert({
+      type: PASSKEY_LOGIN,
+      id: interactionUid,
+      payload: { ...value },
+      grantId: null,
+      uid: interactionUid,
+      userCode: null,
+      expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+    });
+  }
+
+  /**
+   * 取出並消耗：同一個 challenge 只能驗證一次（失敗也算），兩個併發的驗證只有一個拿得到。
+   * 不存在、過期、已用過時回 undefined。回傳到期時間：存成 challenge 時沿用。
+   */
+  async takePasskeyLogin(
+    interactionUid: string,
+  ): Promise<(PasskeyLogin & { expiresAt: Date }) | undefined> {
+    const row = await this.repo.find(PASSKEY_LOGIN, interactionUid);
+    if (!row || row.consumedAt || !row.expiresAt || row.expiresAt.getTime() <= Date.now()) {
+      return undefined;
+    }
+    const parsed = PasskeyLoginSchema.safeParse(row.payload);
+    if (!parsed.success) return undefined;
+    if (!(await this.repo.consumeOnce(PASSKEY_LOGIN, interactionUid))) return undefined;
+    return { ...parsed.data, expiresAt: row.expiresAt };
   }
 
   // ── 單一登出（D5）───────────────────────────────────────

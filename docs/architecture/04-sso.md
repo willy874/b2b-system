@@ -11,8 +11,9 @@
                  頂層跳轉（授權碼、end-session）；沒有跨域 cookie、iframe、postMessage
    ┌────────────────────────┐        ┌───────────────────────────────────────────┐        ┌──────────────────┐
    │ backstage（每個租戶一個網域）│◀──▶│ apps/platform :5175（IdP 的 origin，不屬於租戶）│◀──────▶│ 外部 IdP          │
-   │ （RP：public client）   │        │  /interaction/:uid  登入互動頁              │        │ Google／Azure AD │
-   │ cookie：refresh（本 origin）│    │  /  平台管理者；帳號流程 ?tenant=           │        │ （OIDC）          │
+   │ （RP：public client）   │        │  /interaction/:uid  登入互動頁              │        │ OIDC：Google、    │
+   │ cookie：refresh（本 origin）│    │  /  平台管理者；帳號流程 ?tenant=           │        │ Entra、Okta…      │
+   │                        │        │  通行金鑰（WebAuthn，RP ID = 這個網域）     │        │ SAML 2.0：ADFS…   │
    └──────────┬─────────────┘        │ cookie：IdP session、互動、refresh（本 origin）│       └──────────────────┘
               │ /api                  └──────────────────┬────────────────────────┘
               ▼                                          │ /api
@@ -20,13 +21,14 @@
    │ apps/api（同一個程序）                                                                        │
    │  modules/oidc-provider   oidc-provider 掛在 /oidc（issuer = apps/platform origin 的 /api/oidc）    │
    │  modules/auth            登入互動端點、BFF（/auth/sso/callback）、外部 IdP 登入（ExternalLoginService）│
-   │  modules/identity-provider  外部 IdP 連線、openid-client（RP）、帳號 ↔ 外部身分                │
+   │  modules/identity-provider  外部 IdP 連線、openid-client（OIDC RP）、node-saml（SAML SP）、帳號 ↔ 外部身分 │
    └───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **我們自己當 IdP**：`apps/api` 是 OIDC Provider（[`oidc-provider`](https://github.com/panva/node-oidc-provider)），
   `apps/platform` 提供互動頁。每個產品（backstage、之後建在骨架上的其他前端）都是它的 client。
-- **外部 IdP 是登入互動裡的一種登入方式**：產品只認識我們的 IdP，不直接接 Google／Azure AD。
+- **外部 IdP 是登入互動裡的一種登入方式**：產品只認識我們的 IdP，不直接接 Google／Azure AD。外部 IdP 可以是 OIDC（含 Google、Entra、Okta、Keycloak 的範本）
+  或 SAML 2.0（§3.3）；登入互動裡另有以通行金鑰取代密碼的登入（§3.6）。決定與理由見 §12.6。
 - **身分分屬租戶與平台**（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D5–D9）：同一個 email 在每個租戶、在平台都是不同的帳號。
   backstage 的使用者在各租戶 DB；apps/platform 只給平台管理者登入（平台 DB 的 `platform_admins`）。見 §1.1。
 - **只拆前端**：`apps/platform` 沒有自己的後端（§12.2 D2）。
@@ -117,7 +119,7 @@ backstage /auth/callback
 4. 頁面 **頂層跳轉** 到 resume 網址（fetch 跟隨跳轉時 IdP session cookie 設不起來）。
 5. `POST …/:uid/abort`：取消，產品收到 `error=access_denied`。
 
-### 3.3 登入互動：外部 IdP（D8–D10）
+### 3.3 登入互動：外部 IdP（D8–D10、§12.6）
 
 ```
 apps/platform /interaction/:uid
@@ -165,6 +167,70 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。
 
+### 3.3.1 OIDC 的範本（§12.6 D2、D3）
+
+連線的 `preset` 只改兩件事：**issuer 必須長什麼樣子**、**email 怎樣才算已驗證**（`modules/identity-provider/oidc-presets.ts`）。授權網址、兌換、簽章驗證都是同一份 openid-client 的流程。
+
+| 範本 | issuer | email 已驗證 |
+| --- | --- | --- |
+| `generic`（預設） | 不限 | `email_verified === true` |
+| `google`（Google Workspace） | `https://accounts.google.com` | `email_verified` 而且 `hd`（託管網域）等於 email 的網域：一般的 Gmail 帳號不算 |
+| `microsoft`（Entra ID） | `https://login.microsoftonline.com/<目錄 GUID>/v2.0`（`common`／`organizations` 不接受：會收任何目錄的帳號） | `email_verified`，或選用 claim `xms_edov`（email 的網域已由目錄驗證）是 true；要在 Entra 的應用程式註冊加上這個 claim |
+| `okta` | `https://<org>.okta.com`（或自訂授權伺服器 `…/oauth2/<id>`） | `email_verified === true` |
+| `keycloak` | `<base>/realms/<realm>` | `email_verified === true` |
+
+- issuer 不符範本時建立、更新回 `400 IDENTITY_PROVIDER_ISSUER_INVALID`（`details.preset`）；backstage 的表單依範本給欄位（Google 固定、Entra 只填目錄 ID）。
+- 判斷用的 claim 在 ID token：email 只在 userinfo 的 IdP，合併時 **ID token 優先**（userinfo 不能蓋掉 `hd`）。
+- 範本只影響「以 email 對應既有帳號、自動建立」；已連結的身分照舊以 `(provider, subject)` 登入。
+
+### 3.3.2 SAML 2.0（§12.6 D4–D8）
+
+```
+apps/platform /interaction/:uid
+  └─ 「使用 X 登入」→ POST …/:uid/external { providerId }（與 OIDC 同一個端點）
+       api：產生 AuthnRequest（HTTP-Redirect binding、不簽章），ID 存進 ExternalLogin（samlRequestId），RelayState = state
+            綁定 cookie：SameSite=None; Secure; path 只到 ACS
+       → { redirectTo: <IdP 的 SSO 網址>?SAMLRequest=…&RelayState=… }
+  └─ 頂層跳轉 → IdP 登入
+IdP 讓瀏覽器 POST /oidc-interaction/external/saml/acs（SAMLResponse、RelayState）            ← 跨站的表單 POST
+  api：以 RelayState 找回登入狀態（協定必須是 saml）→ 比對綁定 cookie → 進入它的租戶
+       → node-saml 驗證：assertion 必須簽章（只簽外層 Response 不算）、簽章憑證是連線登記的其中一張、
+         Issuer = 連線的 entity ID、Audience = 我們的 SP entity ID、時間（容許 2 分鐘誤差）、InResponseTo = 這次的 request ID
+       → 對應帳號（同 OIDC）→ 303 …/:uid/external/complete?ticket=   （303：跨站 POST 之後以 GET 跳轉，Lax 的互動 cookie 才帶得上）
+```
+
+| 項目 | 做法 |
+| --- | --- |
+| 我們這一端（SP） | entity ID ＝ SP metadata 的網址 `…/api/oidc-interaction/external/saml/metadata/<租戶 id>/<連線 id>`（公開，IdP 可以直接匯入）；ACS 所有連線共用一個 `…/api/oidc-interaction/external/saml/acs` |
+| 連線的設定 | `issuer` 欄存 IdP 的 entity ID（換掉時與 OIDC 換 issuer 一樣作廢所有連結）；`config` 存 SSO 網址、簽章憑證（PEM，最多 3 張：輪替時新舊並存）、NameID 格式、email 與名稱屬性。管理頁可以貼上 IdP 的 metadata 自動填入（瀏覽器解析，不送到伺服器） |
+| subject | NameID（建議 `persistent`；email 格式的 NameID 在使用者改 email 之後就對應不到） |
+| email | 指定的屬性；沒指定時依序找 `…/claims/emailaddress`、`urn:oid:0.9.2342.19200300.100.1.3`、`email`、`mail`；都沒有而 NameID 是 email 格式時用 NameID。SAML 沒有 `email_verified`：IdP 簽章斷言的 email 一律視為已驗證，防線是 §3.3 的「網域必須屬於這個連線、管理角色不自動連結」（D5） |
+| 防重放 | RelayState 的登入狀態用過即作廢（成功或失敗），`InResponseTo` 只認那一次的 request：同一份回應送兩次，第二次找不到登入狀態。不另存 assertion ID |
+| 只支援 SP 發起 | IdP 主動發起（沒有 `InResponseTo`）的回應一律拒絕：沒有我們發的 state，等於登入 CSRF（D6） |
+| 不支援 | AuthnRequest 簽章、assertion 加密、SAML 的單一登出（SLO）；HTTP-POST binding 的 AuthnRequest（metadata 只有 POST binding 的 IdP 不能用） |
+
+- node-saml 的 `idpIssuer` 只檢查登出訊息，登入的 assertion 由 `NodeSamlExternalClient` 自己比對 Issuer：同一張簽章憑證可能用在 IdP 的多個 entity（例：ADFS 所有的 relying party 共用一張）。
+- ACS 不走 `ZodValidationPipe`：這是 IdP 讓瀏覽器送來的表單，任何錯誤都跳回登入頁而不是回 JSON。
+- 綁定 cookie 只有 SAML 是 `SameSite=None`（一定要 `Secure`；`http://localhost` 也接受）：跨站的 POST 帶不上 Lax 的 cookie。path 只到 ACS，其他請求都不帶它。
+
+### 3.3.3 兩種協定共用的部分
+
+`ExternalLoginService` 以協定分成兩段：取得外部身分（OIDC 兌換授權碼、SAML 驗證回應），之後的「綁定 cookie、對應帳號、稽核、ticket、complete」完全相同（`handleReturn`）。
+`ExternalOidcClient`、`ExternalSamlClient` 都是抽象類別兼 DI token，整合測試可以換掉；SAML 的整合測試用 `scripts/mock-saml-idp.ts` 產生真的簽章。
+稽核的 `auth.login.*` 在 `metadata` 多記 `protocol`。
+
+### 3.3.4 帳號的外部身分：檢視與解除（§12.6 D11）
+
+| 端點 | 權限 | 說明 |
+| --- | --- | --- |
+| `GET /users/:userId/identities` | `user:read` | 連結的外部身分：連線名稱、協定、連線是否已刪除、subject、連結當下的 email、最後登入 |
+| `DELETE /users/:userId/identities/:identityId` | `user:update` | 解除連結（連錯了人、員工換了 IdP 帳號）；稽核 `userIdentity.unlink`。這個外部身分之後登入時重新走帳號對應 |
+
+- 兩個端點都要租戶啟用 `identityProvider`（否則 404，與連線管理相同）。
+- **反提權**：目標持有 super-admin（含經由群組）時，操作者也必須持有，否則 `403 AUTHZ_ESCALATION`。super-admin 不會被自動連結（§3.3），
+  解除之後只能以密碼登入；只允許 SSO 的網域等於被鎖在門外（與 MFA 重設相同的規則，[`backend/21-mfa.md`](./backend/21-mfa.md) §8）。
+- backstage：使用者詳情的「外部身分」區塊（`features/user`）。
+
 ### 3.4 單一登出（D5）
 
 ```
@@ -201,6 +267,37 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 仍能換到授權碼；所以未完成的互動一起作廢。provider 的 `findAccount` 找不到可用的帳號時，
 清掉 session 上的帳號、改走登入互動（否則 provider 會在沒有帳號的情況下檢查同意而拋錯）。
 
+### 3.6 登入互動：通行金鑰（§12.6 D9、D10）
+
+以已註冊的 WebAuthn 因子（通行金鑰）**取代密碼與第二步**。憑證本來就是 MFA 的因子（[`backend/21-mfa.md`](./backend/21-mfa.md) §9.3），這裡沒有新的註冊流程：
+平台參數開啟之後，同一把金鑰既是第二步，也可以直接登入。
+
+```
+apps/platform /interaction/:uid（details.passkeyLogin = true 時多一個「使用通行金鑰登入」）
+  └─ POST …/:uid/passkey/options
+       api：方式可用（平台開關 ∩ 租戶政策）且 passwordless 開啟（WebAuthn 的參數 passkeyLogin = enabled）
+            → 不帶 allowCredentials 的 authentication options（userVerification: required），狀態存 oidc_payloads 的 PasskeyLogin（5 分鐘）
+       → { publicData: { options } }
+  └─ 瀏覽器列出這個網域的通行金鑰 → 使用者以指紋、臉部或 PIN 確認
+  └─ POST …/:uid/passkey/login { payload: { response } }
+       api：取出並消耗 PasskeyLogin（同一個 challenge 只能驗證一次，失敗也算）
+            → 以回應的憑證 id 找 active 的 WebAuthn 因子（最多 5 筆），只認 user handle 與帳號相符的那一個
+            → 存成一筆 login 的 challenge，交給框架的 verifyFactor（簽章、計數、重放照舊）
+            → 只允許 SSO 的網域：AUTH_SSO_REQUIRED
+            → completeLogin（amr ['hwk', 'mfa']）→ finishInteraction → { redirectTo }
+```
+
+- **要求使用者驗證**：狀態帶 `userVerification: 'required'`，不看平台參數的 `userVerification`。只有「持有 ＋ 生物辨識或 PIN」才能取代「密碼 ＋ 第二因素」。
+- **找帳號**：還不知道是誰之前就發 challenge（discoverable credential）。憑證 id 由驗證器決定，惡意的軟體驗證器可以造一個與別人相同的 id，
+  所以同時比對回應的 user handle（註冊時給的 SHA-256(`t:{tenantId}:{userId}`)）：只會找到自己的因子，也不會因此擋住別人。
+  查詢以 `(config ->> 'credentialId')` 的部分索引（`method = 'webauthn'`），租戶與平台兩個 DB 各一個。
+- **失敗不累計鎖定**：拿得到別人的憑證 id 不代表能猜，卻能藉此把人鎖住；只寫 `auth.login.failure`（`step: 'passkey'`）。速率限制照 `auth`。
+  鎖定中的帳號可以用通行金鑰登入（鎖定是擋猜密碼，與外部 IdP 相同）；停用、待啟用的不行。
+- **不接受的情況**：產品要求新增驗證方式的登入（`mfa_enroll`，[`backend/21-mfa.md`](./backend/21-mfa.md) §7.1）要先以密碼重新驗證，回 `AUTH_PASSKEY_UNAVAILABLE`；
+  只允許 SSO 的網域（企業的 IdP 管理離職停用，要立即生效）。
+- 平台管理者一樣可以用（`PLATFORM_MFA_METHODS` 含 `webauthn`、參數開啟時）。
+- 錯誤一律 `AUTH_PASSKEY_INVALID`（不細分不認得的憑證、簽章不對、challenge 過期）；不能用時 `AUTH_PASSKEY_UNAVAILABLE`。
+
 ## 4. 端點
 
 | Method | Path（瀏覽器看到的前綴 `/api`） | 宣告 | 說明 |
@@ -220,6 +317,10 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 | POST | `/oidc-interaction/:uid/external` | `@Public` | 發起外部 IdP 登入 |
 | GET | `/oidc-interaction/external/callback` | `@Public` | 外部 IdP 跳回（固定網址） |
 | GET | `/oidc-interaction/:uid/external/complete` | `@Public` | 以 ticket 完成互動 |
+| POST | `/oidc-interaction/external/saml/acs` | `@Public` | SAML 的 ACS（固定網址，表單 POST）；303 到 complete（§3.3.2） |
+| GET | `/oidc-interaction/external/saml/metadata/:tenantId/:providerId` | `@Public` | SAML 連線的 SP metadata（網址就是 SP 的 entity ID） |
+| POST | `/oidc-interaction/:uid/passkey/options`、`…/passkey/login` | `@Public` | 通行金鑰登入（§3.6） |
+| GET／DELETE | `/users/:userId/identities`（`/:identityId`） | `user:read`／`user:update` | 帳號的外部身分（§3.3.4） |
 | GET／POST／PATCH／DELETE | `/identity-providers`（`/:id`） | `identityProvider:read／create／update／delete` | 外部 IdP 連線管理（租戶網域，backstage）。建立時連線數不能超過租戶的參數 `identityProvider.maxProviders`（預設 10，`409 IDENTITY_PROVIDER_LIMIT_REACHED`，[`05-tenancy.md`](./05-tenancy.md) §5.3） |
 
 權限見 [`iam/02-permission-catalog.md`](iam/02-permission-catalog.md) §2.11；完整端點表見 [`backend/05-rbac.md`](./backend/05-rbac.md) §9。
@@ -228,12 +329,13 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 
 | 表 | 內容 |
 | --- | --- |
-| `oidc_payloads`（平台 DB） | oidc-provider 的通用儲存（`Session`、`Interaction`、`Grant`、`AuthorizationCode`…）與外部登入的暫存（`ExternalLogin`）；`expires_at`、`consumed_at`，過期的列由背景工作 `oidc.cleanup`（`OIDC_CLEANUP_CRON`）清除 |
+| `oidc_payloads`（平台 DB） | oidc-provider 的通用儲存（`Session`、`Interaction`、`Grant`、`AuthorizationCode`…）與外部登入的暫存（`ExternalLogin`：OIDC 的 PKCE、nonce，SAML 的 request ID）、通行金鑰的 challenge（`PasskeyLogin`）；`expires_at`、`consumed_at`，過期的列由背景工作 `oidc.cleanup`（`OIDC_CLEANUP_CRON`）清除 |
 | `refresh_tokens.client_id`、`idp_session_uid` | 這條家族屬於哪個產品、哪個 IdP session（單一登出用） |
 | `platform_admins`、`platform_refresh_tokens`、`platform_audit_logs`（平台 DB） | 平台管理者、他們的 app session 與稽核（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D5、D19）；第一位由 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立 |
-| `identity_providers`（租戶 DB，以下同） | 外部 IdP 連線：`name`（未刪除者唯一）、`issuer`、`client_id`、`client_secret_encrypted`、`scopes`、`enabled`、`unmatched_policy`（`reject`／`auto_create`）；軟刪除 |
+| `identity_providers`（租戶 DB，以下同） | 外部 IdP 連線：`name`（未刪除者唯一）、`protocol`（`oidc`／`saml`）、`preset`（OIDC 的範本）、`issuer`（SAML 是 IdP 的 entity ID）、`client_id`、`client_secret_encrypted`（只有 OIDC，CHECK）、`scopes`、`config`（SAML 的 SSO 網址、憑證、NameID 格式、屬性）、`enabled`、`unmatched_policy`（`reject`／`auto_create`）；軟刪除。租戶 migration 0051 |
 | `identity_provider_domains` | `domain`（citext，主鍵）→ `provider_id`、`sso_only` |
 | `user_identities` | 帳號 ↔ 外部身分：`(provider_id, subject)` 唯一；連結當下的 `email`、`last_login_at` |
+| `mfa_factors`、`platform_admin_mfa_factors` 的 `credential_idx` | `(config ->> 'credentialId') WHERE method = 'webauthn'`：通行金鑰登入以憑證 id 找因子（§3.6；租戶 0051、平台 0026） |
 
 沒有 `oidc_clients` 表：第一方 client 由設定產生（D7，§8）。
 
@@ -245,7 +347,8 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 | --- | --- |
 | `@b2b-system/web-core/auth`（`sso.ts`） | `createAuthorizationUrl`（state、PKCE S256）、`readPendingLogin`／`discardPendingLogin`（verifier 以 state 為鍵存本分頁 sessionStorage）、`safeReturnTo`（只接受同源相對路徑；以瀏覽器的解析結果判斷，正規化後以 `//` 開頭的——例如 `/.//外站`、`/\外站`——一律退回 `/`） |
 | `features/auth/pages/Login` | `/auth/login`：取得這個網域的租戶代碼（`GET /tenant/current`）後跳到 IdP；`?signedOut=true` 時不自動跳，顯示「再次登入」；跳轉前失敗（租戶停用、網址打錯）顯示原因並可重試 |
-| `features/identity-provider` | `/identity-provider`：這個租戶的外部 IdP 連線（`identityProvider:*`，[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D18）；顯示要登記在外部 IdP 的 redirect URI |
+| `features/identity-provider` | `/identity-provider`：這個租戶的外部 IdP 連線（`identityProvider:*`，[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D18）：OIDC（範本）或 SAML（可貼上 IdP 的 metadata 匯入）；顯示要登記在外部 IdP 的 redirect URI 與 SAML 的 ACS、SP entity ID |
+| `features/user`（使用者詳情） | 「外部身分」區塊：檢視與解除連結（§3.3.4） |
 | `features/auth/pages/SsoCallback` | `/auth/callback`：換 session 後 `router.history.replace(returnTo)`；`error=access_denied` 顯示「已取消」；失敗後的「登入」帶上原本的 `returnTo` |
 | `SessionWatcher`（`@b2b-system/web-core/shell`，`app/App.tsx` 掛上） | 單一登出或續期失敗時導向 `/auth/login?signedOut=true` |
 
@@ -253,7 +356,7 @@ openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lo
 
 | Feature | 路由 | 說明 |
 | --- | --- | --- |
-| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/enter` | IdP 的互動頁（租戶或平台，§1.1）；provider 的協定錯誤頁；apps/platform 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程；進入租戶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D11） |
+| `login` | `/interaction/:uid`、`/error`、`/login`、`/callback`、`/forgot-password`、`/reset-password`、`/setup`、`/register`、`/enter` | IdP 的互動頁（租戶或平台，§1.1；「使用通行金鑰登入」見 §3.6，瀏覽器 API 經 `web-core/mfa` 的 `authenticatePasskey`）；provider 的協定錯誤頁；apps/platform 自己的頁面經 SSO 登入（client `auth`，平台管理者）；帳號流程；進入租戶（[`architecture/05-tenancy.md`](05-tenancy.md) §10.2 D11） |
 | `home` | `/` | 目前登入的平台管理者（角色、權限數）；有 `tenant:read` 時加上各狀態的租戶數 |
 | `account` | `/profile`、`/preference` | 個人資料（改名、角色與權限、變更密碼）與偏好設定（語系、時區、主題、頂列工具；只存在瀏覽器） |
 | `notification` | `/notification` | 平台的站內通知；頂列的鈴鐺（[`backend/15-notification.md`](./backend/15-notification.md) §6.2） |
@@ -295,6 +398,9 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 - 金鑰產生的例子：`OIDC_COOKIE_KEYS`、`IDP_SECRET_KEY`、`TENANT_SECRET_KEY`、`WEBHOOK_SECRET_KEY` 用 `openssl rand -base64 32`；`OIDC_JWKS` 用
   `node -e "import('jose').then(async j=>{const k=await j.generateKeyPair('RS256',{extractable:true});const jwk=await j.exportJWK(k.privateKey);console.log(JSON.stringify({keys:[{...jwk,alg:'RS256',use:'sig',kid:crypto.randomUUID()}]}))})"`（在 `apps/api` 目錄執行）。
 - **換 `IDP_SECRET_KEY` 會讓既有連線的 secret 解不開**：換之前在管理頁重新輸入每個連線的 secret。
+- SAML 不需要新的環境變數：SP 的 entity ID 與 ACS 由 `OIDC_ISSUER` 推導；AuthnRequest 不簽章，所以沒有 SP 的金鑰。ACS 是跨站的表單 POST，
+  反向代理不能擋 `/api/oidc-interaction/external/saml/acs` 的 POST，也不能改寫它的 `Set-Cookie` 的 `SameSite`。
+- 通行金鑰登入沒有環境變數：在 apps/platform 的「MFA 方式」頁，WebAuthn 的參數 `passkeyLogin` 改成 `enabled`（[`backend/21-mfa.md`](./backend/21-mfa.md) §9.3）。
 
 ## 8. 新增一個產品（第一方 client）
 
@@ -314,7 +420,11 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 | 授權碼失效、重放、PKCE 不符 | 產品的 callback 頁顯示 `AUTH_SSO_CODE_INVALID`，可重新登入 |
 | 在互動頁按取消 | 產品的 callback 頁顯示「已取消」 |
 | 外部 IdP 失敗、找不到帳號、不能自動連結、連線停用 | 回到互動頁並顯示 `AUTH_SSO_EXTERNAL_FAILED`／`AUTH_SSO_ACCOUNT_NOT_FOUND`／`AUTH_SSO_LINK_NOT_ALLOWED`／`AUTH_SSO_PROVIDER_UNAVAILABLE` |
-| 只允許 SSO 的網域用密碼登入 | `AUTH_SSO_REQUIRED` |
+| 只允許 SSO 的網域用密碼或通行金鑰登入 | `AUTH_SSO_REQUIRED` |
+| SAML 回應驗證失敗（簽章、Issuer、Audience、時間、`InResponseTo`）、不是發起登入的瀏覽器 | 回到互動頁並顯示 `AUTH_SSO_EXTERNAL_FAILED`（稽核的 `reason`：`saml_validation_failed`、`browser_mismatch`） |
+| 通行金鑰不能用（平台沒開、政策不允許、`mfa_enroll` 的登入）／驗證失敗 | `AUTH_PASSKEY_UNAVAILABLE`／`AUTH_PASSKEY_INVALID` |
+| 連線的 issuer 不符範本、SAML 憑證不是 X.509、更新時換協定 | `400 IDENTITY_PROVIDER_ISSUER_INVALID`／`IDENTITY_PROVIDER_CERTIFICATE_INVALID`（`details.position`）／`IDENTITY_PROVIDER_PROTOCOL_MISMATCH` |
+| 解除外部身分：不存在／目標是 super-admin 而操作者不是 | `404 USER_IDENTITY_NOT_FOUND`／`403 AUTHZ_ESCALATION` |
 | backstage 的 authorize 沒帶 `tenant`、租戶不存在、或與 redirect URI 的網域不符 | 帶 `invalid_request` 導回那個 backstage 的 callback |
 | 平台的端點在租戶網域上呼叫 | `PLATFORM_ONLY` |
 | 外部 IdP 連線的管理（`/identity-providers`） | 不存在 `404 IDENTITY_PROVIDER_NOT_FOUND`；名稱重複 `409 IDENTITY_PROVIDER_NAME_DUPLICATE`；網域已屬於另一個連線 `409 IDENTITY_PROVIDER_DOMAIN_TAKEN` |
@@ -324,19 +434,26 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 
 | 層 | 檔案 |
 | --- | --- |
-| api 整合 | `apps/api/test/sso.spec.ts`（授權碼流程、重放、單一登出、帳號停用；[`architecture/05-tenancy.md`](05-tenancy.md) §10：tenant 參數、換租戶重新登入、BFF 的租戶檢查、平台管理者、X-Tenant、租戶公開端點）、`sso-external.spec.ts`（以假的 `ExternalOidcClient` 覆寫 provider：帳號對應、只允許 SSO、連線管理） |
-| 前端 | 兩個 app 的 `SsoCallback`、`Login` 頁；apps/platform 的 `Interaction`（含外部 IdP、租戶連結）與 `ForgotPassword`；backstage 的 `IdentityProviderList`（三個權限案例） |
+| api 整合 | `apps/api/test/sso.spec.ts`（授權碼流程、重放、單一登出、帳號停用；[`architecture/05-tenancy.md`](05-tenancy.md) §10：tenant 參數、換租戶重新登入、BFF 的租戶檢查、平台管理者、X-Tenant、租戶公開端點）、`sso-external.spec.ts`（以假的 `ExternalOidcClient` 覆寫 provider：帳號對應、只允許 SSO、連線管理）、`sso-methods.spec.ts`（OIDC 範本、SAML 的完整流程與每一道驗證——以 `scripts/mock-saml-idp.ts` 產生真的簽章、帳號的外部身分、通行金鑰登入——以 `test/soft-authenticator.ts` 做出真的 WebAuthn 回應） |
+| api 單元 | `external-saml.client.spec.ts`（簽章、Issuer、Audience、過期、InResponseTo、竄改、憑證輪替）、`oidc-presets.spec.ts`、`external-login.service.spec.ts`（SAML 的 ACS）、`mfa-login.passkey.spec.ts`、`webauthn.method.spec.ts`（passwordless） |
+| 前端 | 兩個 app 的 `SsoCallback`、`Login` 頁；apps/platform 的 `Interaction`（含外部 IdP、租戶連結）、`usePasskeyLogin` 與 `ForgotPassword`；backstage 的 `IdentityProviderList`（三個權限案例；表單的範本、SAML、metadata 匯入；`adapter`、`samlMetadata`）、使用者詳情的 `UserIdentitySection` |
 | E2E | `apps/e2e/tests/auth.spec.ts`（登入、租戶帳號進 apps/platform 要以平台管理者重新登入、從 backstage 登出）、`sso.spec.ts`（取消、協定錯誤、平台的登入頁登不進租戶帳號、平台管理者登出、外部 IdP 頁的權限）、`sso-external.spec.ts`（模擬外部 IdP 的完整登入）、`mail.spec.ts`（帳號流程） |
 
 `pnpm dev:mock-idp` 啟動模擬的外部 IdP（`http://localhost:4455`，client `b2b-mock`／`mock-secret`；登入頁輸入任何 email 都算登入成功，
 `email_verified = true`）；Playwright 設定會自動啟動它。
+`pnpm dev:mock-saml-idp` 啟動模擬的 SAML IdP（`http://127.0.0.1:4477`；metadata 在 `/metadata`，金鑰與憑證每次啟動重新產生）：
+以 127.0.0.1 對外，與 apps/platform（localhost）是不同的站，ACS 收到的是真正的跨站 POST。
 
 ## 11. 已知限制
 
 - 找不到帳號時「走審批」沒有做：註冊審批核准後要從啟用信設定密碼才能登入，外部 IdP 登入的人不需要密碼，流程接不上（§12.2 D10）。
 - 網域所有權沒有驗證（DNS TXT）：由平台管理員自行確認。
-- 外部 IdP 的群組不對應到角色或群組：權限圖 G4 的群組只有手動成員，IdP 群組對應另開提案、與 SCIM 一起評估（[`iam/01-model.md`](iam/01-model.md) §9.3 D15）；沒有解除外部身分連結的畫面。
-- Azure AD 預設不回 `email_verified`：以 email 連結既有帳號不會成立，只能靠 `auto_create` 或已連結的身分。
+- 外部 IdP 的群組不對應到角色或群組：權限圖 G4 的群組只有手動成員，IdP 群組對應另開提案、與 SCIM 一起評估（[`iam/01-model.md`](iam/01-model.md) §9.3 D15）。
+- Entra ID 要在應用程式註冊加上選用 claim `xms_edov`，才能以 email 連結既有帳號（§3.3.1）；沒有加時只能靠 `auto_create` 或已連結的身分。
+- SAML：只支援 SP 發起；AuthnRequest 不簽章、assertion 不加密、沒有單一登出（SLO）；IdP 只提供 HTTP-POST 的 SSO 網址時不能用（§3.3.2）。
+- 平台管理者不能用外部 IdP 登入（連線屬於租戶；要開放時平台 DB 要另一套連線，§12.6 D12）。
+- 社群登入（GitHub、Apple、LINE 登入）沒有做：GitHub 沒有 ID token、Apple 用 `form_post` 與 JWT 形式的 client secret，等有實際需求再加（§12.6 D13）。
+- 通行金鑰登入不能與「重新登入並新增」（`mfa_enroll`）並用；沒有瀏覽器自動填入的 conditional UI（§3.6）。
 
 ## 12. 設計決策：SSO 與身分平台
 
@@ -448,3 +565,51 @@ app session 沿用 [`backend/04-auth.md`](backend/04-auth.md) §10；權限仍�
 | 外部 IdP 的 redirect URI 帶互動 id | 固定的 callback ＋ 互動路徑下的 `complete`（D8） | 外部 IdP 大多要求 redirect URI 完全相符 |
 | 找不到帳號時可「走審批」 | 這一版只有 `reject`／`auto_create`（D10） | 現有審批以密碼建立帳號，SSO 帳號沒有密碼 |
 | `identity_provider_domains` 有驗證狀態 | 沒有網域驗證，由平台管理員確認 | DNS TXT 驗證需要背景工作與重試，這一版的連線只由平台管理員建立 |
+
+### 12.6 設計決策：更多的登入方式（2026-10-09）
+
+> 使用者要求「增加更多 SSO 的登入方式」，評估後依建議分三期做完：S1 協定抽象、OIDC 範本、外部身分的檢視與解除；S2 SAML 2.0（只支援 SP 發起）；
+> S3 以通行金鑰取代密碼（建在 MFA 的 WebAuthn 之上，修改 [`backend/21-mfa.md`](./backend/21-mfa.md) D20）。規劃時的四個問題依建議回答：平台管理者不開放外部 IdP、SAML 不支援 IdP 發起、不做社群登入。
+
+#### 12.6.1 背景
+
+外部 IdP 原本只有通用的 OIDC（D8）：Entra 不回 `email_verified`，以 email 連結既有帳號永遠不成立；Google 的一般 Gmail 帳號也帶 `email_verified`；
+企業客戶的 ADFS、Okta 常常只開放 SAML；管理員沒有地方看或解除連錯的外部身分。MFA 第二版已經有 WebAuthn（只當第二步，D20），
+同一把金鑰取代密碼只差「還不知道是誰」的那一段。
+
+#### 12.6.2 D 表
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **`identity_providers` 加 `protocol`、`preset`、`config jsonb`**，不是每種協定一張表；`client_id`、`client_secret_encrypted` 改成可為 null，由 CHECK 保證 OIDC 一定有 | 網域、帳號對應、連結、稽核、刪除都與協定無關；SAML 的 entity ID 放 `issuer` 欄，「換 issuer 就作廢連結」的規則自然涵蓋兩種協定 |
+| D2 | **OIDC 的範本只改 issuer 格式與「email 已驗證」的判斷**，不是另一種協定 | 授權、兌換、簽章驗證是同一份 openid-client；範本的差異集中在一個純函式檔，加一家只是一列 |
+| D3 | **Entra 以 `xms_edov` 判斷、Google 要求 `hd` 等於 email 的網域；Entra 不接受 `common`／`organizations`** | Entra 的 `email` 是使用者可以改的屬性，`xms_edov` 才代表目錄驗證過網域；Google 的 `email_verified` 對一般帳號也是 true，`hd` 才代表組織管理。多租戶端點會讓任何目錄的帳號通過 issuer 檢查 |
+| D4 | **SAML 以 `@node-saml/node-saml` 實作 SP**，assertion 必須簽章、自己再比對 assertion 的 Issuer | 不自己處理 XML 簽章（signature wrapping 等攻擊）；node-saml 的 `idpIssuer` 只檢查登出訊息，同一張憑證可能用在 IdP 的多個 entity |
+| D5 | **SAML 的 email 一律視為已驗證**，防線是既有的「網域屬於這個連線、管理角色不自動連結」 | SAML 沒有 `email_verified`；企業 IdP 斷言的是目錄裡的 email。§3.3 的兩條限制本來就是為了「連線管理者可以自架 IdP」而設，對 SAML 同樣成立 |
+| D6 | **只支援 SP 發起**；RelayState 當 state、`InResponseTo` 只認那一次的 request、登入狀態用過即作廢，不另存 assertion ID | IdP 發起的回應沒有我們發的 state，等於登入 CSRF；state 綁瀏覽器（綁定 cookie）＋一次性就已經擋住重放 |
+| D7 | **SAML 的綁定 cookie 是 `SameSite=None; Secure`，path 只到 ACS；ACS 以 303 跳到 complete** | IdP 以跨站的表單 POST 送回，Lax 的 cookie 帶不上；path 限縮讓 None 的影響只在 ACS。303 讓下一步一定是頂層 GET，Lax 的互動 cookie 才帶得上 |
+| D8 | **SP 的 entity ID 是含租戶 id 與連線 id 的 metadata 網址** | IdP 可以直接匯入；固定的端點不在租戶網域上，要從路徑知道租戶；entity ID 上線後不能改，用不會改名的 id 而不是租戶代碼 |
+| D9 | **通行金鑰取代密碼是 `MfaMethod` 的選用能力 `passwordless`**（`begin`、`locate`、`accountHandle`），驗證仍走 `verify` 與框架的 `verifyFactor` | 計數、重放、稽核都在框架（[`backend/21-mfa.md`](./backend/21-mfa.md) D2）；方式只多「不知道帳號時的 challenge」與「從回應找因子」。框架不認識 WebAuthn |
+| D10 | **由 WebAuthn 的平台參數 `passkeyLogin` 開關（預設 disabled、不是必填），要求使用者驗證，以 user handle 比對帳號；失敗不累計鎖定；只允許 SSO 的網域與 `mfa_enroll` 的登入不接受** | 取代密碼是比第二步更大的決定，要明確開啟；不是必填才不會讓既有的參數變成「沒填齊」而關掉方式。沒有使用者驗證的金鑰只是一個因子。憑證 id 可以被複製，user handle 才能分出帳號。鎖定是擋猜密碼 |
+| D11 | **外部身分的檢視與解除放在 `modules/identity-provider`、路徑掛在 `/users/:userId/identities`，解除要 `user:update` 並套反提權** | 表與規則屬於外部 IdP 模組；不新增權限鍵（與停用、撤銷 token 同一個層級）。解除 super-admin 的連結可能把人鎖在門外，比照 MFA 重設 |
+| D12 | **平台管理者不開放外部 IdP** | 平台管理者只有幾位、權限最大；連線屬於租戶，平台要另一套連線表與管理頁，等有需求再做 |
+| D13 | **不做社群登入、LDAP 直連** | B2B 後台的價值低；GitHub 沒有 ID token、Apple 的 `form_post` 與 JWT client secret 要另寫；LDAP 要從外部連進客戶內網且密碼會經過我們，請客戶改用 ADFS／Entra 的 SAML 或 OIDC |
+
+#### 12.6.3 評估過的方案
+
+| 方案 | 不選的理由 |
+| --- | --- |
+| 協定做成註冊表（像 `MfaMethodRegistry`），每種協定一個模組 | 只有兩種協定，而且 callback 的形狀根本不同（GET 帶 code vs 跨站的表單 POST）；兩個 DI 抽象類別加上共用的 `handleReturn` 已經足夠，第三種協定出現時再抽 |
+| SAML 用 `samlify` | node-saml 是 passport-saml 的核心、維護活躍；需要的只有 SP 的 Redirect binding 與回應驗證 |
+| IdP metadata 在伺服器解析（貼網址由 api 抓） | api 代抓網址是另一個 SSRF 面；metadata 只在建立時用一次，瀏覽器的 `DOMParser` 就夠，伺服器只收拆好的欄位並自己檢查憑證 |
+| 通行金鑰另開一張 `passkeys` 表 | 憑證本來就是 MFA 的因子（公鑰、計數、RP ID 都在 `mfa_factors`）；分兩張表會讓「同一把金鑰」在第二步與登入各存一份 |
+| 通行金鑰登入之後仍要求第二步 | 有使用者驗證的通行金鑰本身就是兩個因子（持有 ＋ 生物辨識或 PIN），再要一次只會讓人不用它 |
+
+#### 12.6.4 實作紀錄
+
+1. **`protocol` 沒帶時是 OIDC**：建立與更新的 schema 是 `z.union`（OIDC 在前、`protocol` 有預設值），不是 `discriminatedUnion`（判別欄位必填）；既有的呼叫端不必改。更新用 `strict()`，SAML 的欄位不會被當成 OIDC 的請求默默丟掉。
+2. **SAML 的屬性名稱空字串轉 null 在 service**：OpenAPI 產生器不接受 zod 的 `transform`。
+3. **`PasskeyLogin` 重存前先刪**：`oidc_payloads` 的 upsert 不清 `consumed_at`，同一個互動重試時舊的已消耗標記會留著。
+4. **憑證 id 的查詢以字面量放進 SQL**（`identifierLiteral`）：部分索引的條件與運算式是字面量，參數化的查詢用不上它。
+5. **使用者詳情的「外部身分」以 `Resource.USER` 的 entity 失效**：解除以使用者的 update 宣告，不另加資源種類。
+

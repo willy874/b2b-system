@@ -7,8 +7,9 @@ import { AppException } from '@/core/errors';
 import { requireTenant, Tenancy } from '@/core/tenant';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import type { RequestMeta } from '@/modules/credential/refresh-rotation';
+import { IdentityProviderService } from '@/modules/identity-provider/identity-provider.service';
 import { MfaLoginService } from '@/modules/mfa/mfa-login.service';
-import type { SsoLoginResult } from '@/modules/mfa/mfa-login.service';
+import type { PasskeyLoginGuard, SsoLoginResult } from '@/modules/mfa/mfa-login.service';
 import { parseAccountId } from '@/modules/oidc-provider/oidc-account';
 import {
   OidcProviderService,
@@ -23,7 +24,14 @@ import { UserAccountService } from '@/modules/user/user-account.service';
 
 import { AuthService } from './auth.service';
 import type { IssuedSession } from './auth.service';
-import type { LoginDto, SsoCallbackDto, SsoInteractionDto, SsoRedirectDto } from './dto/auth.dto';
+import type {
+  LoginDto,
+  SsoCallbackDto,
+  SsoInteractionDto,
+  SsoPasskeyLoginDto,
+  SsoPasskeyOptionsDto,
+  SsoRedirectDto,
+} from './dto/auth.dto';
 
 /**
  * SSO 的兩端（docs/architecture/04-sso.md §12）：
@@ -44,6 +52,7 @@ export class SsoService implements OnModuleInit {
     private readonly tenancy: Tenancy,
     private readonly audit: AuditService,
     private readonly mfa: MfaLoginService,
+    private readonly providers: IdentityProviderService,
   ) {}
 
   onModuleInit(): void {
@@ -71,8 +80,65 @@ export class SsoService implements OnModuleInit {
     res: ServerResponse,
     uid: string,
   ): Promise<SsoInteractionDto> {
-    const { tenant, ...summary } = await this.requireInteraction(req, res, uid);
-    return { ...summary, tenant: tenant && { code: tenant.code, name: tenant.name } };
+    const interaction = await this.requireInteraction(req, res, uid);
+    const { tenant, ...summary } = interaction;
+    return {
+      ...summary,
+      tenant: tenant && { code: tenant.code, name: tenant.name },
+      passkeyLogin: await this.passkeyAllowed(interaction),
+    };
+  }
+
+  // ── 通行金鑰（docs/architecture/04-sso.md §3.6）──────────────────
+
+  /** 發出通行金鑰登入的 challenge。 */
+  async passkeyOptions(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+  ): Promise<SsoPasskeyOptionsDto> {
+    const interaction = await this.requireInteraction(req, res, uid);
+    if (interaction.mfaEnroll) throw new AppException('AUTH_PASSKEY_UNAVAILABLE');
+    return this.inRealm(interaction, async (realm) => ({
+      publicData: await this.mfa.startPasskey(uid, realm),
+    }));
+  }
+
+  /**
+   * 以通行金鑰登入：取代密碼與第二步（持有 ＋ 使用者驗證）。只允許 SSO 的網域不接受（與密碼相同：
+   * 那個網域的帳號由企業的 IdP 管理，離職停用要立即生效）。
+   */
+  async passkeyLogin(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+    dto: SsoPasskeyLoginDto,
+  ): Promise<SsoRedirectDto> {
+    const interaction = await this.requireInteraction(req, res, uid);
+    if (interaction.mfaEnroll) throw new AppException('AUTH_PASSKEY_UNAVAILABLE');
+    return this.inRealm(interaction, (realm) => {
+      const guard: PasskeyLoginGuard = async (stored) => {
+        if (realm === 'tenant' && (await this.providers.isSsoOnly(stored.account.email))) {
+          throw new AppException('AUTH_SSO_REQUIRED');
+        }
+      };
+      return this.mfa.verifyPasskey(req, res, uid, realm, dto.payload, guard);
+    });
+  }
+
+  private async passkeyAllowed(interaction: InteractionSummary): Promise<boolean> {
+    if (interaction.mfaEnroll) return false;
+    return this.inRealm(interaction, async (realm) => Boolean(await this.mfa.passkeyMethod(realm)));
+  }
+
+  /** 租戶的互動在那個租戶裡執行；沒有租戶的是平台管理者。 */
+  private inRealm<T>(
+    interaction: InteractionSummary,
+    fn: (realm: 'tenant' | 'platform') => Promise<T>,
+  ): Promise<T> {
+    return interaction.tenant
+      ? this.tenancy.run(interaction.tenant.id, () => fn('tenant'))
+      : fn('platform');
   }
 
   /**
@@ -109,7 +175,7 @@ export class SsoService implements OnModuleInit {
 
   /** 使用者取消登入：產品收到 `error=access_denied`。 */
   async abort(req: IncomingMessage, res: ServerResponse, uid: string): Promise<SsoRedirectDto> {
-    await this.interaction(req, res, uid);
+    await this.requireInteraction(req, res, uid);
     const redirectTo = await this.oidc.finishInteraction(req, res, {
       error: 'access_denied',
       error_description: 'login cancelled',

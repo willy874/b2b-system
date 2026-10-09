@@ -28,6 +28,7 @@ import type {
   MfaFactorSummary,
   MfaMethod,
   MfaMethodDefinition,
+  MfaPasswordless,
   MfaPurpose,
   MfaSettingsCheck,
   MfaSettingValues,
@@ -38,6 +39,8 @@ import type {
 const CEREMONY_TIMEOUT_SECONDS = 5 * 60;
 const USER_VERIFICATION = ['preferred', 'required', 'discouraged'] as const;
 const ATTACHMENTS = ['any', 'platform', 'crossPlatform'] as const;
+/** 通行金鑰取代密碼（docs/architecture/04-sso.md §3.6）：預設關閉，平台管理者在方式的參數開啟。 */
+const PASSKEY_LOGIN = ['disabled', 'enabled'] as const;
 
 /** `@simplewebauthn/browser` 的 `startRegistration`／`startAuthentication` 的結果；細節由函式庫驗證。 */
 const CredentialResponseSchema = z
@@ -60,8 +63,15 @@ const CredentialConfigSchema = z.object({
   transports: z.array(z.string()).optional(),
 });
 
-/** challenge 的 `state`：這次要瀏覽器簽的 challenge 與 RP ID。 */
-const CeremonyStateSchema = z.object({ challenge: z.string(), rpId: z.string() });
+/**
+ * challenge 的 `state`：這次要瀏覽器簽的 challenge 與 RP ID。通行金鑰登入（取代密碼）的狀態帶 `userVerification: 'required'`：
+ * 只有「持有 ＋ 生物辨識或 PIN」才能取代「密碼 ＋ 第二因素」，不看平台參數的 `userVerification`。
+ */
+const CeremonyStateSchema = z.object({
+  challenge: z.string(),
+  rpId: z.string(),
+  userVerification: z.literal('required').optional(),
+});
 
 const toBytes = (base64url: string) => new Uint8Array(Buffer.from(base64url, 'base64url'));
 
@@ -115,11 +125,50 @@ export class WebAuthnMfaMethod implements MfaMethod<WebAuthnVerifyPayload>, OnMo
           options: ATTACHMENTS,
           defaultValue: 'any',
         },
+        // 不是必填：加這個欄位之前就儲存過參數的方式不能因此變成「沒填齊」而被關掉；沒有值 = disabled
+        {
+          key: 'passkeyLogin',
+          type: 'select',
+          required: false,
+          options: PASSKEY_LOGIN,
+          defaultValue: 'disabled',
+        },
       ],
     },
   };
 
   readonly verifySchema = WebAuthnVerifySchema;
+
+  /**
+   * 通行金鑰取代密碼（docs/architecture/04-sso.md §3.6）：discoverable credential 的流程——不帶 `allowCredentials`，
+   * 由瀏覽器列出這個網域的通行金鑰；回應帶憑證 id 與 user handle，框架以它們找出因子與帳號，再交給 `verify`。
+   */
+  readonly passwordless: MfaPasswordless<WebAuthnVerifyPayload> = {
+    enabled: () => this.settings.get(this.definition.id)?.passkeyLogin === 'enabled',
+    begin: async () => {
+      const settings = this.settings.require(this.definition.id);
+      const rpId = this.rpIdOf(settings);
+      const options = await generateAuthenticationOptions({
+        rpID: rpId,
+        userVerification: 'required',
+        timeout: CEREMONY_TIMEOUT_SECONDS * 1000,
+      });
+      return {
+        state: { challenge: options.challenge, rpId, userVerification: 'required' },
+        publicData: { options },
+        expiresInSeconds: CEREMONY_TIMEOUT_SECONDS,
+      };
+    },
+    locate: (payload) => {
+      const userHandle = payload.response.response.userHandle;
+      return {
+        configKey: 'credentialId',
+        value: payload.response.id,
+        accountHandle: typeof userHandle === 'string' ? userHandle : null,
+      };
+    },
+    accountHandle: (account) => Buffer.from(userHandleOf(account)).toString('base64url'),
+  };
 
   constructor(
     private readonly registry: MfaMethodRegistry,
@@ -217,7 +266,8 @@ export class WebAuthnMfaMethod implements MfaMethod<WebAuthnVerifyPayload>, OnMo
     const state = CeremonyStateSchema.safeParse(challenge?.state);
     if (!challenge || !state.success) return { ok: false, reason: 'expired' };
     const settings = this.settings.require(this.definition.id);
-    const requireUserVerification = settings.userVerification === 'required';
+    const requireUserVerification =
+      state.data.userVerification === 'required' || settings.userVerification === 'required';
 
     if (challenge.purpose === 'enroll') {
       try {

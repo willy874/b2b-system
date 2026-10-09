@@ -228,6 +228,32 @@ export interface MfaMethod<TVerify = unknown, TEnroll = unknown> {
    * 必填欄位與 `select` 的選項由框架先檢查。儲存參數時呼叫；不通過就不儲存（§5.1）。
    */
   checkSettings?(values: MfaSettingValues): Promise<MfaSettingsCheck>;
+  /**
+   * 能取代密碼的方式（WebAuthn 的通行金鑰，docs/architecture/04-sso.md §3.6）：還不知道是誰之前就發 challenge，
+   * 由瀏覽器的回應找出因子與帳號。驗證本身仍走 `verify`（框架把狀態存成一筆 login 的 challenge），計數與重放照舊。
+   */
+  readonly passwordless?: MfaPasswordless<TVerify>;
+}
+
+/** 見 `MfaMethod.passwordless`。 */
+export interface MfaPasswordless<TVerify> {
+  /** 平台參數是否開放這種登入（例：WebAuthn 的 `passkeyLogin`）；方式本身可用之外的另一道開關。 */
+  enabled(): boolean;
+  /** 不指定憑證的 challenge：要存的狀態（之後交給 `verify`）與給瀏覽器的資料。 */
+  begin(): Promise<{
+    state: Record<string, unknown>;
+    publicData: Record<string, unknown>;
+    expiresInSeconds: number;
+  }>;
+  /**
+   * 從回應找因子：`config` 的哪個鍵等於哪個值（WebAuthn：`credentialId`），以及回應帶的帳號識別（user handle）。
+   * 回應的形狀不對時回 null。
+   */
+  locate(
+    payload: TVerify,
+  ): { configKey: string; value: string; accountHandle: string | null } | null;
+  /** 帳號的識別（與 `locate` 的 `accountHandle` 比對）：同一個憑證 id 出現在兩個帳號時只認回應指名的那一個。 */
+  accountHandle(account: MfaAccount): string;
 }
 
 /**

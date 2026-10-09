@@ -111,6 +111,7 @@ export function fakeStore(realm: MfaRealm = 'tenant', stored = storedAccount(rea
   const repo = {
     listFactors: vi.fn(async (): Promise<MfaFactor[]> => []),
     findFactor: vi.fn(async (): Promise<MfaFactor | undefined> => undefined),
+    findActiveFactorsByConfig: vi.fn(async (..._args: unknown[]): Promise<MfaFactor[]> => []),
     insertFactor: vi.fn(async (values: Partial<MfaFactor>) =>
       factor({ id: 'factor-new', status: 'pending', ...values }),
     ),

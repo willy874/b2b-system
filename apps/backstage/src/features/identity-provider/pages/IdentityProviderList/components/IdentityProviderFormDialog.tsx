@@ -17,52 +17,27 @@ import {
   useCreateIdentityProviderMutation,
   useUpdateIdentityProviderMutation,
 } from '../../../hooks/useIdentityProviderMutations';
-
-/** 與後端 `DomainSchema` 相同。 */
-const DOMAIN_PATTERN = /^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/;
-const DEFAULT_SCOPES = 'openid email profile';
-
-type UnmatchedPolicy = IdentityProvider['unmatchedPolicy'];
-
-interface DomainRow extends IdentityProviderDomain {
-  /** 列的穩定 key（網域本身會被編輯）。 */
-  key: number;
-}
-
-function isUrl(value: string): boolean {
-  try {
-    return ['http:', 'https:'].includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
-}
-
-function domainError(rows: DomainRow[], row: DomainRow): 'invalid' | 'duplicate' | undefined {
-  const domain = row.domain.trim().toLowerCase();
-  if (!DOMAIN_PATTERN.test(domain)) return 'invalid';
-  const same = rows.filter((other) => other.domain.trim().toLowerCase() === domain);
-  return same.length > 1 && same[0] !== row ? 'duplicate' : undefined;
-}
-
-function sameDomains(
-  rows: readonly DomainRow[],
-  saved: readonly IdentityProviderDomain[],
-): boolean {
-  return (
-    rows.length === saved.length &&
-    rows.every(
-      (row, index) => row.domain === saved[index]?.domain && row.ssoOnly === saved[index]?.ssoOnly,
-    )
-  );
-}
+import {
+  domainError,
+  hasErrors,
+  initialForm,
+  isFormDirty,
+  toCreateRequest,
+  toUpdateRequest,
+  validateForm,
+} from '../adapter';
+import type { IdentityProviderForm, Protocol, UnmatchedPolicy } from '../adapter';
+import { OidcFields } from './OidcFields';
+import { SamlFields } from './SamlFields';
 
 interface IdentityProviderFormDialogProps {
   open: boolean;
-  /** 有值是編輯（secret 留空表示不變更），沒有是建立。 */
+  /** 有值是編輯（secret 留空表示不變更、協定不能換），沒有是建立。 */
   provider?: IdentityProvider;
   onClose: () => void;
 }
 
+/** 外部 IdP 連線的新增與編輯（OIDC 與 SAML 2.0，docs/architecture/04-sso.md §3.3）。 */
 export function IdentityProviderFormDialog({
   open,
   provider,
@@ -72,14 +47,8 @@ export function IdentityProviderFormDialog({
   const toMessage = useErrorMessage();
   const create = useCreateIdentityProviderMutation();
   const update = useUpdateIdentityProviderMutation();
-  const [name, setName] = useState('');
-  const [issuer, setIssuer] = useState('');
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
-  const [scopes, setScopes] = useState(DEFAULT_SCOPES);
-  const [enabled, setEnabled] = useState(true);
-  const [unmatchedPolicy, setUnmatchedPolicy] = useState<UnmatchedPolicy>('reject');
-  const [domains, setDomains] = useState<DomainRow[]>([]);
+  const [form, setForm] = useState<IdentityProviderForm>(() => initialForm(provider));
+  const [initial, setInitial] = useState<IdentityProviderForm>(form);
   const [nextKey, setNextKey] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string>();
@@ -90,69 +59,36 @@ export function IdentityProviderFormDialog({
   if (open !== openedFor.open || provider !== openedFor.provider) {
     setOpenedFor({ open, provider });
     if (open) {
-      setName(provider?.name ?? '');
-      setIssuer(provider?.issuer ?? '');
-      setClientId(provider?.clientId ?? '');
-      setClientSecret('');
-      setScopes(provider?.scopes ?? DEFAULT_SCOPES);
-      setEnabled(provider?.enabled ?? true);
-      setUnmatchedPolicy(provider?.unmatchedPolicy ?? 'reject');
-      const rows = (provider?.domains ?? []).map((domain, index) => ({ ...domain, key: index }));
-      setDomains(rows);
-      setNextKey(rows.length);
+      const fresh = initialForm(provider);
+      setForm(fresh);
+      setInitial(fresh);
+      setNextKey(fresh.domains.length);
       setSubmitted(false);
       setError(undefined);
     }
   }
 
-  const invalid = {
-    name: !name.trim(),
-    issuer: !isUrl(issuer.trim()),
-    clientId: !clientId.trim(),
-    clientSecret: !provider && !clientSecret,
-    scopes: !scopes.trim().split(/\s+/).includes('openid'),
-    domains: domains.some((row) => domainError(domains, row)),
-  };
-  const hasInvalid = Object.values(invalid).some(Boolean);
+  const patch = (values: Partial<IdentityProviderForm>) =>
+    setForm((current) => ({ ...current, ...values }));
+  const errors = validateForm(form, Boolean(provider));
+  const shownErrors = submitted ? errors : {};
   // 欄位多、client secret 還要回 IdP 重新取得：有改動時 Esc、點遮罩、取消與換頁都先確認
-  const isDirty =
-    open &&
-    (name !== (provider?.name ?? '') ||
-      issuer !== (provider?.issuer ?? '') ||
-      clientId !== (provider?.clientId ?? '') ||
-      clientSecret !== '' ||
-      scopes !== (provider?.scopes ?? DEFAULT_SCOPES) ||
-      enabled !== (provider?.enabled ?? true) ||
-      unmatchedPolicy !== (provider?.unmatchedPolicy ?? 'reject') ||
-      !sameDomains(domains, provider?.domains ?? []));
-  const guard = useDialogUnsavedGuard(isDirty, onClose);
+  const guard = useDialogUnsavedGuard(open && isFormDirty(form, initial), onClose);
 
-  const patchDomain = (key: number, patch: Partial<IdentityProviderDomain>) =>
-    setDomains((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  const patchDomain = (key: number, values: Partial<IdentityProviderDomain>) =>
+    patch({
+      domains: form.domains.map((row) => (row.key === key ? { ...row, ...values } : row)),
+    });
 
   const submit = async () => {
     setSubmitted(true);
-    if (hasInvalid) return;
+    if (hasErrors(errors)) return;
     setError(undefined);
-    const body = {
-      name: name.trim(),
-      issuer: issuer.trim(),
-      clientId: clientId.trim(),
-      scopes: scopes.trim().split(/\s+/).join(' '),
-      enabled,
-      unmatchedPolicy,
-      domains: domains.map(({ domain, ssoOnly }) => ({
-        domain: domain.trim().toLowerCase(),
-        ssoOnly,
-      })),
-    };
     try {
       if (provider) {
-        await update.mutateAsync({
-          params: { id: provider.id, body: { ...body, clientSecret: clientSecret || undefined } },
-        });
+        await update.mutateAsync({ params: { id: provider.id, body: toUpdateRequest(form) } });
       } else {
-        await create.mutateAsync({ params: { ...body, clientSecret } });
+        await create.mutateAsync({ params: toCreateRequest(form) });
       }
       onClose();
     } catch (caught) {
@@ -160,6 +96,10 @@ export function IdentityProviderFormDialog({
     }
   };
 
+  const protocolOptions: Array<{ value: Protocol; label: string }> = [
+    { value: 'oidc', label: t('identityProvider.protocol.oidc') },
+    { value: 'saml', label: t('identityProvider.protocol.saml') },
+  ];
   const policyOptions: Array<{ value: UnmatchedPolicy; label: string }> = [
     { value: 'reject', label: t('identityProvider.policy.reject') },
     { value: 'auto_create', label: t('identityProvider.policy.auto_create') },
@@ -195,84 +135,41 @@ export function IdentityProviderFormDialog({
         }}
       >
         <Field
+          label={t('identityProvider.field.protocol')}
+          description={provider ? t('identityProvider.hint.protocolLocked') : undefined}
+        >
+          <Select
+            options={protocolOptions}
+            value={form.protocol}
+            onValueChange={(protocol) => patch({ protocol })}
+            disabled={Boolean(provider)}
+            data-testid="identity-provider-protocol-select"
+          />
+        </Field>
+        <Field
           label={t('identityProvider.field.name')}
           description={t('identityProvider.hint.name')}
           required
-          error={submitted && invalid.name ? t('identityProvider.error.nameRequired') : undefined}
+          error={shownErrors.name ? t('identityProvider.error.nameRequired') : undefined}
         >
           <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            value={form.name}
+            onChange={(event) => patch({ name: event.target.value })}
             maxLength={64}
             data-testid="identity-provider-name-input"
           />
         </Field>
-        <Field
-          label={t('identityProvider.field.issuer')}
-          description={t('identityProvider.hint.issuer')}
-          required
-          error={
-            submitted && invalid.issuer ? t('identityProvider.error.issuerInvalid') : undefined
-          }
-        >
-          <Input
-            value={issuer}
-            onChange={(event) => setIssuer(event.target.value)}
-            placeholder="https://login.microsoftonline.com/<tenant>/v2.0"
-            maxLength={500}
-            data-testid="identity-provider-issuer-input"
+
+        {form.protocol === 'oidc' ? (
+          <OidcFields form={form} patch={patch} errors={shownErrors} editing={Boolean(provider)} />
+        ) : (
+          <SamlFields
+            form={form}
+            patch={patch}
+            errors={shownErrors}
+            saved={provider?.saml ?? null}
           />
-        </Field>
-        <Field
-          label={t('identityProvider.field.clientId')}
-          required
-          error={
-            submitted && invalid.clientId ? t('identityProvider.error.clientIdRequired') : undefined
-          }
-        >
-          <Input
-            value={clientId}
-            onChange={(event) => setClientId(event.target.value)}
-            maxLength={255}
-            data-testid="identity-provider-client-id-input"
-          />
-        </Field>
-        <Field
-          label={t('identityProvider.field.clientSecret')}
-          description={
-            provider
-              ? t('identityProvider.hint.clientSecretKeep')
-              : t('identityProvider.hint.clientSecret')
-          }
-          required={!provider}
-          error={
-            submitted && invalid.clientSecret
-              ? t('identityProvider.error.clientSecretRequired')
-              : undefined
-          }
-        >
-          <Input
-            type="password"
-            autoComplete="new-password"
-            value={clientSecret}
-            onChange={(event) => setClientSecret(event.target.value)}
-            maxLength={2000}
-            data-testid="identity-provider-client-secret-input"
-          />
-        </Field>
-        <Field
-          label={t('identityProvider.field.scopes')}
-          error={
-            submitted && invalid.scopes ? t('identityProvider.error.scopesInvalid') : undefined
-          }
-        >
-          <Input
-            value={scopes}
-            onChange={(event) => setScopes(event.target.value)}
-            maxLength={500}
-            data-testid="identity-provider-scopes-input"
-          />
-        </Field>
+        )}
 
         {/* 多個輸入：用 fieldset 而不是 Field（Field 的 label 只對應一個控制項） */}
         <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
@@ -282,8 +179,8 @@ export function IdentityProviderFormDialog({
           <p className="m-0 text-xs text-[var(--color-fg-muted)]">
             {t('identityProvider.hint.domains')}
           </p>
-          {domains.map((row) => {
-            const rowError = submitted ? domainError(domains, row) : undefined;
+          {form.domains.map((row) => {
+            const rowError = submitted ? domainError(form.domains, row) : undefined;
             return (
               <div key={row.key} className="flex items-start gap-2">
                 <div className="flex flex-1 flex-col gap-1">
@@ -313,7 +210,9 @@ export function IdentityProviderFormDialog({
                 <IconButton
                   size="sm"
                   aria-label={t('identityProvider.domain.remove')}
-                  onClick={() => setDomains((rows) => rows.filter((item) => item.key !== row.key))}
+                  onClick={() =>
+                    patch({ domains: form.domains.filter((item) => item.key !== row.key) })
+                  }
                 >
                   <Icon name="trash" size={16} />
                 </IconButton>
@@ -324,7 +223,7 @@ export function IdentityProviderFormDialog({
             <Button
               size="sm"
               onClick={() => {
-                setDomains((rows) => [...rows, { key: nextKey, domain: '', ssoOnly: false }]);
+                patch({ domains: [...form.domains, { key: nextKey, domain: '', ssoOnly: false }] });
                 setNextKey((key) => key + 1);
               }}
               data-testid="identity-provider-domain-add"
@@ -338,21 +237,21 @@ export function IdentityProviderFormDialog({
         <Field
           label={t('identityProvider.field.unmatchedPolicy')}
           description={
-            unmatchedPolicy === 'auto_create'
+            form.unmatchedPolicy === 'auto_create'
               ? t('identityProvider.policy.autoCreateHint')
               : undefined
           }
         >
           <Select
             options={policyOptions}
-            value={unmatchedPolicy}
-            onValueChange={setUnmatchedPolicy}
+            value={form.unmatchedPolicy}
+            onValueChange={(unmatchedPolicy) => patch({ unmatchedPolicy })}
             data-testid="identity-provider-policy-select"
           />
         </Field>
         <Checkbox
-          checked={enabled}
-          onCheckedChange={setEnabled}
+          checked={form.enabled}
+          onCheckedChange={(enabled) => patch({ enabled })}
           label={t('identityProvider.field.enabled')}
           data-testid="identity-provider-enabled"
         />

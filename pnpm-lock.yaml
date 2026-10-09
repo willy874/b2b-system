@@ -77,6 +77,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.1
         version: 2.2.1
+      '@node-saml/node-saml':
+        specifier: ^5.1.0
+        version: 5.1.0
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -243,6 +246,9 @@ importers:
       pino-pretty:
         specifier: ^13.1.3
         version: 13.1.3
+      selfsigned:
+        specifier: ^5.5.0
+        version: 5.5.0
       socket.io-client:
         specifier: ^4.8.4
         version: 4.8.4
@@ -261,6 +267,9 @@ importers:
       vitest:
         specifier: ^5.0.3
         version: 5.0.3(@opentelemetry/api@1.9.1)(@types/node@26.6.3)(@vitest/coverage-v8@5.0.3)(jsdom@30.1.1(@noble/hashes@1.8.0))(msw@3.0.1(@types/node@26.6.3)(graphql@16.14.2)(typescript@6.0.3)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      xml-crypto:
+        specifier: ^6.3.3
+        version: 6.3.3
 
   apps/apm-service:
     dependencies:
@@ -2385,6 +2394,10 @@ packages:
     resolution: {integrity: sha512-sXiVUI18qaCei5Y5qXty7xfEKrk4Vx89qKNZkG2sGWZG/iTThO3Xmnp5IjQpXCy941IksVDcl41HhvWRuhDLyw==}
     engines: {node: '>= 12'}
 
+  '@node-saml/node-saml@5.1.0':
+    resolution: {integrity: sha512-t3cJnZ4aC7HhPZ6MGylGZULvUtBOZ6FzuUndaHGXjmIZHXnLfC/7L8a57O9Q9V7AxJGKAiRM5zu2wNm9EsvQpw==}
+    engines: {node: '>= 18'}
+
   '@open-draft/until@3.0.1':
     resolution: {integrity: sha512-s7/9ELP4aP9YZtW7RJaa0Xf3RISaRH9+EFN18FtykJYRHGNrl8f9ymvoNXzjhrjmftFvkQudtuDU9RYhk0xs3A==}
 
@@ -3219,6 +3232,10 @@ packages:
 
   '@peculiar/utils@2.0.3':
     resolution: {integrity: sha512-+oL3HPFRIZ1St2K50lWCXiioIgSoxzz7R1J3uF6neO2yl1sgmpgY6XXJH4BdpoDkMWznQTeYF6oWNDZLCdQ4eQ==}
+
+  '@peculiar/x509@1.14.3':
+    resolution: {integrity: sha512-C2Xj8FZ0uHWeCXXqX5B4/gVFQmtSkiuOolzAgutjTfseNOHT3pUjljDZsTSxXFGgio54bCzVFqmEOUrIVk8RDA==}
+    engines: {node: '>=20.0.0'}
 
   '@peculiar/x509@2.1.0':
     resolution: {integrity: sha512-IYbg1R03CSQGWwl24kGyqrdVtixNSbRaDvBg1r5wyYjTP+VwPQkka1BzTgU5+vxiuwqg04OxdvdJ1xYYFIdUSA==}
@@ -4288,6 +4305,12 @@ packages:
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
+  '@types/xml-encryption@1.2.4':
+    resolution: {integrity: sha512-I69K/WW1Dv7j6O3jh13z0X8sLWJRXbu5xnHDl9yHzUNDUBtUoBY058eb5s+x/WG6yZC1h8aKdI2EoyEPjyEh+Q==}
+
+  '@types/xml2js@0.4.14':
+    resolution: {integrity: sha512-4YnrRemBShWRO2QjvUin8ESA41rH+9nQGLUGZV/1IDhi3SL9OhdpNC/MrulTWuptXKwhx/aDxE7toV0f/ypIXQ==}
+
   '@unocss/cli@66.10.5':
     resolution: {integrity: sha512-NjHkCNRsgnrU7m/hI1y2ryv8RMku+uejx9ChCnKcdKVKuBpgKFdhjmSjaTJQjpAHORyv5hLdT/7TkLbJzqk4tg==}
     hasBin: true
@@ -4471,6 +4494,14 @@ packages:
 
   '@webcontainer/env@1.1.1':
     resolution: {integrity: sha512-6aN99yL695Hi9SuIk1oC88l9o0gmxL1nGWWQ/kNy81HigJ0FoaoTXpytCj6ItzgyCEwA9kF1wixsTuv5cjsgng==}
+
+  '@xmldom/is-dom-node@1.0.1':
+    resolution: {integrity: sha512-CJDxIgE5I0FH+ttq/Fxy6nRpxP70+e2O048EPe85J2use3XKdatVM7dDVvFNjQudd9B49NPoZ+8PG49zj4Er8Q==}
+    engines: {node: '>= 16'}
+
+  '@xmldom/xmldom@0.8.15':
+    resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
+    engines: {node: '>=10.0.0'}
 
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
@@ -4815,6 +4846,10 @@ packages:
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
     engines: {node: '>= 0.8'}
+
+  bytestreamjs@2.0.1:
+    resolution: {integrity: sha512-U1Z/ob71V/bXfVABvNr/Kumf5VyeQRBEm6Txb0PQ6S7V5GpBM3w4Cbqz/xPDicR5tN0uvDifng8C+5qECeGwyQ==}
+    engines: {node: '>=6.0.0'}
 
   cac@7.0.0:
     resolution: {integrity: sha512-tixWYgm5ZoOD+3g6UTea91eow5z6AAHaho3g0V9CNSNb45gM8SmflpAc+GRd1InC4AqN/07Unrgp56Y94N9hJQ==}
@@ -6930,6 +6965,10 @@ packages:
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
 
+  pkijs@3.4.1:
+    resolution: {integrity: sha512-Oo/NZcSWccq8KyoG7gLE9fnltgHns+pNCjCAp/WmjsUySi+sX7y4z4Xqu4fVb42CDHzRPl33fjzT15V1wvcyhA==}
+    engines: {node: '>=16.0.0'}
+
   playwright-core@1.63.0:
     resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
     engines: {node: '>=20'}
@@ -7287,6 +7326,10 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
+  sax@1.6.1:
+    resolution: {integrity: sha512-42tBVwLWnaQvW5zc4HbZrTuWccECCZfBi92FDuwtqxasH+JbPB3/FOKb1m222K42R4WxuxzzMsTswfzgtSu64Q==}
+    engines: {node: '>=11.0.0'}
+
   saxes@5.0.1:
     resolution: {integrity: sha512-5LBh1Tls8c9xgGjw3QrMwETmTMVk0oFgvrFSvWx62llR2hcEInrKNZ2GZCCuuy2lvWrdl5jhbpeqc5hRYKFOcw==}
     engines: {node: '>=10'}
@@ -7311,6 +7354,10 @@ packages:
 
   selderee@0.11.0:
     resolution: {integrity: sha512-5TF+l7p4+OsnP8BCCvSyZiSPc4x4//p5uPwK8TCnVPJYRmU2aYKMpOXvw8zM5a5JvuuCGN1jmsMwuU2W02ukfA==}
+
+  selfsigned@5.5.0:
+    resolution: {integrity: sha512-ftnu3TW4+3eBfLRFnDEkzGxSF/10BJBkaLJuBHZX0kiPS7bRdlpZGu6YGt4KngMkdTwJE6MbjavFpqHvqVt+Ew==}
+    engines: {node: '>=18'}
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
@@ -8201,9 +8248,28 @@ packages:
     resolution: {integrity: sha512-h3Fbisa2nKGPxCpm89Hk33lBLsnaGBvctQopaBSOW/uIs6FTe1ATyAnKFJrzVs9vpGdsTe73WF3V4lIsk4Gacw==}
     engines: {node: '>=18'}
 
+  xml-crypto@6.3.3:
+    resolution: {integrity: sha512-qJnp4Dv5tH8CPzXKitFcLiCxPcy3SnPVQ9eY4qKKsHahf7/Ri7zDwjWaBACarMkT0T6FP+LWzdibO+19b136rg==}
+    engines: {node: '>=16'}
+
+  xml-encryption@3.1.0:
+    resolution: {integrity: sha512-PV7qnYpoAMXbf1kvQkqMScLeQpjCMixddAKq9PtqVrho8HnYbBOWNfG0kA4R7zxQDo7w9kiYAyzS/ullAyO55Q==}
+
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
+
+  xml2js@0.6.2:
+    resolution: {integrity: sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA==}
+    engines: {node: '>=4.0.0'}
+
+  xmlbuilder@11.0.1:
+    resolution: {integrity: sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==}
+    engines: {node: '>=4.0'}
+
+  xmlbuilder@15.1.1:
+    resolution: {integrity: sha512-yMqGBqtXyeN1e3TGYvgNgDVZ3j84W4cwkOXQswghol6APgZWaff9lnbvN7MHYJOiXsvGPXtjTYJEiC9J2wv9Eg==}
+    engines: {node: '>=8.0'}
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
@@ -8211,6 +8277,18 @@ packages:
   xmlhttprequest-ssl@2.1.2:
     resolution: {integrity: sha512-TEU+nJVUUnA4CYJFLvK5X9AOeH4KvDvhIfm0vV1GaQRtchnG0hgK5p8hw/xjv8cunWYCsiPCSDzObPyhEwq3KQ==}
     engines: {node: '>=0.4.0'}
+
+  xpath@0.0.32:
+    resolution: {integrity: sha512-rxMJhSIoiO8vXcWvSifKqhvV96GjiD5wYb8/QHdoRyQvraTpp4IEv944nhGausZZ3u7dhQXteZuZbaqfpB7uYw==}
+    engines: {node: '>=0.6.0'}
+
+  xpath@0.0.33:
+    resolution: {integrity: sha512-NNXnzrkDrAzalLhIUc01jO2mOzXGXh1JwPgkihcLLzw98c0WgYDmmjSh1Kl3wzaxSVWMuA+fe0WTWOBDWCBmNA==}
+    engines: {node: '>=0.6.0'}
+
+  xpath@0.0.34:
+    resolution: {integrity: sha512-FxF6+rkr1rNSQrhUNYrAFJpRXNzlDoMxeXN5qI84939ylEv3qqPFKa85Oxr6tDaJKqwW6KKyo2v26TSv3k6LeA==}
+    engines: {node: '>=0.6.0'}
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -9756,6 +9834,23 @@ snapshots:
       '@node-rs/xxhash-win32-ia32-msvc': 1.7.8
       '@node-rs/xxhash-win32-x64-msvc': 1.7.8
 
+  '@node-saml/node-saml@5.1.0':
+    dependencies:
+      '@types/debug': 4.1.13
+      '@types/qs': 6.15.1
+      '@types/xml-encryption': 1.2.4
+      '@types/xml2js': 0.4.14
+      '@xmldom/is-dom-node': 1.0.1
+      '@xmldom/xmldom': 0.8.15
+      debug: 4.4.3
+      xml-crypto: 6.3.3
+      xml-encryption: 3.1.0
+      xml2js: 0.6.2
+      xmlbuilder: 15.1.1
+      xpath: 0.0.34
+    transitivePeerDependencies:
+      - supports-color
+
   '@open-draft/until@3.0.1': {}
 
   '@opentelemetry/api-logs@0.223.0':
@@ -10363,6 +10458,20 @@ snapshots:
   '@peculiar/utils@2.0.3':
     dependencies:
       tslib: 2.8.1
+
+  '@peculiar/x509@1.14.3':
+    dependencies:
+      '@peculiar/asn1-cms': 2.10.0
+      '@peculiar/asn1-csr': 2.10.0
+      '@peculiar/asn1-ecc': 2.10.0
+      '@peculiar/asn1-pkcs9': 2.10.0
+      '@peculiar/asn1-rsa': 2.10.0
+      '@peculiar/asn1-schema': 2.10.0
+      '@peculiar/asn1-x509': 2.10.0
+      pvtsutils: 1.3.6
+      reflect-metadata: 0.2.2
+      tslib: 2.8.1
+      tsyringe: 4.10.0
 
   '@peculiar/x509@2.1.0':
     dependencies:
@@ -11454,6 +11563,14 @@ snapshots:
     dependencies:
       '@types/node': 24.19.0
 
+  '@types/xml-encryption@1.2.4':
+    dependencies:
+      '@types/node': 24.19.0
+
+  '@types/xml2js@0.4.14':
+    dependencies:
+      '@types/node': 24.19.0
+
   '@unocss/cli@66.10.5':
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -11767,6 +11884,10 @@ snapshots:
     optional: true
 
   '@webcontainer/env@1.1.1': {}
+
+  '@xmldom/is-dom-node@1.0.1': {}
+
+  '@xmldom/xmldom@0.8.15': {}
 
   '@xtuc/ieee754@1.2.0':
     optional: true
@@ -12137,6 +12258,8 @@ snapshots:
   byline@5.0.0: {}
 
   bytes@3.1.2: {}
+
+  bytestreamjs@2.0.1: {}
 
   cac@7.0.0: {}
 
@@ -14420,6 +14543,15 @@ snapshots:
       mlly: 1.8.2
       pathe: 2.0.3
 
+  pkijs@3.4.1:
+    dependencies:
+      '@noble/hashes': 1.8.0
+      asn1js: 3.0.10
+      bytestreamjs: 2.0.1
+      pvtsutils: 1.3.6
+      pvutils: 1.2.0
+      tslib: 2.8.1
+
   playwright-core@1.63.0: {}
 
   playwright@1.63.0:
@@ -14901,6 +15033,8 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
+  sax@1.6.1: {}
+
   saxes@5.0.1:
     dependencies:
       xmlchars: 2.2.0
@@ -14931,6 +15065,11 @@ snapshots:
   selderee@0.11.0:
     dependencies:
       parseley: 0.12.1
+
+  selfsigned@5.5.0:
+    dependencies:
+      '@peculiar/x509': 1.14.3
+      pkijs: 3.4.1
 
   semver@6.3.1: {}
 
@@ -16014,11 +16153,38 @@ snapshots:
     dependencies:
       is-wsl: 3.1.1
 
+  xml-crypto@6.3.3:
+    dependencies:
+      '@xmldom/is-dom-node': 1.0.1
+      '@xmldom/xmldom': 0.8.15
+      xpath: 0.0.33
+
+  xml-encryption@3.1.0:
+    dependencies:
+      '@xmldom/xmldom': 0.8.15
+      escape-html: 1.0.3
+      xpath: 0.0.32
+
   xml-name-validator@5.0.0: {}
+
+  xml2js@0.6.2:
+    dependencies:
+      sax: 1.6.1
+      xmlbuilder: 11.0.1
+
+  xmlbuilder@11.0.1: {}
+
+  xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
 
   xmlhttprequest-ssl@2.1.2: {}
+
+  xpath@0.0.32: {}
+
+  xpath@0.0.33: {}
+
+  xpath@0.0.34: {}
 
   xtend@4.0.2: {}
 

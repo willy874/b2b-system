@@ -13,6 +13,7 @@ import { AuthShell } from '../AuthShell';
 import { InteractionFooter } from './components/InteractionFooter';
 import { InteractionInvalid } from './components/InteractionInvalid';
 import { MfaStepPanel } from './components/MfaStepPanel';
+import { PasskeyLoginButton } from './components/PasskeyLoginButton';
 
 /**
  * IdP 的登入互動頁（docs/architecture/04-sso.md §12）：產品把使用者導到 IdP，沒有 IdP session 時
@@ -22,6 +23,7 @@ import { MfaStepPanel } from './components/MfaStepPanel';
  * email 網域有外部 IdP 連線時多一個「使用 X 登入」（D9）；網域只允許 SSO 時不顯示密碼欄。
  * 外部 IdP 登入失敗時 api 帶 `?error=<錯誤碼>` 回到這一頁。流程在 `useInteractionLogin`，這裡只渲染。
  * 帳號需要 MFA 時，密碼通過後換成第二步（`MfaStepPanel`，docs/architecture/backend/21-mfa.md §4）。
+ * 平台開放、租戶允許時多一個「使用通行金鑰登入」，取代密碼與第二步（docs/architecture/04-sso.md §3.6）。
  */
 export default function InteractionPage() {
   const { t } = useTranslation();
@@ -199,6 +201,9 @@ export default function InteractionPage() {
                 {t('login.interaction.external', { name: provider.name })}
               </Button>
             </>
+          )}
+          {interaction.data?.passkeyLogin && !ssoOnly && (
+            <PasskeyLoginButton uid={uid} disabled={loginPending || externalPending} />
           )}
           <Button
             variant="ghost"

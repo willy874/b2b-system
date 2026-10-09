@@ -72,8 +72,15 @@ export const ErrorCode = {
   AUTH_SSO_LINK_NOT_ALLOWED: { status: 403 },
   /** 外部 IdP 連線不存在、已停用，或無法連線（discovery 失敗）。 */
   AUTH_SSO_PROVIDER_UNAVAILABLE: { status: 400 },
-  /** 外部 IdP 回來的結果無效：state 不對、已過期、授權碼兌換失敗、ID token 驗證失敗。 */
+  /** 外部 IdP 回來的結果無效：state 不對、已過期、授權碼兌換失敗、ID token 驗證失敗、SAML 回應驗證失敗。 */
   AUTH_SSO_EXTERNAL_FAILED: { status: 400 },
+  /**
+   * 不能以通行金鑰登入（docs/architecture/04-sso.md §3.6）：平台沒有開放、這個租戶的政策不允許 WebAuthn，
+   * 或這次登入不接受（例：產品要求新增驗證方式，要先以密碼重新驗證）。
+   */
+  AUTH_PASSKEY_UNAVAILABLE: { status: 400 },
+  /** 通行金鑰的回應無效：不認得的憑證、簽章不對、challenge 過期或用過、沒有做使用者驗證（不細分）。 */
+  AUTH_PASSKEY_INVALID: { status: 400 },
   /**
    * 密碼驗證的名額已滿或等太久（argon2 的並行上限，docs/architecture/backend/04-auth.md §4.1）：稍後再試。
    * `details.retryAfterSeconds` 與 `Retry-After` 是建議的等待秒數。
@@ -304,6 +311,14 @@ export const ErrorCode = {
   IDENTITY_PROVIDER_DOMAIN_TAKEN: { status: 409 },
   /** 連線數已達租戶的上限 `identityProvider.maxProviders`（`details.max`；docs/architecture/05-tenancy.md §13.3 D10）。 */
   IDENTITY_PROVIDER_LIMIT_REACHED: { status: 409 },
+  /** issuer 不符合範本的格式（`details.preset`；例：Entra 必須是單一目錄的端點，docs/architecture/04-sso.md §3.3.1）。 */
+  IDENTITY_PROVIDER_ISSUER_INVALID: { status: 400 },
+  /** SAML 的簽章憑證不是有效的 X.509 憑證（`details.position` 是第幾張，從 1 起）。 */
+  IDENTITY_PROVIDER_CERTIFICATE_INVALID: { status: 400 },
+  /** 更新時帶的協定與連線的不同：協定不能更換，要換就新增一個連線（`details.protocol` 是既有的）。 */
+  IDENTITY_PROVIDER_PROTOCOL_MISMATCH: { status: 400 },
+  /** 帳號沒有這個外部身分連結（或已被解除）。 */
+  USER_IDENTITY_NOT_FOUND: { status: 404 },
 
   // ── 稽核日誌 ──
   AUDIT_LOG_NOT_FOUND: { status: 404 },

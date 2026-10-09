@@ -22,10 +22,18 @@ export async function register(challenge: MfaChallengeInfo | null): Promise<unkn
 }
 
 export async function authenticate(challenge: MfaChallengeInfo | null): Promise<unknown> {
-  const optionsJSON = optionsOf<PublicKeyCredentialRequestOptionsJSON>(challenge);
-  if (!optionsJSON) throw new Error('missing authentication options');
+  return authenticatePasskey(challenge?.publicData?.options);
+}
+
+/**
+ * 以伺服器給的 authentication options 呼叫瀏覽器 API。也用在以通行金鑰取代密碼的登入
+ * （docs/architecture/04-sso.md §3.6）：options 不帶 `allowCredentials`，由瀏覽器列出這個網域的通行金鑰。
+ * 要在使用者的點擊裡呼叫（Safari）。
+ */
+export async function authenticatePasskey(options: unknown): Promise<unknown> {
+  if (!options || typeof options !== 'object') throw new Error('missing authentication options');
   const { startAuthentication } = await import('@simplewebauthn/browser');
-  return startAuthentication({ optionsJSON });
+  return startAuthentication({ optionsJSON: options as PublicKeyCredentialRequestOptionsJSON });
 }
 
 /** challenge 已過期或還沒有：要先向伺服器重新取得。 */

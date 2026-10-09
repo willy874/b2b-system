@@ -1054,15 +1054,34 @@ export interface IdentityProviderDomain {
   ssoOnly: boolean;
 }
 
+export interface SamlCertificate {
+  pem: string;
+  subject: string;
+  notAfter: string;
+  fingerprint: string;
+}
+
+export interface SamlSettings {
+  ssoUrl: string;
+  certificates: Array<SamlCertificate>;
+  nameIdFormat: 'persistent' | 'emailAddress' | 'unspecified';
+  emailAttribute: string | null;
+  nameAttribute: string | null;
+  spEntityId: string;
+}
+
 export interface IdentityProvider {
   id: string;
   name: string;
+  protocol: 'oidc' | 'saml';
+  preset: 'generic' | 'google' | 'microsoft' | 'okta' | 'keycloak';
   issuer: string;
-  clientId: string;
+  clientId: string | null;
   scopes: string;
   enabled: boolean;
   unmatchedPolicy: 'reject' | 'auto_create';
   domains: Array<IdentityProviderDomain>;
+  saml: SamlSettings | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1070,28 +1089,77 @@ export interface IdentityProvider {
 export interface IdentityProviderList {
   items: Array<IdentityProvider>;
   callbackUrl: string;
+  samlAcsUrl: string;
 }
 
-export interface CreateIdentityProviderRequest {
-  name: string;
-  issuer: string;
-  clientId: string;
-  clientSecret: string;
-  scopes: string;
-  enabled: boolean;
-  unmatchedPolicy: 'reject' | 'auto_create';
-  domains: Array<IdentityProviderDomain>;
+export type CreateIdentityProviderRequest =
+  | {
+      name: string;
+      enabled: boolean;
+      unmatchedPolicy: 'reject' | 'auto_create';
+      domains: Array<IdentityProviderDomain>;
+      protocol: 'oidc';
+      preset: 'generic' | 'google' | 'microsoft' | 'okta' | 'keycloak';
+      issuer: string;
+      clientId: string;
+      clientSecret: string;
+      scopes: string;
+    }
+  | {
+      name: string;
+      enabled: boolean;
+      unmatchedPolicy: 'reject' | 'auto_create';
+      domains: Array<IdentityProviderDomain>;
+      protocol: 'saml';
+      entityId: string;
+      ssoUrl: string;
+      certificates: Array<string>;
+      nameIdFormat: 'persistent' | 'emailAddress' | 'unspecified';
+      emailAttribute: string | null;
+      nameAttribute: string | null;
+    };
+
+export type UpdateIdentityProviderRequest =
+  | {
+      name?: string;
+      enabled?: boolean;
+      unmatchedPolicy?: 'reject' | 'auto_create';
+      domains?: Array<IdentityProviderDomain>;
+      protocol: 'oidc';
+      preset?: 'generic' | 'google' | 'microsoft' | 'okta' | 'keycloak';
+      issuer?: string;
+      clientId?: string;
+      clientSecret?: string;
+      scopes?: string;
+    }
+  | {
+      name?: string;
+      enabled?: boolean;
+      unmatchedPolicy?: 'reject' | 'auto_create';
+      domains?: Array<IdentityProviderDomain>;
+      protocol: 'saml';
+      entityId?: string;
+      ssoUrl?: string;
+      certificates?: Array<string>;
+      nameIdFormat?: 'persistent' | 'emailAddress' | 'unspecified';
+      emailAttribute?: string | null;
+      nameAttribute?: string | null;
+    };
+
+export interface UserIdentity {
+  id: string;
+  providerId: string;
+  providerName: string;
+  protocol: 'oidc' | 'saml';
+  providerDeleted: boolean;
+  subject: string;
+  email: string | null;
+  linkedAt: string;
+  lastLoginAt: string | null;
 }
 
-export interface UpdateIdentityProviderRequest {
-  name?: string;
-  issuer?: string;
-  clientId?: string;
-  clientSecret?: string;
-  scopes?: string;
-  enabled?: boolean;
-  unmatchedPolicy?: 'reject' | 'auto_create';
-  domains?: Array<IdentityProviderDomain>;
+export interface UserIdentityList {
+  items: Array<UserIdentity>;
 }
 
 export interface PlatformNotification {
@@ -1905,6 +1973,15 @@ export interface SsoInteraction {
     name: string;
   } | null;
   mfaEnroll: string | null;
+  passkeyLogin: boolean;
+}
+
+export interface SsoPasskeyOptions {
+  publicData: Record<string, unknown>;
+}
+
+export interface SsoPasskeyLoginRequest {
+  payload: Record<string, unknown>;
 }
 
 export interface SsoDiscovery {

@@ -1,7 +1,7 @@
 {
   "identityProvider": {
     "title": "Identity providers",
-    "description": "Let people sign in with their company account (Google Workspace, Azure AD or any OIDC service). The email domain decides which connection is used.",
+    "description": "Let people sign in with their work account: OIDC services such as Google Workspace, Microsoft Entra ID and Okta, or SAML 2.0 services such as ADFS. The email domain decides which connection is used.",
     "callbackUrl": "Redirect URI to register with the identity provider",
     "empty": "No identity providers yet",
     "enabled": "Enabled",
@@ -17,14 +17,30 @@
       "unmatchedPolicy": "When no account matches",
       "domains": "Email domains",
       "status": "Status",
-      "updatedAt": "Updated"
+      "updatedAt": "Updated",
+      "protocol": "Protocol",
+      "preset": "Service",
+      "directoryId": "Directory (tenant) ID",
+      "entityId": "IdP entity ID",
+      "ssoUrl": "SSO URL",
+      "certificates": "Signing certificates",
+      "nameIdFormat": "NameID format",
+      "emailAttribute": "Email attribute",
+      "nameAttribute": "Name attribute"
     },
     "hint": {
       "name": "Shown on the sign-in button, e.g. “Acme Azure AD”.",
       "issuer": "OIDC issuer URL; endpoints are read from /.well-known/openid-configuration.",
       "clientSecret": "Write-only: it is never shown again after saving.",
       "clientSecretKeep": "Leave empty to keep the current secret.",
-      "domains": "People with these email domains see this connection after entering their email. A domain can belong to only one connection."
+      "domains": "People with these email domains see this connection after entering their email. A domain can belong to only one connection.",
+      "protocolLocked": "The protocol can't be changed after creation. Create a new connection instead.",
+      "directoryId": "The issuer will be {{issuer}}.",
+      "entityId": "The IdP's identifier (entityID in its metadata). Changing it unlinks every connected user.",
+      "ssoUrl": "Where the IdP receives AuthnRequests (HTTP-Redirect binding).",
+      "certificates": "X.509 certificates (PEM) the IdP signs assertions with. During rotation you can register both, up to 3.",
+      "nameIdFormat": "NameID identifies the person. Persistent is recommended: an email NameID stops matching once the email changes.",
+      "emailAttribute": "Leave empty to look for common names (emailaddress claim, mail); otherwise an email-format NameID is used."
     },
     "policy": {
       "reject": "Reject sign-in",
@@ -55,12 +71,59 @@
     },
     "error": {
       "nameRequired": "Enter a name",
-      "issuerInvalid": "Enter a full URL",
+      "issuerInvalid": "Enter a full URL that matches the selected service",
       "clientIdRequired": "Enter the client ID",
       "clientSecretRequired": "Enter the client secret",
       "scopesInvalid": "Must include openid",
       "domainInvalid": "Invalid domain",
-      "domainDuplicate": "Duplicate domain"
+      "domainDuplicate": "Duplicate domain",
+      "directoryIdInvalid": "Enter the directory ID (a GUID)",
+      "entityIdRequired": "Enter the IdP's entity ID",
+      "ssoUrlInvalid": "Enter a full URL",
+      "certificateInvalid": "Not a PEM certificate"
+    },
+    "samlAcsUrl": "ACS URL to register in the SAML IdP (Assertion Consumer Service)",
+    "spEntityId": "SP entity ID (also the SP metadata URL the IdP can import)",
+    "protocol": {
+      "oidc": "OIDC",
+      "saml": "SAML 2.0"
+    },
+    "preset": {
+      "generic": "Other OIDC service",
+      "google": "Google Workspace",
+      "microsoft": "Microsoft Entra ID",
+      "okta": "Okta",
+      "keycloak": "Keycloak"
+    },
+    "presetHint": {
+      "generic": "Any service with OIDC discovery. Only emails with email_verified true are used to match existing accounts.",
+      "google": "Only organization-managed Workspace accounts (hd in the ID token) are matched by email or auto-created; consumer Gmail accounts are not.",
+      "microsoft": "Only single-directory endpoints are accepted. Entra doesn't send email_verified: add the optional claim \"xms_edov\" to the app registration to match existing accounts by email.",
+      "okta": "Your Okta org URL (https://<org>.okta.com) or a custom authorization server (…/oauth2/<id>).",
+      "keycloak": "The realm URL (<base>/realms/<realm>)."
+    },
+    "nameIdFormat": {
+      "persistent": "Persistent (recommended)",
+      "emailAddress": "Email",
+      "unspecified": "Unspecified"
+    },
+    "metadata": {
+      "import": "Import from IdP metadata",
+      "placeholder": "Paste the IdP's metadata XML",
+      "apply": "Fill in fields",
+      "applied_one": "Filled in the entity ID, SSO URL and {{count}} certificate",
+      "applied_other": "Filled in the entity ID, SSO URL and {{count}} certificates",
+      "error": {
+        "invalidXml": "Not valid XML",
+        "noIdpDescriptor": "No IdP descriptor (IDPSSODescriptor) found",
+        "noRedirectBinding": "The IdP doesn't offer an HTTP-Redirect SSO URL"
+      }
+    },
+    "certificate": {
+      "label": "Certificate {{position}}",
+      "add": "Add certificate",
+      "remove": "Remove certificate",
+      "summary": "SHA-256 {{fingerprint}} · expires {{date}}"
     }
   }
 }

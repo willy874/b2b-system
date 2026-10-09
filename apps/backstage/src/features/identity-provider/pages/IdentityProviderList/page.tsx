@@ -1,7 +1,6 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button, IconButton } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
-import { Input } from '@b2b-system/ui/Input';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
@@ -17,11 +16,13 @@ import type { IdentityProvider } from '@/shared/api-sdk';
 
 import { useDeleteIdentityProviderMutation } from '../../hooks/useIdentityProviderMutations';
 import { useIdentityProviderPermission } from '../../hooks/useIdentityProviderPermission';
+import { KIND_LABEL_KEY } from './adapter';
 import { IdentityProviderFormDialog } from './components/IdentityProviderFormDialog';
+import { RegistrationUrls } from './components/RegistrationUrls';
 
 /**
- * 租戶的外部 IdP 連線（docs/architecture/04-sso.md §12.2 D8–D11、0020 D18）：
- * 連線清單、網域與要登記在外部 IdP 的 redirect URI；client secret 只寫不讀。
+ * 租戶的外部 IdP 連線（docs/architecture/04-sso.md §3.3、§12.2 D8–D11）：
+ * 連線清單（OIDC、SAML 2.0）、網域與要登記在外部 IdP 的 redirect URI／ACS；client secret 只寫不讀。
  */
 export default function IdentityProviderListPage() {
   const { t } = useTranslation();
@@ -41,7 +42,18 @@ export default function IdentityProviderListPage() {
         header: t('identityProvider.field.name'),
         cell: ({ row }) => (
           <div className="flex flex-col">
-            <span className="font-medium">{row.original.name}</span>
+            <span className="flex items-center gap-2 font-medium">
+              {row.original.name}
+              <code
+                className="rounded bg-[var(--color-fill-subtle)] px-1 font-mono text-xs font-normal"
+                data-testid="identity-provider-kind"
+                data-value={row.original.protocol}
+              >
+                {row.original.protocol === 'saml'
+                  ? t('identityProvider.protocol.saml')
+                  : t(KIND_LABEL_KEY[row.original.preset])}
+              </code>
+            </span>
             <span className="text-xs text-[var(--color-fg-muted)]">{row.original.issuer}</span>
           </div>
         ),
@@ -140,18 +152,7 @@ export default function IdentityProviderListPage() {
         )}
       </header>
 
-      {data && (
-        <label className="flex max-w-160 flex-col gap-1 text-sm">
-          <span className="text-[var(--color-fg-muted)]">{t('identityProvider.callbackUrl')}</span>
-          <Input
-            readOnly
-            value={data.callbackUrl}
-            onFocus={(event) => event.target.select()}
-            className="font-mono"
-            data-testid="identity-provider-callback-url"
-          />
-        </label>
-      )}
+      {data && <RegistrationUrls callbackUrl={data.callbackUrl} samlAcsUrl={data.samlAcsUrl} />}
 
       {/* 查詢失敗而且沒有舊資料：顯示錯誤與重試，不落到「還沒有任何外部 IdP 連線」 */}
       {error && !data ? (

@@ -1,0 +1,2 @@
+-- 平台管理者的通行金鑰登入以憑證 id 找 WebAuthn 的因子（docs/architecture/04-sso.md §3.6）。
+CREATE INDEX "platform_admin_mfa_factors_credential_idx" ON "platform_admin_mfa_factors" USING btree (("config" ->> 'credentialId')) WHERE "platform_admin_mfa_factors"."method" = 'webauthn';

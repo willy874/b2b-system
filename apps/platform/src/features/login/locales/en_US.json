@@ -35,7 +35,8 @@
       "ssoOnly": "Your organization signs in with {{name}}.",
       "or": "or",
       "enterTenant": "Signing in to your workspace? Enter your tenant code",
-      "mfaEnroll": "To add a security key, verify it’s you first."
+      "mfaEnroll": "To add a security key, verify it’s you first.",
+      "passkey": "Sign in with a passkey"
     },
     "client": {
       "backstage": "Console",

@@ -13,6 +13,7 @@ export function useUserPermission() {
   const hasGroups = useIsFeatureReady(TenantFeature.group);
   const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
   const hasOrganization = useIsFeatureReady(TenantFeature.organization);
+  const hasIdentityProvider = useIsFeatureReady(TenantFeature.identityProvider);
 
   // 權限沒變時回傳同一個物件（列表的 rows 等 memo 以它或它的欄位為依賴）
   return useMemo(
@@ -42,11 +43,17 @@ export function useUserPermission() {
        * 租戶沒有啟用 `externalApi` 時沒有這個區塊（§3.1）
        */
       canManageApiTokens: page.canUpdate && hasApiTokens,
+      /**
+       * 詳情的「外部身分」（docs/architecture/04-sso.md §3.3.4）：檢視跟著 `user:read`、解除要 `user:update`；
+       * 租戶沒有啟用 `identityProvider` 時沒有這個區塊
+       */
+      canReadIdentities: hasIdentityProvider && page.canRead,
+      canUnlinkIdentity: hasIdentityProvider && page.canUpdate,
       /** 匯出要獨立的 `user:export`（docs/architecture/backend/22-data-transfer.md §13 D11）；租戶沒有啟用 `dataTransfer` 時沒有入口 */
       canExport: hasDataTransfer && can(PermissionKey['user:export']),
       /** 匯入沿用 create／update：修改模式要 `user:update`（`user:create` 包含它） */
       canImport: hasDataTransfer && page.canUpdate,
     }),
-    [page, can, hasApiTokens, hasGroups, hasDataTransfer, hasOrganization],
+    [page, can, hasApiTokens, hasGroups, hasDataTransfer, hasOrganization, hasIdentityProvider],
   );
 }

@@ -45,7 +45,7 @@ api 端由 `SsoInteractionController` → `SsoService.login` 驗證之後呼叫 
 
 | 做 | 不做 |
 | --- | --- |
-| 共同抽象：`MfaMethod` 介面、`MfaMethodRegistry`、與方式無關的資料表、端點、稽核、限流 | 推播核准（需要自己的手機 App）；以 passkey 取代密碼的無密碼登入（D20） |
+| 共同抽象：`MfaMethod` 介面、`MfaMethodRegistry`、與方式無關的資料表、端點、稽核、限流 | 推播核准（需要自己的手機 App） |
 | 方式三：**WebAuthn**（安全金鑰、通行金鑰，§9.3），只能在 apps/platform 的網域註冊；租戶的使用者經「重新登入並新增」（§7.1） | 依強度限制方式的政策（D16，`assurance` 已細分，政策還不依它限制） |
 | 方式四：**簡訊驗證碼**（Twilio 或自訂的 HTTP 閘道，§9.4）；只送到平台允許的國碼 | 租戶自帶簡訊供應商或 Bot（參數只有平台一份，D18） |
 | 方式五、六：**Telegram、LINE**（Bot 傳送驗證碼，§9.5）；設定時以綁定碼連結帳號，webhook 驗簽章 | 其他通訊軟體（照 §9.5 的 `MessagingChannel` 加一個實作即可） |
@@ -160,6 +160,8 @@ export interface MfaMethod<TVerify = unknown> {
   describe(factor: MfaFactor, account: MfaAccount): MfaFactorSummary;
   /** 檢查平台參數（§5.1）：以金鑰呼叫供應商、登記 webhook；不通過就不儲存。derived 是要一起存的值（Bot 的名稱）。 */
   checkSettings?(values: MfaSettingValues): Promise<MfaSettingsCheck>;
+  /** 能取代密碼的方式（WebAuthn；04-sso.md §3.6）：不知道帳號時的 challenge、從回應找因子與帳號。驗證仍走 verify。 */
+  readonly passwordless?: MfaPasswordless<TVerify>;
 }
 
 export type MfaVerifyResult =
@@ -479,6 +481,7 @@ backstage /profile「新增驗證方式」→ 選「安全金鑰」（enrollAt: 
 | 計數 | 簽章計數大於 0 時交給框架（`last_used_counter`，倒退視為複製的憑證而拒絕）；同步型的通行金鑰永遠回 0，不交給框架比較 |
 | amr | `hwk`（RFC 8176）；稽核另外記方式 id |
 | 逾時 | challenge 與瀏覽器 API 都是 5 分鐘；沒有重送冷卻（使用者取消後可以馬上再試） |
+| 取代密碼 | 平台參數 `passkeyLogin`（`disabled`／`enabled`，不是必填、預設 `disabled`）：開啟後登入頁多一個「使用通行金鑰登入」，以 discoverable credential 的流程（不帶 `allowCredentials`、一定要求使用者驗證）登入，不經密碼與第二步。方式實作 `passwordless`，驗證仍走 `verify`。見 [`../04-sso.md`](../04-sso.md) §3.6 |
 
 ### 9.4 簡訊驗證碼（`modules/mfa-sms`）
 
@@ -663,7 +666,7 @@ E2E 以 seed 算 TOTP 碼（`apps/e2e/helpers/totp.ts`）；同一個時間步�
 | D17 | **需要外部服務的方式以「平台參數」設定，必填填齊之前不能開啟**；參數由方式宣告欄位，表單由前端依定義產生 | 方式一開啟就要能用：沒有金鑰的簡訊方式開啟後，使用者會卡在「收不到碼」而且被當成登入失敗。把前置條件放在開關上（伺服器擋、前端停用），比上線後出錯好。欄位由方式宣告，框架與平台頁不必認識每家供應商 |
 | D18 | **參數只有平台一份**，租戶不能自帶簡訊供應商或 Bot | 先求一套能運作；租戶各自的金鑰要處理費用歸屬、租戶層的加密與輪替，等有實際需求再加（`mfa_method_settings` 加 `tenant_id` 即可延伸） |
 | D19 | **WebAuthn 只能在 apps/platform 註冊，租戶的使用者以 `prompt=login&mfa_enroll=<id>` 進入登入互動設定**（§7.1） | 憑證綁 RP ID；登入在 apps/platform，在租戶網域註冊的憑證用不了。Related Origins（`/.well-known/webauthn`）最多 5 個網域、瀏覽器支援不完整，對應不了「每個租戶一個網域」。強制重新登入兼作 step-up：要先通過既有的第二步才能新增 |
-| D20 | **WebAuthn 只當第二因素**，不做無密碼登入 | 無密碼會改到登入的第一步、鎖定與 amr 的語意；憑證的資料（公鑰、user handle）已足夠之後延伸 |
+| D20 | ~~**WebAuthn 只當第二因素**，不做無密碼登入~~ **更新（10-09）**：可以取代密碼，由平台參數 `passkeyLogin` 開啟（預設關閉），見 [`../04-sso.md`](../04-sso.md) §3.6、§12.6 D9、D10 | 當初的理由（改到第一步、鎖定與 amr 的語意）以「方式的選用能力 `passwordless` ＋ 框架的 `verifyFactor`」解決：第一步之外的流程不變、失敗不累計鎖定、amr 是 `['hwk', 'mfa']`；憑證與因子是同一筆，沒有新的資料表 |
 | D21 | **通訊軟體以「綁定碼 → webhook」連結帳號**，綁定放平台 DB，確認之後收件對象搬進因子 | Bot 不能主動找人，只能等使用者傳訊；webhook 只有一個網址、收到時不知道租戶，所以綁定要放平台 DB；確認後搬進租戶 DB 的因子，登入時不再跨 DB 查詢。綁定碼只存 HMAC，DB 外洩時拿不到還沒用掉的碼 |
 | D22 | **簡訊只送到平台允許的國碼** | 簡訊灌量詐騙（SMS pumping）以高費率國家的號碼刷簡訊；白名單是供應商端之外最直接的防線 |
 | D23 | **供應商的 API 位址在 env、金鑰在平台參數** | 位址是部署層級的（正式 vs 模擬），金鑰是營運層級的（換金鑰不必重新部署）；production 強制 https |

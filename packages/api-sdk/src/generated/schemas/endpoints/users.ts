@@ -27,6 +27,10 @@ import type {
   UserControllerUnlockResult,
   UserControllerUpdateInput,
   UserControllerUpdateResult,
+  UserIdentityControllerListInput,
+  UserIdentityControllerListResult,
+  UserIdentityControllerUnlinkInput,
+  UserIdentityControllerUnlinkResult,
   UserMfaControllerResetInput,
   UserMfaControllerResetResult,
   UserMfaControllerStatusInput,
@@ -40,6 +44,7 @@ import {
   PermissionSourcesSchema,
   ReplaceUserRolesRequestSchema,
   UpdateUserRequestSchema,
+  UserIdentityListSchema,
   UserRolesSchema,
   UserSchema,
 } from '../components';
@@ -412,6 +417,68 @@ export function userControllerUnlock(
   options?: RequestOptions,
 ): Promise<UserControllerUnlockResult> {
   return request<UserControllerUnlockResult>(userControllerUnlockOperation, input, options);
+}
+
+// GET /users/{userId}/identities
+
+export const UserIdentityControllerListSchemas = {
+  path: z.object({
+    userId: z.string(),
+  }),
+  responses: {
+    200: z.object({
+      data: UserIdentityListSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const userIdentityControllerListOperation: OperationDefinition = {
+  id: 'UserIdentityController_list',
+  method: 'GET',
+  path: '/users/{userId}/identities',
+  responseTypes: { 200: 'json' },
+  schemas: UserIdentityControllerListSchemas,
+};
+
+/** 這個帳號連結的外部身分（連線已刪除的也列出） */
+export function userIdentityControllerList(
+  input: UserIdentityControllerListInput,
+  options?: RequestOptions,
+): Promise<UserIdentityControllerListResult> {
+  return request<UserIdentityControllerListResult>(
+    userIdentityControllerListOperation,
+    input,
+    options,
+  );
+}
+
+// DELETE /users/{userId}/identities/{identityId}
+
+export const UserIdentityControllerUnlinkSchemas = {
+  path: z.object({
+    userId: z.string(),
+    identityId: z.string(),
+  }),
+} satisfies OperationSchemas;
+
+const userIdentityControllerUnlinkOperation: OperationDefinition = {
+  id: 'UserIdentityController_unlink',
+  method: 'DELETE',
+  path: '/users/{userId}/identities/{identityId}',
+  responseTypes: { 204: 'none' },
+  schemas: UserIdentityControllerUnlinkSchemas,
+};
+
+/** 解除連結；這個外部身分下一次登入會重新對應帳號。目標是 super-admin 時操作者也要是 */
+export function userIdentityControllerUnlink(
+  input: UserIdentityControllerUnlinkInput,
+  options?: RequestOptions,
+): Promise<UserIdentityControllerUnlinkResult> {
+  return request<UserIdentityControllerUnlinkResult>(
+    userIdentityControllerUnlinkOperation,
+    input,
+    options,
+  );
 }
 
 // GET /users/{id}/permission-sources

@@ -169,7 +169,24 @@ export const SsoInteractionSchema = defineSchema(
      * 互動頁據此顯示「先驗證身分」的說明。沒有是 `null`。
      */
     mfaEnroll: z.string().nullable(),
+    /**
+     * 可以以通行金鑰取代密碼登入（docs/architecture/04-sso.md §3.6）：平台開放、這個租戶的政策允許 WebAuthn，
+     * 而且不是產品要求新增驗證方式的登入（那時要先以密碼重新驗證）。
+     */
+    passkeyLogin: z.boolean(),
   }),
+);
+
+/** 通行金鑰登入的 challenge：給瀏覽器 API 的 options（`@simplewebauthn/browser` 的 `startAuthentication`）。 */
+export const SsoPasskeyOptionsSchema = defineSchema(
+  'SsoPasskeyOptions',
+  z.object({ publicData: z.record(z.string(), z.unknown()) }),
+);
+
+/** 通行金鑰登入：瀏覽器 API 的回應（細節由方式驗證）。 */
+export const SsoPasskeyLoginSchema = defineSchema(
+  'SsoPasskeyLoginRequest',
+  z.object({ payload: z.record(z.string(), z.unknown()) }),
 );
 
 /** 互動完成：前端以 **頂層跳轉** 到 `redirectTo`（provider 的 resume 端點），不以 fetch 跟隨。 */
@@ -198,6 +215,12 @@ export const ExternalCallbackQuerySchema = z.object({
   error: z.string().max(200).optional(),
 });
 
+/** SAML 的 ACS 收到的表單（HTTP-POST binding）；上限是寬鬆的（簽章與憑證會讓回應到數十 KB）。 */
+export const SamlAcsFormSchema = z.object({
+  SAMLResponse: z.string().min(1).max(500_000),
+  RelayState: z.string().min(1).max(200),
+});
+
 export const ExternalCompleteQuerySchema = z.object({ ticket: z.string().min(10).max(200) });
 
 /** 產品的 BFF：授權碼 ＋ PKCE verifier 換 app session（D3）。 */
@@ -219,6 +242,8 @@ export type ResetPasswordDto = z.infer<typeof ResetPasswordSchema>;
 export type SetupDto = z.infer<typeof SetupSchema>;
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type SsoInteractionDto = z.infer<typeof SsoInteractionSchema>;
+export type SsoPasskeyOptionsDto = z.infer<typeof SsoPasskeyOptionsSchema>;
+export type SsoPasskeyLoginDto = z.infer<typeof SsoPasskeyLoginSchema>;
 export type PlatformProfileDto = z.infer<typeof PlatformProfileSchema>;
 export type UpdatePlatformProfileDto = z.infer<typeof UpdatePlatformProfileSchema>;
 export type { SsoRedirectDto } from '@/modules/oidc-provider/sso-redirect.dto';

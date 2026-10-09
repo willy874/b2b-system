@@ -5,6 +5,9 @@ import * as client from 'openid-client';
 
 import { pinnedFetch, systemLookup } from '@/core/http';
 import type { HostLookup, PinnedFetch } from '@/core/http';
+import type { IdentityProviderPreset } from '@/db/schema';
+
+import { isEmailVerifiedForPreset } from './oidc-presets';
 
 /** 連線到外部 IdP 需要的設定（client secret 已解密）。 */
 export interface ExternalProviderConfig {
@@ -12,13 +15,18 @@ export interface ExternalProviderConfig {
   clientId: string;
   clientSecret: string;
   scopes: string;
+  /** 決定「email 是否已驗證」怎麼判斷（docs/architecture/04-sso.md §3.3.1）。 */
+  preset: IdentityProviderPreset;
 }
 
 /** 外部 IdP 回報的身分（ID token 驗證通過之後）。 */
 export interface ExternalIdentity {
   subject: string;
   email: string | null;
-  /** 只有外部 IdP 明確回報 `email_verified: true` 才是 true（D8：未驗證的 email 不能拿來對應帳號）。 */
+  /**
+   * email 能不能拿來對應既有帳號（D8：未驗證的 email 不能）。OIDC 依範本判斷（一般是 `email_verified: true`）；
+   * SAML 沒有這個概念，由 IdP 斷言的 email 一律視為已驗證，防線是「網域必須屬於這個連線」（§3.3）。
+   */
   emailVerified: boolean;
   name: string | null;
 }
@@ -106,14 +114,19 @@ export class OpenIdExternalOidcClient extends ExternalOidcClient {
     const idToken = tokens.claims();
     if (!idToken) throw new Error('外部 IdP 沒有回傳 ID token');
     // 有些 IdP 只把 email 放在 userinfo（OIDC Core §5.4：以 code 流程取得時，scope 的 claims 預設在 userinfo）
+    // 範本要看的 claim（Google 的 `hd`、Entra 的 `xms_edov`）在 ID token：合併時 ID token 優先
     const claims: Record<string, unknown> =
       typeof idToken.email === 'string'
         ? idToken
-        : await client.fetchUserInfo(config, tokens.access_token, idToken.sub);
+        : {
+            ...(await client.fetchUserInfo(config, tokens.access_token, idToken.sub)),
+            ...idToken,
+          };
+    const email = typeof claims.email === 'string' ? claims.email : null;
     return {
       subject: idToken.sub,
-      email: typeof claims.email === 'string' ? claims.email : null,
-      emailVerified: claims.email_verified === true,
+      email,
+      emailVerified: isEmailVerifiedForPreset(provider.preset, claims, email),
       name: typeof claims.name === 'string' ? claims.name : null,
     };
   }

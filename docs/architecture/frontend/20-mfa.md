@@ -32,6 +32,9 @@ interface MfaChallengeProps { factor; challenge; onRequestChallenge?; requesting
 
 `methods/shared/`：`SentCodeChallenge`、`SentCodeEnrollForm`（伺服器送出的碼，以字串前綴 `mfa.<id>.*` 換文字）、`useResendCountdown`、`useQrCode`。
 
+WebAuthn 另外匯出 `authenticatePasskey(options)`、`supportsWebAuthn()`、`ceremonyErrorKey(error)`：apps/platform 互動頁的「使用通行金鑰登入」
+（`features/login` 的 `usePasskeyLogin`、`PasskeyLoginButton`）以它們呼叫瀏覽器 API，取代密碼與第二步（[`../04-sso.md`](../04-sso.md) §3.6）。
+
 ## 2. 共用元件
 
 web-core 不呼叫 app 的 API（[`17-shared-packages.md`](./17-shared-packages.md) §2）：元件收 app 給的函式。

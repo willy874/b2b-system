@@ -17,6 +17,7 @@ const req = {} as never;
 const res = {} as never;
 const PLATFORM_APP_URL = 'https://auth.example.com';
 const CALLBACK_URL = 'https://auth.example.com/api/auth/sso/external/callback';
+const ACS_URL = 'https://auth.example.com/api/oidc-interaction/external/saml/acs';
 const API_BASE = 'https://auth.example.com/api';
 
 const interactionSummary = {
@@ -55,10 +56,12 @@ function setup(env: Record<string, unknown> = {}) {
   const providers = {
     discover: vi.fn(async (_email: string): Promise<unknown> => undefined),
     loginConfig: vi.fn(async (_id: string): Promise<unknown> => ({
+      protocol: 'oidc',
       config: { issuer: 'x' },
       provider,
     })),
     callbackUrl: vi.fn(() => CALLBACK_URL),
+    samlAcsUrl: vi.fn(() => ACS_URL),
     findIdentity: vi.fn(
       async (..._args: unknown[]): Promise<{ id: string; userId: string } | undefined> => undefined,
     ),
@@ -69,6 +72,13 @@ function setup(env: Record<string, unknown> = {}) {
   const client = {
     authorizationUrl: vi.fn(async (..._args: unknown[]) => 'https://idp.example.com/authorize'),
     exchange: vi.fn(async (..._args: unknown[]): Promise<ExternalIdentity> => identity),
+  };
+  const saml = {
+    authorizationUrl: vi.fn(async (..._args: unknown[]) => ({
+      url: 'https://idp.example.com/saml/sso?SAMLRequest=x',
+      requestId: '_req-1',
+    })),
+    validate: vi.fn(async (..._args: unknown[]): Promise<ExternalIdentity> => identity),
   };
   const oidc = {
     interaction: vi.fn(async (..._args: unknown[]): Promise<unknown> => interactionSummary),
@@ -100,13 +110,14 @@ function setup(env: Record<string, unknown> = {}) {
     db as never,
     providers as never,
     client as never,
+    saml as never,
     oidc as never,
     users as never,
     audit as never,
     tenancy as never,
     config as never,
   );
-  return { service, db, providers, client, oidc, users, audit, tenancy };
+  return { service, db, providers, client, saml, oidc, users, audit, tenancy };
 }
 
 afterEach(() => {
@@ -292,7 +303,12 @@ describe('ExternalLoginService.callback：外部 IdP 跳回（docs/architecture/
       expect(ctx.audit.recordSafely).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'auth.login.failure',
-          metadata: { method: 'sso', providerId: 'idp-1', reason: 'browser_mismatch' },
+          metadata: {
+            method: 'sso',
+            protocol: 'oidc',
+            providerId: 'idp-1',
+            reason: 'browser_mismatch',
+          },
         }),
       );
     },
@@ -377,7 +393,7 @@ describe('ExternalLoginService.callback：外部 IdP 跳回（docs/architecture/
       expect.objectContaining({
         action: 'auth.login.success',
         actorId: USER_ID,
-        metadata: { method: 'sso', providerId: 'idp-1' },
+        metadata: { method: 'sso', protocol: 'oidc', providerId: 'idp-1' },
       }),
     );
 
@@ -417,6 +433,7 @@ describe('ExternalLoginService.callback：外部 IdP 跳回（docs/architecture/
 
 function autoCreate(ctx: ReturnType<typeof setup>) {
   ctx.providers.loginConfig.mockResolvedValue({
+    protocol: 'oidc',
     config: { issuer: 'x' },
     provider: { ...provider, unmatchedPolicy: 'auto_create' },
   });
@@ -531,6 +548,7 @@ describe('ExternalLoginService 的帳號對應（docs/architecture/04-sso.md §3
   ])('沒有對應的帳號、%s → AUTH_SSO_ACCOUNT_NOT_FOUND', async (_label, policy, email) => {
     const ctx = setup();
     ctx.providers.loginConfig.mockResolvedValue({
+      protocol: 'oidc',
       config: { issuer: 'x' },
       provider: { ...provider, ...policy },
     });
@@ -642,6 +660,157 @@ describe('ExternalLoginService.complete：完成互動（docs/architecture/04-ss
       code: 'AUTH_SSO_EXTERNAL_FAILED',
     });
     expect(ctx.oidc.finishInteraction).not.toHaveBeenCalled();
+  });
+});
+
+const samlProvider = { ...provider, id: 'idp-saml' };
+const samlLogin = {
+  protocol: 'saml',
+  config: { entityId: 'https://idp.example.com/saml' },
+  sp: { entityId: 'https://auth.example.com/api/sp', acsUrl: ACS_URL },
+  provider: samlProvider,
+};
+
+describe('ExternalLoginService：SAML 2.0（docs/architecture/04-sso.md §3.3.2）', () => {
+  it('start：AuthnRequest 的網址，RelayState 是 state；記下 request ID；綁定 cookie 是 SameSite=None、Secure、只送到 ACS', async () => {
+    const ctx = setup();
+    ctx.providers.loginConfig.mockResolvedValue(samlLogin);
+    const result = await ctx.service.start(req, res, 'int-1', 'idp-saml');
+
+    expect(result.redirectTo).toBe('https://idp.example.com/saml/sso?SAMLRequest=x');
+    expect(ctx.client.authorizationUrl).not.toHaveBeenCalled();
+    const [config, sp, params] = ctx.saml.authorizationUrl.mock.calls[0]! as [
+      unknown,
+      unknown,
+      { relayState: string },
+    ];
+    expect(config).toBe(samlLogin.config);
+    expect(sp).toBe(samlLogin.sp);
+    const [state, saved] = ctx.oidc.saveExternalLogin.mock.calls[0]! as [
+      string,
+      ExternalLoginState,
+    ];
+    expect(state).toBe(params.relayState);
+    expect(saved).toMatchObject({
+      protocol: 'saml',
+      samlRequestId: '_req-1',
+      providerId: 'idp-saml',
+    });
+    expect(result.binding.options).toEqual({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/api/oidc-interaction/external/saml/acs',
+      maxAge: 600_000,
+    });
+  });
+
+  function samlPending(overrides: Partial<ExternalLoginState> = {}) {
+    return pendingLogin({
+      protocol: 'saml',
+      providerId: 'idp-saml',
+      codeVerifier: '',
+      nonce: '',
+      samlRequestId: '_req-1',
+      ...overrides,
+    });
+  }
+
+  const acsClear = (name: string) => [{ name, path: '/api/oidc-interaction/external/saml/acs' }];
+
+  it('ACS 沒有 RelayState → 錯誤頁，不清 cookie', async () => {
+    const ctx = setup();
+    await expect(ctx.service.samlAcs({ SAMLResponse: 'x' })).resolves.toEqual({
+      location: `${PLATFORM_APP_URL}/error?error=AUTH_SSO_EXTERNAL_FAILED`,
+      clearCookies: [],
+    });
+  });
+
+  it('OIDC 的登入狀態送到 ACS（協定不符）→ 視同找不到，不驗證回應', async () => {
+    const ctx = setup();
+    const { state, cookies, cookieName } = pendingLogin();
+    ctx.oidc.findExternalLogin.mockResolvedValue(state);
+    const result = await ctx.service.samlAcs({ SAMLResponse: 'x', RelayState: 'state-1' }, cookies);
+    expect(result).toEqual({
+      location: `${PLATFORM_APP_URL}/error?error=AUTH_SSO_EXTERNAL_FAILED`,
+      clearCookies: acsClear(cookieName),
+    });
+    expect(ctx.saml.validate).not.toHaveBeenCalled();
+  });
+
+  it('沒有綁定 cookie → browser_mismatch，不驗證回應', async () => {
+    const ctx = setup();
+    ctx.oidc.findExternalLogin.mockResolvedValue(samlPending().state);
+    const result = await ctx.service.samlAcs({ SAMLResponse: 'x', RelayState: 'state-1' }, {});
+    expect(result.location).toBe(interactionError('AUTH_SSO_EXTERNAL_FAILED'));
+    expect(ctx.saml.validate).not.toHaveBeenCalled();
+    expect(ctx.audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ protocol: 'saml', reason: 'browser_mismatch' }),
+      }),
+    );
+  });
+
+  it('回應驗證失敗 → saml_validation_failed，作廢登入狀態', async () => {
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const ctx = setup();
+    const { state, cookies } = samlPending();
+    ctx.oidc.findExternalLogin.mockResolvedValue(state);
+    ctx.providers.loginConfig.mockResolvedValue(samlLogin);
+    ctx.saml.validate.mockRejectedValue(new Error('Invalid signature'));
+    const result = await ctx.service.samlAcs({ SAMLResponse: 'x', RelayState: 'state-1' }, cookies);
+    expect(result.location).toBe(interactionError('AUTH_SSO_EXTERNAL_FAILED'));
+    expect(ctx.oidc.consumeExternalLogin).toHaveBeenCalledWith('state-1');
+    expect(ctx.audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ reason: 'saml_validation_failed' }),
+      }),
+    );
+  });
+
+  it('連線已不是 SAML（或已停用）→ provider_unavailable', async () => {
+    const ctx = setup();
+    const { state, cookies } = samlPending();
+    ctx.oidc.findExternalLogin.mockResolvedValue(state);
+    const result = await ctx.service.samlAcs({ SAMLResponse: 'x', RelayState: 'state-1' }, cookies);
+    expect(result.location).toBe(interactionError('AUTH_SSO_PROVIDER_UNAVAILABLE'));
+    expect(ctx.saml.validate).not.toHaveBeenCalled();
+  });
+
+  it('通過 → 以 request ID 驗證，對應帳號後跳到互動的 complete', async () => {
+    const ctx = setup();
+    const { state, cookies } = samlPending();
+    ctx.oidc.findExternalLogin.mockResolvedValue(state);
+    ctx.providers.loginConfig.mockResolvedValue(samlLogin);
+    ctx.providers.findIdentity.mockResolvedValue({ id: 'link-1', userId: USER_ID });
+    ctx.users.findAccountById.mockResolvedValue(makeUser());
+
+    const result = await ctx.service.samlAcs(
+      { SAMLResponse: 'base64-response', RelayState: 'state-1' },
+      cookies,
+    );
+    expect(result.location).toMatch(
+      new RegExp(`^${API_BASE}/oidc-interaction/int-1/external/complete\\?ticket=`),
+    );
+    expect(ctx.saml.validate).toHaveBeenCalledWith(samlLogin.config, samlLogin.sp, {
+      samlResponse: 'base64-response',
+      requestId: '_req-1',
+    });
+    expect(ctx.providers.findIdentity).toHaveBeenCalledWith('idp-saml', identity.subject);
+    expect(ctx.audit.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth.login.success',
+        metadata: { method: 'sso', protocol: 'saml', providerId: 'idp-saml' },
+      }),
+    );
+  });
+
+  it('samlMetadata：租戶進不去或連線不是 SAML → IDENTITY_PROVIDER_NOT_FOUND', async () => {
+    const ctx = setup();
+    ctx.tenancy.run.mockRejectedValue(new AppException('TENANT_NOT_FOUND'));
+    await expect(ctx.service.samlMetadata(TENANT_ID, 'idp-saml')).rejects.toMatchObject({
+      code: 'IDENTITY_PROVIDER_NOT_FOUND',
+    });
   });
 });
 

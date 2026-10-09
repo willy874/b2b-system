@@ -54,6 +54,12 @@ function setup() {
   const audit = { recordSafely: vi.fn(async (..._args: unknown[]) => undefined) };
   const mfa = {
     afterPassword: vi.fn(async (..._args: unknown[]) => ({ redirectTo: 'resume' })),
+    passkeyMethod: vi.fn(async (_realm: string): Promise<unknown> => null),
+    startPasskey: vi.fn(async (..._args: unknown[]) => ({ options: { challenge: 'c' } })),
+    verifyPasskey: vi.fn(async (..._args: unknown[]) => ({ redirectTo: 'resume' })),
+  };
+  const providers = {
+    isSsoOnly: vi.fn(async (_email: string) => false),
   };
   const service = new SsoService(
     auth as never,
@@ -63,8 +69,10 @@ function setup() {
     tenancy as never,
     audit as never,
     mfa as never,
+    providers as never,
   );
   return {
+    providers,
     service,
     auth,
     oidc,
@@ -290,5 +298,60 @@ describe('SsoService.callback：產品的 BFF（docs/architecture/04-sso.md §12
     ctx.users.findAccountById.mockResolvedValue(user);
     await expect(inTenant(() => ctx.service.callback(dto, meta))).rejects.toMatchObject({ code });
     expect(ctx.auth.issueSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('SsoService：通行金鑰登入（docs/architecture/04-sso.md §3.6）', () => {
+  it('互動摘要：方式可用時 passkeyLogin 是 true（在互動的租戶裡判斷）', async () => {
+    const ctx = setup();
+    ctx.mfa.passkeyMethod.mockResolvedValue({ definition: { id: 'webauthn' } });
+    const dto = await ctx.service.interaction(req, res, 'int-1');
+    expect(dto.passkeyLogin).toBe(true);
+    expect(ctx.tenancy.run).toHaveBeenCalledWith(TENANT_ID, expect.any(Function));
+    expect(ctx.mfa.passkeyMethod).toHaveBeenCalledWith('tenant');
+  });
+
+  it('產品要求新增驗證方式的互動 → passkeyLogin false，端點回 AUTH_PASSKEY_UNAVAILABLE', async () => {
+    const ctx = setup();
+    ctx.mfa.passkeyMethod.mockResolvedValue({ definition: { id: 'webauthn' } });
+    ctx.oidc.interaction.mockResolvedValue({ ...summary, mfaEnroll: 'webauthn' });
+    await expect(ctx.service.interaction(req, res, 'int-1')).resolves.toMatchObject({
+      passkeyLogin: false,
+    });
+    await expect(ctx.service.passkeyOptions(req, res, 'int-1')).rejects.toMatchObject({
+      code: 'AUTH_PASSKEY_UNAVAILABLE',
+    });
+    await expect(
+      ctx.service.passkeyLogin(req, res, 'int-1', { payload: {} }),
+    ).rejects.toMatchObject({ code: 'AUTH_PASSKEY_UNAVAILABLE' });
+  });
+
+  it('平台管理者的互動 → 以 platform 判斷，不進租戶', async () => {
+    const ctx = setup();
+    ctx.oidc.interaction.mockResolvedValue({ ...summary, tenant: null });
+    await ctx.service.passkeyOptions(req, res, 'int-1');
+    expect(ctx.mfa.startPasskey).toHaveBeenCalledWith('int-1', 'platform');
+    expect(ctx.tenancy.run).not.toHaveBeenCalled();
+  });
+
+  it('登入：只允許 SSO 的網域 → guard 拋 AUTH_SSO_REQUIRED（平台管理者不檢查）', async () => {
+    const ctx = setup();
+    await ctx.service.passkeyLogin(req, res, 'int-1', { payload: { response: {} } });
+    const [, , uid, realm, payload, guard] = ctx.mfa.verifyPasskey.mock.calls[0]! as [
+      unknown,
+      unknown,
+      string,
+      string,
+      unknown,
+      (stored: { account: { email: string } }) => Promise<void>,
+    ];
+    expect([uid, realm, payload]).toEqual(['int-1', 'tenant', { response: {} }]);
+
+    ctx.providers.isSsoOnly.mockResolvedValue(true);
+    await expect(guard({ account: { email: 'a@acme.com' } })).rejects.toMatchObject({
+      code: 'AUTH_SSO_REQUIRED',
+    });
+    ctx.providers.isSsoOnly.mockResolvedValue(false);
+    await expect(guard({ account: { email: 'a@acme.com' } })).resolves.toBeUndefined();
   });
 });
