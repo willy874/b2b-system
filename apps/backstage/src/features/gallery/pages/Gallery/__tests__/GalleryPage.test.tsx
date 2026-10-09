@@ -1,6 +1,6 @@
 import { installFlowDom } from '@b2b-system/ui/testing';
 import { renderRoute } from '@b2b-system/web-core/testing';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
@@ -9,6 +9,7 @@ import { initTestI18n } from '@/test/i18n';
 
 import { registerGalleryPagePermissions, Routes } from '../../..';
 import galleryZhTW from '../../../locales/zh_TW.json';
+import { DEFAULT_GALLERY_VIEW, useGalleryViewPreference } from '../preference';
 
 const {
   fetchItems,
@@ -105,6 +106,8 @@ beforeAll(() => {
 beforeEach(() => {
   resetPagePermissionRegistry();
   registerGalleryPagePermissions();
+  // 顯示方式是模組層級的偏好（記在 localStorage）：每個測試從預設開始
+  useGalleryViewPreference.getState().update(DEFAULT_GALLERY_VIEW);
   fetchItems.mockReset().mockResolvedValue({ items: ITEMS, nextCursor: null });
   fetchAlbums.mockReset().mockResolvedValue({ items: [] });
   fetchTimeline.mockReset().mockResolvedValue({
@@ -166,7 +169,7 @@ describe('GalleryPage 的權限（docs/architecture/frontend/24-gallery.md §8�
 });
 
 describe('GalleryPage 的閱覽（docs/architecture/frontend/24-gallery.md §3）', () => {
-  it('依拍攝日期分組：同一天的放在一段，區段有標題', async () => {
+  it('依圖片日期分組：同一天的放在一段，區段有標題', async () => {
     renderRoute(routes, '/gallery', READER);
     await screen.findAllByTestId('gallery-item', undefined, { timeout: 5000 });
     const sections = screen
@@ -200,6 +203,37 @@ describe('GalleryPage 的閱覽（docs/architecture/frontend/24-gallery.md §3�
     );
   });
 
+  it('篩選面板送出：日期區間拆成網址的 from／to，條件以 Chip 列出、可以移除', async () => {
+    const { router } = renderRoute(routes, '/gallery?from=2026-03-01&to=2026-03-31', READER);
+    await screen.findAllByTestId('gallery-item', undefined, { timeout: 5000 });
+    await waitFor(() =>
+      expect(fetchItems).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ takenFrom: new Date(2026, 2, 1).toISOString() }),
+        }),
+      ),
+    );
+    const chip = screen.getAllByTestId('active-filter').find((el) => el.dataset.value === 'date');
+    expect(chip).toHaveTextContent('2026-03-01 – 2026-03-31');
+    fireEvent.click(within(chip as HTMLElement).getByTestId('active-filter-remove'));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('from'));
+  });
+
+  it('切換成列表：一列一張，點標題打開檢視器', async () => {
+    const { router } = renderRoute(routes, '/gallery', READER);
+    await screen.findAllByTestId('gallery-item', undefined, { timeout: 5000 });
+    const listMode = screen
+      .getAllByTestId('gallery-view-mode')
+      .find((el) => el.dataset.value === 'list');
+    fireEvent.click(listMode as HTMLElement);
+    const rows = await screen.findAllByTestId('gallery-list-row');
+    expect(rows.map((row) => row.getAttribute('data-value'))).toEqual([A, B, C]);
+    // 列表沒有依日期分組
+    expect(screen.queryByTestId('gallery-section-select')).toBeNull();
+    fireEvent.click(screen.getAllByTestId('gallery-item')[1] as HTMLElement);
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ item: B }));
+  });
+
   it('沒有圖片 → 空狀態；有 gallery:create 時提示上傳', async () => {
     fetchItems.mockResolvedValue({ items: [], nextCursor: null });
     renderRoute(routes, '/gallery', EDITOR);
@@ -222,6 +256,15 @@ describe('GalleryViewer（docs/architecture/frontend/24-gallery.md §9）', () =
     // 只有讀取權限：沒有旋轉與刪除
     expect(screen.queryByTestId('gallery-viewer-rotate-left')).toBeNull();
     expect(screen.queryByTestId('gallery-viewer-delete')).toBeNull();
+  });
+
+  it('資訊面板的關閉按鈕收起面板；檢視器的關閉按鈕關掉檢視器（網址拿掉 item）', async () => {
+    const { router } = renderRoute(routes, `/gallery?item=${A}`, READER);
+    fireEvent.click(await screen.findByTestId('gallery-info-close', undefined, { timeout: 5000 }));
+    expect(screen.queryByTestId('gallery-info-panel')).toBeNull();
+    fireEvent.click(screen.getByTestId('gallery-viewer-close'));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('item'));
+    expect(screen.queryByTestId('gallery-viewer')).toBeNull();
   });
 
   it('打開的那一張被刪除 → 顯示「圖片已被刪除」', async () => {

@@ -74,7 +74,7 @@ describe('日期捲軸與日期範圍', () => {
     });
   });
 
-  it('filtersOf：預設拍攝時間新到舊、標題 A→Z，reverse 反轉', () => {
+  it('filtersOf：預設圖片日期新到舊、標題 A→Z，reverse 反轉', () => {
     expect(filtersOf({}, undefined).sort).toEqual([{ sort: 'sortAt', order: 'desc' }]);
     expect(filtersOf({ sort: 'title' }, undefined).sort).toEqual([{ sort: 'title', order: 'asc' }]);
     expect(filtersOf({ sort: 'title', reverse: true }, 'album').sort).toEqual([
@@ -93,6 +93,8 @@ describe('偏好與批次項目 id', () => {
         grouping: 'day',
       },
     );
+    expect(parseGalleryViewPreference({ layout: 'list' }).layout).toBe('list');
+    expect(parseGalleryViewPreference({ layout: 'table' }).layout).toBe('justified');
     expect(parseGalleryViewPreference('garbage')).toEqual({
       layout: 'justified',
       rowHeight: 180,

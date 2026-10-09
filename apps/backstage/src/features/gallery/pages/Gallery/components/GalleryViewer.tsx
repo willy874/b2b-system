@@ -302,7 +302,8 @@ export function GalleryViewer({
         </span>
       }
       className="!top-0 !left-0 !h-dvh !max-h-none !w-screen !max-w-none !transform-none !animate-none !rounded-none"
-      classNames={{ body: 'flex min-h-0 flex-1 flex-col gap-0 !p-0 md:flex-row' }}
+      // 標題列右側留給關閉按鈕
+      classNames={{ header: '!pr-14', body: 'flex min-h-0 flex-1 flex-col gap-0 !p-0 md:flex-row' }}
       data-testid="gallery-viewer"
       footer={
         <div className="flex w-full flex-wrap items-center gap-2">
@@ -467,6 +468,16 @@ export function GalleryViewer({
         </div>
       }
     >
+      {/* Dialog 沒有內建的關閉按鈕：全螢幕的檢視器只靠 Esc 關閉不好找，放在標題列右側（彈窗是定位的容器） */}
+      <IconButton
+        variant="ghost"
+        aria-label={t('gallery.viewer.close')}
+        onClick={onClose}
+        className="absolute top-2 right-3"
+        data-testid="gallery-viewer-close"
+      >
+        <Icon name="close" size={16} />
+      </IconButton>
       <div ref={root} className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--color-surface)]">
         <div className="relative min-h-[40dvh] min-w-0 flex-1">{body}</div>
         {items.length > 1 && (
@@ -517,6 +528,7 @@ export function GalleryViewer({
             update.mutate({ params: { itemId, body: { version: current.version, ...patch } } })
           }
           onOpenDuplicate={onNavigate}
+          onClose={() => setShowInfo(false)}
         />
       )}
       <AlertDialog

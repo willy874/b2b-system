@@ -4,8 +4,14 @@ import { createDictStorage } from '@b2b-system/web-shared/storage';
 import { GALLERY_ROW_HEIGHTS } from '../../constants';
 import type { GalleryRowHeight } from '../../constants';
 
-/** 排版：等高排列或正方形方格。 */
-export type GalleryLayout = 'justified' | 'square';
+/** 排版：等高排列、正方形方格，或一列一張的列表（看標題、日期、尺寸等資料）。 */
+export type GalleryLayout = 'justified' | 'square' | 'list';
+
+export const GALLERY_LAYOUTS = [
+  'justified',
+  'square',
+  'list',
+] as const satisfies readonly GalleryLayout[];
 /** 依日期分組：日、月或不分組。 */
 export type GalleryGrouping = 'day' | 'month' | 'none';
 
@@ -29,10 +35,9 @@ export function parseGalleryViewPreference(value: unknown): GalleryViewPreferenc
   const record =
     typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   return {
-    layout:
-      record.layout === 'square' || record.layout === 'justified'
-        ? record.layout
-        : DEFAULT_GALLERY_VIEW.layout,
+    layout: (GALLERY_LAYOUTS as readonly unknown[]).includes(record.layout)
+      ? (record.layout as GalleryLayout)
+      : DEFAULT_GALLERY_VIEW.layout,
     rowHeight: (GALLERY_ROW_HEIGHTS as readonly unknown[]).includes(record.rowHeight)
       ? (record.rowHeight as GalleryRowHeight)
       : DEFAULT_GALLERY_VIEW.rowHeight,

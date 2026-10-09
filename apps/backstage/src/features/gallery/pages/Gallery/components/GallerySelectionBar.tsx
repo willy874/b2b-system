@@ -9,6 +9,8 @@ interface GallerySelectionBarProps {
   canDelete: boolean;
   /** 在相簿頁：可以移出相簿。 */
   inAlbum: boolean;
+  /** 列表的顯示方式沒有框選，提示不提它。 */
+  listLayout: boolean;
   onSelectAll: () => void;
   onClear: () => void;
   onAddToAlbum: () => void;
@@ -28,6 +30,7 @@ export function GallerySelectionBar({
   canUpdate,
   canDelete,
   inAlbum,
+  listLayout,
   onSelectAll,
   onClear,
   onAddToAlbum,
@@ -44,7 +47,7 @@ export function GallerySelectionBar({
         data-testid="gallery-selection-bar"
         data-value={0}
       >
-        {t('gallery.selection.hint')}
+        {listLayout ? t('gallery.selection.listHint') : t('gallery.selection.hint')}
       </div>
     );
   }

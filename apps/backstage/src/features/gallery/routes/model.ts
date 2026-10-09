@@ -3,7 +3,7 @@ import { z } from 'zod';
 /** 方向的篩選（由顯示的寬高算）。 */
 export const GALLERY_ORIENTATIONS = ['landscape', 'portrait', 'square'] as const;
 
-/** 排序：`sortAt`（拍攝時間，沒有時是加入時間）、`createdAt`（加入時間）、`title`。 */
+/** 排序：`sortAt`（圖片日期：EXIF 的拍攝時間，沒有時是加入時間）、`createdAt`（加入時間）、`title`。 */
 export const GALLERY_SORTS = ['sortAt', 'createdAt', 'title'] as const;
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -23,7 +23,7 @@ export const GallerySearchSchema = z.object({
     .transform((value) => (Array.isArray(value) ? value : [value]))
     .optional()
     .catch(undefined),
-  /** 拍攝日期（含）的範圍，`YYYY-MM-DD`，以瀏覽器的時區解讀。 */
+  /** 圖片日期（含）的範圍，`YYYY-MM-DD`，以瀏覽器的時區解讀。 */
   from: z.string().regex(DAY).optional().catch(undefined),
   to: z.string().regex(DAY).optional().catch(undefined),
   orientation: z.enum(GALLERY_ORIENTATIONS).optional().catch(undefined),

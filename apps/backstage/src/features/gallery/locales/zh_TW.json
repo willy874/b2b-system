@@ -1,7 +1,7 @@
 {
   "gallery": {
     "title": "圖片庫",
-    "description": "品牌素材、產品照與活動照片：依拍攝時間瀏覽、放大看細節，選圖時也找得到。",
+    "description": "品牌素材、產品照與活動照片：依日期瀏覽、放大看細節，選圖時也找得到。",
     "add": {
       "action": "加入",
       "upload": "上傳圖片",
@@ -130,8 +130,7 @@
     "filter": {
       "keyword": "搜尋標題與說明",
       "tag": "標籤",
-      "from": "拍攝日期（起）",
-      "to": "拍攝日期（迄）",
+      "date": "圖片日期",
       "orientation": "方向",
       "anyOrientation": "所有方向",
       "landscape": "橫式",
@@ -149,11 +148,13 @@
       "more": "載入更多"
     },
     "info": {
+      "heading": "資訊",
+      "close": "關閉資訊",
       "title": "標題",
       "description": "說明（替代文字）",
       "descriptionPlaceholder": "加上說明，也會當作替代文字",
-      "takenAt": "拍攝時間",
-      "noTakenAt": "沒有拍攝時間（以加入時間排序）",
+      "takenAt": "圖片日期",
+      "noTakenAt": "沒有圖片日期（以加入時間排序）",
       "camera": "相機",
       "lens": "鏡頭",
       "exposure": "曝光",
@@ -173,6 +174,7 @@
     },
     "selection": {
       "hint": "點圖片右上角的圓圈、按住 Shift 連續選取，或在空白處拖曳框選",
+      "listHint": "勾選圖片左側的方塊、按住 Shift 連續選取",
       "count_other": "已選取 {{count}} 張",
       "selectLoaded_other": "選取已載入的 {{count}} 張",
       "selectSection": "選取這一段",
@@ -180,7 +182,7 @@
     },
     "sort": {
       "label": "排序",
-      "sortAt": "拍攝時間",
+      "sortAt": "圖片日期",
       "createdAt": "加入時間",
       "title": "標題",
       "reverse": "反轉順序"
@@ -210,6 +212,9 @@
       "groupNone": "不分組",
       "justified": "等高排列",
       "square": "方格",
+      "list": "列表",
+      "mode": "顯示方式",
+      "options": "檢視選項",
       "zoom": "縮放",
       "zoomIn": "放大",
       "zoomOut": "縮小"
@@ -217,6 +222,7 @@
     "viewer": {
       "title": "圖片",
       "position": "{{index}} / {{total}}",
+      "close": "關閉（Esc）",
       "previous": "上一張（←）",
       "next": "下一張（→）",
       "slideshow": "幻燈片（空白鍵）",
@@ -232,6 +238,9 @@
       "actualSize": "實際大小",
       "deleted": "圖片已被刪除",
       "deletedNext": "稍後自動前往下一張"
+    },
+    "list": {
+      "fileSize": "大小"
     }
   }
 }

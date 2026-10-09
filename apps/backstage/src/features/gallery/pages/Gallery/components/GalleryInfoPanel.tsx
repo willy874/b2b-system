@@ -1,4 +1,5 @@
-import { Button } from '@b2b-system/ui/Button';
+import { Button, IconButton } from '@b2b-system/ui/Button';
+import { Icon } from '@b2b-system/ui/Icon';
 import { Input } from '@b2b-system/ui/Input';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
@@ -16,6 +17,8 @@ interface GalleryInfoPanelProps {
   saving: boolean;
   onSave: (patch: { title?: string; description?: string | null }) => void;
   onOpenDuplicate: (id: string) => void;
+  /** 收起面板（與工具列的「資訊」按鈕、I 鍵相同）。 */
+  onClose: () => void;
 }
 
 /** 快門速度：1 秒以下寫成 1/250。 */
@@ -26,7 +29,7 @@ function exposureLabel(seconds: number): string {
 /**
  * 呼叫端以 `key`（id ＋ version）掛載：換了一張或別人改過時重新從資料開始編輯。
  *
- * 檢視器的資訊面板（docs/architecture/frontend/24-gallery.md §9）：標題與說明（可以直接編輯）、拍攝時間、相機與鏡頭、
+ * 檢視器的資訊面板（docs/architecture/frontend/24-gallery.md §9）：標題與說明（可以直接編輯）、圖片日期、相機與鏡頭、
  * 曝光參數、尺寸與大小、上傳者、來源（只是文字，不連回來源）、所在的相簿、標籤、重複的提示；下方是留言。
  */
 export function GalleryInfoPanel({
@@ -35,6 +38,7 @@ export function GalleryInfoPanel({
   saving,
   onSave,
   onOpenDuplicate,
+  onClose,
 }: GalleryInfoPanelProps) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(item.title);
@@ -106,6 +110,18 @@ export function GalleryInfoPanel({
       className="flex w-full shrink-0 flex-col gap-4 overflow-auto border-t border-[var(--color-border)] p-4 text-sm md:w-80 md:border-t-0 md:border-l"
       data-testid="gallery-info-panel"
     >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="m-0 text-base font-semibold">{t('gallery.info.heading')}</h2>
+        <IconButton
+          size="sm"
+          variant="ghost"
+          aria-label={t('gallery.info.close')}
+          onClick={onClose}
+          data-testid="gallery-info-close"
+        >
+          <Icon name="close" size={16} />
+        </IconButton>
+      </div>
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => {

@@ -1,7 +1,7 @@
 {
   "gallery": {
     "title": "Gallery",
-    "description": "Brand assets, product shots and event photos: browse by date taken, zoom into details, and pick them anywhere images are used.",
+    "description": "Brand assets, product shots and event photos: browse by date, zoom into details, and pick them anywhere images are used.",
     "add": {
       "action": "Add",
       "upload": "Upload images",
@@ -146,8 +146,7 @@
     "filter": {
       "keyword": "Search titles and descriptions",
       "tag": "Tags",
-      "from": "Taken from",
-      "to": "Taken to",
+      "date": "Image date",
       "orientation": "Orientation",
       "anyOrientation": "Any orientation",
       "landscape": "Landscape",
@@ -165,11 +164,13 @@
       "more": "Load more"
     },
     "info": {
+      "heading": "Details",
+      "close": "Close details",
       "title": "Title",
       "description": "Description (alt text)",
       "descriptionPlaceholder": "Add a description; it is also used as alt text",
-      "takenAt": "Taken",
-      "noTakenAt": "Unknown (sorted by date added)",
+      "takenAt": "Image date",
+      "noTakenAt": "No image date (sorted by date added)",
       "camera": "Camera",
       "lens": "Lens",
       "exposure": "Exposure",
@@ -189,6 +190,7 @@
     },
     "selection": {
       "hint": "Click the circle on an image, hold Shift for a range, or drag on empty space to select",
+      "listHint": "Tick the box next to an image, or hold Shift to select a range",
       "count_one": "{{count}} selected",
       "count_other": "{{count}} selected",
       "selectLoaded_one": "Select the {{count}} loaded",
@@ -198,7 +200,7 @@
     },
     "sort": {
       "label": "Sort",
-      "sortAt": "Date taken",
+      "sortAt": "Image date",
       "createdAt": "Date added",
       "title": "Title",
       "reverse": "Reverse order"
@@ -233,6 +235,9 @@
       "groupNone": "No grouping",
       "justified": "Justified",
       "square": "Grid",
+      "list": "List",
+      "mode": "View",
+      "options": "View options",
       "zoom": "Zoom",
       "zoomIn": "Larger",
       "zoomOut": "Smaller"
@@ -240,6 +245,7 @@
     "viewer": {
       "title": "Image",
       "position": "{{index}} / {{total}}",
+      "close": "Close (Esc)",
       "previous": "Previous (←)",
       "next": "Next (→)",
       "slideshow": "Slideshow (Space)",
@@ -255,6 +261,9 @@
       "actualSize": "Actual size",
       "deleted": "This image was deleted",
       "deletedNext": "Moving to the next image…"
+    },
+    "list": {
+      "fileSize": "File size"
     }
   }
 }

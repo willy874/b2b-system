@@ -11,7 +11,7 @@ import type { GallerySearch } from '../../routes';
 import type { GalleryGrouping } from './preference';
 import { dayRangeToIso, groupGalleryItems } from './sections';
 
-/** 預設的排序：拍攝時間新到舊；標題預設 A→Z。 */
+/** 預設的排序：圖片日期新到舊；標題預設 A→Z。 */
 function orderOf(sort: GallerySortField, reverse: boolean | undefined): 'asc' | 'desc' {
   const natural = sort === 'title' ? 'asc' : 'desc';
   if (!reverse) return natural;

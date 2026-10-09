@@ -22,7 +22,7 @@ interface GalleryGridProps {
   sections: readonly GallerySection[];
   /** 區段的標題（日期）；不分組時沒有。 */
   labelOf: (section: GallerySection) => string | undefined;
-  layout: GalleryLayout;
+  layout: Exclude<GalleryLayout, 'list'>;
   rowHeight: number;
   selected: ReadonlySet<string>;
   /** 有選取時點一下是切換選取，否則是打開檢視器。 */

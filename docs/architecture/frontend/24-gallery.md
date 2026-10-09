@@ -41,15 +41,17 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 
 | 能力 | 做法 |
 | --- | --- |
-| **等高排列**（預設）與 **方格** | `@b2b-system/ui` 的 `JustifiedGrid`：輸入每一張的寬高比，尺寸在回應裡，不必等圖片載入就算得出版面；虛擬捲動只渲染可視範圍上下的列 |
-| **縮放級別** | 列高（方格是格子大小）120／180／240／320 px |
-| **依日期分組** | 「日」「月」或不分組；以 `sortAt`（依加入時間排序時用 `createdAt`）在瀏覽器的時區分組，區段標題黏在上方。標題排序時不分組 |
-| **偏好** | 排版、縮放級別、分組記在 localStorage（`preference.ts`，這台裝置的偏好） |
-| **日期捲軸** | `GalleryTimeline`：`GET /gallery/items/timeline` 回每個月的張數，每個月一格、高度依張數比例；點一個月就以那個月為起點（`startAt`）重新載入，頁面上方出現「回到最前面」（後端 D18） |
+| **顯示方式** | 工具列右側的切換（`gallery-view-mode`）：**等高排列**（預設）、**方格**、**列表** |
+| 等高排列與方格 | `@b2b-system/ui` 的 `JustifiedGrid`：輸入每一張的寬高比，尺寸在回應裡，不必等圖片載入就算得出版面；虛擬捲動只渲染可視範圍上下的列 |
+| 列表 | `GalleryList`（`VirtualList`，列高固定 64 px）：一列一張，縮圖、標題與說明、圖片日期（依加入時間排序時是加入時間）、尺寸、大小、標籤；窄螢幕只留前三欄。不分組、沒有框選，勾選框與 Shift 連續選取、點標題打開檢視器與格子相同 |
+| **縮放級別** | 列高（方格是格子大小）120／180／240／320 px；列表沒有 |
+| **依日期分組** | 「日」「月」或不分組；以 `sortAt`（依加入時間排序時用 `createdAt`）在瀏覽器的時區分組，區段標題黏在上方。標題排序與列表時不分組 |
+| **偏好** | 顯示方式、縮放級別、分組記在 localStorage（`preference.ts`，這台裝置的偏好） |
+| **日期捲軸** | `GalleryTimeline`：`GET /gallery/items/timeline` 回每個月的張數，依年份分段（年份寫在段首、月份只寫月，窄欄裡不折行），每個月一格、高度依張數比例，放不下時整欄捲動而不壓縮格子；點一個月就以那個月為起點（`startAt`）重新載入，頁面上方出現「回到最前面」（後端 D18）。三種顯示方式都有，列表時不標示目前所在的月份 |
 | **無限捲動** | keyset 游標（`get-gallery-items` 的 infinite query），一頁 100 張；接近底部時載下一頁 |
 | **佔位** | 主色當底（inline style，後端 D11）、BlurHash 在格子出現時才解碼成模糊圖（`blurhash.ts`）、真正的圖載入後蓋上去 |
 | **圖片** | `SignedImage` 的 `grid` 版面（`thumb 480w, medium 1280w`）＋ `sizes`，瀏覽器依格子寬度與螢幕密度選；網址到期前隨查詢重抓 |
-| **窄螢幕**（< 640 px） | 固定方格、列高 120 |
+| **窄螢幕**（< 640 px） | 等高排列改成方格（不能選等高排列）、列高 120；列表照舊 |
 
 ## 4. 上傳
 
@@ -83,7 +85,10 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 - **相簿列**（`GalleryAlbumBar`）：封面、名稱、張數；「新增相簿」。相簿頁的頁首有編輯（名稱、說明）與刪除；檢視器裡可以「設為封面」。
 - **相簿選擇**（`AlbumPicker`）：加入圖片庫、上傳、加入相簿共用，可以直接新建。
 - **標籤**：標籤組 `gallery`；單張在檢視器編輯，多張用批次。工具列的標籤篩選是「貼了其中任一個」。
-- **搜尋與篩選**（`GalleryToolbar`）：關鍵字、標籤、拍攝日期、方向、來源、排序與反轉；後端另支援的上傳者篩選這一版沒有畫面。
+- **搜尋與篩選**（`GalleryToolbar`）：版面與檔案管理的工具列（[`12-file-manager.md`](./12-file-manager.md)）、其他列表頁一致——左邊是常駐的搜尋框（`TableSearch`，關鍵字）與套用中的條件 Chip（`ActiveFilters`，可單獨移除）；
+  右邊是篩選面板（`FilterBar`，`useGalleryFilters`：標籤、圖片日期、方向、來源，按「搜尋」一次寫進網址；日期區間在網址裡是 `from`／`to`）、
+  檢視選項（`GalleryViewOptions`：排序與反轉、分組、縮放）與顯示方式。後端另支援的上傳者篩選這一版沒有畫面。
+- **圖片日期**：畫面上 `sortAt` 的名稱——EXIF 的拍攝時間，沒有時是加入時間。不叫「拍攝時間」：圖片庫也放設計稿、截圖等不是拍出來的圖。
 
 ## 6. 從其他來源加入
 
@@ -133,7 +138,8 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 | **底片列** | 下方一列小圖，標出目前的位置；窄螢幕隱藏 |
 | **幻燈片** | 空白鍵開始／暫停，間隔 3／5／10 秒；`prefers-reduced-motion` 時不做轉場 |
 | **全螢幕** | F 鍵或按鈕（Fullscreen API） |
-| **資訊面板** | I 鍵開關（`GalleryInfoPanel`）：標題與說明（直接編輯，樂觀鎖）、拍攝時間、相機與鏡頭、曝光參數、尺寸與大小、上傳者、來源（只是文字，不連回檔案）、所在的相簿、標籤、內容相同的其他圖（後端 D7）、位置資訊是否已移除 |
+| **關閉** | 標題列右側的關閉按鈕或 Esc；網址拿掉 `item` |
+| **資訊面板** | I 鍵、工具列的「資訊」或面板右上角的關閉按鈕開關（`GalleryInfoPanel`）：標題與說明（直接編輯，樂觀鎖）、圖片日期、相機與鏡頭、曝光參數、尺寸與大小、上傳者、來源（只是文字，不連回檔案）、所在的相簿、標籤、內容相同的其他圖（後端 D7）、位置資訊是否已移除 |
 | **留言** | 資訊面板下方的 `<ResourcePanels resourceType="galleryItem">`（[`22-comment.md`](./22-comment.md) §2） |
 | **動作** | 下載（原檔／`large`）、加入相簿、編輯標籤、向左轉／向右轉、設為封面（相簿頁）、刪除；依權限顯示 |
 | **已被刪除** | 詳情回 `GALLERY_ITEM_NOT_FOUND`（推播或查詢得知）時顯示「圖片已被刪除」，自動前往下一張 |
@@ -147,7 +153,7 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 | `features/gallery/__tests__/helpers.test.ts` | 依日期分組、日期捲軸的起點與日期範圍、偏好、批次項目 id、BlurHash 解碼、上傳前與加入圖片庫的檢查 |
 | `features/gallery/__tests__/register.test.ts` | 檔案動作與圖片來源的登記、卸載時撤回 |
 | `features/gallery/hooks/__tests__/useGalleryPermission.test.tsx` | 權限 hook |
-| `pages/Gallery/__tests__/GalleryPage.test.tsx` | 頁面的三個權限案例、閱覽（空狀態、篩選、相簿頁）、檢視器（開啟、切換、資訊面板） |
+| `pages/Gallery/__tests__/GalleryPage.test.tsx` | 頁面的三個權限案例、閱覽（空狀態、篩選與條件 Chip、列表的顯示方式、相簿頁）、檢視器（開啟、切換、資訊面板與檢視器的關閉） |
 | `pages/Gallery/__tests__/useGallerySelection.test.tsx` | 點選、Shift 連續選取、區段全選、框選的套用 |
 | `pages/Gallery/__tests__/preload.test.ts` | 預先載入的 `<picture>` 結構 |
 | `apps/e2e/tests/gallery.spec.ts` | 上傳 → 時間軸 → 檢視器切換、放大後載入原檔（轉向與 TIFF 不載）、檔案管理器的「加入圖片庫」、member／auditor 唯讀、關掉 feature 後入口消失 |
