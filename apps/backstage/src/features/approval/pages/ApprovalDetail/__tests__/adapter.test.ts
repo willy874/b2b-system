@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ApprovalRequestDetail } from '@/shared/api-sdk';
 
-import { toApprovalDetailVM } from '../adapter';
+import { outcomeParams, toApprovalDetailVM } from '../adapter';
 
 const BASE: ApprovalRequestDetail = {
   id: 'a1',
@@ -24,6 +24,7 @@ const BASE: ApprovalRequestDetail = {
   createdAt: '2026-09-25T01:00:00.000Z',
   updatedAt: '2026-09-25T01:00:00.000Z',
   steps: [],
+  resubmittedTo: null,
   viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
 };
 
@@ -97,6 +98,12 @@ describe('toApprovalDetailVM（多階段，docs/architecture/backend/20-approval
     expect(vm.currentStep?.ordinal).toBe(0);
   });
 
+  it('關卡開始的時間與做決定的人（時間軸逐人對照候選人）', () => {
+    const [step] = toApprovalDetailVM({ ...BASE, steps: [STEP] }).steps;
+    expect(step?.activatedAt).toEqual(new Date('2026-09-25T01:00:00.000Z'));
+    expect(step?.decisions[0]).toMatchObject({ reviewerId: 'u1', decision: 'approve' });
+  });
+
   it('單關請求沒有關卡與目前的關卡', () => {
     const vm = toApprovalDetailVM(BASE);
     expect(vm.steps).toEqual([]);
@@ -112,13 +119,14 @@ const access = (payload: Record<string, unknown>): ApprovalRequestDetail => ({
 
 describe('toApprovalDetailVM（資料夾存取申請，docs/architecture/iam/06-resource-grants.md）', () => {
   it('fileFolder.access 的 payload 收斂成 folderAccess，沒有 registration', () => {
-    const vm = toApprovalDetailVM(access({ folderName: '合約', level: 'editor' }));
-    expect(vm.folderAccess).toEqual({ folderName: '合約', level: 'editor' });
+    const vm = toApprovalDetailVM(access({ folderId: 'f1', folderName: '合約', level: 'editor' }));
+    expect(vm.folderAccess).toEqual({ folderId: 'f1', folderName: '合約', level: 'editor' });
     expect(vm.registration).toBeNull();
   });
 
   it('不認得的存取層級退回 viewer，資料夾名稱缺漏時是空字串', () => {
     expect(toApprovalDetailVM(access({ level: 'owner' })).folderAccess).toEqual({
+      folderId: '',
       folderName: '',
       level: 'viewer',
     });
@@ -126,5 +134,26 @@ describe('toApprovalDetailVM（資料夾存取申請，docs/architecture/iam/06-
 
   it('其他類型沒有 folderAccess', () => {
     expect(toApprovalDetailVM(BASE).folderAccess).toBeNull();
+  });
+});
+
+describe('重新送出與結果句（docs/architecture/backend/20-approval.md §11.3）', () => {
+  it('帶出申請人、前一筆與新的一筆', () => {
+    const vm = toApprovalDetailVM({
+      ...BASE,
+      requesterId: 'u9',
+      resubmittedFrom: 'a0',
+      resubmittedTo: 'a2',
+    });
+    expect(vm).toMatchObject({ requesterId: 'u9', resubmittedFrom: 'a0', resubmittedTo: 'a2' });
+  });
+
+  it('結果句的參數依類型取出', () => {
+    expect(outcomeParams(toApprovalDetailVM(BASE))).toEqual({ email: 'alice@example.com' });
+    expect(
+      outcomeParams(
+        toApprovalDetailVM(access({ folderId: 'f1', folderName: '合約', level: 'editor' })),
+      ),
+    ).toEqual({ folder: '合約', level: 'editor' });
   });
 });

@@ -1,6 +1,5 @@
 import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute, renderUnhydrated, renderWithPermissions } from '@b2b-system/web-core/testing';
-import { Outlet } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,13 +16,20 @@ import { ApprovalReviewForm } from '../components/ApprovalReviewForm';
 import { ApprovalSummary } from '../components/ApprovalSummary';
 import type { ApprovalReviewState } from '../useApprovalReview';
 
-const { fetchDetail, approve, reject } = vi.hoisted(() => ({
+const { fetchDetail, fetchList, approve, reject } = vi.hoisted(() => ({
   fetchDetail: vi.fn(),
+  fetchList: vi.fn(),
   approve: vi.fn(),
   reject: vi.fn(),
 }));
 vi.mock('@/apis/approval/get-approval-detail/fetcher', () => ({
   fetchApprovalDetailQuery: fetchDetail,
+}));
+vi.mock('@/apis/approval/get-approval-list/fetcher', () => ({
+  fetchApprovalListQuery: fetchList,
+}));
+vi.mock('@/apis/auth/get-profile/fetcher', () => ({
+  fetchProfileQuery: vi.fn(async () => ({ user: { id: 'reviewer' }, roles: [], permissions: [] })),
 }));
 vi.mock('@/apis/approval/approve-approval/fetcher', () => ({
   fetchApproveApprovalMutation: approve,
@@ -48,6 +54,9 @@ const PENDING: ApprovalDetailVM = {
   steps: [],
   currentStep: null,
   viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
+  requesterId: null,
+  resubmittedFrom: null,
+  resubmittedTo: null,
 };
 
 const ROLES = [{ id: 'role-member', slug: 'member', name: '一般成員' }] as Role[];
@@ -130,7 +139,7 @@ describe('申請內容', () => {
           ...PENDING,
           type: 'fileFolder.access',
           registration: null,
-          folderAccess: { folderName: '設計稿', level: 'viewer' },
+          folderAccess: { folderId: 'f1', folderName: '設計稿', level: 'viewer' },
         }}
       />,
       REVIEWER,
@@ -205,10 +214,10 @@ describe('審核操作（依類型要求的權限）', () => {
   });
 });
 
-describe('審批詳情（路由對話框）的未儲存提醒', () => {
-  // 列表換成只渲染子路由：這裡只測詳情對話框
-  Routes.ApprovalListRoute.update({ component: Outlet });
-  const routes = [Routes.ApprovalListRoute.addChildren([Routes.ApprovalDetailRoute])];
+describe('審批詳情（整頁，docs/architecture/backend/20-approval.md §11.3）', () => {
+  // 列表只留一個標記：這裡只測詳情頁
+  Routes.ApprovalListRoute.update({ component: () => <div data-testid="approval-list-stub" /> });
+  const routes = [Routes.ApprovalListRoute, Routes.ApprovalDetailRoute];
   const DTO: ApprovalRequestDetail = {
     id: 'a1',
     type: 'user.register',
@@ -230,17 +239,26 @@ describe('審批詳情（路由對話框）的未儲存提醒', () => {
     updatedAt: '2026-09-25T01:00:00.000Z',
     steps: [],
     viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
+    resubmittedTo: null,
   };
+  const page = (ids: string[]) => ({
+    items: ids.map((id) => ({ ...DTO, id })),
+    pagination: { offset: 0, limit: 20, total: ids.length },
+  });
 
   beforeEach(() => {
-    fetchDetail.mockReset().mockResolvedValue(DTO);
+    fetchDetail.mockReset().mockImplementation(async ({ params }) => ({
+      ...DTO,
+      id: params.approvalId,
+    }));
+    fetchList.mockReset();
     approve.mockReset().mockResolvedValue({ ...DTO, status: 'approved' });
     reject.mockReset().mockResolvedValue({ ...DTO, status: 'rejected' });
     vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
   });
 
-  async function openWithComment() {
-    const result = renderRoute(routes, '/approval/a1', REVIEWER);
+  async function openWithComment(path = '/approval/a1') {
+    const result = renderRoute(routes, path, REVIEWER);
     const input = await screen.findByTestId('approval-comment-input', undefined, {
       timeout: 5000,
     });
@@ -248,9 +266,9 @@ describe('審批詳情（路由對話框）的未儲存提醒', () => {
     return { ...result, input };
   }
 
-  it('輸入意見後按關閉：先確認；選「繼續編輯」後意見還在', async () => {
+  it('輸入意見後按「回到列表」：先確認；選「繼續編輯」後意見還在', async () => {
     const { router } = await openWithComment();
-    fireEvent.click(screen.getByTestId('approval-detail-close'));
+    fireEvent.click(screen.getByTestId('approval-detail-back'));
 
     const confirm = await screen.findByTestId('unsaved-changes-confirm');
     fireEvent.click(within(confirm).getByTestId('alert-dialog-cancel'));
@@ -259,28 +277,47 @@ describe('審批詳情（路由對話框）的未儲存提醒', () => {
     expect(screen.getByTestId('approval-comment-input')).toHaveValue('資料齊全');
   });
 
-  it('輸入意見後按 Esc：先確認', async () => {
-    const { input } = await openWithComment();
-    fireEvent.keyDown(input, { key: 'Escape' });
-    expect(await screen.findByTestId('unsaved-changes-confirm')).toBeInTheDocument();
-  });
-
-  it('沒有輸入時按關閉：直接回列表', async () => {
-    const { router } = renderRoute(routes, '/approval/a1', REVIEWER);
+  it('沒有輸入時按「回到列表」：直接回列表，帶著原本的篩選', async () => {
+    const { router } = renderRoute(routes, '/approval/a1?status=rejected', REVIEWER);
     fireEvent.click(
-      await screen.findByTestId('approval-detail-close', undefined, { timeout: 5000 }),
+      await screen.findByTestId('approval-detail-back', undefined, { timeout: 5000 }),
     );
     await waitFor(() => expect(router.state.location.pathname).toBe('/approval'));
+    expect(router.state.location.search).toMatchObject({ status: 'rejected' });
     expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
   });
 
-  it('審核成功後關閉：不確認', async () => {
+  it('從通知或網址直接進來：審核成功後留在原頁、表單清空，不確認', async () => {
     const { router } = await openWithComment();
     fireEvent.click(screen.getByTestId('approval-approve-button'));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/approval'));
-    expect(approve).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('approval-comment-input')).toHaveValue(''));
+    expect(router.state.location.pathname).toBe('/approval/a1');
+    expect(fetchList).not.toHaveBeenCalled();
     expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+  });
+
+  it('從待審清單進來（queue）：審核成功後前往清單裡的下一筆，不確認（§12 D5）', async () => {
+    fetchList.mockResolvedValue(page(['a2', 'a3']));
+    const { router } = await openWithComment('/approval/a1?queue=true');
+    fireEvent.click(screen.getByTestId('approval-approve-button'));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approval/a2'));
+    expect(fetchList).toHaveBeenCalledWith(
+      expect.objectContaining({ params: expect.objectContaining({ status: ['pending'] }) }),
+    );
+    expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+    // 下一筆的表單是新的
+    expect(await screen.findByTestId('approval-comment-input')).toHaveValue('');
+  });
+
+  it('清單裡沒有下一筆：回到列表', async () => {
+    fetchList.mockResolvedValue(page([]));
+    const { router } = await openWithComment('/approval/a1?queue=true');
+    fireEvent.click(screen.getByTestId('approval-approve-button'));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approval'));
   });
 
   it('審批已不存在（例：從通知點進來）→ 說明原因並提供回到列表，不提供重試', async () => {

@@ -29,7 +29,16 @@ const APPROVAL = {
   reviewedAt: null,
   resultResourceId: null,
   flowVersion: 1,
-  currentStep: 1,
+  currentStep: {
+    ordinal: 1,
+    name: '資料夾管理者',
+    approvals: 0,
+    required: 1,
+    shortage: null,
+    activatedAt: '2026-09-25T01:00:00.000Z',
+    pendingReviewers: ['王小明', '李小華', '陳大文'],
+    pendingCount: 5,
+  },
   stepCount: 2,
   resubmittedFrom: null,
   createdAt: '2026-09-25T01:00:00.000Z',
@@ -65,8 +74,14 @@ describe('我的審批（docs/architecture/backend/20-approval.md §9.10）', ()
     expect(await screen.findByTestId('my-approval-page')).toBeInTheDocument();
     expect(screen.getByText('待我審核')).toBeInTheDocument();
     expect(screen.getByText('我的申請')).toBeInTheDocument();
+    // 待辦：最早送出的在前（與首頁的待辦、詳情的「下一筆」同一個順序）
     expect(fetchList).toHaveBeenCalledWith(
-      expect.objectContaining({ params: expect.objectContaining({ scope: 'assigned' }) }),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          scope: 'assigned',
+          sort: [{ sort: 'createdAt', order: 'asc' }],
+        }),
+      }),
     );
   });
 
@@ -119,7 +134,7 @@ describe('我的審批的列表', () => {
       pagination: { offset: 0, limit: 20, total: 1 },
     });
     const { router } = renderRoute(
-      [Routes.MyApprovalRoute.addChildren([Routes.MyApprovalDetailRoute])],
+      [Routes.MyApprovalRoute, Routes.MyApprovalDetailRoute],
       '/my-approvals',
       [],
     );
@@ -127,6 +142,10 @@ describe('我的審批的列表', () => {
     expect(link).toHaveTextContent('資料夾存取申請');
     expect(link).toHaveAttribute('data-value', 'Alice');
     expect(screen.getByTestId('my-approval-status')).toHaveTextContent('待審核');
+    // 目前的關卡在等誰（docs/architecture/backend/20-approval.md §11.2）
+    expect(screen.getByTestId('approval-progress-waiting')).toHaveTextContent(
+      '等待 王小明、李小華、陳大文 等 5 人',
+    );
 
     fireEvent.doubleClick(link.closest('tr')!);
     await waitFor(() => expect(router.state.location.pathname).toBe('/my-approvals/a1'));

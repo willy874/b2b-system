@@ -52,6 +52,16 @@ export default function FileManagerPage() {
   } = useFileManagerPage();
   const { t } = useTranslation();
   const { setFolder } = nav;
+  // 從審批詳情的「修改後重新送出」進來：所在的資料夾載入後打開申請對話框（docs/architecture/backend/20-approval.md §11.3）
+  const resubmitRequest =
+    search.requestAccess && currentFolder?.id === folderId
+      ? {
+          folder: currentFolder,
+          resubmit: search.resubmit
+            ? { level: search.requestAccess, approvalId: search.resubmit }
+            : undefined,
+        }
+      : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="file-manager-page">
@@ -196,7 +206,14 @@ export default function FileManagerPage() {
       <FileFolderDialog target={renameTarget.folderDialog} onClose={renameTarget.closeFolder} />
       <FileShareDialog folder={dialogs.shareTarget} onClose={dialogs.closeShare} />
       <FileTagDialog item={dialogs.tagTarget} onClose={dialogs.closeTag} />
-      <FileAccessRequestDialog folder={dialogs.requestTarget} onClose={dialogs.closeRequest} />
+      <FileAccessRequestDialog
+        folder={dialogs.requestTarget ?? resubmitRequest?.folder}
+        resubmit={dialogs.requestTarget ? undefined : resubmitRequest?.resubmit}
+        onClose={() => {
+          dialogs.closeRequest();
+          if (search.requestAccess) nav.clearRequestAccess();
+        }}
+      />
       <FileMoveDialog
         items={actions.pendingMove}
         folders={folders.index}

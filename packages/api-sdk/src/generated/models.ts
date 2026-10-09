@@ -482,6 +482,131 @@ export interface CreatedApiToken {
   apiToken: ApiToken;
 }
 
+export interface ImageCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ImageUsage {
+  id: string;
+  maxSize: number;
+  contentTypes: Array<string>;
+  minWidth: number;
+  minHeight: number;
+  aspectRatio: number | null;
+  presets: Record<string, number>;
+  sources: Array<string> | null;
+}
+
+export interface ImageUsageList {
+  items: Array<ImageUsage>;
+}
+
+export interface ImageOriginal {
+  url: string;
+  width: number;
+  height: number;
+  expiresAt: string;
+}
+
+export interface ImageAsset {
+  id: string;
+  usage: string;
+  status: 'pending' | 'ready' | 'failed';
+  failureReason: ('notImage' | 'typeNotAllowed' | 'tooLarge' | 'tooSmall' | 'missing') | null;
+  name: string;
+  source: string;
+  width: number | null;
+  height: number | null;
+  crop: ImageCrop | null;
+  image: ImageSources | null;
+  original: ImageOriginal | null;
+  isInUse: boolean;
+  createdAt: string;
+}
+
+export interface ImageAssetList {
+  items: Array<ImageAsset>;
+}
+
+export interface CreateImageUploadRequest {
+  usage: string;
+  name: string;
+  contentType: string;
+  size: number;
+}
+
+export interface ImageUploadTarget {
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface ImageUpload {
+  asset: ImageAsset;
+  upload: ImageUploadTarget;
+}
+
+export interface CompleteImageUploadRequest {
+  crop?: ImageCrop;
+}
+
+export interface CreateImageFromSourceRequest {
+  usage: string;
+  source: string;
+  refId: string;
+  crop?: ImageCrop;
+}
+
+export interface CommentUser {
+  id: string;
+  displayName: string;
+  email: string;
+}
+
+export interface Comment {
+  id: string;
+  resourceType: string;
+  resourceId: string;
+  body: string;
+  author: CommentUser | null;
+  authorAvatar: ImageSources | null;
+  mentions: Array<CommentUser>;
+  version: number;
+  createdAt: string;
+  editedAt: string | null;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface CommentPage {
+  items: Array<Comment>;
+  nextCursor: string | null;
+}
+
+export interface CreateCommentRequest {
+  body: string;
+  mentionIds: Array<string>;
+}
+
+export interface UpdateCommentRequest {
+  body: string;
+  mentionIds: Array<string>;
+  version: number;
+}
+
+export interface MentionableList {
+  items: Array<CommentUser>;
+}
+
+export interface WatchState {
+  watching: boolean;
+  watcherCount: number;
+}
+
 export interface DataTransfer {
   id: string;
   direction: 'export' | 'import';
@@ -968,6 +1093,9 @@ export interface ApprovalRequest {
     approvals: number;
     required: number;
     shortage: ('noCandidate' | 'insufficient') | null;
+    activatedAt: string | null;
+    pendingReviewers: Array<string>;
+    pendingCount: number;
   } | null;
   stepCount: number;
   resubmittedFrom: string | null;
@@ -1043,6 +1171,9 @@ export interface ApprovalRequestDetail {
     approvals: number;
     required: number;
     shortage: ('noCandidate' | 'insufficient') | null;
+    activatedAt: string | null;
+    pendingReviewers: Array<string>;
+    pendingCount: number;
   } | null;
   stepCount: number;
   resubmittedFrom: string | null;
@@ -1050,6 +1181,12 @@ export interface ApprovalRequestDetail {
   updatedAt: string;
   steps: Array<ApprovalStep>;
   viewer: ApprovalViewer;
+  resubmittedTo: string | null;
+}
+
+export interface ApprovalCounts {
+  assigned: number;
+  pending: number | null;
 }
 
 export interface ApproveApprovalRequest {
@@ -1244,131 +1381,6 @@ export interface PlatformAuditLog {
   result: 'success' | 'failure';
   errorCode: string | null;
   metadata: Record<string, unknown> | null;
-}
-
-export interface ImageCrop {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface ImageUsage {
-  id: string;
-  maxSize: number;
-  contentTypes: Array<string>;
-  minWidth: number;
-  minHeight: number;
-  aspectRatio: number | null;
-  presets: Record<string, number>;
-  sources: Array<string> | null;
-}
-
-export interface ImageUsageList {
-  items: Array<ImageUsage>;
-}
-
-export interface ImageOriginal {
-  url: string;
-  width: number;
-  height: number;
-  expiresAt: string;
-}
-
-export interface ImageAsset {
-  id: string;
-  usage: string;
-  status: 'pending' | 'ready' | 'failed';
-  failureReason: ('notImage' | 'typeNotAllowed' | 'tooLarge' | 'tooSmall' | 'missing') | null;
-  name: string;
-  source: string;
-  width: number | null;
-  height: number | null;
-  crop: ImageCrop | null;
-  image: ImageSources | null;
-  original: ImageOriginal | null;
-  isInUse: boolean;
-  createdAt: string;
-}
-
-export interface ImageAssetList {
-  items: Array<ImageAsset>;
-}
-
-export interface CreateImageUploadRequest {
-  usage: string;
-  name: string;
-  contentType: string;
-  size: number;
-}
-
-export interface ImageUploadTarget {
-  url: string;
-  method: 'PUT';
-  headers: Record<string, string>;
-  expiresAt: string;
-}
-
-export interface ImageUpload {
-  asset: ImageAsset;
-  upload: ImageUploadTarget;
-}
-
-export interface CompleteImageUploadRequest {
-  crop?: ImageCrop;
-}
-
-export interface CreateImageFromSourceRequest {
-  usage: string;
-  source: string;
-  refId: string;
-  crop?: ImageCrop;
-}
-
-export interface CommentUser {
-  id: string;
-  displayName: string;
-  email: string;
-}
-
-export interface Comment {
-  id: string;
-  resourceType: string;
-  resourceId: string;
-  body: string;
-  author: CommentUser | null;
-  authorAvatar: ImageSources | null;
-  mentions: Array<CommentUser>;
-  version: number;
-  createdAt: string;
-  editedAt: string | null;
-  canEdit: boolean;
-  canDelete: boolean;
-}
-
-export interface CommentPage {
-  items: Array<Comment>;
-  nextCursor: string | null;
-}
-
-export interface CreateCommentRequest {
-  body: string;
-  mentionIds: Array<string>;
-}
-
-export interface UpdateCommentRequest {
-  body: string;
-  mentionIds: Array<string>;
-  version: number;
-}
-
-export interface MentionableList {
-  items: Array<CommentUser>;
-}
-
-export interface WatchState {
-  watching: boolean;
-  watcherCount: number;
 }
 
 export interface OrgUnit {
@@ -2249,6 +2261,7 @@ export interface UpdateFileFolderAccessRequest {
 export interface CreateFileAccessRequest {
   level: 'viewer' | 'contributor' | 'editor' | 'manager';
   reason?: string;
+  resubmittedFrom?: string;
 }
 
 export interface FileAccessRequestSubmitted {

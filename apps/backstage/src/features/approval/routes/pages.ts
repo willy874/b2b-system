@@ -4,9 +4,11 @@ import { createRoute, stripSearchParams } from '@tanstack/react-router';
 
 import { APPROVAL_LOCALE_SCOPE } from '../locale';
 import {
+  ApprovalDetailSearchSchema,
   ApprovalSearchQuerySchema,
   DEFAULT_APPROVAL_SEARCH,
   DEFAULT_MY_APPROVAL_SEARCH,
+  MyApprovalDetailSearchSchema,
   MyApprovalSearchQuerySchema,
 } from './model';
 
@@ -16,14 +18,21 @@ export const ApprovalListRoute = createRoute({
   staticData: { titleKey: 'menu.approval' },
   loader: localeScopeLoader(APPROVAL_LOCALE_SCOPE),
   validateSearch: ApprovalSearchQuerySchema,
-  // 等於預設值的參數不寫進網址（子路由也套用）
+  // 等於預設值的參數不寫進網址
   search: { middlewares: [stripSearchParams(DEFAULT_APPROVAL_SEARCH)] },
 });
 
-/** 審核對話框：疊在列表上，關閉時帶著原本的篩選條件回列表。 */
+/**
+ * 審批詳情：整頁（docs/architecture/backend/20-approval.md §11.3、§12 D1）。網址帶著列表的條件，回到列表時還原篩選；
+ * 頁面權限落在列表的頁面鍵上（前綴）。
+ */
 export const ApprovalDetailRoute = createRoute({
-  getParentRoute: () => ApprovalListRoute,
-  path: '$approvalId',
+  getParentRoute: () => RootRoute,
+  path: '/approval/$approvalId',
+  staticData: { titleKey: 'menu.approval' },
+  loader: localeScopeLoader(APPROVAL_LOCALE_SCOPE),
+  validateSearch: ApprovalDetailSearchSchema,
+  search: { middlewares: [stripSearchParams(DEFAULT_APPROVAL_SEARCH)] },
 });
 
 /**
@@ -40,6 +49,10 @@ export const MyApprovalRoute = createRoute({
 });
 
 export const MyApprovalDetailRoute = createRoute({
-  getParentRoute: () => MyApprovalRoute,
-  path: '$approvalId',
+  getParentRoute: () => RootRoute,
+  path: '/my-approvals/$approvalId',
+  staticData: { titleKey: 'menu.myApproval' },
+  loader: localeScopeLoader(APPROVAL_LOCALE_SCOPE),
+  validateSearch: MyApprovalDetailSearchSchema,
+  search: { middlewares: [stripSearchParams(DEFAULT_MY_APPROVAL_SEARCH)] },
 });

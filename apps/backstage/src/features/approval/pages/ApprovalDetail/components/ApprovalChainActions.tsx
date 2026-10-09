@@ -12,16 +12,15 @@ interface ApprovalChainActionsProps {
 }
 
 /**
- * 對話框 footer 的多階段操作與撤回（docs/architecture/backend/20-approval.md §9.7～§9.9）：
- * 目前關卡的審核者同意／駁回；`approval:override` 的人重新展開審核者、強制定案（意見必填）；申請人撤回。
- * 單關的核准／駁回在 `ApprovalReviewActions`。
+ * 詳情的操作區裡，多階段的決定與撤回（docs/architecture/backend/20-approval.md §9.7、§9.9）：
+ * 目前關卡的審核者同意／駁回；申請人撤回。單關的核准／駁回在 `ApprovalReviewActions`，
+ * 重新展開審核者與強制定案在「管理員操作」（`ApprovalOverrideActions`）。
  */
 export function ApprovalChainActions({ approval, review }: ApprovalChainActionsProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const access = useApprovalReviewAccess(approval);
   const ordinal = approval?.currentStep?.ordinal;
-  const hasComment = review.comment.trim().length > 0;
 
   if (!approval) return null;
 
@@ -60,55 +59,6 @@ export function ApprovalChainActions({ approval, review }: ApprovalChainActionsP
         >
           {t('approval.withdraw.action')}
         </Button>
-      )}
-      {access.canOverride && ordinal !== undefined && (
-        <>
-          <Button
-            loading={review.isRefreshing}
-            disabled={review.isPending}
-            onClick={() => void review.refresh(ordinal)}
-            data-testid="approval-refresh-button"
-          >
-            {t('approval.refresh.action')}
-          </Button>
-          <Button
-            variant="danger"
-            disabled={review.isPending || !hasComment}
-            title={hasComment ? undefined : t('approval.override.commentRequired')}
-            onClick={() =>
-              void confirmThen(
-                {
-                  title: t('approval.override.rejectTitle'),
-                  description: t('approval.override.confirm'),
-                  confirmLabel: t('approval.override.reject'),
-                  danger: true,
-                },
-                () => review.override(ordinal, 'reject'),
-              )
-            }
-            data-testid="approval-override-reject-button"
-          >
-            {t('approval.override.reject')}
-          </Button>
-          <Button
-            disabled={review.isPending || !hasComment}
-            title={hasComment ? undefined : t('approval.override.commentRequired')}
-            loading={review.isOverriding}
-            onClick={() =>
-              void confirmThen(
-                {
-                  title: t('approval.override.approveTitle'),
-                  description: t('approval.override.confirm'),
-                  confirmLabel: t('approval.override.approve'),
-                },
-                () => review.override(ordinal, 'approve'),
-              )
-            }
-            data-testid="approval-override-approve-button"
-          >
-            {t('approval.override.approve')}
-          </Button>
-        </>
       )}
       {access.canDecide && ordinal !== undefined && (
         <>

@@ -66,6 +66,7 @@ function setup(permissionSet: PermissionSet = { permissions: new Set(), isSuperA
     findById: vi.fn(async (): Promise<ApprovalRequestRow | undefined> => row()),
     findPending: vi.fn(async (): Promise<ApprovalRequestRow | undefined> => undefined),
     list: vi.fn(),
+    count: vi.fn(async () => 0),
     review: vi.fn(
       async (
         _id: string,
@@ -485,5 +486,99 @@ describe('ApprovalHandlerRegistry', () => {
 
   it('沒有 handler 的類型 → 拋錯', () => {
     expect(() => new ApprovalHandlerRegistry().get('unknown.type')).toThrow(/沒有註冊 handler/);
+  });
+});
+
+describe('ApprovalService.submit 的重新送出（docs/architecture/backend/20-approval.md §9.9）', () => {
+  const MEMBER = { id: 'member-1', name: 'm@example.com' };
+  const RESUBMIT: SubmitApprovalInput = {
+    ...SUBMIT,
+    requester: MEMBER,
+    resubmittedFrom: 'approval-0',
+  };
+
+  it('前一筆是自己的、同類型、已駁回 → 建立並記下前一筆', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValueOnce(
+      row({ id: 'approval-0', requesterId: MEMBER.id, status: 'rejected' }),
+    );
+
+    await ctx.service.submit(RESUBMIT);
+
+    expect(ctx.repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ resubmittedFrom: 'approval-0' }),
+      ctx.tx,
+    );
+  });
+
+  it('已撤回的也可以', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValueOnce(
+      row({ id: 'approval-0', requesterId: MEMBER.id, status: 'withdrawn' }),
+    );
+
+    await expect(ctx.service.submit(RESUBMIT)).resolves.toBeDefined();
+  });
+
+  it.each([
+    ['不存在', undefined],
+    ['別人的', row({ id: 'approval-0', requesterId: 'someone-else', status: 'rejected' })],
+    ['還在審', row({ id: 'approval-0', requesterId: 'member-1', status: 'pending' })],
+    ['已核准', row({ id: 'approval-0', requesterId: 'member-1', status: 'approved' })],
+    [
+      '類型不同',
+      row({
+        id: 'approval-0',
+        requesterId: 'member-1',
+        status: 'rejected',
+        type: ApprovalType.FILE_FOLDER_ACCESS,
+      }),
+    ],
+  ])('前一筆%s → 422 APPROVAL_RESUBMIT_INVALID，不建立', async (_label, previous) => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValueOnce(previous);
+
+    await expectCode(ctx.service.submit(RESUBMIT), 'APPROVAL_RESUBMIT_INVALID');
+    expect(ctx.repo.create).not.toHaveBeenCalled();
+  });
+
+  it('匿名的申請（註冊）不能重新送出', async () => {
+    const ctx = setup();
+    ctx.repo.findById.mockResolvedValueOnce(
+      row({ id: 'approval-0', requesterId: null, status: 'rejected' }),
+    );
+
+    await expectCode(
+      ctx.service.submit({ ...SUBMIT, resubmittedFrom: 'approval-0' }),
+      'APPROVAL_RESUBMIT_INVALID',
+    );
+  });
+});
+
+describe('ApprovalService.counts（待審數，docs/architecture/backend/20-approval.md §8）', () => {
+  it('有 approval:read：待我審核與全部的待審', async () => {
+    const ctx = setup({ permissions: new Set(['approval:read']), isSuperAdmin: false });
+    ctx.repo.count.mockResolvedValueOnce(2).mockResolvedValueOnce(7);
+
+    await expect(ctx.service.counts(REVIEWER)).resolves.toEqual({ assigned: 2, pending: 7 });
+    expect(ctx.repo.count).toHaveBeenCalledWith({ scope: 'assigned' }, REVIEWER.id);
+    expect(ctx.repo.count).toHaveBeenCalledWith({ scope: 'all', status: ['pending'] }, REVIEWER.id);
+  });
+
+  it('沒有 approval:read：pending 為 null，不留 authz.denied', async () => {
+    const ctx = setup({ permissions: new Set(), isSuperAdmin: false });
+    ctx.repo.count.mockResolvedValueOnce(1);
+
+    await expect(ctx.service.counts(REVIEWER)).resolves.toEqual({ assigned: 1, pending: null });
+    expect(ctx.repo.count).toHaveBeenCalledTimes(1);
+    expect(ctx.denials.recordSafely).not.toHaveBeenCalled();
+  });
+
+  it('多階段停用時沒有待我審核（D12）', async () => {
+    const ctx = setup();
+    ctx.chain.isEnabled.mockReturnValue(false);
+    ctx.repo.count.mockResolvedValueOnce(4);
+
+    await expect(ctx.service.counts(REVIEWER)).resolves.toEqual({ assigned: 0, pending: 4 });
   });
 });

@@ -68,11 +68,13 @@ describe('ApprovalListPage（docs/architecture/frontend/07-ui-system.md §6.1）
     expect(
       await screen.findByTestId('rich-table-error', undefined, { timeout: 5000 }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('沒有資料')).toBeNull();
+    expect(screen.queryByText('目前沒有待審核的申請')).toBeNull();
 
     fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 20, total: 0 } });
     fireEvent.click(screen.getByTestId('query-error-retry'));
-    expect(await screen.findByText('沒有資料')).toBeInTheDocument();
+    expect(await screen.findByText('目前沒有待審核的申請')).toBeInTheDocument();
+    // 空的列表說明申請從哪裡來
+    expect(screen.getByTestId('approval-sources-hint')).toBeInTheDocument();
   });
 });
 
@@ -95,7 +97,7 @@ describe('ApprovalListPage 的匯出（docs/architecture/backend/22-data-transfe
     fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 20, total: 0 } });
     featureStore.setState({ resolved: true, statuses: new Map([['dataTransfer', 'ready']]) });
     renderRoute(routes, '/approval', REVIEWER);
-    await screen.findByText('沒有資料', undefined, { timeout: 5000 });
+    await screen.findByText('目前沒有待審核的申請', undefined, { timeout: 5000 });
     expect(screen.queryByTestId('approval-export-button')).toBeNull();
   });
 });
@@ -171,12 +173,37 @@ describe('ApprovalListPage 的列表（ApprovalTable）', () => {
 
   it('雙擊一列 → 打開那筆申請的詳情', async () => {
     const { router } = renderRoute(
-      [Routes.ApprovalListRoute.addChildren([Routes.ApprovalDetailRoute])],
+      [Routes.ApprovalListRoute, Routes.ApprovalDetailRoute],
       '/approval',
       REVIEWER,
     );
     fireEvent.doubleClick(await rowOf('bob@example.com'));
     await waitFor(() => expect(router.state.location.pathname).toBe('/approval/a2'));
+    // 從待審清單（預設）點進去：決定後前往下一筆
+    expect(router.state.location.search).toMatchObject({ queue: 'true' });
+  });
+
+  it('預設只看待審；切到「全部」不帶狀態查詢，詳情不帶 queue', async () => {
+    const { router } = renderRoute(
+      [Routes.ApprovalListRoute, Routes.ApprovalDetailRoute],
+      '/approval',
+      REVIEWER,
+    );
+    await rowOf('alice@example.com');
+    expect(fetchList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ params: expect.objectContaining({ status: ['pending'] }) }),
+    );
+
+    fireEvent.click(within(screen.getByTestId('approval-status-tabs')).getByText('全部狀態'));
+    await waitFor(() =>
+      expect(fetchList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ status: undefined }) }),
+      ),
+    );
+    expect(router.state.location.search).toMatchObject({ status: 'all' });
+    fireEvent.doubleClick(await rowOf('bob@example.com'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approval/a2'));
+    expect(router.state.location.search).not.toHaveProperty('queue');
   });
 
   it('換頁：以新的 offset 查詢', async () => {

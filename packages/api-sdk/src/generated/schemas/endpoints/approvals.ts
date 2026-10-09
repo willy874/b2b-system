@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type {
   ApprovalControllerApproveInput,
   ApprovalControllerApproveResult,
+  ApprovalControllerCountsResult,
   ApprovalControllerDecideInput,
   ApprovalControllerDecideResult,
   ApprovalControllerFindOneInput,
@@ -23,6 +24,7 @@ import type {
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
 import {
+  ApprovalCountsSchema,
   ApprovalRequestDetailSchema,
   ApprovalRequestSchema,
   ApproveApprovalRequestSchema,
@@ -61,6 +63,31 @@ export function approvalControllerList(
   options?: RequestOptions,
 ): Promise<ApprovalControllerListResult> {
   return request<ApprovalControllerListResult>(approvalControllerListOperation, {}, options);
+}
+
+// GET /approvals/counts
+
+export const ApprovalControllerCountsSchemas = {
+  responses: {
+    200: z.object({
+      data: ApprovalCountsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const approvalControllerCountsOperation: OperationDefinition = {
+  id: 'ApprovalController_counts',
+  method: 'GET',
+  path: '/approvals/counts',
+  responseTypes: { 200: 'json' },
+  schemas: ApprovalControllerCountsSchemas,
+};
+
+/** 待審數（待我審核、全部的待審） */
+export function approvalControllerCounts(
+  options?: RequestOptions,
+): Promise<ApprovalControllerCountsResult> {
+  return request<ApprovalControllerCountsResult>(approvalControllerCountsOperation, {}, options);
 }
 
 // GET /approvals/{id}

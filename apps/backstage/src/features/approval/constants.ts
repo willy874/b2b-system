@@ -27,6 +27,56 @@ export const APPROVAL_STATUS_TONE = {
   withdrawn: 'neutral',
 } as const satisfies Record<ApprovalStatus, ChipTone>;
 
+/** 審批類型（後端 `ApprovalType`）：網址的篩選與類型選單用它；新增類型時與 `APPROVAL_TYPE_LABEL_KEY` 一起補。 */
+export const APPROVAL_TYPES = [
+  'user.register',
+  'fileFolder.access',
+] as const satisfies readonly ApprovalType[];
+
+/**
+ * 審批列表的狀態切換（docs/architecture/backend/20-approval.md §11.2）：預設待審；`all` 是不篩選。
+ */
+export const APPROVAL_LIST_STATUSES = [
+  'pending',
+  'approved',
+  'rejected',
+  'withdrawn',
+  'all',
+] as const;
+export type ApprovalListStatus = (typeof APPROVAL_LIST_STATUSES)[number];
+
+export const APPROVAL_LIST_STATUS_LABEL_KEY = {
+  pending: 'approval.status.pending',
+  approved: 'approval.status.approved',
+  rejected: 'approval.status.rejected',
+  withdrawn: 'approval.status.withdrawn',
+  all: 'approval.status.all',
+} as const satisfies Record<ApprovalListStatus, string>;
+
+/** 列表的空狀態：依目前的狀態切換說明為什麼是空的。 */
+export const APPROVAL_LIST_EMPTY_KEY = {
+  pending: 'approval.list.empty.pending',
+  approved: 'approval.list.empty.other',
+  rejected: 'approval.list.empty.other',
+  withdrawn: 'approval.list.empty.other',
+  all: 'approval.list.empty.all',
+} as const satisfies Record<ApprovalListStatus, string>;
+
+/**
+ * 核准的結果句（docs/architecture/backend/20-approval.md §11.3、§12 D7）：`pending` 是「核准後會怎樣」，`done` 是「已經怎樣」。
+ * 參數由詳情的 adapter 依類型取出（`outcomeParams`）。新增類型時 `satisfies` 讓編譯失敗，提醒補句子。
+ */
+export const APPROVAL_OUTCOME_KEY = {
+  'user.register': {
+    pending: 'approval.outcome.userRegister.pending',
+    done: 'approval.outcome.userRegister.done',
+  },
+  'fileFolder.access': {
+    pending: 'approval.outcome.fileFolderAccess.pending',
+    done: 'approval.outcome.fileFolderAccess.done',
+  },
+} as const satisfies Record<ApprovalType, { pending: string; done: string }>;
+
 /** 「我的審批」的分頁：待我審核、我的申請（docs/architecture/backend/20-approval.md §9.10）。 */
 export const MY_APPROVAL_TABS = ['assigned', 'mine'] as const;
 export type MyApprovalTab = (typeof MY_APPROVAL_TABS)[number];

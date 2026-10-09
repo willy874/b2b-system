@@ -1,4 +1,7 @@
+import type { ApprovalListParams } from '@/apis/approval/types';
 import type { ApprovalRequest } from '@/shared/api-sdk';
+
+import type { ApprovalSearchQuery } from '../../routes';
 
 export interface ApprovalRowVM {
   id: string;
@@ -50,5 +53,17 @@ export function toApprovalRowVM(
     stepCount: dto.stepCount,
     canReview,
     canApprove: canReview && (dto.type !== 'user.register' || permission.canApproveRegistration),
+  };
+}
+
+/** 網址的條件 → 列表的查詢參數（列表頁與詳情的「下一筆」共用，兩邊才會是同一份清單）。 */
+export function toApprovalListParams(search: ApprovalSearchQuery): ApprovalListParams {
+  return {
+    offset: search.offset,
+    limit: search.limit,
+    keyword: search.keyword,
+    status: search.status === 'all' ? undefined : [search.status],
+    type: search.type ? [search.type] : undefined,
+    sort: search.sort,
   };
 }

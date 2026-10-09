@@ -26,6 +26,7 @@ import { APPROVAL_PENDING_NOTIFICATION, approvalDetailLink } from './approval.no
 import { ApprovalRepository } from './approval.repository';
 import type { ApprovalContext, ApprovalHandler, SubmitApprovalInput } from './approval.types';
 import type {
+  ApprovalCountsDto,
   ApprovalRequestDetailDto,
   ApprovalRequestDto,
   ApproveApprovalDto,
@@ -101,6 +102,7 @@ export class ApprovalService {
    * 否則是單關：送出當下持有 `approval:review` 的人收到通知。關卡全部略過時也退回單關（§9.5）。
    */
   async submit(input: SubmitApprovalInput): Promise<ApprovalRequestDto | undefined> {
+    if (input.resubmittedFrom) await this.assertResubmittable(input.resubmittedFrom, input);
     if (await this.repo.findPending(input.type, input.subjectKey)) return undefined;
     const handler = this.handlers.get(input.type);
     const flow = await this.chain.flowFor(handler);
@@ -215,6 +217,22 @@ export class ApprovalService {
     );
   }
 
+  /**
+   * 待審數（側欄的徽章、首頁的待辦）：`assigned` 同「待我審核」的總數；`pending`（全部的待審）只給 `approval:read`。
+   * 不夠權限時回 null 而不是 403：每個登入的人都會查，拒絕不該留下 `authz.denied` 稽核。
+   */
+  async counts(actor: AuthUser): Promise<ApprovalCountsDto> {
+    const permissions = await this.permissionService.getPermissionSet(actor.id);
+    const canReadAll =
+      permissions.isSuperAdmin || permissions.permissions.has(APPROVAL_PERMISSIONS.READ);
+    const [assigned, pending] = await Promise.all([
+      // 停用期間沒有「待我審核」（D12），與列表一致
+      this.chain.isEnabled() ? this.repo.count({ scope: 'assigned' }, actor.id) : 0,
+      canReadAll ? this.repo.count({ scope: 'all', status: ['pending'] }, actor.id) : null,
+    ]);
+    return { assigned, pending };
+  }
+
   /** 某類型的待審請求（依去重鍵前綴或申請人篩選）；讀取權限由呼叫端決定。 */
   async listPendingBy(
     type: ApprovalType,
@@ -232,8 +250,14 @@ export class ApprovalService {
   async findOne(id: string, actor: AuthUser): Promise<ApprovalRequestDetailDto> {
     const request = await this.getExisting(id);
     if (!(await this.chain.canView(request, actor))) throw new AppException('APPROVAL_NOT_FOUND');
-    const [dto, detail] = await Promise.all([this.findDto(id), this.chain.detail(request, actor)]);
-    return { ...dto, ...detail };
+    const [dto, detail, resubmittedTo] = await Promise.all([
+      this.findDto(id),
+      this.chain.detail(request, actor),
+      request.requesterId && request.status !== 'pending'
+        ? this.repo.findResubmission(id, request.requesterId)
+        : Promise.resolve(null),
+    ]);
+    return { ...dto, ...detail, resubmittedTo };
   }
 
   /**
@@ -379,6 +403,23 @@ export class ApprovalService {
   }
 
   // ── 業務規則 ─────────────────────────────────────────────
+
+  /**
+   * 重新送出（§9.9、D7）：前一筆要是同一個申請人、同類型、已駁回或撤回的請求。
+   * 否則 `422 APPROVAL_RESUBMIT_INVALID`——不能拿別人的、還在審的、或已核准的請求當前一筆。
+   */
+  private async assertResubmittable(previousId: string, input: SubmitApprovalInput): Promise<void> {
+    const previous = await this.repo.findById(previousId);
+    const valid =
+      previous !== undefined &&
+      previous.type === input.type &&
+      input.requester.id !== null &&
+      previous.requesterId === input.requester.id &&
+      (previous.status === 'rejected' || previous.status === 'withdrawn');
+    if (!valid) {
+      throw new AppException('APPROVAL_RESUBMIT_INVALID', { resubmittedFrom: previousId });
+    }
+  }
 
   /**
    * 單關的端點能不能用在這筆請求：單關請求一律可以；多關請求只在 `approvalChain` 停用期間可以（D12）。

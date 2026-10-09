@@ -233,6 +233,7 @@
     "APPROVAL_STEP_ALREADY_DECIDED": "你已經在這一關做過決定。",
     "APPROVAL_CHAIN_IN_PROGRESS": "這筆申請有多個關卡，請在關卡上做決定。",
     "APPROVAL_NOT_REQUESTER": "只有申請人能撤回申請。",
+    "APPROVAL_RESUBMIT_INVALID": "這筆申請無法重新送出，請改送新的申請。",
     "APPROVAL_FLOW_NOT_SUPPORTED": "這種審批類型不支援多階段流程。",
     "APPROVAL_FLOW_VERSION_CONFLICT": "流程已被他人修改，請重新載入後再儲存。",
     "APPROVAL_FLOW_ASSIGNEE_UNAVAILABLE": "有關卡的審核者目前無法使用（功能未啟用或對象已刪除）。",
@@ -453,6 +454,7 @@
     }
   },
   "layout": {
+    "badge_other": "{{name}}：{{count}} 筆待處理",
     "toggleSidebar": "側邊選單",
     "closeSidebar": "關閉側邊選單",
     "accountMenu": "帳號選單（{{name}}）"

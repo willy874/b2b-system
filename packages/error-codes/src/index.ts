@@ -282,6 +282,8 @@ export const ErrorCode = {
   APPROVAL_CHAIN_IN_PROGRESS: { status: 409 },
   /** 只有申請人能撤回。 */
   APPROVAL_NOT_REQUESTER: { status: 403 },
+  /** 重新送出的前一筆不是自己的、類型不同、或不是已駁回／已撤回（docs/architecture/backend/20-approval.md §9.9）。 */
+  APPROVAL_RESUBMIT_INVALID: { status: 422 },
   /** 這個審批類型不支援多階段流程。 */
   APPROVAL_FLOW_NOT_SUPPORTED: { status: 422 },
   APPROVAL_FLOW_VERSION_CONFLICT: { status: 409 },

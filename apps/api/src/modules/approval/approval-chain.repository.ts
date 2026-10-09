@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
 import { TENANT_DB } from '@/core/database';
@@ -30,7 +30,16 @@ export interface CurrentStepSummary {
   approvals: number;
   required: number;
   shortage: 'noCandidate' | 'insufficient' | null;
+  /** 這一關開始的時間（列表顯示「已等多久」）。 */
+  activatedAt: string | null;
+  /** 還沒在這一關做決定的候選人，依名稱排序的前幾位（列表顯示「等待 王小明 等 3 人」）。 */
+  pendingReviewers: string[];
+  /** 還沒做決定的候選人數。 */
+  pendingCount: number;
 }
+
+/** 列表上列出的未決定候選人數；其餘以人數表示。 */
+const PENDING_REVIEWER_PREVIEW = 3;
 
 /**
  * 多階段審批的資料存取（docs/architecture/backend/20-approval.md §9.3）：流程、關卡、候選人、決定。
@@ -213,6 +222,21 @@ export class ApprovalChainRepository {
     return Boolean(row);
   }
 
+  /** 這些人之中曾是這筆請求任一關候選人的（批次版的 `isCandidateOfRequest`）。 */
+  async candidatesAmong(requestId: string, userIds: readonly string[]): Promise<string[]> {
+    if (!userIds.length) return [];
+    const rows = await this.db
+      .selectDistinct({ userId: approvalStepAssignees.userId })
+      .from(approvalStepAssignees)
+      .where(
+        and(
+          eq(approvalStepAssignees.requestId, requestId),
+          inArray(approvalStepAssignees.userId, [...userIds]),
+        ),
+      );
+    return rows.map((row) => row.userId);
+  }
+
   // ── 決定 ─────────────────────────────────────────────
 
   async insertDecision(
@@ -327,11 +351,13 @@ export class ApprovalChainRepository {
     const [active, totals] = await Promise.all([
       this.db
         .select({
+          id: approvalSteps.id,
           requestId: approvalSteps.requestId,
           ordinal: approvalSteps.ordinal,
           name: approvalSteps.name,
           required: approvalSteps.requiredApprovals,
           shortage: approvalSteps.shortage,
+          activatedAt: approvalSteps.activatedAt,
           // 單表 select 時 Drizzle 會把 ${approvalSteps.id} 輸出成不帶表名的 "id"，在子查詢裡會被當成 d.id：明確寫出表名
           approvals: sql<number>`(SELECT count(*)::int FROM ${approvalDecisions} d
             WHERE d.step_id = ${approvalSteps}.${sql.identifier(approvalSteps.id.name)}
@@ -350,17 +376,47 @@ export class ApprovalChainRepository {
         .where(inArray(approvalSteps.requestId, [...requestIds]))
         .groupBy(approvalSteps.requestId),
     ]);
+    const pending = await this.undecidedOf(active.map((step) => step.id));
     for (const row of active) {
+      const names = pending.get(row.id) ?? [];
       current.set(row.requestId, {
         ordinal: row.ordinal,
         name: row.name,
         approvals: row.approvals,
         required: row.required ?? 0,
         shortage: row.shortage ?? null,
+        activatedAt: row.activatedAt?.toISOString() ?? null,
+        pendingReviewers: names.slice(0, PENDING_REVIEWER_PREVIEW),
+        pendingCount: names.length,
       });
     }
     for (const row of totals) counts.set(row.requestId, row.count);
     return { current, counts };
+  }
+
+  /** 每一關還沒做決定的候選人名稱（依名稱排序）。一頁最多幾十個進行中的關卡，名單不大，取回後在程式裡截斷。 */
+  private async undecidedOf(stepIds: readonly string[]): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (!stepIds.length) return result;
+    const rows = await this.db
+      .select({ stepId: approvalStepAssignees.stepId, name: users.displayName })
+      .from(approvalStepAssignees)
+      .innerJoin(users, eq(users.id, approvalStepAssignees.userId))
+      .leftJoin(
+        approvalDecisions,
+        and(
+          eq(approvalDecisions.stepId, approvalStepAssignees.stepId),
+          eq(approvalDecisions.reviewerId, approvalStepAssignees.userId),
+        ),
+      )
+      .where(and(inArray(approvalStepAssignees.stepId, [...stepIds]), isNull(approvalDecisions.id)))
+      .orderBy(asc(users.displayName));
+    for (const row of rows) {
+      const list = result.get(row.stepId) ?? [];
+      list.push(row.name);
+      result.set(row.stepId, list);
+    }
+    return result;
   }
 
   // ── 平台關閉前的影響（§9.11） ─────────────────────────

@@ -3,11 +3,19 @@
     "list": {
       "title": "審批",
       "description": "需要管理員核准才會生效的申請。核准等同代為執行該操作，因此也需要該操作本身的權限。",
-      "searchPlaceholder": "搜尋申請人"
+      "searchPlaceholder": "搜尋申請人",
+      "empty": {
+        "pending": "目前沒有待審核的申請",
+        "other": "沒有這個狀態的申請",
+        "all": "還沒有任何申請"
+      },
+      "pendingTab_other": "待審核（{{count}}）"
     },
     "detail": {
       "title": "審批詳情",
-      "backToList": "回到審批列表"
+      "backToList": "回到審批列表",
+      "subtitle": "{{name}} · {{time}} 送出",
+      "content": "申請內容"
     },
     "review": {
       "title": "審核",
@@ -87,14 +95,14 @@
       "fileFolderAccess": "資料夾存取申請"
     },
     "progress": {
-      "step": "{{name}} {{approvals}}／{{required}}"
+      "step": "{{name}} {{approvals}}／{{required}}",
+      "waiting": "等待 {{names}}",
+      "waitingMore_other": "等待 {{names}} 等 {{count}} 人"
     },
     "step": {
-      "title": "審核關卡",
       "count": "{{approvals}}／{{required}} 已同意",
       "approve": "同意",
       "skippedHint": "條件不符，這一關略過。",
-      "candidates": "審核者：{{names}}",
       "status": {
         "waiting": "等待中",
         "active": "審核中",
@@ -140,7 +148,9 @@
       "rejectTitle": "強制駁回申請",
       "confirm": "這會略過這一關原本的審核者，並以你的名義記錄在稽核日誌。審核意見會作為理由。",
       "commentRequired": "強制定案需要填寫審核意見作為理由",
-      "success": "已強制定案。"
+      "success": "已強制定案。",
+      "title": "管理員操作",
+      "hint": "審核卡住時使用：重新展開會依規則補上新的審核者；強制定案會略過原本的審核者，審核意見作為理由並記在稽核日誌。"
     },
     "refresh": {
       "action": "重新展開審核者",
@@ -160,11 +170,68 @@
       },
       "backToList": "回到我的審批",
       "emptyAssigned": "目前沒有等你審核的申請",
-      "emptyMine": "你還沒有送出任何申請"
+      "emptyMine": "你還沒有送出任何申請",
+      "emptyAssignedHint": "有申請輪到你審核時會出現在這裡，你也會收到通知。",
+      "emptyMineHint": "你送出的申請（例如在檔案管理器對資料夾申請存取）會出現在這裡，可以看到目前在哪一關、等誰審核。",
+      "assignedTab_other": "待我審核（{{count}}）"
     },
     "transfer": {
       "requests": "審批請求",
       "decisions": "審核紀錄（每一關的決定）"
+    },
+    "sources": {
+      "title": "申請會在這些時候出現：",
+      "register": "有人在登入頁「申請帳號」（租戶開放註冊時）。",
+      "folderAccess": "有人在檔案管理器對資料夾「申請存取」。"
+    },
+    "home": {
+      "title": "待辦",
+      "assigned_other": "有 {{count}} 筆申請等你審核",
+      "viewAll": "查看全部",
+      "waiting": "{{step}} · {{since}}開始",
+      "pending_other": "共有 {{count}} 筆待審核的申請",
+      "review": "前往審批"
+    },
+    "flow": {
+      "title": "審核流程",
+      "submitted": "送出申請",
+      "single": "審核",
+      "singleHint": "由有審核權限的人核准或駁回（任一位即可定案）。",
+      "outcomePending": "核准後",
+      "outcomeDone": "結果",
+      "stepTitle": "第 {{position}} 關：{{name}}",
+      "since": "{{since}}開始",
+      "notYet": "尚未動作"
+    },
+    "banner": {
+      "shortage": "第 {{position}} 關「{{name}}」找不到足夠的審核者，申請卡住了。",
+      "shortageCanOverride": "你可以在「管理員操作」重新展開審核者，或強制定案這一關。",
+      "shortageHint": "需要有「強制定案」權限的管理員重新展開審核者，或強制定案這一關。",
+      "step": "等待第 {{position}} 關「{{name}}」：{{approvals}}／{{required}} 已同意",
+      "yourTurn": "輪到你審核：填寫意見後同意或駁回。",
+      "single": "等待審核者核准或駁回",
+      "canReviewSingle": "你可以審核這筆申請。",
+      "approved": "已核准",
+      "rejected": "已駁回",
+      "rejectedBy": "已由 {{name}} 駁回",
+      "withdrawn": "申請人已撤回",
+      "canWithdraw": "審核結束前，你可以撤回這筆申請。",
+      "resubmit": "修改後重新送出",
+      "viewResubmission": "查看重新送出的申請",
+      "viewPrevious": "查看前一筆申請"
+    },
+    "outcome": {
+      "userRegister": {
+        "pending": "核准後會建立帳號 {{email}} 並寄出啟用信。",
+        "done": "已建立帳號 {{email}}；申請人從啟用信設定密碼後即可登入。"
+      },
+      "fileFolderAccess": {
+        "pending": "核准後申請人會取得「{{folder}}」的{{level}}權限。",
+        "done": "申請人已取得「{{folder}}」的{{level}}權限。"
+      }
+    },
+    "next": {
+      "done": "這份清單的申請都處理完了。"
     }
   }
 }

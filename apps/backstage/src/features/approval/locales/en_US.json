@@ -3,11 +3,20 @@
     "list": {
       "title": "Approvals",
       "description": "Requests that take effect only after an administrator approves them. Approving acts on the requester's behalf, so it also requires the permission for that operation.",
-      "searchPlaceholder": "Search requester"
+      "searchPlaceholder": "Search requester",
+      "empty": {
+        "pending": "No requests are waiting for review",
+        "other": "No requests with this status",
+        "all": "No requests yet"
+      },
+      "pendingTab_one": "Pending ({{count}})",
+      "pendingTab_other": "Pending ({{count}})"
     },
     "detail": {
       "title": "Approval details",
-      "backToList": "Back to approvals"
+      "backToList": "Back to approvals",
+      "subtitle": "Submitted by {{name}} · {{time}}",
+      "content": "Request"
     },
     "review": {
       "title": "Review",
@@ -91,14 +100,15 @@
       "fileFolderAccess": "Folder access request"
     },
     "progress": {
-      "step": "{{name}} {{approvals}}/{{required}}"
+      "step": "{{name}} {{approvals}}/{{required}}",
+      "waiting": "Waiting for {{names}}",
+      "waitingMore_one": "Waiting for {{names}} ({{count}} in total)",
+      "waitingMore_other": "Waiting for {{names}} and others ({{count}} in total)"
     },
     "step": {
-      "title": "Approval steps",
       "count": "{{approvals}}/{{required}} approved",
       "approve": "Approve",
       "skippedHint": "Conditions not met; this step is skipped.",
-      "candidates": "Reviewers: {{names}}",
       "status": {
         "waiting": "Waiting",
         "active": "In review",
@@ -144,7 +154,9 @@
       "rejectTitle": "Force-reject the request",
       "confirm": "This bypasses the step's reviewers and is recorded in the audit log under your name. Your comment is the reason.",
       "commentRequired": "A comment is required as the reason for an override",
-      "success": "Overridden."
+      "success": "Overridden.",
+      "title": "Administrator actions",
+      "hint": "Use these when a request is stuck: re-resolving adds reviewers by the rule; overriding skips the original reviewers, uses your comment as the reason and is recorded in the audit log."
     },
     "refresh": {
       "action": "Re-resolve reviewers",
@@ -164,11 +176,71 @@
       },
       "backToList": "Back to my approvals",
       "emptyAssigned": "Nothing is waiting for your review",
-      "emptyMine": "You haven't submitted any requests"
+      "emptyMine": "You haven't submitted any requests",
+      "emptyAssignedHint": "Requests show up here when it is your turn to review, and you will be notified.",
+      "emptyMineHint": "Requests you submit (for example, folder access requests in the file manager) show up here, with the current step and who it is waiting for.",
+      "assignedTab_one": "Assigned to me ({{count}})",
+      "assignedTab_other": "Assigned to me ({{count}})"
     },
     "transfer": {
       "requests": "Approval requests",
       "decisions": "Review records (every decision)"
+    },
+    "sources": {
+      "title": "Requests appear here when:",
+      "register": "Someone uses \"Request an account\" on the sign-in page (when registration is open).",
+      "folderAccess": "Someone requests access to a folder in the file manager."
+    },
+    "home": {
+      "title": "To do",
+      "assigned_one": "{{count}} request is waiting for your review",
+      "assigned_other": "{{count}} requests are waiting for your review",
+      "viewAll": "View all",
+      "waiting": "{{step}} · started {{since}}",
+      "pending_one": "{{count}} request is pending review",
+      "pending_other": "{{count}} requests are pending review",
+      "review": "Go to approvals"
+    },
+    "flow": {
+      "title": "Review flow",
+      "submitted": "Submitted",
+      "single": "Review",
+      "singleHint": "Anyone allowed to review it can approve or reject (one decision settles it).",
+      "outcomePending": "When approved",
+      "outcomeDone": "Result",
+      "stepTitle": "Step {{position}}: {{name}}",
+      "since": "Started {{since}}",
+      "notYet": "Not yet"
+    },
+    "banner": {
+      "shortage": "Step {{position}} \"{{name}}\" does not have enough reviewers. The request is stuck.",
+      "shortageCanOverride": "Use \"Administrator actions\" to re-resolve the reviewers or override this step.",
+      "shortageHint": "An administrator with override permission needs to re-resolve the reviewers or override this step.",
+      "step": "Waiting for step {{position}} \"{{name}}\": {{approvals}}/{{required}} approved",
+      "yourTurn": "It is your turn: add a comment, then approve or reject.",
+      "single": "Waiting for a reviewer to approve or reject",
+      "canReviewSingle": "You can review this request.",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "rejectedBy": "Rejected by {{name}}",
+      "withdrawn": "Withdrawn by the requester",
+      "canWithdraw": "You can withdraw this request until the review is finished.",
+      "resubmit": "Edit and resubmit",
+      "viewResubmission": "View the resubmitted request",
+      "viewPrevious": "View the previous request"
+    },
+    "outcome": {
+      "userRegister": {
+        "pending": "When approved, the account {{email}} is created and an activation email is sent.",
+        "done": "The account {{email}} has been created; the requester can sign in after setting a password from the activation email."
+      },
+      "fileFolderAccess": {
+        "pending": "When approved, the requester gets {{level}} access to \"{{folder}}\".",
+        "done": "The requester now has {{level}} access to \"{{folder}}\"."
+      }
+    },
+    "next": {
+      "done": "All requests in this list have been handled."
     }
   }
 }

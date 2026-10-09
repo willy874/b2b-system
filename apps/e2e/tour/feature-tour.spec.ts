@@ -373,8 +373,8 @@ test('資料與內容', async ({ page }) => {
   });
   await scene('approval-detail', async () => {
     if (!demo.approvalId) throw new Error('沒有申請');
-    const dialog = await open(page, `/approval/${demo.approvalId}`, 'approval-detail-dialog');
-    await expect(dialog.getByTestId('approval-timeline')).toBeVisible();
+    const detail = await open(page, `/approval/${demo.approvalId}`, 'approval-detail-page');
+    await expect(detail.getByTestId('approval-timeline')).toBeVisible();
     await shoot(page, 'approval-detail');
   });
   await scene('approval-flow', async () => {

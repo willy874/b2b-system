@@ -49,7 +49,9 @@ RootRoute  (web-core/router/root.ts)
 ├── /permission                    PermissionListRoute
 ├── /audit-log                     AuditLogListRoute
 ├── /approval                      ApprovalListRoute
-│   └── $approvalId                ApprovalDetailRoute    （審核對話框）
+├── /approval/$approvalId          ApprovalDetailRoute    （整頁的審批詳情，backend/20-approval.md §11.3）
+├── /my-approvals                  MyApprovalRoute
+├── /my-approvals/$approvalId      MyApprovalDetailRoute
 │
 └── (dev only)
     ├── /__router_devtools__

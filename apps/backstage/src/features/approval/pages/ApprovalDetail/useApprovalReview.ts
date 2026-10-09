@@ -10,11 +10,18 @@ import {
   useWithdrawApprovalMutation,
 } from '../../hooks/useApprovalMutations';
 
+/** 完成的是哪一種操作：定案或關卡的決定（`decided`），或申請人撤回（`withdrawn`）。 */
+export type ApprovalReviewOutcome = 'decided' | 'withdrawn';
+
 /**
- * 審核表單的狀態：核准時指派的角色、審核意見、送出錯誤。審核成功後呼叫 `onReviewed`（關閉要略過未儲存提醒）。
- * 單關的核准／駁回之外，多階段的關卡決定、強制定案、重新展開與撤回也在這裡（docs/architecture/backend/20-approval.md §9）。
+ * 審核表單的狀態：核准時指派的角色、審核意見、送出錯誤。成功後清空表單（留在原頁時不再算「未儲存」），
+ * 再呼叫 `onReviewed`：從待審清單進來的詳情據此前往下一筆（docs/architecture/backend/20-approval.md §12 D5）。
+ * 單關的核准／駁回之外，多階段的關卡決定、強制定案、重新展開與撤回也在這裡（§9）。
  */
-export function useApprovalReview(approvalId: string, onReviewed: () => void) {
+export function useApprovalReview(
+  approvalId: string,
+  onReviewed: (outcome: ApprovalReviewOutcome) => void,
+) {
   const approve = useApproveApprovalMutation();
   const reject = useRejectApprovalMutation();
   const decide = useDecideApprovalStepMutation();
@@ -26,11 +33,16 @@ export function useApprovalReview(approvalId: string, onReviewed: () => void) {
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string>();
 
-  const submit = async (action: () => Promise<unknown>) => {
+  const submit = async (
+    action: () => Promise<unknown>,
+    outcome: ApprovalReviewOutcome = 'decided',
+  ) => {
     setError(undefined);
     try {
       await action();
-      onReviewed();
+      setComment('');
+      setRoleIds([]);
+      onReviewed(outcome);
     } catch (caught) {
       // 例：申請後 email 被直接建立 → USER_EMAIL_DUPLICATE，審核者可改為駁回
       setError(toMessage(caught));
@@ -82,7 +94,7 @@ export function useApprovalReview(approvalId: string, onReviewed: () => void) {
           params: { approvalId, ordinal, body: { decision, comment: trimmed ?? '', roleIds: [] } },
         }),
       ),
-    /** 重新展開審核者：不關閉對話框，留在原處看新的名單。 */
+    /** 重新展開審核者：留在原處看新的名單，不算定案。 */
     refresh: async (ordinal: number) => {
       setError(undefined);
       try {
@@ -91,7 +103,7 @@ export function useApprovalReview(approvalId: string, onReviewed: () => void) {
         setError(toMessage(caught));
       }
     },
-    withdraw: () => submit(() => withdraw.mutateAsync({ params: { approvalId } })),
+    withdraw: () => submit(() => withdraw.mutateAsync({ params: { approvalId } }), 'withdrawn'),
   };
 }
 

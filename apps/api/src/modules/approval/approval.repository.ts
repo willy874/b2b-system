@@ -57,6 +57,9 @@ export interface ApprovalDecisionCursor {
   id: string;
 }
 
+/** 列表與待審數共用的條件。 */
+export type ApprovalCountFilter = Pick<ListApprovalDto, 'scope' | 'keyword' | 'status' | 'type'>;
+
 /** 審核結果；只會套用在仍為 `pending` 的列上。 */
 export type ApprovalReview = Pick<
   ApprovalRequestInsert,
@@ -141,26 +144,7 @@ export class ApprovalRepository {
     query: ListApprovalDto,
     actorId: string,
   ): Promise<{ items: ApprovalRequestRow[]; total: number }> {
-    const conditions: SQL[] = [];
-    if (query.scope === 'mine') conditions.push(eq(approvalRequests.requesterId, actorId));
-    if (query.scope === 'assigned') {
-      // 子查詢用別名手寫條件：計數的查詢是單表 select，Drizzle 會把 ${approvalRequests.id} 輸出成不帶表名的 "id"
-      const outerId = sql`${approvalRequests}.${sql.identifier(approvalRequests.id.name)}`;
-      conditions.push(
-        eq(approvalRequests.status, 'pending'),
-        sql`EXISTS (SELECT 1 FROM ${approvalSteps} s
-          JOIN ${approvalStepAssignees} a ON a.step_id = s.id AND a.user_id = ${actorId}
-          WHERE s.request_id = ${outerId} AND s.status = 'active'
-            AND NOT EXISTS (SELECT 1 FROM ${approvalDecisions} d
-              WHERE d.step_id = s.id AND d.reviewer_id = ${actorId}))`,
-      );
-    }
-    if (query.keyword) {
-      conditions.push(ilike(approvalRequests.requesterName, containsPattern(query.keyword)));
-    }
-    if (query.status?.length) conditions.push(inArray(approvalRequests.status, query.status));
-    if (query.type?.length) conditions.push(inArray(approvalRequests.type, query.type));
-    const where = conditions.length ? and(...conditions) : undefined;
+    const where = this.listWhere(query, actorId);
     // 最後以 id 收尾，讓同值的列在分頁之間順序穩定
     const orderBy = query.sort.map(({ sort, order }) =>
       order === 'asc' ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),
@@ -177,6 +161,53 @@ export class ApprovalRepository {
       this.db.$count(approvalRequests, where),
     ]);
     return { items, total };
+  }
+
+  /** 與列表同樣的條件只算筆數（待審數）。 */
+  count(filter: ApprovalCountFilter, actorId: string): Promise<number> {
+    return this.db.$count(approvalRequests, this.listWhere(filter, actorId));
+  }
+
+  /**
+   * 以 `id` 為前一筆重新送出的最新一筆。重新送出的一定是同一個申請人（`ApprovalService.submit()` 驗證），
+   * 以申請人限定範圍才用得到「我的申請」的索引（`resubmitted_from` 沒有索引）。
+   */
+  async findResubmission(id: string, requesterId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ id: approvalRequests.id })
+      .from(approvalRequests)
+      .where(
+        and(
+          eq(approvalRequests.requesterId, requesterId),
+          eq(approvalRequests.resubmittedFrom, id),
+        ),
+      )
+      .orderBy(desc(approvalRequests.createdAt))
+      .limit(1);
+    return row?.id ?? null;
+  }
+
+  private listWhere(filter: ApprovalCountFilter, actorId: string): SQL | undefined {
+    const conditions: SQL[] = [];
+    if (filter.scope === 'mine') conditions.push(eq(approvalRequests.requesterId, actorId));
+    if (filter.scope === 'assigned') {
+      // 子查詢用別名手寫條件：計數的查詢是單表 select，Drizzle 會把 ${approvalRequests.id} 輸出成不帶表名的 "id"
+      const outerId = sql`${approvalRequests}.${sql.identifier(approvalRequests.id.name)}`;
+      conditions.push(
+        eq(approvalRequests.status, 'pending'),
+        sql`EXISTS (SELECT 1 FROM ${approvalSteps} s
+          JOIN ${approvalStepAssignees} a ON a.step_id = s.id AND a.user_id = ${actorId}
+          WHERE s.request_id = ${outerId} AND s.status = 'active'
+            AND NOT EXISTS (SELECT 1 FROM ${approvalDecisions} d
+              WHERE d.step_id = s.id AND d.reviewer_id = ${actorId}))`,
+      );
+    }
+    if (filter.keyword) {
+      conditions.push(ilike(approvalRequests.requesterName, containsPattern(filter.keyword)));
+    }
+    if (filter.status?.length) conditions.push(inArray(approvalRequests.status, filter.status));
+    if (filter.type?.length) conditions.push(inArray(approvalRequests.type, filter.type));
+    return conditions.length ? and(...conditions) : undefined;
   }
 
   // ── 匯出（docs/architecture/backend/22-data-transfer.md §12.5）────────

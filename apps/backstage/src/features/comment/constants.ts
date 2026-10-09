@@ -5,6 +5,8 @@ export const COMMENTABLE_RESOURCE_TYPES = [
   'user',
   // 圖片庫的圖片（docs/architecture/backend/26-gallery.md §11）：檢視器的資訊面板下方
   'galleryItem',
+  // 審批請求（docs/architecture/backend/20-approval.md §11.3）：詳情頁的申請內容下方
+  'approval',
 ] as const satisfies readonly CommentableResourceType[];
 
 export function isCommentable(resourceType: string): resourceType is CommentableResourceType {

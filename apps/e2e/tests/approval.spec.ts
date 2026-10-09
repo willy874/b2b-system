@@ -56,8 +56,10 @@ test.describe('註冊審批（docs/architecture/backend/20-approval.md）', () =
     await expect(adminPage.getByTestId('approval-list-page')).toBeVisible();
     await getByTestIdAndValue(adminPage, 'approval-detail-link', email).click();
 
-    const dialog = adminPage.getByTestId('approval-detail-dialog');
-    await expect(dialog).toContainText(email);
+    const detail = adminPage.getByTestId('approval-detail-page');
+    await expect(detail).toContainText(email);
+    // 狀態橫幅說明現況與核准後會怎樣（docs/architecture/backend/20-approval.md §11.3）
+    await expect(adminPage.getByTestId('approval-status-banner')).toContainText(email);
     await adminPage.getByTestId('approval-role-select').click();
     // 選項的 data-value 是角色 id（每次 seed 不同），以 slug 說明文字定位
     await adminPage
@@ -68,8 +70,11 @@ test.describe('註冊審批（docs/architecture/backend/20-approval.md）', () =
     await expect(adminPage.getByTestId('approval-role-select')).toContainText('一般成員');
     await adminPage.getByTestId('approval-comment-input').fill('歡迎加入');
     await snapshot(adminPage, 'approval-dialog');
+    const detailUrl = adminPage.url();
     await adminPage.getByTestId('approval-approve-button').click();
-    await expect(dialog).toBeHidden();
+    // 從待審清單進來：決定後前往下一筆或回到列表（§12 D5）
+    await expect(adminPage).not.toHaveURL(detailUrl);
+    await adminPage.goto('/approval?status=all');
     await expect(
       adminPage
         .locator('tr', { has: getByTestIdAndValue(adminPage, 'approval-detail-link', email) })
@@ -115,7 +120,8 @@ test.describe('註冊審批（docs/architecture/backend/20-approval.md）', () =
     for (const response of responses) expect(response.status()).toBe(202);
 
     await loginAndWaitForHome(page, 'admin');
-    await page.goto('/approval');
+    // 「全部」：核准或駁回後的列留在畫面上（預設的待審清單會把它們拿掉）
+    await page.goto('/approval?status=all');
     const statusOf = (email: string) =>
       page
         .locator('tr', { has: getByTestIdAndValue(page, 'approval-detail-link', email) })
@@ -141,9 +147,9 @@ test.describe('註冊審批（docs/architecture/backend/20-approval.md）', () =
     await expect(page.getByTestId('approval-list-page')).toBeVisible();
 
     const link = page.getByTestId('approval-detail-link').first();
-    if ((await link.count()) === 0) return; // 沒有任何申請時不需驗證對話框
+    if ((await link.count()) === 0) return; // 沒有任何申請時不需驗證詳情
     await link.click();
-    await expect(page.getByTestId('approval-detail-dialog')).toBeVisible();
+    await expect(page.getByTestId('approval-detail-page')).toBeVisible();
     await expect(page.getByTestId('approval-review-form')).toHaveCount(0);
   });
 
@@ -245,11 +251,16 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
       await loginAndWaitForHome(member, 'member');
       await member.goto('/my-approvals');
       await getByTestIdAndValue(member, 'my-approval-detail-link', email).click();
-      const memberDialog = member.getByTestId('approval-detail-dialog');
-      await expect(memberDialog.getByTestId('approval-timeline')).toBeVisible();
+      const memberDetail = member.getByTestId('approval-detail-page');
+      await expect(memberDetail.getByTestId('approval-timeline')).toBeVisible();
+      // 目前的關卡逐人列出：輪到 member，還沒動作
+      await expect(
+        getByTestIdAndValue(member, 'approval-step-person', 'E2E Member'),
+      ).toHaveAttribute('data-state', 'pending');
       await snapshot(member, 'chain-step-1');
+      const memberDetailUrl = member.url();
       await member.getByTestId('approval-step-approve-button').click();
-      await expect(memberDialog).toBeHidden();
+      await expect(member).not.toHaveURL(memberDetailUrl);
       await memberContext.close();
 
       // ② admin：輪到「管理員」那一關；單關的快速審核不出現在多關請求上
@@ -260,11 +271,12 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
       await expect(getByTestIdAndValue(admin, 'approval-quick-approve', email)).toHaveCount(0);
       await admin.goto('/my-approvals');
       await getByTestIdAndValue(admin, 'my-approval-detail-link', email).click();
+      const adminDetailUrl = admin.url();
       await admin.getByTestId('approval-step-approve-button').click();
-      await expect(admin.getByTestId('approval-detail-dialog')).toBeHidden();
+      await expect(admin).not.toHaveURL(adminDetailUrl);
 
-      // ③ 定案：申請在「我的申請」之外的總表裡是已核准
-      await admin.goto('/approval');
+      // ③ 定案：申請在「我的申請」之外的總表裡是已核准（總表預設只看待審）
+      await admin.goto('/approval?status=all');
       await expect(
         admin
           .locator('tr', { has: getByTestIdAndValue(admin, 'approval-detail-link', email) })

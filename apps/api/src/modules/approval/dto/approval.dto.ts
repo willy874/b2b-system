@@ -38,6 +38,12 @@ export const ApprovalRequestSchema = defineSchema(
         /** 需要的同意數（`all` 已換成啟動時的人數）。 */
         required: z.number().int(),
         shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+        /** 這一關開始的時間。 */
+        activatedAt: z.string().nullable(),
+        /** 還沒在這一關做決定的候選人，依名稱排序的前 3 位。 */
+        pendingReviewers: z.array(z.string()),
+        /** 還沒做決定的候選人數。 */
+        pendingCount: z.number().int(),
       })
       .nullable(),
     /** 多階段：關卡的總數（含略過的）；單關請求為 0。 */
@@ -110,6 +116,19 @@ export const ApprovalRequestDetailSchema = defineSchema(
   ApprovalRequestSchema.extend({
     steps: z.array(ApprovalStepSchema),
     viewer: ApprovalViewerSchema,
+    /** 申請人以這一筆為前一筆重新送出的最新一筆；沒有重新送出時為 null。 */
+    resubmittedTo: z.string().uuid().nullable(),
+  }),
+);
+
+/** 待審數（側欄的徽章、首頁的待辦、列表的狀態切換；docs/architecture/backend/20-approval.md §8）。 */
+export const ApprovalCountsSchema = defineSchema(
+  'ApprovalCounts',
+  z.object({
+    /** 待我審核：我是目前關卡的候選人、還沒決定（同 `scope=assigned` 的總數）。 */
+    assigned: z.number().int(),
+    /** 全部的待審請求；沒有 `approval:read` 時為 null。 */
+    pending: z.number().int().nullable(),
   }),
 );
 
@@ -165,6 +184,7 @@ export const OverrideApprovalStepSchema = defineSchema(
 
 export type ApprovalRequestDto = z.infer<typeof ApprovalRequestSchema>;
 export type ApprovalRequestDetailDto = z.infer<typeof ApprovalRequestDetailSchema>;
+export type ApprovalCountsDto = z.infer<typeof ApprovalCountsSchema>;
 export type ApprovalStepDto = z.infer<typeof ApprovalStepSchema>;
 export type ApprovalViewerDto = z.infer<typeof ApprovalViewerSchema>;
 export type DecideApprovalStepDto = z.infer<typeof DecideApprovalStepSchema>;

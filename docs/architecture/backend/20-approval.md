@@ -25,6 +25,7 @@
 | 列表、詳情、核准、駁回；即時推播                           |                                                   |
 | 多階段流程：依序多關、會簽、條件分流（§9；可由平台關閉）   |                                                   |
 | 申請人查看自己的申請與進度、撤回（「我的審批」，§9.9、§9.10） |                                                |
+| 待辦的入口、整頁的詳情、審核時的留言、修改後重新送出（§11） | 審批專屬的聊天室；流程設定的範本與引導（[`../../features/approval-experience.md`](../../features/approval-experience.md)） |
 
 ---
 
@@ -137,8 +138,10 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
    `ApprovalModule` 是葉節點，不認識任何業務模組（沒有循環依賴）。
 4. 提供送出請求的入口（例：`userRegistrationRequest()` 產生 `SubmitApprovalInput`），
    由呼叫端的 service 呼叫 `ApprovalService.submit()`。
-5. 前端：`features/approval/constants.ts` 加類型的語系鍵；`pages/ApprovalDetail/adapter.ts`
-   把該類型的 `payload` 收斂成 view model；需要額外權限時擴充 `useApprovalReviewAccess()`。
+5. 前端：`features/approval/constants.ts` 加類型的語系鍵（`APPROVAL_TYPE_LABEL_KEY`、`APPROVAL_TYPES`）與核准的結果句
+   （`APPROVAL_OUTCOME_KEY`，§11.3）；`pages/ApprovalDetail/adapter.ts` 把該類型的 `payload` 收斂成 view model、
+   `outcomeParams()` 取出結果句的參數；需要額外權限時擴充 `useApprovalReviewAccess()`。申請人是登入者的類型，
+   提供「修改後重新送出」的入口（擁有者 feature 登記 route id，詳情的 `ApprovalStatusBanner` 連過去；§11.3）。
 6. 要支援多階段流程時，handler 宣告 `flow`（申請人是登入者或匿名、條件可用的欄位，§9.1）；前端的流程設定頁
    （`features/approval-flow`）加上類型與欄位的語系。
 7. 更新本文件 §5 之後的類型章節、§8（API）。
@@ -196,15 +199,15 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | 項目       | 位置                                                                                    |
 | ---------- | --------------------------------------------------------------------------------------- |
 | 申請帳號頁 | apps/platform 的 `/register?tenant=<代碼>`（未登入可進；登入頁有連結）。租戶關閉註冊（`auth.registrationEnabled`）時登入頁不顯示連結、申請頁顯示不開放 |
-| 審批列表   | `/approval`，Page Key `APPROVAL`（`approval:read`），選單「審批」；多關請求多一欄「進度」（§9.16） |
+| 審批列表   | `/approval`，Page Key `APPROVAL`（`approval:read`），選單「審批」（帶待審數）；預設只看待審，上方是狀態的分段切換；多關請求多一欄「進度」（§9.16、§11.2） |
 | 我的審批   | `/my-approvals`，Page Key `MY_APPROVAL`（不需要權限）：待我審核、我的申請（§9.16）       |
-| 審核對話框 | `/approval/$approvalId`：申請內容、角色（可搜尋多選）、審核意見；核准／駁回固定在 footer |
+| 審批詳情   | `/approval/$approvalId`、`/my-approvals/$approvalId`：整頁（§11.3）。狀態橫幅、申請內容與留言、審核流程、這個人能做的操作（角色可搜尋多選、審核意見、核准／駁回） |
 | 快速審核   | 列表「操作」欄：待審列的 ✓ 核准／✗ 駁回，確認後直接送出。**不指派角色、不附意見**；要指派角色改開對話框。沒有 `approval:review` 時整欄不出現；缺類型要求的權限時核准鈕停用並說明原因 |
 | 批次審核   | 勾選後的批次操作列：核准／駁回，語意同快速審核（`useApprovalBatchActions`、`features/approval/batch.ts`）。只送出待審的列，核准另需類型要求的權限；送進全域佇列逐筆呼叫單筆的核准／駁回端點，進度與結果見 [`frontend/07-ui-system.md`](../frontend/07-ui-system.md) §6.2 |
 | 權限 facade | `useApprovalPermission()`：`canReview`、`canApproveRegistration`、`canAssignRole`        |
 | 可見性     | `useApprovalReviewAccess()`：未水合／無 `approval:review`／已審核 → 不顯示審核操作       |
 | 快取       | `approval` 資源（`APPROVAL_LIST` ／ `APPROVAL_DETAIL`）；核准註冊另宣告 `user` create    |
-| E2E        | `apps/e2e/tests/approval.spec.ts`：申請 → 核准並指派角色 → 啟用前登入被擋 → 從 Mailpit 的啟用信設定密碼 → 登入；快速審核；auditor 唯讀、member 403 |
+| E2E        | `apps/e2e/tests/approval.spec.ts`：申請 → 從待審清單打開詳情、核准並指派角色（之後前往下一筆或回到列表） → 啟用前登入被擋 → 從 Mailpit 的啟用信設定密碼 → 登入；快速審核；auditor 唯讀、member 403 |
 | E2E（多階段） | 同一個檔案（與單關的案例依序執行）：兩關的註冊申請依序同意後定案；流程編輯頁加一關（指定使用者、條件）並調整順序 → 試算 → 儲存；auditor 唯讀、member 403 |
 
 ---
@@ -231,6 +234,7 @@ DB 層的不變條件（整合測試 `apps/api/test/approval-lifecycle.spec.ts` 
 | Method | Path                     | 授權                                    | 說明                         |
 | ------ | ------------------------ | --------------------------------------- | ---------------------------- |
 | GET    | `/approvals`             | 🔑 登入；`scope=all` 另要 `approval:read` | 列表（分頁／篩選／排序；`scope`，§9.13） |
+| GET    | `/approvals/counts`      | 🔑 登入                                 | 待審數 `{ assigned, pending }`：`pending` 只給 `approval:read`（沒有時為 null，不寫 `authz.denied`；§11.1） |
 | GET    | `/approvals/:id`         | 🔑 登入；可見性見 §9.10                 | 詳情（含關卡與 `viewer`）    |
 | POST   | `/approvals/:id/approve` | 🛡 `approval:review` ＋ 類型要求的權限   | 單關的核准並套用變更         |
 | POST   | `/approvals/:id/reject`  | 🛡 `approval:review`                    | 單關的駁回                   |
@@ -461,7 +465,9 @@ COMMIT → 最後一關才 handler.afterApply → 推播
 | POST | `/approval-flows/:type/preview` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 試算：`{ steps?（草稿）, requesterId?, fields }` → 每一關略過與否、候選人、同意數、短缺。與 §9.6 共用解析，沒有前面的決定 |
 
 `GET /approvals` 的 `scope`：`all`（`approval:read`）、`assigned`（我是目前關卡的候選人、還沒決定）、`mine`（我送出的）。
-列表的每一列多帶 `currentStep`（`ordinal`、`name`、`approvals`、`required`、`shortage`）、`stepCount`、`flowVersion`、`resubmittedFrom`。
+列表的每一列多帶 `currentStep`（`ordinal`、`name`、`approvals`、`required`、`shortage`，以及 `activatedAt`、還沒決定的候選人
+`pendingReviewers`（依名稱的前 3 位）與 `pendingCount`，§11.2）、`stepCount`、`flowVersion`、`resubmittedFrom`。
+詳情另帶 `resubmittedTo`：申請人以它為前一筆重新送出的最新一筆（§11.3）。
 
 ### 9.14 權限
 
@@ -490,7 +496,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 
 | 位置 | 內容 |
 | --- | --- |
-| 審批頁（`features/approval`） | 側欄「人員管理」。列表多一欄「進度」（`財務 1／2`，短缺時標示）；進行中的多關請求不能快速／批次審核（`approvalChain` 停用時可以）。詳情對話框 `ApprovalDetailDialog`：關卡時間軸 `ApprovalTimeline`、依 `viewer` 顯示關卡的同意／駁回、強制定案（意見必填）、重新展開、撤回 |
+| 審批頁（`features/approval`） | 側欄「人員管理」。列表多一欄「進度」（`財務 1／2`、等待誰、多久，短缺時標示）；進行中的多關請求不能快速／批次審核（`approvalChain` 停用時可以）。整頁的詳情 `ApprovalDetailView`（§11.3）：審核流程 `ApprovalTimeline` 逐人列出決定、依 `viewer` 顯示關卡的同意／駁回與撤回，強制定案（意見必填）與重新展開在「管理員操作」 |
 | 我的審批 | `/my-approvals`（Page Key `MY_APPROVAL`，不需要權限，側欄「人員管理」，排在「審批」之後）：「待我審核」（`approvalChain` 已安裝時才有）、「我的申請」；詳情 `/my-approvals/$approvalId`（route id `approval.myDetail`） |
 | 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | 系統設定的「審批流程」分頁 `/system/approval-flows`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`；側欄沒有另外的入口，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5）：每個支援流程的類型一張卡片，寫明目前的審批方式——沒有流程是「單關審批」（照常運作，不是空白的欄位）、啟用中列出依序的關卡、停用時說明回到單關並列出保留的關卡——另有版本與有無不可用的規則；動作鈕依權限是「設定流程」／「編輯流程」或「檢視」。`/system/approval-flows/$type`：整頁編輯（仍在系統設定的外框裡），左邊開關與關卡（上移／下移、規則、同意數、條件列），右邊試算面板（按「試算」才呼叫）。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
 | 通知 | `approval.pending` 帶關卡名稱時換句子；`approval.progress`、`approval.unassigned` 的句子與事件管理的說明 |
@@ -563,3 +569,106 @@ Webhook 不變：只有最終的 `approval.decided`。
 | `approval:override` 的 refresh | refresh 不是審核：持有 `approval:override` 的申請人也能重新展開自己申請的審核者（強制定案仍受四眼限制） |
 | 「我的審批」的待審數徽章 | 沒有做：側欄的入口沒有數字 |
 | 流程編輯 | 關卡用上移／下移排序（不做拖曳）；試算按按鈕才呼叫；部門規則用一般的下拉（標籤是完整路徑） |
+
+---
+
+## 11. 互動與引導
+
+審核者要知道有事要做、打開一筆就看得到全貌；申請人要知道申請卡在哪裡。決定與理由見 §12。
+
+> 程式碼：前端 `features/approval/`（`hooks/useApprovalCounts.ts`、`home.ts`、`pages/ApprovalDetail/`），
+> 側欄徽章在 `web-core/navigation`（`NavItem.useBadge`）、首頁區塊的註冊表在 `apps/backstage/src/core/home/`
+> （[`../frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.6、§4.7）；後端 `GET /approvals/counts`、
+> 列表的 `currentStep` 擴充（`ApprovalChainRepository.summariesOf`）、`approval-comment.resource.ts`。
+
+### 11.1 待辦的入口
+
+| 位置 | 內容 |
+| --- | --- |
+| 待審數 | `GET /approvals/counts` → `{ assigned, pending }`。`assigned` 同 `scope=assigned` 的總數（停用多階段時 0）；`pending` 是全部的待審，只給 `approval:read` |
+| 側欄的徽章 | 「我的審批」顯示 `assigned`、「審批」顯示 `pending`。查詢在 `approval` 推播（`collection` 含 `APPROVAL_COUNTS`）與視窗聚焦時重抓 |
+| 首頁的「待辦」 | `PendingApprovalsSection`（頁面鍵 `MY_APPROVAL`）：待我審核的筆數與最舊的 3 筆（連到詳情，帶 `queue`）；有 `approval:review` 的人另見全部的待審數。兩者都是 0 時不渲染 |
+
+### 11.2 列表
+
+| 項目 | 內容 |
+| --- | --- |
+| 預設只看待審 | 網址的 `status` 預設 `pending`（不寫進網址）；上方的分段切換「待審核（N）／已核准／已駁回／已撤回／全部狀態」，「全部」是明確的 `all`。篩選面板只剩申請人、類型、排序 |
+| 類型 | 選項由 `APPROVAL_TYPES` 產生（註冊、資料夾存取） |
+| 進度欄 | 「財務 1／2」，下一行「等待 王小明、李小華 等 3 人 · 2 天前」；總表與「我的審批」共用 `ApprovalProgress` |
+| 空狀態 | 沒有篩選時說明這個狀態為什麼是空的，以及申請從哪裡來（`ApprovalSourcesHint`）；有篩選時照表格的預設（清除篩選）。「我的審批」的兩個分頁各有說明 |
+| 「我的審批」的分頁 | 「待我審核（N）」帶 `assigned`，最早送出的在前（待辦的順序；首頁的待辦與詳情的「下一筆」同一個順序）；「我的申請」最新的在前 |
+
+### 11.3 詳情
+
+`/approval/$approvalId` 與 `/my-approvals/$approvalId` 都是整頁（`ApprovalDetailView`，以 `approvalId` 為 key 掛載），網址帶著列表的條件，
+「回到列表」還原篩選。版面：
+
+| 區塊 | 內容 |
+| --- | --- |
+| 狀態橫幅 `ApprovalStatusBanner` | 一句話說明現況（等待第幾關、幾人同意；找不到審核者；單關等待管理員；已核准／已由誰駁回／已撤回）與這個人能做什麼（輪到你審核、可以撤回、可以在管理員操作處理），以及核准的結果句。重新送出的前後筆互相連結 |
+| 左欄 | 申請內容（`ApprovalSummary`）、留言（`<ResourcePanels resourceType="approval">`） |
+| 右欄：操作 `ApprovalActionPanel` | 只放目前這個人能做的：審核意見與角色、同意／駁回（或單關的核准／駁回）、撤回；`approval:override` 的「管理員操作」另成一段並說明它會略過原本的審核者。什麼都不能做時不渲染 |
+| 右欄：審核流程 `ApprovalTimeline` | 縱向節點：送出申請 →（單關的「審核」或每一關）→ 核准後的結果。每一關列出規則、同意數、開始多久，進行中的關卡逐人列出「同意／駁回／尚未動作」與意見；已結束的關卡只列做了決定的人（含強制定案） |
+
+| 行為 | 內容 |
+| --- | --- |
+| 核准的結果句 | 前端依類型對照（`APPROVAL_OUTCOME_KEY`，`useApprovalOutcome`）：待審時是「核准後會建立帳號 …」，核准後是「已建立帳號 …」 |
+| 決定後 | 從待審清單（總表的待審、「待我審核」、首頁的待辦）進來的網址帶 `queue`：定案或關卡的決定成功後，前往同一份清單裡排在後面、仍在清單上的那一筆（`useNextApproval`）；沒有了就回到列表並提示。從通知或網址直接進來的留在原頁，表單清空。撤回一律留在原頁 |
+| 留言 | 審批是可留言的資源（[`24-comment.md`](./24-comment.md) §1）：看得到請求就能讀寫留言、@提及、關注，定案後照常可以留言；連結指向「我的審批」的詳情 |
+| 修改後重新送出 | 申請人看自己被駁回或撤回、還沒重新送出的申請時出現。`fileFolder.access` 經 route id `file.requestAccess` 回到檔案管理器，打開那個資料夾的申請對話框並預填等級，送出帶 `resubmittedFrom`；`user.register` 是匿名申請，沒有入口。後端在 `ApprovalService.submit()` 驗證前一筆：同類型、同申請人、`rejected`／`withdrawn`，否則 `422 APPROVAL_RESUBMIT_INVALID` |
+
+### 11.4 測試
+
+| 層 | 涵蓋 |
+| --- | --- |
+| 單元 `approval.service.spec.ts` | 重新送出的驗證（每一種不合格的前一筆）、待審數（有無 `approval:read`、停用多階段） |
+| 整合 `test/approval-chain.spec.ts` | 列表的未決定候選人與開始時間、待審數、`resubmittedTo`、留言的可見性（定案後仍可留言、看不到 404） |
+| 前端 | 側欄徽章（`web-core/layout/__tests__/SideNav.test.tsx`）、首頁區塊的註冊表與待辦、列表的狀態切換與 `queue`、審核流程的逐人狀態、狀態橫幅、詳情的未儲存提醒與「下一筆」、重新送出的預填 |
+| E2E | `approval.spec.ts`：從待審清單核准後離開詳情、多階段的逐人狀態；`notification.spec.ts`：通知連到整頁的詳情 |
+
+---
+
+## 12. 設計決策：互動與引導
+
+> 2026-10-10 決定並實作第 1、2 批（原 `docs/features/approval-experience.md`；第 3 批「流程設定的引導」仍是提案）。
+
+### 12.1 背景
+
+多階段之後後端已經完整，但前端只是把資料攤開：待辦沒有入口、列表預設混著歷史紀錄、詳情是擠在對話框裡的時間軸，看不出誰還沒動作；
+申請人送出後只看得到「待審核」，被駁回也沒有重新送出的入口。這一版只改互動與引導，不改狀態機與權限模型。
+
+### 12.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **詳情只有整頁，移除 `ApprovalDetailDialog`**；route id 不變 | 多關的流程與留言在對話框裡放不下；設計系統沒有 Drawer；快速決定由列表的 ✓／✗ 處理 |
+| D2 | **首頁待辦是 backstage `core/home` 的區塊註冊表**，不放 web-core | feature 之間不能 import，本來就要注入點；只有一個 app 用的程式留在 app |
+| D3 | **待審數靠 `approval` 推播失效 ＋ 視窗聚焦重查**，不輪詢；`NavItem.useBadge` 是選用的 hook | 推播的受眾已涵蓋所有會變動數字的人；徽章是通用能力，其他 feature 之後可用 |
+| D4 | **審批登記為可留言的資源，定案後仍可留言** | 沿用 `24-comment.md` D3，不擴充通用模組；定案後的溝通（為什麼被駁回）是主要需求 |
+| D5 | **決定後只在「從待審清單進來」時跳下一筆**，不做偏好 | 行為只出現在預期它的情境；偏好設定等有需求再加 |
+| D7 | **核准的結果句由前端依類型產生**（`APPROVAL_OUTCOME_KEY`，`satisfies` 強制補齊） | 顯示文字本來就在前端語系；不加 handler 方法 |
+| D8 | **重新送出：前端依類型導回原申請入口並預填；後端在 `ApprovalService.submit()` 統一驗證 `resubmittedFrom`** | 申請的入口在擁有者的頁面；驗證放在通用模組，各類型不必各寫一份 |
+
+D6（流程範本）、D9（流程的實際運作）屬於第 3 批，仍在提案。
+
+### 12.3 評估過的方案
+
+| 方案 | 不採用的理由 |
+| --- | --- |
+| 保留對話框，另做整頁 | 兩種版面要同步維護；對話框的高度放不下流程與留言 |
+| 新增 Drawer 元件做快速檢視 | 為一個頁面擴充設計系統，效益低於成本 |
+| 首頁直接 import 審批的元件 | 違反 feature 之間的邊界（前端規則 2） |
+| 徽章定期輪詢 | 推播已可靠；輪詢在多分頁時放大請求量 |
+| 定案後留言唯讀 | 要擴充 `comment` 的通用介面；而且擋掉最需要的溝通 |
+| handler 加 `describeOutcome`／`resubmit` | 後端回傳顯示文字或前端路由，違反「後端只給 key」的約定 |
+
+### 12.4 實作紀錄
+
+| 項目 | 補充 |
+| --- | --- |
+| 「已重新送出為」 | `resubmitted_from` 沒有索引：以「申請人 ＋ `resubmitted_from`」查（走「我的申請」的索引），只在申請人不是 null、請求已結束時查。重新送出一定是同一個申請人（D8 的驗證） |
+| 「從待審清單進來」 | 網址的 `queue`（`true`）；列表、「待我審核」、首頁的待辦點進詳情時帶上，通知的連結沒有。網址的值是字串，`validateSearch` 兩者都收 |
+| 「下一筆」 | 進入詳情時記下清單的順序（列表剛載入過，快取裡有），定案後重新取得同一份清單，從原本排在後面的找起；都不在了就取新清單裡第一筆不是原本排在前面的 |
+| 留言的推播 | 留言的推播沿用 `approval` 來源的受眾（`approval:read`）：申請人與候選人收得到 @提及與關注的通知，但畫面上的留言要重新整理或回到頁面才更新 |
+| 待審數與單關 | 「待我審核」只算多階段的關卡（單關請求由 `approval:review` 的持有者審，算在「審批」的徽章與首頁的全部待審數） |

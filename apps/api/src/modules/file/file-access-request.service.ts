@@ -35,7 +35,10 @@ export class FileAccessRequestService {
     private readonly events: DomainEventBus,
   ) {}
 
-  /** 已經有這個等級 → `FILE_ACCESS_ALREADY_GRANTED`；已有待審 → 不另建（`submitted: false`）。 */
+  /**
+   * 已經有這個等級 → `FILE_ACCESS_ALREADY_GRANTED`；已有待審 → 不另建（`submitted: false`）。
+   * 帶 `resubmittedFrom` 時由 `ApprovalService.submit()` 驗證前一筆（`422 APPROVAL_RESUBMIT_INVALID`）。
+   */
   async submit(
     folderId: string,
     dto: CreateFileAccessRequestDto,
@@ -49,9 +52,10 @@ export class FileAccessRequestService {
     if (ctx.missingActions([dto.level], folderId).length === 0) {
       throw new AppException('FILE_ACCESS_ALREADY_GRANTED', { level: dto.level });
     }
-    const created = await this.approvals.submit(
-      fileFolderAccessRequest(folder, dto.level, actor, dto.reason),
-    );
+    const created = await this.approvals.submit({
+      ...fileFolderAccessRequest(folder, dto.level, actor, dto.reason),
+      resubmittedFrom: dto.resubmittedFrom,
+    });
     // 資料夾的管理者不一定在審批的受眾裡：以資料夾變更通知他們（與申請人自己的「申請中」）
     if (created) this.publish(folderId);
     return { submitted: Boolean(created) };

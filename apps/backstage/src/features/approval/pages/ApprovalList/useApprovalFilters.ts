@@ -1,23 +1,22 @@
 import type { FilterBarProps } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
-import { APPROVAL_STATUS_LABEL_KEY, APPROVAL_TYPE_LABEL_KEY } from '../../constants';
+import { APPROVAL_TYPE_LABEL_KEY, APPROVAL_TYPES } from '../../constants';
 import type { ApprovalSearchQuery } from '../../routes';
 import type { useApprovalSearchFilter } from './useApprovalSearchFilter';
 
-export type ApprovalFilterValues = Pick<
-  ApprovalSearchQuery,
-  'keyword' | 'status' | 'type' | 'sort'
->;
+export type ApprovalFilterValues = Pick<ApprovalSearchQuery, 'keyword' | 'type' | 'sort'>;
 
 const EMPTY_FILTERS: ApprovalFilterValues = {
   keyword: undefined,
-  status: undefined,
   type: undefined,
   sort: [],
 };
 
-/** 篩選面板：申請人、狀態、類型、多欄排序。送出時一次寫進網址（`useApprovalSearchFilter`）。 */
+/**
+ * 篩選面板：申請人、類型、多欄排序。送出時一次寫進網址（`useApprovalSearchFilter`）。
+ * 狀態不在面板裡：列表上方的分段切換（預設待審，docs/architecture/backend/20-approval.md §11.2）。
+ */
 export function useApprovalFilters({
   search,
   setFilters,
@@ -26,7 +25,6 @@ export function useApprovalFilters({
   return {
     value: {
       keyword: search.keyword,
-      status: search.status,
       type: search.type,
       sort: search.sort,
     },
@@ -41,21 +39,13 @@ export function useApprovalFilters({
       },
       {
         type: 'select',
-        key: 'status',
-        label: t('approval.field.status'),
-        allLabel: t('approval.status.all'),
-        options: [
-          { value: 'pending', label: t(APPROVAL_STATUS_LABEL_KEY.pending) },
-          { value: 'approved', label: t(APPROVAL_STATUS_LABEL_KEY.approved) },
-          { value: 'rejected', label: t(APPROVAL_STATUS_LABEL_KEY.rejected) },
-        ],
-      },
-      {
-        type: 'select',
         key: 'type',
         label: t('approval.field.type'),
         allLabel: t('approval.type.all'),
-        options: [{ value: 'user.register', label: t(APPROVAL_TYPE_LABEL_KEY['user.register']) }],
+        options: APPROVAL_TYPES.map((value) => ({
+          value,
+          label: t(APPROVAL_TYPE_LABEL_KEY[value]),
+        })),
       },
       {
         type: 'sort',

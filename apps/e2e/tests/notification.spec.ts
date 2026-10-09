@@ -117,7 +117,7 @@ test.describe('站內通知（docs/architecture/frontend/15-notification.md、do
     await snapshot(page, 'notification-detail');
     await detail.getByTestId('notification-detail-link').click();
     await expect(page).toHaveURL(new RegExp(`/approval/${approvalId}$`));
-    await expect(page.getByTestId('approval-detail-dialog')).toContainText(email);
+    await expect(page.getByTestId('approval-detail-page')).toContainText(email);
     await expect(panel).toBeHidden();
 
     // ④ 這一則在伺服器上變成已讀，徽章跟著伺服器的未讀數更新。

@@ -9,6 +9,8 @@ export interface MenuItem {
   to: string;
   labelKey: string;
   icon: IconName;
+  /** 數字徽章（`NavItem.useBadge`）；只有側欄顯示。 */
+  useBadge?: () => number | undefined;
 }
 
 export function useMenuItems<T extends MenuItem>(items: T[]): T[] {

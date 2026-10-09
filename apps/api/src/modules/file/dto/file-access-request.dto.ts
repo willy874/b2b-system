@@ -12,6 +12,8 @@ export const CreateFileAccessRequestSchema = defineSchema(
   z.object({
     level: GrantLevelSchema,
     reason: CommentSchema.optional(),
+    /** 駁回或撤回後重新送出時，前一筆申請的 id（docs/architecture/backend/20-approval.md §9.9）。 */
+    resubmittedFrom: z.string().uuid().optional(),
   }),
 );
 
