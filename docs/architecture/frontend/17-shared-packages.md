@@ -238,9 +238,20 @@ apps/platform 建立時複製了 backstage 的 `shared/`、`components/`、`them
 | D6 | 只有一個 app 用的機制 | 留在那個 app 的 `core/`（backstage 的 `feature`、`file`、`permission-graph`、`trash` 與五個元件）。第二個 app 需要時再搬進 web-core |
 | D7 | 錯誤碼 | `@b2b-system/error-codes` build 到 `dist/`（api 在 Node 執行時要用）；前端的 `ERROR_MESSAGE_KEY` 以 `satisfies Record<ErrorCode, …>` 在編譯期檢查漏碼與多出的碼，翻譯完整性由 web-core 的測試檢查 |
 | D8 | app 的 import 寫法 | 子路徑一個模組一個（`@b2b-system/web-core/store`），不經過整包的 barrel；app 保留 `@/core/permission`、`@/plugins/app` 兩個門面，原本的呼叫端不必改 |
+| D9 | 要不要比照 api，合成一個 app、以設定切換角色（[`../01-system.md`](../01-system.md) §4.3、§7 D1） | **不合併**，維持「app 分開、共用的程式放 package」。api 拆角色是為了依執行期的負載形狀（請求、長連線、背景工作）各自擴展，前端是靜態檔，沒有這種負載；兩個 app 分開的原因是身分範圍與 origin 不同（[`../04-sso.md`](../04-sso.md) §1.1、§12.2 D1、D13），不是負載。現在的結構已經對應 api：app 是進入點（如 `main.ts`、`main.external.ts`），package 是共用的 `core/`、`modules/`；「同一份產物、依設定決定能力」在前端由租戶可關閉的 feature 與 feature flag 承擔。評估過的做法見 §8.4 |
 
 ### 8.3 代價
 
 - 一個改動可能跨 package 與 app 兩處；但「兩邊要一起改」從靠 README 提醒變成編譯與測試直接擋。
 - module augmentation 的路徑有陷阱（§7），寫錯時錯誤訊息不直覺。
 - 依賴版本要在 package 之間對齊，否則 pnpm 會裝出兩份同名套件（§7）。
+
+### 8.4 評估過的方案
+
+| 方案 | 結論 |
+| --- | --- |
+| 合成一個 app，執行期依網域或設定切換（同一份 bundle 部署到租戶網域與平台網域） | 不採用：平台管理的路由與介面結構會送到每個租戶網域，攻擊面變大（api 端的權限檢查仍在，但不該依賴它當唯一防線）；權限目錄只能取聯集（D3 否決）；兩套 session 與登入流程（`sessionRedirect`、登入頁）以條件分支混在同一份程式，最需要看清楚的安全程式反而最難讀 |
+| 合成一個 app，建置期依 `VITE_APP_ROLE` 切換、以 tree-shaking 去掉另一邊 | 不採用：安全與 bundle 的問題解決了，但產出仍是兩份 bundle，等於兩個 app 擠在同一個資料夾、到處加條件，檔案的位置看不出它屬於哪一邊；比「兩個 app ＋ 共用 package」更難維護 |
+| 繼續複製程式、以 README 的同步規則維持一致 | 不採用：見 §8.1 |
+
+重新評估的前提：兩個 app 的使用者變成同一個身分範圍，而且平台管理的頁面可以安全地出現在租戶網域上。
