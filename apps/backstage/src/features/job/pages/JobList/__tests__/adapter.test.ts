@@ -29,8 +29,10 @@ describe('toJobRowVM', () => {
 
   it('已知的工作帶顯示名稱，未知的退回名稱本身', () => {
     expect(toJobRowVM(SUMMARY, { canRetry: false }, NOW).labelKey).toBe('job.name.fileMaintenance');
+    // 後端比前端新：SDK 的型別裡沒有這個名稱
+    const unknownName = 'mail.send' as string as JobSummary['name'];
     expect(
-      toJobRowVM({ ...SUMMARY, name: 'mail.send' }, { canRetry: false }, NOW).labelKey,
+      toJobRowVM({ ...SUMMARY, name: unknownName }, { canRetry: false }, NOW).labelKey,
     ).toBeUndefined();
   });
 

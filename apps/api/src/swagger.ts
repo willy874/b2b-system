@@ -1,8 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import type { OpenAPIObject } from '@nestjs/swagger';
+import type { OpenAPIObject, SchemaObject } from '@nestjs/swagger';
 
 import type { ProcessSurface } from './common/guards';
+import { JobQueue } from './core/jobs';
 import { buildComponentSchemas } from './core/validation';
 
 /** 對外 API 的路徑都在這底下（`common/route-audit.ts` 會擋不在這底下的對外路由）。 */
@@ -44,6 +45,20 @@ function referencedSchemas(
 }
 
 /**
+ * 工作名稱的 `enum`：工作由各模組在 `onModuleInit` 註冊，zod 的 schema 只能寫 `string`（`modules/job/dto`），
+ * 產生文件時以已註冊的工作補上。SDK 因此有 `TenantJobName`／`JobName` 的聯集，新增工作而前端沒補顯示名稱時
+ * typecheck 失敗（docs/architecture/backend/10-jobs.md §6）。
+ */
+function jobNameSchemas(app: INestApplication): Record<string, SchemaObject> {
+  const definitions = app.get(JobQueue, { strict: false }).definitions();
+  const tenantNames = definitions.filter(({ scope }) => scope === 'tenant').map(({ name }) => name);
+  return {
+    TenantJobName: { type: 'string', enum: tenantNames },
+    JobName: { type: 'string', enum: definitions.map(({ name }) => name) },
+  };
+}
+
+/**
  * 內部 api 的文件（`openapi.json`，產生前端 SDK）與對外 API 的文件（`openapi.external.json`，給整合方）
  * 來自同一個 app：兩個程序註冊的 controller 相同，以路徑分開（docs/architecture/06-external-api.md §9.2 D12）。
  */
@@ -76,6 +91,8 @@ export function buildOpenApiDocument(
   const schemas: Record<string, unknown> = {
     ...document.components.schemas,
     ...buildComponentSchemas(),
+    // 對外文件不引用工作的 schema（只留引用得到的），不必查
+    ...(surface === 'internal' ? jobNameSchemas(app) : {}),
   };
   // 具名 schema 是整個程序共用的登記表：
   // - 對外文件只留引用得到的，不把內部的 DTO 帶出去

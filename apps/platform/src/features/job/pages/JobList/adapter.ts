@@ -3,7 +3,7 @@ import type { JobDetailVM, JobQueueVM, JobRowVM, JobState } from '@b2b-system/we
 
 import type { PlatformJob, PlatformJobQueue, PlatformJobSummary } from '@/shared/api-sdk';
 
-import { JOB_NAME_LABEL_KEY, JOB_SCOPE_LABEL_KEY, PLATFORM_TENANT_FILTER } from '../../constants';
+import { jobNameLabelKey, JOB_SCOPE_LABEL_KEY, PLATFORM_TENANT_FILTER } from '../../constants';
 
 /**
  * 工作屬於誰：平台層級（`tenantId` 是 null），或某個租戶——
@@ -26,7 +26,7 @@ export interface PlatformJobDetailVM extends JobDetailVM {
 export function toJobQueueVM(dto: PlatformJobQueue): JobQueueVM {
   return {
     name: dto.name,
-    labelKey: JOB_NAME_LABEL_KEY[dto.name],
+    labelKey: jobNameLabelKey(dto.name),
     scopeLabelKey: JOB_SCOPE_LABEL_KEY[dto.scope],
     cron: dto.cron,
     readyCount: dto.readyCount,
@@ -54,7 +54,7 @@ export function toJobRowVM(
   return {
     id: dto.id,
     name: dto.name,
-    labelKey: JOB_NAME_LABEL_KEY[dto.name],
+    labelKey: jobNameLabelKey(dto.name),
     owner,
     ownerValue: owner.kind === 'platform' ? PLATFORM_TENANT_FILTER : owner.label,
     state: dto.state,

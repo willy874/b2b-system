@@ -17910,11 +17910,80 @@
         "required": ["add", "remove"],
         "additionalProperties": false
       },
+      "TenantJobName": {
+        "type": "string",
+        "enum": [
+          "announcement.dispatch",
+          "announcement.eventDispatch",
+          "announcement.fanOut",
+          "announcement.maintenance",
+          "approval.resultMail",
+          "auditLog.archive",
+          "auth.activationMail",
+          "auth.passwordResetMail",
+          "auth.tokenCleanup",
+          "dataTransfer.applyImport",
+          "dataTransfer.cleanup",
+          "dataTransfer.export",
+          "file.imageVariants",
+          "file.maintenance",
+          "mfa.cleanup",
+          "mfa.emailCodeMail",
+          "mfa.securityNoticeMail",
+          "notification.cleanup",
+          "revision.prune",
+          "trash.purge",
+          "watch.notify",
+          "webhook.cleanup",
+          "webhook.deliver"
+        ]
+      },
+      "JobName": {
+        "type": "string",
+        "enum": [
+          "announcement.dispatch",
+          "announcement.eventDispatch",
+          "announcement.fanOut",
+          "announcement.maintenance",
+          "approval.resultMail",
+          "auditLog.archive",
+          "auth.activationMail",
+          "auth.passwordResetMail",
+          "auth.platformTokenCleanup",
+          "auth.tokenCleanup",
+          "dataTransfer.applyImport",
+          "dataTransfer.cleanup",
+          "dataTransfer.export",
+          "file.imageVariants",
+          "file.maintenance",
+          "jobs.outboxSweep",
+          "mfa.cleanup",
+          "mfa.emailCodeMail",
+          "mfa.factorStats",
+          "mfa.platformCleanup",
+          "mfa.platformEmailCodeMail",
+          "mfa.platformSecurityNoticeMail",
+          "mfa.securityNoticeMail",
+          "notification.cleanup",
+          "oidc.cleanup",
+          "platformAdmin.accountMail",
+          "platformNotification.cleanup",
+          "rateLimit.cleanup",
+          "revision.prune",
+          "tenant.provision",
+          "tenant.provisionSweep",
+          "tenant.usageRollup",
+          "trash.purge",
+          "watch.notify",
+          "webhook.cleanup",
+          "webhook.deliver"
+        ]
+      },
       "JobQueue": {
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "$ref": "#/components/schemas/TenantJobName"
           },
           "cron": {
             "nullable": true,
@@ -17977,7 +18046,7 @@
             "type": "string"
           },
           "name": {
-            "type": "string"
+            "$ref": "#/components/schemas/TenantJobName"
           },
           "state": {
             "type": "string",
@@ -18028,7 +18097,7 @@
             "type": "string"
           },
           "name": {
-            "type": "string"
+            "$ref": "#/components/schemas/TenantJobName"
           },
           "state": {
             "type": "string",
@@ -18088,7 +18157,7 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "$ref": "#/components/schemas/JobName"
           },
           "cron": {
             "nullable": true,
@@ -18156,7 +18225,7 @@
             "type": "string"
           },
           "name": {
-            "type": "string"
+            "$ref": "#/components/schemas/JobName"
           },
           "state": {
             "type": "string",
@@ -18217,7 +18286,7 @@
             "type": "string"
           },
           "name": {
-            "type": "string"
+            "$ref": "#/components/schemas/JobName"
           },
           "state": {
             "type": "string",

@@ -15,10 +15,17 @@ export const ListJobSchema = z.object({
 
 export type ListJobDto = z.infer<typeof ListJobSchema>;
 
+/**
+ * 工作名稱。執行期只驗證是字串；OpenAPI 的 `enum` 由 `buildOpenApiDocument()` 依已註冊的工作補上
+ * （租戶工作／全部），前端的顯示名稱表以 SDK 的型別檢查每個工作都有名稱（docs/architecture/backend/10-jobs.md §6）。
+ */
+export const TenantJobNameSchema = defineSchema('TenantJobName', z.string());
+export const JobNameSchema = defineSchema('JobName', z.string());
+
 export const JobQueueSchema = defineSchema(
   'JobQueue',
   z.object({
-    name: z.string(),
+    name: TenantJobNameSchema,
     /** 排程（cron，UTC）；`null` 代表只由程式入列。 */
     cron: z.string().nullable(),
     /** 可以立即執行、正在等 worker 的筆數。 */
@@ -45,7 +52,7 @@ export type JobQueueListDto = z.infer<typeof JobQueueListSchema>;
 /** 列表只回摘要；`data` / `output` 可能很大，展開明細時才由 `GET /jobs/:id` 取。 */
 const JobSummaryShape = z.object({
   id: z.string(),
-  name: z.string(),
+  name: TenantJobNameSchema,
   state: z.enum(JOB_STATES),
   retryCount: z.number().int(),
   retryLimit: z.number().int(),
@@ -88,7 +95,7 @@ const JobOwnerShape = z.object({
 
 export const PlatformJobQueueSchema = defineSchema(
   'PlatformJobQueue',
-  JobQueueSchema.extend({ scope: z.enum(['tenant', 'platform']) }),
+  JobQueueSchema.extend({ name: JobNameSchema, scope: z.enum(['tenant', 'platform']) }),
 );
 
 export const PlatformJobQueueListSchema = defineSchema(
@@ -98,12 +105,13 @@ export const PlatformJobQueueListSchema = defineSchema(
 
 export const PlatformJobSummarySchema = defineSchema(
   'PlatformJobSummary',
-  JobSummaryShape.merge(JobOwnerShape),
+  JobSummaryShape.merge(JobOwnerShape).extend({ name: JobNameSchema }),
 );
 
 export const PlatformJobSchema = defineSchema(
   'PlatformJob',
   JobSummaryShape.merge(JobOwnerShape).extend({
+    name: JobNameSchema,
     data: z.record(z.string(), z.unknown()).nullable(),
     output: z.record(z.string(), z.unknown()).nullable(),
   }),

@@ -2282,8 +2282,75 @@ export interface UpdateGroupRolesRequest {
   remove: Array<string>;
 }
 
+export const TenantJobName = {
+  'announcement.dispatch': 'announcement.dispatch',
+  'announcement.eventDispatch': 'announcement.eventDispatch',
+  'announcement.fanOut': 'announcement.fanOut',
+  'announcement.maintenance': 'announcement.maintenance',
+  'approval.resultMail': 'approval.resultMail',
+  'auditLog.archive': 'auditLog.archive',
+  'auth.activationMail': 'auth.activationMail',
+  'auth.passwordResetMail': 'auth.passwordResetMail',
+  'auth.tokenCleanup': 'auth.tokenCleanup',
+  'dataTransfer.applyImport': 'dataTransfer.applyImport',
+  'dataTransfer.cleanup': 'dataTransfer.cleanup',
+  'dataTransfer.export': 'dataTransfer.export',
+  'file.imageVariants': 'file.imageVariants',
+  'file.maintenance': 'file.maintenance',
+  'mfa.cleanup': 'mfa.cleanup',
+  'mfa.emailCodeMail': 'mfa.emailCodeMail',
+  'mfa.securityNoticeMail': 'mfa.securityNoticeMail',
+  'notification.cleanup': 'notification.cleanup',
+  'revision.prune': 'revision.prune',
+  'trash.purge': 'trash.purge',
+  'watch.notify': 'watch.notify',
+  'webhook.cleanup': 'webhook.cleanup',
+  'webhook.deliver': 'webhook.deliver',
+} as const;
+export type TenantJobName = (typeof TenantJobName)[keyof typeof TenantJobName];
+
+export const JobName = {
+  'announcement.dispatch': 'announcement.dispatch',
+  'announcement.eventDispatch': 'announcement.eventDispatch',
+  'announcement.fanOut': 'announcement.fanOut',
+  'announcement.maintenance': 'announcement.maintenance',
+  'approval.resultMail': 'approval.resultMail',
+  'auditLog.archive': 'auditLog.archive',
+  'auth.activationMail': 'auth.activationMail',
+  'auth.passwordResetMail': 'auth.passwordResetMail',
+  'auth.platformTokenCleanup': 'auth.platformTokenCleanup',
+  'auth.tokenCleanup': 'auth.tokenCleanup',
+  'dataTransfer.applyImport': 'dataTransfer.applyImport',
+  'dataTransfer.cleanup': 'dataTransfer.cleanup',
+  'dataTransfer.export': 'dataTransfer.export',
+  'file.imageVariants': 'file.imageVariants',
+  'file.maintenance': 'file.maintenance',
+  'jobs.outboxSweep': 'jobs.outboxSweep',
+  'mfa.cleanup': 'mfa.cleanup',
+  'mfa.emailCodeMail': 'mfa.emailCodeMail',
+  'mfa.factorStats': 'mfa.factorStats',
+  'mfa.platformCleanup': 'mfa.platformCleanup',
+  'mfa.platformEmailCodeMail': 'mfa.platformEmailCodeMail',
+  'mfa.platformSecurityNoticeMail': 'mfa.platformSecurityNoticeMail',
+  'mfa.securityNoticeMail': 'mfa.securityNoticeMail',
+  'notification.cleanup': 'notification.cleanup',
+  'oidc.cleanup': 'oidc.cleanup',
+  'platformAdmin.accountMail': 'platformAdmin.accountMail',
+  'platformNotification.cleanup': 'platformNotification.cleanup',
+  'rateLimit.cleanup': 'rateLimit.cleanup',
+  'revision.prune': 'revision.prune',
+  'tenant.provision': 'tenant.provision',
+  'tenant.provisionSweep': 'tenant.provisionSweep',
+  'tenant.usageRollup': 'tenant.usageRollup',
+  'trash.purge': 'trash.purge',
+  'watch.notify': 'watch.notify',
+  'webhook.cleanup': 'webhook.cleanup',
+  'webhook.deliver': 'webhook.deliver',
+} as const;
+export type JobName = (typeof JobName)[keyof typeof JobName];
+
 export interface JobQueue {
-  name: string;
+  name: TenantJobName;
   cron: string | null;
   readyCount: number;
   deferredCount: number;
@@ -2298,7 +2365,7 @@ export interface JobQueueList {
 
 export interface JobSummary {
   id: string;
-  name: string;
+  name: TenantJobName;
   state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
   retryCount: number;
   retryLimit: number;
@@ -2310,7 +2377,7 @@ export interface JobSummary {
 
 export interface Job {
   id: string;
-  name: string;
+  name: TenantJobName;
   state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
   retryCount: number;
   retryLimit: number;
@@ -2323,7 +2390,7 @@ export interface Job {
 }
 
 export interface PlatformJobQueue {
-  name: string;
+  name: JobName;
   cron: string | null;
   readyCount: number;
   deferredCount: number;
@@ -2339,7 +2406,7 @@ export interface PlatformJobQueueList {
 
 export interface PlatformJobSummary {
   id: string;
-  name: string;
+  name: JobName;
   state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
   retryCount: number;
   retryLimit: number;
@@ -2353,7 +2420,7 @@ export interface PlatformJobSummary {
 
 export interface PlatformJob {
   id: string;
-  name: string;
+  name: JobName;
   state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
   retryCount: number;
   retryLimit: number;
