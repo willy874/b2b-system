@@ -2753,6 +2753,7 @@ export const JobName = {
   'auth.passwordResetMail': 'auth.passwordResetMail',
   'auth.platformTokenCleanup': 'auth.platformTokenCleanup',
   'auth.tokenCleanup': 'auth.tokenCleanup',
+  'cdn.purge': 'cdn.purge',
   'dataTransfer.applyImport': 'dataTransfer.applyImport',
   'dataTransfer.cleanup': 'dataTransfer.cleanup',
   'dataTransfer.export': 'dataTransfer.export',

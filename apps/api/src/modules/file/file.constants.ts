@@ -127,9 +127,12 @@ export const IMAGE_VARIANT_CONCURRENCY = 2;
  */
 export const IMAGE_VARIANT_RETRY_AFTER_MS = 5 * 60 * 1000;
 
+/** 影像變體的前綴；這底下的物件寫入後不再覆寫，可以由 CDN 送出（`fileVariant`）。 */
+export const VARIANT_KEY_PREFIX = 'variants/';
+
 /** 變體與依請求轉出的其他格式都放在 `variants/<id>/` 底下：刪除時整個前綴一起刪。 */
 export function variantPrefixOf(fileId: string): string {
-  return `variants/${fileId}/`;
+  return `${VARIANT_KEY_PREFIX}${fileId}/`;
 }
 
 export function variantKeyOf(fileId: string, variant: ImageVariant, format: string): string {
@@ -140,7 +143,7 @@ export function variantKeyOf(fileId: string, variant: ImageVariant, format: stri
  * 物件儲存裡由檔案模組管理的前綴；維護排程只對帳這些前綴，bucket 裡的其他東西不碰。
  * key 的第一段路徑之後緊接著檔案 id。
  */
-export const MANAGED_KEY_PREFIXES = ['files/', 'thumbnails/', 'variants/'] as const;
+export const MANAGED_KEY_PREFIXES = ['files/', 'thumbnails/', VARIANT_KEY_PREFIX] as const;
 
 const MANAGED_KEY_PATTERN =
   /^(?:files|thumbnails|variants)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/;

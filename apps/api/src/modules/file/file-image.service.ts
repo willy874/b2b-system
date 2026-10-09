@@ -215,7 +215,7 @@ export class FileImageService implements OnModuleInit {
       expiresIn: this.urlTtl,
       fileName: format === undefined ? file.name : withExtension(file.name, format),
       disposition: 'inline',
-      // 變體與轉出的格式寫入後不再覆寫，可以由 CDN 送出（docs/features/image-cdn.md §1）；原檔不走 CDN
+      // 變體與轉出的格式寫入後不再覆寫，可以由 CDN 送出（docs/architecture/backend/09-file.md §16.2）；原檔不走 CDN
       cdn: format === undefined ? undefined : 'fileVariant',
     });
     const until = Math.min(query.exp * 1000, signed.expiresAt.getTime());

@@ -84,7 +84,7 @@ jobs:
   deploy:
     name: 正式映像與 nginx
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -95,6 +95,9 @@ jobs:
       - run: sh deploy/smoke-test.sh
       # 多實例（docs/architecture/01-system.md §7）：api、api-realtime、api-worker 分開
       - run: sh deploy/smoke-test.sh --cluster
+      # 圖片的 CDN（docs/architecture/backend/09-file.md §16）：疊 docker-compose.cdn.yml 的整套，與邊緣本身的行為
+      - run: sh deploy/smoke-test.sh --cdn
+      - run: sh deploy/check-cdn.sh
       - run: sh deploy/check-nginx.sh
       - run: sh deploy/check-monitoring.sh
       # k8s 的參考部署：kustomize 產生 ＋ schema 檢查（runner 內建 kubectl）

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import type { JobQueue } from '@/core/jobs';
-import type { ObjectStorage } from '@/core/storage';
+import type { CdnPurger, ObjectStorage } from '@/core/storage';
 import { StorageSizeSources } from '@/core/usage';
 
 import type { FileImageService } from '../file-image.service';
@@ -101,6 +101,7 @@ function setup(usage: { usedBytes: number; reconciledAt: Date | null } = USAGE_U
   };
   const jobs = { register: vi.fn() };
   const sizeSources = new StorageSizeSources();
+  const cdn = { schedule: vi.fn(async (_keys: readonly string[]) => undefined) };
   const service = new FileMaintenanceService(
     db as unknown as Database,
     repo as unknown as FileRepository,
@@ -109,8 +110,9 @@ function setup(usage: { usedBytes: number; reconciledAt: Date | null } = USAGE_U
     jobs as unknown as JobQueue,
     sizeSources,
     config as unknown as ConfigService<Env, true>,
+    cdn as unknown as CdnPurger,
   );
-  return { service, repo, storage, images, jobs, sizeSources };
+  return { service, repo, storage, images, jobs, sizeSources, cdn };
 }
 
 describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）', () => {
@@ -166,6 +168,13 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
     expect(storage.delete).not.toHaveBeenCalledWith(thumbnailKeyOf(TRASHED));
     // 卡住的變體重新排入
     expect(images.enqueueVariants).toHaveBeenCalledWith(LIVE);
+  });
+
+  it('刪掉的孤兒變體排入邊緣快取的清理；原檔與縮圖不走 CDN，不排（docs/architecture/backend/09-file.md §16.6）', async () => {
+    const { service, cdn } = setup();
+    await service.sweep({ now: NOW });
+    const scheduled = cdn.schedule.mock.calls.flatMap(([keys]) => keys);
+    expect(scheduled).toEqual([variantKeyOf(GONE, 'preview', 'jpeg')]);
   });
 
   it('dryRun：只偵測、不刪除任何東西', async () => {

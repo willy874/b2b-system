@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { MIN_SIGNING_KEY_BYTES, parseSigningKeys } from '../crypto/signing-keys';
 import { isCidrList } from '../rate-limit/ip';
+import { parseCdnResources } from '../storage/cdn-resource';
 import { ALL_PROCESS_ROLES, parseProcessRoles } from './process-roles';
 
 /** `FILE_STORAGE_PUBLIC_ENDPOINT` 裡代表「目前租戶的 origin」的佔位符。 */
@@ -381,6 +382,50 @@ export const EnvSchema = z.object({
     .transform((value) => value === 'true'),
 
   /**
+   * 圖片的 CDN（docs/architecture/backend/09-file.md §16）：總開關，預設關閉。`false` 時其他 `FILE_CDN_*` 一律不檢查、不使用，
+   * 行為與沒有 CDN 時完全相同；`true` 時缺必填或格式不對 **啟動失敗**（`ProductionEnvSchema`）。改了要重啟所有程序。
+   */
+  FILE_CDN_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** 簽章與清理的實作；之後加 `cloudfront`、`cloudflare`。 */
+  FILE_CDN_PROVIDER: z.enum(['nginx']).default('nginx'),
+  /** 瀏覽器看到的 CDN origin（例：`http://localhost:9080`）；production 必須是 https。 */
+  FILE_CDN_ORIGIN: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** CDN 網址的金鑰環（格式同 `JWT_SIGNING_KEYS`，第一把簽發）；與邊緣的 `CDN_SIGNING_KEYS` 相同。 */
+  FILE_CDN_SIGNING_KEYS: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** 哪些資源走 CDN（逗號分隔，值見 `CDN_RESOURCE_TYPES`）：逐步開放、出問題時只關掉一種（§17 D5）。 */
+  FILE_CDN_RESOURCES: z.string().trim().default('imageAsset,galleryItem,fileVariant'),
+  /** CDN 網址效期的上限（秒）：也是關掉之後邊緣要再運作多久、金鑰輪替要等多久的依據（§17 D2）。 */
+  FILE_CDN_MAX_URL_TTL: z.coerce.number().int().min(300).max(86_400).default(86_400),
+  /** 物件永久刪除後是否清理邊緣快取（§17 D3）；真正的 CDN 依清理次數計費時可以關掉，改靠網址過期。 */
+  FILE_CDN_PURGE_ON_DELETE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** 清理端點（內部網路，例：`http://cdn-purge:8081`）；主機名稱解析到多個位址時逐一呼叫。內部 api 開著自動清理時必填。 */
+  FILE_CDN_PURGE_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** 清理請求的 HMAC 金鑰（base64，≥ 32 bytes）；與邊緣的 `CDN_PURGE_SECRET` 相同。 */
+  FILE_CDN_PURGE_SECRET: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().optional(),
+  ),
+  /** 一次清理請求（一筆 `cdn.purge`）最多幾個路徑。 */
+  FILE_CDN_PURGE_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
+  /** 單一邊緣節點的清理請求逾時（毫秒）。 */
+  FILE_CDN_PURGE_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(5000),
+
+  /**
    * 是否開放 `POST /auth/login`（以 email ＋ 密碼直接換 access token，保留給測試與腳本）。留空時 production 關閉、
    * 其他環境開啟；腳本改用 API token（docs/architecture/06-external-api.md §9.2 D15）。
    */
@@ -659,6 +704,59 @@ function jwksProblem(raw: string): string | undefined {
   return hasPrivateKey ? undefined : '至少要有一把含私鑰（`d`）的金鑰，才能簽 ID token';
 }
 
+/**
+ * `FILE_CDN_ENABLED=true` 時的檢查（docs/architecture/backend/09-file.md §16.5）：開發與 production 都做，
+ * 開著 CDN 卻缺設定的程序會簽出邊緣驗不過的網址。關著時不檢查其他 `FILE_CDN_*`（留著舊值也不影響）。
+ * 清理只在內部 api 的 worker 執行：`PURGE_*` 只要求內部 api。
+ */
+function cdnProblems(env: z.infer<typeof EnvSchema>): Array<[keyof Env, string]> {
+  if (!env.FILE_CDN_ENABLED) return [];
+  const problems: Array<[keyof Env, string]> = [];
+  const production = env.NODE_ENV === 'production';
+  if (!env.FILE_CDN_ORIGIN) {
+    problems.push(['FILE_CDN_ORIGIN', 'FILE_CDN_ENABLED=true 時必須設定']);
+  } else if (!URL.canParse(env.FILE_CDN_ORIGIN)) {
+    problems.push(['FILE_CDN_ORIGIN', '必須是網址（例：https://cdn.example.com）']);
+  } else {
+    const url = new URL(env.FILE_CDN_ORIGIN);
+    if (url.pathname !== '/' || url.search || url.hash) {
+      problems.push(['FILE_CDN_ORIGIN', '只能是 origin（協定、主機、選填的埠），不能帶路徑']);
+    }
+    if (production && (url.protocol !== 'https:' || isLocalHost(url.hostname))) {
+      problems.push([
+        'FILE_CDN_ORIGIN',
+        'production 必須是瀏覽器看到的 https 網址，不能是 localhost',
+      ]);
+    }
+  }
+  const keys = env.FILE_CDN_SIGNING_KEYS
+    ? parseSigningKeys(env.FILE_CDN_SIGNING_KEYS)
+    : 'FILE_CDN_ENABLED=true 時必須設定';
+  if (typeof keys === 'string') problems.push(['FILE_CDN_SIGNING_KEYS', keys]);
+  const resources = parseCdnResources(env.FILE_CDN_RESOURCES);
+  if (typeof resources === 'string') problems.push(['FILE_CDN_RESOURCES', resources]);
+
+  if (env.API_SURFACE === 'internal' && env.FILE_CDN_PURGE_ON_DELETE) {
+    if (!env.FILE_CDN_PURGE_URL) {
+      problems.push(['FILE_CDN_PURGE_URL', 'FILE_CDN_PURGE_ON_DELETE=true 時必須設定']);
+    } else if (!URL.canParse(env.FILE_CDN_PURGE_URL)) {
+      problems.push(['FILE_CDN_PURGE_URL', '必須是網址（例：http://cdn-purge:8081）']);
+    }
+    const secret = env.FILE_CDN_PURGE_SECRET;
+    if (!secret) {
+      problems.push(['FILE_CDN_PURGE_SECRET', 'FILE_CDN_PURGE_ON_DELETE=true 時必須設定']);
+    } else if (Buffer.from(secret, 'base64').length < MIN_SIGNING_KEY_BYTES) {
+      problems.push([
+        'FILE_CDN_PURGE_SECRET',
+        `解開後至少要 ${MIN_SIGNING_KEY_BYTES} bytes（openssl rand -base64 48）`,
+      ]);
+    } else if (production && isWeakSecret(secret)) {
+      problems.push(['FILE_CDN_PURGE_SECRET', WEAK_SECRET_MESSAGE]);
+    }
+  }
+  return problems;
+}
+
 /** 瀏覽器在別台電腦上連不到的主機：production 的公開網址不能是它。 */
 function isLocalHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
@@ -695,6 +793,9 @@ const ProductionEnvSchema = EnvSchema.superRefine((env, ctx) => {
         });
       }
     }
+  }
+  for (const [key, message] of cdnProblems(env)) {
+    ctx.addIssue({ code: 'custom', path: [key], message });
   }
   if (env.NODE_ENV !== 'production') {
     // 開發與測試：金鑰環、縮圖網址與各種主金鑰沒設定時都由它推導

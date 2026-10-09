@@ -6,7 +6,7 @@ import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { ObjectStorage } from '@/core/storage';
+import { CdnPurger, ObjectStorage } from '@/core/storage';
 import type { ImageAssetRow } from '@/db/schema';
 import { TrashService } from '@/modules/trash/trash.service';
 
@@ -59,7 +59,7 @@ export const IMAGE_MAINTENANCE_JOB = defineJob<Record<string, never>>('image.mai
  * 4. 處理卡住（排入超過 30 分鐘、要求的版本還沒寫好）→ 重新排入；
  * 5. `images/` 底下查不到資產的物件（登記失敗、刪除時物件刪除失敗）→ 刪除（至少 24 小時前的）。
  *
- * 物件刪除之後，之後的 CDN 在這裡清理邊緣快取（docs/features/image-cdn.md §7）。
+ * 主檔與變體可能由 CDN 送出過（`imageAsset`）：物件刪除 **之後** 排入清理邊緣快取（docs/architecture/backend/09-file.md §16.6）。
  */
 @Injectable()
 export class ImageMaintenanceService implements OnModuleInit {
@@ -73,6 +73,7 @@ export class ImageMaintenanceService implements OnModuleInit {
     private readonly jobs: JobQueue,
     private readonly trash: TrashService,
     config: ConfigService<Env, true>,
+    private readonly cdn: CdnPurger,
   ) {
     this.cron = config.get('IMAGE_MAINTENANCE_CRON', { infer: true });
   }
@@ -146,16 +147,19 @@ export class ImageMaintenanceService implements OnModuleInit {
     report: ImageMaintenanceReport,
   ): Promise<number> {
     const deletable: string[] = [];
+    const deletedKeys: string[] = [];
     for (const row of rows) {
       try {
         // oxlint-disable-next-line no-await-in-loop -- 一筆一筆來：單一資產的物件數很少
-        await this.deleteObjects(`${IMAGE_KEY_PREFIX}${row.id}/`);
+        deletedKeys.push(...(await this.deleteObjects(`${IMAGE_KEY_PREFIX}${row.id}/`)));
         deletable.push(row.id);
       } catch (error) {
         report.failures += 1;
         this.logger.warn({ err: error, assetId: row.id }, '刪除圖片資產的物件失敗');
       }
     }
+    // 這一批的物件一次排入（依 FILE_CDN_PURGE_BATCH_SIZE 分批），不是每筆資產一筆工作
+    await this.cdn.schedule(deletedKeys);
     const deleted = await withTransaction(this.db, (tx) => this.repo.deleteRows(deletable, tx));
     return deleted.length;
   }
@@ -175,6 +179,8 @@ export class ImageMaintenanceService implements OnModuleInit {
         }
         // oxlint-disable-next-line no-await-in-loop -- 同上
         await Promise.all(stale.map((key) => this.storage.delete(key)));
+        // oxlint-disable-next-line no-await-in-loop -- 同上
+        await this.cdn.schedule(stale);
         // oxlint-disable-next-line no-await-in-loop -- 同上
         await this.repo.clearStaleRevs(row.id, staleRevsPurgeAfter);
         report.staleRevs += 1;
@@ -220,13 +226,17 @@ export class ImageMaintenanceService implements OnModuleInit {
         .flatMap((id) => byAsset.get(id) ?? []);
       // oxlint-disable-next-line no-await-in-loop -- 同上
       await Promise.all(orphans.map((key) => this.storage.delete(key)));
+      // oxlint-disable-next-line no-await-in-loop -- 同上
+      await this.cdn.schedule(orphans);
       report.orphanObjects += orphans.length;
     }
   }
 
-  private async deleteObjects(prefix: string): Promise<void> {
+  /** 刪掉前綴底下的物件，回傳刪掉的 key（給清理邊緣快取用）。 */
+  private async deleteObjects(prefix: string): Promise<string[]> {
     const keys: string[] = [];
     for await (const object of this.storage.listObjects(prefix)) keys.push(object.key);
     await Promise.all(keys.map((key) => this.storage.delete(key)));
+    return keys;
   }
 }

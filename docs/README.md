@@ -84,7 +84,7 @@ docs/
 ├── architecture/                      系統長什麼樣子（規格）
 │   ├── 01-system.md                   系統架構、部署拓撲、端到端資料流
 │   ├── 02-repository-structure.md     monorepo 結構、目錄佈局、環境變數
-│   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存
+│   ├── 03-file-storage.md             apps/file-storage：S3 相容的本機檔案儲存、CDN 邊緣的回源憑證
 │   ├── 04-sso.md                      SSO：apps/api 當 OIDC Provider、apps/platform、外部 IdP、單一登出
 │   ├── 05-tenancy.md                  租戶：每個租戶一個 database 與網域、佈建與生命週期、部署
 │   ├── 06-external-api.md             對外 API：獨立的程序與網域、API token 認證、路由的分界、限流
@@ -140,7 +140,7 @@ docs/
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
-│       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁
+│       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁、圖片的 CDN（自架的 nginx 邊緣、簽章、清理）
 │       ├── 10-jobs.md                 背景工作：pg-boss 佇列、排程、重試、管理 API
 │       ├── 11-mail.md                 郵件：傳輸層、範本、寄送流程、Mailpit
 │       ├── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工

@@ -34,6 +34,8 @@ import { DiskStore } from '@/storage/disk-store';
 
 const credentials = { accessKeyId: 'test-access-key', secretAccessKey: 'test-secret-key' };
 const ALLOWED_ORIGIN = 'http://localhost:5173';
+/** 子路徑的伺服器另外接受 CDN 的回源憑證（docs/architecture/03-file-storage.md §3.3）。 */
+const ORIGIN_SECRET = 'cdn-origin-secret-for-tests-0123456789abcdef';
 
 let dataDir: string;
 let server: Server;
@@ -49,6 +51,7 @@ async function startServer(): Promise<void> {
     region: 'us-east-1',
     credentials,
     allowedOrigins: [ALLOWED_ORIGIN],
+    originSecret: undefined,
     maxObjectSize: 64 * 1024 * 1024,
     minPartSize: S3_MIN_PART_SIZE,
   };
@@ -841,6 +844,7 @@ describe('掛在子路徑下（FILE_STORAGE_BASE_PATH）', () => {
         region: 'us-east-1',
         credentials,
         allowedOrigins: [],
+        originSecret: ORIGIN_SECRET,
         maxObjectSize: 1024 * 1024,
         minPartSize: S3_MIN_PART_SIZE,
       },
@@ -886,5 +890,48 @@ describe('掛在子路徑下（FILE_STORAGE_BASE_PATH）', () => {
   it('/_health 不需要簽章', async () => {
     expect((await fetch(`${prefixedEndpoint}/_health`)).status).toBe(200);
     expect((await fetch(`${prefixedEndpoint}/storage/_health`)).status).toBe(200);
+  });
+
+  describe('CDN 的回源憑證（X-Origin-Auth，docs/architecture/03-file-storage.md §3.3）', () => {
+    const objectUrl = () => `${prefixedEndpoint}/storage/prefixed/a/b.txt`;
+
+    it('GET／HEAD 一個物件：憑證正確就不必 SigV4（路徑後的查詢參數照樣忽略）', async () => {
+      const got = await fetch(`${objectUrl()}?exp=1&kid=k&sig=x`, {
+        headers: { 'X-Origin-Auth': ORIGIN_SECRET },
+      });
+      expect(got.status).toBe(200);
+      expect(await got.text()).toBe('ok');
+      const head = await fetch(objectUrl(), {
+        method: 'HEAD',
+        headers: { 'X-Origin-Auth': ORIGIN_SECRET },
+      });
+      expect(head.status).toBe(200);
+    });
+
+    it('沒帶或帶錯 → 照舊要 SigV4（AccessDenied）', async () => {
+      expect((await fetch(objectUrl())).status).toBe(403);
+      const wrong = await fetch(objectUrl(), { headers: { 'X-Origin-Auth': `${ORIGIN_SECRET}x` } });
+      expect(wrong.status).toBe(403);
+    });
+
+    it('寫入、刪除、列表即使帶了正確的憑證也要 SigV4', async () => {
+      const headers = { 'X-Origin-Auth': ORIGIN_SECRET };
+      expect((await fetch(objectUrl(), { method: 'PUT', body: 'x', headers })).status).toBe(403);
+      expect((await fetch(objectUrl(), { method: 'DELETE', headers })).status).toBe(403);
+      expect(
+        (await fetch(`${prefixedEndpoint}/storage/prefixed?list-type=2`, { headers })).status,
+      ).toBe(403);
+      const got = await prefixedClient.send(
+        new GetObjectCommand({ Bucket: 'prefixed', Key: 'a/b.txt' }),
+      );
+      expect(await got.Body?.transformToString()).toBe('ok');
+    });
+
+    it('物件不存在 → 404（邊緣不快取 404）', async () => {
+      const missing = await fetch(`${prefixedEndpoint}/storage/prefixed/a/missing.txt`, {
+        headers: { 'X-Origin-Auth': ORIGIN_SECRET },
+      });
+      expect(missing.status).toBe(404);
+    });
   });
 });

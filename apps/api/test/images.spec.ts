@@ -6,6 +6,8 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { PLATFORM_DB } from '@/core/database';
+import type { PlatformDatabase } from '@/core/database';
 import { ObjectStorage } from '@/core/storage';
 import {
   auditLogs,
@@ -409,6 +411,7 @@ describe('圖片資產（docs/architecture/backend/25-image.md §15）', () => {
     await db.execute(
       sql`UPDATE image_assets SET detached_at = now() - interval '400 days' WHERE detached_at IS NOT NULL`,
     );
+    const doomed = (await db.select({ id: imageAssets.id }).from(imageAssets)).map((row) => row.id);
     const report = await inTestTenant(app, () => app.get(ImageMaintenanceService).sweep());
     expect(report.unclaimed).toBeGreaterThan(0);
     expect(report.detached).toBeGreaterThan(0);
@@ -421,6 +424,16 @@ describe('圖片資產（docs/architecture/backend/25-image.md §15）', () => {
       );
     }
     await expectUsageConsistent();
+
+    // 沒有 CDN（FILE_CDN_ENABLED 預設 false）：刪掉的物件不排入清理（docs/architecture/backend/09-file.md §16.4）
+    const purges = await app
+      .get<PlatformDatabase>(PLATFORM_DB)
+      .execute<{ data: string }>(
+        sql`SELECT data::text AS data FROM pgboss.job WHERE name = 'cdn.purge'`,
+      );
+    for (const id of doomed) {
+      expect(purges.some((row) => row.data.includes(`images/${id}/`))).toBe(false);
+    }
 
     // 檔案的對帳（SUM(files) ＋ 登記的其他合計）不會把圖片資產的大小算掉
     await db.update(fileStorageUsage).set({ reconciledAt: null });

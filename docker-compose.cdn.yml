@@ -1,0 +1,104 @@
+# 圖片的 CDN（docs/architecture/backend/09-file.md §16）：疊在 docker-compose.prod.yml 上，自架的 nginx 邊緣當單一區域的正式方案（§17 D7）。
+#   docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-compose.cdn.yml up -d --build
+# 也可以與 docker-compose.cluster.yml、docker-compose.monitoring.yml 一起疊。
+#
+#   瀏覽器 ──https://cdn…（前置 LB 的 TLS）──▶ cdn:9080（驗簽章、邊緣快取）──X-Origin-Auth──▶ file-storage:9000
+#   api-worker 的 cdn.purge ──▶ cdn-purge:8081（storage 網路的別名；名稱解析到每一個 cdn 容器）
+#
+# 疊上這份檔案 = 開啟（api 的 FILE_CDN_ENABLED=true）。開關只能整個部署一起改，改了要重啟 api 的所有角色（D9）：
+#   - 由關到開：先 sh deploy/check-cdn.sh、起 cdn，再重啟 api；之前開過、關掉的時間短於 FILE_CDN_MAX_URL_TTL 時先 cli:cdn-purge --all（§16.4）
+#   - 由開到關：拿掉這份檔案重啟 api；cdn 要繼續運作到 FILE_CDN_MAX_URL_TTL 過去才能停掉（已發出的 CDN 網址還在效期內）
+# 映像以 digest 釘住（deploy/cdn.Dockerfile 的基底與兩個前端相同）。
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '50m'
+    max-file: '5'
+
+# 簽 CDN 網址的程序都要有（內部 api 的各角色、對外 API：回應帶 ImageSources）
+x-cdn-sign-env: &cdn-sign-env
+  FILE_CDN_ENABLED: 'true'
+  FILE_CDN_ORIGIN: ${CDN_PUBLIC_ORIGIN:?required}
+  FILE_CDN_SIGNING_KEYS: ${FILE_CDN_SIGNING_KEYS:?required}
+  # 逐步開放：先只開 fileVariant 驗證，再加 imageAsset、galleryItem（§17 D5）
+  FILE_CDN_RESOURCES: ${FILE_CDN_RESOURCES:-imageAsset,galleryItem,fileVariant}
+  FILE_CDN_MAX_URL_TTL: ${FILE_CDN_MAX_URL_TTL:-86400}
+
+# 清理只在內部 api 的 worker 執行；其他角色入列時也要知道開關（PURGE_ON_DELETE）
+x-cdn-purge-env: &cdn-purge-env
+  FILE_CDN_PURGE_ON_DELETE: ${FILE_CDN_PURGE_ON_DELETE:-true}
+  FILE_CDN_PURGE_URL: http://cdn-purge:8081
+  FILE_CDN_PURGE_SECRET: ${FILE_CDN_PURGE_SECRET:?required}
+  FILE_CDN_PURGE_BATCH_SIZE: ${FILE_CDN_PURGE_BATCH_SIZE:-100}
+  FILE_CDN_PURGE_TIMEOUT_MS: ${FILE_CDN_PURGE_TIMEOUT_MS:-5000}
+
+services:
+  api:
+    environment:
+      <<: [*cdn-sign-env, *cdn-purge-env]
+
+  api-worker:
+    environment:
+      <<: [*cdn-sign-env, *cdn-purge-env]
+
+  api-realtime:
+    environment:
+      <<: [*cdn-sign-env, *cdn-purge-env]
+
+  external-api:
+    environment:
+      <<: *cdn-sign-env
+
+  # 回源憑證：只接受 GET／HEAD 一個物件；backstage 的 /storage/ 與檔案網域會清掉外面帶進來的同名標頭
+  file-storage:
+    environment:
+      FILE_STORAGE_ORIGIN_SECRET: ${FILE_STORAGE_ORIGIN_SECRET:?required}
+
+  # backstage／platform 的 CSP img-src 放行 CDN 的 origin（deploy/nginx-file-origin.sh）
+  backstage:
+    environment:
+      CDN_PUBLIC_ORIGIN: ${CDN_PUBLIC_ORIGIN:?required}
+
+  platform:
+    environment:
+      CDN_PUBLIC_ORIGIN: ${CDN_PUBLIC_ORIGIN:?required}
+
+  cdn:
+    image: b2b-system-cdn
+    build:
+      context: .
+      dockerfile: deploy/cdn.Dockerfile
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      CDN_SIGNING_KEYS: ${FILE_CDN_SIGNING_KEYS:?required}
+      CDN_PURGE_SECRET: ${FILE_CDN_PURGE_SECRET:?required}
+      CDN_ORIGIN_UPSTREAM: http://file-storage:9000
+      CDN_ORIGIN_SECRET: ${FILE_STORAGE_ORIGIN_SECRET:?required}
+      CDN_CACHE_MAX_SIZE: ${CDN_CACHE_MAX_SIZE:-10g}
+      CDN_CACHE_INACTIVE: ${CDN_CACHE_INACTIVE:-30d}
+      CDN_CACHE_VALID: ${CDN_CACHE_VALID:-30d}
+    # 對外只有 9080（前置 LB 把 CDN 的網域指到這裡）；清理的 8081 不發布，只在 storage 網路
+    ports:
+      - '${EDGE_BIND_ADDRESS:-127.0.0.1}:8083:9080'
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      # 快取可以遺失（重建時重新回源），不影響正確性；上限是 CDN_CACHE_MAX_SIZE
+      - cdn-cache:/var/cache/nginx
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
+    mem_limit: ${CDN_MEM_LIMIT:-512m}
+    networks:
+      storage:
+        # cdn.purge 以這個名稱找到每一個 cdn 容器（compose 的 DNS 回傳全部；§16.6）
+        aliases: [cdn-purge]
+    depends_on:
+      file-storage:
+        condition: service_healthy
+
+volumes:
+  cdn-cache:

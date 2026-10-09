@@ -104,6 +104,9 @@ Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_d
 | `api_data_transfer_parse_duration_seconds` | histogram | `format` | 分析時在 worker thread 解析檔案的秒數 | `ParsePool` |
 | `api_gallery_process_duration_seconds` | histogram | `step`（`original`／`variants`）、`result`（`ok`／`failed`） | 圖片庫處理一張圖的秒數：寫原檔與讀 EXIF、產生一個版本的變體（[`backend/26-gallery.md`](./backend/26-gallery.md) §11.6） | `GalleryProcessService` |
 | `api_gallery_process_failures_total` | counter | `reason`（`notImage`／`typeNotAllowed`／`tooLarge`／`missing`） | 圖片庫處理失敗的張數 | 同上 |
+| `api_cdn_purge_requests_total` | counter | `result`（`ok`／`error`／`timeout`） | 送到邊緣節點的清理請求，每個節點一次（[`backend/09-file.md`](./backend/09-file.md) §16.6）；不帶節點位址（會隨擴縮改變） | `cdn.purge`（`CdnPurgeJob`） |
+| `api_cdn_purge_paths_total` | counter | — | 已從所有邊緣節點清掉的路徑數 | 同上 |
+| `api_cdn_purge_failures_total` | counter | `stage`（`schedule`／`final`） | 清理沒做成：入列失敗、`cdn.purge` 重試用完（告警 `CdnPurgeFailing`）。邊緣的命中率不進 Prometheus（[`backend/09-file.md`](./backend/09-file.md) §17 D6，看 `check-cdn.sh` 與邊緣的存取紀錄） | `QueuedCdnPurger`、`CdnPurgeJob` |
 
 `route` 是 Express 對到的路由樣板（`/users/:id`），掛在前綴下的子應用程式（OIDC Provider）只取掛載點（`/oidc`）；沒有對到 controller 的請求是 `unmatched`
 （`forRoutes('*')` 的中介軟體留下的 `{/*splat}` 也算），中介軟體直接回應的是 `other`。客戶端在回應前斷線記成 `499`。實作在 `core/metrics/route-label.ts`，
@@ -280,6 +283,7 @@ APM 關閉（沒有 `apm` profile，[`07-apm-service.md`](./07-apm-service.md) �
 | `MfaEmailCodeSlow` | Email 驗證碼從入列到寄出的 p95 > 60 秒持續 10 分鐘（[`backend/21-mfa.md`](./backend/21-mfa.md) §12）；短時間修不好時，平台可以暫時關掉 Email 驗證 |
 | `TenantUnavailable` | 有租戶因 migration 落後或 DB 連不上而暫停服務 |
 | `JobBacklog`、`JobFailures`、`OutboxRelayFailing` | 佇列積壓 > 500 筆 15 分鐘；15 分鐘內失敗 > 10 次；outbox 搬移失敗 |
+| `CdnPurgeFailing` | 30 分鐘內邊緣快取的清理沒做成（入列失敗或重試用完）；刪掉的圖在網址的剩餘效期內仍可從邊緣讀到（[`backend/09-file.md`](./backend/09-file.md) §16.6），邊緣恢復後以 `cli:cdn-purge` 補清 |
 | `PostgresDown`、`PostgresConnectionsHigh` | exporter 連不上；連線數超過 `max_connections` 的 70%（考慮 PgBouncer 的時候） |
 | `FrontendErrorSpike`、`FrontendLcpPoor` | 某個前端某一版 15 分鐘內 > 50 筆錯誤；LCP p75 > 4 秒 |
 

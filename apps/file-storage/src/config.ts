@@ -42,6 +42,14 @@ const EnvSchema = z.object({
   FILE_STORAGE_SECRET_ACCESS_KEY: z.string().trim().min(8).max(128),
   /** 允許跨來源存取（presigned URL 直傳 / 下載）的 Origin，逗號分隔；`*` 代表全部。 */
   FILE_STORAGE_ALLOWED_ORIGINS: csv,
+  /**
+   * CDN 的回源憑證（docs/architecture/03-file-storage.md §3.3）：帶 `X-Origin-Auth: <這個值>` 的 GetObject／HeadObject 不必 SigV4。
+   * 只給內部網路上的 CDN 邊緣用（nginx 算不了 SigV4）；對外的反向代理一律清掉這個標頭。留空 = 不接受回源憑證。
+   */
+  FILE_STORAGE_ORIGIN_SECRET: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().trim().min(32, '至少 32 字元（openssl rand -hex 32）').max(256).optional(),
+  ),
   FILE_STORAGE_MAX_OBJECT_SIZE: z.coerce
     .number()
     .int()
@@ -58,6 +66,8 @@ export interface FileStorageConfig {
   region: string;
   credentials: Credentials;
   allowedOrigins: readonly string[];
+  /** CDN 的回源憑證；`undefined` = 不接受（只認 SigV4）。 */
+  originSecret: string | undefined;
   maxObjectSize: number;
   minPartSize: number;
 }
@@ -87,6 +97,7 @@ export function loadConfig(
       secretAccessKey: values.FILE_STORAGE_SECRET_ACCESS_KEY,
     },
     allowedOrigins: values.FILE_STORAGE_ALLOWED_ORIGINS,
+    originSecret: values.FILE_STORAGE_ORIGIN_SECRET,
     maxObjectSize: values.FILE_STORAGE_MAX_OBJECT_SIZE,
     minPartSize: S3_MIN_PART_SIZE,
   };

@@ -10,6 +10,7 @@ import { AppException } from '@/core/errors';
 import { DomainEvent } from '@/core/events';
 import type { DomainEventBus } from '@/core/events';
 import type { SettingService } from '@/core/settings';
+import { NoopCdnPurger } from '@/core/storage';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
@@ -211,7 +212,7 @@ function setup(
     createFileAccess(options.access).access,
     // 租戶沒有覆寫上限：生效值等於 env 的上限
     { get: vi.fn(async () => MAX_SIZE) } as unknown as SettingService,
-    new FileObjectsService(storage as unknown as ObjectStorage),
+    new FileObjectsService(storage as unknown as ObjectStorage, new NoopCdnPurger()),
     webhooks as unknown as WebhookService,
     tags as unknown as TagService,
     capacity as unknown as StorageCapacity,

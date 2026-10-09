@@ -381,6 +381,7 @@ FILE_STORAGE_ACCESS_KEY_ID=b2b-system-dev
 FILE_STORAGE_SECRET_ACCESS_KEY=b2b-system-dev-secret
 FILE_STORAGE_ALLOWED_ORIGINS=http://localhost:5173   # presigned URL 直傳 / 下載的 CORS（逗號分隔，* 代表全部）
 FILE_STORAGE_MAX_OBJECT_SIZE=134217728       # 位元組（128 MiB，與 api 的影像轉出上限相同；不設時 5 GiB，同 S3 單次 PutObject 上限）
+FILE_STORAGE_ORIGIN_SECRET=                  # CDN 的回源憑證（X-Origin-Auth，≥ 32 字元）；留空 = 只認 SigV4（03-file-storage.md §3.3）
 
 # ── apps/api 連物件儲存（上面兩個 KEY 共用）─────────────────
 FILE_STORAGE_ENDPOINT=http://127.0.0.1:9000/storage          # api 自己連線用
@@ -395,6 +396,16 @@ FILE_MAINTENANCE_CRON=0 * * * *    # 檔案維護排程（殘留清理、補產�
 FILE_MAINTENANCE_DRY_RUN=false     # true：只偵測並記錄殘留，不刪除
 IMAGE_MAINTENANCE_CRON=30 * * * *  # 圖片資產（頭像等）的清理排程 cron（UTC）；留空停用
 GALLERY_MAINTENANCE_CRON=45 * * * *  # 圖片庫的清理排程 cron（UTC）；留空停用
+
+# ── 圖片的 CDN（預設關閉；backend/09-file.md §16.5）──────────
+FILE_CDN_ENABLED=false             # true 時下面的必填與格式在啟動時檢查；false 時一律忽略
+FILE_CDN_ORIGIN=http://localhost:9080
+FILE_CDN_SIGNING_KEYS=             # <kid>:<base64>[,…]，第一把簽發；與邊緣的 CDN_SIGNING_KEYS 相同
+FILE_CDN_RESOURCES=imageAsset,galleryItem,fileVariant
+FILE_CDN_MAX_URL_TTL=86400
+FILE_CDN_PURGE_ON_DELETE=true
+FILE_CDN_PURGE_URL=http://127.0.0.1:8081
+FILE_CDN_PURGE_SECRET=             # 與邊緣的 CDN_PURGE_SECRET 相同
 
 # ── apps/backstage（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api

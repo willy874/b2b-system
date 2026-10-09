@@ -24,6 +24,8 @@
     "mail:up": "docker compose up -d mailpit",
     "monitoring:up": "docker compose --profile monitoring up -d prometheus tempo postgres-exporter grafana",
     "monitoring:down": "docker compose --profile monitoring stop prometheus tempo postgres-exporter grafana",
+    "cdn:up": "docker compose --profile cdn up -d --build cdn",
+    "cdn:down": "docker compose --profile cdn stop cdn",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @b2b-system/api db:generate",
     "db:migrate": "pnpm --filter @b2b-system/api db:migrate",

@@ -1,5 +1,6 @@
-import { IMAGE_FORMAT_EXTENSION } from '@/core/image';
+import { IMAGE_FORMAT_EXTENSION, renditionKey } from '@/core/image';
 import type { ImageFormat } from '@/core/image';
+import type { ImageAssetRow } from '@/db/schema';
 
 /**
  * 圖片資產的常數與物件 key（docs/architecture/backend/25-image.md §15）。
@@ -22,6 +23,31 @@ export function masterKeyOf(id: string, format: ImageFormat): string {
 /** 一個版本的變體前綴：`images/<id>/r<rev>`，物件是 `<prefix>/<尺寸>.<副檔名>`（`renditionKey`）。 */
 export function revPrefixOf(id: string, rev: number): string {
   return `${IMAGE_KEY_PREFIX}${id}/r${rev}`;
+}
+
+/**
+ * 一筆資產可能由 CDN 送出過的所有物件（手動清理邊緣快取用，`cli:cdn-purge --image-asset`；
+ * docs/architecture/backend/09-file.md §16.7）：主檔，與每個版本（`r1`～`r<rev>`）的每個尺寸 × 格式。
+ * 舊版本的尺寸與格式以目前的版本推算（同一個用途不變）；列到不存在的物件無妨，邊緣回報 `missing`。
+ */
+export function assetObjectKeysOf(
+  row: Pick<ImageAssetRow, 'id' | 'rev' | 'masterFormat' | 'variants'>,
+): string[] {
+  const keys: string[] = [];
+  if (row.masterFormat) keys.push(masterKeyOf(row.id, row.masterFormat as ImageFormat));
+  const variants = row.variants;
+  if (!variants) return keys;
+  const names = Object.entries(variants.renditions)
+    .filter(([, rendition]) => !rendition.sameAs)
+    .map(([name]) => name);
+  for (let rev = 1; rev <= row.rev; rev += 1) {
+    for (const name of names) {
+      for (const format of variants.formats as ImageFormat[]) {
+        keys.push(renditionKey(revPrefixOf(row.id, rev), name, format));
+      }
+    }
+  }
+  return keys;
 }
 
 /** 物件 key 所屬的資產 id；不是 `images/<uuid>/…` 的 key 回 undefined。 */

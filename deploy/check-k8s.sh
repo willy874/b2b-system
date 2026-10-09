@@ -30,4 +30,20 @@ for role in http realtime worker; do
   echo "$cluster" | grep -q "value: $role\$" || fail "cluster：缺少 APP_ROLES=$role 的 Deployment"
 done
 echo "$cluster" | grep -q 'DEPLOYMENT_MODE: cluster' || fail "cluster：DEPLOYMENT_MODE 不是 cluster"
+
+# 圖片的 CDN（components/cdn，docs/architecture/backend/09-file.md §16）：兩個 overlay 各疊一次
+CDN_DIR=$(mktemp -d "$K8S_DIR/.check-cdn-XXXXXX")
+trap 'rm -rf "$CDN_DIR"' EXIT
+for overlay in standalone cluster; do
+  echo "── overlays/$overlay ＋ components/cdn"
+  mkdir -p "$CDN_DIR/$overlay"
+  printf 'apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../overlays/%s\ncomponents:\n  - ../../components/cdn\n' \
+    "$overlay" >"$CDN_DIR/$overlay/kustomization.yaml"
+  rendered=$(kubectl kustomize "$CDN_DIR/$overlay") || fail "$overlay ＋ cdn：kustomize 產生失敗"
+  echo "$rendered" | docker run --rm -i "$KUBECONFORM_IMAGE" -strict -summary \
+    -kubernetes-version "$KUBERNETES_VERSION" - || fail "$overlay ＋ cdn：schema 檢查失敗"
+  echo "$rendered" | grep -q "FILE_CDN_ENABLED: \"true\"" || fail "$overlay ＋ cdn：api 沒有開啟 FILE_CDN_ENABLED"
+  echo "$rendered" | grep -q 'clusterIP: None' || fail "$overlay ＋ cdn：沒有清理用的 headless Service"
+  [ "$(echo "$rendered" | grep -c 'name: CDN_PUBLIC_ORIGIN')" = "2" ] || fail "$overlay ＋ cdn：兩個前端都要放行 CDN_PUBLIC_ORIGIN"
+done
 echo "✓ deploy/k8s"

@@ -117,6 +117,7 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `dataTransfer.export`、`dataTransfer.applyImport` | `modules/data-transfer` | — | 由程式入列（建立匯出、送出套用時；[`22-data-transfer.md`](./22-data-transfer.md) §6.3、§7.6） |
 | `file.imageVariants` | `modules/file` | — | 由程式入列：上傳完成的交易內、還原時變體遺失、維護排程補產生（[`09-file.md`](./09-file.md) §5.4）；每個 worker 程序並行 2 |
 | `gallery.process` | `modules/gallery` | — | 由程式入列：完成上傳、從其他來源加入、調整顯示方向的交易內，清理排程重新排入卡住的；寫原檔、讀 EXIF、產生變體（[`26-gallery.md`](./26-gallery.md) §5）；每個 worker 程序並行 2 |
+| `cdn.purge`（平台） | `core/storage` | — | 物件刪除 **之後** 由 `CdnPurger.schedule()` 入列（不在交易內：outbox 可能在刪除完成前就執行）；送到每一個邊緣節點，任一失敗整筆重試（5 次、30 秒起）。沒有 CDN 時不入列（[`09-file.md`](./09-file.md) §16.6） |
 | `rateLimit.cleanup`（平台） | `core/rate-limit` | `RATE_LIMIT_CLEANUP_CRON` | `* * * * *`（每分鐘；共享的速率限制計數的過期列，記憶體實作時什麼都不做） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/platform、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |
@@ -146,6 +147,7 @@ await withTransaction(this.db, async (tx) => {
 
 - **業務寫入觸發的工作，入列一律傳 `tx`**（§9.2 D2）：資料提交了工作一定在，回滾則工作也不存在。
   與「稽核在交易內」同一條規則（[`01-architecture.md`](./01-architecture.md)）。
+  例外是 `cdn.purge`：它要在物件 **真的刪掉之後** 才能執行，所以在刪除成功之後才入列，不傳 `tx`（[`09-file.md`](./09-file.md) §17 D3）。
 - `throttle: { key, seconds }`：同一個 key 在同一個時間窗內只入列一筆，其餘回傳 `null`
   （例：忘記密碼同一帳號 60 秒一封）。對應 pg-boss 的 `singletonKey` ＋ `singletonSeconds`——
   單獨的 `singletonKey` 在 standard 佇列 **不起作用**，所以不開放單獨使用。

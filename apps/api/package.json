@@ -29,7 +29,8 @@
     "db:seed:e2e": "tsx src/db/seeds/e2e.ts",
     "db:archive-audit-logs": "tsx src/db/archive-audit-logs.ts",
     "db:drop-tenant": "tsx src/db/drop-tenant.ts",
-    "cli:reset-super-admin": "tsx src/cli/reset-super-admin.ts"
+    "cli:reset-super-admin": "tsx src/cli/reset-super-admin.ts",
+    "cli:cdn-purge": "tsx src/cli/cdn-purge.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1144.0",
