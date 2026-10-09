@@ -197,8 +197,9 @@
 - **網址**依 [`image-delivery.md`](./image-delivery.md)：回應帶 `ImageSources`，由 `ImageUrlService` 直接簽出物件網址（不經過 api 轉址、不查 DB），
   前端以 `SignedImage` 顯示。列表用寬度描述的 `srcSet`（`thumb 480w, medium 1280w`）＋ `sizes`，讓瀏覽器依列高與螢幕密度選。
   效期 1 小時；無限捲動與檢視器依 `expiresAt` 在到期前重抓（[`image-delivery.md`](./image-delivery.md) §5）。
-- **格式**：`thumb`、`medium`、`large` 在處理時各產生主格式與 WebP 兩份，瀏覽器以 `<picture>` 自己選；不依 `Accept` 協商、不做 AVIF（[`image-delivery.md`](./image-delivery.md) 開放問題 2）。
-- **原檔下載**另簽帶 `Content-Disposition: attachment` 的網址，不走 CDN（檔名每次不同）。
+- **格式**：`thumb`、`medium`、`large` 在處理時各產生主格式與 WebP 兩份，瀏覽器以 `<picture>` 自己選；不依 `Accept` 協商、不做 AVIF（[`image-delivery.md`](./image-delivery.md) D2）。
+- **原檔有兩種網址**：檢視器放大超過 `large` 時用的 **inline** 網址（`ImageUrlService` 一併簽出，走 CDN，`<img>` 用）；
+  「下載」按鈕另簽帶 `Content-Disposition: attachment` 與檔名的網址，**不走 CDN**（檔名每次不同，[`image-cdn.md`](./image-cdn.md) D4）。
 - **佔位**：`dominant_color` 當背景色、`placeholder`（BlurHash）在可視範圍內才解碼成模糊圖；真正的圖片載入後淡入。
   捲動很快時只看得到色塊，不會整片空白。
 - **顯示方向**：EXIF 方向寫錯的照片可以「向左轉／向右轉」，存 `display_rotation`、`variant_rev + 1` 並把變體產生到新的版本底下；**不改原檔、不覆寫舊變體**（D14）。
@@ -258,10 +259,11 @@
 
 ```
 POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
-  → 逐筆：ImageSourceRegistry.get(source).resolve(refId, actor)       ← 讀取權限由來源判斷
+  → 逐筆：ImageSourceRegistry.get(source).resolve(refId, actor, 'gallery')   ← 讀取權限由來源判斷
         → 型別、大小不符合圖片庫 → 略過，結果帶原因
         → 同一個 (source, refId) 已經在圖片庫 → 略過，結果帶 existingItemId
-        → CopyObject 到 gallery/<id>/original → INSERT（status = processing）→ 排入 gallery.process
+        → CopyObject 到 gallery/<id>/upload → INSERT（status = processing）→ 排入 gallery.process
+          （之後與自行上傳相同：處理時依 D5 移除位置資訊、寫成 original 一次）
   ← 200 { results: [{ refId, status: 'added' | 'skipped', itemId?, reason? }] }
 ```
 
@@ -271,7 +273,6 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 - 路由要 `gallery:create`；來源的 `feature` 沒啟用時那幾筆回 `FEATURE_DISABLED`（整批都是同一個來源，所以實際上是整批失敗）。
 - 稽核：每筆一個 `galleryItem.create`（`changes.after` 帶 `source`、`sourceRefId`、`sourceName`）；
   來源那一邊在 `resolve` 裡另寫 `file.copy`（`purpose = 'gallery'`，[`image-picker.md`](./image-picker.md) D5）。
-- `resolve` 的 `purpose` 傳 `'gallery'`。
 
 #### 9.2 前端：檔案管理器的「加入圖片庫」
 
@@ -351,6 +352,8 @@ registerFileAction({
 | `modules/file` | 登記後端來源 `'file'`（`resolve`：既有的可見性檢查 ＋ 回原檔的 key） | image-picker 已經需要；圖片庫沿用 |
 | `@b2b-system/ui` | 新增 `JustifiedGrid`、`ImageViewer` | 通用的版面與檢視元件 |
 | `modules/tag`、`modules/comment` | 登記 `galleryItem` | 照各自的「加入一種資源」步驟 |
+| `core/storage`、`core/image`、`web-core` | 使用 `ObjectUrlSigner`、`ImageUrlService`、`SignedImage`（由 [`image-delivery.md`](./image-delivery.md) 先做好） | 網址的產生與顯示三份提案共用 |
+| `core/storage`（CDN 啟用時） | 刪除物件後呼叫 `CdnPurger.schedule(paths)`（[`image-cdn.md`](./image-cdn.md) §7） | 沒有啟用 CDN 時是 no-op，照樣要呼叫 |
 
 ## 開放問題
 

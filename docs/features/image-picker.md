@@ -7,7 +7,7 @@
   [`image-delivery.md`](./image-delivery.md)（網址的產生、效期、具名尺寸、存參照不存網址）
 - 相關：[`image-gallery.md`](./image-gallery.md)（圖片庫：在這裡登記成來源，也使用這裡的「來源」介面從檔案管理加入圖片）；
   之後要放圖片的功能——使用者頭像、租戶 Logo、富文本的內嵌圖片、留言與審批的附件；
-  [`image-cdn.md`](./image-cdn.md)（以「資產不可修改」為前提，讓圖片由邊緣快取送出）
+  [`image-cdn.md`](./image-cdn.md)（以「物件只寫一次」為前提，讓圖片由邊緣快取送出；刪除後清理快取）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -140,7 +140,7 @@ interface ResolvedImage {
 | 欄位 | 說明 |
 | --- | --- |
 | `id` | uuid |
-| `usage` | 用途 id（例：`user.avatar`），決定限制與要產生哪些變體 |
+| `usage` | 用途 id（例：`user.avatar`），決定限制、要產生哪些 preset 與網址的效期 |
 | `status` | `pending` / `ready` / `failed`（解碼失敗、不是圖片、不符合用途的限制） |
 | `content_type`、`size` | 正規化之後的主檔（§5） |
 | `width`、`height`、`has_alpha` | 主檔的尺寸（**未裁切**） |
@@ -179,7 +179,7 @@ interface ResolvedImage {
 ```
 上傳：      POST /images { usage, contentType, size } → 直傳網址 → PUT → POST /images/:id/complete { crop? }
 其他來源：  POST /images/from-source { usage, source, refId, crop? }
-              └ ImageSourceRegistry.get(source).resolve(refId, actor) → CopyObject 到 images/<id>/upload
+              └ ImageSourceRegistry.get(source).resolve(refId, actor, 'imageAsset:<usage>') → CopyObject 到 images/<id>/upload
                             │
                             ▼  同一條後段（worker 的背景工作 image.process）
         解碼（ImageProcessor）→ 檢查用途的限制 → 依 EXIF 轉正 → 長邊縮到 4096 → 移除中繼資料
@@ -274,7 +274,7 @@ interface ResolvedImage {
 
 | 部分 | 放在 | 內容 |
 | --- | --- | --- |
-| `ImageField` | web-core | 顯示目前的圖片、「更換」「裁切」「移除」；接受拖曳與貼上（§7）；`usage` 決定限制與裁切比例 |
+| `ImageField` | web-core | 以 `SignedImage`（[`image-delivery.md`](./image-delivery.md) §5）顯示目前的圖片；「更換」「裁切」「移除」；接受拖曳與貼上（§7）；`usage` 決定限制與裁切比例 |
 | 來源選擇 `ImageSourceDialog` | web-core | 每個可用的來源一個分頁；只有一個來源時不出現 |
 | 裁切 `ImageCropper` | `@b2b-system/ui` | 通用元件，不含業務名詞；輸出裁切框 |
 | `registerImageSource()` | web-core | 來源的註冊表，在 plugin 的 **同步** 階段註冊 |
@@ -382,7 +382,7 @@ registerImageSource({
 | # | 決定 | 理由 | 評估過的方案 |
 | --- | --- | --- | --- |
 | D1 | **圖片資產另開 `image_assets` 表**（租戶 DB），物件放 `images/<id>/` 前綴；有自己的維護排程 `image.maintenance` | `files` 的列表、容量、維護排程、推播、回收桶都假設每一列是檔案管理器裡的檔案，且 `folder_id = null` 已經代表根目錄；混在一起每個查詢都要排除，漏一個就讓頭像出現在檔案管理器 | `files` 加 `purpose` 欄：少一張表，但改動散在檔案模組各處，而且 `file` 被關掉時要另外放行 |
-| D2 | **格式政策抽到 `core/image`**（主格式的選擇、品質、轉正、移除中繼資料、裁切 `extract`），檔案、圖片資產、圖片庫共用；**尺寸** 由各模組決定（檔案 480／2560、用途的 `variants`、圖片庫的四種） | 三處都要一樣的「progressive JPEG／有透明度用 WebP」；`core/` 不能 import `modules/`，放在 core 三邊都拿得到 | 新增 `modules/image` 提供給檔案用：檔案模組就要 import 一個與它平行的模組，依賴方向變複雜 |
+| D2 | **格式政策抽到 `core/image`**（主格式的選擇、品質、轉正、移除中繼資料、裁切 `extract`），檔案、圖片資產、圖片庫共用；**尺寸** 由各模組決定（檔案 480／2560、用途的 `presets`、圖片庫的四種） | 三處都要一樣的「progressive JPEG／有透明度用 WebP」；`core/` 不能 import `modules/`，放在 core 三邊都拿得到 | 新增 `modules/image` 提供給檔案用：檔案模組就要 import 一個與它平行的模組，依賴方向變複雜 |
 | D3 | **容量共用一個上限**：新增全租戶的參數 `storage.quotaMb`（`feature: null`，[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3）取代 `file.storageQuotaMb`，平台 migration 搬移既有的覆寫值；計數 `file_storage_usage` 改名 `storage_usage`，三處的寫入點都維護它；錯誤碼 `FILE_STORAGE_QUOTA_EXCEEDED` 改為 `STORAGE_QUOTA_EXCEEDED`。主檔與原檔計入，變體不計。`file` 關掉時照樣計算 | 容量是租戶「買了多少空間」，與用哪個功能無關；關掉檔案管理器不該讓頭像與圖片庫不受限制 | 各自一個上限：平台要分別設定三個數字，租戶也看不懂哪個滿了；留在 `file.` 底下：參數屬於可關閉的 feature，語意錯 |
 | D4 | **從圖片庫選的圖複製成圖片資產**（[`image-gallery.md`](./image-gallery.md) D1） | 所有來源的生命週期一致 | 見圖片庫 D1 |
 | D5 | **複製時來源寫稽核 `<resource>.copy`**（`file.copy`、`galleryItem.copy`）：`resolve(refId, actor, purpose)` 的 `purpose` 是呼叫端給的字串（`imageAsset:<usage>`、`gallery`），寫進 `changes.after.purpose`；來源不解讀它 | 複製是把內容帶到原本授權之外的動作，管理者要追得到；`purpose` 讓來源記下去處，又不必認識呼叫端 | 不寫：與「讀檔不寫稽核」一致，但追不到內容的去向；呼叫端寫：呼叫端要知道來源的 `resourceType`，等於認識來源 |

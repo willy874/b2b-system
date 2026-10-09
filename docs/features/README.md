@@ -65,7 +65,16 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：四份圖片提案都已規劃。先做 `image-delivery` 的 `ObjectUrlSigner`（D6）→ `image-picker` → `image-gallery`（圖片庫依賴前者的來源介面）；`image-cdn` 接在 `image-delivery` 的 `ObjectUrlSigner` 上，抽出之後就可以獨立進行（見它的開放問題 8）。新的構想照 §2 新增提案。
+接下來：四份圖片提案都已規劃，依下面的階段進行。每個階段各自一個 branch，合併後再開下一個；階段 4 在階段 1 合併後就可以與 2、3 並行。
+
+| 階段 | 提案 | 內容 | 完成的判斷 |
+| --- | --- | --- | --- |
+| 1 | [`image-delivery.md`](./image-delivery.md) ＋ [`image-picker.md`](./image-picker.md) D2、D3 | `core/storage` 的 `ObjectUrlSigner`（presigned 實作）、`core/image` 的 `ImageUrlService`／`ImageSourcesSchema` 與共用的格式政策（主格式 ＋ WebP、`extract`、EXIF）、全租戶容量 `storage.quotaMb`／`storage_usage`、`web-core` 的 `SignedImage` 與 `Avatar` 的圖片插槽 | 檔案管理器行為不變、既有測試全過；新元件有單元測試 |
+| 2 | [`image-picker.md`](./image-picker.md) | `modules/image`（圖片資產、用途、來源介面、`image.process`／`image.maintenance`）、三種來源（上傳含拖曳與貼上、最近使用、檔案管理；圖片庫的來源在階段 3）、`web-core/image-picker` 與 `ImageCropper`、第一個 consumer：使用者頭像 | 頭像能上傳、裁切、從檔案管理選、在頂列與留言顯示；關掉 `file` 時直接選檔 |
+| 3 | [`image-gallery.md`](./image-gallery.md) | `core/upload` 與 `registerFileAction` 的抽出、`modules/gallery`、`features/gallery`（閱覽、檢視器、相簿、標籤、留言）、由檔案管理加入、登記成選圖的來源 | 使用者故事全部可在瀏覽器操作；關掉 `gallery` 時檔案管理器與選圖都不受影響 |
+| 4 | [`image-cdn.md`](./image-cdn.md) | `CdnUrlSigner`、`CdnPurger` 與 `cdn.purge`、`FILE_CDN_*`、`deploy/` 的 nginx ＋ njs、`check-cdn.sh`、`cli:cdn-purge` | `FILE_CDN_ENABLED=false` 時行為不變；`true` 時 `check-cdn.sh` 全過 |
+
+新的構想照 §2 新增提案。
 
 ### 1.2 撰寫提案時的架構前提
 

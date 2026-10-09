@@ -26,8 +26,8 @@
 
 ### 圖片大範圍使用之後會出的問題
 
-圖片之後會出現在使用者列表、留言、審批的每一列，還有圖片庫、富文本、email。三份提案（圖片資產、圖片庫、CDN）各自寫了網址怎麼產生，
-彼此不一致；而且下面四件事三份都沒有處理完：
+圖片之後會出現在使用者列表、留言、審批的每一列，還有圖片庫、富文本、email。三份提案（圖片資產、圖片庫、CDN）原本各自寫了網址怎麼產生，
+彼此不一致；而且下面四件事三份都沒有處理完（這份統一處理，三份改成引用這裡）：
 
 | # | 問題 | 會在哪裡出事 |
 | --- | --- | --- |
@@ -43,9 +43,9 @@ CDN（[`image-cdn.md`](./image-cdn.md)）能解決「沒有共用快取」，但
 
 | 做 | 不做（這一版） |
 | --- | --- |
-| 五條原則（§1）：存參照不存網址、物件只寫一次、網址在輸出時產生、具名尺寸、熱路徑不查 DB | 改動檔案管理器的影像 API（§10，開放問題 5） |
+| 五條原則（§1）：存參照不存網址、物件只寫一次、網址在輸出時產生、具名尺寸、熱路徑不查 DB | 改動檔案管理器的影像 API（§10，D5） |
 | `core/image` 的 `ImageUrlService`：由物件 key 直接簽出可用的網址集合（`ImageSources`），不經過 api 轉址 | 公開網址的實作（第二批，§8 只定設計） |
-| 圖片資產與圖片庫都用它；api 的回應帶 `ImageSources`，前端以 `<picture>` 顯示 | AVIF（開放問題 2） |
+| 圖片資產與圖片庫都用它；api 的回應帶 `ImageSources`，前端以 `<picture>` 顯示 | AVIF（D2） |
 | 效期由用途宣告（§4） | 串接 CDN（[`image-cdn.md`](./image-cdn.md)；這一層只留接口） |
 | 具名尺寸與 2x（§6） | |
 | 前端 `web-core` 的 `SignedImage`：`<picture>`、過期重抓、退路（§5） | |
@@ -100,7 +100,7 @@ interface ImageSources {                   // 回應的 DTO，前端直接用
 - **一次簽一組**：同一張圖的所有尺寸與格式在同一個時間窗內簽出，`expiresAt` 一致；HMAC／SigV4 的簽章是純 CPU 運算，一頁 50 張圖的成本可以忽略。
 - **不經過 api**（R5）：瀏覽器拿到的網址直接指向檔案網域；一頁 50 個頭像就是 50 個（可被快取的）物件請求，api 與 DB 一次都不用。
 - **格式在處理時就產生**：主格式（progressive JPEG，有透明度用 WebP）＋ WebP 兩種；瀏覽器以 `<picture>` 自己選。
-  不必依 `Accept` 協商，也不需要「第一次被要求時才轉」的路徑（開放問題 2）。
+  不必依 `Accept` 協商，也不需要「第一次被要求時才轉」的路徑（D2）。
 - 回應的 DTO 用同一個 zod schema `ImageSourcesSchema`，經 OpenAPI 產生前端型別；`null` 代表沒有圖片或還在處理。
 
 ### 4. 效期：由用途決定
@@ -112,7 +112,7 @@ interface ImageSources {                   // 回應的 DTO，前端直接用
 | 之後的附件（審批、留言） | 15 分鐘 | 敏感；與 `FILE_URL_TTL` 預設相同 |
 
 - 範圍 5 分鐘到 24 小時；時間窗是效期的一半（與 `stableSigningDate` 相同的做法），所以網址剩餘的效期介於 `ttl/2` 與 `ttl` 之間。
-- 效期只決定「網址外流之後多久失效」，不影響快取命中：同一個時間窗內網址相同，CDN 的快取 key 也不含簽章（[`image-cdn.md`](./image-cdn.md) 開放問題 2 可依這張表）。
+- 效期只決定「網址外流之後多久失效」，不影響快取命中：同一個時間窗內網址相同，CDN 的快取 key 也不含簽章（[`image-cdn.md`](./image-cdn.md) D2 依這張表，並以 `FILE_CDN_MAX_URL_TTL` 封頂）。
 - presigned 網址的上限是 SigV4 的 7 天，24 小時在範圍內；`FILE_URL_TTL`（≤ 3600）只管檔案，不受影響。
 
 ### 5. 前端：`SignedImage`
@@ -148,7 +148,7 @@ interface ImageSources {                   // 回應的 DTO，前端直接用
 | --- | --- | --- |
 | consumer 的欄位（頭像） | `avatar_image_id` | 回應帶 `avatar: ImageSources` |
 | 富文本的內嵌圖片（第二批） | 圖片節點 `{ type: 'image', attrs: { assetId, alt } }`；`packages/rich-text` 的 schema 不允許節點帶網址 | api 讀取時把節點展開成 `ImageSources`；轉 HTML 時由呼叫端提供網址解析器 |
-| email | 不存 | 寄送時產生：用公開網址（§8）或以 CID 內嵌（開放問題 4） |
+| email | 不存 | 寄送時產生公開網址（§8，D4）；email 放圖排在第二批 |
 | 對外 API | 不存 | 回應帶 `ImageSources` 與 `expiresAt`；文件寫明「網址會過期，要用時重新取得」 |
 | 匯入／匯出 | 資產 id | 不輸出網址 |
 | 稽核 | 資產 id 與來源 | — |
@@ -165,7 +165,7 @@ interface ImageSources {                   // 回應的 DTO，前端直接用
 ```
 
 - 物件只寫一次（R2）、路徑含 uuid 與 rev，所以可以 `Cache-Control: public, max-age=31536000, immutable`。
-- 撤銷 ＝ 刪除那個 rev 的 `public/` 物件（CDN 另外 purge，[`image-cdn.md`](./image-cdn.md) 開放問題 3）。
+- 撤銷 ＝ 刪除那個 rev 的 `public/` 物件，再清理 CDN 快取（公開網址沒有效期，一定要清；[`image-cdn.md`](./image-cdn.md) §7.1）。
 - 這一版只在用途上留 `visibility`（[`image-picker.md`](./image-picker.md) D6），不實作。
 
 ### 9. CDN 怎麼接上
@@ -173,11 +173,10 @@ interface ImageSources {                   // 回應的 DTO，前端直接用
 ```
 ImageUrlService ──▶ ObjectUrlSigner
                       ├─ PresignedUrlSigner（這一版）
-                      └─ CdnUrlSigner（image-cdn.md）：FILE_CDN_ENABLED=true 且呼叫端標 { cdn: true } 時使用
+                      └─ CdnUrlSigner（image-cdn.md）：FILE_CDN_ENABLED=true、呼叫端標 { cdn: '<資源類型>' } 且該類型在 FILE_CDN_RESOURCES 內時使用
 ```
 
-- 圖片資產與圖片庫的物件都符合「只寫一次」，全部標 `{ cdn: true }`；原檔下載（帶 `Content-Disposition`）不標。
-  這等於選了 [`image-cdn.md`](./image-cdn.md) 開放問題 5 的「做法二」。
+- 圖片資產與圖片庫的物件都符合「只寫一次」，分別標 `{ cdn: 'imageAsset' }`、`{ cdn: 'galleryItem' }`；原檔下載（帶 `Content-Disposition`）不標（[`image-cdn.md`](./image-cdn.md) D4、D5）。
 - CDN 網址的效期用 §4 的 `urlTtl`（再以 `FILE_CDN_MAX_URL_TTL` 封頂）。
 - 開關與參數、刪除時的快取清理（`CdnPurger`）都在 [`image-cdn.md`](./image-cdn.md) §6、§7；`FILE_CDN_ENABLED=false`（預設）時這一層的行為與沒有 CDN 完全相同。
 - 回應直接帶 CDN 網址，所以 [`image-cdn.md`](./image-cdn.md) §1 的「影像 API 302 到 CDN」只剩檔案管理器的圖片會用到。
@@ -186,7 +185,8 @@ ImageUrlService ──▶ ObjectUrlSigner
 
 這一版 **不動**：它要處理「變體還沒好」「依 `Accept` 協商」「第一次被要求時才轉檔」，請求時查 DB 是合理的；而且只有檔案管理器在用。
 
-之後若檔案的圖片也大量出現在其他頁面，可以把 `variant_format` 與 `variant_status` 一起簽進網址，讓 `resolve` 不必查 DB（開放問題 5）。
+之後若檔案的圖片也大量出現在其他頁面，可以把 `variant_format` 與 `variant_status` 一起簽進網址，讓 `resolve` 不必查 DB（D5）。
+CDN 啟用時，影像 API 的 302 改成轉到 CDN 網址（`{ cdn: 'fileVariant' }`，[`image-cdn.md`](./image-cdn.md) §1）。
 
 ### 11. 會動到的既有模組
 
@@ -194,7 +194,7 @@ ImageUrlService ──▶ ObjectUrlSigner
 | --- | --- |
 | `apps/api/src/core/storage` | 抽出 `ObjectUrlSigner`；`PresignedUrlSigner` 包住現在的 `presignDownload` 與時間窗 |
 | `apps/api/src/core/image` | `ImageUrlService`、`ImageSourcesSchema`；變體產生改成「主格式 ＋ WebP」 |
-| `modules/image`、`modules/gallery`（新） | 組回應時呼叫 `ImageUrlService`；用途宣告 `urlTtl`、`presets` |
+| `modules/image`、`modules/gallery`（新） | 組回應時呼叫 `ImageUrlService`；用途宣告 `urlTtl`、`presets`；刪除物件後呼叫 `CdnPurger.schedule`（[`image-cdn.md`](./image-cdn.md) §7） |
 | `packages/web-core` | `image/SignedImage`；`Avatar` 的圖片插槽 |
 | `packages/ui` | `Avatar` 加 `image` 插槽 |
 | `packages/rich-text`（第二批） | 圖片節點只允許 `assetId` |
