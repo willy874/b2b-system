@@ -100,5 +100,5 @@ jobs:
       - run: sh deploy/check-cdn.sh
       - run: sh deploy/check-nginx.sh
       - run: sh deploy/check-monitoring.sh
-      # k8s 的參考部署：kustomize 產生 ＋ schema 檢查（runner 內建 kubectl）
+      # k8s 的參考部署：kustomize 產生 ＋ schema 檢查（runner 內建 kubectl）＋ 以 Docker 模擬 components/cdn 的 Pod
       - run: sh deploy/check-k8s.sh

@@ -96,7 +96,7 @@ http://<host>:<port>/<bucket>/<key>      object（key 可含 /，URL 編碼）
   沒有 `response-*` 參數（回應標頭的覆寫只給 presigned 網址，邊緣快取的是所有人共用的內容）、值以常數時間比對相符（先各自 SHA-256 再 `timingSafeEqual`）。
 - 任何一個條件不符就照常驗 SigV4：沒有簽章就是 `AccessDenied`。寫入、刪除、列表即使帶了正確的值也要 SigV4。
 - 對外的反向代理 **一律清掉** 這個標頭（`deploy/nginx.conf` 的 `/storage/`、檔案網域的 server），從外面帶進來無效；只有內部網路上的 `cdn` 容器那一跳會帶。
-- 換成 S3／MinIO 時改用儲存服務自己的做法（CloudFront 的 OAC、MinIO 的 bucket policy），這個標頭只屬於 apps/file-storage。
+- 換成 S3／MinIO 時改用儲存服務自己的做法（CloudFront 的 OAC、S3／MinIO 的 bucket policy；自架邊緣直接回源到 S3 的設定與 policy 範例見 [`backend/09-file.md`](./backend/09-file.md) §16.3.1），這個標頭只屬於 apps/file-storage。
 
 ---
 

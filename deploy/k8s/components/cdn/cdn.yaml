@@ -30,8 +30,10 @@ spec:
             - secretRef:
                 name: b2b-cdn-secrets
           env:
-            # 能以 /storage/<bucket>/<key> 讀到物件的源站：apps/file-storage（FILE_STORAGE_BASE_PATH=/storage），
-            # 或在 S3 前面、以 bucket policy 只允許內部網路讀取的閘道（回源憑證只屬於 apps/file-storage；§16.3）
+            # 源站：apps/file-storage（FILE_STORAGE_BASE_PATH=/storage）要寫完整的服務名稱（nginx 的 resolver 不套 search domain），
+            # 例 http://file-storage.<namespace>.svc.cluster.local:9000。直接回源到 S3 時是 https://s3.<region>.amazonaws.com，
+            # 另加 CDN_ORIGIN_PATH_PREFIX=""（回源路徑 /<bucket>/<key>），bucket policy 只放行 VPC endpoint 的 GetObject（§16.3.1）。
+            # https 的源站一律驗證憑證（內部 CA：掛進容器、以 CDN_ORIGIN_CA_FILE 指到它）
             - name: CDN_ORIGIN_UPSTREAM
               value: https://storage-origin.example.com
             # 比 emptyDir 的 sizeLimit 小一點：nginx 的 cache manager 先淘汰，kubelet 不會因為超過上限而驅逐 pod

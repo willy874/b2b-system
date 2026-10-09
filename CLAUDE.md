@@ -124,7 +124,7 @@ pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/opena
 pnpm storybook      # packages/ui 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 sh deploy/check-nginx.sh / sh deploy/smoke-test.sh   # nginx 設定／正式 compose 整套建置啟動（需要 Docker；CI 的 deploy job 也跑）
 sh deploy/smoke-test.sh --cluster   # 疊 docker-compose.cluster.yml：api（http）×2、api-realtime ×2、api-worker ×1（docs/architecture/01-system.md §4.3）
-sh deploy/check-k8s.sh              # deploy/k8s 兩個 overlay（各自再疊 components/cdn）的 kustomize ＋ kubeconform（需要 kubectl 與 Docker；CI 也跑）
+sh deploy/check-k8s.sh              # deploy/k8s 兩個 overlay（各自再疊 components/cdn）的 kustomize ＋ kubeconform，另以 Docker 模擬 components/cdn 的 Pod（需要 kubectl 與 Docker；CI 也跑）
 sh deploy/check-cdn.sh              # 圖片的 CDN 邊緣（nginx ＋ njs）：簽章、命中、回源憑證、清理、/_status 與 X-CDN-Reject、兩個節點（需要 Docker；CI 也跑；docs/architecture/backend/09-file.md §16.8）
 sh deploy/smoke-test.sh --cdn       # 疊 docker-compose.cdn.yml 的整套建置啟動
 pnpm --filter @b2b-system/api migrations:check   # 新增的 migration 不能有破壞性語句（MIGRATION_BASE 預設 origin/main；CI 也跑）

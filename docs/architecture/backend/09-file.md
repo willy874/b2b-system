@@ -982,9 +982,9 @@ FileAccessService（modules/file）
 | --- | --- |
 | `js_set $cdn_reject cdn.reject` | 驗方法與 `sig`、`exp`、`kid`（重複的參數也不通過），回傳拒絕的原因；不符或過期一律 `403`（快取裡有也不送出，與影像 API 一致，不另回 `410`），`GET`／`HEAD` 以外 `405` |
 | `X-CDN-Reject: signature｜expired｜method` | 邊緣自己拒絕的回應帶原因（簽章錯、kid 不認得、沒有簽章都是 `signature`；簽章對但過期是 `expired`）；源站的回應不帶。api 的檢查以它區分「邊緣拒絕」與「源站的回應」（§16.10、D17） |
-| `rewrite ^ $uri? break` | 回源不帶查詢參數：簽章不必給源站，也不讓 `response-content-type` 之類的參數改寫要被共用的快取內容 |
+| `rewrite ^/storage(/.*)$ <CDN_ORIGIN_PATH_PREFIX>$1? break` | 回源不帶查詢參數：簽章不必給源站，也不讓 `response-content-type` 之類的參數改寫要被共用的快取內容；`/storage` 換成源站的前綴（預設同樣是 `/storage`，直接回源到 S3 時是空字串，§16.3.1） |
 | `proxy_cache_path /var/cache/nginx/cdn levels=1:2 keys_zone=cdn:50m max_size=… inactive=… use_temp_path=off` | 快取的位置與上限；`max_size` 滿了以 LRU 淘汰、`inactive` 期間沒被讀過的自動刪除 |
-| `proxy_cache_key $uri` | key 只有路徑（清理時以同一個 key 算出檔案位置，§16.6） |
+| `proxy_cache_key $cdn_cache_key` | key 只有邊緣收到的路徑（`/storage/<bucket>/<key>`，改寫回源路徑之前記下；清理時以同一個 key 算出檔案位置，§16.6） |
 | `proxy_ignore_headers Cache-Control Expires Set-Cookie X-Accel-Expires Vary` ＋ `proxy_cache_valid 200 …` | 源站回 `private` 也照樣快取；只快取 200，`404` 不快取 |
 | `proxy_cache_lock on` | 同一個物件同時 MISS 時只回源一次 |
 | `Cache-Control: public, max-age=<exp − 現在>, immutable`（`cdn.cacheControl`） | 依網址的剩餘效期決定；非 2xx 回 `no-store` |
@@ -992,7 +992,8 @@ FileAccessService（modules/file）
 | 只開 `GET`／`HEAD`（`OPTIONS` 回 204），其他 `405`；`/storage/` 以外 `404` | 與檔案網域相同（§13 D4） |
 | `sandbox` CSP、`nosniff`、`Cross-Origin-Resource-Policy: cross-origin`、`Access-Control-Allow-Origin: *`、不回 `Set-Cookie`、隱藏 `x-amz-*` | 沿用檔案網域的安全標頭（§13 D4、D5）；寫在 `nginx.cdn.conf` 裡（與 `deploy/nginx-file-origin.sh` 的值相同，改一邊要改另一邊） |
 | 回源時清掉 `Cookie`／`Authorization`，帶 `X-Origin-Auth`（`CDN_ORIGIN_SECRET`；沒設定就不帶） | 源站的回源憑證（[`../03-file-storage.md`](../03-file-storage.md) §3.3） |
-| 源站的 `upstream` 以 `server … resolve` 在執行期解析 | 同 `deploy/nginx-upstreams.sh`；源站暫時解析不到時邊緣照樣起得來 |
+| 源站的 `upstream` 以 `server … resolve` 在執行期解析 | 同 `deploy/nginx-upstreams.sh`；源站暫時解析不到時邊緣照樣起得來。nginx 的 resolver **不套 search domain**：k8s 的 `CDN_ORIGIN_UPSTREAM` 要寫完整的名稱（`<service>.<namespace>.svc.cluster.local`） |
+| https 回源：`proxy_ssl_verify on`、`proxy_ssl_trusted_certificate <CDN_ORIGIN_CA_FILE>`、SNI 與 `Host` 是源站的名稱（沒寫埠時不帶 `:443`） | 驗證源站的憑證與名稱：不驗證時，回源路徑上的任何人都能把內容塞進所有人共用的快取。內部 CA 掛進容器後以 `CDN_ORIGIN_CA_FILE` 指到它 |
 | 第二個 `server`（`CDN_PURGE_PORT`，只在內部網路）：`POST /_purge`、`POST /_purge/all`、`GET /_status` | 清理（§16.6）與節點的狀態（§16.10）；對外的埠沒有這些路徑 |
 
 **金鑰環**：`CDN_SIGNING_KEYS` 與 api 的 `FILE_CDN_SIGNING_KEYS` 是同一個值（`<kid>:<base64>[,…]`，格式同 `JWT_SIGNING_KEYS`）。**第一把簽發，全部都能驗證**。
@@ -1002,11 +1003,57 @@ FileAccessService（modules/file）
 
 | 環境 | 怎麼起 | 回源 | 對外 | 清理端點 |
 | --- | --- | --- | --- | --- |
-| 本機 | `pnpm cdn:up`／`cdn:down`（`docker-compose.yml` 的 `cdn` profile，與 `monitoring:up` 同一個形式） | `http://host.docker.internal:9000`（`pnpm dev:storage`） | `127.0.0.1:9080` | `127.0.0.1:8081` |
+| 本機 | `pnpm cdn:up`／`cdn:down`（`docker-compose.yml` 的 `cdn` profile，與 `monitoring:up` 同一個形式） | `http://host.docker.internal:9000`（`pnpm dev:storage`；Linux 見下方） | `127.0.0.1:9080` | `127.0.0.1:8081` |
 | 正式 compose | 疊 `docker-compose.cdn.yml`（快取在 named volume `cdn-cache`；可與 cluster、monitoring 一起疊） | `http://file-storage:9000`（storage 網路） | `${EDGE_BIND_ADDRESS}:8083`（前置 LB 的 TLS 指到這裡） | 不發布；storage 網路的別名 `cdn-purge` |
-| k8s | overlay 加 `components: [../../components/cdn]`（Deployment ×2、`cdn` Service、清理用的 headless Service `cdn-purge`、Ingress 的 CDN 網域；快取是有上限的 `emptyDir`） | `CDN_ORIGIN_UPSTREAM`（能以 `/storage/<bucket>/<key>` 讀到物件的源站） | Ingress | headless Service |
+| k8s | overlay 加 `components: [../../components/cdn]`（Deployment ×2、`cdn` Service、清理用的 headless Service `cdn-purge`、Ingress 的 CDN 網域；快取是有上限的 `emptyDir`） | `CDN_ORIGIN_UPSTREAM`（apps/file-storage 的完整服務名稱，或直接回源到 S3，§16.3.1） | Ingress | headless Service |
 
 backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加進 CSP 的 `img-src`（`deploy/nginx-file-origin.sh`）。
+
+**本機在 Linux 上**：`cdn` 容器以 `extra_hosts: host.docker.internal:host-gateway` 找到主機（Docker 20.10 起），但 `host-gateway` 在 Linux 是 bridge 的閘道位址（通常 `172.17.0.1`），
+`pnpm dev:storage` 預設只聽 `127.0.0.1`，容器連不到。這時 file-storage 要聽得到 bridge 的位址：`FILE_STORAGE_HOST=0.0.0.0`（或只聽閘道位址 `172.17.0.1`，不對區網開放），
+主機的防火牆（ufw 等）也要放行容器網段到 9000。macOS／Windows 的 Docker Desktop 把 `host-gateway` 轉到主機的 loopback，不需要改。
+
+#### 16.3.1 直接回源到 S3（參考部署沒有 apps/file-storage 時）
+
+回源憑證 `X-Origin-Auth`（[`../03-file-storage.md`](../03-file-storage.md) §3.3）只屬於 apps/file-storage；邊緣算不了 SigV4（§17 評估過的方案）。
+源站是 S3 時，最小可行的做法是 **以 bucket policy 只放行內部網路的匿名 `GetObject`**，邊緣直接以 path-style 回源，不需要另一層閘道：
+
+| 邊緣的設定 | 值 |
+| --- | --- |
+| `CDN_ORIGIN_UPSTREAM` | `https://s3.<region>.amazonaws.com`（叢集所在 VPC 有 S3 的 gateway endpoint，流量不出 VPC） |
+| `CDN_ORIGIN_PATH_PREFIX` | 空字串：回源的路徑是 `/<bucket>/<key>`（快取的 key 與清理的路徑照舊是 `/storage/<bucket>/<key>`） |
+| `CDN_ORIGIN_SECRET` | 不設（S3 不認它） |
+| `CDN_ORIGIN_CA_FILE` | 不設：映像內建的公開 CA 驗證 S3 的憑證 |
+
+每個租戶的 bucket 加上（`aws:SourceVpce` 的條件讓它不算公開，Block Public Access 不必關）：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "CdnEdgeReadFromVpcEndpoint",
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": "s3:GetObject",
+    "Resource": [
+      "arn:aws:s3:::<bucket>/variants/*",
+      "arn:aws:s3:::<bucket>/images/*",
+      "arn:aws:s3:::<bucket>/gallery/*"
+    ],
+    "Condition": { "StringEquals": { "aws:SourceVpce": "vpce-<id>" } }
+  }]
+}
+```
+
+- `Resource` 只列會走 CDN 的前綴（§16 開頭的範圍）：原檔 `files/`、上傳暫存不能匿名讀。圖片庫的原檔在 `gallery/<id>/original`，前綴放行到 `gallery/*`
+  時原檔也讀得到（與 file-storage 的回源憑證相同，都是「內部網路上讀得到」；要更嚴就把 `Resource` 寫成 `gallery/*/r*/*`）。
+- 同一個 VPC 裡的其他工作負載也讀得到這些物件：與 file-storage 的「內部網路上的 cdn 容器才帶得出回源憑證」相比，信任邊界是 VPC endpoint 而不是單一容器。
+  要收緊時在 endpoint policy 或 bucket policy 再加 `aws:SourceIp`（節點的網段）。
+- **限制**：bucket 由 api 在建立租戶時建立（`CreateBucket`，§3.1），這一版 **不會** 自動套上 policy；新租戶的 bucket 要由佈建流程（IaC、維運腳本）加上，
+  否則那個租戶的圖片回源拿到 `403`（邊緣不快取，頁面破圖）。開啟 CDN 前以 §16.10 的檢查之外，另以一個實際的物件確認。
+- 只在 S3 前面多一層驗證的閘道（以 IAM 角色 SigV4 回源的小程式、或 S3 Object Lambda）可以讓信任邊界回到單一容器，但多一個要維運的元件，這一版不做；
+  多區域時改用 CloudFront 的 OAC（§17 D7）。
+- MinIO 等 S3 相容的服務：同樣以 bucket policy 放行內部網段（`aws:SourceIp`），路徑與上表相同。
 
 ### 16.4 開關的行為
 
@@ -1057,6 +1104,8 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 | `CDN_PURGE_SECRET` | 必填 | 與 `FILE_CDN_PURGE_SECRET` 相同的值 |
 | `CDN_ORIGIN_UPSTREAM` | `http://file-storage:9000` | 回源的位址（`<協定>://<主機>[:埠]`；本機是 `http://host.docker.internal:9000`） |
 | `CDN_ORIGIN_SECRET` | — | 與 file-storage 的 `FILE_STORAGE_ORIGIN_SECRET` 相同的值；沒設定就不帶回源憑證 |
+| `CDN_ORIGIN_PATH_PREFIX` | `/storage` | 源站的路徑前綴（`FILE_STORAGE_BASE_PATH`）；直接回源到 S3 的 path-style 端點時設成空字串（§16.3.1）。空字串或 `/<段>[/<段>…]` |
+| `CDN_ORIGIN_CA_FILE` | `/etc/ssl/certs/ca-certificates.crt` | https 回源時驗證源站憑證的 CA（映像內建的公開 CA）；內部 CA 掛進容器後指到它。讀不到就不啟動 |
 | `CDN_CACHE_MAX_SIZE` | `10g` | 快取的磁碟上限 |
 | `CDN_CACHE_INACTIVE` | `30d` | 多久沒被讀取就刪除 |
 | `CDN_CACHE_VALID` | `30d` | 快取的有效期（物件只寫一次，所以可以等於 `inactive`） |
@@ -1160,10 +1209,14 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm <平台 database �
 | backstage 的 CSP | `img-src` 放行 `CDN_PUBLIC_ORIGIN` |
 | `GET /_status`（清理埠，簽章同 `/_purge`） | 兩個節點都回報金鑰環的 kid（依順序、不含金鑰）、快取設定、版本與啟動時間；簽章錯、`ts` 超過 5 分鐘 → `403`；對外的埠沒有這個路徑 |
 | `X-CDN-Reject` | 竄改的簽章、沒有簽章 → `signature`；過期 → `expired`；`PUT` → `method`；有效的網址與源站的 `404` 不帶 |
-| 不合法的 `CDN_*`（含 `CDN_BUILD`） | 邊緣不啟動 |
+| https 回源（自簽憑證的源站、`CDN_ORIGIN_PATH_PREFIX=''`） | 沒有信任源站的 CA → `502`；`CDN_ORIGIN_CA_FILE` 指到它 → `200`、再一次 `HIT`；源站收到 `/<bucket>/<key>`、`Host` 不帶 `:443`；以 `/storage/…` 清理仍刪得掉快取檔 |
+| 不合法的 `CDN_*`（含 `CDN_BUILD`、`CDN_ORIGIN_PATH_PREFIX`、讀不到的 `CDN_ORIGIN_CA_FILE`） | 邊緣不啟動 |
 
 另外：`sh deploy/smoke-test.sh --cdn` 疊 `docker-compose.cdn.yml` 整套建置啟動（api 以 `FILE_CDN_ENABLED=true` 通過 production 的驗證、
-邊緣不放行沒有簽章的請求、api 容器裡的 `cli:cdn-purge --all` 送得到邊緣）；`deploy/check-k8s.sh` 以兩個 overlay 各疊一次 `components/cdn`。
+邊緣不放行沒有簽章的請求、api 容器裡的 `cli:cdn-purge --all` 送得到邊緣）；`deploy/check-k8s.sh` 以兩個 overlay 各疊一次 `components/cdn`，
+並以 Docker 模擬 `components/cdn` 的 Pod（不起叢集）：從產生出來的 Deployment 取規格（唯讀根目錄、drop ALL、不能提權、兩個 `emptyDir`、`CDN_ORIGIN_UPSTREAM`、`CDN_CACHE_MAX_SIZE`），
+映像的 `USER` 是數字（`runAsNonRoot`）、兩個副本以 TCP 就緒（源站是範例網址也起得來）、api 的 `FILE_CDN_PURGE_URL`（短名稱）在 k8s 的 search domain 與 `ndots:5` 之下
+以 node 的 `dns.lookup` 解析到兩個副本、`/_status` 的簽章檢查在每個副本通過。實際的叢集（kubelet、CoreDNS、Ingress）沒有在 CI 驗證。
 
 api 的測試：
 
@@ -1420,6 +1473,9 @@ CDN 把整個網址當 key 時每個時間窗（`FILE_URL_TTL / 2`）都要重�
   先讓邊緣認得新金鑰，api 再開始用它簽發，兩邊之間沒有空窗（§16.3）。
 - **安全標頭寫在 `nginx.cdn.conf` 裡**，沒有與檔案網域共用一個 snippet：`nginx.security-headers.conf` 是前端頁面的 CSP，檔案網域的標頭由 `nginx-file-origin.sh` 產生；
   兩處的值相同，改一邊要改另一邊。
+- **https 回源要驗證憑證、可以換掉 `/storage` 前綴**（上線後的驗證補上）：原本 `proxy_ssl_verify` 是 nginx 的預設 `off`，k8s 範例的 `https://` 源站被中間人換掉內容時，
+  會被存進所有人共用的快取；改成一律驗證（`CDN_ORIGIN_CA_FILE`）。參考部署沒有 apps/file-storage，直接回源到 S3 需要 `/<bucket>/<key>` 的路徑與不帶 `:443` 的 `Host`，
+  所以加了 `CDN_ORIGIN_PATH_PREFIX`，快取的 key 改記在 `$cdn_cache_key`（改寫回源路徑之前的 `$uri`），清理不受影響（§16.3.1）。
 
 ### 17.1 CDN 設定管理（圖片階段 5）
 

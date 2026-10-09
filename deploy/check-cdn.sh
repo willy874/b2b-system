@@ -10,6 +10,8 @@
 #   - /_status：每個節點回報 kid（不含金鑰）、快取設定、版本；簽章錯、ts 過舊 → 403；對外的埠沒有這個路徑
 #   - X-CDN-Reject：邊緣自己拒絕的請求帶原因（signature／expired／method），源站的回應（200、404）不帶
 #   - 兩個節點：清理名稱解析到兩個位址，兩邊的快取檔都被刪掉
+#   - https 回源（直接回源到 S3 那類的源站）：沒有信任源站憑證的 CA → 502；掛進 CA（CDN_ORIGIN_CA_FILE）→ 200；
+#     CDN_ORIGIN_PATH_PREFIX='' 回源的路徑是 /<bucket>/<key>、Host 不帶預設埠；快取的 key 與清理的路徑照舊是 /storage/…
 #   - 環境變數不合格式時邊緣不啟動
 #
 # 簽章與清理請求由 deploy/cdn-check.mjs 產生（與 api 相同的格式）。用到主機的 19080～19083；結束時刪掉容器、網路與映像。
@@ -30,6 +32,9 @@ EDGE_PORT=19080
 EDGE2_PORT=19081
 WEB_PORT=19082
 STORAGE_PORT=19083
+TLS_EDGE_PORT=19084
+TLS_EDGE_CA_PORT=19085
+TLS_DIR=$(mktemp -d)
 
 # 一次性的金鑰：kid k2 在前（簽發），k1 只驗證（輪替中）
 KEY_1=$(openssl rand -base64 48 | tr -d '\n')
@@ -42,12 +47,14 @@ SECRET_KEY=$(openssl rand -hex 24)
 cleanup() {
   status=$?
   if [ "$status" != 0 ]; then
-    for name in edge1 edge2 storage web; do
+    for name in edge1 edge2 storage web tls-edge tls-edge-ca tls-origin; do
       echo "── $name 的日誌" >&2
       docker logs --tail 30 "$PREFIX-$name" >&2 2>&1 || true
     done
   fi
-  docker rm -f "$PREFIX-edge1" "$PREFIX-edge2" "$PREFIX-storage" "$PREFIX-web" "$PREFIX-client" >/dev/null 2>&1 || true
+  docker rm -f "$PREFIX-edge1" "$PREFIX-edge2" "$PREFIX-storage" "$PREFIX-web" "$PREFIX-client" \
+    "$PREFIX-tls-origin" "$PREFIX-tls-edge" "$PREFIX-tls-edge-ca" >/dev/null 2>&1 || true
+  rm -rf "$TLS_DIR"
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
   docker rmi "$EDGE_IMAGE" "$STORAGE_IMAGE" >/dev/null 2>&1 || true
 }
@@ -281,9 +288,49 @@ result=$(tool purge http://cdn-purge:8081 "$PURGE_SECRET" all)
 [ "$(echo "$result" | grep -c ' 200 ')" = "2" ] || fail "清空整個快取失敗（$result）"
 expect_status "清空整個快取之後" "200 MISS" "$EDGE$SECOND_ENCODED$SECOND_QUERY"
 
+echo "── https 回源（S3 那類的源站：路徑沒有 /storage、要驗證憑證）"
+# 自簽憑證的源站（名稱 tls-origin，聽 443）：回應收到的路徑與 Host
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=tls-origin -addext subjectAltName=DNS:tls-origin \
+  -keyout "$TLS_DIR/key.pem" -out "$TLS_DIR/cert.pem" >/dev/null 2>&1 || fail "產生自簽憑證失敗"
+chmod 644 "$TLS_DIR/key.pem" "$TLS_DIR/cert.pem"
+docker run -d --name "$PREFIX-tls-origin" --network "$NETWORK" --network-alias tls-origin -v "$TLS_DIR:/tls:ro" \
+  "$NODE_IMAGE" node -e '
+const fs = require("fs");
+require("https").createServer({ key: fs.readFileSync("/tls/key.pem"), cert: fs.readFileSync("/tls/cert.pem") }, (req, res) => {
+  console.log(JSON.stringify({ url: req.url, host: req.headers.host }));
+  res.setHeader("content-type", "image/webp");
+  res.end("origin saw " + req.url);
+}).listen(443);' >/dev/null
+start_tls_edge() {
+  name=$1
+  port=$2
+  shift 2
+  docker run -d --name "$PREFIX-$name" --network "$NETWORK" --network-alias "$name-purge" -p "127.0.0.1:$port:9080" \
+    --read-only --tmpfs /tmp --tmpfs /var/cache/nginx:uid=101,gid=101 -v "$TLS_DIR:/tls:ro" \
+    -e CDN_SIGNING_KEYS="k2:$KEY_2" -e CDN_PURGE_SECRET="$PURGE_SECRET" \
+    -e CDN_ORIGIN_UPSTREAM=https://tls-origin -e CDN_ORIGIN_PATH_PREFIX= "$@" \
+    "$EDGE_IMAGE" >/dev/null
+}
+start_tls_edge tls-edge "$TLS_EDGE_PORT"
+start_tls_edge tls-edge-ca "$TLS_EDGE_CA_PORT" -e CDN_ORIGIN_CA_FILE=/tls/cert.pem
+wait_http "http://127.0.0.1:$TLS_EDGE_PORT/"
+wait_http "http://127.0.0.1:$TLS_EDGE_CA_PORT/"
+TLS_QUERY=$(tool sign "$KEY_PATH" "$EXP" k2 "$KEY_2")
+expect_status "源站的憑證不被信任：不回源" "502 MISS" "http://127.0.0.1:$TLS_EDGE_PORT$ENCODED_PATH$TLS_QUERY"
+expect_status "掛進源站的 CA（CDN_ORIGIN_CA_FILE）" "200 MISS" "http://127.0.0.1:$TLS_EDGE_CA_PORT$ENCODED_PATH$TLS_QUERY"
+expect_status "同一個網址再一次" "200 HIT" "http://127.0.0.1:$TLS_EDGE_CA_PORT$ENCODED_PATH$TLS_QUERY"
+seen=$(docker logs "$PREFIX-tls-origin" 2>/dev/null | tail -1)
+echo "$seen" | grep -q '"url":"/b2b-acme/images/a1/r1/sm@2x.webp"' || fail "回源的路徑應該拿掉 /storage（$seen）"
+echo "$seen" | grep -q '"host":"tls-origin"' || fail "回源的 Host 不應該帶預設埠（$seen）"
+echo "  ✓ 回源的路徑是 /<bucket>/<key>、Host 不帶 :443（$seen）"
+result=$(tool purge http://tls-edge-ca-purge:8081 "$PURGE_SECRET" "$KEY_PATH")
+echo "$result" | grep -q '"purged":1' || fail "前綴改寫之後，清理仍要以 /storage/… 刪掉快取檔（$result）"
+expect_status "清理之後重新回源" "200 MISS" "http://127.0.0.1:$TLS_EDGE_CA_PORT$ENCODED_PATH$TLS_QUERY"
+
 echo "── 環境變數的格式檢查"
 for bad in 'CDN_SIGNING_KEYS=k1:short' 'CDN_PURGE_SECRET=' 'CDN_ORIGIN_UPSTREAM=http://x;include /etc/passwd' \
-  'CDN_CACHE_MAX_SIZE=10g; include /etc/passwd' 'CDN_PURGE_PORT=9080' "CDN_BUILD=x'; include /etc/passwd"; do
+  'CDN_CACHE_MAX_SIZE=10g; include /etc/passwd' 'CDN_PURGE_PORT=9080' "CDN_BUILD=x'; include /etc/passwd" \
+  'CDN_ORIGIN_PATH_PREFIX=/storage/' 'CDN_ORIGIN_PATH_PREFIX=/a;include /etc/passwd' 'CDN_ORIGIN_CA_FILE=/nonexistent.pem'; do
   docker run --rm --read-only --tmpfs /tmp \
     -e CDN_SIGNING_KEYS="k2:$KEY_2" -e CDN_PURGE_SECRET="$PURGE_SECRET" -e "$bad" \
     "$EDGE_IMAGE" nginx -t -c /tmp/nginx.conf >/dev/null 2>&1 && fail "不合法的 $bad 沒有讓邊緣啟動失敗"

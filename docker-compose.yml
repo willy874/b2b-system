@@ -111,7 +111,8 @@ services:
     tmpfs: [/tmp]
     volumes:
       - cdn-cache:/var/cache/nginx
-    # Linux 的 Docker 沒有 host.docker.internal；那時 file-storage 要聽 0.0.0.0（FILE_STORAGE_HOST）才連得到
+    # Linux 的 Docker 沒有內建的 host.docker.internal，靠這行對到 bridge 的閘道（172.17.0.1）：那時 file-storage 要聽 0.0.0.0 或 172.17.0.1
+    #（FILE_STORAGE_HOST）才連得到，聽 127.0.0.1 會被拒絕（docs/architecture/backend/09-file.md §16.3）
     extra_hosts: ['host.docker.internal:host-gateway']
     # 瀏覽器讀圖的埠；清理端點只綁 loopback（api 在主機上）
     ports:
