@@ -22,6 +22,7 @@
 | P2 | 圖片選取與上傳來源（上傳含拖曳與貼上、最近使用、從檔案管理或圖片庫挑選；來源依 feature、權限與內容自動取捨） | [`image-picker.md`](./image-picker.md) | 規劃中 | 檔案、可關閉的 feature |
 | P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（來源介面）、標籤、留言 |
 | P3 | 圖片的 CDN（本機以 nginx 模擬：驗網址簽章、邊緣快取、內部憑證回源；api 的 `CdnUrlSigner`，之後換真正的 CDN 只換實作） | [`image-cdn.md`](./image-cdn.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（不可修改的圖片資產）、獨立的檔案網域 |
+| P3 | CDN 設定管理（apps/platform：執行期的開關與參數、開啟前的節點檢查、邊緣狀態與告警、手動清理；環境變數改為部署層的能力與上限） | [`cdn-settings.md`](./cdn-settings.md) | 規劃中 | [`image-cdn.md`](./image-cdn.md) |
 
 狀態只有三種：
 

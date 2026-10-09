@@ -6,7 +6,8 @@
   獨立的檔案網域（[`backend/09-file.md`](../architecture/backend/09-file.md) §3.2、§13）、影像 API（[`backend/09-file.md`](../architecture/backend/09-file.md) §5.4）、
   背景工作（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)；清理快取的 `cdn.purge`）
 - 相關：[`image-picker.md`](./image-picker.md)（圖片資產）、[`image-gallery.md`](./image-gallery.md)（圖片最多的頁面）；
-  部署（[`01-system.md`](../architecture/01-system.md) §4.3、`deploy/k8s/`）
+  部署（[`01-system.md`](../architecture/01-system.md) §4.3、`deploy/k8s/`）；
+  [`cdn-settings.md`](./cdn-settings.md)（在 apps/platform 管理執行期的開關與參數、邊緣的狀態檢查、手動清理；環境變數改為部署層的能力與上限）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -157,6 +158,7 @@ nginx 無法自己算 SigV4，所以 file-storage 另外接受一種回源請求
 - **由開到關**：設定 `false` → 重啟 api。新的回應立刻改回 presigned 網址；已發出的 CDN 網址在效期內仍會被使用，
   所以 **邊緣要繼續運作到 `FILE_CDN_MAX_URL_TTL` 過去** 才能停掉。
 - **只能整個部署一起開關**，不能依租戶（D9）；開關需要重啟（環境變數在程序啟動時讀取並驗證）。
+  [`cdn-settings.md`](./cdn-settings.md) 在這之上加一層不必重啟的執行期開關（平台 DB），環境變數仍是部署層的能力與上限。
 - api 的就緒檢查 **不** 依賴 CDN：CDN 掛掉時圖片讀不到，但 api 照常服務；以 §8 的指標與告警發現。
 
 ### 6. 參數
