@@ -290,7 +290,8 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 | 單元 | `modules/gallery/__tests__/` | 拍攝時間的換算、游標、上傳與加入的規則、相簿的規則 |
 | 整合 | `test/gallery.spec.ts` | 上傳 → 處理 → ready（GPS 移除、拍攝時間、變體）、從檔案加入（略過的原因、已經加入過）、顯示方向的新版本、篩選與 keyset、時間軸、相簿、回收桶、權限、feature 停用、選圖的來源 |
 | 整合 | `test/gallery-cdn.spec.ts` | 變體走 CDN、原檔與下載照舊 presigned；舊版本變體與永久刪除後排入的 `cdn.purge` 路徑（只有變體） |
-| 單元 | `modules/gallery/__tests__/gallery-cdn.spec.ts`、`gallery-cdn-paths.spec.ts`、`cli/__tests__/cdn-purge.spec.ts` | `cdnKeysOf`、`GalleryImageUrls` 的 `cdn` 標記、`--gallery-item` 與 `galleryCdnKeysOf`、`galleryItem` 的路徑解析器登記 |
+| 單元 | `modules/gallery/__tests__/gallery-cdn.spec.ts`、`gallery-cdn-paths.spec.ts`、`cli/__tests__/cdn-purge.spec.ts` | `cdnKeysOf`、`GalleryImageUrls` 的 `cdn` 標記與原檔 inline 網址的條件（轉向、TIFF 時沒有）、`--gallery-item` 與 `galleryCdnKeysOf`、`galleryItem` 的路徑解析器登記 |
+| E2E | `apps/e2e/tests/gallery.spec.ts` | 上傳 → 時間軸 → 檢視器切換、放大後載入原檔（轉向後不載）、從檔案管理器加入（略過非圖片）、member／auditor 唯讀與 403、關掉 feature 後入口消失 |
 | 整合 | `test/cdn-settings.spec.ts` | apps/platform 的手動清理以 `galleryItem` 排入 `cdn.purge`（每個版本的變體、回收桶裡的也算）、找不到時 404 |
 
 ## 14. 設計決策：圖片庫

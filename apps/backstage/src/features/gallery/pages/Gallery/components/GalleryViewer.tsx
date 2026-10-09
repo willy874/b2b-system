@@ -9,7 +9,7 @@ import { Menu } from '@b2b-system/ui/Menu';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { isAppError } from '@b2b-system/web-core/errors';
 import { SignedImage } from '@b2b-system/web-core/image';
-import type { ImageSources } from '@b2b-system/web-core/image';
+import type { ImageSourceVariant, ImageSources } from '@b2b-system/web-core/image';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { cn } from '@b2b-system/web-shared/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -25,6 +25,7 @@ import {
   useGalleryItemDeleteMutation,
   useGalleryItemUpdateMutation,
 } from '../../../hooks/useGalleryMutations';
+import { preloadImageVariant } from '../preload';
 import { GalleryInfoPanel } from './GalleryInfoPanel';
 
 interface GalleryViewerProps {
@@ -44,16 +45,19 @@ interface GalleryViewerProps {
   onSetCover?: (itemId: string) => void;
 }
 
-/** 切到前後時預先抓 `large`：換圖時立刻顯示。 */
+/** 切到前後時預先抓 `large`（與檢視器同一個 `<picture>` 結構，抓的是瀏覽器會顯示的格式）：換圖時立刻顯示。 */
 function usePreload(sources: ReadonlyArray<ImageSources | undefined>): void {
-  const key = sources.map((source) => source?.variants.large?.src ?? '').join('\n');
+  const variants = sources.flatMap((source) => {
+    const large = source?.variants.large;
+    return large ? [large] : [];
+  });
+  // 網址字串當作依賴：查詢重抓得到同樣的網址時不重做（簽章網址在同一個時間窗內不變）
+  const key = JSON.stringify(
+    variants.map(({ src, sources: formats }) => ({ src, sources: formats })),
+  );
   useEffect(() => {
-    for (const src of key.split('\n')) {
-      if (!src) continue;
-      const image = new Image();
-      image.decoding = 'async';
-      image.src = src;
-    }
+    const parsed = JSON.parse(key) as Array<Pick<ImageSourceVariant, 'src' | 'sources'>>;
+    for (const variant of parsed) preloadImageVariant(variant);
   }, [key]);
 }
 

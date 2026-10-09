@@ -72,3 +72,28 @@ describe('GalleryImageUrls 的 CDN 標記（docs/architecture/backend/09-file.md
     for (const [, options] of sign.mock.calls) expect(options).not.toHaveProperty('cdn');
   });
 });
+
+describe('GalleryImageUrls.originalOf（檢視器放大超過 large 時的原檔，docs/architecture/backend/26-gallery.md §6）', () => {
+  const sign = vi.fn(async (_key: string, _options: Record<string, unknown>) => ({
+    url: 'https://storage.test/original',
+    expiresAt: new Date('2026-10-09T00:00:00Z'),
+  }));
+  const urls = new GalleryImageUrls({} as ImageUrlService, { sign } as unknown as ObjectUrlSigner);
+
+  it('沒有轉向、瀏覽器顯示得了：簽原檔的 inline 網址，尺寸是 EXIF 轉正之後的', async () => {
+    await expect(urls.originalOf(row())).resolves.toMatchObject({
+      url: 'https://storage.test/original',
+      width: 800,
+      height: 400,
+    });
+    expect(sign).toHaveBeenLastCalledWith(`gallery/${ID}/original`, expect.any(Object));
+  });
+
+  it.each([
+    ['調整過顯示方向（原檔沒有轉）', { displayRotation: 90 }],
+    ['TIFF（瀏覽器顯示不了）', { contentType: 'image/tiff' }],
+    ['原檔還沒寫好', { hasOriginal: false }],
+  ] as const)('%s：null，檢視器停在 large', async (_label, overrides) => {
+    await expect(urls.originalOf(row(overrides))).resolves.toBeNull();
+  });
+});
