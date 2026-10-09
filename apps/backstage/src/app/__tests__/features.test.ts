@@ -129,7 +129,12 @@ describe('可啟用 feature 的 catalog', () => {
   it('file：安裝後登記 route id file.folder（通知連到資料夾）與命令面板的預覽連結，卸載後撤回——連結變成不可點（docs/architecture/backend/15-notification.md §12.2 D3）', async () => {
     const context = createContext();
     const name = await context.install(FEATURE_CATALOG.file.plugin);
-    expect(routeLinkRegistry.keys()).toEqual(['file.folder', 'file.preview', 'file.folderPreview']);
+    expect(routeLinkRegistry.keys()).toEqual([
+      'file.folder',
+      'file.preview',
+      'file.folderPreview',
+      'file.requestAccess',
+    ]);
 
     context.uninstall(name);
     expect(routeLinkRegistry.keys()).toEqual([]);

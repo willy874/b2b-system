@@ -192,6 +192,7 @@
       "pending": "Access requested",
       "lockedTitle": "You don't have access to this folder",
       "lockedDescription": "You can see its subfolders but not its files. Ask the folder's managers or an administrator for access.",
+      "resubmitDescription": "Resubmit a rejected or withdrawn request. You can change the level and reason; reviewers will see it is linked to the previous request.",
       "pendingDescription": "Your request has been sent and is waiting for the folder's managers or an administrator.",
       "request": "Request access",
       "requestTitle": "Request access to “{{name}}”",

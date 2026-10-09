@@ -2,6 +2,7 @@ import type { AppPluginFactory } from '@b2b-system/web-core/app';
 import { LanguageNamespace, Languages } from '@b2b-system/web-shared/constants';
 
 import { registerApprovalBatchOperations } from './batch';
+import { registerApprovalHomeSection } from './home';
 import { APPROVAL_LOCALE_SCOPE } from './locale';
 import { registerApprovalNavigation } from './navigation';
 import { registerApprovalPagePermissions } from './permission';
@@ -15,6 +16,7 @@ export function appContextPlugin(): AppPluginFactory {
     registerApprovalPreferences(); // 偏好頁的列表註冊表
     registerApprovalBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行
     registerApprovalRouteLinks(); // 站內通知等後端連結的 route id
+    registerApprovalHomeSection(); // 首頁的「待我審核」
     const app = context.getInstance();
 
     return {

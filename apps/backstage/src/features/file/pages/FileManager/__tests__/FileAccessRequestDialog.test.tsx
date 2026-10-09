@@ -45,6 +45,27 @@ describe('FileAccessRequestDialog（docs/architecture/iam/06-resource-grants.md 
   });
 });
 
+describe('FileAccessRequestDialog 的重新送出（docs/architecture/backend/20-approval.md §11.3）', () => {
+  it('預填前一筆的等級，送出時帶上前一筆的 id', async () => {
+    renderWithPermissions(
+      <FileAccessRequestDialog
+        folder={{ id: 'plan', name: '企劃' }}
+        resubmit={{ level: 'editor', approvalId: 'a0' }}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('file-access-request-submit'));
+    await waitFor(() =>
+      expect(createRequest.mock.calls[0]?.[0]).toEqual({
+        params: {
+          folderId: 'plan',
+          body: { level: 'editor', reason: undefined, resubmittedFrom: 'a0' },
+        },
+      }),
+    );
+  });
+});
+
 describe('FileLockedNotice', () => {
   it('沒有申請時顯示「申請存取」鈕；已申請時只顯示狀態', () => {
     const onRequest = vi.fn();

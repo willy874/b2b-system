@@ -5,7 +5,7 @@ import { RichTable } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet, useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
@@ -20,9 +20,10 @@ import {
   MY_APPROVAL_TABS,
 } from '../../constants';
 import type { MyApprovalTab } from '../../constants';
+import { useApprovalCounts } from '../../hooks/useApprovalCounts';
 import { MyApprovalDetailRoute, MyApprovalRoute } from '../../routes';
 import { ApprovalProgress } from '../ApprovalList/components/ApprovalProgress';
-import { toMyApprovalRowVM } from './adapter';
+import { toMyApprovalListParams, toMyApprovalRowVM } from './adapter';
 import type { MyApprovalRowVM } from './adapter';
 
 /**
@@ -39,11 +40,15 @@ export default function MyApprovalListPage() {
     search.tab && tabs.includes(search.tab) ? search.tab : (tabs[0] ?? 'mine');
 
   const { data, isPending, error, refetch } = useQuery(
-    getApprovalListQueryOptions({
-      params: { scope: tab, offset: search.offset, limit: search.limit },
-    }),
+    getApprovalListQueryOptions({ params: toMyApprovalListParams(search, tab) }),
   );
   const rows = useMemo(() => (data?.items ?? []).map(toMyApprovalRowVM), [data]);
+  const assignedCount = useApprovalCounts()?.assigned ?? 0;
+  // 從「待我審核」點進詳情：決定後前往下一筆（docs/architecture/backend/20-approval.md §12 D5）
+  const detailSearch = useMemo(
+    () => ({ ...search, tab, queue: tab === 'assigned' || undefined }),
+    [search, tab],
+  );
 
   const columns = useMemo<Array<TableColumnDef<MyApprovalRowVM>>>(
     () => [
@@ -55,7 +60,7 @@ export default function MyApprovalListPage() {
           <Link
             to={MyApprovalDetailRoute.to}
             params={{ approvalId: row.original.id }}
-            search={search}
+            search={detailSearch}
             className="font-medium whitespace-nowrap text-[var(--color-brand)]"
             data-testid="my-approval-detail-link"
             data-value={row.original.requesterName}
@@ -97,7 +102,7 @@ export default function MyApprovalListPage() {
         cell: ({ row }) => formatDateTime(row.original.createdAt),
       },
     ],
-    [search, t],
+    [detailSearch, t],
   );
 
   const setSearch = (next: { tab?: MyApprovalTab; offset?: number; limit?: number }) =>
@@ -113,7 +118,14 @@ export default function MyApprovalListPage() {
       <Tabs
         value={tab}
         onValueChange={(value) => setSearch({ tab: toTab(value), offset: 0 })}
-        tabs={tabs.map((value) => ({ value, label: t(MY_APPROVAL_TAB_LABEL_KEY[value]) }))}
+        tabs={tabs.map((value) => ({
+          value,
+          label:
+            value === 'assigned' && assignedCount > 0
+              ? t('approval.my.assignedTab', { count: assignedCount })
+              : t(MY_APPROVAL_TAB_LABEL_KEY[value]),
+          textValue: t(MY_APPROVAL_TAB_LABEL_KEY[value]),
+        }))}
         moreLabel={t('common.more')}
         data-testid="my-approval-tabs"
       />
@@ -132,13 +144,18 @@ export default function MyApprovalListPage() {
           onChange: ({ offset, limit }) => setSearch({ offset, limit }),
         }}
         onRowDoubleClick={(row) =>
-          void navigate({ to: MyApprovalDetailRoute.to, params: { approvalId: row.id }, search })
+          void navigate({
+            to: MyApprovalDetailRoute.to,
+            params: { approvalId: row.id },
+            search: detailSearch,
+          })
         }
         emptyTitle={t(tab === 'assigned' ? 'approval.my.emptyAssigned' : 'approval.my.emptyMine')}
+        emptyDescription={t(
+          tab === 'assigned' ? 'approval.my.emptyAssignedHint' : 'approval.my.emptyMineHint',
+        )}
         data-testid="my-approval-table"
       />
-
-      <Outlet />
     </div>
   );
 }

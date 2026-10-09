@@ -460,6 +460,32 @@
         "tags": ["approvals"]
       }
     },
+    "/approvals/counts": {
+      "get": {
+        "operationId": "ApprovalController_counts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ApprovalCounts"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "待審數（待我審核、全部的待審）",
+        "tags": ["approvals"]
+      }
+    },
     "/approvals/{id}": {
       "get": {
         "operationId": "ApprovalController_findOne",
@@ -2158,6 +2184,559 @@
         },
         "summary": "下載匯入的結果報告（原本的欄位加上列號、結果、錯誤）",
         "tags": ["data-transfers"]
+      }
+    },
+    "/comments/{resourceType}/{resourceId}": {
+      "get": {
+        "operationId": "CommentController_list",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CommentPage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "一個資源的留言，新的在前；看得到那個資源才能讀",
+        "tags": ["comments"]
+      },
+      "post": {
+        "operationId": "CommentController_create",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Comment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "留言；作者自動關注這個資源，被提及的人與關注者收到通知",
+        "tags": ["comments"]
+      }
+    },
+    "/comments/{resourceType}/{resourceId}/mentionable": {
+      "get": {
+        "operationId": "CommentController_mentionable",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MentionableList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "@提及的候選：看得到這個資源的人（最多 10 位）",
+        "tags": ["comments"]
+      }
+    },
+    "/comments/{id}": {
+      "patch": {
+        "operationId": "CommentController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Comment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "編輯自己的留言（帶 version）",
+        "tags": ["comments"]
+      },
+      "delete": {
+        "operationId": "CommentController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除留言：作者本人，或持有 comment:delete；不進回收桶",
+        "tags": ["comments"]
+      }
+    },
+    "/watches/{resourceType}/{resourceId}": {
+      "get": {
+        "operationId": "WatchController_state",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WatchState"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己有沒有關注、關注的人數",
+        "tags": ["watches"]
+      },
+      "put": {
+        "operationId": "WatchController_watch",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WatchState"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "關注；有新留言或資源被修改時收到通知",
+        "tags": ["watches"]
+      },
+      "delete": {
+        "operationId": "WatchController_unwatch",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WatchState"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "取消關注",
+        "tags": ["watches"]
+      }
+    },
+    "/images/usages": {
+      "get": {
+        "operationId": "ImageController_listUsages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageUsageList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "每個使用圖片的地方的限制（大小、型別、最小尺寸、比例、尺寸）",
+        "tags": ["images"]
+      }
+    },
+    "/images/recent": {
+      "get": {
+        "operationId": "ImageController_recent",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAssetList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "最近使用：自己建立過的圖片（同一個內容只列一次，最多 30 張）",
+        "tags": ["images"]
+      }
+    },
+    "/images": {
+      "post": {
+        "operationId": "ImageController_createUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImageUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageUpload"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登記上傳並取得直傳網址（完成後呼叫 complete）",
+        "tags": ["images"]
+      }
+    },
+    "/images/from-source": {
+      "post": {
+        "operationId": "ImageController_createFromSource",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImageFromSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAsset"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "從其他來源（檔案管理、圖片庫、最近使用）複製成一張新的圖片",
+        "tags": ["images"]
+      }
+    },
+    "/images/{id}/complete": {
+      "post": {
+        "operationId": "ImageController_completeUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteImageUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAsset"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "確認直傳完成並排入處理（可一併帶裁切）",
+        "tags": ["images"]
+      }
+    },
+    "/images/{id}/hide-from-recent": {
+      "post": {
+        "operationId": "ImageController_hideFromRecent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "從最近使用移除（不影響正在使用它的地方）",
+        "tags": ["images"]
+      }
+    },
+    "/images/{id}": {
+      "get": {
+        "operationId": "ImageController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAsset"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己建立的一張圖片（處理狀態、各尺寸的網址）",
+        "tags": ["images"]
       }
     },
     "/trash": {
@@ -4054,559 +4633,6 @@
         },
         "summary": "整批取代一個資源的標籤；能不能改跟著那個資源的編輯權限",
         "tags": ["tags"]
-      }
-    },
-    "/comments/{resourceType}/{resourceId}": {
-      "get": {
-        "operationId": "CommentController_list",
-        "parameters": [
-          {
-            "name": "resourceType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resourceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/CommentPage"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "一個資源的留言，新的在前；看得到那個資源才能讀",
-        "tags": ["comments"]
-      },
-      "post": {
-        "operationId": "CommentController_create",
-        "parameters": [
-          {
-            "name": "resourceType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resourceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCommentRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Comment"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "留言；作者自動關注這個資源，被提及的人與關注者收到通知",
-        "tags": ["comments"]
-      }
-    },
-    "/comments/{resourceType}/{resourceId}/mentionable": {
-      "get": {
-        "operationId": "CommentController_mentionable",
-        "parameters": [
-          {
-            "name": "resourceType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resourceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/MentionableList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "@提及的候選：看得到這個資源的人（最多 10 位）",
-        "tags": ["comments"]
-      }
-    },
-    "/comments/{id}": {
-      "patch": {
-        "operationId": "CommentController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateCommentRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Comment"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "編輯自己的留言（帶 version）",
-        "tags": ["comments"]
-      },
-      "delete": {
-        "operationId": "CommentController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "summary": "刪除留言：作者本人，或持有 comment:delete；不進回收桶",
-        "tags": ["comments"]
-      }
-    },
-    "/watches/{resourceType}/{resourceId}": {
-      "get": {
-        "operationId": "WatchController_state",
-        "parameters": [
-          {
-            "name": "resourceType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resourceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WatchState"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己有沒有關注、關注的人數",
-        "tags": ["watches"]
-      },
-      "put": {
-        "operationId": "WatchController_watch",
-        "parameters": [
-          {
-            "name": "resourceType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resourceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WatchState"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "關注；有新留言或資源被修改時收到通知",
-        "tags": ["watches"]
-      },
-      "delete": {
-        "operationId": "WatchController_unwatch",
-        "parameters": [
-          {
-            "name": "resourceType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "resourceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/WatchState"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "取消關注",
-        "tags": ["watches"]
-      }
-    },
-    "/images/usages": {
-      "get": {
-        "operationId": "ImageController_listUsages",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ImageUsageList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "每個使用圖片的地方的限制（大小、型別、最小尺寸、比例、尺寸）",
-        "tags": ["images"]
-      }
-    },
-    "/images/recent": {
-      "get": {
-        "operationId": "ImageController_recent",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ImageAssetList"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "最近使用：自己建立過的圖片（同一個內容只列一次，最多 30 張）",
-        "tags": ["images"]
-      }
-    },
-    "/images": {
-      "post": {
-        "operationId": "ImageController_createUpload",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateImageUploadRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ImageUpload"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "登記上傳並取得直傳網址（完成後呼叫 complete）",
-        "tags": ["images"]
-      }
-    },
-    "/images/from-source": {
-      "post": {
-        "operationId": "ImageController_createFromSource",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateImageFromSourceRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ImageAsset"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "從其他來源（檔案管理、圖片庫、最近使用）複製成一張新的圖片",
-        "tags": ["images"]
-      }
-    },
-    "/images/{id}/complete": {
-      "post": {
-        "operationId": "ImageController_completeUpload",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompleteImageUploadRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ImageAsset"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "確認直傳完成並排入處理（可一併帶裁切）",
-        "tags": ["images"]
-      }
-    },
-    "/images/{id}/hide-from-recent": {
-      "post": {
-        "operationId": "ImageController_hideFromRecent",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "summary": "從最近使用移除（不影響正在使用它的地方）",
-        "tags": ["images"]
-      }
-    },
-    "/images/{id}": {
-      "get": {
-        "operationId": "ImageController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ImageAsset"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "自己建立的一張圖片（處理狀態、各尺寸的網址）",
-        "tags": ["images"]
       }
     },
     "/announcements": {
@@ -12251,6 +12277,521 @@
         "required": ["token", "apiToken"],
         "additionalProperties": false
       },
+      "ImageCrop": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": ["x", "y", "width", "height"],
+        "additionalProperties": false
+      },
+      "ImageUsage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "maxSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "contentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minWidth": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "minHeight": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "aspectRatio": {
+            "nullable": true,
+            "type": "number"
+          },
+          "presets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "sources": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "maxSize",
+          "contentTypes",
+          "minWidth",
+          "minHeight",
+          "aspectRatio",
+          "presets",
+          "sources"
+        ],
+        "additionalProperties": false
+      },
+      "ImageUsageList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageUsage"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "ImageOriginal": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "width", "height", "expiresAt"],
+        "additionalProperties": false
+      },
+      "ImageAsset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "usage": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ready", "failed"]
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["notImage", "typeNotAllowed", "tooLarge", "tooSmall", "missing"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "width": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "crop": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          },
+          "image": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageSources"
+              }
+            ]
+          },
+          "original": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageOriginal"
+              }
+            ]
+          },
+          "isInUse": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "usage",
+          "status",
+          "failureReason",
+          "name",
+          "source",
+          "width",
+          "height",
+          "crop",
+          "image",
+          "original",
+          "isInUse",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "ImageAssetList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageAsset"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreateImageUploadRequest": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["usage", "name", "contentType", "size"],
+        "additionalProperties": false
+      },
+      "ImageUploadTarget": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["PUT"]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "method", "headers", "expiresAt"],
+        "additionalProperties": false
+      },
+      "ImageUpload": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/ImageAsset"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/ImageUploadTarget"
+          }
+        },
+        "required": ["asset", "upload"],
+        "additionalProperties": false
+      },
+      "CompleteImageUploadRequest": {
+        "type": "object",
+        "properties": {
+          "crop": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateImageFromSourceRequest": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "^[a-z][A-Za-z0-9]*$"
+          },
+          "refId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "crop": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          }
+        },
+        "required": ["usage", "source", "refId"],
+        "additionalProperties": false
+      },
+      "CommentUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "displayName", "email"],
+        "additionalProperties": false
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "body": {
+            "type": "string"
+          },
+          "author": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommentUser"
+              }
+            ]
+          },
+          "authorAvatar": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageSources"
+              }
+            ]
+          },
+          "mentions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommentUser"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "editedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "resourceType",
+          "resourceId",
+          "body",
+          "author",
+          "authorAvatar",
+          "mentions",
+          "version",
+          "createdAt",
+          "editedAt",
+          "canEdit",
+          "canDelete"
+        ],
+        "additionalProperties": false
+      },
+      "CommentPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "CreateCommentRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "mentionIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["body", "mentionIds"],
+        "additionalProperties": false
+      },
+      "UpdateCommentRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "mentionIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["body", "mentionIds", "version"],
+        "additionalProperties": false
+      },
+      "MentionableList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommentUser"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "WatchState": {
+        "type": "object",
+        "properties": {
+          "watching": {
+            "type": "boolean"
+          },
+          "watcherCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["watching", "watcherCount"],
+        "additionalProperties": false
+      },
       "DataTransfer": {
         "type": "object",
         "properties": {
@@ -14251,9 +14792,33 @@
                 "nullable": true,
                 "type": "string",
                 "enum": ["noCandidate", "insufficient"]
+              },
+              "activatedAt": {
+                "nullable": true,
+                "type": "string"
+              },
+              "pendingReviewers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pendingCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
-            "required": ["ordinal", "name", "approvals", "required", "shortage"],
+            "required": [
+              "ordinal",
+              "name",
+              "approvals",
+              "required",
+              "shortage",
+              "activatedAt",
+              "pendingReviewers",
+              "pendingCount"
+            ],
             "additionalProperties": false
           },
           "stepCount": {
@@ -14546,9 +15111,33 @@
                 "nullable": true,
                 "type": "string",
                 "enum": ["noCandidate", "insufficient"]
+              },
+              "activatedAt": {
+                "nullable": true,
+                "type": "string"
+              },
+              "pendingReviewers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pendingCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
-            "required": ["ordinal", "name", "approvals", "required", "shortage"],
+            "required": [
+              "ordinal",
+              "name",
+              "approvals",
+              "required",
+              "shortage",
+              "activatedAt",
+              "pendingReviewers",
+              "pendingCount"
+            ],
             "additionalProperties": false
           },
           "stepCount": {
@@ -14576,6 +15165,12 @@
           },
           "viewer": {
             "$ref": "#/components/schemas/ApprovalViewer"
+          },
+          "resubmittedTo": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
         "required": [
@@ -14598,8 +15193,27 @@
           "createdAt",
           "updatedAt",
           "steps",
-          "viewer"
+          "viewer",
+          "resubmittedTo"
         ],
+        "additionalProperties": false
+      },
+      "ApprovalCounts": {
+        "type": "object",
+        "properties": {
+          "assigned": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pending": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["assigned", "pending"],
         "additionalProperties": false
       },
       "ApproveApprovalRequest": {
@@ -15410,521 +16024,6 @@
           "errorCode",
           "metadata"
         ],
-        "additionalProperties": false
-      },
-      "ImageCrop": {
-        "type": "object",
-        "properties": {
-          "x": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "y": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "width": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "height": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          }
-        },
-        "required": ["x", "y", "width", "height"],
-        "additionalProperties": false
-      },
-      "ImageUsage": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "maxSize": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "contentTypes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "minWidth": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "minHeight": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "aspectRatio": {
-            "nullable": true,
-            "type": "number"
-          },
-          "presets": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991
-            }
-          },
-          "sources": {
-            "nullable": true,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "maxSize",
-          "contentTypes",
-          "minWidth",
-          "minHeight",
-          "aspectRatio",
-          "presets",
-          "sources"
-        ],
-        "additionalProperties": false
-      },
-      "ImageUsageList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImageUsage"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "ImageOriginal": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string"
-          },
-          "width": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "height": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "expiresAt": {
-            "type": "string"
-          }
-        },
-        "required": ["url", "width", "height", "expiresAt"],
-        "additionalProperties": false
-      },
-      "ImageAsset": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "usage": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["pending", "ready", "failed"]
-          },
-          "failureReason": {
-            "nullable": true,
-            "type": "string",
-            "enum": ["notImage", "typeNotAllowed", "tooLarge", "tooSmall", "missing"]
-          },
-          "name": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string"
-          },
-          "width": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "height": {
-            "nullable": true,
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "crop": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ImageCrop"
-              }
-            ]
-          },
-          "image": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ImageSources"
-              }
-            ]
-          },
-          "original": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ImageOriginal"
-              }
-            ]
-          },
-          "isInUse": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "usage",
-          "status",
-          "failureReason",
-          "name",
-          "source",
-          "width",
-          "height",
-          "crop",
-          "image",
-          "original",
-          "isInUse",
-          "createdAt"
-        ],
-        "additionalProperties": false
-      },
-      "ImageAssetList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ImageAsset"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "CreateImageUploadRequest": {
-        "type": "object",
-        "properties": {
-          "usage": {
-            "type": "string",
-            "maxLength": 100,
-            "pattern": "^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255
-          },
-          "contentType": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "size": {
-            "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": ["usage", "name", "contentType", "size"],
-        "additionalProperties": false
-      },
-      "ImageUploadTarget": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string"
-          },
-          "method": {
-            "type": "string",
-            "enum": ["PUT"]
-          },
-          "headers": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "expiresAt": {
-            "type": "string"
-          }
-        },
-        "required": ["url", "method", "headers", "expiresAt"],
-        "additionalProperties": false
-      },
-      "ImageUpload": {
-        "type": "object",
-        "properties": {
-          "asset": {
-            "$ref": "#/components/schemas/ImageAsset"
-          },
-          "upload": {
-            "$ref": "#/components/schemas/ImageUploadTarget"
-          }
-        },
-        "required": ["asset", "upload"],
-        "additionalProperties": false
-      },
-      "CompleteImageUploadRequest": {
-        "type": "object",
-        "properties": {
-          "crop": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ImageCrop"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateImageFromSourceRequest": {
-        "type": "object",
-        "properties": {
-          "usage": {
-            "type": "string",
-            "maxLength": 100,
-            "pattern": "^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$"
-          },
-          "source": {
-            "type": "string",
-            "maxLength": 50,
-            "pattern": "^[a-z][A-Za-z0-9]*$"
-          },
-          "refId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "crop": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ImageCrop"
-              }
-            ]
-          }
-        },
-        "required": ["usage", "source", "refId"],
-        "additionalProperties": false
-      },
-      "CommentUser": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "displayName", "email"],
-        "additionalProperties": false
-      },
-      "Comment": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "resourceType": {
-            "type": "string"
-          },
-          "resourceId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-          },
-          "body": {
-            "type": "string"
-          },
-          "author": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CommentUser"
-              }
-            ]
-          },
-          "authorAvatar": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ImageSources"
-              }
-            ]
-          },
-          "mentions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CommentUser"
-            }
-          },
-          "version": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "editedAt": {
-            "nullable": true,
-            "type": "string"
-          },
-          "canEdit": {
-            "type": "boolean"
-          },
-          "canDelete": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "resourceType",
-          "resourceId",
-          "body",
-          "author",
-          "authorAvatar",
-          "mentions",
-          "version",
-          "createdAt",
-          "editedAt",
-          "canEdit",
-          "canDelete"
-        ],
-        "additionalProperties": false
-      },
-      "CommentPage": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Comment"
-            }
-          },
-          "nextCursor": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": ["items", "nextCursor"],
-        "additionalProperties": false
-      },
-      "CreateCommentRequest": {
-        "type": "object",
-        "properties": {
-          "body": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4000
-          },
-          "mentionIds": {
-            "default": [],
-            "maxItems": 20,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        },
-        "required": ["body", "mentionIds"],
-        "additionalProperties": false
-      },
-      "UpdateCommentRequest": {
-        "type": "object",
-        "properties": {
-          "body": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4000
-          },
-          "mentionIds": {
-            "default": [],
-            "maxItems": 20,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": ["body", "mentionIds", "version"],
-        "additionalProperties": false
-      },
-      "MentionableList": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CommentUser"
-            }
-          }
-        },
-        "required": ["items"],
-        "additionalProperties": false
-      },
-      "WatchState": {
-        "type": "object",
-        "properties": {
-          "watching": {
-            "type": "boolean"
-          },
-          "watcherCount": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": ["watching", "watcherCount"],
         "additionalProperties": false
       },
       "OrgUnit": {
@@ -19198,6 +19297,11 @@
           "reason": {
             "type": "string",
             "maxLength": 500
+          },
+          "resubmittedFrom": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
         "required": ["level"],

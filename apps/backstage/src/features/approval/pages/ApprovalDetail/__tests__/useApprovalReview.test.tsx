@@ -68,7 +68,9 @@ describe('useApprovalReview（審核表單的狀態）', () => {
     expect(mutations.approve.mutateAsync).toHaveBeenCalledWith({
       params: { approvalId: 'a1', body: { comment: '沒問題', roleIds: ['r1'] } },
     });
-    expect(onReviewed).toHaveBeenCalledTimes(1);
+    expect(onReviewed).toHaveBeenCalledWith('decided');
+    // 留在原頁時不再算「未儲存」
+    expect(result.current).toMatchObject({ comment: '', roleIds: [], isDirty: false });
   });
 
   it('駁回失敗 → 顯示錯誤訊息、不呼叫 onReviewed；再次送出時先清掉錯誤', async () => {
@@ -125,11 +127,11 @@ describe('useApprovalReview（審核表單的狀態）', () => {
     expect(result.current.error).toBeTruthy();
   });
 
-  it('撤回後呼叫 onReviewed', async () => {
+  it('撤回後以 withdrawn 呼叫 onReviewed（不前往下一筆）', async () => {
     const { result, onReviewed } = setup();
     await act(() => result.current.withdraw());
     expect(mutations.withdraw.mutateAsync).toHaveBeenCalledWith({ params: { approvalId: 'a1' } });
-    expect(onReviewed).toHaveBeenCalled();
+    expect(onReviewed).toHaveBeenCalledWith('withdrawn');
   });
 
   it('進行中的狀態：關卡決定依 decision 分成核准中或駁回中', () => {

@@ -28,6 +28,7 @@ import {
 
 import { ApprovalService } from './approval.service';
 import {
+  ApprovalCountsSchema,
   ApprovalRequestDetailSchema,
   ApprovalRequestSchema,
   ApproveApprovalSchema,
@@ -62,6 +63,15 @@ export class ApprovalController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.approvalService.list(query, actor);
+  }
+
+  /** 待審數：登入即可；`pending` 只給 `approval:read`（沒有時為 null，§8）。宣告在 `:id` 之前，路徑才不會被當成 id。 */
+  @Get('counts')
+  @Authenticated()
+  @ApiOperation({ summary: '待審數（待我審核、全部的待審）' })
+  @ApiZodResponse(200, ApprovalCountsSchema)
+  counts(@CurrentUser() actor: AuthUser) {
+    return this.approvalService.counts(actor);
   }
 
   /** `approval:read`、申請人、任一關的候選人看得到；其他人 404（§9.10）。 */

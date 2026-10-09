@@ -22,6 +22,7 @@ import type {
   ApprovalCandidate,
   ApprovalCondition,
   ApprovalConditionField,
+  ApprovalCounts,
   ApprovalDecision,
   ApprovalFlow,
   ApprovalFlowList,
@@ -1063,6 +1064,179 @@ export const CreatedApiTokenSchema = z.object({
   apiToken: ApiTokenSchema,
 }) satisfies z.ZodType<CreatedApiToken>;
 
+export const ImageCropSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  width: z.number().min(0).max(1),
+  height: z.number().min(0).max(1),
+}) satisfies z.ZodType<ImageCrop>;
+
+export const ImageUsageSchema = z.object({
+  id: z.string(),
+  maxSize: z.int().min(-9007199254740991).max(9007199254740991),
+  contentTypes: z.array(z.string()),
+  minWidth: z.int().min(-9007199254740991).max(9007199254740991),
+  minHeight: z.int().min(-9007199254740991).max(9007199254740991),
+  aspectRatio: z.number().nullable(),
+  presets: z.record(z.string(), z.int().min(-9007199254740991).max(9007199254740991)),
+  sources: z.array(z.string()).nullable(),
+}) satisfies z.ZodType<ImageUsage>;
+
+export const ImageUsageListSchema = z.object({
+  items: z.array(ImageUsageSchema),
+}) satisfies z.ZodType<ImageUsageList>;
+
+export const ImageOriginalSchema = z.object({
+  url: z.string(),
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<ImageOriginal>;
+
+export const ImageAssetSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  usage: z.string(),
+  status: z.enum(['pending', 'ready', 'failed']),
+  failureReason: z
+    .enum(['notImage', 'typeNotAllowed', 'tooLarge', 'tooSmall', 'missing'])
+    .nullable(),
+  name: z.string(),
+  source: z.string(),
+  width: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  height: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  crop: ImageCropSchema.nullable(),
+  image: ImageSourcesSchema.nullable(),
+  original: ImageOriginalSchema.nullable(),
+  isInUse: z.boolean(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<ImageAsset>;
+
+export const ImageAssetListSchema = z.object({
+  items: z.array(ImageAssetSchema),
+}) satisfies z.ZodType<ImageAssetList>;
+
+export const CreateImageUploadRequestSchema = z.object({
+  usage: z.string().max(100).regex(new RegExp('^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$')),
+  name: z.string().min(1).max(255),
+  contentType: z.string().min(1).max(100),
+  size: z.int().max(9007199254740991).gt(0),
+}) satisfies z.ZodType<CreateImageUploadRequest>;
+
+export const ImageUploadTargetSchema = z.object({
+  url: z.string(),
+  method: z.enum(['PUT']),
+  headers: z.record(z.string(), z.string()),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<ImageUploadTarget>;
+
+export const ImageUploadSchema = z.object({
+  asset: ImageAssetSchema,
+  upload: ImageUploadTargetSchema,
+}) satisfies z.ZodType<ImageUpload>;
+
+export const CompleteImageUploadRequestSchema = z.object({
+  crop: ImageCropSchema.optional(),
+}) satisfies z.ZodType<CompleteImageUploadRequest>;
+
+export const CreateImageFromSourceRequestSchema = z.object({
+  usage: z.string().max(100).regex(new RegExp('^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$')),
+  source: z.string().max(50).regex(new RegExp('^[a-z][A-Za-z0-9]*$')),
+  refId: z.string().min(1).max(200),
+  crop: ImageCropSchema.optional(),
+}) satisfies z.ZodType<CreateImageFromSourceRequest>;
+
+export const CommentUserSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  displayName: z.string(),
+  email: z.string(),
+}) satisfies z.ZodType<CommentUser>;
+
+export const CommentSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  resourceType: z.string(),
+  resourceId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  body: z.string(),
+  author: CommentUserSchema.nullable(),
+  authorAvatar: ImageSourcesSchema.nullable(),
+  mentions: z.array(CommentUserSchema),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  createdAt: z.string(),
+  editedAt: z.string().nullable(),
+  canEdit: z.boolean(),
+  canDelete: z.boolean(),
+}) satisfies z.ZodType<Comment>;
+
+export const CommentPageSchema = z.object({
+  items: z.array(CommentSchema),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<CommentPage>;
+
+export const CreateCommentRequestSchema = z.object({
+  body: z.string().min(1).max(4000),
+  mentionIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<CreateCommentRequest>;
+
+export const UpdateCommentRequestSchema = z.object({
+  body: z.string().min(1).max(4000),
+  mentionIds: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+  version: z.int().min(1).max(9007199254740991),
+}) satisfies z.ZodType<UpdateCommentRequest>;
+
+export const MentionableListSchema = z.object({
+  items: z.array(CommentUserSchema),
+}) satisfies z.ZodType<MentionableList>;
+
+export const WatchStateSchema = z.object({
+  watching: z.boolean(),
+  watcherCount: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<WatchState>;
+
 export const DataTransferSchema = z.object({
   id: z
     .uuid()
@@ -1739,6 +1913,9 @@ export const ApprovalRequestSchema = z.object({
       approvals: z.int().min(-9007199254740991).max(9007199254740991),
       required: z.int().min(-9007199254740991).max(9007199254740991),
       shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+      activatedAt: z.string().nullable(),
+      pendingReviewers: z.array(z.string()),
+      pendingCount: z.int().min(-9007199254740991).max(9007199254740991),
     })
     .nullable(),
   stepCount: z.int().min(-9007199254740991).max(9007199254740991),
@@ -1860,6 +2037,9 @@ export const ApprovalRequestDetailSchema = z.object({
       approvals: z.int().min(-9007199254740991).max(9007199254740991),
       required: z.int().min(-9007199254740991).max(9007199254740991),
       shortage: z.enum(['noCandidate', 'insufficient']).nullable(),
+      activatedAt: z.string().nullable(),
+      pendingReviewers: z.array(z.string()),
+      pendingCount: z.int().min(-9007199254740991).max(9007199254740991),
     })
     .nullable(),
   stepCount: z.int().min(-9007199254740991).max(9007199254740991),
@@ -1875,7 +2055,20 @@ export const ApprovalRequestDetailSchema = z.object({
   updatedAt: z.string(),
   steps: z.array(ApprovalStepSchema),
   viewer: ApprovalViewerSchema,
+  resubmittedTo: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
 }) satisfies z.ZodType<ApprovalRequestDetail>;
+
+export const ApprovalCountsSchema = z.object({
+  assigned: z.int().min(-9007199254740991).max(9007199254740991),
+  pending: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+}) satisfies z.ZodType<ApprovalCounts>;
 
 export const ApproveApprovalRequestSchema = z.object({
   comment: z.string().max(500).optional(),
@@ -2147,179 +2340,6 @@ export const PlatformAuditLogSchema = z.object({
   errorCode: z.string().nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
-
-export const ImageCropSchema = z.object({
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
-  width: z.number().min(0).max(1),
-  height: z.number().min(0).max(1),
-}) satisfies z.ZodType<ImageCrop>;
-
-export const ImageUsageSchema = z.object({
-  id: z.string(),
-  maxSize: z.int().min(-9007199254740991).max(9007199254740991),
-  contentTypes: z.array(z.string()),
-  minWidth: z.int().min(-9007199254740991).max(9007199254740991),
-  minHeight: z.int().min(-9007199254740991).max(9007199254740991),
-  aspectRatio: z.number().nullable(),
-  presets: z.record(z.string(), z.int().min(-9007199254740991).max(9007199254740991)),
-  sources: z.array(z.string()).nullable(),
-}) satisfies z.ZodType<ImageUsage>;
-
-export const ImageUsageListSchema = z.object({
-  items: z.array(ImageUsageSchema),
-}) satisfies z.ZodType<ImageUsageList>;
-
-export const ImageOriginalSchema = z.object({
-  url: z.string(),
-  width: z.int().min(-9007199254740991).max(9007199254740991),
-  height: z.int().min(-9007199254740991).max(9007199254740991),
-  expiresAt: z.string(),
-}) satisfies z.ZodType<ImageOriginal>;
-
-export const ImageAssetSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  usage: z.string(),
-  status: z.enum(['pending', 'ready', 'failed']),
-  failureReason: z
-    .enum(['notImage', 'typeNotAllowed', 'tooLarge', 'tooSmall', 'missing'])
-    .nullable(),
-  name: z.string(),
-  source: z.string(),
-  width: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  height: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
-  crop: ImageCropSchema.nullable(),
-  image: ImageSourcesSchema.nullable(),
-  original: ImageOriginalSchema.nullable(),
-  isInUse: z.boolean(),
-  createdAt: z.string(),
-}) satisfies z.ZodType<ImageAsset>;
-
-export const ImageAssetListSchema = z.object({
-  items: z.array(ImageAssetSchema),
-}) satisfies z.ZodType<ImageAssetList>;
-
-export const CreateImageUploadRequestSchema = z.object({
-  usage: z.string().max(100).regex(new RegExp('^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$')),
-  name: z.string().min(1).max(255),
-  contentType: z.string().min(1).max(100),
-  size: z.int().max(9007199254740991).gt(0),
-}) satisfies z.ZodType<CreateImageUploadRequest>;
-
-export const ImageUploadTargetSchema = z.object({
-  url: z.string(),
-  method: z.enum(['PUT']),
-  headers: z.record(z.string(), z.string()),
-  expiresAt: z.string(),
-}) satisfies z.ZodType<ImageUploadTarget>;
-
-export const ImageUploadSchema = z.object({
-  asset: ImageAssetSchema,
-  upload: ImageUploadTargetSchema,
-}) satisfies z.ZodType<ImageUpload>;
-
-export const CompleteImageUploadRequestSchema = z.object({
-  crop: ImageCropSchema.optional(),
-}) satisfies z.ZodType<CompleteImageUploadRequest>;
-
-export const CreateImageFromSourceRequestSchema = z.object({
-  usage: z.string().max(100).regex(new RegExp('^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$')),
-  source: z.string().max(50).regex(new RegExp('^[a-z][A-Za-z0-9]*$')),
-  refId: z.string().min(1).max(200),
-  crop: ImageCropSchema.optional(),
-}) satisfies z.ZodType<CreateImageFromSourceRequest>;
-
-export const CommentUserSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  displayName: z.string(),
-  email: z.string(),
-}) satisfies z.ZodType<CommentUser>;
-
-export const CommentSchema = z.object({
-  id: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  resourceType: z.string(),
-  resourceId: z
-    .uuid()
-    .regex(
-      new RegExp(
-        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-      ),
-    ),
-  body: z.string(),
-  author: CommentUserSchema.nullable(),
-  authorAvatar: ImageSourcesSchema.nullable(),
-  mentions: z.array(CommentUserSchema),
-  version: z.int().min(-9007199254740991).max(9007199254740991),
-  createdAt: z.string(),
-  editedAt: z.string().nullable(),
-  canEdit: z.boolean(),
-  canDelete: z.boolean(),
-}) satisfies z.ZodType<Comment>;
-
-export const CommentPageSchema = z.object({
-  items: z.array(CommentSchema),
-  nextCursor: z.string().nullable(),
-}) satisfies z.ZodType<CommentPage>;
-
-export const CreateCommentRequestSchema = z.object({
-  body: z.string().min(1).max(4000),
-  mentionIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(20)
-    .default([]),
-}) satisfies z.ZodType<CreateCommentRequest>;
-
-export const UpdateCommentRequestSchema = z.object({
-  body: z.string().min(1).max(4000),
-  mentionIds: z
-    .array(
-      z
-        .uuid()
-        .regex(
-          new RegExp(
-            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
-          ),
-        ),
-    )
-    .max(20)
-    .default([]),
-  version: z.int().min(1).max(9007199254740991),
-}) satisfies z.ZodType<UpdateCommentRequest>;
-
-export const MentionableListSchema = z.object({
-  items: z.array(CommentUserSchema),
-}) satisfies z.ZodType<MentionableList>;
-
-export const WatchStateSchema = z.object({
-  watching: z.boolean(),
-  watcherCount: z.int().min(-9007199254740991).max(9007199254740991),
-}) satisfies z.ZodType<WatchState>;
 
 export const OrgUnitSchema = z.object({
   id: z
@@ -3674,6 +3694,14 @@ export const UpdateFileFolderAccessRequestSchema = z.object({
 export const CreateFileAccessRequestSchema = z.object({
   level: z.enum(['viewer', 'contributor', 'editor', 'manager']),
   reason: z.string().max(500).optional(),
+  resubmittedFrom: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .optional(),
 }) satisfies z.ZodType<CreateFileAccessRequest>;
 
 export const FileAccessRequestSubmittedSchema = z.object({

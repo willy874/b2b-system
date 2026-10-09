@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ApprovalRequest } from '@/shared/api-sdk';
 
-import { toApprovalRowVM } from '../adapter';
+import { toApprovalListParams, toApprovalRowVM } from '../adapter';
 
 const BASE: ApprovalRequest = {
   id: 'a1',
@@ -81,7 +81,16 @@ describe('toApprovalRowVM', () => {
 describe('toApprovalRowVM（多階段，docs/architecture/backend/20-approval.md §9.11）', () => {
   const inChain = {
     ...BASE,
-    currentStep: { ordinal: 1, name: '財務', approvals: 1, required: 2, shortage: null },
+    currentStep: {
+      ordinal: 1,
+      name: '財務',
+      approvals: 1,
+      required: 2,
+      shortage: null,
+      activatedAt: '2026-10-01T00:00:00.000Z',
+      pendingReviewers: ['F2'],
+      pendingCount: 1,
+    },
     stepCount: 3,
   };
 
@@ -96,5 +105,19 @@ describe('toApprovalRowVM（多階段，docs/architecture/backend/20-approval.md
       canReview: true,
       canApprove: true,
     });
+  });
+});
+
+describe('toApprovalListParams（列表與詳情的「下一筆」用同一份清單）', () => {
+  it('狀態 all 不篩選；其他狀態與類型轉成陣列', () => {
+    const base = { offset: 20, limit: 20, sort: [] };
+    expect(toApprovalListParams({ ...base, status: 'all' })).toMatchObject({
+      offset: 20,
+      status: undefined,
+      type: undefined,
+    });
+    expect(
+      toApprovalListParams({ ...base, status: 'pending', type: 'fileFolder.access', keyword: 'a' }),
+    ).toMatchObject({ status: ['pending'], type: ['fileFolder.access'], keyword: 'a' });
   });
 });

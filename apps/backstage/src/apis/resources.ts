@@ -20,6 +20,7 @@ import { APPROVAL_FLOW_LIST_QUERY_KEY } from '@/apis/approval-flow/get-approval-
  * - 新增 query 時，把它的 key 放進對應資源的 `collection` 或 `entity`。
  * - 新增衍生關係時，直接宣告到 **來源** 上（不做遞移），並寫出「為什麼」。
  */
+import { APPROVAL_COUNTS_QUERY_KEY } from '@/apis/approval/get-approval-counts/query';
 import { APPROVAL_DETAIL_QUERY_KEY } from '@/apis/approval/get-approval-detail/query';
 import { APPROVAL_LIST_QUERY_KEY } from '@/apis/approval/get-approval-list/query';
 import { AUDIT_LOG_DETAIL_QUERY_KEY } from '@/apis/audit-log/get-audit-log-detail/query';
@@ -305,7 +306,8 @@ const graph = createResourceGraph<Resource>({
     entity: [IMAGE_DETAIL_QUERY_KEY],
   },
   [Resource.APPROVAL]: {
-    collection: [APPROVAL_LIST_QUERY_KEY],
+    // 待審數跟著列表：任何一筆送出、決定、撤回都可能改變它
+    collection: [APPROVAL_LIST_QUERY_KEY, APPROVAL_COUNTS_QUERY_KEY],
     entity: [APPROVAL_DETAIL_QUERY_KEY],
   },
   [Resource.APPROVAL_FLOW]: {

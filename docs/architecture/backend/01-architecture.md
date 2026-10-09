@@ -219,7 +219,7 @@ app.module
   ├─ GroupModule           ──▶ Trash · Announcement · DataTransfer
   ├─ OrganizationModule    ──▶ Trash · Approval · DataTransfer
   ├─ RoleModule            ──▶ Trash · Revision · DataTransfer
-  ├─ ApprovalModule        ──▶ Notification · Webhook · DataTransfer
+  ├─ ApprovalModule        ──▶ Notification · Webhook · DataTransfer · Comment
   ├─ AnnouncementModule    ──▶ Notification · Trash
   ├─ WebhookModule         ──▶ Notification
   ├─ DataTransferModule    ──▶ Notification

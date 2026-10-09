@@ -475,6 +475,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /system/settings': 'system:update',
       // 多階段之後：列表的 scope=all 與詳情的可見性在 service 檢查（docs/architecture/backend/20-approval.md §9.10、§9.13）
       'GET /approvals': 'authenticated',
+      'GET /approvals/counts': 'authenticated',
       'GET /approvals/:id': 'authenticated',
       'POST /approvals/:id/approve': 'approval:review',
       'POST /approvals/:id/reject': 'approval:review',

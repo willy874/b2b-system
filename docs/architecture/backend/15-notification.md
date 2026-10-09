@@ -161,7 +161,7 @@ await withTransaction(this.db, async (tx) => {
 
 | route id | 參數 | 前端的頁面 | 由誰使用 |
 | --- | --- | --- | --- |
-| `approval.detail` | `approvalId` | `/approval/$approvalId`（`ApprovalDetailRoute`，審核對話框疊在列表上） | `approval.pending`、`approval.result`（預設） |
+| `approval.detail` | `approvalId` | `/approval/$approvalId`（`ApprovalDetailRoute`，整頁的審批詳情） | `approval.pending`、`approval.result`（預設） |
 | `file.folder` | `folderId` | `/file?folder=<folderId>`（`FileListRoute` 的 search 參數 `folder`） | `approval.result`（`fileFolder.access`） |
 | `account.profile` | — | `/profile`（`ProfileRoute`） | `user.rolesChanged` |
 | `announcement.message` | `dispatchId` | `/announcement/message/$dispatchId`（`AnnouncementMessageRoute`，收件人看全文；feature `announcement` 沒啟用時不登記） | `announcement.published` |

@@ -177,6 +177,7 @@
       "pending": "已申請存取",
       "lockedTitle": "你沒有這個資料夾的存取權",
       "lockedDescription": "看得到裡面的子資料夾，但看不到檔案。可以向資料夾的管理者或系統管理員申請存取。",
+      "resubmitDescription": "重新送出被駁回或撤回的申請：可以調整等級與理由，審核者會看到它與前一筆的關聯。",
       "pendingDescription": "已送出申請，等待資料夾的管理者或系統管理員審核。",
       "request": "申請存取",
       "requestTitle": "申請存取「{{name}}」",

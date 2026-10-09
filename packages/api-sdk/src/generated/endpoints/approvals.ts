@@ -2,6 +2,7 @@
 // 來源：B2B System API 0.0.0（OpenAPI 3.0.0）
 
 import type {
+  ApprovalCounts,
   ApprovalRequest,
   ApprovalRequestDetail,
   ApproveApprovalRequest,
@@ -33,6 +34,25 @@ export type ApprovalControllerListResult = ApiResponse<200, ApprovalControllerLi
 
 export function getApprovalControllerListUrl(): string {
   return buildUrl('/approvals');
+}
+
+// GET /approvals/counts
+
+export interface ApprovalControllerCountsResponses {
+  200: {
+    data: ApprovalCounts;
+  };
+}
+
+export type ApprovalControllerCountsResponse = ApprovalControllerCountsResponses[200];
+
+export type ApprovalControllerCountsResult = ApiResponse<
+  200,
+  ApprovalControllerCountsResponses[200]
+>;
+
+export function getApprovalControllerCountsUrl(): string {
+  return buildUrl('/approvals/counts');
 }
 
 // GET /approvals/{id}

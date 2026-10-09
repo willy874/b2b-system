@@ -519,6 +519,96 @@ describe('多階段審批（docs/architecture/backend/20-approval.md §9）', ()
     });
   });
 
+  describe('互動與引導（docs/architecture/backend/20-approval.md §11）', () => {
+    it('列表的目前關卡帶未決定的審核者、人數與開始時間；決定後扣掉', async () => {
+      const id = await submit(80000);
+      await (
+        await as('amy')
+      )
+        .post(`/approvals/${id}/steps/0/decisions`, { decision: 'approve' })
+        .expect(200);
+
+      const pendingOf = async () => {
+        const list = await (await as('admin')).get('/approvals?status=pending').expect(200);
+        return list.body.data.items.find((item: { id: string }) => item.id === id).currentStep;
+      };
+      let current = await pendingOf();
+      expect(current).toMatchObject({
+        ordinal: 1,
+        pendingReviewers: ['f1', 'f2'],
+        pendingCount: 2,
+      });
+      expect(typeof current.activatedAt).toBe('string');
+
+      await (
+        await as('f1')
+      )
+        .post(`/approvals/${id}/steps/1/decisions`, { decision: 'approve' })
+        .expect(200);
+      current = await pendingOf();
+      expect(current).toMatchObject({ pendingReviewers: ['f2'], pendingCount: 1 });
+      await (await as('carl')).post(`/approvals/${id}/withdraw`).expect(200);
+    });
+
+    it('待審數：待我審核給候選人；全部的待審只給 approval:read', async () => {
+      const id = await submit(20000);
+      const amy = await (await as('amy')).get('/approvals/counts').expect(200);
+      expect(amy.body.data.assigned).toBeGreaterThanOrEqual(1);
+      expect(amy.body.data.pending).toBeNull();
+      const admin = await (await as('admin')).get('/approvals/counts').expect(200);
+      expect(admin.body.data.pending).toBeGreaterThanOrEqual(1);
+
+      await (
+        await as('amy')
+      )
+        .post(`/approvals/${id}/steps/0/decisions`, { decision: 'reject' })
+        .expect(200);
+      const after = await (await as('amy')).get('/approvals/counts').expect(200);
+      expect(after.body.data.assigned).toBe(amy.body.data.assigned - 1);
+    });
+
+    it('重新送出：前一筆的詳情指向新的一筆；別人的請求不能當前一筆', async () => {
+      const first = await submit(20000);
+      await (await as('carl')).post(`/approvals/${first}/withdraw`).expect(200);
+
+      subjectSeq += 1;
+      const resubmit = (requester: 'carl' | 'amy') =>
+        inTestTenant(app, () =>
+          app.get(ApprovalService).submit({
+            type: PURCHASE,
+            subjectKey: `purchase-${subjectSeq}`,
+            payload: { amount: 20000, category: 'hardware' },
+            requester: { id: ids[requester], name: email(requester) },
+            resubmittedFrom: first,
+          }),
+        );
+      await expect(resubmit('amy')).rejects.toMatchObject({ code: 'APPROVAL_RESUBMIT_INVALID' });
+      const second = await resubmit('carl');
+
+      const previous = await (await as('carl')).get(`/approvals/${first}`).expect(200);
+      expect(previous.body.data.resubmittedTo).toBe(second?.id);
+      expect(second?.resubmittedFrom).toBe(first);
+      await (await as('carl')).post(`/approvals/${second?.id}/withdraw`).expect(200);
+    });
+
+    it('留言：看得到請求的人可以留言（定案後也可以），看不到的人 404', async () => {
+      const id = await submit(20000);
+      await (await as('carl')).post(`/comments/approval/${id}`, { body: '請盡快' }).expect(201);
+      await (await as('amy')).get(`/comments/approval/${id}`).expect(200);
+      const outsider = await (await as('outsider')).get(`/comments/approval/${id}`).expect(404);
+      expect(outsider.body.error.code).toBe('APPROVAL_NOT_FOUND');
+
+      await (
+        await as('amy')
+      )
+        .post(`/approvals/${id}/steps/0/decisions`, { decision: 'reject' })
+        .expect(200);
+      await (await as('carl')).post(`/comments/approval/${id}`, { body: '為什麼？' }).expect(201);
+      const list = await (await as('admin')).get(`/comments/approval/${id}`).expect(200);
+      expect(list.body.data.items).toHaveLength(2);
+    });
+  });
+
   describe('同一個人審兩關（D6）', () => {
     it('預設不行：前面關卡做過決定的人不是後面關卡的候選人', async () => {
       // Amy 同時是財務

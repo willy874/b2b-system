@@ -18,6 +18,11 @@ import { useFileAccessRequestMutation } from '../../../hooks/useFolderGrantMutat
 interface FileAccessRequestDialogProps {
   /** 要申請的資料夾；`undefined` 時關閉。 */
   folder: { id: string; name: string } | undefined;
+  /**
+   * 重新送出被駁回或撤回的申請（審批詳情的「修改後重新送出」，docs/architecture/backend/20-approval.md §11.3）：
+   * 預填前一筆的等級，送出時帶上前一筆的 id。
+   */
+  resubmit?: { level: FileGrantLevel; approvalId: string };
   onClose: () => void;
 }
 
@@ -25,23 +30,36 @@ interface FileAccessRequestDialogProps {
  * 申請資料夾存取（docs/architecture/iam/06-resource-grants.md §6.5）：選等級、填理由。
  * 送到資料夾的管理者與系統管理員；核准後自動取得申請的等級。
  */
-export function FileAccessRequestDialog({ folder, onClose }: FileAccessRequestDialogProps) {
+export function FileAccessRequestDialog({
+  folder,
+  resubmit,
+  onClose,
+}: FileAccessRequestDialogProps) {
   const { t } = useTranslation();
   const request = useFileAccessRequestMutation();
-  const [level, setLevel] = useState<FileGrantLevel>('viewer');
+  const [level, setLevel] = useState<FileGrantLevel>(resubmit?.level ?? 'viewer');
   const [reason, setReason] = useState('');
   const [openedFor, setOpenedFor] = useState(folder);
   // 每次開啟從頭填（render 期間調整 state，不經過 effect）
   if (folder !== openedFor) {
     setOpenedFor(folder);
-    setLevel('viewer');
+    setLevel(resubmit?.level ?? 'viewer');
     setReason('');
   }
 
   const submit = () => {
     if (!folder) return;
     request.mutate(
-      { params: { folderId: folder.id, body: { level, reason: reason.trim() || undefined } } },
+      {
+        params: {
+          folderId: folder.id,
+          body: {
+            level,
+            reason: reason.trim() || undefined,
+            resubmittedFrom: resubmit?.approvalId,
+          },
+        },
+      },
       { onSuccess: onClose },
     );
   };
@@ -51,7 +69,9 @@ export function FileAccessRequestDialog({ folder, onClose }: FileAccessRequestDi
       open={Boolean(folder)}
       onOpenChange={(open) => !open && onClose()}
       title={t('file.access.requestTitle', { name: folder?.name ?? '' })}
-      description={t('file.access.lockedDescription')}
+      description={t(
+        resubmit ? 'file.access.resubmitDescription' : 'file.access.lockedDescription',
+      )}
       size="sm"
       data-testid="file-access-request-dialog"
       footer={

@@ -75,8 +75,9 @@ describe('資源依賴圖（docs/architecture/frontend/05-data-layer.md §6.2）
     expect(keys).toContain('invalidate:SERVICE_ACCOUNT_DETAIL_QUERY_KEY');
   });
 
-  it('審核一筆請求：審批列表與該筆詳情，不碰其他資源', () => {
+  it('審核一筆請求：審批列表、待審數與該筆詳情，不碰其他資源', () => {
     expect(keysOf({ resource: Resource.APPROVAL, kind: 'update', id: 'a1' })).toEqual([
+      'invalidate:APPROVAL_COUNTS_QUERY_KEY',
       'invalidate:APPROVAL_DETAIL_QUERY_KEY:a1',
       'invalidate:APPROVAL_LIST_QUERY_KEY',
       'invalidate:AUDIT_LOG_LIST_QUERY_KEY',

@@ -19,8 +19,10 @@ export function useApprovalSearchFilter() {
   return {
     search,
     /** 篩選面板送出時一次更新，改篩選條件就回到第一頁。 */
-    setFilters: (filters: Pick<ApprovalSearchQuery, 'keyword' | 'status' | 'type' | 'sort'>) =>
+    setFilters: (filters: Pick<ApprovalSearchQuery, 'keyword' | 'type' | 'sort'>) =>
       patch({ ...filters, offset: 0 }),
+    /** 狀態的分段切換：回到第一頁。 */
+    setStatus: (status: ApprovalSearchQuery['status']) => patch({ status, offset: 0 }),
     /** 表頭點擊：整組多欄排序換成點擊後的結果，回到第一頁。 */
     setSort: (sort: ApprovalSearchQuery['sort']) => patch({ sort, offset: 0 }),
     setPage: (offset: number, limit: number) => patch({ offset, limit }),

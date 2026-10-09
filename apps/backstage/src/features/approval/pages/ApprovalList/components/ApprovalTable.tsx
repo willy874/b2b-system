@@ -12,6 +12,7 @@ import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import type { ApprovalSortField } from '@/apis/approval/types';
 
@@ -23,7 +24,7 @@ import {
 import { useApprovalPermission } from '../../../hooks/useApprovalPermission';
 import { APPROVAL_LIST_TABLE_ID } from '../../../preference';
 import { APPROVAL_SORT_FIELDS, ApprovalDetailRoute } from '../../../routes';
-import type { ApprovalSearchQuery } from '../../../routes';
+import type { ApprovalDetailSearch, ApprovalSearchQuery } from '../../../routes';
 import type { ApprovalRowVM } from '../adapter';
 import type { ApprovalFilterValues } from '../useApprovalFilters';
 import { ApprovalProgress } from './ApprovalProgress';
@@ -42,6 +43,11 @@ interface ApprovalTableProps {
   /** 表頭點擊：回報點擊後完整的多欄排序。 */
   onSortingChange: (sort: Array<SortEntry<ApprovalSortField>>) => void;
   onRowDoubleClick: (row: ApprovalRowVM) => void;
+  /** 詳情連結帶的條件（列表的篩選，加上是否從待審清單進入）。 */
+  detailSearch: ApprovalDetailSearch;
+  /** 省略時用表格的預設（有篩選時是「沒有符合的結果」與清除篩選）。 */
+  emptyTitle?: string;
+  emptyDescription?: ReactNode;
   filters: FilterBarProps<ApprovalFilterValues>;
   batch: RichTableBatch<ApprovalRowVM>;
   pagination: RichTablePagination;
@@ -55,6 +61,9 @@ export function ApprovalTable({
   search,
   onSortingChange,
   onRowDoubleClick,
+  detailSearch,
+  emptyTitle,
+  emptyDescription,
   filters,
   batch,
   pagination,
@@ -74,7 +83,7 @@ export function ApprovalTable({
           <Link
             to={ApprovalDetailRoute.to}
             params={{ approvalId: row.original.id }}
-            search={search}
+            search={detailSearch}
             className="font-medium whitespace-nowrap text-[var(--color-brand)]"
             data-testid="approval-detail-link"
             data-value={row.original.requesterName}
@@ -136,7 +145,7 @@ export function ApprovalTable({
           ]
         : []),
     ],
-    [search, showActions, t],
+    [detailSearch, showActions, t],
   );
 
   return (
@@ -160,6 +169,8 @@ export function ApprovalTable({
         )
       }
       onRowDoubleClick={onRowDoubleClick}
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
       data-testid="approval-table"
     />
   );

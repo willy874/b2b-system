@@ -3,6 +3,7 @@ import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
+import { HomeSections } from '@/core/home';
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -14,6 +15,9 @@ export default function HomePage() {
         <h1 className="m-0 text-xl font-semibold">{t('home.title')}</h1>
         <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('home.description')}</p>
       </header>
+
+      {/* 其他 feature 的區塊（例：待我審核），排在個人資訊之前：有事要做的先看到 */}
+      <HomeSections />
 
       <section className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <h2 className="m-0 text-base font-medium">{t('home.you.title')}</h2>

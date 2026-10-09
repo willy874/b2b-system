@@ -297,6 +297,33 @@ backstage 的「系統設定」是一頁多分頁：一般（`features/system`�
 
 `app/__tests__/navigation.test.ts` 檢查每個分頁的頁面鍵有登記、路徑落在該頁面上；同一支測試也檢查側欄與帳號選單的圖示不重複。
 
+### 4.6 側欄的徽章（`NavItem.useBadge`）
+
+側欄項目旁的數字（例：審批的待審數，[`backend/20-approval.md`](../backend/20-approval.md) §11.1）。登記選單項時多給一個 hook：
+
+| 項目 | 規則 |
+| --- | --- |
+| 登記 | `registerNavItem({ …, useBadge: useAssignedApprovalCount })`：hook 參照在同步階段登記，那時不需要使用者資料；側欄渲染這一項時才呼叫（可以用 TanStack Query） |
+| 顯示 | 展開的分類裡是數字（超過 99 顯示 `99+`）；收起來的分類在父選單顯示一個點（多個項目都有時 CSS 只留第一個點）；圖示欄在項目上顯示點。0 或 `undefined` 不顯示 |
+| 可及性 | 徽章的 `aria-label` 是「名稱：N 筆待處理」（`layout.badge`） |
+| 更新 | 由 hook 自己決定；審批的待審數在 `approval` 推播與視窗聚焦時重抓，不輪詢 |
+| 不顯示的地方 | 命令面板、帳號選單 |
+
+權限過濾在呼叫 hook 之前：看不到的項目不會打 API。
+
+### 4.7 首頁的區塊（`core/home`）
+
+backstage 的首頁（`features/home`）放其他 feature 的區塊，例如審批的「待辦」。照系統設定分頁的做法用註冊表組起來，首頁不 import 任何 feature：
+
+| 項目 | 規則 |
+| --- | --- |
+| 登記 | feature 在 plugin 的同步階段呼叫 `registerHomeSection({ key, pageKey, order, Section, localeScope })`；`Section` 以 `lazy()` 登記，不把區塊的程式帶進首屏 |
+| 顯示 | `<HomeSections>` 依 `order` 排序，只留有權限的區塊（頁面鍵沒有登記＝所屬 feature 未啟用）；權限未水合前不渲染；每個區塊各包一層 `<Suspense>` |
+| 語系 | 區塊掛上時載入 `localeScope`（與資源頁的面板相同） |
+| 沒有內容 | 區塊自己回傳 `null`（例：沒有待審），首頁不留空白的卡片 |
+
+只有 backstage 用，所以放 app 的 `core/home`；第二個前端也需要時再搬進 web-core（[`17-shared-packages.md`](./17-shared-packages.md) §2）。
+
 ## 5. 一個 feature plugin 的標準形狀
 
 ```ts

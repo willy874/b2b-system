@@ -77,6 +77,42 @@ function useOpenGroups(activeKey: string | undefined) {
   return { openKeys, toggle };
 }
 
+/** 徽章的數字超過這個值時顯示 `99+`。 */
+const BADGE_MAX = 99;
+
+/**
+ * 側欄項目的數字徽章。`useCount` 是項目登記的 hook（`NavItem.useBadge`）：這個元件只在有登記時才渲染，
+ * 同一個位置永遠呼叫同一個 hook。`dot`：收起來的分類與圖示欄只顯示一個點。
+ */
+function NavBadge({
+  useCount,
+  labelKey,
+  dot,
+}: {
+  useCount: () => number | undefined;
+  labelKey: string;
+  dot?: boolean;
+}) {
+  const { t } = useTranslation();
+  // 項目登記的 hook 在這個元件的一生中固定（元件以項目為 key 渲染），每次 render 呼叫的是同一個 hook
+  // oxlint-disable-next-line react/hooks
+  const count = useCount() ?? 0;
+  if (count <= 0) return null;
+  const label = t('layout.badge', { name: t(labelKey), count });
+  return (
+    <span
+      className={dot ? styles.dot : styles.badge}
+      title={label}
+      data-testid={dot ? 'nav-badge-dot' : 'nav-badge'}
+      data-value={count}
+    >
+      {/* 看得到的是數字或點；報讀器念完整的一句 */}
+      {!dot && <span aria-hidden>{count > BADGE_MAX ? `${BADGE_MAX}+` : count}</span>}
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 function NavLink({
   item,
   pathname,
@@ -96,7 +132,10 @@ function NavLink({
       title={collapsed ? t(item.labelKey) : undefined}
     >
       <Icon name={item.icon} size={16} />
-      {!collapsed && <span>{t(item.labelKey)}</span>}
+      {!collapsed && <span className="flex-1">{t(item.labelKey)}</span>}
+      {item.useBadge && (
+        <NavBadge useCount={item.useBadge} labelKey={item.labelKey} dot={collapsed} />
+      )}
     </Link>
   );
 }
@@ -151,6 +190,22 @@ export function SideNav({ topItems, groups, collapsed }: SideNavProps) {
               data-testid={group.testId}
             >
               <span className="flex-1">{t(group.labelKey)}</span>
+              {/* 收起來時以一個點提示裡面有待處理的項目；多個項目都有時 CSS 只留第一個點 */}
+              {!open && (
+                <span className={styles.dots}>
+                  {group.items.map(
+                    (item) =>
+                      item.useBadge && (
+                        <NavBadge
+                          key={item.testId}
+                          useCount={item.useBadge}
+                          labelKey={item.labelKey}
+                          dot
+                        />
+                      ),
+                  )}
+                </span>
+              )}
               <Icon
                 name="chevron-down"
                 size={14}

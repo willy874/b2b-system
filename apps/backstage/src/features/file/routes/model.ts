@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FILE_CATEGORIES } from '../constants';
+import { FILE_CATEGORIES, FILE_GRANT_LEVELS } from '../constants';
 
 /**
  * 網址只放「分享這個連結時對方也該看到的」：所在的資料夾、篩選、第幾頁、正在預覽的檔案。
@@ -20,6 +20,12 @@ export const FileSearchQuerySchema = z.object({
     .catch(undefined),
   /** LightBox 開著的檔案 id。 */
   preview: z.string().uuid().optional().catch(undefined),
+  /**
+   * 打開所在資料夾的「申請存取」並預填等級；`resubmit` 是被駁回或撤回的前一筆申請
+   * （審批詳情的「修改後重新送出」，docs/architecture/backend/20-approval.md §11.3）。
+   */
+  requestAccess: z.enum(FILE_GRANT_LEVELS).optional().catch(undefined),
+  resubmit: z.string().uuid().optional().catch(undefined),
 });
 
 export type FileSearchQuery = z.infer<typeof FileSearchQuerySchema>;

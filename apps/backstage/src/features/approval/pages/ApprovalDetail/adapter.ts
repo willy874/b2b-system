@@ -11,6 +11,8 @@ export interface RegistrationVM {
 
 /** `fileFolder.access` 的申請內容。 */
 export interface FolderAccessVM {
+  /** 重新送出時回到這個資料夾的申請對話框。 */
+  folderId: string;
   folderName: string;
   level: FileAccessLevel;
 }
@@ -27,8 +29,11 @@ export interface ApprovalStepVM {
   approvals: number;
   shortage: ApprovalStep['shortage'];
   closeReason: ApprovalStep['closeReason'];
+  /** 這一關開始的時間；還沒輪到、或略過時為 null。 */
+  activatedAt: Date | null;
   candidates: Array<{ userId: string; name: string }>;
   decisions: Array<{
+    reviewerId: string | null;
     reviewerName: string;
     decision: 'approve' | 'reject';
     via: 'assignee' | 'override' | 'legacy';
@@ -42,6 +47,8 @@ export interface ApprovalDetailVM {
   type: ApprovalRequestDetail['type'];
   status: ApprovalRequestDetail['status'];
   isPending: boolean;
+  /** 匿名的申請（註冊）為 null。 */
+  requesterId: string | null;
   requesterName: string;
   reason: string | null;
   createdAt: Date;
@@ -58,6 +65,10 @@ export interface ApprovalDetailVM {
   currentStep: ApprovalStepVM | null;
   /** 目前的登入者能做什麼（後端依可見性、候選人、權限算好）。 */
   viewer: ApprovalViewer;
+  /** 這一筆是重新送出的：前一筆的 id。 */
+  resubmittedFrom: string | null;
+  /** 申請人已重新送出：最新那一筆的 id。 */
+  resubmittedTo: string | null;
 }
 
 function toStepVM(step: ApprovalStep): ApprovalStepVM {
@@ -70,8 +81,10 @@ function toStepVM(step: ApprovalStep): ApprovalStepVM {
     approvals: step.decisions.filter((decision) => decision.decision === 'approve').length,
     shortage: step.shortage,
     closeReason: step.closeReason,
+    activatedAt: step.activatedAt ? new Date(step.activatedAt) : null,
     candidates: step.candidates,
     decisions: step.decisions.map((decision) => ({
+      reviewerId: decision.reviewerId,
       reviewerName: decision.reviewerName,
       decision: decision.decision,
       via: decision.via,
@@ -95,6 +108,7 @@ export function toApprovalDetailVM(dto: ApprovalRequestDetail): ApprovalDetailVM
     type: dto.type,
     status: dto.status,
     isPending: dto.status === 'pending',
+    requesterId: dto.requesterId,
     requesterName: dto.requesterName,
     reason: dto.reason,
     createdAt: new Date(dto.createdAt),
@@ -107,10 +121,29 @@ export function toApprovalDetailVM(dto: ApprovalRequestDetail): ApprovalDetailVM
         : null,
     folderAccess:
       dto.type === 'fileFolder.access'
-        ? { folderName: asString(dto.payload.folderName), level: toLevel(dto.payload.level) }
+        ? {
+            folderId: asString(dto.payload.folderId),
+            folderName: asString(dto.payload.folderName),
+            level: toLevel(dto.payload.level),
+          }
         : null,
     steps,
     currentStep: steps.find((step) => step.status === 'active') ?? null,
     viewer: dto.viewer,
+    resubmittedFrom: dto.resubmittedFrom,
+    resubmittedTo: dto.resubmittedTo,
   };
+}
+
+/** 結果句（`APPROVAL_OUTCOME_KEY`）的參數：依類型從申請內容取出。等級是語系鍵，由呼叫端翻譯。 */
+export function outcomeParams(approval: ApprovalDetailVM): {
+  email?: string;
+  folder?: string;
+  level?: FileAccessLevel;
+} {
+  if (approval.registration) return { email: approval.registration.email };
+  if (approval.folderAccess) {
+    return { folder: approval.folderAccess.folderName, level: approval.folderAccess.level };
+  }
+  return {};
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { TenantFeatureImpacts } from '@/core/tenant';
+import { CommentModule } from '@/modules/comment/comment.module';
 import { DataTransferModule } from '@/modules/data-transfer/data-transfer.module';
 import { NotificationEventCatalog } from '@/modules/notification/notification-event.catalog';
 import { NotificationModule } from '@/modules/notification/notification.module';
@@ -11,6 +12,7 @@ import { ApprovalAssigneeRegistry } from './approval-assignee.registry';
 import { BuiltinAssigneeResolvers } from './approval-assignee.resolvers';
 import { ApprovalChainRepository } from './approval-chain.repository';
 import { ApprovalChainService } from './approval-chain.service';
+import { ApprovalCommentResource } from './approval-comment.resource';
 import { ApprovalFinalizer } from './approval-finalizer.service';
 import { ApprovalFlowController } from './approval-flow.controller';
 import { ApprovalFlowService } from './approval-flow.service';
@@ -24,12 +26,12 @@ import { ApprovalTransferResource } from './approval.transfer';
 import { APPROVAL_WEBHOOK_EVENTS } from './approval.webhooks';
 
 /**
- * 通用模組：只依賴 Permission / AuditLog（皆為 @Global）與 Notification、Webhook、DataTransfer（同為通用模組，不依賴業務模組）。
+ * 通用模組：只依賴 Permission / AuditLog（皆為 @Global）與 Notification、Webhook、DataTransfer、Comment（同為通用模組，不依賴業務模組）。
  * 擁有資源的業務模組 import 它，並以 `ApprovalService.registerHandler()` 登記自己的 `ApprovalHandler`
  * （docs/architecture/backend/20-approval.md §4）；審核者規則以 `registerAssigneeResolver()` 登記（§9.2，例：組織管理）。
  */
 @Module({
-  imports: [NotificationModule, WebhookModule, DataTransferModule],
+  imports: [NotificationModule, WebhookModule, DataTransferModule, CommentModule],
   controllers: [ApprovalController, ApprovalFlowController],
   providers: [
     ApprovalService,
@@ -43,6 +45,7 @@ import { APPROVAL_WEBHOOK_EVENTS } from './approval.webhooks';
     ApprovalFinalizer,
     ApprovalFlowService,
     ApprovalTransferResource,
+    ApprovalCommentResource,
   ],
   exports: [ApprovalService, ApprovalFlowService],
 })

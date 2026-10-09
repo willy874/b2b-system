@@ -14,4 +14,9 @@ export function registerFileRouteLinks(): void {
     route: FileListRoute,
     search: { folder: 'folderId', preview: 'fileId' },
   });
+  // 審批詳情的「修改後重新送出」：打開資料夾的申請對話框，預填等級並帶上前一筆
+  registerRouteLink('file.requestAccess', {
+    route: FileListRoute,
+    search: { folder: 'folderId', requestAccess: 'level', resubmit: 'approvalId' },
+  });
 }

@@ -2,23 +2,32 @@ import { Button } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Menu } from '@b2b-system/ui/Menu';
 import { useTableSelection } from '@b2b-system/ui/Table';
+import { Tabs } from '@b2b-system/ui/Tabs';
 import type { BatchAction } from '@b2b-system/web-core/batch';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
-import { Outlet, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { fetchApprovalListQuery } from '@/apis/approval/get-approval-list/fetcher';
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
 import { useIsFeatureReady } from '@/core/feature';
 
-import { APPROVAL_CHAIN_FEATURE } from '../../constants';
+import { ApprovalSourcesHint } from '../../components/ApprovalSourcesHint';
+import {
+  APPROVAL_CHAIN_FEATURE,
+  APPROVAL_LIST_EMPTY_KEY,
+  APPROVAL_LIST_STATUS_LABEL_KEY,
+  APPROVAL_LIST_STATUSES,
+} from '../../constants';
+import type { ApprovalListStatus } from '../../constants';
 import { approvalExportApi } from '../../hooks/approvalExportApi';
+import { useApprovalCounts } from '../../hooks/useApprovalCounts';
 import { useApprovalPermission } from '../../hooks/useApprovalPermission';
 import { APPROVAL_LIST_TABLE_ID } from '../../preference';
 import { ApprovalDetailRoute } from '../../routes';
-import { toApprovalRowVM } from './adapter';
+import { toApprovalListParams, toApprovalRowVM } from './adapter';
 import type { ApprovalRowVM } from './adapter';
 import { ApprovalTable } from './components/ApprovalTable';
 import { useApprovalBatchActions } from './useApprovalBatchActions';
@@ -29,7 +38,8 @@ export default function ApprovalListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const searchFilter = useApprovalSearchFilter();
-  const { search, setSort, setPage } = searchFilter;
+  const { search, setSort, setPage, setStatus } = searchFilter;
+  const counts = useApprovalCounts();
   const permission = useApprovalPermission();
   const batchActions = useApprovalBatchActions();
   /** 匯出對話框：請求或審核紀錄，以及開啟時勾選的範圍（docs/architecture/backend/22-data-transfer.md §12.5）。 */
@@ -39,17 +49,17 @@ export default function ApprovalListPage() {
     allMatching: boolean;
   } | null>(null);
 
-  const listParams = {
-    offset: search.offset,
-    limit: search.limit,
-    keyword: search.keyword,
-    status: search.status ? [search.status] : undefined,
-    type: search.type ? [search.type] : undefined,
-    sort: search.sort,
-  };
+  const listParams = toApprovalListParams(search);
   const { data, isPending, error, refetch } = useQuery(
     getApprovalListQueryOptions({ params: listParams }),
   );
+  // 從待審清單點進詳情：決定後前往同一份清單的下一筆（docs/architecture/backend/20-approval.md §12 D5）
+  const detailSearch = useMemo(
+    () => ({ ...search, queue: search.status === 'pending' || undefined }),
+    [search],
+  );
+  // 有篩選條件時交給表格的預設（「沒有符合的結果」與清除篩選）；否則說明這個狀態為什麼是空的、申請從哪裡來
+  const filtered = Boolean(search.keyword || search.type);
 
   // 只依賴 adapter 用到的布林值：與資料、這幾個條件無關的重繪不重建列
   const { canReview, canApproveRegistration } = permission;
@@ -86,11 +96,7 @@ export default function ApprovalListPage() {
   const filters = useApprovalFilters({
     ...searchFilter,
     setFilters: (next) => {
-      if (
-        next.keyword !== search.keyword ||
-        next.status !== search.status ||
-        next.type !== search.type
-      ) {
+      if (next.keyword !== search.keyword || next.type !== search.type) {
         selection.clear();
       }
       searchFilter.setFilters(next);
@@ -138,6 +144,24 @@ export default function ApprovalListPage() {
         )}
       </header>
 
+      <Tabs
+        value={search.status}
+        onValueChange={(value) => {
+          selection.clear();
+          setStatus(toStatus(value));
+        }}
+        tabs={APPROVAL_LIST_STATUSES.map((value) => ({
+          value,
+          label:
+            value === 'pending' && counts?.pending
+              ? t('approval.list.pendingTab', { count: counts.pending })
+              : t(APPROVAL_LIST_STATUS_LABEL_KEY[value]),
+          textValue: t(APPROVAL_LIST_STATUS_LABEL_KEY[value]),
+        }))}
+        moreLabel={t('common.more')}
+        data-testid="approval-status-tabs"
+      />
+
       <ApprovalTable
         rows={rows}
         loading={isPending}
@@ -146,8 +170,15 @@ export default function ApprovalListPage() {
         search={search}
         onSortingChange={setSort}
         onRowDoubleClick={(row) =>
-          void navigate({ to: ApprovalDetailRoute.to, params: { approvalId: row.id }, search })
+          void navigate({
+            to: ApprovalDetailRoute.to,
+            params: { approvalId: row.id },
+            search: detailSearch,
+          })
         }
+        detailSearch={detailSearch}
+        emptyTitle={filtered ? undefined : t(APPROVAL_LIST_EMPTY_KEY[search.status])}
+        emptyDescription={filtered ? undefined : <ApprovalSourcesHint />}
         filters={filters}
         batch={{
           scope: APPROVAL_LIST_TABLE_ID,
@@ -190,11 +221,12 @@ export default function ApprovalListPage() {
         }
         data-testid="approval-export-dialog"
       />
-
-      <Outlet />
     </div>
   );
 }
 
 const getRowId = (row: ApprovalRowVM) => row.id;
+
+const toStatus = (value: string): ApprovalListStatus =>
+  APPROVAL_LIST_STATUSES.find((status) => status === value) ?? 'pending';
 const getRowLabel = (row: ApprovalRowVM) => row.requesterName;

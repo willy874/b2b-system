@@ -36,5 +36,8 @@ export function useFileSearch() {
     /** 在 LightBox 裡切換上一個／下一個不留瀏覽紀錄：返回鍵直接關掉 LightBox。 */
     switchPreview: (fileId: string) => patch({ preview: fileId }, { replace: true }),
     closePreview: () => patch({ preview: undefined }),
+    /** 從審批詳情帶來的申請關閉後拿掉參數；不留瀏覽紀錄，上一頁回到審批詳情。 */
+    clearRequestAccess: () =>
+      patch({ requestAccess: undefined, resubmit: undefined }, { replace: true }),
   };
 }

@@ -36,6 +36,12 @@ export interface NavItem {
   group?: string;
   /** 預設 `sidebar`。 */
   placement?: NavPlacement;
+  /**
+   * 側欄項目旁的數字徽章（例：待審數；docs/architecture/frontend/02-plugin-system.md §4.6）。側欄在渲染這一項時呼叫它，
+   * 所以它是 hook（可以用 TanStack Query）；登記時只是函式參照，不需要使用者資料。回傳 0 或 `undefined` 時不顯示。
+   * 命令面板與帳號選單不顯示徽章。
+   */
+  useBadge?: () => number | undefined;
 }
 
 /** 可訂閱：可啟用的 feature 安裝或卸載時，側欄與命令面板跟著更新（docs/architecture/frontend/02-plugin-system.md §9.2 D4）。 */
