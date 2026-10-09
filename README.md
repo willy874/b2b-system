@@ -75,7 +75,7 @@ pnpm dev
 | file-storage | http://localhost:9000 |
 | Mailpit（開發用收信匣） | http://localhost:8025 |
 
-想要有資料可看：`pnpm db:seed:dev`（假使用者、自訂角色、群組、稽核日誌，以及通知、公告、回收桶、Webhook、標籤；固定亂數種子，可重跑）。
+想要有資料可看：`pnpm db:seed:dev`（假使用者、自訂角色、群組、稽核日誌，以及通知、公告、回收桶、Webhook、標籤、組織；file-storage 在跑時另有檔案、圖片庫與頭像，變體由 api 的 worker 產生；固定亂數種子，可重跑）。可登入的帳號：`dev-admin`／`dev-auditor`／`dev-member@dev.local`、平台的 `dev-platform-operator`／`dev-platform-auditor@dev.local`，密碼都是 `Dev!Password123`（[`docs/architecture/iam/05-bootstrap.md`](docs/architecture/iam/05-bootstrap.md) §6）。
 
 ## 常用指令
 

@@ -41,6 +41,8 @@ export interface ScriptTenant {
   code: string;
   status: TenantStatus;
   databaseUrl: string;
+  /** 這個租戶的物件儲存 bucket（docs/architecture/05-tenancy.md §10.2 D16）：`db:seed:dev` 寫入假的圖片與檔案用。 */
+  storageBucket: string;
   /** feature 參數的覆寫（docs/architecture/05-tenancy.md §13.2 D2）。 */
   featureParams: TenantFeatureParamOverrides;
 }
@@ -74,6 +76,7 @@ export async function listScriptTenants(
     code: row.code,
     status: row.status,
     databaseUrl: box.decrypt(row.databaseUrlEncrypted),
+    storageBucket: row.storageBucket,
     featureParams: toTenantFeatureParamOverrides(row.featureParams),
   }));
 }

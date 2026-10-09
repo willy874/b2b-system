@@ -3,13 +3,16 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { hashPassword } from '@/modules/credential/password';
 
 import { recordRoleBaseline } from '../bootstrap';
-import type { ScriptDatabase } from '../client';
+import type { PlatformScriptDatabase, ScriptDatabase } from '../client';
 import {
   assertDisposableScriptTargets,
+  createPlatformScriptClient,
   forEachScriptTenant,
   loadScriptEnv,
   seedTenantCode,
 } from '../client';
+import { platformAdmins } from '../platform/schema';
+import type { PlatformAdminRole } from '../platform/schema';
 import {
   auditLogs,
   groupMemberTuple,
@@ -22,7 +25,9 @@ import {
   roles,
   users,
 } from '../schema';
-import { createRandom, seedDevFixtures } from './dev-fixtures';
+import { connectSeedStorage, createRandom, seedDevFixtures } from './dev-fixtures';
+import type { SeedStorage } from './dev-fixtures';
+import { upsertPlatformAdmin } from './platform-admin';
 
 const DEV_PASSWORD = 'Dev!Password123';
 const DEV_DOMAIN = '@dev.local';
@@ -36,6 +41,38 @@ const STATUS_PLAN = [
   ...Array.from({ length: 8 }, () => 'inactive' as const),
   ...Array.from({ length: 5 }, () => 'pending' as const),
   ...Array.from({ length: 2 }, () => 'locked' as const),
+];
+
+/**
+ * 持有系統角色的固定帳號：dev01～dev50 只有隨機的自訂角色，驗證唯讀（auditor、member）與一般管理（admin）時用這幾個。
+ * email 不是 `dev<NN>` 的形狀，不會被當成 50 位使用者之一。
+ */
+export const DEV_ROLE_ACCOUNTS = [
+  { email: `dev-admin${DEV_DOMAIN}`, displayName: 'Dev Admin', role: 'admin' },
+  { email: `dev-auditor${DEV_DOMAIN}`, displayName: 'Dev Auditor', role: 'auditor' },
+  { email: `dev-member${DEV_DOMAIN}`, displayName: 'Dev Member', role: 'member' },
+] as const;
+
+/**
+ * apps/platform 的平台管理者（docs/architecture/05-tenancy.md §10.2 D5）：與租戶的帳號是兩份資料。
+ * super-admin 是 `PLATFORM_ADMIN_EMAIL`（`db:seed` 建立）；這兩位用來對照角色差異（例：CDN 設定頁，
+ * operator 可以改設定與清理、auditor 只能看，docs/architecture/backend/09-file.md §16.9）。
+ */
+export const DEV_PLATFORM_ADMINS: readonly {
+  email: string;
+  displayName: string;
+  role: PlatformAdminRole;
+}[] = [
+  {
+    email: `dev-platform-operator${DEV_DOMAIN}`,
+    displayName: 'Dev Platform Operator',
+    role: 'operator',
+  },
+  {
+    email: `dev-platform-auditor${DEV_DOMAIN}`,
+    displayName: 'Dev Platform Auditor',
+    role: 'auditor',
+  },
 ];
 
 const CUSTOM_ROLES = [
@@ -133,7 +170,7 @@ const ACTIONS = [
   'authz.denied',
 ];
 
-export async function seedDevData(db: ScriptDatabase): Promise<void> {
+export async function seedDevData(db: ScriptDatabase, storage?: SeedStorage): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('db:seed:dev 不可在 production 執行');
   }
@@ -208,6 +245,12 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
     }
   }
 
+  // ── 持有系統角色的固定帳號 ─────────────────────────────
+  for (const account of DEV_ROLE_ACCOUNTS) {
+    // oxlint-disable-next-line no-await-in-loop -- seed 腳本，筆數少，依序執行
+    await ensureRoleAccount(db, account, passwordHash);
+  }
+
   // ── 9 個群組（含巢狀與持有角色）────────────────────────
   // 已存在的群組不動它的成員與角色，重跑不會把手動調整蓋掉
   const roleIdBySlug = new Map(CUSTOM_ROLES.map((seed, index) => [seed.slug, roleIds[index]]));
@@ -277,26 +320,102 @@ export async function seedDevData(db: ScriptDatabase): Promise<void> {
   }
 
   // ── 通知、公告、回收桶、Webhook、標籤（dev-fixtures/）──────
-  const fixtureSummary = await seedDevFixtures(db, {
-    userIds: createdUserIds,
-    roleIdBySlug: new Map(
-      [...roleIdBySlug].filter((entry): entry is [string, string] => Boolean(entry[1])),
-    ),
-    groupIdByName,
-  });
+  const fixtureSummary = await seedDevFixtures(
+    db,
+    {
+      userIds: createdUserIds,
+      roleIdBySlug: new Map(
+        [...roleIdBySlug].filter((entry): entry is [string, string] => Boolean(entry[1])),
+      ),
+      groupIdByName,
+    },
+    storage,
+  );
 
   console.info(
     `dev seed 完成：${CUSTOM_ROLES.length} 個自訂角色、${STATUS_PLAN.length} 位使用者、${DEV_GROUPS.length} 個群組、稽核日誌 ≥ 300 筆`,
   );
   for (const line of fixtureSummary) console.info(`  ${line}`);
+  console.info('持有系統角色的帳號：');
+  for (const account of DEV_ROLE_ACCOUNTS) console.info(`  ${account.email} → ${account.role}`);
   console.info(`所有假帳號密碼：${DEV_PASSWORD}（網域 ${DEV_DOMAIN}，不會誤寄信）`);
+}
+
+/** 已存在（沒刪除）就沿用，不改密碼；角色的邊照樣補上（ON CONFLICT DO NOTHING）。 */
+async function ensureRoleAccount(
+  db: ScriptDatabase,
+  account: (typeof DEV_ROLE_ACCOUNTS)[number],
+  passwordHash: string,
+): Promise<void> {
+  const [role] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(and(eq(roles.slug, account.role), isNull(roles.deletedAt)))
+    .limit(1);
+  if (!role) throw new Error(`角色不存在：${account.role}（請先跑 db:seed）`);
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, account.email), isNull(users.deletedAt)))
+    .limit(1);
+  const userId =
+    existing?.id ??
+    (
+      await db
+        .insert(users)
+        .values({
+          email: account.email,
+          displayName: account.displayName,
+          passwordHash,
+          status: 'active',
+        })
+        .returning({ id: users.id })
+    )[0]?.id;
+  if (!userId) throw new Error(`建立帳號失敗：${account.email}`);
+  await db.insert(relationTuples).values(roleHolderTuple(role.id, userId)).onConflictDoNothing();
+}
+
+/** 平台管理者：已存在（沒刪除）就不動，不會把在畫面上改過的密碼或角色蓋掉。 */
+export async function seedDevPlatformAdmins(db: PlatformScriptDatabase): Promise<void> {
+  for (const admin of DEV_PLATFORM_ADMINS) {
+    // oxlint-disable-next-line no-await-in-loop -- seed 腳本，筆數少，依序執行
+    const [existing] = await db
+      .select({ id: platformAdmins.id })
+      .from(platformAdmins)
+      .where(and(eq(platformAdmins.email, admin.email), isNull(platformAdmins.deletedAt)))
+      .limit(1);
+    if (!existing) {
+      // oxlint-disable-next-line no-await-in-loop -- 同上
+      await upsertPlatformAdmin(db, { ...admin, password: DEV_PASSWORD });
+    }
+  }
+  console.info('apps/platform 的平台管理者：');
+  for (const admin of DEV_PLATFORM_ADMINS) console.info(`  ${admin.email} → ${admin.role}`);
+  console.info(`  密碼：${DEV_PASSWORD}`);
 }
 
 async function main(): Promise<void> {
   loadScriptEnv();
   const code = seedTenantCode();
   await assertDisposableScriptTargets('db:seed:dev', { code });
-  await forEachScriptTenant((db) => seedDevData(db), { code });
+  await forEachScriptTenant(
+    async (db, tenant) => {
+      const storage = await connectSeedStorage(tenant.storageBucket);
+      try {
+        await seedDevData(db, storage);
+      } finally {
+        storage?.close();
+      }
+    },
+    { code },
+  );
+  // 平台 DB 已在上面的防呆一起檢查過
+  const platform = createPlatformScriptClient();
+  try {
+    await seedDevPlatformAdmins(platform.db);
+  } finally {
+    await platform.client.end();
+  }
 }
 
 if (require.main === module) {

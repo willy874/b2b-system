@@ -115,6 +115,7 @@ pnpm test:e2e       # Playwright（需要 api 與 backstage 已啟動）；會�
 pnpm db:migrate / db:seed / db:seed:dev / db:seed:e2e / db:reset
                     # 平台 DB ＋ 每個租戶的 DB（docs/architecture/backend/02-database.md §6.1）；seed:dev/e2e 只跑 SEED_TENANT（預設 default）
                     # reset／seed:dev／seed:e2e 拒絕標記為 production 的平台 DB，不在本機的 DB 要加 --confirm <平台 database 名稱>
+                    # seed:dev 的檔案、圖片庫、頭像要 file-storage 在跑（物件真的寫入），變體由 api worker 經 job_outbox 產生；帳號清單在 docs/architecture/iam/05-bootstrap.md §6
 pnpm db:archive-audit-logs   # 稽核熱表 → 冷表搬移的手動補跑（平常由背景工作 auditLog.archive 每天跑）
 pnpm db:drop-tenant <代碼> [--confirm]   # 清除 apps/platform 已刪除的租戶（database、DB 角色、bucket）；不加 --confirm 只列出；db:migrate 登記的預設租戶另要 --database <名稱>
 pnpm --filter @b2b-system/api cli:reset-super-admin (--tenant <代碼> | --platform) --email <email> [--reset-mfa]

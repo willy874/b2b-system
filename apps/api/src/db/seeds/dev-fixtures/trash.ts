@@ -1,4 +1,4 @@
-import { and, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { storageKeyOf } from '@/modules/file/file.constants';
 
@@ -240,7 +240,7 @@ export async function seedTrashFixtures(
   const activeFolderIds = new Map<ActiveFolderName, string>();
   for (const name of ACTIVE_FOLDERS) {
     // oxlint-disable-next-line no-await-in-loop -- 同上
-    activeFolderIds.set(name, await ensureRootFolder(db, ctx, name));
+    activeFolderIds.set(name, await ensureFolder(db, ctx, name));
   }
 
   const tree = DELETED_FOLDER_TREE;
@@ -346,11 +346,15 @@ export async function seedTrashFixtures(
   };
 }
 
-/** 根目錄底下未刪除的一般資料夾：同名的已存在（不分大小寫）就沿用，否則以固定 id 建立。 */
-async function ensureRootFolder(
+/**
+ * 未刪除的一般資料夾（`parentId` 是 null 時在根目錄）：同一層同名的已存在（不分大小寫）就沿用，否則以固定 id 建立。
+ * 固定 id 由上層與名稱決定，不同上層底下的同名資料夾不會撞在一起。
+ */
+export async function ensureFolder(
   db: ScriptDatabase,
   ctx: DevFixtureContext,
   name: string,
+  parentId: string | null = null,
 ): Promise<string> {
   const findExisting = async (): Promise<string | undefined> => {
     const [row] = await db
@@ -358,7 +362,7 @@ async function ensureRootFolder(
       .from(fileFolders)
       .where(
         and(
-          isNull(fileFolders.parentId),
+          parentId ? eq(fileFolders.parentId, parentId) : isNull(fileFolders.parentId),
           sql`lower(${fileFolders.name}) = lower(${name})`,
           isNull(fileFolders.deletedAt),
         ),
@@ -368,12 +372,14 @@ async function ensureRootFolder(
   };
   const existing = await findExisting();
   if (existing) return existing;
-  const id = fixtureId(`folder:${name}`);
+  // 根目錄沿用原本的 key（既有 dev DB 裡的資料夾 id 不變）
+  const id = fixtureId(parentId ? `folder:${parentId}/${name}` : `folder:${name}`);
   await db
     .insert(fileFolders)
     .values({
       id,
       name,
+      parentId,
       kind: 'normal',
       createdAt: ago(ctx.now, 45),
       createdBy: ctx.actorId,
