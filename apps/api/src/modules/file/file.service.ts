@@ -16,6 +16,7 @@ import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest, StoredObjectHead } from '@/core/storage';
 import { FILE_STORAGE_QUOTA_MB_PARAM, tenantFeatureParam } from '@/core/tenant';
+import { StorageCapacity } from '@/core/usage';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
@@ -93,6 +94,7 @@ export class FileService {
     private readonly objects: FileObjectsService,
     private readonly webhooks: WebhookService,
     private readonly tags: TagService,
+    private readonly capacity: StorageCapacity,
     config: ConfigService<Env, true>,
   ) {
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
@@ -199,6 +201,8 @@ export class FileService {
     }
     const ctx = await this.access.contextFor(actor);
     await this.access.assertCan(ctx, actor, 'create', dto.folderId ?? null);
+    // 整個平台的止水線（docs/architecture/backend/25-image.md §12）：讀平台算好的合計，近似值、不在交易內
+    await this.capacity.assertCanStore(dto.size);
     // 先不鎖地檢查一次（讀計數，O(1)）：明顯超過容量時不必向物件儲存要分塊上傳的 uploadId；
     // 登記時在交易內以條件式 UPDATE 確認並佔用
     assertWithinQuota(await this.repo.storageUsed(), dto.size);

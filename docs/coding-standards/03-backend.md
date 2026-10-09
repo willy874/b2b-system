@@ -66,6 +66,16 @@
 - 改完 DTO 或 controller 後跑
   `pnpm --filter @b2b-system/api openapi:generate && pnpm sdk:generate`。
 
+### 2.5 圖片：存參照，不存網址
+
+| ❌ 不要 | ✅ 改成 | 強度 |
+| --- | --- | --- |
+| 把圖片的網址存進資料庫、富文本、匯出檔、稽核 | 存圖片的 id（`avatar_image_id`），回應時以 `ImageUrlService` 產生 `ImageSources` | 👀 Review |
+| 自己呼叫 `presignDownload` 給 `<img>` 用 | `ImageUrlService`（圖片）或 `ObjectUrlSigner`（單一物件），效期與簽章方式集中在一處 | 👀 Review |
+| 開放任意寬度的參數（`?w=`） | 用途宣告具名的尺寸（附 2x），處理時就產生 | 👀 Review |
+
+簽章網址會過期（最長 24 小時），存下來的網址之後一定破圖；之後換成 CDN 也只改 `ObjectUrlSigner`。見 [`architecture/backend/25-image.md`](../architecture/backend/25-image.md) §1。
+
 ---
 
 ## 3. 錯誤

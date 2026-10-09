@@ -39,6 +39,7 @@
       "platformNotificationCleanup": "Platform notification cleanup",
       "rateLimitCleanup": "Rate limit counter cleanup",
       "revisionPrune": "Revision history pruning",
+      "storageTotalRollup": "Storage limit rollup",
       "tenantProvision": "Tenant provisioning",
       "tenantProvisionSweep": "Interrupted tenant provisioning check",
       "tenantUsageRollup": "Tenant usage rollup",

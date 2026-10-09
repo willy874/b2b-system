@@ -266,6 +266,9 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
   `sort` 可用 `createdAt`、`code`、`usersActive`、`storageUsage`、`recentRequests`、`lastActivityAt`（沒帶時依建立時間舊到新）；
   `GET /platform/tenants/:id/usage?days=30`（1–90）回摘要與每天一筆（含沒有資料的日子）。都只要 `tenant:read`。
 - 租戶管理者在 backstage 看不到這些數字（§14.2 D9）。
+- **儲存的止水線**：所有租戶的已用量合計另由平台每 5 分鐘量一次（`storage.totalRollup`，平台 DB 的 `tenant_storage_usage`），
+  超過 `STORAGE_TOTAL_LIMIT_MB` 時全部租戶停止新的上傳（`409 STORAGE_TOTAL_LIMIT_REACHED`）；每個租戶的容量照舊。
+  租戶清單上方顯示合計與止水線（`GET /platform/tenants/storage-total`）。見 [`backend/25-image.md`](./backend/25-image.md) §12、D8。
 
 ## 6. 周邊元件怎麼分租戶
 

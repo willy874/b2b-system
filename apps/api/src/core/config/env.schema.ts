@@ -567,6 +567,14 @@ export const EnvSchema = z.object({
   TENANT_USAGE_RETENTION_DAYS: z.coerce.number().int().min(31).default(400),
 
   /**
+   * 儲存的止水線（MB）：所有租戶的已用量合計超過它時，全部租戶停止新的上傳（docs/architecture/backend/25-image.md §12 D8）。
+   * 依物件儲存實際的空間設定，並預留兩次彙總之間的上傳量；0 = 不啟用。
+   */
+  STORAGE_TOTAL_LIMIT_MB: z.coerce.number().int().min(0).default(0),
+  /** 所有租戶已用量的彙總 cron（UTC）；空字串停用（止水線也就不會擋）。 */
+  STORAGE_TOTAL_ROLLUP_CRON: z.string().trim().default('*/5 * * * *'),
+
+  /**
    * 第一位平台管理者（apps/platform 的租戶管理）：`db:seed` 在平台 DB 沒有任何管理者時建立。
    * 密碼留空 = seed 時隨機產生並印出一次。
    */

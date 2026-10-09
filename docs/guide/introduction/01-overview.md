@@ -93,7 +93,7 @@
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
 | 系統設定 | 每個租戶執行期可調的設定，分「一般」「安全性」「事件通知」三個分頁：預設時區、登入鎖定、密碼長度、開放註冊、信件連結與 API token 的效期、上傳上限、回收桶／版本／通知／匯出檔的保留；MFA 政策（允許的方式、誰必須啟用）；每個值都有允許範圍 | [§4.4](./03-feature-tour.md#44-系統設定安全性與外部-idp) | [`backend/12-settings.md`](../../architecture/backend/12-settings.md) |
-| 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額；每個租戶的用量（使用者、儲存、請求、背景工作）與配額警示 | [§6.1](./03-feature-tour.md#61-租戶) | [`05-tenancy.md`](../../architecture/05-tenancy.md) |
+| 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額；每個租戶的用量（使用者、儲存、請求、背景工作）與配額警示；所有租戶合計的儲存止水線 | [§6.1](./03-feature-tour.md#61-租戶) | [`05-tenancy.md`](../../architecture/05-tenancy.md)、[`backend/25-image.md`](../../architecture/backend/25-image.md) §12 |
 | 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag、MFA 驗證方式的全平台開關 | [§6.2](./03-feature-tour.md#62-平台管理者mfa-驗證方式feature-flag-與平台稽核) | [`05-tenancy.md`](../../architecture/05-tenancy.md) §11 |
 | 個人帳號 | 個人資料、變更密碼、多重驗證與備用碼、語系、時區、主題、通知設定 | [§7](./03-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../../architecture/frontend/09-state-and-storage.md) |
 | 命令面板 | ⌘K／Ctrl+K：跳到頁面、最近造訪、搜尋使用者、角色、群組、部門、檔案等資料、建立的捷徑；依權限過濾，兩個前端都有 | [開頭](./03-feature-tour.md) | [`frontend/18-command-palette.md`](../../architecture/frontend/18-command-palette.md) |

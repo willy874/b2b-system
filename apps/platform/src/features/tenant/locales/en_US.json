@@ -240,6 +240,14 @@
       "killed": "Switched off platform-wide",
       "unconfigured": "Platform settings missing; can't be turned on"
     },
+    "storageTotal": {
+      "title": "Storage across all tenants",
+      "usedOf": "{{used}} / limit {{limit}} ({{percent}}%)",
+      "measuredAt": "updated {{time}}",
+      "warning": "All tenants together have used {{percent}}% of the storage limit. At 100%, uploads stop for every tenant. Free up or expand object storage.",
+      "reached": "Storage limit reached: new uploads are paused for every tenant (reads and deletes still work). Expand object storage, then raise STORAGE_TOTAL_LIMIT_MB.",
+      "stale": "Usage hasn't been updated for over an hour (the rollup job may have stopped), so the storage limit isn't enforced for now."
+    },
     "usage": {
       "snapshotAt": "Updated {{time}}",
       "noSnapshot": "No usage data yet. Usage is collected every hour; new tenants appear after the next run.",

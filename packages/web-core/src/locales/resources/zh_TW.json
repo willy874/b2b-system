@@ -259,6 +259,7 @@
     "FILE_NOT_FOUND": "找不到這個檔案，可能已被刪除。",
     "FILE_TOO_LARGE": "檔案超過允許的大小上限。",
     "FILE_STORAGE_QUOTA_EXCEEDED": "檔案容量已滿，無法上傳。請刪除不用的檔案並清空回收桶，或請平台管理者調高容量。",
+    "STORAGE_TOTAL_LIMIT_REACHED": "系統的儲存空間已滿，暫時無法上傳。請聯絡管理者。",
     "FILE_ALREADY_UPLOADED": "這個檔案已經上傳完成。",
     "FILE_UPLOAD_INCOMPLETE": "檔案沒有上傳完成，請重新上傳。",
     "FILE_SIZE_MISMATCH": "上傳的內容與檔案大小不符，請重新上傳。",

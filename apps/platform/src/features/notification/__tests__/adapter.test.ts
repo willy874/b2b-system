@@ -51,6 +51,18 @@ describe('toNotificationVM（平台的通知 → 畫面）', () => {
     );
   });
 
+  it('儲存止水線警示：使用率帶進句子，圖示是警告', () => {
+    const vm = toNotificationVM({
+      ...base,
+      type: 'storage.totalNearLimit',
+      params: { percent: 100 },
+    });
+    expect(vm.icon).toBe('warning');
+    expect(notificationMessage(t, vm)).toBe(
+      'notification.type.storageTotalNearLimit{"percent":"100"}',
+    );
+  });
+
   it('換角色：角色以目前語系的名稱帶入句子；不認得的角色不帶', () => {
     const vm = toNotificationVM({
       ...base,

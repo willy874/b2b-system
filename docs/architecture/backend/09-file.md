@@ -55,6 +55,8 @@ export abstract class ObjectStorage {
 }
 ```
 
+- 讀圖的熱路徑不直接呼叫 `presignDownload`，而是經 `ObjectUrlSigner`（同一個模組提供；現在的實作就是 `presignDownload`，之後的 CDN 是另一個實作，
+  [`25-image.md`](./25-image.md) §3）。
 - **abstract class 而不是 interface**：它同時是 Nest 的 DI token（`{ provide: ObjectStorage, useClass: S3ObjectStorage }`）。
   業務模組只 `constructor(private readonly storage: ObjectStorage)`，不 import SDK。
 - 換後端：寫另一個實作、改 `StorageModule` 的 `useClass`。測試：`overrideProvider(ObjectStorage)` 換成記憶體版
@@ -305,6 +307,8 @@ const file = await uploadFile({ file: input.files[0], thumbnail, onProgress: ({ 
   條件式 UPDATE 檢查並佔用：檢查與佔用是同一條語句，同時的登記以計數那一列的 **列鎖** 排隊（不再取 advisory lock、不加總），
   不會一起超過容量。超過就回 `409 FILE_STORAGE_QUOTA_EXCEEDED`（`details`：`quota`、`used`、`size`，位元組）；
   已經要到的分塊上傳盡力取消。`trash.purge` 的一批（100 列）持有那一列的鎖到提交，期間的登記稍候。
+- 登記前先檢查所有租戶合計的 **儲存止水線**（`StorageCapacity.assertCanStore`，讀平台算好的合計；超過回 `409 STORAGE_TOTAL_LIMIT_REACHED`，
+  [`25-image.md`](./25-image.md) §12）。這個計數也是止水線的來源（檔案模組向 `TenantStorageUsage` 登記）。
 - 調小到低於已用量時不刪任何檔案，只擋新的上傳；永久刪除（`trash.purge`）才會釋出容量——放棄的上傳、維護排程清掉的逾時上傳
   都是軟刪除，同樣等保留期限後的永久刪除。
 - 計數只在這三個寫入點維護；直接改資料庫、migration 之後到新版上線之前舊版的登記會讓它偏。`file.maintenance` 每一輪檢查
@@ -374,6 +378,7 @@ POST /files/:id/complete {parts: [{partNumber, etag}]}
   SVG 不處理（向量圖由瀏覽器直接顯示，也不讓 api 解析使用者給的 XML）；其他檔案 `variant_status = 'none'`。
 - **主格式**：**progressive JPEG**（mozjpeg，品質 82）——大圖在下載途中就由模糊到清楚逐步顯示；
   有透明度的圖改用 WebP（JPEG 沒有透明度）。一律依 EXIF 轉正、移除中繼資料（GPS 等）、等比縮小不放大。
+  這是與圖片資產、圖片庫共用的格式政策（`core/image` 的 `primaryFormatOf`，[`25-image.md`](./25-image.md) §11）。
 - **何時產生**：`complete` 的交易內排入背景工作 `file.imageVariants`（`FileImageService.enqueueVariants()`，outbox；
   每個 worker 程序同時最多 2 張），**不等它完成**：交易後先推 `create`，變體好了 `variant_status = 'ready'` 再推 `update`，前端重抓就拿到網址。
   在 worker 產生（[`../01-system.md`](../01-system.md) §7 D9），sharp 的 CPU 不佔 http 程序的 event loop。
@@ -551,6 +556,7 @@ LIMIT $limit
 | `FILE_NOT_FOUND` | 404 | 不存在、已刪除、別人的 `pending`、對 `pending` 改名／刪除 |
 | `FILE_TOO_LARGE` | 413 | 登記的大小超過租戶的上限 `file.uploadMaxSize`（`details.maxSize`） |
 | `FILE_STORAGE_QUOTA_EXCEEDED` | 409 | 加上這次的大小會超過租戶的容量 `file.storageQuotaMb`（`details`：`quota`、`used`、`size`；§5.0） |
+| `STORAGE_TOTAL_LIMIT_REACHED` | 409 | 所有租戶的已用量合計已達儲存的止水線，整個平台暫停新的上傳（不帶 `details`；[`25-image.md`](./25-image.md) §12） |
 | `FILE_ALREADY_UPLOADED` | 409 | 對 `ready` 再 `complete` 或放棄；並行完成的較晚者 |
 | `FILE_UPLOAD_INCOMPLETE` | 409 | `complete` 時物件儲存裡還沒有內容、分塊不對；前端直傳被拒時也用它 |
 | `FILE_SIZE_MISMATCH` | 422 | 實際大小與登記不符（`details.expected` / `details.actual`） |

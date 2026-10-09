@@ -229,6 +229,14 @@
       "killed": "全平台已緊急關閉",
       "unconfigured": "平台參數尚未設定，不能開啟"
     },
+    "storageTotal": {
+      "title": "所有租戶的儲存空間",
+      "usedOf": "{{used}} / 止水線 {{limit}}（{{percent}}%）",
+      "measuredAt": "{{time}} 更新",
+      "warning": "所有租戶合計已用掉止水線的 {{percent}}%。到 100% 時全部租戶都無法上傳，請清理或擴充物件儲存。",
+      "reached": "已達止水線：所有租戶都暫停新的上傳（讀取與刪除照常）。擴充物件儲存後調高 STORAGE_TOTAL_LIMIT_MB。",
+      "stale": "超過 1 小時沒有更新用量（彙總的背景工作可能停了），止水線暫時不擋上傳。"
+    },
     "usage": {
       "snapshotAt": "{{time}} 更新",
       "noSnapshot": "還沒有用量資料。用量每小時彙總一次，新租戶要等下一次彙總。",

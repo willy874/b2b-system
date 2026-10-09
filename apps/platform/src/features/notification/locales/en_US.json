@@ -22,6 +22,7 @@
       "tenantProvisioned": "Tenant \"{{name}}\" ({{code}}) is provisioned and ready to use.",
       "tenantProvisionFailed": "Provisioning tenant \"{{name}}\" ({{code}}) failed. Check the reason and retry.",
       "tenantStorageNearQuota": "Tenant \"{{name}}\" ({{code}}) has used {{percent}}% of its file storage quota.",
+      "storageTotalNearLimit": "All tenants together have used {{percent}}% of the storage limit. At 100%, uploads stop for every tenant.",
       "platformAdminRoleChanged": "Your role changed from \"{{from}}\" to \"{{to}}\".",
       "unknown": "You have a new notification."
     },

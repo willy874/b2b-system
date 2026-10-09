@@ -1,3 +1,6 @@
+export * from './storage-capacity';
+export * from './storage-total.repository';
+export * from './tenant-storage-usage';
 export * from './tenant-usage-snapshots';
 export * from './usage-date';
 export * from './usage-meter';

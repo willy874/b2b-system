@@ -335,6 +335,11 @@ export const ErrorCode = {
    * `details`：`quota`、`used`、`size`（位元組）。
    */
   FILE_STORAGE_QUOTA_EXCEEDED: { status: 409 },
+  /**
+   * 所有租戶的已用量合計已達儲存的止水線，整個平台暫停新的上傳（docs/architecture/backend/25-image.md §12 D8）。
+   * 不帶 `details`：平台的數字不給租戶看。用 409 而不是 5xx：前端不會自動重試。
+   */
+  STORAGE_TOTAL_LIMIT_REACHED: { status: 409 },
   FILE_ALREADY_UPLOADED: { status: 409 },
   FILE_UPLOAD_INCOMPLETE: { status: 409 },
   FILE_SIZE_MISMATCH: { status: 422 },

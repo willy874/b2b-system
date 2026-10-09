@@ -39,6 +39,7 @@
       "platformNotificationCleanup": "平台通知清理",
       "rateLimitCleanup": "速率限制計數清理",
       "revisionPrune": "版本歷史清理",
+      "storageTotalRollup": "儲存止水線的彙總",
       "tenantProvision": "租戶佈建",
       "tenantProvisionSweep": "中斷的租戶佈建檢查",
       "tenantUsageRollup": "租戶用量彙總",

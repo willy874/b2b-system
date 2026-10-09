@@ -18,10 +18,11 @@ import {
   usageSummaryFixture,
 } from '../../../test-fixtures';
 
-const { listTenants, createTenant, getTenant } = vi.hoisted(() => ({
+const { listTenants, createTenant, getTenant, getStorageTotal } = vi.hoisted(() => ({
   listTenants: vi.fn(),
   createTenant: vi.fn(),
   getTenant: vi.fn(),
+  getStorageTotal: vi.fn(),
 }));
 vi.mock('@/apis/platform-tenant/get-tenant-list/query', () => ({
   TENANT_LIST_QUERY_KEY: 'TENANT_LIST_QUERY_KEY',
@@ -44,6 +45,13 @@ vi.mock('@/apis/platform-tenant/get-tenant/query', () => ({
     queryFn: () => getTenant(id),
   }),
 }));
+vi.mock('@/apis/platform-tenant/get-storage-total/query', () => ({
+  STORAGE_TOTAL_QUERY_KEY: 'STORAGE_TOTAL_QUERY_KEY',
+  getStorageTotalQueryOptions: () => ({
+    queryKey: ['STORAGE_TOTAL_QUERY_KEY'],
+    queryFn: () => getStorageTotal(),
+  }),
+}));
 vi.mock('@/apis/platform-tenant/create-tenant/mutation', () => ({
   getCreateTenantMutationOptions: () => ({ mutationFn: createTenant }),
 }));
@@ -57,6 +65,20 @@ function listOf(...items: ReturnType<typeof tenantListItemFixture>[]) {
     baseDomain: 'localhost:5173',
     usageRecentDays: 7,
     usageWarningRatio: 0.8,
+  };
+}
+
+const GIB = 1024 ** 3;
+
+/** 儲存的止水線；`limitBytes: null` 是部署沒有啟用。 */
+function storageTotalOf(limitBytes: number | null, usedBytes: number, isStale = false) {
+  return {
+    usedBytes,
+    limitBytes,
+    usageRatio: limitBytes === null ? null : usedBytes / limitBytes,
+    warningRatio: 0.8,
+    measuredAt: '2026-10-09T12:00:00.000Z',
+    isStale,
   };
 }
 
@@ -93,6 +115,7 @@ beforeEach(() => {
   registerTenantPagePermissions();
   listTenants.mockReset().mockResolvedValue(listOf(tenantListItemFixture()));
   getTenant.mockReset().mockResolvedValue(TENANT);
+  getStorageTotal.mockReset().mockResolvedValue(storageTotalOf(null, 0));
   createTenant.mockReset();
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
@@ -298,6 +321,47 @@ describe('租戶清單的用量（docs/architecture/05-tenancy.md §5.4）', () 
       expect(listTenants).toHaveBeenCalledWith(
         expect.objectContaining({ sort: [{ sort: 'lastActivityAt', order: 'desc' }] }),
       ),
+    );
+  });
+});
+
+describe('租戶清單的儲存止水線（docs/architecture/backend/25-image.md §12）', () => {
+  it('部署沒有啟用：不顯示', async () => {
+    renderPage(['tenant:read']);
+    expect(await screen.findByTestId('tenant-link')).toBeInTheDocument();
+    await waitFor(() => expect(getStorageTotal).toHaveBeenCalled());
+    expect(screen.queryByTestId('tenant-storage-total')).toBeNull();
+  });
+
+  it('未達警示：顯示用量，沒有警告', async () => {
+    getStorageTotal.mockResolvedValue(storageTotalOf(100 * GIB, 25 * GIB));
+    renderPage(['tenant:read']);
+    expect(await screen.findByTestId('tenant-storage-total-progress')).toHaveAttribute(
+      'data-value',
+      'normal',
+    );
+    expect(screen.queryByTestId('tenant-storage-total-warning')).toBeNull();
+  });
+
+  it('越過 80%：警告；到 100%：改成「已達止水線」', async () => {
+    getStorageTotal.mockResolvedValue(storageTotalOf(100 * GIB, 85 * GIB));
+    renderPage(['tenant:read']);
+    expect(await screen.findByTestId('tenant-storage-total-warning')).toBeInTheDocument();
+    expect(screen.getByTestId('tenant-storage-total-progress')).toHaveAttribute(
+      'data-value',
+      'warning',
+    );
+  });
+
+  it('已達止水線、彙總過舊：各自顯示說明', async () => {
+    getStorageTotal.mockResolvedValue(storageTotalOf(100 * GIB, 120 * GIB, true));
+    renderPage(['tenant:read']);
+    expect(await screen.findByTestId('tenant-storage-total-reached')).toBeInTheDocument();
+    expect(screen.queryByTestId('tenant-storage-total-warning')).toBeNull();
+    expect(screen.getByTestId('tenant-storage-total-stale')).toBeInTheDocument();
+    expect(screen.getByTestId('tenant-storage-total-progress')).toHaveAttribute(
+      'data-value',
+      'reached',
     );
   });
 });

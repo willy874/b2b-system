@@ -153,7 +153,8 @@ docs/
 │       ├── 21-mfa.md                  MFA：MfaMethod 介面與註冊表、TOTP 與 Email、登入的第二步、平台開關與租戶政策
 │       ├── 22-data-transfer.md        匯入／匯出：資源登記、CSV／XLSX／JSON／YAML／SQL 匯出、分析與驗證、逐列交易的套用、清理
 │       ├── 23-organization.md         組織管理：部門樹、成員、主管的解析
-│       └── 24-comment.md              留言與關注：資源類型的登記、@提及、關注的通知、清理
+│       ├── 24-comment.md              留言與關注：資源類型的登記、@提及、關注的通知、清理
+│       └── 25-image.md                圖片的讀取與遞送：存參照、簽章網址、效期與尺寸、格式政策；儲存的止水線
 │
 ├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）

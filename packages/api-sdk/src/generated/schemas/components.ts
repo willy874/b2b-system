@@ -122,6 +122,8 @@ import type {
   IdentityProvider,
   IdentityProviderDomain,
   IdentityProviderList,
+  ImageSourceVariant,
+  ImageSources,
   Job,
   JobName,
   JobQueue,
@@ -238,6 +240,7 @@ import type {
   SsoRedirect,
   StartExternalLoginRequest,
   StartMfaEnrollmentRequest,
+  StorageTotal,
   StoredFile,
   StoredFileCapabilities,
   StoredFileImage,
@@ -334,6 +337,26 @@ export const RichTextDocumentSchema = z.object({
   type: z.enum(['doc']),
   content: z.array(RichTextNodeSchema),
 }) satisfies z.ZodType<RichTextDocument>;
+
+export const ImageSourceVariantSchema = z.object({
+  src: z.string(),
+  srcSet: z.string(),
+  sources: z.array(
+    z.object({
+      type: z.string(),
+      srcSet: z.string(),
+    }),
+  ),
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<ImageSourceVariant>;
+
+export const ImageSourcesSchema = z.object({
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+  expiresAt: z.string(),
+  variants: z.record(z.string(), ImageSourceVariantSchema),
+}) satisfies z.ZodType<ImageSources>;
 
 export const NotificationChannelSchema = z.enum([
   'inApp',
@@ -4018,6 +4041,7 @@ export const JobNameSchema = z.enum([
   'platformNotification.cleanup',
   'rateLimit.cleanup',
   'revision.prune',
+  'storage.totalRollup',
   'tenant.provision',
   'tenant.provisionSweep',
   'tenant.usageRollup',
@@ -4338,6 +4362,15 @@ export const UpdateSystemSettingsRequestSchema = z.object({
 export const PublicSystemSettingsSchema = z.object({
   values: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean()])),
 }) satisfies z.ZodType<PublicSystemSettings>;
+
+export const StorageTotalSchema = z.object({
+  usedBytes: z.number(),
+  limitBytes: z.number().nullable(),
+  usageRatio: z.number().nullable(),
+  warningRatio: z.number(),
+  measuredAt: z.string().nullable(),
+  isStale: z.boolean(),
+}) satisfies z.ZodType<StorageTotal>;
 
 export const CurrentTenantSchema = z.object({
   code: z.string(),

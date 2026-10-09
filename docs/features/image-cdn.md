@@ -2,7 +2,7 @@
 
 - 優先度：P3
 - 狀態：規劃中
-- 依賴：[`image-delivery.md`](./image-delivery.md)（`ObjectUrlSigner`：CDN 是它的一個實作；每個物件只寫一次）、
+- 依賴：[`backend/25-image.md`](../architecture/backend/25-image.md)（`ObjectUrlSigner`：CDN 是它的一個實作；每個物件只寫一次）、
   獨立的檔案網域（[`backend/09-file.md`](../architecture/backend/09-file.md) §3.2、§13）、影像 API（[`backend/09-file.md`](../architecture/backend/09-file.md) §5.4）、
   背景工作（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)；清理快取的 `cdn.purge`）
 - 相關：[`image-picker.md`](./image-picker.md)（圖片資產）、[`image-gallery.md`](./image-gallery.md)（圖片最多的頁面）；
@@ -38,7 +38,7 @@ api 端「簽 CDN 網址」與「清理快取」都做成抽象，之後換成�
 | 做 | 不做（這一版） |
 | --- | --- |
 | `cdn` 容器（nginx ＋ njs）：驗網址簽章、邊緣快取、以內部憑證回源、清理快取的內部端點 | 串接真正的 CDN 服務（CloudFront、Cloudflare）；只留介面 |
-| api 的 `CdnUrlSigner`（`ObjectUrlSigner` 的實作，[`image-delivery.md`](./image-delivery.md) §9） | 一般檔案的下載（`url`、`downloadUrl`；D4） |
+| api 的 `CdnUrlSigner`（`ObjectUrlSigner` 的實作，[`backend/25-image.md`](../architecture/backend/25-image.md) §9） | 一般檔案的下載（`url`、`downloadUrl`；D4） |
 | api 的 `CdnPurger` 與背景工作 `cdn.purge`：物件永久刪除後清理邊緣快取（§7） | 多個區域、地理分散、延遲的量測 |
 | 以環境變數開關（`FILE_CDN_ENABLED`，預設 `false`）與一組參數（§6） | 依租戶開關（D9） |
 | file-storage 的回源憑證：只接受 `GET`／`HEAD`，只在內部網路有效 | `files/<id>` 原檔（可能是任何類型，型別政策另外處理） |
@@ -82,7 +82,7 @@ api 端「簽 CDN 網址」與「清理快取」都做成抽象，之後換成�
 ### 1. 讀取路徑（啟用 CDN 之後）
 
 ```
-圖片資產、圖片庫（image-delivery.md D1：回應直接帶網址）
+圖片資產、圖片庫（backend/25-image.md D1：回應直接帶網址）
   <img src="https://cdn…/storage/<bucket>/images/<id>/r3/sm@2x.webp?exp&kid&sig">
                                                   │
 檔案的影像變體（影像 API 不變）                   │
@@ -95,7 +95,7 @@ api 端「簽 CDN 網址」與「清理快取」都做成抽象，之後換成�
 ```
 
 - **前端不改**：影像 API 的契約不變；圖片資產與圖片庫的 `ImageSources` 本來就是完整網址，只是換成 CDN 的網域。
-- **格式不在邊緣協商**：圖片資產與圖片庫由 `<picture>` 選格式（[`image-delivery.md`](./image-delivery.md) D2）；檔案的 `format=auto` 由 api 決定之後，
+- **格式不在邊緣協商**：圖片資產與圖片庫由 `<picture>` 選格式（[`backend/25-image.md`](../architecture/backend/25-image.md) D2）；檔案的 `format=auto` 由 api 決定之後，
   CDN 網址已經指向某一個格式的物件。所以邊緣的快取 **不必 `Vary: Accept`**。
 - **快取的 key 是物件路徑**（`/storage/<bucket>/<key>`），不含簽章。bucket 一個租戶一個（[`backend/09-file.md`](../architecture/backend/09-file.md) §3.1），
   所以不同租戶的物件不會共用快取。
@@ -110,7 +110,7 @@ api 端「簽 CDN 網址」與「清理快取」都做成抽象，之後換成�
 - **簽的內容**：`exp` 與完整路徑（含 bucket）。換路徑、換 bucket、改 `exp` 都驗不過；`kid` 只用來選金鑰，換掉也驗不過。
 - **金鑰環**：`FILE_CDN_SIGNING_KEYS` 的格式與 `JWT_SIGNING_KEYS` 相同（`<kid>:<base64>[,…]`），**第一把簽發，全部都能驗證**。
   輪替：把新金鑰加到第一個 → 重啟 api 與 cdn → 等最長效期（`FILE_CDN_MAX_URL_TTL`）過去 → 移除舊金鑰。
-- **效期**：用途的 `urlTtl`（[`image-delivery.md`](./image-delivery.md) D3），以 `FILE_CDN_MAX_URL_TTL` 封頂；檔案的影像變體用 `FILE_URL_TTL`。
+- **效期**：用途的 `urlTtl`（[`backend/25-image.md`](../architecture/backend/25-image.md) D3），以 `FILE_CDN_MAX_URL_TTL` 封頂；檔案的影像變體用 `FILE_URL_TTL`。
   `exp` 取整到效期一半的時間窗，同一個時間窗內網址相同，瀏覽器快取照樣命中；快取的 key 不含簽章，效期長短不影響邊緣的命中率（D2）。
 - **`CdnUrlSigner`**（`core/storage`）：`NginxCdnUrlSigner` 是這一版唯一的實作；之後的 `CloudFrontUrlSigner`、`CloudflareUrlSigner` 只是新的實作，呼叫端不變。
 - **哪些物件走 CDN**：呼叫端在簽網址時標 `{ cdn: '<資源類型>' }`（`imageAsset`、`galleryItem`、`fileVariant`），
@@ -213,7 +213,7 @@ nginx 無法自己算 SigV4，所以 file-storage 另外接受一種回源請求
 | 圖片資產重新裁切後，舊版本的變體被刪除 | 舊 `r<rev>/` 底下的變體 | `image.maintenance` |
 | 圖片庫的圖片被永久刪除、舊版本的變體被刪除 | 變體（原檔不走 CDN） | `trash.purge`、`gallery.maintenance` |
 | 檔案被永久刪除 | `variants/<id>/` 底下所有格式 | `trash.purge`（`FileObjectsService.deleteAll` 之後） |
-| 公開網址被撤銷（第二批，[`image-delivery.md`](./image-delivery.md) §8） | `public/…` 的那個版本 | 擁有者模組；公開網址沒有效期，**必須** 清 |
+| 公開網址被撤銷（第二批，[`backend/25-image.md`](../architecture/backend/25-image.md) §8） | `public/…` 的那個版本 | 擁有者模組；公開網址沒有效期，**必須** 清 |
 | 緊急下架（法律要求、誤傳個資） | 指定的路徑或整個快取 | 維運以 `cli:cdn-purge` 手動執行 |
 
 **不清** 的情況：
@@ -330,7 +330,7 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm]
 
 ## 開放問題
 
-全部已有結論（2026-10-09，照提案的傾向定案；問題 2、5、8 依 [`image-delivery.md`](./image-delivery.md) 的決定）。決定的理由見下方「設計決策」。
+全部已有結論（2026-10-09，照提案的傾向定案；問題 2、5、8 依 [`backend/25-image.md`](../architecture/backend/25-image.md) 的決定）。決定的理由見下方「設計決策」。
 
 1. **簽章演算法：`secure_link_md5` 還是 njs 的 HMAC-SHA256？**
    `secure_link` 內建只有 MD5（`md5(exp + uri + secret)`），設定最簡單，但 MD5 不適合當正式環境的簽章。
@@ -360,7 +360,7 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm]
    - **結論**：可以，限單一區域（D7）。
 8. **與 [`image-picker.md`](./image-picker.md) 的順序**：CDN 的前提是物件不可修改。現在的影像變體（`variants/`）已經符合，
    所以可以先做、只套用到檔案的變體。要先做來驗證設計，還是等圖片資產做完一起做？
-   - **結論**：不必等。[`image-delivery.md`](./image-delivery.md) D6 抽出 `ObjectUrlSigner` 之後就可以進行，先以 `FILE_CDN_RESOURCES=fileVariant` 驗證（D8）。
+   - **結論**：不必等。[`backend/25-image.md`](../architecture/backend/25-image.md) D6 抽出 `ObjectUrlSigner` 之後就可以進行，先以 `FILE_CDN_RESOURCES=fileVariant` 驗證（D8）。
 
 ## 設計決策
 
@@ -369,7 +369,7 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm]
 | # | 決定 | 理由 | 評估過的方案 |
 | --- | --- | --- | --- |
 | D1 | **簽章用 HMAC-SHA256，邊緣以 njs 驗證**；金鑰環 `<kid>:<base64>`，第一把簽發、全部可驗 | 自架 nginx 要當正式方案（D7），MD5 不夠；清理端點也需要 njs（D3），不多一個依賴；金鑰環讓輪替不必停機 | `secure_link_md5`：只適合本機；單一金鑰：輪替時舊網址全部失效 |
-| D2 | **CDN 網址的效期由用途決定**（[`image-delivery.md`](./image-delivery.md) D3），以 `FILE_CDN_MAX_URL_TTL`（預設 24 小時）封頂；檔案的影像變體沿用 `FILE_URL_TTL` | 快取的 key 不含簽章，效期只影響外流後多久失效；上限同時決定關閉後邊緣要運作多久、金鑰輪替要等多久 | 一律 `FILE_URL_TTL` |
+| D2 | **CDN 網址的效期由用途決定**（[`backend/25-image.md`](../architecture/backend/25-image.md) D3），以 `FILE_CDN_MAX_URL_TTL`（預設 24 小時）封頂；檔案的影像變體沿用 `FILE_URL_TTL` | 快取的 key 不含簽章，效期只影響外流後多久失效；上限同時決定關閉後邊緣要運作多久、金鑰輪替要等多久 | 一律 `FILE_URL_TTL` |
 | D3 | **物件永久刪除後清理邊緣快取**：`CdnPurger.schedule(paths)` 在物件刪除成功之後分批入列 `cdn.purge`；worker 送到每一個邊緣節點的內部端點；冪等、可重試，失敗不影響刪除。另有 `cli:cdn-purge`（路徑、資產、全部）；`FILE_CDN_PURGE_ON_DELETE=false` 可關閉自動清理 | 不清理時刪掉的圖在剩餘效期內（頭像最長 12 小時）仍讀得到；先刪物件再清快取，避免清完又被回源存回去；明確的路徑清單不需要前綴清理 | 只靠過期：公開網址（第二批）沒有效期，一定要能清；在交易內以 outbox 入列：可能在物件刪除前就執行 |
 | D4 | **一般檔案的下載不走 CDN** | 檔名與型別政策在網址參數裡，每次不同；下載量遠小於圖片 | 把 `Content-Disposition` 簽進網址、由邊緣設定 |
 | D5 | **呼叫端標資源類型**（`{ cdn: 'imageAsset' \| 'galleryItem' \| 'fileVariant' }`），`FILE_CDN_RESOURCES` 決定哪些真的走 CDN | `core/storage` 不認識業務前綴；資源類型讓維運可以逐步開放、出問題時只關掉一種 | 擁有者在 `onModuleInit` 登記前綴：多一個註冊表；只有布林 `{ cdn: true }`：不能逐步開放 |

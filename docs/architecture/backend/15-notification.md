@@ -266,7 +266,7 @@ modules/platform-notification/            葉節點：只依賴 core、credentia
 
 | 項目 | 平台的規則（與租戶不同的地方） |
 | --- | --- |
-| 類型 | `tenant.provisioned`、`tenant.provisionFailed`（收件人：角色有 `tenant:create` 的啟用中管理者；佈建在背景工作裡跑，建立的人多半已離開那一頁）；`tenant.storageNearQuota`（收件人：角色有 `tenant:update` 的啟用中管理者；儲存使用率越過 80% 時一次，[`../05-tenancy.md`](../05-tenancy.md) §14.2 D8）；`platformAdmin.roleChanged`（收件人：被換角色的本人） |
+| 類型 | `tenant.provisioned`、`tenant.provisionFailed`（收件人：角色有 `tenant:create` 的啟用中管理者；佈建在背景工作裡跑，建立的人多半已離開那一頁）；`tenant.storageNearQuota`（收件人：角色有 `tenant:update` 的啟用中管理者；儲存使用率越過 80% 時一次，[`../05-tenancy.md`](../05-tenancy.md) §14.2 D8）；`storage.totalNearLimit`（收件人同上；所有租戶的已用量合計越過止水線的 80%、100% 時各一次，`params.percent`、連到租戶清單，[`25-image.md`](./25-image.md) §12）；`platformAdmin.roleChanged`（收件人：被換角色的本人） |
 | 寫入時機 | 業務完成 **之後**，失敗只記錄、不讓業務失敗：佈建已經完成，不能因為通知寫不進去而回報失敗。租戶的通知在業務交易內寫入（§3.2），平台的寫入點（背景工作、管理者管理）沒有共同的交易可以加入 |
 | 欄位 | 沒有 `actor_id`、`source_id`：平台的通知都是系統發出的，也沒有公告 |
 | API | `GET /platform/notifications?offset=&limit=&unread=`（**offset** 分頁、回 `{ items, pagination }`）、`GET /platform/notifications/unread-count`、`POST /platform/notifications/:id/read`（已讀過的不算錯；別人的與不存在的一樣 `404 NOTIFICATION_NOT_FOUND`）、`POST /platform/notifications/read-all`、`DELETE /platform/notifications/:id`（`204`；別人的與不存在的一樣 404）。都是 `@Authenticated()`，只在 apps/platform 的網域有效（`/platform/*`） |

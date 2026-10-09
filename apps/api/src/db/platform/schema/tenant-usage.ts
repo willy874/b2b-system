@@ -56,3 +56,18 @@ export const tenantUsageDaily = pgTable(
 );
 
 export type TenantUsageDailyRow = typeof tenantUsageDaily.$inferSelect;
+
+/**
+ * 每個租戶最近一次量到的已用量（docs/architecture/backend/25-image.md §12 D8）：平台的背景工作 `storage.totalRollup`
+ * 每 5 分鐘逐一進入 active 的租戶讀計數並覆寫。合計（`SUM(used_bytes)`）就是儲存的止水線比對的數字。
+ *
+ * - 量不到的租戶（停用、這一輪失敗）保留上一次的值：它們的物件仍佔著空間；
+ * - 已刪除但還沒清除的租戶也一樣，`db:drop-tenant` 清除時一起刪掉（CASCADE）。
+ */
+export const tenantStorageUsage = pgTable('tenant_storage_usage', {
+  tenantId: uuid('tenant_id')
+    .primaryKey()
+    .references(() => tenants.id, { onDelete: 'cascade' }),
+  usedBytes: bigint('used_bytes', { mode: 'number' }).notNull(),
+  measuredAt: timestamp('measured_at', { withTimezone: true }).notNull(),
+});

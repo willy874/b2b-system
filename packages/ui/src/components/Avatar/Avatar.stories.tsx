@@ -17,6 +17,17 @@ export const WithImage: Story = {
   args: { src: 'https://i.pravatar.cc/64?img=12' },
 };
 
+/** 呼叫端渲染的圖片（例：web-core 的 `SignedImage`）疊在縮寫上；這裡用一般的 `<picture>` 示意。 */
+export const WithCustomImage: Story = {
+  args: {
+    image: (
+      <picture>
+        <img alt="王小明" src="https://i.pravatar.cc/128?img=12" />
+      </picture>
+    ),
+  },
+};
+
 export const Sizes: Story = {
   render: (args) => (
     <div className="flex items-center gap-2">

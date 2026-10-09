@@ -34,9 +34,11 @@ import type {
   ListPlatformTenantDto,
   UpdateTenantDto,
 } from './dto/platform-tenant.dto';
+import { StorageTotalSchema } from './dto/storage-total.dto';
 import { GetTenantUsageSchema, TenantUsageSchema } from './dto/tenant-usage.dto';
 import type { GetTenantUsageDto } from './dto/tenant-usage.dto';
 import { PlatformTenantService } from './platform-tenant.service';
+import { StorageTotalService } from './storage-total.service';
 import { TenantUsageService } from './tenant-usage.service';
 
 /**
@@ -49,6 +51,7 @@ export class PlatformTenantController {
   constructor(
     private readonly tenants: PlatformTenantService,
     private readonly usage: TenantUsageService,
+    private readonly storageTotal: StorageTotalService,
   ) {}
 
   @Get()
@@ -60,6 +63,17 @@ export class PlatformTenantController {
   @ApiZodResponse(200, PlatformTenantListSchema)
   list(@Query(new ZodValidationPipe(ListPlatformTenantSchema)) query: ListPlatformTenantDto) {
     return this.tenants.list(query);
+  }
+
+  // 要在 `:id` 之前：否則 `storage-total` 被當成 id
+  @Get('storage-total')
+  @RequirePlatformPermissions('tenant:read')
+  @ApiOperation({
+    summary: '儲存的止水線：所有租戶最近一次量到的已用量合計與上限（每 5 分鐘彙總）',
+  })
+  @ApiZodResponse(200, StorageTotalSchema)
+  getStorageTotal() {
+    return this.storageTotal.summary();
   }
 
   @Get(':id')

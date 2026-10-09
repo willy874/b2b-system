@@ -29,6 +29,24 @@ export interface RichTextDocument {
   content: Array<RichTextNode>;
 }
 
+export interface ImageSourceVariant {
+  src: string;
+  srcSet: string;
+  sources: Array<{
+    type: string;
+    srcSet: string;
+  }>;
+  width: number;
+  height: number;
+}
+
+export interface ImageSources {
+  width: number;
+  height: number;
+  expiresAt: string;
+  variants: Record<string, ImageSourceVariant>;
+}
+
 export const NotificationChannel = {
   inApp: 'inApp',
   email: 'email',
@@ -2468,6 +2486,7 @@ export const JobName = {
   'platformNotification.cleanup': 'platformNotification.cleanup',
   'rateLimit.cleanup': 'rateLimit.cleanup',
   'revision.prune': 'revision.prune',
+  'storage.totalRollup': 'storage.totalRollup',
   'tenant.provision': 'tenant.provision',
   'tenant.provisionSweep': 'tenant.provisionSweep',
   'tenant.usageRollup': 'tenant.usageRollup',
@@ -2709,6 +2728,15 @@ export interface UpdateSystemSettingsRequest {
 
 export interface PublicSystemSettings {
   values: Record<string, string | number | boolean>;
+}
+
+export interface StorageTotal {
+  usedBytes: number;
+  limitBytes: number | null;
+  usageRatio: number | null;
+  warningRatio: number;
+  measuredAt: string | null;
+  isStale: boolean;
 }
 
 export interface CurrentTenant {

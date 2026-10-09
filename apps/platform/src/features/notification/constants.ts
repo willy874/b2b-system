@@ -20,6 +20,7 @@ export const NOTIFICATION_MESSAGE_KEY: Readonly<Record<string, string>> = {
   'tenant.provisioned': 'notification.type.tenantProvisioned',
   'tenant.provisionFailed': 'notification.type.tenantProvisionFailed',
   'tenant.storageNearQuota': 'notification.type.tenantStorageNearQuota',
+  'storage.totalNearLimit': 'notification.type.storageTotalNearLimit',
   'platformAdmin.roleChanged': 'notification.type.platformAdminRoleChanged',
 };
 
@@ -30,6 +31,7 @@ export const NOTIFICATION_ICON: Readonly<Record<string, IconName>> = {
   'tenant.provisioned': 'check',
   'tenant.provisionFailed': 'warning',
   'tenant.storageNearQuota': 'warning',
+  'storage.totalNearLimit': 'warning',
   'platformAdmin.roleChanged': 'user',
 };
 

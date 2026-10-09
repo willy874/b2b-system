@@ -4,7 +4,7 @@
 - 狀態：規劃中
 - 依賴：檔案（[`backend/09-file.md`](../architecture/backend/09-file.md)、[`frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md)）、
   可關閉的 feature（[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §7、§9）、
-  [`image-delivery.md`](./image-delivery.md)（網址的產生、效期、具名尺寸、存參照不存網址）
+  [`backend/25-image.md`](../architecture/backend/25-image.md)（網址的產生、效期、具名尺寸、存參照不存網址）
 - 相關：[`image-gallery.md`](./image-gallery.md)（圖片庫：在這裡登記成來源，也使用這裡的「來源」介面從檔案管理加入圖片）；
   之後要放圖片的功能——使用者頭像、租戶 Logo、富文本的內嵌圖片、留言與審批的附件；
   [`image-cdn.md`](./image-cdn.md)（以「物件只寫一次」為前提，讓圖片由邊緣快取送出；刪除後清理快取）
@@ -169,9 +169,9 @@ interface ResolvedImage {
 | `contentTypes` | JPEG、PNG、WebP、AVIF、GIF（第一格）；**不收 SVG**（[`09-file.md`](../architecture/backend/09-file.md) §5.4 同理：不讓 api 解析使用者給的 XML，也不必處理 SVG 內的腳本） |
 | `minWidth` / `minHeight` | 128 × 128（裁切之後） |
 | `aspectRatio` | `1`：必須裁切成正方形；省略時不限比例、不強制裁切 |
-| `presets` | `{ sm: 32, md: 96, lg: 256 }`：長邊 px，套用裁切之後再縮；每個 preset 另產生 2x（[`image-delivery.md`](./image-delivery.md) §6） |
-| `urlTtl` | 12 小時：網址的效期（[`image-delivery.md`](./image-delivery.md) §4） |
-| `visibility` | `signed`（預設，簽章網址）；`public` 保留給第二批的租戶 Logo，這一版不實作（D6、[`image-delivery.md`](./image-delivery.md) §8） |
+| `presets` | `{ sm: 32, md: 96, lg: 256 }`：長邊 px，套用裁切之後再縮；每個 preset 另產生 2x（[`backend/25-image.md`](../architecture/backend/25-image.md) §6） |
+| `urlTtl` | 12 小時：網址的效期（[`backend/25-image.md`](../architecture/backend/25-image.md) §4） |
+| `visibility` | `signed`（預設，簽章網址）；`public` 保留給第二批的租戶 Logo，這一版不實作（D6、[`backend/25-image.md`](../architecture/backend/25-image.md) §8） |
 | `sources` | 省略時是全部；某個用途想限制來源時才列（例：只允許上傳） |
 
 ### 5. 建立資產：所有來源走同一條後段
@@ -211,7 +211,8 @@ interface ResolvedImage {
 | 版本歷史還原到一張已經清掉的圖 | 圖片欄位變成 null；還原照常成功，回應帶警告 |
 
 容量：主檔 **計入** 租戶的儲存容量（使用者上傳的內容；與 `transfers/` 那種系統產物不同），變體不計（與檔案相同）。
-檔案、圖片資產、圖片庫共用一個上限：全租戶的參數 `storage.quotaMb` 與計數 `storage_usage`，`file` 關掉時照樣計算（D3）。
+每個租戶一個上限，檔案、圖片資產、圖片庫共用：沿用參數 `file.storageQuotaMb`、計數 `file_storage_usage`、錯誤碼 `FILE_STORAGE_QUOTA_EXCEEDED`，語意改成「租戶的儲存容量」；`file` 關掉時照樣計算（D3）。
+所有租戶的合計另由平台計算，作為系統的止水線（[`backend/25-image.md`](../architecture/backend/25-image.md) §12）。
 
 ### 7. 來源 1：一般上傳（選檔、拖曳、貼上）
 
@@ -274,7 +275,7 @@ interface ResolvedImage {
 
 | 部分 | 放在 | 內容 |
 | --- | --- | --- |
-| `ImageField` | web-core | 以 `SignedImage`（[`image-delivery.md`](./image-delivery.md) §5）顯示目前的圖片；「更換」「裁切」「移除」；接受拖曳與貼上（§7）；`usage` 決定限制與裁切比例 |
+| `ImageField` | web-core | 以 `SignedImage`（[`backend/25-image.md`](../architecture/backend/25-image.md) §5）顯示目前的圖片；「更換」「裁切」「移除」；接受拖曳與貼上（§7）；`usage` 決定限制與裁切比例 |
 | 來源選擇 `ImageSourceDialog` | web-core | 每個可用的來源一個分頁；只有一個來源時不出現 |
 | 裁切 `ImageCropper` | `@b2b-system/ui` | 通用元件，不含業務名詞；輸出裁切框 |
 | `registerImageSource()` | web-core | 來源的註冊表，在 plugin 的 **同步** 階段註冊 |
@@ -322,7 +323,7 @@ registerImageSource({
   建立資產本身不寫稽核（還沒被使用的資產不是業務事件）。從檔案管理或圖片庫複製時，來源模組在 `resolve` 裡另寫一筆 `file.copy`／`galleryItem.copy`
   （`resourceId` 是原本那筆，`changes.after.purpose` 是呼叫端給的用途字串）：管理者看得到「這張圖被誰拿去哪裡用」（D5）。
 - **推播**：資產處理完只推給建立者本人（`ChangeSource.IMAGE`，受眾是 `user:<id>`）；consumer 的推播照舊。
-- **網址**：依 [`image-delivery.md`](./image-delivery.md)——consumer 只存 `image_asset_id`（R1），組回應時由 `ImageUrlService` 直接簽出 `ImageSources`
+- **網址**：依 [`backend/25-image.md`](../architecture/backend/25-image.md)——consumer 只存 `image_asset_id`（R1），組回應時由 `ImageUrlService` 直接簽出 `ImageSources`
   （不經過 api 轉址、不查 DB，R5），前端以 `SignedImage` 顯示，網址過期時自動重抓。**不新增** 圖片資產的影像 API。
 
 ## 其他來源的評估
@@ -347,10 +348,12 @@ registerImageSource({
    - **結論**：另開 `image_assets`（D1）。
 2. **變體產生的程式怎麼共用？** `FileImageService` 的格式政策（progressive JPEG／有透明度用 WebP、移除中繼資料）
    抽到 `core/image`，讓檔案、圖片資產、圖片庫三處共用？`core/` 不能 import `modules/`，政策要放在三邊都拿得到的地方。
-   - **結論**：抽到 `core/image`；尺寸由各模組決定（D2）。
+   - **結論**：抽到 `core/image`；尺寸由各模組決定（D2）。已在階段 1 實作，決策搬到 [`backend/25-image.md`](../architecture/backend/25-image.md) §11 D9。
 3. **容量的計數**：`file_storage_usage` 改名成租戶的儲存用量（`storage_usage`）、三者共用一個上限，還是各自計算？
    feature 參數 `file.storageQuotaMb` 在 `file` 被關掉時還算不算數——關掉檔案管理器的租戶，頭像與圖片庫也要受容量限制。
    - **結論**：共用一個上限，`file` 關掉時照樣計算；參數改成全租戶的 `storage.quotaMb`（D3）。
+   - **修正（2026-10-09）**：容量仍依租戶，三者共用租戶的上限，但 **不改名**：參數 key、錯誤碼上線後不改名，改表名是破壞性的 migration（要拆兩次部署）；
+     `file` 關掉時參數照常生效本來就成立（[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3 D5）。所有租戶的合計由平台計算，是系統的止水線（[`backend/25-image.md`](../architecture/backend/25-image.md) D8）。
 4. **（移到 [`image-gallery.md`](./image-gallery.md) 開放問題 1）** 從圖片庫選的圖要複製還是引用。
    這份只要求：不論哪一種，consumer 都只存 `image_asset_id`。
    - **結論**：複製（[`image-gallery.md`](./image-gallery.md) D1）。
@@ -382,8 +385,8 @@ registerImageSource({
 | # | 決定 | 理由 | 評估過的方案 |
 | --- | --- | --- | --- |
 | D1 | **圖片資產另開 `image_assets` 表**（租戶 DB），物件放 `images/<id>/` 前綴；有自己的維護排程 `image.maintenance` | `files` 的列表、容量、維護排程、推播、回收桶都假設每一列是檔案管理器裡的檔案，且 `folder_id = null` 已經代表根目錄；混在一起每個查詢都要排除，漏一個就讓頭像出現在檔案管理器 | `files` 加 `purpose` 欄：少一張表，但改動散在檔案模組各處，而且 `file` 被關掉時要另外放行 |
-| D2 | **格式政策抽到 `core/image`**（主格式的選擇、品質、轉正、移除中繼資料、裁切 `extract`），檔案、圖片資產、圖片庫共用；**尺寸** 由各模組決定（檔案 480／2560、用途的 `presets`、圖片庫的四種） | 三處都要一樣的「progressive JPEG／有透明度用 WebP」；`core/` 不能 import `modules/`，放在 core 三邊都拿得到 | 新增 `modules/image` 提供給檔案用：檔案模組就要 import 一個與它平行的模組，依賴方向變複雜 |
-| D3 | **容量共用一個上限**：新增全租戶的參數 `storage.quotaMb`（`feature: null`，[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3）取代 `file.storageQuotaMb`，平台 migration 搬移既有的覆寫值；計數 `file_storage_usage` 改名 `storage_usage`，三處的寫入點都維護它；錯誤碼 `FILE_STORAGE_QUOTA_EXCEEDED` 改為 `STORAGE_QUOTA_EXCEEDED`。主檔與原檔計入，變體不計。`file` 關掉時照樣計算 | 容量是租戶「買了多少空間」，與用哪個功能無關；關掉檔案管理器不該讓頭像與圖片庫不受限制 | 各自一個上限：平台要分別設定三個數字，租戶也看不懂哪個滿了；留在 `file.` 底下：參數屬於可關閉的 feature，語意錯 |
+| D2 | **格式政策抽到 `core/image`**：已實作，見 [`backend/25-image.md`](../architecture/backend/25-image.md) §11 D9 | — | — |
+| D3 | **容量依租戶、三者共用一個上限，沿用現有的名稱**：參數 `file.storageQuotaMb`、計數 `file_storage_usage`、錯誤碼 `FILE_STORAGE_QUOTA_EXCEEDED` 不改名，說明與文案改成「租戶的儲存容量」；檔案、圖片資產、圖片庫的寫入點都維護同一個計數。主檔與原檔計入，變體不計。`file` 關掉時照樣計算（參數在 feature 關閉時照常生效，[`05-tenancy.md`](../architecture/05-tenancy.md) §5.3 D5）。所有租戶的合計另由平台計算，是系統的止水線（[`backend/25-image.md`](../architecture/backend/25-image.md) D8） | 容量是租戶「買了多少空間」，與用哪個功能無關；參數 key 與錯誤碼上線後不改名（既有的覆寫、前端與對外 API 的使用者都依賴它們） | 改名成全租戶的 `storage.quotaMb`／`storage_usage`／`STORAGE_QUOTA_EXCEEDED`（原本的決定）：要搬移覆寫值、新舊錯誤碼並存、表改名拆兩次部署，換到的只是名稱；各自一個上限：平台要分別設定三個數字，租戶也看不懂哪個滿了 |
 | D4 | **從圖片庫選的圖複製成圖片資產**（[`image-gallery.md`](./image-gallery.md) D1） | 所有來源的生命週期一致 | 見圖片庫 D1 |
 | D5 | **複製時來源寫稽核 `<resource>.copy`**（`file.copy`、`galleryItem.copy`）：`resolve(refId, actor, purpose)` 的 `purpose` 是呼叫端給的字串（`imageAsset:<usage>`、`gallery`），寫進 `changes.after.purpose`；來源不解讀它 | 複製是把內容帶到原本授權之外的動作，管理者要追得到；`purpose` 讓來源記下去處，又不必認識呼叫端 | 不寫：與「讀檔不寫稽核」一致，但追不到內容的去向；呼叫端寫：呼叫端要知道來源的 `resourceType`，等於認識來源 |
 | D6 | **用途預留 `visibility`**（`signed` ｜ `public`），這一版只實作 `signed`；公開網址的做法在第二批做租戶 Logo 時決定 | 登入頁要的不過期網址牽涉快取、撤銷、獨立網域；現在決定會缺少實際的使用情境。欄位先留，之後不必改資料模型 | 現在就做公開資產：沒有第二個需求驗證設計 |

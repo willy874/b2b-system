@@ -20,6 +20,14 @@ export const IMAGE_FORMAT_CONTENT_TYPE: Record<ImageFormat, string> = {
   png: 'image/png',
 };
 
+/** 物件 key 與下載檔名用的副檔名：JPEG 慣用 `.jpg`。 */
+export const IMAGE_FORMAT_EXTENSION: Record<ImageFormat, string> = {
+  jpeg: 'jpg',
+  webp: 'webp',
+  avif: 'avif',
+  png: 'png',
+};
+
 /** 已套用 EXIF 方向之後的尺寸（也就是使用者看到的方向）。 */
 export interface ImageInfo {
   width: number;
@@ -27,8 +35,18 @@ export interface ImageInfo {
   hasAlpha: boolean;
 }
 
+/** 裁切的範圍（px），以轉正之後的影像為準（使用者在裁切框裡看到的方向）。 */
+export interface ImageRegion {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 export interface RenderOptions {
   format: ImageFormat;
+  /** 先裁切再縮放；範圍超出影像時拋 `ImageDecodeError`。 */
+  extract?: ImageRegion;
   /** 長邊上限（px），等比縮小、不放大；省略時維持原尺寸。 */
   maxEdge?: number;
   /** 1–100；PNG 不適用。 */

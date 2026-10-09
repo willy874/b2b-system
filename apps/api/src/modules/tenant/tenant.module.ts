@@ -8,6 +8,8 @@ import { PlatformNotificationModule } from '@/modules/platform-notification/plat
 import { PlatformTenantController } from './platform-tenant.controller';
 import { PlatformTenantRepository } from './platform-tenant.repository';
 import { PlatformTenantService } from './platform-tenant.service';
+import { StorageTotalRollupJob } from './storage-total-rollup.job';
+import { StorageTotalService } from './storage-total.service';
 import { TenantProvisioner } from './tenant-provisioner';
 import { TenantUsageRollupJob } from './tenant-usage-rollup.job';
 import { TenantUsageRepository } from './tenant-usage.repository';
@@ -31,6 +33,9 @@ import { TenantService } from './tenant.service';
     TenantUsageService,
     TenantUsageRepository,
     TenantUsageRollupJob,
+    // 儲存的止水線（docs/architecture/backend/25-image.md §12）
+    StorageTotalService,
+    StorageTotalRollupJob,
   ],
 })
 export class TenantModule {}

@@ -4,13 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
+import { getStorageTotalQueryOptions } from '@/apis/platform-tenant/get-storage-total/query';
 import { getTenantListQueryOptions } from '@/apis/platform-tenant/get-tenant-list/query';
 
 import { TENANT_PAGE_SIZE_OPTIONS } from '../../constants';
 import { useTenantPermission } from '../../hooks/useTenantPermission';
 import { DEFAULT_TENANT_DETAIL_SEARCH, TenantDetailRoute } from '../../routes';
-import { toTenantRowVM } from './adapter';
+import { toStorageTotalVM, toTenantRowVM } from './adapter';
 import { CreateTenantDialog } from './components/CreateTenantDialog';
+import { StorageTotalBar } from './components/StorageTotalBar';
 import { TenantTable } from './components/TenantTable';
 import { useTenantFilters } from './useTenantFilters';
 import { useTenantSearchFilter } from './useTenantSearchFilter';
@@ -18,6 +20,7 @@ import { useTenantSearchFilter } from './useTenantSearchFilter';
 /**
  * 平台管理者的租戶清單（docs/architecture/05-tenancy.md §10.2 D12、D13）：
  * 代碼、名稱、狀態、主要網域與用量摘要（§5.4）；點進去看詳情與停用、刪除。
+ * 上方是所有租戶的已用量與儲存的止水線（docs/architecture/backend/25-image.md §12）。
  * 伺服器分頁、代碼／名稱／網域搜尋、狀態篩選與排序，條件放在網址上（routes/model.ts）。
  */
 export default function TenantListPage() {
@@ -38,6 +41,9 @@ export default function TenantListPage() {
       sort: search.sort,
     }),
   );
+  // 儲存的止水線（docs/architecture/backend/25-image.md §12）：部署沒有啟用時不顯示；讀不到只是少一條資訊，不擋清單
+  const { data: storageTotal } = useQuery(getStorageTotalQueryOptions());
+  const storageTotalVM = storageTotal ? toStorageTotalVM(storageTotal) : null;
   const rows = useMemo(
     () => (data?.items ?? []).map((item) => toTenantRowVM(item, data?.usageWarningRatio ?? 1)),
     [data],
@@ -68,6 +74,8 @@ export default function TenantListPage() {
           </Button>
         )}
       </header>
+
+      {storageTotalVM && <StorageTotalBar total={storageTotalVM} />}
 
       <TenantTable
         rows={rows}

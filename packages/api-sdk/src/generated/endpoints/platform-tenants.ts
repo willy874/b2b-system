@@ -6,6 +6,7 @@ import type {
   CreateTenantRequest,
   PlatformTenant,
   PlatformTenantList,
+  StorageTotal,
   TenantFeatureImpact,
   TenantUsage,
   UpdateTenantRequest,
@@ -55,6 +56,26 @@ export type PlatformTenantControllerCreateResult = ApiResponse<
 
 export function getPlatformTenantControllerCreateUrl(): string {
   return buildUrl('/platform/tenants');
+}
+
+// GET /platform/tenants/storage-total
+
+export interface PlatformTenantControllerGetStorageTotalResponses {
+  200: {
+    data: StorageTotal;
+  };
+}
+
+export type PlatformTenantControllerGetStorageTotalResponse =
+  PlatformTenantControllerGetStorageTotalResponses[200];
+
+export type PlatformTenantControllerGetStorageTotalResult = ApiResponse<
+  200,
+  PlatformTenantControllerGetStorageTotalResponses[200]
+>;
+
+export function getPlatformTenantControllerGetStorageTotalUrl(): string {
+  return buildUrl('/platform/tenants/storage-total');
 }
 
 // GET /platform/tenants/{id}

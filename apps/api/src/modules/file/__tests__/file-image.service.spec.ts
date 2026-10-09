@@ -11,6 +11,7 @@ import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import { SharpImageProcessor } from '@/core/image/sharp-image-processor';
 import type { JobQueue } from '@/core/jobs';
+import { PresignedUrlSigner } from '@/core/storage';
 import type { ObjectStorage } from '@/core/storage';
 import type { FileRow } from '@/db/schema';
 
@@ -122,6 +123,7 @@ function setup(file: FileRow | undefined) {
   const service = new FileImageService(
     repo as unknown as FileRepository,
     storage as unknown as ObjectStorage,
+    new PresignedUrlSigner(storage as unknown as ObjectStorage),
     new SharpImageProcessor(),
     events as unknown as DomainEventBus,
     jobs as unknown as JobQueue,

@@ -18,7 +18,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 圖片的讀取與遞送（存參照不存網址、`ImageUrlService` 直接簽網址、依用途的效期、具名尺寸與 2x、`SignedImage`；三份圖片提案的共同底層） | [`image-delivery.md`](./image-delivery.md) | 規劃中 | 影像變體（`backend/09-file.md` §5.4）、`core/storage` |
 | P2 | 圖片選取與上傳來源（上傳含拖曳與貼上、最近使用、從檔案管理或圖片庫挑選；來源依 feature、權限與內容自動取捨） | [`image-picker.md`](./image-picker.md) | 規劃中 | 檔案、可關閉的 feature |
 | P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（來源介面）、標籤、留言 |
 | P3 | 圖片的 CDN（本機以 nginx 模擬：驗網址簽章、邊緣快取、內部憑證回源；api 的 `CdnUrlSigner`，之後換真正的 CDN 只換實作） | [`image-cdn.md`](./image-cdn.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（不可修改的圖片資產）、獨立的檔案網域 |
@@ -37,6 +36,8 @@
 ### 1.1 建議的順序
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
+
+- `image-delivery`（圖片的讀取與遞送：存參照不存網址、`ObjectUrlSigner`、`ImageUrlService` 與 `ImageSources`、依用途的效期與具名尺寸、共用的格式政策、`SignedImage` 與 `Avatar` 的圖片插槽；所有租戶合計的儲存止水線）：[`backend/25-image.md`](../architecture/backend/25-image.md) §14
 
 - `multi-instance`（多實例部署與服務拆分：程序角色 `APP_ROLES`、部署模式 `DEPLOYMENT_MODE`、共享的速率限制計數、跨裝置中繼跨節點、影像變體改成背景工作、排空與 readiness、compose 的多實例與 k8s 的參考部署、migration 相容檢查）：[`01-system.md`](../architecture/01-system.md) §4.3、§7
 - `tenant-usage`（租戶用量：每小時的快照、每個程序累計的請求與背景工作數、apps/platform 的清單欄位與用量分頁、儲存配額警示）：[`05-tenancy.md`](../architecture/05-tenancy.md) §5.4、§14
@@ -66,11 +67,10 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：五份圖片提案都已規劃，依下面的階段進行。每個階段各自一個 branch，合併後再開下一個；階段 4 在階段 1 合併後就可以與 2、3 並行，階段 5 接在階段 4 之後。
+接下來：圖片的提案依下面的階段進行。階段 1（讀取與遞送、格式政策、儲存止水線）已完成並歸檔到 [`backend/25-image.md`](../architecture/backend/25-image.md)。每個階段各自一個 branch，合併後再開下一個；階段 4 可以與 2、3 並行，階段 5 接在階段 4 之後。
 
 | 階段 | 提案 | 內容 | 完成的判斷 |
 | --- | --- | --- | --- |
-| 1 | [`image-delivery.md`](./image-delivery.md) ＋ [`image-picker.md`](./image-picker.md) D2、D3 | `core/storage` 的 `ObjectUrlSigner`（presigned 實作）、`core/image` 的 `ImageUrlService`／`ImageSourcesSchema` 與共用的格式政策（主格式 ＋ WebP、`extract`、EXIF）、全租戶容量 `storage.quotaMb`／`storage_usage`、`web-core` 的 `SignedImage` 與 `Avatar` 的圖片插槽 | 檔案管理器行為不變、既有測試全過；新元件有單元測試 |
 | 2 | [`image-picker.md`](./image-picker.md) | `modules/image`（圖片資產、用途、來源介面、`image.process`／`image.maintenance`）、三種來源（上傳含拖曳與貼上、最近使用、檔案管理；圖片庫的來源在階段 3）、`web-core/image-picker` 與 `ImageCropper`、第一個 consumer：使用者頭像 | 頭像能上傳、裁切、從檔案管理選、在頂列與留言顯示；關掉 `file` 時直接選檔 |
 | 3 | [`image-gallery.md`](./image-gallery.md) | `core/upload` 與 `registerFileAction` 的抽出、`modules/gallery`、`features/gallery`（閱覽、檢視器、相簿、標籤、留言）、由檔案管理加入、登記成選圖的來源 | 使用者故事全部可在瀏覽器操作；關掉 `gallery` 時檔案管理器與選圖都不受影響 |
 | 4 | [`image-cdn.md`](./image-cdn.md) | `CdnUrlSigner`、`CdnPurger` 與 `cdn.purge`、`FILE_CDN_*`、`deploy/` 的 nginx ＋ njs、`check-cdn.sh`、`cli:cdn-purge` | `FILE_CDN_ENABLED=false` 時行為不變；`true` 時 `check-cdn.sh` 全過 |

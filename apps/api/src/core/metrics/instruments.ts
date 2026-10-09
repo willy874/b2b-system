@@ -197,3 +197,25 @@ export const dataTransferParseDuration = new Histogram({
   buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30],
   registers,
 });
+
+/**
+ * 儲存的止水線（docs/architecture/backend/25-image.md §12 D8）：所有租戶最近一次量到的已用量合計與上限（位元組）。
+ * 每個程序回報的是同一個平台 DB 的數字，查詢取 `max`。
+ */
+export const storageTotalUsed = new ObservedGauge({
+  name: 'api_storage_total_used_bytes',
+  help: '所有租戶最近一次量到的已用量合計（位元組）',
+});
+
+export const storageTotalLimit = new ObservedGauge({
+  name: 'api_storage_total_limit_bytes',
+  help: '儲存的止水線（位元組；0 = 不啟用）',
+});
+
+/** 上傳時的止水線檢查：allowed、blocked（超過）、stale（彙總過舊而放行）。 */
+export const storageTotalChecks = new Counter({
+  name: 'api_storage_total_checks_total',
+  help: '上傳時的止水線檢查（依結果）',
+  labelNames: ['result'] as const,
+  registers,
+});

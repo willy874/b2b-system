@@ -814,7 +814,20 @@ E2E 以 `getByTestId('<欄位>').getByRole('textbox').fill(...)` 輸入（Playwr
 回應用具名元件 `RichTextDocumentSchema`（OpenAPI 的 `RichTextDocument`／`RichTextNode`／`RichTextMark`，節點以 `$ref` 遞迴）。
 資料庫存文件 JSON（jsonb），另存一欄純文字給搜尋與字數。第一個使用者是公告的內文（[`../backend/19-announcement.md`](../backend/19-announcement.md) §9.2 D21、D22）。
 
-尚未實作：圖片與附件（存 `fileId`，渲染時換成網址；`modules/file`）、@提及節點、表格、多人同時編輯（Yjs）。
+尚未實作：圖片與附件（節點只存圖片資產的 id，讀取時展開成 `ImageSources`，[`../backend/25-image.md`](../backend/25-image.md) §7）、@提及節點、表格、多人同時編輯（Yjs）。
+
+### 3.17 頭像與有簽章網址的圖片：`Avatar` / `SignedImage`
+
+`Avatar`（`@b2b-system/ui/Avatar`）顯示名字縮寫；有圖片時二擇一：
+
+| prop | 用途 |
+| --- | --- |
+| `src` | 單一網址（Base UI 的 `Avatar.Image`，載入失敗退回縮寫） |
+| `image` | 呼叫端渲染的圖片（`ReactNode`），疊在縮寫之上、填滿圓形；還沒載入或失敗時呼叫端不畫任何東西，縮寫就露出來 |
+
+api 回的圖片是一組有效期的簽章網址（`ImageSources`：多個具名版本 × 主格式 ＋ WebP），由 `@b2b-system/web-core/image` 的 `SignedImage` 顯示：
+`<picture>`、寬高、`loading="lazy"`；載入失敗時呼叫 `onExpired` 一次讓查詢重抓，仍失敗才顯示 `fallback`。
+頭像用 `SignedAvatar`（`Avatar` ＋ `SignedImage`）：`ui` 不認識 `ImageSources`，組合放在 web-core。規則見 [`../backend/25-image.md`](../backend/25-image.md) §5。
 
 ---
 

@@ -10,9 +10,24 @@
     font-weight: 600;
     user-select: none;
     flex-shrink: 0;
+    position: relative;
   }
 
   .image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* 呼叫端渲染的圖片（`image`）：疊在縮寫上面；沒有畫出東西時縮寫就露出來 */
+  .layer {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .layer :is(picture, img) {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;

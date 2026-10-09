@@ -13,6 +13,7 @@ import type { SettingService } from '@/core/settings';
 import type { ObjectStorage, StoredObjectHead } from '@/core/storage';
 import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
+import type { StorageCapacity } from '@/core/usage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { TagService } from '@/modules/tag/tag.service';
 import type { WebhookService } from '@/modules/webhook/webhook.service';
@@ -189,6 +190,8 @@ function setup(
         })[key as string],
     ),
   };
+  // 儲存的止水線（docs/architecture/backend/25-image.md §12）：預設放行
+  const capacity = { assertCanStore: vi.fn(async () => undefined) };
   const service = new FileService(
     db as unknown as Database,
     repo as unknown as FileRepository,
@@ -203,9 +206,10 @@ function setup(
     new FileObjectsService(storage as unknown as ObjectStorage),
     webhooks as unknown as WebhookService,
     tags as unknown as TagService,
+    capacity as unknown as StorageCapacity,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, audit, events, images, folders, webhooks };
+  return { service, repo, storage, audit, events, images, folders, webhooks, capacity };
 }
 
 async function expectAppError(promise: Promise<unknown>, code: string) {
@@ -1207,6 +1211,18 @@ describe('FileService：檔案容量（docs/architecture/05-tenancy.md §13.3 D8
       details: { quota: 10 * MIB, used: 9 * MIB, size: 2 * MIB },
     });
     expect(repo.storageUsed).toHaveBeenLastCalledWith('tx');
+  });
+
+  it('止水線擋下（整個平台的合計已滿）→ 原樣拋出，不讀租戶的計數、不登記', async () => {
+    const { service, repo, capacity } = setup();
+    capacity.assertCanStore.mockRejectedValueOnce(new AppException('STORAGE_TOTAL_LIMIT_REACHED'));
+    await expectAppError(
+      inTenant(() => service.createUpload(dto, ALICE)),
+      'STORAGE_TOTAL_LIMIT_REACHED',
+    );
+    expect(capacity.assertCanStore).toHaveBeenCalledWith(2 * MIB);
+    expect(repo.storageUsed).not.toHaveBeenCalled();
+    expect(repo.create).not.toHaveBeenCalled();
   });
 
   it('上傳政策帶容量與已用量（預設 2048 MB）', async () => {

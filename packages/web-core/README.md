@@ -28,6 +28,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `client` | `HttpContext`／`FetcherContext`／`defineFetcher`／攔截器鏈 |
 | `components` | 錯誤頁：`ErrorPage`（外框；`variant` 由 app 決定：backstage `centered`、apps/platform `compact`）、`ForbiddenPage`、`NotFoundPage`、`UnexpectedErrorPage`、`RouteErrorPage`（router 的 `defaultErrorComponent`；舊 chunk 載入失敗提示重新整理）、`isChunkLoadError`；`AuthShell`（登入等不套外框的頁面，產品名由 app 傳入）、`ChangePasswordSection`＋`useChangePasswordForm`（個人資料頁的變更密碼；mutation options 由 app 傳入，狀態留在頁面以便合併未儲存提醒）、`PASSWORD_MIN_LENGTH`／`PASSWORD_MAX_LENGTH`、`PageSkeleton`、`PermissionGate`、`QueryError`、`RichTable` |
 | `errors` | `AppError`、`ErrorCodes`、`ERROR_MESSAGE_KEY`、`useErrorMessage()` 等 |
+| `image` | 有簽章網址的圖片：`SignedImage`（`<picture>`、過期時重抓一次、退路）、`SignedAvatar`（`Avatar` 的圖片插槽）、`coalesce`、`ImageSources` 型別；見 [`docs/architecture/backend/25-image.md`](../../docs/architecture/backend/25-image.md) §5 |
 | `job` | 背景工作的 `JobTable`（`extraColumns` 給 apps/platform 的租戶欄、`onRetryJob`、`renderDetail` 由 app 傳入）、`JobQueueSummary`、`JobRowActions`、`JobDetailView`（JSON 的呈現由 app 傳入）；狀態的清單、語系鍵與色調；view model 型別 |
 | `command-palette` | 命令面板（⌘K）：`CommandPalette`、搜尋提供者與動作的註冊表（`registerSearchProvider`、`registerPaletteCommand`）、最近造訪、`registerCommandPalette()`（快捷鍵與頂列的搜尋按鈕，app 在 `app/plugin.ts` 呼叫）；見 [`docs/architecture/frontend/18-command-palette.md`](../../docs/architecture/frontend/18-command-palette.md) |
 | `hotkey` | 全域快捷鍵：`registerHotkey`（同一個實際組合重複登記丟例外）、`useGlobalHotkeys`（`DashboardShell` 掛一次）、`formatHotkey` |

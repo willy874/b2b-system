@@ -44,7 +44,7 @@ export function toNotificationVM(notification: PlatformNotification): Notificati
     const value = asString(params[key]);
     if (value) strings[key] = value;
   }
-  // 儲存配額警示的使用率（tenant.storageNearQuota）
+  // 儲存配額、止水線警示的使用率（tenant.storageNearQuota、storage.totalNearLimit）
   if (typeof params.percent === 'number' && Number.isFinite(params.percent)) {
     strings.percent = String(params.percent);
   }

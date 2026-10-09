@@ -6,7 +6,7 @@
   跨程序的快取同步（[`01-system.md`](../architecture/01-system.md) §4.4 的 `BroadcastService`）；
   平台的權限目錄與稽核（[`iam/02-permission-catalog.md`](../architecture/iam/02-permission-catalog.md) §8）
 - 相關：MFA 的平台參數（[`backend/21-mfa.md`](../architecture/backend/21-mfa.md) §5、§5.1：同一種「平台 DB 的設定 ＋ 開啟前的檢查 ＋ 廣播」做法）；
-  [`image-delivery.md`](./image-delivery.md)（`ObjectUrlSigner` 依這裡的生效值選擇簽章方式）
+  [`backend/25-image.md`](../architecture/backend/25-image.md)（`ObjectUrlSigner` 依這裡的生效值選擇簽章方式）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 

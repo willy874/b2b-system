@@ -1,4 +1,4 @@
-import type { PlatformTenantListItem } from '@/shared/api-sdk';
+import type { PlatformTenantListItem, StorageTotal } from '@/shared/api-sdk';
 
 export interface TenantRowVM {
   id: string;
@@ -38,5 +38,33 @@ export function toTenantRowVM(dto: PlatformTenantListItem, warningRatio: number)
     isStorageWarning: usage.storageUsageRatio !== null && usage.storageUsageRatio >= warningRatio,
     recentRequests: usage.recentRequests,
     lastActivityAt: usage.lastActivityAt ? new Date(usage.lastActivityAt) : null,
+  };
+}
+
+export interface StorageTotalVM {
+  usedBytes: number;
+  limitBytes: number;
+  /** 無條件捨去（與通知同一個算法）。 */
+  percent: number;
+  /** 越過警示門檻（80%）。 */
+  isWarning: boolean;
+  /** 已達止水線：所有租戶都無法上傳。 */
+  isReached: boolean;
+  /** 彙總太久沒更新：止水線暫時不擋。 */
+  isStale: boolean;
+  measuredAt: Date | null;
+}
+
+/** 儲存的止水線（docs/architecture/backend/25-image.md §12）；部署沒有啟用時回 `null`（畫面不顯示）。 */
+export function toStorageTotalVM(dto: StorageTotal): StorageTotalVM | null {
+  if (dto.limitBytes === null || dto.usageRatio === null) return null;
+  return {
+    usedBytes: dto.usedBytes,
+    limitBytes: dto.limitBytes,
+    percent: Math.floor(dto.usageRatio * 100),
+    isWarning: dto.usageRatio >= dto.warningRatio,
+    isReached: dto.usageRatio >= 1,
+    isStale: dto.isStale,
+    measuredAt: dto.measuredAt ? new Date(dto.measuredAt) : null,
   };
 }

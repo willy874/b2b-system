@@ -250,6 +250,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /platform/tenants/:id': 'platform tenant:read',
       'GET /platform/tenants/:id/features/:feature/impact': 'platform tenant:read',
       'GET /platform/tenants/:id/usage': 'platform tenant:read',
+      'GET /platform/tenants/storage-total': 'platform tenant:read',
       'POST /platform/tenants': 'platform tenant:create',
       'PATCH /platform/tenants/:id': 'platform tenant:update',
       'POST /platform/tenants/:id/provision': 'platform tenant:create',

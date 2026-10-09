@@ -19,6 +19,7 @@
       "tenantProvisioned": "租戶「{{name}}」（{{code}}）佈建完成，可以使用了。",
       "tenantProvisionFailed": "租戶「{{name}}」（{{code}}）佈建失敗，請查看原因並重試。",
       "tenantStorageNearQuota": "租戶「{{name}}」（{{code}}）的檔案已用掉 {{percent}}% 的容量，接近上限。",
+      "storageTotalNearLimit": "所有租戶的已用量合計達到儲存止水線的 {{percent}}%；達到 100% 時全部租戶都無法上傳。",
       "platformAdminRoleChanged": "你的角色從「{{from}}」改為「{{to}}」。",
       "unknown": "你有一則新通知。"
     },

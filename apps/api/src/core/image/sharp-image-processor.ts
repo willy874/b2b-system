@@ -12,7 +12,13 @@ import sharp from 'sharp';
 import type { Sharp } from 'sharp';
 
 import { IMAGE_FORMAT_CONTENT_TYPE, ImageDecodeError, ImageProcessor } from './image-processor';
-import type { DecodedImage, DecodeOptions, RenderedImage, RenderOptions } from './image-processor';
+import type {
+  DecodedImage,
+  DecodeOptions,
+  ImageInfo,
+  RenderedImage,
+  RenderOptions,
+} from './image-processor';
 
 /** 解碼的像素上限（約 1 億像素，例：10000 × 10000）：擋掉「小檔案、超大尺寸」的解壓縮炸彈。 */
 const MAX_INPUT_PIXELS = 100_000_000;
@@ -108,7 +114,7 @@ export class SharpImageProcessor extends ImageProcessor {
 
     return {
       info,
-      render: (renderOptions) => render(image.clone(), info.hasAlpha, renderOptions),
+      render: (renderOptions) => render(image.clone(), info, renderOptions),
       dispose,
     };
   }
@@ -116,9 +122,23 @@ export class SharpImageProcessor extends ImageProcessor {
 
 async function render(
   image: Sharp,
-  hasAlpha: boolean,
+  info: ImageInfo,
   options: RenderOptions,
 ): Promise<RenderedImage> {
+  const { extract } = options;
+  if (extract) {
+    const inside =
+      [extract.left, extract.top, extract.width, extract.height].every(Number.isInteger) &&
+      extract.left >= 0 &&
+      extract.top >= 0 &&
+      extract.width > 0 &&
+      extract.height > 0 &&
+      extract.left + extract.width <= info.width &&
+      extract.top + extract.height <= info.height;
+    if (!inside) throw new ImageDecodeError('裁切範圍超出影像');
+    // autoOrient 在建構時已套用：座標是轉正之後的方向
+    image.extract(extract);
+  }
   if (options.maxEdge !== undefined) {
     image.resize({
       width: options.maxEdge,
@@ -130,7 +150,7 @@ async function render(
   const quality = options.quality ?? DEFAULT_QUALITY;
   switch (options.format) {
     case 'jpeg':
-      if (hasAlpha) image.flatten({ background: JPEG_BACKGROUND });
+      if (info.hasAlpha) image.flatten({ background: JPEG_BACKGROUND });
       // mozjpeg 的預設就是 progressive；明寫出來，這是對外承諾的格式
       image.jpeg({ quality, progressive: true, mozjpeg: true });
       break;
@@ -145,12 +165,12 @@ async function render(
       break;
   }
   try {
-    const { data, info } = await image.toBuffer({ resolveWithObject: true });
+    const { data, info: output } = await image.toBuffer({ resolveWithObject: true });
     return {
       data,
       contentType: IMAGE_FORMAT_CONTENT_TYPE[options.format],
-      width: info.width,
-      height: info.height,
+      width: output.width,
+      height: output.height,
     };
   } catch (error) {
     throw new ImageDecodeError('無法輸出影像', { cause: error });

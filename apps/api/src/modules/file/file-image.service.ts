@@ -9,10 +9,16 @@ import { deriveKey } from '@/core/crypto';
 import type { Transaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
-import { IMAGE_FORMAT_CONTENT_TYPE, ImageDecodeError, ImageProcessor } from '@/core/image';
+import {
+  IMAGE_FORMAT_CONTENT_TYPE,
+  IMAGE_FORMAT_EXTENSION,
+  ImageDecodeError,
+  ImageProcessor,
+  primaryFormatOf,
+} from '@/core/image';
 import type { ImageFormat } from '@/core/image';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { ObjectStorage, stableSigningDate } from '@/core/storage';
+import { ObjectStorage, ObjectUrlSigner, stableSigningDate } from '@/core/storage';
 import { requireTenant } from '@/core/tenant';
 import type { FileRow } from '@/db/schema';
 
@@ -56,14 +62,6 @@ const UNDISPLAYABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['image/tiff']);
 /** 格式還在背景轉出時，退回主格式的轉址只快取這麼久（秒），之後再問就拿到新格式。 */
 const PENDING_CONVERSION_MAX_AGE = 30;
 
-/** 副檔名：JPEG 慣用 `.jpg`。 */
-const FORMAT_EXTENSION: Record<ImageFormat, string> = {
-  jpeg: 'jpg',
-  webp: 'webp',
-  avif: 'avif',
-  png: 'png',
-};
-
 /**
  * 圖片的三個版本與影像 API（docs/architecture/backend/09-file.md §5.4）。
  *
@@ -91,6 +89,7 @@ export class FileImageService implements OnModuleInit {
   constructor(
     private readonly repo: FileRepository,
     private readonly storage: ObjectStorage,
+    private readonly signer: ObjectUrlSigner,
     private readonly images: ImageProcessor,
     private readonly events: DomainEventBus,
     private readonly jobs: JobQueue,
@@ -212,10 +211,12 @@ export class FileImageService implements OnModuleInit {
       }
     }
 
-    const signed = await this.storage.presignDownload(key, {
+    const signed = await this.signer.sign(key, {
       expiresIn: this.urlTtl,
       fileName: format === undefined ? file.name : withExtension(file.name, format),
       disposition: 'inline',
+      // 變體與轉出的格式寫入後不再覆寫，可以由 CDN 送出（docs/features/image-cdn.md §1）；原檔不走 CDN
+      cdn: format === undefined ? undefined : 'fileVariant',
     });
     const until = Math.min(query.exp * 1000, signed.expiresAt.getTime());
     const maxAge = Math.max(0, Math.floor((until - now) / 1000));
@@ -241,8 +242,8 @@ export class FileImageService implements OnModuleInit {
       const source = await this.storage.getObject(file.storageKey);
       if (!source) throw new ImageDecodeError('原圖不存在');
       const decoded = await this.images.decode(source, { maxBytes: IMAGE_VARIANT_MAX_INPUT_SIZE });
-      // JPEG 沒有透明度：透明的圖改用 WebP，免得鋪上底色
-      const format: ImageFormat = decoded.info.hasAlpha ? 'webp' : 'jpeg';
+      // 只產生主格式；其他格式在第一次被要求時才轉出（docs/architecture/backend/25-image.md D5）
+      const format = primaryFormatOf(decoded.info);
       let preview;
       let thumbnail;
       try {
@@ -385,5 +386,5 @@ export function negotiateFormat(
 function withExtension(name: string, format: ImageFormat): string {
   const dot = name.lastIndexOf('.');
   const base = dot > 0 ? name.slice(0, dot) : name;
-  return `${base}.${FORMAT_EXTENSION[format]}`;
+  return `${base}.${IMAGE_FORMAT_EXTENSION[format]}`;
 }

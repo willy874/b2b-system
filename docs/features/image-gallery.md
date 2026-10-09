@@ -3,7 +3,7 @@
 - 優先度：P2
 - 狀態：規劃中
 - 依賴：[`image-picker.md`](./image-picker.md)（後端的來源介面 `ImageSourceRegistry`、前端的來源註冊表）、
-  [`image-delivery.md`](./image-delivery.md)（`ImageUrlService`、`SignedImage`、效期與尺寸）、
+  [`backend/25-image.md`](../architecture/backend/25-image.md)（`ImageUrlService`、`SignedImage`、效期與尺寸）、
   可關閉的 feature（[`05-tenancy.md`](../architecture/05-tenancy.md) §5.1、[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §7）、
   影像處理（[`backend/09-file.md`](../architecture/backend/09-file.md) §5.4 的 `core/image`）、標籤（[`backend/18-tag.md`](../architecture/backend/18-tag.md)）、
   留言（[`backend/24-comment.md`](../architecture/backend/24-comment.md)）
@@ -194,10 +194,10 @@
 | `large` | 2560 px | 檢視器的全螢幕 |
 | `original` | — | 原檔；檢視器放大超過 `large` 時、下載 |
 
-- **網址**依 [`image-delivery.md`](./image-delivery.md)：回應帶 `ImageSources`，由 `ImageUrlService` 直接簽出物件網址（不經過 api 轉址、不查 DB），
+- **網址**依 [`backend/25-image.md`](../architecture/backend/25-image.md)：回應帶 `ImageSources`，由 `ImageUrlService` 直接簽出物件網址（不經過 api 轉址、不查 DB），
   前端以 `SignedImage` 顯示。列表用寬度描述的 `srcSet`（`thumb 480w, medium 1280w`）＋ `sizes`，讓瀏覽器依列高與螢幕密度選。
-  效期 1 小時；無限捲動與檢視器依 `expiresAt` 在到期前重抓（[`image-delivery.md`](./image-delivery.md) §5）。
-- **格式**：`thumb`、`medium`、`large` 在處理時各產生主格式與 WebP 兩份，瀏覽器以 `<picture>` 自己選；不依 `Accept` 協商、不做 AVIF（[`image-delivery.md`](./image-delivery.md) D2）。
+  效期 1 小時；無限捲動與檢視器依 `expiresAt` 在到期前重抓（[`backend/25-image.md`](../architecture/backend/25-image.md) §5）。
+- **格式**：`thumb`、`medium`、`large` 在處理時各產生主格式與 WebP 兩份，瀏覽器以 `<picture>` 自己選；不依 `Accept` 協商、不做 AVIF（[`backend/25-image.md`](../architecture/backend/25-image.md) D2）。
 - **原檔有兩種網址**：檢視器放大超過 `large` 時用的 **inline** 網址（`ImageUrlService` 一併簽出，走 CDN，`<img>` 用）；
   「下載」按鈕另簽帶 `Content-Disposition: attachment` 與檔名的網址，**不走 CDN**（檔名每次不同，[`image-cdn.md`](./image-cdn.md) D4）。
 - **佔位**：`dominant_color` 當背景色、`placeholder`（BlurHash）在可視範圍內才解碼成模糊圖；真正的圖片載入後淡入。
@@ -336,7 +336,7 @@ registerFileAction({
 - **feature**：可關閉的 feature `gallery`。停用時端點回 `404 FEATURE_DISABLED`、背景工作照常完成（資料要一致）、
   前端 plugin 卸載（連同登記的檔案動作與圖片來源）、資料保留。新租戶與既有租戶都預設啟用：平台 migration 把 `gallery` 加進預設值並啟用既有租戶（D3）。
   停用前的影響數量（[`05-tenancy.md`](../architecture/05-tenancy.md) §12.5）：圖片數、相簿數。
-- **容量**：原檔計入租戶的儲存容量；變體不計（與檔案相同）。與檔案、圖片資產共用全租戶的 `storage.quotaMb`（[`image-picker.md`](./image-picker.md) D3）。
+- **容量**：原檔計入租戶的儲存容量；變體不計（與檔案相同）。與檔案、圖片資產共用租戶的容量 `file.storageQuotaMb`（[`image-picker.md`](./image-picker.md) D3）；所有租戶的合計受系統的止水線限制（[`backend/25-image.md`](../architecture/backend/25-image.md) D8）。
 - **維護排程** `gallery.maintenance`：逾時的 `pending` 與 `failed`、卡住的 `processing` 重新排入、物件儲存的孤兒（`gallery/` 前綴）、舊版本的變體。
   永久刪除（`trash.purge`）與刪除舊版本的變體之後，呼叫 `CdnPurger.schedule(paths)` 清理邊緣快取（[`image-cdn.md`](./image-cdn.md) §7）。
 - **指標**：`gallery.process` 的處理時間與失敗數（[`08-monitoring.md`](../architecture/08-monitoring.md) §2.4）。
@@ -352,7 +352,7 @@ registerFileAction({
 | `modules/file` | 登記後端來源 `'file'`（`resolve`：既有的可見性檢查 ＋ 回原檔的 key） | image-picker 已經需要；圖片庫沿用 |
 | `@b2b-system/ui` | 新增 `JustifiedGrid`、`ImageViewer` | 通用的版面與檢視元件 |
 | `modules/tag`、`modules/comment` | 登記 `galleryItem` | 照各自的「加入一種資源」步驟 |
-| `core/storage`、`core/image`、`web-core` | 使用 `ObjectUrlSigner`、`ImageUrlService`、`SignedImage`（由 [`image-delivery.md`](./image-delivery.md) 先做好） | 網址的產生與顯示三份提案共用 |
+| `core/storage`、`core/image`、`web-core` | 使用 `ObjectUrlSigner`、`ImageUrlService`、`SignedImage`（由 [`backend/25-image.md`](../architecture/backend/25-image.md) 先做好） | 網址的產生與顯示三份提案共用 |
 | `core/storage`（CDN 啟用時） | 刪除物件後呼叫 `CdnPurger.schedule(paths)`（[`image-cdn.md`](./image-cdn.md) §7） | 沒有啟用 CDN 時是 no-op，照樣要呼叫 |
 
 ## 開放問題

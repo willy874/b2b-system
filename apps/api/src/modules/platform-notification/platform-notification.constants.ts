@@ -12,6 +12,11 @@ export const PlatformNotificationType = {
    * 收件人：能改租戶（調整配額）的平台管理者。
    */
   TENANT_STORAGE_NEAR_QUOTA: 'tenant.storageNearQuota',
+  /**
+   * 所有租戶的已用量合計越過儲存止水線的 80% 或 100%（docs/architecture/backend/25-image.md §12 D8）：越過時發一次。
+   * `params.percent`。收件人：能改租戶的平台管理者（要清理或擴充儲存）。
+   */
+  STORAGE_TOTAL_NEAR_LIMIT: 'storage.totalNearLimit',
   /** 自己的角色被其他平台管理者換了。收件人：那位管理者。 */
   PLATFORM_ADMIN_ROLE_CHANGED: 'platformAdmin.roleChanged',
 } as const;
@@ -22,6 +27,7 @@ export type PlatformNotificationType =
 /** apps/platform 的 route id（前端 `features/notification` 依它導向；已發出的 id 不改名）。 */
 export const PlatformNotificationRoute = {
   TENANT_DETAIL: 'tenant.detail',
+  TENANT_LIST: 'tenant.list',
   PROFILE: 'account.profile',
 } as const;
 

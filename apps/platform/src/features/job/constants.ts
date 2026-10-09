@@ -50,6 +50,7 @@ export const JOB_NAME_LABEL_KEY = {
   'platformNotification.cleanup': 'job.name.platformNotificationCleanup',
   'rateLimit.cleanup': 'job.name.rateLimitCleanup',
   'revision.prune': 'job.name.revisionPrune',
+  'storage.totalRollup': 'job.name.storageTotalRollup',
   'tenant.provision': 'job.name.tenantProvision',
   'tenant.provisionSweep': 'job.name.tenantProvisionSweep',
   'tenant.usageRollup': 'job.name.tenantUsageRollup',

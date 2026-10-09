@@ -86,6 +86,32 @@ describe('SharpImageProcessor', () => {
     expect(await decoded.render({ format: 'png' })).toMatchObject({ width: 100, height: 200 });
   });
 
+  it('先裁切再縮放：裁切的座標以轉正之後的方向為準', async () => {
+    // 存成 200×100、EXIF 方向 6（順時針轉 90°）：使用者看到的是 100×200
+    const input = await solid(200, 100).jpeg().withMetadata({ orientation: 6 }).toBuffer();
+    const decoded = await processor.decode(input, { maxBytes: MAX_BYTES });
+    expect(decoded.info).toMatchObject({ width: 100, height: 200 });
+
+    const output = await decoded.render({
+      format: 'jpeg',
+      extract: { left: 0, top: 50, width: 100, height: 100 },
+      maxEdge: 40,
+    });
+    expect(output).toMatchObject({ width: 40, height: 40 });
+  });
+
+  it.each([
+    { left: 0, top: 150, width: 100, height: 100 },
+    { left: -1, top: 0, width: 10, height: 10 },
+    { left: 0, top: 0, width: 0, height: 10 },
+    { left: 0.5, top: 0, width: 10, height: 10 },
+  ])('裁切範圍超出影像或不是正整數：拋 ImageDecodeError（%o）', async (extract) => {
+    const decoded = await processor.decode(await solid(100, 200).png().toBuffer(), {
+      maxBytes: MAX_BYTES,
+    });
+    await expect(decoded.render({ format: 'jpeg', extract })).rejects.toThrow(ImageDecodeError);
+  });
+
   it('可以從串流讀入', async () => {
     const buffer = await solid(20, 10).png().toBuffer();
     const decoded = await processor.decode(

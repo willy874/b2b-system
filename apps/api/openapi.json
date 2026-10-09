@@ -9268,6 +9268,32 @@
         "tags": ["platform-tenants"]
       }
     },
+    "/platform/tenants/storage-total": {
+      "get": {
+        "operationId": "PlatformTenantController_getStorageTotal",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StorageTotal"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "儲存的止水線：所有租戶最近一次量到的已用量合計與上限（每 5 分鐘彙總）",
+        "tags": ["platform-tenants"]
+      }
+    },
     "/platform/tenants/{id}": {
       "get": {
         "operationId": "PlatformTenantController_get",
@@ -9737,6 +9763,71 @@
           }
         },
         "required": ["type", "content"],
+        "additionalProperties": false
+      },
+      "ImageSourceVariant": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string"
+          },
+          "srcSet": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "srcSet": {
+                  "type": "string"
+                }
+              },
+              "required": ["type", "srcSet"],
+              "additionalProperties": false
+            }
+          },
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["src", "srcSet", "sources", "width", "height"],
+        "additionalProperties": false
+      },
+      "ImageSources": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "variants": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImageSourceVariant"
+            }
+          }
+        },
+        "required": ["width", "height", "expiresAt", "variants"],
         "additionalProperties": false
       },
       "NotificationChannel": {
@@ -18846,6 +18937,7 @@
           "platformNotification.cleanup",
           "rateLimit.cleanup",
           "revision.prune",
+          "storage.totalRollup",
           "tenant.provision",
           "tenant.provisionSweep",
           "tenant.usageRollup",
@@ -19846,6 +19938,41 @@
           }
         },
         "required": ["values"],
+        "additionalProperties": false
+      },
+      "StorageTotal": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number"
+          },
+          "limitBytes": {
+            "nullable": true,
+            "type": "number"
+          },
+          "usageRatio": {
+            "nullable": true,
+            "type": "number"
+          },
+          "warningRatio": {
+            "type": "number"
+          },
+          "measuredAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "isStale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "usedBytes",
+          "limitBytes",
+          "usageRatio",
+          "warningRatio",
+          "measuredAt",
+          "isStale"
+        ],
         "additionalProperties": false
       },
       "CurrentTenant": {

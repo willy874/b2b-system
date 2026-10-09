@@ -82,6 +82,8 @@ Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_d
 | `api_cache_lookups_total` | counter | `cache`、`result`（`hit`／`miss`） | 程序內快取的查詢 | 權限、使用者、API token、租戶登記（依網域／id／代碼）的快取 |
 | `api_cache_entries` | gauge | `cache` | 快取目前的筆數 | 同上 |
 | `api_tenant_pools_open` | gauge | — | 開著的租戶連線池數 | `Tenancy` |
+| `api_storage_total_used_bytes`、`api_storage_total_limit_bytes` | gauge | — | 所有租戶最近一次量到的已用量合計、儲存的止水線（0 = 不啟用；每個程序回報同一個數字，查詢取 `max`） | `StorageCapacity`（[`backend/25-image.md`](./backend/25-image.md) §12） |
+| `api_storage_total_checks_total` | counter | `result`（`allowed`／`blocked`／`stale`） | 上傳時的止水線檢查；`stale` 是量測過舊而放行 | 同上 |
 | `api_tenant_unavailable_total` | counter | `reason`（`inactive`／`maintenance`） | 進入租戶被拒（停用、佈建中；migration 落後、DB 連不上） | `Tenancy` |
 | `api_db_transaction_duration_seconds` | histogram | `outcome`（`commit`／`rollback`） | `withTransaction` 的交易佔住連線多久 | `core/database/transaction.ts` |
 | `api_jobs_processed_total` | counter | `job`、`result`（`completed`／`failed`／`skipped`／`deferred`） | 背景工作的執行結果 | `JobQueue` 的 worker |

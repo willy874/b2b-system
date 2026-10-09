@@ -16,6 +16,7 @@ import type {
   PlatformTenantControllerFeatureImpactResult,
   PlatformTenantControllerGetInput,
   PlatformTenantControllerGetResult,
+  PlatformTenantControllerGetStorageTotalResult,
   PlatformTenantControllerGetUsageInput,
   PlatformTenantControllerGetUsageResult,
   PlatformTenantControllerListResult,
@@ -35,6 +36,7 @@ import {
   CreateTenantRequestSchema,
   PlatformTenantListSchema,
   PlatformTenantSchema,
+  StorageTotalSchema,
   TenantFeatureImpactSchema,
   TenantUsageSchema,
   UpdateTenantRequestSchema,
@@ -98,6 +100,35 @@ export function platformTenantControllerCreate(
   return request<PlatformTenantControllerCreateResult>(
     platformTenantControllerCreateOperation,
     input,
+    options,
+  );
+}
+
+// GET /platform/tenants/storage-total
+
+export const PlatformTenantControllerGetStorageTotalSchemas = {
+  responses: {
+    200: z.object({
+      data: StorageTotalSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const platformTenantControllerGetStorageTotalOperation: OperationDefinition = {
+  id: 'PlatformTenantController_getStorageTotal',
+  method: 'GET',
+  path: '/platform/tenants/storage-total',
+  responseTypes: { 200: 'json' },
+  schemas: PlatformTenantControllerGetStorageTotalSchemas,
+};
+
+/** 儲存的止水線：所有租戶最近一次量到的已用量合計與上限（每 5 分鐘彙總） */
+export function platformTenantControllerGetStorageTotal(
+  options?: RequestOptions,
+): Promise<PlatformTenantControllerGetStorageTotalResult> {
+  return request<PlatformTenantControllerGetStorageTotalResult>(
+    platformTenantControllerGetStorageTotalOperation,
+    {},
     options,
   );
 }
