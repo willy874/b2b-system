@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { rectFromPoints } from '@/core/selection';
+
 import {
   computeFileLayout,
   hitTest,
   itemRect,
   listColumnsFor,
   moveIndex,
-  rectFromPoints,
   rowsTouchRange,
   withPlaceholders,
 } from '../layout';

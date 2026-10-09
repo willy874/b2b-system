@@ -94,6 +94,7 @@ export * from "@b2b-system/api-sdk";
 | `web-core/shell`、`layout` | `GlobalProvider`、`ToastHost`、`ConfirmDialogHost`、`ComponentLabelsHost`；頂列的 `HeaderToolbar`、`ThemeMenu`、`LanguageMenu`、`RealtimeStatusIndicator` |
 | `web-core/testing`    | `renderWithPermissions`、`renderRoute`、`fakeBatchQueue`、`initTestI18n`（[10](./10-testing.md)） |
 | `core/feature`、`file`、`trash`（backstage） | 執行期啟用 feature（[02 §9](./02-plugin-system.md)）、檔案管理的擴充點、回收桶的類型註冊表 |
+| `core/upload`、`selection`（backstage） | 上傳的共用程式（展開拖放的資料夾、每個 feature 的 IndexedDB 暫存區、圖片的檔頭簽章）、框選的幾何與共用 hook（[12 §2、§7](./12-file-manager.md)）；檔案管理器與其他會上傳、會多選的 feature 共用 |
 
 **鐵則**：`core/` 與 `packages/web-core/src` 內任何檔案都不 import `features/`（web-core 另外不 import 任何 `@/` 路徑）。
 這條規則由 🔒 `packages/web-core/src/__tests__/layer-dependencies.test.ts` 強制（§5）。

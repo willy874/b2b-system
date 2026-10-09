@@ -10,11 +10,11 @@ import { getFileUploadPolicyQueryOptions } from '@/apis/file/get-upload-policy/q
 import { invalidateResources, Resource } from '@/apis/resources';
 import { validateFile } from '@/core/file';
 import type { FileValidationIssue } from '@/core/file';
+import type { CollectedUpload } from '@/core/upload';
 
 import { enqueueFileUploads } from '../batch';
 import type { QueuedUpload } from '../batch';
 import { FOLDER_PATHS_PER_REQUEST } from '../constants';
-import type { CollectedUpload } from '../upload/collectEntries';
 
 const ensurePaths = getFileFolderEnsurePathsMutationOptions().mutationFn;
 

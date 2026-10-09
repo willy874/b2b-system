@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 
-import { collectFromDataTransfer } from '../../upload/collectEntries';
-import type { CollectedUpload } from '../../upload/collectEntries';
+import { collectFromDataTransfer } from '@/core/upload';
+import type { CollectedUpload } from '@/core/upload';
+
 import { dropFolderOf } from './useItemDrag';
 
 function hasFiles(event: DragEvent): boolean {

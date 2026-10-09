@@ -64,7 +64,7 @@ package 內部用相對路徑，不用 `@/`。
 
 | # | 問題 | 放這裡 |
 | --- | --- | --- |
-| 1 | 只有一個 app 用、或兩個 app 的行為／端點本來就不同？ | 該 app（`features/`、`apis/`、`app/`；backstage 專屬的機制放 `core/`，例：`core/{feature,file,permission-graph,trash}`） |
+| 1 | 只有一個 app 用、或兩個 app 的行為／端點本來就不同？ | 該 app（`features/`、`apis/`、`app/`；backstage 專屬的機制放 `core/`，例：`core/{feature,file,permission-graph,selection,trash,upload}`） |
 | 2 | 碰到某個 app 的 API、權限鍵、路由或業務名詞？ | 該 app；或把那一點改成參數／module augmentation 後放 web-core（§3） |
 | 3 | 依賴 AppContext、session、i18n、全域 store、TanStack Query／Router？ | `@b2b-system/web-core` |
 | 4 | 是畫面元件，只依賴 props 與 token（文案由 `ComponentLabelsHost` 或 props 傳入）？ | `@b2b-system/ui` |

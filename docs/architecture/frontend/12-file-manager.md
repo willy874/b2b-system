@@ -13,7 +13,7 @@
 | 拖曳移動檔案與資料夾 | `useItemDrag`：拖到資料夾卡片、樹的節點、麵包屑上移動；擋下移進自己的子孫；「移動到…」對話框是替代方式 | §12 |
 | 拖曳到主區塊上傳 | `useFileDrop`：只對帶檔案的拖曳反應；資料夾保留結構上傳；放在資料夾卡片上就傳到那個資料夾 | §7、§8 |
 | 上傳資料夾 | 拖放資料夾或選取資料夾（`webkitdirectory`）；先在目的地建出同樣的結構（同名合併），再把檔案送進佇列 | §8 |
-| 框選多個檔案做批次處理 | `useMarqueeSelection`：以版面幾何計算命中，畫面外（虛擬捲動沒渲染）的項目也算得到 | §7 |
+| 框選多個檔案做批次處理 | `useMarqueeSelection`（`core/selection` 的共用 hook ＋ 檔案的版面）：以版面幾何計算命中，畫面外（虛擬捲動沒渲染）的項目也算得到 | §7 |
 | RWD | 欄數、卡片寬度、列表顯示的欄位都由容器寬度決定；工具列在窄螢幕換行 | §3 |
 | 常見格式的圖示、圖片的縮圖預覽 | `core/file` 的 `getFileKind()` ＋ 伺服器產生的圖示預覽（`thumbnailUrl`；之前退回上傳時由瀏覽器產生的縮圖） | §6、§8 |
 | 前後端效能 | 虛擬捲動、縮圖、穩定的下載網址（瀏覽器快取命中）、索引與 keyset 分頁 | §9 |
@@ -22,7 +22,7 @@
 | 上傳與全域批次佇列共用 | 上傳是一種批次操作（`file.upload`），進度、取消、結果彈窗、跨分頁接手都沿用佇列 | §8 |
 | 大檔分塊上傳 | 後端決定切法，前端邊要網址邊並行上傳各塊、各塊重試 | §8 |
 | LightBox 預覽 | 詳情對話框；內容由預覽解析器顯示，內建圖片與純文字 | §6 |
-| 插件能力 | `core/file` 的三個註冊表：預覽解析器、檔案驗證器、縮圖產生器 | §6 |
+| 插件能力 | `core/file` 的四個註冊表：預覽解析器、檔案驗證器、縮圖產生器、檔案動作（其他 feature 在選取列與 LightBox 上的按鈕） | §6 |
 | 偏好記憶 | 排列方式、閱覽模式、排序、每頁筆數存在 localStorage，跨分頁同步 | §4 |
 | 資料夾層級的權限與共用 | 按鈕看後端回傳的 `capabilities`；「共用」對話框管理資料夾授權、中斷繼承 | §13 |
 
@@ -35,13 +35,16 @@ features/file/                       業務：頁面、上傳入口、內建的�
 ├── plugin.ts                        同步階段：頁面權限、批次操作、內建擴充；onInit：語系、清理暫存
 ├── batch.ts                         批次操作 file.upload / file.delete、enqueueFileUploads()
 ├── preference.ts                    排列方式、閱覽模式、排序、每頁筆數（dictStorage ＋ 跨分頁頻道）
-├── upload/                          uploadSources（IndexedDB 暫存）、內建驗證器、collectEntries（展開拖放／選取的資料夾）
+├── upload/                          檔案管理的上傳暫存區（`core/upload` 的 `createUploadSources('file-upload')`）、內建驗證器
 ├── preview/                         內建解析器：ImagePreview、TextPreview
 ├── hooks/                           useFilePermission、useFileUpload、useFileRenameMutation / useFileDeleteMutation、
 │                                    useFolderMutations（建立、改名、遞迴刪除、還原、移動）
 └── pages/FileManager/               page.tsx ＋ 版面計算、資料、選取、框選、拖放、資料夾樹（folderTree）、拖曳移動（useItemDrag）的 hooks ＋ 元件
 
-core/file/                           機制：檔案類型、三個擴充點的註冊表、圖片縮圖產生器（不認識任何 feature）
+core/file/                           機制：檔案類型、四個擴充點的註冊表、圖片縮圖產生器（不認識任何 feature）
+core/upload/                         上傳的共用程式：collectEntries（展開拖放／選取的資料夾）、createUploadSources（IndexedDB 暫存）、
+                                     matchesImageSignature（圖片的檔頭簽章）；直傳（單次 PUT）在 web-core/direct-upload
+core/selection/                      框選的幾何（rectFromPoints、intersects、edgeScrollDelta）與共用的 useMarqueeSelection
 web-core/batch/                          全域批次佇列（上傳與其他批次工作共用）
 apis/file/                           uploadFile()（單次／分塊／縮圖）、列表（分頁／無限）、詳情、內容（文字預覽）、上傳政策、
                                      資料夾（列表、建立、改名、刪除、確保路徑）、移動
@@ -50,6 +53,8 @@ shared/storage/blobStore.ts          Blob 的鍵值儲存（記憶體 ＋ Indexe
 
 - 擴充點放在 `core/file` 而不是 feature 裡：其他 feature（例如之後的業務功能要預覽自訂格式）只能經由 `core/` 互動
   （[coding-standards/07](../../coding-standards/07-layer-dependencies.md) §2.2）。
+- 上傳與框選的程式放在 `core/upload`、`core/selection` 而不是 `features/file`：其他會上傳、會多選的 feature（例：圖片庫）
+  不能 import `features/file`，抽出來共用，檔案管理器的行為不變。
 - `page.tsx` 只接線；刪除、下載的編排在 `useFileActions`，資料在 `useFileListData`。
 
 ---
@@ -130,8 +135,10 @@ moveIndex(layout, i, 'ArrowDown', count);  // 鍵盤移動
 | 預覽解析器 `FilePreviewer` | `registerFilePreviewer()` | LightBox：`resolveFilePreviewer(file)` 取能處理且 `priority` 最高者 | `image`（瀏覽器能顯示的圖片）、`text`（`text/*`、JSON / YAML / XML… 與常見的腳本、設定檔副檔名） |
 | 檔案驗證器 `FileValidator` | `registerFileValidator()` | 上傳入口：`validateFile(file, { maxSize })`，通過的才送進佇列 | `max-size`（後端的單檔上限）、`image-signature`（宣稱是 PNG / JPEG / GIF / WebP 的檔案，檔頭必須相符） |
 | 縮圖產生器 `ThumbnailGenerator` | `registerThumbnailGenerator()` | 上傳操作：`createThumbnail(file, { maxDimension, maxBytes })` | `image`：`createImageBitmap` → 長邊 480 px 的 WebP；SVG 不產生、超過 5000 萬像素不解碼 |
+| 檔案動作 `FileActionDefinition` | `registerFileAction()` | 選取列、LightBox：`useFileActions(placement)`（訂閱，§6.2） | 無（由其他 feature 提供，例：圖片庫的「加入圖片庫」） |
 
-都在 plugin 的 **同步** 階段註冊（批次佇列可能在任何分頁啟動時就交派上傳）。新增一種格式的預覽：
+都在 plugin 的 **同步** 階段註冊（批次佇列可能在任何分頁啟動時就交派上傳）。前三個只在使用時讀取；檔案動作會出現在畫面上，
+檔案管理器訂閱它（feature 執行期被停用時按鈕跟著消失）。新增一種格式的預覽：
 
 ```ts
 // features/level-editor/plugin.ts（示意）
@@ -162,6 +169,37 @@ registerFilePreviewer({
 - 詳情另外查 `GET /files/:id`：拿到最新的名稱、版本與網址；別人刪除了（404）顯示「檔案已被刪除」並隱藏操作。
 - 純文字預覽只讀前 256 KB（`Range`），JSON 自動排版；內容以 id 為 key、不可變，不重抓。
 
+### 6.2 檔案動作（`registerFileAction`）
+
+其他 feature 對檔案提供的動作（例：圖片庫的「加入圖片庫」），檔案管理器不認識它們，只依註冊表列出按鈕（`core/file/actions.ts`）：
+
+```ts
+// features/gallery/plugin.ts（示意）
+registerFileAction({
+  id: 'gallery.add',
+  labelKey: 'gallery.fileAction.add',               // 完整字面量的語系 key，在 localeScope 裡
+  localeScope: GALLERY_LOCALE_SCOPE,                // 列出按鈕時以 loadLocaleScope 載入
+  icon: 'file-image',
+  placement: ['selectionBar', 'lightbox'],
+  isAvailable: ({ can }) => can(PermissionKey['gallery:create']),
+  check: (file) => (isGalleryImage(file) ? { ok: true } : { ok: false, reasonKey: 'gallery.fileAction.notImage' }),
+  component: lazy(() => import('./components/AddToGalleryDialog')),
+});
+```
+
+| 項目 | 規則 |
+| --- | --- |
+| 位置 | `selectionBar`：選取列在內建按鈕之後（選取裡有 **檔案** 時；資料夾不算，動作只收檔案）。`lightbox`：LightBox 的 footer（檔案沒被刪除時） |
+| 右鍵選單 | 檔案管理器沒有右鍵選單，這一版不新增（不改變行為），所以沒有 `contextMenu` 的位置；之後加右鍵選單時再加 |
+| 順序與權限 | 依 `order` 排；`isAvailable({ can })` 以權限過濾（同步），權限還沒水合時一律不列出 |
+| `check` | 每個檔案能不能處理（只看 `FileActionTarget`：id、name、contentType、size）；全部不通過時按鈕停用並以第一個原因當提示（`Tooltip`），部分通過照樣可按 |
+| 按下之後 | 檔案管理器記住「哪個動作 ＋ 哪些檔案」，渲染 `<component files skipped sourceId onClose>`（包 `Suspense`，可以 `lazy`）：`files` 是通過 `check` 的、`skipped` 是不通過的與原因，`sourceId` 是檔案管理在後端登記的圖片來源 id（`'file'`，`FILE_IMAGE_SOURCE_ID`），動作不寫死 |
+| 沒有任何動作 | 選取列與 LightBox 與沒有這個擴充點時完全相同 |
+| testid | 選取列 `file-selection-action`、LightBox `file-lightbox-action`，動作的 `id` 放 `data-value` |
+
+- 動作的對話框是提供動作的 feature 自己的元件，它呼叫自己的 `apis/`；檔案管理器與它之間沒有 import（前端規則 2）。
+- 前端的 `check` 只是體驗（型別、大小），能不能處理由後端判斷。
+
 ---
 
 ## 7. 選取與互動
@@ -179,6 +217,10 @@ registerFilePreviewer({
 | 觸控 | 拖曳是捲動（不框選）；沒有選取時點一下打開，有選取後點一下切換；移動用選取列的「移動」 |
 | 把檔案或資料夾從電腦拖進主區塊 | 出現遮罩；放開後驗證並送進上傳佇列（資料夾保留結構）；停在資料夾卡片上時卡片亮起、上傳到那個資料夾 |
 
+- 框選是 `core/selection` 的共用 hook `useMarqueeSelection({ scrollElement, enabled, hitTest, getSelected, apply, clear, itemSelector })`：
+  它不認識項目的版面，命中由呼叫端計算；檔案管理器的 `useMarqueeSelection` 只是薄包裝——以 `hitTest(layout, rect, count)` 換成格的 id
+  （佔位格略過），項目的標記是 `[data-file-item]`。門檻 4 px、邊緣 48 px 內自動捲動（最快每幀 24 px，`edgeScrollDelta`）、
+  Shift／Ctrl／⌘ 疊加、觸控不搶、捲軸上按下不算、點空白清空，都在共用的 hook 裡。
 - 主區塊是 WAI-ARIA listbox（`aria-multiselectable`、`aria-activedescendant`），項目是 `role="option"`：
   點擊以事件委派處理，一萬個項目也不必各掛一組 handler。勾選框由自己的 `onCheckedChange` 切換
   （Base UI 會把 click 轉發給隱藏的 input，委派處理會看到兩次）。
@@ -196,10 +238,10 @@ registerFilePreviewer({
 
 ```
 選檔 / 選資料夾 / 拖放
-  → collectEntries：展開成 { file, directories（相對路徑的各層） }，並列出每一個資料夾路徑（含空資料夾）；略過 .DS_Store 等系統檔
+  → collectEntries（`core/upload`）：展開成 { file, directories（相對路徑的各層） }，並列出每一個資料夾路徑（含空資料夾）；略過 .DS_Store 等系統檔
   → useFileUpload：validateFile()（core/file 的驗證器）→ 被擋下的以 toast 列出第一個原因
   → 有資料夾時：POST /file-folders/paths 在目的地建出同樣的結構（同名合併），拿到每個路徑的資料夾 id；失敗就整批不上傳
-  → enqueueFileUploads()：檔案放進 uploadSources（記憶體 ＋ IndexedDB），佇列項目只帶
+  → enqueueFileUploads()：檔案放進 uploadSources（`core/upload` 的 `createUploadSources('file-upload')`；記憶體 ＋ IndexedDB），佇列項目只帶
        { id: <暫存 key>@<資料夾 id>, label: 相對路徑, weight: 大小 }——目的地編進 id，接手的分頁也知道要傳到哪裡
   → 全域批次佇列（concurrency 3）交派給某個分頁
   → file.upload 操作：從 uploadSources 取檔 → createThumbnail() → uploadFile(file, folderId, thumbnail, onProgress, signal)
@@ -211,7 +253,9 @@ registerFilePreviewer({
   結束時的結果彈窗都沿用 `web-core/batch`；主區塊上方顯示本頁送出的工作進度。
 - **跨分頁接手**：發起的分頁關掉時，佇列把剩下的項目交給其他分頁；它們從 IndexedDB 讀到同一個檔案繼續上傳。
   IndexedDB 不可用（隱私模式）時接手的分頁拿不到檔案，該筆以 `FILE_UPLOAD_INCOMPLETE` 失敗，請使用者重傳。
-  分頁當掉留下的暫存在下次啟動時清除（超過 24 小時）。
+  分頁當掉留下的暫存在下次啟動時清除（超過 24 小時；plugin 的 `onInit` 呼叫 `prune()`）。
+  暫存區是每個 feature 各自一個（`createUploadSources(name)`，`name` 是 IndexedDB 的名稱，檔案管理是 `file-upload`，不能改名），
+  各自在 plugin 的 `onInit` 掛上 `clearOnSessionEnd()`、`onDestroy` 解除。
 - 大檔切塊與網址續期見 [backend 09 §5.2](../backend/09-file.md)。
 - **資料夾的讀取**：拖放時 `webkitGetAsEntry()` 只在 drop 事件的同步階段有效，`collectFromDataTransfer()` 在第一個 `await`
   之前就取出所有項目，再非同步遞迴展開（`readEntries` 一次最多回 100 筆，要讀到回空陣列為止）。
@@ -255,21 +299,25 @@ registerFilePreviewer({
 | 檔案 | 內容 |
 | --- | --- |
 | `features/file/pages/FileManager/__tests__/layout.test.ts` | RWD 欄數、框選命中（含畫面外、間距）、方向鍵 |
+| `…/__tests__/useMarqueeSelection.test.ts` | 檔案管理器的框選：命中略過佔位格、取代與疊加、門檻、邊緣捲動、從項目或控制項上開始不算 |
+| `…/__tests__/FileSelectionBar.test.tsx` | 檔案動作：沒有動作時不變、依 order 列在內建按鈕之後、只有資料夾時不顯示、權限三案例、全部不通過時停用、按下後的 files／skipped／sourceId、lazy、反註冊 |
 | `…/__tests__/useFileSelection.test.ts` | 點擊、⌘ / Shift、框選取代與疊加、資料更新後自動修剪 |
 | `…/__tests__/FileBrowser.test.tsx` | 點擊與勾選框、雙擊（檔案／資料夾）、鍵盤、拖放上傳（含放在資料夾卡片上、無權限）、拖曳移動（整批、只拖一個、放進自己被擋、無權限不可拖）、列表表頭排序、空狀態 |
 | `…/__tests__/FileMoveDialog.test.tsx` | 樹狀下拉選單選目的地（自己與子孫停用、目前位置不能送出）、資料夾樹預設收合且與選單連動 |
 | `…/__tests__/folderTree.test.ts` | 自然排序、孤兒不掛到根目錄、路徑、`isWithin`、移動的合法性（含目的地的 canCreate） |
 | `…/__tests__/FileBatchProgress.test.tsx` | 進度條只顯示檔案管理器的工作；`useFileActions()` 不訂閱佇列，進度快照不讓整頁重繪 |
 | `…/components/__tests__/FileAccessRequestDialog.test.tsx` | 送出等級與理由、已送出的狀態 |
-| `features/file/upload/__tests__/collectEntries.test.ts` | `webkitRelativePath` 還原結構、略過系統檔、拖放的遞迴展開（含空資料夾、分批的 `readEntries`） |
-| `…/__tests__/FileLightbox.test.tsx` | 依註冊表選解析器、無解析器、超過大小上限、解析器壞掉、上一個／下一個、已刪除、權限 |
+| `core/upload/__tests__/collectEntries.test.ts` | `webkitRelativePath` 還原結構、略過系統檔、拖放的遞迴展開（含空資料夾、分批的 `readEntries`） |
+| `core/upload/__tests__/uploadSources.test.ts`、`imageSignature.test.ts` | 暫存區的 `prune`、session 結束只清自己的、解除訂閱；六種圖片的檔頭、認不得的型別回 `undefined` |
+| `core/selection/__tests__/*` | 幾何（`rectFromPoints`、`intersects`、`edgeScrollDelta`）、共用的框選 hook（`hitTest` 回呼、疊加、資料更新時用最新的、`itemSelector`） |
+| `…/__tests__/FileLightbox.test.tsx` | 依註冊表選解析器、無解析器、超過大小上限、解析器壞掉、上一個／下一個、已刪除、權限、檔案動作（沒有動作時不變、`check` 不通過時停用、按下後的對象與來源 id） |
 | `…/__tests__/adapter.test.ts` | 縮圖／原檔／圖示的選擇、全螢幕預覽、多頁去重、網址效期 |
 | `features/file/preview/__tests__/ImagePreview.test.tsx` | 預設顯示全螢幕預覽、原始大小才載入原圖、沒有預覽時用原圖 |
 | `features/file/hooks/__tests__/useFilePermission.test.tsx` | 目前位置的能力（根目錄、資料夾）、選取項目的能力取交集、未水合 |
 | `…/components/__tests__/FileShareDialog.test.tsx` | 列出直接與繼承的授權、新增／變更等級／移除、中斷繼承、反提權錯誤、無權限 |
 | `features/file/__tests__/batch.test.ts` | 送進佇列的形狀、上傳到資料夾（目的地編進 id）、上傳操作（進度、帶目的地資料夾的失效、清暫存、被限流時保留檔案、拿不到檔案）、刪除檔案與資料夾 |
-| `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器、偏好的逐欄驗證 |
-| `core/file/__tests__/*` | 類型判斷、三個註冊表 |
+| `features/file/upload/__tests__/validators.test.ts`、`__tests__/preference.test.ts` | 內建驗證器（`image-signature` 只檢查 PNG／JPEG／GIF／WebP，AVIF、TIFF 照舊放行）、偏好的逐欄驗證 |
+| `core/file/__tests__/*` | 類型判斷、四個註冊表（檔案動作：order、位置、`isAvailable`、未水合、訂閱與反註冊、reset、`check` 的分組） |
 | `web-core/batch/__tests__/BatchQueue.test.ts` | 工作內並行、進度回報與廣播（進度快照的節流）、取消時中止處理中的項目、依份量計算進度（兩萬筆的耗時）、合併失效、限流時暫停重送 |
 | `packages/web-shared/src/storage/__tests__/blobStore.test.ts` | 沒有 IndexedDB 時退回記憶體、`prune` |
 
@@ -399,7 +447,7 @@ selectionCapabilities(items)                選取項目的能力取交集：can
   之後若需要，可以加一個伺服器端的補產生排程，不影響前端（後來由 [`backend/09-file.md`](../backend/09-file.md) §12 實現）。
 - **IndexedDB 不可用時不能跨分頁接手**：發起的分頁關掉後，接手的分頁拿不到檔案，該筆失敗並請使用者重傳（§8）。
 - **session 結束時清掉排隊中的檔案**：佇列同時被清空（[`frontend/07-ui-system.md`](07-ui-system.md) §13.2 D12），`uploadSources.clear()`
-  清掉本分頁的記憶體與 IndexedDB；上一個人沒傳完的檔案不留在這台瀏覽器上。
+  清掉本分頁的記憶體與 IndexedDB（`createUploadSources()` 的 `clearOnSessionEnd`）；上一個人沒傳完的檔案不留在這台瀏覽器上。
 - **分頁當掉時的殘留**：未完成的 multipart upload 與 `pending` 紀錄要靠排程清理（[backend 09 §9](../backend/09-file.md)）。
 - **下載網址的剩餘效期縮短為 TTL/2–TTL**：前端依 `urlExpiresAt` 在失效前重抓。
 
@@ -413,3 +461,5 @@ selectionCapabilities(items)                選取項目的能力取交集：can
   端點 `GET /files/upload-policy`、`POST /files/:id/parts`、`DELETE /files/:id/upload`；`GET /files` 回 `FileListPage`（含 `nextCursor`）；
   錯誤碼 `FILE_UPLOAD_PART_INVALID`、`FILE_VERSION_CONFLICT`；環境變數 `FILE_MULTIPART_THRESHOLD`、`FILE_MULTIPART_PART_SIZE`。
 - 前端：`core/file`（類型、擴充點）、`packages/web-shared/src/storage/blobStore`、`features/file`。
+- 2026-10-09：圖片庫要共用上傳與框選，`collectEntries`、上傳暫存區（改成工廠 `createUploadSources`）、圖片的檔頭簽章抽到 `core/upload`，
+  框選的幾何與 hook 抽到 `core/selection`；`core/file` 加第四個擴充點 `registerFileAction`（§6.2）。檔案管理器的行為不變。

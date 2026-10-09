@@ -3,7 +3,8 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { registerFilePreviewer, resetFileRegistry } from '@/core/file';
+import { registerFileAction, registerFilePreviewer, resetFileRegistry } from '@/core/file';
+import type { FileActionDialogProps } from '@/core/file';
 
 import type { FileItemVM } from '../adapter';
 import { FileLightbox } from '../components/FileLightbox';
@@ -236,5 +237,88 @@ describe('FileLightbox 的操作與鍵盤', () => {
     );
     expect(screen.queryByTestId('file-lightbox')).toBeNull();
     expect(fetchDetail).not.toHaveBeenCalled();
+  });
+});
+
+describe('FileLightbox 的檔案動作（core/file 的 registerFileAction，docs/architecture/frontend/12-file-manager.md §6.2）', () => {
+  const ActionDialog = vi.fn(({ files, skipped, sourceId, onClose }: FileActionDialogProps) => (
+    <div data-testid="test-action-dialog">
+      <span data-testid="test-action-files">{files.map((file) => file.id).join(',')}</span>
+      <span data-testid="test-action-skipped">{skipped.length}</span>
+      <span data-testid="test-action-source">{sourceId}</span>
+      <button type="button" onClick={onClose} data-testid="test-action-close">
+        close
+      </button>
+    </div>
+  ));
+
+  const register = (check?: (file: { contentType: string }) => boolean) =>
+    registerFileAction({
+      id: 'gallery.add',
+      labelKey: 'test.galleryAdd',
+      icon: 'file-image',
+      placement: ['lightbox'],
+      check: check
+        ? (file) => (check(file) ? { ok: true } : { ok: false, reasonKey: 'test.notImage' })
+        : undefined,
+      component: ActionDialog,
+    });
+
+  beforeEach(() => {
+    ActionDialog.mockClear();
+  });
+
+  it('沒有登記的動作 → footer 與原本相同', async () => {
+    renderLightbox('a');
+    await screen.findByTestId('file-lightbox-download');
+    expect(screen.queryByTestId('file-lightbox-action')).toBeNull();
+  });
+
+  it('只登記在選取列的動作不出現在 LightBox', async () => {
+    registerFileAction({
+      id: 'bar-only',
+      labelKey: 'test.barOnly',
+      icon: 'file-image',
+      placement: ['selectionBar'],
+      component: ActionDialog,
+    });
+    renderLightbox('a');
+    await screen.findByTestId('file-lightbox-download');
+    expect(screen.queryByTestId('file-lightbox-action')).toBeNull();
+  });
+
+  it('按下後渲染動作的元件：目前的檔案（只有 FileActionTarget 的欄位）與檔案管理器的來源 id；關閉後收起', async () => {
+    register((file) => file.contentType.startsWith('image/'));
+    renderLightbox('a');
+    const button = await screen.findByTestId('file-lightbox-action');
+    expect(button).toHaveAttribute('data-value', 'gallery.add');
+    fireEvent.click(button);
+
+    expect(await screen.findByTestId('test-action-files')).toHaveTextContent('a');
+    expect(screen.getByTestId('test-action-skipped')).toHaveTextContent('0');
+    expect(screen.getByTestId('test-action-source')).toHaveTextContent('file');
+    expect(ActionDialog.mock.lastCall?.[0].files).toEqual([
+      { id: 'a', name: 'a.png', contentType: 'image/png', size: 10 },
+    ]);
+
+    fireEvent.click(screen.getByTestId('test-action-close'));
+    await waitFor(() => expect(screen.queryByTestId('test-action-dialog')).toBeNull());
+  });
+
+  it('目前的檔案不通過 check → 停用', async () => {
+    register((file) => file.contentType.startsWith('image/'));
+    renderLightbox('c');
+    const button = await screen.findByTestId('file-lightbox-action');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(button);
+    expect(screen.queryByTestId('test-action-dialog')).toBeNull();
+  });
+
+  it('檔案已被刪除 → 不顯示動作', async () => {
+    register();
+    fetchDetail.mockRejectedValue(new AppError('FILE_NOT_FOUND', 404));
+    renderLightbox('a');
+    await screen.findByTestId('file-preview-deleted');
+    expect(screen.queryByTestId('file-lightbox-action')).toBeNull();
   });
 });

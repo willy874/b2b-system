@@ -1,6 +1,7 @@
 import { formatBytes } from '@b2b-system/web-shared/utils';
 
 import type { FileValidator } from '@/core/file';
+import { matchesImageSignature } from '@/core/upload';
 
 /** 超過後端的單檔上限：送出前就擋下，不必登記後才收到 413。 */
 export const maxSizeValidator: FileValidator = {
@@ -15,33 +16,16 @@ export const maxSizeValidator: FileValidator = {
       : undefined,
 };
 
-/** 常見點陣圖的檔頭（magic number）；副檔名改掉的其他檔案、下載到一半的圖片會對不上。 */
-const IMAGE_SIGNATURES: Record<string, Array<Array<number | undefined>>> = {
-  'image/png': [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
-  'image/jpeg': [[0xff, 0xd8, 0xff]],
-  'image/gif': [
-    [0x47, 0x49, 0x46, 0x38, 0x37, 0x61],
-    [0x47, 0x49, 0x46, 0x38, 0x39, 0x61],
-  ],
-  // RIFF????WEBP
-  'image/webp': [
-    [0x52, 0x49, 0x46, 0x46, undefined, undefined, undefined, undefined, 0x57, 0x45, 0x42, 0x50],
-  ],
-};
-
-/** 讀 Blob 的前幾個位元組（jsdom 的 Blob 沒有 `arrayBuffer`，退回 FileReader）。 */
-function readHead(file: Blob, length: number): Promise<Uint8Array> {
-  const slice = file.slice(0, length);
-  if (typeof slice.arrayBuffer === 'function') {
-    return slice.arrayBuffer().then((buffer) => new Uint8Array(buffer));
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => resolve(new Uint8Array(reader.result as ArrayBuffer)));
-    reader.addEventListener('error', () => reject(reader.error));
-    reader.readAsArrayBuffer(slice);
-  });
-}
+/**
+ * 檢查檔頭的型別。`core/upload` 的 `matchesImageSignature` 另外認得 AVIF、TIFF，但檔案管理器原本不檢查它們（放行），
+ * 這裡維持原本的四種：不讓重構改變哪些檔案上傳得了。
+ */
+const CHECKED_IMAGE_TYPES: ReadonlySet<string> = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+]);
 
 /**
  * 特殊檔案驗證的範例：宣告為圖片的檔案，檔頭必須是那種圖片。
@@ -50,13 +34,9 @@ function readHead(file: Blob, length: number): Promise<Uint8Array> {
 export const imageSignatureValidator: FileValidator = {
   id: 'image-signature',
   async validate(file) {
-    const signatures = IMAGE_SIGNATURES[file.type];
-    if (!signatures) return undefined;
-    const head = await readHead(file, 12);
-    const matches = signatures.some((signature) =>
-      signature.every((byte, index) => byte === undefined || head[index] === byte),
-    );
-    return matches
+    if (!CHECKED_IMAGE_TYPES.has(file.type)) return undefined;
+    const matches = await matchesImageSignature(file, file.type);
+    return matches !== false
       ? undefined
       : {
           validatorId: 'image-signature',

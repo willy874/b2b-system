@@ -13,6 +13,7 @@ import { getFileFolderListQueryOptions } from '@/apis/file/get-file-folder-list/
 import { getFileListQueryOptions } from '@/apis/file/get-file-list/query';
 import type { StoredFile } from '@/shared/api-sdk';
 
+import { FILE_IMAGE_SOURCE_ID } from '../constants';
 import { buildFolderIndex, childFolders, ROOT_FOLDER } from '../pages/FileManager/folderTree';
 import type { FolderIndex } from '../pages/FileManager/folderTree';
 
@@ -121,7 +122,7 @@ export function FileImageSource({ usage, onSelect }: ImageSourceProps) {
                   onClick={() =>
                     onSelect({
                       kind: 'source',
-                      source: 'file',
+                      source: FILE_IMAGE_SOURCE_ID,
                       refId: file.id,
                       name: file.name,
                       // 裁切用全螢幕預覽（縮小版），比例以原圖的尺寸換算

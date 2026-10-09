@@ -16,11 +16,7 @@ import { registerBuiltinFilePreviewers } from './preview/builtins';
 import { registerFileRouteLinks } from './routeLinks';
 import { registerFileSearch } from './search';
 import { registerFileTrashTypes } from './trash';
-import {
-  clearUploadSourcesOnSessionEnd,
-  UPLOAD_SOURCE_MAX_AGE_MS,
-  uploadSources,
-} from './upload/uploadSources';
+import { fileUploadSources } from './upload/uploadSources';
 import { imageSignatureValidator, maxSizeValidator } from './upload/validators';
 
 /** 可啟用的 feature：由 `app/features.ts` 依租戶的啟用清單安裝（docs/architecture/frontend/02-plugin-system.md §9.2 D1）。 */
@@ -57,9 +53,9 @@ export function appContextPlugin(): AppDynamicPluginFactory {
           { scope: FILE_LOCALE_SCOPE },
         );
         // 分頁當掉留下的排隊檔案；不等它完成，失敗也無妨
-        void uploadSources.prune(UPLOAD_SOURCE_MAX_AGE_MS);
+        void fileUploadSources.prune();
         // session 結束時清掉排隊中的檔案；feature 被停用（卸載）時解除
-        offSessionEnd = clearUploadSourcesOnSessionEnd();
+        offSessionEnd = fileUploadSources.clearOnSessionEnd();
       },
       onDestroy: () => offSessionEnd?.(),
     };

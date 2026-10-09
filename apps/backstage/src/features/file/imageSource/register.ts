@@ -3,6 +3,7 @@ import { lazy } from 'react';
 
 import { PermissionKey } from '@/core/permission';
 
+import { FILE_IMAGE_SOURCE_ID } from '../constants';
 import { FILE_LOCALE_SCOPE } from '../locale';
 
 /** 選圖時才載入（檔案的縮圖格不在首屏）。 */
@@ -16,7 +17,7 @@ const FileImageSource = lazy(() =>
  */
 export function registerFileImageSource(): void {
   registerImageSource({
-    id: 'file',
+    id: FILE_IMAGE_SOURCE_ID,
     order: 30,
     // 分頁標題用 app 的全域字串：feature 的語系包只在進入它的頁面時才載入（與選單的 `menu.*` 相同）
     labelKey: 'image.source.file',

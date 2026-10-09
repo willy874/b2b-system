@@ -4,8 +4,8 @@ import { Menu } from '@b2b-system/ui/Menu';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useRef } from 'react';
 
-import { collectFromFileList } from '../../../upload/collectEntries';
-import type { CollectedUpload } from '../../../upload/collectEntries';
+import { collectFromFileList } from '@/core/upload';
+import type { CollectedUpload } from '@/core/upload';
 
 interface FileActionsProps {
   canUpload: boolean;

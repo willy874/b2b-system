@@ -2,9 +2,15 @@ import { Button } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
+import type { FileActionTarget } from '@/core/file';
+
+import { FileActionButtons } from './FileActionButtons';
+
 interface FileSelectionBarProps {
   count: number;
   total: number;
+  /** 選取中的檔案（不含資料夾）：其他 feature 登記的檔案動作（`core/file` 的 `registerFileAction`）的對象。 */
+  files: readonly FileActionTarget[];
   /** 選取裡有檔案才能下載（資料夾不下載）。 */
   canDownload: boolean;
   canDelete: boolean;
@@ -29,12 +35,14 @@ interface FileSelectionBarProps {
 }
 
 /**
- * 主區塊上方的選取列：改名（單選）、移動、批次下載、批次刪除（刪除送進全域佇列逐筆處理）。
+ * 主區塊上方的選取列：改名（單選）、移動、批次下載、批次刪除（刪除送進全域佇列逐筆處理），
+ * 之後是其他 feature 登記的檔案動作（選取裡有檔案時）。
  * 沒有選取時顯示操作提示而不是消失——框選途中它若突然出現，會把主區塊往下推，框就跟著跳動。
  */
 export function FileSelectionBar({
   count,
   total,
+  files,
   canDownload,
   canDelete,
   canRename,
@@ -159,6 +167,7 @@ export function FileSelectionBar({
             {t('common.delete')}
           </Button>
         )}
+        <FileActionButtons placement="selectionBar" files={files} />
       </span>
     </div>
   );
