@@ -163,6 +163,8 @@ EXIF 方向寫錯的照片可以「向左轉／向右轉」：`PATCH /gallery/it
 - **網址**：每張圖帶 `ImageSources`（[`25-image.md`](./25-image.md) §5），版面 `grid`（`thumb 480w, medium 1280w`）、`medium`、`large`；
   未轉向的圖另帶 `original` 的 inline 網址（TIFF 除外：瀏覽器不能顯示）。效期 1 小時，由 `ImageUrlService` 直接簽，不查 DB。
   詳情另簽兩個下載網址（原檔、`large`，`Content-Disposition: attachment` 帶標題當檔名）。
+- **CDN**（[`09-file.md`](./09-file.md) §16）：變體的集合標 `cdn: 'galleryItem'`（`ImageObjectSet.cdn`），`FILE_CDN_RESOURCES` 含 `galleryItem` 時改簽邊緣的網址；
+  原檔的 inline 與兩個下載網址不標，一律 presigned（D21）。
 
 ## 7. 相簿
 
@@ -232,7 +234,7 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 
 圖片（`galleryItem`）與相簿（`galleryAlbum`）各自註冊 `TrashHandler`（[`13-trash.md`](./13-trash.md)），列出要 `gallery:delete`。
 還原是 `POST /gallery/items/:id/restore`、`POST /gallery/albums/:id/restore`，標 `@RequireFeature('trash')`。
-物件保留到 `trash.purge` 才刪：紀錄刪掉之後才刪物件，刪除失敗只記 warn，由清理排程的殘留對帳處理。圖片永久刪除時相簿的封面隨 `SET NULL`、關聯隨 CASCADE。
+物件保留到 `trash.purge` 才刪：紀錄刪掉之後才刪物件，刪除成功之後以 `CdnPurger.schedule(keys)` 清理邊緣快取（只列變體，`cdnKeysOf`）；刪除失敗只記 warn、不排清理，由清理排程的殘留對帳處理。圖片永久刪除時相簿的封面隨 `SET NULL`、關聯隨 CASCADE。
 
 ### 11.4 feature 與容量
 
@@ -250,6 +252,10 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 3. 舊版本的變體在 `stale_revs_purge_after` 之後刪除（D14）；
 4. 處理卡住（排入超過 30 分鐘、要求的版本還沒寫好）→ 重新排入；
 5. `gallery/` 底下查不到圖片的物件（至少 24 小時前的）→ 刪除。
+
+第 3、5 步刪掉物件之後呼叫 `CdnPurger.schedule(keys)`（[`09-file.md`](./09-file.md) §16.6；沒有 CDN 時是 no-op、不會拋錯），只列變體（`r<rev>/`）：
+原檔與上傳的暫存從不經過 CDN。第 1、2 步的圖從沒處理完成、沒簽過變體的網址，不必清理；完成上傳、處理時刪掉的上傳暫存也一樣。
+緊急下架用 `cli:cdn-purge --tenant <代碼> --gallery-item <id>`（每個版本的變體，`galleryCdnKeysOf`；已永久刪除時改用 `--path`）。
 
 ### 11.6 指標
 
@@ -282,6 +288,8 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 | 單元 | `core/image/__tests__/exif.spec.ts`、`blurhash.spec.ts`、`sharp-image-processor.spec.ts` | TIFF 解析、各容器就地移除 GPS（PNG 的 CRC）、BlurHash、`analyze` 與旋轉 |
 | 單元 | `modules/gallery/__tests__/` | 拍攝時間的換算、游標、上傳與加入的規則、相簿的規則 |
 | 整合 | `test/gallery.spec.ts` | 上傳 → 處理 → ready（GPS 移除、拍攝時間、變體）、從檔案加入（略過的原因、已經加入過）、顯示方向的新版本、篩選與 keyset、時間軸、相簿、回收桶、權限、feature 停用、選圖的來源 |
+| 整合 | `test/gallery-cdn.spec.ts` | 變體走 CDN、原檔與下載照舊 presigned；舊版本變體與永久刪除後排入的 `cdn.purge` 路徑（只有變體） |
+| 單元 | `modules/gallery/__tests__/gallery-cdn.spec.ts`、`cli/__tests__/cdn-purge.spec.ts` | `cdnKeysOf`、`GalleryImageUrls` 的 `cdn` 標記、`--gallery-item` 與 `galleryCdnKeysOf` |
 
 ## 14. 設計決策：圖片庫
 
@@ -309,7 +317,7 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 | D11 | **主色存 `#rrggbb`**，前端只當資料以 inline style 套用；[`../../coding-standards/02-frontend.md`](../../coding-standards/02-frontend.md) 註明這個例外 | 規則針對的是樣式表裡的顏色；這是每張圖不同的資料 | 存 `oklch` 字串：沒有實質好處 |
 | D12 | **檔案管理器的 `ImagePreview` 這一版不改用 `ImageViewer`** | 不動檔案管理器的行為 | — |
 | D13 | **不做「圖片庫存到檔案管理」**；需要時由檔案管理登記一個「目的地」，與 D0 同一種解耦 | 目前沒有需求 | — |
-| D14 | **所有物件只寫一次**：原檔在處理時寫一次；變體的 key 帶版本，調整顯示方向寫到新的版本，舊版本在網址效期過後由清理排程刪除 | 穩定網址與長期快取的前提（[`../../features/image-cdn.md`](../../features/image-cdn.md)） | 覆寫同一個 key |
+| D14 | **所有物件只寫一次**：原檔在處理時寫一次；變體的 key 帶版本，調整顯示方向寫到新的版本，舊版本在網址效期過後由清理排程刪除 | 穩定網址與長期快取（CDN，[`09-file.md`](./09-file.md) §16）的前提 | 覆寫同一個 key |
 
 ### 14.3 實作紀錄
 
@@ -323,4 +331,4 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 | D18 | **日期捲軸以 `startAt` 重新載入**，不依張數估算捲動位置 | keyset 分頁下，估算的位置在還沒載入的範圍內沒有資料可以顯示；以時間點為起點載入，跳到哪裡都立刻有圖。張數只用來分配捲軸上每個月的高度 |
 | D19 | **「從其他來源加入」以 `filterOnly` 的圖片用途 `gallery.item` 過濾**，不另外設計來源的過濾參數 | 來源元件已經以用途過濾型別與大小（[`../frontend/23-image-picker.md`](../frontend/23-image-picker.md) §2）；`filterOnly` 讓這個用途不能被拿來建立圖片資產 |
 | D20 | **轉過顯示方向的圖，被選圖複製時給 `large` 的變體** | 原檔沒有轉；給原檔的話，選到的圖與圖片庫裡看到的方向不一致 |
-| D21 | **CDN 的邊緣快取清理不在這一版**（`CdnPurger` 由 [`../../features/image-cdn.md`](../../features/image-cdn.md) 另做） | 範圍切分；物件只寫一次（D14），沒有 CDN 時不需要清理 |
+| D21 | **接上 CDN**（[`09-file.md`](./09-file.md) §16）：變體以 `cdn: 'galleryItem'` 簽網址；原檔的 inline 與下載照舊 presigned；刪除變體之後以 `CdnPurger.schedule(keys)` 清理邊緣快取，只列變體（`cdnKeysOf`） | 變體只寫一次（D14），可以長期快取；原檔的 inline 只在放大時用、下載帶每次不同的 `Content-Disposition`，走 CDN 沒有好處。最初的實作把 CDN 留到合併之後（CDN 在另一個 branch），合併後補上 |

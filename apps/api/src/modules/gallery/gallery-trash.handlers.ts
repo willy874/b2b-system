@@ -6,7 +6,7 @@ import { PERMISSION } from '@/common/types';
 import type { Transaction } from '@/core/database';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { RESOURCE_TYPE } from '@/core/resource';
-import { ObjectStorage } from '@/core/storage';
+import { CdnPurger, ObjectStorage } from '@/core/storage';
 import { CommentService } from '@/modules/comment/comment.service';
 import { TagService } from '@/modules/tag/tag.service';
 import { TrashService } from '@/modules/trash/trash.service';
@@ -19,7 +19,7 @@ import type {
 
 import { GalleryAlbumRepository } from './gallery-album.repository';
 import { GalleryItemRepository } from './gallery-item.repository';
-import { GALLERY_KEY_PREFIX } from './gallery.constants';
+import { cdnKeysOf, GALLERY_KEY_PREFIX } from './gallery.constants';
 
 /** 永久刪除後同時刪物件的圖片數。 */
 const OBJECT_DELETE_CONCURRENCY = 16;
@@ -44,6 +44,7 @@ export class GalleryItemTrashHandler implements TrashHandler, OnModuleInit {
     private readonly events: DomainEventBus,
     private readonly tags: TagService,
     private readonly comments: CommentService,
+    private readonly cdn: CdnPurger,
   ) {}
 
   onModuleInit(): void {
@@ -91,6 +92,8 @@ export class GalleryItemTrashHandler implements TrashHandler, OnModuleInit {
         keys.push(object.key);
       }
       await Promise.all(keys.map((key) => this.storage.delete(key)));
+      // 刪除成功之後才清理邊緣快取（docs/architecture/backend/09-file.md §16）；不會拋錯
+      await this.cdn.schedule(cdnKeysOf(keys));
     } catch (error) {
       this.logger.warn({ err: error, itemId: id }, '刪除圖片庫的物件失敗，留給清理排程');
     }

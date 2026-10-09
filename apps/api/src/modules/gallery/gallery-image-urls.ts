@@ -42,7 +42,8 @@ export interface GalleryOriginalUrl {
 /**
  * 圖片庫的網址只由這裡產生：變體經 `ImageUrlService`（同一個時間窗內不變、可以快取）、原檔與下載經 `ObjectUrlSigner`。
  * 讀圖不經過 api、不查物件儲存（docs/architecture/backend/25-image.md R5）。
- * 之後的 CDN 會在這裡帶上資源類型（另一個 branch：docs/features/image-cdn.md）。
+ * 變體標 `cdn: 'galleryItem'`（物件只寫一次，可以由 CDN 送出，docs/architecture/backend/09-file.md §16）；
+ * 原檔的 inline 與下載都簽 presigned（下載帶 `Content-Disposition`，每次的檔名不同）。
  */
 @Injectable()
 export class GalleryImageUrls {
@@ -61,6 +62,7 @@ export class GalleryImageUrls {
       formats: row.variants.formats as ImageFormat[],
       renditions: row.variants.renditions,
       ttlSeconds: GALLERY_URL_TTL,
+      cdn: 'galleryItem',
     };
     return this.urls.sources(set, LAYOUTS);
   }

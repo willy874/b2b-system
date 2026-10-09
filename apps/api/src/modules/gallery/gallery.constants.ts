@@ -1,3 +1,7 @@
+import { renditionKey } from '@/core/image';
+import type { ImageFormat } from '@/core/image';
+import type { GalleryItemRow } from '@/db/schema';
+
 /**
  * 圖片庫的常數與物件 key（docs/architecture/backend/26-gallery.md）。
  * 物件都在 `gallery/<id>/` 底下；每個物件只寫一次（D14）：原檔寫一次，變體依版本寫到 `r<rev>/`。
@@ -30,6 +34,36 @@ export function itemIdOfKey(key: string): string | undefined {
 export function revOfKey(key: string): number | undefined {
   const match = /^gallery\/[0-9a-f-]{36}\/r(\d+)\//.exec(key);
   return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * 可能走過 CDN 的物件（變體，`gallery/<id>/r<rev>/…`；docs/architecture/backend/09-file.md §16）：刪除之後要清理邊緣快取。
+ * 原檔（inline 與下載都簽 presigned）與上傳的暫存從不經過 CDN，不必列。
+ */
+export function cdnKeysOf(keys: readonly string[]): string[] {
+  return keys.filter((key) => revOfKey(key) !== undefined);
+}
+
+/**
+ * 一張圖所有可能走過 CDN 的物件（`cli:cdn-purge --gallery-item`，docs/architecture/backend/09-file.md §16.7）：
+ * 每個版本（1～`rev`）的每個尺寸 × 格式；與另一個尺寸相同的（`sameAs`）不重複列。尺寸與格式取目前的描述：
+ * 舊版本已刪掉或尺寸不同的，邊緣回報 `missing`，無妨。原檔不走 CDN，不列。
+ */
+export function galleryCdnKeysOf(row: Pick<GalleryItemRow, 'id' | 'rev' | 'variants'>): string[] {
+  const variants = row.variants;
+  if (!variants) return [];
+  const names = Object.entries(variants.renditions)
+    .filter(([, rendition]) => !rendition.sameAs)
+    .map(([name]) => name);
+  const keys: string[] = [];
+  for (let rev = 1; rev <= row.rev; rev += 1) {
+    for (const name of names) {
+      for (const format of variants.formats as ImageFormat[]) {
+        keys.push(renditionKey(revPrefixOf(row.id, rev), name, format));
+      }
+    }
+  }
+  return keys;
 }
 
 /** 下載用的副檔名（原檔的型別 → 副檔名）。 */

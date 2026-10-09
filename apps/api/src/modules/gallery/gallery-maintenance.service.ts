@@ -6,12 +6,13 @@ import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { ObjectStorage } from '@/core/storage';
+import { CdnPurger, ObjectStorage } from '@/core/storage';
 import type { GalleryItemRow } from '@/db/schema';
 
 import { GalleryItemRepository } from './gallery-item.repository';
 import { GALLERY_PROCESS_JOB } from './gallery-process.job';
 import {
+  cdnKeysOf,
   GALLERY_FAILED_TTL_MS,
   GALLERY_KEY_PREFIX,
   GALLERY_MAINTENANCE_BATCH,
@@ -56,7 +57,7 @@ export const GALLERY_MAINTENANCE_JOB = defineJob<Record<string, never>>('gallery
  * 5. `gallery/` 底下查不到圖片的物件（登記失敗、永久刪除時物件刪除失敗）→ 刪除（至少 24 小時前的）。
  *
  * 永久刪除（回收桶到期）由 `trash.purge` 處理（`GalleryItemTrashHandler`）。
- * 之後的 CDN 會在刪除物件之後清理邊緣快取（另一個 branch：docs/features/image-cdn.md §7）。
+ * 刪除變體之後以 `CdnPurger` 排入清理邊緣快取（docs/architecture/backend/09-file.md §16）；沒有 CDN 時是 no-op。
  */
 @Injectable()
 export class GalleryMaintenanceService implements OnModuleInit {
@@ -69,6 +70,7 @@ export class GalleryMaintenanceService implements OnModuleInit {
     private readonly storage: ObjectStorage,
     private readonly jobs: JobQueue,
     config: ConfigService<Env, true>,
+    private readonly cdn: CdnPurger,
   ) {
     this.cron = config.get('GALLERY_MAINTENANCE_CRON', { infer: true });
   }
@@ -167,6 +169,8 @@ export class GalleryMaintenanceService implements OnModuleInit {
         // oxlint-disable-next-line no-await-in-loop -- 同上
         await Promise.all(stale.map((key) => this.storage.delete(key)));
         // oxlint-disable-next-line no-await-in-loop -- 同上
+        await this.cdn.schedule(stale);
+        // oxlint-disable-next-line no-await-in-loop -- 同上
         await this.repo.clearStaleRevs(row.id, staleRevsPurgeAfter);
         report.staleRevs += 1;
       } catch (error) {
@@ -209,6 +213,8 @@ export class GalleryMaintenanceService implements OnModuleInit {
       const orphans = batch.filter((id) => !existing.has(id)).flatMap((id) => byItem.get(id) ?? []);
       // oxlint-disable-next-line no-await-in-loop -- 同上
       await Promise.all(orphans.map((key) => this.storage.delete(key)));
+      // oxlint-disable-next-line no-await-in-loop -- 同上
+      await this.cdn.schedule(cdnKeysOf(orphans));
       report.orphanObjects += orphans.length;
     }
   }

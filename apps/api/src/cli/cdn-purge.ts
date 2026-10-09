@@ -10,8 +10,9 @@ import {
 } from '@/db/client';
 import type { PlatformScriptDatabase } from '@/db/client';
 import { platformAuditLogs, tenants } from '@/db/platform/schema';
-import { imageAssets } from '@/db/schema';
+import { galleryItems, imageAssets } from '@/db/schema';
 import { confirmArgument, databaseNameOf, remoteRejection } from '@/db/script-guard';
+import { galleryCdnKeysOf } from '@/modules/gallery/gallery.constants';
 import { assetObjectKeysOf } from '@/modules/image/image.constants';
 
 /**
@@ -20,6 +21,7 @@ import { assetObjectKeysOf } from '@/modules/image/image.constants';
  *
  *   pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --path images/<id>/r3/sm.webp [--path …]
  *   pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --image-asset <id>
+ *   pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --gallery-item <id>
  *   pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm <平台 database 名稱>]
  *
  * `--all` 不加 `--confirm` 只列出會影響哪些節點。平台 DB 不在本機時，任何形式都要 `--confirm <平台 database 名稱>`
@@ -31,12 +33,13 @@ import { assetObjectKeysOf } from '@/modules/image/image.constants';
 export const CDN_PURGE_ACTION = 'cdn.purge';
 
 const USAGE =
-  '用法：cli:cdn-purge (--tenant <租戶代碼> (--path <物件 key>… | --image-asset <id>) | --all) ' +
+  '用法：cli:cdn-purge (--tenant <租戶代碼> (--path <物件 key>… | --image-asset <id> | --gallery-item <id>) | --all) ' +
   '[--confirm <平台 database 名稱>]';
 
 export type CdnPurgeRequest =
   | { kind: 'paths'; tenant: string; keys: string[]; confirm?: string }
   | { kind: 'imageAsset'; tenant: string; assetId: string; confirm?: string }
+  | { kind: 'galleryItem'; tenant: string; itemId: string; confirm?: string }
   | { kind: 'all'; confirm?: string };
 
 function valuesOf(argv: readonly string[], flag: string): string[] {
@@ -56,13 +59,20 @@ export function parseCdnPurgeArgs(argv: readonly string[]): CdnPurgeRequest {
   const tenant = valuesOf(argv, '--tenant')[0];
   const keys = valuesOf(argv, '--path');
   const assetId = valuesOf(argv, '--image-asset')[0];
+  const itemId = valuesOf(argv, '--gallery-item')[0];
   if (argv.includes('--all')) {
-    if (tenant || keys.length || assetId) throw new Error(`--all 不能與其他對象一起用。${USAGE}`);
+    if (tenant || keys.length || assetId || itemId)
+      throw new Error(`--all 不能與其他對象一起用。${USAGE}`);
     return { kind: 'all', confirm };
   }
   if (!tenant) throw new Error(`缺少 --tenant（或用 --all）。${USAGE}`);
-  if (keys.length > 0 === Boolean(assetId)) {
-    throw new Error(`--path 與 --image-asset 要指定其中一種。${USAGE}`);
+  if ([keys.length > 0, Boolean(assetId), Boolean(itemId)].filter(Boolean).length !== 1) {
+    throw new Error(`--path、--image-asset、--gallery-item 要指定其中一種。${USAGE}`);
+  }
+  if (itemId) {
+    if (!UUID.test(itemId))
+      throw new Error(`--gallery-item 要是圖片庫的圖片 id（uuid）：${itemId}`);
+    return { kind: 'galleryItem', tenant, itemId, confirm };
   }
   if (assetId) {
     if (!UUID.test(assetId)) throw new Error(`--image-asset 要是圖片資產的 id（uuid）：${assetId}`);
@@ -141,7 +151,9 @@ export async function runCdnPurge(
     const keys =
       request.kind === 'paths'
         ? request.keys
-        : await imageAssetKeys(tenant.databaseUrl, request.assetId);
+        : request.kind === 'imageAsset'
+          ? await imageAssetKeys(tenant.databaseUrl, request.assetId)
+          : await galleryItemKeys(tenant.databaseUrl, request.itemId);
     const paths = [...new Set(keys)].map((key) => cdnPathOf(registered.bucket, key));
     const nodes: CdnPurgeNodeResult[] = [];
     for (let start = 0; start < paths.length; start += CLI_BATCH) {
@@ -166,6 +178,21 @@ async function imageAssetKeys(databaseUrl: string, assetId: string): Promise<str
       );
     }
     return assetObjectKeysOf(row);
+  } finally {
+    await client.end();
+  }
+}
+
+async function galleryItemKeys(databaseUrl: string, itemId: string): Promise<string[]> {
+  const { client, db } = createScriptClient(databaseUrl);
+  try {
+    const [row] = await db.select().from(galleryItems).where(eq(galleryItems.id, itemId));
+    if (!row) {
+      throw new Error(
+        `找不到圖片庫的圖片 ${itemId}：已經永久刪除時改用 --path 指定物件 key（或 --all）`,
+      );
+    }
+    return galleryCdnKeysOf(row);
   } finally {
     await client.end();
   }

@@ -930,7 +930,7 @@ FileAccessService（modules/file）
 整個功能以 `FILE_CDN_ENABLED` 開關，**預設關閉**；關閉時行為與沒有這個功能時完全相同（§16.4）。
 
 範圍限於 **寫入後永不覆寫的物件**：檔案的影像變體與轉出的格式（`variants/`）、圖片資產的主檔與變體（`images/`，[`25-image.md`](./25-image.md) §15），
-與之後的圖片庫（`gallery/` 的變體）。不在範圍內：原檔 `files/<id>`（可能是任何型別）、一般檔案的下載（`url`、`downloadUrl`，§17 D4）、多區域與依租戶開關（D9）。
+與圖片庫的變體（`gallery/<id>/r<rev>/`，[`26-gallery.md`](./26-gallery.md) §6）。不在範圍內：原檔 `files/<id>`（可能是任何型別）、一般檔案的下載（`url`、`downloadUrl`，§17 D4）、多區域與依租戶開關（D9）。
 
 ### 16.1 讀取路徑
 
@@ -962,7 +962,8 @@ FileAccessService（modules/file）
 
 - **呼叫端標資源類型**：簽網址時帶 `{ cdn: '<資源類型>' }`（`CdnResource`：`fileVariant`、`imageAsset`、`galleryItem`；`core/storage/cdn-resource.ts`）。
   `core/storage` 不認識業務前綴；哪些真的走 CDN 由 `CdnConfig.servesResource()`（`FILE_CDN_RESOURCES`）決定，其他照舊 presigned（D5）。
-  現在的呼叫端：`FileImageService.resolve()`（變體與轉出的格式；原圖原封不動時不標）、`ImageAssetService`（主檔與 `ImageObjectSet.cdn`）。
+  現在的呼叫端：`FileImageService.resolve()`（變體與轉出的格式；原圖原封不動時不標）、`ImageAssetService`（主檔與 `ImageObjectSet.cdn`）、
+  `GalleryImageUrls.sourcesOf()`（圖片庫的變體，`ImageObjectSet.cdn = 'galleryItem'`；原檔的 inline 與下載不標）。
 - **帶了 `disposition: 'attachment'` 或 `contentType` 的一律 presigned**：CDN 網址不帶回應標頭的覆寫（D4）。
 - **簽的內容**：`exp` 與 **未編碼** 的完整路徑（含 `/storage/<bucket>/`）；網址上的路徑逐段編碼（`@` → `%40`），邊緣以解碼後的 `$uri` 驗證。
   換路徑、換 bucket、改 `exp` 都驗不過；`kid` 只用來選金鑰，換掉也驗不過。
@@ -1070,7 +1071,10 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 | 圖片資產被清除（沒被認領、被換掉超過保留期限） | 主檔與所有版本的變體 | `image.maintenance`（一輪一次排入，依批次大小分批） |
 | 圖片資產重新裁切後，舊版本的變體被刪除 | 舊 `r<rev>/` 底下的變體 | `image.maintenance` |
 | 查不到資產的殘留物件 | 刪掉的 `images/…` | `image.maintenance` |
-| 緊急下架（法律要求、誤傳個資） | 指定的路徑、圖片資產或整個快取 | 維運以 `cli:cdn-purge` 手動執行（§16.7） |
+| 圖片庫的圖片被永久刪除 | `gallery/<id>/r<rev>/` 底下所有版本的變體（原檔與上傳的暫存不走 CDN） | `GalleryItemTrashHandler.afterPurge`（`trash.purge`） |
+| 圖片庫調整顯示方向後，舊版本的變體被刪除（網址效期過後） | 舊 `gallery/<id>/r<rev>/` 底下的變體 | `gallery.maintenance` |
+| 查不到圖片的殘留物件 | 刪掉的 `gallery/<id>/r<rev>/…`（原檔與上傳的暫存不列） | `gallery.maintenance` |
+| 緊急下架（法律要求、誤傳個資） | 指定的路徑、圖片資產、圖片庫的圖片或整個快取 | 維運以 `cli:cdn-purge` 手動執行（§16.7） |
 
 **不清** 的情況：軟刪除（移到回收桶：物件保留以便還原，與 presigned 網址的語意相同；要立即下架用 CLI）、授權變更（已發出的網址本來就有效到 `exp`）、
 刪除租戶（bucket 整個刪除，舊網址在最長效期內過期；快取由 `inactive` 淘汰）。
@@ -1091,7 +1095,7 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
   重試 5 次、30 秒起指數退避；重試用完記 `api_cdn_purge_failures_total{stage="final"}`。不論開關都註冊（工作名稱固定出現在 OpenAPI 的 `JobName`）；
   沒有清理端點的程序遇到時略過（`{ skipped: 'CDN_PURGE_NOT_CONFIGURED' }`）。
 - **路徑由擁有者模組列出**：物件只寫一次，擁有者知道每一個物件的完整 key，所以清理用 **明確的路徑清單**，不需要「依前綴清理」。
-  之後的模組（例：圖片庫）在刪除物件之後同樣呼叫 `CdnPurger.schedule(keys)`。
+  圖片庫同樣在刪除物件之後呼叫 `CdnPurger.schedule(keys)`（`cdnKeysOf` 只留變體，[`26-gallery.md`](./26-gallery.md) §11.5）；之後的模組照做。
 - **邊緣的清理端點**（`deploy/cdn.js`）：nginx 開源版沒有 `proxy_cache_purge`，但快取檔的位置可以由 key 算出來：
   `/var/cache/nginx/cdn/<md5 的最後 1 碼>/<倒數第 2–3 碼>/<md5>`（`levels=1:2`）。刪掉檔案之後，下一個請求在 nginx 打不開快取檔時當作 MISS、重新回源。
 
@@ -1113,13 +1117,14 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 ```bash
 pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --path images/<id>/r3/sm.webp [--path …]
 pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --image-asset <id>    # 由 DB 列出該資產的主檔與每個版本的變體
+pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --gallery-item <id>   # 由 DB 列出圖片庫那張圖每個版本的變體（原檔不走 CDN）
 pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm <平台 database 名稱>]
 # 正式映像裡：node dist/src/cli/cdn-purge.js …
 ```
 
 - 同步執行（不經佇列），逐節點顯示結果；任一節點失敗時以非零結束。清理端點與密鑰讀 `FILE_CDN_PURGE_URL`、`FILE_CDN_PURGE_SECRET`。
 - `--all` 不加 `--confirm` 只列出會影響哪些節點；平台 DB 不在本機時，任何形式都要 `--confirm <平台 database 名稱>`（與 `cli:reset-super-admin` 相同）。
-- `--path` 是 bucket 裡的物件 key（前面的 `/` 拿掉，不接受 `..`）；`--image-asset` 的資產已被永久刪除時改用 `--path` 或 `--all`。
+- `--path` 是 bucket 裡的物件 key（前面的 `/` 拿掉，不接受 `..`）；`--image-asset`、`--gallery-item` 的對象已被永久刪除時改用 `--path` 或 `--all`。
 - 寫平台稽核 `cdn.purge`（`actorEmail = 'system'`、`resourceType = 'cdn'`、`resourceId` 是租戶代碼或 `null`；`metadata.paths` 是路徑數或 `'all'`，`metadata.nodes` 是每個節點的結果）。
 
 ### 16.8 驗證：`deploy/check-cdn.sh`
