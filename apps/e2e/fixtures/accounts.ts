@@ -17,6 +17,7 @@ export const ACCOUNTS = {
   mfaTotp: 'e2e-mfame@dev.local',
   mfaEmail: 'e2e-mfamail@dev.local',
   mfaPolicy: 'e2e-mfapolicy@dev.local',
+  passkey: 'e2e-passkeyme@dev.local',
 } as const;
 
 export type AccountKey = keyof typeof ACCOUNTS;

@@ -54,5 +54,13 @@ export default defineConfig({
           timeout: 60_000,
           cwd: '../..',
         },
+        // SAML 的外部 IdP（tests/sso-methods.spec.ts）：127.0.0.1，與 apps/platform 不同站
+        {
+          command: 'pnpm dev:mock-saml-idp',
+          url: 'http://127.0.0.1:4477/metadata',
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+          cwd: '../..',
+        },
       ],
 });

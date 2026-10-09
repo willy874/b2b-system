@@ -47,6 +47,8 @@ export const E2E_ACCOUNTS = [
   { email: 'e2e-mfame@dev.local', displayName: 'E2E MFA TOTP', role: 'member' },
   { email: 'e2e-mfamail@dev.local', displayName: 'E2E MFA Email', role: 'member' },
   { email: 'e2e-mfapolicy@dev.local', displayName: 'E2E MFA Policy', role: 'member' },
+  // 通行金鑰登入（apps/e2e/tests/sso-methods.spec.ts）：註冊了 WebAuthn 之後密碼登入要第二步，不能和別的案例共用帳號
+  { email: 'e2e-passkeyme@dev.local', displayName: 'E2E Passkey', role: 'member' },
 ] as const;
 
 export async function seedE2eData(db: ScriptDatabase): Promise<void> {
