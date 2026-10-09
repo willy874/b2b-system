@@ -10,7 +10,8 @@ import {
 import { SettingListRoute, SystemRoute } from './routes/pages';
 
 /**
- * 系統設定的入口：看得到任一個分頁就能進來（一般與事件通知要 `system:read`、安全性要 `mfaPolicy:read`）。
+ * 系統設定的入口：看得到任一個分頁就能進來（一般與事件通知要 `system:read`、安全性要 `mfaPolicy:read`、
+ * 審批流程要 `approvalFlow:read`）。
  * 進來之後由各分頁自己的頁面鍵把關。
  */
 export const SYSTEM_PAGE = definePageKey('SYSTEM');
@@ -23,7 +24,11 @@ export function registerSystemPagePermissions(): void {
   registerPagePermission(SYSTEM_PAGE, {
     route: routeBasePath(SystemRoute),
     rule: {
-      access: [PermissionKey['system:read'], PermissionKey['mfaPolicy:read']],
+      access: [
+        PermissionKey['system:read'],
+        PermissionKey['mfaPolicy:read'],
+        PermissionKey['approvalFlow:read'],
+      ],
       match: PermissionMatch.SOME,
     },
   });

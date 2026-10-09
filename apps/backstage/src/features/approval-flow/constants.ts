@@ -48,7 +48,7 @@ export const CONDITION_OPERATOR_LABEL_KEY = {
   in: 'approvalFlow.condition.op.in',
 } as const satisfies Record<ConditionOperator, string>;
 
-/** 列表上的流程狀態：未設定（`flow` 為 null）／啟用中／已停用。 */
+/** 分頁上的審批方式：單關（`flow` 為 null）／多階段（流程啟用中）／流程已停用（回到單關，設定保留）。 */
 export type ApprovalFlowStatus = 'unset' | 'enabled' | 'disabled';
 
 export const APPROVAL_FLOW_STATUS_LABEL_KEY = {

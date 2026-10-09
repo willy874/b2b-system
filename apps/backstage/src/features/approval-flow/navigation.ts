@@ -1,18 +1,17 @@
-import { registerNavItem } from '@b2b-system/web-core/navigation';
-
-import { NavGroupKey } from '@/core/navigation';
+import { registerSystemSettingsTab } from '@/core/system-settings';
 
 import { APPROVAL_FLOW_PAGE } from './permission';
 
-/** 側欄「系統管理」的入口；命令面板的「頁面」也列出它（docs/architecture/frontend/18-command-palette.md §2）。 */
+/**
+ * 系統設定的「審批流程」分頁（docs/architecture/frontend/02-plugin-system.md §4.5）；側欄只有「系統設定」一個入口。
+ * 可啟用的 feature `approvalChain` 未啟用時，頁面鍵不登記，分頁跟著消失。
+ */
 export function registerApprovalFlowNavigation(): void {
-  registerNavItem({
+  registerSystemSettingsTab({
+    key: 'approval-flows',
     pageKey: APPROVAL_FLOW_PAGE,
-    to: '/approval-flow',
+    to: '/system/approval-flows',
     labelKey: 'menu.approvalFlow',
-    testId: 'menu-approval-flow',
-    icon: 'filter',
-    group: NavGroupKey.SYSTEM,
-    order: 250,
+    order: 400,
   });
 }

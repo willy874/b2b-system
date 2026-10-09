@@ -284,16 +284,16 @@ feature 登記的工具：站內通知的鈴鐺（`notification`，order 400，[
 ### 4.5 系統設定的分頁（`core/system-settings`）
 
 backstage 的「系統設定」是一頁多分頁：一般（`features/system`，可由平台關閉的 `systemSetting`）、安全性（`features/security`，MFA 政策）、
-事件通知（`features/notification`，事件管理）。三個分頁屬於三個 feature，彼此不 import，所以照偏好頁的做法用註冊表組起來：
+事件通知（`features/notification`，事件管理）、審批流程（`features/approval-flow`，可由平台關閉的 `approvalChain`）。分頁屬於各自的 feature，彼此不 import，所以照偏好頁的做法用註冊表組起來：
 
 | 項目 | 規則 |
 | --- | --- |
 | 登記 | feature 在 plugin 的同步階段呼叫 `registerSystemSettingsTab({ key, pageKey, to, labelKey, order })`（各 feature 的 `navigation.ts`）；側欄不另登記入口 |
 | 顯示 | `useSystemSettingsTabs()` 依 `order` 排序，只留頁面鍵有登記（所屬 feature 已啟用）而且有權限的分頁；權限未水合前是空的 |
-| 外框 | 每個分頁的頁面自己包一層 `<SystemSettingsLayout>`（標題「系統設定」與分頁列，只有一個分頁時不顯示分頁列）；路由各自掛在 root 下（`/system/settings`、`/system/security`、`/system/notification-events`），頁面鍵取前綴最長的 |
-| 入口 | `features/system` 常駐的部分：側欄的「系統設定」（`SYSTEM_PAGE`，`system:read`、`mfaPolicy:read` 任一）指向 `/system`，等權限與租戶的 feature 清單都到了，導向第一個看得到的分頁 |
+| 外框 | 每個分頁的頁面自己包一層 `<SystemSettingsLayout>`（標題「系統設定」與分頁列，只有一個分頁時不顯示分頁列）；路由各自掛在 root 下（`/system/settings`、`/system/security`、`/system/notification-events`、`/system/approval-flows`），頁面鍵取前綴最長的。分頁底下的子頁（審批流程的 `/system/approval-flows/$type`）也包同一層，分頁列以路徑前綴保持選取 |
+| 入口 | `features/system` 常駐的部分：側欄的「系統設定」（`SYSTEM_PAGE`，`system:read`、`mfaPolicy:read`、`approvalFlow:read` 任一）指向 `/system`，等權限與租戶的 feature 清單都到了，導向第一個看得到的分頁 |
 | `labelKey` | 放在 app 的全域語系包（`menu.*`）：外框在每個分頁都渲染，分頁自己的 scope 未必載入 |
-| 平台關掉 `systemSetting` | 只有「一般」分頁消失（`registerSettingPagePermissions` 與分頁登記在可關閉的 `systemSettingFeaturePlugin` 裡）；安全性與事件通知照常 |
+| 平台關掉 `systemSetting` | 只有「一般」分頁消失（`registerSettingPagePermissions` 與分頁登記在可關閉的 `systemSettingFeaturePlugin` 裡）；其他分頁照常。關掉 `approvalChain` 時同理，只有「審批流程」分頁消失 |
 
 `app/__tests__/navigation.test.ts` 檢查每個分頁的頁面鍵有登記、路徑落在該頁面上；同一支測試也檢查側欄與帳號選單的圖示不重複。
 

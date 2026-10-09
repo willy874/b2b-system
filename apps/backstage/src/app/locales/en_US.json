@@ -66,7 +66,7 @@
     "featureDisabled": "The feature of this page has been disabled",
     "featureInstallFailed": "Failed to load a feature. Please reload the page",
     "systemSettings": {
-      "description": "Tenant settings, security policies and event notifications. Changes take effect immediately and are recorded in the audit log.",
+      "description": "Tenant settings, security policies, event notifications and approval flows. Changes take effect immediately and are recorded in the audit log.",
       "empty": "There are no settings you can view."
     }
   },

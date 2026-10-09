@@ -88,6 +88,7 @@ describe('選單與命令面板的入口', () => {
   it('系統設定的分頁都有登記過的頁面，路徑落在該頁面上（docs/architecture/frontend/02-plugin-system.md §4.5）', () => {
     const pages = new Set(getRegisteredPageKeys());
     expect(systemSettingsTabRegistry.keys().toSorted()).toEqual([
+      'approval-flows',
       'general',
       'notification-events',
       'security',

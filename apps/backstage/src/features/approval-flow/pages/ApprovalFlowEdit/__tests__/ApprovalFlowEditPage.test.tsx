@@ -162,7 +162,7 @@ function renameFirstStep(name: string) {
 
 describe('ApprovalFlowEditPage 的權限（docs/architecture/backend/20-approval.md §9.14）', () => {
   it('有 approvalFlow:update → 可以儲存、新增與刪除關卡', async () => {
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     expect(await steps()).toHaveLength(2);
     expect(screen.getByTestId('approval-flow-save')).toBeInTheDocument();
     expect(screen.getByTestId('approval-flow-step-add')).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('ApprovalFlowEditPage 的權限（docs/architecture/backend/20-approval
   });
 
   it('只有 approvalFlow:read → 唯讀：沒有儲存與關卡操作，規則以文字顯示；仍可以試算', async () => {
-    renderRoute(routes, '/approval-flow/test.purchase', READER);
+    renderRoute(routes, '/system/approval-flows/test.purchase', READER);
     await steps();
     expect(screen.queryByTestId('approval-flow-save')).toBeNull();
     expect(screen.queryByTestId('approval-flow-step-add')).toBeNull();
@@ -182,7 +182,7 @@ describe('ApprovalFlowEditPage 的權限（docs/architecture/backend/20-approval
   });
 
   it('權限未水合 → 不閃現儲存與關卡操作', async () => {
-    renderRoute(routes, '/approval-flow/test.purchase', 'unhydrated');
+    renderRoute(routes, '/system/approval-flows/test.purchase', 'unhydrated');
     await waitFor(() => expect(fetchDetail).toHaveBeenCalled());
     expect(screen.queryByTestId('approval-flow-save')).toBeNull();
     expect(screen.queryByTestId('approval-flow-step-add')).toBeNull();
@@ -191,7 +191,7 @@ describe('ApprovalFlowEditPage 的權限（docs/architecture/backend/20-approval
 
 describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16）', () => {
   it('規則指到已刪除的對象 → 以警示標出', async () => {
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     const [, finance] = await steps();
     expect(
       within(finance as HTMLElement).getByTestId('approval-flow-assignee-deleted'),
@@ -200,7 +200,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
 
   it('組織管理未啟用 → 「主管」規則標示不能用', async () => {
     featureStore.setState({ resolved: true, statuses: new Map([['group', 'ready']]) });
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     const [manager] = await steps();
     expect(
       within(manager as HTMLElement).getByTestId('approval-flow-assignee-unavailable'),
@@ -208,7 +208,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
   });
 
   it('匿名申請的類型（註冊）不提供「主管」規則', async () => {
-    renderRoute(routes, '/approval-flow/user.register', EDITOR);
+    renderRoute(routes, '/system/approval-flows/user.register', EDITOR);
     await steps();
     fireEvent.click(screen.getByTestId('approval-flow-assignee-kind'));
     await screen.findByRole('listbox');
@@ -219,7 +219,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
   });
 
   it('儲存：送出整份流程並帶開始編輯時的 version', async () => {
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     await steps();
     renameFirstStep('直屬主管');
     fireEvent.click(screen.getByTestId('approval-flow-save'));
@@ -243,7 +243,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
   });
 
   it('第一次設定流程：不帶 version', async () => {
-    renderRoute(routes, '/approval-flow/user.register', EDITOR);
+    renderRoute(routes, '/system/approval-flows/user.register', EDITOR);
     await steps();
     renameFirstStep('管理者');
     fireEvent.click(screen.getByTestId('approval-flow-assignee-kind'));
@@ -273,7 +273,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
   });
 
   it('還沒填完就儲存 → 不送出，標出缺少的欄位', async () => {
-    renderRoute(routes, '/approval-flow/user.register', EDITOR);
+    renderRoute(routes, '/system/approval-flows/user.register', EDITOR);
     await steps();
     fireEvent.click(screen.getByTestId('approval-flow-save'));
     await waitFor(() =>
@@ -285,7 +285,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
 
   it('409 APPROVAL_FLOW_VERSION_CONFLICT → 提示已被他人修改；重新載入後改用最新的流程', async () => {
     putFlow.mockRejectedValue(new AppError('APPROVAL_FLOW_VERSION_CONFLICT', 409, { current: 4 }));
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     await steps();
     renameFirstStep('直屬主管');
     fireEvent.click(screen.getByTestId('approval-flow-save'));
@@ -315,7 +315,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
     putFlow.mockRejectedValue(
       new AppError('APPROVAL_FLOW_ASSIGNEE_UNAVAILABLE', 422, { steps: [1] }),
     );
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     await steps();
     renameFirstStep('直屬主管');
     fireEvent.click(screen.getByTestId('approval-flow-save'));
@@ -332,7 +332,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
         fields: { 'steps.1.conditions.0.value': 'expected number' },
       }),
     );
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     await steps();
     renameFirstStep('直屬主管');
     fireEvent.click(screen.getByTestId('approval-flow-save'));
@@ -345,7 +345,7 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
   });
 
   it('試算：帶上未儲存的草稿與欄位值，列出每一關的候選人與略過', async () => {
-    renderRoute(routes, '/approval-flow/test.purchase', EDITOR);
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     await steps();
     renameFirstStep('直屬主管');
     const amount = screen

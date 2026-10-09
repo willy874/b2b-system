@@ -9,10 +9,13 @@ import { APPROVAL_FLOW_LOCALE_SCOPE } from '../locale';
 /** 這個 feature 在租戶啟用清單裡的 id（後端 `TENANT_FEATURES` 的 `approvalChain`，docs/architecture/backend/20-approval.md §9.11）。 */
 export const APPROVAL_FLOW_FEATURE = 'approvalChain';
 
-/** 支援多階段流程的審批類型（`approvalFlow:read`，docs/architecture/backend/20-approval.md §9.16）。 */
+/**
+ * 支援多階段流程的審批類型：系統設定的「審批流程」分頁
+ * （`approvalFlow:read`，docs/architecture/backend/20-approval.md §9.16、docs/architecture/frontend/02-plugin-system.md §4.5）。
+ */
 export const ApprovalFlowListRoute = createRoute({
   getParentRoute: () => RootRoute,
-  path: '/approval-flow',
+  path: '/system/approval-flows',
   staticData: { titleKey: 'menu.approvalFlow' },
   beforeLoad: requireFeature(APPROVAL_FLOW_FEATURE),
   loader: localeScopeLoader(APPROVAL_FLOW_LOCALE_SCOPE),
@@ -24,7 +27,7 @@ export const ApprovalFlowListRoute = createRoute({
  */
 export const ApprovalFlowEditRoute = createRoute({
   getParentRoute: () => RootRoute,
-  path: '/approval-flow/$type',
+  path: '/system/approval-flows/$type',
   staticData: { titleKey: 'menu.approvalFlow' },
   beforeLoad: requireFeature(APPROVAL_FLOW_FEATURE),
   loader: localeScopeLoader(APPROVAL_FLOW_LOCALE_SCOPE),

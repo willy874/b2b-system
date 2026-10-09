@@ -9,19 +9,26 @@
       "category": "Category"
     },
     "status": {
-      "unset": "Not set",
-      "enabled": "Enabled",
-      "disabled": "Disabled"
+      "unset": "Single-step",
+      "enabled": "Multi-step",
+      "disabled": "Flow disabled"
     },
     "list": {
-      "title": "Approval flows",
-      "description": "Configure sequential steps for approval types that support multi-step approval. Types without an enabled flow are still decided in a single step.",
+      "description": "Choose who must approve each kind of request, and in what order. Types without a flow keep working: anyone with approval permission approves or rejects in one step (single-step approval).",
+      "scope": "Every approval type that supports multi-step flows is listed here.",
+      "empty": "No approval type supports multi-step flows yet.",
       "assigneeIssue": "Unavailable reviewers",
-      "column": {
-        "type": "Approval type",
-        "status": "Flow status",
-        "steps": "Steps",
-        "version": "Version"
+      "stepsLabel": "Steps",
+      "mode": {
+        "unset": "Requests are approved or rejected in one step by anyone with approval permission.",
+        "unsetCanUpdate": "Requests are approved or rejected in one step by anyone with approval permission. Set up a multi-step flow when several people must approve in order.",
+        "enabled": "Every request goes through these steps in order; steps whose conditions don't match are skipped.",
+        "disabled": "The flow is disabled, so requests are approved in a single step. Re-enabling it keeps these settings."
+      },
+      "action": {
+        "view": "View",
+        "configure": "Set up flow",
+        "edit": "Edit flow"
       }
     },
     "edit": {

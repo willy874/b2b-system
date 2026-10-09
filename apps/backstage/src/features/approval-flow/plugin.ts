@@ -10,7 +10,7 @@ export function appContextPlugin(): AppDynamicPluginFactory {
   return (context) => {
     // ── 同步階段：權限的註冊必須在第一次 render 之前完成 ──
     registerApprovalFlowPagePermissions();
-    registerApprovalFlowNavigation(); // 側欄與命令面板的入口
+    registerApprovalFlowNavigation(); // 系統設定的分頁
     const app = context.getInstance();
 
     return {

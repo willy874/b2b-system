@@ -7,7 +7,7 @@ import { registerSettingPagePermissions, registerSystemPagePermissions } from '.
 
 /**
  * 常駐：系統設定的入口與外框（docs/architecture/frontend/02-plugin-system.md §4.5）。
- * 安全性、事件通知的分頁由各自的 feature 登記，不能因為平台關掉「一般」分頁就看不到。
+ * 安全性、事件通知、審批流程的分頁由各自的 feature 登記，不能因為平台關掉「一般」分頁就看不到。
  */
 export function appContextPlugin(): AppPluginFactory {
   return () => {

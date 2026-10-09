@@ -52,7 +52,8 @@ const ITEMS: ApprovalFlow[] = [
 ];
 
 const READER = ['approvalFlow:read'] as PermissionKey[];
-const routes = [Routes.ApprovalFlowListRoute];
+// 卡片連到編輯頁：一起掛上，連結才解析得到 href
+const routes = [Routes.ApprovalFlowListRoute, Routes.ApprovalFlowEditRoute];
 
 beforeAll(() => initTestI18n(zhTW));
 
@@ -69,13 +70,13 @@ beforeEach(() => {
 describe('審批流程列表的頁面權限（docs/architecture/backend/20-approval.md §9.14）', () => {
   it('有 approvalFlow:read → 進得去', () => {
     usePermissionStore.setState({ permissions: new Set(READER), hydrated: true });
-    expect(renderHook(() => usePageAccess('/approval-flow')).result.current).toMatchObject({
+    expect(renderHook(() => usePageAccess('/system/approval-flows')).result.current).toMatchObject({
       gated: true,
       canAccess: true,
     });
     // 編輯頁以路徑前綴沿用同一個頁面權限
     expect(
-      renderHook(() => usePageAccess('/approval-flow/user.register')).result.current,
+      renderHook(() => usePageAccess('/system/approval-flows/user.register')).result.current,
     ).toMatchObject({
       gated: true,
       canAccess: true,
@@ -87,7 +88,7 @@ describe('審批流程列表的頁面權限（docs/architecture/backend/20-appro
       permissions: new Set(['approval:read'] as PermissionKey[]),
       hydrated: true,
     });
-    expect(renderHook(() => usePageAccess('/approval-flow')).result.current).toMatchObject({
+    expect(renderHook(() => usePageAccess('/system/approval-flows')).result.current).toMatchObject({
       gated: true,
       canAccess: false,
     });
@@ -95,7 +96,7 @@ describe('審批流程列表的頁面權限（docs/architecture/backend/20-appro
 
   it('權限未水合 → 還不能判斷（不閃現內容，也不閃 403）', () => {
     usePermissionStore.setState({ permissions: new Set(), hydrated: false });
-    expect(renderHook(() => usePageAccess('/approval-flow')).result.current).toMatchObject({
+    expect(renderHook(() => usePageAccess('/system/approval-flows')).result.current).toMatchObject({
       hydrated: false,
       gated: true,
     });
@@ -103,25 +104,70 @@ describe('審批流程列表的頁面權限（docs/architecture/backend/20-appro
 });
 
 describe('ApprovalFlowListPage（docs/architecture/backend/20-approval.md §9.16）', () => {
-  it('每一列：類型名稱（不認得的顯示原字串）、流程狀態、關卡摘要、版本', async () => {
-    renderRoute(routes, '/approval-flow', READER);
-    const table = await screen.findByTestId('approval-flow-table', undefined, { timeout: 5000 });
-    const links = await within(table).findAllByTestId('approval-flow-type-link');
-    expect(links.map((link) => link.textContent)).toEqual(['使用者註冊', 'future.type']);
+  it('每一種類型一張卡片：類型名稱（不認得的顯示原字串）、審批方式、關卡與版本', async () => {
+    renderRoute(routes, '/system/approval-flows', READER);
+    const cards = await screen.findAllByTestId('approval-flow-card', undefined, { timeout: 5000 });
+    expect(
+      cards.map((card) => within(card).getByTestId('approval-flow-type-link').textContent),
+    ).toEqual(['使用者註冊', 'future.type']);
 
-    const statuses = within(table).getAllByTestId('approval-flow-status');
+    const statuses = cards.map((card) => within(card).getByTestId('approval-flow-status'));
     expect(statuses.map((status) => status.getAttribute('data-value'))).toEqual([
       'enabled',
       'unset',
     ]);
-    expect(statuses.map((status) => status.textContent)).toEqual(['啟用中', '未設定']);
-    expect(within(table).getByTestId('approval-flow-steps')).toHaveTextContent('管理者 → 部門主管');
+    expect(statuses.map((status) => status.textContent)).toEqual(['多階段審批', '單關審批']);
+    expect(
+      within(cards[0]!)
+        .getAllByTestId('approval-flow-step-summary')
+        .map((step) => step.textContent),
+    ).toEqual(['管理者', '部門主管']);
+    expect(within(cards[0]!).getByTestId('approval-flow-version')).toHaveTextContent('第 2 版');
   });
 
-  it('有關卡的規則目前不能用 → 列上標出警示', async () => {
-    renderRoute(routes, '/approval-flow', READER);
+  it('沒有流程 → 寫明目前以單關審批運作，不是空白的欄位', async () => {
+    renderRoute(routes, '/system/approval-flows', READER);
+    const [, card] = await screen.findAllByTestId('approval-flow-card', undefined, {
+      timeout: 5000,
+    });
+    if (!card) throw new Error('沒有第二張卡片');
+    expect(within(card).getByTestId('approval-flow-mode')).toHaveTextContent(
+      '申請由持有審批權限的人一次核准或駁回。',
+    );
+    expect(within(card).queryByTestId('approval-flow-steps')).toBeNull();
+    expect(within(card).queryByTestId('approval-flow-version')).toBeNull();
+  });
+
+  it('只有 approvalFlow:read → 動作鈕是「檢視」；能修改 → 沒有流程的是「設定流程」、有流程的是「編輯流程」', async () => {
+    const { unmount } = renderRoute(routes, '/system/approval-flows', READER);
+    let buttons = await screen.findAllByTestId('approval-flow-open', undefined, { timeout: 5000 });
+    expect(buttons.map((button) => button.textContent)).toEqual(['檢視', '檢視']);
+    unmount();
+
+    renderRoute(routes, '/system/approval-flows', [
+      'approvalFlow:read',
+      'approvalFlow:update',
+    ] as PermissionKey[]);
+    buttons = await screen.findAllByTestId('approval-flow-open', undefined, { timeout: 5000 });
+    expect(buttons.map((button) => button.textContent)).toEqual(['編輯流程', '設定流程']);
+    expect(buttons[1]).toHaveAttribute('href', '/system/approval-flows/future.type');
+  });
+
+  it('有關卡的規則目前不能用 → 卡片上標出警示', async () => {
+    renderRoute(routes, '/system/approval-flows', READER);
     expect(
       await screen.findByTestId('approval-flow-assignee-issue', undefined, { timeout: 5000 }),
     ).toHaveTextContent('有審核者無法使用');
+  });
+
+  it('沒有支援流程的類型 → 說明，而不是空的表格', async () => {
+    fetchList.mockResolvedValue({
+      items: [],
+      assigneeKinds: { user: true, group: true, role: true, manager: true, orgUnit: true },
+    });
+    renderRoute(routes, '/system/approval-flows', READER);
+    expect(
+      await screen.findByTestId('approval-flow-list-empty', undefined, { timeout: 5000 }),
+    ).toHaveTextContent('目前沒有支援多階段流程的審批類型。');
   });
 });

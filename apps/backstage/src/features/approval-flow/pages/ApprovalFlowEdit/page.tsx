@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getApprovalFlowDetailQueryOptions } from '@/apis/approval-flow/get-approval-flow-detail/query';
 import { getApprovalFlowListQueryOptions } from '@/apis/approval-flow/get-approval-flow-list/query';
 import { VersionConflictAlert } from '@/core/components';
+import { SystemSettingsLayout } from '@/core/system-settings';
 
 import { APPROVAL_FLOW_MAX_STEPS, APPROVAL_FLOW_TYPE_LABEL_KEY } from '../../constants';
 import { addStep, moveStep, removeStep } from '../../hooks/flowDraft';
@@ -20,7 +21,10 @@ import { FlowPreviewPanel } from './components/FlowPreviewPanel';
 import { FlowStepCard } from './components/FlowStepCard';
 import { useApprovalFlowEditor } from './useApprovalFlowEditor';
 
-/** 某個審批類型的流程編輯（docs/architecture/backend/20-approval.md §9.16）：開關、關卡清單、右側試算。 */
+/**
+ * 某個審批類型的流程編輯（docs/architecture/backend/20-approval.md §9.16）：開關、關卡清單、右側試算。
+ * 仍在系統設定的外框裡（「審批流程」分頁以路徑前綴保持選取），返回鈕回到分頁。
+ */
 export default function ApprovalFlowEditPage() {
   const { t } = useTranslation();
   const { type } = ApprovalFlowEditRoute.useParams();
@@ -37,161 +41,167 @@ export default function ApprovalFlowEditPage() {
   const isAnonymous = detail.data?.requester === 'anonymous';
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="approval-flow-edit-page">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <ButtonLink
-            size="sm"
-            variant="ghost"
-            to={ApprovalFlowListRoute.to}
-            startIcon={<Icon name="chevron-left" size={16} />}
-            data-testid="approval-flow-back"
-          >
-            {t('approvalFlow.edit.back')}
-          </ButtonLink>
-          <h1 className="m-0 mt-1 text-xl font-semibold" data-testid="approval-flow-edit-title">
-            {typeLabelKey ? t(typeLabelKey) : type}
-          </h1>
-          {detail.data?.flow && (
-            <p className="mt-1 mb-0 text-sm text-[var(--color-fg-muted)]">
-              {t('approvalFlow.edit.version', { version: detail.data.flow.version })}
-            </p>
+    <SystemSettingsLayout>
+      <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="approval-flow-edit-page">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <ButtonLink
+              size="sm"
+              variant="ghost"
+              to={ApprovalFlowListRoute.to}
+              startIcon={<Icon name="chevron-left" size={16} />}
+              data-testid="approval-flow-back"
+            >
+              {t('approvalFlow.edit.back')}
+            </ButtonLink>
+            <h2 className="m-0 mt-1 text-lg font-semibold" data-testid="approval-flow-edit-title">
+              {typeLabelKey ? t(typeLabelKey) : type}
+            </h2>
+            {detail.data?.flow && (
+              <p className="mt-1 mb-0 text-sm text-[var(--color-fg-muted)]">
+                {t('approvalFlow.edit.version', { version: detail.data.flow.version })}
+              </p>
+            )}
+          </div>
+          {!readOnly && draft && (
+            <div className="flex gap-2">
+              <Button
+                disabled={!editor.isDirty}
+                onClick={editor.discard}
+                data-testid="approval-flow-discard"
+              >
+                {t('approvalFlow.edit.discard')}
+              </Button>
+              <Button
+                variant="primary"
+                loading={editor.isSaving}
+                disabled={!editor.isDirty && draft.version !== undefined}
+                onClick={() => void editor.submit()}
+                data-testid="approval-flow-save"
+              >
+                {t('common.save')}
+              </Button>
+            </div>
           )}
-        </div>
-        {!readOnly && draft && (
-          <div className="flex gap-2">
-            <Button
-              disabled={!editor.isDirty}
-              onClick={editor.discard}
-              data-testid="approval-flow-discard"
-            >
-              {t('approvalFlow.edit.discard')}
-            </Button>
-            <Button
-              variant="primary"
-              loading={editor.isSaving}
-              disabled={!editor.isDirty && draft.version !== undefined}
-              onClick={() => void editor.submit()}
-              data-testid="approval-flow-save"
-            >
-              {t('common.save')}
-            </Button>
+        </header>
+
+        {detail.isPending && <Skeleton height={240} />}
+        {detail.isError && (
+          <QueryError
+            error={detail.error}
+            onRetry={() => void detail.refetch()}
+            data-testid="approval-flow-edit-error"
+          />
+        )}
+
+        {draft && detail.data && (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="flex flex-col gap-4">
+              {editor.conflictError && (
+                <VersionConflictAlert
+                  error={editor.conflictError}
+                  onReload={() => void editor.reload()}
+                  reloading={editor.reloading}
+                  data-testid="approval-flow-conflict"
+                />
+              )}
+              <FormError data-testid="approval-flow-form-error">{editor.formError}</FormError>
+              <section className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] p-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span>
+                    <span className="font-medium">{t('approvalFlow.edit.enabled')}</span>
+                    <span className="block text-[var(--color-fg-muted)]">
+                      {t('approvalFlow.edit.enabledHint')}
+                    </span>
+                  </span>
+                  <Switch
+                    aria-label={t('approvalFlow.edit.enabled')}
+                    checked={draft.enabled}
+                    disabled={readOnly}
+                    onCheckedChange={(enabled) =>
+                      editor.update((current) => ({ ...current, enabled }))
+                    }
+                    data-testid="approval-flow-enabled"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span>
+                    <span className="font-medium">
+                      {t('approvalFlow.edit.allowRepeatApprover')}
+                    </span>
+                    <span className="block text-[var(--color-fg-muted)]">
+                      {t('approvalFlow.edit.allowRepeatApproverHint')}
+                    </span>
+                  </span>
+                  <Switch
+                    aria-label={t('approvalFlow.edit.allowRepeatApprover')}
+                    checked={draft.allowRepeatApprover}
+                    disabled={readOnly}
+                    onCheckedChange={(allowRepeatApprover) =>
+                      editor.update((current) => ({ ...current, allowRepeatApprover }))
+                    }
+                    data-testid="approval-flow-allow-repeat"
+                  />
+                </div>
+              </section>
+
+              <ol
+                className="m-0 flex list-none flex-col gap-3 p-0"
+                data-testid="approval-flow-steps-editor"
+              >
+                {draft.steps.map((step, index) => (
+                  <FlowStepCard
+                    key={step.id}
+                    step={step}
+                    index={index}
+                    total={draft.steps.length}
+                    fields={fields}
+                    isAnonymous={isAnonymous}
+                    availability={availability}
+                    access={permission}
+                    readOnly={readOnly}
+                    errors={editor.errors}
+                    isAssigneeRejected={editor.rejectedSteps.has(index)}
+                    onChange={(change) =>
+                      editor.update((current) => ({
+                        ...current,
+                        steps: current.steps.map((item) =>
+                          item.id === step.id ? change(item) : item,
+                        ),
+                      }))
+                    }
+                    onMove={(delta) =>
+                      editor.update((current) => moveStep(current, step.id, delta))
+                    }
+                    onRemove={() => editor.update((current) => removeStep(current, step.id))}
+                  />
+                ))}
+              </ol>
+              {!readOnly && (
+                <div>
+                  <Button
+                    startIcon={<Icon name="plus" size={16} />}
+                    disabled={draft.steps.length >= APPROVAL_FLOW_MAX_STEPS}
+                    onClick={() => editor.update(addStep)}
+                    data-testid="approval-flow-step-add"
+                  >
+                    {t('approvalFlow.step.add')}
+                  </Button>
+                </div>
+              )}
+            </div>
+            <aside>
+              <FlowPreviewPanel
+                type={type}
+                draft={draft}
+                fields={fields}
+                isAnonymous={isAnonymous}
+                canSearchUsers={permission.canSearchUsers}
+              />
+            </aside>
           </div>
         )}
-      </header>
-
-      {detail.isPending && <Skeleton height={240} />}
-      {detail.isError && (
-        <QueryError
-          error={detail.error}
-          onRetry={() => void detail.refetch()}
-          data-testid="approval-flow-edit-error"
-        />
-      )}
-
-      {draft && detail.data && (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="flex flex-col gap-4">
-            {editor.conflictError && (
-              <VersionConflictAlert
-                error={editor.conflictError}
-                onReload={() => void editor.reload()}
-                reloading={editor.reloading}
-                data-testid="approval-flow-conflict"
-              />
-            )}
-            <FormError data-testid="approval-flow-form-error">{editor.formError}</FormError>
-            <section className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] p-4">
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span>
-                  <span className="font-medium">{t('approvalFlow.edit.enabled')}</span>
-                  <span className="block text-[var(--color-fg-muted)]">
-                    {t('approvalFlow.edit.enabledHint')}
-                  </span>
-                </span>
-                <Switch
-                  aria-label={t('approvalFlow.edit.enabled')}
-                  checked={draft.enabled}
-                  disabled={readOnly}
-                  onCheckedChange={(enabled) =>
-                    editor.update((current) => ({ ...current, enabled }))
-                  }
-                  data-testid="approval-flow-enabled"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span>
-                  <span className="font-medium">{t('approvalFlow.edit.allowRepeatApprover')}</span>
-                  <span className="block text-[var(--color-fg-muted)]">
-                    {t('approvalFlow.edit.allowRepeatApproverHint')}
-                  </span>
-                </span>
-                <Switch
-                  aria-label={t('approvalFlow.edit.allowRepeatApprover')}
-                  checked={draft.allowRepeatApprover}
-                  disabled={readOnly}
-                  onCheckedChange={(allowRepeatApprover) =>
-                    editor.update((current) => ({ ...current, allowRepeatApprover }))
-                  }
-                  data-testid="approval-flow-allow-repeat"
-                />
-              </div>
-            </section>
-
-            <ol
-              className="m-0 flex list-none flex-col gap-3 p-0"
-              data-testid="approval-flow-steps-editor"
-            >
-              {draft.steps.map((step, index) => (
-                <FlowStepCard
-                  key={step.id}
-                  step={step}
-                  index={index}
-                  total={draft.steps.length}
-                  fields={fields}
-                  isAnonymous={isAnonymous}
-                  availability={availability}
-                  access={permission}
-                  readOnly={readOnly}
-                  errors={editor.errors}
-                  isAssigneeRejected={editor.rejectedSteps.has(index)}
-                  onChange={(change) =>
-                    editor.update((current) => ({
-                      ...current,
-                      steps: current.steps.map((item) =>
-                        item.id === step.id ? change(item) : item,
-                      ),
-                    }))
-                  }
-                  onMove={(delta) => editor.update((current) => moveStep(current, step.id, delta))}
-                  onRemove={() => editor.update((current) => removeStep(current, step.id))}
-                />
-              ))}
-            </ol>
-            {!readOnly && (
-              <div>
-                <Button
-                  startIcon={<Icon name="plus" size={16} />}
-                  disabled={draft.steps.length >= APPROVAL_FLOW_MAX_STEPS}
-                  onClick={() => editor.update(addStep)}
-                  data-testid="approval-flow-step-add"
-                >
-                  {t('approvalFlow.step.add')}
-                </Button>
-              </div>
-            )}
-          </div>
-          <aside>
-            <FlowPreviewPanel
-              type={type}
-              draft={draft}
-              fields={fields}
-              isAnonymous={isAnonymous}
-              canSearchUsers={permission.canSearchUsers}
-            />
-          </aside>
-        </div>
-      )}
-    </div>
+      </div>
+    </SystemSettingsLayout>
   );
 }

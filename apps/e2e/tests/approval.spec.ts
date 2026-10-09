@@ -308,14 +308,19 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
 
     await loginAndWaitForHome(page, 'admin');
     await openMenuGroup(page, 'menu-group-system');
-    await page.getByTestId('menu-approval-flow').click();
-    const table = page.getByTestId('approval-flow-table');
-    await expect(table.getByTestId('approval-flow-status')).toHaveAttribute(
+    await page.getByTestId('menu-setting').click();
+    await getByTestIdAndValue(
+      page.getByTestId('system-settings-tabs'),
+      'tab',
+      '/system/approval-flows',
+    ).click();
+    const card = getByTestIdAndValue(page, 'approval-flow-card', 'user.register');
+    await expect(card.getByTestId('approval-flow-status')).toHaveAttribute(
       'data-value',
       'disabled',
     );
-    await expect(table.getByTestId('approval-flow-steps')).toHaveText(firstStep);
-    await getByTestIdAndValue(table, 'approval-flow-type-link', 'user.register').click();
+    await expect(card.getByTestId('approval-flow-step-summary')).toHaveText([firstStep]);
+    await card.getByTestId('approval-flow-open').click();
     const editor = page.getByTestId('approval-flow-edit-page');
     await expect(getByTestIdAndValue(editor, 'approval-flow-step', '0')).toBeVisible();
 
@@ -369,16 +374,19 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
     expect(saved.data.flow.steps[0]!.assignee).toMatchObject({ kind: 'user', id: memberId });
     expect(saved.data.flow.steps[0]!.conditions?.[0]).toMatchObject({ field: 'emailDomain' });
     await editor.getByTestId('approval-flow-back').click();
-    await expect(table.getByTestId('approval-flow-steps')).toContainText(secondStep);
+    await expect(card.getByTestId('approval-flow-step-summary')).toHaveText([
+      secondStep,
+      firstStep,
+    ]);
     await snapshot(page, 'approval-flow-saved');
   });
 
-  test('auditor 看得到流程但不能編輯；member 沒有流程設定的選單，直接進網址是 403 頁', async ({
+  test('auditor 看得到流程但不能編輯；member 沒有流程設定的分頁，直接進網址是 403 頁', async ({
     page,
     browser,
   }) => {
     await loginAndWaitForHome(page, 'auditor');
-    await page.goto('/approval-flow/user.register');
+    await page.goto('/system/approval-flows/user.register');
     const editor = page.getByTestId('approval-flow-edit-page');
     await expect(editor).toBeVisible();
     await expect(editor.getByTestId('approval-flow-save')).toHaveCount(0);
@@ -389,8 +397,8 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
     const memberContext = await browser.newContext();
     const member = await memberContext.newPage();
     await loginAndWaitForHome(member, 'member');
-    await expect(member.getByTestId('menu-approval-flow')).toHaveCount(0);
-    await member.goto('/approval-flow');
+    await expect(member.getByTestId('menu-setting')).toHaveCount(0);
+    await member.goto('/system/approval-flows');
     await expect(member.getByTestId('forbidden-page')).toBeVisible();
     await memberContext.close();
   });

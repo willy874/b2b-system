@@ -378,7 +378,7 @@ test('資料與內容', async ({ page }) => {
     await shoot(page, 'approval-detail');
   });
   await scene('approval-flow', async () => {
-    await open(page, '/approval-flow/user.register', 'approval-flow-edit-page');
+    await open(page, '/system/approval-flows/user.register', 'approval-flow-edit-page');
     await expect(page.getByTestId('approval-flow-steps-editor')).toBeVisible();
     await shoot(page, 'approval-flow');
   });

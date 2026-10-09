@@ -426,7 +426,7 @@ COMMIT → 最後一關才 handler.afterApply → 推播
 
 | | 停用時 | 照舊 |
 | --- | --- | --- |
-| 流程設定 | `/approval-flows` 回 `404 FEATURE_DISABLED`；沒有「審批流程」頁 | 流程保留 |
+| 流程設定 | `/approval-flows` 回 `404 FEATURE_DISABLED`；系統設定沒有「審批流程」分頁 | 流程保留 |
 | 新的申請 | 一律單關 | — |
 | 進行中的多關請求 | 關卡的決定、override、refresh 回 404；改由 `POST /approvals/:id/approve`／`reject` 一次定案，目前與之後的關卡 `cancelled`（`chainDisabled`），目前那一關記一筆 `via = legacy` 的決定；稽核 `metadata.chainDisabled = true` | 已做出的決定 |
 | 我的審批 | 沒有「待我審核」；`scope=assigned` 回空 | 我的申請與撤回 |
@@ -492,7 +492,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 | --- | --- |
 | 審批頁（`features/approval`） | 側欄「人員管理」。列表多一欄「進度」（`財務 1／2`，短缺時標示）；進行中的多關請求不能快速／批次審核（`approvalChain` 停用時可以）。詳情對話框 `ApprovalDetailDialog`：關卡時間軸 `ApprovalTimeline`、依 `viewer` 顯示關卡的同意／駁回、強制定案（意見必填）、重新展開、撤回 |
 | 我的審批 | `/my-approvals`（Page Key `MY_APPROVAL`，不需要權限，側欄「人員管理」，排在「審批」之後）：「待我審核」（`approvalChain` 已安裝時才有）、「我的申請」；詳情 `/my-approvals/$approvalId`（route id `approval.myDetail`） |
-| 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | `/approval-flow`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`，側欄「系統管理」）：類型清單（流程狀態、關卡摘要、版本、有無不可用的規則）。`/approval-flow/$type`：整頁編輯，左邊開關與關卡（上移／下移、規則、同意數、條件列），右邊試算面板（按「試算」才呼叫）。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
+| 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | 系統設定的「審批流程」分頁 `/system/approval-flows`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`；側欄沒有另外的入口，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5）：每個支援流程的類型一張卡片，寫明目前的審批方式——沒有流程是「單關審批」（照常運作，不是空白的欄位）、啟用中列出依序的關卡、停用時說明回到單關並列出保留的關卡——另有版本與有無不可用的規則；動作鈕依權限是「設定流程」／「編輯流程」或「檢視」。`/system/approval-flows/$type`：整頁編輯（仍在系統設定的外框裡），左邊開關與關卡（上移／下移、規則、同意數、條件列），右邊試算面板（按「試算」才呼叫）。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
 | 通知 | `approval.pending` 帶關卡名稱時換句子；`approval.progress`、`approval.unassigned` 的句子與事件管理的說明 |
 
 ### 9.17 測試
