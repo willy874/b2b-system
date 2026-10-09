@@ -45,8 +45,8 @@
 | `apps/file-storage` | 開發環境 | S3 相容的本機物件儲存 |
 
 身分分兩個範圍：租戶的 `users`（登入 backstage）與平台的 `platform_admins`（登入 apps/platform）。同一個 email 在兩邊是兩個帳號。
-每個租戶有自己的 database 與網域，請求由網域決定租戶。見 [`architecture/01-system.md`](../../architecture/01-system.md)、
-[`architecture/04-sso.md`](../../architecture/04-sso.md) §1.1、[`architecture/05-tenancy.md`](../../architecture/05-tenancy.md)。
+每個租戶有自己的 database 與網域，請求由網域決定租戶。預設以單體部署，需要時以 `APP_ROLES` 拆成 http、realtime、worker 各自擴展。見 [`architecture/01-system.md`](../../architecture/01-system.md)、
+[`architecture/04-sso.md`](../../architecture/04-sso.md) §1.1、[`architecture/05-tenancy.md`](../../architecture/05-tenancy.md)；技術棧與選型理由見 [`architecture/09-technology-selection.md`](../../architecture/09-technology-selection.md)。
 
 ---
 
@@ -92,7 +92,7 @@
 
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
-| 系統設定 | 每個租戶執行期可調的帳號政策、上傳上限、預設時區；MFA 政策（允許的方式、誰必須啟用） | [§4.4](./03-feature-tour.md#44-系統設定安全性與外部-idp) | [`backend/12-settings.md`](../../architecture/backend/12-settings.md) |
+| 系統設定 | 每個租戶執行期可調的設定，分「一般」「安全性」「事件通知」三個分頁：預設時區、登入鎖定、密碼長度、開放註冊、信件連結與 API token 的效期、上傳上限、回收桶／版本／通知／匯出檔的保留；MFA 政策（允許的方式、誰必須啟用）；每個值都有允許範圍 | [§4.4](./03-feature-tour.md#44-系統設定安全性與外部-idp) | [`backend/12-settings.md`](../../architecture/backend/12-settings.md) |
 | 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額；每個租戶的用量（使用者、儲存、請求、背景工作）與配額警示 | [§6.1](./03-feature-tour.md#61-租戶) | [`05-tenancy.md`](../../architecture/05-tenancy.md) |
 | 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag、MFA 驗證方式的全平台開關 | [§6.2](./03-feature-tour.md#62-平台管理者mfa-驗證方式feature-flag-與平台稽核) | [`05-tenancy.md`](../../architecture/05-tenancy.md) §11 |
 | 個人帳號 | 個人資料、變更密碼、多重驗證與備用碼、語系、時區、主題、通知設定 | [§7](./03-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../../architecture/frontend/09-state-and-storage.md) |
@@ -104,8 +104,7 @@
 
 - 任何特定領域的業務功能——本 repo 只提供骨架。
 - LDAP（外部 IdP 已支援 OIDC 與 SAML 2.0）。
-- 還沒做的功能列在 [`features/README.md`](../../features/README.md)（目前沒有提案）。
-  多實例部署已完成：預設單體，以 `APP_ROLES`／`DEPLOYMENT_MODE` 拆成 http、realtime、worker 各自擴展（[`architecture/01-system.md`](../../architecture/01-system.md) §4.3）。
+- 還沒做的功能列在 [`features/README.md`](../../features/README.md)。
 
 ---
 

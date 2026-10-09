@@ -20,8 +20,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 6. [背景工作、寄信、通知](#6-背景工作寄信通知)
 7. [檔案](#7-檔案直傳分塊同源防護)
 8. [前端架構](#8-前端架構plugin依賴圖單一連線)
-9. [工程紀律](#9-工程紀律規則由程式強制決定都寫下來)
-10. [現況](#10-現況)
+9. [工程紀律](#9-工程紀律漏掉就跑不起來)
 
 ---
 
@@ -180,7 +179,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ![背景工作頁](../images/tour/job.jpg)
 
-*背景工作。稽核封存、檔案維護、回收桶清除、版本修剪、通知清理都是排程工作；失敗自動重試，重試用完停在「失敗」可手動重試（兩人同時按，後到的回 409）。*
+*背景工作。稽核封存、檔案維護、回收桶清除、版本修剪、通知清理、過期的登入憑證與 MFA 驗證紀錄清理、Webhook 與匯入匯出紀錄的清理都是排程工作；匯出、匯入的套用與 Webhook 投遞由程式入列。失敗自動重試，重試用完停在「失敗」可手動重試（兩人同時按，後到的回 409）。*
 
 ![事件通知管理頁](../images/tour/notification-events.jpg)
 
@@ -231,41 +230,10 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ---
 
-## 9. 工程紀律：規則由程式強制，決定都寫下來
-
-### 9.1 漏掉就跑不起來
+## 9. 工程紀律：漏掉就跑不起來
 
 - **路由稽核**：程序在 `listen()` 前掃描所有 HTTP 路由與 WebSocket handler（`apps/api/src/common/route-audit.ts`）。沒宣告 `@Public`／`@Authenticated`／`@RequirePermissions`、平台端點誤標租戶功能、flag key 不在目錄裡，都讓程序啟動失敗。測試另外釘住每個路由用到的權限鍵，`role:updte` 這種錯字不會讓端點靜靜地永遠回 403。
 - **結構測試**：後端層級依賴由 `apps/api/src/__tests__/layer-dependencies.spec.ts` 掃 import；前端 `design-system.test.ts` 擋寫死的色碼、外洩的 Base UI 型別，並要求每個元件都有測試與 story；只有一個檔案能 import socket.io-client。
 - **語系完整性**：測試比對兩個語系檔的鍵集合，並確認每個錯誤碼、每個權限鍵都有翻譯。
 - **暫時的開關會過期**：每個 feature flag 必填 `removeBy`，過期還留在目錄裡，單元測試直接失敗（[`architecture/05-tenancy.md`](../../architecture/05-tenancy.md) §11）。
 - **測試的層次**：後端整合測試用 Testcontainers 起真的 Postgres 17，平台 DB 與租戶 DB 分開；前端元件測試以 MSW 模擬權限行為；E2E 跑真的 api、backstage、apps/platform，含模擬的外部 OIDC IdP 與 Mailpit 收信。
-
-### 9.2 敢推翻自己
-
-設計決策裡有四次明確的反轉（編號為原 ADR 編號，細節見 [`../../features/roadmap.md`](../../features/roadmap.md) §2.1），每次都寫清楚是什麼新資訊改變了判斷：
-
-| 反轉 | 內容 |
-| --- | --- |
-| 0009 → 0012 | 後端批次端點全部移除，改成前端逐筆佇列 |
-| 0010 → 0011 | 自製約 1,400 行的 JSON 樹狀編輯器，在還沒有 feature 使用時換成 CodeMirror 6，因為現在換最便宜 |
-| 0013 → 0014 | 瀏覽器產生縮圖改成伺服器產生變體：canvas 做不出 progressive JPEG |
-| 0018 → 0020 | 已完成的共用表工作區隔離整個丟掉，改成每租戶一個資料庫 |
-
-文件寫法在實作時被證明會出錯的地方，集中列在 `CLAUDE.md` 的「與文件不同的實作決定」表：refresh cookie 的 Path、速率限制（`@nestjs/throttler` 只能用 IP 計數，企業 NAT 後整間公司共用額度，所以改成已登入以「租戶＋使用者」、登入以「email＋IP」計數）、WebSocket guard 的執行順序、回收桶清除的 savepoint 設計等。
-
-### 9.3 還沒做到的部分
-
-- CI（`.github/workflows/ci.yml`）跑 typecheck、lint、format、單元與整合測試、依賴稽核、秘密掃描、bundle 預算與正式映像，但不跑 E2E，也還沒有 [`backend/03-api-conventions.md`](../../architecture/backend/03-api-conventions.md) §7.2 的 OpenAPI diff 檢查；Phase 0 訂的覆蓋率目標沒有寫成門檻。
-- 前端完整的層級依賴矩陣（[`coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md)）只有部分由 lint 與結構測試強制，其餘靠 review 與 `git grep` 自查；「識別字串必須是完整字面量」規則（[`coding-standards/06-literal-strings.md`](../../coding-standards/06-literal-strings.md)）也只靠 review。
-- 已知問題記錄在 [`issues/`](../../issues/README.md)。
-
----
-
-## 10. 現況
-
-**已完成**：RBAC 骨架、SSO／OIDC、每租戶一個資料庫、群組與關係圖（含 explain）、稽核日誌、審批、系統設定、檔案管理器與影像變體、背景工作、寄信、回收桶、版本歷史與樂觀鎖、站內通知與事件管理、公告、Webhook、標籤、命令面板（⌘K）、服務帳號與 API token、對外 API（`/v1`）、可由平台關閉的 feature 與 feature flag、MFA、組織管理與多階段審批、匯入／匯出、留言與關注、富文本、租戶用量、監控與前端錯誤回報、深色主題。完整的能力地圖見 [`01-overview.md`](./01-overview.md) §3，畫面見 [`03-feature-tour.md`](./03-feature-tour.md)。
-
-**待做**：目前沒有提案（多實例部署已完成：預設單體，以環境變數拆成 http、realtime、worker 各自擴展，[`architecture/01-system.md`](../../architecture/01-system.md) §4.3）。清單與優先度只維護在 [`features/README.md`](../../features/README.md)；時間軸見 [`../../features/roadmap.md`](../../features/roadmap.md)。
-
-**技術棧**：NestJS 12、Drizzle ORM、PostgreSQL 17、pg-boss、Socket.io、oidc-provider、sharp；React 19、Vite 8、TanStack Router／Query、Base UI、CodeMirror 6、Tiptap 3、React Flow；TypeScript 6 strict、Vitest 5、Playwright、Testcontainers、oxlint／oxfmt；Node 24、pnpm monorepo。選型理由見 [`../../architecture/09-technology-selection.md`](../../architecture/09-technology-selection.md)。
