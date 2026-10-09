@@ -163,6 +163,8 @@ production 下對外部 IdP 的每個請求（discovery、token、userinfo、JWK
 連線時解析主機名稱，解析到私有、loopback、link-local（含雲端 metadata）位址就拒絕（`AUTH_SSO_PROVIDER_UNAVAILABLE`），
 並以通過檢查的位址建立連線，查詢與連線之間沒有 DNS rebinding 的空窗；逾時 10 秒。
 openid-client 只接受 fetch，所以用 undici 的 `fetch` ＋ 帶 `connect.lookup` 的 `Agent`（與 webhook 投遞的 `pinnedLookup` 是同一個檢查）。
+ID token 除了 `iss`、`aud`、`exp`、nonce 之外 **也驗 JWS 簽章**（`enableNonRepudiationChecks`，金鑰取自 discovery 的 `jwks_uri`）：
+OIDC Core §3.1.3.7 第 6 點允許以 TLS 取代，但不驗的話，之後改用 front-channel 的 response mode 就會變成漏洞。
 
 **網域**（`identity_provider_domains`）：一個網域只屬於一個連線。設為「只允許 SSO」時，互動頁不顯示密碼欄，
 `verifyCredentials` 在查帳號 **之前** 回 `AUTH_SSO_REQUIRED`（不洩漏帳號是否存在），`forgotPassword` 不寄信（回應不變）。
@@ -435,7 +437,7 @@ IdP 互動過期（`AUTH_SSO_INTERACTION_INVALID`）與 `/error` 協定錯誤頁
 | 層 | 檔案 |
 | --- | --- |
 | api 整合 | `apps/api/test/sso.spec.ts`（授權碼流程、重放、單一登出、帳號停用；[`architecture/05-tenancy.md`](05-tenancy.md) §10：tenant 參數、換租戶重新登入、BFF 的租戶檢查、平台管理者、X-Tenant、租戶公開端點）、`sso-external.spec.ts`（以假的 `ExternalOidcClient` 覆寫 provider：帳號對應、只允許 SSO、連線管理）、`sso-methods.spec.ts`（OIDC 範本、SAML 的完整流程與每一道驗證——以 `scripts/mock-saml-idp.ts` 產生真的簽章、帳號的外部身分、通行金鑰登入——以 `test/soft-authenticator.ts` 做出真的 WebAuthn 回應） |
-| api 單元 | `external-saml.client.spec.ts`（簽章、Issuer、Audience、過期、InResponseTo、竄改、憑證輪替）、`oidc-presets.spec.ts`、`external-login.service.spec.ts`（SAML 的 ACS）、`mfa-login.passkey.spec.ts`、`webauthn.method.spec.ts`（passwordless） |
+| api 單元 | `external-oidc.client.spec.ts`（discovery 快取、PKCE、state、nonce、ID token 的 claims 與簽章、userinfo）、`external-saml.client.spec.ts`（簽章、Issuer、Audience、過期、InResponseTo、竄改、憑證輪替）、`oidc-presets.spec.ts`、`external-login.service.spec.ts`（SAML 的 ACS）、`mfa-login.passkey.spec.ts`、`webauthn.method.spec.ts`（passwordless） |
 | 前端 | 兩個 app 的 `SsoCallback`、`Login` 頁；apps/platform 的 `Interaction`（含外部 IdP、租戶連結）、`usePasskeyLogin` 與 `ForgotPassword`；backstage 的 `IdentityProviderList`（三個權限案例；表單的範本、SAML、metadata 匯入；`adapter`、`samlMetadata`）、使用者詳情的 `UserIdentitySection` |
 | E2E | `apps/e2e/tests/auth.spec.ts`（登入、租戶帳號進 apps/platform 要以平台管理者重新登入、從 backstage 登出）、`sso.spec.ts`（取消、協定錯誤、平台的登入頁登不進租戶帳號、平台管理者登出、外部 IdP 頁的權限）、`sso-external.spec.ts`（模擬外部 IdP 的完整登入）、`mail.spec.ts`（帳號流程） |
 

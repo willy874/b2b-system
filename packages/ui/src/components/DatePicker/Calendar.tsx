@@ -92,11 +92,14 @@ export function Calendar({
 
   const grid = buildMonthGrid(month);
 
+  // 這次的 focused 變動來自鍵盤。不能用「焦點在容器內」判斷：跨月時原本有焦點的那一天被卸載，焦點已經掉到 body
+  const focusFromKeyboard = useRef(false);
+
   // 焦點跟著 roving tabindex 走（鍵盤移動之後要真的聚焦到那一天）
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container?.contains(document.activeElement)) return;
-    const target = container.querySelector<HTMLButtonElement>(
+    if (!focusFromKeyboard.current) return;
+    focusFromKeyboard.current = false;
+    const target = containerRef.current?.querySelector<HTMLButtonElement>(
       `button[data-value="${formatDate(focused)}"]`,
     );
     target?.focus();
@@ -105,6 +108,7 @@ export function Calendar({
   const rangeEnd = parseDate(range?.end ?? null);
 
   const moveFocus = (next: Dayjs) => {
+    focusFromKeyboard.current = true;
     setFocused(next);
     if (!next.isSame(month, 'month')) setMonth(next.startOf('month'));
   };

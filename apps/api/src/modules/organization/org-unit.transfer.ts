@@ -72,7 +72,8 @@ class OrgTree {
   constructor(units: readonly OrgUnitWithCounts[]) {
     this.byId = new Map(units.map((unit) => [unit.id, unit]));
     for (const unit of units) {
-      // 上層已刪除（不應該發生：有下層就不能刪）時當成最上層，樹才接得起來
+      // 上層不在清單裡時當成最上層，樹才接得起來。只是防呆：結構的寫入在鎖之下檢查上層與下層，
+      // 上層已刪除的部門不會存在（docs/architecture/backend/23-organization.md §2）
       const parent = unit.parentId && this.byId.has(unit.parentId) ? unit.parentId : null;
       this.children.set(parent, [...(this.children.get(parent) ?? []), unit]);
     }

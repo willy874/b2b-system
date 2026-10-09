@@ -39,6 +39,8 @@
 - 樹以鄰接表表示，查詢用遞迴 CTE；不存 `path`、不做閉包表、不快取（D4）。
 - 深度上限 `ORG_UNIT_MAX_DEPTH = 10`（最上層算第 1 層）；搬移時擋循環（`409 ORG_UNIT_CYCLE`）與超過深度（`409 ORG_UNIT_TOO_DEEP`）。
 - 結構的寫入（建立、改名、搬移、刪除、還原）以交易層級的 advisory lock（`org_structure`）排隊，與群組的 `group_membership` 同一個做法。
+  在鎖之下：建立與搬移要求上層未刪除（`404 ORG_UNIT_NOT_FOUND`）、刪除要求沒有未刪除的下層（`409 ORG_UNIT_HAS_CHILDREN`）、還原要求上層未刪除（`409 ORG_UNIT_PARENT_DELETED`），
+  所以「上層已刪除的部門」不會存在；同名檢查與唯一索引都以 `parent_id` 計，不必考慮這種情況。
 - 成員不進 `relation_tuples`（D1）；改成員不必 `permissionsChanged()`。
 - 使用者被軟刪除時成員資格保留（休眠，主管解析與成員數略過他），永久刪除時隨外鍵刪除。
 

@@ -41,7 +41,7 @@ export abstract class ExternalOidcClient {
     params: { redirectUri: string; state: string; nonce: string; codeChallenge: string },
   ): Promise<string>;
 
-  /** 以 callback 的完整網址兌換授權碼並驗證 ID token（state、nonce、PKCE、簽章、audience）。 */
+  /** 以 callback 的完整網址兌換授權碼並驗證 ID token（state、nonce、PKCE、JWS 簽章、issuer、audience、到期）。 */
   abstract exchange(
     provider: ExternalProviderConfig,
     params: { currentUrl: string; state: string; nonce: string; codeVerifier: string },
@@ -145,7 +145,12 @@ export class OpenIdExternalOidcClient extends ExternalOidcClient {
       .discovery(new URL(provider.issuer), provider.clientId, provider.clientSecret, undefined, {
         timeout: REQUEST_TIMEOUT_SECONDS,
         ...(this.fetch && { [client.customFetch]: this.fetch }),
-        ...(this.options.allowInsecureIssuer && { execute: [client.allowInsecureRequests] }),
+        // 驗 ID token 的 JWS 簽章：OIDC Core §3.1.3.7 第 6 點允許以 TLS 取代，但不驗的話，
+        // 之後改走 front-channel 的 response mode 就會變成漏洞。JWKS 與其他請求一樣走 customFetch（綁定位址）
+        execute: [
+          client.enableNonRepudiationChecks,
+          ...(this.options.allowInsecureIssuer ? [client.allowInsecureRequests] : []),
+        ],
       })
       .catch((error: unknown) => {
         this.configs.delete(key);

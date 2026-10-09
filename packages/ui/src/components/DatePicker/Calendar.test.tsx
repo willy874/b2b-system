@@ -69,6 +69,24 @@ describe('Calendar（月曆網格的鍵盤操作）', () => {
     expect(monthTitle()).toContain('October');
   });
 
+  it('換月之後焦點留在新月份的那一天，不重新聚焦也能繼續用鍵盤', async () => {
+    renderCalendar();
+    day('2026-09-15').focus();
+    await userEvent.keyboard('{PageDown}');
+    expect(document.activeElement).toBe(day('2026-10-15'));
+    await userEvent.keyboard('{ArrowRight}');
+    expect(document.activeElement).toBe(day('2026-10-16'));
+  });
+
+  it('方向鍵跨月之後焦點留在新月份的那一天', async () => {
+    renderCalendar({ selected: ['2026-09-30'] });
+    day('2026-09-30').focus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(day('2026-10-07'));
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(document.activeElement).toBe(day('2026-10-06'));
+  });
+
   it('空白鍵也能選取', async () => {
     const { onSelect } = renderCalendar();
     await press('{ArrowLeft} ');

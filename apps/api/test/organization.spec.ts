@@ -321,7 +321,7 @@ describe('組織管理（docs/architecture/backend/23-organization.md）', () =>
     );
   });
 
-  it('刪除：還有下層 409；刪掉後進回收桶，上層被刪時不能還原', async () => {
+  it('刪除：還有下層 409；刪掉後進回收桶，上層被刪時不能還原，也不能建立或搬到它之下', async () => {
     const admin = await as(ADMIN);
     const hasChildren = await admin.delete(`/org-units/${ids.sales}`).expect(409);
     expect(hasChildren.body.error.code).toBe('ORG_UNIT_HAS_CHILDREN');
@@ -333,6 +333,17 @@ describe('組織管理（docs/architecture/backend/23-organization.md）', () =>
 
     await admin.delete(`/org-units/${ids.rdNorth}`).expect(204);
     await admin.delete(`/org-units/${ids.rd}`).expect(204);
+    // 上層已刪除的部門不會出現：結構的寫入在鎖之下檢查上層（docs/architecture/backend/23-organization.md §2）
+    const createUnder = await admin
+      .post('/org-units', { name: '孤兒', parentId: ids.rd })
+      .expect(404);
+    expect(createUnder.body.error.code).toBe('ORG_UNIT_NOT_FOUND');
+    const moved = await createUnit('待搬移');
+    const moveUnder = await admin
+      .post(`/org-units/${moved.id}/move`, { parentId: ids.rd, version: moved.version })
+      .expect(404);
+    expect(moveUnder.body.error.code).toBe('ORG_UNIT_NOT_FOUND');
+    await admin.delete(`/org-units/${moved.id}`).expect(204);
     const orphan = await admin.post(`/org-units/${ids.rdNorth}/restore`).expect(409);
     expect(orphan.body.error.code).toBe('ORG_UNIT_PARENT_DELETED');
     await admin.post(`/org-units/${ids.rd}/restore`).expect(200);

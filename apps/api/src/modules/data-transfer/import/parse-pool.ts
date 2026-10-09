@@ -33,7 +33,11 @@ export class ParsePool implements OnModuleDestroy {
   private readonly logger = new Logger(ParsePool.name);
   private readonly size: number;
   private readonly slots: Slot[] = [];
-  private readonly waiting: { resolve: (slot: Slot) => void; timer: NodeJS.Timeout }[] = [];
+  private readonly waiting: {
+    resolve: (slot: Slot) => void;
+    reject: (error: Error) => void;
+    timer: NodeJS.Timeout;
+  }[] = [];
   private nextId = 1;
   private closed = false;
 
@@ -59,7 +63,10 @@ export class ParsePool implements OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     this.closed = true;
-    for (const waiter of this.waiting.splice(0)) clearTimeout(waiter.timer);
+    for (const waiter of this.waiting.splice(0)) {
+      clearTimeout(waiter.timer);
+      waiter.reject(new AppException('DATA_TRANSFER_BUSY'));
+    }
     await Promise.all(this.slots.splice(0).map((slot) => slot.worker.terminate()));
   }
 
@@ -78,6 +85,7 @@ export class ParsePool implements OnModuleDestroy {
     return new Promise<Slot>((resolve, reject) => {
       const waiter = {
         resolve,
+        reject,
         timer: setTimeout(() => {
           this.waiting.splice(this.waiting.indexOf(waiter), 1);
           reject(new AppException('DATA_TRANSFER_BUSY', { retryAfter: 5 }));
@@ -88,7 +96,11 @@ export class ParsePool implements OnModuleDestroy {
   }
 
   private release(slot: Slot): void {
-    if (!this.slots.includes(slot)) return;
+    if (!this.slots.includes(slot)) {
+      // worker 已經出錯或結束、被移出池子：不交給排隊者，改補一個新的
+      this.replenish();
+      return;
+    }
     const next = this.waiting.shift();
     if (next) {
       clearTimeout(next.timer);
@@ -96,6 +108,17 @@ export class ParsePool implements OnModuleDestroy {
       return;
     }
     slot.busy = false;
+  }
+
+  /** 池子有空位而且有人排隊時，建立一個新的 worker 交給排在最前面的請求。 */
+  private replenish(): void {
+    if (this.closed || this.slots.length >= this.size) return;
+    const next = this.waiting.shift();
+    if (!next) return;
+    clearTimeout(next.timer);
+    const slot = this.spawn();
+    slot.busy = true;
+    next.resolve(slot);
   }
 
   private spawn(): Slot {
@@ -109,19 +132,28 @@ export class ParsePool implements OnModuleDestroy {
     });
     worker.on('error', (error) => {
       this.logger.error({ err: error }, '匯入分析的 worker thread 發生錯誤');
+      // error 之後 worker 會結束：先移出池子，手上的請求在 finally 釋放時才不會把它交給下一個
+      this.remove(slot);
       slot.pending?.reject(error);
     });
     worker.on('exit', (code) => {
-      const index = this.slots.indexOf(slot);
-      if (index >= 0) this.slots.splice(index, 1);
-      if (!this.closed && code !== 0) {
-        slot.pending?.reject(new Error(`匯入分析的 worker thread 結束（exit ${code}）`));
-      }
+      this.remove(slot);
+      // 手上還有請求就一定拒絕（含關閉時被 terminate），否則那個 parse() 永遠不會結束
+      slot.pending?.reject(
+        this.closed
+          ? new AppException('DATA_TRANSFER_BUSY')
+          : new Error(`匯入分析的 worker thread 結束（exit ${code}）`),
+      );
     });
     // 閒置的 worker 不擋程序結束
     worker.unref();
     this.slots.push(slot);
     return slot;
+  }
+
+  private remove(slot: Slot): void {
+    const index = this.slots.indexOf(slot);
+    if (index >= 0) this.slots.splice(index, 1);
   }
 }
 

@@ -38,6 +38,12 @@ function idToken(claims: Record<string, unknown>): string {
   return `${signingInput}.${signature.toString('base64url')}`;
 }
 
+/** 換掉簽章中間的一個字元：payload 不變，簽章不再正確（最後一個字元含填充位元，換了可能不影響）。 */
+function tampered(token: string): string {
+  const index = token.length - 10;
+  return `${token.slice(0, index)}${token[index] === 'A' ? 'B' : 'A'}${token.slice(index + 1)}`;
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -417,6 +423,33 @@ describe('OpenIdExternalOidcClient（docs/architecture/04-sso.md §12.2 D8）', 
       await expect(oidcClient().exchange(PROVIDER, EXCHANGE)).rejects.toMatchObject({
         cause: { code, message: expect.stringContaining(claim) },
       });
+    });
+
+    it('ID token 的簽章被竄改 → 拒絕；JWKS 由 discovery 的 jwks_uri 取得一次', async () => {
+      const idp = fakeIdp({
+        tokenResponse: {
+          status: 200,
+          body: {
+            access_token: 'at',
+            token_type: 'Bearer',
+            expires_in: 60,
+            id_token: tampered(
+              idToken({
+                iss: ISSUER,
+                aud: CLIENT_ID,
+                sub: 'ext-sub-1',
+                iat: NOW_SECONDS,
+                exp: NOW_SECONDS + 300,
+                nonce: 'nonce-1',
+              }),
+            ),
+          },
+        },
+      });
+      await expect(oidcClient().exchange(PROVIDER, EXCHANGE)).rejects.toMatchObject({
+        cause: { message: 'JWT signature verification failed' },
+      });
+      expect(idp.requests.filter((r) => r.url === `${ISSUER}/jwks`)).toHaveLength(1);
     });
 
     it('token 回應的 claims() 是空的 → 拋錯（防禦：idTokenExpected 時 openid-client 本來就會先擋）', async () => {

@@ -571,6 +571,8 @@ COMMIT;
 - CSV 解壓、XLSX 解壓與解析是 CPU 密集的工作，在 api 的主執行緒做會卡住同一個程序的所有請求。
 - 解析放進 worker thread 池（`node:worker_threads`，每程序預設 2 個，env `DATA_TRANSFER_PARSE_WORKERS`）。
   - 池滿時排隊最多 5 秒，仍拿不到就回 `503 DATA_TRANSFER_BUSY`（帶 `Retry-After`），前端自動重試一次後才顯示錯誤。
+  - worker 出錯或結束時拒絕它手上的請求、移出池子；有人在排隊就立刻補一個新的 worker 給它（不交給壞掉的 worker、不等排隊時限）。
+    程序關閉時，排隊中與解析中的請求都以 `DATA_TRANSFER_BUSY` 結束，不會懸著。
   - worker 只做「位元組 → 二維字串陣列＋標頭」，不碰資料庫。驗證回到主執行緒做（需要 DI 與資料庫）。
 - 耗時量測：`api_data_transfer_parse_duration_seconds{format}`（§9.6）。
 

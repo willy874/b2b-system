@@ -186,6 +186,38 @@ describe('ParsePool（docs/architecture/backend/22-data-transfer.md §7.3、§13
     await expect(next).resolves.toEqual(OK);
   });
 
+  it('worker 異常結束時，排隊的請求立刻拿到新的 worker，不等排隊時限', async () => {
+    vi.useFakeTimers();
+    const pool = createPool(1);
+    const first = pool.parse(bytes(), OPTIONS);
+    const queued = pool.parse(bytes(), OPTIONS);
+    await vi.waitFor(() => expect(workers).toHaveLength(1));
+    workers[0]!.emit('exit', 1);
+    await expect(first).rejects.toThrow('exit 1');
+    // 計時器不前進：排隊者是被叫醒的，不是逾時
+    await vi.waitFor(() => expect(workers).toHaveLength(2));
+    workers[1]!.emit('message', { id: lastRequestId(workers[1]!), result: OK });
+    await expect(queued).resolves.toEqual(OK);
+    expect(workers[0]!.postMessage).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('worker 先 error 再結束時，排隊的請求不會拿到壞掉的 worker', async () => {
+    vi.useFakeTimers();
+    const pool = createPool(1);
+    const first = pool.parse(bytes(), OPTIONS);
+    const queued = pool.parse(bytes(), OPTIONS);
+    await vi.waitFor(() => expect(workers).toHaveLength(1));
+    const error = new Error('worker 爆了');
+    workers[0]!.emit('error', error);
+    await expect(first).rejects.toBe(error);
+    await vi.waitFor(() => expect(workers).toHaveLength(2));
+    workers[0]!.emit('exit', 1);
+    workers[1]!.emit('message', { id: lastRequestId(workers[1]!), result: OK });
+    await expect(queued).resolves.toEqual(OK);
+    expect(workers[0]!.postMessage).toHaveBeenCalledTimes(1);
+  });
+
   it('閒置的 worker 正常結束（exit 0）時從池中移除，不拒絕任何請求', async () => {
     const pool = createPool();
     const first = pool.parse(bytes(), OPTIONS);
@@ -204,15 +236,20 @@ describe('ParsePool（docs/architecture/backend/22-data-transfer.md §7.3、§13
   it('關閉時結束所有 worker、清掉排隊的計時器，之後的請求回 DATA_TRANSFER_BUSY', async () => {
     vi.useFakeTimers();
     const pool = createPool(1);
-    void pool.parse(bytes(), OPTIONS).catch(() => undefined);
-    void pool.parse(bytes(), OPTIONS);
+    const running = pool.parse(bytes(), OPTIONS);
+    const queued = pool.parse(bytes(), OPTIONS);
+    const runningAssertion = expect(running).rejects.toMatchObject({ code: 'DATA_TRANSFER_BUSY' });
+    const queuedAssertion = expect(queued).rejects.toMatchObject({ code: 'DATA_TRANSFER_BUSY' });
     await vi.waitFor(() => expect(workers).toHaveLength(1));
     expect(vi.getTimerCount()).toBe(1);
     await pool.onModuleDestroy();
     expect(workers[0]!.terminate).toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
-    // 關閉後 worker 結束（非 0）不再拒絕
-    expect(() => workers[0]!.emit('exit', 1)).not.toThrow();
+    // 排隊的請求不會懸著
+    await queuedAssertion;
+    // 被 terminate 的 worker 結束時，手上的請求也結束
+    workers[0]!.emit('exit', 1);
+    await runningAssertion;
     const after = pool.parse(bytes(), OPTIONS);
     await expect(after).rejects.toBeInstanceOf(AppException);
     await expect(after).rejects.toMatchObject({ code: 'DATA_TRANSFER_BUSY' });
