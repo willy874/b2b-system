@@ -41,7 +41,14 @@
       "allowRepeatApproverHint": "Off by default: people who decided an earlier step are excluded from later steps."
     },
     "save": {
-      "success": "Flow saved"
+      "success": "Flow saved",
+      "confirmTitle": "Save the flow",
+      "impact": {
+        "inFlight_one": "{{count}} request in progress keeps the steps it was submitted with; only new requests use these settings.",
+        "inFlight_other": "{{count}} requests in progress keep the steps they were submitted with; only new requests use these settings.",
+        "disable": "After disabling, new requests use single-step approval: anyone with approval permission approves or rejects.",
+        "enable": "After enabling, new requests go through these steps."
+      }
     },
     "step": {
       "ordinal": "Step {{ordinal}}",
@@ -58,7 +65,12 @@
       "increase": "Increase",
       "decrease": "Decrease",
       "conditions": "Conditions (all must match for this step to run)",
-      "noCondition": "No conditions: every request goes through this step."
+      "noCondition": "No conditions: every request goes through this step.",
+      "requiredCountHint_one": "Any {{count}} reviewer approving passes this step; any rejection rejects the whole request.",
+      "requiredCountHint_other": "Any {{count}} reviewers approving passes this step; any rejection rejects the whole request.",
+      "requiredAllHint": "Everyone who is a reviewer when this step starts must approve; any rejection rejects the whole request.",
+      "lastStepPermission": "The last step that runs (skipped steps excluded) only includes reviewers who also have \"{{permissions}}\": approving means performing the action on the requester's behalf.",
+      "listSeparator": ", "
     },
     "assignee": {
       "kindLabel": "Reviewer type",
@@ -121,7 +133,82 @@
       },
       "required_one": "{{count}} approval required",
       "required_other": "{{count}} approvals required",
-      "stepTitle": "Step {{ordinal}}: {{name}}"
+      "stepTitle": "Step {{ordinal}}: {{name}}",
+      "auto": "Recalculated automatically as you edit."
+    },
+    "outcome": {
+      "userRegister": "Create the account and send the activation email",
+      "default": "Apply the request"
+    },
+    "summary": {
+      "title": "Flow summary",
+      "submit": "Request submitted",
+      "stepTitle": "{{ordinal}}. {{name}}",
+      "untitled": "(untitled)",
+      "requiredAll": "Everyone approves",
+      "requiredCount_one": "{{count}} approval",
+      "requiredCount_other": "{{count}} approvals",
+      "conditions_one": "{{count}} condition",
+      "conditions_other": "{{count}} conditions",
+      "candidates_one": "{{count}} reviewer",
+      "candidates_other": "{{count}} reviewers",
+      "outcome": "When approved",
+      "previewHint": "Marked using the sample request on the right: dashed steps are skipped, red ones do not have enough reviewers."
+    },
+    "template": {
+      "title": "Start from a template",
+      "description": "Pick the closest flow; you can change everything afterwards. Reviewers that need to be chosen are left blank.",
+      "use": "Use this template",
+      "manager": {
+        "label": "Requester's manager",
+        "description": "One step: the requester's direct manager approves."
+      },
+      "managerThenRole": {
+        "label": "Manager, then a role",
+        "description": "Two steps: the direct manager first, then someone with a given role (for example, administrators)."
+      },
+      "role": {
+        "label": "Anyone with a role",
+        "description": "One step: any holder of a given role can approve."
+      },
+      "reviewThenApprove": {
+        "label": "Review, then approve",
+        "description": "Two steps: a named person reviews first, then someone with a given role approves."
+      },
+      "blank": {
+        "label": "Start from scratch",
+        "description": "A blank step; set the reviewers, approvals and conditions yourself."
+      },
+      "stepName": {
+        "manager": "Manager review",
+        "final": "Final approval",
+        "review": "Review",
+        "first": "First review"
+      }
+    },
+    "stats": {
+      "title": "How it is going (last {{days}} days)",
+      "empty": "No requests of this type recently.",
+      "submitted": "Submitted",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "withdrawn": "Withdrawn",
+      "average": "Average time to decide",
+      "pending": "In progress (all)",
+      "currentSteps": "In-progress requests are at",
+      "stepPending_one": "{{name}}: {{count}} request",
+      "stepPending_other": "{{name}}: {{count}} requests",
+      "shortage_one": "{{count}} without reviewers",
+      "shortage_other": "{{count}} without reviewers",
+      "line": "{{submitted}} submitted in the last {{days}} days, {{pending}} in progress"
+    },
+    "duration": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
     }
   }
 }

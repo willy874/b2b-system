@@ -11,6 +11,7 @@ import {
   ApprovalFlowListSchema,
   ApprovalFlowPreviewSchema,
   ApprovalFlowSchema,
+  ApprovalFlowStatsSchema,
   PreviewApprovalFlowSchema,
   PutApprovalFlowSchema,
 } from './dto/approval-flow.dto';
@@ -39,6 +40,15 @@ export class ApprovalFlowController {
   @ApiZodResponse(200, ApprovalFlowSchema)
   get(@Param('type') type: string) {
     return this.flows.get(type);
+  }
+
+  /** 近 30 天的實際運作與進行中的請求停在哪一關（§9.16）。 */
+  @Get(':type/stats')
+  @RequirePermissions(PERMISSION.APPROVAL_FLOW_READ)
+  @ApiOperation({ summary: '流程的實際運作（近 30 天）' })
+  @ApiZodResponse(200, ApprovalFlowStatsSchema)
+  stats(@Param('type') type: string) {
+    return this.flows.stats(type);
   }
 
   /**

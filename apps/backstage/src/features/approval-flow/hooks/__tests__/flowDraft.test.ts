@@ -21,9 +21,9 @@ import {
 import type { FlowDraft, StepDraft } from '../flowDraft';
 
 const FIELDS: ApprovalConditionField[] = [
-  { key: 'amount', type: 'number', options: null },
-  { key: 'category', type: 'enum', options: ['it', 'office'] },
-  { key: 'emailDomain', type: 'string', options: null },
+  { key: 'amount', type: 'number', options: null, example: null },
+  { key: 'category', type: 'enum', options: ['it', 'office'], example: null },
+  { key: 'emailDomain', type: 'string', options: null, example: null },
 ];
 const fieldOf = (key: string) => {
   const found = FIELDS.find((candidate) => candidate.key === key);
@@ -34,6 +34,8 @@ const fieldOf = (key: string) => {
 const SAVED: ApprovalFlow = {
   type: 'test.purchase',
   requester: 'user',
+  requiredPermissions: [],
+  inFlightCount: 0,
   fields: FIELDS,
   flow: {
     id: 'f1',

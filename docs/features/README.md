@@ -18,7 +18,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P1 | 審批流程設定的引導 | [`approval-experience.md`](./approval-experience.md) | 規劃中 | 審批與多階段流程（已完成） |
 
 狀態只有三種：
 
@@ -34,7 +33,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
-- `approval-experience` 第 1、2 批（審批的互動與引導：待審數與側欄徽章、首頁的待辦、列表預設待審與進度欄、整頁的詳情與狀態橫幅、逐人的審核流程、決定後前往下一筆、留言、修改後重新送出）：[`backend/20-approval.md`](../architecture/backend/20-approval.md) §11、§12；第 3 批（流程設定的引導）仍在 [`approval-experience.md`](./approval-experience.md)
+- `approval-experience`（審批的互動與引導：待審數與側欄徽章、首頁的待辦、列表預設待審與進度欄、整頁的詳情與狀態橫幅、逐人的審核流程、決定後前往下一筆、留言、修改後重新送出；流程設定的範本、流程摘要、收合的關卡、自動試算、儲存前的影響、實際運作）：[`backend/20-approval.md`](../architecture/backend/20-approval.md) §9.16、§11、§12
 
 - `cdn-settings`（CDN 設定管理，階段 5：兩層設定與生效值、`cdn_settings` 的快取與廣播、開啟前的節點檢查、邊緣的 `/_status` 與 `X-CDN-Reject`、`cdn.healthCheck` 與告警、`CdnPathResolver` 與手動清理、apps/platform 的 CDN 頁面、平台權限 `cdn:*`）：[`backend/09-file.md`](../architecture/backend/09-file.md) §16.9～§16.12、§17.1
 - `image-cdn`（圖片的 CDN，階段 4：`CdnUrlSigner` 與 `CdnConfig`、`CdnPurger` 與背景工作 `cdn.purge`、`FILE_CDN_*`、自架的 nginx ＋ njs 邊緣（驗簽章、邊緣快取、回源憑證、清理端點）、`docker-compose.cdn.yml` 與 k8s 的 component、`check-cdn.sh`、`cli:cdn-purge`）：[`backend/09-file.md`](../architecture/backend/09-file.md) §16、§17，回源憑證在 [`03-file-storage.md`](../architecture/03-file-storage.md) §3.3

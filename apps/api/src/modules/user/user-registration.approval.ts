@@ -66,6 +66,8 @@ export class UserRegistrationApprovalHandler implements ApprovalHandler, OnModul
       {
         key: 'emailDomain',
         type: 'string',
+        // 試算的預設值：一打開就能看到流程怎麼走（docs/architecture/backend/20-approval.md §9.16）
+        example: 'example.com',
         read: (payload) => {
           const email = RegistrationPayloadSchema.safeParse(payload);
           if (!email.success) return null;

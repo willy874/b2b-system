@@ -25,7 +25,7 @@
 | 列表、詳情、核准、駁回；即時推播                           |                                                   |
 | 多階段流程：依序多關、會簽、條件分流（§9；可由平台關閉）   |                                                   |
 | 申請人查看自己的申請與進度、撤回（「我的審批」，§9.9、§9.10） |                                                |
-| 待辦的入口、整頁的詳情、審核時的留言、修改後重新送出（§11） | 審批專屬的聊天室；流程設定的範本與引導（[`../../features/approval-experience.md`](../../features/approval-experience.md)） |
+| 待辦的入口、整頁的詳情、審核時的留言、修改後重新送出（§11）；流程設定的範本、摘要與自動試算（§9.16） | 審批專屬的聊天室；租戶自訂的流程範本 |
 
 ---
 
@@ -460,7 +460,8 @@ COMMIT → 最後一關才 handler.afterApply → 推播
 | POST | `/approvals/:id/steps/:ordinal/refresh` | 🛡 `approval:override` ＋ `approvalChain` | §9.8 |
 | POST | `/approvals/:id/steps/:ordinal/override` | 🛡 `approval:override` ＋ `approvalChain` | `{ decision, comment }`，§9.8 |
 | GET | `/approval-flows` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 支援流程的類型（各帶欄位定義、流程）、`assigneeKinds`（各種規則能不能用） |
-| GET | `/approval-flows/:type` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 流程；每一關帶 `assigneeStatus`（名稱、`available`、`deleted`） |
+| GET | `/approval-flows/:type` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 流程；每一關帶 `assigneeStatus`（名稱、`available`、`deleted`）。另帶欄位的 `example`（試算的預設值）、`requiredPermissions`（核准所需的權限與顯示名稱的語系鍵，最後一關的說明用）、`inFlightCount`（照這個流程送出、還在審的筆數） |
+| GET | `/approval-flows/:type/stats` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 實際運作：近 30 天送出的請求依狀態計數、定案的平均小時數；目前所有進行中的請求停在哪一關（依關卡名稱，含短缺的筆數）。開頁時即時彙總（§12 D9） |
 | PUT | `/approval-flows/:type` | 🛡 `approvalFlow:update` ＋ `approvalChain` | 建立或取代；修改帶 `version`（`409 APPROVAL_FLOW_VERSION_CONFLICT`）；不支援的類型 `422 APPROVAL_FLOW_NOT_SUPPORTED`；內容與 handler 的宣告不符 `400 VALIDATION_FAILED`（`fields["steps.1.conditions.0.op"]`）；反提權（D11） |
 | POST | `/approval-flows/:type/preview` | 🛡 `approvalFlow:read` ＋ `approvalChain` | 試算：`{ steps?（草稿）, requesterId?, fields }` → 每一關略過與否、候選人、同意數、短缺。與 §9.6 共用解析，沒有前面的決定 |
 
@@ -498,7 +499,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 | --- | --- |
 | 審批頁（`features/approval`） | 側欄「人員管理」。列表多一欄「進度」（`財務 1／2`、等待誰、多久，短缺時標示）；進行中的多關請求不能快速／批次審核（`approvalChain` 停用時可以）。整頁的詳情 `ApprovalDetailView`（§11.3）：審核流程 `ApprovalTimeline` 逐人列出決定、依 `viewer` 顯示關卡的同意／駁回與撤回，強制定案（意見必填）與重新展開在「管理員操作」 |
 | 我的審批 | `/my-approvals`（Page Key `MY_APPROVAL`，不需要權限，側欄「人員管理」，排在「審批」之後）：「待我審核」（`approvalChain` 已安裝時才有）、「我的申請」；詳情 `/my-approvals/$approvalId`（route id `approval.myDetail`） |
-| 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | 系統設定的「審批流程」分頁 `/system/approval-flows`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`；側欄沒有另外的入口，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5）：每個支援流程的類型一張卡片，寫明目前的審批方式——沒有流程是「單關審批」（照常運作，不是空白的欄位）、啟用中列出依序的關卡、停用時說明回到單關並列出保留的關卡——另有版本與有無不可用的規則；動作鈕依權限是「設定流程」／「編輯流程」或「檢視」。`/system/approval-flows/$type`：整頁編輯（仍在系統設定的外框裡），左邊開關與關卡（上移／下移、規則、同意數、條件列），右邊試算面板（按「試算」才呼叫）。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
+| 流程設定（`features/approval-flow`，可啟用的 feature `approvalChain`） | 系統設定的「審批流程」分頁 `/system/approval-flows`（Page Key `APPROVAL_FLOW`，`approvalFlow:read`；側欄沒有另外的入口，[`frontend/02-plugin-system.md`](../frontend/02-plugin-system.md) §4.5）：每個支援流程的類型一張卡片，寫明目前的審批方式——沒有流程是「單關審批」（照常運作，不是空白的欄位）、啟用中列出依序的關卡、停用時說明回到單關並列出保留的關卡——另有版本與有無不可用的規則；動作鈕依權限是「設定流程」／「編輯流程」或「檢視」。卡片另有一行實際運作（近 30 天送出、進行中，找不到審核者時標示）。`/system/approval-flows/$type`：整頁編輯（仍在系統設定的外框裡）。還沒有流程而且能編輯時先選範本（`templates.ts`：申請人的主管、主管 → 指定角色、指定角色的任一人、初審 → 複審、從空白開始；匿名的類型不列出主管，規則不能用的不列出），範本只產生草稿。左邊是整條流程的摘要（申請 → 每一關的審核者、同意數、條件數 → 核准後；點節點展開那一關），開關，與關卡卡片：已儲存的收合成一行、還沒儲存的與有錯誤的展開，上移／下移、規則、同意數（附「任 M 人」與會簽的說明）、條件列；最後一關說明審核者還要有 `requiredPermissions`（D3）。右邊是試算與實際運作：試算以欄位的 `example` 預填，草稿、申請人或欄位值停止變動 500ms 後自動送出（草稿不完整時不送），結果另疊在摘要上（略過虛線、短缺紅框、幾位審核者）。儲存前說明影響：有 `inFlightCount` 時「進行中的 N 筆照送出時的版本」、停用或第一次啟用時說明新申請怎麼審。沒有 `approvalFlow:update` 時唯讀但可試算。不可用的規則（feature 未啟用、對象已刪除）標示；`422` 指到的關卡標紅、`VALIDATION_FAILED` 對到欄位、`409` 提示重新載入。類型與條件欄位的顯示名稱在 feature 的語系裡（後端只給 key） |
 | 通知 | `approval.pending` 帶關卡名稱時換句子；`approval.progress`、`approval.unassigned` 的句子與事件管理的說明 |
 
 ### 9.17 測試
@@ -631,7 +632,7 @@ Webhook 不變：只有最終的 `approval.decided`。
 
 ## 12. 設計決策：互動與引導
 
-> 2026-10-10 決定並實作第 1、2 批（原 `docs/features/approval-experience.md`；第 3 批「流程設定的引導」仍是提案）。
+> 2026-10-10 決定並實作（原 `docs/features/approval-experience.md`）：第 1、2 批是審批頁（§11），第 3 批是流程設定（§9.16）。
 
 ### 12.1 背景
 
@@ -647,10 +648,10 @@ Webhook 不變：只有最終的 `approval.decided`。
 | D3 | **待審數靠 `approval` 推播失效 ＋ 視窗聚焦重查**，不輪詢；`NavItem.useBadge` 是選用的 hook | 推播的受眾已涵蓋所有會變動數字的人；徽章是通用能力，其他 feature 之後可用 |
 | D4 | **審批登記為可留言的資源，定案後仍可留言** | 沿用 `24-comment.md` D3，不擴充通用模組；定案後的溝通（為什麼被駁回）是主要需求 |
 | D5 | **決定後只在「從待審清單進來」時跳下一筆**，不做偏好 | 行為只出現在預期它的情境；偏好設定等有需求再加 |
+| D6 | **流程範本是前端內建常數**，依 `requester` 與規則種類的可用性過濾 | 目的只是避開空白表單；每個類型只有一個流程（§10.2 D1），自訂範本的使用次數極低，不需要資料表與權限 |
 | D7 | **核准的結果句由前端依類型產生**（`APPROVAL_OUTCOME_KEY`，`satisfies` 強制補齊） | 顯示文字本來就在前端語系；不加 handler 方法 |
 | D8 | **重新送出：前端依類型導回原申請入口並預填；後端在 `ApprovalService.submit()` 統一驗證 `resubmittedFrom`** | 申請的入口在擁有者的頁面；驗證放在通用模組，各類型不必各寫一份 |
-
-D6（流程範本）、D9（流程的實際運作）屬於第 3 批，仍在提案。
+| D9 | **流程的實際運作開頁時即時查詢近 30 天**，不做快照 | 量小、只有設定者會看；以 `(status, created_at)` 的索引就查得到，慢了再改快照 |
 
 ### 12.3 評估過的方案
 
@@ -662,6 +663,8 @@ D6（流程範本）、D9（流程的實際運作）屬於第 3 批，仍在提�
 | 徽章定期輪詢 | 推播已可靠；輪詢在多分頁時放大請求量 |
 | 定案後留言唯讀 | 要擴充 `comment` 的通用介面；而且擋掉最需要的溝通 |
 | handler 加 `describeOutcome`／`resubmit` | 後端回傳顯示文字或前端路由，違反「後端只給 key」的約定 |
+| 租戶自訂流程範本（存成資料） | 每個類型只有一個流程，設定一次就很少再從頭來（D6） |
+| 流程的實際運作由背景工作每小時彙總 | 多一個工作與一張表，量還不需要（D9） |
 
 ### 12.4 實作紀錄
 
@@ -672,3 +675,7 @@ D6（流程範本）、D9（流程的實際運作）屬於第 3 批，仍在提�
 | 「下一筆」 | 進入詳情時記下清單的順序（列表剛載入過，快取裡有），定案後重新取得同一份清單，從原本排在後面的找起；都不在了就取新清單裡第一筆不是原本排在前面的 |
 | 留言的推播 | 留言的推播沿用 `approval` 來源的受眾（`approval:read`）：申請人與候選人收得到 @提及與關注的通知，但畫面上的留言要重新整理或回到頁面才更新 |
 | 待審數與單關 | 「待我審核」只算多階段的關卡（單關請求由 `approval:review` 的持有者審，算在「審批」的徽章與首頁的全部待審數） |
+| 流程摘要的結果句 | 流程設定（`features/approval-flow`）不 import 審批頁的 `APPROVAL_OUTCOME_KEY`，另有一句不帶參數的 `APPROVAL_FLOW_OUTCOME_KEY` |
+| 關卡的展開 | 預設不記狀態：沒有 `key` 的關卡（範本、新增的）展開、有 `key` 的收合；手動切換以畫面上的 id 記住，儲存或重新載入後回到預設 |
+| 自動試算 | 保留「試算」鈕（立即重算）；結果只在對應目前的草稿時顯示，避免摘要標出過期的略過 |
+| 最後一關的權限說明 | 只寫在最後一張卡片上：條件會讓實際最後執行的關卡往前移，句子寫「略過的不算」，不另外試算 |

@@ -67,3 +67,12 @@ export const PREVIEW_SHORTAGE_LABEL_KEY = {
   noCandidate: 'approvalFlow.preview.shortage.noCandidate',
   insufficient: 'approvalFlow.preview.shortage.insufficient',
 } as const satisfies Record<'noCandidate' | 'insufficient', string>;
+
+/**
+ * 核准之後會發生什麼（流程摘要的最後一個節點）。審批 feature 有自己的結果句（`features/approval`），feature 之間不 import，
+ * 這裡只需要一句不帶參數的說明；不認得的類型用通用的句子。
+ */
+export const APPROVAL_FLOW_OUTCOME_KEY: Readonly<Partial<Record<string, string>>> = {
+  'user.register': 'approvalFlow.outcome.userRegister',
+};
+export const APPROVAL_FLOW_OUTCOME_DEFAULT_KEY = 'approvalFlow.outcome.default';

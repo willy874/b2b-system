@@ -2,27 +2,45 @@ import { Button, ButtonLink } from '@b2b-system/ui/Button';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { Switch } from '@b2b-system/ui/Switch';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { getApprovalFlowDetailQueryOptions } from '@/apis/approval-flow/get-approval-flow-detail/query';
 import { getApprovalFlowListQueryOptions } from '@/apis/approval-flow/get-approval-flow-list/query';
 import { VersionConflictAlert } from '@/core/components';
 import { SystemSettingsLayout } from '@/core/system-settings';
+import type { ApprovalFlow } from '@/shared/api-sdk';
 
-import { APPROVAL_FLOW_MAX_STEPS, APPROVAL_FLOW_TYPE_LABEL_KEY } from '../../constants';
+import {
+  APPROVAL_FLOW_MAX_STEPS,
+  APPROVAL_FLOW_OUTCOME_DEFAULT_KEY,
+  APPROVAL_FLOW_OUTCOME_KEY,
+  APPROVAL_FLOW_TYPE_LABEL_KEY,
+} from '../../constants';
 import { addStep, moveStep, removeStep } from '../../hooks/flowDraft';
 import { useApprovalFlowPermission } from '../../hooks/useApprovalFlowPermission';
 import { useAssigneeKindAvailability } from '../../hooks/useAssigneeKindAvailability';
 import { ApprovalFlowEditRoute, ApprovalFlowListRoute } from '../../routes';
+import { availableTemplates, draftFromTemplate } from '../../templates';
 import { FlowPreviewPanel } from './components/FlowPreviewPanel';
-import { FlowStepCard } from './components/FlowStepCard';
+import { FlowSettingsSection } from './components/FlowSettingsSection';
+import { FlowStatsPanel } from './components/FlowStatsPanel';
+import { FlowStepCard, stepCardElementId } from './components/FlowStepCard';
+import { FlowSummary } from './components/FlowSummary';
+import { FlowTemplatePicker } from './components/FlowTemplatePicker';
 import { useApprovalFlowEditor } from './useApprovalFlowEditor';
+import { useFlowPreview } from './useFlowPreview';
+import { useSaveWithImpacts } from './useSaveWithImpacts';
+import { useStepExpansion } from './useStepExpansion';
+
+/** 流程還在載入時的欄位：固定的參考，下游的 memo 與 state 不會每次 render 都以為換了。 */
+const NO_FIELDS: ApprovalFlow['fields'] = [];
 
 /**
- * 某個審批類型的流程編輯（docs/architecture/backend/20-approval.md §9.16）：開關、關卡清單、右側試算。
+ * 某個審批類型的流程編輯（docs/architecture/backend/20-approval.md §9.16）：還沒有流程時先選範本；
+ * 上方是整條流程的摘要（疊上自動試算的結果），下面是開關與關卡（已儲存的預設收合），右側是試算與實際運作。
  * 仍在系統設定的外框裡（「審批流程」分頁以路徑前綴保持選取），返回鈕回到分頁。
  */
 export default function ApprovalFlowEditPage() {
@@ -37,8 +55,15 @@ export default function ApprovalFlowEditPage() {
   const readOnly = !permission.canUpdate;
   const typeLabelKey = APPROVAL_FLOW_TYPE_LABEL_KEY[type];
   const { draft } = editor;
-  const fields = detail.data?.fields ?? [];
+  const fields = detail.data?.fields ?? NO_FIELDS;
   const isAnonymous = detail.data?.requester === 'anonymous';
+  const preview = useFlowPreview({ type, draft, fields, isAnonymous });
+  // 還沒有流程、能編輯：先選範本（選了「從空白開始」也算選過）
+  const [templatePicked, setTemplatePicked] = useState(false);
+  const showTemplates = Boolean(detail.data && !detail.data.flow && !readOnly && !templatePicked);
+  const expansion = useStepExpansion(editor.errors, editor.rejectedSteps);
+  const save = useSaveWithImpacts(detail.data, draft, editor.submit);
+  const outcomeKey = APPROVAL_FLOW_OUTCOME_KEY[type] ?? APPROVAL_FLOW_OUTCOME_DEFAULT_KEY;
 
   return (
     <SystemSettingsLayout>
@@ -63,11 +88,15 @@ export default function ApprovalFlowEditPage() {
               </p>
             )}
           </div>
-          {!readOnly && draft && (
+          {!readOnly && draft && !showTemplates && (
             <div className="flex gap-2">
               <Button
                 disabled={!editor.isDirty}
-                onClick={editor.discard}
+                onClick={() => {
+                  editor.discard();
+                  expansion.reset();
+                  if (!detail.data?.flow) setTemplatePicked(false);
+                }}
                 data-testid="approval-flow-discard"
               >
                 {t('approvalFlow.edit.discard')}
@@ -76,7 +105,7 @@ export default function ApprovalFlowEditPage() {
                 variant="primary"
                 loading={editor.isSaving}
                 disabled={!editor.isDirty && draft.version !== undefined}
-                onClick={() => void editor.submit()}
+                onClick={() => void save()}
                 data-testid="approval-flow-save"
               >
                 {t('common.save')}
@@ -94,9 +123,19 @@ export default function ApprovalFlowEditPage() {
           />
         )}
 
-        {draft && detail.data && (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="flex flex-col gap-4">
+        {showTemplates && (
+          <FlowTemplatePicker
+            templates={availableTemplates(isAnonymous, availability)}
+            onPick={(template) => {
+              editor.update(() => draftFromTemplate(template, t));
+              setTemplatePicked(true);
+            }}
+          />
+        )}
+
+        {draft && detail.data && !showTemplates && (
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="flex min-w-0 flex-col gap-4">
               {editor.conflictError && (
                 <VersionConflictAlert
                   error={editor.conflictError}
@@ -106,44 +145,17 @@ export default function ApprovalFlowEditPage() {
                 />
               )}
               <FormError data-testid="approval-flow-form-error">{editor.formError}</FormError>
-              <section className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] p-4">
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <span>
-                    <span className="font-medium">{t('approvalFlow.edit.enabled')}</span>
-                    <span className="block text-[var(--color-fg-muted)]">
-                      {t('approvalFlow.edit.enabledHint')}
-                    </span>
-                  </span>
-                  <Switch
-                    aria-label={t('approvalFlow.edit.enabled')}
-                    checked={draft.enabled}
-                    disabled={readOnly}
-                    onCheckedChange={(enabled) =>
-                      editor.update((current) => ({ ...current, enabled }))
-                    }
-                    data-testid="approval-flow-enabled"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <span>
-                    <span className="font-medium">
-                      {t('approvalFlow.edit.allowRepeatApprover')}
-                    </span>
-                    <span className="block text-[var(--color-fg-muted)]">
-                      {t('approvalFlow.edit.allowRepeatApproverHint')}
-                    </span>
-                  </span>
-                  <Switch
-                    aria-label={t('approvalFlow.edit.allowRepeatApprover')}
-                    checked={draft.allowRepeatApprover}
-                    disabled={readOnly}
-                    onCheckedChange={(allowRepeatApprover) =>
-                      editor.update((current) => ({ ...current, allowRepeatApprover }))
-                    }
-                    data-testid="approval-flow-allow-repeat"
-                  />
-                </div>
-              </section>
+              <FlowSummary
+                draft={draft}
+                preview={preview.result}
+                outcome={t(outcomeKey)}
+                onSelect={(stepId) => expansion.reveal(stepId, stepCardElementId(stepId))}
+              />
+              <FlowSettingsSection
+                draft={draft}
+                readOnly={readOnly}
+                onChange={(patch) => editor.update((current) => ({ ...current, ...patch }))}
+              />
 
               <ol
                 className="m-0 flex list-none flex-col gap-3 p-0"
@@ -162,6 +174,9 @@ export default function ApprovalFlowEditPage() {
                     readOnly={readOnly}
                     errors={editor.errors}
                     isAssigneeRejected={editor.rejectedSteps.has(index)}
+                    expanded={expansion.isExpanded(step, index)}
+                    onToggle={() => expansion.toggle(step, index)}
+                    requiredPermissions={detail.data.requiredPermissions}
                     onChange={(change) =>
                       editor.update((current) => ({
                         ...current,
@@ -190,14 +205,14 @@ export default function ApprovalFlowEditPage() {
                 </div>
               )}
             </div>
-            <aside>
+            <aside className="flex flex-col gap-4">
               <FlowPreviewPanel
-                type={type}
-                draft={draft}
+                preview={preview}
                 fields={fields}
                 isAnonymous={isAnonymous}
                 canSearchUsers={permission.canSearchUsers}
               />
+              <FlowStatsPanel type={type} />
             </aside>
           </div>
         )}

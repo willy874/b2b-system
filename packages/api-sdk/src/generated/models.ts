@@ -1009,12 +1009,18 @@ export interface ApprovalConditionField {
   key: string;
   type: 'number' | 'string' | 'enum';
   options: Array<string> | null;
+  example: (number | string) | null;
 }
 
 export interface ApprovalFlow {
   type: string;
   requester: 'user' | 'anonymous';
   fields: Array<ApprovalConditionField>;
+  requiredPermissions: Array<{
+    key: string;
+    nameI18nKey: string;
+  }>;
+  inFlightCount: number;
   flow: {
     id: string;
     enabled: boolean;
@@ -1034,6 +1040,21 @@ export interface ApprovalFlowList {
     manager: boolean;
     orgUnit: boolean;
   };
+}
+
+export interface ApprovalFlowStats {
+  days: number;
+  submitted: number;
+  approved: number;
+  rejected: number;
+  withdrawn: number;
+  averageHours: number | null;
+  pending: number;
+  currentSteps: Array<{
+    name: string;
+    pending: number;
+    shortage: number;
+  }>;
 }
 
 export interface PreviewApprovalFlowRequest {

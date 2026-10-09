@@ -12,6 +12,7 @@ import {
 } from '../../../constants';
 import { ApprovalFlowEditRoute } from '../../../routes';
 import type { ApprovalFlowCardVM } from '../adapter';
+import { FlowStatsLine } from './FlowStatsLine';
 
 interface ApprovalFlowCardProps {
   card: ApprovalFlowCardVM;
@@ -124,6 +125,8 @@ export function ApprovalFlowCard({ card, canUpdate }: ApprovalFlowCardProps) {
           ))}
         </ol>
       )}
+
+      <FlowStatsLine type={card.type} />
     </article>
   );
 }

@@ -5,6 +5,7 @@ import type {
   ApprovalFlow,
   ApprovalFlowList,
   ApprovalFlowPreview,
+  ApprovalFlowStats,
   PreviewApprovalFlowRequest,
   PutApprovalFlowRequest,
 } from '../models';
@@ -85,6 +86,35 @@ export type ApprovalFlowControllerPutResult = ApiResponse<
 
 export function getApprovalFlowControllerPutUrl(path: ApprovalFlowControllerPutPathParams): string {
   return buildUrl('/approval-flows/{type}', path);
+}
+
+// GET /approval-flows/{type}/stats
+
+export interface ApprovalFlowControllerStatsPathParams {
+  type: string;
+}
+
+export interface ApprovalFlowControllerStatsInput {
+  path: ApprovalFlowControllerStatsPathParams;
+}
+
+export interface ApprovalFlowControllerStatsResponses {
+  200: {
+    data: ApprovalFlowStats;
+  };
+}
+
+export type ApprovalFlowControllerStatsResponse = ApprovalFlowControllerStatsResponses[200];
+
+export type ApprovalFlowControllerStatsResult = ApiResponse<
+  200,
+  ApprovalFlowControllerStatsResponses[200]
+>;
+
+export function getApprovalFlowControllerStatsUrl(
+  path: ApprovalFlowControllerStatsPathParams,
+): string {
+  return buildUrl('/approval-flows/{type}/stats', path);
 }
 
 // POST /approval-flows/{type}/preview
