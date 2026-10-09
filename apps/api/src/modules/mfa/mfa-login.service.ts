@@ -21,8 +21,10 @@ import type {
   MfaEnrollmentDto,
   MfaLoginChallengeDto,
   MfaLoginVerifyDto,
+  MfaLoginVerifyResultDto,
   SsoMfaChallengeNextDto,
   SsoMfaEnrollNextDto,
+  StartMfaEnrollmentDto,
 } from './dto/mfa.dto';
 import type { MfaAccountStore, MfaStoredAccount } from './mfa-account.store';
 import { MfaAvailability } from './mfa-availability.service';
@@ -97,12 +99,31 @@ export class MfaLoginService {
     uid: string,
     realm: MfaRealm,
     accountId: string,
+    options: { enroll?: string | null } = {},
   ): Promise<SsoLoginResult> {
     const store = this.mfa.store(realm);
     const stored = await this.mfa.requireAccount(store, accountId);
     const requirement = await this.requirementFor(store, stored);
     const oidcAccountId = store.oidcAccountId(accountId);
+    // 產品要求新增的方式（§7.1）：目前不能用（被關掉、政策不允許）就當作沒要求，照常登入
+    const enroll = options.enroll ? await this.requestedEnrollment(store, options.enroll) : null;
 
+    if (requirement === 'none' && enroll) {
+      await this.oidc.saveMfaPending(
+        uid,
+        {
+          accountId: oidcAccountId,
+          firstFactor: 'pwd',
+          next: 'mfaEnroll',
+          attempts: 0,
+          enroll: enroll.id,
+          optional: true,
+          amr: ['pwd'],
+        },
+        MFA_PENDING_TTL_SECONDS,
+      );
+      return { next: 'mfaEnroll', methods: [enroll], optional: true };
+    }
     if (requirement === 'none') {
       await store.completeLogin(stored, { amr: ['pwd'] });
       const redirectTo = await this.oidc.finishInteraction(req, res, {
@@ -125,12 +146,19 @@ export class MfaLoginService {
     const next = requirement === 'challenge' ? 'mfa' : 'mfaEnroll';
     await this.oidc.saveMfaPending(
       uid,
-      { accountId: oidcAccountId, firstFactor: 'pwd', next, attempts: 0 },
+      {
+        accountId: oidcAccountId,
+        firstFactor: 'pwd',
+        next,
+        attempts: 0,
+        ...(enroll && { enroll: enroll.id }),
+      },
       MFA_PENDING_TTL_SECONDS,
     );
     if (next === 'mfaEnroll') {
+      // 政策要求而還沒有任何因子：一定要設定一個（不能略過），可以選任何可用的方式
       const methods = await this.mfa.availableMethods(store);
-      return { next, methods: methods.map(methodInfoOf) };
+      return { next, methods: methods.map(methodInfoOf), optional: false };
     }
     return { next, ...(await this.challengeOptions(store, stored)) };
   }
@@ -176,7 +204,7 @@ export class MfaLoginService {
     res: ServerResponse,
     uid: string,
     dto: MfaLoginVerifyDto,
-  ): Promise<{ redirectTo: string }> {
+  ): Promise<MfaLoginVerifyResultDto> {
     return this.withPending(req, res, uid, 'mfa', async ({ pending, store, stored }) => {
       const ipPrefix = ipPrefixOf(getRequestContext()?.ip);
       const scope = store.throttleScope();
@@ -201,11 +229,26 @@ export class MfaLoginService {
         });
       }
 
+      const amr = ['pwd', 'mfa', result.amr];
+      // 產品要求新增驗證方式（§7.1）：通過第二步之後先設定，設定完（或略過）才完成登入
+      const enroll = pending.enroll ? await this.requestedEnrollment(store, pending.enroll) : null;
+      if (enroll) {
+        const advanced = await this.oidc.advanceMfaPending(uid, {
+          ...pending,
+          next: 'mfaEnroll',
+          attempts: 0,
+          optional: true,
+          amr,
+        });
+        if (!advanced) throw new AppException('AUTH_MFA_PENDING_INVALID');
+        await this.loginThrottle.reset(scope, stored.account.email, ipPrefix);
+        return { next: 'mfaEnroll', methods: [enroll], optional: true };
+      }
+
       // 條件式消耗：兩個併發的驗證只有一個能完成互動
       if (!(await this.oidc.consumeMfaPending(uid)))
         throw new AppException('AUTH_MFA_PENDING_INVALID');
       await this.loginThrottle.reset(scope, stored.account.email, ipPrefix);
-      const amr = ['pwd', 'mfa', result.amr];
       await store.completeLogin(stored, { amr, mfaMethod: result.method });
       const redirectTo = await this.oidc.finishInteraction(req, res, {
         login: { accountId: pending.accountId, amr },
@@ -219,11 +262,35 @@ export class MfaLoginService {
     req: IncomingMessage,
     res: ServerResponse,
     uid: string,
-    methodId: string,
+    dto: StartMfaEnrollmentDto,
   ): Promise<MfaEnrollmentDto> {
-    return this.withPending(req, res, uid, 'mfaEnroll', ({ store, stored }) =>
-      this.mfa.startEnrollment(store.realm, stored.account.id, methodId, uid),
-    );
+    return this.withPending(req, res, uid, 'mfaEnroll', ({ pending, store, stored }) => {
+      // 產品要求的設定只能設定那一種方式（不是政策要求，不讓這條路變成「通過密碼就能綁任何方式」以外的入口）
+      if (pending.optional && dto.method !== pending.enroll) {
+        throw new AppException('MFA_METHOD_DISABLED', { method: dto.method });
+      }
+      return this.mfa.startEnrollment(store.realm, stored.account.id, dto.method, uid, dto.input);
+    });
+  }
+
+  /** 產品要求的設定（§7.1）可以略過：照常完成登入。政策要求的首次設定不能略過。 */
+  skipEnrollment(
+    req: IncomingMessage,
+    res: ServerResponse,
+    uid: string,
+  ): Promise<{ redirectTo: string }> {
+    return this.withPending(req, res, uid, 'mfaEnroll', async ({ pending, store, stored }) => {
+      if (!pending.optional) throw new AppException('AUTH_MFA_ENROLL_REQUIRED');
+      if (!(await this.oidc.consumeMfaPending(uid)))
+        throw new AppException('AUTH_MFA_PENDING_INVALID');
+      const amr = pending.amr ?? ['pwd'];
+      const mfaMethod = amr.length > 1 ? amr.at(-1) : undefined;
+      await store.completeLogin(stored, { amr, ...(mfaMethod && { mfaMethod }) });
+      const redirectTo = await this.oidc.finishInteraction(req, res, {
+        login: { accountId: pending.accountId, amr },
+      });
+      return { redirectTo };
+    });
   }
 
   /** 重寄設定中的 challenge（Email）。 */
@@ -280,7 +347,11 @@ export class MfaLoginService {
         throw new AppException('AUTH_MFA_PENDING_INVALID');
       await this.loginThrottle.reset(scope, stored.account.email, ipPrefix);
       const method = result.factor.method;
-      const amr = ['pwd', 'mfa', this.mfa.amrOf(method)];
+      // 先通過第二步再設定的（§7.1）以第二步的方式為準；首次設定以新設定的方式為準
+      const amr =
+        pending.amr && pending.amr.length > 1
+          ? pending.amr
+          : ['pwd', 'mfa', this.mfa.amrOf(method)];
       await store.completeLogin(stored, { amr, mfaMethod: method });
       const redirectTo = await this.oidc.finishInteraction(req, res, {
         login: { accountId: pending.accountId, amr },
@@ -290,6 +361,17 @@ export class MfaLoginService {
   }
 
   // ── 內部 ───────────────────────────────────────────────
+
+  /** 產品要求新增的方式現在能不能設定：要是這個帳號可用的方式、而且還沒到數量上限。 */
+  private async requestedEnrollment(
+    store: MfaAccountStore,
+    methodId: string,
+  ): Promise<ReturnType<typeof methodInfoOf> | null> {
+    const method = (await this.mfa.availableMethods(store)).find(
+      (candidate) => candidate.definition.id === methodId,
+    );
+    return method ? methodInfoOf(method) : null;
+  }
 
   /** 驗證因子或備用碼；回傳失敗原因（給計數與錯誤碼）或成功的方式。 */
   private async check(

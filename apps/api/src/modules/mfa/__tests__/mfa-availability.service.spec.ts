@@ -15,6 +15,8 @@ function setup(
     policy?: MfaPolicyState;
     disabled?: string[];
     roles?: string[];
+    /** 需要平台參數而還沒填齊的方式（§5.1）。 */
+    unconfigured?: string[];
   } = {},
 ) {
   const totp = method('totp');
@@ -34,14 +36,18 @@ function setup(
     NODE_ENV: options.nodeEnv ?? 'test',
   };
   const config = { get: vi.fn((key: string) => env[key]) };
+  const settings = {
+    isConfigured: vi.fn((m: MfaMethod) => !(options.unconfigured ?? []).includes(m.definition.id)),
+  };
   const service = new MfaAvailability(
     registry,
     overrides as never,
     policies as never,
     users as never,
+    settings as never,
     config as never,
   );
-  return { service, overrides, policies, users };
+  return { service, overrides, policies, users, settings };
 }
 
 const ids = (methods: MfaMethod[]) => methods.map((m) => m.definition.id);
@@ -75,6 +81,13 @@ describe('MfaAvailability（docs/architecture/backend/21-mfa.md §4.1、§5、§
     it('租戶：政策的允許清單再取交集', async () => {
       const { service } = setup({ policy: { ...DEFAULT_MFA_POLICY, allowedMethods: ['email'] } });
       expect(ids(await service.methodsFor('tenant'))).toEqual(['email']);
+    });
+
+    it('需要平台參數而還沒填齊的方式：租戶與平台管理者都不能用（§5.1）', async () => {
+      const { service } = setup({ platformMethods: ['totp', 'hardware'], unconfigured: ['totp'] });
+      expect(ids(await service.methodsFor('tenant'))).toEqual(['email']);
+      expect(ids(service.platformEnabled())).toEqual(['email']);
+      expect(ids(await service.methodsFor('platform'))).toEqual(['hardware']);
     });
 
     it('platformEnabled 只看能給租戶用、平台層開啟的方式', () => {

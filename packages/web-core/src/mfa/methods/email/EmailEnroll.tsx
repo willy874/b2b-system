@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from '../../../locales';
 import { CodeInput } from '../../components/CodeInput';
 import type { MfaEnrollProps } from '../../registry';
-import { useResendCountdown } from './useResendCountdown';
+import { useResendCountdown } from '../shared/useResendCountdown';
 
 /** Email 驗證碼的設定：開始設定時已寄出一封，輸入收到的碼確認收得到。 */
 export default function EmailEnroll({

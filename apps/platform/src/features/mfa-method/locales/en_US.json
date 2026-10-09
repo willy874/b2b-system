@@ -14,6 +14,20 @@
       "default": "Default",
       "on": "On everywhere",
       "off": "Off everywhere"
+    },
+    "unconfigured": "Not configured",
+    "needsSettings": "Fill in its settings to turn it on",
+    "settings": {
+      "open": "Settings",
+      "title": "{{name}} settings",
+      "description": "Platform settings this method needs. It can't be turned on until the required ones are filled in. Saving checks them against the provider.",
+      "save": "Save and check",
+      "saved": "Settings saved.",
+      "secretKept": "Saved (leave blank to keep)",
+      "clear": "Delete settings",
+      "clearTitle": "Delete these settings?",
+      "clearDescription": "The method can't be turned on again until you fill them in. You can't delete them while the method is on.",
+      "cleared": "Settings deleted."
     }
   }
 }

@@ -14,6 +14,20 @@
       "default": "依預設",
       "on": "全平台開啟",
       "off": "全平台關閉"
+    },
+    "unconfigured": "尚未設定參數",
+    "needsSettings": "先填寫參數才能開啟",
+    "settings": {
+      "open": "參數",
+      "title": "{{name}} 的參數",
+      "description": "這個驗證方式需要的平台參數。必填的參數填齊之前，這個方式不能開啟。儲存時會以這些值連線供應商確認可用。",
+      "save": "儲存並檢查",
+      "saved": "已儲存參數。",
+      "secretKept": "已設定（留空沿用）",
+      "clear": "刪除參數",
+      "clearTitle": "要刪除參數嗎？",
+      "clearDescription": "刪除後這個方式不能開啟，直到重新填寫。方式還開著時無法刪除。",
+      "cleared": "已刪除參數。"
     }
   }
 }

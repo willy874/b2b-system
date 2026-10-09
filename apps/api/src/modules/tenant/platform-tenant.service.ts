@@ -16,7 +16,7 @@ import {
 } from '@/core/feature-flags';
 import type { FeatureFlagDefinition } from '@/core/feature-flags';
 import { JobQueue } from '@/core/jobs';
-import { MfaMethodRegistry } from '@/core/mfa';
+import { MfaMethodRegistry, MfaMethodSettings } from '@/core/mfa';
 import { isValidBucketName } from '@/core/storage/object-storage';
 import {
   findTenantFeatureParam,
@@ -180,6 +180,7 @@ export class PlatformTenantService {
     private readonly flags: FeatureFlagService,
     private readonly impacts: TenantFeatureImpacts,
     private readonly mfaMethods: MfaMethodRegistry,
+    private readonly mfaMethodSettings: MfaMethodSettings,
     config: ConfigService<Env, true>,
   ) {
     this.secrets = SecretBox.fromConfig(
@@ -374,6 +375,16 @@ export class PlatformTenantService {
       throw new AppException('VALIDATION_FAILED', {
         fields: Object.fromEntries(unknown.map((id) => [`mfaMethods.${id}`, 'unknown MFA method'])),
       });
+    }
+    // 需要平台參數的方式在填齊之前不能對租戶開啟（§5.1）；關閉或回到預設都可以
+    const unconfigured = Object.entries(overrides)
+      .filter(([id, on]) => {
+        const method = this.mfaMethods.get(id);
+        return on && method !== undefined && !this.mfaMethodSettings.isConfigured(method);
+      })
+      .map(([id]) => id);
+    if (unconfigured.length) {
+      throw new AppException('MFA_METHOD_NOT_CONFIGURED', { methods: unconfigured });
     }
     return knownMfaMethods(overrides, this.mfaMethods);
   }

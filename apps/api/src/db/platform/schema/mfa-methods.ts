@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * MFA 方式的全平台層開關（docs/architecture/backend/21-mfa.md §5、D4）：沒有列 = 不覆寫，規則與 `feature_flag_overrides` 相同。
@@ -33,3 +33,20 @@ export const mfaMethodStats = pgTable('mfa_method_stats', {
 
 export type MfaMethodOverrideRow = typeof mfaMethodOverrides.$inferSelect;
 export type MfaMethodStatsRow = typeof mfaMethodStats.$inferSelect;
+
+/**
+ * MFA 方式的平台參數（docs/architecture/backend/21-mfa.md §5.1）：簡訊供應商的金鑰、Bot token、WebAuthn 的 RP 名稱等。
+ * 一個方式一列；必填參數沒有填齊之前，方式不能開啟。一般欄位存 `values`，機密欄位以 `MFA_SECRET_KEY`
+ * 加密成一段 JSON 存 `secrets_encrypted`（API 只回傳有沒有設定，不回傳值）。
+ */
+export const mfaMethodSettings = pgTable('mfa_method_settings', {
+  method: text('method').primaryKey(),
+  values: jsonb('values').$type<Record<string, string>>().notNull().default({}),
+  secretsEncrypted: text('secrets_encrypted'),
+  /** 樂觀鎖：兩位平台管理者同時改參數時，後送出的要先重新讀取。 */
+  version: integer('version').notNull().default(1),
+  updatedBy: uuid('updated_by'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type MfaMethodSettingsRow = typeof mfaMethodSettings.$inferSelect;

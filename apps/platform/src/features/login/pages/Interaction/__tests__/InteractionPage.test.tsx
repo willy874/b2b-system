@@ -12,17 +12,17 @@ import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
 
-const { details, login, abort, discover, startExternal, publicSettings, verifyMfa } = vi.hoisted(
-  () => ({
+const { details, login, abort, discover, startExternal, publicSettings, verifyMfa, skipEnroll } =
+  vi.hoisted(() => ({
     verifyMfa: vi.fn(),
+    skipEnroll: vi.fn(),
     publicSettings: vi.fn(),
     details: vi.fn(),
     login: vi.fn(),
     abort: vi.fn(),
     discover: vi.fn(),
     startExternal: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock('@/apis/sso-interaction/get-sso-interaction/query', () => ({
   SSO_INTERACTION_QUERY_KEY: 'SSO_INTERACTION_QUERY_KEY',
@@ -56,6 +56,9 @@ vi.mock('@/apis/sso-interaction/discover-sso-interaction/query', () => ({
 vi.mock('@/apis/sso-interaction/verify-mfa-sso-interaction/mutation', () => ({
   getVerifyMfaSsoInteractionMutationOptions: () => ({ mutationFn: verifyMfa }),
 }));
+vi.mock('@/apis/sso-interaction/skip-mfa-enrollment-sso-interaction/mutation', () => ({
+  getSkipMfaEnrollmentSsoInteractionMutationOptions: () => ({ mutationFn: skipEnroll }),
+}));
 vi.mock('@/apis/sso-interaction/start-external-sso-interaction/mutation', () => ({
   getStartExternalSsoInteractionMutationOptions: () => ({ mutationFn: startExternal }),
 }));
@@ -69,6 +72,7 @@ const TENANT_INTERACTION = {
   loginHint: null,
   uiLocales: null,
   tenant: { code: 'acme', name: 'Acme 股份有限公司' },
+  mfaEnroll: null,
 };
 const RESUME = `http://localhost:5175/api/oidc/auth/${UID}`;
 const assign = vi.fn();
@@ -456,5 +460,55 @@ describe('登入互動的第二步（docs/architecture/backend/21-mfa.md §4）'
       'AUTH_MFA_TOO_MANY_ATTEMPTS',
     );
     expect(screen.queryByTestId('login-mfa')).not.toBeInTheDocument();
+  });
+
+  describe('backstage 要求新增安全金鑰（docs/architecture/backend/21-mfa.md §7.1）', () => {
+    const ENROLL_NEXT = {
+      next: 'mfaEnroll' as const,
+      optional: true,
+      methods: [
+        {
+          id: 'totp',
+          challenge: 'none' as const,
+          enrollChallenge: 'immediate' as const,
+          enrollAt: 'anywhere' as const,
+          assurance: 'possession' as const,
+          maxFactorsPerAccount: 5,
+        },
+      ],
+    };
+
+    it('互動帶 mfaEnroll → 先說明為什麼要重新驗證', async () => {
+      details.mockResolvedValue({ ...TENANT_INTERACTION, mfaEnroll: 'webauthn' });
+      renderInteraction();
+      expect(await screen.findByTestId('login-mfa-enroll-notice')).toHaveAttribute(
+        'data-value',
+        'webauthn',
+      );
+    });
+
+    it('第二步通過後換成可略過的設定；略過 → 頂層跳轉', async () => {
+      login.mockResolvedValue(MFA_NEXT);
+      verifyMfa.mockResolvedValue(ENROLL_NEXT);
+      skipEnroll.mockReset().mockResolvedValue({ redirectTo: RESUME });
+      await submitPassword();
+      fireEvent.change(await screen.findByTestId('mfa-code'), { target: { value: '123456' } });
+      fireEvent.click(screen.getByTestId('mfa-submit'));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('login-mfa')).toHaveAttribute('data-value', 'mfaEnroll'),
+      );
+      expect(assign).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId('mfa-enroll-cancel'));
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(RESUME));
+      expect(skipEnroll.mock.calls[0]?.[0]).toEqual({ params: { uid: UID } });
+    });
+
+    it('政策要求的首次設定沒有略過鈕', async () => {
+      login.mockResolvedValue({ ...ENROLL_NEXT, optional: false });
+      await submitPassword();
+      expect(await screen.findByTestId('login-mfa')).toHaveAttribute('data-value', 'mfaEnroll');
+      expect(screen.queryByTestId('mfa-enroll-cancel')).not.toBeInTheDocument();
+    });
   });
 });

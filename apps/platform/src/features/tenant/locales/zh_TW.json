@@ -226,7 +226,8 @@
     "mfa": {
       "title": "MFA 驗證方式",
       "description": "這個租戶可以用的多重驗證方式。「依全平台」跟著平台管理的設定；全平台緊急關閉的方式一律關。",
-      "killed": "全平台已緊急關閉"
+      "killed": "全平台已緊急關閉",
+      "unconfigured": "平台參數尚未設定，不能開啟"
     },
     "usage": {
       "snapshotAt": "{{time}} 更新",

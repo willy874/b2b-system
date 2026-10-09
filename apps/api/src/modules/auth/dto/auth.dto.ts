@@ -164,6 +164,11 @@ export const SsoInteractionSchema = defineSchema(
      * （docs/architecture/05-tenancy.md §10.2 D8）。
      */
     tenant: z.object({ code: z.string(), name: z.string() }).nullable(),
+    /**
+     * 產品要求登入後新增的驗證方式（backstage 的「新增通行金鑰」，docs/architecture/backend/21-mfa.md §7.1）；
+     * 互動頁據此顯示「先驗證身分」的說明。沒有是 `null`。
+     */
+    mfaEnroll: z.string().nullable(),
   }),
 );
 

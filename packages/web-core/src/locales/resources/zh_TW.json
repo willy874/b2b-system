@@ -324,7 +324,13 @@
     "DATA_TRANSFER_TOO_MANY_ROWS": "資料超過一次可處理的列數上限，請分成多個檔案。",
     "DATA_TRANSFER_FILE_UNREADABLE": "無法讀取這個檔案。請確認是 CSV 或 XLSX、沒有加密，而且第一列是標頭。",
     "DATA_TRANSFER_EXPIRED": "這筆匯入或匯出已過保留期限，檔案已清除。",
-    "DATA_TRANSFER_LIMIT_EXCEEDED": "進行中的匯入匯出太多，請等目前的完成後再試。"
+    "DATA_TRANSFER_LIMIT_EXCEEDED": "進行中的匯入匯出太多，請等目前的完成後再試。",
+    "AUTH_MFA_ENROLL_REQUIRED": "你的帳號必須設定驗證方式，不能略過。",
+    "MFA_METHOD_NOT_CONFIGURED": "這種驗證方式的參數還沒填齊，不能開啟。請先到「驗證方式」頁設定參數。",
+    "MFA_METHOD_SETTINGS_CHECK_FAILED": "參數檢查沒有通過，請確認各欄位。",
+    "MFA_METHOD_SETTINGS_VERSION_CONFLICT": "參數已被別人修改，請重新整理後再改。",
+    "MFA_METHOD_SETTINGS_IN_USE": "這種驗證方式還開著，請先關閉再刪除參數。",
+    "MFA_CHANNEL_NOT_LINKED": "還沒收到綁定碼。請先在通訊軟體傳送綁定碼給 Bot，再傳送驗證碼。"
   },
   "validation": {
     "required": "請填寫這個欄位",
@@ -516,6 +522,94 @@
       "email": {
         "label": "Email 驗證碼",
         "description": "登入時寄 6 位數驗證碼到帳號的 email"
+      },
+      "webauthn": {
+        "label": "安全金鑰／通行金鑰",
+        "description": "以 YubiKey 等實體金鑰，或裝置上的指紋、臉部辨識登入；能防止釣魚網站",
+        "settings": {
+          "rpName": {
+            "label": "顯示名稱",
+            "description": "瀏覽器在建立通行金鑰時顯示的服務名稱。"
+          },
+          "rpId": {
+            "label": "RP ID（網域）",
+            "description": "憑證綁定的網域；留空 = 帳號中心（apps/platform）的網域。只能是該網域或它的上層網域，設定後再改會讓既有的金鑰無法使用。"
+          },
+          "userVerification": {
+            "label": "使用者驗證",
+            "description": "required：一定要指紋、臉部辨識或 PIN；preferred：裝置支援時要求；discouraged：只要觸碰金鑰。"
+          },
+          "authenticatorAttachment": {
+            "label": "允許的驗證器",
+            "description": "any：都可以；platform：只允許裝置內建（Touch ID、Windows Hello）；crossPlatform：只允許實體金鑰。"
+          }
+        }
+      },
+      "sms": {
+        "label": "簡訊驗證碼",
+        "description": "登入時以簡訊傳送 6 位數驗證碼到手機",
+        "settings": {
+          "provider": {
+            "label": "簡訊供應商",
+            "description": "twilio：Twilio；webhook：自訂的簡訊閘道（以 HMAC 簽章的 HTTP POST）。"
+          },
+          "twilioAccountSid": {
+            "label": "Twilio Account SID",
+            "description": "AC 開頭的 34 個字元。"
+          },
+          "twilioAuthToken": {
+            "label": "Twilio Auth Token",
+            "description": "儲存後不再顯示。"
+          },
+          "twilioFrom": {
+            "label": "寄件者",
+            "description": "E.164 號碼（+1…）、Messaging Service SID（MG…）或英數的寄件者名稱。"
+          },
+          "webhookUrl": {
+            "label": "閘道網址",
+            "description": "正式環境必須是 https，且不能是內部網路的位址。儲存時會送出一個 ping 測試。"
+          },
+          "webhookSecret": {
+            "label": "簽章密鑰",
+            "description": "以 HMAC-SHA256 簽章（X-B2B-Signature: v1=…，內容是「timestamp.body」）。"
+          },
+          "allowedCountryCodes": {
+            "label": "允許的國碼",
+            "description": "以逗號分隔（例：886,852）；只會傳送到這些國碼的號碼，防止被濫用灌簡訊。"
+          }
+        }
+      },
+      "telegram": {
+        "label": "Telegram",
+        "description": "登入時由 Telegram Bot 傳送 6 位數驗證碼",
+        "settings": {
+          "botToken": {
+            "label": "Bot token",
+            "description": "向 @BotFather 建立 Bot 後取得。儲存時會自動把 Bot 的 webhook 指向本服務。"
+          },
+          "botUsername": {
+            "label": "Bot username",
+            "description": "儲存時自動取得，不必填寫。"
+          }
+        }
+      },
+      "line": {
+        "label": "LINE",
+        "description": "登入時由 LINE 官方帳號傳送 6 位數驗證碼",
+        "settings": {
+          "channelAccessToken": {
+            "label": "Channel access token",
+            "description": "LINE Developers 的 Messaging API 頁面發行的長效 token。"
+          },
+          "channelSecret": {
+            "label": "Channel secret",
+            "description": "用來驗證 webhook 的簽章。儲存時會自動設定 webhook 網址。"
+          },
+          "botBasicId": {
+            "label": "官方帳號 ID",
+            "description": "儲存時自動取得，不必填寫。"
+          }
+        }
       }
     },
     "factor": {
@@ -529,7 +623,8 @@
       "choose": "選擇要設定的驗證方式：",
       "noMethods": "目前沒有可以設定的驗證方式。",
       "confirm": "確認並啟用",
-      "back": "改用其他方式"
+      "back": "改用其他方式",
+      "elsewhere": "會前往帳號中心重新登入後設定"
     },
     "challenge": {
       "title": "多重驗證",
@@ -600,6 +695,79 @@
       "resend": "重新寄送",
       "resendIn_other": "{{count}} 秒後可以重新寄送",
       "delayHint": "信件可能需要一分鐘才會送達；也請檢查垃圾郵件匣。"
+    },
+    "sms": {
+      "enterPhone": "輸入要接收驗證碼的手機號碼。",
+      "countryCode": "國碼",
+      "phone": "手機號碼",
+      "willSendTo": "會傳送到 {{phone}}",
+      "sendCode": "傳送驗證碼",
+      "sentTo": "驗證碼已傳送到 {{address}}。",
+      "willSend": "按下按鈕後，驗證碼會以簡訊傳送到 {{address}}。",
+      "send": "傳送簡訊",
+      "resend": "重新傳送",
+      "resendIn_other": "{{count}} 秒後可以重新傳送",
+      "delayHint": "簡訊可能需要一分鐘才會送達。"
+    },
+    "telegram": {
+      "sendLinkCode": "在 Telegram 開啟 {{bot}}，傳送綁定碼（掃描 QR code 或點下方按鈕會自動帶入）。",
+      "thenRequest": "完成後回到這裡，按「已完成綁定，傳送驗證碼」。",
+      "open": "在 Telegram 開啟",
+      "sentTo": "驗證碼已由 Telegram 傳送給 {{address}}。",
+      "willSend": "按下按鈕後，驗證碼會由 Telegram 傳送給 {{address}}。",
+      "send": "傳送驗證碼",
+      "resend": "重新傳送",
+      "resendIn_other": "{{count}} 秒後可以重新傳送",
+      "delayHint": "請查看 Telegram 的訊息。"
+    },
+    "line": {
+      "sendLinkCode": "在 LINE 開啟 {{bot}}，傳送綁定碼（掃描 QR code 或點下方按鈕會自動帶入）。",
+      "thenRequest": "完成後回到這裡，按「已完成綁定，傳送驗證碼」。",
+      "open": "在 LINE 開啟",
+      "sentTo": "驗證碼已由 LINE 傳送給 {{address}}。",
+      "willSend": "按下按鈕後，驗證碼會由 LINE 傳送給 {{address}}。",
+      "send": "傳送驗證碼",
+      "resend": "重新傳送",
+      "resendIn_other": "{{count}} 秒後可以重新傳送",
+      "delayHint": "請查看 LINE 的訊息。",
+      "addFriend": "先將 {{bot}} 加入好友。",
+      "addFriendLink": "加入好友"
+    },
+    "messaging": {
+      "qrAlt": "用手機掃描以開啟通訊軟體的 QR code",
+      "manual": "也可以手動傳送：",
+      "linked": "已完成綁定，傳送驗證碼"
+    },
+    "webauthn": {
+      "enrollIntro": "按下按鈕後，依瀏覽器的提示插入並觸碰安全金鑰，或以指紋、臉部辨識建立通行金鑰。",
+      "label": "名稱",
+      "labelHint": "例如「YubiKey」或「MacBook」，有多把金鑰時方便分辨。",
+      "defaultLabel": "安全金鑰",
+      "register": "新增安全金鑰",
+      "useKey": "使用「{{name}}」驗證。",
+      "authenticate": "使用安全金鑰",
+      "unsupported": "這個瀏覽器不支援安全金鑰，請改用其他瀏覽器或驗證方式。",
+      "cancelled": "已取消或逾時，請再試一次。",
+      "alreadyRegistered": "這把金鑰已經註冊過了。",
+      "failed": "無法完成驗證，請再試一次。",
+      "retry": "已重新準備，請再按一次。"
+    },
+    "settings": {
+      "error": {
+        "MFA_SETTING_REQUIRED": "必填",
+        "MFA_SETTING_INVALID_OPTION": "不是可選的值",
+        "MFA_SETTING_TOO_LONG": "太長了",
+        "MFA_SETTING_INVALID_URL": "網址格式不正確（正式環境必須是 https）",
+        "MFA_SETTING_INVALID_FORMAT": "格式不正確",
+        "MFA_SETTING_REJECTED": "供應商拒絕了這個值，請確認是否正確",
+        "MFA_SETTING_PRIVATE_ADDRESS": "不能是內部網路的位址",
+        "MFA_SETTING_UNRESOLVABLE": "找不到這個網域",
+        "MFA_SETTING_UNKNOWN": "不認得的欄位",
+        "MFA_WEBAUTHN_RPID_MISMATCH": "必須是帳號中心的網域或它的上層網域",
+        "MFA_PROVIDER_UNREACHABLE": "連不上供應商，請確認網路與網址。",
+        "MFA_PROVIDER_ERROR": "供應商回傳錯誤，請稍後再試。",
+        "MFA_MESSAGING_WEBHOOK_REJECTED": "無法設定 Bot 的 webhook，請確認 token 的權限。"
+      }
     }
   },
   "notificationRow": {

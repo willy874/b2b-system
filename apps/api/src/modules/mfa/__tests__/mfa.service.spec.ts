@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 import type { AuthUser } from '@/common/types';
 import { AppException } from '@/core/errors';
@@ -133,6 +134,7 @@ describe('MfaService（docs/architecture/backend/21-mfa.md §1、§7、§8）', 
     expect(methodInfoOf(method('totp'))).toEqual({
       id: 'totp',
       challenge: 'none',
+      enrollChallenge: 'immediate',
       enrollAt: 'anywhere',
       assurance: 'possession',
       maxFactorsPerAccount: 5,
@@ -423,6 +425,7 @@ describe('MfaService（docs/architecture/backend/21-mfa.md §1、§7、§8）', 
         hint: 't***@example.com',
         expiresAt: new Date(NOW.getTime() + 600_000).toISOString(),
         resendAvailableAt: new Date(NOW.getTime() + 60_000).toISOString(),
+        publicData: null,
       });
     });
   });
@@ -1005,5 +1008,150 @@ describe('MfaService（docs/architecture/backend/21-mfa.md §1、§7、§8）', 
       expect(availability.methodsFor).toHaveBeenCalledWith('platform');
       expect(methods.map((m) => m.definition.id)).toContain('hardware');
     });
+  });
+});
+
+describe('MfaService：新方式需要的框架行為（docs/architecture/backend/21-mfa.md §2）', () => {
+  const NOW_TEST = new Date('2026-10-09T08:00:00.000Z');
+  beforeEach(() => vi.useFakeTimers({ now: NOW_TEST }));
+  afterEach(() => vi.useRealTimers());
+
+  function build() {
+    const sms = method(
+      'sms',
+      { challenge: 'server' },
+      {
+        enrollSchema: z.object({ phone: z.string().regex(/^\+\d{8,15}$/) }),
+        beginEnrollment: vi.fn(async (_ctx, input: unknown) => ({
+          secret: (input as { phone: string }).phone,
+          publicData: {},
+        })),
+        startChallenge: vi.fn(async () => ({
+          state: {},
+          expiresInSeconds: 600,
+          resendAfterSeconds: 60,
+        })),
+      },
+    );
+    const telegram = method(
+      'telegram',
+      { challenge: 'server', enrollChallenge: 'onRequest' },
+      {
+        startChallenge: vi.fn(async () => ({
+          state: {},
+          expiresInSeconds: 600,
+          resendAfterSeconds: 60,
+        })),
+      },
+    );
+    const webauthn = method(
+      'webauthn',
+      { challenge: 'server' },
+      {
+        startChallenge: vi.fn(async () => ({
+          state: { challenge: 'abc' },
+          expiresInSeconds: 300,
+          resendAfterSeconds: 0,
+          publicData: { options: { challenge: 'abc' } },
+        })),
+        verify: vi.fn(async () => ({
+          ok: true as const,
+          factorUpdate: { config: { credentialId: 'cred' }, secret: 'chat-1' },
+        })),
+      },
+    );
+    const registry = registryOf(sms, telegram, webauthn);
+    const secrets = { encrypt: vi.fn((plain: string) => `enc:${plain}`) };
+    const availability = {
+      methodsFor: vi.fn(async (realm: MfaRealm) => registry.list(realm)),
+      isRequired: vi.fn(async () => false),
+    };
+    const tenant = fakeStore('tenant');
+    const service = new MfaService(
+      registry,
+      secrets as never,
+      availability as never,
+      { securityChanged: vi.fn(async () => undefined) } as never,
+      tenant.asStore as never,
+      fakeStore('platform').asStore as never,
+      { bind: vi.fn() } as never,
+    );
+    return { service, tenant, sms, telegram, webauthn };
+  }
+
+  it('enrollSchema 不通過 → VALIDATION_FAILED（fields.input.<key>），不呼叫方式', async () => {
+    const { service, sms } = build();
+    const error = await rejection(
+      service.startEnrollment('tenant', USER_ID, 'sms', null, { phone: '09' }),
+    );
+    expect(error.code).toBe('VALIDATION_FAILED');
+    expect(Object.keys((error.details as { fields: object }).fields)).toEqual(['input.phone']);
+    expect(sms.beginEnrollment).not.toHaveBeenCalled();
+  });
+
+  it('enrollSchema 通過 → 解析後的資料交給 beginEnrollment，機密加密存放，立即發出 challenge', async () => {
+    const { service, sms, tenant } = build();
+    const result = await service.startEnrollment('tenant', USER_ID, 'sms', null, {
+      phone: '+886912345678',
+    });
+    expect(sms.beginEnrollment).toHaveBeenCalledWith(expect.anything(), { phone: '+886912345678' });
+    expect(tenant.repo.insertFactor).toHaveBeenCalledWith(
+      expect.objectContaining({ secretEncrypted: 'enc:+886912345678' }),
+      tenant.tx,
+    );
+    expect(result.challenge).not.toBeNull();
+  });
+
+  it('enrollChallenge = onRequest → 開始設定時不發 challenge（通訊軟體要先綁定）', async () => {
+    const { service, telegram } = build();
+    const result = await service.startEnrollment('tenant', USER_ID, 'telegram');
+    expect(result.challenge).toBeNull();
+    expect(telegram.startChallenge).not.toHaveBeenCalled();
+  });
+
+  it('challenge 的 publicData（WebAuthn 的 options）回給前端', async () => {
+    const { service } = build();
+    const result = await service.startEnrollment('tenant', USER_ID, 'webauthn');
+    expect(result.challenge?.publicData).toEqual({ options: { challenge: 'abc' } });
+  });
+
+  it('確認設定時套用方式給的更新：config 合併、secret 加密', async () => {
+    const { service, tenant } = build();
+    const pendingFactor = factor({
+      method: 'webauthn',
+      status: 'pending',
+      config: { linkId: 'l1' },
+    });
+    tenant.repo.findFactor.mockResolvedValue(pendingFactor);
+    tenant.repo.findChallenge.mockResolvedValue(
+      challenge({ factorId: pendingFactor.id, purpose: 'enroll', state: { challenge: 'abc' } }),
+    );
+    tenant.repo.listFactors.mockResolvedValue([{ ...pendingFactor, status: 'active' }]);
+    await service.confirmEnrollment('tenant', USER_ID, pendingFactor.id, {
+      challengeId: 'challenge-1',
+      payload: { code: 'x' },
+    });
+    expect(tenant.repo.activateFactor).toHaveBeenCalledWith(
+      pendingFactor.id,
+      {
+        label: null,
+        lastUsedCounter: null,
+        config: { linkId: 'l1', credentialId: 'cred' },
+        secretEncrypted: 'enc:chat-1',
+      },
+      tenant.tx,
+    );
+  });
+
+  it('給方式的脈絡可以列出帳號 active 的因子（WebAuthn 排除已註冊的憑證）', async () => {
+    const { service, tenant } = build();
+    tenant.repo.listFactors.mockResolvedValue([
+      factor({ id: 'a', method: 'webauthn' }),
+      factor({ id: 'b', method: 'webauthn', status: 'pending' }),
+      factor({ id: 'c', method: 'totp' }),
+    ]);
+    const ctx = service.context(tenant.asStore, account());
+    expect((await ctx.activeFactors('webauthn')).map((row) => row.id)).toEqual(['a']);
+    expect((await ctx.activeFactors()).map((row) => row.id)).toEqual(['a', 'c']);
   });
 });

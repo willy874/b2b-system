@@ -137,13 +137,16 @@ import type {
   MfaInteractionEnrollmentResult,
   MfaLoginChallengeRequest,
   MfaLoginVerifyRequest,
+  MfaLoginVerifyResult,
   MfaMethodImpact,
   MfaMethodInfo,
+  MfaMethodSettings,
   MfaOverview,
   MfaPasswordConfirmRequest,
   MfaPolicy,
   MfaPolicyImpact,
   MfaRecoveryCodes,
+  MfaSettingField,
   MoveFileItemsRequest,
   MoveFileItemsResult,
   MoveOrgUnitRequest,
@@ -263,6 +266,7 @@ import type {
   UpdateGroupRequest,
   UpdateGroupRolesRequest,
   UpdateIdentityProviderRequest,
+  UpdateMfaMethodSettingsRequest,
   UpdateMfaPolicyRequest,
   UpdateNotificationEventsRequest,
   UpdateNotificationPreferencesRequest,
@@ -2474,8 +2478,9 @@ export const SsoRedirectSchema = z.object({
 export const MfaMethodInfoSchema = z.object({
   id: z.string(),
   challenge: z.enum(['none', 'server']),
+  enrollChallenge: z.enum(['immediate', 'onRequest']),
   enrollAt: z.enum(['anywhere', 'idp']),
-  assurance: z.enum(['possession', 'inbox']),
+  assurance: z.enum(['phishingResistant', 'possession', 'messaging', 'inbox']),
   maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<MfaMethodInfo>;
 
@@ -2502,8 +2507,9 @@ export const MfaOverviewSchema = z.object({
     z.object({
       id: z.string(),
       challenge: z.enum(['none', 'server']),
+      enrollChallenge: z.enum(['immediate', 'onRequest']),
       enrollAt: z.enum(['anywhere', 'idp']),
-      assurance: z.enum(['possession', 'inbox']),
+      assurance: z.enum(['phishingResistant', 'possession', 'messaging', 'inbox']),
       maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
       enrolled: z.int().min(-9007199254740991).max(9007199254740991),
     }),
@@ -2513,6 +2519,7 @@ export const MfaOverviewSchema = z.object({
 
 export const StartMfaEnrollmentRequestSchema = z.object({
   method: z.string().min(1).max(64),
+  input: z.record(z.string(), z.unknown()).optional(),
 }) satisfies z.ZodType<StartMfaEnrollmentRequest>;
 
 export const MfaChallengeInfoSchema = z.object({
@@ -2526,6 +2533,7 @@ export const MfaChallengeInfoSchema = z.object({
   hint: z.string().nullable(),
   expiresAt: z.string(),
   resendAvailableAt: z.string(),
+  publicData: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<MfaChallengeInfo>;
 
 export const MfaEnrollmentSchema = z.object({
@@ -2619,7 +2627,13 @@ export const SsoMfaChallengeNextSchema = z.object({
 export const SsoMfaEnrollNextSchema = z.object({
   next: z.enum(['mfaEnroll']),
   methods: z.array(MfaMethodInfoSchema),
+  optional: z.boolean(),
 }) satisfies z.ZodType<SsoMfaEnrollNext>;
+
+export const MfaLoginVerifyResultSchema = z.union([
+  SsoRedirectSchema,
+  SsoMfaEnrollNextSchema,
+]) satisfies z.ZodType<MfaLoginVerifyResult>;
 
 export const SsoLoginResultSchema = z.union([
   SsoRedirectSchema,
@@ -2647,8 +2661,9 @@ export const MfaPolicySchema = z.object({
     z.object({
       id: z.string(),
       challenge: z.enum(['none', 'server']),
+      enrollChallenge: z.enum(['immediate', 'onRequest']),
       enrollAt: z.enum(['anywhere', 'idp']),
-      assurance: z.enum(['possession', 'inbox']),
+      assurance: z.enum(['phishingResistant', 'possession', 'messaging', 'inbox']),
       maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
       platformEnabled: z.boolean(),
     }),
@@ -2678,12 +2693,34 @@ export const MfaPolicyImpactSchema = z.object({
   stranded: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<MfaPolicyImpact>;
 
+export const MfaSettingFieldSchema = z.object({
+  key: z.string(),
+  type: z.enum(['text', 'url', 'secret', 'select']),
+  required: z.boolean(),
+  requiredWhen: z
+    .object({
+      key: z.string(),
+      equals: z.string(),
+    })
+    .optional(),
+  options: z.array(z.string()).optional(),
+  defaultValue: z.string().optional(),
+  maxLength: z.int().min(-9007199254740991).max(9007199254740991).optional(),
+}) satisfies z.ZodType<MfaSettingField>;
+
 export const PlatformMfaMethodSchema = z.object({
   id: z.string(),
   challenge: z.enum(['none', 'server']),
+  enrollChallenge: z.enum(['immediate', 'onRequest']),
   enrollAt: z.enum(['anywhere', 'idp']),
-  assurance: z.enum(['possession', 'inbox']),
+  assurance: z.enum(['phishingResistant', 'possession', 'messaging', 'inbox']),
   maxFactorsPerAccount: z.int().min(-9007199254740991).max(9007199254740991),
+  settings: z
+    .object({
+      fields: z.array(MfaSettingFieldSchema),
+      configured: z.boolean(),
+    })
+    .nullable(),
   realms: z.array(z.enum(['tenant', 'platform'])),
   defaultEnabled: z.boolean(),
   globalState: z.enum(['default', 'on', 'off']),
@@ -2710,6 +2747,21 @@ export const PlatformMfaMethodListSchema = z.object({
 export const UpdatePlatformMfaMethodRequestSchema = z.object({
   state: z.enum(['default', 'on', 'off']),
 }) satisfies z.ZodType<UpdatePlatformMfaMethodRequest>;
+
+export const MfaMethodSettingsSchema = z.object({
+  method: z.string(),
+  values: z.record(z.string(), z.string()),
+  secrets: z.record(z.string(), z.boolean()),
+  configured: z.boolean(),
+  version: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  updatedAt: z.string().nullable(),
+}) satisfies z.ZodType<MfaMethodSettings>;
+
+export const UpdateMfaMethodSettingsRequestSchema = z.object({
+  values: z.record(z.string(), z.string().max(2000)),
+  secrets: z.record(z.string(), z.string().max(4000)),
+  version: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+}) satisfies z.ZodType<UpdateMfaMethodSettingsRequest>;
 
 export const MfaMethodImpactSchema = z.object({
   stranded: z.int().min(-9007199254740991).max(9007199254740991),
@@ -3082,6 +3134,7 @@ export const SsoInteractionSchema = z.object({
       name: z.string(),
     })
     .nullable(),
+  mfaEnroll: z.string().nullable(),
 }) satisfies z.ZodType<SsoInteraction>;
 
 export const SsoDiscoverySchema = z.object({
@@ -3819,7 +3872,10 @@ export const TenantJobNameSchema = z.enum([
   'file.maintenance',
   'mfa.cleanup',
   'mfa.emailCodeMail',
+  'mfa.lineCode',
   'mfa.securityNoticeMail',
+  'mfa.smsCode',
+  'mfa.telegramCode',
   'notification.cleanup',
   'revision.prune',
   'trash.purge',
@@ -3845,13 +3901,20 @@ export const JobNameSchema = z.enum([
   'file.imageVariants',
   'file.maintenance',
   'jobs.outboxSweep',
+  'mfa.channelLinkCleanup',
   'mfa.cleanup',
   'mfa.emailCodeMail',
   'mfa.factorStats',
+  'mfa.lineCode',
   'mfa.platformCleanup',
   'mfa.platformEmailCodeMail',
+  'mfa.platformLineCode',
   'mfa.platformSecurityNoticeMail',
+  'mfa.platformSmsCode',
+  'mfa.platformTelegramCode',
   'mfa.securityNoticeMail',
+  'mfa.smsCode',
+  'mfa.telegramCode',
   'notification.cleanup',
   'oidc.cleanup',
   'platformAdmin.accountMail',

@@ -12,6 +12,7 @@ import type {
   MfaInteractionEnrollmentResult,
   MfaLoginChallengeRequest,
   MfaLoginVerifyRequest,
+  MfaLoginVerifyResult,
   MfaOverview,
   MfaPasswordConfirmRequest,
   MfaRecoveryCodes,
@@ -81,7 +82,7 @@ export interface MfaInteractionControllerVerifyInput {
 
 export interface MfaInteractionControllerVerifyResponses {
   200: {
-    data: SsoRedirect;
+    data: MfaLoginVerifyResult;
   };
 }
 
@@ -129,6 +130,36 @@ export function getMfaInteractionControllerStartEnrollmentUrl(
   path: MfaInteractionControllerStartEnrollmentPathParams,
 ): string {
   return buildUrl('/oidc-interaction/{uid}/mfa/enroll', path);
+}
+
+// POST /oidc-interaction/{uid}/mfa/enroll/skip
+
+export interface MfaInteractionControllerSkipEnrollmentPathParams {
+  uid: string;
+}
+
+export interface MfaInteractionControllerSkipEnrollmentInput {
+  path: MfaInteractionControllerSkipEnrollmentPathParams;
+}
+
+export interface MfaInteractionControllerSkipEnrollmentResponses {
+  200: {
+    data: SsoRedirect;
+  };
+}
+
+export type MfaInteractionControllerSkipEnrollmentResponse =
+  MfaInteractionControllerSkipEnrollmentResponses[200];
+
+export type MfaInteractionControllerSkipEnrollmentResult = ApiResponse<
+  200,
+  MfaInteractionControllerSkipEnrollmentResponses[200]
+>;
+
+export function getMfaInteractionControllerSkipEnrollmentUrl(
+  path: MfaInteractionControllerSkipEnrollmentPathParams,
+): string {
+  return buildUrl('/oidc-interaction/{uid}/mfa/enroll/skip', path);
 }
 
 // POST /oidc-interaction/{uid}/mfa/enroll/{factorId}/challenge

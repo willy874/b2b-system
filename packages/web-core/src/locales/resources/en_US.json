@@ -340,7 +340,13 @@
     "DATA_TRANSFER_TOO_MANY_ROWS": "There are more rows than can be processed at once. Split the data into several files.",
     "DATA_TRANSFER_FILE_UNREADABLE": "The file can't be read. Make sure it is CSV or XLSX, not encrypted, and the first row is a header.",
     "DATA_TRANSFER_EXPIRED": "This import or export has expired and its files were removed.",
-    "DATA_TRANSFER_LIMIT_EXCEEDED": "You have too many imports or exports in progress. Wait for one to finish."
+    "DATA_TRANSFER_LIMIT_EXCEEDED": "You have too many imports or exports in progress. Wait for one to finish.",
+    "AUTH_MFA_ENROLL_REQUIRED": "Your account must set up a verification method; it can't be skipped.",
+    "MFA_METHOD_NOT_CONFIGURED": "This method's settings aren't complete, so it can't be turned on. Fill in its settings first.",
+    "MFA_METHOD_SETTINGS_CHECK_FAILED": "The settings didn't pass the check. Review the fields.",
+    "MFA_METHOD_SETTINGS_VERSION_CONFLICT": "Someone else changed these settings. Refresh and try again.",
+    "MFA_METHOD_SETTINGS_IN_USE": "This method is still on. Turn it off before deleting its settings.",
+    "MFA_CHANNEL_NOT_LINKED": "We haven't received your link code yet. Send it to the bot in the app, then request a code."
   },
   "validation": {
     "required": "This field is required",
@@ -538,6 +544,94 @@
       "email": {
         "label": "Email code",
         "description": "Send a 6-digit code to your account email when you sign in"
+      },
+      "webauthn": {
+        "label": "Security key / passkey",
+        "description": "Sign in with a hardware key like YubiKey, or your device's fingerprint or face unlock. Resists phishing.",
+        "settings": {
+          "rpName": {
+            "label": "Display name",
+            "description": "The service name browsers show when creating a passkey."
+          },
+          "rpId": {
+            "label": "RP ID (domain)",
+            "description": "The domain credentials are bound to. Blank = the account center (apps/platform) domain. Must be that domain or a parent; changing it later breaks existing keys."
+          },
+          "userVerification": {
+            "label": "User verification",
+            "description": "required: always fingerprint, face or PIN; preferred: when supported; discouraged: touch only."
+          },
+          "authenticatorAttachment": {
+            "label": "Allowed authenticators",
+            "description": "any; platform: built-in only (Touch ID, Windows Hello); crossPlatform: hardware keys only."
+          }
+        }
+      },
+      "sms": {
+        "label": "SMS code",
+        "description": "Text a 6-digit code to your phone when you sign in",
+        "settings": {
+          "provider": {
+            "label": "SMS provider",
+            "description": "twilio: Twilio; webhook: your own SMS gateway (HMAC-signed HTTP POST)."
+          },
+          "twilioAccountSid": {
+            "label": "Twilio Account SID",
+            "description": "34 characters starting with AC."
+          },
+          "twilioAuthToken": {
+            "label": "Twilio Auth Token",
+            "description": "Not shown again after saving."
+          },
+          "twilioFrom": {
+            "label": "Sender",
+            "description": "E.164 number (+1…), Messaging Service SID (MG…), or an alphanumeric sender ID."
+          },
+          "webhookUrl": {
+            "label": "Gateway URL",
+            "description": "Must be https and public in production. A ping is sent when you save."
+          },
+          "webhookSecret": {
+            "label": "Signing secret",
+            "description": "HMAC-SHA256 signature (X-B2B-Signature: v1=…, over \"timestamp.body\")."
+          },
+          "allowedCountryCodes": {
+            "label": "Allowed country codes",
+            "description": "Comma separated (e.g. 1,44). Codes are only sent to these countries to prevent SMS pumping."
+          }
+        }
+      },
+      "telegram": {
+        "label": "Telegram",
+        "description": "A Telegram bot sends a 6-digit code when you sign in",
+        "settings": {
+          "botToken": {
+            "label": "Bot token",
+            "description": "From @BotFather. Saving points the bot's webhook at this service."
+          },
+          "botUsername": {
+            "label": "Bot username",
+            "description": "Filled in automatically when you save."
+          }
+        }
+      },
+      "line": {
+        "label": "LINE",
+        "description": "A LINE official account sends a 6-digit code when you sign in",
+        "settings": {
+          "channelAccessToken": {
+            "label": "Channel access token",
+            "description": "Long-lived token issued on the Messaging API page in LINE Developers."
+          },
+          "channelSecret": {
+            "label": "Channel secret",
+            "description": "Verifies webhook signatures. Saving sets the webhook URL automatically."
+          },
+          "botBasicId": {
+            "label": "Official account ID",
+            "description": "Filled in automatically when you save."
+          }
+        }
       }
     },
     "factor": {
@@ -551,7 +645,8 @@
       "choose": "Choose a verification method to set up:",
       "noMethods": "No verification methods are available.",
       "confirm": "Confirm and enable",
-      "back": "Use another method"
+      "back": "Use another method",
+      "elsewhere": "You'll sign in again at the account center to set it up"
     },
     "challenge": {
       "title": "Multi-factor authentication",
@@ -624,6 +719,82 @@
       "resendIn_one": "Resend in {{count}} second",
       "resendIn_other": "Resend in {{count}} seconds",
       "delayHint": "The email may take up to a minute to arrive. Check your spam folder too."
+    },
+    "sms": {
+      "enterPhone": "Enter the mobile number that will receive codes.",
+      "countryCode": "Country code",
+      "phone": "Mobile number",
+      "willSendTo": "We'll text {{phone}}",
+      "sendCode": "Send code",
+      "sentTo": "We texted a code to {{address}}.",
+      "willSend": "We'll text a code to {{address}}.",
+      "send": "Send text",
+      "resend": "Resend",
+      "resendIn_one": "Resend in {{count}} second",
+      "resendIn_other": "Resend in {{count}} seconds",
+      "delayHint": "Texts can take a minute to arrive."
+    },
+    "telegram": {
+      "sendLinkCode": "Open {{bot}} in Telegram and send the link code (scanning the QR code or the button below fills it in).",
+      "thenRequest": "Then come back and choose “I've linked it, send a code”.",
+      "open": "Open in Telegram",
+      "sentTo": "We sent a code to {{address}} on Telegram.",
+      "willSend": "We'll send a code to {{address}} on Telegram.",
+      "send": "Send code",
+      "resend": "Resend",
+      "resendIn_one": "Resend in {{count}} second",
+      "resendIn_other": "Resend in {{count}} seconds",
+      "delayHint": "Check your Telegram messages."
+    },
+    "line": {
+      "sendLinkCode": "Open {{bot}} in LINE and send the link code (scanning the QR code or the button below fills it in).",
+      "thenRequest": "Then come back and choose “I've linked it, send a code”.",
+      "open": "Open in LINE",
+      "sentTo": "We sent a code to {{address}} on LINE.",
+      "willSend": "We'll send a code to {{address}} on LINE.",
+      "send": "Send code",
+      "resend": "Resend",
+      "resendIn_one": "Resend in {{count}} second",
+      "resendIn_other": "Resend in {{count}} seconds",
+      "delayHint": "Check your LINE messages.",
+      "addFriend": "Add {{bot}} as a friend first.",
+      "addFriendLink": "Add friend"
+    },
+    "messaging": {
+      "qrAlt": "QR code to open the messaging app on your phone",
+      "manual": "Or send this manually:",
+      "linked": "I've linked it, send a code"
+    },
+    "webauthn": {
+      "enrollIntro": "Choose the button, then follow your browser to touch your security key or create a passkey with your fingerprint or face.",
+      "label": "Name",
+      "labelHint": "e.g. “YubiKey” or “MacBook”, to tell keys apart.",
+      "defaultLabel": "Security key",
+      "register": "Add security key",
+      "useKey": "Verify with “{{name}}”.",
+      "authenticate": "Use security key",
+      "unsupported": "This browser doesn't support security keys. Use another browser or method.",
+      "cancelled": "Cancelled or timed out. Try again.",
+      "alreadyRegistered": "This key is already registered.",
+      "failed": "Couldn't verify. Try again.",
+      "retry": "Ready again — choose the button once more."
+    },
+    "settings": {
+      "error": {
+        "MFA_SETTING_REQUIRED": "Required",
+        "MFA_SETTING_INVALID_OPTION": "Not an allowed value",
+        "MFA_SETTING_TOO_LONG": "Too long",
+        "MFA_SETTING_INVALID_URL": "Invalid URL (https required in production)",
+        "MFA_SETTING_INVALID_FORMAT": "Invalid format",
+        "MFA_SETTING_REJECTED": "The provider rejected this value",
+        "MFA_SETTING_PRIVATE_ADDRESS": "Private network addresses aren't allowed",
+        "MFA_SETTING_UNRESOLVABLE": "Domain not found",
+        "MFA_SETTING_UNKNOWN": "Unknown field",
+        "MFA_WEBAUTHN_RPID_MISMATCH": "Must be the account center's domain or a parent domain",
+        "MFA_PROVIDER_UNREACHABLE": "Couldn't reach the provider. Check the network and URL.",
+        "MFA_PROVIDER_ERROR": "The provider returned an error. Try again later.",
+        "MFA_MESSAGING_WEBHOOK_REJECTED": "Couldn't set the bot webhook. Check the token's permissions."
+      }
     }
   },
   "notificationRow": {

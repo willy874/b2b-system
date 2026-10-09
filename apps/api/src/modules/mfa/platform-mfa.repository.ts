@@ -103,7 +103,13 @@ export class PlatformMfaRepository implements MfaRepository<PlatformDbOrTx> {
 
   async activateFactor(
     factorId: string,
-    values: { label: string | null; lastUsedCounter: number | null },
+    values: {
+      label: string | null;
+      lastUsedCounter: number | null;
+      /** 驗證時方式給的更新（WebAuthn 的公鑰、通訊軟體的收件對象）：整份 `config`、新的密文。 */
+      config?: Record<string, unknown>;
+      secretEncrypted?: string;
+    },
     tx: PlatformDbOrTx = this.db,
   ): Promise<boolean> {
     const now = new Date();
@@ -114,6 +120,8 @@ export class PlatformMfaRepository implements MfaRepository<PlatformDbOrTx> {
         label: values.label,
         lastUsedCounter: values.lastUsedCounter,
         lastUsedAt: values.lastUsedCounter === null ? null : now,
+        ...(values.config !== undefined && { config: values.config }),
+        ...(values.secretEncrypted !== undefined && { secretEncrypted: values.secretEncrypted }),
         interactionUid: null,
         confirmedAt: now,
         updatedAt: now,

@@ -226,7 +226,7 @@ app.module
   ├─ TagModule             ──▶ DataTransfer
   ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
   ├─ PlatformAdminModule   ──▶ PlatformNotification
-  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaEmail · MfaTotp · Notification · Permission · PlatformNotification · Revision · System · Trash
+  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaEmail · MfaMessaging · MfaSms · MfaTotp · MfaWebAuthn · Notification · Permission · PlatformNotification · Revision · System · Trash
   └─ @Global：Permission · AuditLog · PlatformAdmin
 ```
 

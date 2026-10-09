@@ -19,7 +19,7 @@ import { RecoveryCodesDialog } from './RecoveryCodesDialog';
 export interface MfaSelfApi {
   overviewKey: QueryKey;
   fetchOverview: (signal: AbortSignal) => Promise<MfaOverview>;
-  start: (methodId: string) => Promise<MfaEnrollment>;
+  start: (methodId: string, input?: Record<string, unknown>) => Promise<MfaEnrollment>;
   resend: (factorId: string) => Promise<MfaChallengeInfo>;
   confirm: (
     factorId: string,
@@ -27,6 +27,11 @@ export interface MfaSelfApi {
   ) => Promise<{ recoveryCodes: string[] | null }>;
   remove: (factorId: string, password: string) => Promise<unknown>;
   regenerate: (password: string) => Promise<{ recoveryCodes: string[] }>;
+  /**
+   * 只能在 apps/platform 設定的方式（WebAuthn）：backstage 以「重新登入並新增」處理（頂層跳轉到登入互動，
+   * docs/architecture/backend/21-mfa.md §7.1）。沒給時照一般流程設定（apps/platform 本身就是那個網域）。
+   */
+  enrollElsewhere?: (methodId: string) => void;
 }
 
 export interface MfaSecuritySectionProps {
@@ -139,6 +144,9 @@ export function MfaSecuritySection({ api, account }: MfaSecuritySectionProps) {
             resend={api.resend}
             confirm={api.confirm}
             onCancel={() => setEnrolling(false)}
+            onEnrollElsewhere={
+              api.enrollElsewhere && ((method) => api.enrollElsewhere?.(method.id))
+            }
             onDone={() => {
               setEnrolling(false);
               toast.success(t('mfa.self.added'));

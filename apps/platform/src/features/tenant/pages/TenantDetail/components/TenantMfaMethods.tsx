@@ -20,6 +20,7 @@ const choiceOf = (value: boolean | undefined): Choice =>
 /**
  * 這個租戶的 MFA 方式開關（docs/architecture/backend/21-mfa.md §5）：「依全平台與預設」、開或關；送出完整的覆寫表。
  * 先對某個租戶開放新方式試行時用；全平台關掉的方式一律關。關掉前先顯示這個租戶會被擋在門外的人數。
+ * 需要平台參數而還沒填齊的方式不能開啟（§5.1）。
  */
 export function TenantMfaMethods({
   tenant,
@@ -77,6 +78,14 @@ export function TenantMfaMethods({
                     {t('tenant.mfa.killed')}
                   </span>
                 )}
+                {method.settings?.configured === false && (
+                  <span
+                    className="text-xs text-[var(--color-fg-muted)]"
+                    data-testid="tenant-mfa-method-unconfigured"
+                  >
+                    {t('tenant.mfa.unconfigured')}
+                  </span>
+                )}
               </span>
               <Select
                 size="sm"
@@ -84,6 +93,8 @@ export function TenantMfaMethods({
                 options={CHOICES.map((choice) => ({
                   value: choice,
                   label: t(`tenant.flag.${choice}`),
+                  // 平台參數沒有填齊之前不能對租戶開啟（docs/architecture/backend/21-mfa.md §5.1）
+                  disabled: choice === 'on' && method.settings?.configured === false,
                 }))}
                 disabled={!canUpdate || update.isPending}
                 onValueChange={(value) => change(method.id, label, value)}

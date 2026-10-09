@@ -35,6 +35,7 @@ vi.mock('@/apis/role/get-role-list/fetcher', () => ({ fetchRoleListQuery: fetchR
 const method = (id: string, platformEnabled: boolean) => ({
   id,
   challenge: id === 'email' ? ('server' as const) : ('none' as const),
+  enrollChallenge: 'immediate' as const,
   enrollAt: 'anywhere' as const,
   assurance: id === 'email' ? ('inbox' as const) : ('possession' as const),
   maxFactorsPerAccount: id === 'email' ? 1 : 5,

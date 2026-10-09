@@ -12,7 +12,7 @@ import { fetchStartMfaEnrollmentMutation } from '@/apis/mfa/start-mfa-enrollment
 export const mfaSelfApi: MfaSelfApi = {
   overviewKey: [MFA_OVERVIEW_QUERY_KEY],
   fetchOverview: (signal) => fetchMfaOverviewQuery({ params: undefined, signal }),
-  start: (method) => fetchStartMfaEnrollmentMutation({ params: { method } }),
+  start: (method, input) => fetchStartMfaEnrollmentMutation({ params: { method, input } }),
   resend: (factorId) => fetchResendMfaChallengeMutation({ params: { factorId } }),
   confirm: (factorId, submission) =>
     fetchConfirmMfaEnrollmentMutation({ params: { factorId, ...submission } }),

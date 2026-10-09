@@ -49,7 +49,10 @@ import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobModule } from './modules/job/job.module';
 import { MfaEmailModule } from './modules/mfa-email/mfa-email.module';
+import { MfaMessagingModule } from './modules/mfa-messaging/mfa-messaging.module';
+import { MfaSmsModule } from './modules/mfa-sms/mfa-sms.module';
 import { MfaTotpModule } from './modules/mfa-totp/mfa-totp.module';
+import { MfaWebAuthnModule } from './modules/mfa-webauthn/mfa-webauthn.module';
 import { MfaModule } from './modules/mfa/mfa.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { OrganizationModule } from './modules/organization/organization.module';
@@ -137,6 +140,9 @@ const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
     MfaModule,
     MfaTotpModule,
     MfaEmailModule,
+    MfaWebAuthnModule,
+    MfaSmsModule,
+    MfaMessagingModule,
 
     // 業務模組
     AuthModule,

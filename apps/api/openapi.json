@@ -2288,7 +2288,7 @@
                   "required": ["data"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/SsoRedirect"
+                      "$ref": "#/components/schemas/MfaLoginVerifyResult"
                     }
                   }
                 }
@@ -2296,7 +2296,7 @@
             }
           }
         },
-        "summary": "第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址",
+        "summary": "第二步：驗證碼或備用碼；成功時回傳要頂層跳轉的 resume 網址（產品要求新增驗證方式時改成設定的下一步）",
         "tags": ["auth"]
       }
     },
@@ -2341,7 +2341,42 @@
             }
           }
         },
-        "summary": "必須啟用 MFA 而還沒設定：在互動中開始設定一種方式",
+        "summary": "必須啟用 MFA 而還沒設定、或產品要求新增：在互動中開始設定一種方式",
+        "tags": ["auth"]
+      }
+    },
+    "/oidc-interaction/{uid}/mfa/enroll/skip": {
+      "post": {
+        "operationId": "MfaInteractionController_skipEnrollment",
+        "parameters": [
+          {
+            "name": "uid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SsoRedirect"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "產品要求新增的驗證方式（§7.1）：略過，照常完成登入",
         "tags": ["auth"]
       }
     },
@@ -3129,6 +3164,117 @@
           }
         },
         "summary": "關掉這個方式會被擋在門外的人數（全平台或指定租戶）",
+        "tags": ["platform-mfa-methods"]
+      }
+    },
+    "/platform/mfa-methods/{id}/settings": {
+      "get": {
+        "operationId": "PlatformMfaMethodController_getSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaMethodSettings"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "方式的平台參數（機密欄位只回傳有沒有設定）",
+        "tags": ["platform-mfa-methods"]
+      },
+      "put": {
+        "operationId": "PlatformMfaMethodController_saveSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMfaMethodSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaMethodSettings"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "儲存方式的平台參數：必填、格式與方式自己的檢查（例：以金鑰呼叫供應商）全部通過才寫入",
+        "tags": ["platform-mfa-methods"]
+      },
+      "delete": {
+        "operationId": "PlatformMfaMethodController_clearSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MfaMethodSettings"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "刪除方式的平台參數（方式還開著時拒絕）",
         "tags": ["platform-mfa-methods"]
       }
     },
@@ -14663,13 +14809,17 @@
             "type": "string",
             "enum": ["none", "server"]
           },
+          "enrollChallenge": {
+            "type": "string",
+            "enum": ["immediate", "onRequest"]
+          },
           "enrollAt": {
             "type": "string",
             "enum": ["anywhere", "idp"]
           },
           "assurance": {
             "type": "string",
-            "enum": ["possession", "inbox"]
+            "enum": ["phishingResistant", "possession", "messaging", "inbox"]
           },
           "maxFactorsPerAccount": {
             "type": "integer",
@@ -14677,7 +14827,14 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["id", "challenge", "enrollAt", "assurance", "maxFactorsPerAccount"],
+        "required": [
+          "id",
+          "challenge",
+          "enrollChallenge",
+          "enrollAt",
+          "assurance",
+          "maxFactorsPerAccount"
+        ],
         "additionalProperties": false
       },
       "MfaFactor": {
@@ -14739,13 +14896,17 @@
                   "type": "string",
                   "enum": ["none", "server"]
                 },
+                "enrollChallenge": {
+                  "type": "string",
+                  "enum": ["immediate", "onRequest"]
+                },
                 "enrollAt": {
                   "type": "string",
                   "enum": ["anywhere", "idp"]
                 },
                 "assurance": {
                   "type": "string",
-                  "enum": ["possession", "inbox"]
+                  "enum": ["phishingResistant", "possession", "messaging", "inbox"]
                 },
                 "maxFactorsPerAccount": {
                   "type": "integer",
@@ -14761,6 +14922,7 @@
               "required": [
                 "id",
                 "challenge",
+                "enrollChallenge",
                 "enrollAt",
                 "assurance",
                 "maxFactorsPerAccount",
@@ -14783,6 +14945,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          },
+          "input": {
+            "type": "object",
+            "additionalProperties": {}
           }
         },
         "required": ["method"],
@@ -14805,9 +14971,14 @@
           },
           "resendAvailableAt": {
             "type": "string"
+          },
+          "publicData": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {}
           }
         },
-        "required": ["challengeId", "hint", "expiresAt", "resendAvailableAt"],
+        "required": ["challengeId", "hint", "expiresAt", "resendAvailableAt", "publicData"],
         "additionalProperties": false
       },
       "MfaEnrollment": {
@@ -15011,10 +15182,23 @@
             "items": {
               "$ref": "#/components/schemas/MfaMethodInfo"
             }
+          },
+          "optional": {
+            "type": "boolean"
           }
         },
-        "required": ["next", "methods"],
+        "required": ["next", "methods", "optional"],
         "additionalProperties": false
+      },
+      "MfaLoginVerifyResult": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SsoRedirect"
+          },
+          {
+            "$ref": "#/components/schemas/SsoMfaEnrollNext"
+          }
+        ]
       },
       "SsoLoginResult": {
         "anyOf": [
@@ -15075,13 +15259,17 @@
                   "type": "string",
                   "enum": ["none", "server"]
                 },
+                "enrollChallenge": {
+                  "type": "string",
+                  "enum": ["immediate", "onRequest"]
+                },
                 "enrollAt": {
                   "type": "string",
                   "enum": ["anywhere", "idp"]
                 },
                 "assurance": {
                   "type": "string",
-                  "enum": ["possession", "inbox"]
+                  "enum": ["phishingResistant", "possession", "messaging", "inbox"]
                 },
                 "maxFactorsPerAccount": {
                   "type": "integer",
@@ -15095,6 +15283,7 @@
               "required": [
                 "id",
                 "challenge",
+                "enrollChallenge",
                 "enrollAt",
                 "assurance",
                 "maxFactorsPerAccount",
@@ -15171,6 +15360,50 @@
         "required": ["nonCompliant", "stranded"],
         "additionalProperties": false
       },
+      "MfaSettingField": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "url", "secret", "select"]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "requiredWhen": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "equals": {
+                "type": "string"
+              }
+            },
+            "required": ["key", "equals"],
+            "additionalProperties": false
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultValue": {
+            "type": "string"
+          },
+          "maxLength": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["key", "type", "required"],
+        "additionalProperties": false
+      },
       "PlatformMfaMethod": {
         "type": "object",
         "properties": {
@@ -15181,18 +15414,39 @@
             "type": "string",
             "enum": ["none", "server"]
           },
+          "enrollChallenge": {
+            "type": "string",
+            "enum": ["immediate", "onRequest"]
+          },
           "enrollAt": {
             "type": "string",
             "enum": ["anywhere", "idp"]
           },
           "assurance": {
             "type": "string",
-            "enum": ["possession", "inbox"]
+            "enum": ["phishingResistant", "possession", "messaging", "inbox"]
           },
           "maxFactorsPerAccount": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "settings": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MfaSettingField"
+                }
+              },
+              "configured": {
+                "type": "boolean"
+              }
+            },
+            "required": ["fields", "configured"],
+            "additionalProperties": false
           },
           "realms": {
             "type": "array",
@@ -15261,9 +15515,11 @@
         "required": [
           "id",
           "challenge",
+          "enrollChallenge",
           "enrollAt",
           "assurance",
           "maxFactorsPerAccount",
+          "settings",
           "realms",
           "defaultEnabled",
           "globalState",
@@ -15296,6 +15552,68 @@
           }
         },
         "required": ["state"],
+        "additionalProperties": false
+      },
+      "MfaMethodSettings": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "secrets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "version": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "updatedAt": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["method", "values", "secrets", "configured", "version", "updatedAt"],
+        "additionalProperties": false
+      },
+      "UpdateMfaMethodSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "secrets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4000
+            }
+          },
+          "version": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["values", "secrets", "version"],
         "additionalProperties": false
       },
       "MfaMethodImpact": {
@@ -16290,9 +16608,22 @@
             },
             "required": ["code", "name"],
             "additionalProperties": false
+          },
+          "mfaEnroll": {
+            "nullable": true,
+            "type": "string"
           }
         },
-        "required": ["uid", "prompt", "clientId", "clientName", "loginHint", "uiLocales", "tenant"],
+        "required": [
+          "uid",
+          "prompt",
+          "clientId",
+          "clientName",
+          "loginHint",
+          "uiLocales",
+          "tenant",
+          "mfaEnroll"
+        ],
         "additionalProperties": false
       },
       "SsoDiscovery": {
@@ -17929,7 +18260,10 @@
           "file.maintenance",
           "mfa.cleanup",
           "mfa.emailCodeMail",
+          "mfa.lineCode",
           "mfa.securityNoticeMail",
+          "mfa.smsCode",
+          "mfa.telegramCode",
           "notification.cleanup",
           "revision.prune",
           "trash.purge",
@@ -17957,13 +18291,20 @@
           "file.imageVariants",
           "file.maintenance",
           "jobs.outboxSweep",
+          "mfa.channelLinkCleanup",
           "mfa.cleanup",
           "mfa.emailCodeMail",
           "mfa.factorStats",
+          "mfa.lineCode",
           "mfa.platformCleanup",
           "mfa.platformEmailCodeMail",
+          "mfa.platformLineCode",
           "mfa.platformSecurityNoticeMail",
+          "mfa.platformSmsCode",
+          "mfa.platformTelegramCode",
           "mfa.securityNoticeMail",
+          "mfa.smsCode",
+          "mfa.telegramCode",
           "notification.cleanup",
           "oidc.cleanup",
           "platformAdmin.accountMail",

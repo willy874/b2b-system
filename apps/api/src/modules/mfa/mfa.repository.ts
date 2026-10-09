@@ -31,7 +31,13 @@ export interface MfaRepository<TTx> {
   /** pending → active；已不是 pending（併發的另一次確認）時回 false。 */
   activateFactor(
     factorId: string,
-    values: { label: string | null; lastUsedCounter: number | null },
+    values: {
+      label: string | null;
+      lastUsedCounter: number | null;
+      /** 驗證時方式給的更新（WebAuthn 的公鑰、通訊軟體的收件對象）：整份 `config`、新的密文。 */
+      config?: Record<string, unknown>;
+      secretEncrypted?: string;
+    },
     tx?: TTx,
   ): Promise<boolean>;
   /** 記下使用；`counter` 不大於上一次接受的值時不更新、回 false（防重放）。 */

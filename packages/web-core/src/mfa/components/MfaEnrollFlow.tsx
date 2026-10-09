@@ -14,7 +14,8 @@ export interface MfaEnrollFlowProps {
   methods: readonly MfaMethodInfo[];
   /** 帳號 email（備用碼檔名）。 */
   account: string;
-  start: (methodId: string) => Promise<MfaEnrollment>;
+  /** `input`：方式的 `EnrollStart` 收集的資料（簡訊的手機號碼）。 */
+  start: (methodId: string, input?: Record<string, unknown>) => Promise<MfaEnrollment>;
   confirm: (
     factorId: string,
     submission: MfaSubmission,
@@ -29,6 +30,13 @@ export interface MfaEnrollFlowProps {
   recoveryDoneLabel?: string;
   /** 失敗時（例：互動已作廢）交給呼叫端處理；回傳 true 表示已處理，不顯示訊息。 */
   onError?: (error: unknown) => boolean;
+  /**
+   * 只能在 apps/platform 設定的方式（`enrollAt: 'idp'`，WebAuthn）：backstage 以這個函式改走「重新登入並新增」
+   * （docs/architecture/backend/21-mfa.md §7.1）。沒給時照一般流程設定（apps/platform 本身）。
+   */
+  onEnrollElsewhere?: (method: MfaMethodInfo) => void;
+  /** 取消鈕的文字（登入互動中產品要求的設定是「略過」）。 */
+  cancelLabel?: string;
 }
 
 /**
@@ -45,6 +53,8 @@ export function MfaEnrollFlow({
   onCancel,
   recoveryDoneLabel,
   onError,
+  onEnrollElsewhere,
+  cancelLabel,
 }: MfaEnrollFlowProps) {
   const { t } = useTranslation();
   const uis = useMfaMethodUis();
@@ -53,18 +63,35 @@ export function MfaEnrollFlow({
   const [challenge, setChallenge] = useState<MfaChallengeInfo | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>();
   const [pending, setPending] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  /** 選了需要先填資料的方式（`EnrollStart`），還沒開始設定。 */
+  const [preparing, setPreparing] = useState<string>();
   const { error, fail, clear } = useMfaFormError();
+
+  const choose = (method: MfaMethodInfo) => {
+    clear();
+    if (method.enrollAt === 'idp' && onEnrollElsewhere) {
+      onEnrollElsewhere(method);
+      return;
+    }
+    if (uis.get(method.id)?.EnrollStart) {
+      setPreparing(method.id);
+      return;
+    }
+    void begin(method.id);
+  };
 
   const handle = (cause: unknown) => {
     if (onError?.(cause)) return;
     fail(cause);
   };
 
-  const begin = async (methodId: string) => {
+  const begin = async (methodId: string, input?: Record<string, unknown>) => {
     clear();
     setPending(true);
     try {
-      const started = await start(methodId);
+      const started = await start(methodId, input);
+      setPreparing(undefined);
       setEnrollment(started);
       setChallenge(started.challenge);
     } catch (cause) {
@@ -95,10 +122,13 @@ export function MfaEnrollFlow({
   const resendChallenge = async () => {
     if (!enrollment) return;
     clear();
+    setRequesting(true);
     try {
       setChallenge(await resend(enrollment.factorId));
     } catch (cause) {
       handle(cause);
+    } finally {
+      setRequesting(false);
     }
   };
 
@@ -120,19 +150,43 @@ export function MfaEnrollFlow({
   const ui = enrollment && uis.get(enrollment.method);
   if (enrollment && ui) {
     const { Enroll } = ui;
+    const serverChallenge =
+      methods.find((method) => method.id === enrollment.method)?.challenge === 'server';
     return (
       <div className="flex flex-col gap-3" data-testid="mfa-enroll" data-value={enrollment.method}>
         <Enroll
           enrollment={enrollment}
           challenge={challenge}
           onSubmit={(submission) => void submit(submission)}
-          onResend={challenge ? () => void resendChallenge() : undefined}
+          onResend={serverChallenge || challenge ? () => void resendChallenge() : undefined}
+          requesting={requesting}
           pending={pending}
           error={error}
         />
         <Button
           variant="ghost"
           onClick={() => setEnrollment(undefined)}
+          data-testid="mfa-enroll-back"
+        >
+          {t('mfa.enroll.back')}
+        </Button>
+      </div>
+    );
+  }
+
+  const prepareUi = preparing ? uis.get(preparing) : undefined;
+  if (preparing && prepareUi?.EnrollStart) {
+    const { EnrollStart } = prepareUi;
+    return (
+      <div className="flex flex-col gap-3" data-testid="mfa-enroll-start" data-value={preparing}>
+        <EnrollStart
+          onStart={(input) => void begin(preparing, input)}
+          pending={pending}
+          error={error}
+        />
+        <Button
+          variant="ghost"
+          onClick={() => setPreparing(undefined)}
           data-testid="mfa-enroll-back"
         >
           {t('mfa.enroll.back')}
@@ -152,16 +206,23 @@ export function MfaEnrollFlow({
             key={method.id}
             block
             disabled={pending}
-            onClick={() => void begin(method.id)}
+            onClick={() => choose(method)}
             startIcon={<Icon name={methodUi.icon} size={16} />}
+            // 名稱與說明兩到三行：按鈕的固定高度與不換行會讓窄的登入卡片裡的說明溢出
+            className="h-auto justify-start whitespace-normal py-2 text-left"
             data-testid="mfa-enroll-method"
             data-value={method.id}
           >
-            <span className="flex flex-col items-start">
+            <span className="flex min-w-0 flex-col items-start gap-0.5 leading-snug">
               <span>{t(methodUi.labelKey)}</span>
               <span className="text-xs text-[var(--color-fg-muted)]">
                 {t(methodUi.descriptionKey)}
               </span>
+              {method.enrollAt === 'idp' && onEnrollElsewhere && (
+                <span className="text-xs text-[var(--color-fg-muted)]">
+                  {t('mfa.enroll.elsewhere')}
+                </span>
+              )}
             </span>
           </Button>
         );
@@ -176,7 +237,7 @@ export function MfaEnrollFlow({
       </FormError>
       {onCancel && (
         <Button variant="ghost" onClick={onCancel} data-testid="mfa-enroll-cancel">
-          {t('common.cancel')}
+          {cancelLabel ?? t('common.cancel')}
         </Button>
       )}
     </div>

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 import type { Env } from '@/core/config';
 import { AppException } from '@/core/errors';
-import { MfaMethodRegistry } from '@/core/mfa';
+import { MfaMethodRegistry, MfaMethodSettings } from '@/core/mfa';
 import type { MfaFactor, MfaMethod, MfaRealm } from '@/core/mfa';
 import type { MfaPolicyRow } from '@/db/schema';
 import { UserAccountService } from '@/modules/user/user-account.service';
@@ -44,6 +44,7 @@ export class MfaAvailability implements OnApplicationBootstrap {
     private readonly overrides: MfaMethodOverrideService,
     private readonly policies: MfaPolicyRepository,
     private readonly users: UserAccountService,
+    private readonly settings: MfaMethodSettings,
     config: ConfigService<Env, true>,
   ) {
     this.platformMethods = new Set(config.get('PLATFORM_MFA_METHODS', { infer: true }));
@@ -67,9 +68,13 @@ export class MfaAvailability implements OnApplicationBootstrap {
   /** 這個身分範圍現在可以用的方式（租戶的要在租戶脈絡裡呼叫）。 */
   async methodsFor(realm: MfaRealm): Promise<MfaMethod[]> {
     if (realm === 'platform') {
+      // 需要平台參數而還沒填齊的方式，即使 env 列了也不能用（§5.1）
       return this.registry
         .list('platform')
-        .filter((method) => this.platformMethods.has(method.definition.id));
+        .filter(
+          (method) =>
+            this.platformMethods.has(method.definition.id) && this.settings.isConfigured(method),
+        );
     }
     const allowed = (await this.policy()).allowedMethods;
     return this.platformEnabled().filter(
@@ -82,9 +87,14 @@ export class MfaAvailability implements OnApplicationBootstrap {
     return this.platformMethods;
   }
 
-  /** 平台層（兩級覆寫）在目前的租戶開放的方式；政策頁的選項。 */
+  /**
+   * 平台層（兩級覆寫）在目前的租戶開放的方式；政策頁的選項。需要平台參數而還沒填齊的方式一律不算開放（§5.1）：
+   * 開關會擋下這種狀態，這裡是第二道防線（例：參數解不開）。
+   */
   platformEnabled(): MfaMethod[] {
-    return this.registry.list('tenant').filter((method) => this.overrides.isEnabled(method));
+    return this.registry
+      .list('tenant')
+      .filter((method) => this.overrides.isEnabled(method) && this.settings.isConfigured(method));
   }
 
   /** 政策是否要求這個帳號啟用 MFA。 */

@@ -34,7 +34,8 @@
       "external": "Sign in with {{name}}",
       "ssoOnly": "Your organization signs in with {{name}}.",
       "or": "or",
-      "enterTenant": "Signing in to your workspace? Enter your tenant code"
+      "enterTenant": "Signing in to your workspace? Enter your tenant code",
+      "mfaEnroll": "To add a security key, verify it’s you first."
     },
     "client": {
       "backstage": "Console",
@@ -96,7 +97,9 @@
       "challenge": "To protect your account, complete multi-factor authentication.",
       "enroll": "Your account requires multi-factor authentication. Set up a verification method first.",
       "continue": "Continue signing in",
-      "restart": "Sign in with a different account"
+      "restart": "Sign in with a different account",
+      "enrollOptional": "You're verified. Set up the new method now; you'll go back to where you were afterwards.",
+      "skip": "Skip and sign in"
     }
   }
 }

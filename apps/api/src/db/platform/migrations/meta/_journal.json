@@ -176,6 +176,13 @@
       "when": 1791450867730,
       "tag": "0024_rate_limit_counters",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791519322431,
+      "tag": "0025_mfa_method_settings",
+      "breakpoints": true
     }
   ]
 }

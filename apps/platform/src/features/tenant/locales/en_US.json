@@ -237,7 +237,8 @@
     "mfa": {
       "title": "MFA verification methods",
       "description": "Which multi-factor authentication methods this tenant can use. \"Platform default\" follows the platform-wide setting; methods switched off platform-wide are always off.",
-      "killed": "Switched off platform-wide"
+      "killed": "Switched off platform-wide",
+      "unconfigured": "Platform settings missing; can't be turned on"
     },
     "usage": {
       "snapshotAt": "Updated {{time}}",

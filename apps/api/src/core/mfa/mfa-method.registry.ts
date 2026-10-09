@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { MFA_RECOVERY_METHOD } from './mfa-method';
 import type { MfaMethod, MfaRealm } from './mfa-method';
+import { assertSettingsSpec } from './mfa-method-settings';
 
 const METHOD_ID_PATTERN = /^[a-z][a-zA-Z0-9]*$/;
 
@@ -23,6 +24,13 @@ export class MfaMethodRegistry {
     if (realms.length === 0) throw new Error(`MFA 方式 ${id} 至少要能用在一個身分範圍`);
     if (!Number.isInteger(maxFactorsPerAccount) || maxFactorsPerAccount < 1) {
       throw new Error(`MFA 方式 ${id} 的 maxFactorsPerAccount 必須是正整數`);
+    }
+    if (method.definition.settings) {
+      assertSettingsSpec(id, method.definition.settings);
+      if (method.definition.defaultEnabled) {
+        // 需要參數的方式在填寫參數之前不能是開的（§5.1）：預設開啟會讓「沒有覆寫」的租戶一上線就看到它
+        throw new Error(`MFA 方式 ${id} 需要平台參數，defaultEnabled 必須是 false`);
+      }
     }
     this.methods.set(id, method);
   }
