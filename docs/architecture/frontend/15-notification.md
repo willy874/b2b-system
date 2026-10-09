@@ -171,9 +171,12 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | `approval.result` | `approvalApproved`／`approvalRejected`（依 `status`） | 摘要 |
 | `user.rolesChanged` | `userRolesChanged` | 「新增：A、B」「移除：C」（`Intl.ListFormat` 依語系串起來；沒有的那一邊不顯示） |
 | `announcement.published` | `announcementPublished`：「公告：{標題}」 | —（點開到全文頁，[`16-announcement.md`](./16-announcement.md)） |
+| `dataTransfer.exportFinished` | `dataTransferExportCompleted`：「{資源}匯出完成，共 {筆數} 筆」／`dataTransferExportFailed`（依 `status`） | 失敗的原因（`errorCode` 認得的用 `error.<CODE>`，不認得的用 `dataTransferError`） |
+| `dataTransfer.importFinished` | `dataTransferImportCompleted`／`dataTransferImportFailed` | 完成：成功、失敗、略過的筆數（`importCounts`）；失敗：同上的原因 |
 | 其他（前端比後端舊） | `unknown`：「你有一則新通知」 | — |
 
 - 參數缺少或型別不對（舊資料、後端改版）也退回 `unknown`，不讓畫面壞掉。
+- 匯入匯出的資源名稱是 `DATA_TRANSFER_RESOURCE_LABEL_KEY`（`params.type`，後端 `defineTransferResource` 的 `type`）；後端新增資源而這裡沒補時用通用的「資料」。
 - 審批類型的名稱是 `APPROVAL_TYPE_LABEL_KEY`（`satisfies Record<ApprovalType, string>`：後端加類型而前端沒跟上時編譯失敗）；參數裡不認得的類型用通用的名稱。
 - 每一則另外顯示觸發者（`actor.name`，null 是「系統」）與相對時間（`formatRelativeTime`，滑過顯示完整時間）。未讀的有圓點與粗體，並有 sr-only 的「未讀：」。
 

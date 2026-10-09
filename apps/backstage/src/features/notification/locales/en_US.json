@@ -36,13 +36,20 @@
       "approvalUnassigned": "\"{{step}}\" of a {{type}} request has no (or too few) reviewers and needs attention",
       "commentMentioned": "Mentioned you in a comment on {{resourceType}} “{{name}}”",
       "commentCreated": "New comment on {{resourceType}} “{{name}}” you watch",
-      "watchResourceUpdated": "{{resourceType}} “{{name}}” you watch was updated"
+      "watchResourceUpdated": "{{resourceType}} “{{name}}” you watch was updated",
+      "dataTransferExportCompleted_one": "Export of {{resourceType}} finished: {{count}} row",
+      "dataTransferExportCompleted_other": "Export of {{resourceType}} finished: {{count}} rows",
+      "dataTransferExportFailed": "Export of {{resourceType}} failed",
+      "dataTransferImportCompleted": "Import of {{resourceType}} finished",
+      "dataTransferImportFailed": "Import of {{resourceType}} failed"
     },
     "detail": {
       "subject": "{{subject}}",
       "rolesAdded": "Added: {{roles}}",
       "rolesRemoved": "Removed: {{roles}}",
-      "excerpt": "{{excerpt}}"
+      "excerpt": "{{excerpt}}",
+      "importCounts": "Succeeded: {{succeeded}}, failed: {{failed}}, skipped: {{skipped}}",
+      "dataTransferError": "Something went wrong. See My imports & exports for details"
     },
     "approvalType": {
       "userRegister": "account registration",
@@ -52,6 +59,20 @@
     "resourceType": {
       "user": "user",
       "unknown": "item"
+    },
+    "dataTransferResource": {
+      "user": "users",
+      "role": "roles",
+      "group": "groups",
+      "groupMember": "group members",
+      "orgUnit": "org units",
+      "orgUnitMember": "org unit members",
+      "tag": "tags",
+      "serviceAccount": "service accounts",
+      "approvalRequest": "approval requests",
+      "approvalDecision": "approval decisions",
+      "auditLog": "audit logs",
+      "unknown": "data"
     },
     "event": {
       "description": "The system notifies the people involved when these events happen. Turning a channel off stops future deliveries; notifications already sent are kept, and turning it back on does not resend them.",
@@ -79,7 +100,8 @@
         "user": "Users",
         "webhook": "Webhooks",
         "announcement": "Announcements",
-        "comment": "Comments and watching"
+        "comment": "Comments and watching",
+        "dataTransfer": "Imports and exports"
       },
       "type": {
         "approvalPending": {
@@ -131,6 +153,16 @@
           "name": "Watched item changed",
           "description": "Notifies you when an item you watch is changed; at most once a minute per item.",
           "recipients": "Watchers (except the person who made the change)"
+        },
+        "dataTransferExportFinished": {
+          "name": "Export finished",
+          "description": "Sent when an export finishes or fails; open it to download the file from My imports & exports.",
+          "recipients": "The person who started the export"
+        },
+        "dataTransferImportFinished": {
+          "name": "Import finished",
+          "description": "Sent when applying an import finishes or fails, with the succeeded, failed, and skipped counts.",
+          "recipients": "The person who started the import"
         }
       }
     },

@@ -25,6 +25,11 @@ export const NOTIFICATION_MESSAGE_KEY = {
   commentMentioned: 'notification.message.commentMentioned',
   commentCreated: 'notification.message.commentCreated',
   watchResourceUpdated: 'notification.message.watchResourceUpdated',
+  /** 匯入／匯出（docs/architecture/backend/22-data-transfer.md §9.3）：依 `params.status` 分完成與失敗。 */
+  dataTransferExportCompleted: 'notification.message.dataTransferExportCompleted',
+  dataTransferExportFailed: 'notification.message.dataTransferExportFailed',
+  dataTransferImportCompleted: 'notification.message.dataTransferImportCompleted',
+  dataTransferImportFailed: 'notification.message.dataTransferImportFailed',
   /** 不認得的 `type`（前端比後端舊）或參數不合預期：只說有一則通知。 */
   unknown: 'notification.message.unknown',
 } as const;
@@ -37,6 +42,10 @@ export const NOTIFICATION_DETAIL_KEY = {
   rolesRemoved: 'notification.detail.rolesRemoved',
   /** 留言的前幾個字，原樣顯示。 */
   excerpt: 'notification.detail.excerpt',
+  /** 匯入套用的結果筆數。 */
+  importCounts: 'notification.detail.importCounts',
+  /** 失敗的錯誤碼不認得時（後端比前端新）；認得的用 `error.<CODE>`。 */
+  dataTransferError: 'notification.detail.dataTransferError',
 } as const;
 
 /** 審批類型的名稱；後端新增類型而這裡沒跟上時編譯失敗。 */
@@ -56,6 +65,26 @@ export const RESOURCE_TYPE_LABEL_KEY: Readonly<Partial<Record<string, string>>> 
 /** 不認得的資源類型（後端比前端新）。 */
 export const RESOURCE_TYPE_FALLBACK_KEY = 'notification.resourceType.unknown';
 
+/**
+ * 匯入匯出的通知裡，資源的名稱（`params.type`，後端各資源以 `defineTransferResource` 登記的 `type`）。
+ * 後端新增資源而這裡沒補時退回 `DATA_TRANSFER_RESOURCE_FALLBACK_KEY`。
+ */
+export const DATA_TRANSFER_RESOURCE_LABEL_KEY: Readonly<Partial<Record<string, string>>> = {
+  user: 'notification.dataTransferResource.user',
+  role: 'notification.dataTransferResource.role',
+  group: 'notification.dataTransferResource.group',
+  groupMember: 'notification.dataTransferResource.groupMember',
+  orgUnit: 'notification.dataTransferResource.orgUnit',
+  orgUnitMember: 'notification.dataTransferResource.orgUnitMember',
+  tag: 'notification.dataTransferResource.tag',
+  serviceAccount: 'notification.dataTransferResource.serviceAccount',
+  approvalRequest: 'notification.dataTransferResource.approvalRequest',
+  approvalDecision: 'notification.dataTransferResource.approvalDecision',
+  auditLog: 'notification.dataTransferResource.auditLog',
+};
+
+export const DATA_TRANSFER_RESOURCE_FALLBACK_KEY = 'notification.dataTransferResource.unknown';
+
 /** 每種通知的圖示（依後端的 `type`）；不認得的類型用鈴鐺。 */
 export const NOTIFICATION_ICON = {
   'approval.pending': 'flag',
@@ -68,6 +97,8 @@ export const NOTIFICATION_ICON = {
   'comment.mentioned': 'circle-user',
   'comment.created': 'edit',
   'watch.resourceUpdated': 'refresh',
+  'dataTransfer.exportFinished': 'download',
+  'dataTransfer.importFinished': 'upload',
 } as const satisfies Record<string, IconName>;
 
 export const NOTIFICATION_FALLBACK_ICON: IconName = 'bell';
@@ -145,6 +176,16 @@ export const NOTIFICATION_EVENT_LABEL: Readonly<Partial<Record<string, Notificat
     descriptionKey: 'notification.event.type.watchResourceUpdated.description',
     recipientsKey: 'notification.event.type.watchResourceUpdated.recipients',
   },
+  'dataTransfer.exportFinished': {
+    nameKey: 'notification.event.type.dataTransferExportFinished.name',
+    descriptionKey: 'notification.event.type.dataTransferExportFinished.description',
+    recipientsKey: 'notification.event.type.dataTransferExportFinished.recipients',
+  },
+  'dataTransfer.importFinished': {
+    nameKey: 'notification.event.type.dataTransferImportFinished.name',
+    descriptionKey: 'notification.event.type.dataTransferImportFinished.description',
+    recipientsKey: 'notification.event.type.dataTransferImportFinished.recipients',
+  },
 };
 
 /** 分類的標題；不認得的分類以分類名稱本身顯示。 */
@@ -154,6 +195,7 @@ export const NOTIFICATION_EVENT_CATEGORY_LABEL_KEY: Readonly<Partial<Record<stri
   webhook: 'notification.event.category.webhook',
   announcement: 'notification.event.category.announcement',
   comment: 'notification.event.category.comment',
+  dataTransfer: 'notification.event.category.dataTransfer',
 };
 
 /** 管道的名稱；後端新增管道而這裡沒跟上時編譯失敗。 */
