@@ -53,7 +53,7 @@ export interface ApprovalFlowStep {
 
 /**
  * 一種審批類型的流程設定（docs/architecture/backend/20-approval.md §9、D1）：每個類型最多一個。
- * 不刪除，只能停用（`enabled = false`）：進行中的請求要能看到「依哪一版流程」。
+ * 停用（`enabled = false`）保留設定；重設會刪掉這一列（docs/architecture/backend/20-approval.md §12 D10）：進行中的請求帶著關卡的快照與 `flow_version`，不依賴這一列。
  */
 export const approvalFlows = pgTable(
   'approval_flows',

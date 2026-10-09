@@ -894,6 +894,26 @@
           }
         },
         "tags": ["approval-flows"]
+      },
+      "delete": {
+        "operationId": "ApprovalFlowController_reset",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "重設流程（回到單關審批）",
+        "tags": ["approval-flows"]
       }
     },
     "/approval-flows/{type}/stats": {

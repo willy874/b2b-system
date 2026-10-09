@@ -52,19 +52,21 @@ export function useApprovalFlowEditor(type: string, item: ApprovalFlow | undefin
   );
   const serverErrors = (save.error instanceof AppError && save.error.fieldErrors) || EMPTY;
 
-  const submit = async () => {
-    if (!draft) return;
+  /** 送出；回傳是否已儲存（頁面據此回到審批流程的分頁）。 */
+  const submit = async (): Promise<boolean> => {
+    if (!draft) return false;
     setAttempted(true);
     const body = toPutRequest(draft, fields);
-    if (!body) return;
+    if (!body) return false;
     try {
       await save.mutateAsync({ params: { type, body } });
     } catch {
       // 錯誤標在關卡與欄位上；草稿保留，讓使用者修正後重送
-      return;
+      return false;
     }
     setAttempted(false);
     discard();
+    return true;
   };
 
   /** 衝突後放棄這次的修改：重抓最新的流程與版本，草稿改成以它為基礎。 */

@@ -1,10 +1,11 @@
-import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { Button } from '@b2b-system/ui/Button';
 import { FormError } from '@b2b-system/ui/FormError';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { getApprovalFlowDetailQueryOptions } from '@/apis/approval-flow/get-approval-flow-detail/query';
@@ -24,6 +25,7 @@ import { useApprovalFlowPermission } from '../../hooks/useApprovalFlowPermission
 import { useAssigneeKindAvailability } from '../../hooks/useAssigneeKindAvailability';
 import { ApprovalFlowEditRoute, ApprovalFlowListRoute } from '../../routes';
 import { availableTemplates, draftFromTemplate } from '../../templates';
+import { FlowEditHeader } from './components/FlowEditHeader';
 import { FlowPreviewPanel } from './components/FlowPreviewPanel';
 import { FlowSettingsSection } from './components/FlowSettingsSection';
 import { FlowStatsPanel } from './components/FlowStatsPanel';
@@ -32,6 +34,7 @@ import { FlowSummary } from './components/FlowSummary';
 import { FlowTemplatePicker } from './components/FlowTemplatePicker';
 import { useApprovalFlowEditor } from './useApprovalFlowEditor';
 import { useFlowPreview } from './useFlowPreview';
+import { useResetFlow } from './useResetFlow';
 import { useSaveWithImpacts } from './useSaveWithImpacts';
 import { useStepExpansion } from './useStepExpansion';
 
@@ -63,56 +66,31 @@ export default function ApprovalFlowEditPage() {
   const showTemplates = Boolean(detail.data && !detail.data.flow && !readOnly && !templatePicked);
   const expansion = useStepExpansion(editor.errors, editor.rejectedSteps);
   const save = useSaveWithImpacts(detail.data, draft, editor.submit);
+  const reset = useResetFlow(detail.data);
+  const navigate = useNavigate();
+  // 儲存或重設成功後回到「審批流程」分頁；草稿已清掉，略過未儲存提醒（狀態還沒來得及重繪）
+  const backToList = () => void navigate({ to: ApprovalFlowListRoute.to, ignoreBlocker: true });
   const outcomeKey = APPROVAL_FLOW_OUTCOME_KEY[type] ?? APPROVAL_FLOW_OUTCOME_DEFAULT_KEY;
 
   return (
     <SystemSettingsLayout>
       <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="approval-flow-edit-page">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <ButtonLink
-              size="sm"
-              variant="ghost"
-              to={ApprovalFlowListRoute.to}
-              startIcon={<Icon name="chevron-left" size={16} />}
-              data-testid="approval-flow-back"
-            >
-              {t('approvalFlow.edit.back')}
-            </ButtonLink>
-            <h2 className="m-0 mt-1 text-lg font-semibold" data-testid="approval-flow-edit-title">
-              {typeLabelKey ? t(typeLabelKey) : type}
-            </h2>
-            {detail.data?.flow && (
-              <p className="mt-1 mb-0 text-sm text-[var(--color-fg-muted)]">
-                {t('approvalFlow.edit.version', { version: detail.data.flow.version })}
-              </p>
-            )}
-          </div>
-          {!readOnly && draft && !showTemplates && (
-            <div className="flex gap-2">
-              <Button
-                disabled={!editor.isDirty}
-                onClick={() => {
-                  editor.discard();
-                  expansion.reset();
-                  if (!detail.data?.flow) setTemplatePicked(false);
-                }}
-                data-testid="approval-flow-discard"
-              >
-                {t('approvalFlow.edit.discard')}
-              </Button>
-              <Button
-                variant="primary"
-                loading={editor.isSaving}
-                disabled={!editor.isDirty && draft.version !== undefined}
-                onClick={() => void save()}
-                data-testid="approval-flow-save"
-              >
-                {t('common.save')}
-              </Button>
-            </div>
-          )}
-        </header>
+        <FlowEditHeader
+          title={typeLabelKey ? t(typeLabelKey) : type}
+          version={detail.data?.flow?.version}
+          showActions={!readOnly && Boolean(draft) && !showTemplates}
+          isDirty={editor.isDirty}
+          isNew={draft?.version === undefined}
+          isSaving={editor.isSaving}
+          isResetting={reset.isPending}
+          onSave={() => void save().then((saved) => saved && backToList())}
+          onDiscard={() => {
+            editor.discard();
+            expansion.reset();
+            if (!detail.data?.flow) setTemplatePicked(false);
+          }}
+          onReset={() => void reset.run().then((done) => done && backToList())}
+        />
 
         {detail.isPending && <Skeleton height={240} />}
         {detail.isError && (

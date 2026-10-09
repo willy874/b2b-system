@@ -396,7 +396,8 @@ test.describe('多階段審批（docs/architecture/backend/20-approval.md §9）
     expect(saved.data.flow.steps.map((step) => step.name)).toEqual([secondStep, firstStep]);
     expect(saved.data.flow.steps[0]!.assignee).toMatchObject({ kind: 'user', id: memberId });
     expect(saved.data.flow.steps[0]!.conditions?.[0]).toMatchObject({ field: 'emailDomain' });
-    await editor.getByTestId('approval-flow-back').click();
+    // 儲存成功後自動回到「審批流程」分頁
+    await expect(page.getByTestId('approval-flow-list-page')).toBeVisible();
     await expect(card.getByTestId('approval-flow-step-summary')).toHaveText([
       secondStep,
       firstStep,

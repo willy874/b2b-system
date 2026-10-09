@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, RequireFeature, RequirePermissions } from '@/common/decorators';
@@ -14,8 +14,13 @@ import {
   ApprovalFlowStatsSchema,
   PreviewApprovalFlowSchema,
   PutApprovalFlowSchema,
+  ResetApprovalFlowSchema,
 } from './dto/approval-flow.dto';
-import type { PreviewApprovalFlowDto, PutApprovalFlowDto } from './dto/approval-flow.dto';
+import type {
+  PreviewApprovalFlowDto,
+  PutApprovalFlowDto,
+  ResetApprovalFlowDto,
+} from './dto/approval-flow.dto';
 
 /**
  * 審批流程的設定（docs/architecture/backend/20-approval.md §9、D1）。可由平台關閉（`approvalChain`，D12）：停用時整個 controller 回 404。
@@ -65,6 +70,22 @@ export class ApprovalFlowController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.flows.put(type, dto, actor);
+  }
+
+  /**
+   * 重設成未設定：刪掉流程，這個類型回到單關審批（§12 D10）。帶開始時看到的 `version`（409 `APPROVAL_FLOW_VERSION_CONFLICT`）；
+   * 已經沒有流程時直接 204。
+   */
+  @Delete(':type')
+  @HttpCode(204)
+  @RequirePermissions(PERMISSION.APPROVAL_FLOW_UPDATE)
+  @ApiOperation({ summary: '重設流程（回到單關審批）' })
+  async reset(
+    @Param('type') type: string,
+    @Query(new ZodValidationPipe(ResetApprovalFlowSchema)) query: ResetApprovalFlowDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.flows.reset(type, query, actor);
   }
 
   /** 試算：給定申請人與欄位值，每一關會不會略過、候選人是誰（唯讀）。 */

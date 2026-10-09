@@ -88,6 +88,33 @@ export function getApprovalFlowControllerPutUrl(path: ApprovalFlowControllerPutP
   return buildUrl('/approval-flows/{type}', path);
 }
 
+// DELETE /approval-flows/{type}
+
+export interface ApprovalFlowControllerResetPathParams {
+  type: string;
+}
+
+export interface ApprovalFlowControllerResetInput {
+  path: ApprovalFlowControllerResetPathParams;
+}
+
+export interface ApprovalFlowControllerResetResponses {
+  204: undefined;
+}
+
+export type ApprovalFlowControllerResetResponse = ApprovalFlowControllerResetResponses[204];
+
+export type ApprovalFlowControllerResetResult = ApiResponse<
+  204,
+  ApprovalFlowControllerResetResponses[204]
+>;
+
+export function getApprovalFlowControllerResetUrl(
+  path: ApprovalFlowControllerResetPathParams,
+): string {
+  return buildUrl('/approval-flows/{type}', path);
+}
+
 // GET /approval-flows/{type}/stats
 
 export interface ApprovalFlowControllerStatsPathParams {

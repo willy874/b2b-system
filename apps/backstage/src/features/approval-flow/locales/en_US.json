@@ -209,6 +209,14 @@
       "hours_other": "{{count}} hours",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days"
+    },
+    "reset": {
+      "action": "Reset flow",
+      "title": "Reset the flow",
+      "description": "This type goes back to single-step approval: anyone with approval permission approves or rejects new requests. The current steps are removed (recorded in the audit log); next time you start from a template.",
+      "inFlight_one": "{{count}} request in progress finishes with the steps it was submitted with.",
+      "inFlight_other": "{{count}} requests in progress finish with the steps they were submitted with.",
+      "success": "Flow reset to single-step approval"
     }
   }
 }

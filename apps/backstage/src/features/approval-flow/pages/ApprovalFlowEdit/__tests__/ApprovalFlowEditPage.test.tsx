@@ -22,6 +22,7 @@ const {
   fetchRoles,
   fetchOrgUnits,
   fetchStats,
+  resetFlow,
 } = vi.hoisted(() => ({
   fetchList: vi.fn(),
   fetchDetail: vi.fn(),
@@ -32,6 +33,10 @@ const {
   fetchRoles: vi.fn(),
   fetchOrgUnits: vi.fn(),
   fetchStats: vi.fn(),
+  resetFlow: vi.fn(),
+}));
+vi.mock('@/apis/approval-flow/reset-approval-flow/fetcher', () => ({
+  fetchApprovalFlowResetMutation: resetFlow,
 }));
 vi.mock('@/apis/approval-flow/get-approval-flow-stats/fetcher', () => ({
   fetchApprovalFlowStatsQuery: fetchStats,
@@ -101,7 +106,8 @@ const REGISTER: ApprovalFlow = {
 
 const READER = ['approvalFlow:read', 'user:read', 'group:read', 'role:read'] as PermissionKey[];
 const EDITOR = [...READER, 'approvalFlow:update'] as PermissionKey[];
-const routes = [Routes.ApprovalFlowEditRoute];
+// 儲存與重設成功後回到列表：一起掛上
+const routes = [Routes.ApprovalFlowListRoute, Routes.ApprovalFlowEditRoute];
 
 beforeAll(() => initTestI18n(zhTW));
 
@@ -125,6 +131,7 @@ beforeEach(() => {
       Promise.resolve(params.type === 'user.register' ? REGISTER : FLOW),
     );
   putFlow.mockReset().mockResolvedValue(FLOW);
+  resetFlow.mockReset().mockResolvedValue(undefined);
   previewFlow.mockReset().mockResolvedValue({
     steps: [
       {
@@ -543,5 +550,66 @@ describe('流程設定的引導（docs/architecture/backend/20-approval.md §9.1
     );
     expect(stats).toHaveTextContent('1 筆找不到審核者');
     expect(stats).toHaveTextContent('30 小時');
+  });
+});
+
+describe('儲存後離開與重設流程（docs/architecture/backend/20-approval.md §9.16、§12 D10）', () => {
+  it('儲存成功：回到審批流程的分頁，不問未儲存', async () => {
+    const { router } = renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
+    await expandAll();
+    renameFirstStep('直屬主管');
+    fireEvent.click(screen.getByTestId('approval-flow-save'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/system/approval-flows'));
+    expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull();
+  });
+
+  it('儲存失敗：留在編輯頁，草稿還在', async () => {
+    putFlow.mockRejectedValue(new AppError('APPROVAL_FLOW_VERSION_CONFLICT', 409, { current: 4 }));
+    const { router } = renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
+    await expandAll();
+    renameFirstStep('直屬主管');
+    fireEvent.click(screen.getByTestId('approval-flow-save'));
+    await screen.findByTestId('approval-flow-conflict');
+    expect(router.state.location.pathname).toBe('/system/approval-flows/test.purchase');
+  });
+
+  it('重設：確認後帶目前的版本送出，回到分頁；說明進行中的申請照舊', async () => {
+    fetchDetail.mockResolvedValue({ ...FLOW, inFlightCount: 2 });
+    const { router } = renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
+    fireEvent.click(await screen.findByTestId('approval-flow-reset', undefined, { timeout: 5000 }));
+    const dialog = await screen.findByTestId('approval-flow-reset-confirm');
+    expect(dialog).toHaveTextContent('回到單關審批');
+    expect(dialog).toHaveTextContent('進行中的 2 筆申請照送出時的關卡走完');
+    fireEvent.click(within(dialog).getByTestId('alert-dialog-confirm'));
+    await waitFor(() => expect(resetFlow).toHaveBeenCalledTimes(1));
+    expect(resetFlow.mock.calls[0]![0]).toMatchObject({
+      params: { type: 'test.purchase', version: 3 },
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/system/approval-flows'));
+  });
+
+  it('重設：取消就不送出', async () => {
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
+    fireEvent.click(await screen.findByTestId('approval-flow-reset', undefined, { timeout: 5000 }));
+    fireEvent.click(
+      within(await screen.findByTestId('approval-flow-reset-confirm')).getByTestId(
+        'alert-dialog-cancel',
+      ),
+    );
+    await waitFor(() => expect(screen.queryByTestId('approval-flow-reset-confirm')).toBeNull());
+    expect(resetFlow).not.toHaveBeenCalled();
+  });
+
+  it('還沒有流程（選完範本）或唯讀：沒有重設', async () => {
+    renderRoute(routes, '/system/approval-flows/user.register', EDITOR);
+    await pickTemplate('blank');
+    await steps();
+    expect(screen.queryByTestId('approval-flow-reset')).toBeNull();
+  });
+
+  it('唯讀（只有 approvalFlow:read）：沒有重設', async () => {
+    renderRoute(routes, '/system/approval-flows/test.purchase', READER);
+    await steps();
+    expect(screen.queryByTestId('approval-flow-reset')).toBeNull();
   });
 });
