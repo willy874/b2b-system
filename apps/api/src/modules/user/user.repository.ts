@@ -611,6 +611,22 @@ export class UserRepository {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('super_admin_guard'))`);
   }
 
+  /**
+   * 鎖住使用者列並讀目前的頭像（換頭像時序列化同一個人的並行修改：認領新的、解除舊的要以最新的值為準）。
+   * 使用者不存在回 undefined。
+   */
+  async lockAvatar(
+    userId: string,
+    tx: DbOrTx,
+  ): Promise<{ avatarImageId: string | null } | undefined> {
+    const [row] = await tx
+      .select({ avatarImageId: users.avatarImageId })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update');
+    return row;
+  }
+
   /** 鎖住使用者列直到交易結束（整批取代角色時序列化同一個人的並行修改）。 */
   async lockForUpdate(userId: string, tx: DbOrTx): Promise<void> {
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');

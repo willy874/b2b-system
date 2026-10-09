@@ -1240,6 +1240,85 @@ export interface PlatformAuditLog {
   metadata: Record<string, unknown> | null;
 }
 
+export interface ImageCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ImageUsage {
+  id: string;
+  maxSize: number;
+  contentTypes: Array<string>;
+  minWidth: number;
+  minHeight: number;
+  aspectRatio: number | null;
+  presets: Record<string, number>;
+  sources: Array<string> | null;
+}
+
+export interface ImageUsageList {
+  items: Array<ImageUsage>;
+}
+
+export interface ImageOriginal {
+  url: string;
+  width: number;
+  height: number;
+  expiresAt: string;
+}
+
+export interface ImageAsset {
+  id: string;
+  usage: string;
+  status: 'pending' | 'ready' | 'failed';
+  failureReason: ('notImage' | 'typeNotAllowed' | 'tooLarge' | 'tooSmall' | 'missing') | null;
+  name: string;
+  source: string;
+  width: number | null;
+  height: number | null;
+  crop: ImageCrop | null;
+  image: ImageSources | null;
+  original: ImageOriginal | null;
+  isInUse: boolean;
+  createdAt: string;
+}
+
+export interface ImageAssetList {
+  items: Array<ImageAsset>;
+}
+
+export interface CreateImageUploadRequest {
+  usage: string;
+  name: string;
+  contentType: string;
+  size: number;
+}
+
+export interface ImageUploadTarget {
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface ImageUpload {
+  asset: ImageAsset;
+  upload: ImageUploadTarget;
+}
+
+export interface CompleteImageUploadRequest {
+  crop?: ImageCrop;
+}
+
+export interface CreateImageFromSourceRequest {
+  usage: string;
+  source: string;
+  refId: string;
+  crop?: ImageCrop;
+}
+
 export interface CommentUser {
   id: string;
   displayName: string;
@@ -1252,6 +1331,7 @@ export interface Comment {
   resourceId: string;
   body: string;
   author: CommentUser | null;
+  authorAvatar: ImageSources | null;
   mentions: Array<CommentUser>;
   version: number;
   createdAt: string;
@@ -1445,6 +1525,8 @@ export interface UpdateUserRequest {
   status?: 'active' | 'inactive';
   locale?: string;
   timezone?: string;
+  avatarImageId?: string | null;
+  avatarCrop?: ImageCrop;
   version: number;
 }
 
@@ -1473,6 +1555,8 @@ export interface User {
   email: string;
   username: string | null;
   displayName: string;
+  avatar: ImageSources | null;
+  avatarImageId: string | null;
   status: UserStatus;
   roles: Array<RoleSummary>;
   tags: Array<TagSummary>;
@@ -1893,6 +1977,8 @@ export interface Profile {
     email: string;
     username: string | null;
     displayName: string;
+    avatar: ImageSources | null;
+    avatarImageId: string | null;
     status: UserStatus;
     lastLoginAt: string | null;
     preferences: {
@@ -1948,6 +2034,8 @@ export interface UpdateProfileRequest {
     locale?: string;
     timezone?: string;
   };
+  avatarImageId?: string | null;
+  avatarCrop?: ImageCrop;
 }
 
 export interface ChangePasswordRequest {
@@ -2434,6 +2522,8 @@ export const TenantJobName = {
   'dataTransfer.export': 'dataTransfer.export',
   'file.imageVariants': 'file.imageVariants',
   'file.maintenance': 'file.maintenance',
+  'image.maintenance': 'image.maintenance',
+  'image.process': 'image.process',
   'mfa.cleanup': 'mfa.cleanup',
   'mfa.emailCodeMail': 'mfa.emailCodeMail',
   'mfa.lineCode': 'mfa.lineCode',
@@ -2465,6 +2555,8 @@ export const JobName = {
   'dataTransfer.export': 'dataTransfer.export',
   'file.imageVariants': 'file.imageVariants',
   'file.maintenance': 'file.maintenance',
+  'image.maintenance': 'image.maintenance',
+  'image.process': 'image.process',
   'jobs.outboxSweep': 'jobs.outboxSweep',
   'mfa.channelLinkCleanup': 'mfa.channelLinkCleanup',
   'mfa.cleanup': 'mfa.cleanup',

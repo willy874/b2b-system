@@ -13,6 +13,8 @@ import {
   like,
   isNotNull,
   lt,
+  lte,
+  ne,
   not,
   or,
   sql,
@@ -23,6 +25,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { Database, DbOrTx } from '@/core/database';
 import { anyUuid, containsPattern, prefixPattern, TENANT_DB } from '@/core/database';
 import { RESOURCE_TYPE } from '@/core/resource';
+import { addStorageUsage, readStorageUsage, reserveStorageUsage } from '@/core/usage';
 import type { FileInsert, FileRow, FileVariantStatus } from '@/db/schema';
 import {
   fileFolders,
@@ -125,6 +128,7 @@ export class FileRepository {
     query: ListFileDto,
     after?: FileCursor,
     scope?: { folderIds: readonly string[] },
+    image?: FileImageFilter,
   ): Promise<{
     items: FileWithUploader[];
     total: number | null;
@@ -158,6 +162,13 @@ export class FileRepository {
     }
     if (query.uploaderId) conditions.push(eq(files.createdBy, query.uploaderId));
     if (query.tagId?.length) conditions.push(hasAnyTag(RESOURCE_TYPE.FILE, files.id, query.tagId));
+    if (image) {
+      conditions.push(
+        inArray(files.contentType, [...image.contentTypes]),
+        lte(files.size, image.maxSize),
+        ne(files.variantStatus, 'failed'),
+      );
+    }
     const where = and(...conditions);
 
     const sorts = after ? [after.sort] : query.sort;
@@ -205,12 +216,8 @@ export class FileRepository {
   // 永久刪除（hardDelete）在同一個交易內增減；軟刪除與還原不動它。`file.maintenance` 每天以 SUM(size) 對帳。
 
   /** 已用量，位元組：讀計數那一列，O(1)，不加總整張 `files`。 */
-  async storageUsed(tx?: DbOrTx): Promise<number> {
-    const [row] = await (tx ?? this.db)
-      .select({ usedBytes: fileStorageUsage.usedBytes })
-      .from(fileStorageUsage)
-      .limit(1);
-    return row?.usedBytes ?? 0;
+  storageUsed(tx?: DbOrTx): Promise<number> {
+    return readStorageUsage(tx ?? this.db);
   }
 
   /**
@@ -219,17 +226,7 @@ export class FileRepository {
    * 超過容量回 undefined，什麼都不寫。
    */
   async create(values: FileInsert, quota: number, tx: DbOrTx): Promise<FileRow | undefined> {
-    const [reserved] = await tx
-      .update(fileStorageUsage)
-      .set({ usedBytes: sql`${fileStorageUsage.usedBytes} + ${values.size}` })
-      .where(
-        and(
-          eq(fileStorageUsage.id, true),
-          sql`${fileStorageUsage.usedBytes} + ${values.size} <= ${quota}`,
-        ),
-      )
-      .returning({ usedBytes: fileStorageUsage.usedBytes });
-    if (!reserved) return undefined;
+    if (!(await reserveStorageUsage(tx, values.size, quota))) return undefined;
     const [row] = await tx.insert(files).values(values).returning();
     if (!row) throw new Error('建立檔案紀錄失敗');
     return row;
@@ -585,11 +582,8 @@ export class FileRepository {
   }
 
   /** 已用量加上 `delta`（可為負）。不低於 0：計數有偏差時等對帳修正，不讓永久刪除因此失敗。 */
-  private async addStorageUsed(delta: number, tx: DbOrTx): Promise<void> {
-    await tx
-      .update(fileStorageUsage)
-      .set({ usedBytes: sql`greatest(${fileStorageUsage.usedBytes} + ${delta}, 0)` })
-      .where(eq(fileStorageUsage.id, true));
+  private addStorageUsed(delta: number, tx: DbOrTx): Promise<void> {
+    return addStorageUsage(tx, delta);
   }
 
   /**
@@ -626,6 +620,12 @@ export class FileRepository {
       .values({ id: true, usedBytes, reconciledAt })
       .onConflictDoUpdate({ target: fileStorageUsage.id, set: { usedBytes, reconciledAt } });
   }
+}
+
+/** 選圖的過濾（`GET /files?imageUsage=`）：用途收的型別與大小上限。 */
+export interface FileImageFilter {
+  contentTypes: readonly string[];
+  maxSize: number;
 }
 
 /** 分類 → content_type 條件；`other` 是「不屬於任何一類」。 */

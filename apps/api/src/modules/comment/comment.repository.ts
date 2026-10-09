@@ -12,6 +12,8 @@ import type { CommentInsert, CommentRow } from '@/db/schema';
 export interface CommentWithAuthor {
   comment: CommentRow;
   author: { id: string; displayName: string; email: string } | null;
+  /** 作者的頭像（圖片資產 id，docs/architecture/backend/25-image.md §15.8）；沒有設定是 null。 */
+  authorAvatarImageId: string | null;
   createdAtExact: string;
 }
 
@@ -52,6 +54,7 @@ export class CommentRepository {
         authorId: author.id,
         authorName: author.displayName,
         authorEmail: author.email,
+        authorAvatarImageId: author.avatarImageId,
         createdAtExact: sql<string>`to_char(${comments.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       })
       .from(comments)
@@ -65,6 +68,7 @@ export class CommentRepository {
         row.authorId === null
           ? null
           : { id: row.authorId, displayName: row.authorName ?? '', email: row.authorEmail ?? '' },
+      authorAvatarImageId: row.authorAvatarImageId,
       createdAtExact: row.createdAtExact,
     }));
   }
@@ -150,6 +154,15 @@ export class CommentRepository {
       .from(users)
       .where(and(inArray(users.id, [...ids]), ...mentionable));
     return rows.map((row) => row.id);
+  }
+
+  /** 一個人的頭像（寫入之後回傳的那一筆：作者是自己）。 */
+  async avatarImageIdOf(userId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ avatarImageId: users.avatarImageId })
+      .from(users)
+      .where(eq(users.id, userId));
+    return row?.avatarImageId ?? null;
   }
 
   /** @提及的候選：顯示名稱或 email 包含 `keyword`，依顯示名稱排序。 */

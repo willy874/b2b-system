@@ -829,6 +829,20 @@ api 回的圖片是一組有效期的簽章網址（`ImageSources`：多個具�
 `<picture>`、寬高、`loading="lazy"`；載入失敗時呼叫 `onExpired` 一次讓查詢重抓，仍失敗才顯示 `fallback`。
 頭像用 `SignedAvatar`（`Avatar` ＋ `SignedImage`）：`ui` 不認識 `ImageSources`，組合放在 web-core。規則見 [`../backend/25-image.md`](../backend/25-image.md) §5。
 
+### 3.18 圖片裁切：`ImageCropper`
+
+`@b2b-system/ui/ImageCropper`：拖曳裁切框移動、拖曳四個角縮放；鍵盤以方向鍵移動、Shift ＋ 方向鍵縮放（裁切框是可以聚焦的按鈕）。
+
+| prop | 用途 |
+| --- | --- |
+| `src`、`alt` | 要裁切的圖；顯示用的可以是縮小版 |
+| `naturalWidth`／`naturalHeight` | 原圖的尺寸（比例與最小尺寸以它換算）；省略時用載入後的尺寸 |
+| `aspectRatio`、`minWidth`／`minHeight` | 固定比例（寬 ÷ 高）、最小尺寸（原圖的像素） |
+| `value`／`defaultValue`／`onValueChange` | 以 **比例**（0～1）表示的範圍；沒給時取中央最大的範圍（`centeredCrop`） |
+| `shape` | `circle` 顯示圓形參考線（頭像），範圍仍是方形 |
+
+只輸出範圍，不在瀏覽器重新編碼圖片：套用由伺服器做（[`../backend/25-image.md`](../backend/25-image.md) §15.5）。選圖的流程見 [`23-image-picker.md`](./23-image-picker.md) §5。
+
 ---
 
 ## 4. Design Token

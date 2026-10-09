@@ -393,6 +393,7 @@ FILE_MULTIPART_PART_SIZE=8388608   # 分塊上傳的每塊大小（位元組，�
 FILE_PENDING_TTL=86400             # 登記後超過這個秒數仍未完成的上傳，由維護排程清除
 FILE_MAINTENANCE_CRON=0 * * * *    # 檔案維護排程（殘留清理、補產生影像變體）的 cron（UTC）；留空停用
 FILE_MAINTENANCE_DRY_RUN=false     # true：只偵測並記錄殘留，不刪除
+IMAGE_MAINTENANCE_CRON=30 * * * *  # 圖片資產（頭像等）的清理排程 cron（UTC）；留空停用
 
 # ── apps/backstage（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api

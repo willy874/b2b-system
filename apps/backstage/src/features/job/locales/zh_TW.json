@@ -17,6 +17,8 @@
       "dataTransferExport": "匯出",
       "fileImageVariants": "圖片縮圖產生",
       "fileMaintenance": "檔案維護",
+      "imageMaintenance": "圖片清理",
+      "imageProcess": "圖片處理",
       "mfaCleanup": "過期 MFA 資料清理",
       "mfaEmailCodeMail": "登入驗證碼信",
       "mfaLineCode": "LINE 登入驗證碼",

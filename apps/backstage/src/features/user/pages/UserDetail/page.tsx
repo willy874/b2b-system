@@ -15,6 +15,7 @@ import { ResourcePanels } from '@/core/resource-panel';
 import { useUserPermission } from '../../hooks/useUserPermission';
 import { UserDetailRoute, UserListRoute } from '../../routes';
 import { UserApiTokenSection } from './components/UserApiTokenSection';
+import { UserAvatarSection } from './components/UserAvatarSection';
 import { UserBasicSection } from './components/UserBasicSection';
 import { UserGroupSection } from './components/UserGroupSection';
 import { UserIdentitySection } from './components/UserIdentitySection';
@@ -69,6 +70,7 @@ export default function UserDetailPage() {
 
       {user.data && (
         <div className="flex flex-col gap-5">
+          <UserAvatarSection user={user.data} canUpdate={permission.canUpdate} />
           <UserBasicSection user={user.data} canUpdate={permission.canUpdate} isSelf={isSelf} />
           <UserRoleSection
             user={user.data}

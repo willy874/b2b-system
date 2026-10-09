@@ -329,5 +329,16 @@
     },
     "filter": "Tags",
     "filterPlaceholder": "Filter by tag"
+  },
+  "image": {
+    "recent": {
+      "label": "Recent",
+      "empty": "No recent images yet",
+      "tooSmall": "{{name}} (too small: at least {{width}} × {{height}} pixels)",
+      "remove": "Remove “{{name}}” from recent"
+    },
+    "source": {
+      "file": "Files"
+    }
   }
 }

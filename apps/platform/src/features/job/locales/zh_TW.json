@@ -18,6 +18,8 @@
       "dataTransferExport": "匯出",
       "fileImageVariants": "圖片縮圖產生",
       "fileMaintenance": "檔案維護",
+      "imageMaintenance": "圖片清理",
+      "imageProcess": "圖片處理",
       "outboxSweep": "事件外送補送",
       "mfaChannelLinkCleanup": "過期的通訊軟體綁定清理",
       "mfaCleanup": "過期 MFA 資料清理",

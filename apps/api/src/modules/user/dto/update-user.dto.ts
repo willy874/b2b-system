@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { TimeZoneSchema } from '@/core/settings';
 import { defineSchema, uniqueItems } from '@/core/validation';
+import { ImageCropSchema } from '@/modules/image/dto/image.dto';
 
 export const UpdateUserSchema = defineSchema(
   'UpdateUserRequest',
@@ -13,6 +14,13 @@ export const UpdateUserSchema = defineSchema(
       status: z.enum(['active', 'inactive']).optional(),
       locale: z.string().max(10).optional(),
       timezone: TimeZoneSchema.optional(),
+      /**
+       * 換頭像：自己剛上傳（或從其他來源選來）、還沒被使用的圖片資產 id；`null` 是拿掉頭像
+       * （docs/architecture/backend/25-image.md §15.8）。
+       */
+      avatarImageId: z.string().uuid().nullable().optional(),
+      /** 頭像的裁切（比例，0～1）；只帶它是重新裁切目前的頭像，不必重傳。 */
+      avatarCrop: ImageCropSchema.optional(),
       /**
        * 樂觀鎖：編輯開始時看到的 `version`（必填）。與目前版本不同（別人已經改過）回 409 `USER_VERSION_CONFLICT`
        * （`details.current`）。要後寫者勝的腳本先讀一次目前的版本（docs/architecture/backend/14-revisions.md §9.2 D3、D4）。

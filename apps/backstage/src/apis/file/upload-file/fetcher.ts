@@ -1,7 +1,8 @@
+import { putToStorage } from '@b2b-system/web-core/direct-upload';
+import type { UploadProgress } from '@b2b-system/web-core/direct-upload';
+
 import type { CreateFileUploadRequest, StoredFile } from '@/shared/api-sdk';
 
-import { putToStorage } from './putToStorage';
-import type { UploadProgress } from './putToStorage';
 import {
   fetchFileAbortUploadMutation,
   fetchFileCompleteUploadMutation,

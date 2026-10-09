@@ -6,7 +6,8 @@
       "saved": "個人資料已更新。",
       "effective": "我的有效權限",
       "effectiveHint": "每個權限從哪裡來：經由哪些群組、哪個角色。看不到的群組或角色只顯示種類，可以拿去問管理員。",
-      "showEffective": "顯示有效權限與來源"
+      "showEffective": "顯示有效權限與來源",
+      "avatarSaved": "頭像已更新。"
     },
     "preference": {
       "title": "偏好設定",
@@ -23,7 +24,8 @@
       "roles": "角色",
       "locale": "語系",
       "timezone": "時區",
-      "theme": "主題"
+      "theme": "主題",
+      "avatar": "頭像"
     },
     "apiToken": {
       "title": "個人 API token",

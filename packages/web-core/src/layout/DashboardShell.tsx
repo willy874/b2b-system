@@ -1,4 +1,3 @@
-import { Avatar } from '@b2b-system/ui/Avatar';
 import { Button, IconButton } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Menu } from '@b2b-system/ui/Menu';
@@ -10,6 +9,8 @@ import type { ReactNode } from 'react';
 
 import { CommandPalette, useRecentPageTracker } from '../command-palette';
 import { useGlobalHotkeys } from '../hotkey';
+import { SignedAvatar } from '../image';
+import type { ImageSources } from '../image';
 import { useTranslation } from '../locales';
 import { useNavigation } from '../navigation';
 import { useLayoutStore } from '../store';
@@ -38,6 +39,13 @@ export interface DashboardShellProps {
   brand: DashboardBrand;
   /** 帳號選單按鈕上的名稱。 */
   userName: string;
+  /**
+   * 帳號選單按鈕上的頭像（api 回應裡的 `ImageSources`，docs/architecture/backend/25-image.md §15.8）；沒有時顯示名字縮寫。
+   * apps/platform 的平台管理者沒有頭像，不傳。
+   */
+  userAvatar?: ImageSources | null;
+  /** 頭像的網址過期時重抓（見 `SignedImage` 的 `onExpired`）。 */
+  onUserAvatarExpired?: () => void;
   /** 帳號選單裡接在頁面之後的項目（例：切換租戶、登出）。 */
   accountActions: MenuItemDescriptor[];
   /** 主內容之後的元素（例：backstage 的批次結果彈出）。 */
@@ -53,6 +61,8 @@ export interface DashboardShellProps {
 export function DashboardShell({
   brand,
   userName,
+  userAvatar,
+  onUserAvatarExpired,
   accountActions,
   afterContent,
   children,
@@ -134,7 +144,13 @@ export function DashboardShell({
                 aria-label={t('layout.accountMenu', { name: userName })}
                 data-testid="account-menu-trigger"
               >
-                <Avatar name={userName || '?'} size={24} />
+                <SignedAvatar
+                  sources={userAvatar}
+                  variant="sm"
+                  name={userName || '?'}
+                  size={24}
+                  onExpired={onUserAvatarExpired}
+                />
                 {userName && <span className={styles.userName}>{userName}</span>}
               </Button>
             }

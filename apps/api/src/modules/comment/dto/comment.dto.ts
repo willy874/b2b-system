@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ImageSourcesSchema } from '@/core/image';
 import { defineSchema } from '@/core/validation';
 
 import {
@@ -31,6 +32,8 @@ export const CommentSchema = defineSchema(
     body: z.string(),
     /** 作者已被永久刪除時為 null。 */
     author: CommentUserSchema.nullable(),
+    /** 作者的頭像（docs/architecture/backend/25-image.md §15.8）；沒有設定、或作者已被永久刪除時為 null。 */
+    authorAvatar: ImageSourcesSchema.nullable(),
     /** 被提及而且還在的人（被永久刪除的不列出）。 */
     mentions: z.array(CommentUserSchema),
     /** 樂觀鎖版本：`PATCH` 時帶上。 */

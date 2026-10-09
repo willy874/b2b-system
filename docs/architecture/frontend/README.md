@@ -36,6 +36,7 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此設計系
 | 20  | [`20-mfa.md`](./20-mfa.md)                             | MFA：`web-core/mfa` 的方式註冊表與共用元件、登入互動的第二步、帳號設定、政策頁與平台開關頁 |
 | 21  | [`21-data-transfer.md`](./21-data-transfer.md)         | 匯入／匯出：匯出對話框、我的匯入匯出、`DataGrid`、匯入工作區（預覽的狀態、驗證排程、草稿、結果） |
 | 22  | [`22-comment.md`](./22-comment.md)                     | 留言與關注：資源頁的面板註冊表（`core/resource-panel`）、留言面板（編輯器、提及、關注） |
+| 23  | [`23-image-picker.md`](./23-image-picker.md)           | 選圖：`ImageField`、圖片來源的註冊表與可用性、上傳（選檔、拖曳、貼上）、裁切、最近使用、檔案管理、頭像 |
 
 ## 三條必須記住的規則
 

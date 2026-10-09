@@ -1,15 +1,15 @@
-# 25 — 圖片：讀取與遞送
+# 25 — 圖片：讀取與遞送、圖片資產
 
 圖片之後會出現在大多數頁面上（使用者列表、留言、審批的頭像，圖片庫、富文本、email）。這份規定圖片 **存什麼、網址怎麼產生、效期多長、尺寸有哪些**，
-以及所有租戶合計的儲存止水線。決定與理由見 §14。
+所有租戶合計的儲存止水線（§1–§13，決定與理由見 §14），以及 **圖片資產**：與檔案管理器無關的圖片怎麼上傳、從其他來源複製、處理、清理（§15，決定見 §16）。
 
-這一版做好的是共用的底層：`core/storage` 的 `ObjectUrlSigner`、`core/image` 的格式政策與 `ImageUrlService`、`web-core/image` 的 `SignedImage`、
-`Avatar` 的圖片插槽、儲存的止水線。第一批使用它們的是圖片資產（頭像）與圖片庫，還在規劃
-（[`../../features/image-picker.md`](../../features/image-picker.md)、[`../../features/image-gallery.md`](../../features/image-gallery.md)）；
+共用的底層是 `core/storage` 的 `ObjectUrlSigner`、`core/image` 的格式政策與 `ImageUrlService`、`web-core/image` 的 `SignedImage`、
+`Avatar` 的圖片插槽、儲存的止水線。第一個使用它們的是圖片資產（`modules/image`，第一個 consumer 是使用者頭像）；選圖的前端在
+[`../frontend/23-image-picker.md`](../frontend/23-image-picker.md)。圖片庫還在規劃（[`../../features/image-gallery.md`](../../features/image-gallery.md)）；
 CDN 是 `ObjectUrlSigner` 的另一個實作（[`../../features/image-cdn.md`](../../features/image-cdn.md)）。
 
 ```
-擁有者模組（之後的 modules/image、modules/gallery）
+擁有者模組（modules/image；之後的 modules/gallery）
   處理時：ImageProcessor.decode → renderRenditions（尺寸 × 格式，依序）→ putObject(renditionKey(prefix, 名稱, 格式))，只寫一次
   組回應：ImageUrlService.sources(ImageObjectSet, layouts) → ObjectUrlSigner.sign(key) × N → ImageSources（DTO）
 瀏覽器：<SignedImage sources variant> → <picture><source …><img …></picture> → 直接讀物件儲存（或 CDN），不經過 api
@@ -22,7 +22,7 @@ CDN 是 `ObjectUrlSigner` 的另一個實作（[`../../features/image-cdn.md`](.
 | # | 原則 | 落在哪裡 |
 | --- | --- | --- |
 | R1 | **存參照，不存網址**：資料庫、富文本、匯出、稽核、對外 API 的使用者存的永遠是 id（`image_asset_id`、`gallery_item_id`），網址只在輸出的當下產生 | consumer 的資料模型；富文本的圖片節點（§7）；[`../../coding-standards/03-backend.md`](../../coding-standards/03-backend.md) §2.5 |
-| R2 | **每個物件只寫一次**：主檔、原檔、變體寫完就不再改；要換內容就寫到新的 key（key 帶版本 `r<rev>`） | `renditionKey`（§11）；[`../../features/image-picker.md`](../../features/image-picker.md) D12 |
+| R2 | **每個物件只寫一次**：主檔、原檔、變體寫完就不再改；要換內容就寫到新的 key（key 帶版本 `r<rev>`） | `renditionKey`（§11）；§16.2 D12 |
 | R3 | **網址只由 `ImageUrlService` 產生**：效期、時間窗、簽章方式（presigned 或 CDN）集中在一處 | `core/image`（§3） |
 | R4 | **尺寸是具名的 preset**，各附 2x；沒有任意寬度的參數 | 用途的宣告、圖片庫的固定尺寸（§6） |
 | R5 | **讀圖的熱路徑不查 DB、不打 api**：回應裡的網址直接指向物件儲存（或 CDN），瀏覽器拿到就讀 | §3 |
@@ -34,7 +34,7 @@ CDN 是 `ObjectUrlSigner` 的另一個實作（[`../../features/image-cdn.md`](.
 | 圖片 | 物件 | 網址 | 現況 |
 | --- | --- | --- | --- |
 | 檔案管理器的圖片 | `files/<id>`、`variants/<id>/…` | 影像 API（HMAC → 查 DB → 302；[`09-file.md`](./09-file.md) §5.4） | 不變（§10）；簽 presigned 網址改經 `ObjectUrlSigner` |
-| 圖片資產（頭像等） | `images/<id>/r<rev>/<preset>.<格式>` | `ImageUrlService` 直接簽 | 規劃中（[`../../features/image-picker.md`](../../features/image-picker.md)） |
+| 圖片資產（頭像等） | `images/<id>/r<rev>/<preset>.<格式>` | `ImageUrlService` 直接簽 | §15 |
 | 圖片庫 | `gallery/<id>/original`、`gallery/<id>/r<rev>/<尺寸>.<格式>` | `ImageUrlService` 直接簽；原檔下載另簽帶 `Content-Disposition` 的網址 | 規劃中（[`../../features/image-gallery.md`](../../features/image-gallery.md)） |
 
 圖片資產與圖片庫的物件是 **處理時一次產生好的**（R2），每個物件的 key、格式、尺寸在 DB 裡都有，組回應時就能算出全部網址；
@@ -174,7 +174,7 @@ interface ImageSources {
 
 - 物件只寫一次（R2）、路徑含 uuid 與 rev，所以可以 `Cache-Control: public, max-age=31536000, immutable`。
 - 撤銷 ＝ 刪除那個 rev 的 `public/` 物件，再清理 CDN 快取（公開網址沒有效期，一定要清）。
-- 用途上只預留 `visibility`（[`../../features/image-picker.md`](../../features/image-picker.md) D6），還沒有實作。
+- 用途上只預留 `visibility`（§16.2 D6），還沒有實作。
 
 ---
 
@@ -242,7 +242,7 @@ STORAGE_TOTAL_LIMIT_MB（環境變數，0 = 不啟用）
 | 近似值：兩次彙總之間的上傳不會立刻算進去 | 止水線要設得比實際的空間低一些，預留 5 分鐘的上傳量 |
 | 還沒有量測、最近一次量測超過 1 小時、平台 DB 讀不到時 **放行**，記警告（每 30 秒最多一行）並計入指標 | 止水線是保險，不能讓背景工作的故障變成全平台無法上傳 |
 | 錯誤用 409、不帶 `details` | 前端不會把 5xx 自動重試；平台的數字不給租戶看 |
-| 擁有計數的模組在 `onModuleInit` 向 `core/usage` 的 `TenantStorageUsage` 登記（現在是檔案的 `file_storage_usage`） | `core/` 不認識業務模組；圖片資產與圖片庫維護同一個計數（[`../../features/image-picker.md`](../../features/image-picker.md) D3），不另外登記 |
+| 擁有計數的模組在 `onModuleInit` 向 `core/usage` 的 `TenantStorageUsage` 登記（現在是檔案的 `file_storage_usage`） | `core/` 不認識業務模組；圖片資產與圖片庫維護同一個計數（§16.2 D3），不另外登記 |
 
 - **apps/platform**：租戶清單上方顯示所有租戶的已用量與止水線（`GET /platform/tenants/storage-total`，`tenant:read`）；越過 80% 標成警告，
   到 100% 說明「所有租戶都暫停新的上傳」，量測過舊時說明「止水線暫時不擋」。部署沒有啟用時不顯示。
@@ -293,7 +293,7 @@ STORAGE_TOTAL_LIMIT_MB（環境變數，0 = 不啟用）
 | D6 | **`ObjectUrlSigner` 先抽出**（`core/storage`），現在只有 `PresignedUrlSigner`；它是三份圖片提案的第一步 | 圖片資產與圖片庫從一開始就經過它；CDN 只是多一個實作，可以獨立進行、不必回頭改呼叫端 | 等 CDN 時再抽：到時要改所有呼叫端 |
 | D7 | **`SignedImage` 只在失敗時重抓**（同一頁以 `coalesce` 合併成一次失效），長時間開著且持續載入新圖的頁面才依 `expiresAt` 主動重抓 | 已經顯示的圖不需要新網址；避免「50 張圖同時過期 → 50 次重抓」 | 一律依 `expiresAt` 定時重抓：多數頁面白白多打請求 |
 | D8 | **儲存的止水線由平台計算**：環境變數 `STORAGE_TOTAL_LIMIT_MB`（0 = 不啟用）；平台的背景工作每 5 分鐘量各租戶的已用量，寫平台 DB（每個租戶一列）；登記上傳時讀合計（程序內快取 30 秒），超過回 `409 STORAGE_TOTAL_LIMIT_REACHED`（不帶數字）；只擋新的寫入；量測超過 1 小時沒更新就放行；越過 80%、100% 通知平台管理者。每個租戶仍有自己的容量 | 租戶的容量可以超賣，部署的空間不行；在平台算讓租戶的請求不必跨租戶查詢；門檻是部署的事實（物件儲存有多大），跟著部署設定走 | 每次上傳即時加總所有租戶：每次都要連每個租戶的 DB；放在平台 DB 的設定、畫面上改：門檻跟著實際的硬體走，改它的人是部署的人；沿用每小時的用量快照：最多晚一小時，止水線要預留的空間太大；把容量改成只有全平台一個上限：失去租戶之間的公平 |
-| D9 | **格式政策抽到 `core/image`**（主格式的選擇、品質、轉正、移除中繼資料、裁切 `extract`），檔案、圖片資產、圖片庫共用；**尺寸** 由各模組決定（原 [`../../features/image-picker.md`](../../features/image-picker.md) D2） | 三處都要一樣的「progressive JPEG／有透明度用 WebP」；`core/` 不能 import `modules/`，放在 core 三邊都拿得到 | 新增 `modules/image` 提供給檔案用：檔案模組就要 import 一個與它平行的模組，依賴方向變複雜 |
+| D9 | **格式政策抽到 `core/image`**（主格式的選擇、品質、轉正、移除中繼資料、裁切 `extract`），檔案、圖片資產、圖片庫共用；**尺寸** 由各模組決定（原圖片資產提案的 D2，§16.2 D2） | 三處都要一樣的「progressive JPEG／有透明度用 WebP」；`core/` 不能 import `modules/`，放在 core 三邊都拿得到 | 新增 `modules/image` 提供給檔案用：檔案模組就要 import 一個與它平行的模組，依賴方向變複雜 |
 
 ### 14.3 實作紀錄
 
@@ -303,5 +303,241 @@ STORAGE_TOTAL_LIMIT_MB（環境變數，0 = 不啟用）
 - **止水線的錯誤碼用 409 不是 507**：web-core 的 fetcher 會自動重試 5xx（`plugins/fetcher/retry.ts`），擋下來的上傳重試也不會成功；409 與租戶容量的 `FILE_STORAGE_QUOTA_EXCEEDED` 一致。
 - **止水線存每個租戶一列，不是單一的合計列**：一輪裡有租戶失敗時，單一合計列只能少算或整輪不寫；每個租戶一列讓失敗的租戶保留上一次的值。
 - **容量不改名**：圖片資產與圖片庫共用租戶的容量，原本要把參數、計數、錯誤碼改成 `storage.*`；但參數 key 與錯誤碼上線後不改名、改表名是破壞性的 migration，
-  而參數在 feature 關閉時本來就照常生效，所以沿用 `file.storageQuotaMb`、`file_storage_usage`、`FILE_STORAGE_QUOTA_EXCEEDED`，只改說明（[`../../features/image-picker.md`](../../features/image-picker.md) D3）。
+  而參數在 feature 關閉時本來就照常生效，所以沿用 `file.storageQuotaMb`、`file_storage_usage`、`FILE_STORAGE_QUOTA_EXCEEDED`，只改說明（§16.2 D3）。
 - **EXIF 的讀取延後**：只有圖片庫用得到（拍攝時間、相機），沒有使用者之前不加解析的套件。
+
+---
+
+## 15. 圖片資產（`modules/image`）
+
+與檔案管理器無關的圖片（第一個是使用者頭像，之後是租戶 Logo、留言與審批的附件）。所有來源（上傳、檔案管理、最近使用、之後的圖片庫）的結果
+都是 **一筆新的圖片資產**；使用圖片的資源（consumer）只存資產的 id（R1），不知道圖片從哪裡來。前端的選圖見 [`../frontend/23-image-picker.md`](../frontend/23-image-picker.md)。
+
+```
+consumer（例：modules/user 的頭像）
+  │  存 avatar_image_id；儲存時在自己的交易內 claim（認領）／detach（解除）／recrop（重新裁切）；組回應時 sourcesOf()
+  ▼
+modules/image（通用模組，只依賴 core 與回收桶）
+  ├─ ImageUsageRegistry：用途（限制、尺寸、效期）          ← consumer 在 onModuleInit 登記
+  ├─ ImageSourceRegistry：「我能提供一張圖片」               ← modules/file 登記 file；內建 recent；之後 modules/gallery 登記 gallery
+  ├─ ImageOwnerRegistry：處理好了通知擁有者推自己的變更      ← consumer 登記
+  ├─ ImageAssetService：上傳、從來源複製、最近使用、consumer 的 API
+  ├─ ImageProcessService：背景工作 image.process（worker）
+  └─ ImageMaintenanceService：背景工作 image.maintenance（IMAGE_MAINTENANCE_CRON）
+```
+
+- `modules/image` 不 import 任何業務模組；檔案與之後的圖片庫 **彼此不認識**，只認識這裡的介面（[`../../coding-standards/07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §3.2）。
+- 不屬於任何可關閉的 feature：關掉檔案管理器（`file`），頭像照樣能上傳；「檔案」這個來源回 `404 FEATURE_DISABLED`。
+
+### 15.1 資料模型（租戶 DB）
+
+`image_assets`（migration `0052_image_assets`），不放進 `files`（§16.2 D1）：
+
+| 欄位 | 說明 |
+| --- | --- |
+| `usage` | 用途 id（`user.avatar`）：決定限制、尺寸與網址的效期 |
+| `status`、`failure_reason` | `pending` / `ready` / `failed`；失敗的原因 `notImage`、`typeNotAllowed`、`tooLarge`、`tooSmall`、`missing` |
+| `source`、`source_ref_id`、`source_name` | `upload` / `file` / `recent`（之後 `gallery`）、來源那一筆的 id（**不是外鍵**）與原本的名稱 |
+| `content_type`、`size` | pending 時是登記的；ready 時是主檔的。`size` 計入租戶的容量 |
+| `width`、`height`、`has_alpha`、`master_format` | 主檔（轉正、長邊 ≤ 4096、移除中繼資料）的描述，**未裁切** |
+| `content_hash` | 主檔的 SHA-256：「最近使用」以它去除重複 |
+| `crop` | 目前的裁切，以 **比例**（0～1）表示（§16.3）；null 是不裁切（有比例的用途則取中央） |
+| `rev`、`variant_rev`、`variants` | 要求的版本、已寫好的版本、那個版本的尺寸與格式（組回應不查物件儲存，R5） |
+| `queued_at`、`stale_revs_purge_after` | 最後一次排入處理的時間（找卡住的處理）、舊版本的變體可以刪除的時間 |
+| `owner_type`、`owner_id`、`detached_at` | 使用它的資源；被換掉或擁有者被永久刪除的時間 |
+| `hidden_from_recent_at` | 使用者把它從「最近使用」移除的時間 |
+
+物件：`images/<id>/upload`（處理完就刪）、`images/<id>/master.<格式>`、`images/<id>/r<rev>/<尺寸>.<格式>`；每個物件只寫一次（R2）。
+`file.maintenance` 只管 `files/`、`thumbnails/`、`variants/`，`images/` 由 `image.maintenance` 對帳。
+不軟刪除：沒被認領或被換掉的資產由清理排程連同物件一起刪除（§15.6）。
+
+`users.avatar_image_id` 不設外鍵：`image_assets.created_by` 參照 `users`，反過來再參照會讓 schema 循環；認領與解除在同一個交易內，清理只刪沒被認領或已解除的資產。
+
+### 15.2 來源介面：`ImageSourceRegistry`
+
+```ts
+interface ImageSource {
+  id: string;                    // 'file'、'recent'；之後 'gallery'。前端送來的是字串，呼叫端不知道它代表什麼
+  feature?: TenantFeature;       // 沒啟用時 404 FEATURE_DISABLED
+  resolve(refId, actor, purpose): Promise<ResolvedImage>;   // 以呼叫者的身分讀取；purpose 例：'imageAsset:user.avatar'
+}
+interface ResolvedImage {
+  storageKey; contentType; size; name; width?; height?;
+  normalized?: { width; height; hasAlpha; format; contentHash };   // 已經是正規化過的主檔：直接沿用，不重新編碼
+}
+```
+
+- **呼叫端一律複製**（S3 CopyObject，`ObjectStorage.copyObject`，內容不經過 api）：解析出的物件只在複製的當下被讀一次，之後原物件的命運與它無關。
+- 來源的 `resolve` 是唯一的讀取權限檢查（`POST /images/from-source` 只宣告 `@Authenticated()`）。複製時來源寫自己的稽核 `<resource>.copy`，
+  `changes.after.purpose` 是呼叫端給的用途字串（§16.2 D5）：管理者看得到「這張圖被誰拿去哪裡用」。
+- 來源：
+
+| id | 登記 | 讀取權限 | 解析出的物件 |
+| --- | --- | --- | --- |
+| `file` | `modules/file` 的 `FileImageSource`（feature `file`） | 看得到所在的資料夾（`FileService.resolveImageForCopy`）；還在上傳中、不是圖片、變體處理失敗的當作不存在；寫 `file.copy` | 原檔 `files/<id>` |
+| `recent` | 內建（`ImageRecentSource`） | `created_by = 自己`（§16.2 D10） | 那筆資產的主檔（`normalized`：新的資產直接沿用，內容雜湊相同） |
+
+### 15.3 用途（usage）
+
+使用圖片的模組在 `onModuleInit` 以 `ImageAssetService.registerUsage()` 登記；登記錯誤（名稱、效期、尺寸、收 SVG）在啟動時就失敗。
+前端以 `GET /images/usages` 取得同一份（§16.2 D8）。
+
+| 屬性 | `user.avatar` |
+| --- | --- |
+| `maxSize` | 10 MiB（來源的原檔） |
+| `contentTypes` | JPEG、PNG、WebP、AVIF、GIF（第一格，§16.2 D9）；不收 SVG |
+| `minWidth` / `minHeight` | 128 × 128（裁切之後） |
+| `aspectRatio` | `1`：一定裁成正方形，沒給裁切就取中央 |
+| `presets` | `{ sm: 32, md: 96, lg: 256 }`；每個另產生 `@2x` |
+| `urlTtl` | 12 小時（§4） |
+| `visibility` | `signed`（`public` 保留給租戶 Logo，§16.2 D6） |
+| `sources` | 省略（全部） |
+
+### 15.4 建立：上傳與從來源複製
+
+```
+上傳：      POST /images { usage, name, contentType, size } → 直傳網址（大小、型別、If-None-Match 簽進網址）
+            → 瀏覽器 PUT → POST /images/:id/complete { crop? }（head 確認大小、沒有 Content-Encoding）→ 排入 image.process
+其他來源：  POST /images/from-source { usage, source, refId, crop? }
+            → ImageSourceRegistry.get(source)（feature 檢查）→ resolve(refId, actor, 'imageAsset:<usage>')
+            → 先擋型別、大小、（知道尺寸時）裁切後的最小尺寸 → CopyObject 到 images/<id>/upload（或 master）→ 排入 image.process
+```
+
+- 上傳不需要權限（`@Authenticated()`）；濫用的控制：每人處理中（`pending`）最多 `IMAGE_PENDING_PER_USER`（10）張、止水線、租戶的容量、沒被認領的 24 小時後清除。
+- 登記時在交易內以條件式 UPDATE 佔用租戶的容量（與檔案共用 `file_storage_usage`，§16.2 D3）；主檔寫好時補上與登記大小的差額。
+  `file.maintenance` 對帳時加總 `files` 與以 `StorageSizeSources` 登記的其他合計（`SUM(image_assets.size)`）。
+- 複製失敗或登記失敗（容量）時刪掉剛複製的物件；漏掉的由殘留對帳處理。
+
+### 15.5 處理：`image.process`
+
+在 worker 執行（[`../01-system.md`](../01-system.md) §7 D9），重複排入無害：
+
+1. **還沒有主檔**：讀原檔（上限是用途的 `maxSize`）→ 以 **檔頭** 判斷型別（不信任宣告的型別；SVG 在交給解碼器之前就擋掉）→ 解碼、轉正、長邊縮到 4096、
+   移除中繼資料 → 寫主檔（主格式：progressive JPEG，有透明度用 WebP，§11）→ 計入容量的大小改成主檔的 → 刪原檔。
+2. **要求的版本（`rev`）還沒寫好**：以主檔套用裁切（比例換算成主檔的像素，用途有比例時修正成剛好那個比例）→ 每個 preset 的 1x、2x × 主格式與 WebP，
+   寫到 `r<rev>/`。2x 與另一個尺寸一樣大時以 `sameAs` 共用物件（§3）。寫回時要求的版本仍是 `rev` 才生效：處理途中又重新裁切了，剛寫好的版本交給清理。
+3. 推給建立者本人（§15.9）；資產已被某個資源使用時，經 `ImageOwnerRegistry` 通知擁有者推它自己的變更（頭像：使用者的 update）。
+
+失敗（不是圖片、太小、型別不符、原檔不見）不會因為重試而成功：還沒有任何版本的資產標成 `failed`；已經有版本的（重新裁切）保留原本的版本。
+儲存服務暫時不可用則拋出，交給背景工作重試。
+
+### 15.6 生命週期與清理：`image.maintenance`
+
+| 狀況 | 做法 |
+| --- | --- |
+| 上傳了但沒按儲存 | `owner_id` 一直是 null；建立超過 24 小時就刪除物件與紀錄、釋出容量 |
+| 換了一張新圖 | 舊的設 `detached_at`，保留到回收桶的保留期限（`trash.retentionDays`）；期間仍出現在「最近使用」 |
+| 資源被軟刪除 | 不動 |
+| 資源被永久刪除 | consumer 的 `TrashHandler.purge` 呼叫 `detachAll`，交給清理排程 |
+| 重新裁切 | 新的版本寫好之後，舊版本的變體在用途的網址效期過後刪除（`stale_revs_purge_after`） |
+| 處理卡住 | 排入超過 30 分鐘、要求的版本還沒寫好 → 重新排入 |
+| 殘留物件 | `images/<id>/…` 查不到資產、而且至少 24 小時前寫入的 → 刪除 |
+
+先刪物件再刪紀錄：紀錄先刪的話，物件刪除失敗就沒人知道它們屬於誰。之後的 CDN 在這裡清理邊緣快取（[`../../features/image-cdn.md`](../../features/image-cdn.md) §7）。
+
+### 15.7 最近使用
+
+`GET /images/recent?usage=`：**自己** 建立過、`ready`、沒有移除的圖片資產，同一個 `content_hash` 只列最新的一筆，最多 30 張，不分用途；
+伺服器以用途過濾型別與大小，尺寸太小的照樣列出（前端停用並說明原因）。選了之後是 `from-source`（`source: 'recent'`），**複製** 成一筆新的資產
+（一個資產只屬於一個資源），可以重新裁切。`POST /images/:id/hide-from-recent` 把它（與同一個內容的其他副本）移除，不影響正在使用它的資源。
+保留多久跟著資產本身的清理（§16.2 D11）。
+
+### 15.8 consumer：使用者頭像
+
+| 項目 | 做法 |
+| --- | --- |
+| 資料 | `users.avatar_image_id`（`avatarImageId` 是遞增 `version` 的可編輯欄位） |
+| 換自己的 | `PATCH /auth/profile { avatarImageId | null, avatarCrop? }`：不需要權限 |
+| 換別人的 | `PATCH /users/:id { avatarImageId, avatarCrop?, version }`：`user:update`（樂觀鎖） |
+| 只重新裁切 | 只帶 `avatarCrop`：重新裁切目前那張（寫到新的版本，不必重傳） |
+| 規則 | `UserAvatarService.applyInTx`：先鎖住使用者列再讀目前的頭像，解除舊的、認領新的。認領的條件是 **自己建立、還沒被使用、用途相同、沒有失敗**——別人的資產 `404 IMAGE_ASSET_NOT_FOUND`，其餘 `409 IMAGE_ASSET_NOT_USABLE`（`details.reason`：`inUse`、`usageMismatch`、`failed`） |
+| 稽核 | `user.update` 的 `changes` 記 `avatarImageId` 的前後值、`avatarSource`、`avatarSourceRefId`、`avatarCrop`（存參照，不存網址） |
+| 回應 | `User.avatar`、`Profile.user.avatar`、留言的 `authorAvatar` 是 `ImageSources`（`sm`、`md`、`lg`）；還在處理時是 `null` |
+| 推播 | 頭像處理好了：使用者的 update（看得到這個人的畫面與本人的 profile 重抓） |
+| 永久刪除 | `UserTrashHandler.purge` 解除他的所有資產 |
+
+使用者沒有版本歷史（只有角色有），所以沒有「還原到舊的頭像」。
+
+### 15.9 推播
+
+`ChangeSource.IMAGE`（`image`，`id` = 資產 id）以 `perRecipient` 只推給建立者本人，不寫稽核（`recordsAudit: false`）：
+上傳的對話框、「最近使用」等著它。使用它的資源由擁有者推自己的來源。
+
+### 15.10 檔案作為圖片來源
+
+- `GET /files?imageUsage=<usage>`：只列能當這個用途的圖片——型別在用途的 `contentTypes` 內（排除 SVG）、大小不超過 `maxSize`、變體沒有處理失敗。
+  尺寸太小的照樣列出，由前端依 `image.width`／`image.height` 停用。不存在的用途 `400 VALIDATION_FAILED`。
+- `FileService.resolveImageForCopy`：看得到所在的資料夾才行（與詳情相同的判斷），寫 `file.copy`。之後原檔被改名、移動、刪除，或資料夾的授權改變，
+  複製出去的圖都不受影響，看那張圖的人也看不到原本的資料夾。
+
+### 15.11 端點與錯誤碼
+
+| 端點 | 授權 | 說明 |
+| --- | --- | --- |
+| `GET /images/usages` | 登入 | 每個用途的限制 |
+| `GET /images/recent?usage=` | 登入 | 最近使用 |
+| `POST /images` | 登入 | 登記上傳，回直傳網址 |
+| `POST /images/:id/complete` | 登入（建立者） | 確認直傳完成，可帶 `crop` |
+| `POST /images/from-source` | 登入；來源以呼叫者的身分讀取 | 從其他來源複製 |
+| `POST /images/:id/hide-from-recent` | 登入（建立者） | 從最近使用移除 |
+| `GET /images/:id` | 登入（建立者） | 處理狀態、各尺寸與主檔的網址 |
+
+錯誤碼：`IMAGE_ASSET_NOT_FOUND`（404）、`IMAGE_TYPE_NOT_ALLOWED`（422）、`IMAGE_TOO_LARGE`（413）、`IMAGE_TOO_SMALL`（422）、`IMAGE_CROP_INVALID`（422）、
+`IMAGE_SOURCE_NOT_FOUND`（404）、`IMAGE_ASSET_NOT_USABLE`（409）、`IMAGE_ALREADY_UPLOADED`（409）、`IMAGE_UPLOAD_INCOMPLETE`（409）、`IMAGE_PENDING_LIMIT_REACHED`（409）；
+容量沿用 `FILE_STORAGE_QUOTA_EXCEEDED`、`STORAGE_TOTAL_LIMIT_REACHED`。背景工作：`image.process`、`image.maintenance`（`IMAGE_MAINTENANCE_CRON`，預設每小時第 30 分）。
+
+### 15.12 測試
+
+| 範圍 | 檔案 |
+| --- | --- |
+| 裁切的換算、檔頭判斷、用途的登記 | `modules/image/__tests__/image-crop.spec.ts`、`image-sniff.spec.ts`、`image-usage.registry.spec.ts` |
+| 建立、認領、重新裁切、最近使用 | `modules/image/__tests__/image-asset.service.spec.ts` |
+| 處理（真的 sharp）：主檔、變體、`sameAs`、失敗、版本的競爭 | `modules/image/__tests__/image-process.service.spec.ts` |
+| 清理 | `modules/image/__tests__/image-maintenance.service.spec.ts` |
+| 頭像 | `modules/user/__tests__/user-avatar.service.spec.ts` |
+| 端到端（真的 Postgres）：上傳 → 處理 → 頭像、不能拿別人的或已被使用的、換掉與重新裁切、從檔案管理複製與 `file.copy`、最近使用、失敗、清理與容量的對帳 | `apps/api/test/images.spec.ts` |
+
+---
+
+## 16. 設計決策：圖片資產與選圖
+
+### 16.1 背景
+
+系統裡能上傳圖片的地方原本只有檔案管理器，但使用者頭像、租戶 Logo、富文本、留言與審批都需要圖片。每個功能各自做上傳會遇到同樣的問題：
+
+1. **檔案管理器的上傳綁在 `file` feature 上**（`@RequireFeature('file')`、`file:create`）：關掉檔案管理器頭像就不能上傳；只為了換頭像也不該需要「上傳檔案」的權限。
+2. **檔案管理器裡的檔案是別人的**：直接引用 `files.id`，檔案被改名、移動、刪除或資料夾的授權改變，引用它的頭像就跟著壞掉或外洩。
+3. **選圖的介面每處都得做一次**：上傳、從檔案管理挑、裁切、大小與型別的限制。
+
+使用者希望選圖時能挑不同的來源；某個來源的條件不滿足（feature 沒開、沒有權限、沒有內容）就不列出它；只剩上傳時不顯示來源選擇。
+
+### 16.2 決定
+
+| # | 決定 | 理由 | 評估過的方案 |
+| --- | --- | --- | --- |
+| D1 | **圖片資產另開 `image_assets` 表**（租戶 DB），物件放 `images/<id>/`；有自己的清理排程 `image.maintenance` | `files` 的列表、容量、維護排程、推播、回收桶都假設每一列是檔案管理器裡的檔案，且 `folder_id = null` 已經代表根目錄；混在一起每個查詢都要排除 | `files` 加 `purpose` 欄：改動散在檔案模組各處，而且 `file` 被關掉時要另外放行 |
+| D2 | **格式政策抽到 `core/image`**：見 §14.2 D9 | — | — |
+| D3 | **容量依租戶、檔案與圖片資產（之後的圖片庫）共用一個上限，沿用現有的名稱**：`file.storageQuotaMb`、`file_storage_usage`、`FILE_STORAGE_QUOTA_EXCEEDED` 不改名；主檔計入，變體不計；`file` 關掉時照樣計算。所有租戶的合計另由平台計算（§12） | 容量是租戶「買了多少空間」，與用哪個功能無關；參數 key 與錯誤碼上線後不改名 | 改名成 `storage.quotaMb`／`storage_usage`：要搬移覆寫值、新舊錯誤碼並存、表改名拆兩次部署；各自一個上限：平台要分別設定，租戶看不懂哪個滿了 |
+| D4 | **從圖片庫選的圖複製成圖片資產**（[`../../features/image-gallery.md`](../../features/image-gallery.md) D1） | 所有來源的生命週期一致 | 見圖片庫 D1 |
+| D5 | **複製時來源寫稽核 `<resource>.copy`**（`file.copy`，之後 `galleryItem.copy`）：`resolve(refId, actor, purpose)` 的 `purpose` 寫進 `changes.after.purpose`，來源不解讀它 | 複製是把內容帶到原本授權之外的動作，管理者要追得到；`purpose` 讓來源記下去處，又不必認識呼叫端 | 不寫：追不到內容的去向；呼叫端寫：呼叫端要知道來源的 `resourceType` |
+| D6 | **用途預留 `visibility`**（`signed` ｜ `public`），這一版只實作 `signed`；公開網址在第二批做租戶 Logo 時決定（§8） | 登入頁要的不過期網址牽涉快取、撤銷、獨立網域，現在決定缺少實際的使用情境 | 現在就做公開資產：沒有第二個需求驗證設計 |
+| D7 | **第一個 consumer 是使用者頭像**：`users.avatar_image_id`、`PATCH /users/:id` 與 `PATCH /auth/profile` 的 `avatarImageId`／`avatarCrop`、`Avatar` 接受圖片並保留縮寫當退路 | 同時驗證裁切、多處顯示（頂列、留言、使用者列表）、他人代換（`user:update`） | 租戶 Logo：卡在 D6 的公開網址 |
+| D8 | **`GET /images/usages`** 回所有用途的限制，前端快取到頁面重新載入 | 後端是唯一的事實來源，前後端的數字不會漂移 | 前端各自寫常數：會漂移；經 OpenAPI 產生常數：要改產生器 |
+| D9 | **GIF 一律取第一格**；之後需要動畫時用途加 `animated` | 頭像不需要動畫；逐格縮放的成本高 | — |
+| D10 | **「最近使用」的副本在失去來源的權限之後仍可再用**：`recent` 的 `resolve` 只檢查 `created_by = actor` | 副本是有權限時建立、只有自己看得到；回頭問來源會讓 `modules/image` 依賴來源的存活與開關 | 回頭檢查原本的來源 |
+| D11 | **「最近使用」不另外延長保留**：跟著資產的清理 | 沒被使用的多半是放棄的上傳；真正用過的圖本來就會保留很久 | 至少留 7 天：容量多算、清理排程多一個條件 |
+| D12 | **所有物件只寫一次**：主檔在處理時寫一次；變體的 key 帶版本（`images/<id>/r<rev>/…`），重新裁切寫到新的版本、回應帶新的網址，舊版本在網址效期過後刪除 | 物件以 id 為 key、從不覆寫，是穩定網址與長期快取（CDN）的前提；覆寫同一個 key 會讓瀏覽器與 CDN 繼續顯示裁切前的圖 | 覆寫同一個 key 並加 `?v=`：CDN 的快取 key 若忽略查詢字串就失效 |
+
+### 16.3 實作紀錄
+
+- **裁切以比例（0～1）表示，不是主檔的像素**：提案寫「以主檔的像素為單位」，但前端在裁切框裡看到的是原檔（上傳）、檔案的全螢幕預覽（縮小版）或主檔（重新裁切），
+  三者的像素都不同，前端也不知道伺服器把主檔縮成多大。改成比例，套用時才依主檔換算（`image-crop.ts`），用途有比例時修正成剛好那個比例。
+- **版本分成「要求的」與「已寫好的」**（`rev`、`variant_rev`）：重新裁切在 api 的交易內只遞增 `rev` 並排入處理（sharp 不在 api 的 event loop 跑），
+  背景工作寫好後在 `rev` 沒變的條件下才寫回 `variant_rev`；處理途中又裁切了一次，剛寫好的那版交給清理。回應一律用已寫好的版本，所以裁切後到處理完之前仍顯示舊的裁切。
+- **`queued_at`**：提案沒有。`pending` 同時代表「還沒上傳完」與「處理中」，清理排程要分辨後者是否卡住。
+- **已經正規化的來源直接當主檔**（`ResolvedImage.normalized`）：「最近使用」的來源本來就是主檔，再解碼、重新編碼一次會讓畫質一代代變差、內容雜湊也變了（最近使用就去不了重）。
+- **容量的計數搬到 `core/usage`**（`reserveStorageUsage`、`addStorageUsage`、`readStorageUsage`、`StorageSizeSources`）：計數那一列原本只有 `FileRepository` 寫；
+  圖片資產也要佔用同一列，對帳也要加上它的合計，而 `modules/image` 不能 import 檔案的 repository。
+- **頭像的認領先鎖使用者列**（`UserRepository.lockAvatar`）：`PATCH /auth/profile` 沒有樂觀鎖，同一個人並行換兩次頭像時，要以鎖住後讀到的值為準解除舊的那張，否則有一張會永遠被認領卻沒人用。
+- **重新裁切只有建立者做得到**：主檔的網址只在 `GET /images/:id` 給建立者；幫別人換頭像的管理者可以換一張，但不能重新裁切別人上傳的那張（前端提示改選一張）。
+- **留言的作者帶頭像**（`Comment.authorAvatar`）：提案只列出留言是「之後要放圖片的地方」；作者的頭像是顯示，不是附件，跟著頭像這一批做。

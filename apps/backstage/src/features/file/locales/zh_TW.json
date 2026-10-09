@@ -276,6 +276,13 @@
     },
     "storage": {
       "usage": "已使用 {{used}}／{{quota}}"
+    },
+    "imageSource": {
+      "folder": "資料夾",
+      "empty": "這個資料夾沒有能用的圖片",
+      "emptyHint": "換一個資料夾，或改用上傳",
+      "tooSmall": "{{name}}（圖片太小：至少 {{width}} × {{height}} 像素）",
+      "more": "載入更多"
     }
   }
 }

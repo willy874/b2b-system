@@ -108,6 +108,12 @@ export abstract class ObjectStorage {
   /** api 自己寫入的小物件（例：影像變體）；同 key 直接覆寫。 */
   abstract putObject(key: string, body: Buffer, options: { contentType: string }): Promise<void>;
 
+  /**
+   * 在同一個 bucket 內複製物件（S3 的 CopyObject）：內容不經過 api。來源不存在回 false。
+   * 給「把別處的圖片複製成自己的一份」用（docs/architecture/backend/25-image.md §15.3）：複製之後兩邊各自的生命週期互不影響。
+   */
+  abstract copyObject(sourceKey: string, targetKey: string): Promise<boolean>;
+
   /** 依 key 排序逐頁列出 `prefix` 開頭的物件（殘留檔案對帳用）。 */
   abstract listObjects(prefix: string): AsyncIterable<ListedObject>;
 

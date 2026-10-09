@@ -15,6 +15,7 @@ import { runInTenantContext } from '@/core/tenant';
 import type { TenantContext } from '@/core/tenant';
 import type { StorageCapacity } from '@/core/usage';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import type { ImageAssetService } from '@/modules/image/image-asset.service';
 import type { TagService } from '@/modules/tag/tag.service';
 import type { WebhookService } from '@/modules/webhook/webhook.service';
 
@@ -192,6 +193,13 @@ function setup(
   };
   // 儲存的止水線（docs/architecture/backend/25-image.md §12）：預設放行
   const capacity = { assertCanStore: vi.fn(async () => undefined) };
+  const imageAssets = {
+    findUsage: vi.fn((id: string) =>
+      id === 'user.avatar'
+        ? { contentTypes: ['image/jpeg', 'image/png'], maxSize: 10 * 1024 * 1024 }
+        : undefined,
+    ),
+  };
   const service = new FileService(
     db as unknown as Database,
     repo as unknown as FileRepository,
@@ -207,9 +215,21 @@ function setup(
     webhooks as unknown as WebhookService,
     tags as unknown as TagService,
     capacity as unknown as StorageCapacity,
+    imageAssets as unknown as ImageAssetService,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, audit, events, images, folders, webhooks, capacity };
+  return {
+    service,
+    repo,
+    storage,
+    audit,
+    events,
+    images,
+    folders,
+    webhooks,
+    capacity,
+    imageAssets,
+  };
 }
 
 async function expectAppError(promise: Promise<unknown>, code: string) {
@@ -848,7 +868,7 @@ describe('FileService.list：keyset 游標', () => {
     });
 
     await service.list({ ...query, cursor: page.nextCursor ?? '' }, ALICE);
-    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined);
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), cursor, undefined, undefined);
   });
 
   it('帶游標的頁不計總數：pagination.total 為 null', async () => {
@@ -930,6 +950,7 @@ describe('FileService.list：keyset 游標', () => {
       expect.anything(),
       expect.objectContaining({ direction: 'before' }),
       undefined,
+      undefined,
     );
     repo.list.mockResolvedValue({ items: rows.slice(0, 1), total: null, lastCreatedAt: undefined });
     const head = await service.list({ ...query, cursor: next.prevCursor ?? '' }, ALICE);
@@ -974,9 +995,12 @@ describe('FileService 的資料夾層級授權（docs/architecture/iam/06-resour
     };
 
     await service.list(query, ALICE);
-    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, {
-      folderIds: [FOLDER],
-    });
+    expect(repo.list).toHaveBeenLastCalledWith(
+      expect.anything(),
+      undefined,
+      { folderIds: [FOLDER] },
+      undefined,
+    );
     await expectAppError(service.list({ ...query, folderId: OTHER }, ALICE), 'AUTHZ_FORBIDDEN');
   });
 
@@ -993,12 +1017,35 @@ describe('FileService 的資料夾層級授權（docs/architecture/iam/06-resour
       expect.objectContaining({ folderId: FOLDER }),
       undefined,
       undefined,
+      undefined,
     );
     // 根目錄沒有資料夾可以檢查：仍以讀得到的資料夾為範圍（根目錄的檔案不列）
     await service.list({ ...query, folderId: 'root' }, ALICE);
-    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, {
-      folderIds: [FOLDER],
+    expect(repo.list).toHaveBeenLastCalledWith(
+      expect.anything(),
+      undefined,
+      { folderIds: [FOLDER] },
+      undefined,
+    );
+  });
+
+  it('選圖（imageUsage）：以用途的型別與大小過濾；不存在的用途回 VALIDATION_FAILED（docs/architecture/backend/25-image.md §15.10）', async () => {
+    const { service, repo } = setup();
+    const query = {
+      offset: 0,
+      limit: 20,
+      sort: [{ sort: 'createdAt' as const, order: 'desc' as const }],
+    };
+    repo.list.mockResolvedValue({ items: [], total: 0, lastCreatedAt: undefined });
+    await service.list({ ...query, imageUsage: 'user.avatar' }, ALICE);
+    expect(repo.list).toHaveBeenLastCalledWith(expect.anything(), undefined, undefined, {
+      contentTypes: ['image/jpeg', 'image/png'],
+      maxSize: 10 * 1024 * 1024,
     });
+    await expectAppError(
+      service.list({ ...query, imageUsage: 'nope.nope' }, ALICE),
+      'VALIDATION_FAILED',
+    );
   });
 
   it('看不到所在資料夾的 ready 檔案 → FILE_NOT_FOUND', async () => {

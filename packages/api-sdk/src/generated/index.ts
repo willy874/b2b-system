@@ -16,6 +16,7 @@ export * from './endpoints/files';
 export * from './endpoints/groups';
 export * from './endpoints/health';
 export * from './endpoints/identity-providers';
+export * from './endpoints/images';
 export * from './endpoints/jobs';
 export * from './endpoints/mfa';
 export * from './endpoints/notifications';

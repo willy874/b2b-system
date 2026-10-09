@@ -291,6 +291,13 @@
     },
     "storage": {
       "usage": "{{used}} of {{quota}} used"
+    },
+    "imageSource": {
+      "folder": "Folder",
+      "empty": "No usable images in this folder",
+      "emptyHint": "Choose another folder or upload instead",
+      "tooSmall": "{{name}} (too small: at least {{width}} × {{height}} pixels)",
+      "more": "Load more"
     }
   }
 }

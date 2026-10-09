@@ -16,6 +16,7 @@ import { createRouter } from '@tanstack/react-router';
 
 import { registerNavGroups } from '@/core/navigation';
 
+import { registerAppImagePicker } from './image-picker/register';
 import { registerBuiltinHeaderTools } from './layouts/headerTools';
 import { routeTree } from './routes';
 
@@ -54,6 +55,8 @@ export function appContextPlugin(): AppPluginFactory {
     registerMfaMethod(telegramMethod);
     registerMfaMethod(lineMethod);
     registerMfaMethod(emailMethod);
+    // 選圖的 api 與內建的來源「最近使用」（docs/architecture/frontend/23-image-picker.md §2）
+    registerAppImagePicker();
     return { name: 'app', attrs: { router: createAppRouter() } };
   };
 }

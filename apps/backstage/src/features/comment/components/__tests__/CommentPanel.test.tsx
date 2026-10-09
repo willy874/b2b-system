@@ -47,6 +47,7 @@ function comment(overrides: Partial<Comment> = {}): Comment {
     resourceId: USER_ID,
     body: '請確認權限',
     author: ME,
+    authorAvatar: null,
     mentions: [],
     version: 1,
     createdAt: '2026-10-08T00:00:00.000Z',

@@ -126,7 +126,8 @@ docs/
 │   │   ├── 19-observability.md        可觀測性：錯誤回報（@sentry/browser → apm-service）、release、Web Vitals、bundle 預算
 │   │   ├── 20-mfa.md                  MFA：web-core/mfa 的方式註冊表與共用元件、第二步、帳號設定、政策與平台開關頁
 │   │   ├── 21-data-transfer.md        匯入／匯出：匯出對話框、我的匯入匯出、DataGrid、匯入工作區（預覽、草稿、結果）
-│   │   └── 22-comment.md              留言與關注：資源頁的面板註冊表（core/resource-panel）、留言面板
+│   │   ├── 22-comment.md              留言與關注：資源頁的面板註冊表（core/resource-panel）、留言面板
+│   │   └── 23-image-picker.md         選圖：ImageField、圖片來源的註冊表、上傳（拖曳、貼上）、裁切、最近使用、檔案管理、頭像
 │   │
 │   └── backend/
 │       ├── README.md
@@ -154,7 +155,7 @@ docs/
 │       ├── 22-data-transfer.md        匯入／匯出：資源登記、CSV／XLSX／JSON／YAML／SQL 匯出、分析與驗證、逐列交易的套用、清理
 │       ├── 23-organization.md         組織管理：部門樹、成員、主管的解析
 │       ├── 24-comment.md              留言與關注：資源類型的登記、@提及、關注的通知、清理
-│       └── 25-image.md                圖片的讀取與遞送：存參照、簽章網址、效期與尺寸、格式政策；儲存的止水線
+│       └── 25-image.md                圖片：讀取與遞送（存參照、簽章網址、效期與尺寸、格式政策）、儲存的止水線、圖片資產（上傳、來源、處理、清理、頭像）
 │
 ├── coding-standards/                       寫程式時每天要遵守的規則
 │   ├── README.md                      規則強度標記（🔒 工具 / 👀 Review）

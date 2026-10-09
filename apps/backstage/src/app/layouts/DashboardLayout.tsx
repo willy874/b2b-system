@@ -1,11 +1,14 @@
 import type { MenuItemDescriptor } from '@b2b-system/ui/Menu';
 import { BatchQueueNotifier } from '@b2b-system/web-core/batch';
+import { coalesce } from '@b2b-system/web-core/image';
 import { DashboardShell } from '@b2b-system/web-core/layout';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
+import { invalidateResources, Resource } from '@/apis/resources';
 import { getCurrentTenantQueryOptions } from '@/apis/tenant/get-current-tenant/query';
 import { useIsFeatureReady } from '@/core/feature';
 import { useLogoutMutation } from '@/features/auth';
@@ -27,6 +30,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const tenant = useQuery(getCurrentTenantQueryOptions());
   const canSwitchTenant = useIsFeatureReady(TENANT_SWITCH_FEATURE);
   const tenantName = tenant.data?.name;
+  // 頭像的網址過期（分頁開了一整天）：重抓 profile 拿新的網址
+  const onAvatarExpired = useMemo(
+    () => coalesce(() => invalidateResources([{ resource: Resource.PROFILE, kind: 'update' }])),
+    [],
+  );
 
   const switchTenant: MenuItemDescriptor[] = canSwitchTenant
     ? [
@@ -48,6 +56,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         context: tenantName ? { label: tenantName, testId: 'current-tenant' } : undefined,
       }}
       userName={profile.data?.user.displayName ?? ''}
+      userAvatar={profile.data?.user.avatar}
+      onUserAvatarExpired={onAvatarExpired}
       accountActions={[
         ...switchTenant,
         { key: 'logout', label: t('menu.logout'), tone: 'danger', onSelect: () => logout.mutate() },

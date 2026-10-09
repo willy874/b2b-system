@@ -145,6 +145,10 @@
       "unlinkTitle": "解除外部身分的連結",
       "unlinkConfirm": "要解除「{{provider}}」的連結嗎？這位使用者之後以它登入時會重新對應帳號；只允許 SSO 又沒有密碼的帳號可能因此無法登入。",
       "unlinked": "已解除連結"
+    },
+    "avatar": {
+      "title": "頭像",
+      "saved": "頭像已更新。"
     }
   }
 }

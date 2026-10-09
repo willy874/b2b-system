@@ -8,6 +8,7 @@ import {
 } from '@/core/file';
 
 import { registerFileBatchOperations } from './batch';
+import { registerFileImageSource } from './imageSource/register';
 import { FILE_LOCALE_SCOPE } from './locale';
 import { registerFileNavigation } from './navigation';
 import { registerFilePagePermissions } from './permission';
@@ -32,6 +33,7 @@ export function appContextPlugin(): AppDynamicPluginFactory {
     registerFileBatchOperations();
     registerFileTrashTypes(); // 回收桶的「檔案」「資料夾」分頁
     registerFileRouteLinks(); // 站內通知等後端連結的 route id
+    registerFileImageSource(); // 選圖的來源「檔案管理」（頭像等）
     // 擴充點的內建項目；其他格式由別的 feature / plugin 以同樣的 API 註冊（core/file）
     registerBuiltinFilePreviewers();
     registerFileValidator(maxSizeValidator);

@@ -45,6 +45,8 @@ import { GROUP_LIST_QUERY_KEY, GROUP_OPTIONS_QUERY_KEY } from '@/apis/group/get-
 import { GROUP_MEMBERS_QUERY_KEY } from '@/apis/group/get-group-members/query';
 import { GROUP_ROLES_QUERY_KEY } from '@/apis/group/get-group-roles/query';
 import { IDENTITY_PROVIDER_LIST_QUERY_KEY } from '@/apis/identity-provider/get-identity-provider-list/query';
+import { IMAGE_DETAIL_QUERY_KEY } from '@/apis/image/get-image/query';
+import { RECENT_IMAGE_LIST_QUERY_KEY } from '@/apis/image/get-recent-images/query';
 import { JOB_DETAIL_QUERY_KEY } from '@/apis/job/get-job-detail/query';
 import { JOB_LIST_QUERY_KEY } from '@/apis/job/get-job-list/query';
 import { JOB_QUEUE_LIST_QUERY_KEY } from '@/apis/job/get-job-queue-list/query';
@@ -162,6 +164,11 @@ export const Resource = {
    */
   DATA_TRANSFER: 'dataTransfer',
   /**
+   * 圖片資產的處理結果（`id` = 資產 id；docs/architecture/backend/25-image.md §15.9）：只推給建立者，不寫稽核。
+   * 使用它的資源（頭像所屬的使用者）由擁有者另外推自己的來源
+   */
+  IMAGE: 'image',
+  /**
    * 組織的部門（`id` = 部門 id；docs/architecture/backend/23-organization.md）：結構與成員都以它宣告。
    * 被異動的成員本人由後端以 user room 推送（使用者詳情的「所屬部門」）。
    */
@@ -273,10 +280,16 @@ const graph = createResourceGraph<Resource>({
         Resource.WEBHOOK_DELIVERY,
         Resource.FILE_STORAGE_USAGE,
         Resource.DATA_TRANSFER,
+        Resource.IMAGE,
         Resource.COMMENT,
         Resource.WATCH,
       ],
     },
+  },
+  [Resource.IMAGE]: {
+    // 處理好了：「最近使用」多一張，選圖對話框裡那一張的狀態換新
+    collection: [RECENT_IMAGE_LIST_QUERY_KEY],
+    entity: [IMAGE_DETAIL_QUERY_KEY],
   },
   [Resource.APPROVAL]: {
     collection: [APPROVAL_LIST_QUERY_KEY],

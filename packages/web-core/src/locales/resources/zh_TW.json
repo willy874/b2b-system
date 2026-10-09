@@ -278,6 +278,16 @@
     "FILE_RESTORE_CONFLICT": "無法還原這個檔案。",
     "FILE_FOLDER_NOT_DELETED": "這個資料夾沒有被刪除，不需要還原。",
     "FILE_FOLDER_RESTORE_CONFLICT": "上層資料夾已被刪除，請先還原上層資料夾。",
+    "IMAGE_ASSET_NOT_FOUND": "找不到這張圖片，請重新選擇。",
+    "IMAGE_TYPE_NOT_ALLOWED": "不支援這種圖片格式，請改用 JPEG、PNG、WebP、AVIF 或 GIF。",
+    "IMAGE_TOO_LARGE": "圖片太大，請換一張較小的圖片。",
+    "IMAGE_TOO_SMALL": "圖片太小，請換一張解析度較高的圖片。",
+    "IMAGE_CROP_INVALID": "裁切的範圍不正確，請重新裁切。",
+    "IMAGE_SOURCE_NOT_FOUND": "這個圖片來源目前無法使用。",
+    "IMAGE_ASSET_NOT_USABLE": "這張圖片無法使用，請重新選擇。",
+    "IMAGE_ALREADY_UPLOADED": "這張圖片已經上傳完成。",
+    "IMAGE_UPLOAD_INCOMPLETE": "圖片沒有上傳完成，請再試一次。",
+    "IMAGE_PENDING_LIMIT_REACHED": "正在處理的圖片太多，請稍候再試。",
     "FILE_ACCESS_ALREADY_GRANTED": "你已經有這個資料夾的存取權，不需要再申請。",
     "FILE_ACCESS_REQUEST_NOT_FOUND": "這筆存取申請已不存在，可能已被處理或撤回。",
     "SETTING_NOT_FOUND": "找不到這個設定。",
@@ -1062,5 +1072,40 @@
       "cancelDescription": "已套用的列會保留，其餘不再處理。"
     },
     "separator": "、"
+  },
+  "imagePicker": {
+    "title": "選擇圖片",
+    "field": "{{name}}的圖片",
+    "change": "更換",
+    "recrop": "裁切",
+    "remove": "移除",
+    "processing": "處理中",
+    "uploading": "上傳中",
+    "pasteHint": "可直接貼上圖片（⌘V／Ctrl+V），或把圖片拖曳到這裡",
+    "pastedName": "貼上的圖片",
+    "onlyFirst": "一次只能選一張圖片，已使用第一張",
+    "urlDrop": "請先把圖片存到電腦再拖曳進來",
+    "recropUnavailable": "這張圖片無法重新裁切，請重新選一張",
+    "upload": {
+      "label": "上傳",
+      "hint": "把圖片拖曳到這裡、直接貼上，或",
+      "browse": "選擇圖片",
+      "limits": "最大 {{max}} MB，至少 {{width}} × {{height}} 像素"
+    },
+    "crop": {
+      "title": "裁切圖片",
+      "confirm": "確定",
+      "alt": "要裁切的圖片",
+      "region": "裁切範圍",
+      "hint": "方向鍵移動，Shift ＋ 方向鍵縮放"
+    },
+    "validation": {
+      "type": "不支援這種圖片格式，請改用 JPEG、PNG、WebP、AVIF 或 GIF",
+      "size": "圖片太大：最大 {{max}} MB",
+      "small": "圖片太小：至少 {{width}} × {{height}} 像素"
+    },
+    "unusable": {
+      "small": "圖片太小：至少 {{width}} × {{height}} 像素"
+    }
   }
 }

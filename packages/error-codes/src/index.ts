@@ -366,6 +366,28 @@ export const ErrorCode = {
   /** 還原的資料夾的上層已刪除（`details.reason = 'parentDeleted'`）。 */
   FILE_FOLDER_RESTORE_CONFLICT: { status: 409 },
 
+  // ── 圖片資產（docs/architecture/backend/25-image.md §15） ──
+  /** 圖片資產不存在、或不是自己建立的（還沒被使用的資產只有建立者看得到）。 */
+  IMAGE_ASSET_NOT_FOUND: { status: 404 },
+  /** 這個用途不收這種型別（例：頭像不收 SVG）；`details.contentTypes` 是允許的型別。 */
+  IMAGE_TYPE_NOT_ALLOWED: { status: 422 },
+  /** 超過用途的大小上限；`details.maxSize`（位元組）。 */
+  IMAGE_TOO_LARGE: { status: 413 },
+  /** 尺寸（裁切之後）小於用途的下限；`details.minWidth`、`details.minHeight`。 */
+  IMAGE_TOO_SMALL: { status: 422 },
+  /** 裁切的範圍超出圖片、不是正整數，或不符合用途的比例。 */
+  IMAGE_CROP_INVALID: { status: 422 },
+  /** 沒有登記這個圖片來源（`details.source`）。 */
+  IMAGE_SOURCE_NOT_FOUND: { status: 404 },
+  /** 資產不能用在這裡：別人建立的、已被其他資源使用、用途不同，或處理失敗（`details.reason`）。 */
+  IMAGE_ASSET_NOT_USABLE: { status: 409 },
+  /** 上傳已經確認過（`POST /images/:id/complete` 重複呼叫）。 */
+  IMAGE_ALREADY_UPLOADED: { status: 409 },
+  /** 物件儲存上沒有內容或大小不符：重新上傳。 */
+  IMAGE_UPLOAD_INCOMPLETE: { status: 409 },
+  /** 處理中的圖片太多（每人 `IMAGE_PENDING_PER_USER` 張），等前面的處理完再上傳。 */
+  IMAGE_PENDING_LIMIT_REACHED: { status: 409 },
+
   // ── 系統設定 ──
   /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */
   SETTING_NOT_FOUND: { status: 404 },

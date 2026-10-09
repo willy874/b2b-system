@@ -45,6 +45,7 @@ export function makeUser(overrides: Partial<UserRow> = {}): UserRow {
     deletedAt: null,
     locale: 'zh-TW',
     timezone: 'Asia/Taipei',
+    avatarImageId: null,
     ...overrides,
   } as UserRow;
 }
@@ -149,6 +150,7 @@ export function setupAuthService(
     completeLogin: vi.fn(async (..._args: unknown[]) => undefined),
   };
   const mfa = { isRequiredForDirectLogin: vi.fn(async (..._args: unknown[]) => false) };
+  const avatars = { avatarOf: vi.fn(async (..._args: unknown[]) => null) };
 
   const service = new AuthService(
     db as never,
@@ -171,6 +173,7 @@ export function setupAuthService(
     passwords as never,
     logins,
     mfa as never,
+    avatars as never,
   );
   return {
     service,

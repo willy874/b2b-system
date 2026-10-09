@@ -5,7 +5,7 @@ export type TenantStorageUsageSource = () => Promise<number>;
 
 /**
  * 租戶已用的儲存量的來源（docs/architecture/backend/25-image.md §12）。擁有計數的模組在 `onModuleInit` 登記
- * （檔案的 `file_storage_usage`；圖片資產與圖片庫維護同一個計數，docs/features/image-picker.md D3），
+ * （檔案的 `file_storage_usage`；圖片資產與圖片庫維護同一個計數，docs/architecture/backend/25-image.md §16.2 D3），
  * core 不認識業務模組（docs/coding-standards/07-layer-dependencies.md §3.2）。
  */
 @Injectable()

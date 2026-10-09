@@ -12,12 +12,14 @@ import type {
   TableSearchProps,
   TableSettingsConfig,
 } from '@b2b-system/web-core/components';
+import { coalesce, SignedAvatar } from '@b2b-system/web-core/image';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import type { SortEntry } from '@b2b-system/web-shared/constants';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
+import { invalidateResources, Resource } from '@/apis/resources';
 import type { UserSortField } from '@/apis/user/types';
 import { TagChips } from '@/core/components';
 
@@ -35,6 +37,11 @@ import type { UserFilterValues } from '../useUserFilters';
 
 /** 欄位順序與顯示存在這台裝置（`web-core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
 const USER_TABLE_SETTINGS: TableSettingsConfig = { tableId: USER_LIST_TABLE_ID };
+
+/** 一頁幾十個頭像的網址同時過期時只重抓一次列表（docs/architecture/backend/25-image.md §5 D7）。 */
+const onAvatarExpired = coalesce(() =>
+  invalidateResources([{ resource: Resource.USER, kind: 'update' }]),
+);
 
 interface UserTableProps {
   rows: UserRowVM[];
@@ -80,15 +87,24 @@ export function UserTable({
         id: 'displayName',
         header: t('user.field.displayName'),
         cell: ({ row }) => (
-          <Link
-            to={UserDetailRoute.to}
-            params={{ userId: row.original.id }}
-            search={search}
-            className="font-medium text-[var(--color-brand)]"
-            data-testid="user-name-link"
-          >
-            {row.original.displayName}
-          </Link>
+          <span className="inline-flex items-center gap-2">
+            <SignedAvatar
+              sources={row.original.avatar}
+              variant="sm"
+              name={row.original.displayName}
+              size={24}
+              onExpired={onAvatarExpired}
+            />
+            <Link
+              to={UserDetailRoute.to}
+              params={{ userId: row.original.id }}
+              search={search}
+              className="font-medium text-[var(--color-brand)]"
+              data-testid="user-name-link"
+            >
+              {row.original.displayName}
+            </Link>
+          </span>
         ),
       },
       { id: 'email', header: t('user.field.email'), cell: ({ row }) => row.original.email },

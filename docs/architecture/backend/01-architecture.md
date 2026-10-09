@@ -212,8 +212,8 @@ app.module
   ├─ MfaModule             ──▶ Credential · User · OidcProvider
   ├─ TenantModule          ──▶ Credential · OidcProvider · PlatformAdmin · PlatformNotification
   ├─ OidcProviderModule    ──▶ User · PlatformAdmin
-  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Comment · Announcement · DataTransfer · Organization
-  ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag
+  ├─ UserModule            ──▶ Credential · Approval · IdentityProvider · Trash · Notification · Webhook · Tag · Comment · Announcement · DataTransfer · Organization · ImageAsset
+  ├─ FileModule            ──▶ Approval · Trash · AuthzExplain · Webhook · Tag · ImageAsset
   ├─ GroupModule           ──▶ Trash · Announcement · DataTransfer
   ├─ OrganizationModule    ──▶ Trash · Approval · DataTransfer
   ├─ RoleModule            ──▶ Trash · Revision · DataTransfer
@@ -221,7 +221,8 @@ app.module
   ├─ AnnouncementModule    ──▶ Notification · Trash
   ├─ WebhookModule         ──▶ Notification
   ├─ DataTransferModule    ──▶ Notification
-  ├─ CommentModule         ──▶ Notification
+  ├─ CommentModule         ──▶ Notification · ImageAsset
+  ├─ ImageAssetModule      ──▶ Trash（`modules/image`；回收桶的保留天數）
   ├─ ServiceAccountModule  ──▶ ApiToken · DataTransfer
   ├─ TagModule             ──▶ DataTransfer
   ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
@@ -240,7 +241,7 @@ app.module
 | 種類 | 模組 | 規則 |
 | --- | --- | --- |
 | 葉節點 | `permission`、`audit-log`、`platform-admin`、`platform-notification`、`credential` | 只依賴彼此（🔒 `layer-dependencies.spec.ts` 的 `LEAF_MODULES`）：`PermissionsGuard` 與依賴 credential 的模組才不會把一整串業務模組帶進來 |
-| 通用模組 | `notification`、`webhook`、`trash`、`revision`、`tag`、`approval`、`announcement`、`data-transfer` | 不 import 擁有資源的業務模組：擁有者 import 它，在 `onModuleInit`／constructor 登記自己的 handler、事件或資源類型（例：`TrashService.registerHandler()`、`WebhookEventCatalog.register()`），在業務交易內呼叫它 |
+| 通用模組 | `notification`、`webhook`、`trash`、`revision`、`tag`、`approval`、`announcement`、`data-transfer`、`image` | 不 import 擁有資源的業務模組：擁有者 import 它，在 `onModuleInit`／constructor 登記自己的 handler、事件或資源類型（例：`TrashService.registerHandler()`、`WebhookEventCatalog.register()`），在業務交易內呼叫它 |
 
 規則：
 

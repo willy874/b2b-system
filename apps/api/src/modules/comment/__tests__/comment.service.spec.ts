@@ -7,6 +7,7 @@ import type { DomainEventBus } from '@/core/events';
 import { encodeTimeIdCursor } from '@/core/http';
 import type { CommentRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
+import type { ImageAssetService } from '@/modules/image/image-asset.service';
 import type { NotificationInput } from '@/modules/notification/notification.definition';
 import type { NotificationService } from '@/modules/notification/notification.service';
 import type { PermissionService } from '@/modules/permission/permission.service';
@@ -45,6 +46,7 @@ function setup(options: { viewers?: string[]; watchers?: string[]; canModerate?:
     delete: vi.fn(async () => true),
     removeAllFor: vi.fn(async () => undefined),
     usersByIds: vi.fn(async (ids: readonly string[]) => ids.map(user)),
+    avatarImageIdOf: vi.fn(async (): Promise<string | null> => null),
     findMentionable: vi.fn(async (ids: readonly string[]) => [...ids]),
     searchMentionable: vi.fn(async (): Promise<CommentUser[]> =>
       [ACTOR.id, OTHER, THIRD].map(user),
@@ -69,6 +71,7 @@ function setup(options: { viewers?: string[]; watchers?: string[]; canModerate?:
     recordSafely: vi.fn(async () => undefined),
   };
   const events = { publish: vi.fn() };
+  const images = { sourcesOf: vi.fn(async () => new Map()) };
   const { registry, definition } = registryWith({ viewers: options.viewers });
   const service = new CommentService(
     db as unknown as Database,
@@ -79,8 +82,20 @@ function setup(options: { viewers?: string[]; watchers?: string[]; canModerate?:
     notifications as unknown as NotificationService,
     audit as unknown as AuditService,
     events as unknown as DomainEventBus,
+    images as unknown as ImageAssetService,
   );
-  return { service, repo, watches, permissions, notifications, audit, events, definition, tx };
+  return {
+    service,
+    repo,
+    watches,
+    permissions,
+    notifications,
+    audit,
+    events,
+    images,
+    definition,
+    tx,
+  };
 }
 
 /** `notify()` 收到的每一筆：類型與收件人。 */
@@ -124,6 +139,7 @@ describe('CommentService：登記（docs/architecture/backend/24-comment.md §8.
       ctx.notifications as unknown as NotificationService,
       ctx.audit as unknown as AuditService,
       ctx.events as unknown as DomainEventBus,
+      ctx.images as unknown as ImageAssetService,
     );
     await expectCode(
       inTenant(() => service.list('user', RESOURCE_ID, { limit: 20 }, ACTOR), []),
@@ -137,6 +153,7 @@ describe('CommentService.list', () => {
     return {
       comment: commentRow({ id, authorId, mentions }),
       author: user(authorId),
+      authorAvatarImageId: null,
       createdAtExact: '2026-10-08T00:00:00.123456Z',
     };
   }

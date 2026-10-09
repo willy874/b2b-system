@@ -39,6 +39,7 @@ import { MfaLoginService } from '@/modules/mfa/mfa-login.service';
 import { OidcProviderService } from '@/modules/oidc-provider/oidc-provider.service';
 import { PermissionService } from '@/modules/permission/permission.service';
 import { UserAccountService } from '@/modules/user/user-account.service';
+import { UserAvatarService } from '@/modules/user/user-avatar.service';
 import { UserLoginService } from '@/modules/user/user-login.service';
 import { userRegistrationRequest } from '@/modules/user/user-registration.approval';
 import { isLoginLocked, userUpdated } from '@/modules/user/user.service';
@@ -102,6 +103,7 @@ export class AuthService {
     private readonly passwords: PasswordHasher,
     private readonly logins: UserLoginService,
     private readonly mfa: MfaLoginService,
+    private readonly avatars: UserAvatarService,
   ) {}
 
   // ── 登入 ────────────────────────────────────────────────
@@ -316,9 +318,10 @@ export class AuthService {
   async getProfile(actor: AuthUser): Promise<ProfileDto> {
     const user = await this.users.findAccountById(actor.id);
     if (!user) throw new AppException('USER_NOT_FOUND');
-    const [roles, permissions] = await Promise.all([
+    const [roles, permissions, avatar] = await Promise.all([
       this.users.listRoleSummaries(user.id),
       this.permissionService.getEffectivePermissionKeys(user.id),
+      this.avatars.avatarOf(user),
     ]);
     return {
       user: {
@@ -326,6 +329,8 @@ export class AuthService {
         email: user.email,
         username: user.username,
         displayName: user.displayName,
+        avatar,
+        avatarImageId: user.avatarImageId,
         status: user.status,
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
         preferences: { locale: user.locale, timezone: user.timezone },
@@ -338,12 +343,44 @@ export class AuthService {
   }
 
   async updateProfile(dto: UpdateProfileDto, actor: AuthUser): Promise<ProfileDto> {
-    await this.users.updateAccount(actor.id, {
+    const values = {
       displayName: dto.displayName,
       locale: dto.preferences?.locale,
       timezone: dto.preferences?.timezone,
       updatedBy: actor.id,
-    });
+    };
+    if (dto.avatarImageId === undefined && !dto.avatarCrop) {
+      await this.users.updateAccount(actor.id, values);
+    } else {
+      // 換自己的頭像不需要權限；認領、解除與稽核和寫入同生共死（docs/architecture/backend/25-image.md §15.8）
+      const user = await this.users.findAccountById(actor.id);
+      if (!user) throw new AppException('USER_NOT_FOUND');
+      await withTransaction(this.db, async (tx) => {
+        const avatar = await this.avatars.applyInTx(
+          actor.id,
+          { imageId: dto.avatarImageId, crop: dto.avatarCrop },
+          actor,
+          tx,
+        );
+        await this.users.updateAccount(
+          actor.id,
+          avatar ? { ...values, avatarImageId: avatar.avatarImageId } : values,
+          tx,
+        );
+        if (avatar) {
+          await this.audit.record(
+            {
+              action: 'user.update',
+              resourceType: 'user',
+              resourceId: actor.id,
+              resourceName: user.email,
+              changes: avatar.audit,
+            },
+            tx,
+          );
+        }
+      });
+    }
     this.userCache.invalidate(actor.id);
     const profile = await this.getProfile(actor);
     // 與前端 `selfUpdated(profile)` 宣告的來源相同

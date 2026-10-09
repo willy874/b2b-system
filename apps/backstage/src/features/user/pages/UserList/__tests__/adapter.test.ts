@@ -9,6 +9,8 @@ const user: User = {
   email: 'alice@example.com',
   username: null,
   displayName: 'Alice',
+  avatar: null,
+  avatarImageId: null,
   status: 'active',
   roles: [],
   tags: [],

@@ -42,6 +42,31 @@ export function useUserCreateMutation() {
 }
 
 /**
+ * 換別人的頭像（docs/architecture/frontend/23-image-picker.md §8）：不是表單，選好就存，帶目前看到的 `version`。
+ * 版本衝突時重抓並照常提示（使用者再選一次即可），不像表單那樣把訊息留給 `VersionConflictAlert`。
+ */
+export function useUserAvatarMutation() {
+  const toast = useToast();
+  const { t } = useTranslation();
+  const showError = useErrorToast();
+  return useMutation({
+    ...getUserUpdateMutationOptions(),
+    onSuccess: (user) => {
+      invalidateResources([
+        { resource: Resource.USER, kind: 'update', id: user.id, refs: roleRefs(user) },
+      ]);
+      toast.success(t('user.avatar.saved'));
+    },
+    onError: (error, { params }) => {
+      if (isVersionConflict(error)) {
+        invalidateResources([{ resource: Resource.USER, kind: 'update', id: params.userId }]);
+      }
+      showError(error);
+    },
+  });
+}
+
+/**
  * 編輯使用者：表單帶上編輯開始時的 `version`（樂觀鎖）。別人搶先改過時後端回 `USER_VERSION_CONFLICT`，
  * 這裡失效該使用者讓畫面拿到最新的內容與版本，訊息交給表單（`VersionConflictAlert`）顯示、不彈 toast。
  */

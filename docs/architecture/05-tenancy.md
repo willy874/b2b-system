@@ -214,7 +214,7 @@ key 以 `TenantFeatureParamKey` 出現在 OpenAPI。
 
 | key | 預設 | 範圍 | 效果 | 出處 |
 | --- | --- | --- | --- | --- |
-| `file.storageQuotaMb` | 2048（MB） | 1–10485760 | 所有檔案的大小合計上限，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED` | [`backend/09-file.md`](./backend/09-file.md) §5.0 |
+| `file.storageQuotaMb` | 2048（MB） | 1–10485760 | 租戶的儲存容量：所有檔案與圖片資產（頭像等，[`backend/25-image.md`](./backend/25-image.md) §15.4）的大小合計上限，超過回 `409 FILE_STORAGE_QUOTA_EXCEEDED`；`file` 關掉時照常生效 | [`backend/09-file.md`](./backend/09-file.md) §5.0 |
 | `auditLog.hotRetentionDays` | 90（天） | 7–3650 | 稽核熱表保留天數；`auditLog.archive` 搬移早於它的紀錄 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) §7.2、§8 |
 | `auditLog.retentionDays` | 365（天） | 365–36500，或 `-1`（永久） | 稽核冷表保留天數；`auditLog.archive` 以 DROP 整個月份分區刪除早於它的紀錄（實際至少保留熱表的天數）。參數的 `foreverValue`（`-1`）不受範圍限制，畫面顯示「永久」 | [`backend/06-audit-log.md`](./backend/06-audit-log.md) §10 |
 | `job.maxConcurrency` | 10 | 1–100 | 租戶所有種類的背景工作同時執行的筆數；超過的放回佇列 | [`backend/10-jobs.md`](./backend/10-jobs.md) §3 |

@@ -45,6 +45,7 @@ import type {
   CommentPage,
   CommentUser,
   CompleteFileUploadRequest,
+  CompleteImageUploadRequest,
   ConfirmMfaEnrollmentRequest,
   CreateAnnouncementRequest,
   CreateApiTokenRequest,
@@ -56,6 +57,8 @@ import type {
   CreateFileUploadRequest,
   CreateGroupRequest,
   CreateIdentityProviderRequest,
+  CreateImageFromSourceRequest,
+  CreateImageUploadRequest,
   CreateImportRequest,
   CreateOrgUnitRequest,
   CreatePlatformAdminRequest,
@@ -122,8 +125,16 @@ import type {
   IdentityProvider,
   IdentityProviderDomain,
   IdentityProviderList,
+  ImageAsset,
+  ImageAssetList,
+  ImageCrop,
+  ImageOriginal,
   ImageSourceVariant,
   ImageSources,
+  ImageUpload,
+  ImageUploadTarget,
+  ImageUsage,
+  ImageUsageList,
   Job,
   JobName,
   JobQueue,
@@ -2099,6 +2110,93 @@ export const PlatformAuditLogSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformAuditLog>;
 
+export const ImageCropSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  width: z.number().min(0).max(1),
+  height: z.number().min(0).max(1),
+}) satisfies z.ZodType<ImageCrop>;
+
+export const ImageUsageSchema = z.object({
+  id: z.string(),
+  maxSize: z.int().min(-9007199254740991).max(9007199254740991),
+  contentTypes: z.array(z.string()),
+  minWidth: z.int().min(-9007199254740991).max(9007199254740991),
+  minHeight: z.int().min(-9007199254740991).max(9007199254740991),
+  aspectRatio: z.number().nullable(),
+  presets: z.record(z.string(), z.int().min(-9007199254740991).max(9007199254740991)),
+  sources: z.array(z.string()).nullable(),
+}) satisfies z.ZodType<ImageUsage>;
+
+export const ImageUsageListSchema = z.object({
+  items: z.array(ImageUsageSchema),
+}) satisfies z.ZodType<ImageUsageList>;
+
+export const ImageOriginalSchema = z.object({
+  url: z.string(),
+  width: z.int().min(-9007199254740991).max(9007199254740991),
+  height: z.int().min(-9007199254740991).max(9007199254740991),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<ImageOriginal>;
+
+export const ImageAssetSchema = z.object({
+  id: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    ),
+  usage: z.string(),
+  status: z.enum(['pending', 'ready', 'failed']),
+  failureReason: z
+    .enum(['notImage', 'typeNotAllowed', 'tooLarge', 'tooSmall', 'missing'])
+    .nullable(),
+  name: z.string(),
+  source: z.string(),
+  width: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  height: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  crop: ImageCropSchema.nullable(),
+  image: ImageSourcesSchema.nullable(),
+  original: ImageOriginalSchema.nullable(),
+  isInUse: z.boolean(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<ImageAsset>;
+
+export const ImageAssetListSchema = z.object({
+  items: z.array(ImageAssetSchema),
+}) satisfies z.ZodType<ImageAssetList>;
+
+export const CreateImageUploadRequestSchema = z.object({
+  usage: z.string().max(100).regex(new RegExp('^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$')),
+  name: z.string().min(1).max(255),
+  contentType: z.string().min(1).max(100),
+  size: z.int().max(9007199254740991).gt(0),
+}) satisfies z.ZodType<CreateImageUploadRequest>;
+
+export const ImageUploadTargetSchema = z.object({
+  url: z.string(),
+  method: z.enum(['PUT']),
+  headers: z.record(z.string(), z.string()),
+  expiresAt: z.string(),
+}) satisfies z.ZodType<ImageUploadTarget>;
+
+export const ImageUploadSchema = z.object({
+  asset: ImageAssetSchema,
+  upload: ImageUploadTargetSchema,
+}) satisfies z.ZodType<ImageUpload>;
+
+export const CompleteImageUploadRequestSchema = z.object({
+  crop: ImageCropSchema.optional(),
+}) satisfies z.ZodType<CompleteImageUploadRequest>;
+
+export const CreateImageFromSourceRequestSchema = z.object({
+  usage: z.string().max(100).regex(new RegExp('^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$')),
+  source: z.string().max(50).regex(new RegExp('^[a-z][A-Za-z0-9]*$')),
+  refId: z.string().min(1).max(200),
+  crop: ImageCropSchema.optional(),
+}) satisfies z.ZodType<CreateImageFromSourceRequest>;
+
 export const CommentUserSchema = z.object({
   id: z
     .uuid()
@@ -2129,6 +2227,7 @@ export const CommentSchema = z.object({
     ),
   body: z.string(),
   author: CommentUserSchema.nullable(),
+  authorAvatar: ImageSourcesSchema.nullable(),
   mentions: z.array(CommentUserSchema),
   version: z.int().min(-9007199254740991).max(9007199254740991),
   createdAt: z.string(),
@@ -2506,6 +2605,16 @@ export const UpdateUserRequestSchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
   locale: z.string().max(10).optional(),
   timezone: z.string().min(1).max(64).optional(),
+  avatarImageId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+  avatarCrop: ImageCropSchema.optional(),
   version: z.int().min(1).max(9007199254740991),
 }) satisfies z.ZodType<UpdateUserRequest>;
 
@@ -2565,6 +2674,15 @@ export const UserSchema = z.object({
   email: z.string(),
   username: z.string().nullable(),
   displayName: z.string(),
+  avatar: ImageSourcesSchema.nullable(),
+  avatarImageId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable(),
   status: UserStatusSchema,
   roles: z.array(RoleSummarySchema),
   tags: z.array(TagSummarySchema),
@@ -3126,6 +3244,15 @@ export const ProfileSchema = z.object({
     email: z.string(),
     username: z.string().nullable(),
     displayName: z.string(),
+    avatar: ImageSourcesSchema.nullable(),
+    avatarImageId: z
+      .uuid()
+      .regex(
+        new RegExp(
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        ),
+      )
+      .nullable(),
     status: UserStatusSchema,
     lastLoginAt: z.string().nullable(),
     preferences: z.object({
@@ -3187,6 +3314,16 @@ export const UpdateProfileRequestSchema = z.object({
       timezone: z.string().min(1).max(64).optional(),
     })
     .optional(),
+  avatarImageId: z
+    .uuid()
+    .regex(
+      new RegExp(
+        '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      ),
+    )
+    .nullable()
+    .optional(),
+  avatarCrop: ImageCropSchema.optional(),
 }) satisfies z.ZodType<UpdateProfileRequest>;
 
 export const ChangePasswordRequestSchema = z.object({
@@ -3990,6 +4127,8 @@ export const TenantJobNameSchema = z.enum([
   'dataTransfer.export',
   'file.imageVariants',
   'file.maintenance',
+  'image.maintenance',
+  'image.process',
   'mfa.cleanup',
   'mfa.emailCodeMail',
   'mfa.lineCode',
@@ -4020,6 +4159,8 @@ export const JobNameSchema = z.enum([
   'dataTransfer.export',
   'file.imageVariants',
   'file.maintenance',
+  'image.maintenance',
+  'image.process',
   'jobs.outboxSweep',
   'mfa.channelLinkCleanup',
   'mfa.cleanup',

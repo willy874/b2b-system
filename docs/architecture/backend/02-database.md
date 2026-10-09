@@ -677,6 +677,7 @@ db/migrations/                          租戶 DB（每個租戶都跑；schema 
 │                                       （[`backend/09-file.md`](09-file.md) §5.0；純加法）
 ├── 0040_user_login_sources.sql         user_login_sources（§2.7 之後，[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
 ├── 0048_comments.sql                   comments、watches（§2.18，[`backend/24-comment.md`](24-comment.md) §8；純加法）＋ 手寫：既有租戶的 admin 補 comment:delete
+├── 0052_image_assets.sql               image_assets、users.avatar_image_id（[`backend/25-image.md`](25-image.md) §15.1；純加法）
 └── …                                   之後的變更接著編號
 db/platform/migrations/                 平台 DB（schema 在 db/platform/schema/，drizzle.platform.config.ts）
 ├── 0000_baseline.sql                   tenants、tenant_domains、oidc_payloads

@@ -5,6 +5,7 @@ import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import type { JobQueue } from '@/core/jobs';
 import type { ObjectStorage } from '@/core/storage';
+import { StorageSizeSources } from '@/core/usage';
 
 import type { FileImageService } from '../file-image.service';
 import { FileMaintenanceService } from '../file-maintenance.service';
@@ -99,15 +100,17 @@ function setup(usage: { usedBytes: number; reconciledAt: Date | null } = USAGE_U
     ),
   };
   const jobs = { register: vi.fn() };
+  const sizeSources = new StorageSizeSources();
   const service = new FileMaintenanceService(
     db as unknown as Database,
     repo as unknown as FileRepository,
     storage as unknown as ObjectStorage,
     images as unknown as FileImageService,
     jobs as unknown as JobQueue,
+    sizeSources,
     config as unknown as ConfigService<Env, true>,
   );
-  return { service, repo, storage, images, jobs };
+  return { service, repo, storage, images, jobs, sizeSources };
 }
 
 describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）', () => {
@@ -241,6 +244,14 @@ describe('FileMaintenanceService（docs/architecture/backend/09-file.md §9）',
       const report = await service.sweep({ now: NOW, dryRun: true });
       expect(report.storageUsageDrift).toBe(-ACTUAL_USED);
       expect(repo.setStorageUsage).not.toHaveBeenCalled();
+    });
+
+    it('其他擁有者登記的容量合計（圖片資產）一併計入（docs/architecture/backend/25-image.md §15.2 D3）', async () => {
+      const { service, repo, sizeSources } = setup({ usedBytes: ACTUAL_USED, reconciledAt: null });
+      sizeSources.register('image', async () => 500);
+      const report = await service.sweep({ now: NOW });
+      expect(report.storageUsageDrift).toBe(-500);
+      expect(repo.setStorageUsage).toHaveBeenCalledWith(ACTUAL_USED + 500, NOW, 'tx');
     });
 
     it('計數那一列不見了 → 視為從沒對帳過，補上那一列', async () => {

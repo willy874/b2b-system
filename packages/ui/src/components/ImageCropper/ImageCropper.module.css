@@ -1,0 +1,79 @@
+@layer components {
+  .root {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    line-height: 0;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--color-fill-subtle);
+    user-select: none;
+    touch-action: none;
+  }
+
+  .image {
+    display: block;
+    max-width: 100%;
+    max-height: var(--image-cropper-max-height, 60vh);
+    pointer-events: none;
+  }
+
+  /* 裁切框：外面以大範圍的陰影壓暗（陰影也是顏色，走 token） */
+  .region {
+    position: absolute;
+    box-sizing: border-box;
+    padding: 0;
+    background: transparent;
+    appearance: none;
+    border: 2px solid var(--color-surface);
+    box-shadow: 0 0 0 9999px var(--color-backdrop);
+    cursor: move;
+    outline: none;
+  }
+
+  .region:focus-visible {
+    border-color: var(--color-brand);
+  }
+
+  .region[data-shape='circle']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    border: 1px dashed var(--color-surface);
+    pointer-events: none;
+  }
+
+  .handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-brand);
+  }
+
+  .handle[data-corner='nw'] {
+    top: -8px;
+    left: -8px;
+    cursor: nwse-resize;
+  }
+
+  .handle[data-corner='ne'] {
+    top: -8px;
+    right: -8px;
+    cursor: nesw-resize;
+  }
+
+  .handle[data-corner='sw'] {
+    bottom: -8px;
+    left: -8px;
+    cursor: nesw-resize;
+  }
+
+  .handle[data-corner='se'] {
+    bottom: -8px;
+    right: -8px;
+    cursor: nwse-resize;
+  }
+}

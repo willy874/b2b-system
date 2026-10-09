@@ -1,3 +1,4 @@
+import { Avatar } from '@b2b-system/ui/Avatar';
 import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { Field } from '@b2b-system/ui/Field';
@@ -5,17 +6,20 @@ import { Input } from '@b2b-system/ui/Input';
 import { Separator } from '@b2b-system/ui/Separator';
 import { ChangePasswordSection, useChangePasswordForm } from '@b2b-system/web-core/components';
 import { useErrorToast } from '@b2b-system/web-core/errors';
+import { coalesce } from '@b2b-system/web-core/image';
+import { ImageField } from '@b2b-system/web-core/image-picker';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { MfaSecuritySection } from '@b2b-system/web-core/mfa';
 import { useToast } from '@b2b-system/web-core/notify';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { getChangePasswordMutationOptions } from '@/apis/auth/change-password/mutation';
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getUpdateProfileMutationOptions } from '@/apis/auth/update-profile/mutation';
-import { invalidateResources, selfUpdated } from '@/apis/resources';
+import { USER_AVATAR_USAGE } from '@/apis/image/types';
+import { invalidateResources, Resource, selfUpdated } from '@/apis/resources';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 
@@ -45,6 +49,21 @@ export default function ProfilePage() {
     onError: showError,
   });
 
+  // 頭像（docs/architecture/frontend/23-image-picker.md §8）：換了就存，不跟著「儲存」按鈕
+  const updateAvatar = useMutation({
+    ...getUpdateProfileMutationOptions(),
+    onSuccess: (updated) => {
+      invalidateResources([selfUpdated(updated)]);
+      toast.success(t('account.profile.avatarSaved'));
+    },
+    onError: showError,
+  });
+  // 網址過期（頁面開很久）：重抓 profile 拿新的網址
+  const onAvatarExpired = useMemo(
+    () => coalesce(() => invalidateResources([{ resource: Resource.PROFILE, kind: 'update' }])),
+    [],
+  );
+
   const password = useChangePasswordForm({ mutationOptions: getChangePasswordMutationOptions() });
 
   const profileDirty =
@@ -60,6 +79,28 @@ export default function ProfilePage() {
           {t('account.profile.description')}
         </p>
       </header>
+
+      <section className="flex flex-col gap-2" aria-labelledby="profile-avatar-title">
+        <h2 id="profile-avatar-title" className="m-0 text-sm font-medium">
+          {t('account.field.avatar')}
+        </h2>
+        <ImageField
+          usage={USER_AVATAR_USAGE}
+          value={profile.data?.user.avatar ?? null}
+          assetId={profile.data?.user.avatarImageId ?? null}
+          variant="lg"
+          alt={profile.data?.user.displayName ?? ''}
+          shape="circle"
+          size={96}
+          fallback={<Avatar name={profile.data?.user.displayName || '?'} size={96} />}
+          disabled={!profile.data}
+          pending={updateAvatar.isPending}
+          onChange={({ assetId }) => updateAvatar.mutate({ params: { avatarImageId: assetId } })}
+          onRecrop={(crop) => updateAvatar.mutate({ params: { avatarCrop: crop } })}
+          onExpired={onAvatarExpired}
+          data-testid="profile-avatar"
+        />
+      </section>
 
       {/* <form>：在欄位按 Enter 就能儲存 */}
       <form

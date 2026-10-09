@@ -8,6 +8,7 @@ import { TENANT_DB, withTransaction } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
 import { ObjectStorage } from '@/core/storage';
 import { currentTenant } from '@/core/tenant';
+import { StorageSizeSources } from '@/core/usage';
 
 import { FileImageService } from './file-image.service';
 import {
@@ -89,6 +90,7 @@ export class FileMaintenanceService implements OnModuleInit {
     private readonly storage: ObjectStorage,
     private readonly images: FileImageService,
     private readonly jobs: JobQueue,
+    private readonly sizeSources: StorageSizeSources,
     config: ConfigService<Env, true>,
   ) {
     this.cron = config.get('FILE_MAINTENANCE_CRON', { infer: true });
@@ -296,7 +298,8 @@ export class FileMaintenanceService implements OnModuleInit {
       ) {
         return;
       }
-      const actual = await this.repo.sumSizes(tx);
+      // 檔案以外也計入租戶容量的擁有者（圖片資產等）一併加總（docs/architecture/backend/25-image.md §16.2 D3）
+      const actual = (await this.repo.sumSizes(tx)) + (await this.sizeSources.sum(tx));
       report.storageUsageDrift = (usage?.usedBytes ?? 0) - actual;
       if (!dryRun) await this.repo.setStorageUsage(actual, now, tx);
     });

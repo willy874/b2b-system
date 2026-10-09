@@ -324,7 +324,7 @@ api 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互
 | HTTP、對外 API、WebSocket handshake 的速率限制，登入的漸進延遲 | `RateLimitStore`：standalone 預設程序記憶體，cluster 預設平台 DB 的共享計數（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8） |
 | WebSocket 每人連線數、每條連線的訊息數、token 到期計時器 | 每個節點各自計算（連線不會換節點；§7 D7） |
 | 跨裝置中繼 | 經廣播頻道 `user_relay` 送到其他節點（§7 D8） |
-| 影像變體 | 背景工作 `file.imageVariants`（§7 D9） |
+| 影像變體 | 背景工作 `file.imageVariants`（§7 D9）；圖片資產（頭像等）的處理是 `image.process`（[`backend/25-image.md`](./backend/25-image.md) §15.5） |
 | 用量計數、API token 的 `last_used_at` | 每程序累計、以加法或單調更新寫入，多程序天然相加 |
 | 影像處理的暫存檔 | 單次呼叫內使用；容器的 `/tmp` 設大小上限 |
 

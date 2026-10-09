@@ -9,6 +9,7 @@ import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
+import type { ImageSources } from '@/core/image';
 import { JobQueue } from '@/core/jobs';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { UserRow, UserStatus } from '@/db/schema';
@@ -43,7 +44,10 @@ import type { ListUserDto } from './dto/list-user.dto';
 import type { ReplaceUserRolesDto, UpdateUserDto } from './dto/update-user.dto';
 import type { UserDto } from './dto/user.dto';
 import { UserAccountService } from './user-account.service';
+import { UserAvatarService } from './user-avatar.service';
+import type { AvatarAuditChange } from './user-avatar.service';
 import { USER_ROLE_ASSIGNED_TRIGGER } from './user.announcement-triggers';
+import { userUpdated } from './user.changes';
 import { USER_AUDIT_FIELDS } from './user.constants';
 import { ACCOUNT_PROFILE_LINK, USER_ROLES_CHANGED_NOTIFICATION } from './user.notifications';
 import type { UserRoleSummary, UserWithRoles } from './user.repository';
@@ -63,12 +67,19 @@ export function displayStatusOf(user: Pick<UserRow, 'status' | 'lockedUntil'>): 
   return user.status === 'active' && isLoginLocked(user) ? 'locked' : user.status;
 }
 
-function toDto(user: UserRow, roles: UserRoleSummary[], tags: TagSummaryDto[]): UserDto {
+function toDto(
+  user: UserRow,
+  roles: UserRoleSummary[],
+  tags: TagSummaryDto[],
+  avatar: ImageSources | null,
+): UserDto {
   return {
     id: user.id,
     email: user.email,
     username: user.username,
     displayName: user.displayName,
+    avatar,
+    avatarImageId: user.avatarImageId,
     status: displayStatusOf(user),
     roles,
     tags,
@@ -83,16 +94,17 @@ function toDto(user: UserRow, roles: UserRoleSummary[], tags: TagSummaryDto[]): 
   };
 }
 
-/** 使用者資料或狀態變更；帶上持有的角色，讓角色的持有者清單精準失效。 */
-export function userUpdated(
-  id: string,
-  roles: readonly Pick<UserRoleSummary, 'id'>[],
-): ResourceChangeWire {
+export { userUpdated } from './user.changes';
+
+/** 欄位的差異加上頭像的變更（任一個沒有就只取另一個）。 */
+function mergeChanges(
+  fields: { before: object; after: object } | null,
+  avatar: AvatarAuditChange | undefined,
+): { before: object; after: object } | null {
+  if (!avatar) return fields;
   return {
-    resource: ChangeSource.USER,
-    kind: ChangeKind.UPDATE,
-    id,
-    refs: { [ChangeSource.ROLE]: roles.map((role) => role.id) },
+    before: { ...fields?.before, ...avatar.before },
+    after: { ...fields?.after, ...avatar.after },
   };
 }
 
@@ -143,16 +155,22 @@ export class UserService {
     private readonly announcementTriggers: AnnouncementTriggerService,
     private readonly orgChart: OrgChartService,
     private readonly watches: WatchService,
+    private readonly avatars: UserAvatarService,
   ) {}
 
   async list(query: ListUserDto) {
     const { items, total } = await this.repo.list(query, await this.orgUnitScope(query));
-    const tags = await this.tags.tagsOf(
-      RESOURCE_TYPE.USER,
-      items.map((item) => item.id),
-    );
+    const [tags, avatars] = await Promise.all([
+      this.tags.tagsOf(
+        RESOURCE_TYPE.USER,
+        items.map((item) => item.id),
+      ),
+      this.avatars.avatarsOf(items),
+    ]);
     return paginated(
-      items.map((item: UserWithRoles) => toDto(item, item.roles, tags.get(item.id) ?? [])),
+      items.map((item: UserWithRoles) =>
+        toDto(item, item.roles, tags.get(item.id) ?? [], avatars.get(item.id) ?? null),
+      ),
       total,
       query,
     );
@@ -175,7 +193,7 @@ export class UserService {
   async findOne(id: string): Promise<UserDto> {
     const user = await this.repo.findByIdWithRoles(id);
     if (!user) throw new AppException('USER_NOT_FOUND');
-    return toDto(user, user.roles, await this.tagsFor(id));
+    return toDto(user, user.roles, await this.tagsFor(id), await this.avatars.avatarOf(user));
   }
 
   async listRoles(id: string): Promise<{ roles: UserRoleSummary[] }> {
@@ -191,7 +209,7 @@ export class UserService {
   async create(dto: CreateUserDto, actor: AuthUser): Promise<UserDto> {
     const { user, after } = await withTransaction(this.db, (tx) => this.createInTx(dto, actor, tx));
     await this.runAfterCommit(after);
-    return toDto(user, await this.repo.listRoles(user.id), []);
+    return toDto(user, await this.repo.listRoles(user.id), [], null);
   }
 
   /**
@@ -238,7 +256,12 @@ export class UserService {
       this.updateInTx(id, dto, actor, tx),
     );
     await this.runAfterCommit(after);
-    return toDto(user, await this.repo.listRoles(id), await this.tagsFor(id));
+    return toDto(
+      user,
+      await this.repo.listRoles(id),
+      await this.tagsFor(id),
+      await this.avatars.avatarOf(user),
+    );
   }
 
   /** 編輯的業務規則與寫入，在呼叫端的交易內（與 `createInTx` 同一個做法）。 */
@@ -248,7 +271,7 @@ export class UserService {
     actor: AuthUser,
     tx: Transaction,
   ): Promise<{ user: UserRow; after: UserAfterCommit }> {
-    const { version, ...fields } = dto;
+    const { version, avatarImageId, avatarCrop, ...fields } = dto;
     const user = await this.getExisting(id);
     // 讀到時就不同：別人已經改過，不必再做後面的檢查（docs/architecture/backend/14-revisions.md §9.2 D3）
     if (version !== user.version) {
@@ -271,8 +294,16 @@ export class UserService {
       await this.assertUsernameAvailable(dto.username);
     }
 
-    const changes = diff(user, dto, [...USER_AUDIT_FIELDS]);
+    const fieldChanges = diff(user, dto, [...USER_AUDIT_FIELDS]);
     const deactivating = dto.status !== undefined && dto.status !== 'active';
+    // 頭像：認領新的、解除舊的，與使用者的寫入同生共死（docs/architecture/backend/25-image.md §15.8）
+    const avatar = await this.avatars.applyInTx(
+      id,
+      { imageId: avatarImageId, crop: avatarCrop },
+      actor,
+      tx,
+    );
+    const changes = mergeChanges(fieldChanges, avatar?.audit);
 
     if (statusChanging && deactivating) await this.assertNotLastSuperAdmin(id, tx);
     // 還沒啟用就停用：一併清掉註冊申請時存的密碼。否則之後改回 active，申請人不必收信就能以那組密碼登入；
@@ -280,7 +311,12 @@ export class UserService {
     const discardPassword = statusChanging && user.status === 'pending';
     const next = await this.repo.update(
       id,
-      { ...fields, ...(discardPassword ? { passwordHash: null } : {}), updatedBy: actor.id },
+      {
+        ...fields,
+        ...(avatar ? { avatarImageId: avatar.avatarImageId } : {}),
+        ...(discardPassword ? { passwordHash: null } : {}),
+        updatedBy: actor.id,
+      },
       tx,
       { expectedVersion: version, bumpVersion: true },
     );
@@ -422,7 +458,7 @@ export class UserService {
       ],
       affectedUserIds: [id],
     });
-    return toDto(restored, roles, await this.tagsFor(id));
+    return toDto(restored, roles, await this.tagsFor(id), await this.avatars.avatarOf(restored));
   }
 
   /** PUT：整批取代語意。 */
@@ -605,7 +641,7 @@ export class UserService {
       changes: [userUpdated(id, roles)],
       affectedUserIds: [id],
     });
-    return toDto(updated, roles, await this.tagsFor(id));
+    return toDto(updated, roles, await this.tagsFor(id), await this.avatars.avatarOf(updated));
   }
 
   /**

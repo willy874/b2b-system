@@ -9,9 +9,11 @@ import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { decodeTimeIdCursor, encodeTimeIdCursor } from '@/core/http';
 import type { TimeIdCursor } from '@/core/http';
+import type { ImageSources } from '@/core/image';
 import { RESOURCE_TYPE } from '@/core/resource';
 import type { CommentRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { ImageAssetService } from '@/modules/image/image-asset.service';
 import { notification } from '@/modules/notification/notification.definition';
 import { NotificationService } from '@/modules/notification/notification.service';
 import { PermissionService } from '@/modules/permission/permission.service';
@@ -82,6 +84,7 @@ export class CommentService {
     private readonly notifications: NotificationService,
     private readonly audit: AuditService,
     private readonly events: DomainEventBus,
+    private readonly images: ImageAssetService,
   ) {}
 
   // ── 給擁有者：登記、清理 ─────────────────────────────
@@ -119,11 +122,16 @@ export class CommentService {
       limit: query.limit,
       after: parseCursor(query.cursor),
     });
-    const viewer = await this.viewerOf(actor);
-    const mentioned = await this.mentionedUsers(rows.flatMap((row) => row.comment.mentions));
+    const [viewer, mentioned, avatars] = await Promise.all([
+      this.viewerOf(actor),
+      this.mentionedUsers(rows.flatMap((row) => row.comment.mentions)),
+      this.images.sourcesOf(rows.map((row) => row.authorAvatarImageId)),
+    ]);
     const last = rows.at(-1);
     return {
-      items: rows.map((row) => toDto(row, mentioned, viewer)),
+      items: rows.map((row) =>
+        toDto(row, mentioned, viewer, avatarOf(avatars, row.authorAvatarImageId)),
+      ),
       nextCursor:
         last && rows.length === query.limit
           ? encodeTimeIdCursor({ createdAt: last.createdAtExact, id: last.comment.id })
@@ -371,13 +379,22 @@ export class CommentService {
 
   /** 寫入之後回傳的一筆：作者是自己。 */
   private async single(row: CommentRow, actor: AuthUser): Promise<CommentDto> {
-    const [self] = await this.repo.usersByIds([actor.id]);
+    const [[self], avatarImageId] = await Promise.all([
+      this.repo.usersByIds([actor.id]),
+      this.repo.avatarImageIdOf(actor.id),
+    ]);
     const withAuthor: CommentWithAuthor = {
       comment: row,
       author: self ?? null,
+      authorAvatarImageId: avatarImageId,
       createdAtExact: row.createdAt.toISOString(),
     };
-    return toDto(withAuthor, await this.mentionedUsers(row.mentions), await this.viewerOf(actor));
+    const [mentioned, viewer, avatars] = await Promise.all([
+      this.mentionedUsers(row.mentions),
+      this.viewerOf(actor),
+      this.images.sourcesOf([avatarImageId]),
+    ]);
+    return toDto(withAuthor, mentioned, viewer, avatarOf(avatars, avatarImageId));
   }
 
   /** 受眾是看得到所在資源的人：`refs` 帶那個資源（docs/architecture/backend/08-realtime.md §6.1）。 */
@@ -407,10 +424,18 @@ function paramsOf(
   return { resourceType, resourceName: target.name, excerpt: excerptOf(body) };
 }
 
+function avatarOf(
+  avatars: ReadonlyMap<string, ImageSources | null>,
+  id: string | null,
+): ImageSources | null {
+  return id ? (avatars.get(id) ?? null) : null;
+}
+
 function toDto(
   { comment, author }: CommentWithAuthor,
   mentioned: ReadonlyMap<string, CommentUser>,
   viewer: Viewer,
+  authorAvatar: ImageSources | null,
 ): CommentDto {
   const isAuthor = comment.authorId === viewer.id;
   return {
@@ -419,6 +444,7 @@ function toDto(
     resourceId: comment.resourceId,
     body: comment.body,
     author,
+    authorAvatar,
     mentions: comment.mentions.flatMap((id) => mentioned.get(id) ?? []),
     version: comment.version,
     createdAt: comment.createdAt.toISOString(),

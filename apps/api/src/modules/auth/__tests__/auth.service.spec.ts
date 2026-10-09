@@ -47,6 +47,7 @@ function setup(
     passwords as never,
     logins,
     {} as never, // mfa
+    {} as never, // avatars
   );
   return { service, jobs, users, identityProviders };
 }

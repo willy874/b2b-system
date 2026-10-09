@@ -16,6 +16,7 @@ export * from './FileUpload';
 export * from './Form';
 export * from './FormError';
 export * from './Icon';
+export * from './ImageCropper';
 export * from './Input';
 export * from './JsonDiff';
 export * from './JsonEditor';

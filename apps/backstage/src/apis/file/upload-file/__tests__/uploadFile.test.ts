@@ -1,11 +1,11 @@
 import { isNetworkError, isRequestAborted, NetworkError } from '@b2b-system/web-core/client';
+import { putToStorage } from '@b2b-system/web-core/direct-upload';
 import { isAppError } from '@b2b-system/web-core/errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FileUpload, StoredFile } from '@/shared/api-sdk';
 
 import { uploadFile } from '../fetcher';
-import { putToStorage } from '../putToStorage';
 import {
   fetchFileAbortUploadMutation,
   fetchFileCompleteUploadMutation,

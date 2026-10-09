@@ -2,12 +2,12 @@
 
 - 優先度：P2
 - 狀態：規劃中
-- 依賴：[`image-picker.md`](./image-picker.md)（後端的來源介面 `ImageSourceRegistry`、前端的來源註冊表）、
+- 依賴：[`backend/25-image.md`](../architecture/backend/25-image.md) §15（後端的來源介面 `ImageSourceRegistry`、前端的來源註冊表）、
   [`backend/25-image.md`](../architecture/backend/25-image.md)（`ImageUrlService`、`SignedImage`、效期與尺寸）、
   可關閉的 feature（[`05-tenancy.md`](../architecture/05-tenancy.md) §5.1、[`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §7）、
   影像處理（[`backend/09-file.md`](../architecture/backend/09-file.md) §5.4 的 `core/image`）、標籤（[`backend/18-tag.md`](../architecture/backend/18-tag.md)）、
   留言（[`backend/24-comment.md`](../architecture/backend/24-comment.md)）
-- 相關：[`image-picker.md`](./image-picker.md)（圖片庫是它的來源之一）；檔案管理（平行的功能，互不認識，§2）
+- 相關：[`backend/25-image.md`](../architecture/backend/25-image.md) §15（圖片庫是它的來源之一）；檔案管理（平行的功能，互不認識，§2）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -64,7 +64,7 @@
 
 - **Given** 平台管理者把租戶的 `gallery` 關掉
 - **When** 使用者打開檔案管理器、或在頭像按「更換」
-- **Then** 「加入圖片庫」與「圖片庫」分頁都消失；只剩上傳時直接打開選檔視窗（[`image-picker.md`](./image-picker.md) §10）
+- **Then** 「加入圖片庫」與「圖片庫」分頁都消失；只剩上傳時直接打開選檔視窗（[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md) §2）
 
 **作為一般成員，我希望在圖片庫依相簿、標籤與拍攝日期找圖，以便不用問人圖放在哪裡。**
 
@@ -105,7 +105,7 @@
                     │ web-core/image-picker：registerImageSource             │
                     │ core/upload：直傳、暫存、拖曳展開（從 features/file 抽出，§13） │
                     └───────────────────────────────────────────────────────┘
-                         ▲ 註冊來源 'fileManager'        ▲ 註冊「加入圖片庫」動作、來源 'gallery'
+                         ▲ 註冊來源 'file'               ▲ 註冊「加入圖片庫」動作、來源 'gallery'
                     features/file                    features/gallery
 ```
 
@@ -113,7 +113,7 @@
 | --- | --- | --- |
 | 檔案管理 → 加入圖片庫（前端） | **註冊表**：`core/file` 的 `registerFileAction` | 圖片庫登記動作；檔案管理器渲染選取列時列出已登記的動作。圖片庫沒安裝就沒有這個動作 |
 | 加入圖片庫（後端） | **API ＋ 註冊表**：`POST /gallery/items/from-source { source, refIds }` → `ImageSourceRegistry.resolve` | 檔案登記來源 `'file'`；圖片庫解析後 `CopyObject`。圖片庫不知道 `'file'` 是什麼，只是把前端給的字串交給註冊表 |
-| 圖片庫裡「從其他來源加入」 | **註冊表**：`web-core/image-picker` 的來源對話框，多選模式 | 檔案管理登記來源 `'fileManager'`（[`image-picker.md`](./image-picker.md) §10）；圖片庫打開對話框，不知道裡面有哪些來源 |
+| 圖片庫裡「從其他來源加入」 | **註冊表**：`web-core/image-picker` 的來源對話框，多選模式 | 檔案管理登記來源 `'file'`（[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md) §2）；圖片庫打開對話框，不知道裡面有哪些來源 |
 | 選圖時挑圖片庫的圖 | **註冊表**：同上 | 圖片庫登記來源 `'gallery'`（§10） |
 | 任一邊被關掉 | **feature**：plugin 卸載 → 註冊的動作與來源消失；後端的來源回 `404 FEATURE_DISABLED` | 不需要任何一邊處理另一邊的開關 |
 | 原檔之後被刪除、移動 | **不需要事件**：加入時就 **複製**（§9.1） | 圖片庫不訂閱檔案的事件，兩邊的資料從此無關 |
@@ -203,7 +203,7 @@
 - **佔位**：`dominant_color` 當背景色、`placeholder`（BlurHash）在可視範圍內才解碼成模糊圖；真正的圖片載入後淡入。
   捲動很快時只看得到色塊，不會整片空白。
 - **顯示方向**：EXIF 方向寫錯的照片可以「向左轉／向右轉」，存 `display_rotation`、`variant_rev + 1` 並把變體產生到新的版本底下；**不改原檔、不覆寫舊變體**（D14）。
-- 處理沿用 `core/image` 的 `ImageProcessor`，格式政策與檔案、圖片資產共用（[`image-picker.md`](./image-picker.md) D2）。
+- 處理沿用 `core/image` 的 `ImageProcessor`，格式政策與檔案、圖片資產共用（[`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D2）。
   要新增：讀 EXIF 欄位、算主色與 BlurHash。
 
 ### 6. 閱覽
@@ -272,7 +272,7 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 - `CopyObject` 在物件儲存內完成，不經過 api 的記憶體；100 張也只是 100 次短請求，所以同步完成，變體才交給背景工作。
 - 路由要 `gallery:create`；來源的 `feature` 沒啟用時那幾筆回 `FEATURE_DISABLED`（整批都是同一個來源，所以實際上是整批失敗）。
 - 稽核：每筆一個 `galleryItem.create`（`changes.after` 帶 `source`、`sourceRefId`、`sourceName`）；
-  來源那一邊在 `resolve` 裡另寫 `file.copy`（`purpose = 'gallery'`，[`image-picker.md`](./image-picker.md) D5）。
+  來源那一邊在 `resolve` 裡另寫 `file.copy`（`purpose = 'gallery'`，[`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D5）。
 
 #### 9.2 前端：檔案管理器的「加入圖片庫」
 
@@ -299,7 +299,7 @@ registerFileAction({
 
 #### 9.3 前端：圖片庫裡的「從其他來源加入」
 
-圖片庫的「加入」選單：「上傳」與「從其他來源…」。後者打開 [`image-picker.md`](./image-picker.md) §10 的 `ImageSourceDialog`，以 **多選模式** 列出其他來源
+圖片庫的「加入」選單：「上傳」與「從其他來源…」。後者打開 [`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md) §2 的 `ImageSourceDialog`，以 **多選模式** 列出其他來源
 （排除上傳、最近使用、圖片庫自己）。目前實際上只有檔案管理；檔案管理沒啟用或沒有權限時，「從其他來源…」不出現。
 
 - 來源的元件要支援多選：`registerImageSource` 加 `supportsMultiple`，不支援的來源在多選模式不列出。
@@ -310,8 +310,8 @@ registerFileAction({
 圖片庫的 plugin 登記 `registerImageSource({ id: 'gallery', … })`，後端登記 `ImageSourceRegistry` 的 `'gallery'`：
 
 - 可用的條件：`gallery` 已安裝、有 `gallery:read`。
-- 分頁內容是精簡版的列表：相簿切換、搜尋、方格；依用途過濾（型別、大小不符合的不列出；尺寸太小的列出但停用，同 [`image-picker.md`](./image-picker.md) §9）。
-- 選取之後 [`image-picker.md`](./image-picker.md) 複製成圖片資產（D1）；`resolve` 回原檔的 `storageKey`（已依 D5 移除位置資訊的那份），並寫 `galleryItem.copy`。
+- 分頁內容是精簡版的列表：相簿切換、搜尋、方格；依用途過濾（型別、大小不符合的不列出；尺寸太小的列出但停用，同 [`backend/25-image.md`](../architecture/backend/25-image.md) §15 §9）。
+- 選取之後 [`backend/25-image.md`](../architecture/backend/25-image.md) §15 複製成圖片資產（D1）；`resolve` 回原檔的 `storageKey`（已依 D5 移除位置資訊的那份），並寫 `galleryItem.copy`。
 
 ### 11. 權限
 
@@ -336,7 +336,7 @@ registerFileAction({
 - **feature**：可關閉的 feature `gallery`。停用時端點回 `404 FEATURE_DISABLED`、背景工作照常完成（資料要一致）、
   前端 plugin 卸載（連同登記的檔案動作與圖片來源）、資料保留。新租戶與既有租戶都預設啟用：平台 migration 把 `gallery` 加進預設值並啟用既有租戶（D3）。
   停用前的影響數量（[`05-tenancy.md`](../architecture/05-tenancy.md) §12.5）：圖片數、相簿數。
-- **容量**：原檔計入租戶的儲存容量；變體不計（與檔案相同）。與檔案、圖片資產共用租戶的容量 `file.storageQuotaMb`（[`image-picker.md`](./image-picker.md) D3）；所有租戶的合計受系統的止水線限制（[`backend/25-image.md`](../architecture/backend/25-image.md) D8）。
+- **容量**：原檔計入租戶的儲存容量；變體不計（與檔案相同）。與檔案、圖片資產共用租戶的容量 `file.storageQuotaMb`（[`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D3）；所有租戶的合計受系統的止水線限制（[`backend/25-image.md`](../architecture/backend/25-image.md) D8）。
 - **維護排程** `gallery.maintenance`：逾時的 `pending` 與 `failed`、卡住的 `processing` 重新排入、物件儲存的孤兒（`gallery/` 前綴）、舊版本的變體。
   永久刪除（`trash.purge`）與刪除舊版本的變體之後，呼叫 `CdnPurger.schedule(paths)` 清理邊緣快取（[`image-cdn.md`](./image-cdn.md) §7）。
 - **指標**：`gallery.process` 的處理時間與失敗數（[`08-monitoring.md`](../architecture/08-monitoring.md) §2.4）。
@@ -359,7 +359,7 @@ registerFileAction({
 
 全部已有結論（2026-10-09，照提案的傾向定案）；決定的理由與評估過的方案見下方「設計決策」。
 
-1. **選圖時從圖片庫選的圖，要複製成圖片資產，還是引用圖片庫的那一筆？**（原 [`image-picker.md`](./image-picker.md) 開放問題 4）
+1. **選圖時從圖片庫選的圖，要複製成圖片資產，還是引用圖片庫的那一筆？**（原 [`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D4）
    複製讓所有來源的生命週期一致，圖片庫刪圖不影響頭像；引用才能做到「圖片庫換掉 Logo，所有用到的地方一起換」，
    但圖片庫刪圖前要知道誰在用（被使用的不能刪，或刪了之後那些地方變成沒有圖片）。傾向複製。
    - **結論**：複製（D1）。
@@ -382,8 +382,8 @@ registerFileAction({
    - **結論**：保留並標示（D7）。
 8. **要不要打包下載多張（ZIP）？** 要的話是背景工作組裝、放 bucket、給下載連結（沿用匯入匯出的作法，[`22-data-transfer.md`](../architecture/backend/22-data-transfer.md)）。傾向第二批。
    - **結論**：第二批（D8）。
-9. **要不要對外分享連結（不登入就能看的相簿）？** 會碰到與租戶 Logo 相同的問題（不過期的公開網址，[`image-picker.md`](./image-picker.md) 開放問題 6），另外還要撤銷、到期、密碼。傾向不做或第二批。
-   - **結論**：這一版不做；與 [`image-picker.md`](./image-picker.md) D6 的公開網址一起評估（D9）。
+9. **要不要對外分享連結（不登入就能看的相簿）？** 會碰到與租戶 Logo 相同的問題（不過期的公開網址，[`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D6），另外還要撤銷、到期、密碼。傾向不做或第二批。
+   - **結論**：這一版不做；與 [`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D6 的公開網址一起評估（D9）。
 10. **標題、說明要不要版本歷史？** 傾向不要：圖片庫的中繼資料改動少、價值低；`version` 欄照樣有（樂觀鎖）。
     - **結論**：不要（D10）。
 11. **主色怎麼存？** 存 `#rrggbb` 最簡單，但前端規則「顏色一律走 Design Token、不寫十六進位色碼」是針對樣式表；這裡是資料，以 inline style 套用。
@@ -401,7 +401,7 @@ registerFileAction({
 | # | 決定 | 理由 | 評估過的方案 |
 | --- | --- | --- | --- |
 | D0 | **與檔案管理平行、互不認識**：後端經 `modules/image` 的 `ImageSourceRegistry`、前端經 `core/file` 的 `registerFileAction` 與 `web-core/image-picker` 的來源註冊表互相呼叫；開關由可關閉的 feature 處理；不以 `DomainEventBus` 同步資料（§2） | 使用者的要求；兩邊各自可以被關掉，任何一邊都不必處理另一邊的開關 | 圖片庫直接 import 檔案模組：關掉 `file` 時圖片庫要另外判斷，依賴是單向寫死的 |
-| D1 | **選圖時從圖片庫選的圖複製成圖片資產**（[`image-picker.md`](./image-picker.md) D4） | 所有來源的生命週期一致；圖片庫刪圖、改圖不影響已經用上的地方，也不必在刪除前查「誰在用」 | 引用：可以「換一次 Logo 全部更新」，但刪除要擋或讓引用處變空，而且圖片庫的 RBAC 會變成頭像能不能顯示的條件 |
+| D1 | **選圖時從圖片庫選的圖複製成圖片資產**（[`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D4） | 所有來源的生命週期一致；圖片庫刪圖、改圖不影響已經用上的地方，也不必在刪除前查「誰在用」 | 引用：可以「換一次 Logo 全部更新」，但刪除要擋或讓引用處變空，而且圖片庫的 RBAC 會變成頭像能不能顯示的條件 |
 | D2 | **由其他來源加入時複製，接受同一張圖存兩份**；之後若在意容量，在物件儲存層以 `content_hash` 去重，對使用者透明 | 引用就得回頭問資料夾授權，兩邊不再互不認識；照片的容量相對於租戶上限通常不大 | 引用檔案 |
 | D3 | **權限與預設**：`gallery:read`／`create`／`update`／`delete`（後三者蘊含 `read`）；`super-admin`、`admin` 全部，`auditor`、`member` 只有 `read`。可關閉的 feature `gallery`，新租戶預設啟用，既有租戶由平台 migration 啟用 | 圖片庫是租戶共用的素材庫，人人能看、少數人維護；預設啟用與其他新的可關閉 feature 一致 | `member` 也有 `create`：素材庫容易變雜；預設關閉：平台要逐一打開 |
 | D4 | **這一版只有 RBAC，沒有相簿層級的授權** | 一張圖在多個相簿時可見性是「任一相簿可見」，列表的查詢與 `capabilities` 都會複雜很多；先確認需求 | 沿用關係圖做相簿 ACL |
@@ -409,12 +409,12 @@ registerFileAction({
 | D6 | **不支援 HEIC／HEIF**：前端驗證器擋下並提示匯出成 JPEG，後端型別白名單照樣擋 | sharp 預編譯的 libvips 不含 HEIC 解碼；自己編 libvips 會讓映像與 CI 變複雜 | 自編 libvips；前端轉檔（WASM 解碼器很大，而且要把轉出的圖再上傳） |
 | D7 | **重複的圖片保留並標示**（`content_hash` 相同時，在上傳結果與資訊面板提示） | 可能是刻意的（不同標題、不同相簿用途）；擋下的話上傳者在處理完成後才會知道 | 擋下；上傳前在瀏覽器算雜湊再查：大檔要先讀完整個檔案 |
 | D8 | **打包下載（ZIP）延到第二批**；這一版的批次下載是逐張觸發 | 要背景工作組裝、放 bucket、清理，與匯入匯出的匯出相同的工程量 | — |
-| D9 | **不做對外分享連結**；與 [`image-picker.md`](./image-picker.md) D6 的公開網址一起評估 | 公開網址的快取、撤銷、到期都還沒有設計 | — |
+| D9 | **不做對外分享連結**；與 [`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D6 的公開網址一起評估 | 公開網址的快取、撤銷、到期都還沒有設計 | — |
 | D10 | **標題、說明不做版本歷史**；照樣有 `version`（樂觀鎖） | 改動少、價值低 | 接 `RevisionService` |
 | D11 | **主色存 `#rrggbb`**，前端只當資料以 inline style 套用；歸檔時在 [`coding-standards/`](../coding-standards/README.md) 註明「資料裡的顏色」不受「不寫十六進位色碼」限制 | 規則針對的是樣式表裡的顏色；這是每張圖不同的資料，不可能是 Design Token | 存 `oklch` 字串：沒有實質好處，前端還要多一層轉換 |
 | D12 | **檔案管理器的 `ImagePreview` 這一版不改用 `ImageViewer`** | 不動檔案管理器的行為；做完圖片庫再評估 | — |
 | D13 | **不做「圖片庫存到檔案管理」**；需要時由檔案管理登記一個「目的地」，與 D0 同一種解耦 | 目前沒有需求 | — |
-| D14 | **所有物件只寫一次**（與 [`image-picker.md`](./image-picker.md) D12 相同）：原檔在處理時寫一次；變體的 key 帶 `variant_rev`，調整顯示方向寫到新的版本，舊版本在網址效期（1 小時）過後由 `gallery.maintenance` 刪除 | 穩定網址與長期快取（瀏覽器、[`image-cdn.md`](./image-cdn.md)）的前提 | 覆寫同一個 key |
+| D14 | **所有物件只寫一次**（與 [`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D12 相同）：原檔在處理時寫一次；變體的 key 帶 `variant_rev`，調整顯示方向寫到新的版本，舊版本在網址效期（1 小時）過後由 `gallery.maintenance` 刪除 | 穩定網址與長期快取（瀏覽器、[`image-cdn.md`](./image-cdn.md)）的前提 | 覆寫同一個 key |
 
 ## 歸檔去向
 

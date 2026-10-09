@@ -6,7 +6,8 @@
       "saved": "Profile updated.",
       "effective": "My effective permissions",
       "effectiveHint": "Where each of your permissions comes from: through which groups and which role. Groups or roles you cannot see show only their kind; ask an administrator about them.",
-      "showEffective": "Show effective permissions and sources"
+      "showEffective": "Show effective permissions and sources",
+      "avatarSaved": "Avatar updated."
     },
     "preference": {
       "title": "Preferences",
@@ -23,7 +24,8 @@
       "roles": "Roles",
       "locale": "Language",
       "timezone": "Timezone",
-      "theme": "Theme"
+      "theme": "Theme",
+      "avatar": "Avatar"
     },
     "apiToken": {
       "title": "Personal API tokens",

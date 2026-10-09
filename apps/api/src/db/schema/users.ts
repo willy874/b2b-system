@@ -56,6 +56,13 @@ export const users = pgTable(
      */
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
 
+    /**
+     * 頭像（docs/architecture/backend/25-image.md §15.8）：圖片資產的 id，存參照不存網址（R1）。不設外鍵：`image_assets` 參照
+     * `users`（建立者），反過來再參照會讓 schema 循環；資產由 `UserAvatarService` 在同一個交易內認領與解除，
+     * 清理排程只刪沒被認領或已解除的資產。
+     */
+    avatarImageId: uuid('avatar_image_id'),
+
     // 樂觀鎖：可編輯的欄位（username、displayName、status、locale、timezone）每次寫入遞增；
     // 登入計數、鎖定、密碼、token_version 之類的帳號狀態不遞增（docs/architecture/backend/14-revisions.md §9.2 D3）
     version: integer('version').notNull().default(1),

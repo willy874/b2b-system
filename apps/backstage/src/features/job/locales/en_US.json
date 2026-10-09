@@ -17,6 +17,8 @@
       "dataTransferExport": "Export",
       "fileImageVariants": "Image thumbnail generation",
       "fileMaintenance": "File maintenance",
+      "imageMaintenance": "Image cleanup",
+      "imageProcess": "Image processing",
       "mfaCleanup": "Expired MFA data cleanup",
       "mfaEmailCodeMail": "Sign-in verification code email",
       "mfaLineCode": "LINE sign-in code",

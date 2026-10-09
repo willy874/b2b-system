@@ -15,10 +15,11 @@ import { RESOURCE_TYPE } from '@/core/resource';
 import { SettingService } from '@/core/settings';
 import { ObjectStorage } from '@/core/storage';
 import type { PresignedRequest, StoredObjectHead } from '@/core/storage';
-import { FILE_STORAGE_QUOTA_MB_PARAM, tenantFeatureParam } from '@/core/tenant';
-import { StorageCapacity } from '@/core/usage';
+import { StorageCapacity, storageQuotaExceeded, tenantStorageQuotaBytes } from '@/core/usage';
+import type { FileRow } from '@/db/schema';
 import { diff } from '@/modules/audit-log/audit.diff';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import { ImageAssetService } from '@/modules/image/image-asset.service';
 import type { TagSummaryDto } from '@/modules/tag/dto/tag.dto';
 import { TagService } from '@/modules/tag/tag.service';
 import { WebhookService } from '@/modules/webhook/webhook.service';
@@ -55,7 +56,7 @@ import {
 } from './file.constants';
 import { decodeFileCursor, encodeFileCursor } from './file.cursor';
 import type { FileCursor } from './file.cursor';
-import type { FileWithUploader } from './file.repository';
+import type { FileImageFilter, FileWithUploader } from './file.repository';
 import { FileRepository } from './file.repository';
 import { FILE_UPLOAD_MAX_SIZE_SETTING } from './file.settings';
 import { FILE_UPLOADED_WEBHOOK } from './file.webhooks';
@@ -95,6 +96,7 @@ export class FileService {
     private readonly webhooks: WebhookService,
     private readonly tags: TagService,
     private readonly capacity: StorageCapacity,
+    private readonly imageAssets: ImageAssetService,
     config: ConfigService<Env, true>,
   ) {
     this.urlTtl = config.get('FILE_URL_TTL', { infer: true });
@@ -115,7 +117,7 @@ export class FileService {
       partSize: this.partSize,
       thumbnailMaxSize: THUMBNAIL_MAX_SIZE,
       thumbnailContentTypes: [...THUMBNAIL_CONTENT_TYPES],
-      storageQuota: storageQuotaBytes(),
+      storageQuota: tenantStorageQuotaBytes(),
       storageUsed,
     };
   }
@@ -134,12 +136,14 @@ export class FileService {
         throw new AppException('VALIDATION_FAILED', { field: 'cursor' });
       }
     }
+    const imageFilter = this.imageFilterOf(query.imageUsage);
     const ctx = await this.access.contextFor(actor);
     const scope = await this.listScope(ctx, actor, query.folderId);
     const { items, total, firstCreatedAt, lastCreatedAt } = await this.repo.list(
       query,
       after,
       scope,
+      imageFilter,
     );
     const tags = await this.tags.tagsOf(
       RESOURCE_TYPE.FILE,
@@ -230,11 +234,11 @@ export class FileService {
             createdBy: actor.id,
             updatedBy: actor.id,
           },
-          storageQuotaBytes(),
+          tenantStorageQuotaBytes(),
           tx,
         );
         // 同時的登記先用掉了容量
-        if (!created) throw quotaExceeded(await this.repo.storageUsed(tx), dto.size);
+        if (!created) throw storageQuotaExceeded(await this.repo.storageUsed(tx), dto.size);
         return created;
       })
       .catch(async (error: unknown) => {
@@ -600,6 +604,39 @@ export class FileService {
     return readable ? { folderIds: readable } : undefined;
   }
 
+  /** 選圖的過濾：用途收的型別（排除 SVG）與大小上限（docs/architecture/backend/25-image.md §15.10）。 */
+  private imageFilterOf(usageId: string | undefined): FileImageFilter | undefined {
+    if (!usageId) return undefined;
+    const usage = this.imageAssets.findUsage(usageId);
+    if (!usage) throw new AppException('VALIDATION_FAILED', { fields: { imageUsage: 'unknown' } });
+    return { contentTypes: usage.contentTypes, maxSize: usage.maxSize };
+  }
+
+  /**
+   * 「檔案」這個圖片來源（`FileImageSource`）：以呼叫者的身分讀取一個可以複製的圖片檔。看不到、還在上傳中、
+   * 不是圖片（或變體處理失敗）一律當作不存在。複製是把內容帶到資料夾授權之外的動作，寫稽核 `file.copy`（docs/architecture/backend/25-image.md §16.2 D5）；
+   * `purpose` 是呼叫端給的用途字串，這裡不解讀它。
+   */
+  async resolveImageForCopy(id: string, actor: AuthUser, purpose: string): Promise<FileRow> {
+    const ctx = await this.access.contextFor(actor);
+    const file = await this.getVisible(id, actor, ctx);
+    if (
+      file.status !== 'ready' ||
+      !file.contentType.startsWith('image/') ||
+      file.variantStatus === 'failed'
+    ) {
+      throw new AppException('FILE_NOT_FOUND');
+    }
+    await this.audit.record({
+      action: 'file.copy',
+      resourceType: RESOURCE_TYPE.FILE,
+      resourceId: file.id,
+      resourceName: file.name,
+      changes: { after: { purpose } },
+    });
+    return file;
+  }
+
   /** 租戶設定的單檔上限；設定的 schema 已限制它不超過 env 的上限。 */
   private maxSize(): Promise<number> {
     return this.settings.get(FILE_UPLOAD_MAX_SIZE_SETTING);
@@ -716,22 +753,7 @@ function toUploadTarget(signed: PresignedRequest) {
   };
 }
 
-const MIB = 1024 * 1024;
-
-/** 租戶的檔案容量，位元組（`file.storageQuotaMb`；docs/architecture/05-tenancy.md §13.3 D8）。 */
-function storageQuotaBytes(): number {
-  return tenantFeatureParam(FILE_STORAGE_QUOTA_MB_PARAM) * MIB;
-}
-
 /** 加上這次的大小會超過容量時拋 `FILE_STORAGE_QUOTA_EXCEEDED`。調小到低於已用量時只擋新的上傳。 */
 function assertWithinQuota(used: number, size: number): void {
-  if (used + size > storageQuotaBytes()) throw quotaExceeded(used, size);
-}
-
-function quotaExceeded(used: number, size: number): AppException {
-  return new AppException('FILE_STORAGE_QUOTA_EXCEEDED', {
-    quota: storageQuotaBytes(),
-    used,
-    size,
-  });
+  if (used + size > tenantStorageQuotaBytes()) throw storageQuotaExceeded(used, size);
 }

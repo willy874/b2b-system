@@ -3,6 +3,7 @@ import type { Readable } from 'node:stream';
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  CopyObjectCommand,
   CreateBucketCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
@@ -261,6 +262,24 @@ export class S3ObjectStorage
       );
     } catch (error) {
       throw this.unavailable(error, 'putObject');
+    }
+  }
+
+  async copyObject(sourceKey: string, targetKey: string): Promise<boolean> {
+    const bucket = this.bucket();
+    try {
+      await this.client.send(
+        new CopyObjectCommand({
+          Bucket: bucket,
+          Key: targetKey,
+          // `x-amz-copy-source` 是 `<bucket>/<key>`，key 要 URL 編碼（保留 `/`）
+          CopySource: `${bucket}/${sourceKey.split('/').map(encodeURIComponent).join('/')}`,
+        }),
+      );
+      return true;
+    } catch (error) {
+      if (isNotFound(error)) return false;
+      throw this.unavailable(error, 'copyObject');
     }
   }
 

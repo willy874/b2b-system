@@ -18,9 +18,8 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 圖片選取與上傳來源（上傳含拖曳與貼上、最近使用、從檔案管理或圖片庫挑選；來源依 feature、權限與內容自動取捨） | [`image-picker.md`](./image-picker.md) | 規劃中 | 檔案、可關閉的 feature |
-| P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（來源介面）、標籤、留言 |
-| P3 | 圖片的 CDN（本機以 nginx 模擬：驗網址簽章、邊緣快取、內部憑證回源；api 的 `CdnUrlSigner`，之後換真正的 CDN 只換實作） | [`image-cdn.md`](./image-cdn.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（不可修改的圖片資產）、獨立的檔案網域 |
+| P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | 圖片資產（[`backend/25-image.md`](../architecture/backend/25-image.md) §15：來源介面）、標籤、留言 |
+| P3 | 圖片的 CDN（本機以 nginx 模擬：驗網址簽章、邊緣快取、內部憑證回源；api 的 `CdnUrlSigner`，之後換真正的 CDN 只換實作） | [`image-cdn.md`](./image-cdn.md) | 規劃中 | 圖片資產（[`backend/25-image.md`](../architecture/backend/25-image.md) §15：不可修改的物件）、獨立的檔案網域 |
 | P3 | CDN 設定管理（apps/platform：執行期的開關與參數、開啟前的節點檢查、邊緣狀態與告警、手動清理；環境變數改為部署層的能力與上限） | [`cdn-settings.md`](./cdn-settings.md) | 規劃中 | [`image-cdn.md`](./image-cdn.md) |
 
 狀態只有三種：
@@ -37,6 +36,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `image-picker`（圖片資產與選圖，階段 2：`modules/image` 的用途與來源介面、上傳與從其他來源複製、`image.process` 與 `image.maintenance`、最近使用、容量與檔案共用；`web-core/image-picker` 的 `ImageField` 與來源註冊表、拖曳與貼上、`ImageCropper`；第一個 consumer 是使用者頭像）：[`backend/25-image.md`](../architecture/backend/25-image.md) §15、§16，[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)
 - `image-delivery`（圖片的讀取與遞送：存參照不存網址、`ObjectUrlSigner`、`ImageUrlService` 與 `ImageSources`、依用途的效期與具名尺寸、共用的格式政策、`SignedImage` 與 `Avatar` 的圖片插槽；所有租戶合計的儲存止水線）：[`backend/25-image.md`](../architecture/backend/25-image.md) §14
 
 - `multi-instance`（多實例部署與服務拆分：程序角色 `APP_ROLES`、部署模式 `DEPLOYMENT_MODE`、共享的速率限制計數、跨裝置中繼跨節點、影像變體改成背景工作、排空與 readiness、compose 的多實例與 k8s 的參考部署、migration 相容檢查）：[`01-system.md`](../architecture/01-system.md) §4.3、§7
@@ -67,11 +67,10 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：圖片的提案依下面的階段進行。階段 1（讀取與遞送、格式政策、儲存止水線）已完成並歸檔到 [`backend/25-image.md`](../architecture/backend/25-image.md)。每個階段各自一個 branch，合併後再開下一個；階段 4 可以與 2、3 並行，階段 5 接在階段 4 之後。
+接下來：圖片的提案依下面的階段進行。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）已完成並歸檔到 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)。每個階段各自一個 branch，合併後再開下一個；階段 4 可以與 3 並行，階段 5 接在階段 4 之後。
 
 | 階段 | 提案 | 內容 | 完成的判斷 |
 | --- | --- | --- | --- |
-| 2 | [`image-picker.md`](./image-picker.md) | `modules/image`（圖片資產、用途、來源介面、`image.process`／`image.maintenance`）、三種來源（上傳含拖曳與貼上、最近使用、檔案管理；圖片庫的來源在階段 3）、`web-core/image-picker` 與 `ImageCropper`、第一個 consumer：使用者頭像 | 頭像能上傳、裁切、從檔案管理選、在頂列與留言顯示；關掉 `file` 時直接選檔 |
 | 3 | [`image-gallery.md`](./image-gallery.md) | `core/upload` 與 `registerFileAction` 的抽出、`modules/gallery`、`features/gallery`（閱覽、檢視器、相簿、標籤、留言）、由檔案管理加入、登記成選圖的來源 | 使用者故事全部可在瀏覽器操作；關掉 `gallery` 時檔案管理器與選圖都不受影響 |
 | 4 | [`image-cdn.md`](./image-cdn.md) | `CdnUrlSigner`、`CdnPurger` 與 `cdn.purge`、`FILE_CDN_*`、`deploy/` 的 nginx ＋ njs、`check-cdn.sh`、`cli:cdn-purge` | `FILE_CDN_ENABLED=false` 時行為不變；`true` 時 `check-cdn.sh` 全過 |
 | 5 | [`cdn-settings.md`](./cdn-settings.md) | 平台 DB 的執行期設定與生效值的解析、`BroadcastService` 的 `cdn_settings`、開啟前的節點檢查、`cdn.healthCheck` 與告警、`CdnPathResolver` 與手動清理、apps/platform 的 CDN 頁面、平台權限 `cdn:*` | 沒有設定列時行為與階段 4 相同；在頁面上關閉後各程序改簽 presigned 網址、不必重啟；kid 不一致時不能開啟 |

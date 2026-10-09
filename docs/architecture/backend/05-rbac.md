@@ -35,6 +35,7 @@ Guard 看不到資源。
 | `AnnouncementService.update` | 排程中、暫停中的公告另要 `announcement:publish` | 依公告的狀態 |
 | `RoleService.revertToRevision` | 權限鍵會改變時另要 `role:grantPermission` | 依那一版的內容 |
 | 標籤組的 `assertCanBrowse`、使用者的 `resolveEditable` | `user:read`／`user:update`；檔案組是 `file:access` 或 `file:read` | `GET /tags`、`PUT /tags/assignments/…` 只宣告 `@Authenticated()`，由擁有者決定（[`18-tag.md`](./18-tag.md)） |
+| 圖片來源的 `resolve`（`FileService.resolveImageForCopy`） | 檔案：看得到所在的資料夾（`file:access` 的資料夾授權或 `file:read`） | `POST /images/from-source` 只宣告 `@Authenticated()`，來源在請求本體（[`25-image.md`](./25-image.md) §15.2） |
 | 可留言資源的 `resolveViewable`；`CommentService.remove` | 使用者是 `user:read`；刪別人的留言另要 `comment:delete` | 留言與關注的端點只宣告 `@Authenticated()`，看不看得到由擁有者決定、是不是作者依留言而定（[`24-comment.md`](./24-comment.md) §1） |
 
 ---
@@ -763,6 +764,9 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | PATCH  | `/comments/:id`             | 登入；作者本人 ＋ 看得到資源      |
 | DELETE | `/comments/:id`             | 登入；作者本人，或 `comment:delete` ＋ 看得到資源 |
 | GET／PUT | `/watches/:resourceType/:resourceId` | 登入；看得到資源            |
+| GET    | `/images/usages`、`/images/recent`、`/images/:id` | 登入；只看得到自己建立的圖片（[`25-image.md`](./25-image.md) §15） |
+| POST   | `/images`、`/images/:id/complete`、`/images/:id/hide-from-recent` | 登入；上傳本身不需要權限，能不能「用」由 consumer 儲存時的權限決定 |
+| POST   | `/images/from-source`       | 登入；來源的 `resolve` 以呼叫者的身分讀取（檔案：看得到所在的資料夾） |
 | DELETE | `/watches/:resourceType/:resourceId` | 登入                     |
 | GET    | `/trash`                    | `user:delete` \| `role:delete` \| `group:delete` \| `file:delete`⁴ |
 | GET    | `/roles`                    | `role:read`                      |

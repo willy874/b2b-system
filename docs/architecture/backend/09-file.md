@@ -194,7 +194,8 @@ acme 的使用者從 `https://acme.example.com` 進來拿到 `https://acme.examp
 
 `pending` 不出現在列表、不發推播；別人查詢一律 `404 FILE_NOT_FOUND`。看不到所在資料夾的 `ready` 檔案同樣回 `404`。
 
-其他模組要引用檔案（例：使用者頭像、文件附件）時 **存 `files.id` 外鍵**，需要網址時注入 `FileService`。
+其他模組要放 **圖片**（例：使用者頭像）時不引用檔案，而是用圖片資產（[`25-image.md`](./25-image.md) §15）：從檔案管理挑的圖會被 **複製** 成一份，
+原檔之後被改名、移動、刪除或資料夾的授權改變都不受影響（檔案作為圖片的來源見 §15）。其他種類的附件之後再設計。
 
 ### 4.2 資料夾：`file_folders`
 
@@ -901,3 +902,16 @@ FileAccessService（modules/file）
 - `file.maintenance` 只管 `files/`、`thumbnails/`、`variants/`，**不碰 `transfers/`**；到期的匯出檔與沒完成的分段上傳由 `dataTransfer.cleanup` 清除。
 - `transfers/` 的物件不計入 `file.storageQuotaMb`：與縮圖、變體一樣是系統產物，靠保留期限控制。
 - 下載連結與檔案管理相同，走獨立的檔案網域（§13），每次重新簽發。
+
+---
+
+## 15. 檔案作為圖片的來源
+
+檔案管理是圖片資產的一個來源（[`25-image.md`](./25-image.md) §15.2、§15.10）：`FileImageSource` 在 `onModuleInit` 向 `ImageSourceRegistry` 登記 `file`（feature `file`）。
+
+- **選圖的列表**：`GET /files?imageUsage=<usage>` 只列能當這個用途的圖片——型別在用途的 `contentTypes` 內（排除 SVG）、大小不超過 `maxSize`、
+  `variant_status` 不是 `failed`。太小的照樣列出，由前端依 `image.width`／`image.height` 停用。其餘條件（資料夾、排序、分頁）與一般的列表相同。
+- **複製**：`FileService.resolveImageForCopy(id, actor, purpose)` 與詳情相同的可見性判斷（看得到所在的資料夾；別人上傳中的、看不到的都是 `404 FILE_NOT_FOUND`），
+  還要是 `ready` 的圖片、變體沒有失敗；通過時寫稽核 `file.copy`（`changes.after.purpose` 是呼叫端給的用途字串，例：`imageAsset:user.avatar`）。
+  圖片資產以 CopyObject 複製原檔 `files/<id>`，之後兩邊互不影響。
+- 容量：檔案與圖片資產共用租戶的 `file_storage_usage`；`file.maintenance` 的對帳加總 `files` 與 `StorageSizeSources` 登記的其他合計（`core/usage`）。

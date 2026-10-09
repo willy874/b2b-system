@@ -1,9 +1,11 @@
-import type { TagSummary, User } from '@/shared/api-sdk';
+import type { ImageSources, TagSummary, User } from '@/shared/api-sdk';
 
 export interface UserRowVM {
   id: string;
   email: string;
   displayName: string;
+  /** 頭像（`sm`）；沒有時顯示名字縮寫。 */
+  avatar: ImageSources | null;
   username: string;
   status: User['status'];
   roles: Array<{ id: string; name: string; isSystem: boolean }>;
@@ -36,6 +38,7 @@ export function toUserRowVM(
     id: dto.id,
     email: dto.email,
     displayName: dto.displayName,
+    avatar: dto.avatar,
     username: dto.username ?? '-',
     status: dto.status,
     roles: dto.roles,

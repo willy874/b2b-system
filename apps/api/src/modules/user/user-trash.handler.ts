@@ -18,6 +18,7 @@ import type {
   TrashListQuery,
 } from '@/modules/trash/trash.types';
 
+import { UserAvatarService } from './user-avatar.service';
 import { UserRepository } from './user.repository';
 
 /**
@@ -39,6 +40,7 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
     private readonly events: DomainEventBus,
     private readonly tags: TagService,
     private readonly comments: CommentService,
+    private readonly avatars: UserAvatarService,
   ) {}
 
   onModuleInit(): void {
@@ -74,6 +76,8 @@ export class UserTrashHandler implements TrashHandler, OnModuleInit {
     await this.tags.removeAllFor(RESOURCE_TYPE.USER, [item.id], tx);
     // 留言與關注同理（docs/architecture/backend/24-comment.md §8.2 D10）
     await this.comments.removeAllFor(RESOURCE_TYPE.USER, [item.id], tx);
+    // 頭像交給圖片資產的清理排程（docs/architecture/backend/25-image.md §15.6）
+    await this.avatars.releaseAll(item.id, tx);
     return true;
   }
 

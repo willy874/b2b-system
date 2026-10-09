@@ -1,10 +1,10 @@
 import { isNetworkError, isRequestAborted } from '@b2b-system/web-core/client';
+import { putToStorage } from '@b2b-system/web-core/direct-upload';
+import type { UploadProgress } from '@b2b-system/web-core/direct-upload';
 import { isAppError } from '@b2b-system/web-core/errors';
 
 import type { FileMultipartUpload, FileUploadPart } from '@/shared/api-sdk';
 
-import { putToStorage } from './putToStorage';
-import type { UploadProgress } from './putToStorage';
 import { fetchFileCreateUploadPartsMutation } from './steps';
 
 export interface UploadedPart {

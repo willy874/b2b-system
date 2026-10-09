@@ -18,6 +18,8 @@
       "dataTransferExport": "Export",
       "fileImageVariants": "Image thumbnail generation",
       "fileMaintenance": "File maintenance",
+      "imageMaintenance": "Image cleanup",
+      "imageProcess": "Image processing",
       "outboxSweep": "Event outbox sweep",
       "mfaChannelLinkCleanup": "Expired messaging link cleanup",
       "mfaCleanup": "Expired MFA data cleanup",

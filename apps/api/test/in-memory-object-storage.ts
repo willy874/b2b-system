@@ -53,6 +53,16 @@ export class InMemoryObjectStorage extends ObjectStorage {
     this.write(key, body, options.contentType);
   }
 
+  async copyObject(sourceKey: string, targetKey: string): Promise<boolean> {
+    const head = this.objects.get(sourceKey);
+    if (!head) return false;
+    this.objects.set(targetKey, { ...head, etag: `etag-${targetKey}` });
+    const content = this.contents.get(sourceKey);
+    if (content) this.contents.set(targetKey, content);
+    this.modifiedAt.set(targetKey, new Date());
+    return true;
+  }
+
   async *listObjects(prefix: string): AsyncIterable<ListedObject> {
     for (const [key, head] of [...this.objects].toSorted(([a], [b]) => a.localeCompare(b))) {
       if (!key.startsWith(prefix)) continue;

@@ -1,19 +1,25 @@
-import { Avatar } from '@b2b-system/ui/Avatar';
 import { IconButton } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Menu } from '@b2b-system/ui/Menu';
 import type { MenuItemDescriptor } from '@b2b-system/ui/Menu';
+import { coalesce, SignedAvatar } from '@b2b-system/web-core/image';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime, formatRelativeTime } from '@b2b-system/web-shared/date';
 import { useState } from 'react';
 
 import type { CommentTargetParams } from '@/apis/comment/types';
+import { invalidateResources, Resource } from '@/apis/resources';
 import type { Comment } from '@/shared/api-sdk';
 
 import { useCommentDeleteMutation, useCommentUpdateMutation } from '../hooks/useCommentMutations';
 import { CommentEditor } from './CommentEditor';
+
+/** 同一頁的多則留言共用一次失效（docs/architecture/backend/25-image.md §5 D7）。 */
+const onAvatarExpired = coalesce(() =>
+  invalidateResources([{ resource: Resource.COMMENT, kind: 'update' }]),
+);
 
 interface CommentItemProps {
   comment: Comment;
@@ -52,7 +58,13 @@ export function CommentItem({ comment, target }: CommentItemProps) {
 
   return (
     <article className="flex gap-3" data-testid="comment-item" data-value={comment.id}>
-      <Avatar name={authorName} size={28} />
+      <SignedAvatar
+        sources={comment.authorAvatar}
+        variant="sm"
+        name={authorName}
+        size={28}
+        onExpired={onAvatarExpired}
+      />
       <div className="min-w-0 flex-1">
         <header className="flex items-center gap-2">
           <span className="text-sm font-medium">{authorName}</span>

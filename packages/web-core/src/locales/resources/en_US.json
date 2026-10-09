@@ -294,6 +294,16 @@
     "FILE_RESTORE_CONFLICT": "This file cannot be restored.",
     "FILE_FOLDER_NOT_DELETED": "This folder is not deleted, so there is nothing to restore.",
     "FILE_FOLDER_RESTORE_CONFLICT": "The parent folder has been deleted. Restore the parent folder first.",
+    "IMAGE_ASSET_NOT_FOUND": "The image could not be found. Select it again.",
+    "IMAGE_TYPE_NOT_ALLOWED": "This image format isn't supported. Use JPEG, PNG, WebP, AVIF or GIF.",
+    "IMAGE_TOO_LARGE": "The image is too large. Choose a smaller one.",
+    "IMAGE_TOO_SMALL": "The image is too small. Choose one with a higher resolution.",
+    "IMAGE_CROP_INVALID": "The crop area is invalid. Crop the image again.",
+    "IMAGE_SOURCE_NOT_FOUND": "This image source isn't available.",
+    "IMAGE_ASSET_NOT_USABLE": "This image can't be used here. Select another one.",
+    "IMAGE_ALREADY_UPLOADED": "This image has already been uploaded.",
+    "IMAGE_UPLOAD_INCOMPLETE": "The image upload didn't finish. Try again.",
+    "IMAGE_PENDING_LIMIT_REACHED": "Too many images are being processed. Try again shortly.",
     "FILE_ACCESS_ALREADY_GRANTED": "You already have this access to the folder. No need to request it again.",
     "FILE_ACCESS_REQUEST_NOT_FOUND": "This access request no longer exists. It may have been handled or withdrawn.",
     "SETTING_NOT_FOUND": "This setting does not exist.",
@@ -1094,5 +1104,40 @@
       "cancelDescription": "Rows already applied are kept; the rest are not processed."
     },
     "separator": ", "
+  },
+  "imagePicker": {
+    "title": "Choose an image",
+    "field": "Image of {{name}}",
+    "change": "Change",
+    "recrop": "Crop",
+    "remove": "Remove",
+    "processing": "Processing",
+    "uploading": "Uploading",
+    "pasteHint": "Paste an image (⌘V / Ctrl+V) or drag one here",
+    "pastedName": "Pasted image",
+    "onlyFirst": "Only one image can be chosen; the first one was used",
+    "urlDrop": "Save the image to your computer first, then drag it here",
+    "recropUnavailable": "This image can't be cropped again. Choose a new one",
+    "upload": {
+      "label": "Upload",
+      "hint": "Drag an image here, paste it, or",
+      "browse": "Choose image",
+      "limits": "Up to {{max}} MB, at least {{width}} × {{height}} pixels"
+    },
+    "crop": {
+      "title": "Crop image",
+      "confirm": "Done",
+      "alt": "Image to crop",
+      "region": "Crop area",
+      "hint": "Arrow keys move, Shift + arrow keys resize"
+    },
+    "validation": {
+      "type": "This image format isn't supported. Use JPEG, PNG, WebP, AVIF or GIF",
+      "size": "The image is too large: up to {{max}} MB",
+      "small": "The image is too small: at least {{width}} × {{height}} pixels"
+    },
+    "unusable": {
+      "small": "Too small: at least {{width}} × {{height}} pixels"
+    }
   }
 }

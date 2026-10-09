@@ -33,6 +33,8 @@ describe('AuthService.getProfile / updateProfile（docs/architecture/backend/04-
         email: 'alice@example.com',
         username: 'alice',
         displayName: 'Alice',
+        avatar: null,
+        avatarImageId: null,
         status: 'active',
         lastLoginAt: '2026-10-01T00:00:00.000Z',
         preferences: { locale: 'zh-TW', timezone: 'Asia/Taipei' },

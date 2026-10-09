@@ -47,6 +47,7 @@ import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
+import { ImageAssetModule } from './modules/image/image.module';
 import { JobModule } from './modules/job/job.module';
 import { MfaEmailModule } from './modules/mfa-email/mfa-email.module';
 import { MfaMessagingModule } from './modules/mfa-messaging/mfa-messaging.module';
@@ -157,6 +158,8 @@ const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
     WebhookModule,
     // 標籤；標籤組與資源類型由擁有者模組登記（docs/architecture/backend/18-tag.md §7）
     TagModule,
+    // 圖片資產（頭像等）；用途與來源由擁有者模組登記（docs/architecture/backend/25-image.md §15）
+    ImageAssetModule,
     CommentModule,
     AnnouncementModule,
     AuthzExplainModule,

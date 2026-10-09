@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 
 import { StorageCapacity } from './storage-capacity';
 import { StorageTotalRepository } from './storage-total.repository';
+import { StorageSizeSources } from './storage-usage';
 import { TenantStorageUsage } from './tenant-storage-usage';
 import { TenantUsageSnapshots } from './tenant-usage-snapshots';
 import { UsageCounterRepository } from './usage-counter.repository';
@@ -10,7 +11,8 @@ import { UsageRequestMiddleware } from './usage-request.middleware';
 
 /**
  * 租戶用量的機制（docs/architecture/05-tenancy.md §5.4）：計數（`UsageMeter`）、請求的計數 middleware、
- * 快照來源的登記表；儲存的止水線（`StorageCapacity`、`TenantStorageUsage`，docs/architecture/backend/25-image.md §12）。
+ * 快照來源的登記表；儲存的止水線（`StorageCapacity`、`TenantStorageUsage`，docs/architecture/backend/25-image.md §12）；
+ * 租戶容量的計數與對帳來源（`storage-usage.ts`、`StorageSizeSources`）。
  * 彙總、查詢與通知在 `modules/tenant`。
  */
 @Global()
@@ -23,6 +25,7 @@ import { UsageRequestMiddleware } from './usage-request.middleware';
     TenantStorageUsage,
     StorageTotalRepository,
     StorageCapacity,
+    StorageSizeSources,
   ],
   exports: [
     UsageMeter,
@@ -31,6 +34,7 @@ import { UsageRequestMiddleware } from './usage-request.middleware';
     TenantStorageUsage,
     StorageTotalRepository,
     StorageCapacity,
+    StorageSizeSources,
   ],
 })
 export class UsageModule {}

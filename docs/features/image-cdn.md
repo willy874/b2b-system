@@ -5,7 +5,7 @@
 - 依賴：[`backend/25-image.md`](../architecture/backend/25-image.md)（`ObjectUrlSigner`：CDN 是它的一個實作；每個物件只寫一次）、
   獨立的檔案網域（[`backend/09-file.md`](../architecture/backend/09-file.md) §3.2、§13）、影像 API（[`backend/09-file.md`](../architecture/backend/09-file.md) §5.4）、
   背景工作（[`backend/10-jobs.md`](../architecture/backend/10-jobs.md)；清理快取的 `cdn.purge`）
-- 相關：[`image-picker.md`](./image-picker.md)（圖片資產）、[`image-gallery.md`](./image-gallery.md)（圖片最多的頁面）；
+- 相關：[`backend/25-image.md`](../architecture/backend/25-image.md) §15（圖片資產）、[`image-gallery.md`](./image-gallery.md)（圖片最多的頁面）；
   部署（[`01-system.md`](../architecture/01-system.md) §4.3、`deploy/k8s/`）；
   [`cdn-settings.md`](./cdn-settings.md)（在 apps/platform 管理執行期的開關與參數、邊緣的狀態檢查、手動清理；環境變數改為部署層的能力與上限）
 
@@ -13,7 +13,7 @@
 
 ## 背景
 
-圖片之後會出現在大多數頁面上，例如使用者列表、留言、審批的頭像，以及圖片庫（[`image-picker.md`](./image-picker.md)、[`image-gallery.md`](./image-gallery.md)）。
+圖片之後會出現在大多數頁面上，例如使用者列表、留言、審批的頭像，以及圖片庫（[`backend/25-image.md`](../architecture/backend/25-image.md) §15、[`image-gallery.md`](./image-gallery.md)）。
 現在每張圖的讀取路徑是：
 
 ```
@@ -338,7 +338,7 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm]
    傾向：如果 `cdn` 容器只用於本機與 CI，用 MD5；如果自架 nginx 也要當正式環境的邊緣（問題 7），用 njs。
    - **結論**：njs 的 HMAC-SHA256（問題 7 的結論是可以當正式方案；清理也需要 njs）（D1）。
 2. **CDN 網址的效期與時間窗**：快取的 key 不含簽章，所以效期長短不影響命中率，只影響「網址外流之後多久失效」。
-   要沿用 `FILE_URL_TTL`（預設 900 秒），還是像 [`image-picker.md`](./image-picker.md) 的用途一樣，由 usage 決定（頭像長、附件短）？
+   要沿用 `FILE_URL_TTL`（預設 900 秒），還是像 [`backend/25-image.md`](../architecture/backend/25-image.md) §15 的用途一樣，由 usage 決定（頭像長、附件短）？
    - **結論**：由用途決定，以 `FILE_CDN_MAX_URL_TTL` 封頂；檔案的影像變體沿用 `FILE_URL_TTL`（D2）。
 3. **刪除與立即失效**：物件被刪除之後，邊緣快取在 `proxy_cache_valid` 期間內仍有內容，只是沒有新的網址能讀到它（舊網址到 `exp` 為止仍然有效）。
    這與現在 presigned 網址的語意相同。需不需要「立即清除」？若需要（例如法律要求下架），本機以刪快取檔模擬，
@@ -358,7 +358,7 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm]
 7. **自架的 nginx 邊緣能不能直接當正式環境的方案？** 單一區域的部署裡，一台有快取的 nginx 已經能拿到「同一張圖只回源一次」的大部分好處。
    若答案是「可以」，問題 1 要選 njs，快取目錄要掛 volume 並設 `max_size`，`deploy/k8s` 也要有對應的 Deployment。
    - **結論**：可以，限單一區域（D7）。
-8. **與 [`image-picker.md`](./image-picker.md) 的順序**：CDN 的前提是物件不可修改。現在的影像變體（`variants/`）已經符合，
+8. **與 [`backend/25-image.md`](../architecture/backend/25-image.md) §15 的順序**：CDN 的前提是物件不可修改。現在的影像變體（`variants/`）已經符合，
    所以可以先做、只套用到檔案的變體。要先做來驗證設計，還是等圖片資產做完一起做？
    - **結論**：不必等。[`backend/25-image.md`](../architecture/backend/25-image.md) D6 抽出 `ObjectUrlSigner` 之後就可以進行，先以 `FILE_CDN_RESOURCES=fileVariant` 驗證（D8）。
 

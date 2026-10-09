@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
+import { ImageSourcesSchema } from '@/core/image';
 import { TimeZoneSchema } from '@/core/settings';
 import { defineSchema } from '@/core/validation';
 import { ALL_PLATFORM_PERMISSION_KEYS } from '@/db/seeds/platform-permissions';
 import { PasswordSchema } from '@/modules/credential/password';
+import { ImageCropSchema } from '@/modules/image/dto/image.dto';
 import { PermissionKeySchema } from '@/modules/permission/dto/permission.dto';
 import { TenantFeatureSchema } from '@/modules/tenant/dto/platform-tenant.dto';
 import { RoleSummarySchema, UserStatusSchema } from '@/modules/user/dto/user.dto';
@@ -33,6 +35,9 @@ export const ProfileSchema = defineSchema(
       email: z.string(),
       username: z.string().nullable(),
       displayName: z.string(),
+      /** 自己的頭像（docs/architecture/backend/25-image.md §15.8）；沒有設定或還在處理時是 `null`。 */
+      avatar: ImageSourcesSchema.nullable(),
+      avatarImageId: z.string().uuid().nullable(),
       status: UserStatusSchema,
       lastLoginAt: z.string().nullable(),
       preferences: z.object({ locale: z.string(), timezone: z.string() }),
@@ -94,6 +99,10 @@ export const UpdateProfileSchema = defineSchema(
           timezone: TimeZoneSchema.optional(),
         })
         .optional(),
+      /** 換自己的頭像（不需要權限）；`null` 是拿掉。與 `PATCH /users/:id` 的同名欄位相同。 */
+      avatarImageId: z.string().uuid().nullable().optional(),
+      /** 只帶它是重新裁切目前的頭像。 */
+      avatarCrop: ImageCropSchema.optional(),
     })
     .refine((value) => Object.keys(value).length > 0, {
       message: 'at least one field is required',

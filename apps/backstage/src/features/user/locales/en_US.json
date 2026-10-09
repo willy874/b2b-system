@@ -153,6 +153,10 @@
       "unlinkTitle": "Unlink external identity",
       "unlinkConfirm": "Unlink \"{{provider}}\"? Signing in with it later matches an account again; an SSO-only account without a password may be unable to sign in.",
       "unlinked": "Identity unlinked"
+    },
+    "avatar": {
+      "title": "Avatar",
+      "saved": "Avatar updated."
     }
   }
 }

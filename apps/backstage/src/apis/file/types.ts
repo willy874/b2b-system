@@ -18,6 +18,8 @@ export interface FileListFilters {
   tagId?: string[];
   /** 只列這個資料夾直接包含的檔案；`root` 是根目錄，不帶則不分資料夾。 */
   folderId?: string;
+  /** 選圖用：只列能當這個用途的圖片（docs/architecture/backend/25-image.md §15.10）。 */
+  imageUsage?: string;
   sort?: Array<SortEntry<FileSortField>>;
 }
 

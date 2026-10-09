@@ -4383,6 +4383,232 @@
         "tags": ["watches"]
       }
     },
+    "/images/usages": {
+      "get": {
+        "operationId": "ImageController_listUsages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageUsageList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "每個使用圖片的地方的限制（大小、型別、最小尺寸、比例、尺寸）",
+        "tags": ["images"]
+      }
+    },
+    "/images/recent": {
+      "get": {
+        "operationId": "ImageController_recent",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAssetList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "最近使用：自己建立過的圖片（同一個內容只列一次，最多 30 張）",
+        "tags": ["images"]
+      }
+    },
+    "/images": {
+      "post": {
+        "operationId": "ImageController_createUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImageUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageUpload"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登記上傳並取得直傳網址（完成後呼叫 complete）",
+        "tags": ["images"]
+      }
+    },
+    "/images/from-source": {
+      "post": {
+        "operationId": "ImageController_createFromSource",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImageFromSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAsset"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "從其他來源（檔案管理、圖片庫、最近使用）複製成一張新的圖片",
+        "tags": ["images"]
+      }
+    },
+    "/images/{id}/complete": {
+      "post": {
+        "operationId": "ImageController_completeUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteImageUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAsset"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "確認直傳完成並排入處理（可一併帶裁切）",
+        "tags": ["images"]
+      }
+    },
+    "/images/{id}/hide-from-recent": {
+      "post": {
+        "operationId": "ImageController_hideFromRecent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "從最近使用移除（不影響正在使用它的地方）",
+        "tags": ["images"]
+      }
+    },
+    "/images/{id}": {
+      "get": {
+        "operationId": "ImageController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImageAsset"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己建立的一張圖片（處理狀態、各尺寸的網址）",
+        "tags": ["images"]
+      }
+    },
     "/announcements": {
       "get": {
         "operationId": "AnnouncementController_list",
@@ -14402,6 +14628,333 @@
         ],
         "additionalProperties": false
       },
+      "ImageCrop": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": ["x", "y", "width", "height"],
+        "additionalProperties": false
+      },
+      "ImageUsage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "maxSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "contentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minWidth": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "minHeight": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "aspectRatio": {
+            "nullable": true,
+            "type": "number"
+          },
+          "presets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "sources": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "maxSize",
+          "contentTypes",
+          "minWidth",
+          "minHeight",
+          "aspectRatio",
+          "presets",
+          "sources"
+        ],
+        "additionalProperties": false
+      },
+      "ImageUsageList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageUsage"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "ImageOriginal": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "width", "height", "expiresAt"],
+        "additionalProperties": false
+      },
+      "ImageAsset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "usage": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "ready", "failed"]
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["notImage", "typeNotAllowed", "tooLarge", "tooSmall", "missing"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "width": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "crop": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          },
+          "image": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageSources"
+              }
+            ]
+          },
+          "original": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageOriginal"
+              }
+            ]
+          },
+          "isInUse": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "usage",
+          "status",
+          "failureReason",
+          "name",
+          "source",
+          "width",
+          "height",
+          "crop",
+          "image",
+          "original",
+          "isInUse",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "ImageAssetList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageAsset"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreateImageUploadRequest": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["usage", "name", "contentType", "size"],
+        "additionalProperties": false
+      },
+      "ImageUploadTarget": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["PUT"]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "method", "headers", "expiresAt"],
+        "additionalProperties": false
+      },
+      "ImageUpload": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/ImageAsset"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/ImageUploadTarget"
+          }
+        },
+        "required": ["asset", "upload"],
+        "additionalProperties": false
+      },
+      "CompleteImageUploadRequest": {
+        "type": "object",
+        "properties": {
+          "crop": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateImageFromSourceRequest": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "^[a-z][A-Za-z0-9]*\\.[a-z][A-Za-z0-9]*$"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "^[a-z][A-Za-z0-9]*$"
+          },
+          "refId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "crop": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          }
+        },
+        "required": ["usage", "source", "refId"],
+        "additionalProperties": false
+      },
       "CommentUser": {
         "type": "object",
         "properties": {
@@ -14447,6 +15000,14 @@
               }
             ]
           },
+          "authorAvatar": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageSources"
+              }
+            ]
+          },
           "mentions": {
             "type": "array",
             "items": {
@@ -14478,6 +15039,7 @@
           "resourceId",
           "body",
           "author",
+          "authorAvatar",
           "mentions",
           "version",
           "createdAt",
@@ -15235,6 +15797,19 @@
             "minLength": 1,
             "maxLength": 64
           },
+          "avatarImageId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "avatarCrop": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
+          },
           "version": {
             "type": "integer",
             "minimum": 1,
@@ -15312,6 +15887,20 @@
           "displayName": {
             "type": "string"
           },
+          "avatar": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageSources"
+              }
+            ]
+          },
+          "avatarImageId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
           "status": {
             "$ref": "#/components/schemas/UserStatus"
           },
@@ -15361,6 +15950,8 @@
           "email",
           "username",
           "displayName",
+          "avatar",
+          "avatarImageId",
           "status",
           "roles",
           "tags",
@@ -16914,6 +17505,20 @@
               "displayName": {
                 "type": "string"
               },
+              "avatar": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ImageSources"
+                  }
+                ]
+              },
+              "avatarImageId": {
+                "nullable": true,
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
               "status": {
                 "$ref": "#/components/schemas/UserStatus"
               },
@@ -16940,6 +17545,8 @@
               "email",
               "username",
               "displayName",
+              "avatar",
+              "avatarImageId",
               "status",
               "lastLoginAt",
               "preferences"
@@ -17071,6 +17678,19 @@
               }
             },
             "additionalProperties": false
+          },
+          "avatarImageId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "avatarCrop": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageCrop"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -18884,6 +19504,8 @@
           "dataTransfer.export",
           "file.imageVariants",
           "file.maintenance",
+          "image.maintenance",
+          "image.process",
           "mfa.cleanup",
           "mfa.emailCodeMail",
           "mfa.lineCode",
@@ -18916,6 +19538,8 @@
           "dataTransfer.export",
           "file.imageVariants",
           "file.maintenance",
+          "image.maintenance",
+          "image.process",
           "jobs.outboxSweep",
           "mfa.channelLinkCleanup",
           "mfa.cleanup",

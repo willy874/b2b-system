@@ -24,6 +24,16 @@ export const ListFileSchema = PaginationSchema.extend({
   folderId: z.union([z.literal('root'), z.string().uuid()]).optional(),
   /** 只列這個人上傳的檔案。 */
   uploaderId: z.string().uuid().optional(),
+  /**
+   * 選圖用（docs/architecture/backend/25-image.md §15.10）：只列能當這個用途的圖片（型別、大小、變體沒有失敗）；
+   * 尺寸太小的照樣列出，由前端依 `image.width`／`image.height` 停用。
+   */
+  imageUsage: z
+    .string()
+    .trim()
+    .regex(/^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/)
+    .max(100)
+    .optional(),
   /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）。 */
   tagId: TagIdsFilterSchema,
   /**

@@ -64,6 +64,14 @@ export class TrashService {
     this.registry.register(handler);
   }
 
+  /**
+   * 回收桶的保留天數（系統設定 `trash.retentionDays`）。其他跟著它保留的東西用它（例：被換掉的頭像，
+   * docs/architecture/backend/25-image.md §15.6）。
+   */
+  retentionDays(): Promise<number> {
+    return this.settings.get(TRASH_RETENTION_DAYS_SETTING);
+  }
+
   async list(query: ListTrashDto, actor: AuthUser): Promise<PaginatedResult<TrashItemDto>> {
     const handler = this.registry.get(query.type);
     // 先看 feature 再看權限：與 FeatureGuard 排在 PermissionsGuard 之前同一個理由（功能沒開時一律 404，不寫 authz.denied）

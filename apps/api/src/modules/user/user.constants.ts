@@ -19,4 +19,5 @@ export const USER_VERSIONED_FIELDS = [
   'status',
   'locale',
   'timezone',
+  'avatarImageId',
 ] as const;

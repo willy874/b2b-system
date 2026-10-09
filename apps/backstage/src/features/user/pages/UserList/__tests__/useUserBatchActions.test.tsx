@@ -27,6 +27,7 @@ const row = (overrides: Partial<UserRowVM>): UserRowVM => ({
   id: 'u1',
   email: 'u1@example.com',
   displayName: 'U1',
+  avatar: null,
   username: '-',
   status: 'active',
   roles: [],

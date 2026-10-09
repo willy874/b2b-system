@@ -64,6 +64,11 @@ export const ChangeSource = {
    * 發送紀錄的變化（發送中、完成、撤回）也以它宣告（`update`），詳情頁的發送紀錄跟著重抓。
    */
   ANNOUNCEMENT: 'announcement',
+  /**
+   * 圖片資產的處理結果（`id` = 資產 id；docs/architecture/backend/25-image.md §15.9）：只推給建立者。
+   * 使用它的資源（例：頭像所屬的使用者）由擁有者另外推自己的來源。
+   */
+  IMAGE: 'image',
   /** 匯入／匯出的傳輸（docs/architecture/backend/22-data-transfer.md §9.4）：只推給建立者，id 是傳輸 id */
   DATA_TRANSFER: 'dataTransfer',
   /**
@@ -129,6 +134,7 @@ const ChangeSourceSchema = z.enum([
   ChangeSource.WEBHOOK_DELIVERY,
   ChangeSource.TAG,
   ChangeSource.ANNOUNCEMENT,
+  ChangeSource.IMAGE,
   ChangeSource.DATA_TRANSFER,
   ChangeSource.ORG_UNIT,
   ChangeSource.APPROVAL_FLOW,

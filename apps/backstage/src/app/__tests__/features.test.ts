@@ -7,6 +7,7 @@ import {
   resetCommandPaletteRegistry,
   searchProviderRegistry,
 } from '@b2b-system/web-core/command-palette';
+import { resetImagePickerRegistry } from '@b2b-system/web-core/image-picker';
 import { navItemRegistry, resetNavigationRegistry } from '@b2b-system/web-core/navigation';
 import { getPreferenceTables, resetPreferenceRegistry } from '@b2b-system/web-core/preference';
 import { resetRouteLinkRegistry, routeLinkRegistry } from '@b2b-system/web-core/route-link';
@@ -95,8 +96,9 @@ describe('可啟用 feature 的 catalog', () => {
     resetRouteLinkRegistry();
     resetNavigationRegistry();
     resetCommandPaletteRegistry();
-    // 上一個案例最後重新安裝的 feature 沒有卸載：它登記的回收桶類型、route id 要清掉
+    // 上一個案例最後重新安裝的 feature 沒有卸載：它登記的回收桶類型、route id、選圖的來源要清掉
     resetTrashRegistry();
+    resetImagePickerRegistry();
   });
 
   it.each(Object.entries(EXPECTED_PAGES))(
@@ -161,6 +163,7 @@ function resetRegistries() {
   resetNavigationRegistry();
   resetCommandPaletteRegistry();
   resetTrashRegistry();
+  resetImagePickerRegistry();
   resetFeatureStore();
 }
 

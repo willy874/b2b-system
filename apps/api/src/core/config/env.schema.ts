@@ -364,6 +364,11 @@ export const EnvSchema = z.object({
   FILE_PENDING_TTL: z.coerce.number().int().min(60).default(86_400),
   /** 檔案維護排程（殘留清理、補產生影像變體）的 cron（UTC）；空字串停用。 */
   FILE_MAINTENANCE_CRON: z.string().trim().default('0 * * * *'),
+  /**
+   * 圖片資產的清理排程（沒被使用的上傳、被換掉的圖、舊版本的變體、殘留物件、補處理卡住的圖）的 cron（UTC）；空字串停用。
+   * 見 docs/architecture/backend/25-image.md §15.6。
+   */
+  IMAGE_MAINTENANCE_CRON: z.string().trim().default('30 * * * *'),
   /** `true`：維護排程只偵測並記錄殘留，不刪除任何東西。 */
   FILE_MAINTENANCE_DRY_RUN: z
     .enum(['true', 'false'])

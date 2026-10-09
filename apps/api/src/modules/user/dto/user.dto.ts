@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ImageSourcesSchema } from '@/core/image';
 import { defineSchema } from '@/core/validation';
 import { TagSummarySchema } from '@/modules/tag/dto/tag.dto';
 
@@ -25,6 +26,13 @@ export const UserSchema = defineSchema(
     email: z.string(),
     username: z.string().nullable(),
     displayName: z.string(),
+    /**
+     * 頭像（`sm`、`md`、`lg`；docs/architecture/backend/25-image.md §15.8）；沒有設定或還在處理時是 `null`。
+     * 網址會過期：顯示失敗時重抓（`SignedAvatar` 的 `onExpired`）。
+     */
+    avatar: ImageSourcesSchema.nullable(),
+    /** 頭像的圖片資產 id（重新裁切、換掉時用）；沒有設定時是 `null`。 */
+    avatarImageId: z.string().uuid().nullable(),
     status: UserStatusSchema,
     roles: z.array(RoleSummarySchema),
     /** 貼著的標籤（`user` 標籤組，docs/architecture/backend/18-tag.md §7.2 D6）。 */

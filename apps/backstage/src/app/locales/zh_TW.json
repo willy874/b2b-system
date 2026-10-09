@@ -322,5 +322,16 @@
     },
     "filter": "標籤",
     "filterPlaceholder": "依標籤篩選"
+  },
+  "image": {
+    "recent": {
+      "label": "最近使用",
+      "empty": "還沒有最近使用的圖片",
+      "tooSmall": "{{name}}（圖片太小：至少 {{width}} × {{height}} 像素）",
+      "remove": "從最近使用移除「{{name}}」"
+    },
+    "source": {
+      "file": "檔案管理"
+    }
   }
 }
