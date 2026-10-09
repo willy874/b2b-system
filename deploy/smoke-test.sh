@@ -6,10 +6,13 @@
 #   - APM 開啟時前端錯誤送得進 apm-service；--no-apm 時 APM 整套關閉，apm-service 不啟動、/apm/ 回 404
 #   - --cluster：疊 docker-compose.cluster.yml（api ×2、api-realtime ×2、api-worker ×1；docs/architecture/01-system.md §7），
 #     確認每個角色都 healthy、/api/socket.io/ 由推播的程序回應、http 程序沒有推播
+#   - --cdn：疊 docker-compose.cdn.yml（docs/architecture/backend/09-file.md §16），確認 api 以 FILE_CDN_ENABLED=true 通過
+#     production 的驗證、邊緣不放行沒有簽章的請求、backstage 的 CSP 放行 CDN、api 的清理（cli:cdn-purge）送得到邊緣
+#     （邊緣本身的行為由 deploy/check-cdn.sh 驗證）
 # CI（.github/workflows/ci.yml 的 deploy job）與部署前的手動檢查共用。結束時刪掉容器與 volume。
-# 會用到主機的 8080～8082。
+# 會用到主機的 8080～8082（--cdn 另用 8083）。
 #
-# 用法：sh deploy/smoke-test.sh [--no-apm | --cluster]
+# 用法：sh deploy/smoke-test.sh [--no-apm | --cluster | --cdn]
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -18,10 +21,14 @@ ENV_FILE=$(mktemp)
 
 CLUSTER=false
 [ "${1:-}" = "--cluster" ] && CLUSTER=true
+CDN=false
+[ "${1:-}" = "--cdn" ] && CDN=true
 
 compose() {
   if [ "$CLUSTER" = "true" ]; then
     docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.prod.yml -f docker-compose.cluster.yml "$@"
+  elif [ "$CDN" = "true" ]; then
+    docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.prod.yml -f docker-compose.cdn.yml "$@"
   else
     docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.prod.yml "$@"
   fi
@@ -46,6 +53,8 @@ fail() {
 if [ "$CLUSTER" = "true" ]; then
   # 多實例只驗角色與路由；APM 由單體的那一次驗證（少起一個服務、不佔主機的 9100）
   node deploy/fake-prod-env.mjs --no-apm >"$ENV_FILE"
+elif [ "$CDN" = "true" ]; then
+  node deploy/fake-prod-env.mjs --no-apm --cdn >"$ENV_FILE"
 else
   node deploy/fake-prod-env.mjs "$@" >"$ENV_FILE"
 fi
@@ -77,6 +86,21 @@ if [ "$CLUSTER" = "true" ]; then
   status=$(compose exec -T api node -e "fetch('http://127.0.0.1:3000/socket.io/?EIO=4').then(r=>console.log(r.status))" | tr -d '\r')
   [ "$status" = "404" ] || fail "http 角色不應該有推播（$status）"
   echo "✓ docker-compose.prod.yml ＋ docker-compose.cluster.yml"
+  exit 0
+fi
+
+if [ "$CDN" = "true" ]; then
+  echo "── CDN：邊緣、CSP、清理"
+  status=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8083/storage/b2b-system/images/x/master.jpg")
+  [ "$status" = "403" ] || fail "邊緣放行了沒有簽章的請求（$status）"
+  curl -s -D - -o /dev/null http://127.0.0.1:8080/ | grep -qi "content-security-policy: .*img-src 'self' data: .*https://cdn.example.com" ||
+    fail "backstage 的 CSP 沒有放行 CDN_PUBLIC_ORIGIN"
+  # api 的容器裡跑 cli:cdn-purge：清理端點（cdn-purge:8081）解析得到、密鑰與邊緣一致
+  database=$(grep '^PLATFORM_POSTGRES_DB=' "$ENV_FILE" | cut -d= -f2)
+  output=$(compose exec -T api node dist/src/cli/cdn-purge.js --all --confirm "${database:-b2b_platform}" 2>&1) ||
+    fail "cli:cdn-purge --all 失敗：$output"
+  echo "$output" | grep -q '✓' || fail "清理沒有送到邊緣：$output"
+  echo "✓ docker-compose.prod.yml ＋ docker-compose.cdn.yml"
   exit 0
 fi
 

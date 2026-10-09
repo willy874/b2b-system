@@ -94,6 +94,15 @@ groups:
         annotations:
           summary: 交易提交後的 outbox 搬移失敗，等定期清掃（jobs.outboxSweep）補救
 
+      - alert: CdnPurgeFailing
+        # 邊緣快取的清理沒做成（docs/architecture/backend/09-file.md §16.6）：final 是 cdn.purge 重試用完、schedule 是入列失敗。
+        # 刪除本身不受影響，但刪掉的圖在網址的剩餘效期內（最長 FILE_CDN_MAX_URL_TTL）仍可從邊緣讀到
+        expr: sum by (stage) (increase(api_cdn_purge_failures_total[30m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: '邊緣快取的清理失敗（{{ $labels.stage }}）'
+          description: 看 cdn.purge 的錯誤（apps/platform 的背景工作頁）與 api_cdn_purge_requests_total{result!="ok"}；邊緣恢復後以 cli:cdn-purge 補清。
+
   - name: b2b-postgres
     rules:
       - alert: PostgresDown

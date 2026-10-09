@@ -7,7 +7,7 @@
 #   deploy/nginx.conf／nginx.platform.conf → /etc/nginx/conf.d/default.conf
 #   deploy/nginx-upstreams.sh → /docker-entrypoint.d/14-upstreams.sh（backstage 另帶 REALTIME_UPSTREAM：/api/socket.io/ 轉給另一個名稱）
 #   deploy/nginx-real-ip.sh → /docker-entrypoint.d/15-real-ip.sh
-#   deploy/nginx-file-origin.sh → /docker-entrypoint.d/16-file-origin.sh（backstage 另帶 FILES_SERVER=1）
+#   deploy/nginx-file-origin.sh → /docker-entrypoint.d/16-file-origin.sh（backstage 另帶 FILES_SERVER=1；CDN_PUBLIC_ORIGIN 只放行 img-src）
 #   deploy/nginx-apm.sh → /docker-entrypoint.d/17-apm.sh（APM_ENABLED；關閉、沒有 apm-service 時另外檢查）
 #
 # 前置 LB 以假的 api 容器扮演：TRUSTED_PROXY_CIDRS 只放它的 IP，主機經 port 連進來的請求就是「不受信任的來源」。
@@ -22,6 +22,7 @@ NODE_IMAGE=node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762
 NETWORK=b2b-nginx-check-$$
 PORT=18080
 FILE_ORIGIN=https://files.example.test
+CDN_ORIGIN=https://cdn.example.test
 
 cleanup() {
   docker rm -f "$NETWORK-nginx" "$NETWORK-api" >/dev/null 2>&1 || true
@@ -94,7 +95,7 @@ for site in nginx.conf nginx.platform.conf; do
   fi
   docker run -d --name "$NETWORK-nginx" --network "$NETWORK" -p "$PORT:8080" \
     --read-only --tmpfs /tmp --add-host file-storage:127.0.0.1 -e "TRUSTED_PROXY_CIDRS=$LB_IP/32" \
-    -e "FILE_DOWNLOAD_ORIGIN=$FILE_ORIGIN" -e "FILES_SERVER=$files_server" -e "REALTIME_UPSTREAM=$realtime" \
+    -e "FILE_DOWNLOAD_ORIGIN=$FILE_ORIGIN" -e "CDN_PUBLIC_ORIGIN=$CDN_ORIGIN" -e "FILES_SERVER=$files_server" -e "REALTIME_UPSTREAM=$realtime" \
     -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
     -v "$DEPLOY_DIR/nginx.security-headers.conf:/etc/nginx/snippets/security-headers.conf:ro" \
     -v "$DEPLOY_DIR/$site:/etc/nginx/conf.d/default.conf:ro" \
@@ -117,7 +118,7 @@ for site in nginx.conf nginx.platform.conf; do
     for expected in "content-security-policy: .*form-action 'self'" "content-security-policy: .*object-src 'none'" \
       "strict-transport-security: max-age=31536000" "x-frame-options: DENY" "x-content-type-options: nosniff" \
       "permissions-policy: camera=()" "cross-origin-opener-policy: same-origin" \
-      "content-security-policy: .*img-src 'self' data: $FILE_ORIGIN" "content-security-policy: .*connect-src 'self' $FILE_ORIGIN"; do
+      "content-security-policy: .*img-src 'self' data: $FILE_ORIGIN $CDN_ORIGIN;" "content-security-policy: .*connect-src 'self' $FILE_ORIGIN;"; do
       echo "$headers" | grep -qi "$expected" || fail "$site $path：缺少 $expected"
     done
     echo "$headers" | grep -qi '^server: nginx/' && fail "$site $path：外露 nginx 版本"
@@ -262,3 +263,11 @@ docker run --rm --read-only --tmpfs /tmp -e 'FILE_DOWNLOAD_ORIGIN=https://x.test
   -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
   "$NGINX_IMAGE" nginx -t >/dev/null 2>&1 && fail "不合法的 FILE_DOWNLOAD_ORIGIN 沒有讓 nginx 啟動失敗"
 echo "✓ FILE_DOWNLOAD_ORIGIN"
+
+# CDN_PUBLIC_ORIGIN 同上（docs/architecture/backend/09-file.md §16）
+echo "── CDN_PUBLIC_ORIGIN 的格式檢查"
+docker run --rm --read-only --tmpfs /tmp -e 'CDN_PUBLIC_ORIGIN=https://cdn.test; include /etc/passwd' \
+  -v "$DEPLOY_DIR/nginx.main.conf:/etc/nginx/nginx.conf:ro" \
+  -v "$DEPLOY_DIR/nginx-file-origin.sh:/docker-entrypoint.d/16-file-origin.sh:ro" \
+  "$NGINX_IMAGE" nginx -t >/dev/null 2>&1 && fail "不合法的 CDN_PUBLIC_ORIGIN 沒有讓 nginx 啟動失敗"
+echo "✓ CDN_PUBLIC_ORIGIN"

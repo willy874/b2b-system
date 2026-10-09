@@ -219,3 +219,32 @@ export const storageTotalChecks = new Counter({
   labelNames: ['result'] as const,
   registers,
 });
+
+/**
+ * 邊緣快取的清理（docs/architecture/backend/09-file.md §16.6）：每個節點的每一次清理請求一筆。
+ * `timeout` 是超過 `FILE_CDN_PURGE_TIMEOUT_MS`、`error` 是連不上或回應不是 200。標籤不帶節點位址（會隨擴縮改變）。
+ */
+export const cdnPurgeRequests = new Counter({
+  name: 'api_cdn_purge_requests_total',
+  help: '送到邊緣節點的清理請求（依結果：ok、error、timeout）',
+  labelNames: ['result'] as const,
+  registers,
+});
+
+/** 清理成功的路徑數（每筆工作全部節點都成功後才算；`--all` 不計）。 */
+export const cdnPurgePaths = new Counter({
+  name: 'api_cdn_purge_paths_total',
+  help: '已從所有邊緣節點清掉的路徑數',
+  registers,
+});
+
+/**
+ * 清理沒做成（§16.6）：`schedule` 是入列失敗、`final` 是 `cdn.purge` 用完重試仍失敗。
+ * 兩者都不影響刪除本身；被刪掉的圖會在網址的剩餘效期內仍讀得到。
+ */
+export const cdnPurgeFailures = new Counter({
+  name: 'api_cdn_purge_failures_total',
+  help: '邊緣快取的清理沒有完成（schedule：入列失敗；final：重試用完）',
+  labelNames: ['stage'] as const,
+  registers,
+});

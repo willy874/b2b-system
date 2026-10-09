@@ -30,6 +30,7 @@ pnpm dev:storage     # 單獨啟動（tsx watch），預設 http://127.0.0.1:900
 | `FILE_STORAGE_ACCESS_KEY_ID` | —（必填） | 唯一一組存取金鑰 |
 | `FILE_STORAGE_SECRET_ACCESS_KEY` | —（必填） | 同上 |
 | `FILE_STORAGE_ALLOWED_ORIGINS` | 空 | CORS 白名單（逗號分隔，`*` 為全部）；瀏覽器用 presigned URL 直傳 / 下載時需要 |
+| `FILE_STORAGE_ORIGIN_SECRET` | 空 | CDN 邊緣的回源憑證（≥ 32 字元）；設定時帶 `X-Origin-Auth` 的 GET／HEAD 不必 SigV4，見 §3.3。空 = 只認 SigV4 |
 | `FILE_STORAGE_MAX_OBJECT_SIZE` | `5368709120` | 單次 PutObject / 單一 part 的上限（位元組），最大 5 GiB（與 S3 相同）。`.env.example` 與 `docker-compose.prod.yml` 設 128 MiB，與 api 的影像轉出上限相同（[`backend/09-file.md`](./backend/09-file.md) §8） |
 
 ---
@@ -86,6 +87,16 @@ http://<host>:<port>/<bucket>/<key>      object（key 可含 /，URL 編碼）
 
 `GET /_health`（或 `/<base path>/_health`）不需要簽章，回 `200 ok`，給容器的 healthcheck 用。
 `_` 不可能出現在 bucket 名稱裡，不會與 `ListObjects` 衝突。
+
+### 3.3 CDN 的回源憑證（`FILE_STORAGE_ORIGIN_SECRET`）
+
+自架的 CDN 邊緣（nginx，[`backend/09-file.md`](./backend/09-file.md) §16.3）算不了 SigV4，所以 file-storage 另外接受一種回源請求（`src/auth/origin-auth.ts`）：
+
+- 設定 `FILE_STORAGE_ORIGIN_SECRET` 時，帶 `X-Origin-Auth: <secret>` 的請求 **不必** SigV4，條件是：方法是 `GET`／`HEAD`、對象是一個物件（不是列表或 bucket 操作）、
+  沒有 `response-*` 參數（回應標頭的覆寫只給 presigned 網址，邊緣快取的是所有人共用的內容）、值以常數時間比對相符（先各自 SHA-256 再 `timingSafeEqual`）。
+- 任何一個條件不符就照常驗 SigV4：沒有簽章就是 `AccessDenied`。寫入、刪除、列表即使帶了正確的值也要 SigV4。
+- 對外的反向代理 **一律清掉** 這個標頭（`deploy/nginx.conf` 的 `/storage/`、檔案網域的 server），從外面帶進來無效；只有內部網路上的 `cdn` 容器那一跳會帶。
+- 換成 S3／MinIO 時改用儲存服務自己的做法（CloudFront 的 OAC、MinIO 的 bucket policy），這個標頭只屬於 apps/file-storage。
 
 ---
 
@@ -147,7 +158,7 @@ ETag 為內容的 MD5（含雙引號）。key 上限 1024 位元組（`KeyTooLon
 ## 5. 驗證（SigV4）
 
 - 所有請求都要 **AWS Signature Version 4**：`Authorization` 標頭或 presigned URL 的查詢參數。
-  **沒有匿名存取**；要讓瀏覽器直接讀檔，發 presigned GET URL。
+  **沒有匿名存取**；要讓瀏覽器直接讀檔，發 presigned GET URL。唯一的例外是 CDN 邊緣的回源憑證（§3.3）。
 - 只有一組金鑰（環境變數）；access key 不符回 `InvalidAccessKeyId`、簽章不符回 `SignatureDoesNotMatch`
   （錯誤 XML 附 `CanonicalRequest` / `StringToSign`，方便除錯，與 S3 相同）。
 - `x-amz-date` 與伺服器時間差 > 15 分鐘回 `RequestTimeTooSkewed`；presigned URL 的 `X-Amz-Expires` 為 1–604800 秒，
@@ -206,6 +217,7 @@ apps/file-storage/src/
 ├── router.ts             method × 路徑層級 × 子資源 → S3 操作
 ├── handlers/             各 S3 操作（bucket / object / multipart）
 ├── auth/sigv4.ts         SigV4 驗證（標頭與 presigned）
+├── auth/origin-auth.ts   CDN 邊緣的回源憑證（X-Origin-Auth，§3.3）
 ├── http/                 請求解析（target）、body 解碼（aws-chunked、SHA-256 驗證）、RequestContext
 ├── s3/                   協定層：錯誤碼、XML、列表分頁、條件式請求、物件標頭
 └── storage/              DiskStore（磁碟格式、記憶體索引、KeyedLock）
@@ -237,6 +249,7 @@ docker build -f apps/file-storage/Dockerfile -t b2b-system-file-storage .
 - 資料在 `/data`（`VOLUME`）；`HEALTHCHECK` 打 `/_health`。
 - `docker-compose.prod.yml` 的 `file-storage` 服務：`FILE_STORAGE_BASE_PATH=/storage`，接在 `edge`（nginx 轉發瀏覽器請求）
   與 `storage`（api 的伺服器端呼叫）兩個網路；碰不到 postgres。拓撲見 [`01-system.md`](./01-system.md) §4.2。
+  疊 `docker-compose.cdn.yml` 時另設 `FILE_STORAGE_ORIGIN_SECRET`，`cdn` 容器經 `storage` 網路回源（§3.3）。
 
 ---
 
@@ -250,10 +263,12 @@ pnpm --filter @b2b-system/file-storage test
 | --- | --- |
 | `test/s3-client.spec.ts` | 以 **官方 `@aws-sdk/client-s3`** 對起在隨機埠的伺服器跑完整流程：bucket、object、Range、條件式請求、Copy、DeleteObjects、ListObjects V1/V2 分頁、multipart、SigV4 失敗案例、presigned URL（含 api 的直傳網址：簽了 `content-length` 時大小不同回 403、簽了 `if-none-match: *` 時第二次 PUT 回 412）、CORS、重啟後持久化 |
 | `src/auth/__tests__/sigv4.spec.ts` | AWS 文件中的 SigV4 範例向量（標頭與 presigned） |
+| `src/auth/__tests__/origin-auth.spec.ts` | 回源憑證的條件（方法、物件、`response-*`、比對、重複的標頭） |
 | `src/s3/__tests__/list.spec.ts` | 分頁與 delimiter 折疊（table-driven） |
 | `src/http/__tests__/aws-chunked.spec.ts` | aws-chunked 解碼（含逐位元組送入） |
 | `src/handlers/__tests__/object.spec.ts` | `Range` 標頭解析 |
 
-`test/s3-client.spec.ts` 另外起一個 `FILE_STORAGE_BASE_PATH=/storage` 的伺服器，驗證 SDK endpoint 帶前綴、presigned URL 與 `/_health`。
+`test/s3-client.spec.ts` 另外起一個 `FILE_STORAGE_BASE_PATH=/storage`、開著回源憑證的伺服器，驗證 SDK endpoint 帶前綴、presigned URL、`/_health`，
+以及回源憑證（GET／HEAD 放行、沒帶或帶錯 403、寫入與列表照舊要 SigV4、不存在的物件 404）。
 
 整合測試用 SDK 而不是手寫 HTTP 請求：相容性的定義就是「官方 SDK 能用」。

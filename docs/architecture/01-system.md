@@ -232,6 +232,7 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 | `platform` | `apps/platform/Dockerfile`（nginx，`deploy/nginx.platform.conf`）| 身分與租戶入口：**獨立的 origin**（`:8081`），`/api/*` 同樣反向代理到 api | api healthy；APM 開啟時另等 apm-service |
 | `external-api` | `b2b-system-api`（`node dist/src/main.external.js`） | 對外 API：只認 API token、只入列不跑背景工作（[`06-external-api.md`](./06-external-api.md)）；compose 的 `external` profile | migrate 成功結束、file-storage healthy |
 | `external-gateway` | `nginxinc/nginx-unprivileged:1.30.5-alpine`（`deploy/nginx.external-api.conf`） | 對外 API 的網域（`:8082`）；在自己的 `external` 網路，碰不到內部 api | external-api healthy |
+| `cdn` | `deploy/cdn.Dockerfile`（nginx ＋ njs） | 圖片的 CDN 邊緣（`:8083`）：驗簽章、邊緣快取、以回源憑證向 file-storage 讀取；只有疊 `docker-compose.cdn.yml` 時存在（[`backend/09-file.md`](./backend/09-file.md) §16） | file-storage healthy |
 
 - **變數放在獨立的 env 檔**：`docker compose --env-file deploy/prod.env -f docker-compose.prod.yml …`，範本是 `deploy/prod.env.example`。
   不要沿用開發的 `.env`：compose 會拿它替換 `${…}`，開發用的帳密與網域會流進正式環境。公開網址（`PUBLIC_ORIGIN`、`PLATFORM_PUBLIC_ORIGIN`、
@@ -283,8 +284,11 @@ production 由反向代理負責同源。這讓 refresh token cookie 可以是�
 - **前置 LB 的要求**：必須是 L7、會附加（或覆寫）`X-Forwarded-For` 與 `X-Forwarded-Host`，`TRUSTED_PROXY_CIDRS` 填它連到 nginx 的來源網段
   （例：同一個 VPC 的 ALB 填 VPC 的網段；同一台主機上的代理填 docker bridge 的閘道）。以 TLS listener 終結、不加標頭的 L4 LB 不適用：
   所有人會算成 LB 那一個 IP。Cloudflare 之類的 CDN 要改用它提供的真實 IP 標頭與來源網段清單（改 `deploy/nginx-real-ip.sh` 的 `real_ip_header`）。
-- **對外的 port 只綁在 LB 連得到的介面**：8080、8081、8082 綁在 `EDGE_BIND_ADDRESS`（預設 `127.0.0.1`，只有同一台主機上的代理連得到）。
+- **對外的 port 只綁在 LB 連得到的介面**：8080、8081、8082（疊 CDN 時另有 8083）綁在 `EDGE_BIND_ADDRESS`（預設 `127.0.0.1`，只有同一台主機上的代理連得到）。
   LB 在別台主機時設成主機在 LB 那一側的位址，並以防火牆限制只有 LB 能連：直接連 nginx 會繞過 TLS 與 LB 上的防護。
+- **圖片的 CDN**（選用）：`docker compose … -f docker-compose.prod.yml -f docker-compose.cdn.yml up -d` 多出 `cdn`（快取在 named volume `cdn-cache`），
+  api 的 `FILE_CDN_ENABLED=true`、兩個前端的 CSP `img-src` 放行 `CDN_PUBLIC_ORIGIN`、file-storage 接受回源憑證。`cdn` 只在 `storage` 網路（別名 `cdn-purge` 給清理用，8081 不發布），
+  對外的 8083 綁在 `EDGE_BIND_ADDRESS`。開關只能整個部署一起改（[`backend/09-file.md`](./backend/09-file.md) §16.4）；改了邊緣的設定跑 `sh deploy/check-cdn.sh`，整套由 `sh deploy/smoke-test.sh --cdn` 驗證。
 - **監控**（選用）：`docker compose … -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d` 多出 Prometheus、Tempo、Grafana、postgres-exporter，
   api、external-api、apm-service 接上只有監控服務的 `monitoring` 網路；Grafana 只綁 `MONITORING_BIND_ADDRESS`（預設 `127.0.0.1:3300`）。見 [`08-monitoring.md`](./08-monitoring.md) §6。
   不疊這份檔案就是監控整套關閉：api 不開 `/metrics`、不送 trace（`MONITORING_ENABLED`，[`08-monitoring.md`](./08-monitoring.md) §1.1）。
@@ -316,7 +320,8 @@ api 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互
 **stateless 的判準**（§7 D4）：程序掛掉、或下一個請求落到別台時，不丟已確認的資料（長期狀態在 Postgres 或物件儲存）、
 不給錯的結果（快取有失效廣播，TTL 是最壞情況的上限）、共享的計數不因實例數改變語意（速率限制走共享的 `RateLimitStore`）。
 連線是唯一的例外，所以 `realtime` 可以水平擴展、不需要 sticky session 或 StatefulSet。真正有本機儲存的只有 `postgres`、
-`apps/file-storage`、`apps/apm-service`：多實例時換成託管服務或各自單一實例。
+`apps/file-storage`、`apps/apm-service`：多實例時換成託管服務或各自單一實例。CDN 的邊緣（`cdn`）有快取，但快取可以遺失：
+多個實例各有自己的快取，清理送到每一個（headless Service；[`backend/09-file.md`](./backend/09-file.md) §16.6）。
 
 | 程序內的狀態 | 處理 |
 | --- | --- |
@@ -336,6 +341,7 @@ api 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互
 | 背景工作分開 | `COMPOSE_PROFILES` 加 `worker`、`API_ROLES=http,realtime`：多一個 `api-worker` 容器，仍是 standalone | 影像處理或大量寄信拖慢 API；還不需要多台 api |
 | 多實例（compose） | 疊 `docker-compose.cluster.yml`：`api`（`http`）×`API_HTTP_REPLICAS`、`api-realtime`×`API_REALTIME_REPLICAS`、`api-worker`×`API_WORKER_REPLICAS`，`DEPLOYMENT_MODE=cluster` | 單一程序撐不住、要滾動部署 |
 | k8s | `deploy/k8s/overlays/standalone` 或 `overlays/cluster`（Kustomize：每個角色一個 Deployment、HPA、PDB、PgBouncer、`migrate` Job；§7 D15） | 要依負載自動擴縮 |
+| 圖片的 CDN（疊加） | compose 再疊 `docker-compose.cdn.yml`；k8s 的 overlay 加 `components: [../../components/cdn]`（`cdn` Deployment ×2、`cdn` Service、清理用的 headless Service `cdn-purge`、Ingress 的 CDN 網域） | 圖片多、同一張圖被很多人看（[`backend/09-file.md`](./backend/09-file.md) §16、§17 D7） |
 
 - 前端的 nginx 以 `deploy/nginx-upstreams.sh` 產生 upstream：`API_UPSTREAM`（預設 `api:3000`）、`REALTIME_UPSTREAM`（`/api/socket.io/`，預設同 api），
   `server … resolve` 在執行期重新解析，多實例時每個實例都收得到流量、擴縮後跟得上（§7 D12）。k8s 要寫完整的服務名稱（nginx 的 resolver 不套 search domain）。

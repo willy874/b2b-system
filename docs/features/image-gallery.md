@@ -199,7 +199,7 @@
   效期 1 小時；無限捲動與檢視器依 `expiresAt` 在到期前重抓（[`backend/25-image.md`](../architecture/backend/25-image.md) §5）。
 - **格式**：`thumb`、`medium`、`large` 在處理時各產生主格式與 WebP 兩份，瀏覽器以 `<picture>` 自己選；不依 `Accept` 協商、不做 AVIF（[`backend/25-image.md`](../architecture/backend/25-image.md) D2）。
 - **原檔有兩種網址**：檢視器放大超過 `large` 時用的 **inline** 網址（`ImageUrlService` 一併簽出，走 CDN，`<img>` 用）；
-  「下載」按鈕另簽帶 `Content-Disposition: attachment` 與檔名的網址，**不走 CDN**（檔名每次不同，[`image-cdn.md`](./image-cdn.md) D4）。
+  「下載」按鈕另簽帶 `Content-Disposition: attachment` 與檔名的網址，**不走 CDN**（檔名每次不同，[`backend/09-file.md`](../architecture/backend/09-file.md) §17 D4）。
 - **佔位**：`dominant_color` 當背景色、`placeholder`（BlurHash）在可視範圍內才解碼成模糊圖；真正的圖片載入後淡入。
   捲動很快時只看得到色塊，不會整片空白。
 - **顯示方向**：EXIF 方向寫錯的照片可以「向左轉／向右轉」，存 `display_rotation`、`variant_rev + 1` 並把變體產生到新的版本底下；**不改原檔、不覆寫舊變體**（D14）。
@@ -338,7 +338,7 @@ registerFileAction({
   停用前的影響數量（[`05-tenancy.md`](../architecture/05-tenancy.md) §12.5）：圖片數、相簿數。
 - **容量**：原檔計入租戶的儲存容量；變體不計（與檔案相同）。與檔案、圖片資產共用租戶的容量 `file.storageQuotaMb`（[`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D3）；所有租戶的合計受系統的止水線限制（[`backend/25-image.md`](../architecture/backend/25-image.md) D8）。
 - **維護排程** `gallery.maintenance`：逾時的 `pending` 與 `failed`、卡住的 `processing` 重新排入、物件儲存的孤兒（`gallery/` 前綴）、舊版本的變體。
-  永久刪除（`trash.purge`）與刪除舊版本的變體之後，呼叫 `CdnPurger.schedule(paths)` 清理邊緣快取（[`image-cdn.md`](./image-cdn.md) §7）。
+  永久刪除（`trash.purge`）與刪除舊版本的變體之後，呼叫 `CdnPurger.schedule(keys)`（物件 key，`core/storage` 加上 bucket）清理邊緣快取（[`backend/09-file.md`](../architecture/backend/09-file.md) §16.6）。
 - **指標**：`gallery.process` 的處理時間與失敗數（[`08-monitoring.md`](../architecture/08-monitoring.md) §2.4）。
 
 ### 13. 會動到的既有模組
@@ -353,7 +353,7 @@ registerFileAction({
 | `@b2b-system/ui` | 新增 `JustifiedGrid`、`ImageViewer` | 通用的版面與檢視元件 |
 | `modules/tag`、`modules/comment` | 登記 `galleryItem` | 照各自的「加入一種資源」步驟 |
 | `core/storage`、`core/image`、`web-core` | 使用 `ObjectUrlSigner`、`ImageUrlService`、`SignedImage`（由 [`backend/25-image.md`](../architecture/backend/25-image.md) 先做好） | 網址的產生與顯示三份提案共用 |
-| `core/storage`（CDN 啟用時） | 刪除物件後呼叫 `CdnPurger.schedule(paths)`（[`image-cdn.md`](./image-cdn.md) §7） | 沒有啟用 CDN 時是 no-op，照樣要呼叫 |
+| `core/storage`（CDN 啟用時） | 刪除物件後呼叫 `CdnPurger.schedule(keys)`（[`backend/09-file.md`](../architecture/backend/09-file.md) §16.6） | 沒有啟用 CDN 時是 no-op，照樣要呼叫 |
 
 ## 開放問題
 
@@ -414,7 +414,7 @@ registerFileAction({
 | D11 | **主色存 `#rrggbb`**，前端只當資料以 inline style 套用；歸檔時在 [`coding-standards/`](../coding-standards/README.md) 註明「資料裡的顏色」不受「不寫十六進位色碼」限制 | 規則針對的是樣式表裡的顏色；這是每張圖不同的資料，不可能是 Design Token | 存 `oklch` 字串：沒有實質好處，前端還要多一層轉換 |
 | D12 | **檔案管理器的 `ImagePreview` 這一版不改用 `ImageViewer`** | 不動檔案管理器的行為；做完圖片庫再評估 | — |
 | D13 | **不做「圖片庫存到檔案管理」**；需要時由檔案管理登記一個「目的地」，與 D0 同一種解耦 | 目前沒有需求 | — |
-| D14 | **所有物件只寫一次**（與 [`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D12 相同）：原檔在處理時寫一次；變體的 key 帶 `variant_rev`，調整顯示方向寫到新的版本，舊版本在網址效期（1 小時）過後由 `gallery.maintenance` 刪除 | 穩定網址與長期快取（瀏覽器、[`image-cdn.md`](./image-cdn.md)）的前提 | 覆寫同一個 key |
+| D14 | **所有物件只寫一次**（與 [`backend/25-image.md`](../architecture/backend/25-image.md) §16.2 D12 相同）：原檔在處理時寫一次；變體的 key 帶 `variant_rev`，調整顯示方向寫到新的版本，舊版本在網址效期（1 小時）過後由 `gallery.maintenance` 刪除 | 穩定網址與長期快取（瀏覽器、CDN：[`backend/09-file.md`](../architecture/backend/09-file.md) §16）的前提 | 覆寫同一個 key |
 
 ## 歸檔去向
 

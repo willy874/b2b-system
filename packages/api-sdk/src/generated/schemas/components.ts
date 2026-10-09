@@ -4154,6 +4154,7 @@ export const JobNameSchema = z.enum([
   'auth.passwordResetMail',
   'auth.platformTokenCleanup',
   'auth.tokenCleanup',
+  'cdn.purge',
   'dataTransfer.applyImport',
   'dataTransfer.cleanup',
   'dataTransfer.export',

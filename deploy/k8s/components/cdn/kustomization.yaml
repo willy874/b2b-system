@@ -1,0 +1,57 @@
+# 圖片的 CDN（docs/architecture/backend/09-file.md §16）：自架的 nginx 邊緣，單一區域的正式方案（§17 D7）。
+# 要開啟時在 overlay 加上這個 component：
+#   components:
+#     - ../../components/cdn
+#
+# 部署前另外建立兩個 Secret（不進版控）：
+#   - b2b-api-secrets 加上 FILE_CDN_SIGNING_KEYS、FILE_CDN_PURGE_SECRET（api 的各角色、對外 API 讀同一份）
+#   - b2b-cdn-secrets：CDN_SIGNING_KEYS、CDN_PURGE_SECRET（與上面相同的值）、選填的 CDN_ORIGIN_SECRET（源站是 apps/file-storage 時）
+#     kubectl create secret generic b2b-cdn-secrets --from-literal=CDN_SIGNING_KEYS=… --from-literal=CDN_PURGE_SECRET=…
+# 開關只能整個部署一起改（§17 D9）；關掉時先拿掉 api 的 FILE_CDN_ENABLED 並重啟，邊緣要再運作到 FILE_CDN_MAX_URL_TTL 過去。
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - cdn.yaml
+images:
+  - name: b2b-system-cdn
+    newName: registry.example.com/b2b-system-cdn
+    newTag: latest
+patches:
+  - target: { kind: ConfigMap, name: b2b-api-env }
+    patch: |-
+      - op: add
+        path: /data/FILE_CDN_ENABLED
+        value: 'true'
+      - op: add
+        path: /data/FILE_CDN_ORIGIN
+        value: https://cdn.example.com
+      - op: add
+        path: /data/FILE_CDN_RESOURCES
+        value: imageAsset,galleryItem,fileVariant
+      # node 的 DNS 查詢會套 search domain：短名稱就解析得到 headless Service 的每一個 pod（§16.6）
+      - op: add
+        path: /data/FILE_CDN_PURGE_URL
+        value: http://cdn-purge:8081
+  # 兩個前端的 CSP img-src 放行 CDN 的 origin（deploy/nginx-file-origin.sh）
+  - target: { kind: Deployment, name: backstage }
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: { name: CDN_PUBLIC_ORIGIN, value: https://cdn.example.com }
+  - target: { kind: Deployment, name: platform }
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: { name: CDN_PUBLIC_ORIGIN, value: https://cdn.example.com }
+  - target: { kind: Ingress, name: b2b-system }
+    patch: |-
+      - op: add
+        path: /spec/rules/-
+        value:
+          host: cdn.example.com
+          http:
+            paths:
+              - path: /storage/
+                pathType: Prefix
+                backend:
+                  service: { name: cdn, port: { name: http } }

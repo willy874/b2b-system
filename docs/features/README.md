@@ -19,8 +19,7 @@
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
 | P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | 圖片資產（[`backend/25-image.md`](../architecture/backend/25-image.md) §15：來源介面）、標籤、留言 |
-| P3 | 圖片的 CDN（本機以 nginx 模擬：驗網址簽章、邊緣快取、內部憑證回源；api 的 `CdnUrlSigner`，之後換真正的 CDN 只換實作） | [`image-cdn.md`](./image-cdn.md) | 規劃中 | 圖片資產（[`backend/25-image.md`](../architecture/backend/25-image.md) §15：不可修改的物件）、獨立的檔案網域 |
-| P3 | CDN 設定管理（apps/platform：執行期的開關與參數、開啟前的節點檢查、邊緣狀態與告警、手動清理；環境變數改為部署層的能力與上限） | [`cdn-settings.md`](./cdn-settings.md) | 規劃中 | [`image-cdn.md`](./image-cdn.md) |
+| P3 | CDN 設定管理（apps/platform：執行期的開關與參數、開啟前的節點檢查、邊緣狀態與告警、手動清理；環境變數改為部署層的能力與上限） | [`cdn-settings.md`](./cdn-settings.md) | 規劃中 | 圖片的 CDN（[`backend/09-file.md`](../architecture/backend/09-file.md) §16） |
 
 狀態只有三種：
 
@@ -36,6 +35,7 @@
 
 已完成並歸檔（細節見各正式文件與它最後的「設計決策」章節）：
 
+- `image-cdn`（圖片的 CDN，階段 4：`CdnUrlSigner` 與 `CdnConfig`、`CdnPurger` 與背景工作 `cdn.purge`、`FILE_CDN_*`、自架的 nginx ＋ njs 邊緣（驗簽章、邊緣快取、回源憑證、清理端點）、`docker-compose.cdn.yml` 與 k8s 的 component、`check-cdn.sh`、`cli:cdn-purge`）：[`backend/09-file.md`](../architecture/backend/09-file.md) §16、§17，回源憑證在 [`03-file-storage.md`](../architecture/03-file-storage.md) §3.3
 - `image-picker`（圖片資產與選圖，階段 2：`modules/image` 的用途與來源介面、上傳與從其他來源複製、`image.process` 與 `image.maintenance`、最近使用、容量與檔案共用；`web-core/image-picker` 的 `ImageField` 與來源註冊表、拖曳與貼上、`ImageCropper`；第一個 consumer 是使用者頭像）：[`backend/25-image.md`](../architecture/backend/25-image.md) §15、§16，[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)
 - `image-delivery`（圖片的讀取與遞送：存參照不存網址、`ObjectUrlSigner`、`ImageUrlService` 與 `ImageSources`、依用途的效期與具名尺寸、共用的格式政策、`SignedImage` 與 `Avatar` 的圖片插槽；所有租戶合計的儲存止水線）：[`backend/25-image.md`](../architecture/backend/25-image.md) §14
 
@@ -67,12 +67,11 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：圖片的提案依下面的階段進行。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）已完成並歸檔到 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)。每個階段各自一個 branch，合併後再開下一個；階段 4 可以與 3 並行，階段 5 接在階段 4 之後。
+接下來：圖片的提案依下面的階段進行。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）已完成並歸檔到 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)；階段 4（CDN）已完成並歸檔到 [`backend/09-file.md`](../architecture/backend/09-file.md) §16。每個階段各自一個 branch，合併後再開下一個；階段 5 接在階段 4 之後。
 
 | 階段 | 提案 | 內容 | 完成的判斷 |
 | --- | --- | --- | --- |
 | 3 | [`image-gallery.md`](./image-gallery.md) | `core/upload` 與 `registerFileAction` 的抽出、`modules/gallery`、`features/gallery`（閱覽、檢視器、相簿、標籤、留言）、由檔案管理加入、登記成選圖的來源 | 使用者故事全部可在瀏覽器操作；關掉 `gallery` 時檔案管理器與選圖都不受影響 |
-| 4 | [`image-cdn.md`](./image-cdn.md) | `CdnUrlSigner`、`CdnPurger` 與 `cdn.purge`、`FILE_CDN_*`、`deploy/` 的 nginx ＋ njs、`check-cdn.sh`、`cli:cdn-purge` | `FILE_CDN_ENABLED=false` 時行為不變；`true` 時 `check-cdn.sh` 全過 |
 | 5 | [`cdn-settings.md`](./cdn-settings.md) | 平台 DB 的執行期設定與生效值的解析、`BroadcastService` 的 `cdn_settings`、開啟前的節點檢查、`cdn.healthCheck` 與告警、`CdnPathResolver` 與手動清理、apps/platform 的 CDN 頁面、平台權限 `cdn:*` | 沒有設定列時行為與階段 4 相同；在頁面上關閉後各程序改簽 presigned 網址、不必重啟；kid 不一致時不能開啟 |
 
 新的構想照 §2 新增提案。

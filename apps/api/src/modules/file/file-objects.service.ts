@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { ObjectStorage } from '@/core/storage';
+import { CdnPurger, ObjectStorage } from '@/core/storage';
 import type { FileRow } from '@/db/schema';
 
 import { storageKeyOf, thumbnailKeyOf, variantKeyOf, variantPrefixOf } from './file.constants';
@@ -27,7 +27,10 @@ const PROBE_CONCURRENCY = 16;
 export class FileObjectsService {
   private readonly logger = new Logger(FileObjectsService.name);
 
-  constructor(private readonly storage: ObjectStorage) {}
+  constructor(
+    private readonly storage: ObjectStorage,
+    private readonly cdn: CdnPurger,
+  ) {}
 
   /**
    * 刪掉一個檔案的所有物件（不存在也算成功）。失敗只記 warn、不拋出：紀錄已經刪了，留下的物件由維護排程的
@@ -88,11 +91,16 @@ export class FileObjectsService {
     };
   }
 
+  /**
+   * 變體與轉出的格式可能由 CDN 送出過（`fileVariant`）：刪除 **之後** 才排入清理邊緣快取
+   * （docs/architecture/backend/09-file.md §16.6）。原檔與瀏覽器縮圖不走 CDN，不必清。
+   */
   private async deleteVariants(fileId: string): Promise<void> {
     const keys: string[] = [];
     for await (const object of this.storage.listObjects(variantPrefixOf(fileId))) {
       keys.push(object.key);
     }
     await Promise.all(keys.map((key) => this.storage.delete(key)));
+    await this.cdn.schedule(keys);
   }
 }

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import type { JobQueue } from '@/core/jobs';
-import type { ListedObject, ObjectStorage } from '@/core/storage';
+import type { CdnPurger, ListedObject, ObjectStorage } from '@/core/storage';
 import type { ImageAssetRow } from '@/db/schema';
 import type { TrashService } from '@/modules/trash/trash.service';
 
@@ -45,6 +45,7 @@ function setup(objects: Array<Pick<ListedObject, 'key'> & { lastModified?: Date 
   const jobs = { register: vi.fn(), enqueue: vi.fn(async () => undefined) };
   const trash = { retentionDays: vi.fn(async () => 30) };
   const db = { transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn('tx')) };
+  const cdn = { schedule: vi.fn(async () => undefined) };
   const service = new ImageMaintenanceService(
     db as unknown as Database,
     repo as unknown as ImageAssetRepository,
@@ -52,8 +53,9 @@ function setup(objects: Array<Pick<ListedObject, 'key'> & { lastModified?: Date 
     jobs as unknown as JobQueue,
     trash as unknown as TrashService,
     { get: () => '' } as unknown as ConfigService<Env, true>,
+    cdn as unknown as CdnPurger,
   );
-  return { service, repo, storage, jobs };
+  return { service, repo, storage, jobs, cdn };
 }
 
 describe('ImageMaintenanceService（image.maintenance，docs/architecture/backend/25-image.md §15.6）', () => {
@@ -72,12 +74,27 @@ describe('ImageMaintenanceService（image.maintenance，docs/architecture/backen
     expect(report).toMatchObject({ unclaimed: 1, detached: 1, failures: 0 });
   });
 
+  it('刪掉的物件在刪除之後一次排入邊緣快取的清理（docs/architecture/backend/09-file.md §16.6）', async () => {
+    const ctx = setup([{ key: `images/${A}/master.jpg` }, { key: `images/${A}/r1/sm.jpg` }]);
+    ctx.repo.findUnclaimed.mockResolvedValueOnce([row(A)]);
+    await ctx.service.sweep(NOW);
+    expect(ctx.cdn.schedule).toHaveBeenCalledWith([
+      `images/${A}/master.jpg`,
+      `images/${A}/r1/sm.jpg`,
+    ]);
+    // 先刪物件、再清快取：反過來的話邊緣可能在刪除前又回源存一次
+    const deletedAt = Math.max(...ctx.storage.delete.mock.invocationCallOrder);
+    expect(ctx.cdn.schedule.mock.invocationCallOrder[0]).toBeGreaterThan(deletedAt);
+  });
+
   it('物件刪不掉 → 不刪紀錄（下一輪再試），記為失敗', async () => {
     const ctx = setup([{ key: `images/${A}/master.jpg` }]);
     ctx.repo.findUnclaimed.mockResolvedValueOnce([row(A)]);
     ctx.storage.delete.mockRejectedValueOnce(new Error('down'));
     const report = await ctx.service.sweep(NOW);
     expect(ctx.repo.deleteRows).toHaveBeenCalledWith([], 'tx');
+    // 物件還在：不清快取（下一輪刪掉之後才清）
+    expect(ctx.cdn.schedule).toHaveBeenCalledWith([]);
     expect(report.failures).toBe(1);
   });
 
@@ -95,6 +112,7 @@ describe('ImageMaintenanceService（image.maintenance，docs/architecture/backen
     const report = await ctx.service.sweep(NOW);
     expect(ctx.storage.delete).toHaveBeenCalledTimes(1);
     expect(ctx.storage.delete).toHaveBeenCalledWith(`images/${A}/r1/sm.jpg`);
+    expect(ctx.cdn.schedule).toHaveBeenCalledWith([`images/${A}/r1/sm.jpg`]);
     expect(ctx.repo.clearStaleRevs).toHaveBeenCalledWith(A, purgeAfter);
     expect(report.staleRevs).toBe(1);
   });
@@ -118,6 +136,7 @@ describe('ImageMaintenanceService（image.maintenance，docs/architecture/backen
     const report = await ctx.service.sweep(NOW);
     expect(ctx.storage.delete).toHaveBeenCalledTimes(1);
     expect(ctx.storage.delete).toHaveBeenCalledWith(`images/${ORPHAN}/upload`);
+    expect(ctx.cdn.schedule).toHaveBeenCalledWith([`images/${ORPHAN}/upload`]);
     expect(report.orphanObjects).toBe(1);
   });
 });

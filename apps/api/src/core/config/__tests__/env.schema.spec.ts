@@ -338,3 +338,94 @@ describe('RATE_LIMIT_STORE（docs/architecture/01-system.md §7 D6）', () => {
     ).toThrow('RATE_LIMIT_STORE');
   });
 });
+
+/** 開著 CDN、設定齊全的環境變數。 */
+function cdnEnv(overrides: Record<string, string> = {}): Record<string, string> {
+  return {
+    FILE_CDN_ENABLED: 'true',
+    FILE_CDN_ORIGIN: 'http://localhost:9080',
+    FILE_CDN_SIGNING_KEYS: `c1:${randomBytes(48).toString('base64')}`,
+    FILE_CDN_PURGE_URL: 'http://127.0.0.1:8081',
+    FILE_CDN_PURGE_SECRET: randomBytes(48).toString('base64'),
+    ...overrides,
+  };
+}
+
+describe('FILE_CDN_*（docs/architecture/backend/09-file.md §16.5）', () => {
+  it('預設關閉；關閉時其他 FILE_CDN_* 不檢查（留著壞掉的舊值也能啟動）', () => {
+    expect(validateEnv(development()).FILE_CDN_ENABLED).toBe(false);
+    expect(
+      validateEnv(
+        development({
+          FILE_CDN_ORIGIN: 'not a url',
+          FILE_CDN_SIGNING_KEYS: 'broken',
+          FILE_CDN_RESOURCES: 'whatever',
+        }),
+      ).FILE_CDN_ENABLED,
+    ).toBe(false);
+  });
+
+  it('開啟且設定齊全 → 可以啟動（開發環境也檢查）', () => {
+    const env = validateEnv(development(cdnEnv()));
+    expect(env.FILE_CDN_ENABLED).toBe(true);
+    expect(env.FILE_CDN_MAX_URL_TTL).toBe(86_400);
+    expect(env.FILE_CDN_PURGE_BATCH_SIZE).toBe(100);
+  });
+
+  it.each([
+    ['FILE_CDN_ORIGIN', ''],
+    ['FILE_CDN_ORIGIN', 'cdn.example.com'],
+    ['FILE_CDN_ORIGIN', 'https://cdn.example.com/storage'],
+    ['FILE_CDN_SIGNING_KEYS', ''],
+    ['FILE_CDN_SIGNING_KEYS', `c1:${randomBytes(16).toString('base64')}`],
+    ['FILE_CDN_RESOURCES', 'fileVariant,thumbnail'],
+    ['FILE_CDN_PURGE_URL', ''],
+    ['FILE_CDN_PURGE_SECRET', ''],
+    ['FILE_CDN_PURGE_SECRET', randomBytes(16).toString('base64')],
+    ['FILE_CDN_MAX_URL_TTL', '100000'],
+    ['FILE_CDN_PURGE_BATCH_SIZE', '0'],
+  ])('開啟時 %s=%j → 啟動失敗', (key, value) => {
+    expect(() => validateEnv(development(cdnEnv({ [key]: value })))).toThrow(key);
+  });
+
+  it('關掉自動清理、或對外 API 的程序：不要求清理端點與密鑰', () => {
+    const withoutPurge = cdnEnv({ FILE_CDN_PURGE_URL: '', FILE_CDN_PURGE_SECRET: '' });
+    expect(() =>
+      validateEnv(development({ ...withoutPurge, FILE_CDN_PURGE_ON_DELETE: 'false' })),
+    ).not.toThrow();
+    expect(() =>
+      validateEnv(development({ ...withoutPurge, API_SURFACE: 'external' })),
+    ).not.toThrow();
+  });
+
+  it('production：CDN 的 origin 必須是 https、不能是 localhost', () => {
+    expect(
+      cdnProblemKeys({
+        NODE_ENV: 'production',
+        ...cdnEnv({ FILE_CDN_ORIGIN: 'http://cdn.example.com' }),
+      }),
+    ).toContain('FILE_CDN_ORIGIN');
+    expect(
+      cdnProblemKeys({
+        NODE_ENV: 'production',
+        ...cdnEnv({ FILE_CDN_ORIGIN: 'https://localhost:9080' }),
+      }),
+    ).toContain('FILE_CDN_ORIGIN');
+    expect(
+      cdnProblemKeys({
+        NODE_ENV: 'production',
+        ...cdnEnv({ FILE_CDN_ORIGIN: 'https://cdn.example.com' }),
+      }),
+    ).not.toContain('FILE_CDN_ORIGIN');
+  });
+});
+
+/** production 的其他必填與這裡無關：只看 FILE_CDN_* 有沒有被點名。 */
+function cdnProblemKeys(overrides: Record<string, string>): string[] {
+  try {
+    validateEnv(development(overrides));
+    return [];
+  } catch (error) {
+    return [...String(error).matchAll(/- (FILE_CDN_\w+):/g)].map((match) => match[1] ?? '');
+  }
+}

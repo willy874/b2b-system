@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Readable } from 'node:stream';
 
+import { isOriginAuthorized } from '@/auth/origin-auth';
 import { authenticate } from '@/auth/sigv4';
 import type { FileStorageConfig } from '@/config';
 import { openBody } from '@/http/body';
@@ -155,10 +156,21 @@ async function handle(
 
     const target = parseTarget(req.url ?? '/', config.basePath);
     resource = target.rawPath;
-    const payload = authenticate(
-      { method, rawPath: target.rawPath, query: target.query, headers: req.headers },
-      config.credentials,
-    );
+    // CDN 邊緣的回源（GET／HEAD 一個物件）以回源憑證代替 SigV4；其他請求一律驗 SigV4
+    const payload = isOriginAuthorized(
+      {
+        method,
+        headers: req.headers,
+        key: target.key,
+        queryNames: target.query.entries.map(([name]) => name),
+      },
+      config.originSecret,
+    )
+      ? ({ kind: 'unsigned' } as const)
+      : authenticate(
+          { method, rawPath: target.rawPath, query: target.query, headers: req.headers },
+          config.credentials,
+        );
     const route = resolveRoute(
       method,
       target,

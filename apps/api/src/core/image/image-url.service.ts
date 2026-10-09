@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
 import { ObjectUrlSigner } from '../storage';
+import type { CdnResource } from '../storage';
 import { defineSchema } from '../validation';
 import { renditionKey } from './image-format-policy';
 import { IMAGE_FORMAT_CONTENT_TYPE } from './image-processor';
@@ -27,7 +28,7 @@ export const ImageSourceVariantSchema = defineSchema(
 
 /**
  * 回應裡的一張圖（docs/architecture/backend/25-image.md §3）：同一組網址在同一個時間窗內簽出，`expiresAt` 是最早到期的那個。
- * 網址直接指向物件儲存（或之後的 CDN），讀圖不經過 api。沒有圖片或還在處理時，欄位是 `null`。
+ * 網址直接指向物件儲存（或 CDN），讀圖不經過 api。沒有圖片或還在處理時，欄位是 `null`。
  */
 export const ImageSourcesSchema = defineSchema(
   'ImageSources',
@@ -63,7 +64,7 @@ export interface ImageObjectSet {
   /** 由用途決定（`IMAGE_URL_TTL_MIN`～`IMAGE_URL_TTL_MAX`）。 */
   ttlSeconds: number;
   /** 可以走 CDN 時的資源類型（`ObjectUrlSigner` 的 `cdn`）。 */
-  cdn?: string;
+  cdn?: CdnResource;
 }
 
 /**
@@ -92,7 +93,7 @@ export function densityLayouts(
 }
 
 /**
- * 圖片的網址只由這裡產生（docs/architecture/backend/25-image.md R3）：效期、時間窗、簽章方式（presigned 或之後的 CDN）集中在一處。
+ * 圖片的網址只由這裡產生（docs/architecture/backend/25-image.md R3）：效期、時間窗、簽章方式（presigned 或 CDN，docs/architecture/backend/09-file.md §16）集中在一處。
  * 回應帶的是簽好的物件網址，讀圖的熱路徑不打 api、不查 DB（R5，D1）。檔案管理器的影像 API 不經過這裡（D5）。
  */
 @Injectable()

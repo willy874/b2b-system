@@ -6,7 +6,7 @@ import type { Env } from '@/core/config';
 import type { Database } from '@/core/database';
 import { TENANT_DB, withTransaction } from '@/core/database';
 import { defineJob, JobQueue } from '@/core/jobs';
-import { ObjectStorage } from '@/core/storage';
+import { CdnPurger, ObjectStorage } from '@/core/storage';
 import { currentTenant } from '@/core/tenant';
 import { StorageSizeSources } from '@/core/usage';
 
@@ -19,6 +19,7 @@ import {
   ORIGINAL_KEY_PREFIX,
   STORAGE_USAGE_RECONCILE_INTERVAL_MS,
   thumbnailKeyOf,
+  VARIANT_KEY_PREFIX,
 } from './file.constants';
 import { FileRepository } from './file.repository';
 
@@ -92,6 +93,7 @@ export class FileMaintenanceService implements OnModuleInit {
     private readonly jobs: JobQueue,
     private readonly sizeSources: StorageSizeSources,
     config: ConfigService<Env, true>,
+    private readonly cdn: CdnPurger,
   ) {
     this.cron = config.get('FILE_MAINTENANCE_CRON', { infer: true });
     this.pendingTtlMs = config.get('FILE_PENDING_TTL', { infer: true }) * 1000;
@@ -245,6 +247,13 @@ export class FileMaintenanceService implements OnModuleInit {
         orphans.map((object) => this.storage.delete(object.key)),
       );
       report.failures += results.filter((result) => result.status === 'rejected').length;
+      // 殘留的變體可能由 CDN 送出過（永久刪除時物件刪除失敗）：刪掉之後清理邊緣快取（09-file.md §16.6）
+      await this.cdn.schedule(
+        orphans
+          .filter((_object, index) => results[index]?.status === 'fulfilled')
+          .map((object) => object.key)
+          .filter((key) => key.startsWith(VARIANT_KEY_PREFIX)),
+      );
     };
 
     for (const prefix of MANAGED_KEY_PREFIXES) {

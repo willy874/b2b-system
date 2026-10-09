@@ -1,8 +1,9 @@
 // 一次性的正式環境變數（deploy/smoke-test.sh 用）：每次執行都產生新的隨機金鑰，形狀與 deploy/prod.env.example 相同，
 // 能通過 compose 的必填檢查與 api 的 production 驗證。只拿來測試，不要當成正式環境的值。
 //
-// 用法：node deploy/fake-prod-env.mjs [--no-apm] > <檔案>
+// 用法：node deploy/fake-prod-env.mjs [--no-apm] [--cdn] > <檔案>
 //   --no-apm：APM 整套關閉（APM_ENABLED=false、不啟用 apm profile、不給 APM_* 金鑰；docs/architecture/07-apm-service.md §8.1）
+//   --cdn：疊 docker-compose.cdn.yml 時要的金鑰與 CDN 的 origin（docs/architecture/backend/09-file.md §16）
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 
 const base64Key = () => randomBytes(32).toString('base64');
@@ -13,6 +14,7 @@ const signingKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKe
 });
 
 const apm = !process.argv.includes('--no-apm');
+const cdn = process.argv.includes('--cdn');
 
 const env = {
   PUBLIC_ORIGIN: 'https://app.example.com',
@@ -47,6 +49,14 @@ const env = {
         APM_AUTH_TOKEN: hex(24),
       }
     : { COMPOSE_PROFILES: 'external' }),
+  ...(cdn
+    ? {
+        CDN_PUBLIC_ORIGIN: 'https://cdn.example.com',
+        FILE_CDN_SIGNING_KEYS: `c1:${randomBytes(48).toString('base64')}`,
+        FILE_CDN_PURGE_SECRET: randomBytes(48).toString('base64'),
+        FILE_STORAGE_ORIGIN_SECRET: hex(32),
+      }
+    : {}),
   // 不會真的寄信：啟動時不連 SMTP
   MAIL_SMTP_URL: 'smtp://mail.invalid:25',
   MAIL_FROM: 'B2B System <no-reply@example.com>',

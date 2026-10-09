@@ -6,7 +6,7 @@
 共用的底層是 `core/storage` 的 `ObjectUrlSigner`、`core/image` 的格式政策與 `ImageUrlService`、`web-core/image` 的 `SignedImage`、
 `Avatar` 的圖片插槽、儲存的止水線。第一個使用它們的是圖片資產（`modules/image`，第一個 consumer 是使用者頭像）；選圖的前端在
 [`../frontend/23-image-picker.md`](../frontend/23-image-picker.md)。圖片庫還在規劃（[`../../features/image-gallery.md`](../../features/image-gallery.md)）；
-CDN 是 `ObjectUrlSigner` 的另一個實作（[`../../features/image-cdn.md`](../../features/image-cdn.md)）。
+CDN 是 `ObjectUrlSigner` 的另一個實作（`CdnUrlSigner`，[`09-file.md`](./09-file.md) §16）。
 
 ```
 擁有者模組（modules/image；之後的 modules/gallery）
@@ -52,9 +52,10 @@ abstract class ObjectUrlSigner {
 }
 ```
 
-- 這一版只有 `PresignedUrlSigner`（包住 `ObjectStorage.presignDownload`，含 `stableSigningDate` 的時間窗；[`09-file.md`](./09-file.md) §7.1），由 `StorageModule` 全域提供（D6）。
-- `cdn` 是「這個物件寫入後不再覆寫、可以由 CDN 送出」的資源類型（`imageAsset`、`galleryItem`、`fileVariant`）。presigned 的實作忽略它；
-  CDN 的實作依部署的設定決定是否改用 CDN（§9）。
+- 實作由 `StorageModule` 全域提供（D6）：沒有 CDN 時是 `PresignedUrlSigner`（包住 `ObjectStorage.presignDownload`，含 `stableSigningDate` 的時間窗；[`09-file.md`](./09-file.md) §7.1）；
+  `FILE_CDN_ENABLED=true` 時是 `CdnUrlSigner`（§9、[`09-file.md`](./09-file.md) §16.2）。
+- `cdn` 是「這個物件寫入後不再覆寫、可以由 CDN 送出」的資源類型（`CdnResource`：`imageAsset`、`galleryItem`、`fileVariant`）。presigned 的實作忽略它；
+  CDN 的實作依 `CdnConfig.servesResource()`（`FILE_CDN_RESOURCES`）決定是否改用 CDN（§9）。
 - 讀圖的熱路徑（`ImageUrlService`、檔案的影像 API 的轉址）只認它；上傳、分塊上傳、一般檔案的下載仍直接用 `ObjectStorage`（不會走 CDN）。
 
 **`ImageUrlService`**（`core/image/image-url.service.ts`，`ImageModule` 全域提供）：
@@ -66,7 +67,7 @@ interface ImageObjectSet {
   formats: readonly ImageFormat[];                     // 主格式在前（deliveryFormatsOf）
   renditions: Record<string, { width; height; sameAs? }>;  // 處理時寫好的尺寸（已含 @2x）
   ttlSeconds: number;                                  // 由用途決定（§4）
-  cdn?: string;
+  cdn?: CdnResource;
 }
 type ImageVariantLayout = { density: { '1x': string; '2x'?: string } } | { widths: [string, ...string[]] };
 
@@ -182,13 +183,18 @@ interface ImageSources {
 
 ```
 ImageUrlService ──▶ ObjectUrlSigner
-                      ├─ PresignedUrlSigner（現在）
-                      └─ CdnUrlSigner（features/image-cdn.md）：部署開啟 CDN、呼叫端標 { cdn: '<資源類型>' } 且該類型在允許的清單內時使用
+                      ├─ PresignedUrlSigner：沒有 CDN（FILE_CDN_ENABLED=false，預設）
+                      └─ CdnUrlSigner（NginxCdnUrlSigner）：部署開啟 CDN 時。呼叫端標 { cdn: '<資源類型>' } 且該類型在 FILE_CDN_RESOURCES 內時簽 CDN 網址，
+                                                           其他（沒標、attachment、覆寫型別）交給 presigned
 ```
+
+邊緣、簽章、開關、清理的規格在 [`09-file.md`](./09-file.md) §16（決定在 §17）。
 
 - 圖片資產與圖片庫的物件都符合「只寫一次」，分別標 `{ cdn: 'imageAsset' }`、`{ cdn: 'galleryItem' }`；原檔下載（帶 `Content-Disposition`）不標。
 - 檔案的影像 API 簽變體與轉出的格式時已經標 `{ cdn: 'fileVariant' }`；原檔不標。
-- CDN 網址的效期用 §4 的 `urlTtl`（再以 CDN 的上限封頂）。沒有 CDN 時行為與現在完全相同。
+- CDN 網址的效期用 §4 的 `urlTtl`，再以 `FILE_CDN_MAX_URL_TTL` 封頂（[`09-file.md`](./09-file.md) §17 D2）。沒有 CDN 時行為與 presigned 完全相同。
+- 刪掉可能走過 CDN 的物件之後，擁有者模組呼叫 `CdnPurger.schedule(keys)` 排入邊緣快取的清理（`cdn.purge`；[`09-file.md`](./09-file.md) §16.6）。
+  圖片資產在 `image.maintenance` 刪除主檔、舊版本與殘留物件之後呼叫；之後的圖片庫同樣在刪除變體之後呼叫。
 
 ---
 
@@ -433,7 +439,7 @@ interface ResolvedImage {
 | 處理卡住 | 排入超過 30 分鐘、要求的版本還沒寫好 → 重新排入 |
 | 殘留物件 | `images/<id>/…` 查不到資產、而且至少 24 小時前寫入的 → 刪除 |
 
-先刪物件再刪紀錄：紀錄先刪的話，物件刪除失敗就沒人知道它們屬於誰。之後的 CDN 在這裡清理邊緣快取（[`../../features/image-cdn.md`](../../features/image-cdn.md) §7）。
+先刪物件再刪紀錄：紀錄先刪的話，物件刪除失敗就沒人知道它們屬於誰。物件刪除之後把刪掉的 key 交給 `CdnPurger.schedule`，清理邊緣快取（一輪一次排入；[`09-file.md`](./09-file.md) §16.6）。
 
 ### 15.7 最近使用
 

@@ -12,6 +12,7 @@ import { densityLayouts, ImageUrlService } from '@/core/image';
 import type { ImageFormat, ImageObjectSet, ImageSources } from '@/core/image';
 import { JobQueue } from '@/core/jobs';
 import { ObjectStorage, ObjectUrlSigner } from '@/core/storage';
+import type { CdnResource } from '@/core/storage';
 import type { PresignedRequest } from '@/core/storage';
 import { StorageCapacity, storageQuotaExceeded, tenantStorageQuotaBytes } from '@/core/usage';
 import type { ImageAssetRow, ImageCrop } from '@/db/schema';
@@ -49,8 +50,8 @@ export interface ImageOwnerRef {
   ownerId: string;
 }
 
-/** 資產可以由 CDN 送出時的資源類型（`ObjectUrlSigner` 的 `cdn`；物件只寫一次，docs/architecture/backend/25-image.md §9）。 */
-const IMAGE_ASSET_CDN = 'imageAsset';
+/** 資產可以由 CDN 送出時的資源類型（`ObjectUrlSigner` 的 `cdn`；物件只寫一次，docs/architecture/backend/09-file.md §16.2）。 */
+const IMAGE_ASSET_CDN: CdnResource = 'imageAsset';
 
 /**
  * 圖片資產（docs/architecture/backend/25-image.md §15）。

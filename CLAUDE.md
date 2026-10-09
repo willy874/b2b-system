@@ -16,10 +16,10 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | 前端 | `docs/architecture/frontend/01`→`03`→`06`；兩個前端共用的程式在 `packages/`（下方「Monorepo 結構」） |
 | 改兩個前端共用的程式、判斷程式該放 app 還是 package、加第三個前端 | [`docs/architecture/frontend/17-shared-packages.md`](docs/architecture/frontend/17-shared-packages.md)（§2 程式放哪、§3 app 怎麼接上 web-core、§7 常見陷阱）；各 package 的 README |
 | 租戶（每個租戶一個 database 與網域） | [`docs/architecture/05-tenancy.md`](docs/architecture/05-tenancy.md)（請求怎麼找到租戶、`Tenancy`、佈建與生命週期、用量 §5.4、部署） |
-| 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19`；審批（申請 → 核准 → 套用；多階段流程在 §9）看 `20`；MFA（驗證方式的註冊表、登入的第二步、平台開關與參數、租戶政策；WebAuthn、簡訊、Telegram／LINE 在 §9.3–§9.5）看 `21`；匯入／匯出（資源登記、匯出工作、分析與驗證、套用）看 `22`，前端看 `frontend/21`；組織管理（部門樹、成員、主管的解析）看 `23`；留言與關注（擁有者登記資源類型、@提及、關注的通知）看 `24`，前端的資源頁面板看 `frontend/22`；圖片（存參照不存網址、簽章網址與 `ImageSources`、效期與尺寸、格式政策、`SignedImage`）與所有租戶合計的儲存止水線看 `25`，圖片資產（用途與來源的登記、上傳與複製、`image.process`、清理、頭像）看 `25` §15，前端的選圖（`ImageField`、圖片來源的註冊表、裁切）看 `frontend/23` |
+| 後端 | `docs/architecture/backend/01`→`03`→`05`；資料庫與租戶看 `02` §6（平台 DB、`TENANT_DB`）；樂觀鎖（`version`）看 `03` §11；檔案／物件儲存看 `09`，圖片的 CDN（`CdnUrlSigner`、`CdnConfig`、`CdnPurger` 與 `cdn.purge`、自架的 nginx 邊緣、`FILE_CDN_*`）看 `09` §16（決定在 §17），file-storage 的回源憑證看 `docs/architecture/03-file-storage.md` §3.3；背景工作看 `10`；寄信看 `11`；系統設定看 `12`；回收桶與還原看 `13`；版本歷史看 `14`；站內通知看 `15`；事件管理（通知的租戶開關與個人設定）看 `16`；Webhook（對外事件、投遞、對外連線的 SSRF 防護）看 `17`；標籤（擁有者登記資源類型、指派、篩選）看 `18`；公告（排程發送站內通知）看 `19`；審批（申請 → 核准 → 套用；多階段流程在 §9）看 `20`；MFA（驗證方式的註冊表、登入的第二步、平台開關與參數、租戶政策；WebAuthn、簡訊、Telegram／LINE 在 §9.3–§9.5）看 `21`；匯入／匯出（資源登記、匯出工作、分析與驗證、套用）看 `22`，前端看 `frontend/21`；組織管理（部門樹、成員、主管的解析）看 `23`；留言與關注（擁有者登記資源類型、@提及、關注的通知）看 `24`，前端的資源頁面板看 `frontend/22`；圖片（存參照不存網址、簽章網址與 `ImageSources`、效期與尺寸、格式政策、`SignedImage`）與所有租戶合計的儲存止水線看 `25`，圖片資產（用途與來源的登記、上傳與複製、`image.process`、清理、頭像）看 `25` §15，前端的選圖（`ImageField`、圖片來源的註冊表、裁切）看 `frontend/23` |
 | 前端錯誤回報、release、Web Vitals、bundle 預算 | [`docs/architecture/frontend/19-observability.md`](docs/architecture/frontend/19-observability.md)（機制在 `web-core/telemetry`）、[`docs/architecture/07-apm-service.md`](docs/architecture/07-apm-service.md)（收件服務） |
 | api 的指標、tracing、健康檢查、Grafana／Prometheus／Tempo 的部署與告警 | [`docs/architecture/08-monitoring.md`](docs/architecture/08-monitoring.md)（指標清單在 `core/metrics/instruments.ts`，§2.4 加指標的方式；tracing 在 `src/instrumentation.ts`） |
-| 多實例、程序角色（`APP_ROLES`）、部署形態（compose 的多實例、k8s）、共享的速率限制、優雅關閉 | [`docs/architecture/01-system.md`](docs/architecture/01-system.md) §4.3（角色與擴展）、§4.4（程序之間的一致性）、§7（設計決策）；k8s 在 `deploy/k8s/` |
+| 多實例、程序角色（`APP_ROLES`）、部署形態（compose 的多實例、k8s、圖片的 CDN 疊加檔與 k8s component）、共享的速率限制、優雅關閉 | [`docs/architecture/01-system.md`](docs/architecture/01-system.md) §4.3（角色與擴展）、§4.4（程序之間的一致性）、§7（設計決策）；k8s 在 `deploy/k8s/` |
 | 對外 API、API token 的驗證 | [`docs/architecture/06-external-api.md`](docs/architecture/06-external-api.md)（獨立的程序；對外的 controller 標 `@ExternalApi()`、放 `modules/<name>/external/`） |
 | 登入、SSO、apps/platform | [`docs/architecture/04-sso.md`](docs/architecture/04-sso.md)（§1.1 租戶與平台的身分範圍）、[`apps/platform/README.md`](apps/platform/README.md)（與 backstage 共用的 packages、刻意各自一份的部分與同步規則） |
 | 權限相關 | [`docs/architecture/iam/02-permission-catalog.md`](docs/architecture/iam/02-permission-catalog.md)；群組看 [`docs/architecture/iam/07-groups.md`](docs/architecture/iam/07-groups.md)；「為什麼能做 X」看 [`docs/architecture/iam/08-explain.md`](docs/architecture/iam/08-explain.md)；反提權的通用規則看 `docs/architecture/backend/05-rbac.md` §4.1 |
@@ -124,10 +124,15 @@ pnpm --filter @b2b-system/api openapi:generate && pnpm exec oxfmt apps/api/opena
 pnpm storybook      # packages/ui 設計系統元件的 Storybook（:6006）；story 寫法見 docs/architecture/frontend/07-ui-system.md §9
 sh deploy/check-nginx.sh / sh deploy/smoke-test.sh   # nginx 設定／正式 compose 整套建置啟動（需要 Docker；CI 的 deploy job 也跑）
 sh deploy/smoke-test.sh --cluster   # 疊 docker-compose.cluster.yml：api（http）×2、api-realtime ×2、api-worker ×1（docs/architecture/01-system.md §4.3）
-sh deploy/check-k8s.sh              # deploy/k8s 兩個 overlay 的 kustomize ＋ kubeconform（需要 kubectl 與 Docker；CI 也跑）
+sh deploy/check-k8s.sh              # deploy/k8s 兩個 overlay（各自再疊 components/cdn）的 kustomize ＋ kubeconform（需要 kubectl 與 Docker；CI 也跑）
+sh deploy/check-cdn.sh              # 圖片的 CDN 邊緣（nginx ＋ njs）：簽章、命中、回源憑證、清理、兩個節點（需要 Docker；CI 也跑；docs/architecture/backend/09-file.md §16.8）
+sh deploy/smoke-test.sh --cdn       # 疊 docker-compose.cdn.yml 的整套建置啟動
 pnpm --filter @b2b-system/api migrations:check   # 新增的 migration 不能有破壞性語句（MIGRATION_BASE 預設 origin/main；CI 也跑）
 BENCH_DATABASE_URL=<暫用的 DB> pnpm --filter @b2b-system/api bench:rate-limit   # 共享速率限制計數的壓測（會 DROP TABLE，只對暫用的 DB）
 sh deploy/check-monitoring.sh   # 監控設定：compose 疊加、Prometheus 規則、Grafana 儀表板（需要 Docker；CI 的 deploy job 也跑）
+pnpm cdn:up / cdn:down   # 本機的 CDN 邊緣（:9080，清理端點 127.0.0.1:8081，回源到 pnpm dev:storage）；api 要在 .env 設 FILE_CDN_ENABLED=true 與金鑰（docs/architecture/backend/09-file.md §16.3）
+pnpm --filter @b2b-system/api cli:cdn-purge (--tenant <代碼> (--path <key>… | --image-asset <id>) | --all) [--confirm <平台 database 名稱>]
+                    # 手動清理邊緣快取（緊急下架、重新打開 CDN 前）；寫平台稽核 cdn.purge（docs/architecture/backend/09-file.md §16.7）
 pnpm monitoring:up / monitoring:down   # 本機的 Prometheus（:9090）、Tempo（:4318）、Grafana（:3300）；api 的 /metrics 在 :9464，要看 trace 在 .env 設 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
                     # 正式環境：docker compose --env-file deploy/prod.env -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d（docs/architecture/08-monitoring.md §6）
 pnpm --filter @b2b-system/e2e tour   # 重拍 docs/guide/introduction/03-feature-tour.md 的截圖（會重置 DB，只對隔離環境跑；docs/architecture/frontend/10-testing.md §4.6）
@@ -172,3 +177,7 @@ pnpm --filter @b2b-system/e2e tour   # 重拍 docs/guide/introduction/03-feature
 | 「我的匯入匯出」的入口 | 側欄的「個人」群組 | 頂列的帳號選單（`placement: 'account'`） | 側欄沒有「個人」群組；帳號選單就是個人頁面的位置 |
 | 稽核日誌的匯出登記 | 擁有者模組（`modules/audit-log`）登記 | `modules/data-transfer/resources/audit-log.transfer.ts`，經 `AuditLogService` 讀取 | 稽核日誌是葉節點模組，不能 import 其他業務模組（`docs/architecture/backend/22-data-transfer.md` §13 D27） |
 | 公告的事件點 | [`backend/19-announcement.md`](docs/architecture/backend/19-announcement.md) §9.2 D12、D14：入列 `announcement.dispatch`；第一批含 `user.rolesChanged` | 入列 `announcement.eventDispatch`（每則 × 每人一筆）；觸發點帶比對方式 `scope`；「被指派角色」名為 `user.roleAssigned` | 事件點沒有 `next_run_at` 可比對；`user.rolesChanged` 已是通知類型的名稱，而且這裡只算新增的角色。見 `19-announcement.md` §5.3 |
+| CDN 的快取目錄 | [`backend/09-file.md`](docs/architecture/backend/09-file.md) §17（原提案）：`/var/cache/cdn` | `/var/cache/nginx/cdn`（`deploy/cdn.js` 的 `CACHE_DIR`） | 非 root 的 nginx 映像只有 `/var/cache/nginx` 屬於 uid 101，named volume 掛在那裡才繼承得到擁有者。見 `09-file.md` §17 實作紀錄 |
+| 清理的指標名稱 | 原提案：`cdn_purge_requests_total`、`cdn_purge_paths_total` | `api_cdn_purge_requests_total`、`api_cdn_purge_paths_total`，另加 `api_cdn_purge_failures_total{stage}` | 指標命名規則 `api_<領域>_<量>`（`coding-standards/03-backend.md` §8）；告警依失敗計數判斷 |
+| 本機的 CDN 邊緣 | 原提案：`docker-compose.cdn.yml` | `docker-compose.yml` 的 `cdn` profile（`pnpm cdn:up`）；`docker-compose.cdn.yml` 是正式 compose 的疊加檔 | 與 `monitoring:up` 相同的形式；本機的回源位址、埠與正式環境不同 |
+| `cli:cdn-purge --all` 的確認 | 原提案：`--confirm` 旗標 | `--confirm <平台 database 名稱>` | 與其他維運指令一致；平台 DB 不在本機時本來就要它 |

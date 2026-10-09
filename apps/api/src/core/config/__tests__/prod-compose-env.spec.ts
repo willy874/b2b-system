@@ -12,6 +12,7 @@ const MONITORING_COMPOSE_FILE = resolve(
   __dirname,
   '../../../../../../docker-compose.monitoring.yml',
 );
+const CDN_COMPOSE_FILE = resolve(__dirname, '../../../../../../docker-compose.cdn.yml');
 
 const base64Key = () => randomBytes(32).toString('base64');
 
@@ -167,6 +168,31 @@ describe('docker-compose.prod.yml 給程序的環境變數（防止 production �
       );
       expect(validateEnv({ ...forcedOff, API_SURFACE: surface }).MONITORING_ENABLED).toBe(false);
     }
+  });
+
+  it('圖片的 CDN：沒疊 docker-compose.cdn.yml 時關閉；疊上時內部 api 與對外 API 都通過驗證，清理端點只給內部 api（09-file.md §16）', () => {
+    expect(validateEnv(serviceEnvironment('api')).FILE_CDN_ENABLED).toBe(false);
+    const deployment = {
+      ...DEPLOYMENT_ENV,
+      CDN_PUBLIC_ORIGIN: 'https://cdn.example.com',
+      FILE_CDN_SIGNING_KEYS: `c1:${randomBytes(48).toString('base64')}`,
+      FILE_CDN_PURGE_SECRET: randomBytes(48).toString('base64'),
+      FILE_STORAGE_ORIGIN_SECRET: randomBytes(32).toString('hex'),
+    };
+    const api = validateEnv(serviceEnvironment('api', deployment, [CDN_COMPOSE_FILE]));
+    expect(api).toMatchObject({
+      FILE_CDN_ENABLED: true,
+      FILE_CDN_ORIGIN: 'https://cdn.example.com',
+      FILE_CDN_PURGE_URL: 'http://cdn-purge:8081',
+    });
+    const external = serviceEnvironment('external-api', deployment, [CDN_COMPOSE_FILE]);
+    expect(validateEnv({ ...external, API_SURFACE: 'external' }).FILE_CDN_ENABLED).toBe(true);
+    expect(external).not.toHaveProperty('FILE_CDN_PURGE_SECRET');
+    expect(serviceEnvironment('cdn', deployment, [CDN_COMPOSE_FILE])).toMatchObject({
+      CDN_SIGNING_KEYS: deployment.FILE_CDN_SIGNING_KEYS,
+      CDN_PURGE_SECRET: deployment.FILE_CDN_PURGE_SECRET,
+      CDN_ORIGIN_SECRET: deployment.FILE_STORAGE_ORIGIN_SECRET,
+    });
   });
 
   it('拿掉任一個 production 必填的金鑰就驗證失敗（這個測試真的會擋）', () => {

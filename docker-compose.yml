@@ -90,5 +90,34 @@ services:
       - '127.0.0.1:3300:3000'
     depends_on: [prometheus, tempo]
 
+  # ── 圖片的 CDN（pnpm cdn:up；docs/architecture/backend/09-file.md §16.3）──────────────
+  # 預設不啟動（profile）。自架的邊緣（nginx ＋ njs）；file-storage 是主機上的 node 程序（pnpm dev:storage），
+  # 經 host.docker.internal 回源。api 在 .env 設 FILE_CDN_ENABLED=true、FILE_CDN_ORIGIN=http://localhost:9080、
+  # FILE_CDN_PURGE_URL=http://127.0.0.1:8081，金鑰與這裡讀同一組（根目錄的 .env）
+  cdn:
+    image: b2b-system-cdn
+    build:
+      context: .
+      dockerfile: deploy/cdn.Dockerfile
+    container_name: b2b-system-cdn
+    profiles: [cdn]
+    environment:
+      CDN_SIGNING_KEYS: ${FILE_CDN_SIGNING_KEYS:-}
+      CDN_PURGE_SECRET: ${FILE_CDN_PURGE_SECRET:-}
+      CDN_ORIGIN_UPSTREAM: http://host.docker.internal:9000
+      CDN_ORIGIN_SECRET: ${FILE_STORAGE_ORIGIN_SECRET:-}
+      CDN_CACHE_MAX_SIZE: 1g
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - cdn-cache:/var/cache/nginx
+    # Linux 的 Docker 沒有 host.docker.internal；那時 file-storage 要聽 0.0.0.0（FILE_STORAGE_HOST）才連得到
+    extra_hosts: ['host.docker.internal:host-gateway']
+    # 瀏覽器讀圖的埠；清理端點只綁 loopback（api 在主機上）
+    ports:
+      - '127.0.0.1:9080:9080'
+      - '127.0.0.1:8081:8081'
+
 volumes:
   postgres-data:
+  cdn-cache:

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import type { CdnResource } from './cdn-resource';
 import { ObjectStorage } from './object-storage';
 
 export interface SignObjectUrlOptions {
@@ -12,10 +13,11 @@ export interface SignObjectUrlOptions {
   /** 覆寫回應的 `Content-Type`；省略時沿用物件的型別。 */
   contentType?: string;
   /**
-   * 這個物件可以由 CDN 送出時的資源類型（例：`imageAsset`、`fileVariant`）。前提是物件寫入後永不覆寫；
-   * 實作依部署的設定決定是否真的改用 CDN（docs/features/image-cdn.md）。presigned 的實作忽略它。
+   * 這個物件可以由 CDN 送出時的資源類型（`CDN_RESOURCE_TYPES`）。前提是物件寫入後永不覆寫；
+   * 依部署的設定（`CdnConfig.servesResource`）決定是否真的改用 CDN（docs/architecture/backend/09-file.md §16.2）。
+   * 帶了 `disposition: 'attachment'` 或 `contentType` 的仍用 presigned：CDN 網址不帶回應標頭的覆寫（§17 D4）。
    */
-  cdn?: string;
+  cdn?: CdnResource;
 }
 
 export interface SignedObjectUrl {
@@ -26,8 +28,9 @@ export interface SignedObjectUrl {
 /**
  * 把物件 key 簽成瀏覽器可以直接讀的網址（docs/architecture/backend/25-image.md §3 D6）。
  *
- * 讀圖的熱路徑（`ImageUrlService`、檔案的影像 API）只認這個抽象：這一版只有 presigned 的實作，
- * 之後的 CDN 是另一個實作，呼叫端不必改。上傳、分塊上傳的網址仍直接用 `ObjectStorage`（不會走 CDN）。
+ * 讀圖的熱路徑（`ImageUrlService`、檔案的影像 API）只認這個抽象。實作在 `StorageModule` 依部署選定：
+ * 沒有 CDN 時是 `PresignedUrlSigner`；`FILE_CDN_ENABLED=true` 時是 `CdnUrlSigner`（標了 `cdn` 的物件簽成 CDN 網址，
+ * 其他照舊 presigned；docs/architecture/backend/09-file.md §16）。上傳、分塊上傳的網址仍直接用 `ObjectStorage`（不會走 CDN）。
  *
  * 用 abstract class 而不是 interface，是因為它同時當作 Nest 的 DI token。
  */
