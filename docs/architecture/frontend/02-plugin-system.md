@@ -383,6 +383,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | route id（跨 feature 與後端存的連結） | `web-core/route-link/registry.ts` | 擁有頁面的 feature 的 `routeLinks.ts` | `<RouteLink>`、`useRouteLinkAccess`、`useRouteLinkResolver`（[`15-notification.md`](./15-notification.md) §3、[`03-feature-anatomy.md`](./03-feature-anatomy.md) §4.1） |
 | 批次操作 | `web-core/batch/operations.ts` | feature 的 `batch.ts` | 批次佇列（分頁向佇列宣告能執行的操作，§7） |
 | 檔案預覽／驗證／縮圖 | `core/file/registry.ts`（backstage） | `features/file` 或 plugin | 檔案管理器（使用時讀取，不訂閱） |
+| 檔案動作（選取列、LightBox 上的按鈕） | `core/file/actions.ts`（backstage） | 對檔案提供動作的 feature（例：圖片庫的「加入圖片庫」） | 檔案管理器（`useFileActions` 訂閱；[`12-file-manager.md`](./12-file-manager.md) §6.2） |
 | 語系包 | `web-core/locales/i18n.ts`（`addResourceBundle`） | 各 plugin 的 `onInit` | route loader（`localeScopeLoader`） |
 
 共同規則：

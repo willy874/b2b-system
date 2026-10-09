@@ -7883,6 +7883,651 @@
         "tags": ["service-accounts"]
       }
     },
+    "/gallery/items": {
+      "get": {
+        "operationId": "GalleryItemController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryItemList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "圖片（keyset 分頁；篩選：關鍵字、相簿、標籤、日期、方向、上傳者、來源）",
+        "tags": ["gallery"]
+      },
+      "post": {
+        "operationId": "GalleryItemController_createUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGalleryUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryUpload"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "登記上傳並取得直傳網址（完成後呼叫 complete）",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/timeline": {
+      "get": {
+        "operationId": "GalleryItemController_timeline",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryTimeline"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "每個月的張數（日期捲軸）",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/uploads": {
+      "get": {
+        "operationId": "GalleryItemController_uploads",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryUploadStatus"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "自己上傳中與處理失敗的圖片",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/uploads/failed": {
+      "delete": {
+        "operationId": "GalleryItemController_clearFailed",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "清掉自己處理失敗的紀錄",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/from-source": {
+      "post": {
+        "operationId": "GalleryItemController_createFromSource",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGalleryFromSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryFromSourceResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "從其他來源（檔案管理…）複製加入；逐筆回報加入或略過的原因",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/{id}/complete": {
+      "post": {
+        "operationId": "GalleryItemController_completeUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryUploadItem"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "確認直傳完成並排入處理",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/{id}": {
+      "get": {
+        "operationId": "GalleryItemController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryItemDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "一張圖片的詳情（EXIF、相簿、重複、原檔與下載的網址）",
+        "tags": ["gallery"]
+      },
+      "patch": {
+        "operationId": "GalleryItemController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGalleryItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryItemDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "編輯標題、說明、顯示方向（樂觀鎖）",
+        "tags": ["gallery"]
+      },
+      "delete": {
+        "operationId": "GalleryItemController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除（移到回收桶）",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/{id}/neighbors": {
+      "get": {
+        "operationId": "GalleryItemController_neighbors",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryNeighbors"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "同一個篩選與排序之下的前一張與後一張",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/items/{id}/restore": {
+      "post": {
+        "operationId": "GalleryItemController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryItemDetail"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的圖片（相簿的關聯一併恢復）",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/albums": {
+      "get": {
+        "operationId": "GalleryAlbumController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbumList"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "相簿（封面、名稱、張數）",
+        "tags": ["gallery"]
+      },
+      "post": {
+        "operationId": "GalleryAlbumController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGalleryAlbumRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbum"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/albums/{id}": {
+      "get": {
+        "operationId": "GalleryAlbumController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbum"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": ["gallery"]
+      },
+      "patch": {
+        "operationId": "GalleryAlbumController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGalleryAlbumRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbum"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "改名、說明、封面（樂觀鎖）",
+        "tags": ["gallery"]
+      },
+      "delete": {
+        "operationId": "GalleryAlbumController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "刪除相簿（移到回收桶；圖片不刪）",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/albums/{id}/restore": {
+      "post": {
+        "operationId": "GalleryAlbumController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbum"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "還原刪除的相簿",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/albums/{id}/items": {
+      "post": {
+        "operationId": "GalleryAlbumController_addItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GalleryAlbumItemsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbumItemsResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "加入圖片（已經在的略過）",
+        "tags": ["gallery"]
+      }
+    },
+    "/gallery/albums/{id}/items/remove": {
+      "post": {
+        "operationId": "GalleryAlbumController_removeItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GalleryAlbumItemsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GalleryAlbumItemsResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "移出圖片（圖片本身不刪）",
+        "tags": ["gallery"]
+      }
+    },
     "/users/{id}/permission-sources": {
       "get": {
         "operationId": "AuthzExplainController_permissionSources",
@@ -9806,7 +10451,8 @@
                 "group",
                 "dataTransfer",
                 "organization",
-                "approvalChain"
+                "approvalChain",
+                "gallery"
               ],
               "type": "string"
             }
@@ -10561,7 +11207,17 @@
       },
       "TrashResourceType": {
         "type": "string",
-        "enum": ["user", "role", "group", "file", "fileFolder", "announcement", "orgUnit"]
+        "enum": [
+          "user",
+          "role",
+          "group",
+          "file",
+          "fileFolder",
+          "announcement",
+          "orgUnit",
+          "galleryItem",
+          "galleryAlbum"
+        ]
       },
       "TrashItem": {
         "type": "object",
@@ -11335,6 +11991,10 @@
           "orgUnit:export",
           "approvalFlow:read",
           "approvalFlow:update",
+          "gallery:create",
+          "gallery:read",
+          "gallery:update",
+          "gallery:delete",
           "comment:delete"
         ]
       },
@@ -17114,7 +17774,8 @@
           "group",
           "dataTransfer",
           "organization",
-          "approvalChain"
+          "approvalChain",
+          "gallery"
         ]
       },
       "TenantFlagOverrides": {
@@ -17141,6 +17802,7 @@
           "dataTransfer.importMaxRows",
           "dataTransfer.importMaxSizeMb",
           "dataTransfer.exportMaxRows",
+          "gallery.maxItemSizeMb",
           "rateLimit.authPerMinute",
           "rateLimit.trustedCidrs"
         ]
@@ -17478,7 +18140,7 @@
             "maxLength": 100
           },
           "features": {
-            "maxItems": 14,
+            "maxItems": 15,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TenantFeature"
@@ -17543,7 +18205,9 @@
                     "orgUnitMembers",
                     "approvalFlowsUsingOrg",
                     "approvalFlows",
-                    "approvalRequestsInChain"
+                    "approvalRequestsInChain",
+                    "galleryItems",
+                    "galleryAlbums"
                   ]
                 },
                 "count": {
@@ -19343,6 +20007,827 @@
         "required": ["name", "version"],
         "additionalProperties": false
       },
+      "GalleryAlbum": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "itemCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "coverItemId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "cover": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImageSources"
+              }
+            ]
+          },
+          "coverColor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "itemCount",
+          "coverItemId",
+          "cover",
+          "coverColor",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "GalleryAlbumList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryAlbum"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreateGalleryAlbumRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "UpdateGalleryAlbumRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 1000
+          },
+          "coverItemId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "GalleryAlbumItemsRequest": {
+        "type": "object",
+        "properties": {
+          "itemIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["itemIds"],
+        "additionalProperties": false
+      },
+      "GalleryAlbumItemsResult": {
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["changed"],
+        "additionalProperties": false
+      },
+      "GalleryItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "displayRotation": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [0]
+              },
+              {
+                "type": "number",
+                "enum": [90]
+              },
+              {
+                "type": "number",
+                "enum": [180]
+              },
+              {
+                "type": "number",
+                "enum": [270]
+              }
+            ]
+          },
+          "dominantColor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "placeholder": {
+            "nullable": true,
+            "type": "string"
+          },
+          "takenAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sortAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageSources"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagSummary"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "contentType",
+          "size",
+          "width",
+          "height",
+          "displayRotation",
+          "dominantColor",
+          "placeholder",
+          "takenAt",
+          "sortAt",
+          "createdAt",
+          "image",
+          "tags",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "GalleryItemList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryItem"
+            }
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "GalleryExif": {
+        "type": "object",
+        "properties": {
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "lensMake": {
+            "type": "string"
+          },
+          "lensModel": {
+            "type": "string"
+          },
+          "focalLength": {
+            "type": "number"
+          },
+          "focalLength35mm": {
+            "type": "number"
+          },
+          "fNumber": {
+            "type": "number"
+          },
+          "exposureTime": {
+            "type": "number"
+          },
+          "iso": {
+            "type": "number"
+          },
+          "flashFired": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GalleryItemDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "width": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "displayRotation": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [0]
+              },
+              {
+                "type": "number",
+                "enum": [90]
+              },
+              {
+                "type": "number",
+                "enum": [180]
+              },
+              {
+                "type": "number",
+                "enum": [270]
+              }
+            ]
+          },
+          "dominantColor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "placeholder": {
+            "nullable": true,
+            "type": "string"
+          },
+          "takenAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sortAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageSources"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagSummary"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "exif": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GalleryExif"
+              }
+            ]
+          },
+          "locationStripped": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "sourceName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "uploader": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "albums": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "name"],
+              "additionalProperties": false
+            }
+          },
+          "duplicates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "title"],
+              "additionalProperties": false
+            }
+          },
+          "original": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "height": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "expiresAt": {
+                "type": "string"
+              }
+            },
+            "required": ["url", "width", "height", "expiresAt"],
+            "additionalProperties": false
+          },
+          "download": {
+            "type": "object",
+            "properties": {
+              "original": {
+                "type": "string"
+              },
+              "large": {
+                "type": "string"
+              }
+            },
+            "required": ["original", "large"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "contentType",
+          "size",
+          "width",
+          "height",
+          "displayRotation",
+          "dominantColor",
+          "placeholder",
+          "takenAt",
+          "sortAt",
+          "createdAt",
+          "image",
+          "tags",
+          "version",
+          "exif",
+          "locationStripped",
+          "source",
+          "sourceName",
+          "uploader",
+          "albums",
+          "duplicates",
+          "original",
+          "download"
+        ],
+        "additionalProperties": false
+      },
+      "GalleryNeighbors": {
+        "type": "object",
+        "properties": {
+          "previousId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "nextId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["previousId", "nextId"],
+        "additionalProperties": false
+      },
+      "GalleryTimeline": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": "string"
+          },
+          "months": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "month": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["month", "count"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["timeZone", "months"],
+        "additionalProperties": false
+      },
+      "CreateGalleryUploadRequest": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 100000
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 100000
+          },
+          "albumId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["fileName", "contentType", "size"],
+        "additionalProperties": false
+      },
+      "GalleryUploadTarget": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["PUT"]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "method", "headers", "expiresAt"],
+        "additionalProperties": false
+      },
+      "GalleryUploadItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "processing", "ready", "failed"]
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string",
+            "enum": ["notImage", "typeNotAllowed", "tooLarge", "missing"]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "title", "status", "failureReason", "createdAt"],
+        "additionalProperties": false
+      },
+      "GalleryUpload": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/GalleryUploadItem"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/GalleryUploadTarget"
+          }
+        },
+        "required": ["item", "upload"],
+        "additionalProperties": false
+      },
+      "GalleryUploadStatus": {
+        "type": "object",
+        "properties": {
+          "processing": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryUploadItem"
+            }
+          }
+        },
+        "required": ["processing", "failed"],
+        "additionalProperties": false
+      },
+      "CreateGalleryFromSourceRequest": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "^[a-z][A-Za-z0-9]*$"
+          },
+          "refIds": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "albumId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["source", "refIds"],
+        "additionalProperties": false
+      },
+      "GalleryFromSourceResult": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "refId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["added", "skipped"]
+                },
+                "itemId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "reason": {
+                  "nullable": true,
+                  "type": "string",
+                  "enum": ["typeNotAllowed", "tooLarge", "alreadyAdded", "notFound"]
+                },
+                "existingItemId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": ["refId", "status", "itemId", "reason", "existingItemId", "name"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["results"],
+        "additionalProperties": false
+      },
+      "UpdateGalleryItemRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "nullable": true,
+            "type": "string",
+            "maxLength": 1000
+          },
+          "displayRotation": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [0]
+              },
+              {
+                "type": "number",
+                "enum": [90]
+              },
+              {
+                "type": "number",
+                "enum": [180]
+              },
+              {
+                "type": "number",
+                "enum": [270]
+              }
+            ]
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
       "CreateGroupRequest": {
         "type": "object",
         "properties": {
@@ -19632,6 +21117,8 @@
           "dataTransfer.export",
           "file.imageVariants",
           "file.maintenance",
+          "gallery.maintenance",
+          "gallery.process",
           "image.maintenance",
           "image.process",
           "mfa.cleanup",
@@ -19668,6 +21155,8 @@
           "dataTransfer.export",
           "file.imageVariants",
           "file.maintenance",
+          "gallery.maintenance",
+          "gallery.process",
           "image.maintenance",
           "image.process",
           "jobs.outboxSweep",
@@ -21170,7 +22659,16 @@
           },
           "category": {
             "type": "string",
-            "enum": ["general", "auth", "file", "trash", "revision", "notification", "dataTransfer"]
+            "enum": [
+              "general",
+              "auth",
+              "file",
+              "trash",
+              "revision",
+              "notification",
+              "dataTransfer",
+              "gallery"
+            ]
           },
           "type": {
             "type": "string",

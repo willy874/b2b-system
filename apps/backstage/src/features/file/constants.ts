@@ -152,3 +152,9 @@ export const FILE_FOLDER_KIND_ICON = {
 
 /** `subject_type = everyone` 的 `subject_id`（後端 `EVERYONE_SUBJECT_ID`）。 */
 export const EVERYONE_SUBJECT_ID = '00000000-0000-0000-0000-000000000000';
+
+/**
+ * 檔案管理在後端登記的圖片來源 id（api 的 `modules/file` 登記、`ImageSourceRegistry`）：選圖的來源（`imageSource/register.ts`）
+ * 與交給檔案動作的 `sourceId`（`core/file` 的 `registerFileAction`）共用，其他 feature 不寫死它。
+ */
+export const FILE_IMAGE_SOURCE_ID = 'file';

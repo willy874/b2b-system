@@ -22,6 +22,9 @@ export const TENANT_FEATURE_IMPACT_KEYS = [
   // approvalChain（docs/architecture/backend/20-approval.md §9.11）
   'approvalFlows',
   'approvalRequestsInChain',
+  // gallery（docs/architecture/backend/26-gallery.md §11）
+  'galleryItems',
+  'galleryAlbums',
 ] as const;
 
 export type TenantFeatureImpactKey = (typeof TENANT_FEATURE_IMPACT_KEYS)[number];

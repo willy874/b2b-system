@@ -439,6 +439,7 @@ describe('PlatformTenantService.update 的 featureParams（docs/architecture/05-
       'dataTransfer.importMaxRows',
       'dataTransfer.importMaxSizeMb',
       'dataTransfer.exportMaxRows',
+      'gallery.maxItemSizeMb',
       'rateLimit.authPerMinute',
       'rateLimit.trustedCidrs',
     ]);

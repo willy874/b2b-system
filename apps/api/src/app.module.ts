@@ -45,6 +45,7 @@ import { PasswordHasherModule } from './modules/credential/password-hasher';
 import { DataTransferModule } from './modules/data-transfer/data-transfer.module';
 import { FeatureFlagModule } from './modules/feature-flag/feature-flag.module';
 import { FileModule } from './modules/file/file.module';
+import { GalleryModule } from './modules/gallery/gallery.module';
 import { GroupModule } from './modules/group/group.module';
 import { HealthModule } from './modules/health/health.module';
 import { ImageAssetModule } from './modules/image/image.module';
@@ -162,6 +163,8 @@ const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
     // 圖片資產（頭像等）；用途與來源由擁有者模組登記（docs/architecture/backend/25-image.md §15）
     ImageAssetModule,
     CommentModule,
+    // 圖片庫；與檔案管理平行、互不認識（docs/architecture/backend/26-gallery.md D0）
+    GalleryModule,
     AnnouncementModule,
     AuthzExplainModule,
     SystemModule,

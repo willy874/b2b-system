@@ -104,7 +104,12 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
   },
   // 標籤的定義：進得了任一標籤組的人（docs/architecture/backend/18-tag.md §7.2 D10）
   [ChangeSource.TAG]: {
-    perms: () => [PERMISSION.FILE_ACCESS, PERMISSION.FILE_READ, PERMISSION.USER_READ],
+    perms: () => [
+      PERMISSION.FILE_ACCESS,
+      PERMISSION.FILE_READ,
+      PERMISSION.USER_READ,
+      PERMISSION.GALLERY_READ,
+    ],
     includesSubject: false,
   },
   // 公告與發送紀錄（docs/architecture/backend/19-announcement.md §9）；背景發送的狀態變化不寫稽核，但人的操作會寫，維持預設
@@ -122,6 +127,9 @@ const AUDIENCE: Record<ChangeSource, AudienceRule> = {
     includesSubject: false,
     recordsAudit: false,
   },
+  // 圖片庫的圖片與相簿（docs/architecture/backend/26-gallery.md §11）：整個圖片庫對 `gallery:read` 的人可見（D4）
+  [ChangeSource.GALLERY_ITEM]: { perms: () => [PERMISSION.GALLERY_READ], includesSubject: false },
+  [ChangeSource.GALLERY_ALBUM]: { perms: () => [PERMISSION.GALLERY_READ], includesSubject: false },
   // 只推給本人（呼叫端以 `affectedUserIds` 帶入；id 是資源 id）；關注不寫稽核
   [ChangeSource.WATCH]: { perms: () => [], includesSubject: false, recordsAudit: false },
   // 事件管理頁（與系統設定同一群讀者，docs/architecture/backend/16-notification-event.md §9.2 D10）

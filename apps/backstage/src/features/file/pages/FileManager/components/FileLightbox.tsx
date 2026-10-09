@@ -17,6 +17,7 @@ import { resolveFilePreviewer } from '@/core/file';
 import { FILE_KIND_LABEL_KEY } from '../../../constants';
 import { toFileItemVM } from '../adapter';
 import type { FileItemVM } from '../adapter';
+import { FileActionButtons } from './FileActionButtons';
 import { PreviewBoundary } from './PreviewBoundary';
 
 interface FileLightboxProps {
@@ -172,6 +173,8 @@ export function FileLightbox({
                 {t('common.delete')}
               </Button>
             )}
+            {/* 其他 feature 登記的檔案動作（core/file 的 registerFileAction）；沒有登記時不渲染 */}
+            {file && !deleted && <FileActionButtons placement="lightbox" files={[file]} />}
             {file?.downloadUrl && !deleted && (
               <a
                 href={file.downloadUrl}

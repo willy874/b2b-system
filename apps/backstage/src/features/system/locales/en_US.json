@@ -8,7 +8,8 @@
       "trash": "Trash",
       "revision": "Version history",
       "notification": "Notifications",
-      "dataTransfer": "Import / export"
+      "dataTransfer": "Import / export",
+      "gallery": "Gallery"
     },
     "field": {
       "defaultTimezone": {
@@ -82,6 +83,10 @@
       "dataTransferRetentionDays": {
         "label": "Keep exports and import results for",
         "description": "How long exported files and per-row import results are kept after completion (1–30 days). Summaries are kept for 90 days."
+      },
+      "galleryStripOriginalLocation": {
+        "label": "Remove location from originals",
+        "description": "Strip GPS location from the original of every photo uploaded to the gallery (no re-encoding, same quality). Assets are often downloaded and shared, so keep this on unless you need the location. Applies to new uploads only; thumbnails never contain location."
       }
     },
     "unit": {

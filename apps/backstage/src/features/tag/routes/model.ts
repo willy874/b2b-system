@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { TagScope } from '@/apis/tag/types';
 
-export const TAG_SCOPES = ['file', 'user'] as const satisfies readonly TagScope[];
+export const TAG_SCOPES = ['file', 'user', 'gallery'] as const satisfies readonly TagScope[];
 
 /** `.catch()`：手改網址成不認得的標籤組時退回第一個。 */
 export const TagSearchQuerySchema = z.object({

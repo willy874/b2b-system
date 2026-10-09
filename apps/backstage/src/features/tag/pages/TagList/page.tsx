@@ -27,7 +27,7 @@ import { TagFormDialog } from './components/TagFormDialog';
 import { TagTable } from './components/TagTable';
 
 /**
- * 標籤管理（docs/architecture/backend/18-tag.md §7.2 D1、D5）：每個標籤組一個分頁。檔案組跟著 feature `file`，沒啟用時不出現。
+ * 標籤管理（docs/architecture/backend/18-tag.md §7.2 D1、D5）：每個標籤組一個分頁。檔案組跟著 feature `file`、圖片庫組跟著 `gallery`，沒啟用時不出現。
  * 貼與移除在各資源的頁面上做（檔案管理器、使用者），這裡只管定義。
  */
 export default function TagListPage() {
@@ -36,9 +36,13 @@ export default function TagListPage() {
   const { scope: requested } = TagListRoute.useSearch();
   const permission = useTagPermission();
   const fileReady = useIsFeatureReady(TenantFeature.file);
-  const scopes = TAG_SCOPES.filter(
-    (scope) => TAG_SCOPE_FEATURE[scope] !== TenantFeature.file || fileReady,
-  );
+  const galleryReady = useIsFeatureReady(TenantFeature.gallery);
+  const scopes = TAG_SCOPES.filter((scope) => {
+    const feature = TAG_SCOPE_FEATURE[scope];
+    if (feature === TenantFeature.file) return fileReady;
+    if (feature === TenantFeature.gallery) return galleryReady;
+    return true;
+  });
   const scope: TagScope = scopes.includes(requested) ? requested : (scopes[0] ?? 'user');
 
   const queryClient = useQueryClient();

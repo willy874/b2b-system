@@ -158,6 +158,20 @@ export const DATA_TRANSFER_EXPORT_MAX_ROWS_PARAM = {
 } as const satisfies TenantIntegerParam;
 
 /**
+ * 圖片庫的單檔上限（MB；docs/architecture/backend/26-gallery.md §4）：單次 PUT、不分塊，照片很少超過。
+ * 由平台控制（決定 worker 解碼時的記憶體），不讓租戶自己調高。
+ */
+export const GALLERY_MAX_ITEM_SIZE_MB_PARAM = {
+  key: 'gallery.maxItemSizeMb',
+  feature: 'gallery',
+  type: 'integer',
+  defaultValue: 50,
+  min: 1,
+  max: 200,
+  unit: 'megabytes',
+} as const satisfies TenantIntegerParam;
+
+/**
  * 這個租戶的登入類請求（`@RateLimit('auth')`）每分鐘合計的上限（docs/architecture/backend/03-api-conventions.md §8）：
  * 一個租戶被攻擊時，攻擊流量（與它消耗的 argon2）不拖垮其他租戶的登入。沒覆寫時用環境變數 `AUTH_TENANT_RATE_LIMIT`。
  */
@@ -198,6 +212,7 @@ export const TENANT_FEATURE_PARAMS = [
   DATA_TRANSFER_IMPORT_MAX_ROWS_PARAM,
   DATA_TRANSFER_IMPORT_MAX_SIZE_MB_PARAM,
   DATA_TRANSFER_EXPORT_MAX_ROWS_PARAM,
+  GALLERY_MAX_ITEM_SIZE_MB_PARAM,
   // 不屬於 feature 的租戶限制（feature: null）
   RATE_LIMIT_AUTH_PER_MINUTE_PARAM,
   RATE_LIMIT_TRUSTED_CIDRS_PARAM,

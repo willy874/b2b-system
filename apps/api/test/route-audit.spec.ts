@@ -37,6 +37,8 @@ function internalFeaturesOf(method: string, path: string): string[] | undefined 
     return restore ? ['trash', 'announcement'] : ['announcement'];
   if (/^\/me\/announcement-messages(\/|$)/.test(path)) return ['announcement'];
   if (/^\/groups(\/|$)/.test(path)) return restore ? ['trash', 'group'] : ['group'];
+  // 圖片庫（docs/architecture/backend/26-gallery.md）
+  if (/^\/gallery(\/|$)/.test(path)) return restore ? ['trash', 'gallery'] : ['gallery'];
   // 組織管理（docs/architecture/backend/23-organization.md）：部門與使用者詳情的「所屬部門」
   if (/^\/org-units(\/|$)/.test(path) || path === '/users/:id/org-units') {
     return restore ? ['trash', 'organization'] : ['organization'];
@@ -391,7 +393,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PUT /watches/:resourceType/:resourceId': 'authenticated',
       'DELETE /watches/:resourceType/:resourceId': 'authenticated',
       'GET /trash':
-        'user:delete|role:delete|group:delete|file:delete|announcement:delete|orgUnit:delete',
+        'user:delete|role:delete|group:delete|file:delete|announcement:delete|orgUnit:delete|gallery:delete',
       'GET /roles': 'role:read',
       'POST /roles': 'role:create',
       'GET /roles/:id': 'role:read',
@@ -411,6 +413,26 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /groups/:id/members': 'group:update',
       'GET /groups/:id/roles': 'group:read+role:read',
       'PATCH /groups/:id/roles': 'group:assignRole',
+      'GET /gallery/items': 'gallery:read',
+      'GET /gallery/items/timeline': 'gallery:read',
+      'GET /gallery/items/uploads': 'gallery:create',
+      'DELETE /gallery/items/uploads/failed': 'gallery:create',
+      'POST /gallery/items': 'gallery:create',
+      'POST /gallery/items/from-source': 'gallery:create',
+      'POST /gallery/items/:id/complete': 'gallery:create',
+      'GET /gallery/items/:id': 'gallery:read',
+      'GET /gallery/items/:id/neighbors': 'gallery:read',
+      'PATCH /gallery/items/:id': 'gallery:update',
+      'DELETE /gallery/items/:id': 'gallery:delete',
+      'POST /gallery/items/:id/restore': 'gallery:delete',
+      'GET /gallery/albums': 'gallery:read',
+      'POST /gallery/albums': 'gallery:create',
+      'GET /gallery/albums/:id': 'gallery:read',
+      'PATCH /gallery/albums/:id': 'gallery:update',
+      'DELETE /gallery/albums/:id': 'gallery:delete',
+      'POST /gallery/albums/:id/restore': 'gallery:delete',
+      'POST /gallery/albums/:id/items': 'gallery:update',
+      'POST /gallery/albums/:id/items/remove': 'gallery:update',
       'GET /org-units': 'orgUnit:read',
       'POST /org-units': 'orgUnit:create',
       'GET /org-units/:id': 'orgUnit:read',

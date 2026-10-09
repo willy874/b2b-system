@@ -11,6 +11,7 @@ export const SETTING_CATEGORIES: readonly SettingCategory[] = [
   'revision',
   'notification',
   'dataTransfer',
+  'gallery',
 ];
 
 export const SETTING_CATEGORY_LABEL_KEY = {
@@ -21,6 +22,7 @@ export const SETTING_CATEGORY_LABEL_KEY = {
   revision: 'setting.category.revision',
   notification: 'setting.category.notification',
   dataTransfer: 'setting.category.dataTransfer',
+  gallery: 'setting.category.gallery',
 } as const satisfies Record<SettingCategory, string>;
 
 const MIB = 1024 * 1024;
@@ -114,6 +116,10 @@ export const SETTING_FIELD: Readonly<Partial<Record<string, SettingFieldConfig>>
     labelKey: 'setting.field.dataTransferRetentionDays.label',
     descriptionKey: 'setting.field.dataTransferRetentionDays.description',
     unit: UNIT.days,
+  },
+  'gallery.stripOriginalLocation': {
+    labelKey: 'setting.field.galleryStripOriginalLocation.label',
+    descriptionKey: 'setting.field.galleryStripOriginalLocation.description',
   },
   'revision.keepVersions': {
     labelKey: 'setting.field.keepVersions.label',

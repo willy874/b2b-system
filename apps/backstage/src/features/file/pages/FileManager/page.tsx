@@ -104,6 +104,7 @@ export default function FileManagerPage() {
         <FileSelectionBar
           count={selectedItems.length}
           total={items.length}
+          files={selectedItems.filter(isFileItem)}
           canDownload={selectedItems.some(isFileItem)}
           canDelete={selected.canDelete}
           canRename={selected.canRename}

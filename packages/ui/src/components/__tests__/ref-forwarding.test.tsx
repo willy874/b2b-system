@@ -10,10 +10,12 @@ import { Chip } from '../Chip';
 import { BoxEllipsis, ButtonEllipsis, TextEllipsis } from '../Ellipsis';
 import { Empty } from '../Empty';
 import { Field } from '../Field';
+import { ImageViewer } from '../ImageViewer';
 import { Input, Textarea } from '../Input';
 import { JsonDiff } from '../JsonDiff';
 import { JsonEditor } from '../JsonEditor';
 import { JsonViewer } from '../JsonViewer';
+import { JustifiedGrid } from '../JustifiedGrid';
 import { Link } from '../Link';
 import { Pagination } from '../Pagination';
 import { Progress } from '../Progress';
@@ -100,6 +102,24 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
         items={['x']}
         getKey={String}
         renderItem={String}
+      />
+    ),
+  ],
+  [
+    'JustifiedGrid',
+    (ref) => (
+      <JustifiedGrid ref={ref as RefObject<HTMLDivElement>} sections={[]} renderItem={() => null} />
+    ),
+  ],
+  [
+    'ImageViewer',
+    (ref) => (
+      <ImageViewer
+        ref={ref as RefObject<HTMLDivElement>}
+        levels={[{ src: '/a.png', width: 10, height: 10 }]}
+        width={10}
+        height={10}
+        alt="x"
       />
     ),
   ],

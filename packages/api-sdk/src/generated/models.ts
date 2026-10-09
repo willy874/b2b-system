@@ -168,6 +168,8 @@ export const TrashResourceType = {
   fileFolder: 'fileFolder',
   announcement: 'announcement',
   orgUnit: 'orgUnit',
+  galleryItem: 'galleryItem',
+  galleryAlbum: 'galleryAlbum',
 } as const;
 export type TrashResourceType = (typeof TrashResourceType)[keyof typeof TrashResourceType];
 
@@ -406,6 +408,10 @@ export const PermissionKey = {
   'orgUnit:export': 'orgUnit:export',
   'approvalFlow:read': 'approvalFlow:read',
   'approvalFlow:update': 'approvalFlow:update',
+  'gallery:create': 'gallery:create',
+  'gallery:read': 'gallery:read',
+  'gallery:update': 'gallery:update',
+  'gallery:delete': 'gallery:delete',
   'comment:delete': 'comment:delete',
 } as const;
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
@@ -1834,6 +1840,7 @@ export const TenantFeature = {
   dataTransfer: 'dataTransfer',
   organization: 'organization',
   approvalChain: 'approvalChain',
+  gallery: 'gallery',
 } as const;
 export type TenantFeature = (typeof TenantFeature)[keyof typeof TenantFeature];
 
@@ -1851,6 +1858,7 @@ export const TenantFeatureParamKey = {
   'dataTransfer.importMaxRows': 'dataTransfer.importMaxRows',
   'dataTransfer.importMaxSizeMb': 'dataTransfer.importMaxSizeMb',
   'dataTransfer.exportMaxRows': 'dataTransfer.exportMaxRows',
+  'gallery.maxItemSizeMb': 'gallery.maxItemSizeMb',
   'rateLimit.authPerMinute': 'rateLimit.authPerMinute',
   'rateLimit.trustedCidrs': 'rateLimit.trustedCidrs',
 } as const;
@@ -1951,7 +1959,9 @@ export interface TenantFeatureImpact {
       | 'orgUnitMembers'
       | 'approvalFlowsUsingOrg'
       | 'approvalFlows'
-      | 'approvalRequestsInChain';
+      | 'approvalRequestsInChain'
+      | 'galleryItems'
+      | 'galleryAlbums';
     count: number;
   }>;
 }
@@ -2442,6 +2452,197 @@ export interface UpdateFileRequest {
   version: number;
 }
 
+export interface GalleryAlbum {
+  id: string;
+  name: string;
+  description: string | null;
+  itemCount: number;
+  coverItemId: string | null;
+  cover: ImageSources | null;
+  coverColor: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GalleryAlbumList {
+  items: Array<GalleryAlbum>;
+}
+
+export interface CreateGalleryAlbumRequest {
+  name: string;
+  description?: string | null;
+}
+
+export interface UpdateGalleryAlbumRequest {
+  version: number;
+  name?: string;
+  description?: string | null;
+  coverItemId?: string | null;
+}
+
+export interface GalleryAlbumItemsRequest {
+  itemIds: Array<string>;
+}
+
+export interface GalleryAlbumItemsResult {
+  changed: number;
+}
+
+export interface GalleryItem {
+  id: string;
+  title: string;
+  description: string | null;
+  contentType: string;
+  size: number;
+  width: number;
+  height: number;
+  displayRotation: 0 | 90 | 180 | 270;
+  dominantColor: string | null;
+  placeholder: string | null;
+  takenAt: string | null;
+  sortAt: string;
+  createdAt: string;
+  image: ImageSources;
+  tags: Array<TagSummary>;
+  version: number;
+}
+
+export interface GalleryItemList {
+  items: Array<GalleryItem>;
+  nextCursor: string | null;
+}
+
+export interface GalleryExif {
+  make?: string;
+  model?: string;
+  lensMake?: string;
+  lensModel?: string;
+  focalLength?: number;
+  focalLength35mm?: number;
+  fNumber?: number;
+  exposureTime?: number;
+  iso?: number;
+  flashFired?: boolean;
+}
+
+export interface GalleryItemDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  contentType: string;
+  size: number;
+  width: number;
+  height: number;
+  displayRotation: 0 | 90 | 180 | 270;
+  dominantColor: string | null;
+  placeholder: string | null;
+  takenAt: string | null;
+  sortAt: string;
+  createdAt: string;
+  image: ImageSources;
+  tags: Array<TagSummary>;
+  version: number;
+  exif: GalleryExif | null;
+  locationStripped: boolean;
+  source: string;
+  sourceName: string | null;
+  uploader: {
+    id: string;
+    name: string;
+  } | null;
+  albums: Array<{
+    id: string;
+    name: string;
+  }>;
+  duplicates: Array<{
+    id: string;
+    title: string;
+  }>;
+  original: {
+    url: string;
+    width: number;
+    height: number;
+    expiresAt: string;
+  } | null;
+  download: {
+    original: string;
+    large: string;
+  };
+}
+
+export interface GalleryNeighbors {
+  previousId: string | null;
+  nextId: string | null;
+}
+
+export interface GalleryTimeline {
+  timeZone: string;
+  months: Array<{
+    month: string;
+    count: number;
+  }>;
+}
+
+export interface CreateGalleryUploadRequest {
+  fileName: string;
+  title?: string;
+  contentType: string;
+  size: number;
+  width?: number;
+  height?: number;
+  albumId?: string;
+}
+
+export interface GalleryUploadTarget {
+  url: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface GalleryUploadItem {
+  id: string;
+  title: string;
+  status: 'pending' | 'processing' | 'ready' | 'failed';
+  failureReason: ('notImage' | 'typeNotAllowed' | 'tooLarge' | 'missing') | null;
+  createdAt: string;
+}
+
+export interface GalleryUpload {
+  item: GalleryUploadItem;
+  upload: GalleryUploadTarget;
+}
+
+export interface GalleryUploadStatus {
+  processing: number;
+  failed: Array<GalleryUploadItem>;
+}
+
+export interface CreateGalleryFromSourceRequest {
+  source: string;
+  refIds: Array<string>;
+  albumId?: string;
+}
+
+export interface GalleryFromSourceResult {
+  results: Array<{
+    refId: string;
+    status: 'added' | 'skipped';
+    itemId: string | null;
+    reason: ('typeNotAllowed' | 'tooLarge' | 'alreadyAdded' | 'notFound') | null;
+    existingItemId: string | null;
+    name: string | null;
+  }>;
+}
+
+export interface UpdateGalleryItemRequest {
+  version: number;
+  title?: string;
+  description?: string | null;
+  displayRotation?: 0 | 90 | 180 | 270;
+}
+
 export interface CreateGroupRequest {
   name: string;
   description?: string;
@@ -2526,6 +2727,8 @@ export const TenantJobName = {
   'dataTransfer.export': 'dataTransfer.export',
   'file.imageVariants': 'file.imageVariants',
   'file.maintenance': 'file.maintenance',
+  'gallery.maintenance': 'gallery.maintenance',
+  'gallery.process': 'gallery.process',
   'image.maintenance': 'image.maintenance',
   'image.process': 'image.process',
   'mfa.cleanup': 'mfa.cleanup',
@@ -2561,6 +2764,8 @@ export const JobName = {
   'dataTransfer.export': 'dataTransfer.export',
   'file.imageVariants': 'file.imageVariants',
   'file.maintenance': 'file.maintenance',
+  'gallery.maintenance': 'gallery.maintenance',
+  'gallery.process': 'gallery.process',
   'image.maintenance': 'image.maintenance',
   'image.process': 'image.process',
   'jobs.outboxSweep': 'jobs.outboxSweep',
@@ -2964,7 +3169,15 @@ export interface ServiceAccountRoles {
 
 export interface SystemSetting {
   key: string;
-  category: 'general' | 'auth' | 'file' | 'trash' | 'revision' | 'notification' | 'dataTransfer';
+  category:
+    | 'general'
+    | 'auth'
+    | 'file'
+    | 'trash'
+    | 'revision'
+    | 'notification'
+    | 'dataTransfer'
+    | 'gallery';
   type: 'string' | 'number' | 'boolean';
   value: string | number | boolean;
   defaultValue: string | number | boolean;

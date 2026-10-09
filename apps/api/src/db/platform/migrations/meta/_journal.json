@@ -199,9 +199,16 @@
       "breakpoints": true
     },
     {
+      "idx": 28,
+      "version": "7",
+      "when": 1791540401113,
+      "tag": "0028_gallery_feature",
+      "breakpoints": true
+    },
+    {
       "idx": 29,
       "version": "7",
-      "when": 1791543399223,
+      "when": 1791547696416,
       "tag": "0029_cdn_settings",
       "breakpoints": true
     }

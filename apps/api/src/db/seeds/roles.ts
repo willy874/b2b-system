@@ -95,6 +95,10 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'approvalFlow:read',
       'approvalFlow:update',
       'comment:delete',
+      'gallery:create',
+      'gallery:read',
+      'gallery:update',
+      'gallery:delete',
     ],
   },
   {
@@ -122,6 +126,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
       'mfaPolicy:read',
       'orgUnit:read',
       'approvalFlow:read',
+      'gallery:read',
     ],
   },
   {
@@ -130,6 +135,7 @@ export const ROLE_SEED: readonly RoleSeed[] = [
     description: '個人頁面，以及被授權的資料夾。未來功能的權限掛載點。',
     isSystem: true,
     // 進得了檔案管理器；範圍由資料夾授權決定（docs/architecture/iam/06-resource-grants.md）
-    permissions: ['file:access'],
+    // 圖片庫是租戶共用的素材庫：人人能看，少數人維護（docs/architecture/backend/26-gallery.md D3）
+    permissions: ['file:access', 'gallery:read'],
   },
 ] as const;

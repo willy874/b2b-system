@@ -115,6 +115,9 @@
 ## 7. 樣式
 
 - 不寫十六進位色碼、`rgb()`；用 token 或 UnoCSS 對應的 token class（`packages/ui` 元件的 CSS 有 🔒 測試，其餘 👀）。
+  **例外：資料裡的顏色**。每筆資料不同、來自 api 的顏色（例：圖片的主色 `dominantColor: '#rrggbb'`，載入前的背景）不是樣式，
+  以 inline style 套用（`style={{ backgroundColor: item.dominantColor }}`），並在那一行註明它是資料；樣式表與 className 裡照樣不寫色碼
+  （[`architecture/backend/26-gallery.md`](../architecture/backend/26-gallery.md) D11）。
 - 尺寸、間距用 token；不寫魔術數字。
 - 陰影與遮罩也是顏色：用 `--shadow-tooltip` / `--shadow-popover` / `--shadow-toast` / `--shadow-dialog` / `--color-backdrop`，
   不寫 `box-shadow: … rgb(…)`（`packages/ui` 元件的 CSS 有 🔒 測試擋 `rgb()` / `hsl()`）。

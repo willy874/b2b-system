@@ -1,6 +1,6 @@
 {
-  "id": "783f85d0-b6e7-4ae9-932b-17139aca08e2",
-  "prevId": "f80eab4d-5863-4d18-919f-af7a0dd2faa5",
+  "id": "764edfd6-ccfc-415b-91a2-534a1bb0119e",
+  "prevId": "4e35fd80-0a4d-4f4f-a5c7-f5cf030b5b69",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1976,7 +1976,7 @@
           "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": "'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group,dataTransfer,organization,approvalChain}'::text[]"
+          "default": "'{file,auditLog,job,trash,systemSetting,identityProvider,tenantSwitch,webhook,announcement,externalApi,group,dataTransfer,organization,approvalChain,gallery}'::text[]"
         },
         "flags": {
           "name": "flags",

@@ -1,6 +1,8 @@
 import { createRegistry } from '@b2b-system/web-shared/registry';
 import type { ComponentType } from 'react';
 
+import { resetFileActions } from './actions';
+
 /**
  * 檔案管理的擴充點（docs/architecture/frontend/12-file-manager.md §6）。
  * feature 在 plugin 的 **同步** 階段註冊；檔案管理器只依註冊表運作，不認識個別的格式。
@@ -10,6 +12,7 @@ import type { ComponentType } from 'react';
  * | 預覽解析器 `FilePreviewer` | LightBox 裡顯示檔案內容 | 圖片、純文字（`features/file`） |
  * | 檔案驗證器 `FileValidator` | 送進上傳佇列前檢查 | 大小上限、圖片檔頭（`features/file`） |
  * | 縮圖產生器 `ThumbnailGenerator` | 上傳時產生列表用的縮圖 | 瀏覽器能解碼的圖片（本資料夾） |
+ * | 檔案動作 `FileActionDefinition` | 選取列、LightBox 上其他 feature 提供的動作（`actions.ts`；可訂閱） | 無 |
  */
 
 /** 預覽需要的檔案資訊（`StoredFile` 的子集：解析器不必認識 API 的完整形狀）。 */
@@ -157,4 +160,5 @@ export function resetFileRegistry(): void {
   previewers.reset();
   validators.reset();
   thumbnailGenerators.reset();
+  resetFileActions();
 }

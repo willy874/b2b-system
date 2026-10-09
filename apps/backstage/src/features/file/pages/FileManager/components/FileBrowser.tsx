@@ -9,9 +9,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DragEvent, ReactNode } from 'react';
 
 import type { FileSortField } from '@/apis/file/types';
+import type { CollectedUpload } from '@/core/upload';
 
 import type { FileViewMode } from '../../../preference';
-import type { CollectedUpload } from '../../../upload/collectEntries';
 import type { BrowserItemVM, BrowserSlot } from '../adapter';
 import { computeFileLayout, itemRect, rowsTouchRange, withPlaceholders } from '../layout';
 import { useBrowserKeyboard } from '../useBrowserKeyboard';

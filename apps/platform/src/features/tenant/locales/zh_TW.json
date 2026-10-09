@@ -118,7 +118,11 @@
         "orgUnitMembers_other": "{{count}} 位使用者屬於部門",
         "approvalFlowsUsingOrg_other": "{{count}} 個審批流程以主管為審核者",
         "approvalFlows_other": "{{count}} 個啟用中的審批流程",
-        "approvalRequestsInChain_other": "{{count}} 筆進行中的多關申請"
+        "approvalRequestsInChain_other": "{{count}} 筆進行中的多關申請",
+        "galleryItems_one": "{{count}} 張圖片",
+        "galleryItems_other": "{{count}} 張圖片",
+        "galleryAlbums_one": "{{count}} 個相簿",
+        "galleryAlbums_other": "{{count}} 個相簿"
       },
       "disableAction": "關閉",
       "announcement": "公告",
@@ -138,7 +142,10 @@
       "organizationDisableWarning": "{{code}} 的審批流程裡以「主管」「部門主管」為審核者的關卡會找不到人，改由持有「強制定案審批」權限的人處理。",
       "approvalChain": "多階段審批",
       "approvalChainDescription": "為審批類型設定依序多關、會簽、條件分流的流程。審批本身（單關）不受影響。",
-      "approvalChainDisableWarning": "{{code}} 的新申請一律改為單關；進行中的多關申請改由持有「審核申請」權限的人一次定案。流程設定保留，重新打開後未定案的申請從原本的關卡繼續。"
+      "approvalChainDisableWarning": "{{code}} 的新申請一律改為單關；進行中的多關申請改由持有「審核申請」權限的人一次定案。流程設定保留，重新打開後未定案的申請從原本的關卡繼續。",
+      "gallery": "圖片庫",
+      "galleryDescription": "集中存放品牌素材、產品照與活動照片，以看圖為主：等高排列、時間軸、檢視器、相簿與標籤；選圖時多一個「圖片庫」分頁，檔案管理器可以把圖片加入圖片庫。關掉後後台沒有圖片庫頁；圖片與相簿保留，重新打開後一致。",
+      "galleryDisableWarning": "{{code}} 的檔案管理器不再出現「加入圖片庫」，選圖時也沒有「圖片庫」分頁；已經用在頭像等地方的圖不受影響。"
     },
     "flag": {
       "title": "試行開關",
@@ -210,6 +217,10 @@
         "importMaxSizeMbDescription": "上傳給伺服器分析的檔案大小上限；送出套用的資料最多是它的兩倍。",
         "exportMaxRows": "匯出的列數上限",
         "exportMaxRowsDescription": "一次匯出最多的列數；超過時請使用者縮小篩選範圍。"
+      },
+      "gallery": {
+        "maxItemSizeMb": "單張圖片的大小上限",
+        "maxItemSizeMbDescription": "圖片庫一次上傳一張的上限；照片很少超過 50 MB，調高會讓處理時用到更多記憶體。"
       }
     },
     "tab": {

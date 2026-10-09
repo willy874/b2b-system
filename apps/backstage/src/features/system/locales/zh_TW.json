@@ -8,7 +8,8 @@
       "trash": "回收桶",
       "revision": "版本紀錄",
       "notification": "通知",
-      "dataTransfer": "匯入／匯出"
+      "dataTransfer": "匯入／匯出",
+      "gallery": "圖片庫"
     },
     "field": {
       "defaultTimezone": {
@@ -82,6 +83,10 @@
       "dataTransferRetentionDays": {
         "label": "匯出檔與匯入結果的保留天數",
         "description": "匯出的檔案與匯入的逐列結果保留多久（從完成時起算，1～30 天），到期自動清除；傳輸的摘要另外保留 90 天。"
+      },
+      "galleryStripOriginalLocation": {
+        "label": "移除原檔的位置資訊",
+        "description": "上傳到圖片庫的照片，處理時移除原檔裡的 GPS 位置（不重新編碼、畫質不變）。素材常被下載後對外使用，建議開著；需要保留拍攝地點時再關掉。只影響之後的上傳；縮圖等變體一律不含位置資訊。"
       }
     },
     "unit": {

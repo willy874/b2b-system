@@ -105,7 +105,7 @@ describe('RBAC 生命週期（docs/features/roadmap.md M4 驗收）', () => {
     const body = response.body as {
       data: { permissions: string[]; roles: Array<{ slug: string }> };
     };
-    expect(body.data.permissions).toHaveLength(72);
+    expect(body.data.permissions).toHaveLength(76);
     expect(body.data.roles.map((role) => role.slug)).toContain('super-admin');
   });
 

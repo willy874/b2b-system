@@ -1,0 +1,237 @@
+{
+  "gallery": {
+    "title": "圖片庫",
+    "description": "品牌素材、產品照與活動照片：依拍攝時間瀏覽、放大看細節，選圖時也找得到。",
+    "add": {
+      "action": "加入",
+      "upload": "上傳圖片",
+      "directory": "上傳資料夾（只取圖片）",
+      "fromSource": "從其他來源…"
+    },
+    "addFromSource": {
+      "title": "從其他來源加入",
+      "submit_other": "加入 {{count}} 張",
+      "result": "已加入 {{added}} 張、略過 {{skipped}} 張；處理完成後出現在圖片庫。",
+      "reason": {
+        "typeNotAllowed": "不是圖片庫收的格式",
+        "tooLarge": "超過大小上限",
+        "alreadyAdded": "已經在圖片庫裡",
+        "notFound": "看不到、已被刪除，或不是圖片"
+      }
+    },
+    "album": {
+      "label": "相簿",
+      "all": "全部圖片",
+      "none": "不加入相簿",
+      "createNew": "＋ 新增相簿…",
+      "search": "搜尋相簿",
+      "name": "相簿名稱",
+      "namePlaceholder": "新相簿的名稱",
+      "description": "說明",
+      "count_other": "{{count}} 張",
+      "create": {
+        "action": "新增相簿",
+        "title": "新增相簿",
+        "success": "已建立相簿「{{name}}」"
+      },
+      "edit": {
+        "action": "編輯相簿",
+        "title": "編輯相簿"
+      },
+      "update": {
+        "success": "相簿已更新"
+      },
+      "delete": {
+        "action": "刪除相簿",
+        "title": "刪除相簿「{{name}}」？",
+        "description": "相簿會移到回收桶；裡面的圖片不會被刪除。還原時相簿裡的圖片一起回來。",
+        "success": "相簿已移到回收桶"
+      },
+      "add": {
+        "action": "加入相簿",
+        "title_other": "把 {{count}} 張加入相簿",
+        "submit": "加入",
+        "success_other": "已加入 {{count}} 張"
+      },
+      "remove": {
+        "action": "移出相簿",
+        "success_other": "已移出 {{count}} 張"
+      },
+      "setCover": "設為封面",
+      "choose": "選擇相簿"
+    },
+    "batch": {
+      "upload": {
+        "title": "上傳到圖片庫",
+        "success_other": "已上傳 {{count}} 張，處理完成後出現在圖片庫"
+      },
+      "delete": {
+        "title": "刪除圖片",
+        "success_other": "已刪除 {{count}} 張"
+      },
+      "tag": {
+        "title": "貼標籤",
+        "success_other": "已為 {{count}} 張貼上標籤",
+        "action": "貼標籤",
+        "dialogTitle_other": "為 {{count}} 張貼標籤",
+        "submit": "貼上",
+        "empty": "還沒有圖片庫的標籤",
+        "emptyHint": "到「標籤」頁的「圖片庫」分頁建立。"
+      }
+    },
+    "delete": {
+      "title_other": "刪除 {{count}} 張圖片？",
+      "description": "圖片會移到回收桶，保留期限內可以還原。已經用在頭像等地方的複本不受影響。",
+      "success": "圖片已移到回收桶"
+    },
+    "restore": {
+      "action": "還原",
+      "success": "已還原「{{name}}」"
+    },
+    "update": {
+      "success": "已更新"
+    },
+    "rotate": {
+      "success": "已調整方向，新的版本處理中"
+    },
+    "download": {
+      "action": "下載",
+      "original": "下載原檔",
+      "large": "下載大圖（2560 px）",
+      "limited_other": "一次最多下載 {{count}} 張"
+    },
+    "empty": {
+      "title": "圖片庫還是空的",
+      "filtered": "沒有符合條件的圖片",
+      "uploadHint": "把照片拖進來、貼上，或用「加入」上傳。"
+    },
+    "failure": {
+      "notImage": "不是圖片或檔案已損毀",
+      "typeNotAllowed": "不支援的格式",
+      "tooLarge": "超過大小上限",
+      "missing": "沒有上傳完成",
+      "unknown": "處理失敗"
+    },
+    "fileAction": {
+      "add": "加入圖片庫",
+      "title": "加入圖片庫",
+      "description_other": "複製 {{count}} 張到圖片庫；之後刪除或搬移原檔不影響圖片庫的那一份。",
+      "submit_other": "加入 {{count}} 張",
+      "willSkip_other": "另有 {{count}} 個檔案不能加入，會略過",
+      "added_other": "已加入 {{count}} 張",
+      "skipped_other": "略過 {{count}} 個",
+      "skippedRow": "{{name}}：{{reason}}",
+      "processingHint": "處理完成後就會出現在圖片庫。",
+      "open": "前往圖片庫",
+      "notImage": "不是圖片庫收的格式（JPEG、PNG、WebP、GIF、AVIF、TIFF）",
+      "heic": "HEIC 不支援，請在相簿 App 匯出成 JPEG",
+      "tooLarge": "超過 {{max}}"
+    },
+    "filter": {
+      "keyword": "搜尋標題與說明",
+      "tag": "標籤",
+      "from": "拍攝日期（起）",
+      "to": "拍攝日期（迄）",
+      "orientation": "方向",
+      "anyOrientation": "所有方向",
+      "landscape": "橫式",
+      "portrait": "直式",
+      "square": "正方形",
+      "origin": "來源",
+      "anyOrigin": "所有來源",
+      "uploaded": "自行上傳",
+      "added": "從其他來源加入"
+    },
+    "imageSource": {
+      "empty": "沒有可以用的圖片",
+      "emptyHint": "換一個相簿或關鍵字，或改用上傳。",
+      "tooSmall": "{{name}}（圖片太小：至少 {{width}} × {{height}} 像素）",
+      "more": "載入更多"
+    },
+    "info": {
+      "title": "標題",
+      "description": "說明（替代文字）",
+      "descriptionPlaceholder": "加上說明，也會當作替代文字",
+      "takenAt": "拍攝時間",
+      "noTakenAt": "沒有拍攝時間（以加入時間排序）",
+      "camera": "相機",
+      "lens": "鏡頭",
+      "exposure": "曝光",
+      "flash": "閃光燈",
+      "dimensions": "尺寸",
+      "uploader": "上傳者",
+      "createdAt": "加入時間",
+      "source": "來源",
+      "sourceUpload": "自行上傳",
+      "sourceAdded": "從其他來源加入：{{name}}",
+      "albums": "相簿",
+      "tags": "標籤",
+      "location": "位置資訊",
+      "locationStripped": "已從原檔移除",
+      "duplicate": "內容與這些圖片相同：",
+      "albumsSeparator": "、"
+    },
+    "selection": {
+      "hint": "點圖片右上角的圓圈、按住 Shift 連續選取，或在空白處拖曳框選",
+      "count_other": "已選取 {{count}} 張",
+      "selectLoaded_other": "選取已載入的 {{count}} 張",
+      "selectSection": "選取這一段",
+      "toggle": "選取「{{name}}」"
+    },
+    "sort": {
+      "label": "排序",
+      "sortAt": "拍攝時間",
+      "createdAt": "加入時間",
+      "title": "標題",
+      "reverse": "反轉順序"
+    },
+    "timeline": {
+      "label": "依月份跳轉",
+      "count_other": "{{count}} 張",
+      "jumped": "從選擇的月份開始顯示",
+      "backToStart": "回到最前面"
+    },
+    "upload": {
+      "processing_other": "處理中 {{count}} 張",
+      "failed_other": "{{count}} 張處理失敗",
+      "failedRow": "{{name}}：{{reason}}",
+      "clearFailed": "清除失敗的紀錄",
+      "queued_other": "{{count}} 張已加入上傳佇列",
+      "rejected_other": "{{count}} 個檔案不能上傳：{{name}}（{{reason}}）",
+      "heic": "HEIC 不支援，請在相簿 App 匯出成 JPEG 再上傳",
+      "notImage": "不是圖片庫收的格式",
+      "corrupted": "檔案內容與格式不符或已損毀",
+      "dropHint": "放開以上傳到圖片庫"
+    },
+    "view": {
+      "grouping": "分組",
+      "groupDay": "依日",
+      "groupMonth": "依月",
+      "groupNone": "不分組",
+      "justified": "等高排列",
+      "square": "方格",
+      "zoom": "縮放",
+      "zoomIn": "放大",
+      "zoomOut": "縮小"
+    },
+    "viewer": {
+      "title": "圖片",
+      "position": "{{index}} / {{total}}",
+      "previous": "上一張（←）",
+      "next": "下一張（→）",
+      "slideshow": "幻燈片（空白鍵）",
+      "pause": "暫停（空白鍵）",
+      "interval": "每 {{seconds}} 秒",
+      "fullscreen": "全螢幕（F）",
+      "info": "資訊（I）",
+      "rotateLeft": "向左轉",
+      "rotateRight": "向右轉",
+      "zoomIn": "放大",
+      "zoomOut": "縮小",
+      "fit": "符合視窗",
+      "actualSize": "實際大小",
+      "deleted": "圖片已被刪除",
+      "deletedNext": "稍後自動前往下一張"
+    }
+  }
+}

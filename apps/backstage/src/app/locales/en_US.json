@@ -46,7 +46,9 @@
     "tagImport": "Import tags",
     "organization": "Organization",
     "approvalFlow": "Approval flows",
-    "myApproval": "My approvals"
+    "myApproval": "My approvals",
+    "gallery": "Gallery",
+    "galleryAlbum": "Albums"
   },
   "commandPalette": {
     "command": {
@@ -89,7 +91,8 @@
       "mfaPolicy": "MFA policy",
       "orgUnit": "Organization",
       "approvalFlow": "Approval flows",
-      "comment": "Comments"
+      "comment": "Comments",
+      "gallery": "Gallery"
     },
     "user": {
       "create": "Create user",
@@ -202,6 +205,12 @@
     },
     "comment": {
       "delete": "Delete comments"
+    },
+    "gallery": {
+      "create": "Upload images",
+      "read": "View gallery",
+      "update": "Edit gallery",
+      "delete": "Delete images"
     }
   },
   "validation": {
@@ -338,7 +347,8 @@
       "remove": "Remove “{{name}}” from recent"
     },
     "source": {
-      "file": "Files"
+      "file": "Files",
+      "gallery": "Gallery"
     }
   }
 }

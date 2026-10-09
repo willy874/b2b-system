@@ -16,6 +16,8 @@ const PERMISSION_OF: Record<TrashResourceType, PermissionKey> = {
   fileFolder: 'file:delete',
   announcement: 'announcement:delete',
   orgUnit: 'orgUnit:delete',
+  galleryItem: 'gallery:delete',
+  galleryAlbum: 'gallery:delete',
 };
 
 function handler(type: TrashResourceType, purgeOrder = 10): TrashHandler {

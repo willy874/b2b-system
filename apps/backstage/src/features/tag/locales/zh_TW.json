@@ -8,7 +8,9 @@
       "file": "檔案",
       "fileDescription": "檔案與資料夾共用這組標籤：在檔案管理器選取後貼上，並可依標籤篩選。",
       "user": "使用者",
-      "userDescription": "在使用者詳情貼上，使用者列表可依標籤篩選。"
+      "userDescription": "在使用者詳情貼上，使用者列表可依標籤篩選。",
+      "gallery": "圖片庫",
+      "galleryDescription": "在圖片庫的檢視器或批次操作貼上，圖片庫可依標籤篩選。"
     },
     "field": {
       "name": "名稱",

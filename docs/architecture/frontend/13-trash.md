@@ -28,12 +28,16 @@ features/file/trash.ts             登記「檔案」「資料夾」兩類（可
 features/file/components/FileRestoreAction.tsx、FolderRestoreAction.tsx
 features/announcement/trash.ts     登記「公告」類型（可在執行期停用的 feature；docs/architecture/frontend/16-announcement.md）
 features/announcement/components/AnnouncementRestoreAction.tsx
+features/gallery/trash.ts          登記「圖片庫」「相簿」兩類（可在執行期停用的 feature；docs/architecture/frontend/24-gallery.md）
+features/gallery/components/GalleryRestoreActions.tsx
 features/role/components/RoleRestoreAction.tsx
 apis/trash/get-trash-list/         GET /trash
 apis/user/restore-user/            POST /users/:id/restore
 apis/role/restore-role/            POST /roles/:id/restore
 apis/file/restore-file/            POST /files/:id/restore
 apis/file/restore-file-folder/     POST /file-folders/:id/restore
+apis/gallery/restore-gallery-item/  POST /gallery/items/:id/restore
+apis/gallery/restore-gallery-album/ POST /gallery/albums/:id/restore
 ```
 
 與後端對稱：後端的 `modules/trash` 以 `TrashRegistry` 收各模組的 handler、還原端點在擁有者；

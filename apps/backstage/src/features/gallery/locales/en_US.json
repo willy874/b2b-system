@@ -1,0 +1,260 @@
+{
+  "gallery": {
+    "title": "Gallery",
+    "description": "Brand assets, product shots and event photos: browse by date taken, zoom into details, and pick them anywhere images are used.",
+    "add": {
+      "action": "Add",
+      "upload": "Upload images",
+      "directory": "Upload a folder (images only)",
+      "fromSource": "From other sources…"
+    },
+    "addFromSource": {
+      "title": "Add from other sources",
+      "submit_one": "Add {{count}} image",
+      "submit_other": "Add {{count}} images",
+      "result": "Added {{added}}, skipped {{skipped}}. They appear in the gallery once processed.",
+      "reason": {
+        "typeNotAllowed": "Not a supported image format",
+        "tooLarge": "Exceeds the size limit",
+        "alreadyAdded": "Already in the gallery",
+        "notFound": "Not visible, deleted, or not an image"
+      }
+    },
+    "album": {
+      "label": "Albums",
+      "all": "All images",
+      "none": "No album",
+      "createNew": "+ New album…",
+      "search": "Search albums",
+      "name": "Album name",
+      "namePlaceholder": "Name of the new album",
+      "description": "Description",
+      "count_one": "{{count}} image",
+      "count_other": "{{count}} images",
+      "create": {
+        "action": "New album",
+        "title": "New album",
+        "success": "Album “{{name}}” created"
+      },
+      "edit": {
+        "action": "Edit album",
+        "title": "Edit album"
+      },
+      "update": {
+        "success": "Album updated"
+      },
+      "delete": {
+        "action": "Delete album",
+        "title": "Delete album “{{name}}”?",
+        "description": "The album moves to the trash; its images are not deleted. Restoring brings the images back into it.",
+        "success": "Album moved to the trash"
+      },
+      "add": {
+        "action": "Add to album",
+        "title_one": "Add {{count}} image to an album",
+        "title_other": "Add {{count}} images to an album",
+        "submit": "Add",
+        "success_one": "Added {{count}} image",
+        "success_other": "Added {{count}} images"
+      },
+      "remove": {
+        "action": "Remove from album",
+        "success_one": "Removed {{count}} image",
+        "success_other": "Removed {{count}} images"
+      },
+      "setCover": "Set as cover",
+      "choose": "Choose an album"
+    },
+    "batch": {
+      "upload": {
+        "title": "Upload to gallery",
+        "success_one": "Uploaded {{count}} image; it appears once processed",
+        "success_other": "Uploaded {{count}} images; they appear once processed"
+      },
+      "delete": {
+        "title": "Delete images",
+        "success_one": "Deleted {{count}} image",
+        "success_other": "Deleted {{count}} images"
+      },
+      "tag": {
+        "title": "Tag images",
+        "success_one": "Tagged {{count}} image",
+        "success_other": "Tagged {{count}} images",
+        "action": "Tag",
+        "dialogTitle_one": "Tag {{count}} image",
+        "dialogTitle_other": "Tag {{count}} images",
+        "submit": "Apply",
+        "empty": "No gallery tags yet",
+        "emptyHint": "Create them under Tags › Gallery."
+      }
+    },
+    "delete": {
+      "title_one": "Delete {{count}} image?",
+      "title_other": "Delete {{count}} images?",
+      "description": "Images move to the trash and can be restored before they expire. Copies already used elsewhere (avatars) are not affected.",
+      "success": "Image moved to the trash"
+    },
+    "restore": {
+      "action": "Restore",
+      "success": "Restored “{{name}}”"
+    },
+    "update": {
+      "success": "Saved"
+    },
+    "rotate": {
+      "success": "Rotated; the new version is being processed"
+    },
+    "download": {
+      "action": "Download",
+      "original": "Download original",
+      "large": "Download large (2560 px)",
+      "limited_one": "At most {{count}} image per download",
+      "limited_other": "At most {{count}} images per download"
+    },
+    "empty": {
+      "title": "The gallery is empty",
+      "filtered": "No images match",
+      "uploadHint": "Drag photos in, paste them, or use Add to upload."
+    },
+    "failure": {
+      "notImage": "Not an image or the file is corrupted",
+      "typeNotAllowed": "Unsupported format",
+      "tooLarge": "Exceeds the size limit",
+      "missing": "The upload did not complete",
+      "unknown": "Processing failed"
+    },
+    "fileAction": {
+      "add": "Add to gallery",
+      "title": "Add to gallery",
+      "description_one": "Copy {{count}} image to the gallery; moving or deleting the original later does not affect it.",
+      "description_other": "Copy {{count}} images to the gallery; moving or deleting the originals later does not affect them.",
+      "submit_one": "Add {{count}} image",
+      "submit_other": "Add {{count}} images",
+      "willSkip_one": "{{count}} more file cannot be added and will be skipped",
+      "willSkip_other": "{{count}} more files cannot be added and will be skipped",
+      "added_one": "Added {{count}} image",
+      "added_other": "Added {{count}} images",
+      "skipped_one": "Skipped {{count}}",
+      "skipped_other": "Skipped {{count}}",
+      "skippedRow": "{{name}}: {{reason}}",
+      "processingHint": "They appear in the gallery once processed.",
+      "open": "Open gallery",
+      "notImage": "Not a supported format (JPEG, PNG, WebP, GIF, AVIF, TIFF)",
+      "heic": "HEIC is not supported; export it as JPEG from your photos app",
+      "tooLarge": "Larger than {{max}}"
+    },
+    "filter": {
+      "keyword": "Search titles and descriptions",
+      "tag": "Tags",
+      "from": "Taken from",
+      "to": "Taken to",
+      "orientation": "Orientation",
+      "anyOrientation": "Any orientation",
+      "landscape": "Landscape",
+      "portrait": "Portrait",
+      "square": "Square",
+      "origin": "Origin",
+      "anyOrigin": "Any origin",
+      "uploaded": "Uploaded",
+      "added": "Added from other sources"
+    },
+    "imageSource": {
+      "empty": "No usable images",
+      "emptyHint": "Try another album or keyword, or upload instead.",
+      "tooSmall": "{{name}} (too small: at least {{width}} × {{height}} px)",
+      "more": "Load more"
+    },
+    "info": {
+      "title": "Title",
+      "description": "Description (alt text)",
+      "descriptionPlaceholder": "Add a description; it is also used as alt text",
+      "takenAt": "Taken",
+      "noTakenAt": "Unknown (sorted by date added)",
+      "camera": "Camera",
+      "lens": "Lens",
+      "exposure": "Exposure",
+      "flash": "Flash",
+      "dimensions": "Size",
+      "uploader": "Uploaded by",
+      "createdAt": "Added",
+      "source": "Source",
+      "sourceUpload": "Uploaded",
+      "sourceAdded": "Added from another source: {{name}}",
+      "albums": "Albums",
+      "tags": "Tags",
+      "location": "Location",
+      "locationStripped": "Removed from the original",
+      "duplicate": "Same content as:",
+      "albumsSeparator": ", "
+    },
+    "selection": {
+      "hint": "Click the circle on an image, hold Shift for a range, or drag on empty space to select",
+      "count_one": "{{count}} selected",
+      "count_other": "{{count}} selected",
+      "selectLoaded_one": "Select the {{count}} loaded",
+      "selectLoaded_other": "Select all {{count}} loaded",
+      "selectSection": "Select all",
+      "toggle": "Select “{{name}}”"
+    },
+    "sort": {
+      "label": "Sort",
+      "sortAt": "Date taken",
+      "createdAt": "Date added",
+      "title": "Title",
+      "reverse": "Reverse order"
+    },
+    "timeline": {
+      "label": "Jump to month",
+      "count_one": "{{count}} image",
+      "count_other": "{{count}} images",
+      "jumped": "Showing from the selected month",
+      "backToStart": "Back to start"
+    },
+    "upload": {
+      "processing_one": "Processing {{count}}",
+      "processing_other": "Processing {{count}}",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "failedRow": "{{name}}: {{reason}}",
+      "clearFailed": "Clear failed uploads",
+      "queued_one": "{{count}} image queued for upload",
+      "queued_other": "{{count}} images queued for upload",
+      "rejected_one": "{{count}} file cannot be uploaded: {{name}} ({{reason}})",
+      "rejected_other": "{{count}} files cannot be uploaded: {{name}} ({{reason}})",
+      "heic": "HEIC is not supported; export as JPEG first",
+      "notImage": "Not a supported format",
+      "corrupted": "The file content does not match its type or is corrupted",
+      "dropHint": "Drop to upload to the gallery"
+    },
+    "view": {
+      "grouping": "Grouping",
+      "groupDay": "By day",
+      "groupMonth": "By month",
+      "groupNone": "No grouping",
+      "justified": "Justified",
+      "square": "Grid",
+      "zoom": "Zoom",
+      "zoomIn": "Larger",
+      "zoomOut": "Smaller"
+    },
+    "viewer": {
+      "title": "Image",
+      "position": "{{index}} / {{total}}",
+      "previous": "Previous (←)",
+      "next": "Next (→)",
+      "slideshow": "Slideshow (Space)",
+      "pause": "Pause (Space)",
+      "interval": "Every {{seconds}}s",
+      "fullscreen": "Full screen (F)",
+      "info": "Info (I)",
+      "rotateLeft": "Rotate left",
+      "rotateRight": "Rotate right",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fit": "Fit",
+      "actualSize": "Actual size",
+      "deleted": "This image was deleted",
+      "deletedNext": "Moving to the next image…"
+    }
+  }
+}

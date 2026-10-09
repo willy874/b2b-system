@@ -4,7 +4,7 @@
  *
  * - `fileVariant`：檔案的影像變體與轉出的格式（`variants/`，modules/file）
  * - `imageAsset`：圖片資產的主檔與變體（`images/`，modules/image）
- * - `galleryItem`：圖片庫的變體（`gallery/`，之後的 modules/gallery）
+ * - `galleryItem`：圖片庫的變體（`gallery/<id>/r<rev>/`，modules/gallery；原檔不走 CDN）
  *
  * 這個檔案不 import 任何東西：`core/config/env.schema.ts` 以它驗證環境變數。
  */

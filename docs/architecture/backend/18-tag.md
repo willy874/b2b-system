@@ -22,6 +22,7 @@ PUT /tags/assignments/:resourceType/:resourceId
 | --- | --- | --- | --- | --- | --- |
 | `file` | `file`、`fileFolder` | `file:access` 或 `file:read` | 檔案：已完成上傳、看得到、能改名（`FileService.assertTaggable`）；資料夾：讀得到、能改名，系統資料夾不行（`FileFolderService.assertTaggable`） | `file` | `FileTagResource` |
 | `user` | `user`（不含服務帳號） | `user:read` | `user:update` | — | `UserTagResource` |
+| `gallery` | `galleryItem` | `gallery:read` | `gallery:update`；處理完、沒刪除的圖（`GalleryItemService.getVisible`）；改了推圖片的 update | `gallery` | `GalleryTagResource`（[`26-gallery.md`](./26-gallery.md) §11.7） |
 
 - 標籤組名稱存在 `tags.scope`，已發布後不改名。所屬 feature 沒啟用時，該組的端點回 `404 FEATURE_DISABLED`；資料保留。
 - 登記時可以帶顯示名稱 `label`（兩個語系）：匯入匯出的「標籤組」欄顯示它（[`22-data-transfer.md`](./22-data-transfer.md) §12.4）。

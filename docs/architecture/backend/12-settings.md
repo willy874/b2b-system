@@ -89,6 +89,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 | `announcement.dispatchRetentionDays` | 30–3650（天） | 365 | 否 | 公告發送紀錄的保留天數：建立超過這麼久、已經結束的由每日維護刪除 |
 | `announcement.maxRecipients` | 100–100000（人） | 10000 | 否 | 一次公告最多收件人數：超過時那次發送失敗，不截斷（[`19-announcement.md`](./19-announcement.md) §5） |
 | `dataTransfer.retentionDays` | 1–30（天） | 7 | 否 | 匯出檔與匯入套用列的保留天數，從完成時起算；`dataTransfer.cleanup` 清除到期的（[`22-data-transfer.md`](./22-data-transfer.md) §10） |
+| `gallery.stripOriginalLocation` | boolean | `true` | 否 | `GalleryProcessService`：處理時移除原檔 EXIF 裡的位置資訊（GPS）；只影響之後的處理，變體與 `exif` 欄一律沒有 GPS（[`26-gallery.md`](./26-gallery.md) §5.1、D5） |
 
 - **範圍寫在 schema 上**：下限擋住會削弱安全性的值（鎖定次數不能是 0、密碼不能短於 12），
   上限擋住超出部署能力的值。存得進去的值都安全，所以修改只寫稽核、不走審批。

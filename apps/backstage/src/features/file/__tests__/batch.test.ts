@@ -25,7 +25,7 @@ vi.mock('@b2b-system/web-core/cache', async (importOriginal) => ({
 
 const { registerFileBatchOperations, enqueueFileUploads, FileBatchOperation, FILE_MANAGER_SCOPE } =
   await import('../batch');
-const { uploadSources, clearUploadSourcesOnSessionEnd } = await import('../upload/uploadSources');
+const { uploadSources, fileUploadSources } = await import('../upload/uploadSources');
 
 /** 操作宣告的變更（`BatchRunContext.invalidate`；佇列合併後才交給依賴圖） */
 const invalidate = vi.fn();
@@ -130,7 +130,7 @@ describe('檔案的批次操作（docs/architecture/frontend/12-file-manager.md 
   });
 
   it('★ 主 session 結束時清掉所有排隊中的檔案（上一個人的檔案不留給下一個人）', async () => {
-    const off = clearUploadSourcesOnSessionEnd();
+    const off = fileUploadSources.clearOnSessionEnd();
     await uploadSources.put('queued-1', new File(['a'], 'a.txt'));
     await uploadSources.put('queued-2', new File(['b'], 'b.txt'));
     sessionStore.setTokens({ accessToken: 'token', expiresIn: 300 });

@@ -31,4 +31,12 @@ describe('內建的檔案驗證器', () => {
     const file = new File(['whatever'], 'a.svg', { type: 'image/svg+xml' });
     await expect(imageSignatureValidator.validate(file, {})).resolves.toBeUndefined();
   });
+
+  it.each(['image/avif', 'image/tiff'])(
+    'image-signature：%s 維持不檢查（core/upload 認得它，但檔案管理器原本就放行）',
+    async (type) => {
+      const file = new File(['not an image'], 'a.bin', { type });
+      await expect(imageSignatureValidator.validate(file, {})).resolves.toBeUndefined();
+    },
+  );
 });

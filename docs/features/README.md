@@ -18,7 +18,6 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | 圖片資產（[`backend/25-image.md`](../architecture/backend/25-image.md) §15：來源介面）、標籤、留言 |
 
 狀態只有三種：
 
@@ -67,11 +66,7 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：圖片的提案依下面的階段進行。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）已完成並歸檔到 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)；階段 4（CDN）與階段 5（CDN 設定管理）已完成並歸檔到 [`backend/09-file.md`](../architecture/backend/09-file.md) §16、§17。每個階段各自一個 branch，合併後再開下一個。
-
-| 階段 | 提案 | 內容 | 完成的判斷 |
-| --- | --- | --- | --- |
-| 3 | [`image-gallery.md`](./image-gallery.md) | `core/upload` 與 `registerFileAction` 的抽出、`modules/gallery`、`features/gallery`（閱覽、檢視器、相簿、標籤、留言）、由檔案管理加入、登記成選圖的來源 | 使用者故事全部可在瀏覽器操作；關掉 `gallery` 時檔案管理器與選圖都不受影響 |
+接下來：圖片的五個階段都已完成。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）歸檔在 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)；階段 3（圖片庫）在 [`backend/26-gallery.md`](../architecture/backend/26-gallery.md)、[`frontend/24-gallery.md`](../architecture/frontend/24-gallery.md)；階段 4（CDN）與階段 5（CDN 設定管理）在 [`backend/09-file.md`](../architecture/backend/09-file.md) §16、§17。
 
 新的構想照 §2 新增提案。
 

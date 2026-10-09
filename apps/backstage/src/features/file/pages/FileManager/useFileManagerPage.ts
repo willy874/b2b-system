@@ -2,11 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
+import type { CollectedUpload } from '@/core/upload';
 
 import { selectionCapabilities, useFilePermission } from '../../hooks/useFilePermission';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { syncFileViewPreference, useFileViewPreferenceStore } from '../../preference';
-import type { CollectedUpload } from '../../upload/collectEntries';
 import type { BrowserItemVM } from './adapter';
 import { useFileActions } from './useFileActions';
 import { useFileDialogs } from './useFileDialogs';

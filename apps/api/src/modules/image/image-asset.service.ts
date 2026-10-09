@@ -337,7 +337,10 @@ export class ImageAssetService {
 
   private requireUsage(usageId: string, source: string): ImageUsageDefinition {
     const usage = this.usages.find(usageId);
-    if (!usage) throw new AppException('VALIDATION_FAILED', { fields: { usage: 'unknown' } });
+    // 只用來過濾的用途（docs/architecture/backend/26-gallery.md §8）不能建立圖片資產
+    if (!usage || usage.filterOnly) {
+      throw new AppException('VALIDATION_FAILED', { fields: { usage: 'unknown' } });
+    }
     if (!this.usages.allowsSource(usage, source)) {
       throw new AppException('IMAGE_SOURCE_NOT_FOUND', { source });
     }

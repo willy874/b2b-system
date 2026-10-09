@@ -17,6 +17,8 @@ export const TRASH_RESOURCE_TYPES = [
   RESOURCE_TYPE.FILE_FOLDER,
   RESOURCE_TYPE.ANNOUNCEMENT,
   RESOURCE_TYPE.ORG_UNIT,
+  RESOURCE_TYPE.GALLERY_ITEM,
+  RESOURCE_TYPE.GALLERY_ALBUM,
 ] as const;
 
 export type TrashResourceType = (typeof TRASH_RESOURCE_TYPES)[number];
@@ -34,6 +36,8 @@ export const TRASH_PERMISSIONS: readonly PermissionKey[] = [
   PERMISSION.FILE_DELETE,
   PERMISSION.ANNOUNCEMENT_DELETE,
   PERMISSION.ORG_UNIT_DELETE,
+  // 圖片與相簿共用（docs/architecture/backend/26-gallery.md §11）
+  PERMISSION.GALLERY_DELETE,
 ];
 
 /**

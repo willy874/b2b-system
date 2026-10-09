@@ -16,6 +16,7 @@ export const SettingCategory = {
   REVISION: 'revision',
   NOTIFICATION: 'notification',
   DATA_TRANSFER: 'dataTransfer',
+  GALLERY: 'gallery',
 } as const;
 
 export type SettingCategory = (typeof SettingCategory)[keyof typeof SettingCategory];

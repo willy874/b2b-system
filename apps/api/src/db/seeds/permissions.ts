@@ -109,6 +109,12 @@ export const PERMISSION_SEED = [
   ['approvalFlow', 'read', 'permission.approvalFlow.read', 2100],
   ['approvalFlow', 'update', 'permission.approvalFlow.update', 2101],
 
+  // 圖片庫（docs/architecture/backend/26-gallery.md §10、D3）
+  ['gallery', 'create', 'permission.gallery.create', 2300],
+  ['gallery', 'read', 'permission.gallery.read', 2301],
+  ['gallery', 'update', 'permission.gallery.update', 2302],
+  ['gallery', 'delete', 'permission.gallery.delete', 2303],
+
   // 刪除別人的留言（管理）；自己的留言作者本人就能改與刪，看得到資源就能留言（docs/architecture/backend/24-comment.md §1）
   ['comment', 'delete', 'permission.comment.delete', 2200],
 ] as const satisfies ReadonlyArray<readonly [string, string, string, number]>;
@@ -232,6 +238,10 @@ export const PERMISSION_DEPENDENCIES = {
   'orgUnit:update': { includes: ['orgUnit:read'], requires: ['user:read'] },
   // 成員的匯出帶 email
   'orgUnit:export': { includes: ['orgUnit:read'], requires: ['user:read'] },
+
+  'gallery:create': { includes: ['gallery:read'] },
+  'gallery:update': { includes: ['gallery:read'] },
+  'gallery:delete': { includes: ['gallery:read'] },
 
   // 審核者規則的選擇器要看得到使用者、群組、角色、部門
   'approvalFlow:update': {

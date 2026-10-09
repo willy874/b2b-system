@@ -309,6 +309,20 @@
     "CDN_SETTINGS_VERSION_CONFLICT": "Someone else changed the CDN settings. Refresh and try again.",
     "CDN_PURGE_TARGET_NOT_FOUND": "The resource to purge wasn't found.",
     "CDN_PURGE_IN_PROGRESS": "A full cache purge is already in progress.",
+    "GALLERY_ITEM_NOT_FOUND": "The image does not exist or has been deleted.",
+    "GALLERY_ITEM_VERSION_CONFLICT": "This image was changed by someone else. Refresh and try again.",
+    "GALLERY_ITEM_NOT_DELETED": "This image is not deleted.",
+    "GALLERY_ITEM_NOT_READY": "The image is still being processed. Try again shortly.",
+    "GALLERY_TYPE_NOT_ALLOWED": "The gallery accepts JPEG, PNG, WebP, GIF, AVIF and TIFF. Export HEIC photos as JPEG first.",
+    "GALLERY_ITEM_TOO_LARGE": "The image exceeds the size limit.",
+    "GALLERY_UPLOAD_INCOMPLETE": "The upload did not complete. Upload the image again.",
+    "GALLERY_ALREADY_UPLOADED": "This image has already been uploaded.",
+    "GALLERY_PENDING_LIMIT_REACHED": "Too many uploads in progress. Wait for them to finish and try again.",
+    "GALLERY_ALBUM_NOT_FOUND": "The album does not exist or has been deleted.",
+    "GALLERY_ALBUM_NAME_DUPLICATE": "An album with this name already exists.",
+    "GALLERY_ALBUM_VERSION_CONFLICT": "This album was changed by someone else. Refresh and try again.",
+    "GALLERY_ALBUM_NOT_DELETED": "This album is not deleted.",
+    "GALLERY_ALBUM_COVER_INVALID": "The cover must be an image in the album.",
     "FILE_ACCESS_ALREADY_GRANTED": "You already have this access to the folder. No need to request it again.",
     "FILE_ACCESS_REQUEST_NOT_FOUND": "This access request no longer exists. It may have been handled or withdrawn.",
     "SETTING_NOT_FOUND": "This setting does not exist.",
@@ -1143,6 +1157,13 @@
     },
     "unusable": {
       "small": "Too small: at least {{width}} × {{height}} pixels"
+    },
+    "multiple": {
+      "count_one": "{{count}} image selected (up to {{max}})",
+      "count_other": "{{count}} images selected (up to {{max}})",
+      "limit": "You can select up to {{max}} images at a time",
+      "empty": "No other sources to add from",
+      "emptyHint": "Upload instead, or ask an administrator to enable other sources"
     }
   }
 }

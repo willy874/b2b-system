@@ -45,6 +45,11 @@ export const PERMISSION = {
   ORG_UNIT_DELETE: 'orgUnit:delete',
   ORG_UNIT_EXPORT: 'orgUnit:export',
 
+  GALLERY_CREATE: 'gallery:create',
+  GALLERY_READ: 'gallery:read',
+  GALLERY_UPDATE: 'gallery:update',
+  GALLERY_DELETE: 'gallery:delete',
+
   FILE_CREATE: 'file:create',
   FILE_READ: 'file:read',
   FILE_UPDATE: 'file:update',

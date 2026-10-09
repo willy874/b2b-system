@@ -82,9 +82,26 @@ export interface ImageSourceContext {
   queryClient: QueryClient;
 }
 
+/** 多選模式裡的一張（同一個來源內）。 */
+export interface ImageSourceItem {
+  refId: string;
+  name: string;
+}
+
+/** 多選模式（`MultiImageSourceDialog`，docs/architecture/frontend/23-image-picker.md §2.1）交給來源元件的狀態。 */
+export interface ImageSourceMultiple {
+  /** 目前勾選的 refId（同一個來源內）。 */
+  selected: ReadonlySet<string>;
+  /** 點一張：已勾選就取消，否則勾選（呼叫端決定上限）。 */
+  onToggle: (selection: ImageSourceItem) => void;
+}
+
 export interface ImageSourceProps {
   usage: ImageUsage;
+  /** 單選：選好一張。多選模式（有 `multiple`）不呼叫它。 */
   onSelect: (selection: ImageSelection) => void;
+  /** 有值時是多選模式：顯示勾選狀態（`aria-pressed`），點選呼叫 `onToggle`。只有 `supportsMultiple` 的來源會收到。 */
+  multiple?: ImageSourceMultiple;
 }
 
 /**
@@ -104,5 +121,7 @@ export interface ImageSourceDefinition {
    * 省略時一律可用。
    */
   isAvailable?: (context: ImageSourceContext) => boolean | Promise<boolean>;
+  /** 元件支援 `multiple`（多選模式）；預設 false，不支援的來源在多選模式不列出。 */
+  supportsMultiple?: boolean;
   component: ComponentType<ImageSourceProps>;
 }

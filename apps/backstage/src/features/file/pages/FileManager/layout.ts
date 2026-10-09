@@ -1,3 +1,6 @@
+import { intersects } from '@/core/selection';
+import type { Rect } from '@/core/selection';
+
 import type { FileViewMode } from '../../preference';
 
 /**
@@ -5,13 +8,6 @@ import type { FileViewMode } from '../../preference';
  * 格子大小固定，所以任何一筆的位置都算得出來——虛擬捲動只渲染看得到的列，
  * 框選仍能以幾何計算命中 **畫面外** 的項目，不必依賴 DOM。
  */
-
-export interface Rect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
 
 /** 列表模式隨寬度顯示的欄位（窄螢幕只留檔名與大小）。 */
 export type FileListColumn = 'name' | 'tags' | 'kind' | 'size' | 'uploader' | 'createdAt';
@@ -99,15 +95,6 @@ export function itemRect(layout: FileLayout, index: number): Rect {
   };
 }
 
-function intersects(a: Rect, b: Rect): boolean {
-  return (
-    a.left < b.left + b.width &&
-    b.left < a.left + a.width &&
-    a.top < b.top + b.height &&
-    b.top < a.top + a.height
-  );
-}
-
 /**
  * 框選命中的項目索引（依序）。只檢查框涵蓋的那幾列：一萬筆的清單拖曳時也只算幾十格。
  */
@@ -127,16 +114,6 @@ export function hitTest(layout: FileLayout, rect: Rect, count: number): number[]
     }
   }
   return hits;
-}
-
-/** 兩點圍出的矩形（拖曳方向不限）。 */
-export function rectFromPoints(a: { x: number; y: number }, b: { x: number; y: number }): Rect {
-  return {
-    left: Math.min(a.x, b.x),
-    top: Math.min(a.y, b.y),
-    width: Math.abs(a.x - b.x),
-    height: Math.abs(a.y - b.y),
-  };
 }
 
 /** 鍵盤方向鍵移動焦點：卡片模式上下移一整列，到邊界停住。 */

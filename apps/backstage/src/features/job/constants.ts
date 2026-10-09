@@ -21,6 +21,8 @@ export const JOB_NAME_LABEL_KEY = {
   'dataTransfer.export': 'job.name.dataTransferExport',
   'file.imageVariants': 'job.name.fileImageVariants',
   'file.maintenance': 'job.name.fileMaintenance',
+  'gallery.maintenance': 'job.name.galleryMaintenance',
+  'gallery.process': 'job.name.galleryProcess',
   'image.maintenance': 'job.name.imageMaintenance',
   'image.process': 'job.name.imageProcess',
   'mfa.cleanup': 'job.name.mfaCleanup',
