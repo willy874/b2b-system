@@ -47,7 +47,7 @@ B2B System 的 Phase 0：一套會被後續所有功能複用的 **RBAC 骨架**
 | `packages/api-sdk` | 由 api 的 OpenAPI 產生的前端 SDK（build 到 `dist/`） |
 
 - 前端 package 只有原始碼，由 app 的 Vite 編譯；以子路徑匯入：`@b2b-system/web-core/store`、`@b2b-system/ui/Button`、`@b2b-system/web-shared/utils`。
-- app 的權限目錄、plugin 屬性以 module augmentation 接上 web-core（`@b2b-system/web-core/permission/register`、`@b2b-system/web-core/app/context`），app 的程式照舊從 `@/core/permission`、`@/plugins/app` 匯入。
+- app 的權限目錄、plugin 屬性以 module augmentation 接上 web-core（`@b2b-system/web-core/permission/register`、`@b2b-system/web-core/app/context`），app 的程式照舊從 `@/core/permission` 匯入；基礎設施 plugin 由 `main.tsx` 直接從 `@b2b-system/web-core/plugins/app` 匯入（app 沒有 `plugins/` 層，`i18nPlugin` 的包裝在 `app/i18n.ts`）。
 - 只有一個 app 用的程式留在 app；**第二個前端也需要時搬進 package，不要複製**（先把它對 app 的依賴改成參數）。
 
 ## 三處必須同步

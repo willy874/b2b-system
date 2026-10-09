@@ -89,7 +89,7 @@ export function createAppContext(): AppContext;
 這是整個機制的關鍵技巧。plugin 在自己的檔案裡宣告它往 context 上加了什麼：
 
 ```ts
-// web-core/plugins/app/i18n.ts（app 的 plugins/app/i18n.ts 只傳入自己的語系包）
+// web-core/plugins/app/i18n.ts（app 的 app/i18n.ts 只傳入自己的語系包）
 export function i18nPlugin(): AppPluginFactory {
   return (context) => ({
     name: 'i18n',
@@ -180,10 +180,10 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 
 ## 4. Plugin 目錄
 
-### 4.1 `plugins/app/` — 基礎設施
+### 4.1 `web-core/plugins/app/` — 基礎設施
 
-實作在 `@b2b-system/web-core/plugins/app`；app 的 `src/plugins/app/index.ts` 是門面：轉出 package 的 plugin，
-`i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的全域語系包，backstage 另有 `batch-queue.ts`。
+實作在 `@b2b-system/web-core/plugins/app`，app 的 `main.tsx` 直接從這裡匯入（app 沒有 `plugins/` 層，§8.6）。
+唯一要 app 包一層的是 `i18nPlugin`：app 的 `app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的全域語系包 `app/locales/*.json`。
 
 | Plugin              | `attrs` 提供                                  | `onInit` 做什麼                                                      |
 | ------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
@@ -205,16 +205,16 @@ plugin 常持有 context 摸不到的資源：`BroadcastChannel`、`setInterval`
 | `api-adapter.ts`   | 把後端錯誤信封轉成 `AppError`                      |
 | `client-preference.ts` | `clientPreferenceInterceptor`：每個請求帶 `Accept-Language`（介面語系）與 `x-client-timezone`（偏好時區），送出當下讀 `useLocaleStore`／`useTimezoneStore`；呼叫端自己給的不覆寫（[08 §1.2](./08-i18n.md)） |
 
-### 4.3 `plugins/features/` — 功能擴充
+### 4.3 偏好頁的分頁（`web-core/preference`）
 
-**這一類是這個架構最有價值的地方。** 它讓 A 功能擴充 B 功能，而 B 完全不需要
-知道 A 存在。
+註冊表讓 A 擴充 B，而 B 完全不需要知道 A 存在：偏好頁（屬於 `features/account`）只讀註冊表，
+分頁由擁有那份知識的一方登記——feature 在自己的 plugin 登記，跨 feature 的分頁由 web-core 的模組提供。
 
-例：偏好設定頁（屬於 `features/account`）需要有「表格欄位設定」分頁，而欄位
-設定的知識屬於各個列表頁。作法：
+例：「表格欄位設定」分頁要列出每個列表頁的欄位，不屬於任何一個 feature，兩個 app 都需要，
+所以放在 `web-core/table-column-settings`，兩個 app 的 `main.tsx` 各 `.use(tableColumnSettingsPlugin())` 一次：
 
 ```ts
-// plugins/features/table-column-settings/plugin.ts
+// web-core/table-column-settings/plugin.ts
 // 只有偏好頁會渲染：登記 lazy 元件，分頁本體（TableSettings 帶的 dnd-kit）不進首屏
 const TableColumnsSection = lazy(() =>
   import('./TableColumnsSection').then((module) => ({ default: module.TableColumnsSection })),
@@ -245,7 +245,8 @@ export function tableColumnSettingsPlugin(): AppPluginFactory {
 分頁元件 **以 `lazy()` 登記**：註冊發生在 plugin 的同步階段，直接登記元件本體會把它和它用到的套件帶進首屏，
 實際上只有偏好頁（本身是 lazy chunk）會渲染它。`PreferenceSections` 以 `<Suspense>` 包住每個分頁，下載中顯示骨架
 （`preference-section-skeleton`），其他分頁照常顯示。頂列工具（§4.4）則不同：它們本來就在首屏渲染，直接登記元件。
-首屏不該出現的模組由 backstage 的 `app/__tests__/entry-imports.test.ts` 檢查（沿著 `main.tsx` 的靜態 import 走一遍）。
+首屏不該出現的模組由 backstage 的 `app/__tests__/entry-imports.test.ts` 檢查（沿著 `main.tsx` 的靜態 import 走一遍，只看 app 的檔案）；
+web-core 提供的分頁由各自的測試斷言以 `lazy()` 登記（`web-core/table-column-settings/__tests__/plugin.test.ts`）。
 
 分頁要列出「有哪些表、各有哪些欄位」，但不能 import 各 feature。所以 `web-core/preference` 另有一份
 **列表註冊表**：feature 在 plugin 的同步階段呼叫 `registerPreferenceTable({ id, labelI18nKey, columnLabelKeys, localeScope })`
@@ -373,7 +374,7 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 | 註冊表 | 位置 | 誰註冊 | 誰讀取（React 端訂閱的方式） |
 | --- | --- | --- | --- |
 | 頁面權限 | `web-core/permission/registry.ts` | 各 feature 的 `permission.ts` | 權限 hooks（`usePageAccess`、`usePageAccessChecker` 訂閱）、選單、Layout |
-| 偏好分頁／列表 | `web-core/preference/registry.ts` | feature 或 `plugins/features/*` | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
+| 偏好分頁／列表 | `web-core/preference/registry.ts` | feature，或 web-core 的模組（`table-column-settings`） | 偏好頁（`usePreferenceSections`、`usePreferenceTables`） |
 | 回收桶類型 | `core/trash/registry.ts`（backstage） | 擁有資源的 feature 的 `trash.ts` | 回收桶頁（`useTrashTypes`；[`13-trash.md`](./13-trash.md) §2） |
 | 頂列工具 | `web-core/toolbar/registry.ts` | `app/plugin.ts` 或 feature（例：`features/notification` 的鈴鐺） | `useHeaderTools` |
 | 選單（側欄的分類、頁面的入口） | `web-core/navigation/registry.ts` | 分類：app 的 `core/navigation`（`app/plugin.ts` 呼叫）；入口：擁有頁面的 feature 的 `navigation.ts` | `useNavigation`（`DashboardShell`、命令面板；[`18-command-palette.md`](./18-command-palette.md) §2） |
@@ -479,8 +480,8 @@ createAppContext()
    路由、語系、權限、選單全部一起消失，不留殘骸。
 2. **核心不認識功能。** `web-core/permission/registry.ts` 沒有列舉頁面的靜態表，
    每個 feature 註冊自己的。新增 feature 不需要改 `core/` 或 web-core 任何一行。
-3. **功能可以擴充功能。** `plugins/features/*` 讓 A 功能往 B 功能的註冊表插東西，
-   B 完全不知道 A 存在。偏好頁的分頁就是這樣做的。
+3. **功能可以擴充功能。** A 功能往 B 功能讀的註冊表插東西，B 完全不知道 A 存在。
+   偏好頁的分頁、系統設定的分頁、側欄的入口都是這樣做的（§4.3、§4.5、§6）。
 4. **已驗證。** 這套機制已在一個承載 14 個 feature 的管理後台上實際運行過。
 
 ### 8.4 代價
@@ -500,6 +501,25 @@ createAppContext()
 | Module Federation | 為跨部署的微前端設計，這裡是單一部署，複雜度不成比例 |
 | Nx / Turborepo 的 library boundary | 只管相依方向，不解決「功能如何自我註冊」 |
 | React Context 疊套 | 巢狀地獄；無法表達非 render 期的註冊（權限必須在 render 前完成） |
+
+### 8.6 app 不設 `plugins/` 層（2026-10-09）
+
+**背景**：app 原本有一層 `src/plugins/`：`plugins/app/` 轉出 web-core 的基礎設施 plugin 並包一層 `i18nPlugin`，
+`plugins/features/` 放「擴充其他 feature 的小外掛」，層級規則為它開了兩個例外（可以 import `ui` 與 feature 的入口、可以載入 `app/locales`）。
+web-core 抽出後，`plugins/app/` 只剩轉出與兩個 app 逐字相同的 12 行；`plugins/features/` 唯一的成員（表格欄位分頁）
+只用到 web-core，沒有依賴任何 feature，卻因為放在 backstage 而讓 apps/platform 的偏好頁少了這個分頁。
+
+**決定**：移除 app 的 `plugins/` 層。
+
+| 原本 | 改為 |
+| --- | --- |
+| `plugins/app/index.ts`（轉出 web-core） | `main.tsx` 直接從 `@b2b-system/web-core/plugins/app` 匯入 |
+| `plugins/app/i18n.ts` | `app/i18n.ts`：app 的全域語系包本來就在 `app/locales/`，同層 import 不需要例外 |
+| `plugins/features/table-column-settings` | `web-core/table-column-settings`，兩個 app 都 `.use()` |
+
+**理由**：一層裡沒有實際的內容，卻要為它維護矩陣的一列一欄與兩個例外；「A 擴充 B」由註冊表達成，
+登記的一方是 feature 自己（`navigation.ts`、`preference.ts`、`search.ts`）或 web-core 的模組，不需要專門的資料夾。
+之後若出現註冊表解決不了、非依賴另一個 feature 公開介面不可的擴充，優先改由被擴充的一方開註冊表，仍不夠再重新評估。
 
 ---
 

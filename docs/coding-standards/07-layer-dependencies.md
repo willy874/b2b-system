@@ -71,7 +71,7 @@ apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；�
    │
  features/<name>/         業務功能（彼此隔離）
    │
- plugins/   apis/         可插拔能力（多為 web-core 的門面）／通訊層
+ apis/                    通訊層
    │         │
  core/                    app 的機制層：權限目錄的門面（core/permission）、backstage 才有的模組
    │
@@ -83,7 +83,7 @@ apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；�
  shared/                  app 專屬的收斂點：api-sdk、websocket-sdk、constants（env）
 ```
 
-`@b2b-system/web-core`、`@b2b-system/ui` 與 `@b2b-system/web-shared` 是原本 app 內的 `core/`（兩個前端共用的模組，連同 `plugins/{app,fetcher}`、
+`@b2b-system/web-core`、`@b2b-system/ui` 與 `@b2b-system/web-shared` 是原本 app 內的 `core/`（兩個前端共用的模組，連同原本的 `plugins/{app,fetcher}`、
 `app/` 的 providers 與頂列工具、`test/` 的輔助）、`components/`（含 `themes/`、`assets/icons/`）與 `shared/` 抽成的 workspace package，
 在矩陣裡仍佔原本的位置；它們不可能 import app 的 `@/` 路徑（🔒 package 邊界）。`web-core` 的模組之間也照 `core/` 的規則：不認識 feature、apis、app。
 
@@ -91,18 +91,17 @@ apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；�
 
 列 = import 的一方，欄 = 被 import 的一方。✅ 可以、❌ 不可以、⚠️ 有條件。
 
-| from ＼ to        | web-shared / shared | ui | web-core | core | apis | plugins | features | app | mocks |
-| ----------------- | :-----------------: | :--------: | :------: | :--: | :--: | :-----: | :------: | :-: | :---: |
-| `web-shared`      | ✅（同層）               | ❌         | ❌       | ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `ui`              | ✅⁵                      | ✅（同層） | ❌       | ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `web-core`        | ✅⁵                      | ✅         | ✅（同層）| ❌   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `core/`           | ✅                       | ✅         | ✅       | ✅   | ❌   | ❌      | ❌       | ❌  | ❌    |
-| `apis/`           | ✅                       | ❌         | ✅       | ✅   | ⚠️¹  | ❌      | ❌       | ❌  | ❌    |
-| `plugins/`        | ✅                       | ⚠️⁶        | ✅       | ✅   | ❌   | ✅      | ⚠️⁶      | ⚠️⁷ | ❌    |
-| `features/<a>/`   | ✅                       | ✅         | ✅       | ✅   | ✅   | ❌      | ⚠️²      | ❌  | ❌    |
-| `app/`            | ✅                       | ✅         | ✅       | ✅   | ✅   | ❌      | ⚠️³      | ✅  | ❌    |
-| `main.tsx`        | ✅                       | ✅         | ✅       | ✅   | ✅   | ✅      | ⚠️³      | ✅  | ⚠️⁴   |
-| `mocks/`          | ✅                       | ❌         | ❌       | ❌   | ❌   | ❌      | ❌       | ❌  | ✅    |
+| from ＼ to        | web-shared / shared | ui | web-core | core | apis | features | app | mocks |
+| ----------------- | :-----------------: | :--------: | :------: | :--: | :--: | :------: | :-: | :---: |
+| `web-shared`      | ✅（同層）               | ❌         | ❌       | ❌   | ❌   | ❌       | ❌  | ❌    |
+| `ui`              | ✅⁵                      | ✅（同層） | ❌       | ❌   | ❌   | ❌       | ❌  | ❌    |
+| `web-core`        | ✅⁵                      | ✅         | ✅（同層）| ❌   | ❌   | ❌       | ❌  | ❌    |
+| `core/`           | ✅                       | ✅         | ✅       | ✅   | ❌   | ❌       | ❌  | ❌    |
+| `apis/`           | ✅                       | ❌         | ✅       | ✅   | ⚠️¹  | ❌       | ❌  | ❌    |
+| `features/<a>/`   | ✅                       | ✅         | ✅       | ✅   | ✅   | ⚠️²      | ❌  | ❌    |
+| `app/`            | ✅                       | ✅         | ✅       | ✅   | ✅   | ⚠️³      | ✅  | ❌    |
+| `main.tsx`        | ✅                       | ✅         | ✅       | ✅   | ✅   | ⚠️³      | ✅  | ⚠️⁴   |
+| `mocks/`          | ✅                       | ❌         | ❌       | ❌   | ❌   | ❌       | ❌  | ✅    |
 
 1. `apis/<domain>/` 之間只能共用 `apis/<domain>/types.ts`；操作資料夾彼此不 import。
    唯一例外是 `apis/resources.ts`（資源依賴圖）：它可以 import 各操作 `query.ts` 的 key 常數；
@@ -111,10 +110,9 @@ apps/apm-service   獨立的前端錯誤收件服務（模擬 Sentry API）；�
 3. 只能 import 對方的 `index.tsx`（`@/features/<name>`），不可深入內部檔案。
 4. 只能在 `import.meta.env.VITE_ENABLE_MOCK` 判斷下以動態 `import()` 載入。
 5. 只有 `@b2b-system/web-shared`；app 的 `shared/`（api-sdk、websocket-sdk、env）不在 package 裡，`ui`、`web-core` 碰不到（`web-core` 直接依賴 `@b2b-system/realtime`、`@b2b-system/error-codes`）。
-6. 只有 `plugins/features/`：它們往別的 feature 的頁面掛畫面（偏好頁的分頁，[`architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §4.3），
-   所以可以用 `ui`；擴充某個 feature 時只能 import 它的 `index.tsx`（同註 3，[`architecture/frontend/01-architecture.md`](../architecture/frontend/01-architecture.md) §1）。
-   `plugins/app/` 是基礎設施，兩者都不用。
-7. 只有 `plugins/app/i18n.ts` 以 `import()` 載入 `app/locales/*.json`：app 的全域語系包放在 `app/`，由 i18n plugin 交給 web-core（[`architecture/frontend/08-i18n.md`](../architecture/frontend/08-i18n.md) §2）。
+
+app 沒有 `plugins/` 層：基礎設施 plugin 由 `main.tsx` 直接從 `@b2b-system/web-core/plugins/app` 匯入，全域語系包的包裝在 `app/i18n.ts`，
+一個功能擴充另一個功能經由下層的註冊表（[`architecture/frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §6、§8.6）。
 
 測試檔（`__tests__/`、`*.test.*`、`*.spec.*`）與 `src/test/` 不受矩陣限制（整合測試需要組裝多層），
 但正式程式碼不可 import 任何測試檔、`src/test/` 或 `@b2b-system/web-core/testing`。

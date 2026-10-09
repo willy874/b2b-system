@@ -3,7 +3,7 @@ import type { ComponentType } from 'react';
 
 /**
  * 檔案管理的擴充點（docs/architecture/frontend/12-file-manager.md §6）。
- * feature 或 `plugins/` 在 plugin 的 **同步** 階段註冊；檔案管理器只依註冊表運作，不認識個別的格式。
+ * feature 在 plugin 的 **同步** 階段註冊；檔案管理器只依註冊表運作，不認識個別的格式。
  *
  * | 擴充 | 用途 | 內建 |
  * | ---- | ---- | ---- |

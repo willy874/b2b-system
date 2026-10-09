@@ -121,7 +121,7 @@ declare module '@b2b-system/web-core/app/context' {
 web-core 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有它自己用到的區段：`common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）、`notificationRow`。
 app 的 `src/app/locales/*.json` 只放自己的區段（`menu`、`app`、`permission`…）與少數覆寫。
 
-app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlugin({ locales })`，兩者以 `mergeLocaleImporters` 深層合併，**app 的鍵優先**。
+app 的 `app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlugin({ locales })`，兩者以 `mergeLocaleImporters` 深層合併，**app 的鍵優先**。
 測試由 app 的 `src/test/i18n.ts` 包一層 `initTestI18n(zhTW, …)`。字串該放哪見 [`08-i18n.md`](08-i18n.md)。
 
 ### 3.4 參數
@@ -145,7 +145,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 | app 的檔案 | 作用 |
 | --- | --- |
 | `src/core/permission/index.ts` | 登記權限目錄並轉出 web-core 的權限機制（§3.1） |
-| `src/plugins/app/index.ts` | `export * from '@b2b-system/web-core/plugins/app'` ＋ 自己的 `i18nPlugin`（backstage 另有 `batch-queue.ts`） |
+| `src/app/i18n.ts` | 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`（§3.3）；其他基礎設施 plugin 由 `main.tsx` 直接從 `@b2b-system/web-core/plugins/app` 匯入，不另設門面 |
 | `src/test/i18n.ts` | 測試的語系：web-core 的共用字串 ＋ app 的語系檔 |
 | `src/shared/{api-sdk,websocket-sdk}` | app 對 `@b2b-system/api-sdk`、`@b2b-system/realtime` 的唯一引用點 |
 | `src/shared/constants/env.ts` | `import.meta.env`（每個 app 的環境變數不同） |
@@ -197,7 +197,7 @@ app 的 `plugins/app/i18n.ts` 把自己的語系檔交給 web-core 的 `i18nPlug
 
 1. `apps/<name>/`：Vite ＋ React，`package.json` 依賴 `@b2b-system/{web-shared,ui,web-core}`，`tsconfig.json` 列出三個 reference；`uno.config.ts` 轉出 `@b2b-system/ui/uno.config`；`src/index.css` 只有 `@import '@b2b-system/ui/styles.css';`。
 2. `src/core/permission/`：自己的權限目錄並登記（§3.1）。
-3. `src/plugins/app/`：門面與 `i18nPlugin`（§3.5、§3.3）；`src/app/locales/*.json` 放自己的字串。
+3. `src/app/i18n.ts` 與 `src/app/locales/*.json`：自己的全域語系包（§3.5、§3.3）；`main.tsx` 照 backstage 的順序 `.use()` web-core 的 plugin（含 `tableColumnSettingsPlugin`）。
 4. `src/apis/auth/`：自己的 session 端點；`App.tsx` 以 `GlobalProvider`（`profileQueryKey`）包住 router。
 5. 根目錄 `tsconfig.json`、`pnpm dev` 的 filter、Dockerfile、`.oxlintrc.json` 的路徑加上這個 app。
    web-core 的分層與註解路徑測試以 `package.json` 依賴 web-core 判斷，自動納入；`src/` 底下的資料夾要是 [`07-layer-dependencies.md`](../../coding-standards/07-layer-dependencies.md) §2.2 矩陣裡的層。
@@ -237,7 +237,7 @@ apps/platform 建立時複製了 backstage 的 `shared/`、`components/`、`them
 | D5 | web-core 需要 app 的東西 | 只透過 augmentation（D3、plugin 屬性）、參數（`profileQueryKey`、`LanguageMenu` 的 `onChange`、`i18nPlugin` 的 `locales`）與 app 的門面；web-core 不 import `@/…`、不呼叫任何 app 的 API |
 | D6 | 只有一個 app 用的機制 | 留在那個 app 的 `core/`（backstage 的 `feature`、`file`、`permission-graph`、`trash` 與五個元件）。第二個 app 需要時再搬進 web-core |
 | D7 | 錯誤碼 | `@b2b-system/error-codes` build 到 `dist/`（api 在 Node 執行時要用）；前端的 `ERROR_MESSAGE_KEY` 以 `satisfies Record<ErrorCode, …>` 在編譯期檢查漏碼與多出的碼，翻譯完整性由 web-core 的測試檢查 |
-| D8 | app 的 import 寫法 | 子路徑一個模組一個（`@b2b-system/web-core/store`），不經過整包的 barrel；app 保留 `@/core/permission`、`@/plugins/app` 兩個門面，原本的呼叫端不必改 |
+| D8 | app 的 import 寫法 | 子路徑一個模組一個（`@b2b-system/web-core/store`），不經過整包的 barrel；app 保留 `@/core/permission`、`@/plugins/app` 兩個門面，原本的呼叫端不必改。**更新（2026-10-09）**：`@/plugins/app` 拿掉，`main.tsx` 直接匯入 web-core，`i18nPlugin` 的包裝移到 `app/i18n.ts`（[`02-plugin-system.md`](./02-plugin-system.md) §8.6） |
 | D9 | 要不要比照 api，合成一個 app、以設定切換角色（[`../01-system.md`](../01-system.md) §4.3、§7 D1） | **不合併**，維持「app 分開、共用的程式放 package」。api 拆角色是為了依執行期的負載形狀（請求、長連線、背景工作）各自擴展，前端是靜態檔，沒有這種負載；兩個 app 分開的原因是身分範圍與 origin 不同（[`../04-sso.md`](../04-sso.md) §1.1、§12.2 D1、D13），不是負載。現在的結構已經對應 api：app 是進入點（如 `main.ts`、`main.external.ts`），package 是共用的 `core/`、`modules/`；「同一份產物、依設定決定能力」在前端由租戶可關閉的 feature 與 feature flag 承擔。評估過的做法見 §8.4 |
 
 ### 8.3 代價

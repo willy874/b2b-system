@@ -1,21 +1,18 @@
 # 前端 01 — 架構
 
-## 1. 七層
+## 1. 六層
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 7  app/         App Shell。只組裝，不實作業務                  │
+│ 6  app/         App Shell。只組裝，不實作業務                  │
 │                 Layout、route tree、選單與品牌                 │
 ├──────────────────────────────────────────────────────────────┤
-│ 6  features/    業務功能。每個自給自足                          │
+│ 5  features/    業務功能。每個自給自足                          │
 │                 routes · pages · components · hooks · enums   │
 │                 permission.ts · plugin.ts · locales/          │
 ├──────────────────────────────────────────────────────────────┤
-│ 5  apis/        與後端對話的唯一入口                            │
+│ 4  apis/        與後端對話的唯一入口                            │
 │                 <domain>/<operation>/{fetcher,query|mutation} │
-├──────────────────────────────────────────────────────────────┤
-│ 4  plugins/     可插拔能力。非核心、非業務                      │
-│                 app/（web-core 的門面＋語系包） features/      │
 ├──────────────────────────────────────────────────────────────┤
 │ 3  core/        機制層。跨 feature，但不認識任何 feature        │
 │                 app 的：權限目錄 · backstage 才有的模組         │
@@ -36,11 +33,10 @@
 web-core 在第 3 層的下半：app 的 `core/` 可以 import 它，它不認識 app。
 
 **路徑寫法**：前端文件裡的 `web-core/<module>` 指 `packages/web-core/src/<module>`（匯入時是 `@b2b-system/web-core/<module>`）；
-`core/<module>`、`app/…`、`plugins/…` 指 app 自己的 `src/` 底下。
+`core/<module>`、`app/…` 指 app 自己的 `src/` 底下。
 
-**相依只能由上往下。** 唯一例外是 `plugins/features/*`：它們是「擴充某個
-feature 的小外掛」，允許依賴那個 feature 的公開介面（見
-[`02-plugin-system.md`](./02-plugin-system.md) §6）。
+**相依只能由上往下，沒有例外。** 一個功能要擴充另一個功能，經由下層的註冊表（[`02-plugin-system.md`](./02-plugin-system.md) §6）；
+app 不設 `plugins/` 層，基礎設施 plugin 由 `main.tsx` 直接從 `@b2b-system/web-core/plugins/app` 匯入（[`02-plugin-system.md`](./02-plugin-system.md) §8.6）。
 
 ---
 
@@ -141,17 +137,15 @@ apis/
 
 見 [`03-feature-anatomy.md`](./03-feature-anatomy.md)。
 
-### 2.6 `plugins/` — 可插拔能力
-
-見 [`02-plugin-system.md`](./02-plugin-system.md)。
-
-### 2.7 `app/` — 組裝層
+### 2.6 `app/` — 組裝層
 
 `app/` 裡 **不應該出現任何業務邏輯**。它做三件事：
 
 1. `routes.tsx` — 把各 feature 匯出的 route 物件組成 route tree
 2. `Layout.tsx` / `layouts/` — 決定哪些路徑套哪個 layout；側欄選單、品牌、頂列工具的登記（`headerTools.ts`）
 3. `App.tsx` — 套上 `GlobalProvider`（`@b2b-system/web-core/shell`：Query / Router / Theme / Toast providers），傳入自己的 `profileQueryKey`
+
+另有 `app/i18n.ts`：把 `app/locales/*.json`（app 的全域語系包）交給 web-core 的 `i18nPlugin`，由 `main.tsx` 註冊（[`08-i18n.md`](./08-i18n.md) §2）。
 
 ---
 
@@ -245,9 +239,9 @@ main.tsx
 | 從                  | 不可 import                                              |
 | ------------------- | -------------------------------------------------------- |
 | `packages/web-shared`、`packages/ui`、`packages/web-core` | app 的任何程式碼（`@/`、跳出 `src/` 的相對路徑）；下層不 import 上層（`web-shared` ✗ `ui` ✗ `web-core`）；`web-core` 不 import `@b2b-system/api-sdk` |
-| `src/core/**`       | `features/`、`apis/`、`plugins/`、`app/`                 |
+| `src/core/**`       | `features/`、`apis/`、`app/`                             |
 | `src/features/a/**` | `features/b/`，`@/` 與相對路徑都算                       |
-| `src/app/**`、`main.tsx`、`src/plugins/features/**` | feature 的內部檔案（只能 import `@/features/<name>`，即 `index.tsx`） |
+| `src/app/**`、`main.tsx` | feature 的內部檔案（只能 import `@/features/<name>`，即 `index.tsx`） |
 | 正式程式碼          | 測試檔、`src/test/`、`@b2b-system/web-core/testing`        |
 
 同一支測試也檢查每個 `features/*/index.tsx` 都匯出 `Routes` 與 `<name>FeaturePlugin`（[`03-feature-anatomy.md`](./03-feature-anatomy.md) §2.1），避免漏接。
