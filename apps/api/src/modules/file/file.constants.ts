@@ -1,6 +1,8 @@
 import { ChangeSource } from '@b2b-system/realtime';
 import type { ChangeKind, ResourceChangeWire } from '@b2b-system/realtime';
 
+import { IMAGE_FORMATS } from '@/core/image';
+
 /** 稽核 `file.update` 時比對的欄位。 */
 export const FILE_AUDIT_FIELDS = ['name'] as const;
 
@@ -137,6 +139,16 @@ export function variantPrefixOf(fileId: string): string {
 
 export function variantKeyOf(fileId: string, variant: ImageVariant, format: string): string {
   return `${variantPrefixOf(fileId)}${variant}.${format}`;
+}
+
+/**
+ * 一個檔案 **可能** 由 CDN 送出過的所有物件（手動清理邊緣快取用，docs/architecture/backend/09-file.md §16.11）：
+ * 每個變體 × 每種格式（主格式與依請求轉出的其他格式）。只由 id 決定，不需要物件還在；沒產生過的路徑邊緣回報 `missing`。
+ */
+export function fileVariantKeysOf(fileId: string): string[] {
+  return IMAGE_VARIANTS.flatMap((variant) =>
+    IMAGE_FORMATS.map((format) => variantKeyOf(fileId, variant, format)),
+  );
 }
 
 /**

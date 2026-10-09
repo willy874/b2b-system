@@ -388,6 +388,18 @@ export const ErrorCode = {
   /** 處理中的圖片太多（每人 `IMAGE_PENDING_PER_USER` 張），等前面的處理完再上傳。 */
   IMAGE_PENDING_LIMIT_REACHED: { status: 409 },
 
+  // ── CDN 設定（docs/architecture/backend/09-file.md §16.9～§16.12） ──
+  /** 這個部署沒有提供 CDN（`FILE_CDN_ENABLED=false`）：執行期的設定與清理都不能用。 */
+  CDN_NOT_DEPLOYED: { status: 409 },
+  /** 開啟（或加入資源類型）前的節點檢查沒有通過（`details.nodes`：每個節點的問題）；不提供強制略過（§17 D14）。 */
+  CDN_NOT_READY: { status: 409 },
+  /** CDN 設定已被別人修改（樂觀鎖）：重新整理後再改。 */
+  CDN_SETTINGS_VERSION_CONFLICT: { status: 409 },
+  /** 手動清理：找不到那筆資源，或那種資源沒有登記路徑的解析器。 */
+  CDN_PURGE_TARGET_NOT_FOUND: { status: 404 },
+  /** 已經有一筆尚未完成的「清空整個快取」。 */
+  CDN_PURGE_IN_PROGRESS: { status: 409 },
+
   // ── 系統設定 ──
   /** 沒有登記這個 key 的設定（docs/architecture/backend/12-settings.md）。 */
   SETTING_NOT_FOUND: { status: 404 },

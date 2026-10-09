@@ -694,6 +694,7 @@ db/platform/migrations/                 平台 DB（schema 在 db/platform/schem
 ├── 0011_announcement_feature.sql       features 預設加 announcement，既有租戶啟用（[`backend/19-announcement.md`](19-announcement.md) §9.2 D20）
 ├── 0016_platform_admin_login_sources.sql  platform_admin_login_sources（[`backend/04-auth.md`](04-auth.md) §3.4；純加法）
 ├── 0025_mfa_method_settings.sql        mfa_method_settings、mfa_channel_links（[`backend/21-mfa.md`](21-mfa.md) §5.1、§9.5；純加法）
+├── 0029_cdn_settings.sql               cdn_settings、cdn_state（CDN 的執行期設定，[`backend/09-file.md`](09-file.md) §16.9；純加法）
 └── …                                   之後的變更接著編號
 ```
 

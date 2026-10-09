@@ -59,6 +59,8 @@ export const ErrorCodes = {
   AUTHZ_ESCALATION: 'AUTHZ_ESCALATION',
   ROLE_IN_USE: 'ROLE_IN_USE',
   RATE_LIMITED: 'RATE_LIMITED',
+  /** apps/platform 的 CDN 頁面在開關旁顯示 `details.nodes`（docs/architecture/backend/09-file.md §16.12）。 */
+  CDN_NOT_READY: 'CDN_NOT_READY',
 } as const satisfies Partial<Record<ErrorCode, ErrorCode>>;
 
 /** 收到這些碼代表 session 已被終止：不要嘗試續期，直接登出。 */

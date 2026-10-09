@@ -55,7 +55,7 @@ abstract class ObjectUrlSigner {
 - 實作由 `StorageModule` 全域提供（D6）：沒有 CDN 時是 `PresignedUrlSigner`（包住 `ObjectStorage.presignDownload`，含 `stableSigningDate` 的時間窗；[`09-file.md`](./09-file.md) §7.1）；
   `FILE_CDN_ENABLED=true` 時是 `CdnUrlSigner`（§9、[`09-file.md`](./09-file.md) §16.2）。
 - `cdn` 是「這個物件寫入後不再覆寫、可以由 CDN 送出」的資源類型（`CdnResource`：`imageAsset`、`galleryItem`、`fileVariant`）。presigned 的實作忽略它；
-  CDN 的實作依 `CdnConfig.servesResource()`（`FILE_CDN_RESOURCES`）決定是否改用 CDN（§9）。
+  CDN 的實作依 `CdnConfig.servesResource()`（`FILE_CDN_RESOURCES` 的上限 ＋ apps/platform 的執行期設定，[`09-file.md`](./09-file.md) §16.9）決定是否改用 CDN（§9）。
 - 讀圖的熱路徑（`ImageUrlService`、檔案的影像 API 的轉址）只認它；上傳、分塊上傳、一般檔案的下載仍直接用 `ObjectStorage`（不會走 CDN）。
 
 **`ImageUrlService`**（`core/image/image-url.service.ts`，`ImageModule` 全域提供）：

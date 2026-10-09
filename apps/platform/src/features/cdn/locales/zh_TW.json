@@ -1,0 +1,131 @@
+{
+  "cdn": {
+    "title": "CDN",
+    "description": "圖片由自架的邊緣送出。部署層的能力與上限在環境變數；這裡的設定不必重啟就生效，各程序在幾秒內跟上。",
+    "deployment": {
+      "title": "部署",
+      "notDeployed": "這個部署沒有提供 CDN。",
+      "notDeployedHint": "以 FILE_CDN_ENABLED=true 與邊緣（docker-compose.cdn.yml 或 k8s 的 components/cdn）啟用；見 docs/architecture/backend/09-file.md §16。",
+      "provider": "供應商",
+      "origin": "CDN 網址",
+      "signingKid": "簽發中的 kid",
+      "kids": "可驗證的 kid",
+      "resources": "開放的資源類型",
+      "maxUrlTtl": "效期上限",
+      "purge": "清理端點",
+      "purgeConfigured": "已設定",
+      "purgeNotConfigured": "沒有設定",
+      "defaults": "預設：自動清理 {{purgeOnDelete}}、批次 {{batch}}",
+      "healthCheck": "定期檢查",
+      "healthCheckOff": "不排程",
+      "seconds_other": "{{count}} 秒",
+      "on": "開",
+      "off": "關"
+    },
+    "settings": {
+      "title": "設定",
+      "serving": "啟用 CDN",
+      "servingHint": "關閉後新的圖片網址立刻改回 presigned；清理照常。",
+      "changedBy": "{{email}} 於 {{time}} 切換",
+      "issuedUrlsExpireAt": "關閉前發出的 CDN 網址最晚於 {{time}} 過期，在那之前邊緣仍要運作。",
+      "offTitle": "關閉 CDN？",
+      "offConfirm": "新的圖片網址立刻改回 presigned；已發出的 CDN 網址最晚於 {{time}} 過期，在那之前邊緣仍要運作。",
+      "offAction": "關閉",
+      "notReady": "邊緣節點的檢查沒有通過，不能開啟：",
+      "resources": "資源類型",
+      "resourceNotDeployed": "部署沒有開放",
+      "resourcesClamped": "設定了部署已不開放的資源（{{resources}}），生效值不含它們。",
+      "urlTtlCap": "效期上限（秒）",
+      "urlTtlCapRange": "可設定 {{min}}～{{max}} 秒",
+      "urlTtlCapClamped": "超過部署的上限，生效值是 {{value}} 秒。",
+      "purgeOnDelete": "刪除後自動清理",
+      "purgeOnDeleteOffTitle": "關閉自動清理？",
+      "purgeOnDeleteOffConfirm": "之後刪除的圖會留在邊緣，直到網址過期（最長 {{seconds}} 秒）。",
+      "purgeOnDeleteOffAction": "關閉自動清理",
+      "purgeBatchSize": "清理的批次大小",
+      "save": "儲存",
+      "reset": "跟著環境變數",
+      "overridden": "已覆寫",
+      "saved": "CDN 設定已儲存"
+    },
+    "nodes": {
+      "title": "邊緣節點",
+      "check": "執行檢查",
+      "checkedAt": "最近一次檢查：{{time}}",
+      "never": "還沒有檢查過。",
+      "ready": "開啟前的檢查通過",
+      "notReady": "開啟前的檢查沒有通過",
+      "healthy": "正常",
+      "address": "位址",
+      "status": "狀態",
+      "kids": "kid",
+      "cache": "快取",
+      "cacheValue": "上限 {{maxSize}}、閒置 {{inactive}}、有效 {{valid}}",
+      "build": "版本",
+      "startedAt": "啟動時間",
+      "publicUrl": "對外網址",
+      "signatureEnforced": "竄改的簽章會被拒",
+      "missingKids": "缺少 kid：{{kids}}",
+      "problem": {
+        "unreachable": "連不上",
+        "timeout": "逾時",
+        "purgeSecretRejected": "清理密鑰不一致",
+        "badResponse": "回應的形狀不對",
+        "signingKidMissing": "缺少簽發中的金鑰",
+        "verifyKidMissing": "缺少可驗證的舊金鑰"
+      },
+      "discovery": {
+        "purgeNotConfigured": "沒有設定清理端點（FILE_CDN_PURGE_URL），沒有節點可檢查。",
+        "resolveFailed": "清理端點的名稱解析失敗：{{detail}}"
+      },
+      "publicUrlResult": {
+        "ok": "正常",
+        "signatureRejected": "邊緣不接受 api 的簽章",
+        "originAuthRejected": "源站拒絕回源（回源憑證不對）",
+        "originUnreachable": "邊緣連不到源站",
+        "unreachable": "api 連不到對外網址",
+        "unexpected": "非預期的回應"
+      },
+      "signatureResult": {
+        "ok": "正常",
+        "notEnforced": "邊緣沒有驗簽章：任何人都能從快取讀到內容",
+        "unreachable": "api 連不到對外網址",
+        "unexpected": "非預期的回應"
+      }
+    },
+    "purge": {
+      "title": "清理",
+      "description": "從每個邊緣節點刪掉快取；結果在背景工作列表。",
+      "target": "目標",
+      "tenant": "租戶",
+      "tenantPlaceholder": "選擇租戶",
+      "paths": "物件 key（一行一個，例：images/<id>/r3/sm.webp）",
+      "id": "id",
+      "submit": "清理",
+      "queued_one": "已排入 {{count}} 筆清理",
+      "queued_other": "已排入 {{count}} 筆清理",
+      "allTitle": "清空整個快取？",
+      "allConfirm": "會送到 {{nodes}} 個節點。之後一段時間所有圖片都會回源，源站的負載會升高。",
+      "allAction": "清空",
+      "targetType": {
+        "paths": "路徑",
+        "fileVariant": "檔案的縮放圖",
+        "imageAsset": "圖片資產",
+        "galleryItem": "圖片庫的圖片",
+        "all": "整個快取"
+      },
+      "recent": "最近的清理",
+      "recentEmpty": "沒有清理紀錄。",
+      "viewJobs": "在背景工作列表檢視",
+      "automatic": "自動",
+      "pathCount_one": "{{count}} 個路徑",
+      "pathCount_other": "{{count}} 個路徑",
+      "allPaths": "整個快取"
+    },
+    "resource": {
+      "fileVariant": "檔案的縮放圖",
+      "imageAsset": "圖片資產",
+      "galleryItem": "圖片庫"
+    }
+  }
+}

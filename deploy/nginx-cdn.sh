@@ -8,6 +8,7 @@
 #   CDN_ORIGIN_UPSTREAM  回源的位址（預設 http://file-storage:9000；本機是 http://host.docker.internal:9000）
 #   CDN_ORIGIN_SECRET    選填：與 file-storage 的 FILE_STORAGE_ORIGIN_SECRET 相同；沒設定就不帶回源憑證
 #   CDN_CACHE_MAX_SIZE（10g）、CDN_CACHE_INACTIVE（30d）、CDN_CACHE_VALID（30d）、CDN_LISTEN_PORT（9080）、CDN_PURGE_PORT（8081）
+#   CDN_BUILD            映像的版本（建置時的 build arg；/_status 回報）
 set -eu
 
 fail() {
@@ -69,6 +70,11 @@ for value in "$CDN_LISTEN_PORT" "$CDN_PURGE_PORT"; do
 done
 [ "$CDN_LISTEN_PORT" != "$CDN_PURGE_PORT" ] || fail "CDN_LISTEN_PORT 與 CDN_PURGE_PORT 不能相同：清理端點不能出現在對外的埠"
 
+# /_status 回報的映像版本（映像建置時的 CDN_BUILD）與啟動時間
+CDN_BUILD=${CDN_BUILD:-dev}
+echo "$CDN_BUILD" | grep -Eq '^[A-Za-z0-9._+-]{1,64}$' || fail "CDN_BUILD 只能是 1～64 個英數與 ._+- 字元：$CDN_BUILD"
+CDN_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 # 名稱伺服器取自容器的 /etc/resolv.conf（docker 是 127.0.0.11）；nginx 的 resolver 不套 search domain
 nameserver=$(awk '$1 == "nameserver" { print $2; exit }' /etc/resolv.conf 2>/dev/null || true)
 case "$nameserver" in
@@ -78,6 +84,6 @@ esac
 CDN_RESOLVER=$nameserver
 
 export CDN_CACHE_MAX_SIZE CDN_CACHE_INACTIVE CDN_CACHE_VALID CDN_LISTEN_PORT CDN_PURGE_PORT
-export CDN_ORIGIN_SCHEME CDN_ORIGIN_HOSTPORT CDN_ORIGIN_HOSTNAME CDN_RESOLVER
-envsubst '${CDN_CACHE_MAX_SIZE} ${CDN_CACHE_INACTIVE} ${CDN_CACHE_VALID} ${CDN_LISTEN_PORT} ${CDN_PURGE_PORT} ${CDN_ORIGIN_SCHEME} ${CDN_ORIGIN_HOSTPORT} ${CDN_ORIGIN_HOSTNAME} ${CDN_RESOLVER}' \
+export CDN_ORIGIN_SCHEME CDN_ORIGIN_HOSTPORT CDN_ORIGIN_HOSTNAME CDN_RESOLVER CDN_BUILD CDN_STARTED_AT
+envsubst '${CDN_CACHE_MAX_SIZE} ${CDN_CACHE_INACTIVE} ${CDN_CACHE_VALID} ${CDN_LISTEN_PORT} ${CDN_PURGE_PORT} ${CDN_ORIGIN_SCHEME} ${CDN_ORIGIN_HOSTPORT} ${CDN_ORIGIN_HOSTNAME} ${CDN_RESOLVER} ${CDN_BUILD} ${CDN_STARTED_AT}' \
   <"$TEMPLATE" >"$OUTPUT"

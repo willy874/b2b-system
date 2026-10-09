@@ -1,3 +1,4 @@
+export * from './cdn-settings';
 export * from './feature-flags';
 export * from './mfa-channel-links';
 export * from './mfa-methods';

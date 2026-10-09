@@ -100,6 +100,7 @@ apps/api/src/
 │   ├── platform-admin/                   平台管理者、平台的帳號流程與稽核（05-tenancy.md §10.2 D5）
 │   ├── platform-notification/            平台管理者的站內通知（15-notification.md §6.2）
 │   ├── feature-flag/                     feature flag 的平台管理 API（05-tenancy.md §5.2）
+│   ├── platform-cdn/                     CDN 的執行期設定、邊緣檢查（cdn.healthCheck）與手動清理（09-file.md §16.9～§16.12）
 │   └── health/
 │
 ├── db/
@@ -227,7 +228,7 @@ app.module
   ├─ TagModule             ──▶ DataTransfer
   ├─ RealtimeModule        ──▶ Permission（訂閱 DomainEventBus；沒有模組依賴它）
   ├─ PlatformAdminModule   ──▶ PlatformNotification
-  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaEmail · MfaMessaging · MfaSms · MfaTotp · MfaWebAuthn · Notification · Permission · PlatformNotification · Revision · System · Trash
+  ├─ 沒有 imports：ApiToken · AuditLog · AuthzExplain · Credential · FeatureFlag · Health · IdentityProvider · Job · MfaEmail · MfaMessaging · MfaSms · MfaTotp · MfaWebAuthn · Notification · Permission · PlatformCdn · PlatformNotification · Revision · System · Trash
   └─ @Global：Permission · AuditLog · PlatformAdmin
 ```
 

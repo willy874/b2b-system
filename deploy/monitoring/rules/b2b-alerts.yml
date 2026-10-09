@@ -103,6 +103,32 @@ groups:
           summary: '邊緣快取的清理失敗（{{ $labels.stage }}）'
           description: 看 cdn.purge 的錯誤（apps/platform 的背景工作頁）與 api_cdn_purge_requests_total{result!="ok"}；邊緣恢復後以 cli:cdn-purge 補清。
 
+      - alert: CdnEdgeDown
+        # 邊緣節點連不上或清理密鑰不同（docs/architecture/backend/09-file.md §16.10）：cdn.healthCheck 每 5 分鐘一次，
+        # 10 分鐘避開節點重啟的短暫中斷（§17 D18）。多個程序回報同一個節點時取 max（任一個最近的檢查連得到就不算）
+        expr: max by (node) (api_cdn_edge_up) == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'CDN 邊緣節點 {{ $labels.node }} 連不上'
+          description: apps/platform 的 CDN 頁面看節點的問題；清理送不到這個節點，圖片可能破圖。邊緣整個掛掉時在 CDN 頁面關掉 CDN（改回 presigned，不必重啟）。
+
+      - alert: CdnEdgeKidMismatch
+        # 節點缺少 api 簽發中的 kid：api 簽出的網址會被這個節點拒絕（403），使用者看到破圖。常見於金鑰輪替只改了 api（§16.3）
+        expr: max by (node) (api_cdn_edge_kid_mismatch) == 1
+        labels: { severity: critical }
+        annotations:
+          summary: 'CDN 邊緣節點 {{ $labels.node }} 沒有 api 簽發中的 kid'
+          description: 把新金鑰加到邊緣的 CDN_SIGNING_KEYS 並重啟邊緣；來不及時在 apps/platform 的 CDN 頁面關掉 CDN。
+
+      - alert: CdnSignatureNotEnforced
+        # 竄改的簽章沒有被邊緣拒絕（檢查項目 5）：任何人都能從快取讀到內容，立即告警
+        expr: sum(increase(api_cdn_check_failures_total{item="signatureEnforced"}[15m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: CDN 的邊緣沒有驗簽章
+          description: 立即在 apps/platform 的 CDN 頁面關掉 CDN，檢查邊緣的 nginx.cdn.conf 與 cdn.js 是否被改過（sh deploy/check-cdn.sh）。
+
   - name: b2b-postgres
     rules:
       - alert: PostgresDown

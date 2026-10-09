@@ -7,7 +7,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JobQueue } from '../../jobs';
 import { runInTenantContext } from '../../tenant';
 import type { TenantContext } from '../../tenant';
-import { cdnPurgeSignature, NginxCdnEdgePurger } from '../cdn-edge-purger';
+import {
+  CDN_STATUS_SIGNED_CONTENT,
+  cdnPurgeSignature,
+  NginxCdnEdgePurger,
+} from '../cdn-edge-purger';
 import { CDN_PURGE_JOB, CdnPurgeJob, QueuedCdnPurger } from '../cdn-purger';
 import { CDN_PURGE_SECRET, cdnConfigOf } from './cdn.fixture';
 
@@ -161,6 +165,48 @@ describe('NginxCdnEdgePurger（deploy/cdn.js 的清理端點）', () => {
   });
 });
 
+describe('NginxCdnEdgePurger.status（GET /_status，docs/architecture/backend/09-file.md §16.10）', () => {
+  const STATUS = {
+    kids: ['k2', 'k1'],
+    cache: { maxSize: '10g', inactive: '30d', valid: '30d' },
+    build: 'abc123',
+    startedAt: '2026-10-09T00:00:00Z',
+  };
+
+  it('每個位址各送一次 GET /_status?ts=…，簽章是 ts ＋ "GET /_status" 的 HMAC；回報 kid 與快取設定', async () => {
+    const edge = await fakeEdge(() => ({ status: 200, body: JSON.stringify(STATUS) }));
+    const results = await edgePurger(edge.port, ['127.0.0.1', '127.0.0.1']).status();
+
+    expect(results).toEqual([
+      { address: '127.0.0.1', result: 'ok', status: STATUS },
+      { address: '127.0.0.1', result: 'ok', status: STATUS },
+    ]);
+    const [first] = edge.received;
+    expect(first?.url).toBe('/_status?ts=1791547200');
+    expect(first?.body).toBe('');
+    expect(first?.headers['x-purge-signature']).toBe(
+      cdnPurgeSignature(CDN_PURGE_SECRET, 1_791_547_200, CDN_STATUS_SIGNED_CONTENT),
+    );
+  });
+
+  it('403 → rejected（清理密鑰不同）；形狀不對 → invalid；其他狀態 → error；逾時 → timeout', async () => {
+    const rejected = await fakeEdge(() => ({ status: 403 }));
+    expect(await edgePurger(rejected.port, ['127.0.0.1']).status()).toEqual([
+      { address: '127.0.0.1', result: 'rejected', detail: 'HTTP 403' },
+    ]);
+    const invalid = await fakeEdge(() => ({ status: 200, body: '{"kids":"k1"}' }));
+    expect((await edgePurger(invalid.port, ['127.0.0.1']).status())[0]?.result).toBe('invalid');
+    const broken = await fakeEdge(() => ({ status: 500 }));
+    expect(await edgePurger(broken.port, ['127.0.0.1']).status()).toEqual([
+      { address: '127.0.0.1', result: 'error', detail: 'HTTP 500' },
+    ]);
+    const slow = await fakeEdge(() => ({ status: 200, delayMs: 2000 }));
+    expect(await edgePurger(slow.port, ['127.0.0.1'], 500).status()).toEqual([
+      { address: '127.0.0.1', result: 'timeout' },
+    ]);
+  });
+});
+
 function purgeJob(port: number) {
   const jobs = fakeJobs();
   const handler = new CdnPurgeJob(
@@ -198,6 +244,16 @@ describe('CdnPurgeJob（cdn.purge）', () => {
     await expect(
       purgeJob(edge.port).handler.run({ paths: ['/storage/b/x'] }, context(5)),
     ).rejects.toThrow('邊緣快取的清理失敗');
+  });
+
+  it('手動清空整個快取 → POST /_purge/all，output 的 paths 是 all', async () => {
+    const edge = await fakeEdge();
+    const output = await purgeJob(edge.port).handler.run(
+      { all: true, manual: { requestedBy: 'admin-1', tenantId: null, target: 'all' } },
+      context(),
+    );
+    expect(edge.received[0]?.url).toBe('/_purge/all');
+    expect(output).toMatchObject({ paths: 'all' });
   });
 
   it('沒有清理端點（CDN 已關掉）→ 略過', async () => {

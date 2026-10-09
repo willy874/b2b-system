@@ -20,7 +20,7 @@ Nest 12 的套件只發 ESM；`apps/api` 仍編譯成 CommonJS，靠 Node 的 `r
 | 06  | [`06-audit-log.md`](./06-audit-log.md)             | 稽核日誌設計與不可變性                       |
 | 07  | [`07-testing.md`](./07-testing.md)                 | 單元 / 整合 / e2e 測試策略                   |
 | 08  | [`08-realtime.md`](./08-realtime.md)               | Socket.io gateway、room 與受眾、推播時機     |
-| 09  | [`09-file.md`](./09-file.md)                       | 物件儲存抽象層、`files` 轉介表、直傳上傳流程；圖片的 CDN（`CdnUrlSigner`、`CdnPurger` 與 `cdn.purge`、自架的 nginx 邊緣，§16） |
+| 09  | [`09-file.md`](./09-file.md)                       | 物件儲存抽象層、`files` 轉介表、直傳上傳流程；圖片的 CDN（`CdnUrlSigner`、`CdnPurger` 與 `cdn.purge`、自架的 nginx 邊緣，§16；執行期設定、邊緣檢查、手動清理，§16.9～§16.12） |
 | 10  | [`10-jobs.md`](./10-jobs.md)                       | 背景工作佇列（pg-boss）、排程、管理 API      |
 | 11  | [`11-mail.md`](./11-mail.md)                       | 郵件：SMTP / console 傳輸、React Email 範本  |
 | 12  | [`12-settings.md`](./12-settings.md)               | 系統設定：執行期可調的值、env 與設定的分工   |

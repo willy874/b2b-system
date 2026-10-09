@@ -2008,6 +2008,10 @@ export const PlatformPermissionKey = {
   'featureFlag:update': 'featureFlag:update',
   'mfaMethod:read': 'mfaMethod:read',
   'mfaMethod:update': 'mfaMethod:update',
+  'cdn:read': 'cdn:read',
+  'cdn:update': 'cdn:update',
+  'cdn:purge': 'cdn:purge',
+  'cdn:purgeAll': 'cdn:purgeAll',
 } as const;
 export type PlatformPermissionKey =
   (typeof PlatformPermissionKey)[keyof typeof PlatformPermissionKey];
@@ -2550,6 +2554,7 @@ export const JobName = {
   'auth.passwordResetMail': 'auth.passwordResetMail',
   'auth.platformTokenCleanup': 'auth.platformTokenCleanup',
   'auth.tokenCleanup': 'auth.tokenCleanup',
+  'cdn.healthCheck': 'cdn.healthCheck',
   'cdn.purge': 'cdn.purge',
   'dataTransfer.applyImport': 'dataTransfer.applyImport',
   'dataTransfer.cleanup': 'dataTransfer.cleanup',
@@ -2673,6 +2678,165 @@ export interface PlatformJob {
   tenantCode: string | null;
   data: Record<string, unknown> | null;
   output: Record<string, unknown> | null;
+}
+
+export const CdnResource = {
+  fileVariant: 'fileVariant',
+  imageAsset: 'imageAsset',
+  galleryItem: 'galleryItem',
+} as const;
+export type CdnResource = (typeof CdnResource)[keyof typeof CdnResource];
+
+export const CdnState = {
+  on: 'on',
+  off: 'off',
+} as const;
+export type CdnState = (typeof CdnState)[keyof typeof CdnState];
+
+export interface CdnCheckNode {
+  address: string;
+  problems: Array<
+    | 'unreachable'
+    | 'timeout'
+    | 'purgeSecretRejected'
+    | 'badResponse'
+    | 'signingKidMissing'
+    | 'verifyKidMissing'
+  >;
+  kids: Array<string> | null;
+  missingKids: Array<string>;
+  cache: {
+    maxSize: string;
+    inactive: string;
+    valid: string;
+  } | null;
+  build: string | null;
+  startedAt: string | null;
+  detail?: string;
+}
+
+export interface CdnCheckResult {
+  checkedAt: string;
+  ready: boolean;
+  discovery: {
+    ok: boolean;
+    problem?: 'purgeNotConfigured' | 'resolveFailed';
+    detail?: string;
+  };
+  nodes: Array<CdnCheckNode>;
+  publicUrl: {
+    result:
+      | 'ok'
+      | 'signatureRejected'
+      | 'originAuthRejected'
+      | 'originUnreachable'
+      | 'unreachable'
+      | 'unexpected';
+    status?: number;
+    detail?: string;
+  };
+  signatureEnforced: {
+    result: 'ok' | 'notEnforced' | 'unreachable' | 'unexpected';
+    status?: number;
+    detail?: string;
+  };
+}
+
+export interface CdnDeployment {
+  deployed: boolean;
+  provider: string | null;
+  origin: string | null;
+  signingKid: string | null;
+  kids: Array<string>;
+  resources: Array<CdnResource>;
+  minUrlTtl: number;
+  maxUrlTtl: number;
+  purgeConfigured: boolean;
+  purgeOnDelete: boolean;
+  purgeBatchSize: number;
+  healthCheckCron: string | null;
+}
+
+export interface CdnStoredSettings {
+  state: CdnState | null;
+  resources: Array<string> | null;
+  urlTtlCap: number | null;
+  purgeOnDelete: boolean | null;
+  purgeBatchSize: number | null;
+  stateChangedAt: string | null;
+  stateChangedBy: {
+    id: string;
+    email: string | null;
+  } | null;
+  version: number;
+  updatedAt: string | null;
+}
+
+export interface CdnEffective {
+  serving: boolean;
+  resources: Array<CdnResource>;
+  urlTtlCap: number;
+  purgeOnDelete: boolean;
+  purgeBatchSize: number;
+  clamped: {
+    resources: Array<CdnResource>;
+    urlTtlCap: boolean;
+  };
+  issuedUrlsExpireAt: string | null;
+}
+
+export interface CdnPurgeJobSummary {
+  id: string;
+  state: 'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed';
+  createdOn: string;
+  completedOn: string | null;
+  paths: number | 'all';
+  manual: {
+    requestedBy: string;
+    tenantId: string | null;
+    target: string;
+    id?: string;
+  } | null;
+}
+
+export interface CdnOverview {
+  deployment: CdnDeployment;
+  settings: CdnStoredSettings | null;
+  effective: CdnEffective | null;
+  lastCheck: CdnCheckResult | null;
+  recentPurges: Array<CdnPurgeJobSummary>;
+  purgeTargets: Array<CdnResource>;
+}
+
+export interface UpdateCdnSettingsRequest {
+  version: number;
+  state?: CdnState | null;
+  resources?: Array<CdnResource> | null;
+  urlTtlCap?: number | null;
+  purgeOnDelete?: boolean | null;
+  purgeBatchSize?: number | null;
+}
+
+export interface CdnPurgeRequest {
+  target:
+    | {
+        type: 'paths';
+        tenantId: string;
+        paths: Array<string>;
+      }
+    | {
+        type: CdnResource;
+        tenantId: string;
+        id: string;
+      }
+    | {
+        type: 'all';
+      };
+}
+
+export interface CdnPurgeResult {
+  jobIds: Array<string>;
+  paths: number | 'all';
 }
 
 export interface RevisionSummary {

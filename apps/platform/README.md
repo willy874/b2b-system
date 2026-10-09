@@ -27,6 +27,7 @@ pnpm --filter @b2b-system/platform build
 | `features/feature-flag` | `/feature-flag`：試行開關的目錄與全平台覆寫 |
 | `features/audit-log` | `/audit-log`：平台稽核（平台管理者做過的事；看不到租戶的稽核） |
 | `features/job` | `/job`：所有租戶與平台自己的背景工作（backstage 的 `/job` 只看自己租戶的） |
+| `features/cdn` | `/cdn`：CDN 的部署資訊（環境變數，唯讀）、執行期的設定（啟用、資源類型、效期、自動清理、批次；開啟前的節點檢查不過時在開關旁列出問題）、邊緣節點的狀態與「執行檢查」、手動清理與最近的 `cdn.purge`（[`docs/architecture/backend/09-file.md`](../../docs/architecture/backend/09-file.md) §16.12）；`cdn:*` 是平台的權限 |
 | `features/home` | `/`：目前登入的平台管理者、各狀態的租戶數 |
 | `features/account` | `/profile`、`/preference`：個人資料（改名、角色與權限、變更密碼）、偏好設定（只存在瀏覽器） |
 | `features/notification` | `/notification` 與頂列的鈴鐺：平台的站內通知（[`backend/15-notification.md`](../../docs/architecture/backend/15-notification.md) §6.2） |

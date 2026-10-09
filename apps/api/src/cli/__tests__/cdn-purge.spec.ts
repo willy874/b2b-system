@@ -25,10 +25,14 @@ describe('cli:cdn-purge 的參數（docs/architecture/backend/09-file.md §16.7�
     });
   });
 
-  it('--tenant ＋ --image-asset；--all ＋ --confirm', () => {
+  it('--tenant ＋ --image-asset 或 --file；--all ＋ --confirm', () => {
     expect(parseCdnPurgeArgs(['--tenant', 'acme', '--image-asset', ASSET])).toMatchObject({
       kind: 'imageAsset',
       assetId: ASSET,
+    });
+    expect(parseCdnPurgeArgs(['--tenant', 'acme', '--file', ASSET])).toMatchObject({
+      kind: 'file',
+      fileId: ASSET,
     });
     expect(parseCdnPurgeArgs(['--all', '--confirm', 'b2b_platform'])).toEqual({
       kind: 'all',
@@ -42,6 +46,8 @@ describe('cli:cdn-purge 的參數（docs/architecture/backend/09-file.md §16.7�
     [['--tenant', 'acme', '--path', 'a', '--image-asset', ASSET], '要指定其中一種'],
     [['--all', '--tenant', 'acme'], '--all 不能'],
     [['--tenant', 'acme', '--image-asset', 'not-a-uuid'], 'uuid'],
+    [['--tenant', 'acme', '--file', 'not-a-uuid'], 'uuid'],
+    [['--tenant', 'acme', '--file', ASSET, '--image-asset', ASSET], '要指定其中一種'],
     [['--tenant', 'acme', '--path', 'images/../../other-bucket/x'], '不合法'],
   ])('%j → 拋錯（%s）', (argv, message) => {
     expect(() => parseCdnPurgeArgs(argv)).toThrow(message);

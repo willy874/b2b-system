@@ -928,6 +928,7 @@ FileAccessService（modules/file）
 只寫一次的圖片物件可以由 CDN 的邊緣送出：同一張頭像被 100 個人看，物件儲存只送一次。本機與 CI 以 nginx ＋ njs 自架邊緣驗證整條路徑，
 單一區域的正式部署也直接用它（§17 D7）；api 端的「簽 CDN 網址」與「清理快取」都是抽象，之後換成 CloudFront、Cloudflare 只換實作與設定。
 整個功能以 `FILE_CDN_ENABLED` 開關，**預設關閉**；關閉時行為與沒有這個功能時完全相同（§16.4）。
+部署了之後，執行期的開關、資源類型、效期與自動清理在 apps/platform 的 CDN 頁面調整，不必重啟（§16.9～§16.12）。
 
 範圍限於 **寫入後永不覆寫的物件**：檔案的影像變體與轉出的格式（`variants/`）、圖片資產的主檔與變體（`images/`，[`25-image.md`](./25-image.md) §15），
 與之後的圖片庫（`gallery/` 的變體）。不在範圍內：原檔 `files/<id>`（可能是任何型別）、一般檔案的下載（`url`、`downloadUrl`，§17 D4）、多區域與依租戶開關（D9）。
@@ -961,7 +962,7 @@ FileAccessService（modules/file）
 ```
 
 - **呼叫端標資源類型**：簽網址時帶 `{ cdn: '<資源類型>' }`（`CdnResource`：`fileVariant`、`imageAsset`、`galleryItem`；`core/storage/cdn-resource.ts`）。
-  `core/storage` 不認識業務前綴；哪些真的走 CDN 由 `CdnConfig.servesResource()`（`FILE_CDN_RESOURCES`）決定，其他照舊 presigned（D5）。
+  `core/storage` 不認識業務前綴；哪些真的走 CDN 由 `CdnConfig.servesResource()` 決定（`FILE_CDN_RESOURCES` 是上限、平台 DB 的執行期設定是生效值，§16.9），其他照舊 presigned（D5）。
   現在的呼叫端：`FileImageService.resolve()`（變體與轉出的格式；原圖原封不動時不標）、`ImageAssetService`（主檔與 `ImageObjectSet.cdn`）。
 - **帶了 `disposition: 'attachment'` 或 `contentType` 的一律 presigned**：CDN 網址不帶回應標頭的覆寫（D4）。
 - **簽的內容**：`exp` 與 **未編碼** 的完整路徑（含 `/storage/<bucket>/`）；網址上的路徑逐段編碼（`@` → `%40`），邊緣以解碼後的 `$uri` 驗證。
@@ -978,7 +979,8 @@ FileAccessService（modules/file）
 
 | 設定 | 作用 |
 | --- | --- |
-| `js_set $cdn_valid cdn.verify` | 驗 `sig`、`exp`、`kid`（重複的參數也不通過）；不符或過期一律 `403`（快取裡有也不送出，與影像 API 一致，不另回 `410`） |
+| `js_set $cdn_reject cdn.reject` | 驗方法與 `sig`、`exp`、`kid`（重複的參數也不通過），回傳拒絕的原因；不符或過期一律 `403`（快取裡有也不送出，與影像 API 一致，不另回 `410`），`GET`／`HEAD` 以外 `405` |
+| `X-CDN-Reject: signature｜expired｜method` | 邊緣自己拒絕的回應帶原因（簽章錯、kid 不認得、沒有簽章都是 `signature`；簽章對但過期是 `expired`）；源站的回應不帶。api 的檢查以它區分「邊緣拒絕」與「源站的回應」（§16.10、D17） |
 | `rewrite ^ $uri? break` | 回源不帶查詢參數：簽章不必給源站，也不讓 `response-content-type` 之類的參數改寫要被共用的快取內容 |
 | `proxy_cache_path /var/cache/nginx/cdn levels=1:2 keys_zone=cdn:50m max_size=… inactive=… use_temp_path=off` | 快取的位置與上限；`max_size` 滿了以 LRU 淘汰、`inactive` 期間沒被讀過的自動刪除 |
 | `proxy_cache_key $uri` | key 只有路徑（清理時以同一個 key 算出檔案位置，§16.6） |
@@ -990,7 +992,7 @@ FileAccessService（modules/file）
 | `sandbox` CSP、`nosniff`、`Cross-Origin-Resource-Policy: cross-origin`、`Access-Control-Allow-Origin: *`、不回 `Set-Cookie`、隱藏 `x-amz-*` | 沿用檔案網域的安全標頭（§13 D4、D5）；寫在 `nginx.cdn.conf` 裡（與 `deploy/nginx-file-origin.sh` 的值相同，改一邊要改另一邊） |
 | 回源時清掉 `Cookie`／`Authorization`，帶 `X-Origin-Auth`（`CDN_ORIGIN_SECRET`；沒設定就不帶） | 源站的回源憑證（[`../03-file-storage.md`](../03-file-storage.md) §3.3） |
 | 源站的 `upstream` 以 `server … resolve` 在執行期解析 | 同 `deploy/nginx-upstreams.sh`；源站暫時解析不到時邊緣照樣起得來 |
-| 第二個 `server`（`CDN_PURGE_PORT`，只在內部網路）：`POST /_purge`、`POST /_purge/all` | 清理（§16.6）；對外的埠沒有這兩個路徑 |
+| 第二個 `server`（`CDN_PURGE_PORT`，只在內部網路）：`POST /_purge`、`POST /_purge/all`、`GET /_status` | 清理（§16.6）與節點的狀態（§16.10）；對外的埠沒有這些路徑 |
 
 **金鑰環**：`CDN_SIGNING_KEYS` 與 api 的 `FILE_CDN_SIGNING_KEYS` 是同一個值（`<kid>:<base64>[,…]`，格式同 `JWT_SIGNING_KEYS`）。**第一把簽發，全部都能驗證**。
 輪替：把新金鑰加到 **邊緣** 的環上（任何位置）並重啟邊緣 → 新金鑰移到 api 的第一個、重啟 api 的所有程序 → 等 `FILE_CDN_MAX_URL_TTL` 過去 → 兩邊移除舊金鑰。
@@ -1016,10 +1018,12 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
   如果先前開過、關掉的時間 **短於** `FILE_CDN_MAX_URL_TTL`，先執行 `cli:cdn-purge --all`：關掉期間的刪除沒有清理快取。
 - **由開到關**：設 `false`（compose 是拿掉疊加檔）→ 重啟 api。新的回應立刻改回 presigned；已發出的 CDN 網址在效期內仍會被使用，
   所以 **邊緣要繼續運作到 `FILE_CDN_MAX_URL_TTL` 過去** 才能停掉。
-- **只能整個部署一起開關**，不能依租戶（D9）；開關需要重啟（環境變數在程序啟動時讀取並驗證）。
+- **只能整個部署一起開關**，不能依租戶（D9、D16）。部署層的開關需要重啟（環境變數在程序啟動時讀取並驗證）；
+  部署了之後的「暫時關掉」用執行期的開關（§16.9），不必重啟，關掉期間清理照常，所以再打開時 **不需要** `cli:cdn-purge --all`（D13）。
+  上面「由關到開」的 `--all` 只適用於環境變數層的關閉。
 - api 的就緒檢查 **不** 依賴 CDN（D10）：CDN 掛掉時圖片讀不到，但 api 照常服務；以 §16.6 的指標與告警發現。
 - **生效值只從 `CdnConfig` 讀**（`core/storage/cdn-config.ts`）：`servesResource()`、`maxUrlTtl()`、`purgeOnDelete()`、`purgeBatchSize()` 每次呼叫都重新問，
-  呼叫端不快取結果。之後的執行期設定（平台 DB 的覆寫，[`../../features/cdn-settings.md`](../../features/cdn-settings.md)）只改這個類別；環境變數成為部署層的能力與上限。
+  呼叫端不快取結果。生效值是「環境變數 ＋ 平台 DB 的執行期覆寫」（§16.9）；環境變數是部署層的能力、上限與預設值。
 
 ### 16.5 參數
 
@@ -1031,13 +1035,14 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 | `FILE_CDN_PROVIDER` | `nginx` | `nginx` | 簽章與清理的實作；之後加 `cloudfront`、`cloudflare` |
 | `FILE_CDN_ORIGIN` | — | origin（不帶路徑）；production 必須是 https、不能是 localhost | 瀏覽器看到的 CDN origin（本機 `http://localhost:9080`） |
 | `FILE_CDN_SIGNING_KEYS` | — | `<kid>:<base64>[,…]`，每把 ≥ 32 bytes | 金鑰環，第一把簽發（§16.3） |
-| `FILE_CDN_RESOURCES` | `imageAsset,galleryItem,fileVariant` | `CDN_RESOURCE_TYPES` 的逗號分隔 | 哪些資源走 CDN；逐步開放（D5） |
-| `FILE_CDN_MAX_URL_TTL` | `86400` | 300–86400 秒 | CDN 網址效期的上限；也是「關掉後邊緣要再運作多久」「金鑰輪替要等多久」的依據 |
-| `FILE_CDN_PURGE_ON_DELETE` | `true` | `true`／`false` | 物件永久刪除後是否清理快取（§16.6）；真正的 CDN 依清理次數計費時可以關掉，改靠網址過期 |
+| `FILE_CDN_RESOURCES` | `imageAsset,galleryItem,fileVariant` | `CDN_RESOURCE_TYPES` 的逗號分隔 | 哪些資源 **可以** 走 CDN（上限）；執行期只能從中選（§16.9、D5） |
+| `FILE_CDN_MAX_URL_TTL` | `86400` | 300–86400 秒 | CDN 網址效期的上限（執行期只能調低）；也是「關掉後邊緣要再運作多久」「金鑰輪替要等多久」的依據 |
+| `FILE_CDN_PURGE_ON_DELETE` | `true` | `true`／`false` | 物件永久刪除後是否清理快取（§16.6）的 **預設值**，執行期可以覆寫；真正的 CDN 依清理次數計費時可以關掉，改靠網址過期 |
 | `FILE_CDN_PURGE_URL` | — | URL（內部網路） | 清理端點，例 `http://cdn-purge:8081`；主機名稱解析到多個位址時逐一呼叫。內部 api 在 `PURGE_ON_DELETE=true` 時必填 |
 | `FILE_CDN_PURGE_SECRET` | — | base64，≥ 32 bytes | 清理請求的 HMAC 金鑰；同上必填 |
-| `FILE_CDN_PURGE_BATCH_SIZE` | `100` | 1–1000 | 一筆 `cdn.purge` 最多幾個路徑 |
-| `FILE_CDN_PURGE_TIMEOUT_MS` | `5000` | 500–60000 | 單一節點的清理請求逾時 |
+| `FILE_CDN_PURGE_BATCH_SIZE` | `100` | 1–1000 | 一筆 `cdn.purge` 最多幾個路徑（**預設值**，執行期可以覆寫） |
+| `FILE_CDN_PURGE_TIMEOUT_MS` | `5000` | 500–60000 | 單一節點的清理請求逾時；也是檢查 `/_status` 與對外網址的逾時（§16.10） |
+| `FILE_CDN_HEALTH_CHECK_CRON` | `*/5 * * * *` | cron（UTC），空字串不排程 | 邊緣的定期檢查 `cdn.healthCheck`（§16.10、D18）；`FILE_CDN_ENABLED=false` 時不排程 |
 
 - `FILE_CDN_ENABLED=true` 時，缺必填、格式不對、金鑰太短 → **程序啟動失敗**（開發與 production 都檢查，`env.schema.ts` 的 `cdnProblems`）；
   `false` 時不檢查其他 `FILE_CDN_*`，留著舊值也不影響。
@@ -1055,6 +1060,7 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 | `CDN_CACHE_INACTIVE` | `30d` | 多久沒被讀取就刪除 |
 | `CDN_CACHE_VALID` | `30d` | 快取的有效期（物件只寫一次，所以可以等於 `inactive`） |
 | `CDN_LISTEN_PORT` / `CDN_PURGE_PORT` | `9080` / `8081` | 對外與清理的埠（兩者不能相同）；清理埠不得對外開放 |
+| `CDN_BUILD` | `dev`（映像建置時的 build arg） | `/_status` 回報的映像版本（英數與 `._+-`，1～64 字） |
 
 **其他**：file-storage 的 `FILE_STORAGE_ORIGIN_SECRET`；兩個前端映像的 `CDN_PUBLIC_ORIGIN`（CSP 的 `img-src`）。
 正式 compose 的 env 檔（`deploy/prod.env.example`）疊 `docker-compose.cdn.yml` 時要 `CDN_PUBLIC_ORIGIN`、`FILE_CDN_SIGNING_KEYS`、`FILE_CDN_PURGE_SECRET`、`FILE_STORAGE_ORIGIN_SECRET`。
@@ -1070,7 +1076,7 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 | 圖片資產被清除（沒被認領、被換掉超過保留期限） | 主檔與所有版本的變體 | `image.maintenance`（一輪一次排入，依批次大小分批） |
 | 圖片資產重新裁切後，舊版本的變體被刪除 | 舊 `r<rev>/` 底下的變體 | `image.maintenance` |
 | 查不到資產的殘留物件 | 刪掉的 `images/…` | `image.maintenance` |
-| 緊急下架（法律要求、誤傳個資） | 指定的路徑、圖片資產或整個快取 | 維運以 `cli:cdn-purge` 手動執行（§16.7） |
+| 緊急下架（法律要求、誤傳個資） | 指定的路徑、資源（`CdnPathResolver`）或整個快取 | 平台管理者在 apps/platform 的 CDN 頁面（§16.11），或維運以 `cli:cdn-purge`（§16.7） |
 
 **不清** 的情況：軟刪除（移到回收桶：物件保留以便還原，與 presigned 網址的語意相同；要立即下架用 CLI）、授權變更（已發出的網址本來就有效到 `exp`）、
 刪除租戶（bucket 整個刪除，舊網址在最長效期內過期；快取由 `inactive` 淘汰）。
@@ -1087,7 +1093,8 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 - **順序**：一定是物件刪除 **成功之後** 才呼叫 `schedule`。反過來的話，清完到刪除之間若有人用有效網址讀取，邊緣會重新回源、把即將刪除的內容再存一次。
   所以不在交易內以 outbox 入列（outbox 可能在刪除完成前就被執行）。刪除失敗的物件不排清理，等對帳刪掉之後再清。
 - **`schedule` 不拋錯**：入列失敗只記 error 與指標 `api_cdn_purge_failures_total{stage="schedule"}`，刪除本身照常完成；最壞的情況與沒有清理相同。
-- **`cdn.purge`**（`core/storage/cdn-purger.ts` 的 `CDN_PURGE_JOB`）：`scope: 'platform'`（資料是完整路徑，不必進入租戶、不佔租戶的同時執行上限）、
+- **`cdn.purge`**（`core/storage/cdn-purger.ts` 的 `CDN_PURGE_JOB`）：資料是 `{ paths }` 或 `{ all: true }`，手動清理另帶 `manual`（誰、哪個租戶、目標種類與 id；§16.11）；
+  `scope: 'platform'`（資料是完整路徑，不必進入租戶、不佔租戶的同時執行上限）、
   重試 5 次、30 秒起指數退避；重試用完記 `api_cdn_purge_failures_total{stage="final"}`。不論開關都註冊（工作名稱固定出現在 OpenAPI 的 `JobName`）；
   沒有清理端點的程序遇到時略過（`{ skipped: 'CDN_PURGE_NOT_CONFIGURED' }`）。
 - **路徑由擁有者模組列出**：物件只寫一次，擁有者知道每一個物件的完整 key，所以清理用 **明確的路徑清單**，不需要「依前綴清理」。
@@ -1113,13 +1120,17 @@ backstage 與 platform 的映像以 `CDN_PUBLIC_ORIGIN` 把 CDN 的 origin 加�
 ```bash
 pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --path images/<id>/r3/sm.webp [--path …]
 pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --image-asset <id>    # 由 DB 列出該資產的主檔與每個版本的變體
+pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --file <id>           # 檔案的每個變體 × 每種格式（回收桶裡的也算）
 pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm <平台 database 名稱>]
 # 正式映像裡：node dist/src/cli/cdn-purge.js …
 ```
 
 - 同步執行（不經佇列），逐節點顯示結果；任一節點失敗時以非零結束。清理端點與密鑰讀 `FILE_CDN_PURGE_URL`、`FILE_CDN_PURGE_SECRET`。
 - `--all` 不加 `--confirm` 只列出會影響哪些節點；平台 DB 不在本機時，任何形式都要 `--confirm <平台 database 名稱>`（與 `cli:reset-super-admin` 相同）。
-- `--path` 是 bucket 裡的物件 key（前面的 `/` 拿掉，不接受 `..`）；`--image-asset` 的資產已被永久刪除時改用 `--path` 或 `--all`。
+- `--path` 是 bucket 裡的物件 key（前面的 `/` 拿掉，不接受 `..`）；`--image-asset`、`--file` 的資源已被永久刪除時改用 `--path` 或 `--all`。
+- 依資源列出的路徑與 apps/platform 的手動清理（`CdnPathResolver`，§16.11）用同一組純函式（`assetObjectKeysOf`、`fileVariantKeysOf`），兩邊一致；
+  指令不啟動 Nest，所以不經過註冊表。
+- 平台管理者通常用 CDN 頁面（不需要主機的 shell、會排入背景工作並在背景工作列表看得到每個節點的結果）；這支指令留給頁面不能用時（api 掛了、緊急時直接操作）。
 - 寫平台稽核 `cdn.purge`（`actorEmail = 'system'`、`resourceType = 'cdn'`、`resourceId` 是租戶代碼或 `null`；`metadata.paths` 是路徑數或 `'all'`，`metadata.nodes` 是每個節點的結果）。
 
 ### 16.8 驗證：`deploy/check-cdn.sh`
@@ -1142,7 +1153,9 @@ pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm <平台 database �
 | 兩個邊緣節點，清理解析到兩個位址 | 兩邊的快取檔都被刪除；清空整個快取後重新回源 |
 | 安全標頭 | `sandbox` CSP、`nosniff`、`Cache-Control: public, max-age=…, immutable`；沒有 `Set-Cookie`、`x-amz-*`、nginx 版本 |
 | backstage 的 CSP | `img-src` 放行 `CDN_PUBLIC_ORIGIN` |
-| 不合法的 `CDN_*` | 邊緣不啟動 |
+| `GET /_status`（清理埠，簽章同 `/_purge`） | 兩個節點都回報金鑰環的 kid（依順序、不含金鑰）、快取設定、版本與啟動時間；簽章錯、`ts` 超過 5 分鐘 → `403`；對外的埠沒有這個路徑 |
+| `X-CDN-Reject` | 竄改的簽章、沒有簽章 → `signature`；過期 → `expired`；`PUT` → `method`；有效的網址與源站的 `404` 不帶 |
+| 不合法的 `CDN_*`（含 `CDN_BUILD`） | 邊緣不啟動 |
 
 另外：`sh deploy/smoke-test.sh --cdn` 疊 `docker-compose.cdn.yml` 整套建置啟動（api 以 `FILE_CDN_ENABLED=true` 通過 production 的驗證、
 邊緣不放行沒有簽章的請求、api 容器裡的 `cli:cdn-purge --all` 送得到邊緣）；`deploy/check-k8s.sh` 以兩個 overlay 各疊一次 `components/cdn`。
@@ -1158,7 +1171,192 @@ api 的測試：
 | `src/cli/__tests__/cdn-purge.spec.ts`、`test/cdn-purge-cli.spec.ts` | 指令列、資產的物件清單；真 Postgres：路徑加 bucket 送到每個節點、`--all` 沒確認只列出節點、平台稽核 |
 | `test/cdn.spec.ts` | 真 Postgres、`FILE_CDN_ENABLED=true`、`FILE_CDN_RESOURCES=fileVariant`：影像 API 轉址到 CDN 網址並驗簽章、原圖原封不動照舊 presigned、沒開放的圖片資產照舊 presigned、永久刪除後 `cdn.purge` 的路徑清單 |
 | `test/images.spec.ts` | 沒有 CDN 時清理排程不排 `cdn.purge` |
+| `src/core/storage/__tests__/cdn-settings.spec.ts` | 生效值的解析（沒有列、各欄位覆寫、超過上限被裁切、不認得的資源類型、關閉時清理照常）；`CdnConfig` 讀執行期覆寫、環境變數沒開時忽略、關閉後 `CdnUrlSigner` 改簽 presigned；`CdnSettings` 的載入、廣播、重連、讀取失敗沿用 |
+| `src/core/storage/__tests__/cdn-path-resolver.spec.ts`、`src/modules/file/__tests__/file-cdn-paths.spec.ts` | `CdnPathResolver` 的登記、重複登記、找不到與沒登記的 404、加上 bucket 去重；檔案變體的路徑規則 |
+| `src/core/storage/__tests__/cdn-purger.spec.ts`（`status`） | `GET /_status` 的簽章與每個位址、`403`／形狀不對／其他狀態／逾時；`cdn.purge` 的 `{ all: true }` |
+| `src/modules/platform-cdn/__tests__/*.spec.ts` | 開啟前檢查的判斷（缺簽發中的 kid 擋下、缺舊 kid 只警告、各種連線問題）、對外網址與竄改簽章的分類；哪些變更要先檢查；`update` 的樂觀鎖、`CDN_NOT_DEPLOYED`、`CDN_NOT_READY`、範圍檢查、稽核內容與 severity；手動清理的分批、`cdn:purgeAll`、`CDN_PURGE_IN_PROGRESS` |
+| `test/cdn-settings.spec.ts` | 真 Postgres、兩個程序、假的邊緣節點：沒有列時與階段 4 相同；四個權限鍵的拒絕與租戶網域的 `PLATFORM_ONLY`；檢查寫進 `last_check`；關閉不檢查、廣播讓另一個程序改簽 presigned、關閉後清理照常入列；樂觀鎖；開啟時邊緣不回應／清理密鑰不同／缺 kid → `CDN_NOT_READY`；通過後兩個程序都改回 CDN 網址；手動清理（路徑、找不到的資源、沒登記的資源、`..`、整個快取同時只能一筆）與平台稽核 |
+| apps/platform 的 `features/cdn/**/__tests__` | 三個權限案例（auditor 唯讀、operator 不能清空、super-admin 全部）與未水合；環境變數沒開時只有部署區塊；關閉的確認框；`409 CDN_NOT_READY` 的節點問題；版本衝突時重抓 |
 | `apps/file-storage` 的 `origin-auth.spec.ts`、`test/s3-client.spec.ts` | 回源憑證只放行 GET／HEAD 一個物件、比對、`response-*` 參數、寫入與列表照舊要 SigV4 |
+
+### 16.9 設定的兩層與生效值
+
+CDN 的設定分兩層（D12）：**環境變數** 是部署層的能力、上限與預設值，改了要重啟；**平台 DB 的 `cdn_settings`** 是執行期的覆寫，
+在 apps/platform 的 CDN 頁面調整，不必重啟。金鑰、密鑰、CDN 網址、回源位址必須與邊緣容器一致，只放環境變數（D11）。
+
+| 設定 | 層 | 說明 |
+| --- | --- | --- |
+| `FILE_CDN_ENABLED` | 環境變數（能力） | 這個部署有沒有邊緣；`false` 時下面全部忽略，頁面唯讀 |
+| `FILE_CDN_PROVIDER`、`ORIGIN`、`SIGNING_KEYS`、`PURGE_URL`、`PURGE_SECRET`、`PURGE_TIMEOUT_MS` | 環境變數 | 網址的形式、機密、內部網路的拓樸 |
+| `FILE_CDN_RESOURCES` | 環境變數 → 上限 | 執行期只能從中選 |
+| `FILE_CDN_MAX_URL_TTL` | 環境變數 → 上限 | 執行期只能調低 |
+| `FILE_CDN_PURGE_ON_DELETE`、`FILE_CDN_PURGE_BATCH_SIZE` | 環境變數 → 預設值 | 執行期沒設定時用它 |
+| 啟用（`state`）、資源類型（`resources`）、效期上限（`urlTtlCap`）、自動清理（`purgeOnDelete`）、批次大小（`purgeBatchSize`） | 平台 DB | 每個欄位 `null` = 跟著環境變數 |
+
+**生效值**（`resolveCdnEffective`，`core/storage/cdn-settings.ts`）：
+
+```
+FILE_CDN_ENABLED = false → 簽章 presigned、清理 no-op、執行期設定被忽略
+
+FILE_CDN_ENABLED = true
+  簽 CDN 網址   = (row?.state ?? 'on') === 'on'
+  資源類型      = row?.resources ? row.resources ∩ FILE_CDN_RESOURCES : FILE_CDN_RESOURCES
+  效期上限      = min(row?.urlTtlCap ?? FILE_CDN_MAX_URL_TTL, FILE_CDN_MAX_URL_TTL)
+  自動清理      = row?.purgeOnDelete ?? FILE_CDN_PURGE_ON_DELETE      ← 與 state 無關（D13）
+  批次大小      = row?.purgeBatchSize ?? FILE_CDN_PURGE_BATCH_SIZE
+```
+
+- **沒有列時與上面 §16.1～§16.8 完全相同**：這個功能上線不改變任何部署（D12）。
+- **執行期關閉時清理照常**（D13）：邊緣還在、已發出的 CDN 網址在效期內仍會被使用；繼續清理讓再次開啟時不需要清空快取。
+- 環境變數縮小上限之後，DB 裡超出的值 **讀取時裁切**，不改寫 DB；頁面標示「超過部署的上限，生效值是 …」（`effective.clamped`）。
+  DB 裡不認得的資源類型（程式移除了某種資源）讀取時忽略。
+
+**資料模型**（平台 DB，平台 migration 0029）：
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `id` | text，`CHECK (id = 'default')` | 只有一列 |
+| `state` | `cdn_state`（`on` ｜ `off`），可為 null | null = 沒有覆寫（等於 `on`） |
+| `resources` | `text[]`，可為 null | |
+| `url_ttl_cap` | integer，可為 null，`CHECK 300–86400` | 秒；寫入時另檢查 ≤ `FILE_CDN_MAX_URL_TTL` |
+| `purge_on_delete` | boolean，可為 null | |
+| `purge_batch_size` | integer，可為 null，`CHECK 1–1000` | |
+| `state_changed_at`、`state_changed_by` | | 頁面顯示「誰在何時切換」；關掉之後「關閉前發出的網址最晚何時過期」由它與效期上限算出 |
+| `last_check_at`、`last_check` | timestamptz、jsonb | 最近一次檢查的結果（§16.10）；寫入檢查結果 **不** 遞增 `version`，沒有列時建立一列（覆寫值全是 null，等於沒有列） |
+| `version` | integer | 樂觀鎖：沒有列時是 1，第一次寫入建立它（與 MFA 政策相同） |
+| `updated_by`、`updated_at` | | |
+
+**快取與跨程序同步**：`CdnSettings`（`core/storage`）啟動時載入、同步讀取（每次簽網址都要判斷，不能查 DB）；寫入在交易提交後本機重讀，
+並以 `BroadcastService.channel('cdn_settings')` 通知其他程序（內部 api 的各角色、對外 API 的程序），另每 `TENANT_CACHE_TTL` 秒重讀兜底
+（[`../01-system.md`](../01-system.md) §4.4）。`CdnConfig` 以「列的物件身分」判斷要不要重算生效值，熱路徑不重複解析。
+切換是最終一致的，但不會出錯：presigned 與 CDN 網址在各自的效期內都有效，短暫的不一致只是有的回應帶 presigned、有的帶 CDN 網址。
+前端不需要知道設定：網址由 api 決定，`SignedImage` 過期重抓時就拿到新的形式。
+
+**切換的規則**（`PUT /platform/cdn/settings`，只帶要改的欄位與 `version`，`null` 回到跟著環境變數）：
+
+| 動作 | 檢查 | 效果 |
+| --- | --- | --- |
+| 關閉（`state: off`） | 不檢查，任何時候都能關 | 新的回應改回 presigned；關閉前發出的 CDN 網址在效期內仍打到邊緣（頁面顯示最晚過期的時間）；清理照常 |
+| 開啟（`off → on`、`null → on`）、開著時加入資源類型 | 必須通過節點檢查（§16.10 的項目 1～3；不沿用 10 秒內的結果） | 那些資源改簽 CDN 網址；不通過回 `409 CDN_NOT_READY`（`details.nodes`：每個節點的問題、`details.discovery`），不提供強制開啟（D14） |
+| 移除資源類型、調整效期、批次大小 | 不檢查 | 只影響新的網址或之後的清理 |
+| 加入部署沒開放的資源、效期超出 300～`FILE_CDN_MAX_URL_TTL`、沒有清理端點時打開自動清理 | `400 VALIDATION_FAILED`（`fields.resources`、`fields.urlTtlCap`、`fields.purgeOnDelete`） | |
+| 關閉自動清理 | 頁面的確認框說明「刪除的圖會留在邊緣到網址過期」 | 之後的刪除不入列 `cdn.purge` |
+
+`version` 不符 `409 CDN_SETTINGS_VERSION_CONFLICT`（`details.current`）；環境變數沒開 `409 CDN_NOT_DEPLOYED`；沒有任何欄位改變時不寫入、不寫稽核、不廣播。
+
+### 16.10 邊緣的狀態與檢查
+
+**`GET /_status`**（只在清理埠；簽章用清理密鑰，內容是 `ts + "\n" + "GET /_status"`，`ts` 放在查詢參數，與現在相差 5 分鐘內）：
+
+```json
+{ "kids": ["k2", "k1"], "cache": { "maxSize": "10g", "inactive": "30d", "valid": "30d" }, "build": "<CDN_BUILD>", "startedAt": "<啟動時間>" }
+```
+
+只回 kid，不回金鑰；簽章被接受本身就證明清理密鑰一致。快取設定、版本與啟動時間由 `deploy/nginx-cdn.sh` 在啟動時寫進設定。
+
+**檢查的項目**（`CdnHealthService`，`modules/platform-cdn`；手動與定期共用）：
+
+| # | 項目 | 做法 | 失敗的意思 | 開啟前必須通過 |
+| --- | --- | --- | --- | --- |
+| 1 | 每個節點連得到 | 解析 `FILE_CDN_PURGE_URL` 的所有位址，逐一 `GET /_status`（逾時 `FILE_CDN_PURGE_TIMEOUT_MS`）；沒有清理端點、名稱解析失敗時沒有節點可檢查 | 節點掛了或網路不通：清理會失敗（`unreachable`、`timeout`） | ✅ |
+| 2 | 清理密鑰一致 | `/_status` 回 `403` | 清理會全部被拒（`purgeSecretRejected`） | ✅ |
+| 3 | 金鑰環一致 | 節點的 `kids` 包含 api 簽發中的 kid；api 其他 kid 不在節點上只警告（`verifyKidMissing`） | api 簽出的網址會被這個節點拒絕（`signingKidMissing`） | ✅ |
+| 4 | 對外網址可用 | 以 api 的身分簽一個 **不存在** 的路徑（`/storage/__cdn-check/<uuid>`，bucket 名稱不合 S3 規則，不會是任何租戶的）向 `FILE_CDN_ORIGIN` 請求，預期源站的 `404` | `403` 帶 `X-CDN-Reject`：簽章不被接受；不帶：回源憑證不對；`502`／`504`：邊緣連不到源站；連不上：api 所在的網路到不了對外網址 | 只警告 |
+| 5 | 竄改的簽章會被拒 | 同上但改掉 `sig`，預期 `403` 與 `X-CDN-Reject: signature` | 邊緣沒有驗簽章（`notEnforced`）——**最嚴重**，任何人都能從快取讀到內容 | 只警告，告警等級最高 |
+
+- 項目 4、5 用不存在的路徑：不需要任何租戶的物件，也不在快取留下內容（`404` 不快取，D17）。
+- 回應帶 `badResponse`（`/_status` 的形狀不對：不是這一版的邊緣）也擋開啟。
+- **手動**：`POST /platform/cdn/check`（`cdn:read`）；同一個程序同一時間只跑一次，10 秒內重複呼叫回上一次的結果。
+- **定期**：平台背景工作 `cdn.healthCheck`（`exclusive`、不重試；`FILE_CDN_HEALTH_CHECK_CRON`，預設每 5 分鐘，環境變數沒開時不排程，D18）。
+- 結果都寫進 `cdn_settings.last_check`，頁面直接顯示；寫入失敗只記錄，結果照樣回給呼叫端。
+- **指標**（[`../08-monitoring.md`](../08-monitoring.md) §2.2）：`api_cdn_edge_up{node}`（1／0）、`api_cdn_edge_kid_mismatch{node}`（由執行那次檢查的程序回報、15 分鐘內有效）、
+  `api_cdn_check_failures_total{item}`（`node`、`purgeSecret`、`kid`、`publicUrl`、`signatureEnforced`、`discovery`）。`node` 是位址：數量就是邊緣的實例數。
+  告警：`CdnEdgeDown`（任一節點 `api_cdn_edge_up = 0` 持續 10 分鐘）、`CdnEdgeKidMismatch`（立即）、`CdnSignatureNotEnforced`（立即，critical）。
+- 檢查不寫稽核（唯讀）。
+
+### 16.11 手動清理
+
+`POST /platform/cdn/purge`（`cdn:purge`；整個快取另要 `cdn:purgeAll`，由 service 檢查，拒絕時同樣寫 `authz.denied`）：
+
+| `target.type` | 參數 | 路徑怎麼來 |
+| --- | --- | --- |
+| `paths` | `tenantId`、`paths`（≤ 1000 個物件 key，不以 `/` 開頭、不含 `..`） | 加上那個租戶的 bucket（不能藉此清到別的租戶） |
+| `imageAsset`、`fileVariant`（之後 `galleryItem`） | `tenantId`、`id` | `CdnPathResolver`：以 `Tenancy.runForMaintenance` 進入租戶，呼叫擁有者登記的解析函式，列出那筆資源 **曾經有過** 的所有物件 key |
+| `all` | — | 整個快取（`/_purge/all`） |
+
+- 回 `202 { jobIds, paths }`：依生效的批次大小排入 `cdn.purge`（`manual: { requestedBy, tenantId, target, id }`），每個節點的結果在平台的背景工作列表；
+  頁面列出最近 20 筆 `cdn.purge`（手動與自動），連到背景工作列表。
+- 環境變數沒開 `409 CDN_NOT_DEPLOYED`；這個程序沒有清理端點 `409 CDN_NOT_READY`（`details.discovery.problem = 'purgeNotConfigured'`）；執行期關閉時照樣可以清理（D13）。
+- 同一時間只能有一筆尚未完成（`created`／`retry`／`active`）的整個快取：`409 CDN_PURGE_IN_PROGRESS`（`details.jobId`）。
+- 找不到那筆資源、或那種資源沒有登記解析器：`404 CDN_PURGE_TARGET_NOT_FOUND`；租戶不存在：`404 TENANT_NOT_FOUND`。
+
+**`CdnPathResolver`**（`core/storage/cdn-path-resolver.ts`）：
+
+```ts
+type CdnPathResolverFn = (id: string) => Promise<readonly string[] | null>;   // 在那個租戶的脈絡裡執行；找不到回 null
+
+class CdnPathResolver {
+  register(resource: CdnResource, resolve: CdnPathResolverFn): void;   // 擁有者模組在 onModuleInit 登記；同一種資源只能登記一次
+  registered(): CdnResource[];                                          // 頁面的目標選單只列出它們
+  resolve(tenantId, resource, id): Promise<{ paths: string[] }>;       // 加上 bucket、去重
+  pathsOf(tenantId, keys): Promise<{ paths: string[] }>;               // 依路徑清理
+}
+```
+
+| 資源 | 登記的位置 | 列出的物件 |
+| --- | --- | --- |
+| `fileVariant` | `modules/file/file-cdn-paths.ts` | `variants/<id>/<變體>.<格式>`：每個變體 × 每種格式（`fileVariantKeysOf`，只由 id 決定，不需要物件還在；回收桶裡的檔案也算） |
+| `imageAsset` | `modules/image/image-cdn-paths.ts` | 主檔與每個版本的每個尺寸 × 格式（`assetObjectKeysOf`）；資產被清除之後 404 |
+| `galleryItem` | 之後的 `modules/gallery` | 同上的形式：在 `onModuleInit` 呼叫 `register('galleryItem', …)` |
+
+`cli:cdn-purge`（§16.7）的 `--image-asset`、`--file` 用同一組純函式，兩邊列出的路徑一致。
+
+### 16.12 apps/platform 的 CDN 頁面、權限與稽核
+
+`features/cdn`（route `/cdn`，側欄的「系統管理」；頁面權限 `cdn:read`）：
+
+| 區塊 | 內容 | 誰能操作 |
+| --- | --- | --- |
+| 部署 | 環境變數的唯讀資訊：供應商、CDN 網址、簽發中與可驗證的 kid、資源類型與效期的上限、清理端點與預設值、定期檢查的排程 | — |
+| 設定 | 啟用開關（顯示誰在何時切換；關掉之後顯示關閉前的網址最晚何時過期）、資源類型（部署沒開放的停用並註明）、效期上限（可設定的範圍、回到環境變數）、自動清理、批次大小；「超過部署的上限」的提示 | `cdn:update` |
+| 邊緣節點 | 最近一次檢查的時間、是否可以開啟、每個節點的位址、問題、kid、快取設定、版本、啟動時間；對外網址與竄改簽章兩項；「執行檢查」 | 檢查：`cdn:read` |
+| 清理 | 目標（路徑、有登記的資源、整個快取）、租戶（可搜尋的下拉）、路徑或 id；最近 20 筆 `cdn.purge` | `cdn:purge`；整個快取另要 `cdn:purgeAll` |
+
+- 環境變數沒開時只顯示「部署」區塊與啟用的方式。
+- 開啟被拒時，開關旁直接列出 `409 CDN_NOT_READY` 帶回的節點問題（不另開對話框）；版本衝突時提示並重抓。
+- 關閉的確認框：「新的圖片網址立刻改回 presigned；已發出的 CDN 網址最晚於〈現在 ＋ 效期上限〉過期，在那之前邊緣仍要運作」。清空整個快取的確認框列出節點數與回源負載。
+- 伺服器不推播 CDN 的變更：頁面在自己的寫入後失效（`Resource.CDN`，只存在前端），背景工作有變化時一起重抓。
+
+**權限**（平台的目錄，[`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §8）：
+
+| 權限鍵 | 說明 | `super-admin` | `operator` | `auditor` |
+| --- | --- | :-: | :-: | :-: |
+| `cdn:read` | 頁面、部署資訊、生效設定、邊緣狀態、執行檢查 | ✅ | ✅ | ✅ |
+| `cdn:update` | 執行期的開關與參數 | ✅ | ✅ | |
+| `cdn:purge` | 依路徑或資源清理 | ✅ | ✅ | |
+| `cdn:purgeAll` | 清空整個快取 | ✅ | | |
+
+`operator` 能關閉 CDN 與清理：值班的人要能處理事故（D15）。
+
+**稽核**（平台稽核）：
+
+| 動作 | 內容 | `severity` |
+| --- | --- | --- |
+| `cdn.update` | 有變的欄位的 `before`／`after`（存放值，不是生效值） | `state` 有變時 `high`，其他 `normal` |
+| `cdn.purge` | `resourceId` 是租戶 id；`metadata`：`tenantId`、`target`、`id`、路徑數 `paths`、`jobIds`；整個快取時 `{ all: true }` | 整個快取 `high`，其他 `normal` |
+
+檢查不寫稽核；物件刪除後的自動清理也不寫（§16.6）。`cli:cdn-purge` 寫同一個 action（`actorEmail = 'system'`）。
+
+**API**：
+
+| 方法 | 路徑 | 權限 | 說明 |
+| --- | --- | --- | --- |
+| GET | `/platform/cdn` | `cdn:read` | `{ deployment, settings（存放值與 version）, effective, lastCheck, recentPurges, purgeTargets }`；環境變數沒開時 `settings`、`effective` 是 null |
+| PUT | `/platform/cdn/settings` | `cdn:update` | §16.9 |
+| POST | `/platform/cdn/check` | `cdn:read` | 執行檢查，回結果 |
+| POST | `/platform/cdn/purge` | `cdn:purge`（`all` 另要 `cdn:purgeAll`） | `202 { jobIds, paths }` |
+
+錯誤碼：`CDN_NOT_DEPLOYED`、`CDN_NOT_READY`、`CDN_SETTINGS_VERSION_CONFLICT`、`CDN_PURGE_TARGET_NOT_FOUND`、`CDN_PURGE_IN_PROGRESS`。租戶網域上一律 `404 PLATFORM_ONLY`。
 
 ---
 
@@ -1196,7 +1394,7 @@ CDN 把整個網址當 key 時每個時間窗（`FILE_URL_TTL / 2`）都要重�
 
 **實作紀錄**（與提案不同的地方）：
 
-- **生效值集中在 `CdnConfig`**：提案只說「之後加執行期設定」。為了讓 [`cdn-settings.md`](../../features/cdn-settings.md) 只改一個類別，
+- **生效值集中在 `CdnConfig`**：提案只說「之後加執行期設定」。為了讓之後的執行期設定（§16.9）只改一個類別，
   簽章與清理每次都向 `CdnConfig` 問 `servesResource()`、`purgeOnDelete()` 等，不在建構時讀死；`StorageModule` 依「有沒有部署 CDN」選實作，
   執行期關掉時 `CdnUrlSigner` 退回 presigned、`QueuedCdnPurger` 不入列。
 - **`CdnUrlSigner` 包住 presigned**：提案把 `CdnUrlSigner` 當成 `ObjectUrlSigner` 的另一個實作；實作上它自己處理「這次要不要走 CDN」，
@@ -1217,3 +1415,42 @@ CDN 把整個網址當 key 時每個時間窗（`FILE_URL_TTL / 2`）都要重�
   先讓邊緣認得新金鑰，api 再開始用它簽發，兩邊之間沒有空窗（§16.3）。
 - **安全標頭寫在 `nginx.cdn.conf` 裡**，沒有與檔案網域共用一個 snippet：`nginx.security-headers.conf` 是前端頁面的 CSP，檔案網域的標頭由 `nginx-file-origin.sh` 產生；
   兩處的值相同，改一邊要改另一邊。
+
+### 17.1 CDN 設定管理（圖片階段 5）
+
+> 2026-10-09 決定（提案 `cdn-settings`）。規則見 §16.9～§16.12。
+
+**背景**：§16 把 CDN 的開關與參數都放在環境變數（D9），改任何一項都要重啟 api 的所有角色與對外 API 的程序。實際維運時，
+邊緣故障要立刻改回 presigned、逐步開放資源類型、調整效期都變成一次部署；金鑰輪替後邊緣有沒有跟上、清理有沒有失敗沒有一個地方看得到；
+法律要求下架某張圖要有主機的 shell。但簽章金鑰、清理密鑰、CDN 網址、回源位址必須與邊緣容器一致，是部署的一部分，不該搬到畫面上。
+
+| # | 決定 | 理由 | 評估過的方案 |
+| --- | --- | --- | --- |
+| D11 | 金鑰、密鑰、CDN 網址、回源位址留在環境變數；畫面只顯示 kid 與一致性 | 必須與邊緣容器一致；放進 DB 會製造「api 改了、邊緣沒改」的不一致，邊緣也要多依賴 api。之後接 CloudFront、Cloudflare 時，它們的 API 憑證再比照 MFA 的加密平台參數 | 畫面管理金鑰、邊緣向 api 取金鑰 |
+| D12 | 兩層：環境變數是能力、上限與預設值；平台 DB 是執行期覆寫。沒有列時行為與 §16.1～§16.8 相同（`state` 沒有覆寫等於 `on`） | 上線不改變任何部署；事故時不必重新部署 | 全部搬進 DB：部署層的能力無法表達；維持全部環境變數：事故時要重啟；沒有列時預設關：已經以環境變數開啟的部署升版後會突然改回 presigned |
+| D13 | 執行期關閉不停止清理；清理只看環境變數層與自動清理的設定 | 邊緣還在、舊網址還有效；持續清理讓再次開啟不需要清空快取 | 關閉時一併停止清理 |
+| D14 | 開啟與加入資源類型前必須通過節點檢查（連線、清理密鑰、kid），不提供強制略過；關閉不檢查 | 這三項不成立時開啟必定破圖；緊急情況需要的是關閉 | 允許強制開啟 |
+| D15 | `operator` 有 `cdn:update`、`cdn:purge`；`cdn:purgeAll` 只給 `super-admin` | 值班要能處理事故；清空快取影響整個平台 | 全部只給 `super-admin` |
+| D16 | 不做依租戶開關 | 同 D9；資源類型已足以逐步開放。真的需要時再加 `tenants.cdn_state`，比照 MFA 方式的兩級覆寫 | 比照 MFA 的兩級覆寫 |
+| D17 | 檢查用不存在的路徑，靠邊緣的 `X-CDN-Reject` 區分邊緣拒絕與源站回應 | 不需要任何租戶的物件，也不在快取留下內容 | 在某個 bucket 放一個檢查用的物件：要選一個租戶、維護那個物件 |
+| D18 | 定期檢查 `cdn.healthCheck` 每 5 分鐘（`FILE_CDN_HEALTH_CHECK_CRON`）；任一節點 `api_cdn_edge_up = 0` 持續 10 分鐘、kid 不一致時告警，竄改的簽章沒被拒絕時立即告警 | 金鑰輪替與節點故障要在使用者看到破圖之前發現；10 分鐘避開節點重啟的短暫中斷 | 只靠手動檢查：故障要等有人回報；每分鐘檢查：多數情況下沒有差別，徒增請求與紀錄 |
+
+**實作紀錄**（與提案不同的地方）：
+
+- **`D` 編號接在 §17 之後**（提案的 D1～D8 是這裡的 D11～D18）：同一節的決策章不重排編號。
+- **快取與讀取在 `core/storage`、寫入在 `modules/platform-cdn`**：與 feature flag 的全平台層相同的分法（`core/feature-flags` 讀、`modules/feature-flag` 寫）。
+  `CdnConfig` 經 `CdnSettings` 讀，簽章與清理不認識平台模組；`core/` 不 import `modules/`。
+- **指標名稱加 `api_` 前綴**：提案寫 `cdn_edge_up`、`cdn_edge_kid_mismatch`、`cdn_check_failures_total`；依 [`../../coding-standards/03-backend.md`](../../coding-standards/03-backend.md) §8 是 `api_cdn_edge_up` 等。
+  兩個 gauge 由執行那次檢查的程序回報、15 分鐘內有效（多個 worker 時以 `max by (node)` 合併），`node` 標籤是位址——是 §8「標籤不放網址」的例外：值域就是邊緣的實例數。
+- **`/_status` 的簽章內容是 `ts + "\n" + "GET /_status"`**：提案只寫「與 `/_purge` 相同」。GET 沒有本體，以方法與路徑代替，簽章只能用在這個端點；`ts` 放在查詢參數。
+- **映像版本與啟動時間由 `nginx-cdn.sh` 寫進設定**（`CDN_BUILD` build arg、啟動時的時間）：njs 的全域變數每個請求都重新初始化，記不住啟動時間；`docker-entrypoint.d` 的腳本 export 的變數也到不了 nginx。
+- **`verify` 改成 `reject`**：回傳拒絕的原因而不是 `0`／`1`，`X-CDN-Reject` 直接取它；簽章對了才看效期，`expired` 與 `signature` 分開。
+- **開啟前檢查不沿用 10 秒內的結果**：提案只說手動檢查 10 秒內回上一次。開啟要看現在的狀態（剛修好、剛壞掉的節點都要反映）。
+- **沒有清理端點時**：節點檢查沒有對象（`discovery.problem = 'purgeNotConfigured'`），所以不能由關到開；手動清理回 `409 CDN_NOT_READY`；
+  打開自動清理回 `400`（`fields.purgeOnDelete`）。提案沒寫：對外 API 的程序本來就沒有清理端點，這些動作只在內部 api。
+- **`cdn:purgeAll` 由 service 檢查**：一個路由只能宣告一組權限，`all` 是同一個端點的一種目標；拒絕時照 guard 的形式寫 `authz.denied`。
+- **`cli:cdn-purge` 沒有改用 `CdnPathResolver`**：提案寫「改用同一個 `CdnPathResolver`」。CLI 不啟動 Nest，註冊表是空的；改成共用同一組純函式（`assetObjectKeysOf`、
+  新增的 `fileVariantKeysOf`），另加 `--file`，兩邊列出的路徑一致。
+- **側欄放在「系統管理」**：提案寫「平台管理」群組，apps/platform 的側欄沒有這一類；與稽核、背景工作放在一起。
+- **「最近的清理」連到背景工作列表（`job.byName` → `/job?name=cdn.purge`）**：提案寫「連到背景工作的詳情」。背景工作頁沒有以 id 開啟詳情的網址，列表篩選到 `cdn.purge` 後在列內展開。
+- **頁面的寫入不推播**：其他平台管理者的分頁要等重新整理或自己的下一次寫入才看到變更（`Resource.CDN` 只存在前端）；伺服器端各程序經廣播同步。

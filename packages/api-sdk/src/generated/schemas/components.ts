@@ -40,6 +40,17 @@ import type {
   AuditLogList,
   AuditLogSummary,
   CancelDataTransferRequest,
+  CdnCheckNode,
+  CdnCheckResult,
+  CdnDeployment,
+  CdnEffective,
+  CdnOverview,
+  CdnPurgeJobSummary,
+  CdnPurgeRequest,
+  CdnPurgeResult,
+  CdnResource,
+  CdnState,
+  CdnStoredSettings,
   ChangePasswordRequest,
   Comment,
   CommentPage,
@@ -275,6 +286,7 @@ import type {
   TrashItem,
   TrashResourceType,
   UpdateAnnouncementRequest,
+  UpdateCdnSettingsRequest,
   UpdateCommentRequest,
   UpdateFeatureFlagRequest,
   UpdateFileFolderAccessRequest,
@@ -3282,6 +3294,10 @@ export const PlatformPermissionKeySchema = z.enum([
   'featureFlag:update',
   'mfaMethod:read',
   'mfaMethod:update',
+  'cdn:read',
+  'cdn:update',
+  'cdn:purge',
+  'cdn:purgeAll',
 ]) satisfies z.ZodType<PlatformPermissionKey>;
 
 export const PlatformProfileSchema = z.object({
@@ -4154,6 +4170,7 @@ export const JobNameSchema = z.enum([
   'auth.passwordResetMail',
   'auth.platformTokenCleanup',
   'auth.tokenCleanup',
+  'cdn.healthCheck',
   'cdn.purge',
   'dataTransfer.applyImport',
   'dataTransfer.cleanup',
@@ -4277,6 +4294,188 @@ export const PlatformJobSchema = z.object({
   data: z.record(z.string(), z.unknown()).nullable(),
   output: z.record(z.string(), z.unknown()).nullable(),
 }) satisfies z.ZodType<PlatformJob>;
+
+export const CdnResourceSchema = z.enum([
+  'fileVariant',
+  'imageAsset',
+  'galleryItem',
+]) satisfies z.ZodType<CdnResource>;
+
+export const CdnStateSchema = z.enum(['on', 'off']) satisfies z.ZodType<CdnState>;
+
+export const CdnCheckNodeSchema = z.object({
+  address: z.string(),
+  problems: z.array(
+    z.enum([
+      'unreachable',
+      'timeout',
+      'purgeSecretRejected',
+      'badResponse',
+      'signingKidMissing',
+      'verifyKidMissing',
+    ]),
+  ),
+  kids: z.array(z.string()).nullable(),
+  missingKids: z.array(z.string()),
+  cache: z
+    .object({
+      maxSize: z.string(),
+      inactive: z.string(),
+      valid: z.string(),
+    })
+    .nullable(),
+  build: z.string().nullable(),
+  startedAt: z.string().nullable(),
+  detail: z.string().optional(),
+}) satisfies z.ZodType<CdnCheckNode>;
+
+export const CdnCheckResultSchema = z.object({
+  checkedAt: z.string(),
+  ready: z.boolean(),
+  discovery: z.object({
+    ok: z.boolean(),
+    problem: z.enum(['purgeNotConfigured', 'resolveFailed']).optional(),
+    detail: z.string().optional(),
+  }),
+  nodes: z.array(CdnCheckNodeSchema),
+  publicUrl: z.object({
+    result: z.enum([
+      'ok',
+      'signatureRejected',
+      'originAuthRejected',
+      'originUnreachable',
+      'unreachable',
+      'unexpected',
+    ]),
+    status: z.int().min(-9007199254740991).max(9007199254740991).optional(),
+    detail: z.string().optional(),
+  }),
+  signatureEnforced: z.object({
+    result: z.enum(['ok', 'notEnforced', 'unreachable', 'unexpected']),
+    status: z.int().min(-9007199254740991).max(9007199254740991).optional(),
+    detail: z.string().optional(),
+  }),
+}) satisfies z.ZodType<CdnCheckResult>;
+
+export const CdnDeploymentSchema = z.object({
+  deployed: z.boolean(),
+  provider: z.string().nullable(),
+  origin: z.string().nullable(),
+  signingKid: z.string().nullable(),
+  kids: z.array(z.string()),
+  resources: z.array(CdnResourceSchema),
+  minUrlTtl: z.int().min(-9007199254740991).max(9007199254740991),
+  maxUrlTtl: z.int().min(-9007199254740991).max(9007199254740991),
+  purgeConfigured: z.boolean(),
+  purgeOnDelete: z.boolean(),
+  purgeBatchSize: z.int().min(-9007199254740991).max(9007199254740991),
+  healthCheckCron: z.string().nullable(),
+}) satisfies z.ZodType<CdnDeployment>;
+
+export const CdnStoredSettingsSchema = z.object({
+  state: CdnStateSchema.nullable(),
+  resources: z.array(z.string()).nullable(),
+  urlTtlCap: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  purgeOnDelete: z.boolean().nullable(),
+  purgeBatchSize: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
+  stateChangedAt: z.string().nullable(),
+  stateChangedBy: z
+    .object({
+      id: z.string(),
+      email: z.string().nullable(),
+    })
+    .nullable(),
+  version: z.int().min(-9007199254740991).max(9007199254740991),
+  updatedAt: z.string().nullable(),
+}) satisfies z.ZodType<CdnStoredSettings>;
+
+export const CdnEffectiveSchema = z.object({
+  serving: z.boolean(),
+  resources: z.array(CdnResourceSchema),
+  urlTtlCap: z.int().min(-9007199254740991).max(9007199254740991),
+  purgeOnDelete: z.boolean(),
+  purgeBatchSize: z.int().min(-9007199254740991).max(9007199254740991),
+  clamped: z.object({
+    resources: z.array(CdnResourceSchema),
+    urlTtlCap: z.boolean(),
+  }),
+  issuedUrlsExpireAt: z.string().nullable(),
+}) satisfies z.ZodType<CdnEffective>;
+
+export const CdnPurgeJobSummarySchema = z.object({
+  id: z.string(),
+  state: z.enum(['created', 'retry', 'active', 'completed', 'cancelled', 'failed']),
+  createdOn: z.string(),
+  completedOn: z.string().nullable(),
+  paths: z.union([z.int().min(-9007199254740991).max(9007199254740991), z.enum(['all'])]),
+  manual: z
+    .object({
+      requestedBy: z.string(),
+      tenantId: z.string().nullable(),
+      target: z.string(),
+      id: z.string().optional(),
+    })
+    .nullable(),
+}) satisfies z.ZodType<CdnPurgeJobSummary>;
+
+export const CdnOverviewSchema = z.object({
+  deployment: CdnDeploymentSchema,
+  settings: CdnStoredSettingsSchema.nullable(),
+  effective: CdnEffectiveSchema.nullable(),
+  lastCheck: CdnCheckResultSchema.nullable(),
+  recentPurges: z.array(CdnPurgeJobSummarySchema),
+  purgeTargets: z.array(CdnResourceSchema),
+}) satisfies z.ZodType<CdnOverview>;
+
+export const UpdateCdnSettingsRequestSchema = z.object({
+  version: z.int().min(1).max(9007199254740991),
+  state: CdnStateSchema.nullable().optional(),
+  resources: z.array(CdnResourceSchema).max(3).nullable().optional(),
+  urlTtlCap: z.int().min(-9007199254740991).max(9007199254740991).nullable().optional(),
+  purgeOnDelete: z.boolean().nullable().optional(),
+  purgeBatchSize: z.int().min(1).max(1000).nullable().optional(),
+}) satisfies z.ZodType<UpdateCdnSettingsRequest>;
+
+export const CdnPurgeRequestSchema = z.object({
+  target: z.union([
+    z.object({
+      type: z.enum(['paths']),
+      tenantId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      paths: z.array(z.string().min(1).max(1024)).min(1).max(1000),
+    }),
+    z.object({
+      type: CdnResourceSchema,
+      tenantId: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+      id: z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    }),
+    z.object({
+      type: z.enum(['all']),
+    }),
+  ]),
+}) satisfies z.ZodType<CdnPurgeRequest>;
+
+export const CdnPurgeResultSchema = z.object({
+  jobIds: z.array(z.string()),
+  paths: z.union([z.int().min(-9007199254740991).max(9007199254740991), z.enum(['all'])]),
+}) satisfies z.ZodType<CdnPurgeResult>;
 
 export const RevisionSummarySchema = z.object({
   version: z.int().min(-9007199254740991).max(9007199254740991),

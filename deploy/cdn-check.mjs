@@ -1,4 +1,4 @@
-// deploy/check-cdn.sh 的小工具（不依賴任何套件，在 node 容器裡執行）：簽 CDN 網址、以 SigV4 寫入／刪除物件、送清理請求。
+// deploy/check-cdn.sh 的小工具（不依賴任何套件，在 node 容器裡執行）：簽 CDN 網址、以 SigV4 寫入／刪除物件、送清理請求、讀 /_status。
 // 簽章與清理的格式與 api 相同（apps/api/src/core/storage/cdn-url-signer.ts、cdn-edge-purger.ts），在這裡另寫一份是為了
 // 不必在 CI 的 deploy job 安裝 workspace 的依賴；兩邊的格式改了要一起改。只拿來驗證，不要用在正式環境。
 //
@@ -6,6 +6,8 @@
 //   node cdn-check.mjs s3 <PUT|DELETE> <網址> [內容]                 → 以 S3_ACCESS_KEY_ID／S3_SECRET_ACCESS_KEY 簽 SigV4，印出狀態碼
 //   node cdn-check.mjs purge <清理網址> <base64 密鑰> <路徑,…|all> [ts 偏移秒] [bad]
 //                                                                    → 送到名稱解析出來的每個位址，每個節點印一行「位址 狀態碼 本體」
+//   node cdn-check.mjs status <清理網址> <base64 密鑰> [ts 偏移秒] [bad]
+//                                                                    → GET /_status（簽 ts + "\n" + "GET /_status"），同上每個節點一行
 import { createHash, createHmac } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { request } from 'node:http';
@@ -126,7 +128,28 @@ async function purge([target, secret, paths, offset = '0', bad]) {
   }
 }
 
-const commands = { sign, s3, purge };
+async function status([target, secret, offset = '0', bad]) {
+  const url = new URL(target);
+  const ts = Math.floor(Date.now() / 1000) + Number(offset);
+  let signature = createHmac('sha256', Buffer.from(secret, 'base64'))
+    .update(`${ts}\nGET /_status`)
+    .digest('hex');
+  if (bad) signature = signature.replace(/^./, (c) => (c === '0' ? '1' : '0'));
+  const addresses = [...new Set((await lookup(url.hostname, { all: true })).map((a) => a.address))];
+  for (const address of addresses.toSorted()) {
+    // oxlint-disable-next-line no-await-in-loop -- 依序送出，輸出的順序固定（check-cdn.sh 逐行比對）
+    const response = await send({
+      host: address,
+      port: url.port,
+      method: 'GET',
+      path: `/_status?ts=${ts}`,
+      headers: { host: url.host, 'x-purge-signature': signature },
+    });
+    process.stdout.write(`${address} ${response.status} ${response.text}\n`);
+  }
+}
+
+const commands = { sign, s3, purge, status };
 if (!commands[command]) {
   process.stderr.write(`不認得的指令：${command}\n`);
   process.exit(2);

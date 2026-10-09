@@ -6,6 +6,7 @@ import { TrashModule } from '@/modules/trash/trash.module';
 
 import { ImageAssetRepository } from './image-asset.repository';
 import { ImageAssetService } from './image-asset.service';
+import { ImageCdnPaths } from './image-cdn-paths';
 import { ImageMaintenanceService } from './image-maintenance.service';
 import { ImageOwnerRegistry } from './image-owner.registry';
 import { ImageProcessService } from './image-process.service';
@@ -33,6 +34,7 @@ import { ImageController } from './image.controller';
     ImageProcessService,
     ImageMaintenanceService,
     ImageRecentSource,
+    ImageCdnPaths,
   ],
   exports: [ImageAssetService, ImageSourceRegistry],
 })

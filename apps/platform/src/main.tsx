@@ -26,6 +26,7 @@ import { i18nPlugin } from '@/app/i18n';
 import { appContextPlugin } from '@/app/plugin';
 import { accountFeaturePlugin } from '@/features/account';
 import { auditLogFeaturePlugin } from '@/features/audit-log';
+import { cdnFeaturePlugin } from '@/features/cdn';
 import { featureFlagFeaturePlugin } from '@/features/feature-flag';
 import { homeFeaturePlugin } from '@/features/home';
 import { jobFeaturePlugin } from '@/features/job';
@@ -90,6 +91,7 @@ async function bootstrap(): Promise<void> {
     .use(auditLogFeaturePlugin())
     .use(featureFlagFeaturePlugin())
     .use(mfaMethodFeaturePlugin())
+    .use(cdnFeaturePlugin())
     .use(jobFeaturePlugin())
     // 偏好頁的「表格欄位」分頁（web-core；列出各 feature 登記的表）
     .use(tableColumnSettingsPlugin())

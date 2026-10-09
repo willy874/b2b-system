@@ -10,8 +10,9 @@ import {
 } from '@/db/client';
 import type { PlatformScriptDatabase } from '@/db/client';
 import { platformAuditLogs, tenants } from '@/db/platform/schema';
-import { imageAssets } from '@/db/schema';
+import { files, imageAssets } from '@/db/schema';
 import { confirmArgument, databaseNameOf, remoteRejection } from '@/db/script-guard';
+import { fileVariantKeysOf } from '@/modules/file/file.constants';
 import { assetObjectKeysOf } from '@/modules/image/image.constants';
 
 /**
@@ -20,23 +21,28 @@ import { assetObjectKeysOf } from '@/modules/image/image.constants';
  *
  *   pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --path images/<id>/r3/sm.webp [--path …]
  *   pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --image-asset <id>
+ *   pnpm --filter @b2b-system/api cli:cdn-purge --tenant <代碼> --file <id>
  *   pnpm --filter @b2b-system/api cli:cdn-purge --all [--confirm <平台 database 名稱>]
  *
  * `--all` 不加 `--confirm` 只列出會影響哪些節點。平台 DB 不在本機時，任何形式都要 `--confirm <平台 database 名稱>`
  * （與 `cli:reset-super-admin` 相同）。寫平台稽核 `cdn.purge`（操作者是 system）。
  * 清理端點與密鑰讀 `FILE_CDN_PURGE_URL`、`FILE_CDN_PURGE_SECRET`（與 worker 相同的值）。
+ *
+ * 依資源列出路徑與 apps/platform 的手動清理（`CdnPathResolver`，§16.11）用同一組純函式（`assetObjectKeysOf`、
+ * `fileVariantKeysOf`）：這支指令不啟動 Nest，所以不經過註冊表，但兩邊列出的路徑一致。
  */
 
 /** 寫進平台稽核的 action。 */
 export const CDN_PURGE_ACTION = 'cdn.purge';
 
 const USAGE =
-  '用法：cli:cdn-purge (--tenant <租戶代碼> (--path <物件 key>… | --image-asset <id>) | --all) ' +
+  '用法：cli:cdn-purge (--tenant <租戶代碼> (--path <物件 key>… | --image-asset <id> | --file <id>) | --all) ' +
   '[--confirm <平台 database 名稱>]';
 
 export type CdnPurgeRequest =
   | { kind: 'paths'; tenant: string; keys: string[]; confirm?: string }
   | { kind: 'imageAsset'; tenant: string; assetId: string; confirm?: string }
+  | { kind: 'file'; tenant: string; fileId: string; confirm?: string }
   | { kind: 'all'; confirm?: string };
 
 function valuesOf(argv: readonly string[], flag: string): string[] {
@@ -56,17 +62,24 @@ export function parseCdnPurgeArgs(argv: readonly string[]): CdnPurgeRequest {
   const tenant = valuesOf(argv, '--tenant')[0];
   const keys = valuesOf(argv, '--path');
   const assetId = valuesOf(argv, '--image-asset')[0];
+  const fileId = valuesOf(argv, '--file')[0];
   if (argv.includes('--all')) {
-    if (tenant || keys.length || assetId) throw new Error(`--all 不能與其他對象一起用。${USAGE}`);
+    if (tenant || keys.length || assetId || fileId) {
+      throw new Error(`--all 不能與其他對象一起用。${USAGE}`);
+    }
     return { kind: 'all', confirm };
   }
   if (!tenant) throw new Error(`缺少 --tenant（或用 --all）。${USAGE}`);
-  if (keys.length > 0 === Boolean(assetId)) {
-    throw new Error(`--path 與 --image-asset 要指定其中一種。${USAGE}`);
+  if ([keys.length > 0, Boolean(assetId), Boolean(fileId)].filter(Boolean).length !== 1) {
+    throw new Error(`--path、--image-asset、--file 要指定其中一種。${USAGE}`);
   }
   if (assetId) {
     if (!UUID.test(assetId)) throw new Error(`--image-asset 要是圖片資產的 id（uuid）：${assetId}`);
     return { kind: 'imageAsset', tenant, assetId, confirm };
+  }
+  if (fileId) {
+    if (!UUID.test(fileId)) throw new Error(`--file 要是檔案的 id（uuid）：${fileId}`);
+    return { kind: 'file', tenant, fileId, confirm };
   }
   // 物件 key 是 bucket 裡的相對路徑：前面的 / 拿掉，.. 不接受（不能藉此清到別的 bucket）
   const normalized = keys.map((key) => key.replace(/^\/+/, ''));
@@ -141,7 +154,9 @@ export async function runCdnPurge(
     const keys =
       request.kind === 'paths'
         ? request.keys
-        : await imageAssetKeys(tenant.databaseUrl, request.assetId);
+        : request.kind === 'imageAsset'
+          ? await imageAssetKeys(tenant.databaseUrl, request.assetId)
+          : await fileKeys(tenant.databaseUrl, request.fileId);
     const paths = [...new Set(keys)].map((key) => cdnPathOf(registered.bucket, key));
     const nodes: CdnPurgeNodeResult[] = [];
     for (let start = 0; start < paths.length; start += CLI_BATCH) {
@@ -166,6 +181,20 @@ async function imageAssetKeys(databaseUrl: string, assetId: string): Promise<str
       );
     }
     return assetObjectKeysOf(row);
+  } finally {
+    await client.end();
+  }
+}
+
+async function fileKeys(databaseUrl: string, fileId: string): Promise<string[]> {
+  const { client, db } = createScriptClient(databaseUrl);
+  try {
+    // 回收桶裡的檔案也算：這裡故意不加 notDeleted()
+    const [row] = await db.select({ id: files.id }).from(files).where(eq(files.id, fileId));
+    if (!row) {
+      throw new Error(`找不到檔案 ${fileId}：已經永久刪除時改用 --path 指定物件 key（或 --all）`);
+    }
+    return fileVariantKeysOf(row.id);
   } finally {
     await client.end();
   }

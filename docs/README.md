@@ -139,7 +139,7 @@ docs/
 │       ├── 06-audit-log.md            稽核日誌設計
 │       ├── 07-testing.md              單元 / 整合 / e2e 測試策略
 │       ├── 08-realtime.md             Socket.io gateway、room 與受眾、推播時機
-│       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁、圖片的 CDN（自架的 nginx 邊緣、簽章、清理）
+│       ├── 09-file.md                 檔案模組：物件儲存抽象層、上傳流程（含分塊）、keyset 分頁、圖片的 CDN（自架的 nginx 邊緣、簽章、清理；執行期設定、邊緣檢查、手動清理）
 │       ├── 10-jobs.md                 背景工作：pg-boss 佇列、排程、重試、管理 API
 │       ├── 11-mail.md                 郵件：傳輸層、範本、寄送流程、Mailpit
 │       ├── 12-settings.md             系統設定：執行期可調的值（租戶 DB）、env 與設定的分工

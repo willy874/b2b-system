@@ -24,6 +24,7 @@ export const JOB_NAME_LABEL_KEY = {
   'auth.passwordResetMail': 'job.name.passwordResetMail',
   'auth.platformTokenCleanup': 'job.name.platformTokenCleanup',
   'auth.tokenCleanup': 'job.name.tokenCleanup',
+  'cdn.healthCheck': 'job.name.cdnHealthCheck',
   'cdn.purge': 'job.name.cdnPurge',
   'dataTransfer.applyImport': 'job.name.dataTransferApplyImport',
   'dataTransfer.cleanup': 'job.name.dataTransferCleanup',

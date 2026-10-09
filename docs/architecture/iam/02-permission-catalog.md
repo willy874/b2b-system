@@ -532,7 +532,7 @@ Seed 行為：
   `apps/api/src/db/seeds/platform-permissions.ts`。平台的權限範圍很小，每個管理者一個角色就夠，不提供自訂角色。
 - 前端從 `GET /platform/auth/profile` 的 `permissions` 取得目前管理者的權限。
 
-### 8.1 權限清單（共 14 項）
+### 8.1 權限清單（共 19 項）
 
 | 權限鍵                  | 顯示名稱（zh-TW） | 說明 |
 | ----------------------- | ----------------- | ---- |
@@ -551,6 +551,10 @@ Seed 行為：
 | `featureFlag:update`    | 切換試行開關      | 全平台層的覆寫：全面開放（`on`）、緊急關閉（`off`）、回到預設；寫平台稽核 `featureFlag.update` |
 | `mfaMethod:read`        | 檢視 MFA 方式     | MFA 驗證方式的目錄、全平台狀態、覆寫的租戶數、已設定的因子數、關閉的影響人數（[`backend/21-mfa.md`](../backend/21-mfa.md) §5） |
 | `mfaMethod:update`      | 切換 MFA 方式     | 全平台層的開關（`on`／`off`／回到預設）；寫平台稽核 `mfaMethod.update`。租戶層的開關屬於 `tenant:update` |
+| `cdn:read`              | 檢視 CDN          | CDN 頁面：部署資訊、存放的設定與生效值、邊緣節點的狀態、執行檢查、最近的清理（[`backend/09-file.md`](../backend/09-file.md) §16.12） |
+| `cdn:update`            | 管理 CDN 設定     | 執行期的開關、資源類型、效期上限、自動清理、批次大小；寫平台稽核 `cdn.update`（`state` 有變時 `high`） |
+| `cdn:purge`             | 清理 CDN 快取     | 依路徑或資源（圖片資產、檔案的縮放圖）清理邊緣快取；寫平台稽核 `cdn.purge` |
+| `cdn:purgeAll`          | 清空 CDN 快取     | 清空整個邊緣快取（所有圖片回源）；與 `cdn:purge` 一起才能送出 |
 
 ### 8.2 角色 × 權限
 
@@ -571,8 +575,13 @@ Seed 行為：
 | `featureFlag:update`    | ✅ | ✅ |    |
 | `mfaMethod:read`        | ✅ | ✅ | ✅ |
 | `mfaMethod:update`      | ✅ |    |    |
+| `cdn:read`              | ✅ | ✅ | ✅ |
+| `cdn:update`            | ✅ | ✅ |    |
+| `cdn:purge`             | ✅ | ✅ |    |
+| `cdn:purgeAll`          | ✅ |    |    |
 
 只有 `super-admin` 能管理平台管理者，所以不需要反提權規則（`operator` 不能把自己升成 `super-admin`）。
+`operator` 有 `cdn:update`、`cdn:purge`：值班的人要能在事故時關掉 CDN、下架圖片；清空整個快取影響全平台，只給 `super-admin`（[`backend/09-file.md`](../backend/09-file.md) §17.1 D15）。
 `db:seed` 依 `PLATFORM_ADMIN_EMAIL` 建立的第一位平台管理者是 `super-admin`；之後新增的管理者預設是 `auditor`。
 
 ---

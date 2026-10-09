@@ -20,7 +20,8 @@
       "tenant": "租戶管理"
     },
     "enterTenant": "進入租戶",
-    "mfaMethod": "MFA 驗證方式"
+    "mfaMethod": "MFA 驗證方式",
+    "cdn": "CDN"
   },
   "app": {
     "title": "B2B System",
@@ -50,7 +51,8 @@
       "platformJob": "背景工作（全平台）",
       "featureFlag": "試行開關",
       "authz": "授權說明",
-      "mfaMethod": "MFA 驗證方式"
+      "mfaMethod": "MFA 驗證方式",
+      "cdn": "CDN"
     },
     "user": {
       "create": "建立使用者",
@@ -136,6 +138,12 @@
     "mfaMethod": {
       "read": "檢視 MFA 方式",
       "update": "切換 MFA 方式"
+    },
+    "cdn": {
+      "read": "檢視 CDN",
+      "update": "管理 CDN 設定",
+      "purge": "清理 CDN 快取",
+      "purgeAll": "清空 CDN 快取"
     }
   },
   "changePassword": {

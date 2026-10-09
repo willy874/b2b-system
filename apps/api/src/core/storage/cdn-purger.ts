@@ -7,14 +7,28 @@ import { cdnPurgeFailures, cdnPurgePaths, cdnPurgeRequests } from '../metrics';
 import { requireTenant } from '../tenant';
 import { CdnConfig } from './cdn-config';
 import { NginxCdnEdgePurger } from './cdn-edge-purger';
-import type { CdnPurgeNodeResult } from './cdn-edge-purger';
+import type { CdnPurgeNodeResult, CdnPurgeTarget } from './cdn-edge-purger';
 import { cdnPathOf } from './cdn-url-signer';
 
 /**
  * 清理邊緣快取（docs/architecture/backend/09-file.md §16.6）。資料是邊緣上的完整路徑（`/storage/<bucket>/<key>`），
  * 所以是平台工作：不必進入租戶，也不佔租戶的同時執行上限。重試 5 次、30 秒起指數退避（清理是冪等的）。
  */
-export const CDN_PURGE_JOB = defineJob<{ paths: string[] }>('cdn.purge', {
+/** 手動清理的來源（apps/platform 的 CDN 頁面，docs/architecture/backend/09-file.md §16.11）：背景工作頁看得到是誰、清什麼。 */
+export interface CdnManualPurge {
+  /** 平台管理者的 id。 */
+  requestedBy: string;
+  tenantId: string | null;
+  /** 目標的種類：`paths`、資源類型（`imageAsset` 等）或 `all`。 */
+  target: string;
+  /** 資源的 id（依資源清理時）。 */
+  id?: string;
+}
+
+/** `cdn.purge` 的資料：路徑清單或整個快取；物件刪除後的自動清理沒有 `manual`。 */
+export type CdnPurgeJobData = ({ paths: string[] } | { all: true }) & { manual?: CdnManualPurge };
+
+export const CDN_PURGE_JOB = defineJob<CdnPurgeJobData>('cdn.purge', {
   scope: 'platform',
   retryLimit: 5,
   retryDelaySeconds: 30,
@@ -57,7 +71,7 @@ export class QueuedCdnPurger extends CdnPurger {
   }
 
   async schedule(keys: readonly string[]): Promise<void> {
-    // 生效值每次都問 CdnConfig：之後的執行期設定可以不重啟就關掉自動清理（docs/features/cdn-settings.md）
+    // 生效值每次都問 CdnConfig：執行期的設定可以不重啟就關掉自動清理（docs/architecture/backend/09-file.md §16.9）
     if (keys.length === 0 || !this.config.purgeOnDelete()) return;
     let paths: string[];
     try {
@@ -88,9 +102,9 @@ export class QueuedCdnPurger extends CdnPurger {
   }
 }
 
-/** `cdn.purge` 的 output（管理頁看得到）。 */
+/** `cdn.purge` 的 output（管理頁看得到）；整個快取時 `paths` 是 `'all'`。 */
 export interface CdnPurgeJobOutput {
-  paths: number;
+  paths: number | 'all';
   nodes: CdnPurgeNodeResult[];
 }
 
@@ -123,17 +137,19 @@ export class CdnPurgeJob implements OnModuleInit {
   }
 
   async run(
-    { paths }: { paths: string[] },
+    data: CdnPurgeJobData,
     context: Pick<JobContext, 'retryCount' | 'signal'>,
   ): Promise<CdnPurgeJobOutput | { skipped: string }> {
+    const target: CdnPurgeTarget = 'all' in data ? { all: true } : { paths: data.paths };
+    const count = 'all' in target ? ('all' as const) : target.paths.length;
     if (!this.edge) {
       // 入列之後 CDN 被關掉（或這個程序沒有清理端點）：沒有能清的對象
-      this.logger.warn({ paths: paths.length }, '沒有設定邊緣的清理端點，略過 cdn.purge');
+      this.logger.warn({ paths: count }, '沒有設定邊緣的清理端點，略過 cdn.purge');
       return { skipped: 'CDN_PURGE_NOT_CONFIGURED' };
     }
     let nodes: CdnPurgeNodeResult[];
     try {
-      nodes = await this.edge.purge({ paths }, context.signal);
+      nodes = await this.edge.purge(target, context.signal);
     } catch (error) {
       // DNS 解析失敗等：一個節點都沒送到
       cdnPurgeRequests.inc({ result: 'error' });
@@ -149,8 +165,8 @@ export class CdnPurgeJob implements OnModuleInit {
           failed.map((node) => `${node.address} ${node.detail ?? node.result}`).join('、'),
       );
     }
-    cdnPurgePaths.inc(paths.length);
-    return { paths: paths.length, nodes };
+    if (count !== 'all') cdnPurgePaths.inc(count);
+    return { paths: count, nodes };
   }
 
   private recordIfFinal(context: Pick<JobContext, 'retryCount'>): void {

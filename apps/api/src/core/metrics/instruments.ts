@@ -248,3 +248,32 @@ export const cdnPurgeFailures = new Counter({
   labelNames: ['stage'] as const,
   registers,
 });
+
+/**
+ * 邊緣節點的狀態（docs/architecture/backend/09-file.md §16.10）：最近一次 `cdn.healthCheck`（或手動檢查）的結果，
+ * 由執行那次檢查的程序回報、15 分鐘內有效。`node` 是清理端點解析出來的位址：數量就是邊緣的實例數，
+ * 是 §8 標籤規則的例外（值域由部署決定、不隨租戶或請求增加）。告警以 `max by (node)` 合併多個程序的回報。
+ */
+export const cdnEdgeUp = new ObservedGauge({
+  name: 'api_cdn_edge_up',
+  help: '邊緣節點在最近一次檢查時是否連得到、清理密鑰被接受（1／0）',
+  labelNames: ['node'] as const,
+});
+
+/** 節點缺少 api 簽發中的 kid（1）：api 簽出的網址會被這個節點拒絕。 */
+export const cdnEdgeKidMismatch = new ObservedGauge({
+  name: 'api_cdn_edge_kid_mismatch',
+  help: '邊緣節點缺少 api 簽發中的 kid（1／0）',
+  labelNames: ['node'] as const,
+});
+
+/**
+ * 檢查沒有通過的項目（每次檢查、每個沒通過的項目加一）：`node`（連不上）、`purgeSecret`、`kid`、`publicUrl`、
+ * `signatureEnforced`（竄改的簽章沒被拒——最嚴重，立即告警）、`discovery`（沒有節點可檢查）。
+ */
+export const cdnCheckFailures = new Counter({
+  name: 'api_cdn_check_failures_total',
+  help: 'CDN 邊緣檢查沒有通過的項目',
+  labelNames: ['item'] as const,
+  registers,
+});

@@ -115,7 +115,8 @@ export class AuditLogArchiveJob implements OnModuleInit {
 | `dataTransfer.cleanup` | `modules/data-transfer` | `DATA_TRANSFER_CLEANUP_CRON` | `25 5 * * *`（每天 05:25 UTC；到期的匯出檔與套用列、90 天前的傳輸紀錄，[`22-data-transfer.md`](./22-data-transfer.md) §10） |
 | `dataTransfer.export`、`dataTransfer.applyImport` | `modules/data-transfer` | — | 由程式入列（建立匯出、送出套用時；[`22-data-transfer.md`](./22-data-transfer.md) §6.3、§7.6） |
 | `file.imageVariants` | `modules/file` | — | 由程式入列：上傳完成的交易內、還原時變體遺失、維護排程補產生（[`09-file.md`](./09-file.md) §5.4）；每個 worker 程序並行 2 |
-| `cdn.purge`（平台） | `core/storage` | — | 物件刪除 **之後** 由 `CdnPurger.schedule()` 入列（不在交易內：outbox 可能在刪除完成前就執行）；送到每一個邊緣節點，任一失敗整筆重試（5 次、30 秒起）。沒有 CDN 時不入列（[`09-file.md`](./09-file.md) §16.6） |
+| `cdn.purge`（平台） | `core/storage` | — | 物件刪除 **之後** 由 `CdnPurger.schedule()` 入列（不在交易內：outbox 可能在刪除完成前就執行）；送到每一個邊緣節點，任一失敗整筆重試（5 次、30 秒起）。沒有 CDN 時不入列（[`09-file.md`](./09-file.md) §16.6）；apps/platform 的手動清理也排它（`{ paths }` 或 `{ all: true }`，帶 `manual`，§16.11） |
+| `cdn.healthCheck`（平台） | `modules/platform-cdn` | `FILE_CDN_HEALTH_CHECK_CRON` | `*/5 * * * *`（每 5 分鐘；邊緣節點的連線、清理密鑰、kid 與對外網址，結果寫進 `cdn_settings.last_check`、更新指標；`exclusive`、不重試；沒有部署 CDN 時不排程，[`09-file.md`](./09-file.md) §16.10） |
 | `rateLimit.cleanup`（平台） | `core/rate-limit` | `RATE_LIMIT_CLEANUP_CRON` | `* * * * *`（每分鐘；共享的速率限制計數的過期列，記憶體實作時什麼都不做） |
 | `auth.activationMail`、`auth.passwordResetMail` | `modules/credential` | — | 由程式入列（[`11-mail.md`](./11-mail.md) §4） |
 | `platformAdmin.accountMail`（平台） | `modules/platform-admin` | — | 由程式入列：平台管理者的啟用信與重設密碼信（連結到 apps/platform、不帶 `?tenant=`；[`11-mail.md`](./11-mail.md) §4） |

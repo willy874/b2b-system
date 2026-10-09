@@ -14,6 +14,7 @@ import { FileExternalService } from './external/file.external.service';
 import { FileAccessExplainService } from './file-access-explain.service';
 import { FileAccessRequestService } from './file-access-request.service';
 import { FileAccessService } from './file-access.service';
+import { FileCdnPaths } from './file-cdn-paths';
 import { FileFolderAccessApprovalHandler } from './file-folder-access.approval';
 import { FileFolderGrantController } from './file-folder-grant.controller';
 import { FileFolderGrantRepository } from './file-folder-grant.repository';
@@ -85,6 +86,7 @@ import { FILE_WEBHOOK_EVENTS } from './file.webhooks';
     FileFolderTrashHandler,
     FileTagResource,
     FileImageSource,
+    FileCdnPaths,
   ],
   exports: [FileService],
 })

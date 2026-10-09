@@ -59,6 +59,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { PlatformCdnModule } from './modules/platform-cdn/platform-cdn.module';
 import { PlatformNotificationModule } from './modules/platform-notification/platform-notification.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RevisionModule } from './modules/revision/revision.module';
@@ -166,6 +167,8 @@ const ROLES = processRolesOf({ APP_ROLES: process.env.APP_ROLES });
     SystemModule,
     FileModule,
     FeatureFlagModule,
+    // CDN 的執行期設定、邊緣檢查與手動清理（apps/platform；docs/architecture/backend/09-file.md §16.9）
+    PlatformCdnModule,
     JobModule,
     HealthModule,
     TenantModule,

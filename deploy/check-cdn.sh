@@ -7,6 +7,8 @@
 #   - PUT／DELETE／POST → 405；/_purge 在對外的埠 → 404；安全標頭、沒有 Set-Cookie
 #   - 回源憑證：源站不經憑證不能直接讀；從外面帶 X-Origin-Auth 打租戶網域的 /storage/ 會被清掉
 #   - 清理：簽章錯、ts 超過 5 分鐘 → 403；刪除物件 → 清理 → 再讀是 MISS 後的 404（不快取 404）
+#   - /_status：每個節點回報 kid（不含金鑰）、快取設定、版本；簽章錯、ts 過舊 → 403；對外的埠沒有這個路徑
+#   - X-CDN-Reject：邊緣自己拒絕的請求帶原因（signature／expired／method），源站的回應（200、404）不帶
 #   - 兩個節點：清理名稱解析到兩個位址，兩邊的快取檔都被刪掉
 #   - 環境變數不合格式時邊緣不啟動
 #
@@ -65,6 +67,20 @@ tool() {
 # 對外的埠：印出「狀態碼 X-Cache-Status」
 fetch_status() {
   curl -s -o /dev/null -D - "$@" | awk 'NR == 1 { code = $2 } tolower($1) == "x-cache-status:" { cache = $2 } END { gsub(/\r/, "", cache); print code, (cache == "" ? "-" : cache) }'
+}
+
+# 回應的 X-CDN-Reject（沒有時印 -）
+reject_header() {
+  curl -s -o /dev/null -D - "$@" | awk 'tolower($1) == "x-cdn-reject:" { value = $2 } END { gsub(/\r/, "", value); print (value == "" ? "-" : value) }'
+}
+
+expect_reject() {
+  label=$1
+  expected=$2
+  shift 2
+  actual=$(reject_header "$@")
+  [ "$actual" = "$expected" ] || fail "$label：X-CDN-Reject 預期 $expected，實際 $actual"
+  echo "  ✓ $label（X-CDN-Reject: $actual）"
 }
 
 expect_status() {
@@ -173,6 +189,16 @@ expect_status "換 kid" "403 -" "$EDGE$ENCODED_PATH$(echo "$QUERY" | sed 's/kid=
 expect_status "沒有簽章" "403 -" "$EDGE$ENCODED_PATH"
 expect_status "已過期（快取裡有也不送出）" "403 -" "$EDGE$ENCODED_PATH$(tool sign "$KEY_PATH" "$((NOW - 1))" k2 "$KEY_2")"
 
+echo "── X-CDN-Reject（api 的檢查以它區分邊緣的拒絕與源站的回應）"
+expect_reject "有效的網址不帶" "-" "$EDGE$ENCODED_PATH$QUERY"
+expect_reject "竄改的簽章" "signature" "$EDGE$ENCODED_PATH$(echo "$QUERY" | sed 's/sig=/sig=x/')"
+expect_reject "沒有簽章" "signature" "$EDGE$ENCODED_PATH"
+expect_reject "已過期" "expired" "$EDGE$ENCODED_PATH$(tool sign "$KEY_PATH" "$((NOW - 1))" k2 "$KEY_2")"
+expect_reject "PUT" "method" -X PUT "$EDGE$ENCODED_PATH$QUERY"
+MISSING_PATH=/storage/__cdn-check/00000000-0000-4000-8000-000000000000
+expect_status "不存在的路徑（簽章正確）：源站的 404" "404 MISS" "$EDGE$MISSING_PATH$(tool sign "$MISSING_PATH" "$EXP" k2 "$KEY_2")"
+expect_reject "源站的 404 不帶" "-" "$EDGE$MISSING_PATH$(tool sign "$MISSING_PATH" "$EXP" k2 "$KEY_2")"
+
 echo "── 方法、路徑、標頭"
 for method in PUT DELETE POST; do
   expect_status "$method 打對外的埠" "405 -" -X "$method" "$EDGE$ENCODED_PATH$QUERY"
@@ -215,6 +241,22 @@ echo "$result" | grep -q '"purged":1' || fail "沒有節點刪掉快取檔（$re
 expect_status "清理後：回源拿到 404" "404 MISS" "$EDGE$ENCODED_PATH$QUERY"
 expect_status "404 不快取" "404 MISS" "$EDGE$ENCODED_PATH$QUERY"
 
+echo "── /_status"
+result=$(tool status http://cdn-purge:8081 "$PURGE_SECRET")
+[ "$(echo "$result" | grep -c ' 200 ')" = "2" ] || fail "/_status 應該兩個節點都回 200（$result）"
+echo "$result" | grep -q '"kids":\["k2","k1"\]' || fail "/_status 沒有依金鑰環的順序回報 kid（$result）"
+echo "$result" | grep -q '"maxSize":"100m"' || fail "/_status 沒有回報快取設定（$result）"
+echo "$result" | grep -q '"build":"dev"' || fail "/_status 沒有回報映像版本（$result）"
+echo "$result" | grep -Eq '"startedAt":"[0-9]{4}-[0-9]{2}-[0-9]{2}T' || fail "/_status 沒有回報啟動時間（$result）"
+echo "$result" | grep -q "$KEY_2" && fail "/_status 洩漏了金鑰"
+echo "  ✓ 兩個節點都回報 kid（依金鑰環的順序、不含金鑰）、快取設定、版本與啟動時間"
+result=$(tool status http://cdn-purge:8081 "$PURGE_SECRET" 0 bad)
+[ "$(echo "$result" | grep -c ' 403 ')" = "2" ] || fail "簽章錯誤的 /_status 沒有回 403（$result）"
+result=$(tool status http://cdn-purge:8081 "$PURGE_SECRET" -400)
+[ "$(echo "$result" | grep -c ' 403 ')" = "2" ] || fail "ts 超過 5 分鐘的 /_status 沒有回 403（$result）"
+echo "  ✓ /_status 簽章錯、ts 過舊 → 403"
+expect_status "/_status 在對外的埠" "404 -" "$EDGE/_status"
+
 echo "── 兩個節點"
 SECOND_ENCODED=$SECOND_PATH
 SECOND_QUERY=$(tool sign "$SECOND_PATH" "$EXP" k2 "$KEY_2")
@@ -241,7 +283,7 @@ expect_status "清空整個快取之後" "200 MISS" "$EDGE$SECOND_ENCODED$SECOND
 
 echo "── 環境變數的格式檢查"
 for bad in 'CDN_SIGNING_KEYS=k1:short' 'CDN_PURGE_SECRET=' 'CDN_ORIGIN_UPSTREAM=http://x;include /etc/passwd' \
-  'CDN_CACHE_MAX_SIZE=10g; include /etc/passwd' 'CDN_PURGE_PORT=9080'; do
+  'CDN_CACHE_MAX_SIZE=10g; include /etc/passwd' 'CDN_PURGE_PORT=9080' "CDN_BUILD=x'; include /etc/passwd"; do
   docker run --rm --read-only --tmpfs /tmp \
     -e CDN_SIGNING_KEYS="k2:$KEY_2" -e CDN_PURGE_SECRET="$PURGE_SECRET" -e "$bad" \
     "$EDGE_IMAGE" nginx -t -c /tmp/nginx.conf >/dev/null 2>&1 && fail "不合法的 $bad 沒有讓邊緣啟動失敗"

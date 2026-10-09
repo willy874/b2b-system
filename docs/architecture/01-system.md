@@ -325,7 +325,7 @@ api 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互
 
 | 程序內的狀態 | 處理 |
 | --- | --- |
-| 權限、使用者、租戶登記、資料夾樹、系統設定、通知政策、API token、MFA 方式、feature flag 的快取 | 失效經 `core/broadcast` 跨程序，TTL 兜底（§4.4） |
+| 權限、使用者、租戶登記、資料夾樹、系統設定、通知政策、API token、MFA 方式、feature flag、CDN 設定的快取 | 失效經 `core/broadcast` 跨程序，TTL 兜底（§4.4） |
 | HTTP、對外 API、WebSocket handshake 的速率限制，登入的漸進延遲 | `RateLimitStore`：standalone 預設程序記憶體，cluster 預設平台 DB 的共享計數（[`backend/03-api-conventions.md`](./backend/03-api-conventions.md) §8） |
 | WebSocket 每人連線數、每條連線的訊息數、token 到期計時器 | 每個節點各自計算（連線不會換節點；§7 D7） |
 | 跨裝置中繼 | 經廣播頻道 `user_relay` 送到其他節點（§7 D8） |
@@ -374,6 +374,7 @@ api 是 **模組化單體**：`modules/` 之間只透過 exports 的 service 互
 | `settings` | `{ tenant }` | 那個租戶的系統設定快取作廢 | `SettingService.invalidate()`（[`backend/12-settings.md`](./backend/12-settings.md)） |
 | `notification_policy` | `{ tenant }` | 那個租戶的通知政策快取作廢 | `NotificationPolicyService.invalidate()`（[`backend/16-notification-event.md`](./backend/16-notification-event.md) §3） |
 | `feature_flags` | `{}` | 全平台層的 feature flag 覆寫重新讀取 | `FeatureFlagService.changed()`（[`05-tenancy.md`](./05-tenancy.md) §11） |
+| `cdn_settings` | `{}` | CDN 的執行期設定（平台 DB 的 `cdn_settings`）重新讀取：簽章與清理改用新的生效值，不必重啟 | `CdnSettings.changed()`（`core/storage`；[`backend/09-file.md`](./backend/09-file.md) §16.9）；`FILE_CDN_ENABLED=false` 的程序不訂閱 |
 | `api_token_cache` | `{ tenant, tokens }` | 這些 API token 的驗證快取作廢 | `ApiTokenCacheService.invalidate()`（撤銷之後；[`06-external-api.md`](./06-external-api.md) §5） |
 | `user_relay` | `{ room, envelope }` | 跨裝置中繼送給本節點那個人的連線 | `RealtimeGateway`（[`backend/08-realtime.md`](./backend/08-realtime.md) §10.3） |
 | `domain_event` | 推播類的領域事件 | 在那個租戶的脈絡裡交給本機的推播 | `DomainEventRelay`（[`backend/08-realtime.md`](./backend/08-realtime.md) §7.6） |

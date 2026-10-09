@@ -643,6 +643,10 @@ private assertNotSelf(actorId: string, targetId: string): void {
 | GET    | `/platform/mfa-methods`、`/platform/mfa-methods/:id/impact`、`/platform/mfa-methods/:id/settings` | `@RequirePlatformPermissions('mfaMethod:read')`（[`backend/21-mfa.md`](21-mfa.md) §5、§5.1） |
 | PUT    | `/platform/mfa-methods/:id`、`/platform/mfa-methods/:id/settings` | `@RequirePlatformPermissions('mfaMethod:update')` |
 | DELETE | `/platform/mfa-methods/:id/settings` | `@RequirePlatformPermissions('mfaMethod:update')` |
+| GET    | `/platform/cdn` | `@RequirePlatformPermissions('cdn:read')`（[`backend/09-file.md`](09-file.md) §16.12） |
+| POST   | `/platform/cdn/check` | `@RequirePlatformPermissions('cdn:read')` |
+| PUT    | `/platform/cdn/settings` | `@RequirePlatformPermissions('cdn:update')` |
+| POST   | `/platform/cdn/purge` | `@RequirePlatformPermissions('cdn:purge')`（整個快取另要 `cdn:purgeAll`，由 service 檢查） |
 | GET    | `/platform/audit-logs` | `@RequirePlatformPermissions('platformAuditLog:read')` |
 | GET    | `/platform/jobs/queues` | `@RequirePlatformPermissions('platformJob:read')` |
 | GET    | `/platform/jobs` | `@RequirePlatformPermissions('platformJob:read')` |

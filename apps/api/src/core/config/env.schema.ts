@@ -400,7 +400,10 @@ export const EnvSchema = z.object({
   FILE_CDN_RESOURCES: z.string().trim().default('imageAsset,galleryItem,fileVariant'),
   /** CDN 網址效期的上限（秒）：也是關掉之後邊緣要再運作多久、金鑰輪替要等多久的依據（§17 D2）。 */
   FILE_CDN_MAX_URL_TTL: z.coerce.number().int().min(300).max(86_400).default(86_400),
-  /** 物件永久刪除後是否清理邊緣快取（§17 D3）；真正的 CDN 依清理次數計費時可以關掉，改靠網址過期。 */
+  /**
+   * 物件永久刪除後是否清理邊緣快取（§17 D3）；真正的 CDN 依清理次數計費時可以關掉，改靠網址過期。
+   * 這是 **預設值**：apps/platform 的 CDN 頁面可以在執行期覆寫（§16.9）。
+   */
   FILE_CDN_PURGE_ON_DELETE: z
     .enum(['true', 'false'])
     .default('true')
@@ -415,10 +418,15 @@ export const EnvSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.string().optional(),
   ),
-  /** 一次清理請求（一筆 `cdn.purge`）最多幾個路徑。 */
+  /** 一次清理請求（一筆 `cdn.purge`）最多幾個路徑；**預設值**，執行期可以覆寫（§16.9）。 */
   FILE_CDN_PURGE_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
   /** 單一邊緣節點的清理請求逾時（毫秒）。 */
   FILE_CDN_PURGE_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(5000),
+  /**
+   * 邊緣的定期檢查 `cdn.healthCheck`（cron，UTC；§16.10、§17 D18）：每個節點連得到、清理密鑰正確、kid 一致。
+   * `FILE_CDN_ENABLED=false` 時不排程；空字串也不排程。
+   */
+  FILE_CDN_HEALTH_CHECK_CRON: z.string().trim().default('*/5 * * * *'),
 
   /**
    * 是否開放 `POST /auth/login`（以 email ＋ 密碼直接換 access token，保留給測試與腳本）。留空時 production 關閉、

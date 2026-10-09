@@ -13,6 +13,7 @@ import type { ApplyInvalidationOptions, ResourceChange } from '@b2b-system/web-c
 import { AUTH_PROFILE_QUERY_KEY } from '@/apis/auth/get-profile/query';
 import { PLATFORM_ADMIN_LIST_QUERY_KEY } from '@/apis/platform-admin/get-admin-list/query';
 import { PLATFORM_AUDIT_LOG_LIST_QUERY_KEY } from '@/apis/platform-audit-log/get-audit-log-list/query';
+import { CDN_OVERVIEW_QUERY_KEY } from '@/apis/platform-cdn/get-cdn-overview/query';
 import { FEATURE_FLAG_LIST_QUERY_KEY } from '@/apis/platform-feature-flag/get-feature-flag-list/query';
 import { PLATFORM_JOB_LIST_QUERY_KEY } from '@/apis/platform-job/get-job-list/query';
 import { PLATFORM_JOB_QUEUES_QUERY_KEY } from '@/apis/platform-job/get-job-queues/query';
@@ -40,6 +41,8 @@ export const Resource = {
   FEATURE_FLAG: ChangeSource.PLATFORM_FEATURE_FLAG,
   /** 自己的站內通知（docs/architecture/backend/15-notification.md §6.2） */
   PLATFORM_NOTIFICATION: ChangeSource.PLATFORM_NOTIFICATION,
+  /** CDN 的設定、最近一次檢查與最近的清理（只存在前端：伺服器不推播，docs/architecture/backend/09-file.md §16.12） */
+  CDN: 'cdn',
 } as const;
 
 export type Resource = (typeof Resource)[keyof typeof Resource];
@@ -82,6 +85,11 @@ const graph = createResourceGraph<Resource>({
   [Resource.PLATFORM_JOB]: {
     collection: [PLATFORM_JOB_QUEUES_QUERY_KEY, PLATFORM_JOB_LIST_QUERY_KEY],
     entity: [PLATFORM_JOB_DETAIL_QUERY_KEY],
+  },
+  [Resource.CDN]: {
+    collection: [CDN_OVERVIEW_QUERY_KEY],
+    // 頁面上「最近的清理」來自 cdn.purge：背景工作重試、或別的分頁看到工作狀態變化時一起重抓
+    derivesFrom: [{ from: Resource.PLATFORM_JOB, kinds: ['create', 'update'], id: 'none' }],
   },
   [Resource.PLATFORM_NOTIFICATION]: {
     collection: [

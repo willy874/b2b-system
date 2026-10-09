@@ -25,6 +25,11 @@ export const PLATFORM_PERMISSION_SEED = [
   // MFA 方式的平台開關（docs/architecture/backend/21-mfa.md §5）；update 只有 super-admin
   ['mfaMethod', 'read', 'permission.mfaMethod.read'],
   ['mfaMethod', 'update', 'permission.mfaMethod.update'],
+  // CDN 的執行期設定、檢查與手動清理（docs/architecture/backend/09-file.md §16.9～§16.12）；purgeAll 只有 super-admin
+  ['cdn', 'read', 'permission.cdn.read'],
+  ['cdn', 'update', 'permission.cdn.update'],
+  ['cdn', 'purge', 'permission.cdn.purge'],
+  ['cdn', 'purgeAll', 'permission.cdn.purgeAll'],
 ] as const;
 
 type PlatformSeedRow = (typeof PLATFORM_PERMISSION_SEED)[number];
@@ -56,6 +61,10 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<
     'featureFlag:read',
     'featureFlag:update',
     'mfaMethod:read',
+    // 值班的人要能在事故時關掉 CDN、下架圖片；清空整個快取影響全平台，只給 super-admin（§17 D15）
+    'cdn:read',
+    'cdn:update',
+    'cdn:purge',
   ],
   auditor: [
     'tenant:read',
@@ -64,5 +73,6 @@ export const PLATFORM_ROLE_PERMISSIONS: Record<
     'platformJob:read',
     'featureFlag:read',
     'mfaMethod:read',
+    'cdn:read',
   ],
 };

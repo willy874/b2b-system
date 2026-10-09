@@ -29,4 +29,8 @@ export const PLATFORM_PERMISSION_LABEL_KEY = {
   'featureFlag:update': 'permission.featureFlag.update',
   'mfaMethod:read': 'permission.mfaMethod.read',
   'mfaMethod:update': 'permission.mfaMethod.update',
+  'cdn:read': 'permission.cdn.read',
+  'cdn:update': 'permission.cdn.update',
+  'cdn:purge': 'permission.cdn.purge',
+  'cdn:purgeAll': 'permission.cdn.purgeAll',
 } as const satisfies Record<PermissionKey, string>;

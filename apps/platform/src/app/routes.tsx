@@ -2,6 +2,7 @@ import { RootRoute } from '@b2b-system/web-core/router';
 
 import { Routes as AccountRoutes } from '@/features/account';
 import { Routes as AuditLogRoutes } from '@/features/audit-log';
+import { Routes as CdnRoutes } from '@/features/cdn';
 import { Routes as FeatureFlagRoutes } from '@/features/feature-flag';
 import { Routes as HomeRoutes } from '@/features/home';
 import { Routes as JobRoutes } from '@/features/job';
@@ -28,6 +29,7 @@ export const routeTree = RootRoute.addChildren([
   JobRoutes.JobListRoute,
   FeatureFlagRoutes.FeatureFlagListRoute,
   MfaMethodRoutes.MfaMethodListRoute,
+  CdnRoutes.CdnRoute,
   LoginRoutes.LoginRoute,
   LoginRoutes.SsoCallbackRoute,
   LoginRoutes.InteractionRoute,

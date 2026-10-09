@@ -105,6 +105,9 @@ Node 的標準指標（`nodejs_eventloop_lag_*`、`nodejs_heap_*`、`nodejs_gc_d
 | `api_cdn_purge_requests_total` | counter | `result`（`ok`／`error`／`timeout`） | 送到邊緣節點的清理請求，每個節點一次（[`backend/09-file.md`](./backend/09-file.md) §16.6）；不帶節點位址（會隨擴縮改變） | `cdn.purge`（`CdnPurgeJob`） |
 | `api_cdn_purge_paths_total` | counter | — | 已從所有邊緣節點清掉的路徑數 | 同上 |
 | `api_cdn_purge_failures_total` | counter | `stage`（`schedule`／`final`） | 清理沒做成：入列失敗、`cdn.purge` 重試用完（告警 `CdnPurgeFailing`）。邊緣的命中率不進 Prometheus（[`backend/09-file.md`](./backend/09-file.md) §17 D6，看 `check-cdn.sh` 與邊緣的存取紀錄） | `QueuedCdnPurger`、`CdnPurgeJob` |
+| `api_cdn_edge_up` | gauge | `node`（清理端點解析出的位址） | 邊緣節點在最近一次檢查時連得到、清理密鑰被接受（1／0）；由執行那次檢查的程序回報、15 分鐘內有效（[`backend/09-file.md`](./backend/09-file.md) §16.10）。`node` 的值域就是邊緣的實例數，是「標籤不放網址」的例外 | `CdnHealthService`（`cdn.healthCheck`、手動檢查） |
+| `api_cdn_edge_kid_mismatch` | gauge | `node` | 節點缺少 api 簽發中的 kid（1）：api 簽出的網址會被它拒絕 | 同上 |
+| `api_cdn_check_failures_total` | counter | `item`（`node`／`purgeSecret`／`kid`／`publicUrl`／`signatureEnforced`／`discovery`） | 每次檢查沒有通過的項目（`signatureEnforced`：竄改的簽章沒被拒，告警 `CdnSignatureNotEnforced`） | 同上 |
 
 `route` 是 Express 對到的路由樣板（`/users/:id`），掛在前綴下的子應用程式（OIDC Provider）只取掛載點（`/oidc`）；沒有對到 controller 的請求是 `unmatched`
 （`forRoutes('*')` 的中介軟體留下的 `{/*splat}` 也算），中介軟體直接回應的是 `other`。客戶端在回應前斷線記成 `499`。實作在 `core/metrics/route-label.ts`，
@@ -282,6 +285,9 @@ APM 關閉（沒有 `apm` profile，[`07-apm-service.md`](./07-apm-service.md) �
 | `TenantUnavailable` | 有租戶因 migration 落後或 DB 連不上而暫停服務 |
 | `JobBacklog`、`JobFailures`、`OutboxRelayFailing` | 佇列積壓 > 500 筆 15 分鐘；15 分鐘內失敗 > 10 次；outbox 搬移失敗 |
 | `CdnPurgeFailing` | 30 分鐘內邊緣快取的清理沒做成（入列失敗或重試用完）；刪掉的圖在網址的剩餘效期內仍可從邊緣讀到（[`backend/09-file.md`](./backend/09-file.md) §16.6），邊緣恢復後以 `cli:cdn-purge` 補清 |
+| `CdnEdgeDown` | 任一邊緣節點 `api_cdn_edge_up = 0` 持續 10 分鐘（`cdn.healthCheck` 每 5 分鐘一次；[`backend/09-file.md`](./backend/09-file.md) §16.10、§17.1 D18）；整個邊緣掛掉時在 apps/platform 的 CDN 頁面關掉 CDN（不必重啟） |
+| `CdnEdgeKidMismatch` | 有節點缺少 api 簽發中的 kid（立即，critical）：金鑰輪替只改了 api；先把金鑰加到邊緣 |
+| `CdnSignatureNotEnforced` | 竄改的簽章沒被邊緣拒絕（立即，critical）：任何人都能從快取讀到內容，先在 CDN 頁面關掉 CDN |
 | `PostgresDown`、`PostgresConnectionsHigh` | exporter 連不上；連線數超過 `max_connections` 的 70%（考慮 PgBouncer 的時候） |
 | `FrontendErrorSpike`、`FrontendLcpPoor` | 某個前端某一版 15 分鐘內 > 50 筆錯誤；LCP p75 > 4 秒 |
 

@@ -23,6 +23,7 @@ export * from './endpoints/org-units';
 export * from './endpoints/permissions';
 export * from './endpoints/platform-admins';
 export * from './endpoints/platform-auth';
+export * from './endpoints/platform-cdn';
 export * from './endpoints/platform-feature-flags';
 export * from './endpoints/platform-jobs';
 export * from './endpoints/platform-mfa-methods';

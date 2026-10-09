@@ -13,6 +13,7 @@
       "passwordResetMail": "Password reset email",
       "platformTokenCleanup": "Platform admin sign-in token cleanup",
       "tokenCleanup": "Expired sign-in token cleanup",
+      "cdnHealthCheck": "CDN edge health check",
       "cdnPurge": "CDN edge cache purge",
       "dataTransferApplyImport": "Import apply",
       "dataTransferCleanup": "Import and export cleanup",

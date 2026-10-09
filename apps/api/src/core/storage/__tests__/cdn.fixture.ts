@@ -5,14 +5,26 @@ import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config';
 import { validateEnv } from '../../config/env.schema';
 import { CdnConfig } from '../cdn-config';
+import type { CdnStoredOverrides } from '../cdn-settings';
 
 /** 金鑰環的兩把：`k2` 在前（簽發），`k1` 只驗證。 */
 export const CDN_KEY_1 = randomBytes(48);
 export const CDN_KEY_2 = randomBytes(48);
 export const CDN_PURGE_SECRET = randomBytes(48);
 
-/** 與執行時相同：環境變數先經過 validateEnv，再由 ConfigService 讀出。 */
-export function cdnConfigOf(overrides: Record<string, string> = {}): CdnConfig {
+/** 執行期的覆寫（平台 DB 的 `cdn_settings`）；測試直接改 `current`，`CdnConfig` 下一次呼叫就讀到。 */
+export interface FakeCdnOverrides {
+  current: CdnStoredOverrides | undefined;
+}
+
+/**
+ * 與執行時相同：環境變數先經過 validateEnv，再由 ConfigService 讀出。`stored` 是執行期的覆寫（預設沒有列）；
+ * 改它的 `current` 模擬另一個程序寫入後的重讀。
+ */
+export function cdnConfigOf(
+  overrides: Record<string, string> = {},
+  stored: FakeCdnOverrides = { current: undefined },
+): CdnConfig {
   const env = validateEnv({
     PLATFORM_DATABASE_URL: 'postgres://u:p@db:5432/platform',
     JWT_SECRET: 'change-me-in-production-min-32-chars',
@@ -27,5 +39,5 @@ export function cdnConfigOf(overrides: Record<string, string> = {}): CdnConfig {
     ...overrides,
   });
   const config = { get: (key: keyof Env) => env[key] } as unknown as ConfigService<Env, true>;
-  return new CdnConfig(config);
+  return new CdnConfig(config, { current: () => stored.current });
 }

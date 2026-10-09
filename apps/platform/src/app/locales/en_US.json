@@ -20,7 +20,8 @@
       "tenant": "Tenants"
     },
     "enterTenant": "Enter a tenant",
-    "mfaMethod": "MFA methods"
+    "mfaMethod": "MFA methods",
+    "cdn": "CDN"
   },
   "app": {
     "title": "B2B System",
@@ -50,7 +51,8 @@
       "platformJob": "Background jobs (all tenants)",
       "featureFlag": "Feature flags",
       "authz": "Access explanations",
-      "mfaMethod": "MFA methods"
+      "mfaMethod": "MFA methods",
+      "cdn": "CDN"
     },
     "user": {
       "create": "Create user",
@@ -136,6 +138,12 @@
     "mfaMethod": {
       "read": "View MFA methods",
       "update": "Switch MFA methods"
+    },
+    "cdn": {
+      "read": "View CDN",
+      "update": "Manage CDN settings",
+      "purge": "Purge CDN cache",
+      "purgeAll": "Purge the entire CDN cache"
     }
   },
   "changePassword": {

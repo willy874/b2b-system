@@ -1,0 +1,132 @@
+{
+  "cdn": {
+    "title": "CDN",
+    "description": "Images are served from the self-hosted edge. The deployment's capabilities and limits come from environment variables; the settings here take effect without a restart, and every process follows within seconds.",
+    "deployment": {
+      "title": "Deployment",
+      "notDeployed": "This deployment does not provide a CDN.",
+      "notDeployedHint": "Enable it with FILE_CDN_ENABLED=true and an edge (docker-compose.cdn.yml or the k8s components/cdn); see docs/architecture/backend/09-file.md §16.",
+      "provider": "Provider",
+      "origin": "CDN URL",
+      "signingKid": "Signing kid",
+      "kids": "Verifiable kids",
+      "resources": "Allowed resource types",
+      "maxUrlTtl": "Max URL lifetime",
+      "purge": "Purge endpoint",
+      "purgeConfigured": "Configured",
+      "purgeNotConfigured": "Not configured",
+      "defaults": "Defaults: purge on delete {{purgeOnDelete}}, batch {{batch}}",
+      "healthCheck": "Scheduled check",
+      "healthCheckOff": "Not scheduled",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "on": "on",
+      "off": "off"
+    },
+    "settings": {
+      "title": "Settings",
+      "serving": "Serve images from the CDN",
+      "servingHint": "When off, new image URLs go back to presigned URLs right away. Purging continues.",
+      "changedBy": "Switched by {{email}} at {{time}}",
+      "issuedUrlsExpireAt": "CDN URLs issued before turning it off expire by {{time}}; keep the edge running until then.",
+      "offTitle": "Turn off the CDN?",
+      "offConfirm": "New image URLs go back to presigned URLs right away. CDN URLs already issued expire by {{time}}; keep the edge running until then.",
+      "offAction": "Turn off",
+      "notReady": "The edge nodes didn't pass the check, so the CDN can't be turned on:",
+      "resources": "Resource types",
+      "resourceNotDeployed": "Not allowed by the deployment",
+      "resourcesClamped": "Some selected resource types are no longer allowed by the deployment ({{resources}}); they're not in effect.",
+      "urlTtlCap": "Max URL lifetime (seconds)",
+      "urlTtlCapRange": "{{min}}–{{max}} seconds",
+      "urlTtlCapClamped": "Above the deployment's limit; {{value}} seconds is in effect.",
+      "purgeOnDelete": "Purge after delete",
+      "purgeOnDeleteOffTitle": "Turn off purging after delete?",
+      "purgeOnDeleteOffConfirm": "Deleted images stay on the edge until their URLs expire (up to {{seconds}} seconds).",
+      "purgeOnDeleteOffAction": "Turn off purging",
+      "purgeBatchSize": "Purge batch size",
+      "save": "Save",
+      "reset": "Use the environment value",
+      "overridden": "Overridden",
+      "saved": "CDN settings saved"
+    },
+    "nodes": {
+      "title": "Edge nodes",
+      "check": "Run check",
+      "checkedAt": "Last checked: {{time}}",
+      "never": "Not checked yet.",
+      "ready": "Ready to be turned on",
+      "notReady": "Not ready to be turned on",
+      "healthy": "Healthy",
+      "address": "Address",
+      "status": "Status",
+      "kids": "kid",
+      "cache": "Cache",
+      "cacheValue": "max {{maxSize}}, inactive {{inactive}}, valid {{valid}}",
+      "build": "Build",
+      "startedAt": "Started",
+      "publicUrl": "Public URL",
+      "signatureEnforced": "Tampered signatures are rejected",
+      "missingKids": "Missing kids: {{kids}}",
+      "problem": {
+        "unreachable": "Unreachable",
+        "timeout": "Timed out",
+        "purgeSecretRejected": "Purge secret mismatch",
+        "badResponse": "Unexpected response",
+        "signingKidMissing": "Missing the signing key",
+        "verifyKidMissing": "Missing an older verification key"
+      },
+      "discovery": {
+        "purgeNotConfigured": "No purge endpoint is configured (FILE_CDN_PURGE_URL), so there are no nodes to check.",
+        "resolveFailed": "Couldn't resolve the purge endpoint: {{detail}}"
+      },
+      "publicUrlResult": {
+        "ok": "OK",
+        "signatureRejected": "The edge rejects the API's signatures",
+        "originAuthRejected": "The origin rejects the edge (origin credential mismatch)",
+        "originUnreachable": "The edge can't reach the origin",
+        "unreachable": "The API can't reach the public URL",
+        "unexpected": "Unexpected response"
+      },
+      "signatureResult": {
+        "ok": "OK",
+        "notEnforced": "The edge doesn't verify signatures: anyone can read cached content",
+        "unreachable": "The API can't reach the public URL",
+        "unexpected": "Unexpected response"
+      }
+    },
+    "purge": {
+      "title": "Purge",
+      "description": "Remove cached copies from every edge node. Results show up in the background jobs list.",
+      "target": "Target",
+      "tenant": "Tenant",
+      "tenantPlaceholder": "Choose a tenant",
+      "paths": "Object keys (one per line, e.g. images/<id>/r3/sm.webp)",
+      "id": "ID",
+      "submit": "Purge",
+      "queued_one": "Queued {{count}} purge job",
+      "queued_other": "Queued {{count}} purge jobs",
+      "allTitle": "Purge the entire cache?",
+      "allConfirm": "This goes to {{nodes}} node(s). For a while every image will be fetched from the origin again, which raises its load.",
+      "allAction": "Purge everything",
+      "targetType": {
+        "paths": "Paths",
+        "fileVariant": "File thumbnails",
+        "imageAsset": "Image asset",
+        "galleryItem": "Gallery image",
+        "all": "Entire cache"
+      },
+      "recent": "Recent purges",
+      "recentEmpty": "No purges yet.",
+      "viewJobs": "View in background jobs",
+      "automatic": "Automatic",
+      "pathCount_one": "{{count}} path",
+      "pathCount_other": "{{count}} paths",
+      "allPaths": "Entire cache"
+    },
+    "resource": {
+      "fileVariant": "File thumbnails",
+      "imageAsset": "Image assets",
+      "galleryItem": "Gallery"
+    }
+  }
+}

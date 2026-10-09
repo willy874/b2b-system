@@ -237,6 +237,11 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'GET /platform/mfa-methods/:id/settings': 'platform mfaMethod:read',
       'PUT /platform/mfa-methods/:id/settings': 'platform mfaMethod:update',
       'DELETE /platform/mfa-methods/:id/settings': 'platform mfaMethod:update',
+      // CDN 的執行期設定與手動清理（docs/architecture/backend/09-file.md §16.12）；整個快取的 cdn:purgeAll 在 service 檢查
+      'GET /platform/cdn': 'platform cdn:read',
+      'PUT /platform/cdn/settings': 'platform cdn:update',
+      'POST /platform/cdn/check': 'platform cdn:read',
+      'POST /platform/cdn/purge': 'platform cdn:purge',
       'POST /mfa-channels/telegram/webhook': 'public',
       'POST /mfa-channels/line/webhook': 'public',
       'GET /platform/audit-logs': 'platform platformAuditLog:read',

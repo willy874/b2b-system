@@ -1,11 +1,15 @@
 // 自架 CDN 邊緣的 njs（docs/architecture/backend/09-file.md §16.3、§16.6；設定在 deploy/nginx.cdn.conf）：
 //
-// - verify：驗網址簽章。sig = base64url(HMAC-SHA256(金鑰, exp + "\n" + 路徑))，路徑是解碼後的 $uri（含 /storage/<bucket>/）；
-//   金鑰依 kid 從 CDN_SIGNING_KEYS（與 api 的 FILE_CDN_SIGNING_KEYS 相同的金鑰環）選。過期、竄改、kid 不認得一律不通過。
+// - reject：驗網址簽章，回傳拒絕的原因（空字串 = 放行）。sig = base64url(HMAC-SHA256(金鑰, exp + "\n" + 路徑))，路徑是解碼後的
+//   $uri（含 /storage/<bucket>/）；金鑰依 kid 從 CDN_SIGNING_KEYS（與 api 的 FILE_CDN_SIGNING_KEYS 相同的金鑰環）選。
+//   竄改、kid 不認得、沒有簽章 → signature；簽章對但過期 → expired；GET／HEAD 以外 → method。
+//   原因放在回應的 X-CDN-Reject：api 的檢查以它區分「邊緣拒絕」與「源站的回應」（docs/architecture/backend/09-file.md §16.10）。
 // - cacheControl：回應的 Cache-Control 依網址的剩餘效期決定，不沿用源站的 private。
 // - originAuth：回源時帶的 X-Origin-Auth（CDN_ORIGIN_SECRET；沒設定時是空字串，nginx 就不送這個標頭）。
 // - purge／purgeAll：清理端點（只在內部的 CDN_PURGE_PORT）。快取檔的位置由 key（$uri）的 md5 算出，刪掉就是清掉；
 //   請求以 X-Purge-Signature = hex(HMAC-SHA256(CDN_PURGE_SECRET, ts + "\n" + 本體)) 驗證，ts 與現在相差 5 分鐘內。
+// - status：GET /_status?ts=<ts>（同一個埠、同一把密鑰；沒有本體，簽的內容是 ts + "\n" + "GET /_status"）。
+//   回報金鑰環的 kid（不回金鑰）、快取設定、映像版本與啟動時間；簽章被接受本身就證明清理密鑰一致。
 //
 // 秘密只從環境變數讀（nginx.cdn.conf 的 env 指令），不寫進產生的設定檔。
 
@@ -73,24 +77,27 @@ function nowSeconds() {
   return Math.floor(Date.now() / 1000);
 }
 
-function verify(r) {
+/** 拒絕的原因（X-CDN-Reject）；空字串 = 放行。OPTIONS 在 nginx.cdn.conf 先回 204，不會到這裡。 */
+function reject(r) {
+  if (r.method !== 'GET' && r.method !== 'HEAD') return 'method';
   const exp = single(r.args.exp);
   const kid = single(r.args.kid);
   const sig = single(r.args.sig);
-  if (!exp || !kid || !sig || !/^[0-9]{1,12}$/.test(exp)) return '0';
-  if (Number(exp) <= nowSeconds()) return '0';
-  if (r.uri.indexOf(PATH_PREFIX) !== 0) return '0';
+  if (!exp || !kid || !sig || !/^[0-9]{1,12}$/.test(exp)) return 'signature';
+  if (r.uri.indexOf(PATH_PREFIX) !== 0) return 'signature';
   const key = keyring()[kid];
-  if (!key) return '0';
+  if (!key) return 'signature';
   const expected = crypto.createHmac('sha256', key).update(`${exp}\n${r.uri}`).digest('base64url');
-  return safeEqual(expected, sig) ? '1' : '0';
+  if (!safeEqual(expected, sig)) return 'signature';
+  // 簽章對了才看效期：過期的網址與竄改的網址分開回報
+  return Number(exp) <= nowSeconds() ? 'expired' : '';
 }
 
 /** 2xx 依網址的剩餘效期給 public；其他（404、5xx）不讓瀏覽器與中間的快取留著。 */
 function cacheControl(r) {
-  const status = r.status;
+  const code = r.status;
   const exp = Number(r.variables.cdn_exp);
-  if (status < 200 || status >= 300 || !(exp > 0)) return 'no-store';
+  if (code < 200 || code >= 300 || !(exp > 0)) return 'no-store';
   return `public, max-age=${Math.max(0, exp - nowSeconds())}, immutable`;
 }
 
@@ -104,9 +111,23 @@ function cacheFileOf(key) {
   return `${CACHE_DIR}/${md5.slice(-1)}/${md5.slice(-3, -1)}/${md5}`;
 }
 
-function reply(r, status, body) {
+function reply(r, code, body) {
   r.headersOut['Content-Type'] = 'application/json';
-  r.return(status, JSON.stringify(body));
+  r.return(code, JSON.stringify(body));
+}
+
+/** 驗 X-Purge-Signature：HMAC(CDN_PURGE_SECRET, ts + "\n" + 內容)，ts 與現在相差 5 分鐘內。 */
+function signedWithPurgeSecret(r, ts, content) {
+  const key = purgeKey();
+  return (
+    typeof ts === 'number' &&
+    Math.abs(nowSeconds() - ts) <= PURGE_MAX_SKEW_SECONDS &&
+    key.length >= 32 &&
+    safeEqual(
+      crypto.createHmac('sha256', key).update(`${ts}\n${content}`).digest('hex'),
+      r.headersIn['X-Purge-Signature'],
+    )
+  );
 }
 
 /** 驗本體與簽章；不通過時已回應，回傳 undefined。 */
@@ -128,19 +149,47 @@ function authorizedBody(r) {
     reply(r, 400, { error: 'json' });
     return undefined;
   }
-  const ts = body && body.ts;
-  const signature = r.headersIn['X-Purge-Signature'];
-  const key = purgeKey();
-  if (
-    typeof ts !== 'number' ||
-    Math.abs(nowSeconds() - ts) > PURGE_MAX_SKEW_SECONDS ||
-    key.length < 32 ||
-    !safeEqual(crypto.createHmac('sha256', key).update(`${ts}\n${text}`).digest('hex'), signature)
-  ) {
+  if (!signedWithPurgeSecret(r, body && body.ts, text)) {
     reply(r, 403, { error: 'signature' });
     return undefined;
   }
   return body;
+}
+
+/** 與 api 的 CDN_STATUS_SIGNED_CONTENT（apps/api/src/core/storage/cdn-edge-purger.ts）相同。 */
+const STATUS_SIGNED_CONTENT = 'GET /_status';
+
+/** 金鑰環的 kid，依 CDN_SIGNING_KEYS 的順序（金鑰不回傳）。 */
+function kidsOf() {
+  return (process.env.CDN_SIGNING_KEYS || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.indexOf(':') > 0)
+    .map((entry) => entry.slice(0, entry.indexOf(':')));
+}
+
+function status(r) {
+  if (r.method !== 'GET') {
+    reply(r, 405, { error: 'method' });
+    return;
+  }
+  const raw = single(r.args.ts);
+  const ts = raw && /^[0-9]{1,12}$/.test(raw) ? Number(raw) : undefined;
+  if (!signedWithPurgeSecret(r, ts, STATUS_SIGNED_CONTENT)) {
+    reply(r, 403, { error: 'signature' });
+    return;
+  }
+  // 快取設定、版本、啟動時間由 deploy/nginx-cdn.sh 在啟動時寫進設定（nginx.cdn.conf 的 set）
+  reply(r, 200, {
+    kids: kidsOf(),
+    cache: {
+      maxSize: r.variables.cdn_cache_max_size,
+      inactive: r.variables.cdn_cache_inactive,
+      valid: r.variables.cdn_cache_valid,
+    },
+    build: r.variables.cdn_build,
+    startedAt: r.variables.cdn_started_at,
+  });
 }
 
 function unlink(path) {
@@ -222,4 +271,4 @@ function purgeAll(r) {
   reply(r, 200, { purged, missing: 0 });
 }
 
-export default { verify, cacheControl, originAuth, purge, purgeAll };
+export default { reject, cacheControl, originAuth, purge, purgeAll, status };

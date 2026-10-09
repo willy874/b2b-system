@@ -9,6 +9,10 @@ USER root
 RUN rm -f /etc/nginx/conf.d/default.conf
 USER 101
 
+# /_status 回報的版本（docs/architecture/backend/09-file.md §16.10）：例 docker build --build-arg CDN_BUILD=$(git rev-parse --short HEAD)
+ARG CDN_BUILD=dev
+ENV CDN_BUILD=$CDN_BUILD
+
 COPY deploy/nginx.cdn.conf /etc/nginx/cdn/nginx.cdn.conf
 COPY deploy/cdn.js /etc/nginx/njs/cdn.js
 COPY --chmod=755 deploy/nginx-cdn.sh /docker-entrypoint.d/40-cdn.sh

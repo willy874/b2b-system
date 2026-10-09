@@ -13,6 +13,7 @@
       "passwordResetMail": "重設密碼信",
       "platformTokenCleanup": "平台管理者的過期登入憑證清理",
       "tokenCleanup": "過期登入憑證清理",
+      "cdnHealthCheck": "CDN 邊緣檢查",
       "cdnPurge": "CDN 邊緣快取清理",
       "dataTransferApplyImport": "匯入套用",
       "dataTransferCleanup": "匯入匯出紀錄清理",
