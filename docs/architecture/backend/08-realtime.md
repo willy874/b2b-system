@@ -662,7 +662,7 @@ location /api/socket.io/ {
 | 權限／使用者快取   | 仍是各節點的 in-memory，失效經平台 DB 的 `LISTEN/NOTIFY` 跨節點（`core/broadcast`；權限快取見 [05 §5.1](./05-rbac.md)，使用者快取見 [`../01-system.md`](../01-system.md) §4.4） |
 | Token 到期計時器   | 每個節點只管自己的連線，不需要協調                                                         |
 
-Phase 0 是單一執行個體，**先不裝 adapter**；發佈端（`DomainEventBus`）不因此改變。
+跨節點一律走上表的轉送，**不裝 adapter**；發佈端（`DomainEventBus`）不因此改變。
 
 ---
 
@@ -776,6 +776,7 @@ HTTP 的限流 guard 不作用在 WebSocket，gateway 自己限：
 - WebSocket 的訊息處理器與 HTTP 路由一樣 **預設拒絕**：沒宣告授權就啟動失敗。
 - 事件合約放在新的 `packages/realtime`（zod schema ＋ 型別），前後端共用。
 - 多執行個體時用 `@socket.io/postgres-adapter`，不引入 Redis。
+  （後來改為自己的跨節點轉送：`domain_event` 與 `user_relay` 兩個頻道，**不裝 adapter**，見 §10.3、[`../01-system.md`](../01-system.md) §7 D8）
 
 ### 15.3 理由
 
@@ -785,6 +786,7 @@ HTTP 的限流 guard 不作用在 WebSocket，gateway 自己限：
 2. **跨執行個體的擴展有現成 adapter，而且可以用既有的 Postgres。**
    `@socket.io/postgres-adapter` 走 `LISTEN/NOTIFY`，正好是 [`05-rbac.md`](./05-rbac.md) §5.2
    為權限快取預留的升級路徑，兩者可以共用同一套基礎設施。
+   （實作時沒有採用 adapter，改由 `core/broadcast` 的頻道轉送事件，同樣走平台 DB 的 `LISTEN/NOTIFY`，見 §10.3）
 3. **自動重連、心跳、ack 不必自己寫。** 斷線偵測（`pingInterval` / `pingTimeout`）與指數退避重連
    都是容易寫錯、又和業務無關的部分。
 4. **NestJS 有一級支援。** `@WebSocketGateway`、`@SubscribeMessage` 讓事件處理器可以掛 decorator，

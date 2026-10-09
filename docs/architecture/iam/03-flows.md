@@ -73,7 +73,7 @@ ZodValidationPipe → Controller → Service → Repository
   │               │                              │
   │─ 點建立 ─────▶│                              │
   │               │─ GET /permissions ──────────▶│ 需要 permission:read
-  │               │◀── 全部 15 筆權限目錄 ────────│
+  │               │◀── 整份權限目錄 ──────────────│
   │               │                              │
   │               │  ★ 前端反提權過濾：
   │               │     可勾選項 = 目錄 ∩ 我的權限集合

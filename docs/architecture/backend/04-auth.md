@@ -851,7 +851,7 @@ session」，而不是「作廢我手上這個 token 但留著它的後繼者」
 - [ ] Refresh token 雜湊後入庫，明文只存在 cookie
 - [ ] Refresh token 每次使用即輪替
 - [ ] 重用偵測撤銷整條家族並寫入高嚴重度稽核
-- [ ] Cookie 帶 `HttpOnly` + `Secure` + `SameSite=Lax` + `Path=/auth`
+- [ ] Cookie 帶 `HttpOnly` + `Secure` + `SameSite=Lax` + `Path=/api/auth`（瀏覽器看到的路徑，由 `REFRESH_COOKIE_PATH` 設定，§2.4）
 - [ ] `/auth/refresh` 要求 `x-refresh-request` 標頭
 - [ ] 帳號不存在與密碼錯誤回應相同且耗時相近
 - [ ] 忘記密碼永遠回 200

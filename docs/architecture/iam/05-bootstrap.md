@@ -300,7 +300,7 @@ docker compose -f docker-compose.prod.yml run --rm migrate \
 
 `db:seed` 完成後，以下斷言必須成立（`db/seeds/__tests__/seed.spec.ts`）：
 
-- [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（25）
+- [ ] `permissions` 表筆數 = `PERMISSION_SEED.length`（與 [`02-permission-catalog.md`](02-permission-catalog.md) §2 的項數相同）
 - [ ] 每筆 `permissions.key` = `resource || ':' || action`
 - [ ] `roles` 中恰有 4 筆 `is_system = true`
 - [ ] `super-admin` 只有 `tenant:self#superAdmin` 一條邊，**沒有任何權限鍵的邊**（隱含全集）
@@ -308,7 +308,7 @@ docker compose -f docker-compose.prod.yml run --rm migrate \
 - [ ] 恰有一位使用者持有 `super-admin`
 - [ ] 連續執行 `db:seed` 兩次，所有表的筆數不變
 - [ ] 權限依賴樹多出鍵的角色各有一筆 `role.permissionsImplied`（預設角色只有 auditor：`file:read ⇒ file:access`），重跑不重複
-- [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = 25
+- [ ] `GET /auth/profile`（以 super-admin 登入）回傳的 `permissions` 長度 = `PERMISSION_SEED.length`
 
 > seed 直接寫 `relation_tuples`（邊的形狀在 `db/schema/relation-tuples.ts`，[`backend/02-database.md`](../backend/02-database.md) §2.10），
 > super-admin 的 `tenant:self#superAdmin` 邊由 `seedRoles` → `ensureSuperAdminTuple`

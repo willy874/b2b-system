@@ -893,6 +893,7 @@ JWT 常見的做法是把使用者的角色或權限寫進 payload，Guard 直�
 ### 11.2 決定
 
 - Access token 的 payload **只有** `{ sub, ver, jti, iat, exp }`，不含角色與權限
+  （後來加上身分範圍 `tid`／`realm` 與 SSO 的 `sid`，見 [`04-auth.md`](./04-auth.md) §1.1；仍不含角色與權限）
 - `PermissionsGuard` 每次請求呼叫 `PermissionService.getPermissionSet(userId)`
 - 該方法走 `PermissionCacheService`：in-memory Map，TTL 60 秒
 - **所有授權變更都主動失效快取**（指派角色、角色權限變更、刪除角色、停用使用者）

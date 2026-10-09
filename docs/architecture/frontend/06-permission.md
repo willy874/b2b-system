@@ -353,7 +353,7 @@ return <Outlet />;
 ## 8. super-admin 在前端沒有特例
 
 後端的 `GET /auth/profile` 對 super-admin 回傳 **完整展開** 的權限鍵陣列
-（全部 15 筆），因此前端完全不需要 `isSuperAdmin` 這樣的分支。
+（整份目錄，見 [`../iam/02-permission-catalog.md`](../iam/02-permission-catalog.md) §2），因此前端完全不需要 `isSuperAdmin` 這樣的分支。
 
 這個決定的價值：前端只有一個判斷方式（「你的集合裡有沒有這個鍵」）。
 任何 `if (user.isSuperAdmin || can(...))` 都是一個未來會被漏掉的地方。

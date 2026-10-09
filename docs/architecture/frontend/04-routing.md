@@ -233,6 +233,8 @@ pathname '/role/abc/permission'
 **未註冊的路徑回 `gated: false, canAccess: true`**（fail-open）。這是刻意的：
 `/auth/login`、devtools 這些路徑本來就不該有權限規則，強行要求註冊只會製造噪音。
 真正的防線在後端。
+可啟用的 feature 在安裝前沒有權限註冊，會被當成「未註冊」，所以 `app/Layout.tsx` 先以 `useFeatureGate(pathname)` 擋一次：
+路徑屬於尚未安裝的 feature 時顯示骨架屏、未啟用回 404、安裝失敗顯示錯誤頁，不會走到這裡的放行（[`02-plugin-system.md`](./02-plugin-system.md) §9.2 D7）。
 
 **路徑比對分大小寫。** 守衛拿網址上原樣的 `location.pathname` 逐字比對頁面鍵，所以兩個 app 的 `createAppRouter()`
 都設 `caseSensitive: true`，讓 router 用同一套規則：`/USER`、`/User/create` 不命中任何 route，顯示 404。
