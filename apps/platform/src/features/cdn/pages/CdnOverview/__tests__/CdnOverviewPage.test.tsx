@@ -47,6 +47,9 @@ vi.mock('@/apis/resources', () => ({
   invalidateResources,
 }));
 
+const TENANT_ID = '11111111-1111-4111-8111-111111111111';
+const GALLERY_ITEM_ID = '22222222-2222-4222-8222-222222222222';
+
 const READ: PermissionKey[] = ['cdn:read'];
 const OPERATOR: PermissionKey[] = ['cdn:read', 'cdn:update', 'cdn:purge', 'tenant:read'];
 const SUPER_ADMIN: PermissionKey[] = [...OPERATOR, 'cdn:purgeAll'];
@@ -110,6 +113,33 @@ describe('CDN 頁面（docs/architecture/backend/09-file.md §16.12）', () => {
   it('super-admin（另有 cdn:purgeAll）→ 目標可以選整個快取', async () => {
     renderPage(SUPER_ADMIN);
     expect(await targetOptions()).toEqual(['paths', 'fileVariant', 'imageAsset', 'all']);
+  });
+
+  it('圖片庫登記了解析器 → 目標有「圖片庫的圖片」，送出 galleryItem ＋ 租戶 ＋ id', async () => {
+    getOverview.mockResolvedValue(
+      cdnOverviewFixture({ purgeTargets: ['fileVariant', 'imageAsset', 'galleryItem'] }),
+    );
+    listTenants.mockResolvedValue({
+      items: [{ id: TENANT_ID, code: 'acme', name: 'Acme' }],
+      total: 1,
+    });
+    purgeCdn.mockResolvedValue({ jobIds: ['job-1'], paths: 8 });
+    renderPage(OPERATOR);
+    expect(await targetOptions()).toEqual(['paths', 'fileVariant', 'imageAsset', 'galleryItem']);
+    await userEvent.click(
+      (await screen.findAllByRole('option')).find((el) => el.dataset.value === 'galleryItem')!,
+    );
+    await userEvent.click(await screen.findByTestId('cdn-purge-tenant'));
+    await userEvent.click(
+      (await screen.findAllByRole('option')).find((el) => el.dataset.value === TENANT_ID)!,
+    );
+    await userEvent.type(await screen.findByTestId('cdn-purge-id'), GALLERY_ITEM_ID);
+    await userEvent.click(screen.getByTestId('cdn-purge-submit'));
+    await waitFor(() =>
+      expect(purgeCdn.mock.calls[0]?.[0]).toEqual({
+        params: { target: { type: 'galleryItem', tenantId: TENANT_ID, id: GALLERY_ITEM_ID } },
+      }),
+    );
   });
 
   it('權限未水合 → 不閃現操作的控制項', async () => {

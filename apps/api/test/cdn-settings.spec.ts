@@ -23,10 +23,11 @@ import {
   ObjectUrlSigner,
 } from '@/core/storage';
 import { cdnSettings, platformAdmins, platformAuditLogs } from '@/db/platform/schema';
+import { galleryItems } from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 
-import type { PlatformTestDatabase } from './db';
-import { createPlatformTestDatabase } from './db';
+import type { PlatformTestDatabase, TestDatabase } from './db';
+import { createPlatformTestDatabase, createTestDatabase } from './db';
 import { listenOnLoopback } from './http';
 import { InMemoryObjectStorage } from './in-memory-object-storage';
 import { inTestTenant, testTenantContext } from './tenant';
@@ -101,6 +102,8 @@ let a: Process;
 let b: Process;
 let platformDb: PlatformTestDatabase;
 let closePlatformDb: () => Promise<void>;
+let tenantDb: TestDatabase;
+let closeTenantDb: () => Promise<void>;
 const tokens: Record<'root' | 'operator' | 'auditor', string> = {
   root: '',
   operator: '',
@@ -207,6 +210,9 @@ describe('CDN 設定管理（docs/architecture/backend/09-file.md §16.9～§16.
     const platform = createPlatformTestDatabase();
     platformDb = platform.db;
     closePlatformDb = async () => platform.client.end();
+    const tenant = createTestDatabase();
+    tenantDb = tenant.db;
+    closeTenantDb = async () => tenant.client.end();
     for (const role of ['super-admin', 'operator', 'auditor'] as const) {
       // oxlint-disable-next-line no-await-in-loop -- 依序建立三個管理者
       await upsertPlatformAdmin(platformDb, {
@@ -233,6 +239,7 @@ describe('CDN 設定管理（docs/architecture/backend/09-file.md §16.9～§16.
     await a.app.close();
     await b.app.close();
     await closePlatformDb();
+    await closeTenantDb();
     // 「不回應」模式留下的連線不會自己結束
     edgeServer.closeAllConnections();
     await new Promise((resolve) => edgeServer.close(resolve));
@@ -260,7 +267,7 @@ describe('CDN 設定管理（docs/architecture/backend/09-file.md §16.9～§16.
       signingKid: 'k2',
       purgeConfigured: true,
     });
-    expect(view.purgeTargets.toSorted()).toEqual(['fileVariant', 'imageAsset']);
+    expect(view.purgeTargets.toSorted()).toEqual(['fileVariant', 'galleryItem', 'imageAsset']);
     expect(await signedUrl(a)).toMatch(new RegExp(`^${cdnOrigin()}`));
     expect(await signedUrl(b)).toMatch(new RegExp(`^${cdnOrigin()}`));
   });
@@ -403,7 +410,7 @@ describe('CDN 設定管理（docs/architecture/backend/09-file.md §16.9～§16.
     });
   });
 
-  it('手動清理：依路徑與資源排入 cdn.purge（manual），找不到的資源 404；清空整個快取同時只能一筆', async () => {
+  it('手動清理：依路徑與資源排入 cdn.purge（manual），找不到的資源 404；清空整個快取同時只能一筆；圖片庫的圖片列出每個版本的變體', async () => {
     const tenantId = (await testTenantContext(a.app)).id;
     const bucket = (await testTenantContext(a.app)).storageBucket;
     const byPath = dataOf<{ jobIds: string[]; paths: number }>(
@@ -424,10 +431,43 @@ describe('CDN 設定管理（docs/architecture/backend/09-file.md §16.9～§16.
       .send({ target: { type: 'imageAsset', tenantId, id: randomUUID() } })
       .expect(404);
     expect(errorOf(missing).code).toBe('CDN_PURGE_TARGET_NOT_FOUND');
-    const unregistered = await as('operator', 'post', '/platform/cdn/purge')
+    const missingItem = await as('operator', 'post', '/platform/cdn/purge')
       .send({ target: { type: 'galleryItem', tenantId, id: randomUUID() } })
       .expect(404);
-    expect(errorOf(unregistered).code).toBe('CDN_PURGE_TARGET_NOT_FOUND');
+    expect(errorOf(missingItem).code).toBe('CDN_PURGE_TARGET_NOT_FOUND');
+
+    // 圖片庫的圖片（modules/gallery 登記的解析器）：每個版本的每個尺寸 × 格式，回收桶裡的也算
+    const [item] = await tenantDb
+      .insert(galleryItems)
+      .values({
+        title: 'cdn-check',
+        contentType: 'image/jpeg',
+        size: 1,
+        source: 'upload',
+        rev: 2,
+        variantRev: 2,
+        variants: {
+          width: 800,
+          height: 400,
+          formats: ['jpeg', 'webp'],
+          renditions: { thumb: { width: 480, height: 240 }, medium: { width: 800, height: 400 } },
+        },
+        deletedAt: new Date(),
+      } as typeof galleryItems.$inferInsert)
+      .returning();
+    const byItem = dataOf<{ jobIds: string[]; paths: number }>(
+      await as('operator', 'post', '/platform/cdn/purge')
+        .send({ target: { type: 'galleryItem', tenantId, id: item!.id } })
+        .expect(202),
+    );
+    expect(byItem.paths).toBe(8);
+    const [itemJob] = await platformDb.execute<{ payload: { paths: string[] } }>(
+      sql`SELECT data->'payload' AS payload FROM pgboss.job WHERE id = ${byItem.jobIds[0]}::uuid`,
+    );
+    expect(itemJob?.payload.paths).toContain(
+      `/storage/${bucket}/gallery/${item!.id}/r2/thumb.webp`,
+    );
+    await tenantDb.delete(galleryItems).where(eq(galleryItems.id, item!.id));
     await as('operator', 'post', '/platform/cdn/purge')
       .send({ target: { type: 'paths', tenantId, paths: ['../other-bucket/x'] } })
       .expect(400);
@@ -450,9 +490,15 @@ describe('CDN 設定管理（docs/architecture/backend/09-file.md §16.9～§16.
         and(eq(platformAuditLogs.action, 'cdn.purge'), eq(platformAuditLogs.resourceType, 'cdn')),
       )
       .orderBy(desc(platformAuditLogs.id))
-      .limit(2);
+      .limit(3);
     expect(audits[0]?.metadata).toMatchObject({ all: true, severity: 'high' });
     expect(audits[1]?.metadata).toMatchObject({
+      tenantId,
+      target: 'galleryItem',
+      paths: 8,
+      severity: 'normal',
+    });
+    expect(audits[2]?.metadata).toMatchObject({
       tenantId,
       target: 'paths',
       paths: 1,

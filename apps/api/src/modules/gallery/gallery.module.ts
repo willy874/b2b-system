@@ -12,6 +12,7 @@ import { TrashModule } from '@/modules/trash/trash.module';
 import { GalleryAlbumController } from './gallery-album.controller';
 import { GalleryAlbumRepository } from './gallery-album.repository';
 import { GalleryAlbumService } from './gallery-album.service';
+import { GalleryCdnPaths } from './gallery-cdn-paths';
 import { GalleryCommentResource } from './gallery-comment.resource';
 import { GalleryImageUrls } from './gallery-image-urls';
 import { GalleryImageSource } from './gallery-image.source';
@@ -45,6 +46,7 @@ import { GALLERY_SETTINGS } from './gallery.settings';
     GalleryCommentResource,
     GalleryItemTrashHandler,
     GalleryAlbumTrashHandler,
+    GalleryCdnPaths,
   ],
 })
 export class GalleryModule implements OnModuleInit {

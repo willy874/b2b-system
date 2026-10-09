@@ -1286,7 +1286,7 @@ FILE_CDN_ENABLED = true
 | `target.type` | 參數 | 路徑怎麼來 |
 | --- | --- | --- |
 | `paths` | `tenantId`、`paths`（≤ 1000 個物件 key，不以 `/` 開頭、不含 `..`） | 加上那個租戶的 bucket（不能藉此清到別的租戶） |
-| `imageAsset`、`fileVariant`（之後 `galleryItem`） | `tenantId`、`id` | `CdnPathResolver`：以 `Tenancy.runForMaintenance` 進入租戶，呼叫擁有者登記的解析函式，列出那筆資源 **曾經有過** 的所有物件 key |
+| `imageAsset`、`fileVariant`、`galleryItem` | `tenantId`、`id` | `CdnPathResolver`：以 `Tenancy.runForMaintenance` 進入租戶，呼叫擁有者登記的解析函式，列出那筆資源 **曾經有過** 的所有物件 key |
 | `all` | — | 整個快取（`/_purge/all`） |
 
 - 回 `202 { jobIds, paths }`：依生效的批次大小排入 `cdn.purge`（`manual: { requestedBy, tenantId, target, id }`），每個節點的結果在平台的背景工作列表；
@@ -1312,9 +1312,9 @@ class CdnPathResolver {
 | --- | --- | --- |
 | `fileVariant` | `modules/file/file-cdn-paths.ts` | `variants/<id>/<變體>.<格式>`：每個變體 × 每種格式（`fileVariantKeysOf`，只由 id 決定，不需要物件還在；回收桶裡的檔案也算） |
 | `imageAsset` | `modules/image/image-cdn-paths.ts` | 主檔與每個版本的每個尺寸 × 格式（`assetObjectKeysOf`）；資產被清除之後 404 |
-| `galleryItem` | 之後的 `modules/gallery` | 同上的形式：在 `onModuleInit` 呼叫 `register('galleryItem', …)` |
+| `galleryItem` | `modules/gallery/gallery-cdn-paths.ts` | 每個版本（`r1`～`r<rev>`）的每個尺寸 × 格式（`galleryCdnKeysOf`；原檔不走 CDN，不列）；回收桶裡的圖片也算，永久刪除之後 404 |
 
-`cli:cdn-purge`（§16.7）的 `--image-asset`、`--file` 用同一組純函式，兩邊列出的路徑一致。
+`cli:cdn-purge`（§16.7）的 `--image-asset`、`--file`、`--gallery-item` 用同一組純函式，兩邊列出的路徑一致。
 
 ### 16.12 apps/platform 的 CDN 頁面、權限與稽核
 

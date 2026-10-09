@@ -255,7 +255,8 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 
 第 3、5 步刪掉物件之後呼叫 `CdnPurger.schedule(keys)`（[`09-file.md`](./09-file.md) §16.6；沒有 CDN 時是 no-op、不會拋錯），只列變體（`r<rev>/`）：
 原檔與上傳的暫存從不經過 CDN。第 1、2 步的圖從沒處理完成、沒簽過變體的網址，不必清理；完成上傳、處理時刪掉的上傳暫存也一樣。
-緊急下架用 `cli:cdn-purge --tenant <代碼> --gallery-item <id>`（每個版本的變體，`galleryCdnKeysOf`；已永久刪除時改用 `--path`）。
+緊急下架：平台管理者在 apps/platform 的 CDN 頁面選「圖片庫的圖片」＋ 租戶 ＋ id（`GalleryCdnPaths` 在 `onModuleInit` 向 `CdnPathResolver` 登記 `galleryItem`，[`09-file.md`](./09-file.md) §16.11；回收桶裡的也算），
+或維運以 `cli:cdn-purge --tenant <代碼> --gallery-item <id>`；兩邊都用 `galleryCdnKeysOf` 列出每個版本的變體，已永久刪除時改用路徑清理。
 
 ### 11.6 指標
 
@@ -289,7 +290,8 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 | 單元 | `modules/gallery/__tests__/` | 拍攝時間的換算、游標、上傳與加入的規則、相簿的規則 |
 | 整合 | `test/gallery.spec.ts` | 上傳 → 處理 → ready（GPS 移除、拍攝時間、變體）、從檔案加入（略過的原因、已經加入過）、顯示方向的新版本、篩選與 keyset、時間軸、相簿、回收桶、權限、feature 停用、選圖的來源 |
 | 整合 | `test/gallery-cdn.spec.ts` | 變體走 CDN、原檔與下載照舊 presigned；舊版本變體與永久刪除後排入的 `cdn.purge` 路徑（只有變體） |
-| 單元 | `modules/gallery/__tests__/gallery-cdn.spec.ts`、`cli/__tests__/cdn-purge.spec.ts` | `cdnKeysOf`、`GalleryImageUrls` 的 `cdn` 標記、`--gallery-item` 與 `galleryCdnKeysOf` |
+| 單元 | `modules/gallery/__tests__/gallery-cdn.spec.ts`、`gallery-cdn-paths.spec.ts`、`cli/__tests__/cdn-purge.spec.ts` | `cdnKeysOf`、`GalleryImageUrls` 的 `cdn` 標記、`--gallery-item` 與 `galleryCdnKeysOf`、`galleryItem` 的路徑解析器登記 |
+| 整合 | `test/cdn-settings.spec.ts` | apps/platform 的手動清理以 `galleryItem` 排入 `cdn.purge`（每個版本的變體、回收桶裡的也算）、找不到時 404 |
 
 ## 14. 設計決策：圖片庫
 
