@@ -84,11 +84,11 @@ describe('語系檔完整性', () => {
 });
 
 /**
- * feature（含 plugins/features）各自的語系包：鍵集合一致、帶數量的句子都有複數形
+ * feature 各自的語系包：鍵集合一致、帶數量的句子都有複數形
  * （docs/architecture/frontend/08-i18n.md §4.1、§5）。以 glob 收進來，新增的 feature 不必登記。
  */
 const featureBundles = import.meta.glob<{ default: Record<string, unknown> }>(
-  ['../../features/*/locales/*.json', '../../plugins/features/*/locales/*.json'],
+  '../../features/*/locales/*.json',
   { eager: true },
 );
 

@@ -7,14 +7,14 @@ MUI 作法，最大的差異是 **UI 函式庫改用 Base UI**，因此設計系
 從「薄包裝」變成「真正的設計系統實作層」。
 
 兩個前端（backstage、apps/platform）共用的機制層在 `packages/web-core`（`@b2b-system/web-core`）；文件裡的 `web-core/<module>` 指 `packages/web-core/src/<module>`，
-`core/`、`app/`、`plugins/` 等指 app 自己的 `src/` 底下（[`01-architecture.md`](./01-architecture.md) §1）。
+`core/`、`app/` 等指 app 自己的 `src/` 底下（[`01-architecture.md`](./01-architecture.md) §1）。
 整體怎麼切、程式該放哪見 [`17-shared-packages.md`](./17-shared-packages.md)。
 
 ## 章節
 
 | #   | 檔案                                                   | 內容                                        |
 | --- | ------------------------------------------------------ | ------------------------------------------- |
-| 01  | [`01-architecture.md`](./01-architecture.md)           | 七層分層、相依規則、一個請求的完整路徑      |
+| 01  | [`01-architecture.md`](./01-architecture.md)           | 六層分層、相依規則、一個請求的完整路徑      |
 | 02  | [`02-plugin-system.md`](./02-plugin-system.md)         | AppContext、plugin 生命週期、註冊時序       |
 | 03  | [`03-feature-anatomy.md`](./03-feature-anatomy.md)     | feature 資料夾規格 ＋ **新增 feature SOP**  |
 | 04  | [`04-routing.md`](./04-routing.md)                     | TanStack Router、route 樹、權限守衛         |

@@ -41,7 +41,7 @@ export const preferenceSectionRegistry = createRegistry<string, PreferenceSectio
 );
 export const preferenceTableRegistry = createRegistry<string, PreferenceTable>('Preference table');
 
-/** 讓 feature 或 `plugins/features/*` 往偏好頁插分頁，偏好頁不需要認識它們。回傳反註冊函式。 */
+/** 讓 feature 或 web-core 的模組（`table-column-settings`）往偏好頁插分頁，偏好頁不需要認識它們。回傳反註冊函式。 */
 export function registerPreferenceSection(section: PreferenceSection): () => void {
   return preferenceSectionRegistry.register(section.key, section);
 }

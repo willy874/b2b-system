@@ -58,7 +58,7 @@ shared/websocket-sdk/                      `@b2b-system/realtime` 的唯一匯�
   | `isActive`：連線中或等待重連 | `socket.active` |
 - 測試注入假的 `RealtimeTransport`（`RealtimeClient` 的 `createTransport`、`realtimePlugin` 的 `createTransport`）；
   Socket.io 的設定（路徑、只用 websocket、`auth` 是函式）由 `socketIoTransport.test.ts` 單獨驗。
-- `plugins/` 不能 import `apis/`，所以「收到來源變更 → 依賴圖換算」的函式由 `main.tsx` 注入。
+- web-core 不能 import app 的 `apis/`，所以「收到來源變更 → 依賴圖換算」的函式由 `main.tsx` 注入。
 - Feature 不直接碰 socket，一律透過 `useRealtimeEvent()`（§8）。
 - 事件名稱都用常數，不寫字串：伺服器事件用合約的 `ServerEvent`，`RealtimeClient.events` 用 `RealtimeClientEvent`
   （`resourceChanged`、`connected`、`disconnected`）。伺服器事件要轉成 `events` 的，登記在 `SERVER_TO_CLIENT_EVENT`

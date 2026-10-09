@@ -81,6 +81,7 @@ apps/backstage/src/
 │   ├── Layout.tsx           依 matcher 決定套哪個 layout
 │   ├── plugin.ts            建立 router，掛到 AppContext；登記頂列工具、側欄的分類與命令面板
 │   ├── features.ts          執行期啟用的 feature 清單
+│   ├── i18n.ts              把 locales/ 交給 web-core 的 i18nPlugin（其他基礎設施 plugin 由 main.tsx 直接匯入）
 │   ├── routes.tsx           把各 feature 的 route 組成 route tree
 │   ├── sessionRedirect.ts   不需要 session 的頁面（交給 web-core 的 SessionWatcher）
 │   ├── layouts/
@@ -124,10 +125,6 @@ apps/backstage/src/
 │   ├── job/
 │   ├── notification/
 │   └── trash/
-│
-├── plugins/                 可插拔的能力（非業務、非核心）
-│   ├── app/                 門面：轉出 @b2b-system/web-core/plugins/app，加上自己的 i18n（語系包）與 batch-queue
-│   └── features/            擴充既有 feature 的小外掛（例如偏好頁的分頁）
 │
 ├── shared/                  app 專屬的收斂點（其餘純工具在 @b2b-system/web-shared）
 │   ├── api-sdk/             re-export packages/api-sdk（單一收斂點）

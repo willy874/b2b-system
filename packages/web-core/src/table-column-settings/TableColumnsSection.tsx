@@ -1,18 +1,19 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
-import { TableSettings, useTableColumnSettings } from '@b2b-system/web-core/components';
-import { useTranslation } from '@b2b-system/web-core/locales';
-import { usePreferenceTables } from '@b2b-system/web-core/preference';
-import type { PreferenceTable } from '@b2b-system/web-core/preference';
+import { cn } from '@b2b-system/web-shared/utils';
+import { useMemo } from 'react';
+
+import { TableSettings, useTableColumnSettings } from '../components';
+import { useTranslation } from '../locales';
+import { usePreferenceTables } from '../preference';
+import type { PreferenceTable } from '../preference';
 import {
   ACTIONS_COLUMN_ID,
   ROW_PIN_COLUMN_ID,
   SELECT_COLUMN_ID,
   useTableColumnSettingsStore,
-} from '@b2b-system/web-core/store';
-import type { PinnedRow } from '@b2b-system/web-core/store';
-import { cn } from '@b2b-system/web-shared/utils';
-import { useMemo } from 'react';
+} from '../store';
+import type { PinnedRow } from '../store';
 
 /**
  * 偏好頁的「表格欄位」分頁：列出 feature 登記過的每張表（`registerPreferenceTable`），

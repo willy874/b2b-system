@@ -104,21 +104,9 @@ const ALLOWED: Record<string, readonly string[]> = {
   shared: ['web-shared', 'shared', 'api-sdk', 'realtime'],
   core: ['web-shared', 'shared', 'ui', 'web-core', 'core'],
   apis: ['web-shared', 'shared', 'web-core', 'core', 'apis'],
-  plugins: ['web-shared', 'shared', 'ui', 'web-core', 'core', 'plugins', 'features', 'app'],
   features: ['web-shared', 'shared', 'ui', 'web-core', 'core', 'apis', 'features'],
   app: ['web-shared', 'shared', 'ui', 'web-core', 'core', 'apis', 'features', 'app'],
-  main: [
-    'web-shared',
-    'shared',
-    'ui',
-    'web-core',
-    'core',
-    'apis',
-    'plugins',
-    'features',
-    'app',
-    'mocks',
-  ],
+  main: ['web-shared', 'shared', 'ui', 'web-core', 'core', 'apis', 'features', 'app', 'mocks'],
   mocks: ['web-shared', 'shared', 'mocks'],
 };
 
@@ -211,7 +199,7 @@ describe('前端的層級依賴（docs/coding-standards/07-layer-dependencies.md
       expect(offenders, format(offenders)).toEqual([]);
     });
 
-    it('app/、main.tsx、plugins/ 只 import feature 的 index.tsx（§2.2 註 3、註 6）', () => {
+    it('app/、main.tsx 只 import feature 的 index.tsx（§2.2 註 3）', () => {
       const offenders = edges.filter(
         (edge) =>
           featureOf(edge.from) === undefined &&
@@ -219,23 +207,6 @@ describe('前端的層級依賴（docs/coding-standards/07-layer-dependencies.md
           featureOf(edge.local) !== undefined &&
           !FEATURE_INDEX.test(edge.local),
       );
-      expect(offenders, format(offenders)).toEqual([]);
-    });
-
-    it('plugins/ 往上只有兩個例外：plugins/features/ 用 ui 與 feature 的入口、i18n 載入 app 的語系包（§2.2 註 6、註 7）', () => {
-      const offenders = edges.filter((edge) => {
-        if (fromLayer(edge) !== 'plugins') return false;
-        const target = targetLayerOf(edge);
-        if (target === 'ui' || target === 'features')
-          return !edge.from.startsWith('plugins/features/');
-        if (target === 'app') {
-          return !(
-            edge.from === 'plugins/app/i18n.ts' &&
-            /^app\/locales\/[^/]+\.json$/.test(edge.local ?? '')
-          );
-        }
-        return false;
-      });
       expect(offenders, format(offenders)).toEqual([]);
     });
 

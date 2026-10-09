@@ -1,9 +1,9 @@
-import { registerPreferenceTable, resetPreferenceRegistry } from '@b2b-system/web-core/preference';
-import { useTableColumnSettingsStore } from '@b2b-system/web-core/store';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { registerPreferenceTable, resetPreferenceRegistry } from '../../preference';
+import { useTableColumnSettingsStore } from '../../store';
 import { TableColumnsSection } from '../TableColumnsSection';
 
 const STORAGE_KEY = 'b2b-system:table-column-settings:tables';

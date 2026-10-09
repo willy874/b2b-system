@@ -40,6 +40,7 @@ import { renderWithPermissions } from '@b2b-system/web-core/testing'; // 只給�
 | `plugins/app` | 基礎設施 plugin：cache、event-bus、http-context、i18n、realtime、telemetry、theme |
 | `plugins/fetcher` | 攔截器：auth 標頭、refresh、retry、client-id、client-release、api-adapter |
 | `preference`、`toolbar` | 偏好頁分頁（以 `lazy()` 登記，由 `PreferenceSections` 以 `<Suspense>` 渲染）與可自訂欄位的表、頂列工具的註冊表 |
+| `table-column-settings` | 偏好頁的「表格欄位」分頁：`tableColumnSettingsPlugin()`，列出 feature 登記的表（`registerPreferenceTable`）並用列表上同一個 `TableSettings` 調整；兩個 app 的 `main.tsx` 各 `.use()` 一次 |
 | `route-link` | route id 的註冊表、`<RouteLink>`（渲染前檢查目標頁的權限）、`useRouteLinkAccess`、`useRouteLinkResolver` |
 | `realtime` | 推播的連線、協調者、`useRealtimeEvent()`；只有 `socketIoTransport.ts` import `socket.io-client` |
 | `router` | `RootRoute`、搜尋參數、`useUnsavedChangesGuard`（路由）、`useDialogUnsavedGuard`（以 state 開關的對話框）、路由的 `staticData.titleKey`（`findTitleKey`） |
@@ -69,10 +70,10 @@ export { PermissionResource } from './resources';
 **plugin 屬性**：擴充 `AppPluginProperties` 時指向定義的檔案 `@b2b-system/web-core/app/context`（指向 `/app` 的 index 不會合併）。
 
 **全域語系包**：package 的 `src/locales/resources/{en_US,zh_TW}.json` 擁有 `common`、`error`、`validation`、`components`、`theme`、`language`、`realtime`、`layout`、`commandPalette`、`changePassword`、`job`（共用的部分）、`auditLog`（共用的部分）、`notificationRow`；
-app 的 `plugins/app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`，兩者深層合併、app 的鍵優先。
+app 的 `app/i18n.ts` 以 `i18nPlugin({ locales })` 傳入自己的 `app/locales/*.json`，兩者深層合併、app 的鍵優先。
 測試由 app 的 `src/test/i18n.ts` 包一層 `initTestI18n(zhTW, …)`。
 
-**plugins**：app 的 `src/plugins/app/index.ts` 是門面（`export * from '@b2b-system/web-core/plugins/app'` ＋ 自己的 `i18nPlugin`；backstage 另有 `batch-queue.ts`）。
+**plugins**：app 的 `main.tsx` 直接從 `@b2b-system/web-core/plugins/app` 匯入基礎設施 plugin，只有 `i18nPlugin` 經由 app 的 `app/i18n.ts`（傳入語系包）；app 沒有 `plugins/` 層（[`docs/architecture/frontend/02-plugin-system.md`](../../docs/architecture/frontend/02-plugin-system.md) §8.6）。
 
 ## 規則
 

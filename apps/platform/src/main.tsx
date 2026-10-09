@@ -4,7 +4,17 @@ import { MAIN_BACKEND } from '@b2b-system/web-core/client';
 import 'virtual:uno.css';
 import './index.css';
 
+import {
+  batchQueuePlugin,
+  cachePlugin,
+  eventBusPlugin,
+  httpContextPlugin,
+  realtimePlugin,
+  telemetryPlugin,
+  themePlugin,
+} from '@b2b-system/web-core/plugins/app';
 import { hydratePreferences } from '@b2b-system/web-core/store';
+import { tableColumnSettingsPlugin } from '@b2b-system/web-core/table-column-settings';
 import { bindTelemetryRouter, telemetryRootOptions } from '@b2b-system/web-core/telemetry';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -12,6 +22,7 @@ import { createRoot } from 'react-dom/client';
 import { fetchRefreshMutation } from '@/apis/auth/refresh/fetcher';
 import { applyResourceChanges, invalidateResources } from '@/apis/resources';
 import { App } from '@/app/App';
+import { i18nPlugin } from '@/app/i18n';
 import { appContextPlugin } from '@/app/plugin';
 import { accountFeaturePlugin } from '@/features/account';
 import { auditLogFeaturePlugin } from '@/features/audit-log';
@@ -23,16 +34,6 @@ import { mfaMethodFeaturePlugin } from '@/features/mfa-method';
 import { notificationFeaturePlugin } from '@/features/notification';
 import { platformAdminFeaturePlugin } from '@/features/platform-admin';
 import { tenantFeaturePlugin } from '@/features/tenant';
-import {
-  batchQueuePlugin,
-  cachePlugin,
-  eventBusPlugin,
-  httpContextPlugin,
-  i18nPlugin,
-  realtimePlugin,
-  telemetryPlugin,
-  themePlugin,
-} from '@/plugins/app';
 import { ENV } from '@/shared/constants';
 
 /**
@@ -90,6 +91,8 @@ async function bootstrap(): Promise<void> {
     .use(featureFlagFeaturePlugin())
     .use(mfaMethodFeaturePlugin())
     .use(jobFeaturePlugin())
+    // 偏好頁的「表格欄位」分頁（web-core；列出各 feature 登記的表）
+    .use(tableColumnSettingsPlugin())
     // 最後：建立 router（此時所有 route 都已存在）
     .use(appContextPlugin());
 

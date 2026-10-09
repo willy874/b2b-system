@@ -39,7 +39,7 @@ export default function PreferencePage() {
     [timezone],
   );
 
-  // feature 或 plugins/features/* 註冊的分頁由 <PreferenceSections /> 渲染；偏好頁不需要認識它們。
+  // feature 或 web-core 註冊的分頁由 <PreferenceSections /> 渲染；偏好頁不需要認識它們。
   // 晚一步安裝的 feature（docs/architecture/frontend/02-plugin-system.md §9）登記的分頁與列表：補載它們的語系包
   usePreferenceLocales();
 

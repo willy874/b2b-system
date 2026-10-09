@@ -5,7 +5,7 @@ import { useTranslation } from '../locales';
 import { usePreferenceSections } from './hooks';
 
 /**
- * 偏好頁底下由 feature 或 `plugins/features/*` 登記的分頁（依 `order`），兩個 app 的偏好頁共用。
+ * 偏好頁底下由 feature 或 web-core（`table-column-settings`）登記的分頁（依 `order`），兩個 app 的偏好頁共用。
  *
  * 分頁元件以 `lazy()` 登記：只有偏好頁會渲染它們，登記本體會把分頁用到的套件（例：`TableSettings` 的 dnd-kit）
  * 帶進首屏（docs/architecture/frontend/02-plugin-system.md §4.3）。每個分頁各包一層 `<Suspense>`，

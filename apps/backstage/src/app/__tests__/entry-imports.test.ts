@@ -74,9 +74,7 @@ describe('首屏的靜態 import（docs/architecture/frontend/02-plugin-system.m
   });
 
   it('偏好頁的分頁以 lazy 登記，本體不在首屏', () => {
-    expect(graph.files).not.toContain(
-      'plugins/features/table-column-settings/TableColumnsSection.tsx',
-    );
+    // web-core 的「表格欄位」分頁不在這支測試的範圍（只看 app 的檔案），由 web-core/table-column-settings 的測試把關
     expect(graph.files).not.toContain(
       'features/notification/components/NotificationPreferenceSection.tsx',
     );
