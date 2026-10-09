@@ -18,7 +18,10 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
-| — | 目前沒有待製作的功能 | — | — | — |
+| P2 | 圖片的讀取與遞送（存參照不存網址、`ImageUrlService` 直接簽網址、依用途的效期、具名尺寸與 2x、`SignedImage`；三份圖片提案的共同底層） | [`image-delivery.md`](./image-delivery.md) | 規劃中 | 影像變體（`backend/09-file.md` §5.4）、`core/storage` |
+| P2 | 圖片選取與上傳來源（上傳含拖曳與貼上、最近使用、從檔案管理或圖片庫挑選；來源依 feature、權限與內容自動取捨） | [`image-picker.md`](./image-picker.md) | 規劃中 | 檔案、可關閉的 feature |
+| P2 | 圖片庫（以閱覽為主：等高排列、時間軸、檢視器；可自行上傳或由檔案管理加入，兩者互不認識） | [`image-gallery.md`](./image-gallery.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（來源介面）、標籤、留言 |
+| P3 | 圖片的 CDN（本機以 nginx 模擬：驗網址簽章、邊緣快取、內部憑證回源；api 的 `CdnUrlSigner`，之後換真正的 CDN 只換實作） | [`image-cdn.md`](./image-cdn.md) | 規劃中 | [`image-picker.md`](./image-picker.md)（不可修改的圖片資產）、獨立的檔案網域 |
 
 狀態只有三種：
 
@@ -62,7 +65,7 @@
 - `notification-center`：[`backend/15-notification.md`](../architecture/backend/15-notification.md) §12、[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)；
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
-接下來：清單是空的。新的構想照 §2 新增提案。
+接下來：四份圖片提案都已規劃。先做 `image-delivery` 的 `ObjectUrlSigner`（D6）→ `image-picker` → `image-gallery`（圖片庫依賴前者的來源介面）；`image-cdn` 接在 `image-delivery` 的 `ObjectUrlSigner` 上，抽出之後就可以獨立進行（見它的開放問題 8）。新的構想照 §2 新增提案。
 
 ### 1.2 撰寫提案時的架構前提
 
