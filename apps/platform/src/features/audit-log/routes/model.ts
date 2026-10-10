@@ -1,8 +1,8 @@
+import { paginationSearchShape } from '@b2b-system/web-shared/constants';
 import { z } from 'zod/mini';
 
 export const AuditLogSearchQuerySchema = z.object({
-  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
-  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
+  ...paginationSearchShape(50, 100),
   action: z.catch(z.optional(z.string().check(z.trim())), undefined),
   actorEmail: z.catch(z.optional(z.string().check(z.trim())), undefined),
   result: z.catch(z.optional(z.enum(['success', 'failure'])), undefined),

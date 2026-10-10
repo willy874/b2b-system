@@ -1,13 +1,10 @@
+import { paginationSearchShape } from '@b2b-system/web-shared/constants';
 import { z } from 'zod/mini';
 
 export const TrashSearchQuerySchema = z.object({
   /** 目前的分頁（資源類型）；沒有或看不到時由頁面選第一個看得到的類型。 */
   type: z.catch(z.optional(z.string()), undefined),
-  offset: z.catch(z._default(z.coerce.number().check(z.int(), z.minimum(0)), 0), 0),
-  limit: z.catch(
-    z._default(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
-    20,
-  ),
+  ...paginationSearchShape(),
 });
 
 export type TrashSearchQuery = z.infer<typeof TrashSearchQuerySchema>;

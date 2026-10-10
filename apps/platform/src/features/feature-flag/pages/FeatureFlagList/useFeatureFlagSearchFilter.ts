@@ -1,22 +1,12 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import { FeatureFlagListRoute } from '../../routes';
 
-/** 列表的關鍵字放在網址。 */
+/** 列表的關鍵字放在網址（不分頁）。 */
 export function useFeatureFlagSearchFilter() {
-  const search = FeatureFlagListRoute.useSearch();
-  const navigate = useNavigate({ from: FeatureFlagListRoute.fullPath });
-
-  const setKeyword = useCallback(
-    (keyword: string | undefined) => {
-      void navigate({
-        to: FeatureFlagListRoute.to,
-        search: { ...search, keyword: keyword || undefined },
-      });
-    },
-    [navigate, search],
-  );
-
-  return { search, setKeyword };
+  const { search, patch } = useRouteSearch(FeatureFlagListRoute);
+  return {
+    search,
+    setKeyword: (keyword: string | undefined) => patch({ keyword: keyword || undefined }),
+  };
 }

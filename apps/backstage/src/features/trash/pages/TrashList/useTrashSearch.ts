@@ -1,5 +1,4 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import type { TrashTypeRegistration } from '@/core/trash';
 
@@ -11,16 +10,8 @@ import type { TrashSearchQuery } from '../../routes';
  * （直接貼網址、或權限剛被收回）。
  */
 export function useTrashSearch(types: readonly TrashTypeRegistration[]) {
-  const search = TrashListRoute.useSearch();
-  const navigate = useNavigate();
+  const { search, patch } = useRouteSearch<TrashSearchQuery>(TrashListRoute);
   const active = types.find((type) => type.type === search.type) ?? types[0];
-
-  const patch = useCallback(
-    (next: Partial<TrashSearchQuery>) => {
-      void navigate({ to: TrashListRoute.to, search: { ...search, ...next } });
-    },
-    [navigate, search],
-  );
 
   return {
     search,

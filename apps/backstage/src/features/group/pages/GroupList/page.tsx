@@ -4,6 +4,7 @@ import { Icon } from '@b2b-system/ui/Icon';
 import { Menu } from '@b2b-system/ui/Menu';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useListSearch } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -15,6 +16,8 @@ import { TenantFeature } from '@/shared/api-sdk';
 import { groupExportApi } from '../../hooks/groupTransferApi';
 import { useGroupDeleteMutation } from '../../hooks/useGroupMutations';
 import { useGroupPermission } from '../../hooks/useGroupPermission';
+import { GroupListRoute } from '../../routes';
+import type { GroupSearchQuery } from '../../routes';
 import {
   GroupCreateRoute,
   GroupDetailRoute,
@@ -24,13 +27,12 @@ import {
 import { toGroupRowVM } from './adapter';
 import type { GroupRowVM } from './adapter';
 import { GroupTable } from './components/GroupTable';
-import { useGroupSearchFilter } from './useGroupSearchFilter';
 
 export default function GroupListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const permission = useGroupPermission();
-  const { search, setKeyword, setSort, setPage } = useGroupSearchFilter();
+  const { search, setKeyword, setSort, setPage } = useListSearch<GroupSearchQuery>(GroupListRoute);
   const { mutateAsync: deleteGroup } = useGroupDeleteMutation();
   const confirm = useConfirm();
   // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」

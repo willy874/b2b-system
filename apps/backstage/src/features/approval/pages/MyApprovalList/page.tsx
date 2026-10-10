@@ -3,6 +3,7 @@ import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import { RichTable } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -22,6 +23,7 @@ import {
 import type { MyApprovalTab } from '../../constants';
 import { useApprovalCounts } from '../../hooks/useApprovalCounts';
 import { MyApprovalDetailRoute, MyApprovalRoute } from '../../routes';
+import type { MyApprovalSearchQuery } from '../../routes';
 import { ApprovalProgress } from '../ApprovalList/components/ApprovalProgress';
 import { toMyApprovalListParams, toMyApprovalRowVM } from './adapter';
 import type { MyApprovalRowVM } from './adapter';
@@ -33,7 +35,7 @@ import type { MyApprovalRowVM } from './adapter';
 export default function MyApprovalListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const search = MyApprovalRoute.useSearch();
+  const { search, patch } = useRouteSearch<MyApprovalSearchQuery>(MyApprovalRoute);
   const chainEnabled = useIsFeatureReady(APPROVAL_CHAIN_FEATURE);
   const tabs: MyApprovalTab[] = chainEnabled ? ['assigned', 'mine'] : ['mine'];
   const tab: MyApprovalTab =
@@ -108,8 +110,7 @@ export default function MyApprovalListPage() {
     [detailSearch, t],
   );
 
-  const setSearch = (next: { tab?: MyApprovalTab; offset?: number; limit?: number }) =>
-    void navigate({ to: MyApprovalRoute.to, search: { ...search, ...next } });
+  const setSearch = (next: { tab?: MyApprovalTab; offset?: number; limit?: number }) => patch(next);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="my-approval-page">

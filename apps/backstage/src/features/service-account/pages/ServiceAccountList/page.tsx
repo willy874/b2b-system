@@ -3,6 +3,7 @@ import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useListSearch } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -12,18 +13,23 @@ import { getServiceAccountListQueryOptions } from '@/apis/service-account/get-se
 import { serviceAccountExportApi } from '../../hooks/serviceAccountExportApi';
 import { useServiceAccountDeleteMutation } from '../../hooks/useServiceAccountMutations';
 import { useServiceAccountPermission } from '../../hooks/useServiceAccountPermission';
-import { ServiceAccountCreateRoute, ServiceAccountDetailRoute } from '../../routes';
+import {
+  ServiceAccountCreateRoute,
+  ServiceAccountDetailRoute,
+  ServiceAccountListRoute,
+} from '../../routes';
+import type { ServiceAccountSearchQuery } from '../../routes';
 import { toServiceAccountRowVM } from './adapter';
 import type { ServiceAccountRowVM } from './adapter';
 import { ServiceAccountTable } from './components/ServiceAccountTable';
-import { useServiceAccountSearchFilter } from './useServiceAccountSearchFilter';
 
 /** 服務帳號（docs/architecture/06-external-api.md §9.2 D1）：給 CI、建置流程等外部系統用的非人類帳號。 */
 export default function ServiceAccountListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const permission = useServiceAccountPermission();
-  const { search, setKeyword, setSort, setPage } = useServiceAccountSearchFilter();
+  const { search, setKeyword, setSort, setPage } =
+    useListSearch<ServiceAccountSearchQuery>(ServiceAccountListRoute);
   const { mutateAsync: deleteAccount } = useServiceAccountDeleteMutation();
   const confirm = useConfirm();
   // 它的 token 會一起失效，而且不能還原：先說清楚有幾把還在用。

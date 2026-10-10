@@ -1,24 +1,11 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import { FileListRoute } from '../../routes';
 import type { FileSearchQuery } from '../../routes';
 
 /** 所在的資料夾、篩選、第幾頁、LightBox 開著的檔案放在網址（可分享、上一頁可還原）。 */
 export function useFileSearch() {
-  const search = FileListRoute.useSearch();
-  const navigate = useNavigate();
-
-  const patch = useCallback(
-    (next: Partial<FileSearchQuery>, options: { replace?: boolean } = {}) => {
-      void navigate({
-        to: FileListRoute.to,
-        search: { ...search, ...next },
-        replace: options.replace,
-      });
-    },
-    [navigate, search],
-  );
+  const { search, patch } = useRouteSearch<FileSearchQuery>(FileListRoute);
 
   return {
     search,

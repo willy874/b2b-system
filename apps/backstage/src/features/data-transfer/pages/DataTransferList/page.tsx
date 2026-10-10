@@ -4,8 +4,8 @@ import { downloadFromUrl, TransferTable } from '@b2b-system/web-core/data-transf
 import type { TransferView } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 
 import { fetchDeleteTransferMutation } from '@/apis/data-transfer/delete-transfer/fetcher';
@@ -16,6 +16,7 @@ import { invalidateResources, Resource } from '@/apis/resources';
 
 import { dataTransferApi } from '../../hooks/dataTransferApi';
 import { DataTransferListRoute } from '../../routes';
+import type { DataTransferSearchQuery } from '../../routes';
 
 /**
  * 匯入完成的「查看結果」：到該資源的匯入頁。route id 依資源類型，每一種都寫成字面量
@@ -53,8 +54,7 @@ function ResultLink({ transfer, label }: { transfer: TransferView; label: string
 /** 我的匯入匯出（docs/architecture/backend/22-data-transfer.md §8.4）。 */
 export default function DataTransferListPage() {
   const { t } = useTranslation();
-  const search = DataTransferListRoute.useSearch();
-  const navigate = useNavigate();
+  const { search, patch } = useRouteSearch<DataTransferSearchQuery>(DataTransferListRoute);
   const { data, isPending, error, refetch } = useQuery(
     getTransferListQueryOptions({ params: { offset: search.offset, limit: search.limit } }),
   );
@@ -65,12 +65,8 @@ export default function DataTransferListPage() {
     enabled: Boolean(search.transfer),
   });
   /** 關掉上方那一筆或翻頁時拿掉 `transfer`（不留瀏覽紀錄）。 */
-  const dismissHighlight = (next: Partial<typeof search> = {}) =>
-    void navigate({
-      to: DataTransferListRoute.to,
-      search: { ...search, ...next, transfer: undefined },
-      replace: true,
-    });
+  const dismissHighlight = (next: Partial<DataTransferSearchQuery> = {}) =>
+    patch({ ...next, transfer: undefined }, { replace: true });
   const labels = useMemo(
     () => new Map((resources.data?.items ?? []).map((item) => [item.type, item.label])),
     [resources.data],
@@ -147,10 +143,7 @@ export default function DataTransferListPage() {
           offset: search.offset,
           limit: search.limit,
           total: data?.pagination.total ?? 0,
-          onChange: (next) =>
-            search.transfer
-              ? dismissHighlight(next)
-              : void navigate({ to: DataTransferListRoute.to, search: { ...search, ...next } }),
+          onChange: (next) => (search.transfer ? dismissHighlight(next) : patch(next)),
         }}
         resourceLabel={resourceLabel}
         onDownload={onDownload}

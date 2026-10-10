@@ -1,20 +1,11 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import { UserListRoute } from '../../routes';
 import type { UserSearchQuery } from '../../routes';
 
 /** 列表的分頁、篩選、排序全部放在網址。 */
 export function useUserSearchFilter() {
-  const search = UserListRoute.useSearch();
-  const navigate = useNavigate();
-
-  const patch = useCallback(
-    (next: Partial<UserSearchQuery>) => {
-      void navigate({ to: UserListRoute.to, search: { ...search, ...next } });
-    },
-    [navigate, search],
-  );
+  const { search, patch } = useRouteSearch<UserSearchQuery>(UserListRoute);
 
   return {
     search,

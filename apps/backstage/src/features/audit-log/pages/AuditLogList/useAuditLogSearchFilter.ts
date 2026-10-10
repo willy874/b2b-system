@@ -1,20 +1,11 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import { AuditLogListRoute } from '../../routes';
 import type { AuditLogSearchQuery } from '../../routes';
 
 /** 列表的分頁與篩選全部放在網址；改篩選條件時回到第一頁。 */
 export function useAuditLogSearchFilter() {
-  const search = AuditLogListRoute.useSearch();
-  const navigate = useNavigate();
-
-  const patch = useCallback(
-    (next: Partial<AuditLogSearchQuery>) => {
-      void navigate({ to: AuditLogListRoute.to, search: { ...search, ...next } });
-    },
-    [navigate, search],
-  );
+  const { search, patch } = useRouteSearch<AuditLogSearchQuery>(AuditLogListRoute);
 
   return {
     search,

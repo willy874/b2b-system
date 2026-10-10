@@ -110,9 +110,9 @@ blocker 攔不到。這類對話框用 `useDialogUnsavedGuard(isDirty, onClose)`
 import { z } from "zod/mini";
 
 export const RoleSearchQuerySchema = z.object({
-  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
-  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
-  keyword: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  // offset／limit（預設 20、上限 200）與關鍵字是各列表共用的片段（`@b2b-system/web-shared/constants`）
+  ...paginationSearchShape(),
+  keyword: keywordSearchSchema,
   // 多欄排序 SortEntry[]；空陣列＝後端預設排序；不合法（白名單外、重複）時退回空陣列，不變成錯誤頁
   sort: sortSearchSchema(ROLE_SORT_FIELDS),
 });
@@ -176,14 +176,18 @@ export const RoleListRoute = createRoute({
 search middleware 會套用到目的地路由鏈上的每一層，所以只需要掛在列表路由，
 子路由（`create`、`$roleId`）自動套用。
 
-讀寫：
+讀寫：列表頁用 web-core 的 `useListSearch(route)`（`web-core/router`），其他把狀態放網址的頁面用 `useRouteSearch(route)`：
 
 ```tsx
-const search = RoleListRoute.useSearch();
-const navigate = useNavigate({ from: RoleListRoute.fullPath });
+const { search, setPage, setKeyword, setSort, setFilters, patch } =
+  useListSearch<RoleSearchQuery>(RoleListRoute);
 
-navigate({ search: (prev) => ({ ...prev, offset: 0, keyword }) });
+setKeyword('ad'); // 改篩選、關鍵字、排序都回到第一頁；換頁只改 offset／limit
+patch({ view: 'tree' }, { replace: true }); // 其他欄位；replace 不留瀏覽紀錄
 ```
+
+`patch` 以函式形式的 search 合併（`search: (prev) => ({ ...prev, ...next })`）：同一個事件裡連續呼叫兩次時，後一次不會蓋掉前一次。
+型別參數明確帶 route 的 search 型別：TanStack 的 `useSearch` 在少數 route 推導不出來。
 
 ---
 

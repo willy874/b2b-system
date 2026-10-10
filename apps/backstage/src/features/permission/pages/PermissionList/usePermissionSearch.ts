@@ -1,24 +1,11 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import { PermissionListRoute } from '../../routes';
 import type { PermissionFilters, PermissionSearchQuery, PermissionView } from '../../routes';
 
 /** 檢視方式、篩選與樹狀圖選取的權限放在網址（可分享、上一頁可還原）。 */
 export function usePermissionSearch() {
-  const search = PermissionListRoute.useSearch();
-  const navigate = useNavigate();
-
-  const patch = useCallback(
-    (next: Partial<PermissionSearchQuery>, options: { replace?: boolean } = {}) => {
-      void navigate({
-        to: PermissionListRoute.to,
-        search: { ...search, ...next },
-        replace: options.replace,
-      });
-    },
-    [navigate, search],
-  );
+  const { search, patch } = useRouteSearch<PermissionSearchQuery>(PermissionListRoute);
 
   return {
     search,

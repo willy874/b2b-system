@@ -1,4 +1,8 @@
-import { sortSearchSchema } from '@b2b-system/web-shared/constants';
+import {
+  keywordSearchSchema,
+  paginationSearchShape,
+  sortSearchSchema,
+} from '@b2b-system/web-shared/constants';
 import { z } from 'zod/mini';
 
 import type { UserSortField } from '@/apis/user/types';
@@ -12,12 +16,8 @@ export const USER_SORT_FIELDS = [
 ] as const satisfies readonly UserSortField[];
 
 export const UserSearchQuerySchema = z.object({
-  offset: z.catch(z._default(z.coerce.number().check(z.int(), z.minimum(0)), 0), 0),
-  limit: z.catch(
-    z._default(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
-    20,
-  ),
-  keyword: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  ...paginationSearchShape(),
+  keyword: keywordSearchSchema,
   status: z.catch(z.optional(z.enum(['pending', 'active', 'inactive', 'locked'])), undefined),
   /** 有沒有設定 MFA（找出不符合政策的人，docs/architecture/backend/21-mfa.md §6）。 */
   mfa: z.catch(z.optional(z.enum(['true', 'false'])), undefined),

@@ -1,11 +1,11 @@
+import { paginationSearchShape } from '@b2b-system/web-shared/constants';
 import { z } from 'zod/mini';
 
 export const NOTIFICATION_FILTERS = ['all', 'unread'] as const;
 
 export const NotificationSearchQuerySchema = z.object({
   filter: z.catch(z.enum(NOTIFICATION_FILTERS), 'all'),
-  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
-  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 20),
+  ...paginationSearchShape(20, 100),
 });
 
 export type NotificationSearchQuery = z.infer<typeof NotificationSearchQuerySchema>;

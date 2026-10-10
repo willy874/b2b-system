@@ -1,18 +1,18 @@
 import type { FilterBarProps } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import type { useListSearch } from '@b2b-system/web-core/router';
 
 import type { RoleSearchQuery } from '../../routes';
-import type { useRoleSearchFilter } from './useRoleSearchFilter';
 
 export type RoleFilterValues = Pick<RoleSearchQuery, 'keyword' | 'sort'>;
 
 const EMPTY_FILTERS: RoleFilterValues = { keyword: undefined, sort: [] };
 
-/** 篩選面板：關鍵字、多欄排序。送出時一次寫進網址（`useRoleSearchFilter`）。 */
+/** 篩選面板：關鍵字、多欄排序。送出時一次寫進網址（`useListSearch`）。 */
 export function useRoleFilters({
   search,
   setFilters,
-}: ReturnType<typeof useRoleSearchFilter>): FilterBarProps<RoleFilterValues> {
+}: ReturnType<typeof useListSearch<RoleSearchQuery>>): FilterBarProps<RoleFilterValues> {
   const { t } = useTranslation();
   return {
     value: { keyword: search.keyword, sort: search.sort },

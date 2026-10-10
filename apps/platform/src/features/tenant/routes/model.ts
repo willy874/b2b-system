@@ -1,4 +1,4 @@
-import { sortSearchSchema } from '@b2b-system/web-shared/constants';
+import { paginationSearchShape, sortSearchSchema } from '@b2b-system/web-shared/constants';
 import { z } from 'zod/mini';
 
 import type { TenantSortField } from '@/apis/platform-tenant/types';
@@ -14,8 +14,7 @@ export const TENANT_SORT_FIELDS = [
 ] as const satisfies readonly TenantSortField[];
 
 export const TenantSearchQuerySchema = z.object({
-  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
-  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
+  ...paginationSearchShape(50, 100),
   q: z.catch(z.optional(z.string().check(z.trim(), z.maxLength(100))), undefined),
   status: z.catch(z.optional(z.enum(['provisioning', 'active', 'disabled', 'failed'])), undefined),
   /** 沒有排序時依建立時間舊到新（後端的預設）。 */

@@ -1,20 +1,11 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouteSearch } from '@b2b-system/web-core/router';
 
 import { ApprovalListRoute } from '../../routes';
 import type { ApprovalSearchQuery } from '../../routes';
 
 /** 列表的分頁、篩選、排序全部放在網址。 */
 export function useApprovalSearchFilter() {
-  const search = ApprovalListRoute.useSearch();
-  const navigate = useNavigate();
-
-  const patch = useCallback(
-    (next: Partial<ApprovalSearchQuery>) => {
-      void navigate({ to: ApprovalListRoute.to, search: { ...search, ...next } });
-    },
-    [navigate, search],
-  );
+  const { search, patch } = useRouteSearch<ApprovalSearchQuery>(ApprovalListRoute);
 
   return {
     search,

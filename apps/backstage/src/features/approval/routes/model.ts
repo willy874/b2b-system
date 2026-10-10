@@ -1,4 +1,8 @@
-import { sortSearchSchema } from '@b2b-system/web-shared/constants';
+import {
+  keywordSearchSchema,
+  paginationSearchShape,
+  sortSearchSchema,
+} from '@b2b-system/web-shared/constants';
 import { z } from 'zod/mini';
 
 import type { ApprovalSortField } from '@/apis/approval/types';
@@ -12,12 +16,8 @@ export const APPROVAL_SORT_FIELDS = [
 ] as const satisfies readonly ApprovalSortField[];
 
 export const ApprovalSearchQuerySchema = z.object({
-  offset: z.catch(z._default(z.coerce.number().check(z.int(), z.minimum(0)), 0), 0),
-  limit: z.catch(
-    z._default(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
-    20,
-  ),
-  keyword: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  ...paginationSearchShape(),
+  keyword: keywordSearchSchema,
   /**
    * 狀態的分段切換；預設只看待審（docs/architecture/backend/20-approval.md §11.2）。「全部」是明確的 `all`：
    * 省略時是預設的待審，不能同時代表「全部」。
@@ -62,11 +62,7 @@ export type ApprovalDetailSearch = z.infer<typeof ApprovalDetailSearchSchema>;
 /** 「我的審批」（docs/architecture/backend/20-approval.md §9.10）：分頁與分頁的頁碼。 */
 export const MyApprovalSearchQuerySchema = z.object({
   tab: z.catch(z.optional(z.enum(MY_APPROVAL_TABS)), undefined),
-  offset: z.catch(z._default(z.coerce.number().check(z.int(), z.minimum(0)), 0), 0),
-  limit: z.catch(
-    z._default(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
-    20,
-  ),
+  ...paginationSearchShape(),
 });
 
 export type MyApprovalSearchQuery = z.infer<typeof MyApprovalSearchQuerySchema>;
