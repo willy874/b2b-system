@@ -33,3 +33,10 @@ export function toWebhookDeliveryRowVM(dto: WebhookDelivery): WebhookDeliveryRow
     createdAt: new Date(dto.createdAt),
   };
 }
+
+/** 兩組事件是否相同（不看順序）：編輯時判斷有沒有修改用，勾選的順序不影響投遞。 */
+export function sameEvents(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(b);
+  return a.every((event) => set.has(event));
+}

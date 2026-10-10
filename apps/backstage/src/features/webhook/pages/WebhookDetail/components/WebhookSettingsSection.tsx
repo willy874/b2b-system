@@ -36,6 +36,7 @@ import {
 } from '../../../hooks/useWebhookMutations';
 import { useWebhookUrlCapacity } from '../../../hooks/useWebhookUrlCapacity';
 import { cleanUrls } from '../../../utils';
+import { sameEvents } from '../adapter';
 
 interface WebhookSettingsSectionProps {
   webhook: Webhook;
@@ -81,7 +82,8 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
     draft !== undefined &&
     (draft.name !== webhook.name ||
       cleanUrls(draft.urls).join('\n') !== webhook.targets.map((target) => target.url).join('\n') ||
-      draft.events.join(',') !== webhook.events.join(','));
+      // 事件不看順序：Select 依勾選順序回報，取消再勾回來內容相同但順序不同；順序不影響投遞
+      !sameEvents(draft.events, webhook.events));
   useUnsavedChangesGuard(dirty);
   // session 非自願結束時保留編輯中的內容（`Draft` 含開始編輯時的版本）
   const formDraft = useFormDraft({

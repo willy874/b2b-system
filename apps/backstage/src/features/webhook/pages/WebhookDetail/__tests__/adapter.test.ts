@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { WebhookDelivery } from '@/shared/api-sdk';
 
-import { toWebhookDeliveryRowVM } from '../adapter';
+import { sameEvents, toWebhookDeliveryRowVM } from '../adapter';
 
 const delivery = (overrides: Partial<WebhookDelivery> = {}): WebhookDelivery => ({
   id: 'd1',
@@ -40,5 +40,17 @@ describe('toWebhookDeliveryRowVM（投遞紀錄的一列）', () => {
     expect(toWebhookDeliveryRowVM(delivery({ responseStatus: null, error: null })).result).toBe(
       '-',
     );
+  });
+});
+
+describe('sameEvents（編輯時判斷事件有沒有修改）', () => {
+  it.each([
+    [['a', 'b'], ['b', 'a'], true],
+    [['a'], ['a'], true],
+    [['a', 'b'], ['a'], false],
+    [['a', 'c'], ['a', 'b'], false],
+    [[], [], true],
+  ])('%j 與 %j → %s（不看順序）', (a, b, expected) => {
+    expect(sameEvents(a, b)).toBe(expected);
   });
 });
