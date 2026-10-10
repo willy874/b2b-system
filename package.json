@@ -44,6 +44,7 @@
     "typecheck": "tsc -b",
     "test": "pnpm -r --filter \"!@b2b-system/e2e\" test",
     "test:e2e": "pnpm --filter @b2b-system/e2e test",
+    "test:e2e:cross-browser": "pnpm --filter @b2b-system/e2e test:cross-browser",
     "prepare": "lefthook install"
   },
   "devDependencies": {

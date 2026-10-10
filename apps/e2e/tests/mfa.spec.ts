@@ -70,35 +70,37 @@ async function enrollTotpOnProfile(page: Page) {
 }
 
 test.describe('多重驗證', () => {
-  test('驗證器 App：在個人資料頁設定 → 登出 → 以驗證碼登入；再以備用碼登入一次', async ({
-    page,
-  }) => {
-    // 第二次用驗證碼要等下一個時間步（重放保護）
-    test.setTimeout(120_000);
-    try {
-      await loginAndWaitForHome(page, 'mfaTotp');
-      const { secret, counter, recoveryCodes } = await enrollTotpOnProfile(page);
-      await logout(page);
+  test(
+    '驗證器 App：在個人資料頁設定 → 登出 → 以驗證碼登入；再以備用碼登入一次',
+    { tag: '@cross-browser' },
+    async ({ page }) => {
+      // 第二次用驗證碼要等下一個時間步（重放保護）
+      test.setTimeout(120_000);
+      try {
+        await loginAndWaitForHome(page, 'mfaTotp');
+        const { secret, counter, recoveryCodes } = await enrollTotpOnProfile(page);
+        await logout(page);
 
-      await passwordStep(page, 'mfaTotp');
-      await expect(page.getByTestId('login-mfa')).toHaveAttribute('data-value', 'mfa');
-      const next = await freshTotp(secret, counter);
-      await page.getByTestId('mfa-code').fill(next.code);
-      await page.getByTestId('mfa-submit').click();
-      await expect(page.getByTestId('home-page')).toBeVisible();
-      await logout(page);
+        await passwordStep(page, 'mfaTotp');
+        await expect(page.getByTestId('login-mfa')).toHaveAttribute('data-value', 'mfa');
+        const next = await freshTotp(secret, counter);
+        await page.getByTestId('mfa-code').fill(next.code);
+        await page.getByTestId('mfa-submit').click();
+        await expect(page.getByTestId('home-page')).toBeVisible();
+        await logout(page);
 
-      await passwordStep(page, 'mfaTotp');
-      await page.getByTestId('mfa-use-recovery').click();
-      await page.getByTestId('mfa-recovery-input').fill(recoveryCodes[0]!);
-      await page.getByTestId('mfa-recovery-submit').click();
-      await expect(page.getByTestId('home-page')).toBeVisible();
-      await page.goto('/profile');
-      await expect(page.getByTestId('mfa-recovery-remaining')).toHaveAttribute('data-value', '9');
-    } finally {
-      await resetMfa('mfaTotp');
-    }
-  });
+        await passwordStep(page, 'mfaTotp');
+        await page.getByTestId('mfa-use-recovery').click();
+        await page.getByTestId('mfa-recovery-input').fill(recoveryCodes[0]!);
+        await page.getByTestId('mfa-recovery-submit').click();
+        await expect(page.getByTestId('home-page')).toBeVisible();
+        await page.goto('/profile');
+        await expect(page.getByTestId('mfa-recovery-remaining')).toHaveAttribute('data-value', '9');
+      } finally {
+        await resetMfa('mfaTotp');
+      }
+    },
+  );
 
   test('Email 驗證碼：設定時收信確認 → 登出 → 登入時寄出驗證碼（Mailpit）', async ({ page }) => {
     try {

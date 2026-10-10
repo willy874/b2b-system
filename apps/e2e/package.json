@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test",
+    "test": "playwright test --project=chromium",
+    "test:cross-browser": "playwright test --grep @cross-browser",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
     "typecheck": "tsc -b",

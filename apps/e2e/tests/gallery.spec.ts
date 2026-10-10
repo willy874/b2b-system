@@ -122,56 +122,60 @@ async function zoomToMax(page: Page): Promise<void> {
 }
 
 test.describe('圖片庫（docs/architecture/backend/26-gallery.md）', () => {
-  test('上傳 → 處理完出現在時間軸 → 打開檢視器以 ← / → 切換', async ({ page }) => {
-    const prefix = unique('e2e-gallery-upload');
-    await loginAndWaitForHome(page, 'admin');
-    await page.goto(`/gallery?keyword=${prefix}`);
-    await expect(page.getByTestId('gallery-page')).toBeVisible();
-    await expect(page.getByTestId('gallery-empty')).toBeVisible();
+  test(
+    '上傳 → 處理完出現在時間軸 → 打開檢視器以 ← / → 切換',
+    { tag: '@cross-browser' },
+    async ({ page }) => {
+      const prefix = unique('e2e-gallery-upload');
+      await loginAndWaitForHome(page, 'admin');
+      await page.goto(`/gallery?keyword=${prefix}`);
+      await expect(page.getByTestId('gallery-page')).toBeVisible();
+      await expect(page.getByTestId('gallery-empty')).toBeVisible();
 
-    const files = await Promise.all(
-      ['a', 'b', 'c'].map(async (suffix) => ({
-        name: `${prefix}-${suffix}.jpg`,
-        mimeType: 'image/jpeg',
-        buffer: await drawJpeg(page, 640, 480, suffix),
-      })),
-    );
-    await page.getByTestId('gallery-upload-input').setInputFiles(files);
+      const files = await Promise.all(
+        ['a', 'b', 'c'].map(async (suffix) => ({
+          name: `${prefix}-${suffix}.jpg`,
+          mimeType: 'image/jpeg',
+          buffer: await drawJpeg(page, 640, 480, suffix),
+        })),
+      );
+      await page.getByTestId('gallery-upload-input').setInputFiles(files);
 
-    // 處理完成之前不在列表裡；推播 create 後重抓，三張都出現在今天的區段（依日分組）。
-    // 日期捲軸（gallery-timeline）要兩個月以上才顯示，這裡只有一個月
-    const items = page.getByTestId('gallery-item');
-    await expect(items).toHaveCount(3, { timeout: 30_000 });
-    // 瀏覽器時區的今天（分組以瀏覽器的時區算）
-    const today = await page.evaluate(() => new Date().toLocaleDateString('sv-SE'));
-    await expect(page.getByTestId('gallery-section-select')).toHaveCount(1);
-    await expect(page.getByTestId('gallery-section-select')).toHaveAttribute('data-value', today);
-    await snapshot(page, 'uploaded');
+      // 處理完成之前不在列表裡；推播 create 後重抓，三張都出現在今天的區段（依日分組）。
+      // 日期捲軸（gallery-timeline）要兩個月以上才顯示，這裡只有一個月
+      const items = page.getByTestId('gallery-item');
+      await expect(items).toHaveCount(3, { timeout: 30_000 });
+      // 瀏覽器時區的今天（分組以瀏覽器的時區算）
+      const today = await page.evaluate(() => new Date().toLocaleDateString('sv-SE'));
+      await expect(page.getByTestId('gallery-section-select')).toHaveCount(1);
+      await expect(page.getByTestId('gallery-section-select')).toHaveAttribute('data-value', today);
+      await snapshot(page, 'uploaded');
 
-    const ids = await items.evaluateAll((elements) =>
-      elements.map((element) => element.getAttribute('data-value')!),
-    );
-    await items.first().click();
-    const viewer = page.getByTestId('gallery-viewer');
-    await expect(viewer).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[0]}`));
-    await expect(viewer.getByTestId('gallery-viewer-title')).toContainText(prefix);
+      const ids = await items.evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute('data-value')!),
+      );
+      await items.first().click();
+      const viewer = page.getByTestId('gallery-viewer');
+      await expect(viewer).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[0]}`));
+      await expect(viewer.getByTestId('gallery-viewer-title')).toContainText(prefix);
 
-    await page.keyboard.press('ArrowRight');
-    await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[1]}`));
-    await page.keyboard.press('ArrowRight');
-    await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[2]}`));
-    await snapshot(page, 'viewer-third');
-    await page.keyboard.press('ArrowLeft');
-    await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[1]}`));
+      await page.keyboard.press('ArrowRight');
+      await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[1]}`));
+      await page.keyboard.press('ArrowRight');
+      await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[2]}`));
+      await snapshot(page, 'viewer-third');
+      await page.keyboard.press('ArrowLeft');
+      await expect(page).toHaveURL(new RegExp(`[?&]item=${ids[1]}`));
 
-    // 關閉：網址的 item 拿掉，回到列表
-    await page.keyboard.press('Escape');
-    await expect(viewer).toHaveCount(0);
-    await expect(page).not.toHaveURL(/[?&]item=/);
+      // 關閉：網址的 item 拿掉，回到列表
+      await page.keyboard.press('Escape');
+      await expect(viewer).toHaveCount(0);
+      await expect(page).not.toHaveURL(/[?&]item=/);
 
-    await deleteItems(await apiLogin('admin'), ids);
-  });
+      await deleteItems(await apiLogin('admin'), ids);
+    },
+  );
 
   test('檢視器放大超過 large 才載入原檔；調整過顯示方向後放到最大也不載原檔', async ({ page }) => {
     const token = await apiLogin('admin');

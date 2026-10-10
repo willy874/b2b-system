@@ -102,41 +102,45 @@ test.describe('檔案管理（docs/architecture/backend/09-file.md）', () => {
     await apiRequest(token, 'delete', `/file-folders/${folderId}`);
   });
 
-  test('上傳文字檔 → 出現在列表 → 預覽看到內容、可以下載', async ({ page }) => {
-    const name = `${unique('e2e-upload')}.txt`;
-    const content = 'Hello from the E2E upload test.';
-    const token = await apiLogin('admin');
-    const folderId = await createFolder(token, unique('E2E 上傳'));
+  test(
+    '上傳文字檔 → 出現在列表 → 預覽看到內容、可以下載',
+    { tag: '@cross-browser' },
+    async ({ page }) => {
+      const name = `${unique('e2e-upload')}.txt`;
+      const content = 'Hello from the E2E upload test.';
+      const token = await apiLogin('admin');
+      const folderId = await createFolder(token, unique('E2E 上傳'));
 
-    await loginAndWaitForHome(page, 'admin');
-    await page.goto(`/file?folder=${folderId}`);
-    await expect(page.getByTestId('file-manager-page')).toBeVisible();
-    await expect(page.getByTestId('file-empty')).toBeVisible();
-    await page.getByTestId('file-upload-input').setInputFiles({
-      name,
-      mimeType: 'text/plain',
-      buffer: Buffer.from(content),
-    });
-    const item = page.getByTestId('file-item').filter({ hasText: name });
-    await expect(item).toBeVisible();
-    await snapshot(page, 'uploaded');
+      await loginAndWaitForHome(page, 'admin');
+      await page.goto(`/file?folder=${folderId}`);
+      await expect(page.getByTestId('file-manager-page')).toBeVisible();
+      await expect(page.getByTestId('file-empty')).toBeVisible();
+      await page.getByTestId('file-upload-input').setInputFiles({
+        name,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(content),
+      });
+      const item = page.getByTestId('file-item').filter({ hasText: name });
+      await expect(item).toBeVisible();
+      await snapshot(page, 'uploaded');
 
-    await item.dblclick();
-    const lightbox = page.getByTestId('file-lightbox');
-    await expect(lightbox.getByTestId('file-preview-text')).toContainText(content);
-    const href = await lightbox.getByTestId('file-lightbox-download').getAttribute('href');
-    expect(href).toBeTruthy();
-    await snapshot(page, 'preview');
+      await item.dblclick();
+      const lightbox = page.getByTestId('file-lightbox');
+      await expect(lightbox.getByTestId('file-preview-text')).toContainText(content);
+      const href = await lightbox.getByTestId('file-lightbox-download').getAttribute('href');
+      expect(href).toBeTruthy();
+      await snapshot(page, 'preview');
 
-    // 下載網址是 presigned URL：直接取得就是原本的內容
-    const storage = await request.newContext();
-    const downloaded = await storage.get(new URL(href!, page.url()).toString());
-    expect(downloaded.status()).toBe(200);
-    expect(await downloaded.text()).toBe(content);
-    await storage.dispose();
+      // 下載網址是 presigned URL：直接取得就是原本的內容
+      const storage = await request.newContext();
+      const downloaded = await storage.get(new URL(href!, page.url()).toString());
+      expect(downloaded.status()).toBe(200);
+      expect(await downloaded.text()).toBe(content);
+      await storage.dispose();
 
-    await apiRequest(token, 'delete', `/file-folders/${folderId}`);
-  });
+      await apiRequest(token, 'delete', `/file-folders/${folderId}`);
+    },
+  );
 
   test('沒有授權的資料夾鎖住 → 申請存取 → 管理者在分享對話框核准 → 看得到檔案；撤銷後又鎖住', async ({
     page,

@@ -15,9 +15,7 @@
 
 ## 1. 清單
 
-| 嚴重度 | 問題 | 文件 | 發現於 |
-| --- | --- | --- | --- |
-| 低 | backstage 有頁面與 hook 沒有測試，E2E 只跑 Chromium | [missing-frontend-tests.md](./missing-frontend-tests.md) | 2026-10-10 backstage 優化分析 |
+目前沒有已知問題。
 
 嚴重度：
 

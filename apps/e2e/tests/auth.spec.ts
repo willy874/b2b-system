@@ -15,7 +15,7 @@ import { snapshot } from '../helpers/snapshot';
 
 test.describe('認證流程', () => {
   // ① 登入 → 首頁 → 登出
-  test('登入後進入首頁，登出後停在「已登出」頁', async ({ page }) => {
+  test('登入後進入首頁，登出後停在「已登出」頁', { tag: '@cross-browser' }, async ({ page }) => {
     await loginAndWaitForHome(page, 'superAdmin');
     await openMenuGroup(page, 'menu-group-people');
     await expect(page.getByTestId('menu-role')).toBeVisible();
@@ -115,7 +115,7 @@ test.describe('認證流程', () => {
 
 test.describe('跨分頁協調', () => {
   // ⑧ 兩個分頁同時操作 → 不會因 token 輪替而被登出
-  test('兩個分頁同時操作不會互相踢掉對方', async ({ browser }) => {
+  test('兩個分頁同時操作不會互相踢掉對方', { tag: '@cross-browser' }, async ({ browser }) => {
     const context = await browser.newContext();
     const first = await context.newPage();
     const second = await context.newPage();

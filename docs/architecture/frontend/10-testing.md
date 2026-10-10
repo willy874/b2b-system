@@ -391,6 +391,26 @@ pnpm --filter @b2b-system/e2e tour
 
 ---
 
+### 4.7 跨瀏覽器
+
+支援的瀏覽器是最新兩個版本的 Chrome、Edge、Firefox、Safari（[`guide/introduction/01-overview.md`](../../guide/introduction/01-overview.md)）。
+`pnpm test:e2e` 只跑 chromium（Edge 同核心）；Firefox 與 WebKit 只跑標了 `@cross-browser` 的流程，在發版前或改到下列功能時手動跑：
+
+```bash
+pnpm --filter @b2b-system/e2e exec playwright install firefox webkit   # 第一次
+pnpm test:e2e:cross-browser                                            # 三個瀏覽器都跑標了 @cross-browser 的流程
+```
+
+| 流程（`{ tag: '@cross-browser' }`） | 瀏覽器差異的風險 |
+| --- | --- |
+| 登入與登出、兩個分頁同時操作（`auth.spec.ts`） | refresh cookie、`BroadcastChannel` 的跨分頁協調 |
+| 驗證器 App 的設定與登入（`mfa.spec.ts`） | 表單、剪貼簿以外的 MFA 流程 |
+| 上傳文字檔、預覽、下載（`file.spec.ts`） | 直傳物件儲存、`<a download>` |
+| 圖片庫上傳與檢視器（`gallery.spec.ts`） | 拖放上傳、檢視器的鍵盤與縮放 |
+
+不在自動化範圍、改到時手動檢查：WebAuthn（Safari 要求在點擊的處理函式裡呼叫，Playwright 的虛擬驗證器只有 Chromium）、
+資料夾上傳（`webkitdirectory`、`webkitGetAsEntry`）、檢視器的全螢幕 API。新增流程的 tag 時，挑真的有瀏覽器差異的，不要整份標上。
+
 ## 5. 覆蓋率目標
 
 | 範圍                            | 目標                              |

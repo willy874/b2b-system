@@ -19,7 +19,13 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Firefox 與 WebKit（Safari）只跑標了 `@cross-browser` 的流程：登入、跨分頁、MFA、上傳與預覽、圖片庫的檢視器
+  // （docs/architecture/frontend/10-testing.md §4.7）；平常的 `pnpm test:e2e` 只跑 chromium
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, grep: /@cross-browser/ },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, grep: /@cross-browser/ },
+  ],
   // backstage 與 apps/platform（SSO 的登入互動頁，docs/architecture/04-sso.md §12）、對外 API；api 要另外啟動（pnpm dev:e2e）
   webServer: process.env.E2E_NO_SERVER
     ? undefined
