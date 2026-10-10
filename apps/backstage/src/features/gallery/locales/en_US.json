@@ -47,7 +47,9 @@
         "action": "Delete album",
         "title": "Delete album “{{name}}”?",
         "description": "The album moves to the trash; its images are not deleted. Restoring brings the images back into it.",
-        "success": "Album moved to the trash"
+        "descriptionNoTrash": "The album is deleted; its images are not.",
+        "success": "Album moved to the trash",
+        "successNoTrash": "Album deleted"
       },
       "add": {
         "action": "Add to album",
@@ -92,7 +94,9 @@
       "title_one": "Delete {{count}} image?",
       "title_other": "Delete {{count}} images?",
       "description": "Images move to the trash and can be restored before they expire. Copies already used elsewhere (avatars) are not affected.",
-      "success": "Image moved to the trash"
+      "descriptionNoTrash": "Images are deleted. Copies already used elsewhere (avatars) are not affected.",
+      "success": "Image moved to the trash",
+      "successNoTrash": "Image deleted"
     },
     "restore": {
       "action": "Restore",

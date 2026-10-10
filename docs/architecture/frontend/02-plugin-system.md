@@ -454,6 +454,10 @@ export { appContextPlugin as roleFeaturePlugin } from "./plugin";
 5. 側邊選單不用改：入口由 feature 的 `navigation.ts` 在 plugin 裡登記，卸載時跟著撤回（[`18-command-palette.md`](./18-command-palette.md) §2）。
 6. `app/__tests__/features.test.ts` 的 `EXPECTED_PAGES` 加一列。
 
+**平台沒有開放的 feature 一律看不到**（[`../05-tenancy.md`](../05-tenancy.md) §15）：其他頁面上屬於它的東西以 `useIsFeatureReady(id)`
+（清單用 `useFeatureReadiness()`）隱藏，不灰掉、不註明「未啟用」；後端提供的清單（權限、系統設定、審批類型、通知）由 api 過濾。
+同一個 feature 的所有頁面（含落在其他 feature 路徑底下的頁面，例：`/role/import` 屬於 `dataTransfer`）都要列進 catalog 的 `routes`。
+
 feature 被停用時：目前頁面屬於它就先導向首頁並 toast（`ignoreBlocker`），再卸載；
 各分頁向批次佇列重新宣告能執行的操作，佇列取消使用那些操作、尚未結束的工作。
 

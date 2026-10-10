@@ -473,6 +473,32 @@ describe('WebhookService：多個目標網址（docs/architecture/05-tenancy.md 
     );
   });
 
+  it('urlLimit：上限扣掉其他訂閱已用的網址（docs/architecture/05-tenancy.md §15.2 D5）', async () => {
+    const ctx = setup();
+    ctx.repo.distinctUrls.mockImplementation(async (_tx, exclude) => (exclude ? [A] : [A, B]));
+    await expect(
+      inTenant(() => ctx.service.urlLimit({}), undefined, { 'webhook.maxUrls': 5 }),
+    ).resolves.toEqual({ max: 5, available: 3 });
+    await expect(
+      inTenant(() => ctx.service.urlLimit({ subscriptionId: 'wh-1' }), undefined, {
+        'webhook.maxUrls': 5,
+      }),
+    ).resolves.toEqual({ max: 5, available: 4 });
+  });
+
+  it('urlLimit：已經超過上限的租戶，不少於這個訂閱現在獨有的網址數', async () => {
+    const ctx = setup();
+    // 預設上限 1；全租戶 2 個，其他訂閱用了 A
+    ctx.repo.distinctUrls.mockImplementation(async (_tx, exclude) => (exclude ? [A] : [A, B]));
+    await expect(inTenant(() => ctx.service.urlLimit({ subscriptionId: 'wh-1' }))).resolves.toEqual(
+      { max: 1, available: 1 },
+    );
+    await expect(inTenant(() => ctx.service.urlLimit({}))).resolves.toEqual({
+      max: 1,
+      available: 0,
+    });
+  });
+
   it('修改網址寫稽核的 urls 變化', async () => {
     const ctx = setup();
     await inTenant(() => ctx.service.update('wh-1', { urls: [A], version: 3 }, ACTOR), undefined, {

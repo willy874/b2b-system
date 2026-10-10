@@ -9,6 +9,8 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 
 import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { groupExportApi } from '../../hooks/groupTransferApi';
 import { useGroupDeleteMutation } from '../../hooks/useGroupMutations';
@@ -31,6 +33,8 @@ export default function GroupListPage() {
   const { search, setKeyword, setSort, setPage } = useGroupSearchFilter();
   const [pendingDelete, setPendingDelete] = useState<GroupRowVM>();
   const deleteGroup = useGroupDeleteMutation();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   /** 匯出對話框：群組或群組成員（docs/architecture/backend/22-data-transfer.md §12.2）。 */
   const [exporting, setExporting] = useState<'group' | 'groupMember' | null>(null);
 
@@ -172,10 +176,17 @@ export default function GroupListPage() {
         onOpenChange={(open) => !open && setPendingDelete(undefined)}
         title={t('group.delete.title')}
         // 成員會失去群組帶來的權限：先說清楚人數（直接成員；巢狀群組的成員另計）
-        description={t('group.delete.confirm', {
-          name: pendingDelete?.name ?? '',
-          count: pendingDelete?.memberCount ?? 0,
-        })}
+        description={
+          hasTrash
+            ? t('group.delete.confirm', {
+                name: pendingDelete?.name ?? '',
+                count: pendingDelete?.memberCount ?? 0,
+              })
+            : t('group.delete.confirmNoTrash', {
+                name: pendingDelete?.name ?? '',
+                count: pendingDelete?.memberCount ?? 0,
+              })
+        }
         confirmLabel={t('common.delete')}
         cancelLabel={t('common.cancel')}
         loading={deleteGroup.isPending}

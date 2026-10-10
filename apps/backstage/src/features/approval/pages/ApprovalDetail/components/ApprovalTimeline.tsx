@@ -79,7 +79,7 @@ const PERSON_STATE_LABEL_KEY = {
 /**
  * 審核流程（docs/architecture/backend/20-approval.md §11.3）：縱向的節點，從「送出申請」到「核准後的結果」。
  * 多階段的每一關列出規則、同意數與 **每一個審核者** 的狀態（已同意、已駁回、尚未動作）；單關請求以一個「審核」節點表示。
- * 停用多階段期間照樣唯讀顯示（那是誰同意過的紀錄，§9.11）。
+ * 停用多階段期間只列出已做出的決定，還在審的部分照單關顯示（`withoutChain`，§9.11）。
  */
 export function ApprovalTimeline({ approval }: ApprovalTimelineProps) {
   const { t } = useTranslation();
@@ -97,7 +97,12 @@ export function ApprovalTimeline({ approval }: ApprovalTimelineProps) {
           </Muted>
         </Node>
 
-        {approval.steps.length === 0 ? (
+        {approval.steps.map((step, index) => (
+          <StepNode key={step.ordinal} step={step} position={index + 1} />
+        ))}
+
+        {/* 單關請求；或還在審、沒有進行中的關卡（停用多階段期間的多關請求）：由一位審核者定案 */}
+        {(approval.steps.length === 0 || (approval.isPending && !approval.currentStep)) && (
           <Node
             state={REQUEST_NODE_STATE[approval.status]}
             title={t('approval.flow.single')}
@@ -109,11 +114,19 @@ export function ApprovalTimeline({ approval }: ApprovalTimelineProps) {
                 {approval.reviewerName} · {formatDateTime(approval.reviewedAt)}
               </Muted>
             )}
+            {approval.singleReviewDecisions.length > 0 && (
+              <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0 text-sm">
+                {approval.singleReviewDecisions.map((decision) => (
+                  <Person
+                    key={`${decision.reviewerName}-${decision.decidedAt.toISOString()}`}
+                    name={decision.reviewerName}
+                    state={decision.decision}
+                    decision={decision}
+                  />
+                ))}
+              </ul>
+            )}
           </Node>
-        ) : (
-          approval.steps.map((step, index) => (
-            <StepNode key={step.ordinal} step={step} position={index + 1} />
-          ))
         )}
 
         <Node

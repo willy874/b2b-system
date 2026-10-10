@@ -8,6 +8,7 @@ import { API_TOKEN_MAX_LIFETIME_DAYS } from './api-token.constants';
 export const PERSONAL_TOKEN_MAX_DAYS_SETTING = defineSetting({
   key: 'auth.personalTokenMaxDays',
   category: SettingCategory.AUTH,
+  feature: 'externalApi',
   schema: z.number().int().min(1).max(API_TOKEN_MAX_LIFETIME_DAYS.human),
   defaultValue: API_TOKEN_MAX_LIFETIME_DAYS.human,
   isPublic: false,
@@ -17,6 +18,7 @@ export const PERSONAL_TOKEN_MAX_DAYS_SETTING = defineSetting({
 export const SERVICE_ACCOUNT_TOKEN_MAX_DAYS_SETTING = defineSetting({
   key: 'auth.serviceAccountTokenMaxDays',
   category: SettingCategory.AUTH,
+  feature: 'externalApi',
   schema: z.number().int().min(1).max(API_TOKEN_MAX_LIFETIME_DAYS.service),
   defaultValue: API_TOKEN_MAX_LIFETIME_DAYS.service,
   isPublic: false,

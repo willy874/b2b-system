@@ -100,10 +100,12 @@ describe('toApprovalRowVM（多階段，docs/architecture/backend/20-approval.md
     expect(vm.progress).toMatchObject({ name: '財務', approvals: 1, required: 2 });
   });
 
-  it('多階段停用期間：多關請求改由單關的核准／駁回一次定案', () => {
+  it('多階段停用期間：多關請求改由單關的核准／駁回一次定案，不顯示關卡的進度', () => {
     expect(toApprovalRowVM(inChain, { ...REVIEWER, chainEnabled: false })).toMatchObject({
       canReview: true,
       canApprove: true,
+      progress: null,
+      stepCount: 0,
     });
   });
 });

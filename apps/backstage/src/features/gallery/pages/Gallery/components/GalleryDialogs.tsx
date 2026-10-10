@@ -2,6 +2,8 @@ import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useNavigate } from '@tanstack/react-router';
 
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { GalleryAlbum, GalleryItem, GalleryItemDetail } from '@/shared/api-sdk';
 
 import { AddFromSourcesDialog } from '../../../components/AddFromSourcesDialog';
@@ -44,6 +46,8 @@ export function GalleryDialogs({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const deleteAlbum = useGalleryAlbumDeleteMutation();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、還原」
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   if (!dialog) return null;
   switch (dialog.kind) {
     case 'albumForm':
@@ -87,7 +91,9 @@ export function GalleryDialogs({
           open
           onOpenChange={(open) => !open && onClose()}
           title={t('gallery.delete.title', { count: dialog.items.length })}
-          description={t('gallery.delete.description')}
+          description={
+            hasTrash ? t('gallery.delete.description') : t('gallery.delete.descriptionNoTrash')
+          }
           confirmLabel={t('common.delete')}
           cancelLabel={t('common.cancel')}
           tone="danger"
@@ -105,7 +111,11 @@ export function GalleryDialogs({
           open
           onOpenChange={(open) => !open && onClose()}
           title={t('gallery.album.delete.title', { name: dialog.album.name })}
-          description={t('gallery.album.delete.description')}
+          description={
+            hasTrash
+              ? t('gallery.album.delete.description')
+              : t('gallery.album.delete.descriptionNoTrash')
+          }
           confirmLabel={t('common.delete')}
           cancelLabel={t('common.cancel')}
           tone="danger"

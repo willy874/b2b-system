@@ -203,7 +203,10 @@ export class ApprovalService {
     if (query.scope === 'assigned' && !this.chain.isEnabled()) {
       return paginated([], 0, query);
     }
-    const { items, total } = await this.repo.list(query, actor.id);
+    const { items, total } = await this.repo.list(
+      { ...query, excludeTypes: this.handlers.hiddenTypes() },
+      actor.id,
+    );
     const summaries = await this.chainRepo.summariesOf(items.map((item) => item.id));
     return paginated(
       items.map((item) =>
@@ -225,10 +228,13 @@ export class ApprovalService {
     const permissions = await this.permissionService.getPermissionSet(actor.id);
     const canReadAll =
       permissions.isSuperAdmin || permissions.permissions.has(APPROVAL_PERMISSIONS.READ);
+    const excludeTypes = this.handlers.hiddenTypes();
     const [assigned, pending] = await Promise.all([
       // 停用期間沒有「待我審核」（D12），與列表一致
-      this.chain.isEnabled() ? this.repo.count({ scope: 'assigned' }, actor.id) : 0,
-      canReadAll ? this.repo.count({ scope: 'all', status: ['pending'] }, actor.id) : null,
+      this.chain.isEnabled() ? this.repo.count({ scope: 'assigned', excludeTypes }, actor.id) : 0,
+      canReadAll
+        ? this.repo.count({ scope: 'all', status: ['pending'], excludeTypes }, actor.id)
+        : null,
     ]);
     return { assigned, pending };
   }
@@ -460,9 +466,12 @@ export class ApprovalService {
     return toDto(row, { current: summaries.current.get(id), count: summaries.counts.get(id) });
   }
 
+  /** 所屬 feature 沒有開放的類型當作不存在（docs/architecture/05-tenancy.md §15.2 D3）：看不到也審不了。 */
   private async getExisting(id: string): Promise<ApprovalRequestRow> {
     const request = await this.repo.findById(id);
-    if (!request) throw new AppException('APPROVAL_NOT_FOUND');
+    if (!request || this.handlers.hiddenTypes().includes(request.type as ApprovalType)) {
+      throw new AppException('APPROVAL_NOT_FOUND');
+    }
     return request;
   }
 

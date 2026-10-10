@@ -23,11 +23,11 @@ vi.mock('@/apis/role/get-role-list/fetcher', () => ({ fetchRoleListQuery: fetchR
 vi.mock('@/apis/org-unit/get-org-unit-tree/fetcher', () => ({ fetchOrgUnitTreeQuery: fetchTree }));
 
 const AVAILABLE: AssigneeKindAvailability = {
-  user: undefined,
-  group: undefined,
-  role: undefined,
-  manager: undefined,
-  orgUnit: undefined,
+  user: true,
+  group: true,
+  role: true,
+  manager: true,
+  orgUnit: true,
 };
 const FULL_ACCESS: AssigneeListAccess = {
   canSearchUsers: true,
@@ -101,32 +101,33 @@ describe('AssigneeRuleEditor（審核者規則，docs/architecture/backend/20-ap
     expect(lastChange(onChange)).toEqual({ kind: 'group', targetId: null, level: 2 });
   });
 
-  it('不能用的種類停用並說明原因；已選的種類即使不能用也保留可選並標出警示', async () => {
+  it('不能用的種類不列出；已選的種類即使不能用也保留，並標示不會指派任何人（不提功能未啟用）', async () => {
     renderEditor(
       { kind: 'group', targetId: 'g1', level: 1 },
-      {
-        availability: {
-          ...AVAILABLE,
-          group: 'approvalFlow.assignee.unavailable.group',
-          orgUnit: 'approvalFlow.assignee.unavailable.organization',
-        },
-      },
+      { availability: { ...AVAILABLE, group: false, manager: false, orgUnit: false } },
     );
     expect(screen.getByTestId('approval-flow-assignee-unavailable')).toHaveTextContent(
-      '群組未啟用',
+      '這條規則目前不會指派任何人',
     );
-    // 群組未啟用：不載入群組清單
+    expect(screen.queryByText(/未啟用/)).toBeNull();
+    // 群組不能用：不載入群組清單
     expect(fetchGroups).not.toHaveBeenCalled();
 
-    await openOptions('審核者的種類');
-    expect(screen.getByRole('option', { name: /部門的主管/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
+    expect(await openOptions('審核者的種類')).toEqual(['指定使用者', '群組', '角色']);
+  });
+
+  it('目前的種類能用時，其他不能用的種類不列出、也沒有警示', async () => {
+    renderEditor(
+      { kind: 'user', targetId: null, level: 1 },
+      { availability: { ...AVAILABLE, group: false } },
     );
-    expect(screen.getByRole('option', { name: /^群組/ })).not.toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(await openOptions('審核者的種類')).toEqual([
+      '指定使用者',
+      '角色',
+      '申請人的主管',
+      '部門的主管',
+    ]);
+    expect(screen.queryByTestId('approval-flow-assignee-unavailable')).toBeNull();
   });
 
   it('匿名申請不提供「主管」；已經是主管規則時仍保留', async () => {
@@ -191,7 +192,7 @@ describe('AssigneeRuleEditor（審核者規則，docs/architecture/backend/20-ap
     expect(lastChange(onChange)).toMatchObject({ kind: 'orgUnit', targetId: 'u-north' });
   });
 
-  it('已儲存的規則變成不能用（功能被關掉）→ 標示功能未啟用', () => {
+  it('已儲存的規則變成不能用（功能被關掉）→ 標示不會指派任何人', () => {
     renderEditor(
       { kind: 'orgUnit', targetId: 'u-x', level: 1 },
       {
@@ -200,7 +201,7 @@ describe('AssigneeRuleEditor（審核者規則，docs/architecture/backend/20-ap
       },
     );
     expect(screen.getByTestId('approval-flow-assignee-unavailable')).toHaveTextContent(
-      '功能未啟用',
+      '這條規則目前不會指派任何人',
     );
     expect(screen.queryByTestId('approval-flow-assignee-deleted')).toBeNull();
     expect(fetchTree).not.toHaveBeenCalled();

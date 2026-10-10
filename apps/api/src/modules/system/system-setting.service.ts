@@ -9,6 +9,7 @@ import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { SettingService } from '@/core/settings';
 import type { ResolvedSetting, SettingValue, StoredSetting } from '@/core/settings';
+import { currentTenant } from '@/core/tenant';
 import { AuditService } from '@/modules/audit-log/audit.service';
 
 import type {
@@ -31,6 +32,12 @@ function rangeOf(definition: ResolvedSetting): NumericRange {
     minimum: typeof json.minimum === 'number' ? json.minimum : null,
     maximum: typeof json.maximum === 'number' ? json.maximum : null,
   };
+}
+
+/** 平台未開放的 feature 的設定不列也不能改（docs/architecture/05-tenancy.md §15.2 D2）；沒有租戶脈絡（測試）時全部可見。 */
+function isVisibleSetting(definition: ResolvedSetting): boolean {
+  const tenant = currentTenant();
+  return !definition.feature || !tenant || tenant.features.includes(definition.feature);
 }
 
 function typeOf(value: SettingValue): SystemSettingDto['type'] {
@@ -63,7 +70,10 @@ export class SystemSettingService {
   async list(): Promise<SystemSettingListDto> {
     const stored = await this.settings.stored();
     return {
-      items: this.settings.list().map((definition) => this.toDto(definition, stored)),
+      items: this.settings
+        .list()
+        .filter(isVisibleSetting)
+        .map((definition) => this.toDto(definition, stored)),
     };
   }
 
@@ -127,7 +137,9 @@ export class SystemSettingService {
     stored: Map<string, StoredSetting>,
   ): SettingChange | undefined {
     const definition = this.settings.find(key);
-    if (!definition) throw new AppException('SETTING_NOT_FOUND', { key });
+    if (!definition || !isVisibleSetting(definition)) {
+      throw new AppException('SETTING_NOT_FOUND', { key });
+    }
 
     const before = this.settings.effectiveValue(definition, stored);
     const isOverridden = stored.has(key);

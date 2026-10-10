@@ -8,6 +8,7 @@ import type {
   ApprovalStepStatus,
   ApprovalType,
 } from '@/shared/api-sdk';
+import { TenantFeature } from '@/shared/api-sdk';
 
 /**
  * 狀態 → 語系鍵。key 以完整字面量寫在表裡（docs/coding-standards/06-literal-strings.md §3.1）；
@@ -27,11 +28,20 @@ export const APPROVAL_STATUS_TONE = {
   withdrawn: 'neutral',
 } as const satisfies Record<ApprovalStatus, ChipTone>;
 
-/** 審批類型（後端 `ApprovalType`）：網址的篩選與類型選單用它；新增類型時與 `APPROVAL_TYPE_LABEL_KEY` 一起補。 */
+/** 審批類型（後端 `ApprovalType`）：網址的篩選與類型選單用它；新增類型時與 `APPROVAL_TYPE_LABEL_KEY`、`APPROVAL_TYPE_FEATURE` 一起補。 */
 export const APPROVAL_TYPES = [
   'user.register',
   'fileFolder.access',
 ] as const satisfies readonly ApprovalType[];
+
+/**
+ * 類型屬於哪個可啟用的 feature（`null`：常駐）。平台沒有啟用那個 feature 時，類型選單不列出它
+ * （docs/architecture/frontend/02-plugin-system.md §7）；`satisfies` 讓新增類型時一定要決定它屬於誰。
+ */
+export const APPROVAL_TYPE_FEATURE = {
+  'user.register': null,
+  'fileFolder.access': TenantFeature.file,
+} as const satisfies Record<ApprovalType, TenantFeature | null>;
 
 /**
  * 審批列表的狀態切換（docs/architecture/backend/20-approval.md §11.2）：預設待審；`all` 是不篩選。

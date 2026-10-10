@@ -61,6 +61,7 @@ env 相依的定義把 `schema`、`defaultValue` 寫成函式，`SettingService`
 export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
   key: 'file.uploadMaxSize',
   category: SettingCategory.FILE,
+  feature: 'file', // 平台沒有開放 file 時設定頁不列（../05-tenancy.md §15.2 D2）；已覆寫的值照樣生效
   schema: (env) => z.number().int().min(Math.min(MIB, env('FILE_UPLOAD_MAX_SIZE'))).max(env('FILE_UPLOAD_MAX_SIZE')),
   defaultValue: (env) => env('FILE_UPLOAD_MAX_SIZE'),
   isPublic: false,
@@ -106,7 +107,7 @@ export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
 
 | 端點 | 授權 | 說明 |
 | --- | --- | --- |
-| `GET /system/settings` | `system:read` | 所有設定：`key`、`category`、`type`、生效值、預設值、`isOverridden`、`isPublic`、`minimum`／`maximum`、`updatedAt` |
+| `GET /system/settings` | `system:read` | 所有設定（定義標了 `feature` 而平台沒有開放的不列，`PATCH` 也回 `SETTING_NOT_FOUND`；[`../05-tenancy.md`](../05-tenancy.md) §15.2 D2）：`key`、`category`、`type`、生效值、預設值、`isOverridden`、`isPublic`、`minimum`／`maximum`、`updatedAt` |
 | `PATCH /system/settings` | `system:update` | `{ values: { <key>: <值> \| null } }`；`null` = 還原預設；一次最多 50 個 key。回傳同 `GET` |
 | `GET /system/settings/public` | `@Public()` | `{ values: { <key>: <生效值> } }`，只有 `isPublic` 的設定。需要租戶脈絡：租戶網域，或 apps/platform 帶 `X-Tenant` |
 | `GET /system/info` | `system:read` | 版本、建置時間、環境（不受租戶 feature `systemSetting` 影響，[`architecture/05-tenancy.md`](../05-tenancy.md) §12.2 D4） |

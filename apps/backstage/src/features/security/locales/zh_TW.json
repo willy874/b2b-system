@@ -6,7 +6,6 @@
       "allowAll": "允許平台開放的所有方式",
       "allowAllHint": "之後平台開放的新方式也會自動允許。",
       "inboxAssurance": "與重設密碼同一個信箱",
-      "platformDisabled": "平台未開放",
       "required": "必須啟用",
       "requireAll": "所有人都必須啟用",
       "requiredRoles": "持有這些角色的人必須啟用",

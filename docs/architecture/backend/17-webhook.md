@@ -157,6 +157,7 @@
 | --- | --- | --- | --- |
 | GET | `/webhooks?offset=&limit=&keyword=&status=` | `webhook:read` | 列表（新的在前；`keyword` 比對名稱與任一網址）；每一筆帶 `targets`（網址、連續失敗、最後投遞），`consecutiveFailures` 是各網址的最大值 |
 | GET | `/webhooks/events` | `webhook:read` | 可訂閱的事件：可訂閱、所屬 feature 已啟用 |
+| GET | `/webhooks/url-limit` | `webhook:read` | `{ max, available }`：feature 參數 `webhook.maxUrls` 與這個訂閱（`?subscriptionId=`；新建時不帶）還能有幾個不重複的網址，規則與送出時的檢查相同；表單只在還有額度時顯示「新增網址」（[`../05-tenancy.md`](../05-tenancy.md) §15.2 D5） |
 | POST | `/webhooks` | `webhook:create` | `{ name, urls, events }` → `{ secret, webhook }`；`secret` 只出現這一次。`urls` 1～10 個、不重複；一個租戶最多 50 個訂閱、網址數受 §2.1 限制 |
 | GET | `/webhooks/:id` | `webhook:read` | |
 | PATCH | `/webhooks/:id` | `webhook:update` | `{ name?, urls?, events?, status?, version }`；`urls` 是完整清單；啟用時所有網址的失敗次數歸零、停用原因清空；停用記為 `manual` |

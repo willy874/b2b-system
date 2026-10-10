@@ -1,6 +1,9 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
+
 import type { BrowserItemVM } from '../adapter';
 
 interface FileDeleteDialogProps {
@@ -11,20 +14,39 @@ interface FileDeleteDialogProps {
   onConfirm: () => Promise<void>;
 }
 
-/** 刪除確認。刪除＝移到回收桶；包含資料夾時明講「其中的檔案與子資料夾一併移到回收桶」。 */
+const CONFIRM_KEY = {
+  batchWithFolder: 'file.batch.deleteFolder.confirm',
+  batch: 'file.batch.delete.confirm',
+  folder: 'file.folder.delete.confirm',
+  file: 'file.delete.confirm',
+} as const;
+
+/** 回收桶被平台關掉時的文字：不提「移到回收桶、可以還原」（那時沒有地方可以還原）。 */
+const CONFIRM_NO_TRASH_KEY = {
+  batchWithFolder: 'file.batch.deleteFolder.confirmNoTrash',
+  batch: 'file.batch.delete.confirmNoTrash',
+  folder: 'file.folder.delete.confirmNoTrash',
+  file: 'file.delete.confirmNoTrash',
+} as const satisfies Record<keyof typeof CONFIRM_KEY, string>;
+
+/**
+ * 刪除確認。刪除＝移到回收桶；包含資料夾時明講「其中的檔案與子資料夾一併移到回收桶」。
+ * 租戶沒有啟用 `trash` 時改用不提回收桶的文字。
+ */
 export function FileDeleteDialog({ items, loading, onCancel, onConfirm }: FileDeleteDialogProps) {
   const { t } = useTranslation();
   const count = items?.length ?? 0;
   const [only] = items ?? [];
   const hasFolder = items?.some((item) => item.type === 'folder') ?? false;
+  const keys = useIsFeatureReady(TenantFeature.trash) ? CONFIRM_KEY : CONFIRM_NO_TRASH_KEY;
   const description =
     count > 1
       ? hasFolder
-        ? t('file.batch.deleteFolder.confirm', { count })
-        : t('file.batch.delete.confirm', { count })
+        ? t(keys.batchWithFolder, { count })
+        : t(keys.batch, { count })
       : only?.type === 'folder'
-        ? t('file.folder.delete.confirm', { name: only.name })
-        : t('file.delete.confirm', { name: only?.name ?? '' });
+        ? t(keys.folder, { name: only.name })
+        : t(keys.file, { name: only?.name ?? '' });
 
   return (
     <AlertDialog

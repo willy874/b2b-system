@@ -4,6 +4,7 @@ import type { AuthUser, PermissionKey } from '@/common/types';
 import {
   AuthzRevision,
   AuthzService,
+  isPermissionAvailable,
   parseSubjectKey,
   ROLE_HOLDER_RELATION,
   SUPER_ADMIN_RELATION,
@@ -15,6 +16,7 @@ import { PermissionCacheService } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
 import { AppException } from '@/core/errors';
 import { getRequestContext } from '@/core/http';
+import { currentTenant } from '@/core/tenant';
 import type { PermissionRow } from '@/db/schema';
 import { ROLE_OBJECT_TYPE } from '@/db/schema';
 import {
@@ -45,6 +47,15 @@ function withTokenScopes(userId: string, value: PermissionSet): PermissionSet {
     if (value.isSuperAdmin || value.permissions.has(key)) permissions.add(key);
   }
   return { permissions, isSuperAdmin: false, subjects: value.subjects, tokenScoped: true };
+}
+
+/**
+ * 目前租戶看得到的權限鍵：所屬 feature 都已啟用（docs/architecture/05-tenancy.md §15.2 D1）。
+ * 只用來過濾「給人看的清單」，授權判斷不經過這裡。沒有租戶脈絡（測試、CLI）時全部可見。
+ */
+function isVisiblePermission(key: PermissionKey): boolean {
+  const tenant = currentTenant();
+  return !tenant || isPermissionAvailable(key, tenant.features);
 }
 
 /** 主體閉包裡的角色（`role:<id>#holder`）。 */
@@ -160,10 +171,15 @@ export class PermissionService {
     );
   }
 
-  /** 供 /auth/profile 使用：super-admin 展開成全集，讓前端沒有特例。 */
+  /**
+   * 供 /auth/profile 使用：super-admin 展開成全集，讓前端沒有特例。
+   * 不含平台未開放的 feature 的鍵：前端的選單、頁面權限、token 的範圍都依這份清單，關掉的功能整個不出現
+   * （docs/architecture/05-tenancy.md §15.2 D1）。
+   */
   async getEffectivePermissionKeys(userId: string): Promise<PermissionKey[]> {
     const { permissions, isSuperAdmin } = await this.getPermissionSet(userId);
-    return isSuperAdmin ? this.repo.findAllPermissionKeys() : [...permissions];
+    const keys = isSuperAdmin ? await this.repo.findAllPermissionKeys() : [...permissions];
+    return keys.filter(isVisiblePermission);
   }
 
   /**
@@ -349,29 +365,38 @@ export class PermissionService {
     explicitKeys: readonly PermissionKey[],
     isSuperAdmin: boolean,
   ): EffectivePermission[] {
+    const visible = ALL_PERMISSION_KEYS.filter(isVisiblePermission);
     if (isSuperAdmin) {
-      return ALL_PERMISSION_KEYS.map((key) => ({ key, source: 'implied', impliedBy: [] }));
+      return visible.map((key) => ({ key, source: 'implied', impliedBy: [] }));
     }
     const explicit = new Set(explicitKeys);
     const closure = permissionClosure(explicitKeys);
-    return ALL_PERMISSION_KEYS.filter((key) => closure.has(key)).map((key) => ({
-      key,
-      source: explicit.has(key) ? 'explicit' : 'implied',
-      impliedBy: implyingPermissions(key, explicitKeys),
-    }));
+    return visible
+      .filter((key) => closure.has(key))
+      .map((key) => ({
+        key,
+        source: explicit.has(key) ? 'explicit' : 'implied',
+        impliedBy: implyingPermissions(key, explicitKeys),
+      }));
   }
 
-  /** 目錄的列加上依賴樹的子能力與依賴（從程式碼供應，不存 DB）。 */
+  /**
+   * 目錄的列加上依賴樹的子能力與依賴（從程式碼供應，不存 DB）。
+   * 平台未開放的 feature 的鍵連同指向它們的依賴一起拿掉（docs/architecture/05-tenancy.md §15.2 D1）：
+   * 角色的權限是增減語意（`PATCH /roles/:id/permissions`），看不到的鍵不會因為儲存而被移除。
+   */
   withDependencies(rows: readonly PermissionRow[]): PermissionCatalogItem[] {
-    return rows.map((row) => {
-      const entry: PermissionDependency | undefined =
-        PERMISSION_DEPENDENCIES[row.key as keyof typeof PERMISSION_DEPENDENCIES];
-      return {
-        ...row,
-        includes: [...(entry?.includes ?? [])],
-        requires: [...(entry?.requires ?? [])],
-      };
-    });
+    return rows
+      .filter((row) => isVisiblePermission(row.key as PermissionKey))
+      .map((row) => {
+        const entry: PermissionDependency | undefined =
+          PERMISSION_DEPENDENCIES[row.key as keyof typeof PERMISSION_DEPENDENCIES];
+        return {
+          ...row,
+          includes: (entry?.includes ?? []).filter(isVisiblePermission),
+          requires: (entry?.requires ?? []).filter(isVisiblePermission),
+        };
+      });
   }
 
   async getCatalog(): Promise<PermissionCatalog> {

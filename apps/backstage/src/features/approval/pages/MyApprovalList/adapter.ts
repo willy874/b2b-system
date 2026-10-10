@@ -15,15 +15,19 @@ export interface MyApprovalRowVM {
   stepCount: number;
 }
 
-export function toMyApprovalRowVM(dto: ApprovalRequest): MyApprovalRowVM {
+/**
+ * `chainEnabled`：多階段已啟用（`approvalChain` 已安裝）。停用期間進行中的多關請求以單關定案，
+ * 不顯示關卡的進度（docs/architecture/backend/20-approval.md §9.11）。
+ */
+export function toMyApprovalRowVM(dto: ApprovalRequest, chainEnabled: boolean): MyApprovalRowVM {
   return {
     id: dto.id,
     type: dto.type,
     status: dto.status,
     requesterName: dto.requesterName,
     createdAt: new Date(dto.createdAt),
-    progress: dto.currentStep,
-    stepCount: dto.stepCount,
+    progress: chainEnabled ? dto.currentStep : null,
+    stepCount: chainEnabled ? dto.stepCount : 0,
   };
 }
 

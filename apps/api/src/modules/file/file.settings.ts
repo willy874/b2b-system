@@ -12,6 +12,7 @@ const MIB = 1024 * 1024;
 export const FILE_UPLOAD_MAX_SIZE_SETTING = defineSetting({
   key: 'file.uploadMaxSize',
   category: SettingCategory.FILE,
+  feature: 'file',
   schema: (env) => {
     const ceiling = env('FILE_UPLOAD_MAX_SIZE');
     // 測試會把 env 上限設得比 1 MiB 還小

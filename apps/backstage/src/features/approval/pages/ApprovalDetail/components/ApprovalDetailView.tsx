@@ -15,14 +15,16 @@ import { getApprovalDetailQueryOptions } from '@/apis/approval/get-approval-deta
 import type { ApprovalListParams } from '@/apis/approval/types';
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
+import { useIsFeatureReady } from '@/core/feature';
 import { ResourcePanels } from '@/core/resource-panel';
 
 import {
+  APPROVAL_CHAIN_FEATURE,
   APPROVAL_STATUS_LABEL_KEY,
   APPROVAL_STATUS_TONE,
   APPROVAL_TYPE_LABEL_KEY,
 } from '../../../constants';
-import { toApprovalDetailVM } from '../adapter';
+import { toApprovalDetailVM, withoutChain } from '../adapter';
 import { useApprovalReview } from '../useApprovalReview';
 import type { ApprovalReviewOutcome } from '../useApprovalReview';
 import { useApprovalReviewAccess } from '../useApprovalReviewAccess';
@@ -63,7 +65,13 @@ export function ApprovalDetailView({
   const toast = useToast();
   const detail = useQuery(getApprovalDetailQueryOptions(approvalId));
   const profile = useQuery(getAuthProfileQueryOptions());
-  const approval = useMemo(() => detail.data && toApprovalDetailVM(detail.data), [detail.data]);
+  const isChainReady = useIsFeatureReady(APPROVAL_CHAIN_FEATURE);
+  const approval = useMemo(() => {
+    if (!detail.data) return undefined;
+    const vm = toApprovalDetailVM(detail.data);
+    // 平台關掉多階段時，進行中的多關請求以單關定案：橫幅、時間軸、操作都照單關顯示（§9.11）
+    return isChainReady ? vm : withoutChain(vm);
+  }, [detail.data, isChainReady]);
   const access = useApprovalReviewAccess(approval);
   const findNext = useNextApproval(approvalId, queue);
   const onReviewed = async (outcome: ApprovalReviewOutcome) => {

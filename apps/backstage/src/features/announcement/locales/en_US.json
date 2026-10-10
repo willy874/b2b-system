@@ -93,6 +93,7 @@
     "delete": {
       "title": "Delete announcement",
       "confirm": "Delete \"{{title}}\"? A scheduled announcement stops sending. You can restore it from the trash.",
+      "confirmNoTrash": "Delete \"{{title}}\"? A scheduled announcement stops sending.",
       "success": "Announcement deleted",
       "undo": "Undo"
     },

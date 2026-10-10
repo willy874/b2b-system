@@ -126,7 +126,7 @@
       },
       "userDeleted": {
         "name": "User deleted",
-        "description": "A user is deleted (can be restored from the trash)."
+        "description": "A user is deleted."
       },
       "userRestored": {
         "name": "User restored",

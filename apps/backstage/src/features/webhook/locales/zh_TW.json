@@ -121,7 +121,7 @@
       },
       "userDeleted": {
         "name": "使用者刪除",
-        "description": "使用者被刪除（可從回收桶還原）。"
+        "description": "使用者被刪除。"
       },
       "userRestored": {
         "name": "使用者還原",

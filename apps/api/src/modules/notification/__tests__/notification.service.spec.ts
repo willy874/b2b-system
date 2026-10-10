@@ -89,6 +89,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
   let policy: {
     filterRecipients: ReturnType<typeof vi.fn>;
     isEnabled: ReturnType<typeof vi.fn>;
+    hiddenTypes: ReturnType<typeof vi.fn>;
   };
   /** 租戶關掉站內通知的類型。 */
   let disabled: Set<string>;
@@ -123,6 +124,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
         disabled.has(type) ? [] : ids.filter((id) => !optedOut.has(id)),
       ),
       isEnabled: vi.fn(async (type: string) => !disabled.has(type)),
+      hiddenTypes: vi.fn(() => []),
     };
     optedOut = new Set();
     const settings = {
@@ -425,6 +427,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
         unread: false,
         limit: 20,
         after: { createdAt: NOW.toISOString(), id: recipient(1) },
+        excludeTypes: [],
       });
     });
 
@@ -468,7 +471,7 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
           from,
           to: undefined,
         },
-        { limit: 1, after: undefined },
+        { limit: 1, after: undefined, excludeTypes: [] },
       );
       expect(page.items[0]).toMatchObject({
         id: recipient(1),
@@ -486,7 +489,18 @@ describe('NotificationService（docs/architecture/backend/15-notification.md）'
     it('unreadCount 只算自己的', async () => {
       repo.countUnread.mockResolvedValueOnce(4);
       await expect(service.unreadCount(ME)).resolves.toEqual({ count: 4 });
-      expect(repo.countUnread).toHaveBeenCalledWith(ME.id);
+      expect(repo.countUnread).toHaveBeenCalledWith(ME.id, []);
+    });
+
+    it('所屬 feature 沒有開放的類型不列、不算未讀（docs/architecture/05-tenancy.md §15.2 D6）', async () => {
+      policy.hiddenTypes.mockReturnValue(['webhook.disabled']);
+      await service.list({ limit: 20 }, ME);
+      expect(repo.list).toHaveBeenCalledWith(
+        ME.id,
+        expect.objectContaining({ excludeTypes: ['webhook.disabled'] }),
+      );
+      await service.unreadCount(ME);
+      expect(repo.countUnread).toHaveBeenCalledWith(ME.id, ['webhook.disabled']);
     });
 
     it('標為已讀之後讀回前被清理刪掉 → NOTIFICATION_NOT_FOUND，不推播', async () => {

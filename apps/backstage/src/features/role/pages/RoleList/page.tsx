@@ -12,6 +12,8 @@ import { useMemo, useState } from 'react';
 
 import { fetchRoleListQuery } from '@/apis/role/get-role-list/fetcher';
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { roleExportApi } from '../../hooks/roleTransferApi';
 import { useRoleDeleteMutation } from '../../hooks/useRoleMutations';
@@ -34,6 +36,10 @@ export default function RoleListPage() {
   const batchActions = useRoleBatchActions();
   const [pendingDelete, setPendingDelete] = useState<RoleRowVM>();
   const deleteRole = useRoleDeleteMutation();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」（那時沒有地方可以還原）
+  const confirmKeys = useIsFeatureReady(TenantFeature.trash)
+    ? ({ inUse: 'role.delete.confirmInUse', unused: 'role.delete.confirm' } as const)
+    : ({ inUse: 'role.delete.confirmInUseNoTrash', unused: 'role.delete.confirmNoTrash' } as const);
   /** 匯出對話框：開啟時的範圍（docs/architecture/backend/22-data-transfer.md §8.2）。 */
   const [exporting, setExporting] = useState<{ ids: string[]; allMatching: boolean } | null>(null);
 
@@ -185,11 +191,8 @@ export default function RoleListPage() {
         // 有人持有時先說清楚影響人數，並直接提供「仍要刪除」；不要等確認後才被 ROLE_IN_USE 擋下
         description={
           pendingDelete && pendingDelete.userCount > 0
-            ? t('role.delete.confirmInUse', {
-                name: pendingDelete.name,
-                count: pendingDelete.userCount,
-              })
-            : t('role.delete.confirm', { name: pendingDelete?.name ?? '' })
+            ? t(confirmKeys.inUse, { name: pendingDelete.name, count: pendingDelete.userCount })
+            : t(confirmKeys.unused, { name: pendingDelete?.name ?? '' })
         }
         confirmLabel={
           pendingDelete && pendingDelete.userCount > 0

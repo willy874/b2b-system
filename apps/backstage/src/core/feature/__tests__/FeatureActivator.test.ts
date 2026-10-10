@@ -6,7 +6,7 @@ import { createRoute } from '@tanstack/react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FeatureActivator } from '../FeatureActivator';
-import { featureStore, findFeatureByPath, resetFeatureStore } from '../store';
+import { featureStore, findFeaturesByPath, resetFeatureStore } from '../store';
 
 const pages = createRegistry<string, string>('Page');
 const FileRoute = createRoute({ getParentRoute: () => RootRoute, path: '/file' });
@@ -195,15 +195,25 @@ describe('FeatureActivator 的 feature flag（docs/architecture/05-tenancy.md §
   });
 });
 
-describe('findFeatureByPath', () => {
-  const basePaths = new Map([['file', ['/file']]]);
+describe('findFeaturesByPath', () => {
+  const basePaths = new Map([
+    ['file', ['/file']],
+    ['group', ['/group']],
+    ['dataTransfer', ['/data-transfer', '/group/import']],
+  ]);
 
   it.each([
-    ['/file', 'file'],
-    ['/file/abc', 'file'],
-    ['/files', undefined],
-    ['/user', undefined],
-  ])('%s → %s', (pathname, expected) => {
-    expect(findFeatureByPath(pathname, basePaths)).toBe(expected);
+    ['/file', ['file']],
+    ['/file/abc', ['file']],
+    ['/files', []],
+    ['/user', []],
+    ['/group/abc', ['group']],
+    ['/group/import-members', ['group']],
+  ])('%s → %j', (pathname, expected) => {
+    expect(findFeaturesByPath(pathname, basePaths)).toEqual(expected);
+  });
+
+  it('同時屬於兩個 feature 的頁面兩個都列出，base path 較長（較具體）的在前', () => {
+    expect(findFeaturesByPath('/group/import', basePaths)).toEqual(['dataTransfer', 'group']);
   });
 });

@@ -1,6 +1,6 @@
 # 租戶（每個租戶一個 database 與網域）
 
-決定與理由見 §10（D1–D26 與「實作時改掉的做法」）；feature flag、可關閉的 feature、feature 參數、租戶用量的決定見 §11～§14。
+決定與理由見 §10（D1–D26 與「實作時改掉的做法」）；feature flag、可關閉的 feature、feature 參數、租戶用量、未開放的 feature 一律隱藏的決定見 §11～§15。
 這份文件描述做出來的樣子：請求怎麼找到租戶、連線與脈絡、migration、租戶的生命週期與用量、周邊元件怎麼分租戶、部署與腳本。
 身分（租戶的使用者與平台管理者）與 OIDC 的部分見 [`04-sso.md`](./04-sso.md) §1.1。
 
@@ -787,3 +787,42 @@ backstage 不該看見租戶的切分（沒有成員、沒有 `/w/:slug`、沒�
 | 從 pg-boss 的工作表數背景工作 | 保留期限短，彙總時已經被清掉 |
 | 通知類型 `tenant.quotaNearLimit`，參數帶哪一種配額（提案的初稿） | 目前只有儲存一種配額；通用的句子要再翻譯配額名稱。有第二種配額時再加類型 |
 
+
+## 15. 設計決策：平台未開放的 feature 一律隱藏
+
+> 2026-10-10 決定。延伸 §12（平台可關閉的 feature）與 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9。
+
+### 15.1 背景
+
+§12 與 [`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9 讓關閉的 feature 的頁面、選單與登記一起消失，
+但盤點後仍有地方露出平台沒有開放的功能：清單由後端提供而沒有依 feature 過濾（權限目錄、系統設定、通知、審批類型），
+前端寫死的清單（篩選選項），以及灰掉並註明「未啟用」「平台未開放」的選項（審批流程的審核者種類、MFA 政策的驗證方式）。
+
+產品規則（2026-10-10 確認）：**平台沒有開放的功能，租戶的畫面上一律看不到**——不灰掉、不註明「未啟用」、不留會在操作時才報錯的入口。
+
+### 15.2 決定
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| D1 | **權限鍵屬於 feature**：`core/authz/permission-features.ts` 的 `permissionFeaturesOf(key)`——資源對應一個 feature（`file`、`job`、`auditLog`、`identityProvider`、`group`、`serviceAccount` → `externalApi`、`webhook`、`announcement`、`orgUnit` → `organization`、`approvalFlow` → `approvalChain`、`gallery`），`approval:override` 屬於 `approvalChain`，每個 `*:export` 另外屬於 `dataTransfer`；全部啟用才算存在。`GET /permissions`（含依賴樹裡指向它們的 `includes`／`requires`）、`GET /roles/:id/permissions`、`/auth/profile` 與 `GET /users/:id/permissions` 的 `permissions`、`GET /users/:id/permission-sources` 都不列不存在的鍵。**授權判斷不變**：關閉的 feature 的端點本來就由 `FeatureGuard` 回 404 | 權限是使用者看到最多 feature 痕跡的地方（角色編輯器、權限目錄、API token 的範圍、權限來源）；從 profile 拿掉之後，前端寫死的頁面權限（系統設定入口的 `approvalFlow:read`、回收桶入口的 `file:delete` 等）也自動跟上。角色的權限是增減語意（`PATCH /roles/:id/permissions`），看不到的鍵不會因為儲存而被移除，重新開放後原樣恢復 |
+| D2 | **系統設定屬於 feature**：`SettingDefinition.feature`；`GET /system/settings` 不列、`PATCH` 回 `SETTING_NOT_FOUND`。目前：`file.uploadMaxSize`（`file`）、`trash.retentionDays`（`trash`）、`gallery.stripOriginalLocation`（`gallery`）、`dataTransfer.retentionDays`（`dataTransfer`）、`announcement.*`（`announcement`）、`auth.personalTokenMaxDays`／`auth.serviceAccountTokenMaxDays`（`externalApi`）。前端的分類沒有設定時本來就不顯示 | 已覆寫的值照樣生效（§12.2 D4），只是不能看也不能改 |
+| D3 | **審批類型屬於 feature**：`ApprovalHandler.feature`（資料夾存取申請屬於 `file`）。所屬 feature 沒有開放時，這類請求不出現在列表、待審數、匯出與流程設定，詳情與審核回 `APPROVAL_NOT_FOUND`。前端的類型篩選同樣不列 | 原本關掉 `file` 之後，審核者仍能核准資料夾存取申請，而且核准會真的寫入資料夾授權。請求保留，重新開放後原樣出現 |
+| D4 | **角色的持有者只算人**：`userCount` 不含服務帳號；持有者列表只在 `externalApi` 開放時列出服務帳號（`RoleHolder.kind`），前端連到服務帳號頁 | 服務帳號以同樣的邊持有角色；原本關掉 `externalApi` 後仍出現在角色詳情，而且連到使用者詳情（找不到） |
+| D5 | **Webhook 的網址額度先告訴表單**：`GET /webhooks/url-limit?subscriptionId=` 回 `{ max, available }`（`webhook.maxUrls` 扣掉其他訂閱已用的，與送出時的檢查同一條規則）；表單的「新增網址」只在還有額度時出現 | 原本前端只看每個訂閱 10 個的常數，預設額度 1 的租戶加了第二個網址才在送出時收到 409 |
+| D6 | **通知類型屬於 feature**（`defineNotification` 的 `feature`，原本只用於事件管理）：通知中心、未讀數與通知總覽不列；前端通知總覽的類型篩選同樣不列 | 原本關掉之後舊的通知還在，只是點不進去 |
+| D7 | **前端寫死的清單依 `useIsFeatureReady` 過濾**：稽核紀錄的資源篩選、審批的類型篩選、通知總覽的類型篩選；審批流程的審核者種類（群組、主管、部門）不能用時不列（已儲存的規則保留它自己的選項，提示不提「未啟用」）；MFA 政策頁不列平台沒有開放的驗證方式（[`backend/21-mfa.md`](backend/21-mfa.md) §6）；資料夾授權不列群組的授權（`group` 關閉時本來就暫停）；`approvalChain` 關閉時審批詳情不顯示關卡的進度與「卡住了」 | 同一條規則；後端已經不提供或不生效的東西，畫面上也不出現 |
+| D8 | **回收桶沒有開放時，刪除的確認與提示不提回收桶與還原** | §12.2 D3 只拿掉「復原」按鈕，文案仍說「可以從回收桶還原」 |
+| D9 | **匯入頁登記在 `dataTransfer` 的 catalog**：`FEATURE_CATALOG` 的 routes 列出所有 `requireFeature('dataTransfer')` 的匯入頁（使用者、角色、標籤、群組、組織） | 使用中被關閉時才會導回首頁（[`frontend/02-plugin-system.md`](frontend/02-plugin-system.md) §9.2 D9）；原本只列了使用者的匯入頁 |
+
+### 15.3 不做
+
+- **使用者自己已註冊的 MFA 方式**：平台關掉某個方式後，帳號安全頁仍列出已註冊的因子並標「目前無法使用」——那是使用者自己的資料，留著才能移除。
+- **Webhook 已訂閱的事件**：所屬 feature 關閉時照樣列在訂閱上（存的是名稱，重新開放後就會送，[`backend/17-webhook.md`](backend/17-webhook.md)）。
+- **稽核紀錄與審批的歷史內容**：稽核的每一筆紀錄照樣顯示（只是篩選選項不列）。
+
+### 15.4 代價
+
+| 代價 | 緩解 |
+| --- | --- |
+| 新增權限鍵、設定、審批類型、通知類型時要決定它屬於哪個 feature | 權限鍵依資源自動對應，只有例外要寫；其餘在定義上多一個選填欄位，與 `defineWebhookEvent`、`TrashHandler` 的 `feature` 同一個做法 |
+| 通知列表多一個 `type NOT IN (…)` 條件 | 只在有 feature 關閉時才加；索引的前綴（收件人、時間）不變 |

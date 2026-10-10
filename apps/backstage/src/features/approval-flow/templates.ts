@@ -72,7 +72,7 @@ export const FLOW_TEMPLATES: readonly FlowTemplate[] = [
 ];
 
 /**
- * 這個類型現在能用的範本：匿名的申請（註冊）沒有申請人，不能找主管；規則的種類不能用（組織管理、群組未啟用）時也不列。
+ * 這個類型現在能用的範本：匿名的申請（註冊）沒有申請人，不能找主管；用到不能用的規則種類（組織管理、群組沒有啟用）時也不列。
  */
 export function availableTemplates(
   isAnonymous: boolean,
@@ -81,7 +81,7 @@ export function availableTemplates(
   return FLOW_TEMPLATES.filter((template) =>
     template.steps.every(
       ({ assignee }) =>
-        availability[assignee.kind] === undefined && !(isAnonymous && assignee.kind === 'manager'),
+        availability[assignee.kind] && !(isAnonymous && assignee.kind === 'manager'),
     ),
   );
 }

@@ -23,6 +23,8 @@ import type {
   WebhookDeliveryDto,
   WebhookDto,
   WebhookEventListDto,
+  GetWebhookUrlLimitDto,
+  WebhookUrlLimitDto,
   WebhookSecretDto,
   WebhookTestResultDto,
 } from './dto/webhook.dto';
@@ -171,6 +173,20 @@ export class WebhookService {
         .subscribable(features)
         .map((event) => ({ type: event.type, version: event.version })),
     };
+  }
+
+  /**
+   * 這個訂閱還能有幾個不重複的網址（docs/architecture/05-tenancy.md §15.2 D5）：與 `assertUrlLimit` 同一條規則——
+   * 上限扣掉其他訂閱已用的；升版前已經超過上限的租戶，不少於這個訂閱現在獨有的數量。
+   */
+  async urlLimit({ subscriptionId }: GetWebhookUrlLimitDto): Promise<WebhookUrlLimitDto> {
+    const max = tenantFeatureParam(WEBHOOK_MAX_URLS_PARAM);
+    const [all, others] = await Promise.all([
+      this.repo.distinctUrls(this.db),
+      subscriptionId ? this.repo.distinctUrls(this.db, subscriptionId) : undefined,
+    ]);
+    const used = (others ?? all).length;
+    return { max, available: Math.max(max, all.length) - used };
   }
 
   async create(dto: CreateWebhookDto, actor: AuthUser): Promise<CreatedWebhookDto> {

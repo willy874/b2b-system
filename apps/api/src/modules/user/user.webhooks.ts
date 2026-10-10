@@ -24,9 +24,10 @@ export const USER_DELETED_WEBHOOK = defineWebhookEvent<{ userId: string }>('user
   version: 1,
 });
 
-/** 從回收桶還原：狀態維持刪除前的值。 */
+/** 從回收桶還原：狀態維持刪除前的值。回收桶沒有開放時不會發生，可訂閱的清單也不列。 */
 export const USER_RESTORED_WEBHOOK = defineWebhookEvent<{ userId: string }>('user.restored', {
   version: 1,
+  feature: 'trash',
 });
 
 export const USER_WEBHOOK_EVENTS: readonly AnyWebhookEventType[] = [

@@ -18,6 +18,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGalleryItemQueryOptions } from '@/apis/gallery/get-gallery-item/query';
 import { getGalleryNeighborsQueryOptions } from '@/apis/gallery/get-gallery-neighbors/query';
 import type { GalleryItemFilters } from '@/apis/gallery/types';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { GalleryItem, GalleryItemDetail } from '@/shared/api-sdk';
 
 import { GALLERY_PRELOAD_NEIGHBORS, GALLERY_SLIDESHOW_INTERVALS } from '../../../constants';
@@ -106,6 +108,8 @@ export function GalleryViewer({
   onSetCover,
 }: GalleryViewerProps) {
   const { t } = useTranslation();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   const root = useRef<HTMLDivElement>(null);
   const viewer = useRef<ImageViewerController>(null);
   const filmstrip = useRef<HTMLDivElement>(null);
@@ -535,7 +539,9 @@ export function GalleryViewer({
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={t('gallery.delete.title', { count: 1 })}
-        description={t('gallery.delete.description')}
+        description={
+          hasTrash ? t('gallery.delete.description') : t('gallery.delete.descriptionNoTrash')
+        }
         confirmLabel={t('common.delete')}
         cancelLabel={t('common.cancel')}
         tone="danger"

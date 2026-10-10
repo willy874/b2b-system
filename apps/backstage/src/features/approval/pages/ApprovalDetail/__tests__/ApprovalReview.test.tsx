@@ -53,6 +53,7 @@ const PENDING: ApprovalDetailVM = {
   registration: { email: 'alice@example.com', displayName: 'Alice' },
   steps: [],
   currentStep: null,
+  singleReviewDecisions: [],
   viewer: { canDecide: false, canOverride: false, canReviewSingle: true, canWithdraw: false },
   requesterId: null,
   resubmittedFrom: null,

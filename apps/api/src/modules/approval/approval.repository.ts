@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, ilike, inArray, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, like, notInArray, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 
 import type { Database, DbOrTx } from '@/core/database';
@@ -22,9 +22,16 @@ const SORT_COLUMNS = {
 } as const;
 
 /** 匯出的範圍（docs/architecture/backend/22-data-transfer.md §12.5）：勾選的 id，或列表的篩選條件（不含 `scope`：匯出要 `approval:export`，看得到全部）。 */
-export type ApprovalExportScope =
+/** 列表、待審數、匯出共用：排除的類型（所屬 feature 沒有開放，由 service 決定）。 */
+interface ExcludedTypes {
+  excludeTypes?: readonly string[];
+}
+
+export type ApprovalExportScope = (
   | { ids: readonly string[] }
-  | { filter: Pick<ListApprovalDto, 'keyword' | 'status' | 'type'> };
+  | { filter: Pick<ListApprovalDto, 'keyword' | 'status' | 'type'> }
+) &
+  ExcludedTypes;
 
 export interface ApprovalExportCursor {
   createdAt: Date;
@@ -58,7 +65,8 @@ export interface ApprovalDecisionCursor {
 }
 
 /** 列表與待審數共用的條件。 */
-export type ApprovalCountFilter = Pick<ListApprovalDto, 'scope' | 'keyword' | 'status' | 'type'>;
+export type ApprovalCountFilter = Pick<ListApprovalDto, 'scope' | 'keyword' | 'status' | 'type'> &
+  ExcludedTypes;
 
 /** 審核結果；只會套用在仍為 `pending` 的列上。 */
 export type ApprovalReview = Pick<
@@ -141,7 +149,7 @@ export class ApprovalRepository {
    * 為目前關卡的候選人、還沒在這一關做決定的待審請求。
    */
   async list(
-    query: ListApprovalDto,
+    query: ListApprovalDto & ExcludedTypes,
     actorId: string,
   ): Promise<{ items: ApprovalRequestRow[]; total: number }> {
     const where = this.listWhere(query, actorId);
@@ -207,6 +215,9 @@ export class ApprovalRepository {
     }
     if (filter.status?.length) conditions.push(inArray(approvalRequests.status, filter.status));
     if (filter.type?.length) conditions.push(inArray(approvalRequests.type, filter.type));
+    if (filter.excludeTypes?.length) {
+      conditions.push(notInArray(approvalRequests.type, [...filter.excludeTypes]));
+    }
     return conditions.length ? and(...conditions) : undefined;
   }
 
@@ -307,8 +318,11 @@ export class ApprovalRepository {
   }
 
   private exportWhere(scope: ApprovalExportScope): SQL | undefined {
-    if ('ids' in scope) return inArray(approvalRequests.id, [...scope.ids]);
     const conditions: SQL[] = [];
+    if (scope.excludeTypes?.length) {
+      conditions.push(notInArray(approvalRequests.type, [...scope.excludeTypes]));
+    }
+    if ('ids' in scope) return and(inArray(approvalRequests.id, [...scope.ids]), ...conditions);
     const { keyword, status, type } = scope.filter;
     if (keyword) conditions.push(ilike(approvalRequests.requesterName, containsPattern(keyword)));
     if (status?.length) conditions.push(inArray(approvalRequests.status, status));

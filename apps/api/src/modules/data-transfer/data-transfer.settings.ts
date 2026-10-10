@@ -8,6 +8,7 @@ import { defineSetting, SettingCategory } from '@/core/settings';
 export const DATA_TRANSFER_RETENTION_DAYS_SETTING = defineSetting({
   key: 'dataTransfer.retentionDays',
   category: SettingCategory.DATA_TRANSFER,
+  feature: 'dataTransfer',
   schema: z.number().int().min(1).max(30),
   defaultValue: 7,
   isPublic: false,

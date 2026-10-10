@@ -63,6 +63,11 @@ export interface ApprovalDetailVM {
   steps: ApprovalStepVM[];
   /** 目前的關卡；單關、已結束、或關卡全部略過時為 null。 */
   currentStep: ApprovalStepVM | null;
+  /**
+   * 以單關審核定案、但已經有人做過決定（停用多階段期間的多關請求：目前那一關已做的決定，`withoutChain`）。
+   * 其他情況是空陣列。
+   */
+  singleReviewDecisions: ApprovalStepVM['decisions'];
   /** 目前的登入者能做什麼（後端依可見性、候選人、權限算好）。 */
   viewer: ApprovalViewer;
   /** 這一筆是重新送出的：前一筆的 id。 */
@@ -91,6 +96,48 @@ function toStepVM(step: ApprovalStep): ApprovalStepVM {
       comment: decision.comment,
       decidedAt: new Date(decision.decidedAt),
     })),
+  };
+}
+
+/** 停用期間以單關端點定案（`legacy`）在畫面上就是一般的決定。 */
+function plainDecision(
+  decision: ApprovalStepVM['decisions'][number],
+): ApprovalStepVM['decisions'][number] {
+  return decision.via === 'legacy' ? { ...decision, via: 'assignee' } : decision;
+}
+
+/** 已經結束、有人做過決定的關卡：停用期間被一次定案而取消的那一關，依它的決定顯示成通過或駁回。 */
+function asDecidedStep(step: ApprovalStepVM): ApprovalStepVM {
+  const decisions = step.decisions.map(plainDecision);
+  if (step.closeReason !== 'chainDisabled') return { ...step, shortage: null, decisions };
+  return {
+    ...step,
+    status: decisions.some((decision) => decision.decision === 'reject') ? 'rejected' : 'approved',
+    closeReason: null,
+    required: null,
+    shortage: null,
+    decisions,
+  };
+}
+
+/**
+ * 平台沒有啟用多階段審批時的樣子（docs/architecture/backend/20-approval.md §9.11）：進行中的多關請求改由
+ * `approval:review` 一次定案，畫面上就是一筆單關的申請——不顯示目前與之後的關卡、候選人、審核者不足；
+ * 已經做出的決定照樣列出（那是誰同意過的紀錄）。沒有啟用的 feature 在畫面上不被提起
+ * （docs/architecture/frontend/02-plugin-system.md §7），停用期間定案的標記（`legacy`、`chainDisabled`）也不顯示。
+ * 關卡的決定與強制定案這時由後端拒絕，`viewer` 一併收起，不必等詳情重新載入。
+ */
+export function withoutChain(approval: ApprovalDetailVM): ApprovalDetailVM {
+  if (approval.steps.length === 0) return approval;
+  const current = approval.isPending ? approval.currentStep : null;
+  return {
+    ...approval,
+    steps: approval.steps
+      .filter((step) => step !== current && step.decisions.length > 0)
+      .map(asDecidedStep),
+    currentStep: null,
+    singleReviewDecisions: current ? current.decisions.map(plainDecision) : [],
+    viewer: { ...approval.viewer, canDecide: false, canOverride: false },
   };
 }
 
@@ -129,6 +176,7 @@ export function toApprovalDetailVM(dto: ApprovalRequestDetail): ApprovalDetailVM
         : null,
     steps,
     currentStep: steps.find((step) => step.status === 'active') ?? null,
+    singleReviewDecisions: [],
     viewer: dto.viewer,
     resubmittedFrom: dto.resubmittedFrom,
     resubmittedTo: dto.resubmittedTo,

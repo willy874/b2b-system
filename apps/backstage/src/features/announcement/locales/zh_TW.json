@@ -88,6 +88,7 @@
     "delete": {
       "title": "刪除公告",
       "confirm": "刪除「{{title}}」？排程中的公告會停止發送；可以從回收桶還原。",
+      "confirmNoTrash": "刪除「{{title}}」？排程中的公告會停止發送。",
       "success": "已刪除公告",
       "undo": "復原"
     },

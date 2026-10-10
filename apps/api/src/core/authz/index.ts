@@ -6,3 +6,4 @@ export * from './authz.types';
 export * from './authz.module';
 export * from './authz.snapshot';
 export * from './authz.service';
+export * from './permission-features';

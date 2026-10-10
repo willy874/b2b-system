@@ -14,6 +14,8 @@ import { useId, useState } from 'react';
 
 import { getAnnouncementDetailQueryOptions } from '@/apis/announcement/get-announcement-detail/query';
 import { VersionConflictAlert } from '@/core/components';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { Announcement } from '@/shared/api-sdk';
 
 import { AnnouncementForm } from '../../../components/AnnouncementForm';
@@ -57,6 +59,8 @@ export function AnnouncementSettingsSection({
   const { t, language } = useTranslation();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
+  // 回收桶被平台關掉時，確認文字不提「可以從回收桶還原」
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   const showError = useErrorToast();
   const toMessage = useErrorMessage();
   const formId = useId();
@@ -140,7 +144,9 @@ export function AnnouncementSettingsSection({
   const confirmDelete = () =>
     void confirm({
       title: t('announcement.delete.title'),
-      description: t('announcement.delete.confirm', { title: announcement.title }),
+      description: hasTrash
+        ? t('announcement.delete.confirm', { title: announcement.title })
+        : t('announcement.delete.confirmNoTrash', { title: announcement.title }),
       confirmLabel: t('common.delete'),
       tone: 'danger',
       onConfirm: async () => {

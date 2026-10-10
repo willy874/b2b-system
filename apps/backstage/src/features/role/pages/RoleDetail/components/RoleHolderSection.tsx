@@ -25,15 +25,33 @@ export function RoleHolderSection({ holders, groups }: RoleHolderSectionProps) {
           <ul className="mt-1 flex list-none flex-col gap-1 p-0 text-sm">
             {holders.length ? (
               holders.map((holder) => (
-                <li key={holder.id}>
-                  <RouteLink
-                    to="user.detail"
-                    params={{ userId: holder.id }}
-                    className="text-[var(--color-brand)]"
-                  >
-                    {holder.displayName}
-                  </RouteLink>
-                  <span className="ml-2 text-[var(--color-fg-muted)]">{holder.email}</span>
+                <li key={holder.id} data-testid="role-holder-user" data-value={holder.id}>
+                  {holder.kind === 'service' ? (
+                    // 服務帳號：只在對外 API 開放時由 api 列出（docs/architecture/05-tenancy.md §15.2 D4），連到服務帳號頁
+                    <>
+                      <RouteLink
+                        to="serviceAccount.detail"
+                        params={{ serviceAccountId: holder.id }}
+                        className="text-[var(--color-brand)]"
+                      >
+                        {holder.displayName}
+                      </RouteLink>
+                      <span className="ml-2 text-[var(--color-fg-muted)]">
+                        {t('role.detail.serviceAccountHolder')}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <RouteLink
+                        to="user.detail"
+                        params={{ userId: holder.id }}
+                        className="text-[var(--color-brand)]"
+                      >
+                        {holder.displayName}
+                      </RouteLink>
+                      <span className="ml-2 text-[var(--color-fg-muted)]">{holder.email}</span>
+                    </>
+                  )}
                 </li>
               ))
             ) : (

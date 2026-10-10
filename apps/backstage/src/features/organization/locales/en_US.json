@@ -39,6 +39,7 @@
     "delete": {
       "title": "Delete department",
       "confirm": "Delete \"{{name}}\"? A department with sub-departments cannot be deleted. Memberships go to the trash with it and come back when it is restored.",
+      "confirmNoTrash": "Delete \"{{name}}\"? A department with sub-departments cannot be deleted. Memberships are deleted with it.",
       "success": "Department deleted",
       "undo": "Undo"
     },
@@ -105,8 +106,12 @@
       "deleteTitle": "Delete units?",
       "deleteConfirm_one": "{{count}} unit will be deleted when you save. Its memberships go to the trash with it.",
       "deleteConfirm_other": "{{count}} units will be deleted when you save. Their memberships go to the trash with them.",
+      "deleteConfirmNoTrash_one": "{{count}} unit will be deleted when you save. Its memberships are deleted with it.",
+      "deleteConfirmNoTrash_other": "{{count}} units will be deleted when you save. Their memberships are deleted with them.",
       "deleteConfirmWithChildren_one": "{{count}} unit will be deleted when you save. Its memberships go to the trash with it, and its remaining child units become top-level.",
       "deleteConfirmWithChildren_other": "{{count}} units will be deleted when you save. Their memberships go to the trash with them, and their remaining child units become top-level.",
+      "deleteConfirmWithChildrenNoTrash_one": "{{count}} unit will be deleted when you save. Its memberships are deleted with it, and its remaining child units become top-level.",
+      "deleteConfirmWithChildrenNoTrash_other": "{{count}} units will be deleted when you save. Their memberships are deleted with them, and their remaining child units become top-level.",
       "deleteForbidden": "You don't have permission to delete units",
       "orphanForbidden": "Deleting this would move its child units, and you don't have permission to edit units",
       "saveFailed": "Failed to {{step}} \"{{name}}\". The previous {{completed}} changes took effect; the chart now shows the current organization. Reason: {{reason}}",

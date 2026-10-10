@@ -127,8 +127,20 @@ describe('我的審批的列表', () => {
     );
   });
 
-  it('顯示類型、申請人與狀態；雙擊打開詳情', async () => {
+  it('多階段未啟用：進行中的多關請求不顯示關卡的進度（docs/architecture/backend/20-approval.md §9.11）', async () => {
     setChainEnabled(false);
+    fetchList.mockResolvedValue({
+      items: [APPROVAL],
+      pagination: { offset: 0, limit: 20, total: 1 },
+    });
+    renderRoute(routes, '/my-approvals', []);
+    await screen.findByTestId('my-approval-detail-link', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('approval-progress-waiting')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('approval-progress')).not.toBeInTheDocument();
+  });
+
+  it('顯示類型、申請人與狀態；雙擊打開詳情', async () => {
+    setChainEnabled(true);
     fetchList.mockResolvedValue({
       items: [APPROVAL],
       pagination: { offset: 0, limit: 20, total: 1 },

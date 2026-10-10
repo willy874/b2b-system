@@ -59,6 +59,7 @@ web-core 不呼叫 app 的 API（[`17-shared-packages.md`](./17-shared-packages.
 - **個人資料頁**（兩個 app）：「多重驗證」區塊（`MfaSecuritySection`）。backstage 選了安全金鑰時以 `redirectToSso('/profile', 租戶代碼, { prompt: 'login', mfa_enroll })` 頂層跳轉到帳號中心，完成後回到個人資料頁；
   apps/platform 的平台管理者直接設定。
 - **backstage `/system/security`**：常駐的 feature `security`（不是可關閉的 feature），是系統設定的「安全性」分頁（[`02-plugin-system.md`](./02-plugin-system.md) §4.5）。`mfaPolicy:read` 進頁、`mfaPolicy:update` 才能改；
+  只列平台開放的方式（`platformEnabled: false` 的不顯示，[`02-plugin-system.md`](./02-plugin-system.md) §9：平台沒開放的功能不出現在畫面上）。
   儲存前 `POST /mfa/policy/preview`，會有人被要求設定或被擋在門外時先確認。「不符合政策的人數」連到使用者列表的 `?mfa=false`（route id `user.listByMfa`）。
 - **backstage 使用者**：列表的「MFA」欄與篩選、詳情的驗證方式與「重設 MFA」（`user:resetMfa`，不能重設自己）。
 - **apps/platform `/mfa-method`**：全平台開關（`mfaMethod:read` 進頁、`mfaMethod:update` 才能切換）；租戶詳情的 `?tab=mfa` 是租戶層開關（`tenant:update`）。

@@ -2,9 +2,15 @@ import { Injectable } from '@nestjs/common';
 
 import { PERMISSION } from '@/common/types';
 import type { AuthUser, PermissionKey } from '@/common/types';
-import { AuthzService, parseSubjectKey, SUPER_ADMIN_RELATION } from '@/core/authz';
+import {
+  AuthzService,
+  isPermissionAvailable,
+  parseSubjectKey,
+  SUPER_ADMIN_RELATION,
+} from '@/core/authz';
 import type { SubjectKey } from '@/core/authz';
 import { AppException } from '@/core/errors';
+import { requireTenant } from '@/core/tenant';
 import {
   ALL_PERMISSION_KEYS,
   PERMISSION_DEPENDENCIES,
@@ -87,9 +93,12 @@ export class AuthzExplainService {
     });
     const held = permissionClosure(granted.map((source) => source.relation as PermissionKey));
     const dependencies: PermissionDependencyMap = PERMISSION_DEPENDENCIES;
+    // 平台未開放的 feature 的鍵不列（docs/architecture/05-tenancy.md §15.2 D1）
+    const { features } = requireTenant();
+    const visible = (key: PermissionKey) => isPermissionAvailable(key, features);
     const heldOnly = (keys: readonly PermissionKey[] | undefined) =>
-      (keys ?? []).filter((key) => held.has(key));
-    const items = ALL_PERMISSION_KEYS.flatMap((key) => {
+      (keys ?? []).filter((key) => held.has(key) && visible(key));
+    const items = ALL_PERMISSION_KEYS.filter(visible).flatMap((key) => {
       const from = granted.filter((source) =>
         permissionClosure([source.relation as PermissionKey]).has(key),
       );

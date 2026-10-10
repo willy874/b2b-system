@@ -12,6 +12,7 @@ import type {
   TransferEnumOption,
 } from '@/modules/data-transfer/data-transfer.types';
 
+import { ApprovalHandlerRegistry } from './approval-handler.registry';
 import { APPROVAL_STATUSES, ApprovalType } from './approval.constants';
 import type {
   ApprovalDecisionCursor,
@@ -68,8 +69,14 @@ const VIA_OPTIONS: TransferEnumOption[] = [
   { value: 'single', label: { 'zh-TW': '單關審核', 'en-US': 'Single review' } },
 ];
 
-function toScope(scope: ExportScope<ApprovalExportFilter>): ApprovalExportScope {
-  return scope.kind === 'ids' ? { ids: scope.ids } : { filter: scope.filter };
+/** 所屬 feature 沒有開放的類型不匯出（docs/architecture/05-tenancy.md §15.2 D3）。 */
+function toScope(
+  scope: ExportScope<ApprovalExportFilter>,
+  excludeTypes: readonly string[],
+): ApprovalExportScope {
+  return scope.kind === 'ids'
+    ? { ids: scope.ids, excludeTypes }
+    : { filter: scope.filter, excludeTypes };
 }
 
 /**
@@ -83,7 +90,12 @@ export class ApprovalTransferResource implements OnModuleInit {
   constructor(
     private readonly registry: DataTransferRegistry,
     private readonly repo: ApprovalRepository,
+    private readonly handlers: ApprovalHandlerRegistry,
   ) {}
+
+  private scopeOf(scope: ExportScope<ApprovalExportFilter>): ApprovalExportScope {
+    return toScope(scope, this.handlers.hiddenTypes());
+  }
 
   onModuleInit(): void {
     this.registry.register(
@@ -179,7 +191,7 @@ export class ApprovalTransferResource implements OnModuleInit {
           idSchema: UUID,
           orderHint: { 'zh-TW': '依送出時間排序', 'en-US': 'Sorted by submission time' },
           iterate: (scope) => this.iterateRequests(scope),
-          count: (scope) => this.repo.exportCount(toScope(scope)),
+          count: (scope) => this.repo.exportCount(this.scopeOf(scope)),
         },
       }),
     );
@@ -261,7 +273,7 @@ export class ApprovalTransferResource implements OnModuleInit {
           idSchema: UUID,
           orderHint: { 'zh-TW': '依決定時間排序', 'en-US': 'Sorted by decision time' },
           iterate: (scope) => this.iterateDecisions(scope),
-          count: (scope) => this.repo.exportDecisionCount(toScope(scope)),
+          count: (scope) => this.repo.exportDecisionCount(this.scopeOf(scope)),
         },
       }),
     );
@@ -273,7 +285,7 @@ export class ApprovalTransferResource implements OnModuleInit {
     let after: ApprovalExportCursor | null = null;
     for (;;) {
       const page = await this.repo.exportPage(
-        toScope(scope),
+        this.scopeOf(scope),
         after,
         DATA_TRANSFER_EXPORT_PAGE_SIZE,
       );
@@ -290,7 +302,7 @@ export class ApprovalTransferResource implements OnModuleInit {
     let after: ApprovalDecisionCursor | null = null;
     for (;;) {
       const page = await this.repo.exportDecisions(
-        toScope(scope),
+        this.scopeOf(scope),
         after,
         DATA_TRANSFER_EXPORT_PAGE_SIZE,
       );

@@ -3,22 +3,25 @@ import { Icon } from '@b2b-system/ui/Icon';
 import { Input } from '@b2b-system/ui/Input';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
-import { WEBHOOK_MAX_URLS_PER_SUBSCRIPTION, WEBHOOK_URL_MAX_LENGTH } from '../constants';
+import { WEBHOOK_URL_MAX_LENGTH } from '../constants';
 
 interface WebhookUrlsInputProps {
   /** 每一列一個網址；至少一列（可以是空字串，送出前由呼叫端去掉空白列）。 */
   value: string[];
   onValueChange: (value: string[]) => void;
+  /** 最多幾列（`useWebhookUrlCapacity`）；undefined = 還不知道，不顯示「新增網址」。 */
+  maxUrls: number | undefined;
   'data-testid'?: string;
 }
 
 /**
- * 目標網址的清單（docs/architecture/backend/17-webhook.md §10.2 D13）：一個訂閱 1～10 個，
- * 同一組事件與密鑰送到每個網址。只剩一列時不能移除。
+ * 目標網址的清單（docs/architecture/backend/17-webhook.md §10.2 D13）：一個訂閱 1～10 個、不超過平台給租戶的額度，
+ * 同一組事件與密鑰送到每個網址。只剩一列時不能移除；額度用完時沒有「新增網址」。
  */
 export function WebhookUrlsInput({
   value,
   onValueChange,
+  maxUrls,
   'data-testid': testId,
 }: WebhookUrlsInputProps) {
   const { t } = useTranslation();
@@ -56,7 +59,7 @@ export function WebhookUrlsInput({
           )}
         </div>
       ))}
-      {value.length < WEBHOOK_MAX_URLS_PER_SUBSCRIPTION && (
+      {maxUrls !== undefined && value.length < maxUrls && (
         <div>
           <Button
             size="sm"

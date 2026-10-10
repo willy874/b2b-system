@@ -5,6 +5,8 @@ import type { PermissionSet } from '@/core/cache';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import type { JobQueue } from '@/core/jobs';
+import { runInTenantContext } from '@/core/tenant';
+import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { ApprovalRequestRow } from '@/db/schema';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 import type { NotificationService } from '@/modules/notification/notification.service';
@@ -487,6 +489,23 @@ describe('ApprovalHandlerRegistry', () => {
   it('沒有 handler 的類型 → 拋錯', () => {
     expect(() => new ApprovalHandlerRegistry().get('unknown.type')).toThrow(/沒有註冊 handler/);
   });
+
+  it('hiddenTypes：所屬 feature 沒有開放的類型（docs/architecture/05-tenancy.md §15.2 D3）', () => {
+    const registry = new ApprovalHandlerRegistry();
+    registry.register({ type: ApprovalType.USER_REGISTER } as ApprovalHandler);
+    registry.register({
+      type: ApprovalType.FILE_FOLDER_ACCESS,
+      feature: 'file',
+    } as ApprovalHandler);
+    const inTenant = (features: TenantFeature[]) =>
+      runInTenantContext({ id: 't1', features } as unknown as TenantContext, () =>
+        registry.hiddenTypes(),
+      );
+    expect(inTenant(['file'])).toEqual([]);
+    expect(inTenant([])).toEqual([ApprovalType.FILE_FOLDER_ACCESS]);
+    // 沒有租戶脈絡：不隱藏
+    expect(registry.hiddenTypes()).toEqual([]);
+  });
 });
 
 describe('ApprovalService.submit 的重新送出（docs/architecture/backend/20-approval.md §9.9）', () => {
@@ -561,8 +580,14 @@ describe('ApprovalService.counts（待審數，docs/architecture/backend/20-appr
     ctx.repo.count.mockResolvedValueOnce(2).mockResolvedValueOnce(7);
 
     await expect(ctx.service.counts(REVIEWER)).resolves.toEqual({ assigned: 2, pending: 7 });
-    expect(ctx.repo.count).toHaveBeenCalledWith({ scope: 'assigned' }, REVIEWER.id);
-    expect(ctx.repo.count).toHaveBeenCalledWith({ scope: 'all', status: ['pending'] }, REVIEWER.id);
+    expect(ctx.repo.count).toHaveBeenCalledWith(
+      { scope: 'assigned', excludeTypes: [] },
+      REVIEWER.id,
+    );
+    expect(ctx.repo.count).toHaveBeenCalledWith(
+      { scope: 'all', status: ['pending'], excludeTypes: [] },
+      REVIEWER.id,
+    );
   });
 
   it('沒有 approval:read：pending 為 null，不留 authz.denied', async () => {

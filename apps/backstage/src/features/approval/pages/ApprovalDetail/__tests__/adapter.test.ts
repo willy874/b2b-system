@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ApprovalRequestDetail } from '@/shared/api-sdk';
 
-import { outcomeParams, toApprovalDetailVM } from '../adapter';
+import { outcomeParams, toApprovalDetailVM, withoutChain } from '../adapter';
 
 const BASE: ApprovalRequestDetail = {
   id: 'a1',
@@ -108,6 +108,97 @@ describe('toApprovalDetailVM（多階段，docs/architecture/backend/20-approval
     const vm = toApprovalDetailVM(BASE);
     expect(vm.steps).toEqual([]);
     expect(vm.currentStep).toBeNull();
+  });
+});
+
+const decision = (
+  reviewerId: string,
+  via: 'assignee' | 'legacy',
+  verdict: 'approve' | 'reject',
+) => ({
+  reviewerId,
+  reviewerName: reviewerId,
+  decision: verdict,
+  via,
+  comment: null,
+  decidedAt: '2026-09-25T02:00:00.000Z',
+});
+const step = (
+  ordinal: number,
+  status: 'waiting' | 'active' | 'approved' | 'skipped' | 'cancelled',
+  decisions: ReturnType<typeof decision>[],
+  extra: Partial<ApprovalRequestDetail['steps'][number]> = {},
+): ApprovalRequestDetail['steps'][number] => ({
+  ordinal,
+  key: `k${ordinal}`,
+  name: `第${ordinal}關`,
+  assignee: { kind: 'group', id: 'g1', label: '財務群組' },
+  requiredMode: 'count',
+  required: 2,
+  status,
+  shortage: null,
+  closeReason: null,
+  conditions: [],
+  activatedAt: null,
+  closedAt: null,
+  candidates: [
+    { userId: 'u1', name: 'u1' },
+    { userId: 'u2', name: 'u2' },
+  ],
+  decisions,
+  ...extra,
+});
+describe('withoutChain（平台沒有啟用多階段，docs/architecture/backend/20-approval.md §9.11）', () => {
+  const CHAIN_VIEWER = {
+    canDecide: true,
+    canOverride: true,
+    canReviewSingle: true,
+    canWithdraw: false,
+  };
+
+  it('進行中的多關請求 → 單關：沒有目前的關卡與之後的關卡，已通過的關卡與目前那一關已做的決定保留', () => {
+    const vm = withoutChain(
+      toApprovalDetailVM({
+        ...BASE,
+        viewer: CHAIN_VIEWER,
+        steps: [
+          step(0, 'approved', [
+            decision('u1', 'assignee', 'approve'),
+            decision('u2', 'assignee', 'approve'),
+          ]),
+          step(1, 'skipped', []),
+          step(2, 'active', [decision('u1', 'assignee', 'approve')], { shortage: 'insufficient' }),
+          step(3, 'waiting', []),
+        ],
+      }),
+    );
+    expect(vm.currentStep).toBeNull();
+    expect(vm.steps.map(({ ordinal }) => ordinal)).toEqual([0]);
+    expect(vm.singleReviewDecisions.map(({ reviewerId }) => reviewerId)).toEqual(['u1']);
+    expect(vm.viewer).toEqual({ ...CHAIN_VIEWER, canDecide: false, canOverride: false });
+  });
+
+  it('停用期間一次定案的請求：被取消的那一關依決定顯示，不帶停用的標記', () => {
+    const vm = withoutChain(
+      toApprovalDetailVM({
+        ...BASE,
+        status: 'rejected',
+        steps: [
+          step(0, 'cancelled', [decision('u1', 'legacy', 'reject')], {
+            closeReason: 'chainDisabled',
+          }),
+          step(1, 'cancelled', [], { closeReason: 'chainDisabled' }),
+        ],
+      }),
+    );
+    expect(vm.steps).toHaveLength(1);
+    expect(vm.steps[0]).toMatchObject({ status: 'rejected', closeReason: null, required: null });
+    expect(vm.steps[0]?.decisions[0]?.via).toBe('assignee');
+  });
+
+  it('單關請求照舊', () => {
+    const vm = toApprovalDetailVM(BASE);
+    expect(withoutChain(vm)).toBe(vm);
   });
 });
 

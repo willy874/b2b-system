@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNull, lt, lte, notInArray, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -54,6 +54,10 @@ export interface NotificationOverviewFilter {
 
 const recipient = alias(users, 'recipient');
 
+/** 排除的類型（所屬 feature 沒有開放，由 service 決定）；空的時候不加條件。 */
+const notOfTypes = (types: readonly string[]): SQL | undefined =>
+  types.length ? notInArray(notifications.type, [...types]) : undefined;
+
 /** 排在游標那一筆之後（`ORDER BY created_at DESC, id DESC`）。 */
 const after = (cursor: NotificationCursor) =>
   sql`(${notifications.createdAt}, ${notifications.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`;
@@ -93,9 +97,17 @@ export class NotificationRepository {
    */
   async list(
     recipientId: string,
-    options: { unread: boolean; limit: number; after?: NotificationCursor },
+    options: {
+      unread: boolean;
+      limit: number;
+      after?: NotificationCursor;
+      excludeTypes: readonly string[];
+    },
   ): Promise<{ items: NotificationWithActor[]; lastCreatedAt: string | undefined }> {
-    const conditions: SQL[] = [ownedBy(recipientId)];
+    const conditions: Array<SQL | undefined> = [
+      ownedBy(recipientId),
+      notOfTypes(options.excludeTypes),
+    ];
     if (options.unread) conditions.push(isNull(notifications.readAt));
     if (options.after) conditions.push(after(options.after));
     const rows = await this.db
@@ -114,9 +126,11 @@ export class NotificationRepository {
    */
   async listAll(
     filter: NotificationOverviewFilter,
-    options: { limit: number; after?: NotificationCursor },
+    options: { limit: number; after?: NotificationCursor; excludeTypes: readonly string[] },
   ): Promise<{ items: NotificationWithRecipient[]; lastCreatedAt: string | undefined }> {
     const conditions: SQL[] = [];
+    const excluded = notOfTypes(options.excludeTypes);
+    if (excluded) conditions.push(excluded);
     if (filter.type) conditions.push(eq(notifications.type, filter.type));
     if (filter.recipientId) conditions.push(ownedBy(filter.recipientId));
     if (filter.actorId) conditions.push(eq(notifications.actorId, filter.actorId));
@@ -208,11 +222,11 @@ export class NotificationRepository {
     return row && toWithActor(row);
   }
 
-  async countUnread(recipientId: string): Promise<number> {
+  async countUnread(recipientId: string, excludeTypes: readonly string[]): Promise<number> {
     const [row] = await this.db
       .select({ total: count() })
       .from(notifications)
-      .where(and(ownedBy(recipientId), isNull(notifications.readAt)));
+      .where(and(ownedBy(recipientId), isNull(notifications.readAt), notOfTypes(excludeTypes)));
     return row?.total ?? 0;
   }
 

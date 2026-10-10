@@ -45,7 +45,9 @@
         "action": "刪除相簿",
         "title": "刪除相簿「{{name}}」？",
         "description": "相簿會移到回收桶；裡面的圖片不會被刪除。還原時相簿裡的圖片一起回來。",
-        "success": "相簿已移到回收桶"
+        "descriptionNoTrash": "相簿會被刪除；裡面的圖片不會被刪除。",
+        "success": "相簿已移到回收桶",
+        "successNoTrash": "相簿已刪除"
       },
       "add": {
         "action": "加入相簿",
@@ -82,7 +84,9 @@
     "delete": {
       "title_other": "刪除 {{count}} 張圖片？",
       "description": "圖片會移到回收桶，保留期限內可以還原。已經用在頭像等地方的複本不受影響。",
-      "success": "圖片已移到回收桶"
+      "descriptionNoTrash": "圖片會被刪除。已經用在頭像等地方的複本不受影響。",
+      "success": "圖片已移到回收桶",
+      "successNoTrash": "圖片已刪除"
     },
     "restore": {
       "action": "還原",

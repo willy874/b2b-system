@@ -3,6 +3,7 @@ import { setDateTimeDefaults, todayInZone, zonedDayBoundary } from '@b2b-system/
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featureStore, resetFeatureStore } from '@/core/feature';
 import { PermissionKey } from '@/core/permission';
 import type { FileFolderGrantList } from '@/shared/api-sdk';
 import { initTestI18n } from '@/test/i18n';
@@ -116,6 +117,7 @@ beforeEach(() => {
   setGrant.mockReset().mockResolvedValue(grants());
   deleteGrant.mockReset().mockResolvedValue(undefined);
   setInheritance.mockReset().mockResolvedValue(grants());
+  resetFeatureStore();
 });
 
 describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13）', () => {
@@ -215,6 +217,54 @@ describe('FileShareDialog（docs/architecture/frontend/12-file-manager.md §13�
         params: { folderId: 'ui', subjectType: 'everyone', subjectId: everyone },
       }),
     );
+  });
+
+  describe('群組的授權跟著租戶的 group feature（docs/architecture/iam/07-groups.md §8）', () => {
+    const DESIGNERS = '33333333-3333-4333-8333-333333333333';
+
+    function withGroupGrant(): FileFolderGrantList {
+      const base = grants();
+      const [direct] = base.items;
+      if (!direct) throw new Error('fixture');
+      return {
+        ...base,
+        items: [
+          ...base.items,
+          { ...direct, subjectType: 'group', subjectId: DESIGNERS, subjectName: '設計群' },
+        ],
+      };
+    }
+
+    it('group 已啟用 → 列出群組的授權', async () => {
+      featureStore.setState({ resolved: true, statuses: new Map([['group', 'ready']]) });
+      fetchGrants.mockResolvedValue(withGroupGrant());
+      renderDialog();
+      expect(await rowOf(DESIGNERS)).toHaveAttribute('data-subject-type', 'group');
+    });
+
+    it('group 未啟用 → 不列群組的授權（其他授權照常）', async () => {
+      featureStore.setState({ resolved: true, statuses: new Map([['group', 'disabled']]) });
+      fetchGrants.mockResolvedValue(withGroupGrant());
+      renderDialog();
+      expect(await rowOf(ART_TEAM)).toBeDefined();
+      expect(screen.queryByText('設計群')).not.toBeInTheDocument();
+      expect(
+        screen
+          .getAllByTestId('file-share-grant')
+          .some((row) => row.getAttribute('data-subject-type') === 'group'),
+      ).toBe(false);
+    });
+
+    it('group 未啟用而只剩群組的授權 → 顯示「沒有授權」', async () => {
+      featureStore.setState({ resolved: true, statuses: new Map([['group', 'disabled']]) });
+      const list = withGroupGrant();
+      fetchGrants.mockResolvedValue({
+        ...list,
+        items: list.items.filter((grant) => grant.subjectType === 'group'),
+      });
+      renderDialog();
+      expect(await screen.findByTestId('file-share-empty')).toBeInTheDocument();
+    });
   });
 
   describe('到期日用偏好的時區，不是瀏覽器的時區（docs/architecture/frontend/08-i18n.md §5）', () => {

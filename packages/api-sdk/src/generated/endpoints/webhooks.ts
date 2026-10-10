@@ -10,6 +10,7 @@ import type {
   WebhookEventList,
   WebhookSecret,
   WebhookTestResult,
+  WebhookUrlLimit,
 } from '../models';
 import type { ApiResponse } from '../runtime';
 import { buildUrl } from '../url';
@@ -76,6 +77,25 @@ export type WebhookControllerListEventsResult = ApiResponse<
 
 export function getWebhookControllerListEventsUrl(): string {
   return buildUrl('/webhooks/events');
+}
+
+// GET /webhooks/url-limit
+
+export interface WebhookControllerUrlLimitResponses {
+  200: {
+    data: WebhookUrlLimit;
+  };
+}
+
+export type WebhookControllerUrlLimitResponse = WebhookControllerUrlLimitResponses[200];
+
+export type WebhookControllerUrlLimitResult = ApiResponse<
+  200,
+  WebhookControllerUrlLimitResponses[200]
+>;
+
+export function getWebhookControllerUrlLimitUrl(): string {
+  return buildUrl('/webhooks/url-limit');
 }
 
 // GET /webhooks/{id}

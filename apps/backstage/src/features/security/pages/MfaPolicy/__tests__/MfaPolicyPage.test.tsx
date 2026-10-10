@@ -48,7 +48,8 @@ const POLICY: MfaPolicy = {
   allowedMethods: null,
   version: 1,
   updatedAt: null,
-  methods: [method('totp', true), method('email', false)],
+  // sms 是平台沒有開放的方式（測試沒有登記它的 UI，畫面上若出現會顯示成 id）
+  methods: [method('totp', true), method('email', true), method('sms', false)],
   nonCompliant: 0,
 };
 
@@ -104,12 +105,35 @@ describe('安全性：MFA 政策的頁面權限（docs/architecture/backend/21-m
 });
 
 describe('安全性：MFA 政策頁', () => {
-  it('只有讀取權限：唯讀、沒有儲存鈕；平台未開放的方式停用並註明', async () => {
+  it('只有讀取權限：唯讀、沒有儲存鈕', async () => {
     renderRoute(routes, '/system/security', READER);
     await screen.findByTestId('security-mfa-page');
     expect(screen.queryByTestId('security-mfa-save')).not.toBeInTheDocument();
-    expect(screen.getByText('平台未開放')).toBeInTheDocument();
     expect(screen.getByText('與重設密碼同一個信箱')).toBeInTheDocument();
+  });
+
+  it('平台沒有開放的方式不顯示（不是停用的勾選框）', async () => {
+    renderRoute(routes, '/system/security', EDITOR);
+    await screen.findByTestId('security-mfa-page');
+    expect(screen.getAllByTestId('security-mfa-method')).toHaveLength(2);
+    expect(screen.queryByText('sms')).not.toBeInTheDocument();
+  });
+
+  it('增減允許的方式時，清單裡平台已關閉（沒顯示）的方式原樣保留', async () => {
+    fetchPolicy.mockResolvedValue({ ...POLICY, allowedMethods: ['totp', 'email', 'sms'] });
+    previewPolicy.mockResolvedValue({ nonCompliant: 0, stranded: 0 });
+    updatePolicy.mockResolvedValue({ ...POLICY, allowedMethods: ['totp', 'sms'], version: 2 });
+    renderRoute(routes, '/system/security', EDITOR);
+    await screen.findByTestId('security-mfa-page');
+    // email 的標籤帶「與重設密碼同一個信箱」的註記
+    fireEvent.click(screen.getByRole('checkbox', { name: /與重設密碼同一個信箱/ }));
+    fireEvent.click(screen.getByTestId('security-mfa-save'));
+
+    await waitFor(() =>
+      expect(updatePolicy.mock.calls[0]?.[0]).toMatchObject({
+        params: { allowedMethods: ['totp', 'sms'], version: 1 },
+      }),
+    );
   });
 
   it('要求所有人啟用：先預覽影響、有人會被要求時先確認，再以 version 儲存', async () => {

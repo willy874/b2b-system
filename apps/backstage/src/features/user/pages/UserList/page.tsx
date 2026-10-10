@@ -15,6 +15,8 @@ import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { fetchUserListQuery } from '@/apis/user/get-user-list/fetcher';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import type { UserListParams } from '@/apis/user/types';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { userExportApi } from '../../hooks/userTransferApi';
 import { useUserDeleteMutation } from '../../hooks/useUserMutations';
@@ -41,6 +43,8 @@ export default function UserListPage() {
 
   const profile = useQuery(getAuthProfileQueryOptions());
   const deleteUser = useUserDeleteMutation();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」（那時沒有地方可以還原）
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('user'));
   // 篩選面板的部門樹；租戶沒有啟用 `organization` 時不查、不帶部門參數（後端會回 VALIDATION_FAILED）
@@ -236,7 +240,11 @@ export default function UserListPage() {
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(undefined)}
         title={t('user.delete.title')}
-        description={t('user.delete.confirm', { name: pendingDelete?.displayName ?? '' })}
+        description={
+          hasTrash
+            ? t('user.delete.confirm', { name: pendingDelete?.displayName ?? '' })
+            : t('user.delete.confirmNoTrash', { name: pendingDelete?.displayName ?? '' })
+        }
         confirmLabel={t('common.delete')}
         cancelLabel={t('common.cancel')}
         loading={deleteUser.isPending}

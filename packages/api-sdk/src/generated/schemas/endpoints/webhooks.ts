@@ -22,6 +22,7 @@ import type {
   WebhookControllerSendTestResult,
   WebhookControllerUpdateInput,
   WebhookControllerUpdateResult,
+  WebhookControllerUrlLimitResult,
 } from '../../endpoints/webhooks';
 import { request } from '../../runtime';
 import type { OperationDefinition, OperationSchemas, RequestOptions } from '../../runtime';
@@ -34,6 +35,7 @@ import {
   WebhookSchema,
   WebhookSecretSchema,
   WebhookTestResultSchema,
+  WebhookUrlLimitSchema,
 } from '../components';
 
 // GET /webhooks
@@ -123,6 +125,31 @@ export function webhookControllerListEvents(
     {},
     options,
   );
+}
+
+// GET /webhooks/url-limit
+
+export const WebhookControllerUrlLimitSchemas = {
+  responses: {
+    200: z.object({
+      data: WebhookUrlLimitSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const webhookControllerUrlLimitOperation: OperationDefinition = {
+  id: 'WebhookController_urlLimit',
+  method: 'GET',
+  path: '/webhooks/url-limit',
+  responseTypes: { 200: 'json' },
+  schemas: WebhookControllerUrlLimitSchemas,
+};
+
+/** 網址數的上限與這個訂閱還能有幾個網址（feature 參數 webhook.maxUrls） */
+export function webhookControllerUrlLimit(
+  options?: RequestOptions,
+): Promise<WebhookControllerUrlLimitResult> {
+  return request<WebhookControllerUrlLimitResult>(webhookControllerUrlLimitOperation, {}, options);
 }
 
 // GET /webhooks/{id}

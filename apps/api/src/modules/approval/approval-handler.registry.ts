@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { currentTenant } from '@/core/tenant';
+
 import type { ApprovalType } from './approval.constants';
 import type { ApprovalHandler } from './approval.types';
 
@@ -25,6 +27,18 @@ export class ApprovalHandlerRegistry {
 
   all(): ApprovalHandler[] {
     return [...this.handlers.values()];
+  }
+
+  /**
+   * 所屬 feature 在目前租戶沒有開放的類型（docs/architecture/05-tenancy.md §15.2 D3）：列表、待審數、匯出排除，詳情當作不存在。
+   * 沒有租戶脈絡（測試）時為空。
+   */
+  hiddenTypes(): ApprovalType[] {
+    const tenant = currentTenant();
+    if (!tenant) return [];
+    return this.all()
+      .filter((handler) => handler.feature && !tenant.features.includes(handler.feature))
+      .map((handler) => handler.type);
   }
 
   /** 找不到代表資料庫裡有程式不認識的類型（例：回滾版本），屬於部署問題而非使用者錯誤。 */

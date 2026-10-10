@@ -10,6 +10,7 @@ import { defineSetting, SettingCategory } from '@/core/settings';
 export const GALLERY_STRIP_ORIGINAL_LOCATION_SETTING = defineSetting({
   key: 'gallery.stripOriginalLocation',
   category: SettingCategory.GALLERY,
+  feature: 'gallery',
   schema: z.boolean(),
   defaultValue: true,
   isPublic: false,

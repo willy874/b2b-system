@@ -165,6 +165,17 @@ export class NotificationPolicyService implements OnModuleInit {
     return this.effective(kind, channel, await this.stored(tx));
   }
 
+  /**
+   * 所屬 feature 在目前租戶沒有開放的通知類型：通知中心、未讀數與通知總覽不列（docs/architecture/05-tenancy.md §15.2 D6）。
+   * 通知本身保留，重新開放後原樣出現（照常由清理工作依保留期限刪除）。
+   */
+  hiddenTypes(): string[] {
+    return this.catalog
+      .list()
+      .filter((kind) => !isVisibleEvent(kind))
+      .map((kind) => kind.type);
+  }
+
   /** 管理頁：目前租戶看得到的事件（目錄的順序）與每個管道的生效值。 */
   async list(): Promise<NotificationEventListDto> {
     const stored = await this.stored();

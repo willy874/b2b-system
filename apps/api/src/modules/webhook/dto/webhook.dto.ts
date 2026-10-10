@@ -118,6 +118,24 @@ export const WebhookEventListSchema = defineSchema(
   z.object({ items: z.array(z.object({ type: z.string(), version: z.number().int() })) }),
 );
 
+export const GetWebhookUrlLimitSchema = z.object({
+  /** 正在編輯的訂閱：它自己的網址不算在「其他訂閱已用」裡。 */
+  subscriptionId: z.string().uuid().optional(),
+});
+
+/**
+ * 整個租戶不重複的網址數上限（feature 參數 `webhook.maxUrls`，docs/architecture/05-tenancy.md §13.3 D11）：
+ * 表單依 `available` 決定還能不能加網址，不必等送出才收到 `WEBHOOK_URL_LIMIT_REACHED`。
+ */
+export const WebhookUrlLimitSchema = defineSchema(
+  'WebhookUrlLimit',
+  z.object({
+    max: z.number().int(),
+    /** 這個訂閱（新建時是新的訂閱）最多能有幾個不重複的網址；升版前已超過上限的租戶不少於目前持有的數量。 */
+    available: z.number().int(),
+  }),
+);
+
 export const WebhookDeliveryTriggerSchema = z.enum(['auto', 'manual']);
 
 export const WebhookDeliverySchema = defineSchema(
@@ -172,6 +190,8 @@ export type UpdateWebhookDto = z.infer<typeof UpdateWebhookSchema>;
 export type CreatedWebhookDto = z.infer<typeof CreatedWebhookSchema>;
 export type WebhookSecretDto = z.infer<typeof WebhookSecretSchema>;
 export type WebhookEventListDto = z.infer<typeof WebhookEventListSchema>;
+export type GetWebhookUrlLimitDto = z.infer<typeof GetWebhookUrlLimitSchema>;
+export type WebhookUrlLimitDto = z.infer<typeof WebhookUrlLimitSchema>;
 export type WebhookDeliveryDto = z.infer<typeof WebhookDeliverySchema>;
 export type WebhookTargetDto = z.infer<typeof WebhookTargetSchema>;
 export type WebhookTestResultDto = z.infer<typeof WebhookTestResultSchema>;

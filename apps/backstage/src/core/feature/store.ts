@@ -29,15 +29,22 @@ export const featureStore = createStore<FeatureState>(() => ({
   flags: new Set(),
 }));
 
-/** 找出擁有這個路徑的可啟用 feature；常駐 feature 的頁面回 `undefined`。 */
-export function findFeatureByPath(
+/**
+ * 找出擁有這個路徑的所有可啟用 feature，base path 越長（越具體）的排越前面；常駐 feature 的頁面回空陣列。
+ * 一個頁面可能同時屬於兩個 feature：`/group/import` 屬於 `group`（`/group`）也屬於 `dataTransfer`（`/group/import`），
+ * 兩個都要啟用才進得去（route 的 `beforeLoad` 也是兩個都檢查），所以不能只取第一個命中的。
+ */
+export function findFeaturesByPath(
   pathname: string,
   basePaths: ReadonlyMap<string, readonly string[]> = featureStore.getState().basePaths,
-): string | undefined {
+): string[] {
+  const matches: Array<{ id: string; length: number }> = [];
   for (const [id, paths] of basePaths) {
-    if (paths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) return id;
+    const owned = paths.filter((path) => pathname === path || pathname.startsWith(`${path}/`));
+    if (owned.length > 0)
+      matches.push({ id, length: Math.max(...owned.map((path) => path.length)) });
   }
-  return undefined;
+  return matches.toSorted((a, b) => b.length - a.length).map(({ id }) => id);
 }
 
 /** 測試用。 */
