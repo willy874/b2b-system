@@ -1,5 +1,5 @@
 import { AppError } from '@b2b-system/web-core/errors';
-import { AllProviders } from '@b2b-system/web-core/testing';
+import { AllProviders, renderInRouter } from '@b2b-system/web-core/testing';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,12 +78,9 @@ beforeEach(() => {
   api.unwatch.mockResolvedValue({ watching: false, watcherCount: 0 });
 });
 
+/** 編輯器用到路由的未儲存保護（`useUnsavedChangesGuard`）：放進記憶體路由渲染。 */
 function renderPanel() {
-  render(
-    <AllProviders>
-      <CommentPanel resourceType="user" resourceId={USER_ID} />
-    </AllProviders>,
-  );
+  return renderInRouter(<CommentPanel resourceType="user" resourceId={USER_ID} />);
 }
 
 const target = { resourceType: 'user', resourceId: USER_ID };
@@ -141,6 +138,23 @@ describe('CommentPanel（docs/architecture/frontend/22-comment.md §3）', () =>
       }),
     );
     await waitFor(() => expect(textarea).toHaveValue(''));
+  });
+
+  it('打了一半的留言：離開前先確認；送出之後就不攔', async () => {
+    const { router } = renderPanel();
+    await screen.findByTestId('comment-empty');
+    fireEvent.change(screen.getByTestId('comment-editor-body'), { target: { value: '還沒寫完' } });
+    void router.navigate({ to: '/elsewhere' as never });
+    expect(await screen.findByTestId('unsaved-changes-confirm')).toBeInTheDocument();
+    fireEvent.click(
+      within(screen.getByTestId('unsaved-changes-confirm')).getByTestId('alert-dialog-cancel'),
+    );
+    expect(screen.getByTestId('comment-editor-body')).toHaveValue('還沒寫完');
+
+    fireEvent.click(screen.getByTestId('comment-editor-submit'));
+    await waitFor(() => expect(screen.getByTestId('comment-editor-body')).toHaveValue(''));
+    void router.navigate({ to: '/elsewhere' as never });
+    await waitFor(() => expect(screen.queryByTestId('unsaved-changes-confirm')).toBeNull());
   });
 
   it('提及的人從候選挑選（後端已過濾成看得到資源的人），一起送出', async () => {

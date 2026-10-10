@@ -43,7 +43,7 @@ features/comment/
 | 區塊 | 行為 |
 | --- | --- |
 | 標題列 | 「留言」＋ 關注鈕（`comment-watch-button`，`data-value` 是 `watching`／`idle`；滑過顯示關注人數）。按下切換關注 |
-| 編輯器（`comment-editor`） | `textarea`（`comment-editor-body`，⌘／Ctrl + Enter 送出）＋「提及的人」多選（`comment-editor-mentions`）：可搜尋，候選由後端過濾成看得到資源的人；已選的人一直留在選項裡。空白不能送出。失敗時錯誤顯示在編輯器（`FormError`，`data-value` 是錯誤碼），內容保留；成功後清空 |
+| 編輯器（`comment-editor`） | `textarea`（`comment-editor-body`，⌘／Ctrl + Enter 送出）＋「提及的人」多選（`comment-editor-mentions`）：可搜尋，候選由後端過濾成看得到資源的人；已選的人一直留在選項裡。空白不能送出。失敗時錯誤顯示在編輯器（`FormError`，`data-value` 是錯誤碼），內容保留；成功後清空。內文或提及的人有修改時以 `useUnsavedChangesGuard` 保護：換頁、關閉資源的對話框、重新整理前先確認（不存 session 結束時的草稿） |
 | 列表（`comment-list`） | 新的在前；每則（`comment-item`，`data-value` 是留言 id）顯示作者、相對時間（滑過顯示完整時間）、「已編輯」、內文（保留換行）、被提及的人（`@名稱`）。作者被永久刪除時顯示「已刪除的使用者」 |
 | 操作選單（`comment-actions`） | 後端的 `canEdit`：編輯（在原地換成編輯器，帶 `version` 送出）；`canDelete`：刪除（先確認，`comment-delete-confirm`）。兩者都沒有就不顯示 |
 | 載入更多（`comment-load-more`） | 還有較舊的留言時出現（keyset 游標） |

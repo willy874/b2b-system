@@ -5,6 +5,7 @@ import { Select } from '@b2b-system/ui/Select';
 import type { SelectOption } from '@b2b-system/ui/Select';
 import { isAppError, useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 
@@ -86,6 +87,12 @@ export function CommentEditor({
   const options = useMemo(() => [...known.values()].map(toOption), [known]);
 
   const trimmed = body.trim();
+  // 打了一半的留言：換頁、重新整理、關分頁前先確認，不要直接遺失（與其他表單相同）
+  const dirty =
+    trimmed !== initialBody.trim() ||
+    mentions.length !== initialMentions.length ||
+    mentions.some((user) => !initialMentions.some((initial) => initial.id === user.id));
+  useUnsavedChangesGuard(dirty && !submitting);
   const canSubmit = trimmed.length > 0 && body.length <= BODY_MAX_LENGTH && !submitting;
 
   const submit = async () => {
