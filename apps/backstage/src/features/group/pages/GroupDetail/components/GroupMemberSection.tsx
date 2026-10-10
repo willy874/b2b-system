@@ -7,13 +7,15 @@ import { Select } from '@b2b-system/ui/Select';
 import { QuerySection, useOffsetClamp } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
+import { useDebouncedValue } from '@b2b-system/web-shared/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
 import { getGroupMembersQueryOptions } from '@/apis/group/get-group-members/query';
-import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
+import { getUserSearchQueryOptions } from '@/apis/user/get-user-list/query';
+import { USER_SEARCH_DEBOUNCE_MS, UserSearchSelect } from '@/core/components/UserSearchSelect';
 import type { GroupMember } from '@/shared/api-sdk';
 
 import { useGroupMembersUpdateMutation } from '../../../hooks/useGroupMutations';
@@ -25,8 +27,6 @@ const REMOVE_CONFIRM_KEY = {
   group: 'group.member.removeConfirm.group',
 } as const satisfies Record<GroupMember['type'], string>;
 
-/** 使用者搜尋的輸入停頓多久才查詢（與資料夾共用對話框相同）。 */
-const USER_SEARCH_DEBOUNCE_MS = 250;
 /** 成員一頁幾位 */
 const MEMBER_PAGE_SIZE = 50;
 
@@ -50,14 +50,7 @@ export function GroupMemberSection({ groupId, memberCount, canEdit }: GroupMembe
   const confirm = useConfirm();
   const [offset, setOffset] = useState(0);
   const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebounced(keyword.trim());
-      setOffset(0);
-    }, USER_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
+  const debounced = useDebouncedValue(keyword.trim(), USER_SEARCH_DEBOUNCE_MS);
   const members = useQuery(
     getGroupMembersQueryOptions({
       groupId,
@@ -92,7 +85,11 @@ export function GroupMemberSection({ groupId, memberCount, canEdit }: GroupMembe
           className="mt-2"
           type="search"
           value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
+          onChange={(event) => {
+            setKeyword(event.target.value);
+            // 改搜尋字就回到第一頁（換頁後的 offset 對新的結果沒有意義）
+            setOffset(0);
+          }}
           placeholder={t('group.member.searchPlaceholder')}
           aria-label={t('group.member.searchPlaceholder')}
           data-testid="group-member-search"
@@ -179,37 +176,13 @@ export function GroupMemberSection({ groupId, memberCount, canEdit }: GroupMembe
 
 type MemberType = GroupMember['type'];
 
-/** 加入一位成員：種類（使用者／群組）＋ 搜尋對象。使用者在伺服器端搜尋；群組數量少，一次抓回本地過濾。 */
+/** 加入一位成員：種類（使用者／群組）＋ 搜尋對象。使用者在伺服器端搜尋（`UserSearchSelect`）；群組數量少，一次抓回本地過濾。 */
 function AddMemberRow({ groupId }: { groupId: string }) {
   const { t } = useTranslation();
   const [type, setType] = useState<MemberType>('user');
-  const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
   const [memberId, setMemberId] = useState<string | null>(null);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(keyword.trim()), USER_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
-  const users = useQuery({
-    ...getUserListQueryOptions({
-      params: { offset: 0, limit: 20, keyword: debounced || undefined },
-    }),
-    enabled: type === 'user',
-  });
   const groups = useQuery({ ...getGroupOptionsQueryOptions(), enabled: type === 'group' });
   const updateMembers = useGroupMembersUpdateMutation();
-
-  const options =
-    type === 'user'
-      ? (users.data?.items ?? []).map((user) => ({
-          value: user.id,
-          label: user.displayName,
-          description: user.email,
-        }))
-      : (groups.data?.items ?? [])
-          // 不能把群組加進自己（其他循環由後端擋）
-          .filter((group) => group.id !== groupId)
-          .map((group) => ({ value: group.id, label: group.name }));
 
   const submit = () => {
     if (!memberId) return;
@@ -217,6 +190,16 @@ function AddMemberRow({ groupId }: { groupId: string }) {
       { params: { groupId, body: { add: [{ type, id: memberId }], remove: [] } } },
       { onSuccess: () => setMemberId(null) },
     );
+  };
+
+  const targetProps = {
+    className: 'min-w-48 flex-1',
+    'aria-label': t('group.member.target'),
+    placeholder: t('group.member.placeholder'),
+    noMatchLabel: t('group.member.noMatch'),
+    value: memberId,
+    onValueChange: setMemberId,
+    'data-testid': 'group-member-target',
   };
 
   return (
@@ -232,25 +215,23 @@ function AddMemberRow({ groupId }: { groupId: string }) {
         onValueChange={(next) => {
           setType(next);
           setMemberId(null);
-          setKeyword('');
         }}
         data-testid="group-member-type"
       />
-      <Select
-        className="min-w-48 flex-1"
-        aria-label={t('group.member.target')}
-        placeholder={t('group.member.placeholder')}
-        options={options}
-        value={memberId}
-        onValueChange={setMemberId}
-        searchable
-        {...(type === 'user'
-          ? { searchValue: keyword, onSearchChange: setKeyword, filterOption: false as const }
-          : {})}
-        noMatchLabel={t('group.member.noMatch')}
-        loading={type === 'user' ? users.isFetching : groups.isFetching}
-        data-testid="group-member-target"
-      />
+      {type === 'user' ? (
+        <UserSearchSelect key="user" query={getUserSearchQueryOptions} {...targetProps} />
+      ) : (
+        <Select
+          key="group"
+          {...targetProps}
+          options={(groups.data?.items ?? [])
+            // 不能把群組加進自己（其他循環由後端擋）
+            .filter((group) => group.id !== groupId)
+            .map((group) => ({ value: group.id, label: group.name }))}
+          searchable
+          loading={groups.isFetching}
+        />
+      )}
       <Button
         variant="primary"
         disabled={!memberId}

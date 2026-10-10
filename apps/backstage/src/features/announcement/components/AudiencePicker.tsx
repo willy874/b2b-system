@@ -4,19 +4,18 @@ import { Switch } from '@b2b-system/ui/Switch';
 import { QuerySection } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
 import { getAnnouncementAudiencePreviewQueryOptions } from '@/apis/announcement/preview-announcement-audience/query';
 import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
-import { getUserDetailQueryOptions } from '@/apis/user/get-user-detail/query';
-import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
+import {
+  getUserSearchQueryOptions,
+  getUsersByIdsQueryOptions,
+} from '@/apis/user/get-user-list/query';
+import { UserSearchSelect } from '@/core/components/UserSearchSelect';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 import type { AnnouncementAudience } from '@/shared/api-sdk';
-
-/** 使用者搜尋的輸入停頓多久才查詢（與群組成員的搜尋相同）。 */
-const USER_SEARCH_DEBOUNCE_MS = 250;
 
 interface AudiencePickerProps {
   value: AnnouncementAudience;
@@ -32,34 +31,17 @@ interface AudiencePickerProps {
  */
 export function AudiencePicker({ value, onChange, eventTriggered, disabled }: AudiencePickerProps) {
   const { t } = useTranslation();
-  const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(keyword.trim()), USER_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
-
-  const users = useQuery(
-    getUserListQueryOptions({ params: { offset: 0, limit: 20, keyword: debounced || undefined } }),
-  );
   // 租戶沒有啟用 `group` 時沒有群組欄（群組的受眾不生效，docs/architecture/iam/07-groups.md §8）
   const hasGroups = useIsFeatureReady(TenantFeature.group);
   const groups = useQuery({ ...getGroupOptionsQueryOptions(), enabled: hasGroups });
   const roles = useQuery(getRoleOptionsQueryOptions());
   const preview = useQuery(getAnnouncementAudiencePreviewQueryOptions(value));
 
-  // 已選、但不在目前搜尋結果裡的使用者（編輯既有的公告）：另外取名稱，標籤才顯示得出來
-  const searched = users.data?.items ?? [];
-  const missing = value.userIds.filter((id) => !searched.some((user) => user.id === id));
+  // 已選的使用者（編輯既有的公告）：以 id 一次取回名稱（每 50 人一個請求，不逐人查詢），標籤才顯示得出來；
+  // 選「全部」時使用者欄位不顯示，不必取
   const named = useQueries({
-    queries: missing.map((id) => getUserDetailQueryOptions(id)),
-    combine: (results) => results.flatMap((result) => (result.data ? [result.data] : [])),
-  });
-  const seen = new Set<string>();
-  const userOptions = [...named, ...searched].flatMap((user) => {
-    if (seen.has(user.id)) return [];
-    seen.add(user.id);
-    return [{ value: user.id, label: user.displayName, description: user.email }];
+    queries: getUsersByIdsQueryOptions(value.all ? [] : value.userIds),
+    combine: (results) => results.flatMap((result) => result.data?.items ?? []),
   });
 
   return (
@@ -77,16 +59,12 @@ export function AudiencePicker({ value, onChange, eventTriggered, disabled }: Au
       {!value.all && (
         <>
           <Field label={t('announcement.audience.users')}>
-            <Select
+            <UserSearchSelect
+              query={getUserSearchQueryOptions}
+              selected={named}
               multiple
-              options={userOptions}
               value={value.userIds}
               onValueChange={(userIds) => onChange({ ...value, userIds })}
-              searchable
-              searchValue={keyword}
-              onSearchChange={setKeyword}
-              filterOption={false}
-              loading={users.isFetching}
               disabled={disabled}
               placeholder={t('announcement.audience.usersPlaceholder')}
               noMatchLabel={t('announcement.audience.noMatch')}

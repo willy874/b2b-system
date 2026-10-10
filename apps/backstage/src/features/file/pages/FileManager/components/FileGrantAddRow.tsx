@@ -4,8 +4,9 @@ import { Select } from '@b2b-system/ui/Select';
 import type { SelectOption } from '@b2b-system/ui/Select';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { todayInZone, zonedDayBoundary } from '@b2b-system/web-shared/date';
+import { useDebouncedValue } from '@b2b-system/web-shared/hooks';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { getFileGrantSubjectListQueryOptions } from '@/apis/file/get-file-grant-subjects/query';
 import type { FileGrantLevel, FileGrantSubjectType } from '@/apis/file/types';
@@ -42,11 +43,7 @@ export function FileGrantAddRow({ folderId, levelOptions }: FileGrantAddRowProps
   const hasGroups = useIsFeatureReady(TenantFeature.group);
   const subjectTypes = hasGroups ? SUBJECT_TYPES : SUBJECT_TYPES.filter((type) => type !== 'group');
   const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(keyword.trim()), SUBJECT_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
+  const debounced = useDebouncedValue(keyword.trim(), SUBJECT_SEARCH_DEBOUNCE_MS);
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [level, setLevel] = useState<FileGrantLevel | null>(null);
   const [expiresOn, setExpiresOn] = useState<string | null>(null);

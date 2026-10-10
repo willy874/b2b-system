@@ -1,4 +1,5 @@
 import type { IconName } from '@b2b-system/ui/Icon';
+import { useDebouncedValue } from '@b2b-system/web-shared/hooks';
 import { useStore } from '@b2b-system/web-shared/hooks';
 import { useMemo } from 'react';
 
@@ -10,7 +11,7 @@ import { useRouteLinkChecker } from '../route-link';
 import { SEARCH_QUERY_MAX_LENGTH } from './constants';
 import { useRecentPageStore } from './recent';
 import { paletteCommandRegistry, searchProviderRegistry } from './registry';
-import { SEARCH_DEBOUNCE_MS, useDataSearch, useDebouncedValue } from './useDataSearch';
+import { SEARCH_DEBOUNCE_MS, useDataSearch } from './useDataSearch';
 
 export type PaletteAction =
   | {

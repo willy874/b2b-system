@@ -702,6 +702,15 @@ describe('MFA（docs/architecture/backend/21-mfa.md）', () => {
           .expect(200),
       );
       expect(directOnly.items.map((user) => user.id)).toEqual([direct]);
+
+      // 選擇器補已選的人的名稱：以 id 一次取回（不逐人查詢）
+      const byIds = dataOf<{ items: Array<{ id: string }> }>(
+        await request(http)
+          .get(`/users?id=${direct}&id=${nested}`)
+          .set('authorization', `Bearer ${root}`)
+          .expect(200),
+      );
+      expect(byIds.items.map((user) => user.id).toSorted()).toEqual([direct, nested].toSorted());
     });
 
     it('政策：要求啟用卻沒有可用的方式 → VALIDATION_FAILED', async () => {

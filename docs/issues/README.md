@@ -26,7 +26,6 @@
 | 低 | backstage 有頁面與 hook 沒有測試，E2E 只跑 Chromium | [missing-frontend-tests.md](./missing-frontend-tests.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 語系檔留著沒有被引用的 key，也沒有測試擋 | [unused-locale-keys.md](./unused-locale-keys.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 檔案管理與圖片庫的上傳、下載各寫一套 | [upload-and-download-duplicated.md](./upload-and-download-duplicated.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 使用者搜尋下拉與輸入去抖動各自實作 | [user-search-select-duplicated.md](./user-search-select-duplicated.md) | 2026-10-10 backstage 優化分析 |
 
 嚴重度：
 

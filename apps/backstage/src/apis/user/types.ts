@@ -9,6 +9,8 @@ export interface UserListParams {
   offset: number;
   limit: number;
   keyword?: string;
+  /** 只列這些使用者（一次最多 `USER_IDS_PER_REQUEST` 個）。 */
+  id?: string[];
   status?: UserStatus[];
   roleId?: string[];
   /** `roleId` 也算經由群組（含巢狀）持有的人；預設只看直接持有。 */

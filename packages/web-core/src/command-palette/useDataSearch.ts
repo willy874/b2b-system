@@ -1,5 +1,4 @@
 import { useQueries } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
 import type { SearchProvider, SearchResult } from './registry';
 
@@ -10,15 +9,6 @@ export const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_STALE_MS = 30_000;
 
 export const COMMAND_PALETTE_SEARCH_QUERY_KEY = 'COMMAND_PALETTE_SEARCH_QUERY_KEY';
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [delayMs, value]);
-  return debounced;
-}
 
 export interface DataSearchState {
   provider: SearchProvider;

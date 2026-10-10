@@ -6,9 +6,10 @@ import { useQuery } from '@tanstack/react-query';
 import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
 import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
+import { getUserSearchQueryOptions } from '@/apis/user/get-user-list/query';
+import { UserSearchSelect } from '@/core/components/UserSearchSelect';
 import type { ApprovalAssigneeStatus, OrgUnit } from '@/shared/api-sdk';
 
-import { UserSearchSelect } from '../../../components/UserSearchSelect';
 import { APPROVAL_MANAGER_MAX_LEVEL, ASSIGNEE_KIND_LABEL_KEY } from '../../../constants';
 import type { AssigneeKind } from '../../../constants';
 import { changeAssigneeKind } from '../../../hooks/flowDraft';
@@ -92,10 +93,18 @@ export function AssigneeRuleEditor({
         <div className="min-w-48 flex-1">
           {value.kind === 'user' && (
             <UserSearchSelect
+              query={getUserSearchQueryOptions}
+              // 已儲存的規則：目前的值不在搜尋結果裡時顯示它的名稱
+              selected={
+                value.targetId
+                  ? [{ id: value.targetId, displayName: savedLabel || value.targetId, email: '' }]
+                  : undefined
+              }
               aria-label={t('approvalFlow.assignee.target')}
+              placeholder={t('approvalFlow.assignee.userPlaceholder')}
+              noMatchLabel={t('approvalFlow.assignee.noMatch')}
               value={value.targetId}
-              selectedLabel={savedLabel}
-              onChange={(targetId) => onChange({ ...value, targetId })}
+              onValueChange={(targetId) => onChange({ ...value, targetId })}
               disabled={!access.canSearchUsers}
               invalid={invalid}
               data-testid="approval-flow-assignee-user"

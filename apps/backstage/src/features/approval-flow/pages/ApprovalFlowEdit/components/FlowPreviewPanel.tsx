@@ -7,9 +7,10 @@ import { Select } from '@b2b-system/ui/Select';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
+import { getUserSearchQueryOptions } from '@/apis/user/get-user-list/query';
+import { UserSearchSelect } from '@/core/components/UserSearchSelect';
 import type { ApprovalConditionField } from '@/shared/api-sdk';
 
-import { UserSearchSelect } from '../../../components/UserSearchSelect';
 import { APPROVAL_FLOW_FIELD_LABEL_KEY, PREVIEW_SHORTAGE_LABEL_KEY } from '../../../constants';
 import type { FlowPreviewState } from '../useFlowPreview';
 
@@ -53,9 +54,12 @@ export function FlowPreviewPanel({
       {!isAnonymous && canSearchUsers && (
         <Field label={t('approvalFlow.preview.requester')}>
           <UserSearchSelect
+            query={getUserSearchQueryOptions}
             aria-label={t('approvalFlow.preview.requester')}
+            placeholder={t('approvalFlow.assignee.userPlaceholder')}
+            noMatchLabel={t('approvalFlow.assignee.noMatch')}
             value={preview.requesterId}
-            onChange={preview.setRequesterId}
+            onValueChange={preview.setRequesterId}
             data-testid="approval-flow-preview-requester"
           />
         </Field>

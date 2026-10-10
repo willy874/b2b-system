@@ -39,17 +39,18 @@ beforeEach(() => {
 });
 
 describe('RecipientSelect（通知總覽的收件人篩選）', () => {
-  it('沒有選人時顯示「所有收件人」，不另外查個人資料', async () => {
+  it('沒有選人時顯示「所有收件人」；下拉還沒打開時不查使用者列表與個人資料', async () => {
     renderSelect(undefined);
     expect(trigger()).toHaveTextContent('所有收件人');
-    await waitFor(() => expect(fetchUsers).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetchUsers).not.toHaveBeenCalled();
     expect(fetchUser).not.toHaveBeenCalled();
   });
 
-  it('選一位使用者 → 回報他的 id', async () => {
+  it('打開下拉才查；選一位使用者 → 回報他的 id', async () => {
     const onChange = renderSelect(undefined);
-    await waitFor(() => expect(fetchUsers).toHaveBeenCalled());
     fireEvent.click(trigger());
+    await waitFor(() => expect(fetchUsers).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('option', { name: /Bob/ }));
     expect(onChange).toHaveBeenCalledWith('u-bob');
   });
@@ -75,9 +76,10 @@ describe('RecipientSelect（通知總覽的收件人篩選）', () => {
     );
   });
 
-  it('選中的人在搜尋結果裡 → 直接顯示他的名稱', async () => {
-    fetchUser.mockReturnValue(new Promise(() => {}));
+  it('有選中的人時只查他一個人的名稱，不查整個列表', async () => {
+    fetchUser.mockResolvedValue(user('u-alice', 'Alice'));
     renderSelect('u-alice');
     await waitFor(() => expect(trigger()).toHaveTextContent('Alice'));
+    expect(fetchUsers).not.toHaveBeenCalled();
   });
 });

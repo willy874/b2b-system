@@ -5,6 +5,8 @@ import { TagIdsFilterSchema } from '@/modules/tag/dto/tag.dto';
 
 export const ListUserSchema = PaginationSchema.extend({
   keyword: z.string().trim().max(100).optional(),
+  /** 只列這些使用者（一次最多 50 個）：選擇器補已選的人的名稱，一個請求取代逐人查詢。 */
+  id: QueryArraySchema(z.string().uuid()),
   status: QueryArraySchema(z.enum(['pending', 'active', 'inactive', 'locked'])),
   roleId: QueryArraySchema(z.string().uuid()),
   /**

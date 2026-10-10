@@ -106,7 +106,10 @@ export interface FailedLoginResult {
 }
 
 /** 列表與匯出共用的篩選條件（列表的 query 去掉分頁與排序）。 */
-export type UserFilter = Pick<ListUserDto, 'keyword' | 'status' | 'roleId' | 'mfa' | 'tagId'> & {
+export type UserFilter = Pick<
+  ListUserDto,
+  'id' | 'keyword' | 'status' | 'roleId' | 'mfa' | 'tagId'
+> & {
   /** 只列屬於這些部門的人（由 `OrgChartService.unitScope` 展開；空陣列 = 沒有人）。 */
   orgUnitIds?: readonly string[];
   /**
@@ -206,6 +209,7 @@ export class UserRepository {
       );
       if (matched) conditions.push(matched);
     }
+    if (query.id?.length) conditions.push(inArray(users.id, query.id));
     if (query.status?.length) {
       const matched = or(...query.status.map((status) => statusCondition(status)));
       if (matched) conditions.push(matched);

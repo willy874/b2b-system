@@ -3,8 +3,9 @@ import { Select } from '@b2b-system/ui/Select';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useDebouncedValue } from '@b2b-system/web-shared/hooks';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { getFileFolderExplainQueryOptions } from '@/apis/file/get-file-folder-explain/query';
 import { getFileGrantSubjectListQueryOptions } from '@/apis/file/get-file-grant-subjects/query';
@@ -34,12 +35,8 @@ interface FileAccessExplainSectionProps {
 export function FileAccessExplainSection({ folderId }: FileAccessExplainSectionProps) {
   const { t } = useTranslation();
   const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(keyword.trim()), USER_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
+  const debounced = useDebouncedValue(keyword.trim(), USER_SEARCH_DEBOUNCE_MS);
   const users = useQuery(
     getFileGrantSubjectListQueryOptions({
       folderId,

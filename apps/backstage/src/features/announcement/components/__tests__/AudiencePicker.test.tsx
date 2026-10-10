@@ -1,5 +1,5 @@
 import { AllProviders } from '@b2b-system/web-core/testing';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { featureStore, resetFeatureStore } from '@/core/feature';
@@ -69,5 +69,27 @@ describe('AudiencePicker 的人數預覽（docs/architecture/frontend/07-ui-syst
     expect(screen.queryByTestId('announcement-audience-counting')).toBeNull();
     fireEvent.click(within(error).getByTestId('query-error-retry'));
     expect(await screen.findByTestId('announcement-audience-count')).toHaveTextContent('3');
+  });
+});
+
+describe('AudiencePicker 的已選使用者', () => {
+  it('以 id 一次取回名稱（不逐人查詢）；下拉還沒打開時不搜尋', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['group', 'ready']]) });
+    const ids = ['u1', 'u2', 'u3'];
+    fetchUsers.mockResolvedValue({
+      items: ids.map((id) => ({ id, displayName: `User ${id}`, email: `${id}@acme.test` })),
+      pagination: { offset: 0, limit: 3, total: 3 },
+    });
+    render(
+      <AudiencePicker
+        value={{ all: false, userIds: ids, groupIds: [], roleIds: [] }}
+        onChange={vi.fn()}
+      />,
+      { wrapper: AllProviders },
+    );
+    const field = await screen.findByTestId('announcement-audience-users');
+    await waitFor(() => expect(field).toHaveTextContent('User u1'));
+    expect(fetchUsers).toHaveBeenCalledTimes(1);
+    expect(fetchUsers.mock.calls[0]![0]).toMatchObject({ params: { id: ids, limit: 3 } });
   });
 });

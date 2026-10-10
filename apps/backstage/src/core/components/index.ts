@@ -4,4 +4,5 @@ export * from './ApiToken';
 export * from './ExplainPath';
 export * from './OrgUnitPicker';
 export * from './Tag';
+export * from './UserSearchSelect';
 export * from './VersionConflictAlert';

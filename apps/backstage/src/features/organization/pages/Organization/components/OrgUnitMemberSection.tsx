@@ -4,17 +4,17 @@ import { Chip } from '@b2b-system/ui/Chip';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Pagination } from '@b2b-system/ui/Pagination';
-import { Select } from '@b2b-system/ui/Select';
 import { Switch } from '@b2b-system/ui/Switch';
 import { QuerySection, useOffsetClamp } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getOrgUnitMembersQueryOptions } from '@/apis/org-unit/get-org-unit-members/query';
-import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
+import { getUserSearchQueryOptions } from '@/apis/user/get-user-list/query';
+import { UserSearchSelect } from '@/core/components/UserSearchSelect';
 import type { UpdateOrgUnitMembersRequest } from '@/shared/api-sdk';
 
 import { useOrgUnitMembersUpdateMutation } from '../../../hooks/useOrgUnitMutations';
@@ -27,8 +27,6 @@ type OrgUnitMemberChange = UpdateOrgUnitMembersRequest['update'][number];
 
 /** 成員表一頁幾位。 */
 const MEMBER_PAGE_SIZE = 50;
-/** 使用者搜尋的輸入停頓多久才查詢（與群組加成員相同）。 */
-const USER_SEARCH_DEBOUNCE_MS = 250;
 
 interface OrgUnitMemberSectionProps {
   unitId: string;
@@ -236,28 +234,11 @@ export function OrgUnitMemberSection({ unitId, canEdit }: OrgUnitMemberSectionPr
   );
 }
 
-/** 加入一位成員：使用者在伺服器端搜尋（與群組加成員相同）；主管、主要部門加入後再切換。 */
+/** 加入一位成員：使用者在伺服器端搜尋（`UserSearchSelect`）；主管、主要部門加入後再切換。 */
 function AddMemberRow({ unitId }: { unitId: string }) {
   const { t } = useTranslation();
-  const [keyword, setKeyword] = useState('');
-  const [debounced, setDebounced] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(keyword.trim()), USER_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [keyword]);
-  const users = useQuery(
-    getUserListQueryOptions({
-      params: { offset: 0, limit: 20, keyword: debounced || undefined },
-    }),
-  );
   const updateMembers = useOrgUnitMembersUpdateMutation();
-
-  const options = (users.data?.items ?? []).map((user) => ({
-    value: user.id,
-    label: user.displayName,
-    description: user.email,
-  }));
 
   const submit = () => {
     if (!userId) return;
@@ -269,20 +250,14 @@ function AddMemberRow({ unitId }: { unitId: string }) {
 
   return (
     <div className="mt-3 flex flex-wrap items-end gap-2">
-      <Select
+      <UserSearchSelect
+        query={getUserSearchQueryOptions}
         className="min-w-48 flex-1"
         aria-label={t('organization.member.target')}
         placeholder={t('organization.member.placeholder')}
-        options={options}
         value={userId}
         onValueChange={setUserId}
-        searchable
-        searchValue={keyword}
-        onSearchChange={setKeyword}
-        filterOption={false}
         noMatchLabel={t('organization.member.noMatch')}
-        loading={users.isFetching}
-        itemSize={48}
         data-testid="org-unit-member-target"
       />
       <Button
