@@ -440,8 +440,8 @@
 | 標籤管理     | `/tag`（`?scope=file\|user`） | `TAG`        | `tag:create`、`tag:update`、`tag:delete` 任一 | SOME |
 | 權限目錄     | `/permission`              | `PERMISSION`    | `permission:read`                | EVERY |
 | 稽核日誌     | `/audit-log`               | `AUDIT_LOG`     | `auditLog:read`                  | EVERY |
-| 審批         | `/approval`（含 `/approval/$approvalId` 對話框） | `APPROVAL` | `approval:read`           | EVERY |
-| 我的審批     | `/my-approvals`（含 `/my-approvals/$approvalId` 對話框；看得到哪些由後端依申請人與候選人決定） | `MY_APPROVAL` | 無 | — |
+| 審批         | `/approval`（含 `/approval/$approvalId` 整頁詳情） | `APPROVAL` | `approval:read`           | EVERY |
+| 我的審批     | `/my-approvals`（含 `/my-approvals/$approvalId` 整頁詳情；看得到哪些由後端依申請人與候選人決定） | `MY_APPROVAL` | 無 | — |
 | 審批流程     | `/approval-flow`（含編輯頁；儲存要 `approvalFlow:update`） | `APPROVAL_FLOW` | `approvalFlow:read` | EVERY |
 | 背景工作     | `/job`（含 `/job/$jobId` 對話框） | `JOB` | `job:read`                      | EVERY |
 | 檔案         | `/file`（含 `?preview=<id>` 的 LightBox） | `FILE` | `file:access` 或 `file:read`（按鈕層級看後端回傳的 `capabilities`，見 [`06-resource-grants.md`](./06-resource-grants.md) §7） | SOME |

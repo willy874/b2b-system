@@ -34,17 +34,15 @@ RootRoute  (web-core/router/root.ts)
 │
 ├── /user                          UserListRoute
 │   ├── create                     UserCreateRoute        （對話框）
-│   ├── $userId                    UserDetailRoute
-│   │   └── role                   UserDetailRoleRoute    （角色指派子頁）
-│   └── …
+│   └── $userId                    UserDetailRoute        （對話框；角色在詳情裡指派）
+├── /user/import                   UserImportRoute        （整頁；掛在 RootRoute 下，不是列表的子路由）
 │
 ├── /role                          RoleListRoute
 │   ├── create                     RoleCreateRoute        （對話框）
-│   ├── create/$roleId             RoleCopyRoute          （以既有角色為範本）
-│   └── $roleId                    RoleDetailRoute
-│       ├── create                 RoleDetailCopyRoute
+│   └── $roleId                    RoleDetailRoute        （對話框；「複製」是 mutation，不是路由）
 │       ├── permission             RoleDetailPermissionRoute
 │       └── revision               RoleDetailRevisionRoute（版本紀錄，frontend/14-revisions.md）
+├── /role/import                   RoleImportRoute        （整頁）
 │
 ├── /permission                    PermissionListRoute
 ├── /audit-log                     AuditLogListRoute

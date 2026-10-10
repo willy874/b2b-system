@@ -35,6 +35,8 @@ features/comment/
 | 頁面 | 位置 | 面板 |
 | --- | --- | --- |
 | 使用者詳情（`features/user`，`UserDetailPage`） | 對話框最下方 | 留言（`comment`，order 100） |
+| 審批詳情（`features/approval`，`ApprovalDetailView`；`/approval/$approvalId` 與 `/my-approvals/$approvalId` 共用） | 左欄，申請內容之下（右欄是審核操作） | 留言（`comment`，order 100） |
+| 圖片庫的資訊面板（`features/gallery`，`GalleryInfoPanel`） | 檢視器右側資訊面板的最下方 | 留言（`comment`，order 100） |
 
 ---
 

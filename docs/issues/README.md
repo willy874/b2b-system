@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 低 | 前端規格與實作的落差：路由樹、審批詳情、留言面板 | [frontend-docs-drift-routes-panels.md](./frontend-docs-drift-routes-panels.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 圖片庫的無限捲動沒有頁數上限 | [gallery-infinite-max-pages.md](./gallery-infinite-max-pages.md) | 2026-10-10 backstage 優化分析 |
 | 低 | backstage 有頁面與 hook 沒有測試，E2E 只跑 Chromium | [missing-frontend-tests.md](./missing-frontend-tests.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 語系檔留著沒有被引用的 key，也沒有測試擋 | [unused-locale-keys.md](./unused-locale-keys.md) | 2026-10-10 backstage 優化分析 |

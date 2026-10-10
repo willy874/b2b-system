@@ -132,7 +132,7 @@
 
 完成後預計寫成：
 
-- `docs/architecture/frontend/04-routing.md` §2：路由樹（`/user/$userId` 整頁、外部 IdP 的路由對話框）；順手修正樹上已不存在的 `RoleCopyRoute`、`UserDetailRoleRoute`
+- `docs/architecture/frontend/04-routing.md` §2：路由樹（`/user/$userId` 整頁、外部 IdP 的路由對話框）
 - `docs/architecture/frontend/22-comment.md` §2、`docs/architecture/iam/08-explain.md` §5：面板與有效權限改在使用者詳情的分頁
 - `docs/architecture/iam/08-explain.md` §3 或 `backend/05-rbac.md`：`GET /permissions/:key/roles`；設計決策放在主要的那份
 - `docs/architecture/iam/02-permission-catalog.md` §5：`IDENTITY_PROVIDER_CREATE` 頁面鍵；`docs/architecture/04-sso.md` §6.1：外部 IdP 頁面
