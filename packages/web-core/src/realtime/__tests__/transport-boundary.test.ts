@@ -13,7 +13,7 @@ function walk(dir: string): string[] {
   });
 }
 
-/** 唯一可以 import `socket.io-client` 的檔案（docs/architecture/frontend/11-realtime.md §2）。 */
+/** 唯一可以 import `socket.io-client` 的檔案，而且只能以型別或動態 `import()`（docs/architecture/frontend/11-realtime.md §2）。 */
 const ALLOWED = new Set(['realtime/socketIoTransport.ts']);
 
 describe('推播傳輸層的邊界（docs/architecture/frontend/11-realtime.md §2）', () => {
@@ -23,5 +23,11 @@ describe('推播傳輸層的邊界（docs/architecture/frontend/11-realtime.md �
       .map((file) => relative(srcDir, file))
       .filter((file) => !ALLOWED.has(file));
     expect(offenders, `直接 import socket.io-client：${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('socketIoTransport.ts 不以值靜態 import socket.io-client（首頁的初始載入不含它）', () => {
+    const source = readFileSync(resolve(srcDir, 'realtime/socketIoTransport.ts'), 'utf8');
+    expect(source).not.toMatch(/^import\s+(?!type\b)[^;]*?from\s+['"]socket\.io-client['"]/m);
+    expect(source).toMatch(/import\(['"]socket\.io-client['"]\)/);
   });
 });

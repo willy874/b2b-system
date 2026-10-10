@@ -1,5 +1,4 @@
 import type { ClientToServerEvents, ServerToClientEvents } from '@b2b-system/realtime';
-import { io } from 'socket.io-client';
 import type { ManagerOptions, Socket, SocketOptions } from 'socket.io-client';
 
 import type { CreateRealtimeTransport, RealtimeTransport } from './transport';
@@ -22,10 +21,19 @@ const SERVER_DISCONNECT_REASON = 'io server disconnect';
 
 type ContractSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-/** 測試注入假的 socket；預設是 `io()`。 */
-export type CreateSocketIo = (options: Partial<ManagerOptions & SocketOptions>) => ContractSocket;
+/** 測試注入假的 socket；預設以動態載入的 `io()` 建立。 */
+export type CreateSocketIo = (
+  options: Partial<ManagerOptions & SocketOptions>,
+) => ContractSocket | Promise<ContractSocket>;
 
-const defaultCreateSocket: CreateSocketIo = (options) => io(options) as ContractSocket;
+/**
+ * `socket.io-client` 在第一次 `connect()` 時才下載（docs/architecture/frontend/11-realtime.md §2）：
+ * 登入頁、沒有當選 leader 的分頁都不連線，不必在首頁的初始載入付這段程式。
+ */
+const defaultCreateSocket: CreateSocketIo = async (options) => {
+  const { io } = await import('socket.io-client');
+  return io(options) as ContractSocket;
+};
 
 /** 泛型事件名稱對不上 Socket.io 的多載，集中在這裡以寬鬆型別呼叫；型別安全由 `RealtimeTransport` 的簽章保證。 */
 interface LooseSocket {
@@ -35,14 +43,21 @@ interface LooseSocket {
 }
 
 /**
- * `RealtimeTransport` 的 Socket.io 實作：整個 app 只有這個檔案 import `socket.io-client`
- * （docs/architecture/frontend/11-realtime.md §2）。
+ * `RealtimeTransport` 的 Socket.io 實作：整個 app 只有這個檔案 import `socket.io-client`，而且是動態載入
+ * （docs/architecture/frontend/11-realtime.md §2）。socket 在第一次 `connect()` 時建立；之前的 `on()` 先記下，建立後補掛。
  */
 export function socketIoRealtimeTransport(
   createSocket: CreateSocketIo = defaultCreateSocket,
 ): CreateRealtimeTransport {
   return (hooks): RealtimeTransport => {
-    const socket = createSocket({
+    let socket: ContractSocket | undefined;
+    let loading: Promise<void> | undefined;
+    /** 最後一次是要連線（`connect`）還是斷線（`disconnect`）：載入完成時照它決定要不要連。 */
+    let wantConnected = false;
+    let disposed = false;
+    const listeners = new Set<readonly [string, (...args: unknown[]) => void]>();
+
+    const options: Partial<ManagerOptions & SocketOptions> = {
       path: REALTIME_SOCKET_PATH,
       // 不開 long-polling：免 sticky session，也少一條吃 cookie 的 HTTP 路徑
       transports: ['websocket'],
@@ -53,45 +68,79 @@ export function socketIoRealtimeTransport(
       auth: (cb) => {
         void hooks.authenticate().then((auth) => {
           if (auth) cb({ ...auth });
-          else socket.disconnect();
+          else socket?.disconnect();
         });
       },
-    });
-    const loose = socket as unknown as LooseSocket;
+    };
 
-    socket.on('connect', () => hooks.onConnect());
-    socket.on('disconnect', (reason) =>
-      hooks.onDisconnect({ byServer: reason === SERVER_DISCONNECT_REASON }),
-    );
-    socket.on('connect_error', (error: Error & { data?: unknown }) =>
-      hooks.onConnectError({ code: readErrorCode(error.data), cause: error }),
-    );
+    const attach = (created: ContractSocket) => {
+      socket = created;
+      created.on('connect', () => hooks.onConnect());
+      created.on('disconnect', (reason) =>
+        hooks.onDisconnect({ byServer: reason === SERVER_DISCONNECT_REASON }),
+      );
+      created.on('connect_error', (error: Error & { data?: unknown }) =>
+        hooks.onConnectError({ code: readErrorCode(error.data), cause: error }),
+      );
+      const loose = created as unknown as LooseSocket;
+      for (const [event, listener] of listeners) loose.on(event, listener);
+      if (wantConnected) created.connect();
+    };
+
+    const load = () => {
+      loading ??= Promise.resolve()
+        .then(() => createSocket(options))
+        .then(
+          (created) => {
+            if (disposed) {
+              created.removeAllListeners();
+              return;
+            }
+            attach(created);
+          },
+          (error: unknown) => {
+            // chunk 載入失敗（多半是部署換版）：回到未連線，下一次 connect() 再試
+            loading = undefined;
+            if (!disposed) hooks.onConnectError({ code: undefined, cause: error });
+          },
+        );
+    };
 
     return {
       get isConnected() {
-        return socket.connected;
+        return socket?.connected ?? false;
       },
       get isActive() {
-        return socket.active;
+        // 載入中而且要連線：視為連線中，呼叫端不必再 connect()
+        return socket ? socket.active : loading !== undefined && wantConnected;
       },
       connect() {
-        socket.connect();
+        wantConnected = true;
+        if (socket) socket.connect();
+        else load();
       },
       disconnect() {
-        socket.disconnect();
+        wantConnected = false;
+        socket?.disconnect();
       },
       on(event, listener) {
-        loose.on(event, listener);
+        const entry = [event, listener] as const;
+        listeners.add(entry);
+        (socket as unknown as LooseSocket | undefined)?.on(event, listener);
         return () => {
-          loose.off(event, listener);
+          listeners.delete(entry);
+          (socket as unknown as LooseSocket | undefined)?.off(event, listener);
         };
       },
       emit(event, ...args) {
-        loose.emit(event, ...args);
+        (socket as unknown as LooseSocket | undefined)?.emit(event, ...args);
       },
       dispose() {
-        socket.disconnect();
-        socket.removeAllListeners();
+        disposed = true;
+        wantConnected = false;
+        listeners.clear();
+        socket?.disconnect();
+        socket?.removeAllListeners();
       },
     };
   };
