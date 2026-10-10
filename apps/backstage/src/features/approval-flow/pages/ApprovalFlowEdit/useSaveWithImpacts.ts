@@ -15,12 +15,15 @@ export function useSaveWithImpacts(
   item: ApprovalFlow | undefined,
   draft: FlowDraft | undefined,
   submit: () => Promise<boolean>,
+  /** 只驗證、不送出；有錯時直接回傳 false，不先開影響的確認。 */
+  validate: () => boolean,
 ) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   /** 回傳是否已儲存；取消確認或驗證不過時為 false。 */
   return async (): Promise<boolean> => {
     if (!item || !draft) return false;
+    if (!validate()) return false;
     const impacts = saveImpacts(item, draft, t);
     if (impacts.length) {
       const confirmed = await confirm({

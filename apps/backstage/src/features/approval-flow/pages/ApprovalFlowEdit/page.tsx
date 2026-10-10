@@ -65,7 +65,7 @@ export default function ApprovalFlowEditPage() {
   const [templatePicked, setTemplatePicked] = useState(false);
   const showTemplates = Boolean(detail.data && !detail.data.flow && !readOnly && !templatePicked);
   const expansion = useStepExpansion(editor.errors, editor.rejectedSteps);
-  const save = useSaveWithImpacts(detail.data, draft, editor.submit);
+  const save = useSaveWithImpacts(detail.data, draft, editor.submit, editor.validate);
   const reset = useResetFlow(detail.data);
   const navigate = useNavigate();
   // 儲存或重設成功後回到「審批流程」分頁；草稿已清掉，略過未儲存提醒（狀態還沒來得及重繪）

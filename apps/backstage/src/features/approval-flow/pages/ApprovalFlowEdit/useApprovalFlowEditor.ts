@@ -52,6 +52,13 @@ export function useApprovalFlowEditor(type: string, item: ApprovalFlow | undefin
   );
   const serverErrors = (save.error instanceof AppError && save.error.fieldErrors) || EMPTY;
 
+  /** 只驗證草稿並標出錯誤；儲存前先跑，有錯就不必先確認影響（確認之後才看到錯誤，等於白確認一次）。 */
+  const validate = (): boolean => {
+    if (!draft) return false;
+    setAttempted(true);
+    return toPutRequest(draft, fields) !== null;
+  };
+
   /** 送出；回傳是否已儲存（頁面據此回到審批流程的分頁）。 */
   const submit = async (): Promise<boolean> => {
     if (!draft) return false;
@@ -95,6 +102,7 @@ export function useApprovalFlowEditor(type: string, item: ApprovalFlow | undefin
       discard();
     },
     submit,
+    validate,
     isSaving: save.isPending,
     errors: { ...serverErrors, ...clientErrors },
     rejectedSteps: rejectedSteps(save.error),

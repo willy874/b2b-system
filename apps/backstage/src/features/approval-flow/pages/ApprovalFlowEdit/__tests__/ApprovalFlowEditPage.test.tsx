@@ -338,16 +338,16 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
     ]);
   });
 
-  it('還沒填完就儲存 → 不送出，標出缺少的欄位', async () => {
+  it('還沒填完就儲存 → 不送出，標出缺少的欄位；不先開影響的確認', async () => {
     renderRoute(routes, '/system/approval-flows/user.register', EDITOR);
     await pickTemplate('blank');
     await steps();
     fireEvent.click(screen.getByTestId('approval-flow-save'));
-    await confirmSave();
     await waitFor(() =>
       expect(screen.getByTestId('approval-flow-step-name')).toHaveAttribute('aria-invalid', 'true'),
     );
     expect(screen.getByTestId('approval-flow-step')).toHaveAttribute('data-invalid', 'true');
+    expect(screen.queryByTestId('approval-flow-save-confirm')).toBeNull();
     expect(putFlow).not.toHaveBeenCalled();
   });
 
@@ -546,6 +546,22 @@ describe('流程設定的引導（docs/architecture/backend/20-approval.md §9.1
     expect(dialog).toHaveTextContent('進行中的 2 筆申請照送出時的關卡繼續');
     fireEvent.click(within(dialog).getByTestId('alert-dialog-cancel'));
     await waitFor(() => expect(screen.queryByTestId('approval-flow-save-confirm')).toBeNull());
+    expect(putFlow).not.toHaveBeenCalled();
+  });
+
+  it('草稿有錯：先標出錯誤，不開影響的確認、不送出', async () => {
+    fetchDetail.mockResolvedValue({ ...FLOW, inFlightCount: 2 });
+    renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
+    await expandAll();
+    renameFirstStep('');
+    fireEvent.click(screen.getByTestId('approval-flow-save'));
+    await waitFor(() =>
+      expect(screen.getAllByTestId('approval-flow-step-name')[0]).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      ),
+    );
+    expect(screen.queryByTestId('approval-flow-save-confirm')).toBeNull();
     expect(putFlow).not.toHaveBeenCalled();
   });
 
