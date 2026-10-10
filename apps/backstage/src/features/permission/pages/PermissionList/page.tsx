@@ -1,6 +1,7 @@
 import { Empty } from '@b2b-system/ui/Empty';
 import { Icon } from '@b2b-system/ui/Icon';
 import type { IconName } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { Tabs, TabsPanel } from '@b2b-system/ui/Tabs';
 import { QueryError } from '@b2b-system/web-core/components';
@@ -41,12 +42,10 @@ export default function PermissionListPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="permission-list-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('permissionCatalog.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('permissionCatalog.description')}
-        </p>
-      </header>
+      <PageHeader
+        title={t('permissionCatalog.title')}
+        description={t('permissionCatalog.description')}
+      />
 
       <Tabs
         moreLabel={t('common.more')}

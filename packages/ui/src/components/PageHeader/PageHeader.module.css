@@ -1,0 +1,40 @@
+@layer components {
+  .root {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--seed-space-3);
+  }
+
+  .heading {
+    min-width: 0;
+    flex: 1 1 16rem;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+  }
+
+  .title[data-truncate] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .description {
+    margin: var(--seed-space-1) 0 0;
+    font-size: 0.875rem;
+    color: var(--color-fg-muted);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--seed-space-2);
+  }
+}

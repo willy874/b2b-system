@@ -1,6 +1,6 @@
-import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { Button } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
-import { Icon } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -11,6 +11,7 @@ import { useState } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import type { TagScope } from '@/apis/tag/types';
+import { TransferActions } from '@/core/components/TransferActions';
 import { useFeatureReadiness } from '@/core/feature';
 import type { Tag } from '@/shared/api-sdk';
 
@@ -72,46 +73,34 @@ export default function TagListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="tag-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('tagAdmin.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('tagAdmin.list.description')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {permission.canExport && (
-            <Button
-              variant="secondary"
-              startIcon={<Icon name="download" size={16} />}
-              onClick={() => setExporting(true)}
-              data-testid="tag-export-button"
-            >
-              {t('dataTransfer.export.action')}
-            </Button>
-          )}
-          {permission.canImport && (
-            <ButtonLink
-              variant="secondary"
-              to={TagImportRoute.to}
-              search={{ mode: 'create' }}
-              startIcon={<Icon name="upload" size={16} />}
-              data-testid="tag-import-button"
-            >
-              {t('dataTransfer.import.action')}
-            </ButtonLink>
-          )}
-          {permission.canCreate && (
-            <Button
-              variant="primary"
-              onClick={() => setEditing('new')}
-              data-testid="tag-create-button"
-            >
-              {t('tagAdmin.create.action')}
-            </Button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t('tagAdmin.list.title')}
+        description={t('tagAdmin.list.description')}
+        actions={
+          <>
+            <TransferActions
+              exports={
+                permission.canExport ? [{ key: 'tag', onSelect: () => setExporting(true) }] : []
+              }
+              imports={
+                permission.canImport
+                  ? [{ key: 'tag', to: TagImportRoute.to, search: { mode: 'create' } }]
+                  : []
+              }
+              testIds={{ exportButton: 'tag-export-button', importButton: 'tag-import-button' }}
+            />
+            {permission.canCreate && (
+              <Button
+                variant="primary"
+                onClick={() => setEditing('new')}
+                data-testid="tag-create-button"
+              >
+                {t('tagAdmin.create.action')}
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Tabs
         moreLabel={t('common.more')}

@@ -1,4 +1,3 @@
-import { Chip } from '@b2b-system/ui/Chip';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { RichTable } from '@b2b-system/web-core/components';
 import type {
@@ -16,18 +15,13 @@ import type { ReactNode } from 'react';
 
 import type { ApprovalSortField } from '@/apis/approval/types';
 
-import {
-  APPROVAL_STATUS_LABEL_KEY,
-  APPROVAL_STATUS_TONE,
-  APPROVAL_TYPE_LABEL_KEY,
-} from '../../../constants';
+import { approvalColumns } from '../../../components/approvalColumns';
 import { useApprovalPermission } from '../../../hooks/useApprovalPermission';
 import { APPROVAL_LIST_TABLE_ID } from '../../../preference';
 import { APPROVAL_SORT_FIELDS, ApprovalDetailRoute } from '../../../routes';
 import type { ApprovalDetailSearch, ApprovalSearchQuery } from '../../../routes';
 import type { ApprovalRowVM } from '../adapter';
 import type { ApprovalFilterValues } from '../useApprovalFilters';
-import { ApprovalProgress } from './ApprovalProgress';
 import { ApprovalRowActions } from './ApprovalRowActions';
 
 /** 欄位順序與顯示存在這台裝置（`web-core/store/tableColumnSettings`）；可設定的欄位登記在 `preference.ts`。 */
@@ -73,56 +67,30 @@ export function ApprovalTable({
   const { hydrated, canReview } = useApprovalPermission();
   const showActions = hydrated && canReview;
 
-  const columns = useMemo<Array<TableColumnDef<ApprovalRowVM>>>(
-    () => [
-      {
-        id: 'type',
-        header: t('approval.field.type'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <Link
-            to={ApprovalDetailRoute.to}
-            params={{ approvalId: row.original.id }}
-            search={detailSearch}
-            className="font-medium whitespace-nowrap text-[var(--color-brand)]"
-            data-testid="approval-detail-link"
-            data-value={row.original.requesterName}
-          >
-            {t(APPROVAL_TYPE_LABEL_KEY[row.original.type])}
-          </Link>
-        ),
-      },
-      {
-        id: 'requesterName',
-        header: t('approval.field.requester'),
-        enableSorting: false,
-        cell: ({ row }) => row.original.requesterName,
-      },
-      {
-        id: 'status',
-        header: t('approval.field.status'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <Chip
-            tone={APPROVAL_STATUS_TONE[row.original.status]}
-            data-testid="approval-status"
-            data-value={row.original.status}
-          >
-            {t(APPROVAL_STATUS_LABEL_KEY[row.original.status])}
-          </Chip>
-        ),
-      },
-      {
-        id: 'progress',
-        header: t('approval.field.progress'),
-        enableSorting: false,
-        cell: ({ row }) => <ApprovalProgress row={row.original} />,
-      },
-      {
-        id: 'createdAt',
-        header: t('approval.field.createdAt'),
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
+  const columns = useMemo<Array<TableColumnDef<ApprovalRowVM>>>(() => {
+    const shared = approvalColumns<ApprovalRowVM>({
+      t,
+      renderTypeLink: (row, label) => (
+        <Link
+          to={ApprovalDetailRoute.to}
+          params={{ approvalId: row.id }}
+          search={detailSearch}
+          className="font-medium whitespace-nowrap text-[var(--color-brand)]"
+          data-testid="approval-detail-link"
+          data-value={row.requesterName}
+        >
+          {label}
+        </Link>
+      ),
+      statusTestId: 'approval-status',
+      createdAtSortable: true,
+    });
+    return [
+      shared.type,
+      shared.requesterName,
+      shared.status,
+      shared.progress,
+      shared.createdAt,
       {
         id: 'reviewerName',
         header: t('approval.field.reviewer'),
@@ -144,9 +112,8 @@ export function ApprovalTable({
             } satisfies TableColumnDef<ApprovalRowVM>,
           ]
         : []),
-    ],
-    [detailSearch, showActions, t],
-  );
+    ];
+  }, [detailSearch, showActions, t]);
 
   return (
     <RichTable

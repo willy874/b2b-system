@@ -1,4 +1,5 @@
 import { Chip } from '@b2b-system/ui/Chip';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
@@ -11,10 +12,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="home-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('home.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('home.description')}</p>
-      </header>
+      <PageHeader title={t('home.title')} description={t('home.description')} />
 
       {/* 其他 feature 的區塊（例：待我審核），排在個人資訊之前：有事要做的先看到 */}
       <HomeSections />

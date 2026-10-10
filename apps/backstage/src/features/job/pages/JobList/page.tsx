@@ -4,10 +4,10 @@ import {
   JobPageHeader,
   JobPageTabs,
   JobTable,
-  useExpandedJob,
 } from '@b2b-system/web-core/job';
 import type { JobRowVM } from '@b2b-system/web-core/job';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { useSingleExpanded } from '@b2b-system/web-shared/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
@@ -29,7 +29,7 @@ export default function JobListPage() {
   const { canRetry } = useJobPermission();
   const searchFilter = useJobSearchFilter();
   const { search, setPage, setView } = searchFilter;
-  const expansion = useExpandedJob();
+  const expansion = useSingleExpanded();
   const { mutateAsync: retryJob } = useRetryJobMutation();
   const onRetryJob = useCallback((id: string) => retryJob({ params: { jobId: id } }), [retryJob]);
 

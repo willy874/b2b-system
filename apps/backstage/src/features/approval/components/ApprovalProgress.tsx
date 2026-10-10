@@ -4,7 +4,7 @@ import { formatRelativeTime } from '@b2b-system/web-shared/date';
 
 import type { ApprovalRequest } from '@/shared/api-sdk';
 
-import { APPROVAL_SHORTAGE_LABEL_KEY } from '../../../constants';
+import { APPROVAL_SHORTAGE_LABEL_KEY } from '../constants';
 
 interface ApprovalProgressProps {
   row: {

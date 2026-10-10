@@ -1,7 +1,6 @@
-import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { ButtonLink } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
-import { Icon } from '@b2b-system/ui/Icon';
-import { Menu } from '@b2b-system/ui/Menu';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useListSearch } from '@b2b-system/web-core/router';
@@ -10,6 +9,7 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
+import { TransferActions } from '@/core/components/TransferActions';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 
@@ -70,89 +70,70 @@ export default function GroupListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="group-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('group.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('group.list.description')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {permission.canExport && (
-            <Menu
-              align="end"
-              trigger={
-                <Button
-                  variant="secondary"
-                  startIcon={<Icon name="download" size={16} />}
-                  endIcon={<Icon name="chevron-down" size={14} />}
-                  data-testid="group-export-button"
-                >
-                  {t('dataTransfer.export.action')}
-                </Button>
-              }
-              items={[
-                {
-                  key: 'group',
-                  label: t('group.transfer.groups'),
-                  onSelect: () => setExporting('group'),
-                },
-                {
-                  key: 'groupMember',
-                  label: t('group.transfer.members'),
-                  onSelect: () => setExporting('groupMember'),
-                },
-              ]}
-              data-testid="group-export-menu"
-            />
-          )}
-          {permission.canImport && (
-            <Menu
-              align="end"
-              trigger={
-                <Button
-                  variant="secondary"
-                  startIcon={<Icon name="upload" size={16} />}
-                  endIcon={<Icon name="chevron-down" size={14} />}
-                  data-testid="group-import-button"
-                >
-                  {t('dataTransfer.import.action')}
-                </Button>
-              }
-              items={[
-                {
-                  key: 'group',
-                  label: t('group.transfer.groups'),
-                  onSelect: () =>
-                    void navigate({ to: GroupImportRoute.to, search: { mode: 'create' } }),
-                },
-                ...(permission.canImportMembers
+      <PageHeader
+        title={t('group.list.title')}
+        description={t('group.list.description')}
+        actions={
+          <>
+            <TransferActions
+              exports={
+                permission.canExport
                   ? [
+                      {
+                        key: 'group',
+                        label: t('group.transfer.groups'),
+                        onSelect: () => setExporting('group'),
+                      },
                       {
                         key: 'groupMember',
                         label: t('group.transfer.members'),
-                        onSelect: () =>
-                          void navigate({
-                            to: GroupMemberImportRoute.to,
-                            search: { mode: 'create' as const },
-                          }),
+                        onSelect: () => setExporting('groupMember'),
                       },
                     ]
-                  : []),
-              ]}
-              data-testid="group-import-menu"
+                  : []
+              }
+              imports={
+                permission.canImport
+                  ? [
+                      {
+                        key: 'group',
+                        label: t('group.transfer.groups'),
+                        to: GroupImportRoute.to,
+                        search: { mode: 'create' },
+                      },
+                      ...(permission.canImportMembers
+                        ? [
+                            {
+                              key: 'groupMember',
+                              label: t('group.transfer.members'),
+                              to: GroupMemberImportRoute.to,
+                              search: { mode: 'create' },
+                            },
+                          ]
+                        : []),
+                    ]
+                  : []
+              }
+              testIds={{
+                exportButton: 'group-export-button',
+                exportMenu: 'group-export-menu',
+                importButton: 'group-import-button',
+                importMenu: 'group-import-menu',
+              }}
             />
-          )}
-          {permission.canCreate && (
-            <ButtonLink
-              variant="primary"
-              to={GroupCreateRoute.to}
-              search={search}
-              data-testid="group-create-button"
-            >
-              {t('group.create.action')}
-            </ButtonLink>
-          )}
-        </div>
-      </header>
+            {permission.canCreate && (
+              <ButtonLink
+                variant="primary"
+                to={GroupCreateRoute.to}
+                search={search}
+                data-testid="group-create-button"
+              >
+                {t('group.create.action')}
+              </ButtonLink>
+            )}
+          </>
+        }
+      />
 
       <GroupTable
         rows={rows}

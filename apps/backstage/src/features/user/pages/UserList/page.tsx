@@ -1,6 +1,6 @@
-import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { ButtonLink } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
-import { Icon } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTableSelection } from '@b2b-system/ui/Table';
 import type { BatchAction } from '@b2b-system/web-core/batch';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
@@ -16,6 +16,7 @@ import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { fetchUserListQuery } from '@/apis/user/get-user-list/fetcher';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import type { UserListParams } from '@/apis/user/types';
+import { TransferActions } from '@/core/components/TransferActions';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 
@@ -167,45 +168,43 @@ export default function UserListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="user-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('user.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('user.list.description')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {permission.canExport && (
-            <Button
-              variant="secondary"
-              startIcon={<Icon name="download" size={16} />}
-              onClick={() => setExporting({ ids: [], allMatching: false })}
-              data-testid="user-export-button"
-            >
-              {t('dataTransfer.export.action')}
-            </Button>
-          )}
-          {permission.canImport && (
-            <ButtonLink
-              variant="secondary"
-              to={UserImportRoute.to}
-              search={{ mode: 'create' }}
-              startIcon={<Icon name="upload" size={16} />}
-              data-testid="user-import-button"
-            >
-              {t('dataTransfer.import.action')}
-            </ButtonLink>
-          )}
-          {permission.canCreate && (
-            <ButtonLink
-              variant="primary"
-              to={UserCreateRoute.to}
-              search={search}
-              data-testid="user-create-button"
-            >
-              {t('user.create.action')}
-            </ButtonLink>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t('user.list.title')}
+        description={t('user.list.description')}
+        actions={
+          <>
+            <TransferActions
+              exports={
+                permission.canExport
+                  ? [
+                      {
+                        key: 'user',
+                        label: '',
+                        onSelect: () => setExporting({ ids: [], allMatching: false }),
+                      },
+                    ]
+                  : []
+              }
+              imports={
+                permission.canImport
+                  ? [{ key: 'user', to: UserImportRoute.to, search: { mode: 'create' } }]
+                  : []
+              }
+              testIds={{ exportButton: 'user-export-button', importButton: 'user-import-button' }}
+            />
+            {permission.canCreate && (
+              <ButtonLink
+                variant="primary"
+                to={UserCreateRoute.to}
+                search={search}
+                data-testid="user-create-button"
+              >
+                {t('user.create.action')}
+              </ButtonLink>
+            )}
+          </>
+        }
+      />
 
       <UserTable
         rows={rows}

@@ -1,6 +1,6 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
-import { Button, ButtonLink } from '@b2b-system/ui/Button';
-import { Icon } from '@b2b-system/ui/Icon';
+import { ButtonLink } from '@b2b-system/ui/Button';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTableSelection } from '@b2b-system/ui/Table';
 import type { BatchAction } from '@b2b-system/web-core/batch';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react';
 
 import { fetchRoleListQuery } from '@/apis/role/get-role-list/fetcher';
 import { getRoleListQueryOptions } from '@/apis/role/get-role-list/query';
+import { TransferActions } from '@/core/components/TransferActions';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 
@@ -87,46 +88,44 @@ export default function RoleListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="role-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('role.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('role.list.description')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {permission.canExport && (
-            <Button
-              variant="secondary"
-              startIcon={<Icon name="download" size={16} />}
-              onClick={() => setExporting({ ids: [], allMatching: false })}
-              data-testid="role-export-button"
-            >
-              {t('dataTransfer.export.action')}
-            </Button>
-          )}
-          {permission.canImport && (
-            <ButtonLink
-              variant="secondary"
-              to={RoleImportRoute.to}
-              search={{ mode: 'create' }}
-              startIcon={<Icon name="upload" size={16} />}
-              data-testid="role-import-button"
-            >
-              {t('dataTransfer.import.action')}
-            </ButtonLink>
-          )}
-          {/* 使用者永遠不會有這個權限時直接隱藏 */}
-          {permission.canCreate && (
-            <ButtonLink
-              variant="primary"
-              to={RoleCreateRoute.to}
-              search={search}
-              data-testid="role-create-button"
-            >
-              {t('role.create.action')}
-            </ButtonLink>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t('role.list.title')}
+        description={t('role.list.description')}
+        actions={
+          <>
+            <TransferActions
+              exports={
+                permission.canExport
+                  ? [
+                      {
+                        key: 'role',
+                        label: '',
+                        onSelect: () => setExporting({ ids: [], allMatching: false }),
+                      },
+                    ]
+                  : []
+              }
+              imports={
+                permission.canImport
+                  ? [{ key: 'role', to: RoleImportRoute.to, search: { mode: 'create' } }]
+                  : []
+              }
+              testIds={{ exportButton: 'role-export-button', importButton: 'role-import-button' }}
+            />
+            {/* 使用者永遠不會有這個權限時直接隱藏 */}
+            {permission.canCreate && (
+              <ButtonLink
+                variant="primary"
+                to={RoleCreateRoute.to}
+                search={search}
+                data-testid="role-create-button"
+              >
+                {t('role.create.action')}
+              </ButtonLink>
+            )}
+          </>
+        }
+      />
 
       <RoleTable
         rows={rows}

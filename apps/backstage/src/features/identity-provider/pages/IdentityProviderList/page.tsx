@@ -1,6 +1,7 @@
 import { Button, IconButton } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
@@ -141,26 +142,24 @@ export default function IdentityProviderListPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="identity-provider-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('identityProvider.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('identityProvider.description')}
-          </p>
-        </div>
-        {permission.canCreate && (
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditing(undefined);
-              setFormOpen(true);
-            }}
-            data-testid="identity-provider-create-button"
-          >
-            {t('identityProvider.create.action')}
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={t('identityProvider.title')}
+        description={t('identityProvider.description')}
+        actions={
+          permission.canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setEditing(undefined);
+                setFormOpen(true);
+              }}
+              data-testid="identity-provider-create-button"
+            >
+              {t('identityProvider.create.action')}
+            </Button>
+          )
+        }
+      />
 
       {data && <RegistrationUrls callbackUrl={data.callbackUrl} samlAcsUrl={data.samlAcsUrl} />}
 

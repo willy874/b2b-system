@@ -1,9 +1,11 @@
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { AuditLogTable } from '@b2b-system/web-core/audit-log';
 import type { TableSettingsConfig } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { zonedDayBoundary } from '@b2b-system/web-shared/date';
+import { useSingleExpanded } from '@b2b-system/web-shared/hooks';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { getPlatformAuditLogListQueryOptions } from '@/apis/platform-audit-log/get-audit-log-list/query';
 
@@ -33,11 +35,7 @@ export default function AuditLogListPage() {
   const searchFilter = useAuditLogSearchFilter();
   const { search, setPage } = searchFilter;
   const filters = useAuditLogFilters(searchFilter);
-  const [expanded, setExpanded] = useState<string>();
-  const toggleExpand = useCallback(
-    (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
-    [],
-  );
+  const { expandedId: expanded, onToggleExpand: toggleExpand } = useSingleExpanded();
 
   const { data, error, isPending, refetch } = useQuery(
     getPlatformAuditLogListQueryOptions({
@@ -59,12 +57,10 @@ export default function AuditLogListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="audit-log-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('auditLog.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('auditLog.description', { days: AUDIT_LOG_MAX_RANGE_DAYS })}
-        </p>
-      </header>
+      <PageHeader
+        title={t('auditLog.title')}
+        description={t('auditLog.description', { days: AUDIT_LOG_MAX_RANGE_DAYS })}
+      />
 
       <AuditLogTable
         items={rows}

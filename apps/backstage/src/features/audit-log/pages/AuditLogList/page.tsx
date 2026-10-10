@@ -1,15 +1,16 @@
-import { Button } from '@b2b-system/ui/Button';
-import { Icon } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { AuditLogTable } from '@b2b-system/web-core/audit-log';
 import type { AuditLogRowVM } from '@b2b-system/web-core/audit-log';
 import type { TableSettingsConfig } from '@b2b-system/web-core/components';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { zonedDayBoundary } from '@b2b-system/web-shared/date';
+import { useSingleExpanded } from '@b2b-system/web-shared/hooks';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { getAuditLogListQueryOptions } from '@/apis/audit-log/get-audit-log-list/query';
+import { TransferActions } from '@/core/components/TransferActions';
 import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePermission } from '@/core/permission';
 import { TenantFeature } from '@/shared/api-sdk';
@@ -37,16 +38,12 @@ export default function AuditLogListPage() {
   const searchFilter = useAuditLogSearchFilter();
   const { search, setPage } = searchFilter;
   const filters = useAuditLogFilters(searchFilter);
-  const [expanded, setExpanded] = useState<string>();
+  const { expandedId: expanded, onToggleExpand: toggleExpand } = useSingleExpanded();
   const [exporting, setExporting] = useState(false);
   const { can, hydrated } = usePermission();
   const hasDataTransfer = useIsFeatureReady(TenantFeature.dataTransfer);
   // 匯出要獨立的 auditLog:export（docs/architecture/backend/22-data-transfer.md §13 D11）
   const canExport = hydrated && hasDataTransfer && can(PermissionKey['auditLog:export']);
-  const toggleExpand = useCallback(
-    (id: string) => setExpanded((prev) => (prev === id ? undefined : id)),
-    [],
-  );
 
   // 篩選條件或每頁筆數改變：記下的游標全部作廢
   const cursorScope = JSON.stringify([
@@ -87,24 +84,16 @@ export default function AuditLogListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="audit-log-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('auditLog.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('auditLog.description', { days: AUDIT_LOG_MAX_RANGE_DAYS })}
-          </p>
-        </div>
-        {canExport && (
-          <Button
-            variant="secondary"
-            startIcon={<Icon name="download" size={16} />}
-            onClick={() => setExporting(true)}
-            data-testid="audit-log-export-button"
-          >
-            {t('dataTransfer.export.action')}
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={t('auditLog.title')}
+        description={t('auditLog.description', { days: AUDIT_LOG_MAX_RANGE_DAYS })}
+        actions={
+          <TransferActions
+            exports={canExport ? [{ key: 'auditLog', onSelect: () => setExporting(true) }] : []}
+            testIds={{ exportButton: 'audit-log-export-button' }}
+          />
+        }
+      />
 
       <ExportDialog
         open={exporting}

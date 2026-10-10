@@ -20,7 +20,6 @@
 | 低 | 通知總覽：決策 D1 的 `sourceId` 篩選沒有實作，詳細規格也沒寫 | [announcement-source-filter.md](./announcement-source-filter.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 前端規格與實作的落差：路由樹、審批詳情、留言面板 | [frontend-docs-drift-routes-panels.md](./frontend-docs-drift-routes-panels.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 前端幾處多餘的請求與重算 | [minor-frontend-perf.md](./minor-frontend-perf.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 列表頁的頁首、匯出／匯入按鈕、展開列與審批表格欄位各自複製 | [misc-duplicated-ui.md](./misc-duplicated-ui.md) | 2026-10-10 backstage 優化分析 |
 | 低 | backstage 有頁面與 hook 沒有測試，E2E 只跑 Chromium | [missing-frontend-tests.md](./missing-frontend-tests.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 語系檔留著沒有被引用的 key，也沒有測試擋 | [unused-locale-keys.md](./unused-locale-keys.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 檔案管理與圖片庫的上傳、下載各寫一套 | [upload-and-download-duplicated.md](./upload-and-download-duplicated.md) | 2026-10-10 backstage 優化分析 |

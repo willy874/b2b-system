@@ -1,4 +1,5 @@
 import { Button } from '@b2b-system/ui/Button';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { zonedDayBoundary } from '@b2b-system/web-shared/date';
 
@@ -21,12 +22,10 @@ export default function NotificationOverviewPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="notification-overview-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('notification.overview.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('notification.overview.description')}
-        </p>
-      </header>
+      <PageHeader
+        title={t('notification.overview.title')}
+        description={t('notification.overview.description')}
+      />
       <NotificationOverviewTable
         rows={overview.rows}
         loading={overview.isPending}

@@ -1,4 +1,5 @@
 import { Button } from '@b2b-system/ui/Button';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Pagination } from '@b2b-system/ui/Pagination';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import { useErrorToast } from '@b2b-system/web-core/errors';
@@ -50,22 +51,20 @@ export default function NotificationListPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="notification-list-page">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('notification.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('notification.description')}
-          </p>
-        </div>
-        <Button
-          disabled={count === 0}
-          loading={markAllRead.isPending}
-          onClick={() => markAllRead.mutate({ params: undefined }, { onError: showError })}
-          data-testid="notification-page-mark-all-read"
-        >
-          {t('notification.markAllRead.action')}
-        </Button>
-      </header>
+      <PageHeader
+        title={t('notification.title')}
+        description={t('notification.description')}
+        actions={
+          <Button
+            disabled={count === 0}
+            loading={markAllRead.isPending}
+            onClick={() => markAllRead.mutate({ params: undefined }, { onError: showError })}
+            data-testid="notification-page-mark-all-read"
+          >
+            {t('notification.markAllRead.action')}
+          </Button>
+        }
+      />
       <Tabs
         moreLabel={t('common.more')}
         value={search.filter}

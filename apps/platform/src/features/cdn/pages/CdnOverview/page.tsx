@@ -1,3 +1,4 @@
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -22,10 +23,7 @@ export default function CdnOverviewPage() {
 
   return (
     <div className="flex max-w-4xl flex-col gap-4" data-testid="cdn-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('cdn.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('cdn.description')}</p>
-      </header>
+      <PageHeader title={t('cdn.title')} description={t('cdn.description')} />
       {overview.isPending ? (
         <Skeleton className="h-40" />
       ) : overview.isError ? (

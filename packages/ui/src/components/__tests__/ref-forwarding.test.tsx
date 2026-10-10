@@ -17,6 +17,7 @@ import { JsonEditor } from '../JsonEditor';
 import { JsonViewer } from '../JsonViewer';
 import { JustifiedGrid } from '../JustifiedGrid';
 import { Link } from '../Link';
+import { PageHeader } from '../PageHeader';
 import { Pagination } from '../Pagination';
 import { Progress } from '../Progress';
 import { RichTextEditor } from '../RichTextEditor';
@@ -77,6 +78,7 @@ const cases: Array<[string, (ref: RefObject<HTMLElement | null>) => ReactElement
   ['Separator', (ref) => <Separator ref={ref as RefObject<HTMLDivElement>} />],
   ['Avatar', (ref) => <Avatar ref={ref as RefObject<HTMLSpanElement>} name="A" />],
   ['Empty', (ref) => <Empty ref={ref as RefObject<HTMLDivElement>} title="x" />],
+  ['PageHeader', (ref) => <PageHeader ref={ref as RefObject<HTMLElement>} title="x" />],
   [
     'Progress',
     (ref) => <Progress ref={ref as RefObject<HTMLDivElement>} value={10} aria-label="x" />,

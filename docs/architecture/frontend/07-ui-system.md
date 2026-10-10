@@ -75,6 +75,7 @@ Base UI 提供 **狀態機與可近性**，一點樣式都沒有。`@b2b-system/
 | `Skeleton` / `Spinner`           | 純 CSS                                               |
 | `Icon`                           | SVG sprite ＋ `vite-plugin-svgr`                     |
 | `Empty`                          | 版面元件                                             |
+| `PageHeader`                     | 版面元件：頁面的 `<h1>`、說明與右側的操作（放不下時換行，不擠壓標題）；兩個 app 與 web-core 的頁首都用它 |
 | `FormError`                      | 純自製：表單層級的錯誤（常駐的 `<p role="alert">`，沒有訊息時 `:empty` 隱藏；錯誤碼放 `data-value`） |
 | `Chip` / `Badge`                 | 純自製                                               |
 | `ConfirmDialogProvider` / `useConfirm` | 包在 `AlertDialog` 外的命令式 API（§3.11）       |

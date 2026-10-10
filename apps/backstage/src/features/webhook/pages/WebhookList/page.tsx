@@ -1,5 +1,6 @@
 import { ButtonLink } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useListSearch } from '@b2b-system/web-core/router';
 import { useQuery } from '@tanstack/react-query';
@@ -52,24 +53,22 @@ export default function WebhookListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="webhook-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('webhook.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('webhook.list.description')}
-          </p>
-        </div>
-        {permission.canCreate && (
-          <ButtonLink
-            variant="primary"
-            to={WebhookCreateRoute.to}
-            search={search}
-            data-testid="webhook-create-button"
-          >
-            {t('webhook.create.action')}
-          </ButtonLink>
-        )}
-      </header>
+      <PageHeader
+        title={t('webhook.list.title')}
+        description={t('webhook.list.description')}
+        actions={
+          permission.canCreate && (
+            <ButtonLink
+              variant="primary"
+              to={WebhookCreateRoute.to}
+              search={search}
+              data-testid="webhook-create-button"
+            >
+              {t('webhook.create.action')}
+            </ButtonLink>
+          )
+        }
+      />
 
       <WebhookTable
         rows={rows}

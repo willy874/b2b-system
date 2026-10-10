@@ -1,4 +1,5 @@
 import { Field } from '@b2b-system/ui/Field';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Select } from '@b2b-system/ui/Select';
 import { HeaderToolbarSettings } from '@b2b-system/web-core/layout';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -36,12 +37,10 @@ export default function PreferencePage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6" data-testid="preference-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('account.preference.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('account.preference.description')}
-        </p>
-      </header>
+      <PageHeader
+        title={t('account.preference.title')}
+        description={t('account.preference.description')}
+      />
 
       <Field label={t('account.field.locale')}>
         <Select

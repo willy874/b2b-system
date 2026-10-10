@@ -1,6 +1,4 @@
-import { Button } from '@b2b-system/ui/Button';
-import { Icon } from '@b2b-system/ui/Icon';
-import { Menu } from '@b2b-system/ui/Menu';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTableSelection } from '@b2b-system/ui/Table';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import type { BatchAction } from '@b2b-system/web-core/batch';
@@ -12,6 +10,7 @@ import { useMemo, useState } from 'react';
 
 import { fetchApprovalListQuery } from '@/apis/approval/get-approval-list/fetcher';
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
+import { TransferActions } from '@/core/components/TransferActions';
 import { useIsFeatureReady } from '@/core/feature';
 
 import { ApprovalSourcesHint } from '../../components/ApprovalSourcesHint';
@@ -105,44 +104,33 @@ export default function ApprovalListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="approval-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('approval.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('approval.list.description')}
-          </p>
-        </div>
-        {permission.canExport && (
-          <Menu
-            align="end"
-            trigger={
-              <Button
-                variant="secondary"
-                startIcon={<Icon name="download" size={16} />}
-                endIcon={<Icon name="chevron-down" size={14} />}
-                data-testid="approval-export-button"
-              >
-                {t('dataTransfer.export.action')}
-              </Button>
+      <PageHeader
+        title={t('approval.list.title')}
+        description={t('approval.list.description')}
+        actions={
+          <TransferActions
+            exports={
+              permission.canExport
+                ? [
+                    {
+                      key: 'approvalRequest',
+                      label: t('approval.transfer.requests'),
+                      onSelect: () =>
+                        setExporting({ type: 'approvalRequest', ids: [], allMatching: false }),
+                    },
+                    {
+                      key: 'approvalDecision',
+                      label: t('approval.transfer.decisions'),
+                      onSelect: () =>
+                        setExporting({ type: 'approvalDecision', ids: [], allMatching: false }),
+                    },
+                  ]
+                : []
             }
-            items={[
-              {
-                key: 'approvalRequest',
-                label: t('approval.transfer.requests'),
-                onSelect: () =>
-                  setExporting({ type: 'approvalRequest', ids: [], allMatching: false }),
-              },
-              {
-                key: 'approvalDecision',
-                label: t('approval.transfer.decisions'),
-                onSelect: () =>
-                  setExporting({ type: 'approvalDecision', ids: [], allMatching: false }),
-              },
-            ]}
-            data-testid="approval-export-menu"
+            testIds={{ exportButton: 'approval-export-button', exportMenu: 'approval-export-menu' }}
           />
-        )}
-      </header>
+        }
+      />
 
       <Tabs
         value={search.status}

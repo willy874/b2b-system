@@ -2,6 +2,7 @@ import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { Field } from '@b2b-system/ui/Field';
 import { Input } from '@b2b-system/ui/Input';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Separator } from '@b2b-system/ui/Separator';
 import { ChangePasswordSection, useChangePasswordForm } from '@b2b-system/web-core/components';
 import { useErrorToast } from '@b2b-system/web-core/errors';
@@ -51,12 +52,10 @@ export default function ProfilePage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6" data-testid="profile-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('account.profile.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('account.profile.description')}
-        </p>
-      </header>
+      <PageHeader
+        title={t('account.profile.title')}
+        description={t('account.profile.description')}
+      />
 
       {/* <form>：在欄位按 Enter 就能儲存 */}
       <form

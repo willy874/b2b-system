@@ -1,10 +1,9 @@
-import { Chip } from '@b2b-system/ui/Chip';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import { RichTable } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useRouteSearch } from '@b2b-system/web-core/router';
-import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useMemo } from 'react';
@@ -12,11 +11,9 @@ import { useMemo } from 'react';
 import { getApprovalListQueryOptions } from '@/apis/approval/get-approval-list/query';
 import { useIsFeatureReady } from '@/core/feature';
 
+import { approvalColumns } from '../../components/approvalColumns';
 import {
   APPROVAL_CHAIN_FEATURE,
-  APPROVAL_STATUS_LABEL_KEY,
-  APPROVAL_STATUS_TONE,
-  APPROVAL_TYPE_LABEL_KEY,
   MY_APPROVAL_TAB_LABEL_KEY,
   MY_APPROVAL_TABS,
 } from '../../constants';
@@ -24,7 +21,6 @@ import type { MyApprovalTab } from '../../constants';
 import { useApprovalCounts } from '../../hooks/useApprovalCounts';
 import { MyApprovalDetailRoute, MyApprovalRoute } from '../../routes';
 import type { MyApprovalSearchQuery } from '../../routes';
-import { ApprovalProgress } from '../ApprovalList/components/ApprovalProgress';
 import { toMyApprovalListParams, toMyApprovalRowVM } from './adapter';
 import type { MyApprovalRowVM } from './adapter';
 
@@ -55,69 +51,31 @@ export default function MyApprovalListPage() {
     [search, tab],
   );
 
-  const columns = useMemo<Array<TableColumnDef<MyApprovalRowVM>>>(
-    () => [
-      {
-        id: 'type',
-        header: t('approval.field.type'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <Link
-            to={MyApprovalDetailRoute.to}
-            params={{ approvalId: row.original.id }}
-            search={detailSearch}
-            className="font-medium whitespace-nowrap text-[var(--color-brand)]"
-            data-testid="my-approval-detail-link"
-            data-value={row.original.requesterName}
-          >
-            {t(APPROVAL_TYPE_LABEL_KEY[row.original.type])}
-          </Link>
-        ),
-      },
-      {
-        id: 'requesterName',
-        header: t('approval.field.requester'),
-        enableSorting: false,
-        cell: ({ row }) => row.original.requesterName,
-      },
-      {
-        id: 'progress',
-        header: t('approval.field.progress'),
-        enableSorting: false,
-        cell: ({ row }) => <ApprovalProgress row={row.original} />,
-      },
-      {
-        id: 'status',
-        header: t('approval.field.status'),
-        enableSorting: false,
-        cell: ({ row }) => (
-          <Chip
-            tone={APPROVAL_STATUS_TONE[row.original.status]}
-            data-testid="my-approval-status"
-            data-value={row.original.status}
-          >
-            {t(APPROVAL_STATUS_LABEL_KEY[row.original.status])}
-          </Chip>
-        ),
-      },
-      {
-        id: 'createdAt',
-        header: t('approval.field.createdAt'),
-        enableSorting: false,
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
-    ],
-    [detailSearch, t],
-  );
+  const columns = useMemo<Array<TableColumnDef<MyApprovalRowVM>>>(() => {
+    const shared = approvalColumns<MyApprovalRowVM>({
+      t,
+      renderTypeLink: (row, label) => (
+        <Link
+          to={MyApprovalDetailRoute.to}
+          params={{ approvalId: row.id }}
+          search={detailSearch}
+          className="font-medium whitespace-nowrap text-[var(--color-brand)]"
+          data-testid="my-approval-detail-link"
+          data-value={row.requesterName}
+        >
+          {label}
+        </Link>
+      ),
+      statusTestId: 'my-approval-status',
+    });
+    return [shared.type, shared.requesterName, shared.progress, shared.status, shared.createdAt];
+  }, [detailSearch, t]);
 
   const setSearch = (next: { tab?: MyApprovalTab; offset?: number; limit?: number }) => patch(next);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="my-approval-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('menu.myApproval')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('approval.my.description')}</p>
-      </header>
+      <PageHeader title={t('menu.myApproval')} description={t('approval.my.description')} />
 
       <Tabs
         value={tab}

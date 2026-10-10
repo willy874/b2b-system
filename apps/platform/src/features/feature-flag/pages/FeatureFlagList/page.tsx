@@ -1,3 +1,4 @@
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -28,10 +29,7 @@ export default function FeatureFlagListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="feature-flag-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('featureFlag.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('featureFlag.description')}</p>
-      </header>
+      <PageHeader title={t('featureFlag.title')} description={t('featureFlag.description')} />
       <FeatureFlagTable
         rows={rows}
         loading={isPending}

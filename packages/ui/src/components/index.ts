@@ -28,6 +28,7 @@ export * from './Link';
 export * from './Menu';
 export * from './NumberField';
 export * from './Pagination';
+export * from './PageHeader';
 export * from './Popover';
 export * from './Progress';
 export * from './Radio';

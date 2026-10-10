@@ -1,5 +1,6 @@
 import { ButtonLink } from '@b2b-system/ui/Button';
 import { preloadRichTextEditor } from '@b2b-system/ui/LazyRichTextEditor';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
@@ -35,27 +36,25 @@ export default function AnnouncementListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="announcement-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('announcement.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('announcement.list.description')}
-          </p>
-        </div>
-        {permission.canCreate && (
-          <ButtonLink
-            variant="primary"
-            to={AnnouncementCreateRoute.to}
-            search={search}
-            // 新增表單的內文編輯器是獨立的 chunk：滑過或聚焦按鈕就先下載
-            onPointerEnter={preloadRichTextEditor}
-            onFocus={preloadRichTextEditor}
-            data-testid="announcement-create-button"
-          >
-            {t('announcement.create.action')}
-          </ButtonLink>
-        )}
-      </header>
+      <PageHeader
+        title={t('announcement.list.title')}
+        description={t('announcement.list.description')}
+        actions={
+          permission.canCreate && (
+            <ButtonLink
+              variant="primary"
+              to={AnnouncementCreateRoute.to}
+              search={search}
+              // 新增表單的內文編輯器是獨立的 chunk：滑過或聚焦按鈕就先下載
+              onPointerEnter={preloadRichTextEditor}
+              onFocus={preloadRichTextEditor}
+              data-testid="announcement-create-button"
+            >
+              {t('announcement.create.action')}
+            </ButtonLink>
+          )
+        }
+      />
 
       <AnnouncementTable
         rows={rows}

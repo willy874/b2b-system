@@ -1,4 +1,5 @@
 import { Empty } from '@b2b-system/ui/Empty';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Pagination } from '@b2b-system/ui/Pagination';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
@@ -27,10 +28,7 @@ export default function TrashListPage() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="trash-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('trash.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('trash.description')}</p>
-      </header>
+      <PageHeader title={t('trash.title')} description={t('trash.description')} />
 
       {active ? (
         <Tabs

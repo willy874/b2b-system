@@ -1,6 +1,6 @@
-import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { ButtonLink } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
-import { Icon } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useListSearch } from '@b2b-system/web-core/router';
@@ -9,6 +9,7 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 
 import { getServiceAccountListQueryOptions } from '@/apis/service-account/get-service-account-list/query';
+import { TransferActions } from '@/core/components/TransferActions';
 
 import { serviceAccountExportApi } from '../../hooks/serviceAccountExportApi';
 import { useServiceAccountDeleteMutation } from '../../hooks/useServiceAccountMutations';
@@ -65,36 +66,32 @@ export default function ServiceAccountListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="service-account-list-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('serviceAccount.list.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('serviceAccount.list.description')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {permission.canExport && (
-            <Button
-              variant="secondary"
-              startIcon={<Icon name="download" size={16} />}
-              onClick={() => setExporting(true)}
-              data-testid="service-account-export-button"
-            >
-              {t('dataTransfer.export.action')}
-            </Button>
-          )}
-          {permission.canCreate && (
-            <ButtonLink
-              variant="primary"
-              to={ServiceAccountCreateRoute.to}
-              search={search}
-              data-testid="service-account-create-button"
-            >
-              {t('serviceAccount.create.action')}
-            </ButtonLink>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t('serviceAccount.list.title')}
+        description={t('serviceAccount.list.description')}
+        actions={
+          <>
+            <TransferActions
+              exports={
+                permission.canExport
+                  ? [{ key: 'serviceAccount', onSelect: () => setExporting(true) }]
+                  : []
+              }
+              testIds={{ exportButton: 'service-account-export-button' }}
+            />
+            {permission.canCreate && (
+              <ButtonLink
+                variant="primary"
+                to={ServiceAccountCreateRoute.to}
+                search={search}
+                data-testid="service-account-create-button"
+              >
+                {t('serviceAccount.create.action')}
+              </ButtonLink>
+            )}
+          </>
+        }
+      />
 
       <ServiceAccountTable
         rows={rows}

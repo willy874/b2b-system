@@ -7,4 +7,3 @@ export * from './JobRowActions';
 export * from './JobTable';
 export * from './search';
 export * from './types';
-export * from './useExpandedJob';

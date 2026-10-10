@@ -1,5 +1,6 @@
 import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button } from '@b2b-system/ui/Button';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
@@ -44,23 +45,21 @@ export default function PlatformAdminListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="platform-admin-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('platformAdmin.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-            {t('platformAdmin.description')}
-          </p>
-        </div>
-        {permission.canCreate && (
-          <Button
-            variant="primary"
-            onClick={() => setCreating(true)}
-            data-testid="platform-admin-create-button"
-          >
-            {t('platformAdmin.create.action')}
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={t('platformAdmin.title')}
+        description={t('platformAdmin.description')}
+        actions={
+          permission.canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => setCreating(true)}
+              data-testid="platform-admin-create-button"
+            >
+              {t('platformAdmin.create.action')}
+            </Button>
+          )
+        }
+      />
 
       <PlatformAdminTable
         rows={rows}

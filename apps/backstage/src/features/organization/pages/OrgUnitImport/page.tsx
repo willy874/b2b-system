@@ -1,3 +1,4 @@
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { ImportWorkspace } from '@b2b-system/web-core/data-import';
 import type { ImportMode } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -28,9 +29,7 @@ export default function OrgUnitImportPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="org-unit-import-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('menu.orgUnitImport')}</h1>
-      </header>
+      <PageHeader title={t('menu.orgUnitImport')} />
       <ImportWorkspace
         api={orgUnitImportApi}
         type="orgUnit"

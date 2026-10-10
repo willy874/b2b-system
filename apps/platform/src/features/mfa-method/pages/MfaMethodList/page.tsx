@@ -1,6 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { Icon } from '@b2b-system/ui/Icon';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Select } from '@b2b-system/ui/Select';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
 import { QueryError } from '@b2b-system/web-core/components';
@@ -74,10 +75,7 @@ export default function MfaMethodListPage() {
 
   return (
     <div className="flex max-w-4xl flex-col gap-4" data-testid="mfa-method-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('mfaMethod.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('mfaMethod.description')}</p>
-      </header>
+      <PageHeader title={t('mfaMethod.title')} description={t('mfaMethod.description')} />
       {list.isPending ? (
         <Skeleton className="h-40" />
       ) : list.isError ? (

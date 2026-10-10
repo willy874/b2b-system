@@ -1,4 +1,5 @@
 import { Button } from '@b2b-system/ui/Button';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { QuerySection } from '@b2b-system/web-core/components';
 import { downloadFromUrl, TransferTable } from '@b2b-system/web-core/data-transfer';
 import type { TransferView } from '@b2b-system/web-core/data-transfer';
@@ -94,12 +95,10 @@ export default function DataTransferListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="data-transfer-page">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('dataTransfer.list.title')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('dataTransfer.list.description')}
-        </p>
-      </header>
+      <PageHeader
+        title={t('dataTransfer.list.title')}
+        description={t('dataTransfer.list.description')}
+      />
       {search.transfer && (
         <section
           className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--color-brand)] p-3"

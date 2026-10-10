@@ -1,4 +1,5 @@
 import { Button } from '@b2b-system/ui/Button';
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -59,21 +60,21 @@ export default function TenantListPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4" data-testid="tenant-page">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-xl font-semibold">{t('tenant.title')}</h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{t('tenant.description')}</p>
-        </div>
-        {permission.canCreate && (
-          <Button
-            variant="primary"
-            onClick={() => setCreating(true)}
-            data-testid="tenant-create-button"
-          >
-            {t('tenant.create.action')}
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={t('tenant.title')}
+        description={t('tenant.description')}
+        actions={
+          permission.canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => setCreating(true)}
+              data-testid="tenant-create-button"
+            >
+              {t('tenant.create.action')}
+            </Button>
+          )
+        }
+      />
 
       {storageTotalVM && <StorageTotalBar total={storageTotalVM} />}
 

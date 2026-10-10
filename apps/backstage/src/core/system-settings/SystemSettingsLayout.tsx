@@ -1,3 +1,4 @@
+import { PageHeader } from '@b2b-system/ui/PageHeader';
 import { Tabs } from '@b2b-system/ui/Tabs';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useLocation, useNavigate } from '@tanstack/react-router';
@@ -22,12 +23,7 @@ export function SystemSettingsLayout({ children }: SystemSettingsLayoutProps) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="system-settings-layout">
-      <header>
-        <h1 className="m-0 text-xl font-semibold">{t('menu.setting')}</h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          {t('app.systemSettings.description')}
-        </p>
-      </header>
+      <PageHeader title={t('menu.setting')} description={t('app.systemSettings.description')} />
       {tabs.length > 1 && current && (
         <Tabs
           value={current.to}
