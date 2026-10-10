@@ -1,4 +1,6 @@
-import { z } from 'zod';
+// zod/mini：前端在首頁的初始載入就要用它驗證推播（web-core/realtime），classic 的方法鏈無法 tree-shake
+// （docs/architecture/frontend/04-routing.md §3）；api 端的 safeParse 用法相同
+import { z } from 'zod/mini';
 
 /**
  * 伺服器會推的來源資源。前端的 `Resource`（apis/resources.ts）必須是它的超集：
@@ -119,7 +121,7 @@ export type ChangeKind = (typeof ChangeKind)[keyof typeof ChangeKind];
 /** 一次推播最多帶幾筆變更；超過代表呼叫端該改用 `ANY_ID` 之類的粗粒度宣告。 */
 export const MAX_CHANGES_PER_EVENT = 100;
 
-const IdSchema = z.string().min(1).max(64);
+const IdSchema = z.string().check(z.minLength(1), z.maxLength(64));
 
 const ChangeSourceSchema = z.enum([
   ChangeSource.USER,
@@ -160,18 +162,21 @@ const ChangeSourceSchema = z.enum([
 export const ResourceChangeWireSchema = z.object({
   resource: ChangeSourceSchema,
   kind: z.enum([ChangeKind.CREATE, ChangeKind.UPDATE, ChangeKind.DELETE]),
-  id: IdSchema.optional(),
-  refs: z
-    .partialRecord(ChangeSourceSchema, z.array(IdSchema).max(MAX_CHANGES_PER_EVENT))
-    .optional(),
+  id: z.optional(IdSchema),
+  refs: z.optional(
+    z.partialRecord(
+      ChangeSourceSchema,
+      z.array(IdSchema).check(z.maxLength(MAX_CHANGES_PER_EVENT)),
+    ),
+  ),
 });
 
 export type ResourceChangeWire = z.infer<typeof ResourceChangeWireSchema>;
 
 export const ResourceChangedSchema = z.object({
-  changes: z.array(ResourceChangeWireSchema).max(MAX_CHANGES_PER_EVENT),
+  changes: z.array(ResourceChangeWireSchema).check(z.maxLength(MAX_CHANGES_PER_EVENT)),
   /** 發起寫入的分頁（`x-client-id`）；該分頁收到時略過。 */
-  origin: z.string().max(64).optional(),
+  origin: z.optional(z.string().check(z.maxLength(64))),
 });
 
 export type ResourceChanged = z.infer<typeof ResourceChangedSchema>;

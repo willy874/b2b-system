@@ -2,7 +2,7 @@ import { queryClient } from '@b2b-system/web-core/cache';
 import { localeScopeLoader } from '@b2b-system/web-core/locales';
 import { RootRoute } from '@b2b-system/web-core/router';
 import { createRoute, redirect, stripSearchParams } from '@tanstack/react-router';
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
 import { requireFeature } from '@/core/feature';
@@ -61,8 +61,8 @@ export const RoleDetailRevisionRoute = createRoute({
 
 /** 匯入頁的網址：模式與已送出的傳輸（重新整理或從通知回來時直接顯示結果，docs/architecture/backend/22-data-transfer.md §7.2）。 */
 export const RoleImportSearchSchema = z.object({
-  mode: z.enum(['create', 'update']).catch('create'),
-  transfer: z.string().uuid().optional().catch(undefined),
+  mode: z.catch(z.enum(['create', 'update']), 'create'),
+  transfer: z.catch(z.optional(z.uuid()), undefined),
 });
 
 /**

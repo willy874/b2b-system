@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 export const SortOrder = {
   ASC: 'asc',
@@ -66,14 +66,20 @@ function parseSortSearch(value: unknown): unknown {
  */
 export function sortSearchSchema<const T extends readonly [string, ...string[]]>(fields: T) {
   const empty: Array<SortEntry<T[number]>> = [];
-  return z
-    .preprocess(
-      parseSortSearch,
-      z
-        .array(z.object({ sort: z.enum(fields), order: z.enum(SORT_ORDERS) }))
-        .max(fields.length)
-        .refine((entries) => new Set(entries.map((entry) => entry.sort)).size === entries.length),
-    )
-    .default(empty)
-    .catch(empty);
+  // route 的 search 驗證在首頁的初始載入裡：用 zod/mini（docs/architecture/frontend/04-routing.md §3）
+  return z.catch(
+    z._default(
+      z.pipe(
+        z.transform(parseSortSearch),
+        z.array(z.object({ sort: z.enum(fields), order: z.enum(SORT_ORDERS) })).check(
+          z.maxLength(fields.length),
+          z.refine(
+            (entries) => new Set(entries.map((entry) => entry.sort)).size === entries.length,
+          ),
+        ),
+      ),
+      empty,
+    ),
+    empty,
+  );
 }

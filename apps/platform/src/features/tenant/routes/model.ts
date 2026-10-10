@@ -1,5 +1,5 @@
 import { sortSearchSchema } from '@b2b-system/web-shared/constants';
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 import type { TenantSortField } from '@/apis/platform-tenant/types';
 
@@ -14,10 +14,10 @@ export const TENANT_SORT_FIELDS = [
 ] as const satisfies readonly TenantSortField[];
 
 export const TenantSearchQuerySchema = z.object({
-  offset: z.coerce.number().int().min(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(100).catch(50),
-  q: z.string().trim().max(100).optional().catch(undefined),
-  status: z.enum(['provisioning', 'active', 'disabled', 'failed']).optional().catch(undefined),
+  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
+  q: z.catch(z.optional(z.string().check(z.trim(), z.maxLength(100))), undefined),
+  status: z.catch(z.optional(z.enum(['provisioning', 'active', 'disabled', 'failed'])), undefined),
   /** 沒有排序時依建立時間舊到新（後端的預設）。 */
   sort: sortSearchSchema(TENANT_SORT_FIELDS),
 });
@@ -37,7 +37,7 @@ export const TENANT_DETAIL_TABS = ['overview', 'usage', 'features', 'flags', 'mf
 export type TenantDetailTab = (typeof TENANT_DETAIL_TABS)[number];
 
 export const TenantDetailSearchSchema = z.object({
-  tab: z.enum(TENANT_DETAIL_TABS).catch('overview'),
+  tab: z.catch(z.enum(TENANT_DETAIL_TABS), 'overview'),
 });
 
 export type TenantDetailSearch = z.infer<typeof TenantDetailSearchSchema>;

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -57,7 +57,10 @@ export function createZodErrorMap(translate: Translate): z.core.$ZodErrorMap {
   };
 }
 
-/** 讓全域的 Zod 驗證訊息走語系（i18n plugin 初始化時呼叫一次）。 */
+/**
+ * 讓全域的 Zod 驗證訊息走語系（i18n plugin 初始化時呼叫一次）。設定存在 `zod/v4/core`，classic（表單）與 mini（route 的 search）共用；
+ * 這裡用 mini，classic 的方法鏈不進首頁的初始載入（docs/architecture/frontend/04-routing.md §3）。
+ */
 export function configureZodErrorMap(translate: Translate): void {
   z.config({ customError: createZodErrorMap(translate) });
 }

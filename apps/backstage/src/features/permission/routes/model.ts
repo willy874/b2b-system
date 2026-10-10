@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 export const PERMISSION_VIEWS = ['list', 'tree'] as const;
 export type PermissionView = (typeof PERMISSION_VIEWS)[number];
@@ -11,18 +11,22 @@ export type PermissionHeldFilter = (typeof PERMISSION_HELD_FILTERS)[number];
  * 篩選對一覽表與樹狀圖同時作用。
  */
 export const PermissionSearchQuerySchema = z.object({
-  view: z.enum(PERMISSION_VIEWS).default('list').catch('list'),
+  view: z.catch(z._default(z.enum(PERMISSION_VIEWS), 'list'), 'list'),
   /** 比對權限名稱（目前語系）與權限鍵，不分大小寫。 */
-  keyword: z.string().trim().max(100).optional().catch(undefined),
+  keyword: z.catch(z.optional(z.string().check(z.trim(), z.maxLength(100))), undefined),
   /** 只看這些資源；網址上重複的 `resource` 成為陣列（`web-core/router/search.ts`）。 */
-  resource: z
-    .union([z.string(), z.array(z.string())])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional()
-    .catch(undefined),
-  held: z.enum(PERMISSION_HELD_FILTERS).optional().catch(undefined),
+  resource: z.catch(
+    z.optional(
+      z.pipe(
+        z.union([z.string(), z.array(z.string())]),
+        z.transform((value) => (Array.isArray(value) ? value : [value])),
+      ),
+    ),
+    undefined,
+  ),
+  held: z.catch(z.optional(z.enum(PERMISSION_HELD_FILTERS)), undefined),
   /** 樹狀圖選取的權限鍵；目錄裡沒有的鍵由頁面忽略。 */
-  key: z.string().max(100).optional().catch(undefined),
+  key: z.catch(z.optional(z.string().check(z.maxLength(100))), undefined),
 });
 
 export type PermissionSearchQuery = z.infer<typeof PermissionSearchQuerySchema>;

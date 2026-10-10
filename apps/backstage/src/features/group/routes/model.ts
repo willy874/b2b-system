@@ -1,5 +1,5 @@
 import { sortSearchSchema } from '@b2b-system/web-shared/constants';
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 import type { GroupSortField } from '@/apis/group/types';
 
@@ -13,9 +13,9 @@ export const GROUP_SORT_FIELDS = [
 
 /** `.catch()` 而非 `.default()`：使用者手改網址成 ?limit=abc 時退回預設值，不變成錯誤頁。 */
 export const GroupSearchQuerySchema = z.object({
-  offset: z.coerce.number().int().min(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(200).catch(20),
-  keyword: z.string().trim().optional().catch(undefined),
+  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
+  keyword: z.catch(z.optional(z.string().check(z.trim())), undefined),
   sort: sortSearchSchema(GROUP_SORT_FIELDS),
 });
 

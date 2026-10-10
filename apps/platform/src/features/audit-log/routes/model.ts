@@ -1,14 +1,14 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 export const AuditLogSearchQuerySchema = z.object({
-  offset: z.coerce.number().int().min(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(100).catch(50),
-  action: z.string().trim().optional().catch(undefined),
-  actorEmail: z.string().trim().optional().catch(undefined),
-  result: z.enum(['success', 'failure']).optional().catch(undefined),
+  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
+  action: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  actorEmail: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  result: z.catch(z.optional(z.enum(['success', 'failure'])), undefined),
   /** 使用者當地的日曆日（`YYYY-MM-DD`）；查詢時才換成時區的日界線 */
-  from: z.string().optional().catch(undefined),
-  to: z.string().optional().catch(undefined),
+  from: z.catch(z.optional(z.string()), undefined),
+  to: z.catch(z.optional(z.string()), undefined),
 });
 
 export type AuditLogSearchQuery = z.infer<typeof AuditLogSearchQuerySchema>;

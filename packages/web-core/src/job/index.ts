@@ -5,5 +5,6 @@ export * from './JobPageTabs';
 export * from './JobQueueSummary';
 export * from './JobRowActions';
 export * from './JobTable';
+export * from './search';
 export * from './types';
 export * from './useExpandedJob';

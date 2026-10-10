@@ -1,10 +1,13 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 export const TrashSearchQuerySchema = z.object({
   /** 目前的分頁（資源類型）；沒有或看不到時由頁面選第一個看得到的類型。 */
-  type: z.string().optional().catch(undefined),
-  offset: z.coerce.number().int().min(0).default(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(200).default(20).catch(20),
+  type: z.catch(z.optional(z.string()), undefined),
+  offset: z.catch(z._default(z.coerce.number().check(z.int(), z.minimum(0)), 0), 0),
+  limit: z.catch(
+    z._default(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
+    20,
+  ),
 });
 
 export type TrashSearchQuery = z.infer<typeof TrashSearchQuerySchema>;

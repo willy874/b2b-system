@@ -20,7 +20,7 @@ import { SideNav } from './SideNav';
 
 import styles from './DashboardShell.module.css';
 
-/** 命令面板的本體（對話框、虛擬列表、搜尋）在第一次開啟時才下載（docs/architecture/frontend/18-command-palette.md §2）。 */
+/** 命令面板的本體（對話框、虛擬列表、搜尋）在第一次開啟時才下載（docs/architecture/frontend/18-command-palette.md §3）。 */
 const CommandPalette = lazy(() =>
   import('../command-palette/CommandPalette').then((module) => ({
     default: module.CommandPalette,

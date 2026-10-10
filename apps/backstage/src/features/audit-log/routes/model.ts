@@ -1,13 +1,13 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 export const AuditLogSearchQuerySchema = z.object({
-  offset: z.coerce.number().int().min(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(100).catch(50),
-  action: z.string().trim().optional().catch(undefined),
-  resourceType: z.string().trim().optional().catch(undefined),
-  result: z.enum(['success', 'failure']).optional().catch(undefined),
-  from: z.string().optional().catch(undefined),
-  to: z.string().optional().catch(undefined),
+  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
+  action: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  resourceType: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  result: z.catch(z.optional(z.enum(['success', 'failure'])), undefined),
+  from: z.catch(z.optional(z.string()), undefined),
+  to: z.catch(z.optional(z.string()), undefined),
 });
 
 export type AuditLogSearchQuery = z.infer<typeof AuditLogSearchQuerySchema>;

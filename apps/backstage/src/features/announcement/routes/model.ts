@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 /** `.catch()` 而非 `.default()`：使用者手改網址成 ?limit=abc 時退回預設值，不變成錯誤頁。 */
 export const AnnouncementSearchQuerySchema = z.object({
-  offset: z.coerce.number().int().min(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(200).catch(20),
-  keyword: z.string().trim().optional().catch(undefined),
-  status: z.enum(['draft', 'scheduled', 'paused', 'completed']).optional().catch(undefined),
+  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
+  keyword: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  status: z.catch(z.optional(z.enum(['draft', 'scheduled', 'paused', 'completed'])), undefined),
 });
 
 export type AnnouncementSearchQuery = z.infer<typeof AnnouncementSearchQuerySchema>;

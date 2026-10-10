@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 /** 方向的篩選（由顯示的寬高算）。 */
 export const GALLERY_ORIENTATIONS = ['landscape', 'portrait', 'square'] as const;
@@ -14,23 +14,27 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
  */
 export const GallerySearchSchema = z.object({
   /** 開著的檢視器（`?item=<id>`）。 */
-  item: z.string().uuid().optional().catch(undefined),
-  keyword: z.string().trim().max(100).optional().catch(undefined),
+  item: z.catch(z.optional(z.uuid()), undefined),
+  keyword: z.catch(z.optional(z.string().check(z.trim(), z.maxLength(100))), undefined),
   /** 貼了其中任一個標籤。 */
   // 只有一個值時網址的序列化是單一字串、多個時是陣列：一律轉成陣列
-  tag: z
-    .union([z.string().uuid(), z.array(z.string().uuid()).min(1).max(20)])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional()
-    .catch(undefined),
+  tag: z.catch(
+    z.optional(
+      z.pipe(
+        z.union([z.uuid(), z.array(z.uuid()).check(z.minLength(1), z.maxLength(20))]),
+        z.transform((value) => (Array.isArray(value) ? value : [value])),
+      ),
+    ),
+    undefined,
+  ),
   /** 圖片日期（含）的範圍，`YYYY-MM-DD`，以瀏覽器的時區解讀。 */
-  from: z.string().regex(DAY).optional().catch(undefined),
-  to: z.string().regex(DAY).optional().catch(undefined),
-  orientation: z.enum(GALLERY_ORIENTATIONS).optional().catch(undefined),
-  origin: z.enum(['upload', 'added']).optional().catch(undefined),
-  sort: z.enum(GALLERY_SORTS).optional().catch(undefined),
+  from: z.catch(z.optional(z.string().check(z.regex(DAY))), undefined),
+  to: z.catch(z.optional(z.string().check(z.regex(DAY))), undefined),
+  orientation: z.catch(z.optional(z.enum(GALLERY_ORIENTATIONS)), undefined),
+  origin: z.catch(z.optional(z.enum(['upload', 'added'])), undefined),
+  sort: z.catch(z.optional(z.enum(GALLERY_SORTS)), undefined),
   /** 方向反轉（預設新到舊、標題 A→Z）。 */
-  reverse: z.boolean().optional().catch(undefined),
+  reverse: z.catch(z.optional(z.boolean()), undefined),
 });
 
 export type GallerySearch = z.infer<typeof GallerySearchSchema>;

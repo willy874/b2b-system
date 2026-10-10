@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/mini';
 
 import { FILE_CATEGORIES, FILE_GRANT_LEVELS } from '../constants';
 
@@ -8,24 +8,28 @@ import { FILE_CATEGORIES, FILE_GRANT_LEVELS } from '../constants';
  */
 export const FileSearchQuerySchema = z.object({
   /** 目前所在的資料夾 id；省略是根目錄。 */
-  folder: z.string().uuid().optional().catch(undefined),
-  offset: z.coerce.number().int().min(0).default(0).catch(0),
-  keyword: z.string().trim().max(100).optional().catch(undefined),
-  category: z.enum(FILE_CATEGORIES).optional().catch(undefined),
+  folder: z.catch(z.optional(z.uuid()), undefined),
+  offset: z.catch(z._default(z.coerce.number().check(z.int(), z.minimum(0)), 0), 0),
+  keyword: z.catch(z.optional(z.string().check(z.trim(), z.maxLength(100))), undefined),
+  category: z.catch(z.optional(z.enum(FILE_CATEGORIES)), undefined),
   /** 貼了其中任一個標籤（docs/architecture/backend/18-tag.md §7.2 D6）；網址上重複的 `tag` 成為陣列（`web-core/router/search.ts`）。 */
-  tag: z
-    .union([z.string().uuid(), z.array(z.string().uuid()).min(1)])
-    .transform((value) => (Array.isArray(value) ? value : [value]))
-    .optional()
-    .catch(undefined),
+  tag: z.catch(
+    z.optional(
+      z.pipe(
+        z.union([z.uuid(), z.array(z.uuid()).check(z.minLength(1))]),
+        z.transform((value) => (Array.isArray(value) ? value : [value])),
+      ),
+    ),
+    undefined,
+  ),
   /** LightBox 開著的檔案 id。 */
-  preview: z.string().uuid().optional().catch(undefined),
+  preview: z.catch(z.optional(z.uuid()), undefined),
   /**
    * 打開所在資料夾的「申請存取」並預填等級；`resubmit` 是被駁回或撤回的前一筆申請
    * （審批詳情的「修改後重新送出」，docs/architecture/backend/20-approval.md §11.3）。
    */
-  requestAccess: z.enum(FILE_GRANT_LEVELS).optional().catch(undefined),
-  resubmit: z.string().uuid().optional().catch(undefined),
+  requestAccess: z.catch(z.optional(z.enum(FILE_GRANT_LEVELS)), undefined),
+  resubmit: z.catch(z.optional(z.uuid()), undefined),
 });
 
 export type FileSearchQuery = z.infer<typeof FileSearchQuerySchema>;
