@@ -1,7 +1,14 @@
+import { lazy } from 'react';
+
 import { fileExtension, isBrowserImage, registerFilePreviewer } from '@/core/file';
 
-import { ImagePreview } from './ImagePreview';
-import { TextPreview } from './TextPreview';
+// 開預覽時才載入（plugin 安裝時只登記規則，docs/architecture/frontend/02-plugin-system.md §4.8）
+const ImagePreview = lazy(() =>
+  import('./ImagePreview').then((module) => ({ default: module.ImagePreview })),
+);
+const TextPreview = lazy(() =>
+  import('./TextPreview').then((module) => ({ default: module.TextPreview })),
+);
 
 /** 沒有標 `text/*` 但其實是文字的格式（常見的設定檔、腳本）。 */
 const TEXT_EXTENSIONS = new Set([

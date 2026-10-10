@@ -8,7 +8,7 @@ import { isTypingTarget } from '@b2b-system/web-core/hotkey';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import { getFileDetailQueryOptions } from '@/apis/file/get-file-detail/query';
@@ -214,7 +214,15 @@ function FilePreviewPane({ file }: { file: FileItemVM }) {
   return (
     <PreviewBoundary key={file.id} fallback={fallback}>
       <div className="h-full min-h-0" data-testid="file-preview" data-value={previewer.id}>
-        <Preview file={file} />
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center">
+              <Spinner label={t('common.loading')} />
+            </div>
+          }
+        >
+          <Preview file={file} />
+        </Suspense>
       </div>
     </PreviewBoundary>
   );

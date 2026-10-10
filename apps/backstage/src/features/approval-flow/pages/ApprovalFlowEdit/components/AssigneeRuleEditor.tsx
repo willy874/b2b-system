@@ -2,6 +2,7 @@ import { Chip } from '@b2b-system/ui/Chip';
 import { Select } from '@b2b-system/ui/Select';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
 import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
@@ -226,11 +227,14 @@ function RoleTarget({ value, onChange, enabled, savedLabel, invalid }: TargetPro
 function OrgUnitTarget({ value, onChange, enabled, savedLabel, invalid }: TargetProps) {
   const { t } = useTranslation();
   const tree = useQuery({ ...getOrgUnitTreeQueryOptions(), enabled });
-  const units = tree.data?.items ?? [];
-  const byId = new Map(units.map((unit) => [unit.id, unit]));
-  const options = units
-    .map((unit) => ({ value: unit.id, label: orgUnitPath(unit, byId) }))
-    .toSorted((left, right) => left.label.localeCompare(right.label));
+  // 平面的完整路徑（不用樹狀的 OrgUnitPicker）：已刪除的部門要以儲存時的名稱補進選項（withCurrent）
+  const options = useMemo(() => {
+    const units = tree.data?.items ?? [];
+    const byId = new Map(units.map((unit) => [unit.id, unit]));
+    return units
+      .map((unit) => ({ value: unit.id, label: orgUnitPath(unit, byId) }))
+      .toSorted((left, right) => left.label.localeCompare(right.label));
+  }, [tree.data]);
   return (
     <Select
       aria-label={t('approvalFlow.assignee.target')}

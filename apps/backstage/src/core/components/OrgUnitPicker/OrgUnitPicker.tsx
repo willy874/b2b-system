@@ -47,7 +47,7 @@ function toOptions(
 
 /**
  * 樹狀、可搜尋的部門選擇器（docs/architecture/backend/23-organization.md §8）：使用者列表的部門篩選、
- * 組織頁的「搬移到…」、審批流程的部門規則共用。有下層的部門本身也能選（`selectableGroups`），
+ * 組織頁的「搬移到…」共用。有下層的部門本身也能選（`selectableGroups`），
  * 搜尋時只留下符合的部門與它們的上層。文字全部由呼叫端傳入（`core` 不依賴 feature 的語系包）。
  */
 export function OrgUnitPicker({

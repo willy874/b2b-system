@@ -36,7 +36,7 @@ features/file/                       業務：頁面、上傳入口、內建的�
 ├── batch.ts                         批次操作 file.upload / file.delete、enqueueFileUploads()
 ├── preference.ts                    排列方式、閱覽模式、排序、每頁筆數（dictStorage ＋ 跨分頁頻道）
 ├── upload/                          檔案管理的上傳暫存區（`core/upload` 的 `createUploadSources('file-upload')`）、內建驗證器
-├── preview/                         內建解析器：ImagePreview、TextPreview
+├── preview/                         內建解析器：ImagePreview、TextPreview（lazy，開預覽時才載入）
 ├── hooks/                           useFilePermission、useFileUpload、useFileRenameMutation / useFileDeleteMutation、
 │                                    useFolderMutations（建立、改名、遞迴刪除、還原、移動）
 └── pages/FileManager/               page.tsx ＋ 版面計算、資料、選取、框選、拖放、資料夾樹（folderTree）、拖曳移動（useItemDrag）的 hooks ＋ 元件

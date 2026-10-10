@@ -39,6 +39,13 @@ const FLOW_STATS_DAYS = 30;
  * 版本以 `version`（樂觀鎖）遞增，完整的前後內容在稽核 `approvalFlow.update`；停用保留設定，重設（§12 D10）刪掉流程、
  * 整份設定留在稽核 `approvalFlow.reset`。
  */
+interface FlowDtoContext {
+  /** 權限鍵 → 名稱的 i18n key。 */
+  names: Map<string, string>;
+  /** 流程 id → 進行中的請求數。 */
+  inFlight: Map<string, number>;
+}
+
 @Injectable()
 export class ApprovalFlowService {
   constructor(
@@ -55,13 +62,16 @@ export class ApprovalFlowService {
   /** 支援流程的類型，各自帶流程（若有）與欄位定義；另回各種規則目前能不能用。 */
   async list(): Promise<ApprovalFlowListDto> {
     const flows = new Map((await this.repo.listFlows()).map((flow) => [flow.type, flow]));
-    const items: ApprovalFlowDto[] = [];
     const hidden = this.handlers.hiddenTypes();
-    for (const handler of this.handlers.all()) {
-      // 所屬 feature 沒有開放的類型不列（docs/architecture/05-tenancy.md §15.2 D3）
-      if (!handler.flow || hidden.includes(handler.type)) continue;
-      // oxlint-disable-next-line no-await-in-loop -- 支援流程的類型只有幾種；每種的規則名稱各查一次
-      items.push(await this.toDto(handler, flows.get(handler.type)));
+    // 所屬 feature 沒有開放的類型不列（docs/architecture/05-tenancy.md §15.2 D3）
+    const handlers = this.handlers.all().filter((h) => h.flow && !hidden.includes(h.type));
+    const context = await this.loadDtoContext(
+      handlers.flatMap((handler) => flows.get(handler.type)?.id ?? []),
+    );
+    const items: ApprovalFlowDto[] = [];
+    for (const handler of handlers) {
+      // oxlint-disable-next-line no-await-in-loop -- 支援流程的類型只有幾種；權限目錄與進行中的計數已一次查好
+      items.push(await this.toDto(handler, flows.get(handler.type), context));
     }
     const assigneeKinds = Object.fromEntries(
       APPROVAL_ASSIGNEE_KINDS.map((kind) => [kind, this.assignees.isAvailable(kind)]),
@@ -71,7 +81,8 @@ export class ApprovalFlowService {
 
   async get(type: string): Promise<ApprovalFlowDto> {
     const handler = this.supportedHandler(type);
-    return this.toDto(handler, await this.repo.findFlow(type));
+    const flow = await this.repo.findFlow(type);
+    return this.toDto(handler, flow, await this.loadDtoContext(flow ? [flow.id] : []));
   }
 
   /**
@@ -166,7 +177,7 @@ export class ApprovalFlowService {
         },
       ],
     });
-    return this.toDto(handler, saved);
+    return this.toDto(handler, saved, await this.loadDtoContext([saved.id]));
   }
 
   /**
@@ -354,9 +365,19 @@ export class ApprovalFlowService {
     }
   }
 
+  /** `toDto` 需要、與單一類型無關的資料：權限鍵的名稱、各流程進行中的請求數。列表一次查好，不逐類型查。 */
+  private async loadDtoContext(flowIds: readonly string[]): Promise<FlowDtoContext> {
+    const [catalog, inFlight] = await Promise.all([
+      this.permissionService.getCatalog(),
+      this.repo.countInFlight(flowIds),
+    ]);
+    return { names: new Map(catalog.items.map((item) => [item.key, item.nameI18nKey])), inFlight };
+  }
+
   private async toDto(
     handler: ApprovalHandler,
     flow: ApprovalFlowRow | undefined,
+    { names, inFlight }: FlowDtoContext,
   ): Promise<ApprovalFlowDto> {
     const support = handler.flow;
     const steps = [];
@@ -372,11 +393,7 @@ export class ApprovalFlowService {
         },
       });
     }
-    const [catalog, inFlightCount] = await Promise.all([
-      this.permissionService.getCatalog(),
-      flow ? this.repo.countInFlight(flow.id) : Promise.resolve(0),
-    ]);
-    const names = new Map(catalog.items.map((item) => [item.key, item.nameI18nKey]));
+    const inFlightCount = flow ? (inFlight.get(flow.id) ?? 0) : 0;
     return {
       type: handler.type,
       requester: support?.requester ?? 'user',

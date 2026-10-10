@@ -64,12 +64,17 @@ export class ApprovalChainRepository {
     return row;
   }
 
-  /** 照這個流程送出、還在審的請求數（儲存修改前的提醒）。 */
-  async countInFlight(flowId: string): Promise<number> {
-    return this.db.$count(
-      approvalRequests,
-      and(eq(approvalRequests.flowId, flowId), eq(approvalRequests.status, 'pending')),
-    );
+  /** 照這些流程送出、還在審的請求數（儲存修改前的提醒）；沒有進行中請求的流程不在結果裡。 */
+  async countInFlight(flowIds: readonly string[]): Promise<Map<string, number>> {
+    if (!flowIds.length) return new Map();
+    const rows = await this.db
+      .select({ flowId: approvalRequests.flowId, count: sql<number>`count(*)::int` })
+      .from(approvalRequests)
+      .where(
+        and(inArray(approvalRequests.flowId, [...flowIds]), eq(approvalRequests.status, 'pending')),
+      )
+      .groupBy(approvalRequests.flowId);
+    return new Map(rows.flatMap((row) => (row.flowId ? [[row.flowId, row.count] as const] : [])));
   }
 
   /**

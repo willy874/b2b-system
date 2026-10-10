@@ -20,21 +20,21 @@ describe('downloadFromUrl', () => {
   });
 });
 
+function spyClicks() {
+  const hrefs: string[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    hrefs.push(this.href);
+  });
+  return hrefs;
+}
+
 describe('downloadSequentially（依序觸發多個下載）', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
-
-  function spyClicks() {
-    const hrefs: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
-      this: HTMLAnchorElement,
-    ) {
-      hrefs.push(this.href);
-    });
-    return hrefs;
-  }
 
   it('每個之間隔 intervalMs，略過 resolve 回 undefined 的項目', async () => {
     vi.useFakeTimers();
