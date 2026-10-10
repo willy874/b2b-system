@@ -18,6 +18,18 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
+| P1 | 列表的篩選與導覽補齊（backstage） | [`list-filters-completion.md`](./list-filters-completion.md) | 提案 | 先收斂 [`../issues/list-search-hooks-duplicated.md`](../issues/list-search-hooks-duplicated.md)；背景工作的時間篩選與 [`platform-job-management.md`](./platform-job-management.md) 共用 |
+| P1 | 上傳的重試與被擋清單（backstage） | [`upload-retry.md`](./upload-retry.md) | 提案 | 要改寫 [`frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §8 的暫存檔清理 |
+| P1 | 批次操作擴充（backstage） | [`batch-actions-expansion.md`](./batch-actions-expansion.md) | 提案 | 背景工作的取消與 [`platform-job-management.md`](./platform-job-management.md) 共用；多關審批的批次決定要先修訂 [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9.16 |
+| P1 | 首頁區塊（backstage） | [`home-sections.md`](./home-sections.md) | 提案 | — |
+| P2 | 檔案預覽與圖片檢視統一 | [`file-viewer-unification.md`](./file-viewer-unification.md) | 提案 | 要修訂 [`backend/26-gallery.md`](../architecture/backend/26-gallery.md) §14.2 D12 |
+| P2 | 使用者與角色詳情 | [`user-role-detail-pages.md`](./user-role-detail-pages.md) | 提案 | — |
+| P2 | Webhook 投遞的除錯 | [`webhook-debugging.md`](./webhook-debugging.md) | 提案 | — |
+| P2 | 通知收件匣與公告追蹤 | [`notification-inbox.md`](./notification-inbox.md) | 提案 | 先修 [`../issues/announcement-source-filter.md`](../issues/announcement-source-filter.md) |
+| P2 | 標籤管理 | [`tag-management.md`](./tag-management.md) | 提案 | — |
+| P2 | 系統設定的導覽 | [`settings-navigation.md`](./settings-navigation.md) | 提案 | — |
+| P3 | 個人帳號的自助 | [`account-self-service.md`](./account-self-service.md) | 提案 | — |
+| P3 | 無障礙與行動版 | [`a11y-mobile.md`](./a11y-mobile.md) | 提案 | 與 `settings-navigation`、`account-self-service` 共用頁內目錄元件 |
 
 狀態只有三種：
 
@@ -69,6 +81,12 @@
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
 接下來：圖片的五個階段都已完成。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）歸檔在 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)；階段 3（圖片庫）在 [`backend/26-gallery.md`](../architecture/backend/26-gallery.md)、[`frontend/24-gallery.md`](../architecture/frontend/24-gallery.md)；階段 4（CDN）與階段 5（CDN 設定管理）在 [`backend/09-file.md`](../architecture/backend/09-file.md) §16、§17。
+
+接下來（backstage）：2026-10-10 的各功能優化分析拆成兩部分——現有程式的問題記在 [`../issues/README.md`](../issues/README.md)，新增的能力是 §1 表格中從 `list-filters-completion` 起的十二份提案。建議的順序：
+
+1. 先修 issues 的高、中嚴重度（尤其 `org-chart-save-overwrites`、`bundle-near-budget`），再開始提案。
+2. P1 的 `list-filters-completion`、`upload-retry`、`batch-actions-expansion`、`home-sections`：都是現有流程的缺口，後端多半已支援。
+3. P2、P3 彼此獨立，可以穿插；`file-viewer-unification` 要先修訂圖片庫的 D12。
 
 新的構想照 §2 新增提案。
 
