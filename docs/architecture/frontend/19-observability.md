@@ -35,6 +35,7 @@ apps/apm-service（:9100）
 | 來源（tag `source`） | 怎麼收 | 位置 |
 | --- | --- | --- |
 | `window`、`promise` | SDK 的 `globalHandlersIntegration`（`error`、`unhandledrejection`）；`browserApiErrorsIntegration` 包裝計時器與事件處理器 | `web-core/telemetry/telemetry.ts` 的 `initTelemetry` |
+| SDK 就緒前（任何來源） | SDK 以 `import('./sdk')` 載入（§9.2 D13）：`initTelemetry` 立刻開始下載，同時掛一組輕量的 `error`／`unhandledrejection` 攔截；就緒前的錯誤（上限 20）、`setTelemetryUser`、breadcrumb（上限 30）先暫存，就緒後依序補上，再移除早期攔截。`enabled: false` 時不下載 | `web-core/telemetry/telemetry.ts`、`sdk.ts` |
 | `react` | `createRoot(container, telemetryRootOptions())`：React 19 的 `onUncaughtError`、`onCaughtError`、`onRecoverableError`。TanStack Router 的錯誤邊界也是 React 的錯誤邊界，路由頁面 render 時的錯誤經 `onCaughtError` 收到，`RouteErrorPage` 不必自己上報 | 各 app 的 `main.tsx` |
 | `query`、`mutation` | `telemetryPlugin` 訂閱 QueryCache／MutationCache 的「這次變成錯誤」：錯誤 **不是** `AppError`、`NetworkError`、`RequestAbortedError` 才上報 | `web-core/plugins/app/telemetry.ts` |
 | `worker` | 批次佇列的 SharedWorker（與退回的 dedicated worker）裡的 `error`／`unhandledrejection` 經 port 送 `worker-error` 給一個連線中的分頁，由它上報 | `web-core/batch/workers/*`、`BatchQueueHost.reportError`、`BatchQueueClient` |
@@ -120,18 +121,62 @@ DOM 點擊、console 的 breadcrumb 關掉：會帶出畫面上的文字（使�
 ## 7. bundle 預算
 
 ```bash
-pnpm bundle:check   # BUILD_MANIFEST=true 建置兩個前端，再跑 scripts/check-bundle-budget.mjs
+pnpm bundle:check   # BUILD_MANIFEST=true BUILD_SOURCEMAP=hidden 建置兩個前端，再跑 scripts/check-bundle-budget.mjs
 ```
 
 | 項目 | 算法 |
 | --- | --- |
 | 初始載入 | entry 沿 Vite manifest 的 `imports`（靜態）走到的所有 JS chunk 的 gzip 總和；`dynamicImports`（lazy 頁面、tracing）不算 |
 | 最大 chunk | 任何一個 JS chunk（含 lazy 與 worker）的 gzip 大小 |
+| 首頁禁止的模組 | `forbiddenInitial` 列出的路徑片段出現在初始 chunk 的 sourcemap 就失敗（§7.3） |
 
-- 預算在各 app 的 `bundle-budget.json`（`initialKb`、`maxChunkKb`）。2026-10-07 以現值加約 10% 設定：backstage 395／215 KB、apps/platform 350／180 KB。
-- CI 的 `bundle` job 跑 `pnpm bundle:check`，表格寫進 job summary；超過就失敗。
-- 超過時先看是不是把大套件打進了首頁（改成動態 `import()`），真的需要才調高 `bundle-budget.json`，並在 PR 說明原因。
-- manifest 只在 `BUILD_MANIFEST=true` 時產生：正式產物不帶（nginx 會原樣提供 `dist` 裡的每個檔案）。
+- CI 的 `bundle` job 跑 `pnpm bundle:check`，表格（含初始 chunk 數與剩下的餘裕）寫進 job summary；超過就失敗。
+- 超過時先看是不是把大套件打進了首頁（改成動態 `import()`、§7.4），真的需要才調高 `bundle-budget.json`，並在 PR 說明原因。
+- manifest 只在 `BUILD_MANIFEST=true` 時產生、sourcemap 只在 `BUILD_SOURCEMAP=hidden` 時產生：正式產物都不帶（nginx 會原樣提供 `dist` 裡的每個檔案）。
+
+### 7.1 預算的現況
+
+預算在各 app 的 `bundle-budget.json`（`initialKb`、`maxChunkKb`、`forbiddenInitial`）。
+
+| app | 初始載入（實測／預算） | 最大 chunk（實測／預算） |
+| --- | --- | --- |
+| backstage | 314.6／330 KB（58 個 chunk） | 122.5／130 KB（lazy 的 `RichTextEditor`） |
+| apps/platform | 279.8／294 KB（56 個 chunk） | 65.8／70 KB（vendor 的 `react`） |
+
+2026-10-07 以當時的值加約 10% 設定（395／215、350／180），三天內 backstage 長到 400.3 KB 而超過；2026-10-10 照 §7.4 的做法收斂後，以實測值加約 **5%** 調低（§9.2 D15）。
+餘裕從 10% 改成 5%：§7.3 的檢查與 §7.4 的規則會擋掉「不小心進首頁」的情況，剩下的成長應該是真的需要、要在 PR 說明原因的。
+
+### 7.2 vendor 的 chunk 分組
+
+兩個 app 的 `vite.config.ts` 以 `build.rolldownOptions.output.codeSplitting.groups` 把 `react`（含 `react-dom`、`scheduler`）、`tanstack`（router 與 query）、`i18n`（`i18next`、`react-i18next`）各放一個 chunk（§9.2 D14）：
+
+- 打包器依「哪些 entry／lazy 頁面共用」切 chunk，首頁的模組只要也被某個 lazy 頁面用到就被切成獨立的小 chunk（曾經上百個小於 3 KB），每個各自壓縮、字典無法共用。
+  分組不減少要下載的程式，省下的是這個壓縮損失（backstage −21 KB）；vendor 的 hash 在只改 app 程式的提交之間不變，回訪的使用者不必重下載。
+- 只能放 **首頁一定整包用到** 的套件。Base UI 這種只有部分元件在首頁的放進來，會把 lazy 頁面才用的元件拉進首頁（實測反而變大）。
+- 兩個 app 各一份、內容相同（[`apps/platform/README.md`](../../../apps/platform/README.md) 的同步規則）。新增首頁的依賴時檢查是否該加進群組。
+
+### 7.3 首頁禁止的模組（`forbiddenInitial`）
+
+`bundle-budget.json` 的 `forbiddenInitial` 列出不得進首頁初始載入的模組（路徑片段）：`@sentry/`、`socket.io-client/`、`engine.io-client/`、`zod/v4/classic/`、
+web-core 的 `BatchQueueHost.ts` 與 `CommandPalette.tsx`。腳本讀初始 chunk 的 sourcemap 比對來源路徑，是唯一看得到 tree-shaking 之後實際內容的檢查
+（靜態 import 圖看不出經 barrel 轉出、實際被丟掉的模組）。
+
+原始碼層的檢查與它互補，失敗時指得出是哪一行 import：
+
+| 檢查 | 位置 |
+| --- | --- |
+| 只有 `telemetry/sdk.ts`、`tracing.ts` 以值 import `@sentry/*`，且只被動態載入 | `web-core/telemetry/__tests__/sdk-boundary.test.ts` |
+| `socket.io-client` 只在 `socketIoTransport.ts`，而且是動態 `import()` | `web-core/realtime/__tests__/transport-boundary.test.ts` |
+| app 的首頁不出現 mutation hook、還原按鈕、`batchRuns.ts`（通知鈴鐺例外）、classic 的 `zod` | backstage 的 `app/__tests__/entry-imports.test.ts` |
+
+### 7.4 讓首頁保持精簡的做法
+
+| 做法 | 規格 |
+| --- | --- |
+| 基礎設施的 SDK 延後載入：Sentry 在 `initTelemetry` 立刻 `import()`、socket.io 在第一次連線時 `import()` | 本文 §2、[`11-realtime.md`](./11-realtime.md) §2 |
+| plugin 同步階段的登記只帶資料與 loader：還原按鈕、偏好分頁、首頁區塊以 `lazy()` 登記；批次操作的 `run` 載入 `batchRuns.ts` | [`02-plugin-system.md`](./02-plugin-system.md) §4.8 |
+| 只有開啟時才需要的外框元件 lazy：命令面板第一次開啟才渲染 | [`18-command-palette.md`](./18-command-palette.md) §3 |
+| route 的 search 驗證用 `zod/mini`（classic 的方法鏈無法 tree-shake）；推播的 schema（`packages/realtime`）也是 | [`04-routing.md`](./04-routing.md) §3 |
 
 ---
 
@@ -183,6 +228,9 @@ apps/platform 的登入頁沒有登入狀態且網址可能帶憑證、`web-core
 | D10 | Web Vitals 由 apm-service 彙總成自己的 `/metrics`（標籤 `project`、`route`、`name`），`route` 每個專案最多 200 種；tracing 以動態 `import()` 載入 | 不必等後端的 `core/metrics`（當時還是提案；之後做在 [`../08-monitoring.md`](../08-monitoring.md)）；限制標籤數防止被灌入任意值；首頁不必多載 tracing 的程式 |
 | D11 | 沒有設定 DSN 時，SDK 改用只 `console.debug` 的 transport | 開發時看得到會送出什麼，又不必起 apm-service |
 | D12 | bundle 預算用自己的腳本讀 Vite manifest，不引入 `size-limit` | 只需要 manifest 與 gzip，不必多一套設定格式與依賴 |
+| D13 | （2026-10-10）SDK 以 `import('./sdk')` 載入，`initTelemetry` 立刻開始下載（不等登入、不等 idle）；就緒前掛輕量的全域攔截，錯誤、使用者、breadcrumb 先暫存再依序補送。`sdk.ts` 以具名轉出用到的函式 | SDK 本體 33 KB（gzip）原本在首頁；具名轉出的 chunk 約 16 KB，`import('@sentry/browser')` 整個命名空間會帶進 replay、feedback（約 136 KB）。立刻下載讓「啟動過程中的錯誤也收得到」仍成立 |
+| D14 | 兩個 app 以 `codeSplitting.groups` 把首頁一定整包用到的 vendor（react、tanstack、i18next）各分一個 chunk | 省下上百個小 chunk 各自壓縮的損失；vendor 的 hash 穩定（§7.2） |
+| D15 | 預算以實測值加約 5% 設定，另以 `forbiddenInitial`（讀初始 chunk 的 sourcemap）擋住已知不該進首頁的模組 | 「只調高預算」撐不過兩三個功能；超過的部分多是首頁用不到的程式，要擋的是「不小心進首頁」而不是總量（§7.3） |
 
 提案時的開放問題與結論：
 
@@ -206,6 +254,13 @@ apps/platform 的登入頁沒有登入狀態且網址可能帶憑證、`web-core
 | 收件時就還原堆疊 | 不採用：sourcemap 晚到時就永遠還原不了（D5） |
 | 錯誤存進 Postgres | 不採用：多一個跨服務的依賴；NDJSON 以日期分檔，保留期限就是刪檔 |
 | `size-limit` | 不採用（D12） |
+| （D13）SDK 等到 idle 或登入後才載入 | 不採用：啟動過程的錯誤（router 建立、第一次 render）就收不到了；立刻下載與 router 建立並行，對首屏沒有影響 |
+| （D14）把「首頁的所有模組」放一個群組 | 不採用：要 tree-shaking 之後的模組清單；以 plugin 在 `buildEnd` 沿 `importedIds` 算出的靜態閉包會把 barrel 轉出、實際沒用到的模組一起拉進來（實測初始 446.6 KB），要兩階段建置才做得到 |
+| （D14）Rolldown 的 `experimentalInlineCommonChunks` | 不採用：實測更差（447～460 KB） |
+| 可啟用 feature 的 plugin 改成動態載入 | 不採用：實測 +2.9 KB；route 物件仍要靜態組進 route tree，`plugin.ts` 本身很小，拆出去只多切 chunk；預設全部啟用、登入後馬上要下載（[`02-plugin-system.md`](./02-plugin-system.md) §9.2 D1） |
+| 通知鈴鐺的面板改 lazy | 不採用：鈴鐺本來就在首頁渲染；實測初始反而 +17.1 KB（多切出 60 個 chunk） |
+| 以 Preact 取代 `react-dom` | 不採用：telemetry 用了 React 19 的 `createRoot` 錯誤回呼，Base UI、TanStack Router 以 React 19 為前提 |
+| route 的 search 自寫解析函式（不用 zod） | 不採用：會有兩套驗證寫法；`zod/mini` 已足夠 |
 
 ### 9.4 實作紀錄
 
@@ -218,3 +273,10 @@ apps/platform 的登入頁沒有登入狀態且網址可能帶憑證、`web-core
   segment span（屬性 `sentry.op: navigation`）取路由切換耗時。
 - 租戶以 tag `host`（網域）表示：profile 沒有租戶代碼，而網域就是租戶的識別（[`../05-tenancy.md`](../05-tenancy.md)）。
 - `isChunkLoadError` 從 `components/ErrorPage` 搬到 `web-core/errors`：telemetry 也要用，components 又要 import telemetry（複製錯誤資訊），放在 errors 才不會循環。
+- 2026-10-10 首頁超過預算（[`../../issues/`](../../issues/README.md) 的 bundle-near-budget，已修正並刪除）：三天內 +41 KB，沒有單一元凶——每個新 feature 都在
+  plugin 的同步階段登記回收桶、批次操作，連帶把 mutation hook 與 API 帶進首頁，同時拆出更多首頁與 lazy 頁面共用的小 chunk。依序做了 D13（Sentry −32 KB）、
+  socket.io 延後（−12 KB）、同步登記只放資料與 loader（−7.5 KB）、命令面板與佇列退路 lazy（−3 KB）、D14（−21 KB）、`zod/mini`（−9 KB），backstage 400.3 → 314.6 KB、
+  apps/platform 339.9 → 279.8 KB。
+- `zod/mini` 只改 route 的 search 時沒有效果：`packages/realtime`（推播的 schema，web-core 驗證每一則推播）仍以 classic 匯入，classic 整包留在首頁；
+  而 classic 與 mini 共用的 `zod/v4/core` 又被拆成更多共用的小 chunk，初始反而 +16 KB。`packages/realtime` 一起改成 mini 之後才降下來（api 端的 `safeParse` 用法相同）。
+- `z.preprocess` 在 mini 是 `z.pipe(z.transform(fn), schema)`；transform 的輸入是 `unknown`、物件裡的鍵會變成必填，要再包一層 `z.optional`，導覽時才不必給那個參數。

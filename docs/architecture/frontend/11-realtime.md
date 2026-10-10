@@ -30,7 +30,7 @@ apis/resources.ts                          ＋ applyResourceChanges()：只在�
 web-core/realtime/
 ├── RealtimeClient.ts                      ★ 連線、續期、事件分派；`setOwner()` 決定連不連。只依賴 `RealtimeTransport`
 ├── transport.ts                           ★ `RealtimeTransport` 介面：RealtimeClient 對連線的所有要求
-├── socketIoTransport.ts                   ★ `RealtimeTransport` 的 Socket.io 實作；全 app 唯一 import socket.io-client 的檔案
+├── socketIoTransport.ts                   ★ `RealtimeTransport` 的 Socket.io 實作；全 app 唯一 import socket.io-client 的檔案（動態 `import()`）
 ├── RealtimeCoordinator.ts                 ★ 只讓 leader 連線、轉發變更、序號與任期、背景延後、削峰（§3.3、§3.4）
 ├── activeClient.ts                        目前的連線與協調者（isRealtimeAvailable）：web-core/cache 不必認識 plugin
 ├── clientId.ts                            分頁的 instance id（也用在 x-client-id）
@@ -46,7 +46,10 @@ shared/websocket-sdk/                      `@b2b-system/realtime` 的唯一匯�
 
 依賴方向照 [`coding-standards/07`](../../coding-standards/07-layer-dependencies.md) §2：
 
-- **只有 `web-core/realtime/socketIoTransport.ts` import `socket.io-client`**（🔒 `transport-boundary.test.ts`）。
+- **只有 `web-core/realtime/socketIoTransport.ts` import `socket.io-client`，而且是動態 `import()`**（🔒 `transport-boundary.test.ts`）。
+  socket 在第一次 `connect()` 時才建立：之前的 `on()` 先記下、建立後補掛；載入中而且要連線時 `isActive` 為 `true`（呼叫端不必再 `connect()`）；
+  載入前 `disconnect()`／`dispose()` 不會連線；chunk 載入失敗回報沒有錯誤碼的 `connect_error`，下一次 `connect()` 再載入。
+  只有當選 leader 且有 session 的分頁會下載，登入頁不下載（[`19-observability.md`](./19-observability.md) §7.4）。
   `RealtimeClient` 只認得 `RealtimeTransport`，對外也不交出連線本身：feature 用 `useRealtimeEvent()`，
   跨裝置頻道用 `realtime.relay`。換掉 Socket.io 時只要換掉這一個檔案（實作新的 `RealtimeTransport`）。
 
@@ -324,7 +327,7 @@ useRealtimeEvent(ServerEvent.SOMETHING, (payload) => { … });
 | 單元         | `AppQueryClient`：兩個分頁以 `fakeChannelHub` 相連；推播可用時不廣播、不可用時廣播、收到的不再轉送；`refetch: false` 只標 stale |
 | 單元         | `socketIoRealtimeTransport`：路徑、只用 websocket、`auth` 是函式、斷線原因與錯誤碼的對應      |
 | 單元         | `serverRelayTransport`：斷線時丟棄、只交出外框給 `createChannel`                              |
-| 結構         | `transport-boundary.test.ts`：只有 `socketIoTransport.ts` import `socket.io-client`           |
+| 結構         | `transport-boundary.test.ts`：只有 `socketIoTransport.ts` import `socket.io-client`，而且只以動態 `import()` |
 | E2E          | Playwright 開兩個 browser context：A 改角色權限，B 的選單在數秒內改變；A 停用 B，B 立刻回登入頁 |
 
 ---

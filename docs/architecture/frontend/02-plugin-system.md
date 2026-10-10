@@ -324,6 +324,23 @@ backstage 的首頁（`features/home`）放其他 feature 的區塊，例如審�
 
 只有 backstage 用，所以放 app 的 `core/home`；第二個前端也需要時再搬進 web-core（[`17-shared-packages.md`](./17-shared-packages.md) §2）。
 
+### 4.8 同步登記的原則
+
+plugin 的同步階段在首頁的初始載入裡執行：同步登記 import 到的每個模組，都會進首頁的 JS（[`19-observability.md`](./19-observability.md) §7）。
+所以同步階段的登記 **只帶資料與 loader**——id、語系 key、權限、route、hook 的參照，以及 `lazy()` 的元件或回傳 `import()` 的函式——不 import `hooks/`、`components/` 的本體：
+
+| 登記 | 同步帶什麼 | 本體 |
+| --- | --- | --- |
+| 偏好頁的分頁（§4.3）、首頁的區塊（§4.7）、資源頁的面板、回收桶的還原按鈕（[`13-trash.md`](./13-trash.md) §2） | `lazy(() => import('./components/X').then(…))` | 渲染時才下載；使用端包 `<Suspense>` |
+| 批次操作（`registerBatchOperation`，[`07-ui-system.md`](./07-ui-system.md) §13） | id、`labelKey`、`successKey`、`localeScope`；`run: async (id, ctx) => (await import('./batchRuns')).xxxRun(id, ctx)` | `batchRuns.ts`：API、mutation 與失效的宣告，第一次執行時才下載 |
+| 側欄（§4.6）、命令面板的搜尋（`search.ts`） | `navigation.ts`、`search.ts` 只 import `apis/*/query` 與 hook 參照（量過很小） | — |
+
+例外是頂列工具（§4.4）：本來就在首頁渲染，例如通知鈴鐺的面板要用到的 mutation hook。
+檔案與圖片庫的 `uploadSources`、`enqueue*Uploads` 也照舊同步：頁面與 plugin 都要用，而且很小。
+
+backstage 的 `app/__tests__/entry-imports.test.ts` 檢查首頁不出現 `features/*/hooks/use*Mutations.ts`、`*RestoreAction*.tsx`、`batchRuns.ts`（頂列工具的子樹列為例外並註明理由）；
+打包後的實際內容由 `bundle-budget.json` 的 `forbiddenInitial` 把關（[`19-observability.md`](./19-observability.md) §7.3）。
+
 ## 5. 一個 feature plugin 的標準形狀
 
 ```ts

@@ -19,7 +19,6 @@
 | --- | --- | --- | --- |
 | 中 | 稽核日誌在總數到達上限時，「最後一頁」與跳頁會送出超過上限的 offset 而 400 | [audit-log-last-page.md](./audit-log-last-page.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 稽核日誌的「資源」篩選只寫死 11 種，後端實際寫入的類型多出十幾種 | [audit-log-resource-filter.md](./audit-log-resource-filter.md) | 2026-10-10 backstage 優化分析 |
-| 中 | backstage 的首頁初始載入超過 bundle 預算 | [bundle-near-budget.md](./bundle-near-budget.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 審批與圖片的留言、提及、關注通知把資源類型顯示成「項目」 | [comment-notification-resource-label.md](./comment-notification-resource-label.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 圖片庫的簽章網址到期後不會重抓，長時間開著的頁面破圖 | [gallery-signed-url-no-refresh.md](./gallery-signed-url-no-refresh.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 圖片庫上傳沒有在前端檢查單檔上限，「加入圖片庫」寫死 50 MiB | [gallery-upload-size-check.md](./gallery-upload-size-check.md) | 2026-10-10 backstage 優化分析 |

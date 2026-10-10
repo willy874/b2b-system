@@ -5,6 +5,9 @@
 // 每個 app 的 `bundle-budget.json`：
 //   initialKb   首頁初始載入的 JS（entry 沿靜態 import 走到的所有 chunk，不含動態 import）的 gzip 總和
 //   maxChunkKb  任何一個 JS chunk（含 lazy 與 worker）的 gzip 上限
+//   forbiddenInitial  （選用）不得出現在首頁初始載入的模組：比對初始 chunk 的 sourcemap 的來源路徑（子字串）。
+//                     要以 BUILD_SOURCEMAP=hidden 建置；這是唯一看得到 tree-shaking 之後實際內容的檢查
+//                     （docs/architecture/frontend/19-observability.md §7.3）
 // 超過就以非 0 結束；在 GitHub Actions 裡另外把表格寫進 job summary。
 // 調高預算要改 bundle-budget.json，review 看得到（設計決策 D12）。
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -49,10 +52,8 @@ function check(appDir) {
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
   const budget = JSON.parse(readFileSync(budgetFile, 'utf8'));
 
-  const initialKb = initialChunks(manifest).reduce(
-    (sum, file) => sum + gzipKb(join(dist, file)),
-    0,
-  );
+  const initial = initialChunks(manifest);
+  const initialKb = initial.reduce((sum, file) => sum + gzipKb(join(dist, file)), 0);
   const chunks = listJs(dist).map((file) => ({ file: relative(dist, file), kb: gzipKb(file) }));
   const largest = chunks.reduce((max, chunk) => (chunk.kb > max.kb ? chunk : max), {
     file: '-',
@@ -60,10 +61,47 @@ function check(appDir) {
   });
 
   const rows = [
-    { name: '初始載入', actual: initialKb, limit: budget.initialKb, note: '' },
-    { name: '最大 chunk', actual: largest.kb, limit: budget.maxChunkKb, note: largest.file },
+    {
+      name: '初始載入',
+      actual: initialKb,
+      limit: budget.initialKb,
+      note: `${initial.length} 個 chunk，餘 ${format(budget.initialKb - initialKb)}`,
+    },
+    {
+      name: '最大 chunk',
+      actual: largest.kb,
+      limit: budget.maxChunkKb,
+      note: `${largest.file}，餘 ${format(budget.maxChunkKb - largest.kb)}`,
+    },
   ];
-  return { appDir, rows, failed: rows.some((row) => row.actual > row.limit) };
+  const forbidden = forbiddenInInitial(dist, initial, budget.forbiddenInitial ?? []);
+  return {
+    appDir,
+    rows,
+    forbidden,
+    failed: rows.some((row) => row.actual > row.limit) || forbidden.length > 0,
+  };
+}
+
+/** 初始 chunk 的 sourcemap 裡，來源路徑含有 `patterns` 任一個的模組（`<pattern> ← <chunk>`）。 */
+function forbiddenInInitial(dist, initial, patterns) {
+  if (patterns.length === 0) return [];
+  // rolldown 的 runtime 等極小的 chunk 沒有 sourcemap；全部都沒有代表不是以 BUILD_SOURCEMAP=hidden 建置
+  const mapped = initial.filter((file) => existsSync(join(dist, `${file}.map`)));
+  if (mapped.length === 0) {
+    throw new Error(
+      '初始 chunk 都沒有 sourcemap：forbiddenInitial 要以 BUILD_SOURCEMAP=hidden 建置',
+    );
+  }
+  const hits = new Set();
+  for (const file of mapped) {
+    const { sources = [] } = JSON.parse(readFileSync(join(dist, `${file}.map`), 'utf8'));
+    for (const source of sources) {
+      for (const pattern of patterns)
+        if (source.includes(pattern)) hits.add(`${pattern} ← ${file}`);
+    }
+  }
+  return [...hits];
 }
 
 const apps = process.argv.slice(2);
@@ -87,6 +125,9 @@ for (const { appDir, rows } of results) {
     );
   }
 }
+for (const { appDir, forbidden } of results) {
+  for (const hit of forbidden) lines.push(`| ${appDir} | 首頁禁止的模組 | - | - | ❌ | ${hit} |`);
+}
 const table = `${lines.join('\n')}\n`;
 process.stdout.write(table);
 if (process.env.GITHUB_STEP_SUMMARY) {
@@ -94,7 +135,7 @@ if (process.env.GITHUB_STEP_SUMMARY) {
 }
 if (results.some((result) => result.failed)) {
   process.stderr.write(
-    'bundle 超過預算：確認是否把大套件打進了首頁（改成動態 import），真的需要時再調高 bundle-budget.json\n',
+    'bundle 超過預算，或首頁出現了 forbiddenInitial 列出的模組：確認是否把大套件打進了首頁（改成動態 import），真的需要時再調高 bundle-budget.json\n',
   );
   process.exit(1);
 }

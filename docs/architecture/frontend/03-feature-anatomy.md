@@ -14,11 +14,14 @@ features/role/
 ├── locale.ts                  語系 scope 名稱常數
 ├── routeLinks.ts              （選用）把自己的頁面登記成 route id，供別的 feature 與後端連結
 ├── preference.ts              （選用）往偏好頁註冊分頁
+├── trash.ts                   （有軟刪除時）登記回收桶的類型；還原按鈕以 lazy() 登記（13-trash.md §2）
+├── batch.ts                   （有批次操作時）登記操作的 id 與名稱；run 載入 batchRuns.ts（02-plugin-system.md §4.8）
+├── batchRuns.ts               批次操作的實作，第一次執行時才下載
 │
 ├── routes/
 │   ├── index.ts               re-export pages.ts 與 model.ts
 │   ├── pages.ts               ★ 本 feature 擁有的 route 物件
-│   └── model.ts               網址 search 參數的 Zod schema
+│   └── model.ts               網址 search 參數的 schema（zod/mini，04-routing.md §3）
 │
 ├── pages/
 │   ├── index.tsx              lazy 包裝：export const AsyncRoleListPage = lazyRouteComponent(...)
@@ -403,7 +406,7 @@ apps/backstage/src/features/session/
 | 順序 | 檔案                            | 內容                                                     |
 | ---- | ------------------------------- | -------------------------------------------------------- |
 | 1    | `locale.ts`                     | `export const SESSION_LOCALE_SCOPE = 'feature-session';` |
-| 2    | `routes/model.ts`               | search 參數的 Zod schema                                 |
+| 2    | `routes/model.ts`               | search 參數的 schema（`zod/mini`，[`04-routing.md`](./04-routing.md) §3） |
 | 3    | `routes/pages.ts`               | `SessionListRoute`（`path: '/session'`，直掛 RootRoute） |
 | 4    | `permission.ts`                 | `SESSION_PAGE` ＋ `registerSessionPagePermissions()`     |
 | 5    | `navigation.ts`                 | `registerSessionNavigation()`：側欄的入口（分類用 `@/core/navigation` 的 `NavGroupKey`） |

@@ -61,6 +61,9 @@ registerNavItem({ pageKey: PROFILE_PAGE, to: '/profile', …, placement: 'accoun
 
 ## 3. 命令面板
 
+面板的本體（對話框、虛擬列表、搜尋）在 **第一次開啟** 時才下載：`DashboardShell` 訂閱 `useCommandPaletteStore` 的 `open`，變成 `true` 後才渲染 lazy 的 `CommandPalette`，之後一直掛著；
+觸發按鈕與快捷鍵照舊同步登記。第一次按 ⌘K 多一次小 chunk 的下載（[`19-observability.md`](./19-observability.md) §7.4）。
+
 ### 3.1 內容
 
 | 情況 | 分組（由上而下） |

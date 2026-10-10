@@ -18,7 +18,7 @@
     "storybook": "pnpm --filter @b2b-system/ui storybook",
     "storybook:build": "pnpm --filter @b2b-system/ui storybook:build",
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
-    "bundle:check": "BUILD_MANIFEST=true pnpm --filter @b2b-system/backstage --filter @b2b-system/platform build && node scripts/check-bundle-budget.mjs apps/backstage apps/platform",
+    "bundle:check": "BUILD_MANIFEST=true BUILD_SOURCEMAP=hidden pnpm --filter @b2b-system/backstage --filter @b2b-system/platform build && node scripts/check-bundle-budget.mjs apps/backstage apps/platform",
     "build": "pnpm --filter @b2b-system/api-sdk build && pnpm --filter @b2b-system/api build && pnpm --filter @b2b-system/backstage build && pnpm --filter @b2b-system/platform build",
     "db:up": "docker compose up -d postgres",
     "mail:up": "docker compose up -d mailpit",

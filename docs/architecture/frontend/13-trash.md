@@ -56,7 +56,7 @@ apis/gallery/restore-gallery-album/ POST /gallery/albums/:id/restore
 | `labelI18nKey` | 分頁標題；放 **全域** 語系包（使用者用 `menu.user`、角色用 `menu.role`、群組用 `menu.userGroup`、檔案用 `menu.file`、資料夾用 `menu.fileFolder`） |
 | `permission` | 看這一類與還原的權限：`<resource>:delete`，與後端 handler 的 `permission` 相同 |
 | `localeScope` | 還原操作用到的 scope；回收桶的 route loader（`trashLocaleLoader`）一併載入 |
-| `RestoreAction` | 每一列的還原操作元件（`{ item: TrashItem }`）：呼叫擁有者的還原 API、自己呈現錯誤 |
+| `RestoreAction` | 每一列的還原操作元件（`{ item: TrashItem }`）：呼叫擁有者的還原 API、自己呈現錯誤。以 `lazy()` 登記（`trash.ts` 裡 `lazy(() => import('./components/XRestoreAction')…)`），按鈕與它用到的 mutation hook 不進首頁（[`02-plugin-system.md`](./02-plugin-system.md) §4.8）；回收桶頁的儲存格包 `<Suspense fallback={null}>` |
 
 列表的欄位是共用的（名稱與描述、刪除時間、刪除者、預計永久刪除），由回收桶頁渲染；類型特有的只有還原操作。
 後端 `TrashItem` 的形狀本來就是各類型共用的，所以不需要各類型提供欄位定義。

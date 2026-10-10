@@ -1201,21 +1201,26 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 設計系統 | `components/Table/BatchActionBar` | `role="toolbar"`：已選筆數（`batch-action-bar-count`，`data-value` 是筆數）、清除選取、呼叫端放進來的按鈕；不認識任何業務操作，文案由 `labels` 傳入 |
 | 機制 | `web-core/batch` | 佇列：`BatchQueueHost`（在 SharedWorker / dedicated worker 裡）、`BatchQueueClient`（每個分頁一個，由 `batchQueuePlugin` 建立；plugin 在 `web-core/plugins/app/batch-queue.ts`，兩個前端都註冊）、`connectBatchQueue()`；操作註冊表 `registerBatchOperation`；UI：`BatchProgressBar`、`BatchQueueIndicator`（AppHeader）、`BatchQueueNotifier`（結束時彈出）、`BatchResultDialog` |
 | 列表 | `web-core/components/RichTable/BatchBar.tsx` | `batch` prop 的接線：勾選後顯示操作列，每個動作一顆按鈕（`data-testid="batch-action"`，`data-value` 是動作 id；顏色依 `tone`：`primary` / `success` / `warning` / `danger`，省略時 secondary；確認框在 `danger` / `warning` 時用危險色）；這張表（`batch.scope`）的工作進行中時換成進度條 |
-| feature | `batch.ts` | 在 plugin 的同步階段註冊操作：每筆呼叫一次單筆 fetcher，以 `run` 第二個參數的 `invalidate` 宣告變更（同單筆 mutation hook 的 `invalidateResources`，由佇列合併套用，§13.4），**不發 toast**；失敗直接拋出 |
+| feature | `batch.ts` | 在 plugin 的同步階段註冊操作：只帶 id、名稱、語系與一個載入實作的 `run`（[`02-plugin-system.md`](./02-plugin-system.md) §4.8） |
+| feature | `batchRuns.ts` | 操作的實作（第一次執行時才下載）：每筆呼叫一次單筆 fetcher，以 `run` 第二個參數的 `invalidate` 宣告變更（同單筆 mutation hook 的 `invalidateResources`，由佇列合併套用，§13.4），**不發 toast**；失敗直接拋出 |
 | feature | `pages/<List>/use<Name>BatchActions.ts` | 宣告這張表有哪些批次動作；`operation` 引用註冊的操作 id |
 
 ```tsx
 // features/user/batch.ts（節錄）
+const runs = () => import('./batchRuns');      // 實作第一次執行時才下載（02-plugin-system §4.8）
 registerBatchOperation({
   id: UserBatchOperation.DELETE,               // 'user.delete'
   labelKey: 'user.batch.delete.title',         // 佇列面板、進度條、結果對話框上的名稱
   localeScope: USER_LOCALE_SCOPE,              // 佇列 UI 在其他 feature 的頁面也會顯示：顯示前補載
   successKey: 'user.batch.delete.success',     // 全部成功時的 toast，參數 { count }
-  run: async (userId, { signal, invalidate }) => { // 第二個參數：取消時中止的 signal、reportProgress、version、invalidate
-    await deleteUser({ params: { userId }, signal });
-    invalidate([{ resource: Resource.USER, kind: 'delete', id: userId }]); // 佇列合併後經依賴圖失效（§13.4）
-  },
+  run: async (userId, context) => (await runs()).deleteRun(userId, context),
 });
+
+// features/user/batchRuns.ts（節錄）
+export async function deleteRun(userId: string, { invalidate }: BatchRunContext) { // 第二個參數：signal、reportProgress、version、invalidate
+  await deleteUser({ params: { userId } });
+  invalidate([{ resource: Resource.USER, kind: 'delete', id: userId }]); // 佇列合併後經依賴圖失效（§13.4）
+}
 
 // page.tsx
 const selection = useTableSelection(rows, getRowId);
@@ -1546,7 +1551,7 @@ tree／text／table 三種模式、修復、查詢、JSON Schema 驗證。當時
 | --- | --- | --- |
 | D1 | 批次由誰處理 | **前端逐筆呼叫一般（單筆）API**；後端不再提供任何批次端點 |
 | D2 | 同時處理幾筆 | **堵塞式**：整個佇列同一時間只處理一筆，前一筆有結果才送下一筆；多個工作依送出順序排隊 |
-| D3 | 佇列放在哪裡 | **SharedWorker**（同源的所有分頁共用一個佇列）；不支援時退回主執行緒開的 **dedicated worker**（每個分頁一個佇列）；連 Worker 都沒有時（測試）跑在主執行緒 |
+| D3 | 佇列放在哪裡 | **SharedWorker**（同源的所有分頁共用一個佇列）；不支援時退回主執行緒開的 **dedicated worker**（每個分頁一個佇列）；連 Worker 都沒有時（測試）跑在主執行緒（`connectInline()` 以 `import()` 載入 `BatchQueueHost`，載入前的訊息留在 `MessageChannel`；佇列本體不進首頁） |
 | D4 | HTTP 請求由誰送出 | **分頁**。佇列把「這一筆」交給一個分頁（`execute`），分頁以 `apis/` 的一般 fetcher 送出、回報結果。token、續期單飛、錯誤轉換都只在分頁的 `apis/` 一處；access token 不離開分頁的記憶體（[`backend/04-auth.md`](../backend/04-auth.md) §10） |
 | D5 | 由哪個分頁執行 | 優先發起的分頁；它關掉了（`bye`、或 Web Locks 偵測到分頁消失）就交給任一個還在的分頁——每個 feature 在 plugin 的同步階段註冊操作（`registerBatchOperation`），所有分頁都認得 |
 | D6 | 進度怎麼讓畫面知道 | 佇列經 **Channel `batch-queue`**（BroadcastChannel）廣播狀態快照；任何分頁（包括連到另一個 dedicated worker 的分頁）都看得到全部工作 |

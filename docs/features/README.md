@@ -101,7 +101,7 @@
 
 接下來（backstage）：2026-10-10 的各功能優化分析拆成兩部分——現有程式的問題記在 [`../issues/README.md`](../issues/README.md)，新增的能力是 §1 表格中從 `list-filters-completion` 起的十二份提案。建議的順序：
 
-1. 先修 issues 的高、中嚴重度（尤其 `bundle-near-budget`），再開始提案。
+1. 先修 issues 的中嚴重度，再開始提案。
 2. P1 的 `list-filters-completion`、`upload-retry`、`batch-actions-expansion`、`home-sections`：都是現有流程的缺口，後端多半已支援。
 3. P2、P3 彼此獨立，可以穿插；`file-viewer-unification` 要先修訂圖片庫的 D12。
 

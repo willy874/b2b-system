@@ -103,16 +103,16 @@ blocker 攔不到。這類對話框用 `useDialogUnsavedGuard(isDirty, onClose)`
 
 ## 3. 網址狀態：`validateSearch`
 
-列表頁的分頁、篩選、排序全部放在網址，用 Zod 驗證：
+列表頁的分頁、篩選、排序全部放在網址，用 **`zod/mini`** 驗證：
 
 ```ts
 // features/role/routes/model.ts
-import { z } from "zod";
+import { z } from "zod/mini";
 
 export const RoleSearchQuerySchema = z.object({
-  offset: z.coerce.number().int().min(0).catch(0),
-  limit: z.coerce.number().int().min(1).max(200).catch(20),
-  keyword: z.string().trim().optional().catch(undefined),
+  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(200)), 20),
+  keyword: z.catch(z.optional(z.string().check(z.trim())), undefined),
   // 多欄排序 SortEntry[]；空陣列＝後端預設排序；不合法（白名單外、重複）時退回空陣列，不變成錯誤頁
   sort: sortSearchSchema(ROLE_SORT_FIELDS),
 });
@@ -120,8 +120,25 @@ export const RoleSearchQuerySchema = z.object({
 export type RoleSearchQuery = z.infer<typeof RoleSearchQuerySchema>;
 ```
 
-`.catch()` 而非 `.default()`：使用者手改網址成 `?limit=abc` 時 **回退到預設值**
+`z.catch()` 而非 `z._default()`：使用者手改網址成 `?limit=abc` 時 **回退到預設值**
 而不是丟出路由錯誤。列表頁不該因為一個壞參數就變成錯誤頁。
+
+**為什麼是 `zod/mini`**：route 物件要在建立 router 時存在，`validateSearch` 不能 lazy，所以這些 schema 都在首頁的初始載入裡。
+classic 的方法鏈（`z.string().trim()…`）無法 tree-shake，整包約 24 KB（gzip）；mini 的函式式 API 只帶用到的部分
+（[`19-observability.md`](./19-observability.md) §7.4）。表單（lazy 頁面）照舊用 classic，兩者建在同一份 `zod/v4/core` 上，
+錯誤訊息的語系（`web-core/locales/zodErrorMap.ts` 的 `z.config`）共用。backstage 的 `app/__tests__/entry-imports.test.ts` 擋住首頁的 app 檔案 import classic 的 `zod`。
+
+| classic | `zod/mini` |
+| --- | --- |
+| `.int().min(0).max(n)`（數字） | `.check(z.int(), z.minimum(0), z.maximum(n))` |
+| `.trim().min(1).max(n)`（字串、陣列） | `.check(z.trim(), z.minLength(1), z.maxLength(n))` |
+| `z.string().uuid()` | `z.uuid()` |
+| `.optional()`、`.default(v)`、`.catch(v)` | `z.optional(s)`、`z._default(s, v)`、`z.catch(s, v)` |
+| `.transform(fn)` | `z.pipe(s, z.transform(fn))` |
+| `z.preprocess(fn, s)` | `z.optional(z.pipe(z.transform(fn), s))`：transform 的輸入是 `unknown`，物件裡的鍵會變成必填，包一層 `z.optional` 導覽時才不必給 |
+| `Schema.extend({ … })` | `z.extend(Schema, { … })`，或 `z.object({ ...shape, … })` |
+
+兩個 app 共用的查詢條件放 web-core，例如背景工作列表的 `jobSearchShape`（`web-core/job/search.ts`），各 app 再加自己的欄位。
 
 網址格式不用 TanStack Router 預設的 JSON，而是在 `createRouter` 換成
 `web-core/router/search.ts` 的 `parseSearch` / `stringifySearch`：**重複的 key 就是陣列**，
@@ -155,7 +172,7 @@ export const RoleListRoute = createRoute({
 });
 ```
 
-預設值必須和 schema 的 `.catch()` 回退值一致，否則被拿掉的參數讀回來會是另一個值。
+預設值必須和 schema 的 `z.catch()` 回退值一致，否則被拿掉的參數讀回來會是另一個值。
 search middleware 會套用到目的地路由鏈上的每一層，所以只需要掛在列表路由，
 子路由（`create`、`$roleId`）自動套用。
 

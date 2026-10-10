@@ -29,7 +29,7 @@
 - `file/plugin.ts:16` import `registerBuiltinFilePreviewers`，`file/preview/builtins.ts:3-4` 靜態 import `ImagePreview` 與 `TextPreview`，
   兩個預覽元件（含 `TextPreview` 的 `getFileTextQueryOptions`）因此進了 plugin 安裝時就載入的 chunk，而不是開預覽時才載入。
   其他 feature 登記元件時用 `lazy()`（`notification/plugin.ts:14`、`approval/home.ts:8`、`comment/panel.ts:9`）。兩個元件本身不大，影響有限；
-  首屏 bundle 的整體處理見 [`bundle-near-budget.md`](./bundle-near-budget.md)。
+  同步登記只帶資料與 loader 的規則見 [`frontend/02-plugin-system.md`](../architecture/frontend/02-plugin-system.md) §4.8。
 
 **5. 公告受眾選擇器的請求**
 

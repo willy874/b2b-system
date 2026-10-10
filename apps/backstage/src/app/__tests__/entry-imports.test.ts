@@ -58,6 +58,7 @@ const PAGE_ONLY_PACKAGES = [
   /^@b2b-system\/ui\/Select$/, // 虛擬捲動的下拉列表
   /^@dnd-kit\//, // TableSettings 的拖曳排序
   /^@b2b-system\/api-sdk\/schemas$/, // 所有端點的 zod schema（docs/architecture/backend/03-api-conventions.md §12.6）
+  /^zod$/, // classic 的方法鏈無法 tree-shake；route 的 search 用 zod/mini（docs/architecture/frontend/04-routing.md §3），表單在 lazy 頁面
 ];
 
 /**
