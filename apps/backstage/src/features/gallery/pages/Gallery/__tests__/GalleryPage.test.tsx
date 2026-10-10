@@ -3,6 +3,7 @@ import { renderRoute } from '@b2b-system/web-core/testing';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as Resources from '@/apis/resources';
 import type { PermissionKey } from '@/core/permission';
 import { resetPagePermissionRegistry } from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
@@ -19,6 +20,7 @@ const {
   fetchItem,
   fetchNeighbors,
   fetchTags,
+  invalidate,
 } = vi.hoisted(() => ({
   fetchItems: vi.fn(),
   fetchAlbums: vi.fn(),
@@ -27,7 +29,19 @@ const {
   fetchItem: vi.fn(),
   fetchNeighbors: vi.fn(),
   fetchTags: vi.fn(),
+  invalidate: vi.fn(),
 }));
+// 照常失效，另外記下呼叫（網址過期的重抓經由它）
+vi.mock('@/apis/resources', async (importOriginal) => {
+  const original = await importOriginal<typeof Resources>();
+  return {
+    ...original,
+    invalidateResources: (...args: Parameters<typeof original.invalidateResources>) => {
+      invalidate(...args);
+      original.invalidateResources(...args);
+    },
+  };
+});
 vi.mock('@/apis/gallery/get-gallery-items/fetcher', () => ({ fetchGalleryItemsQuery: fetchItems }));
 vi.mock('@/apis/gallery/get-gallery-albums/fetcher', () => ({
   fetchGalleryAlbumsQuery: fetchAlbums,
@@ -132,6 +146,7 @@ beforeEach(() => {
   }));
   fetchNeighbors.mockReset().mockResolvedValue({ previousId: null, nextId: null });
   fetchTags.mockReset().mockResolvedValue({ items: [] });
+  invalidate.mockReset();
 });
 
 describe('GalleryPage 的權限（docs/architecture/frontend/24-gallery.md §8）', () => {
@@ -258,6 +273,40 @@ describe('GalleryViewer（docs/architecture/frontend/24-gallery.md §9）', () =
     expect(screen.queryByTestId('gallery-viewer-delete')).toBeNull();
   });
 
+  it('檢視器裡換圖不留瀏覽紀錄：返回鍵直接關掉檢視器；關閉按鈕回到打開前的那一筆', async () => {
+    const { router } = renderRoute(routes, '/gallery', READER);
+    const [first] = await screen.findAllByTestId('gallery-item', undefined, { timeout: 5000 });
+    fireEvent.click(first as HTMLElement);
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ item: A }));
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ item: B }));
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ item: C }));
+
+    router.history.back();
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('item'));
+
+    fireEvent.click((await screen.findAllByTestId('gallery-item'))[0] as HTMLElement);
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ item: A }));
+    fireEvent.click(await screen.findByTestId('gallery-viewer-close'));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('item'));
+    expect(screen.queryByTestId('gallery-viewer')).toBeNull();
+  });
+
+  it('焦點在輸入框時方向鍵不換張；離開輸入框後 → 換到下一張', async () => {
+    const { router } = renderRoute(routes, `/gallery?item=${A}`, READER);
+    await screen.findByTestId('gallery-viewer', undefined, { timeout: 5000 });
+    await screen.findAllByTestId('gallery-item');
+    const input = document.createElement('input');
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: 'ArrowRight' });
+    expect(router.state.location.search).toMatchObject({ item: A });
+    input.remove();
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ item: B }));
+  });
+
   it('資訊面板的關閉按鈕收起面板；檢視器的關閉按鈕關掉檢視器（網址拿掉 item）', async () => {
     const { router } = renderRoute(routes, `/gallery?item=${A}`, READER);
     fireEvent.click(await screen.findByTestId('gallery-info-close', undefined, { timeout: 5000 }));
@@ -283,5 +332,33 @@ describe('GalleryViewer（docs/architecture/frontend/24-gallery.md §9）', () =
     );
     // 旋轉的 mutation 由 apis/gallery/update-gallery-item 送出（這裡只確認按鈕在、可以按）
     expect(screen.getByTestId('gallery-viewer-rotate-left')).toBeInTheDocument();
+  });
+});
+
+describe('簽章網址過期（docs/architecture/backend/25-image.md §5）', { timeout: 15_000 }, () => {
+  const EXPIRED = [{ resource: 'galleryItem', kind: 'update' }];
+
+  it('格子的圖載入失敗 → 失效圖片的查詢；多張同時失敗只失效一次', async () => {
+    renderRoute(routes, '/gallery', READER);
+    const tiles = await screen.findAllByTestId('gallery-item', undefined, { timeout: 5000 });
+    const images = tiles.flatMap((tile) => [...tile.querySelectorAll('img')]);
+    expect(images.length).toBeGreaterThan(1);
+    for (const img of images) fireEvent.error(img);
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith(EXPIRED));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('檢視器的主圖載入失敗 → 失效圖片的查詢；同一個網址不重複失效', async () => {
+    renderRoute(routes, `/gallery?item=${A}`, READER);
+    const viewer = await screen.findByTestId('gallery-viewer-image', undefined, { timeout: 5000 });
+    const img = viewer.querySelector('img');
+    if (!img) throw new Error('檢視器沒有 <img>');
+    fireEvent.error(img);
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith(EXPIRED));
+
+    fireEvent.error(img);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(invalidate).toHaveBeenCalledTimes(1);
   });
 });

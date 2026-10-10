@@ -138,12 +138,27 @@ describe('選檔的檢查（D6：HEIC 擋下並提示）', () => {
     expect((await checkGalleryUpload(input))?.reasonKey).toBe(reasonKey);
   });
 
+  it('超過租戶的單檔上限：擋下並帶上限；沒有上限時不檢查大小', async () => {
+    const png = new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0])],
+      'a.png',
+      {
+        type: 'image/png',
+      },
+    );
+    expect(await checkGalleryUpload(png, 4)).toMatchObject({
+      reasonKey: 'gallery.upload.tooLarge',
+      reasonParams: { max: '4 B' },
+    });
+    expect(await checkGalleryUpload(png)).toBeUndefined();
+  });
+
   it('真的 PNG 通過', async () => {
     const png = file('a.png', 'image/png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     expect(await checkGalleryUpload(png)).toBeUndefined();
   });
 
-  it('檔案管理器的「加入圖片庫」：PDF、SVG、HEIC、太大的略過並說明原因', () => {
+  it('檔案管理器的「加入圖片庫」：PDF、SVG、HEIC 略過並說明原因；大小不在這裡判斷', () => {
     const target = (name: string, contentType: string, size = 100) => ({
       id: name,
       name,
@@ -159,8 +174,9 @@ describe('選檔的檢查（D6：HEIC 擋下並提示）', () => {
     expect(checkGalleryFile(target('a.heic', 'image/heic'))).toMatchObject({
       reasonKey: 'gallery.fileAction.heic',
     });
-    expect(checkGalleryFile(target('big.jpg', 'image/jpeg', 51 * 1024 * 1024))).toMatchObject({
-      reasonKey: 'gallery.fileAction.tooLarge',
+    // 大小在對話框裡以租戶的上限判斷（docs/architecture/frontend/24-gallery.md §6）
+    expect(checkGalleryFile(target('big.jpg', 'image/jpeg', 51 * 1024 * 1024))).toEqual({
+      ok: true,
     });
   });
 });

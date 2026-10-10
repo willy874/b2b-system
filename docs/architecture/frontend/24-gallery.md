@@ -59,7 +59,7 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 
 ```
 選檔／拖曳／貼上 → core/upload 展開資料夾
-  → 檢查（只是體驗）：檔頭簽章、型別、HEIC 另外提示「請匯出成 JPEG」（後端 D6）、≤ 50 MiB
+  → 檢查（只是體驗）：檔頭簽章、型別、HEIC 另外提示「請匯出成 JPEG」（後端 D6）、不超過租戶的單檔上限（`GET /gallery/items/uploads` 的 `maxItemSize`，feature 參數 `gallery.maxItemSizeMb`；拿不到時交給後端）
   → 不能上傳的以 toast 列出第一個原因
   → galleryUploadSources.store（IndexedDB 暫存區 gallery-upload）→ 全域批次佇列的 gallery.upload
        每一筆：createImageBitmap 量暫定尺寸 → POST /gallery/items → PUT → POST …/complete
@@ -78,7 +78,7 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 | 動作 | 怎麼送 |
 | --- | --- |
 | 刪除 | 全域批次佇列 `gallery.delete`（每一筆一個 `DELETE`；結果彈窗帶「復原」） |
-| 貼標籤 | 全域批次佇列 `gallery.tag`（項目 id 是 `<圖片 id>@<標籤 id>`） |
+| 貼標籤 | 全域批次佇列 `gallery.tag`（項目 id 是 `<圖片 id>@<標籤 id>`）；每張送 `PATCH /tags/assignments/galleryItem/:id { add: [標籤] }`，不先讀目前的標籤，不會蓋掉同時在檢視器裡的修改 |
 | 加入、移出相簿 | 一個請求（最多 500 張），不經過佇列 |
 | 下載 | 在目前的分頁逐張觸發（最多 50 張）：瀏覽器只讓前景的分頁觸發下載，佇列可能在別的分頁執行；打包下載是第二批（後端 D8） |
 
@@ -96,10 +96,11 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 
 `fileAction/register.ts` 以 `core/file` 的 `registerFileAction` 登記（[`12-file-manager.md`](./12-file-manager.md) §6）：
 
-- `placement: ['selectionBar', 'lightbox']`；`isAvailable` 是 `gallery:create`；`check` 逐檔判斷型別（HEIC 另外說明）與大小，全部不通過時按鈕停用並顯示第一個原因。
+- `placement: ['selectionBar', 'lightbox']`；`isAvailable` 是 `gallery:create`；`check` 逐檔判斷型別（HEIC 另外說明），全部不通過時按鈕停用並顯示第一個原因。
+  大小在對話框裡判斷：`check` 是同步的、拿不到租戶的單檔上限，對話框以 `GET /gallery/items/uploads` 的 `maxItemSize` 先略過超過的檔案（拿不到時交給後端逐筆回 `tooLarge`）。
 - 按下後打開 `AddToGalleryDialog`（延遲載入，檔案管理器的首屏不帶圖片庫的程式）：選相簿（可以新建）→ `POST /gallery/items/from-source { source: sourceId, refIds }`。
   `sourceId` 由檔案管理器給（它自己登記的後端來源 id），圖片庫不寫死 `'file'`。
-- 結果：加入幾張、略過幾張與原因（檔案管理器的 `check` 略過的與後端略過的一起列；「已經加入過」連到那一張），「前往圖片庫」以 route id `gallery.home`／`gallery.album` 連過去。
+- 結果：加入幾張、略過幾張與原因（檔案管理器的 `check` 略過的、對話框以大小略過的與後端略過的一起列；「已經加入過」連到那一張），「前往圖片庫」以 route id `gallery.home`／`gallery.album` 連過去。
 
 ### 6.2 圖片庫裡的「從其他來源…」
 
@@ -145,6 +146,7 @@ plugin 的同步階段登記的東西都經 `web-shared/registry` 追蹤，**卸
 | **已被刪除** | 詳情回 `GALLERY_ITEM_NOT_FOUND`（推播或查詢得知）時顯示「圖片已被刪除」，自動前往下一張 |
 
 按鍵寫在元件裡，只在檢視器開著時有效（與檔案管理器的 LightBox 相同），不經全域快捷鍵的註冊表（D22）。
+瀏覽紀錄也比照 LightBox：打開時留一筆（`?item=`），檢視器裡換上一張／下一張、幻燈片、刪除後前往下一張都以 `replace` 取代它，返回鍵直接關掉檢視器；關閉按鈕回到打開前的那一筆（從分享的網址進來時就地拿掉 `item`）。
 
 ## 10. 測試
 

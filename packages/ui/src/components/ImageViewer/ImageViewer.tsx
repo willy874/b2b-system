@@ -78,6 +78,8 @@ export interface ImageViewerProps extends SlotOverrides<ImageViewerSlot> {
   onZoomChange?: (state: ImageViewerZoomState) => void;
   /** 在「符合視窗」時左右滑（觸控）或拖曳超過門檻：交給呼叫端切換上一張／下一張。 */
   onSwipe?: (direction: 'previous' | 'next') => void;
+  /** 某個解析度載入失敗（例：簽章網址過期）：交給呼叫端重抓網址，換了 `levels` 就重新載入。 */
+  onError?: (level: ImageViewerLevel) => void;
   labels?: Partial<ImageViewerLabels>;
   /** 右下角的放大、縮小、符合視窗按鈕；預設 true。 */
   showControls?: boolean;
@@ -142,6 +144,7 @@ export function ImageViewer({
   maxZoom = 4,
   onZoomChange,
   onSwipe,
+  onError,
   labels: labelOverrides,
   showControls = true,
   className,
@@ -449,6 +452,7 @@ export function ImageViewer({
           if (index > displayLevel) setDisplayLevel(index);
           setIsLoaded(true);
         }}
+        onError={() => onError?.(level)}
         {...imageSlot}
       />
     );

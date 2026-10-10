@@ -159,6 +159,25 @@ describe('SignedImage（docs/architecture/backend/25-image.md §5）', () => {
     });
     expect(onExpired).toHaveBeenCalledOnce();
   });
+
+  it('isLongLived：到期時間遠到超過 setTimeout 的上限時不排程（不會被當成 1ms 立刻重抓）', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-09T11:50:00.000Z'));
+    const onExpired = vi.fn();
+    render(
+      <SignedImage
+        sources={sourcesOf('a', '2099-01-01T00:00:00.000Z')}
+        variant="sm"
+        alt="Alice"
+        onExpired={onExpired}
+        isLongLived
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(onExpired).not.toHaveBeenCalled();
+  });
 });
 
 describe('coalesce', () => {

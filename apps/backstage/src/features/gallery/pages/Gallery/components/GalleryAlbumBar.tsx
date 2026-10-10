@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router';
 
 import type { GalleryAlbum } from '@/shared/api-sdk';
 
+import { onGalleryImageExpired } from '../../../imageExpiry';
 import { GalleryAlbumRoute, GalleryRoute } from '../../../routes';
 
 interface GalleryAlbumBarProps {
@@ -62,6 +63,7 @@ export function GalleryAlbumBar({
                 sizes="112px"
                 alt=""
                 className="h-full w-full object-cover"
+                onExpired={onGalleryImageExpired}
               />
             )}
           </span>

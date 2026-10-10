@@ -11,6 +11,7 @@ import { TagChips } from '@/core/components';
 import type { GalleryItem } from '@/shared/api-sdk';
 
 import { GalleryPlaceholder } from '../../../components/GalleryPlaceholder';
+import { onGalleryImageExpired } from '../../../imageExpiry';
 
 /** 一列的高度（px）：縮圖 48 ＋ 上下留白。列高固定，虛擬捲動最穩。 */
 const ROW_HEIGHT = 64;
@@ -105,6 +106,8 @@ const GalleryListRow = memo(function GalleryListRow({
             sizes="48px"
             alt=""
             className="relative h-full w-full object-cover"
+            onExpired={onGalleryImageExpired}
+            isLongLived
           />
         </span>
         <span className="flex min-w-0 flex-col">

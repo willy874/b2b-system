@@ -7,7 +7,9 @@ import { ImageViewer } from '@b2b-system/ui/ImageViewer';
 import type { ImageViewerController, ImageViewerLevel } from '@b2b-system/ui/ImageViewer';
 import { Menu } from '@b2b-system/ui/Menu';
 import { Spinner } from '@b2b-system/ui/Spinner';
+import { useLatestRef } from '@b2b-system/ui/useLatestRef';
 import { isAppError } from '@b2b-system/web-core/errors';
+import { isTypingTarget } from '@b2b-system/web-core/hotkey';
 import { SignedImage } from '@b2b-system/web-core/image';
 import type { ImageSourceVariant, ImageSources } from '@b2b-system/web-core/image';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -27,6 +29,7 @@ import {
   useGalleryItemDeleteMutation,
   useGalleryItemUpdateMutation,
 } from '../../../hooks/useGalleryMutations';
+import { onGalleryImageExpired } from '../../../imageExpiry';
 import { preloadImageVariant } from '../preload';
 import { GalleryInfoPanel } from './GalleryInfoPanel';
 
@@ -47,19 +50,28 @@ interface GalleryViewerProps {
   onSetCover?: (itemId: string) => void;
 }
 
+/** 網址剩下不到這麼久就不預先載入：抓到的是即將失效的網址，等列表重抓（`isLongLived`）換新的再抓。 */
+const PRELOAD_MIN_REMAINING_MS = 60_000;
+
 /** 切到前後時預先抓 `large`（與檢視器同一個 `<picture>` 結構，抓的是瀏覽器會顯示的格式）：換圖時立刻顯示。 */
 function usePreload(sources: ReadonlyArray<ImageSources | undefined>): void {
   const variants = sources.flatMap((source) => {
     const large = source?.variants.large;
-    return large ? [large] : [];
+    return large ? [{ ...large, expiresAt: source.expiresAt }] : [];
   });
   // 網址字串當作依賴：查詢重抓得到同樣的網址時不重做（簽章網址在同一個時間窗內不變）
   const key = JSON.stringify(
-    variants.map(({ src, sources: formats }) => ({ src, sources: formats })),
+    variants.map(({ src, sources: formats, expiresAt }) => ({ src, sources: formats, expiresAt })),
   );
   useEffect(() => {
-    const parsed = JSON.parse(key) as Array<Pick<ImageSourceVariant, 'src' | 'sources'>>;
-    for (const variant of parsed) preloadImageVariant(variant);
+    const parsed = JSON.parse(key) as Array<
+      Pick<ImageSourceVariant, 'src' | 'sources'> & { expiresAt: string }
+    >;
+    const now = Date.now();
+    for (const variant of parsed) {
+      if (Date.parse(variant.expiresAt) - now < PRELOAD_MIN_REMAINING_MS) continue;
+      preloadImageVariant(variant);
+    }
   }, [key]);
 }
 
@@ -173,35 +185,42 @@ export function GalleryViewer({
   };
   const toggleSlideshow = () => setSlideshow((current) => (current === null ? interval : null));
 
-  // 用 capture：Base UI Dialog 的焦點管理會在事件冒泡到 window 之前停止傳遞。輸入框（標題、說明）不攔截
+  // 按鍵用到的值放在 ref：listener 只在檢視器開著時註冊一次，換張、縮放、幻燈片不重新註冊
+  const keyActions = useLatestRef({
+    previousId,
+    nextId,
+    onNavigate,
+    toggleSlideshow,
+    toggleFullscreen,
+  });
+
+  // 用 capture：Base UI Dialog 的焦點管理會在事件冒泡到 window 之前停止傳遞。輸入框（標題、說明）與選單不攔截
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target instanceof HTMLElement ? event.target : null;
       if (
         event.defaultPrevented ||
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
-        target?.closest(
-          'input, textarea, select, [contenteditable], [role="listbox"], [role="combobox"], [role="menu"]',
-        )
+        isTypingTarget(event.target)
       ) {
         return;
       }
+      const actions = keyActions.current;
       const handled = (() => {
         switch (event.key) {
           case 'ArrowLeft':
-            if (previousId) onNavigate(previousId);
+            if (actions.previousId) actions.onNavigate(actions.previousId);
             return true;
           case 'ArrowRight':
-            if (nextId) onNavigate(nextId);
+            if (actions.nextId) actions.onNavigate(actions.nextId);
             return true;
           case ' ':
-            toggleSlideshow();
+            actions.toggleSlideshow();
             return true;
           case 'f':
           case 'F':
-            toggleFullscreen();
+            actions.toggleFullscreen();
             return true;
           case 'i':
           case 'I':
@@ -225,7 +244,7 @@ export function GalleryViewer({
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  });
+  }, [keyActions]);
 
   // 底片列：目前這一張捲到中間
   useEffect(() => {
@@ -235,6 +254,13 @@ export function GalleryViewer({
   }, [itemId]);
 
   const levels = useMemo(() => (item ? levelsOf(item, detail.data) : []), [item, detail.data]);
+  // 主圖載入失敗（多半是網址過期）：重抓列表與詳情一次；同一個網址重抓後仍失敗就不再重抓（換了網址才會再試）
+  const failedSrcs = useRef(new Set<string>());
+  const onLevelError = (level: ImageViewerLevel) => {
+    if (failedSrcs.current.has(level.src)) return;
+    failedSrcs.current.add(level.src);
+    onGalleryImageExpired();
+  };
   const animate = !prefersReducedMotion();
   const rotate = (delta: number) => {
     const current = detail.data;
@@ -278,6 +304,7 @@ export function GalleryViewer({
           const target = direction === 'next' ? nextId : previousId;
           if (target) onNavigate(target);
         }}
+        onError={onLevelError}
         labels={{
           zoomIn: t('gallery.viewer.zoomIn'),
           zoomOut: t('gallery.viewer.zoomOut'),
@@ -516,6 +543,8 @@ export function GalleryViewer({
                   sizes="128px"
                   alt=""
                   className="h-full w-full object-cover"
+                  onExpired={onGalleryImageExpired}
+                  isLongLived
                 />
               </button>
             ))}

@@ -230,6 +230,7 @@
       "heic": "HEIC is not supported; export as JPEG first",
       "notImage": "Not a supported format",
       "corrupted": "The file content does not match its type or is corrupted",
+      "tooLarge": "Larger than the {{max}} per-file limit",
       "dropHint": "Drop to upload to the gallery"
     },
     "view": {

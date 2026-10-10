@@ -2,6 +2,7 @@ import { createRegistry } from '@b2b-system/web-shared/registry';
 
 import { hotkeyId, isMacPlatform, matchesHotkey, parseHotkey } from './combo';
 import type { ParsedHotkey } from './combo';
+import { isTypingTarget } from './typingTarget';
 
 export interface Hotkey {
   /** `mod+k`、`shift+/`；`mod` 在 macOS 是 ⌘、其他平台是 Ctrl。 */
@@ -31,13 +32,6 @@ export function registerHotkey(hotkey: Hotkey, isMac: boolean = isMacPlatform())
   return hotkeyRegistry.register(hotkeyId(parsed), { parsed, hotkey });
 }
 
-/** 輸入框、下拉選單、可編輯區：使用者正在打字的地方。 */
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  return target.closest('input, textarea, select, [contenteditable="true"]') !== null;
-}
-
 /** 找出這次按鍵要執行的快捷鍵；沒有就回 undefined（不攔，交給瀏覽器與元件）。 */
 export function findHotkey(
   event: KeyboardEvent,
@@ -45,7 +39,7 @@ export function findHotkey(
 ): Hotkey | undefined {
   // 輸入法組字中的 Enter、方向鍵不是快捷鍵；已被元件處理過的也不搶
   if (event.isComposing || event.defaultPrevented) return undefined;
-  const editable = isEditableTarget(event.target);
+  const editable = isTypingTarget(event.target);
   for (const { parsed, hotkey } of entries) {
     if (!matchesHotkey(event, parsed)) continue;
     if (editable && !hotkey.allowInInput) return undefined;

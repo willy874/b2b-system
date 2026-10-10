@@ -4,8 +4,11 @@ import { FormError } from '@b2b-system/ui/FormError';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
+import { formatBytes } from '@b2b-system/web-shared/utils';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { getGalleryUploadsQueryOptions } from '@/apis/gallery/get-gallery-uploads/query';
 import type { FileActionDialogProps } from '@/core/file';
 import type { GalleryFromSourceResult } from '@/shared/api-sdk';
 
@@ -37,13 +40,18 @@ export function AddToGalleryDialog({ files, skipped, sourceId, onClose }: FileAc
   const add = useGalleryFromSourceMutation();
   const resolveAlbum = useResolveAlbum();
   const isPending = add.isPending || resolveAlbum.isPending;
+  // 單檔上限是租戶的 feature 參數：超過的先略過（只是體驗，後端照樣檢查）。拿不到時交給後端逐筆回 tooLarge
+  const uploads = useQuery(getGalleryUploadsQueryOptions());
+  const maxSize = uploads.data?.maxItemSize;
+  const tooLarge = maxSize === undefined ? [] : files.filter((file) => file.size > maxSize);
+  const eligible = files.filter((file) => !tooLarge.includes(file));
 
   const submit = async () => {
     setError(undefined);
     try {
       const albumId = await resolveAlbum.resolve(album);
       const response = await add.mutateAsync({
-        params: { body: { source: sourceId, refIds: files.map((file) => file.id), albumId } },
+        params: { body: { source: sourceId, refIds: eligible.map((file) => file.id), albumId } },
       });
       setResult(response);
     } catch (caught) {
@@ -57,6 +65,11 @@ export function AddToGalleryDialog({ files, skipped, sourceId, onClose }: FileAc
       key: entry.file.id,
       name: entry.file.name,
       reason: t(entry.reasonKey, entry.params),
+    })),
+    ...tooLarge.map((file) => ({
+      key: file.id,
+      name: file.name,
+      reason: t('gallery.fileAction.tooLarge', { max: formatBytes(maxSize ?? 0) }),
     })),
     ...(result?.results ?? []).flatMap((entry) =>
       entry.status === 'skipped' && entry.reason
@@ -78,7 +91,7 @@ export function AddToGalleryDialog({ files, skipped, sourceId, onClose }: FileAc
       onOpenChange={(open) => !open && onClose()}
       title={t('gallery.fileAction.title')}
       description={
-        result ? undefined : t('gallery.fileAction.description', { count: files.length })
+        result ? undefined : t('gallery.fileAction.description', { count: eligible.length })
       }
       data-testid="gallery-add-from-file-dialog"
       footer={
@@ -103,11 +116,11 @@ export function AddToGalleryDialog({ files, skipped, sourceId, onClose }: FileAc
             <Button
               variant="primary"
               loading={isPending}
-              disabled={!isAlbumChoiceValid(album)}
+              disabled={!isAlbumChoiceValid(album) || uploads.isPending || eligible.length === 0}
               onClick={() => void submit()}
               data-testid="gallery-add-from-file-submit"
             >
-              {t('gallery.fileAction.submit', { count: files.length })}
+              {t('gallery.fileAction.submit', { count: eligible.length })}
             </Button>
           </div>
         )
@@ -143,9 +156,12 @@ export function AddToGalleryDialog({ files, skipped, sourceId, onClose }: FileAc
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {skipped.length > 0 && (
-            <p className="m-0 text-sm text-[var(--color-fg-muted)]">
-              {t('gallery.fileAction.willSkip', { count: skipped.length })}
+          {skipped.length + tooLarge.length > 0 && (
+            <p
+              className="m-0 text-sm text-[var(--color-fg-muted)]"
+              data-testid="gallery-add-from-file-will-skip"
+            >
+              {t('gallery.fileAction.willSkip', { count: skipped.length + tooLarge.length })}
             </p>
           )}
           <AlbumPicker

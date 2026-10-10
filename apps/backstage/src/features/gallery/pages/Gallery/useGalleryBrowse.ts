@@ -60,11 +60,14 @@ export function useGalleryBrowse(grouping: GalleryGrouping) {
     [items, grouping, timeField],
   );
 
+  /** `replace`：不留瀏覽紀錄（檢視器裡換上一張／下一張）。 */
   const updateSearch = useCallback(
-    (patch: Partial<GallerySearch>) => {
+    (patch: Partial<GallerySearch>, options?: { replace?: boolean }) => {
       const next: GallerySearch = { ...search, ...patch };
-      if (albumId) void navigate({ to: GalleryAlbumRoute.to, params: { albumId }, search: next });
-      else void navigate({ to: GalleryRoute.to, search: next });
+      const replace = options?.replace;
+      if (albumId) {
+        void navigate({ to: GalleryAlbumRoute.to, params: { albumId }, search: next, replace });
+      } else void navigate({ to: GalleryRoute.to, search: next, replace });
     },
     [albumId, navigate, search],
   );

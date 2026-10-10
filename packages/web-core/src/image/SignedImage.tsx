@@ -5,6 +5,8 @@ import type { ImageSources } from './types';
 
 /** 長時間開著的頁面在網址到期前多久主動重抓（與檔案管理器的「失效前 60 秒重抓」相同）。 */
 const REFRESH_BEFORE_EXPIRY_MS = 60_000;
+/** `setTimeout` 能接受的最大延遲（約 24.8 天）；超過會被當成 1ms 立刻觸發，等於一直重抓。 */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 export interface SignedImageProps {
   /** api 回應裡的圖；`null` / `undefined` 代表沒有圖片或還在處理，直接顯示退路。 */
@@ -58,6 +60,7 @@ export function SignedImage({
   useEffect(() => {
     if (!isLongLived || !onExpired || !expiresAt) return;
     const delay = Math.max(0, Date.parse(expiresAt) - Date.now() - REFRESH_BEFORE_EXPIRY_MS);
+    if (delay > MAX_TIMEOUT_MS) return;
     const timer = setTimeout(onExpired, delay);
     return () => clearTimeout(timer);
   }, [isLongLived, onExpired, expiresAt]);

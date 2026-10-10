@@ -207,6 +207,7 @@
       "heic": "HEIC 不支援，請在相簿 App 匯出成 JPEG 再上傳",
       "notImage": "不是圖片庫收的格式",
       "corrupted": "檔案內容與格式不符或已損毀",
+      "tooLarge": "超過單檔上限 {{max}}",
       "dropHint": "放開以上傳到圖片庫"
     },
     "view": {

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { formatHotkey, parseHotkey } from '../combo';
 import { findHotkey, registerHotkey, resetHotkeyRegistry } from '../registry';
+import { isTypingTarget } from '../typingTarget';
 import { useGlobalHotkeys } from '../useGlobalHotkeys';
 
 function Listener() {
@@ -83,5 +84,32 @@ describe('useGlobalHotkeys（分派）', () => {
     expect(findHotkey(make({ ctrlKey: true, shiftKey: true }))).toBeUndefined();
     expect(findHotkey(make({ ctrlKey: true, isComposing: true }))).toBeUndefined();
     expect(findHotkey(make({ ctrlKey: true }))).toBeDefined();
+  });
+});
+
+describe('isTypingTarget', () => {
+  it.each([
+    ['<input />', true],
+    ['<textarea></textarea>', true],
+    ['<select></select>', true],
+    ['<div contenteditable="true"></div>', true],
+    ['<div role="listbox"><span data-target></span></div>', true],
+    ['<div role="combobox"></div>', true],
+    ['<div role="menu"><button data-target></button></div>', true],
+    ['<div contenteditable="false"></div>', false],
+    ['<button></button>', false],
+    ['<div></div>', false],
+  ])('%s → %s', (html, expected) => {
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    document.body.append(host);
+    const target = host.querySelector('[data-target]') ?? host.firstElementChild;
+    expect(isTypingTarget(target)).toBe(expected);
+    host.remove();
+  });
+
+  it('不是元素（window、null）→ false', () => {
+    expect(isTypingTarget(window)).toBe(false);
+    expect(isTypingTarget(null)).toBe(false);
   });
 });

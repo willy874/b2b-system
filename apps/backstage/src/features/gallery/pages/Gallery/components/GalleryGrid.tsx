@@ -11,6 +11,7 @@ import type { Rect } from '@/core/selection';
 import type { GalleryItem } from '@/shared/api-sdk';
 
 import { GalleryPlaceholder } from '../../../components/GalleryPlaceholder';
+import { onGalleryImageExpired } from '../../../imageExpiry';
 import type { GalleryLayout } from '../preference';
 import type { GallerySection } from '../sections';
 
@@ -81,6 +82,8 @@ const GalleryTile = memo(function GalleryTile({
           sizes={`${Math.ceil(rect.width)}px`}
           alt={item.description ?? item.title}
           className={cn('h-full w-full', square ? 'object-cover' : 'object-fill')}
+          onExpired={onGalleryImageExpired}
+          isLongLived
         />
       </button>
       <button

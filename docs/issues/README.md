@@ -19,9 +19,6 @@
 | --- | --- | --- | --- |
 | 中 | 稽核日誌的「資源」篩選只寫死 11 種，後端實際寫入的類型多出十幾種 | [audit-log-resource-filter.md](./audit-log-resource-filter.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 審批與圖片的留言、提及、關注通知把資源類型顯示成「項目」 | [comment-notification-resource-label.md](./comment-notification-resource-label.md) | 2026-10-10 backstage 優化分析 |
-| 中 | 圖片庫的簽章網址到期後不會重抓，長時間開著的頁面破圖 | [gallery-signed-url-no-refresh.md](./gallery-signed-url-no-refresh.md) | 2026-10-10 backstage 優化分析 |
-| 中 | 圖片庫上傳沒有在前端檢查單檔上限，「加入圖片庫」寫死 50 MiB | [gallery-upload-size-check.md](./gallery-upload-size-check.md) | 2026-10-10 backstage 優化分析 |
-| 中 | 圖片庫檢視器每切換一張就多一筆瀏覽紀錄，幻燈片會塞滿歷史 | [gallery-viewer-history.md](./gallery-viewer-history.md) | 2026-10-10 backstage 優化分析 |
 | 中 | MFA 政策頁：「不符合政策的人數」逐人查詢，「查看使用者」的範圍與人數不一致 | [mfa-policy-count-n-plus-1.md](./mfa-policy-count-n-plus-1.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 個人資料的「儲存」沒有修改也能送出 | [account-profile-save-not-dirty.md](./account-profile-save-not-dirty.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 通知總覽：決策 D1 的 `sourceId` 篩選沒有實作，詳細規格也沒寫 | [announcement-source-filter.md](./announcement-source-filter.md) | 2026-10-10 backstage 優化分析 |
@@ -31,7 +28,6 @@
 | 低 | 刪除確認有兩種寫法，失敗後對話框關不關不一致 | [delete-confirm-inconsistent.md](./delete-confirm-inconsistent.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 詳情頁的「載入中／查詢失敗／已刪除」骨架逐頁複製 | [detail-dialog-duplicated.md](./detail-dialog-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 前端規格與實作的落差：路由樹、審批詳情、留言面板 | [frontend-docs-drift-routes-panels.md](./frontend-docs-drift-routes-panels.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 圖片庫的批次貼標籤以「先讀再整份取代」實作，與同時的標籤編輯互相覆蓋 | [gallery-batch-tag-race.md](./gallery-batch-tag-race.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 刪除外部 IdP 連線失敗時對話框仍被關掉 | [identity-provider-delete-error-closes.md](./identity-provider-delete-error-closes.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 列表頁「網址查詢條件」的 hook 逐頁複製 | [list-search-hooks-duplicated.md](./list-search-hooks-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 前端幾處多餘的請求與重算 | [minor-frontend-perf.md](./minor-frontend-perf.md) | 2026-10-10 backstage 優化分析 |
@@ -42,7 +38,7 @@
 | 低 | SSO 回呼頁的「重新登入」失敗時沒有任何反應 | [sso-callback-relogin-error.md](./sso-callback-relogin-error.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 標籤對話框重新載入時標籤已刪除就無聲關閉；標籤組的 feature 判斷寫死 | [tag-dialog-silent-close.md](./tag-dialog-silent-close.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 語系檔留著沒有被引用的 key，也沒有測試擋 | [unused-locale-keys.md](./unused-locale-keys.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 檔案管理與圖片庫的上傳、下載、檢視器按鍵各寫一套 | [upload-and-download-duplicated.md](./upload-and-download-duplicated.md) | 2026-10-10 backstage 優化分析 |
+| 低 | 檔案管理與圖片庫的上傳、下載各寫一套 | [upload-and-download-duplicated.md](./upload-and-download-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 使用者列表的「重設密碼」對未啟用的帳號實際寄的是啟用信 | [user-pending-reset-label.md](./user-pending-reset-label.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 使用者搜尋下拉與輸入去抖動各自實作 | [user-search-select-duplicated.md](./user-search-select-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | Webhook 設定以 events.join(',') 判斷修改，勾選順序不同會誤判 | [webhook-events-dirty-order.md](./webhook-events-dirty-order.md) | 2026-10-10 backstage 優化分析 |

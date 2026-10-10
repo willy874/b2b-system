@@ -4,6 +4,7 @@ import { Empty } from '@b2b-system/ui/Empty';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Spinner } from '@b2b-system/ui/Spinner';
 import { isAppError } from '@b2b-system/web-core/errors';
+import { isTypingTarget } from '@b2b-system/web-core/hotkey';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
@@ -82,15 +83,7 @@ export function FileLightbox({
   useEffect(() => {
     if (!fileId) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        event.defaultPrevented ||
-        target?.closest(
-          'input, textarea, select, [contenteditable], [role="listbox"], [role="combobox"]',
-        )
-      ) {
-        return;
-      }
+      if (event.defaultPrevented || isTypingTarget(event.target)) return;
       if (event.key === 'ArrowLeft' && previous) onNavigate(previous.id);
       if (event.key === 'ArrowRight' && next) onNavigate(next.id);
     };

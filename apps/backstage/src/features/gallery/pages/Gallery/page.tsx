@@ -1,7 +1,8 @@
 import { Button } from '@b2b-system/ui/Button';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useRouter } from '@tanstack/react-router';
+import { useMemo, useRef, useState } from 'react';
 
 import { getGalleryAlbumsQueryOptions } from '@/apis/gallery/get-gallery-albums/query';
 
@@ -57,7 +58,22 @@ export default function GalleryPage() {
     () => items.filter((item) => selection.selected.has(item.id)),
     [items, selection.selected],
   );
-  const openItem = (itemId: string | undefined) => browse.updateSearch({ item: itemId });
+  const router = useRouter();
+  // 檢視器的瀏覽紀錄比照檔案管理器的 LightBox（docs/architecture/frontend/24-gallery.md §9）：打開時留一筆，
+  // 裡面換上一張／下一張（按鍵、幻燈片、刪除後前往下一張）都取代它，返回鍵直接關掉檢視器
+  const openedHere = useRef(false);
+  const openItem = (itemId: string) => {
+    openedHere.current = true;
+    browse.updateSearch({ item: itemId });
+  };
+  const switchItem = (itemId: string) => browse.updateSearch({ item: itemId }, { replace: true });
+  const closeItem = () => {
+    // 從格子打開的：回到打開前的那一筆，不多留一筆「關掉之後」；從分享的網址進來的：就地拿掉 item
+    if (openedHere.current) {
+      openedHere.current = false;
+      router.history.back();
+    } else browse.updateSearch({ item: undefined }, { replace: true });
+  };
 
   return (
     <div
@@ -149,8 +165,8 @@ export default function GalleryPage() {
           filters={browse.filters}
           hasMore={browse.query.hasNextPage}
           onLoadMore={browse.loadMore}
-          onNavigate={openItem}
-          onClose={() => openItem(undefined)}
+          onNavigate={switchItem}
+          onClose={closeItem}
           canUpdate={permission.canUpdate}
           canDelete={permission.canDelete}
           onAddToAlbum={(itemId) => setDialog({ kind: 'addToAlbum', itemIds: [itemId] })}

@@ -81,6 +81,13 @@ describe('ImageViewer', () => {
     expect(root()).not.toHaveAttribute('data-loading');
   });
 
+  it('解析度載入失敗：以那一層呼叫 onError', () => {
+    const onError = vi.fn();
+    setup({ onError });
+    fireEvent.error(screen.getByRole('img', { name: '示意圖' }));
+    expect(onError).toHaveBeenCalledWith(LEVELS[0]);
+  });
+
   it('小圖以原尺寸置中', () => {
     setup({ levels: [{ src: '/small.png', width: 400, height: 300 }], width: 400, height: 300 });
     expect(stage().style.transform).toBe('translate(200px, 150px) scale(1)');

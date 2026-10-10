@@ -14,6 +14,7 @@ import { getGalleryAlbumsQueryOptions } from '@/apis/gallery/get-gallery-albums/
 import { getGalleryItemsQueryOptions } from '@/apis/gallery/get-gallery-items/query';
 import type { GalleryItem } from '@/shared/api-sdk';
 
+import { onGalleryImageExpired } from '../imageExpiry';
 import { GALLERY_IMAGE_SOURCE_ID } from './register';
 
 /** 一頁幾張：方格一次放得下，再多就按「載入更多」。 */
@@ -126,6 +127,8 @@ export function GalleryImageSource({ usage, onSelect }: ImageSourceProps) {
                       sizes="112px"
                       alt=""
                       className="h-full w-full object-cover"
+                      onExpired={onGalleryImageExpired}
+                      isLongLived
                     />
                   </span>
                   <span className="truncate text-xs">{item.title}</span>
