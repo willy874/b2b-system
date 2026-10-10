@@ -184,33 +184,66 @@ export function UserTable({
                 </IconButton>
               </Tooltip>
             )}
-            {permission.canResetPassword && (
-              <Tooltip content={t('user.resetPassword.action')}>
-                <IconButton
-                  size="sm"
-                  aria-label={t('user.resetPassword.action')}
-                  // 會寄信並留下稽核紀錄：先確認；確認框送出期間不能重按，列上的按鈕也轉圈
-                  loading={
-                    resetPassword.isPending &&
-                    resetPassword.variables?.params.userId === row.original.id
-                  }
-                  onClick={() =>
-                    void confirm({
-                      title: t('user.resetPassword.title'),
-                      description: t('user.resetPassword.confirm', { email: row.original.email }),
-                      confirmLabel: t('user.resetPassword.submit'),
-                      tone: 'primary',
-                      onConfirm: () =>
-                        resetPassword.mutateAsync({ params: { userId: row.original.id } }),
-                      'data-testid': 'user-reset-password-confirm',
-                    })
-                  }
-                  data-testid="user-reset-password-button"
-                >
-                  <Icon name="key" size={16} />
-                </IconButton>
-              </Tooltip>
-            )}
+            {permission.canResetPassword &&
+              (row.original.status === 'pending' ? (
+                // 還沒啟用的人：後端改寄啟用信（重寄啟用信的唯一入口），文字與圖示照實說
+                <Tooltip content={t('user.resendActivation.action')}>
+                  <IconButton
+                    size="sm"
+                    aria-label={t('user.resendActivation.action')}
+                    loading={
+                      resetPassword.isPending &&
+                      resetPassword.variables?.params.userId === row.original.id
+                    }
+                    onClick={() =>
+                      void confirm({
+                        title: t('user.resendActivation.title'),
+                        description: t('user.resendActivation.confirm', {
+                          email: row.original.email,
+                        }),
+                        confirmLabel: t('user.resendActivation.submit'),
+                        tone: 'primary',
+                        onConfirm: () =>
+                          resetPassword.mutateAsync({
+                            params: { userId: row.original.id, pending: true },
+                          }),
+                        'data-testid': 'user-resend-activation-confirm',
+                      })
+                    }
+                    data-testid="user-resend-activation-button"
+                  >
+                    <Icon name="mail" size={16} />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Tooltip content={t('user.resetPassword.action')}>
+                  <IconButton
+                    size="sm"
+                    aria-label={t('user.resetPassword.action')}
+                    // 會寄信並留下稽核紀錄：先確認；確認框送出期間不能重按，列上的按鈕也轉圈
+                    loading={
+                      resetPassword.isPending &&
+                      resetPassword.variables?.params.userId === row.original.id
+                    }
+                    onClick={() =>
+                      void confirm({
+                        title: t('user.resetPassword.title'),
+                        description: t('user.resetPassword.confirm', {
+                          email: row.original.email,
+                        }),
+                        confirmLabel: t('user.resetPassword.submit'),
+                        tone: 'primary',
+                        onConfirm: () =>
+                          resetPassword.mutateAsync({ params: { userId: row.original.id } }),
+                        'data-testid': 'user-reset-password-confirm',
+                      })
+                    }
+                    data-testid="user-reset-password-button"
+                  >
+                    <Icon name="key" size={16} />
+                  </IconButton>
+                </Tooltip>
+              ))}
             {/* 有權限但當下狀態不允許 → disable ＋ tooltip 改成說明原因 */}
             {permission.canDelete && (
               <Tooltip

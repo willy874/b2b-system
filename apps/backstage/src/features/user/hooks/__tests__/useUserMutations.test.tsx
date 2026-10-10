@@ -240,6 +240,13 @@ describe('useUserResetPasswordMutation', () => {
     ]);
   });
 
+  it('對象還沒啟用 → 提示啟用信已寄出（後端寄的是啟用信）', async () => {
+    api.resetPassword.mockResolvedValue(undefined);
+    const result = render(() => useUserResetPasswordMutation());
+    act(() => result.current.mutate({ params: { userId: 'u1', pending: true } }));
+    expect(await screen.findByText('啟用信已寄出。')).toBeInTheDocument();
+  });
+
   it('失敗 → 以 toast 顯示錯誤', async () => {
     api.resetPassword.mockRejectedValue(FORBIDDEN);
     const result = render(() => useUserResetPasswordMutation());

@@ -214,7 +214,10 @@ export function useUserResetPasswordMutation() {
       invalidateResources([
         { resource: Resource.USER_CREDENTIAL, kind: 'update', id: params.userId },
       ]);
-      toast.success(t('user.resetPassword.success'));
+      // 還沒啟用的人收到的是啟用信（後端依狀態決定），提示要說一樣的事
+      toast.success(
+        params.pending ? t('user.resendActivation.success') : t('user.resetPassword.success'),
+      );
     },
     onError: showError,
   });

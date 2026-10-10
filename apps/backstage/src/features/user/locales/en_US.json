@@ -39,6 +39,13 @@
       "action": "Unlock",
       "success": "Account unlocked."
     },
+    "resendActivation": {
+      "action": "Resend activation email",
+      "success": "Activation email sent.",
+      "title": "Resend activation email",
+      "confirm": "{{email}} has not activated the account yet. A new activation link will be sent and an audit record kept. Send it?",
+      "submit": "Send activation email"
+    },
     "resetPassword": {
       "action": "Reset password",
       "success": "Reset link sent.",
