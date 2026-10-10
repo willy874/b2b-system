@@ -10,8 +10,9 @@
   ├─ 列表篩選：repository 的 hasAnyTag(resourceType, idColumn, tagIds)
   └─ 永久刪除：TrashHandler.purge 內 tags.removeAllFor(resourceType, ids, tx)
 
-PUT /tags/assignments/:resourceType/:resourceId
-  └─ TagService.replaceFor → resolver.resolveEditable（擁有者判斷權限）→ 交易內取代 ＋ 稽核 → resolver.afterTagsChanged（擁有者推播）
+PUT／PATCH /tags/assignments/:resourceType/:resourceId
+  └─ TagService.replaceFor／updateFor → resolver.resolveEditable（擁有者判斷權限）
+       → 交易內鎖住資源（advisory lock）、讀出目前的標籤、算出新的（取代或加減）＋ 稽核 → resolver.afterTagsChanged（擁有者推播）
 ```
 
 ---
@@ -64,6 +65,7 @@ PUT /tags/assignments/:resourceType/:resourceId
 | PATCH | `/tags/:id` | `tag:update` | `{ name?, color?, version }`；標籤組不能改 |
 | DELETE | `/tags/:id` | `tag:delete` | 硬刪除，指派一併刪除 |
 | PUT | `/tags/assignments/:resourceType/:resourceId` | 登入 ＋ 擁有者的判斷 | `{ tagIds }`（最多 20 個，空陣列＝全部移除）整批取代；回 `{ tags }` |
+| PATCH | `/tags/assignments/:resourceType/:resourceId` | 登入 ＋ 擁有者的判斷 | `{ add?, remove? }` 差異語意，其他標籤不動（批次貼標籤用：不必先讀，不會蓋掉同時的編輯）；已經有的再加、沒有的拿掉不算錯，沒有變化時不寫稽核；回 `{ tags }` |
 
 擁有者的回應帶 `tags: [{ id, name, color }]`（依名稱排序）：`StoredFile`、`FileFolder`、`User`。
 篩選：`GET /files?tagId=…&tagId=…`、`GET /users?tagId=…`（任一符合）。資料夾清單是一次全部取回，前端自己篩。
@@ -142,7 +144,7 @@ PUT /tags/assignments/:resourceType/:resourceId
 | D4 | **刪除標籤是硬刪除**，指派一併刪除；不進回收桶。稽核記下名稱與組 | 標籤是設定，不是業務資料；還原一個標籤卻找不回當時的指派沒有意義 |
 | D5 | **權限**：<br>• 管理定義：`tag:create`、`tag:update`、`tag:delete`（所有標籤組共用；`create`／`delete` 包含 `update`）<br>• 讀定義：不需要權限鍵，但要「進得了」那個標籤組（擁有者提供的閘門：`file` 組是 `file:access` 或 `file:read`，`user` 組是 `user:read`）<br>• 貼與移除：跟著 **目標的編輯權限**，由擁有者判斷（檔案、資料夾：能改名；使用者：`user:update`）<br>預設角色：`admin` 持有三個鍵 | 「能看目標就能看它的標籤、能改目標就能改它的標籤」是提案的原則；管理定義會影響所有人看到的分類，只給管理者 |
 | D6 | **讀取嵌在擁有者的回應裡**：檔案、資料夾、使用者的 DTO 多一個 `tags: [{ id, name, color }]`，由擁有者在組回應時以 `TagService.tagsOf(resourceType, ids)` 一次批次取得。<br>**篩選**：檔案列表與使用者列表接受 `tagIds`（任一符合），擁有者的 repository 以 `db/schema` 的 `hasAnyTag()` 條件組查詢 | 列表本來就由擁有者以可見性過濾，標籤跟著它就不會洩漏看不到的資源；不需要一支「列出某資源的標籤」的通用端點與它的可見性判斷 |
-| D7 | **指派的端點是通用的**：`PUT /tags/assignments/:resourceType/:resourceId { tagIds }`（整批取代，最多 20 個）。`TagService` 依資源類型找擁有者登記的 resolver：檢查能不能編輯、取得稽核用的名稱、交易提交後由擁有者發自己的推播。標籤必須屬於那個資源類型的標籤組 | 前端不必為每種資源各做一支端點；權限判斷留在擁有者 |
+| D7 | **指派的端點是通用的**：`PUT /tags/assignments/:resourceType/:resourceId { tagIds }`（整批取代，最多 20 個），另有差異語意的 `PATCH … { add, remove }` 給批次操作（先讀再整份取代會在讀與寫之間被同時的編輯插隊；兩支都在交易內以資源為 key 的 advisory lock 排隊）。`TagService` 依資源類型找擁有者登記的 resolver：檢查能不能編輯、取得稽核用的名稱、交易提交後由擁有者發自己的推播。標籤必須屬於那個資源類型的標籤組 | 前端不必為每種資源各做一支端點；權限判斷留在擁有者 |
 | D8 | **稽核**：`tag.create`、`tag.update`、`tag.delete`；指派寫 `tag.assign`（`resourceType`／`resourceId` 是目標、`changes` 是前後的標籤名稱），與指派在同一個交易 | |
 | D9 | **永久刪除時清理**：擁有者的 `TrashHandler.purge` 在同一個交易內呼叫 `TagService.removeAllFor(resourceType, ids, tx)`。軟刪除保留指派，還原後標籤跟著回來 | 與留言、關注之後的做法一致（提案） |
 | D10 | **推播**：定義的變更推 `tag`（給進得了任一標籤組的人：`file:access`、`file:read`、`user:read`）；指派由擁有者推自己的資源（`file`／`fileFolder`／`user` update），前端依賴圖讓列表重抓 | 指派的受眾等於目標的受眾，只有擁有者知道 |

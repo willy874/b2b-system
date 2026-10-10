@@ -11,6 +11,8 @@ import type {
   TagControllerRemoveResult,
   TagControllerReplaceInput,
   TagControllerReplaceResult,
+  TagControllerUpdateAssignmentsInput,
+  TagControllerUpdateAssignmentsResult,
   TagControllerUpdateInput,
   TagControllerUpdateResult,
 } from '../../endpoints/tags';
@@ -22,6 +24,7 @@ import {
   ResourceTagsSchema,
   TagListSchema,
   TagSchema,
+  UpdateResourceTagsRequestSchema,
   UpdateTagRequestSchema,
 } from '../components';
 
@@ -163,4 +166,41 @@ export function tagControllerReplace(
   options?: RequestOptions,
 ): Promise<TagControllerReplaceResult> {
   return request<TagControllerReplaceResult>(tagControllerReplaceOperation, input, options);
+}
+
+// PATCH /tags/assignments/{resourceType}/{resourceId}
+
+export const TagControllerUpdateAssignmentsSchemas = {
+  path: z.object({
+    resourceType: z.string(),
+    resourceId: z.string(),
+  }),
+  body: UpdateResourceTagsRequestSchema,
+  responses: {
+    200: z.object({
+      data: ResourceTagsSchema,
+    }),
+  },
+} satisfies OperationSchemas;
+
+const tagControllerUpdateAssignmentsOperation: OperationDefinition = {
+  id: 'TagController_updateAssignments',
+  method: 'PATCH',
+  path: '/tags/assignments/{resourceType}/{resourceId}',
+  bodyType: 'json',
+  contentType: 'application/json',
+  responseTypes: { 200: 'json' },
+  schemas: TagControllerUpdateAssignmentsSchemas,
+};
+
+/** 加上、拿掉一個資源的幾個標籤（差異語意，其他的不動）；權限同整批取代 */
+export function tagControllerUpdateAssignments(
+  input: TagControllerUpdateAssignmentsInput,
+  options?: RequestOptions,
+): Promise<TagControllerUpdateAssignmentsResult> {
+  return request<TagControllerUpdateAssignmentsResult>(
+    tagControllerUpdateAssignmentsOperation,
+    input,
+    options,
+  );
 }

@@ -384,6 +384,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'PATCH /tags/:id': 'tag:update',
       'DELETE /tags/:id': 'tag:delete',
       'PUT /tags/assignments/:resourceType/:resourceId': 'authenticated',
+      'PATCH /tags/assignments/:resourceType/:resourceId': 'authenticated',
       // 留言與關注：看不看得到由擁有者判斷，刪別人的留言要 comment:delete（docs/architecture/backend/24-comment.md §3）
       'GET /comments/:resourceType/:resourceId': 'authenticated',
       'POST /comments/:resourceType/:resourceId': 'authenticated',

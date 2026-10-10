@@ -328,6 +328,7 @@ import type {
   UpdatePlatformMfaMethodRequest,
   UpdatePlatformProfileRequest,
   UpdateProfileRequest,
+  UpdateResourceTagsRequest,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
   UpdateServiceAccountRequest,
@@ -2660,6 +2661,33 @@ export const ReplaceResourceTagsRequestSchema = z.object({
     .max(20),
 }) satisfies z.ZodType<ReplaceResourceTagsRequest>;
 
+export const UpdateResourceTagsRequestSchema = z.object({
+  add: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+  remove: z
+    .array(
+      z
+        .uuid()
+        .regex(
+          new RegExp(
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+          ),
+        ),
+    )
+    .max(20)
+    .default([]),
+}) satisfies z.ZodType<UpdateResourceTagsRequest>;
+
 export const ResourceTagsSchema = z.object({
   tags: z.array(TagSummarySchema),
 }) satisfies z.ZodType<ResourceTags>;
@@ -4361,6 +4389,7 @@ export const GalleryUploadSchema = z.object({
 export const GalleryUploadStatusSchema = z.object({
   processing: z.int().min(-9007199254740991).max(9007199254740991),
   failed: z.array(GalleryUploadItemSchema),
+  maxItemSize: z.int().min(-9007199254740991).max(9007199254740991),
 }) satisfies z.ZodType<GalleryUploadStatus>;
 
 export const CreateGalleryFromSourceRequestSchema = z.object({

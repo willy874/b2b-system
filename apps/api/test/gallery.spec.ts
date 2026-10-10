@@ -245,10 +245,12 @@ describe('圖片庫（docs/architecture/backend/26-gallery.md）', () => {
     const id = await upload(admin, await photo(1600, 900), 'IMG_0001.JPG');
     // 還沒處理完：不在圖片庫
     expect((await listItems(admin)).items.map((item) => item.id)).not.toContain(id);
-    const uploads = dataOf<{ processing: number }>(
+    const uploads = dataOf<{ processing: number; maxItemSize: number }>(
       await request(http).get('/gallery/items/uploads').set(auth(admin)).expect(200),
     );
     expect(uploads.processing).toBeGreaterThanOrEqual(1);
+    // 單檔上限是 feature 參數的生效值（預設 50 MiB），前端選檔時先檢查
+    expect(uploads.maxItemSize).toBe(50 * 1024 * 1024);
 
     await processItem(id);
     const item = await getItem(admin, id);

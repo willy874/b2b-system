@@ -16,6 +16,7 @@ import type { PermissionCheckContext } from '@/modules/permission/permission.ser
 import type {
   CreateTagDto,
   ReplaceResourceTagsDto,
+  UpdateResourceTagsDto,
   ResourceTagsDto,
   TagDto,
   TagListDto,
@@ -267,28 +268,57 @@ export class TagService {
     dto: ReplaceResourceTagsDto,
     actor: AuthUser,
   ): Promise<ResourceTagsDto> {
+    return this.assign(resourceType, resourceId, actor, 'PUT', () => dto.tagIds);
+  }
+
+  /** 差異語意：在交易內、鎖住這個資源之後讀出目前的標籤再加減，和同時的寫入不會互相覆蓋。 */
+  async updateFor(
+    resourceType: string,
+    resourceId: string,
+    dto: UpdateResourceTagsDto,
+    actor: AuthUser,
+  ): Promise<ResourceTagsDto> {
+    return this.assign(resourceType, resourceId, actor, 'PATCH', (current) => {
+      const removed = new Set(dto.remove);
+      return [...new Set([...current, ...dto.add])].filter((id) => !removed.has(id));
+    });
+  }
+
+  /**
+   * 指派的共同流程：資源的編輯權限（resolver）→ 交易內鎖住資源、讀出目前的標籤、算出新的 → 數量上限、
+   * 標籤要在這個標籤組 → 寫入與稽核（沒有變化就不寫）→ 交易後 `afterTagsChanged`。
+   */
+  private async assign(
+    resourceType: string,
+    resourceId: string,
+    actor: AuthUser,
+    method: 'PUT' | 'PATCH',
+    next: (current: readonly string[]) => readonly string[],
+  ): Promise<ResourceTagsDto> {
     const definition = this.resources.get(resourceType);
     if (!definition) throw new AppException('TAG_SCOPE_NOT_FOUND', { resourceType });
     this.requireScope(definition.scope);
     const target = await definition.resolveEditable(actor, resourceId, {
-      route: 'PUT /tags/assignments/:resourceType/:resourceId',
+      route: `${method} /tags/assignments/:resourceType/:resourceId`,
       metadata: { resourceType, resourceId },
     });
-    if (dto.tagIds.length > TAG_MAX_PER_RESOURCE) {
-      throw new AppException('TAG_LIMIT_REACHED', { max: TAG_MAX_PER_RESOURCE });
-    }
 
     const changed = await withTransaction(this.db, async (tx) => {
-      const found = await this.repo.findInScope(definition.scope, dto.tagIds, tx);
+      await this.repo.lockResource(resourceType, resourceId, tx);
+      const before = await this.repo.tagsOf(resourceType, [resourceId], tx);
+      const tagIds = next(before.map((tag) => tag.id));
+      if (tagIds.length > TAG_MAX_PER_RESOURCE) {
+        throw new AppException('TAG_LIMIT_REACHED', { max: TAG_MAX_PER_RESOURCE });
+      }
+      const found = await this.repo.findInScope(definition.scope, tagIds, tx);
       const foundIds = new Set(found.map((tag) => tag.id));
-      const missing = dto.tagIds.filter((id) => !foundIds.has(id));
+      const missing = tagIds.filter((id) => !foundIds.has(id));
       if (missing.length) throw new AppException('TAG_NOT_FOUND', { tagIds: missing });
 
-      const before = await this.repo.tagsOf(resourceType, [resourceId], tx);
       const beforeIds = new Set(before.map((tag) => tag.id));
       const same = before.length === foundIds.size && before.every((tag) => foundIds.has(tag.id));
       if (same) return false;
-      await this.repo.replace(resourceType, resourceId, dto.tagIds, actor.id, tx);
+      await this.repo.replace(resourceType, resourceId, tagIds, actor.id, tx);
       const names = (rows: ReadonlyArray<{ name: string }>) =>
         rows.map((row) => row.name).toSorted();
       await this.audit.record(

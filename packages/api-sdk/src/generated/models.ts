@@ -1552,6 +1552,11 @@ export interface ReplaceResourceTagsRequest {
   tagIds: Array<string>;
 }
 
+export interface UpdateResourceTagsRequest {
+  add: Array<string>;
+  remove: Array<string>;
+}
+
 export interface ResourceTags {
   tags: Array<TagSummary>;
 }
@@ -2656,6 +2661,7 @@ export interface GalleryUpload {
 export interface GalleryUploadStatus {
   processing: number;
   failed: Array<GalleryUploadItem>;
+  maxItemSize: number;
 }
 
 export interface CreateGalleryFromSourceRequest {

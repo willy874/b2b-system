@@ -71,6 +71,28 @@ export const ReplaceResourceTagsSchema = defineSchema(
   }),
 );
 
+const TagIdListSchema = z
+  .array(z.string().uuid())
+  .max(TAG_MAX_PER_RESOURCE)
+  .refine((ids) => new Set(ids).size === ids.length, { message: 'duplicate tagIds' });
+
+/**
+ * 差異語意：加上、拿掉幾個標籤，其他的不動（批次貼標籤用；不必先讀目前的標籤，和同時的編輯不會互相覆蓋）。
+ * 已經有的再加、沒有的拿掉都不算錯，沒有變化時不寫稽核。
+ */
+export const UpdateResourceTagsSchema = defineSchema(
+  'UpdateResourceTagsRequest',
+  z
+    .object({
+      add: TagIdListSchema.default([]),
+      remove: TagIdListSchema.default([]),
+    })
+    .refine((dto) => dto.add.length + dto.remove.length > 0, { message: 'nothing to change' })
+    .refine((dto) => !dto.add.some((id) => dto.remove.includes(id)), {
+      message: 'tagId in both add and remove',
+    }),
+);
+
 export const ResourceTagsSchema = defineSchema(
   'ResourceTags',
   z.object({ tags: z.array(TagSummarySchema) }),
@@ -94,4 +116,5 @@ export type ListTagDto = z.infer<typeof ListTagSchema>;
 export type CreateTagDto = z.infer<typeof CreateTagSchema>;
 export type UpdateTagDto = z.infer<typeof UpdateTagSchema>;
 export type ReplaceResourceTagsDto = z.infer<typeof ReplaceResourceTagsSchema>;
+export type UpdateResourceTagsDto = z.infer<typeof UpdateResourceTagsSchema>;
 export type ResourceTagsDto = z.infer<typeof ResourceTagsSchema>;

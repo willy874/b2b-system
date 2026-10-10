@@ -235,7 +235,7 @@ export class GalleryItemService {
   /** 自己上傳中與處理失敗的（頁首的「處理中 N 張」）。 */
   async uploads(actor: AuthUser): Promise<GalleryUploadStatusDto> {
     const { processing, failed } = await this.repo.uploadsOf(actor.id);
-    return { processing, failed: failed.map(toUploadItem) };
+    return { processing, failed: failed.map(toUploadItem), maxItemSize: this.maxItemSize() };
   }
 
   /** 清掉自己處理失敗的紀錄（物件由清理排程的殘留對帳刪除）。 */

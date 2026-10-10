@@ -7,6 +7,7 @@ import type {
   ResourceTags,
   Tag,
   TagList,
+  UpdateResourceTagsRequest,
   UpdateTagRequest,
 } from '../models';
 import type { ApiResponse } from '../runtime';
@@ -124,5 +125,38 @@ export type TagControllerReplaceResponse = TagControllerReplaceResponses[200];
 export type TagControllerReplaceResult = ApiResponse<200, TagControllerReplaceResponses[200]>;
 
 export function getTagControllerReplaceUrl(path: TagControllerReplacePathParams): string {
+  return buildUrl('/tags/assignments/{resourceType}/{resourceId}', path);
+}
+
+// PATCH /tags/assignments/{resourceType}/{resourceId}
+
+export interface TagControllerUpdateAssignmentsPathParams {
+  resourceType: string;
+  resourceId: string;
+}
+
+export type TagControllerUpdateAssignmentsBody = UpdateResourceTagsRequest;
+
+export interface TagControllerUpdateAssignmentsInput {
+  path: TagControllerUpdateAssignmentsPathParams;
+  body: TagControllerUpdateAssignmentsBody;
+}
+
+export interface TagControllerUpdateAssignmentsResponses {
+  200: {
+    data: ResourceTags;
+  };
+}
+
+export type TagControllerUpdateAssignmentsResponse = TagControllerUpdateAssignmentsResponses[200];
+
+export type TagControllerUpdateAssignmentsResult = ApiResponse<
+  200,
+  TagControllerUpdateAssignmentsResponses[200]
+>;
+
+export function getTagControllerUpdateAssignmentsUrl(
+  path: TagControllerUpdateAssignmentsPathParams,
+): string {
   return buildUrl('/tags/assignments/{resourceType}/{resourceId}', path);
 }

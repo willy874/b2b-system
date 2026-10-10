@@ -237,6 +237,8 @@ export const GalleryUploadStatusSchema = defineSchema(
   z.object({
     processing: z.number().int(),
     failed: z.array(GalleryUploadItemSchema),
+    /** 單檔上限（bytes）：租戶的 feature 參數 `gallery.maxItemSizeMb` 的生效值，前端選檔時先檢查（只是體驗）。 */
+    maxItemSize: z.number().int(),
   }),
 );
 

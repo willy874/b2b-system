@@ -232,6 +232,41 @@ describe('標籤（docs/architecture/backend/18-tag.md §7）', () => {
       });
     });
 
+    it('PATCH 差異語意：只加減指定的標籤；已經有的再加不寫稽核', async () => {
+      const admin = await as(ADMIN);
+      const tagIdsOf = (response: Parameters<typeof dataOf>[0]) =>
+        dataOf<{ tags: Array<{ id: string }> }>(response).tags.map((item) => item.id);
+      const auditCount = async () =>
+        (
+          await db
+            .select()
+            .from(auditLogs)
+            .where(and(eq(auditLogs.action, 'tag.assign'), eq(auditLogs.resourceId, ids.member!)))
+        ).length;
+
+      expect(
+        tagIdsOf(
+          await admin
+            .patch(`/tags/assignments/user/${ids.member}`, { remove: [ids.department] })
+            .expect(200),
+        ),
+      ).toEqual([]);
+      expect(
+        tagIdsOf(
+          await admin
+            .patch(`/tags/assignments/user/${ids.member}`, { add: [ids.department] })
+            .expect(200),
+        ),
+      ).toEqual([ids.department]);
+      const before = await auditCount();
+      await admin
+        .patch(`/tags/assignments/user/${ids.member}`, { add: [ids.department] })
+        .expect(200);
+      expect(await auditCount()).toBe(before);
+
+      await admin.patch(`/tags/assignments/user/${ids.member}`, {}).expect(400);
+    });
+
     it('只有 user:read 的人看得到標籤，但不能貼', async () => {
       const reader = await as(READER);
       const listed = dataOf<{ items: Tagged[] }>(await reader.get('/users?limit=100').expect(200));

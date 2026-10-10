@@ -87,6 +87,13 @@ export class TagRepository {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`tags:${scope}`}))`);
   }
 
+  /** 同一個資源的標籤寫入排隊：讀出目前的標籤、算出新的、寫回之間不會被另一個寫入插隊。 */
+  async lockResource(resourceType: string, resourceId: string, tx: DbOrTx): Promise<void> {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`resource_tags:${resourceType}:${resourceId}`}))`,
+    );
+  }
+
   async create(values: TagInsert, tx: DbOrTx): Promise<TagRow> {
     const [row] = await tx.insert(tags).values(values).returning();
     if (!row) throw new Error('tags 寫入沒有回傳列');

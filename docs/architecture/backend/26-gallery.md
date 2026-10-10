@@ -105,7 +105,7 @@ POST /gallery/items/:id/complete
 - **型別**：`GALLERY_CONTENT_TYPES` = JPEG、PNG、WebP、GIF（第一格）、AVIF、TIFF。不收 SVG（不讓 api 解析使用者給的 XML）；
   **不收 HEIC／HEIF**（D6）：登記時回 `422 GALLERY_TYPE_NOT_ALLOWED`，前端選檔時就擋下並提示匯出成 JPEG。
 - **單檔上限**：feature 參數 `gallery.maxItemSizeMb`（1～200，預設 50；[`../05-tenancy.md`](../05-tenancy.md) §5.3）。超過回 `413 GALLERY_ITEM_TOO_LARGE`。
-- **列表只出現 `ready` 的圖片**：時間軸要可信的拍攝時間與尺寸才排得對。上傳者以 `GET /gallery/items/uploads` 看到自己的「處理中 N 張」與失敗的清單，
+- **列表只出現 `ready` 的圖片**：時間軸要可信的拍攝時間與尺寸才排得對。上傳者以 `GET /gallery/items/uploads` 看到自己的「處理中 N 張」與失敗的清單（回應另帶單檔上限的生效值 `maxItemSize`，前端選檔時先檢查），
   `DELETE /gallery/items/uploads/failed` 清掉自己失敗的紀錄。與檔案「先推 `create`、變體好了再推 `update`」不同：圖片庫的項目在 ready 之前什麼都不能做。
 - `albumId`：處理完成後已經在那個相簿裡（登記時就寫進關聯，列表只顯示 ready 的）。
 

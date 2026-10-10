@@ -46,6 +46,7 @@ function setup() {
     findByNames: vi.fn(async (): Promise<TagRow[]> => []),
     countInScope: vi.fn(async () => 0),
     lockScope: vi.fn(async () => undefined),
+    lockResource: vi.fn(async () => undefined),
     create: vi.fn(async (values: Partial<TagRow>) => tag('new', values)),
     update: vi.fn(async (_id: string, values: Partial<TagRow>) =>
       tag('t1', { ...values, version: 2 }),
@@ -301,6 +302,57 @@ describe('TagService.replaceFor（指派，D7）', () => {
       inTenant(() => ctx.service.replaceFor('role', 'r1', { tagIds: [] }, ACTOR)),
       'TAG_SCOPE_NOT_FOUND',
     );
+  });
+});
+
+describe('TagService.updateFor（差異語意，批次貼標籤用）', () => {
+  it('在交易內鎖住資源後讀出目前的標籤再加減，其他的不動', async () => {
+    const ctx = setup();
+    const a = tag('a', { name: '合約' });
+    const b = tag('b', { name: '急件' });
+    const c = tag('c', { name: '草稿' });
+    ctx.repo.tagsOf
+      .mockResolvedValueOnce([assigned('f1', a), assigned('f1', c)])
+      .mockResolvedValueOnce([assigned('f1', a), assigned('f1', b)]);
+    ctx.repo.findInScope.mockResolvedValue([a, b]);
+
+    await inTenant(() => ctx.service.updateFor('file', 'f1', { add: ['b'], remove: ['c'] }, ACTOR));
+    expect(ctx.repo.lockResource).toHaveBeenCalledWith('file', 'f1', ctx.tx);
+    expect(ctx.repo.lockResource.mock.invocationCallOrder[0]).toBeLessThan(
+      ctx.repo.tagsOf.mock.invocationCallOrder[0]!,
+    );
+    expect(ctx.repo.replace).toHaveBeenCalledWith('file', 'f1', ['a', 'b'], ACTOR.id, ctx.tx);
+    expect(ctx.audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { added: ['b'], removed: ['c'] } }),
+      ctx.tx,
+    );
+    expect(ctx.resolveEditable).toHaveBeenCalledWith(ACTOR, 'f1', {
+      route: 'PATCH /tags/assignments/:resourceType/:resourceId',
+      metadata: { resourceType: 'file', resourceId: 'f1' },
+    });
+  });
+
+  it('已經有的再加：沒有變化，不寫入、不稽核、不推播', async () => {
+    const ctx = setup();
+    const a = tag('a');
+    ctx.repo.tagsOf.mockResolvedValue([assigned('f1', a)]);
+    ctx.repo.findInScope.mockResolvedValue([a]);
+    await inTenant(() => ctx.service.updateFor('file', 'f1', { add: ['a'], remove: [] }, ACTOR));
+    expect(ctx.repo.replace).not.toHaveBeenCalled();
+    expect(ctx.audit.record).not.toHaveBeenCalled();
+    expect(ctx.afterTagsChanged).not.toHaveBeenCalled();
+  });
+
+  it('加上之後超過 20 個 → TAG_LIMIT_REACHED，不寫入', async () => {
+    const ctx = setup();
+    const current = Array.from({ length: 20 }, (_, index) => tag(`t${index}`));
+    ctx.repo.tagsOf.mockResolvedValue(current.map((item) => assigned('f1', item)));
+    await expectCode(
+      inTenant(() => ctx.service.updateFor('file', 'f1', { add: ['new'], remove: [] }, ACTOR)),
+      'TAG_LIMIT_REACHED',
+      { max: 20 },
+    );
+    expect(ctx.repo.replace).not.toHaveBeenCalled();
   });
 });
 

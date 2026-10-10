@@ -4714,6 +4714,57 @@
         },
         "summary": "整批取代一個資源的標籤；能不能改跟著那個資源的編輯權限",
         "tags": ["tags"]
+      },
+      "patch": {
+        "operationId": "TagController_updateAssignments",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateResourceTagsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ResourceTags"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "加上、拿掉一個資源的幾個標籤（差異語意，其他的不動）；權限同整批取代",
+        "tags": ["tags"]
       }
     },
     "/announcements": {
@@ -16810,6 +16861,33 @@
         "required": ["tagIds"],
         "additionalProperties": false
       },
+      "UpdateResourceTagsRequest": {
+        "type": "object",
+        "properties": {
+          "add": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "remove": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": ["add", "remove"],
+        "additionalProperties": false
+      },
       "ResourceTags": {
         "type": "object",
         "properties": {
@@ -21015,9 +21093,14 @@
             "items": {
               "$ref": "#/components/schemas/GalleryUploadItem"
             }
+          },
+          "maxItemSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
-        "required": ["processing", "failed"],
+        "required": ["processing", "failed", "maxItemSize"],
         "additionalProperties": false
       },
       "CreateGalleryFromSourceRequest": {
