@@ -1,11 +1,10 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button, IconButton } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
 import { Tooltip } from '@b2b-system/ui/Tooltip';
 import { QueryError } from '@b2b-system/web-core/components';
-import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
@@ -27,11 +26,10 @@ import { RegistrationUrls } from './components/RegistrationUrls';
 export default function IdentityProviderListPage() {
   const { t } = useTranslation();
   const permission = useIdentityProviderPermission();
-  const showError = useErrorToast();
-  const remove = useDeleteIdentityProviderMutation();
+  const { mutateAsync: removeProvider } = useDeleteIdentityProviderMutation();
+  const confirm = useConfirm();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<IdentityProvider>();
-  const [removing, setRemoving] = useState<IdentityProvider>();
 
   const { data, isPending, error, refetch } = useQuery(getIdentityProviderListQueryOptions());
 
@@ -114,7 +112,19 @@ export default function IdentityProviderListPage() {
                 <IconButton
                   size="sm"
                   aria-label={t('identityProvider.remove.action')}
-                  onClick={() => setRemoving(row.original)}
+                  onClick={() =>
+                    void confirm({
+                      title: t('identityProvider.remove.title'),
+                      description: t('identityProvider.remove.confirm', {
+                        name: row.original.name,
+                      }),
+                      confirmLabel: t('common.delete'),
+                      tone: 'danger',
+                      // 失敗時對話框留著，錯誤由 mutation 的 onError 顯示（docs/architecture/frontend/07-ui-system.md §3.11）
+                      onConfirm: () => removeProvider({ params: { id: row.original.id } }),
+                      'data-testid': 'identity-provider-remove-confirm',
+                    })
+                  }
                   data-testid="identity-provider-remove"
                   data-value={row.original.name}
                 >
@@ -126,7 +136,7 @@ export default function IdentityProviderListPage() {
         ),
       },
     ],
-    [permission.canDelete, permission.canUpdate, t],
+    [confirm, permission.canDelete, permission.canUpdate, removeProvider, t],
   );
 
   return (
@@ -175,20 +185,6 @@ export default function IdentityProviderListPage() {
         open={formOpen}
         provider={editing}
         onClose={() => setFormOpen(false)}
-      />
-      <AlertDialog
-        open={Boolean(removing)}
-        onOpenChange={(open) => !open && setRemoving(undefined)}
-        title={t('identityProvider.remove.title')}
-        description={t('identityProvider.remove.confirm', { name: removing?.name ?? '' })}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        loading={remove.isPending}
-        onConfirm={async () => {
-          if (!removing) return;
-          await remove.mutateAsync({ params: { id: removing.id } }).catch(showError);
-          setRemoving(undefined);
-        }}
       />
     </div>
   );

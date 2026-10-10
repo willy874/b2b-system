@@ -1,5 +1,5 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { useTableSelection } from '@b2b-system/ui/Table';
 import type { BatchAction } from '@b2b-system/web-core/batch';
@@ -7,7 +7,7 @@ import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
@@ -38,14 +38,30 @@ export default function UserListPage() {
   const searchFilter = useUserSearchFilter();
   const { search, setSort, setPage } = searchFilter;
   const batchActions = useUserBatchActions();
-  const [pendingDelete, setPendingDelete] = useState<UserRowVM>();
   /** 匯出對話框：開啟時的範圍（docs/architecture/backend/22-data-transfer.md §8.2）。 */
   const [exporting, setExporting] = useState<{ ids: string[]; allMatching: boolean } | null>(null);
 
   const profile = useQuery(getAuthProfileQueryOptions());
-  const deleteUser = useUserDeleteMutation();
+  const { mutateAsync: removeUser } = useUserDeleteMutation();
+  const confirm = useConfirm();
   // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」（那時沒有地方可以還原）
   const hasTrash = useIsFeatureReady(TenantFeature.trash);
+  // 失敗時對話框留著讓使用者重試或取消，錯誤由 mutation 的 onError 顯示（docs/architecture/frontend/07-ui-system.md §3.11）
+  // 參考固定（`mutateAsync` 不隨 render 改變）：表格的欄位定義以它為依賴
+  const confirmDelete = useCallback(
+    (row: UserRowVM) =>
+      void confirm({
+        title: t('user.delete.title'),
+        description: hasTrash
+          ? t('user.delete.confirm', { name: row.displayName })
+          : t('user.delete.confirmNoTrash', { name: row.displayName }),
+        confirmLabel: t('common.delete'),
+        tone: 'danger',
+        onConfirm: () => removeUser({ params: { userId: row.id } }),
+        'data-testid': 'user-delete-confirm',
+      }),
+    [confirm, hasTrash, removeUser, t],
+  );
   // 篩選面板的標籤選項（`user` 標籤組；讀得到使用者列表就讀得到，docs/architecture/backend/18-tag.md §7.2 D5）
   const tags = useQuery(getTagListQueryOptions('user'));
   // 篩選面板的部門樹；租戶沒有啟用 `organization` 時不查、不帶部門參數（後端會回 VALIDATION_FAILED）
@@ -199,7 +215,7 @@ export default function UserListPage() {
         onRowDoubleClick={(row) =>
           void navigate({ to: UserDetailRoute.to, params: { userId: row.id }, search })
         }
-        onDelete={setPendingDelete}
+        onDelete={confirmDelete}
         filters={filters}
         searchBox={{
           value: search.keyword,
@@ -249,28 +265,6 @@ export default function UserListPage() {
         filter={exportFilter}
         matchingTotal={data?.pagination.total ?? 0}
         data-testid="user-export-dialog"
-      />
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => !open && setPendingDelete(undefined)}
-        title={t('user.delete.title')}
-        description={
-          hasTrash
-            ? t('user.delete.confirm', { name: pendingDelete?.displayName ?? '' })
-            : t('user.delete.confirmNoTrash', { name: pendingDelete?.displayName ?? '' })
-        }
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        loading={deleteUser.isPending}
-        onConfirm={async () => {
-          if (!pendingDelete) return;
-          await deleteUser
-            .mutateAsync({ params: { userId: pendingDelete.id } })
-            .catch(() => undefined);
-          setPendingDelete(undefined);
-        }}
-        data-testid="user-delete-confirm"
       />
 
       <Outlet />

@@ -1,11 +1,11 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { Table } from '@b2b-system/ui/Table';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { UserIdentity } from '@/shared/api-sdk';
 
@@ -29,7 +29,8 @@ interface UserIdentitySectionProps {
 export function UserIdentitySection({ userId, canUnlink }: UserIdentitySectionProps) {
   const { t } = useTranslation();
   const { identities, unlink } = useUserIdentities(userId);
-  const [removing, setRemoving] = useState<UserIdentity>();
+  const confirm = useConfirm();
+  const { mutateAsync: unlinkIdentity } = unlink;
 
   const columns = useMemo<Array<TableColumnDef<UserIdentity>>>(
     () => [
@@ -74,7 +75,20 @@ export function UserIdentitySection({ userId, canUnlink }: UserIdentitySectionPr
               cell: ({ row }: { row: { original: UserIdentity } }) => (
                 <Button
                   size="sm"
-                  onClick={() => setRemoving(row.original)}
+                  onClick={() =>
+                    void confirm({
+                      title: t('user.identities.unlinkTitle'),
+                      description: t('user.identities.unlinkConfirm', {
+                        provider: row.original.providerName,
+                      }),
+                      confirmLabel: t('user.identities.unlink'),
+                      tone: 'danger',
+                      // 失敗時對話框留著，錯誤由 mutation 的 onError 顯示（docs/architecture/frontend/07-ui-system.md §3.11）
+                      onConfirm: () =>
+                        unlinkIdentity({ params: { userId, identityId: row.original.id } }),
+                      'data-testid': 'user-identity-unlink-confirm',
+                    })
+                  }
                   data-testid="user-identity-unlink"
                   data-value={row.original.id}
                 >
@@ -85,7 +99,7 @@ export function UserIdentitySection({ userId, canUnlink }: UserIdentitySectionPr
           ]
         : []),
     ],
-    [canUnlink, t],
+    [canUnlink, confirm, t, unlinkIdentity, userId],
   );
 
   return (
@@ -103,25 +117,6 @@ export function UserIdentitySection({ userId, canUnlink }: UserIdentitySectionPr
           emptyTitle={t('user.identities.empty')}
         />
       )}
-      <AlertDialog
-        open={Boolean(removing)}
-        onOpenChange={(open) => !open && setRemoving(undefined)}
-        title={t('user.identities.unlinkTitle')}
-        description={t('user.identities.unlinkConfirm', {
-          provider: removing?.providerName ?? '',
-        })}
-        confirmLabel={t('user.identities.unlink')}
-        cancelLabel={t('common.cancel')}
-        loading={unlink.isPending}
-        onConfirm={async () => {
-          if (!removing) return;
-          // 失敗由 mutation 的 onError 顯示（toast）；這裡只要不讓 rejection 外漏，照樣關掉確認框
-          await unlink
-            .mutateAsync({ params: { userId, identityId: removing.id } })
-            .catch(() => undefined);
-          setRemoving(undefined);
-        }}
-      />
     </section>
   );
 }

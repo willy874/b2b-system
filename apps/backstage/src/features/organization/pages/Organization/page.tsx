@@ -1,5 +1,5 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Empty } from '@b2b-system/ui/Empty';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Menu } from '@b2b-system/ui/Menu';
@@ -42,12 +42,12 @@ export default function OrganizationPage() {
   const { unitId, view = 'list' } = OrganizationRoute.useSearch();
   const permission = useOrgUnitPermission();
   const tree = useQuery(getOrgUnitTreeQueryOptions());
-  const deleteUnit = useOrgUnitDeleteMutation();
+  const { mutateAsync: deleteUnit } = useOrgUnitDeleteMutation();
+  const confirm = useConfirm();
   // 回收桶被平台關掉時，確認文字不提「移到回收桶、還原時一併恢復」
   const hasTrash = useIsFeatureReady(TenantFeature.trash);
   const [creating, setCreating] = useState<OrgUnitCreateTarget>();
   const [moving, setMoving] = useState<OrgUnitDetail>();
-  const [pendingDelete, setPendingDelete] = useState<OrgUnitDetail>();
   /** 匯出對話框：部門或成員（選中部門時是它與下層的成員，docs/architecture/backend/22-data-transfer.md §12.3）。 */
   const [exporting, setExporting] = useState<'orgUnit' | 'orgUnitMember' | null>(null);
 
@@ -55,6 +55,22 @@ export default function OrganizationPage() {
     void navigate({ to: OrganizationRoute.to, search: searchOf(id, view) });
   const changeView = (next: string) =>
     void navigate({ to: OrganizationRoute.to, search: searchOf(unitId, next) });
+  // 成員資格隨部門休眠；還有下層部門時後端回 409。失敗時對話框留著讓使用者取消，錯誤由 mutation 的 onError 顯示
+  // （docs/architecture/frontend/07-ui-system.md §3.11）
+  const confirmDelete = async (unit: OrgUnitDetail) => {
+    const deleted = await confirm({
+      title: t('organization.delete.title'),
+      description: hasTrash
+        ? t('organization.delete.confirm', { name: unit.name })
+        : t('organization.delete.confirmNoTrash', { name: unit.name }),
+      confirmLabel: t('common.delete'),
+      tone: 'danger',
+      onConfirm: () => deleteUnit({ params: { unitId: unit.id } }),
+      'data-testid': 'org-unit-delete-confirm',
+    });
+    // 刪掉的部門不在樹上了：改選它的上層
+    if (deleted) select(unit.parentId ?? undefined);
+  };
 
   const detail = unitId ? (
     <OrgUnitDetailPanel
@@ -63,7 +79,7 @@ export default function OrganizationPage() {
       permission={permission}
       onCreateChild={(unit) => setCreating({ parentId: unit.id, parentName: unit.name })}
       onMove={setMoving}
-      onDelete={setPendingDelete}
+      onDelete={(unit) => void confirmDelete(unit)}
       onBack={() => select(undefined)}
     />
   ) : undefined;
@@ -224,34 +240,6 @@ export default function OrganizationPage() {
         }
         matchingTotal={exporting === 'orgUnit' ? tree.data?.items.length : undefined}
         data-testid="org-unit-export-dialog"
-      />
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => !open && setPendingDelete(undefined)}
-        title={t('organization.delete.title')}
-        // 成員資格隨部門休眠；還有下層部門時後端回 409，錯誤以 toast 顯示
-        description={
-          hasTrash
-            ? t('organization.delete.confirm', { name: pendingDelete?.name ?? '' })
-            : t('organization.delete.confirmNoTrash', { name: pendingDelete?.name ?? '' })
-        }
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        loading={deleteUnit.isPending}
-        onConfirm={async () => {
-          if (!pendingDelete) return;
-          try {
-            await deleteUnit.mutateAsync({ params: { unitId: pendingDelete.id } });
-          } catch {
-            // 錯誤由 mutation 的 onError 顯示；對話框留著讓使用者取消
-            return;
-          }
-          // 刪掉的部門不在樹上了：改選它的上層
-          select(pendingDelete.parentId ?? undefined);
-          setPendingDelete(undefined);
-        }}
-        data-testid="org-unit-delete-confirm"
       />
     </div>
   );

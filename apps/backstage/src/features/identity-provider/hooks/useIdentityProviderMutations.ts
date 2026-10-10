@@ -1,3 +1,4 @@
+import { useErrorToast } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useToast } from '@b2b-system/web-core/notify';
 import { useMutation } from '@tanstack/react-query';
@@ -36,9 +37,11 @@ export function useUpdateIdentityProviderMutation() {
   });
 }
 
+/** 刪除：失敗以 toast 顯示（確認框留著讓使用者重試或取消）。 */
 export function useDeleteIdentityProviderMutation() {
   const toast = useToast();
   const { t } = useTranslation();
+  const showError = useErrorToast();
   return useMutation({
     ...getDeleteIdentityProviderMutationOptions(),
     onSuccess: (_, { params }) => {
@@ -47,5 +50,6 @@ export function useDeleteIdentityProviderMutation() {
       ]);
       toast.success(t('identityProvider.remove.success'));
     },
+    onError: showError,
   });
 }

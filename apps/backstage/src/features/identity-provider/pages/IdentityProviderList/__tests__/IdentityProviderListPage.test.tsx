@@ -12,9 +12,13 @@ import { initTestI18n } from '@/test/i18n';
 
 import { registerIdentityProviderPagePermissions, Routes } from '../../..';
 
-const { listProviders, updateProvider } = vi.hoisted(() => ({
+const { listProviders, updateProvider, deleteProvider } = vi.hoisted(() => ({
   listProviders: vi.fn(),
   updateProvider: vi.fn(),
+  deleteProvider: vi.fn(),
+}));
+vi.mock('@/apis/identity-provider/delete-identity-provider/mutation', () => ({
+  getDeleteIdentityProviderMutationOptions: () => ({ mutationFn: deleteProvider }),
 }));
 vi.mock('@/apis/identity-provider/update-identity-provider/mutation', () => ({
   getUpdateIdentityProviderMutationOptions: () => ({ mutationFn: updateProvider }),
@@ -89,6 +93,26 @@ describe('外部 IdP 連線管理頁（docs/architecture/04-sso.md §12.2 D8–D
     expect(screen.getByTestId('identity-provider-domain')).toHaveAttribute(
       'data-value',
       'acme.test',
+    );
+  });
+
+  it('刪除失敗：以 toast 顯示錯誤，確認框留著可以重試；成功才關閉', async () => {
+    deleteProvider.mockReset().mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+    renderPage(['identityProvider:read', 'identityProvider:delete'] as PermissionKey[]);
+    fireEvent.click(await screen.findByTestId('identity-provider-remove'));
+    const dialog = await screen.findByTestId('identity-provider-remove-confirm');
+    fireEvent.click(within(dialog).getByTestId('alert-dialog-confirm'));
+    expect(await screen.findByTestId('toast')).toHaveAttribute('data-value', 'error');
+    expect(screen.getByTestId('identity-provider-remove-confirm')).toBeInTheDocument();
+
+    deleteProvider.mockResolvedValueOnce(undefined);
+    fireEvent.click(
+      within(screen.getByTestId('identity-provider-remove-confirm')).getByTestId(
+        'alert-dialog-confirm',
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId('identity-provider-remove-confirm')).toBeNull(),
     );
   });
 

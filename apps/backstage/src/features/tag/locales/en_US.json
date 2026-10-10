@@ -31,7 +31,8 @@
       "success": "Tag \"{{name}}\" created"
     },
     "edit": {
-      "title": "Edit tag"
+      "title": "Edit tag",
+      "deleted": "The tag “{{name}}” was deleted by someone else."
     },
     "update": {
       "success": "Tag updated"

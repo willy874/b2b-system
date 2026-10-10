@@ -66,6 +66,16 @@ describe('使用者詳情的外部身分（docs/architecture/04-sso.md §3.3.4�
     );
   });
 
+  it('解除失敗：確認框留著可以重試或取消（docs/architecture/frontend/07-ui-system.md §3.11）', async () => {
+    unlinkIdentity.mockRejectedValueOnce(new Error('boom'));
+    renderSection(true);
+    fireEvent.click(await screen.findByTestId('user-identity-unlink'));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '解除連結' }));
+    await waitFor(() => expect(unlinkIdentity).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  });
+
   it('只有 user:read → 沒有解除鈕', async () => {
     renderSection(false);
     expect(await screen.findByText('Corp ADFS')).toBeInTheDocument();

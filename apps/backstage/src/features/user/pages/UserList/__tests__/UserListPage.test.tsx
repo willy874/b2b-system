@@ -269,15 +269,21 @@ describe('UserListPage 的刪除與導覽', () => {
     else expect(confirm).not.toHaveTextContent(/回收桶|還原/);
   });
 
-  it('刪除失敗（錯誤由 mutation 顯示）也關閉確認框', async () => {
-    deleteUser.mockRejectedValue(new AppError('USER_NOT_FOUND', 404));
+  it('刪除失敗：錯誤由 mutation 顯示，確認框留著可以重試或取消（docs/architecture/frontend/07-ui-system.md §3.11）', async () => {
+    deleteUser.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
     renderRoute(routes, '/user', ADMIN);
     fireEvent.click(await screen.findByTestId('user-delete-button', undefined, { timeout: 5000 }));
+    const dialog = await screen.findByTestId('user-delete-confirm');
+    fireEvent.click(within(dialog).getByTestId('alert-dialog-confirm'));
+    expect(await screen.findByTestId('toast')).toHaveAttribute('data-value', 'error');
+    expect(screen.getByTestId('user-delete-confirm')).toBeInTheDocument();
+
+    deleteUser.mockResolvedValueOnce(undefined);
     fireEvent.click(
-      within(await screen.findByTestId('user-delete-confirm')).getByTestId('alert-dialog-confirm'),
+      within(screen.getByTestId('user-delete-confirm')).getByTestId('alert-dialog-confirm'),
     );
     await waitFor(() => expect(screen.queryByTestId('user-delete-confirm')).toBeNull());
-    expect(deleteUser).toHaveBeenCalledTimes(1);
+    expect(deleteUser).toHaveBeenCalledTimes(2);
   });
 
   it('有 user:create → 顯示建立使用者；沒有就不顯示', async () => {
@@ -355,5 +361,19 @@ describe('UserListPage 的刪除與導覽', () => {
     expect(fetchUsers.mock.calls.at(-1)![0]).toMatchObject({
       params: { roleId: undefined, includeGroupRoles: false },
     });
+  });
+
+  it('還沒啟用的帳號：按鈕是「重寄啟用信」，確認框說明寄的是啟用連結（docs/architecture/backend/13-trash.md）', async () => {
+    fetchUsers.mockResolvedValue({
+      items: [{ ...USER, status: 'pending', displayName: 'Pending Person' }],
+      pagination: { total: 1 },
+    });
+    renderRoute(routes, '/user', ADMIN);
+    await screen.findByText('Pending Person', undefined, { timeout: 5000 });
+    expect(screen.queryByTestId('user-reset-password-button')).toBeNull();
+    fireEvent.click(screen.getByTestId('user-resend-activation-button'));
+    expect(await screen.findByTestId('user-resend-activation-confirm')).toHaveTextContent(
+      '重新寄送啟用連結',
+    );
   });
 });

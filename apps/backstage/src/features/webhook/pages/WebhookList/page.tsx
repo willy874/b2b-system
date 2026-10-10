@@ -1,9 +1,9 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { ButtonLink } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { getWebhookListQueryOptions } from '@/apis/webhook/get-webhook-list/query';
 
@@ -21,8 +21,21 @@ export default function WebhookListPage() {
   const navigate = useNavigate();
   const permission = useWebhookPermission();
   const { search, setKeyword, setPage } = useWebhookSearchFilter();
-  const [pendingDelete, setPendingDelete] = useState<WebhookRowVM>();
-  const deleteWebhook = useWebhookDeleteMutation();
+  const confirm = useConfirm();
+  const { mutateAsync: deleteWebhook } = useWebhookDeleteMutation();
+  // 失敗時對話框留著讓使用者重試或取消，錯誤由 mutation 的 onError 顯示（docs/architecture/frontend/07-ui-system.md §3.11）
+  const confirmDelete = useCallback(
+    (row: WebhookRowVM) =>
+      void confirm({
+        title: t('webhook.delete.title'),
+        description: t('webhook.delete.confirm', { name: row.name }),
+        confirmLabel: t('common.delete'),
+        tone: 'danger',
+        onConfirm: () => deleteWebhook({ params: { webhookId: row.id } }),
+        'data-testid': 'webhook-delete-confirm',
+      }),
+    [confirm, deleteWebhook, t],
+  );
 
   const { data, isPending, error, refetch } = useQuery(
     getWebhookListQueryOptions({
@@ -65,7 +78,7 @@ export default function WebhookListPage() {
         onRowDoubleClick={(row) =>
           void navigate({ to: WebhookDetailRoute.to, params: { webhookId: row.id }, search })
         }
-        onDelete={setPendingDelete}
+        onDelete={confirmDelete}
         searchBox={{
           value: search.keyword,
           onChange: setKeyword,
@@ -79,28 +92,6 @@ export default function WebhookListPage() {
           total: data?.pagination.total ?? 0,
           onChange: ({ offset, limit }) => setPage(offset, limit),
         }}
-      />
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => !open && setPendingDelete(undefined)}
-        title={t('webhook.delete.title')}
-        description={t('webhook.delete.confirm', { name: pendingDelete?.name ?? '' })}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        tone="danger"
-        loading={deleteWebhook.isPending}
-        onConfirm={async () => {
-          if (!pendingDelete) return;
-          try {
-            await deleteWebhook.mutateAsync({ params: { webhookId: pendingDelete.id } });
-          } catch {
-            // 錯誤由 mutation 的 onError 顯示；對話框留著讓使用者重試或取消
-            return;
-          }
-          setPendingDelete(undefined);
-        }}
-        data-testid="webhook-delete-confirm"
       />
 
       {/* 對話框子路由（建立／詳情）掛在列表頁內，列表在背後保持掛載 */}

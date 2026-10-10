@@ -22,21 +22,16 @@
 | 低 | 審批流程的「儲存影響」確認排在前端驗證之前 | [approval-flow-validate-before-impact.md](./approval-flow-validate-before-impact.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 輸入中的留言離開頁面時沒有提醒，直接遺失 | [comment-draft-not-guarded.md](./comment-draft-not-guarded.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 「我的匯入匯出」不理會通知帶來的 `?transfer=<id>` | [data-transfer-highlight-param.md](./data-transfer-highlight-param.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 刪除確認有兩種寫法，失敗後對話框關不關不一致 | [delete-confirm-inconsistent.md](./delete-confirm-inconsistent.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 詳情頁的「載入中／查詢失敗／已刪除」骨架逐頁複製 | [detail-dialog-duplicated.md](./detail-dialog-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 前端規格與實作的落差：路由樹、審批詳情、留言面板 | [frontend-docs-drift-routes-panels.md](./frontend-docs-drift-routes-panels.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 刪除外部 IdP 連線失敗時對話框仍被關掉 | [identity-provider-delete-error-closes.md](./identity-provider-delete-error-closes.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 列表頁「網址查詢條件」的 hook 逐頁複製 | [list-search-hooks-duplicated.md](./list-search-hooks-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 前端幾處多餘的請求與重算 | [minor-frontend-perf.md](./minor-frontend-perf.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 列表頁的頁首、匯出／匯入按鈕、展開列與審批表格欄位各自複製 | [misc-duplicated-ui.md](./misc-duplicated-ui.md) | 2026-10-10 backstage 優化分析 |
 | 低 | backstage 有頁面與 hook 沒有測試，E2E 只跑 Chromium | [missing-frontend-tests.md](./missing-frontend-tests.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 組織圖裡部門詳情的上層路徑會跳回清單 | [org-chart-path-link-view.md](./org-chart-path-link-view.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 換頁不回到頂端、返回列表時捲動位置不見 | [scroll-restoration.md](./scroll-restoration.md) | 2026-10-10 backstage 優化分析 |
-| 低 | SSO 回呼頁的「重新登入」失敗時沒有任何反應 | [sso-callback-relogin-error.md](./sso-callback-relogin-error.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 標籤對話框重新載入時標籤已刪除就無聲關閉；標籤組的 feature 判斷寫死 | [tag-dialog-silent-close.md](./tag-dialog-silent-close.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 語系檔留著沒有被引用的 key，也沒有測試擋 | [unused-locale-keys.md](./unused-locale-keys.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 檔案管理與圖片庫的上傳、下載各寫一套 | [upload-and-download-duplicated.md](./upload-and-download-duplicated.md) | 2026-10-10 backstage 優化分析 |
-| 低 | 使用者列表的「重設密碼」對未啟用的帳號實際寄的是啟用信 | [user-pending-reset-label.md](./user-pending-reset-label.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 使用者搜尋下拉與輸入去抖動各自實作 | [user-search-select-duplicated.md](./user-search-select-duplicated.md) | 2026-10-10 backstage 優化分析 |
 | 低 | Webhook 設定以 events.join(',') 判斷修改，勾選順序不同會誤判 | [webhook-events-dirty-order.md](./webhook-events-dirty-order.md) | 2026-10-10 backstage 優化分析 |
 

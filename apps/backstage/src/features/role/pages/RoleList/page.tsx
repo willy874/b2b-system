@@ -184,6 +184,8 @@ export default function RoleListPage() {
         data-testid="role-export-dialog"
       />
 
+      {/* 宣告式的 AlertDialog 而不是 useConfirm：收到 ROLE_IN_USE 時要在同一個對話框裡換成「強制刪除」的說明，
+        useConfirm 開出來之後內容不能改（docs/architecture/frontend/07-ui-system.md §3.11） */}
       <AlertDialog
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(undefined)}

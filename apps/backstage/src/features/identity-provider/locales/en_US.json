@@ -66,7 +66,7 @@
     "remove": {
       "action": "Delete",
       "title": "Delete identity provider",
-      "confirm": "Delete “{{name}}”? Its domains are released and linked people can no longer sign in with it.",
+      "confirm": "Delete “{{name}}”? Its domains are released and linked people can no longer sign in with it; domains set to SSO only can sign in with a password again.",
       "success": "Connection deleted"
     },
     "error": {

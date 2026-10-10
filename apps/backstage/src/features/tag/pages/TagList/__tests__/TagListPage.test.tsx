@@ -135,6 +135,22 @@ describe('TagListPage（docs/architecture/backend/18-tag.md §7.2 D5）', () => 
     await waitFor(() => expect(screen.queryByTestId('tag-form-dialog')).toBeNull());
   });
 
+  it('版本衝突後重新載入，標籤已被別人刪除 → 說明原因再關掉對話框', async () => {
+    updateTag.mockRejectedValueOnce(new AppError('TAG_VERSION_CONFLICT', 409, { current: 2 }));
+    renderRoute(routes, '/tag', ADMIN);
+    await screen.findByText('合約', undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('tag-edit-button'));
+    const dialog = await screen.findByTestId('tag-form-dialog');
+    fireEvent.change(within(dialog).getByTestId('tag-name-input'), { target: { value: '合約書' } });
+    fireEvent.click(within(dialog).getByTestId('tag-form-submit'));
+    expect(await within(dialog).findByTestId('version-conflict-alert')).toBeInTheDocument();
+
+    fetchTags.mockResolvedValue({ items: [] });
+    fireEvent.click(within(dialog).getByTestId('version-conflict-reload'));
+    expect(await screen.findByTestId('toast')).toHaveTextContent('已被他人刪除');
+    await waitFor(() => expect(screen.queryByTestId('tag-form-dialog')).toBeNull());
+  });
+
   describe('表單對話框的未儲存提醒', () => {
     it('改了名稱後按 Esc：先確認；選「繼續編輯」後輸入還在', async () => {
       renderRoute(routes, '/tag', ADMIN);

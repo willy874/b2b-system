@@ -498,6 +498,10 @@ const handleDelete = async (row: RoleRowVM) => {
 | 預設文案 | `ConfirmDialogProvider` 的 `confirmLabel` / `cancelLabel`；每次呼叫可覆寫 |
 | 覆寫內層 | Provider 收 `AlertDialogSlot` 的 `classNames` / `styles` / `testIds`；每次呼叫的 `className` / `data-testid` 落在彈窗 |
 
+**刪除確認一律用 `useConfirm`**（`tone: 'danger'`，`onConfirm` 回傳 mutation 的 `mutateAsync`，錯誤交給 mutation 的 `onError`）：
+失敗時對話框留著讓使用者重試或取消，各頁的行為一致。只有確認途中要改變對話框內容的才用宣告式的 `AlertDialog`
+（例：角色列表收到 `ROLE_IN_USE` 時把同一個對話框換成「強制刪除」的說明）。
+
 - `web-core/shell/ConfirmDialogHost` 掛在 `GlobalProvider`（`ToastHost` 內側），以 `t('common.confirm')` / `t('common.cancel')` 當預設文案；
   測試的 `AllProviders` 也已經掛好。
 - 按鈕的 testid 與 `AlertDialog` 相同：`alert-dialog-confirm`、`alert-dialog-cancel`。

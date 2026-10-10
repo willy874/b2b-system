@@ -1,12 +1,12 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Menu } from '@b2b-system/ui/Menu';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
 import { useIsFeatureReady } from '@/core/feature';
@@ -31,10 +31,26 @@ export default function GroupListPage() {
   const navigate = useNavigate();
   const permission = useGroupPermission();
   const { search, setKeyword, setSort, setPage } = useGroupSearchFilter();
-  const [pendingDelete, setPendingDelete] = useState<GroupRowVM>();
-  const deleteGroup = useGroupDeleteMutation();
+  const { mutateAsync: deleteGroup } = useGroupDeleteMutation();
+  const confirm = useConfirm();
   // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」
   const hasTrash = useIsFeatureReady(TenantFeature.trash);
+  // 成員會失去群組帶來的權限：先說清楚人數（直接成員；巢狀群組的成員另計）。
+  // 失敗時對話框留著讓使用者重試或取消，錯誤由 mutation 的 onError 顯示（docs/architecture/frontend/07-ui-system.md §3.11）
+  const confirmDelete = useCallback(
+    (row: GroupRowVM) =>
+      void confirm({
+        title: t('group.delete.title'),
+        description: hasTrash
+          ? t('group.delete.confirm', { name: row.name, count: row.memberCount })
+          : t('group.delete.confirmNoTrash', { name: row.name, count: row.memberCount }),
+        confirmLabel: t('common.delete'),
+        tone: 'danger',
+        onConfirm: () => deleteGroup({ params: { groupId: row.id } }),
+        'data-testid': 'group-delete-confirm',
+      }),
+    [confirm, deleteGroup, hasTrash, t],
+  );
   /** 匯出對話框：群組或群組成員（docs/architecture/backend/22-data-transfer.md §12.2）。 */
   const [exporting, setExporting] = useState<'group' | 'groupMember' | null>(null);
 
@@ -145,7 +161,7 @@ export default function GroupListPage() {
         onRowDoubleClick={(row) =>
           void navigate({ to: GroupDetailRoute.to, params: { groupId: row.id }, search })
         }
-        onDelete={setPendingDelete}
+        onDelete={confirmDelete}
         searchBox={{
           value: search.keyword,
           onChange: setKeyword,
@@ -169,38 +185,6 @@ export default function GroupListPage() {
         filter={exporting === 'groupMember' ? {} : { keyword: search.keyword }}
         matchingTotal={exporting === 'groupMember' ? undefined : (data?.pagination.total ?? 0)}
         data-testid="group-export-dialog"
-      />
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => !open && setPendingDelete(undefined)}
-        title={t('group.delete.title')}
-        // 成員會失去群組帶來的權限：先說清楚人數（直接成員；巢狀群組的成員另計）
-        description={
-          hasTrash
-            ? t('group.delete.confirm', {
-                name: pendingDelete?.name ?? '',
-                count: pendingDelete?.memberCount ?? 0,
-              })
-            : t('group.delete.confirmNoTrash', {
-                name: pendingDelete?.name ?? '',
-                count: pendingDelete?.memberCount ?? 0,
-              })
-        }
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        loading={deleteGroup.isPending}
-        onConfirm={async () => {
-          if (!pendingDelete) return;
-          try {
-            await deleteGroup.mutateAsync({ params: { groupId: pendingDelete.id } });
-          } catch {
-            // 錯誤由 mutation 的 onError 顯示；對話框留著讓使用者重試或取消
-            return;
-          }
-          setPendingDelete(undefined);
-        }}
-        data-testid="group-delete-confirm"
       />
 
       {/* 對話框子路由（建立／詳情）掛在列表頁內，列表在背後保持掛載 */}

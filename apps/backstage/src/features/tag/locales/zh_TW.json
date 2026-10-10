@@ -31,7 +31,8 @@
       "success": "已建立標籤「{{name}}」"
     },
     "edit": {
-      "title": "編輯標籤"
+      "title": "編輯標籤",
+      "deleted": "標籤「{{name}}」已被他人刪除。"
     },
     "update": {
       "success": "已更新標籤"

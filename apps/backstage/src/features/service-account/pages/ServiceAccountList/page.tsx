@@ -1,11 +1,11 @@
-import { AlertDialog } from '@b2b-system/ui/AlertDialog';
 import { Button, ButtonLink } from '@b2b-system/ui/Button';
+import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
 import { ExportDialog } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { getServiceAccountListQueryOptions } from '@/apis/service-account/get-service-account-list/query';
 
@@ -24,8 +24,25 @@ export default function ServiceAccountListPage() {
   const navigate = useNavigate();
   const permission = useServiceAccountPermission();
   const { search, setKeyword, setSort, setPage } = useServiceAccountSearchFilter();
-  const [pendingDelete, setPendingDelete] = useState<ServiceAccountRowVM>();
-  const deleteAccount = useServiceAccountDeleteMutation();
+  const { mutateAsync: deleteAccount } = useServiceAccountDeleteMutation();
+  const confirm = useConfirm();
+  // 它的 token 會一起失效，而且不能還原：先說清楚有幾把還在用。
+  // 失敗時對話框留著讓使用者重試或取消，錯誤由 mutation 的 onError 顯示（docs/architecture/frontend/07-ui-system.md §3.11）
+  const confirmDelete = useCallback(
+    (row: ServiceAccountRowVM) =>
+      void confirm({
+        title: t('serviceAccount.delete.title'),
+        description: t('serviceAccount.delete.confirm', {
+          name: row.name,
+          count: row.activeTokenCount,
+        }),
+        confirmLabel: t('common.delete'),
+        tone: 'danger',
+        onConfirm: () => deleteAccount({ params: { serviceAccountId: row.id } }),
+        'data-testid': 'service-account-delete-confirm',
+      }),
+    [confirm, deleteAccount, t],
+  );
   const [exporting, setExporting] = useState(false);
 
   const { data, isPending, error, refetch } = useQuery(
@@ -86,7 +103,7 @@ export default function ServiceAccountListPage() {
             search,
           })
         }
-        onDelete={setPendingDelete}
+        onDelete={confirmDelete}
         searchBox={{
           value: search.keyword,
           onChange: setKeyword,
@@ -110,32 +127,6 @@ export default function ServiceAccountListPage() {
         filter={{ keyword: search.keyword }}
         matchingTotal={data?.pagination.total ?? 0}
         data-testid="service-account-export-dialog"
-      />
-
-      <AlertDialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => !open && setPendingDelete(undefined)}
-        title={t('serviceAccount.delete.title')}
-        // 它的 token 會一起失效，而且不能還原：先說清楚有幾把還在用
-        description={t('serviceAccount.delete.confirm', {
-          name: pendingDelete?.name ?? '',
-          count: pendingDelete?.activeTokenCount ?? 0,
-        })}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        tone="danger"
-        loading={deleteAccount.isPending}
-        onConfirm={async () => {
-          if (!pendingDelete) return;
-          try {
-            await deleteAccount.mutateAsync({ params: { serviceAccountId: pendingDelete.id } });
-          } catch {
-            // 錯誤由 mutation 的 onError 顯示；對話框留著讓使用者重試或取消
-            return;
-          }
-          setPendingDelete(undefined);
-        }}
-        data-testid="service-account-delete-confirm"
       />
 
       {/* 對話框子路由（建立／詳情）掛在列表頁內，列表在背後保持掛載 */}
