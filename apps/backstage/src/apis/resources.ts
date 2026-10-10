@@ -89,6 +89,7 @@ import { WATCH_STATE_QUERY_KEY } from '@/apis/watch/get-watch-state/query';
 import { WEBHOOK_DELIVERIES_QUERY_KEY } from '@/apis/webhook/get-webhook-deliveries/query';
 import { WEBHOOK_DETAIL_QUERY_KEY } from '@/apis/webhook/get-webhook-detail/query';
 import { WEBHOOK_LIST_QUERY_KEY } from '@/apis/webhook/get-webhook-list/query';
+import { WEBHOOK_URL_LIMIT_QUERY_KEY } from '@/apis/webhook/get-webhook-url-limit/query';
 import type { Profile } from '@/shared/api-sdk';
 import type { ChangeSource } from '@/shared/websocket-sdk';
 
@@ -509,7 +510,8 @@ const graph = createResourceGraph<Resource>({
     ],
   },
   [Resource.WEBHOOK]: {
-    collection: [WEBHOOK_LIST_QUERY_KEY],
+    // 網址的剩餘額度算的是整個租戶：任何訂閱的增刪改都會改變它
+    collection: [WEBHOOK_LIST_QUERY_KEY, WEBHOOK_URL_LIMIT_QUERY_KEY],
     // 投遞紀錄的 key 第二個元素是 webhook id：刪除時一併移除
     entity: [WEBHOOK_DETAIL_QUERY_KEY, WEBHOOK_DELIVERIES_QUERY_KEY],
     derivesFrom: [

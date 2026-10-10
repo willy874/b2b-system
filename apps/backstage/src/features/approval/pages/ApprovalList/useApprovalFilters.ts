@@ -1,7 +1,9 @@
 import type { FilterBarProps } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 
-import { APPROVAL_TYPE_LABEL_KEY, APPROVAL_TYPES } from '../../constants';
+import { useFeatureReadiness } from '@/core/feature';
+
+import { APPROVAL_TYPE_FEATURE, APPROVAL_TYPE_LABEL_KEY, APPROVAL_TYPES } from '../../constants';
 import type { ApprovalSearchQuery } from '../../routes';
 import type { useApprovalSearchFilter } from './useApprovalSearchFilter';
 
@@ -22,6 +24,9 @@ export function useApprovalFilters({
   setFilters,
 }: ReturnType<typeof useApprovalSearchFilter>): FilterBarProps<ApprovalFilterValues> {
   const { t } = useTranslation();
+  const isReady = useFeatureReadiness();
+  // 平台沒有啟用的 feature 的類型不列出（例：檔案管理關閉時沒有資料夾存取申請）
+  const types = APPROVAL_TYPES.filter((type) => isReady(APPROVAL_TYPE_FEATURE[type]));
   return {
     value: {
       keyword: search.keyword,
@@ -42,7 +47,7 @@ export function useApprovalFilters({
         key: 'type',
         label: t('approval.field.type'),
         allLabel: t('approval.type.all'),
-        options: APPROVAL_TYPES.map((value) => ({
+        options: types.map((value) => ({
           value,
           label: t(APPROVAL_TYPE_LABEL_KEY[value]),
         })),

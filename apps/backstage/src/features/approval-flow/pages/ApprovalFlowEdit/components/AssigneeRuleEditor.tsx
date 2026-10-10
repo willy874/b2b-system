@@ -54,7 +54,10 @@ function orgUnitPath(unit: OrgUnit, byId: ReadonlyMap<string, OrgUnit>): string 
   return names.join(' / ');
 }
 
-/** 審核者規則：種類 → 對象（使用者搜尋／群組／角色／主管層級／部門）。不能用的種類停用並說明原因（D14）。 */
+/**
+ * 審核者規則：種類 → 對象（使用者搜尋／群組／角色／主管層級／部門）。不能用的種類（feature 沒有啟用）不列出；
+ * 已儲存的規則用到不能用的種類時只保留那一個，讓既有的規則照樣顯示（D14、docs/architecture/frontend/02-plugin-system.md §7）。
+ */
 export function AssigneeRuleEditor({
   value,
   onChange,
@@ -65,18 +68,14 @@ export function AssigneeRuleEditor({
   invalid,
 }: AssigneeRuleEditorProps) {
   const { t } = useTranslation();
-  const kinds = KINDS.filter((kind) => kind !== 'manager' || !isAnonymous || value.kind === kind);
-  const kindOptions = kinds.map((kind) => {
-    const reason = availability[kind];
-    return {
-      value: kind,
-      label: t(ASSIGNEE_KIND_LABEL_KEY[kind]),
-      // 已經選了的種類保留可選（只是標出警示），其他不能用的停用
-      disabled: Boolean(reason) && kind !== value.kind,
-      description: reason ? t(reason) : undefined,
-    };
-  });
-  const unavailableReason = availability[value.kind];
+  const kinds = KINDS.filter(
+    (kind) => kind === value.kind || (availability[kind] && !(kind === 'manager' && isAnonymous)),
+  );
+  const kindOptions = kinds.map((kind) => ({
+    value: kind,
+    label: t(ASSIGNEE_KIND_LABEL_KEY[kind]),
+  }));
+  const isKindAvailable = availability[value.kind];
   const savedLabel = savedStatus?.label;
 
   return (
@@ -88,7 +87,6 @@ export function AssigneeRuleEditor({
           options={kindOptions}
           value={value.kind}
           onValueChange={(kind) => onChange(changeAssigneeKind(value, kind))}
-          itemSize={48}
           data-testid="approval-flow-assignee-kind"
         />
         <div className="min-w-48 flex-1">
@@ -107,7 +105,7 @@ export function AssigneeRuleEditor({
             <GroupTarget
               value={value}
               onChange={onChange}
-              enabled={access.canListGroups && !unavailableReason}
+              enabled={access.canListGroups && isKindAvailable}
               savedLabel={savedLabel}
               invalid={invalid}
             />
@@ -125,7 +123,7 @@ export function AssigneeRuleEditor({
             <OrgUnitTarget
               value={value}
               onChange={onChange}
-              enabled={access.canListOrgUnits && !unavailableReason}
+              enabled={access.canListOrgUnits && isKindAvailable}
               savedLabel={savedLabel}
               invalid={invalid}
             />
@@ -144,7 +142,10 @@ export function AssigneeRuleEditor({
           )}
         </div>
       </div>
-      <AssigneeWarnings unavailableReason={unavailableReason} savedStatus={savedStatus} />
+      <AssigneeWarnings
+        isInactive={!isKindAvailable || savedStatus?.available === false}
+        isDeleted={savedStatus?.deleted === true}
+      />
     </div>
   );
 }
@@ -238,30 +239,28 @@ function OrgUnitTarget({ value, onChange, enabled, savedLabel, invalid }: Target
 }
 
 interface AssigneeWarningsProps {
-  unavailableReason: string | undefined;
-  savedStatus?: ApprovalAssigneeStatus;
+  /** 規則的種類現在不能用：關卡啟動時找不到人。 */
+  isInactive: boolean;
+  isDeleted: boolean;
 }
 
 /**
- * 規則不能用（組織管理、群組未啟用）或指到已刪除的對象：關卡啟動時會找不到人、需要 override 處理
+ * 規則不能用或指到已刪除的對象：關卡啟動時會找不到人、需要 override 處理
  * （docs/architecture/backend/20-approval.md §9.12）。
+ * 不能用的原因只會是 feature 沒有啟用，而沒有啟用的 feature 在租戶的畫面上不被提起
+ * （docs/architecture/frontend/02-plugin-system.md §7），所以只說結果、不說原因。
  */
-function AssigneeWarnings({ unavailableReason, savedStatus }: AssigneeWarningsProps) {
+function AssigneeWarnings({ isInactive, isDeleted }: AssigneeWarningsProps) {
   const { t } = useTranslation();
-  const reason =
-    unavailableReason ??
-    (savedStatus && !savedStatus.available
-      ? 'approvalFlow.assignee.unavailable.feature'
-      : undefined);
-  if (!reason && !savedStatus?.deleted) return null;
+  if (!isInactive && !isDeleted) return null;
   return (
     <div className="flex flex-wrap gap-1">
-      {reason && (
+      {isInactive && (
         <Chip tone="warning" data-testid="approval-flow-assignee-unavailable">
-          {t(reason)}
+          {t('approvalFlow.assignee.inactive')}
         </Chip>
       )}
-      {savedStatus?.deleted && (
+      {isDeleted && (
         <Chip tone="danger" data-testid="approval-flow-assignee-deleted">
           {t('approvalFlow.assignee.deleted')}
         </Chip>

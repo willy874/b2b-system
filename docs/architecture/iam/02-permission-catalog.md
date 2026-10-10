@@ -31,6 +31,10 @@
 
 ## 2. 權限清單（共 76 項）
 
+> **屬於可啟用 feature 的鍵**：平台沒有為租戶開放某個 feature 時，它的鍵（以及每個 `*:export`，屬於 `dataTransfer`）不出現在
+> `GET /permissions`、角色持有的鍵、`/auth/profile` 的 `permissions` 與權限來源；資源與 feature 的對應在
+> `apps/api/src/core/authz/permission-features.ts`。授權判斷不受影響（[`../05-tenancy.md`](../05-tenancy.md) §15.2 D1）。
+
 ### 2.1 `user` — 使用者
 
 | 權限鍵               | 顯示名稱（zh-TW） | 說明                                   |

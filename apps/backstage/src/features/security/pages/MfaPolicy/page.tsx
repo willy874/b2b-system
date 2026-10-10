@@ -81,14 +81,17 @@ function MfaPolicyForm() {
           data-testid="security-mfa-allow-all"
         />
         <div className="ml-6 flex flex-col gap-2">
-          {policy.methods.map((method) => {
+          {/* 平台沒有開放的方式不顯示（租戶用不到，也改不了平台的開關） */}
+          {enabled.map((method) => {
             const ui = uis.get(method.id);
             return (
               <Checkbox
                 key={method.id}
-                checked={method.platformEnabled && isAllowed(method.id)}
-                disabled={!canUpdate || allowAll || !method.platformEnabled}
+                checked={isAllowed(method.id)}
+                disabled={!canUpdate || allowAll}
                 onCheckedChange={(checked) => {
+                  // 從目前的清單增減：清單裡平台已關閉（因此沒顯示）的方式原樣保留，
+                  // 平台之後重新開放時租戶原本的選擇仍在；實際可用的是「平台開放 ∩ 允許」（後端 effectiveAllowed）
                   const next = new Set(current.allowedMethods ?? []);
                   if (checked) next.add(method.id);
                   else next.delete(method.id);
@@ -102,7 +105,6 @@ function MfaPolicyForm() {
                     {method.assurance === 'inbox' && (
                       <Chip tone="warning">{t('security.mfa.inboxAssurance')}</Chip>
                     )}
-                    {!method.platformEnabled && <Chip>{t('security.mfa.platformDisabled')}</Chip>}
                   </span>
                 }
                 data-testid="security-mfa-method"

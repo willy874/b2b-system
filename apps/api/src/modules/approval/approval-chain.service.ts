@@ -670,7 +670,10 @@ export class ApprovalChainService {
   /** 多關請求（送出時走了流程）；單關請求沒有關卡可以決定。 */
   private async getChainRequest(id: string): Promise<ApprovalRequestRow> {
     const request = await this.requests.findById(id);
-    if (!request) throw new AppException('APPROVAL_NOT_FOUND');
+    // 所屬 feature 沒有開放的類型當作不存在（docs/architecture/05-tenancy.md §15.2 D3）
+    if (!request || this.handlers.hiddenTypes().includes(request.type as ApprovalType)) {
+      throw new AppException('APPROVAL_NOT_FOUND');
+    }
     if (request.status !== 'pending') throw new AppException('APPROVAL_ALREADY_REVIEWED');
     if (request.currentStep === null)
       throw new AppException('APPROVAL_STEP_STALE', { currentStep: null });

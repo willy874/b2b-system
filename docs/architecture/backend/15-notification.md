@@ -194,6 +194,8 @@ await withTransaction(this.db, async (tx) => {
 
 下表四個端點都是 `@Authenticated()`：只需要登入；每個端點都只看得到、改得到自己的。看所有人的通知是另一個端點（§6.1）。回應的形狀見本節最後的範例。
 
+所屬 feature（`defineNotification` 的 `feature`）沒有開放的類型，列表、未讀數與通知總覽（§6.1）都不列；通知保留，重新開放後原樣出現（[`../05-tenancy.md`](../05-tenancy.md) §15.2 D6）。
+
 | 方法 | 路徑 | 說明 |
 | --- | --- | --- |
 | GET | `/notifications?limit=&cursor=&unread=` | 新的在前；keyset 分頁（`limit` 1～100，預設 20）；`unread=true` 只列未讀。回 `{ items, nextCursor }`，不計總數 |

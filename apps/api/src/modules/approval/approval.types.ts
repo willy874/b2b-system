@@ -1,5 +1,6 @@
 import type { AuthUser, PermissionKey } from '@/common/types';
 import type { DbOrTx, Transaction } from '@/core/database';
+import type { TenantFeature } from '@/core/tenant';
 import type { ApprovalAssigneeKind, ApprovalAssigneeRule, ApprovalRequestRow } from '@/db/schema';
 import type { NotificationLink } from '@/modules/notification/notification.definition';
 
@@ -76,6 +77,11 @@ export interface ApprovalHandler {
    * 申請人通常沒有 `approval:read`，能連到自己看得到的頁面時由 handler 決定（例：申請的資料夾）。
    */
   resultLink?(request: ApprovalRequestRow): NotificationLink | null;
+  /**
+   * 屬於哪個可啟用的 feature（例：資料夾存取申請屬於 `file`）：平台沒有開放時，這類請求不出現在列表、待審數、
+   * 匯出與詳情，也不能審核（docs/architecture/05-tenancy.md §15.2 D3）。請求本身保留，重新開放後原樣出現。省略 = 常駐。
+   */
+  readonly feature?: TenantFeature;
   /**
    * 這個類型支援多階段流程時提供（docs/architecture/backend/20-approval.md §9.1、D18）；沒有 = 永遠單關。
    */

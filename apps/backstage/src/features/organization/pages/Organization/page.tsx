@@ -11,6 +11,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { OrgUnitDetail } from '@/shared/api-sdk';
 
 import { orgUnitExportApi } from '../../hooks/orgUnitTransferApi';
@@ -41,6 +43,8 @@ export default function OrganizationPage() {
   const permission = useOrgUnitPermission();
   const tree = useQuery(getOrgUnitTreeQueryOptions());
   const deleteUnit = useOrgUnitDeleteMutation();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、還原時一併恢復」
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   const [creating, setCreating] = useState<OrgUnitCreateTarget>();
   const [moving, setMoving] = useState<OrgUnitDetail>();
   const [pendingDelete, setPendingDelete] = useState<OrgUnitDetail>();
@@ -227,7 +231,11 @@ export default function OrganizationPage() {
         onOpenChange={(open) => !open && setPendingDelete(undefined)}
         title={t('organization.delete.title')}
         // 成員資格隨部門休眠；還有下層部門時後端回 409，錯誤以 toast 顯示
-        description={t('organization.delete.confirm', { name: pendingDelete?.name ?? '' })}
+        description={
+          hasTrash
+            ? t('organization.delete.confirm', { name: pendingDelete?.name ?? '' })
+            : t('organization.delete.confirmNoTrash', { name: pendingDelete?.name ?? '' })
+        }
         confirmLabel={t('common.delete')}
         cancelLabel={t('common.cancel')}
         loading={deleteUnit.isPending}

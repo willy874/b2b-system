@@ -18,6 +18,7 @@
     "delete": {
       "title": "Delete user",
       "confirm": "Delete \"{{name}}\"? The account is signed out immediately and moved to the trash, where it can be restored until the retention period ends.",
+      "confirmNoTrash": "Delete \"{{name}}\"? The account is signed out immediately.",
       "success": "User deleted.",
       "selfProtected": "You cannot delete your own account.",
       "undo": "Undo"

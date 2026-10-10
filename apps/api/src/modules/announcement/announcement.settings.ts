@@ -9,6 +9,7 @@ import { defineSetting, SettingCategory } from '@/core/settings';
 export const ANNOUNCEMENT_MAX_RECIPIENTS_SETTING = defineSetting({
   key: 'announcement.maxRecipients',
   category: SettingCategory.NOTIFICATION,
+  feature: 'announcement',
   schema: z.number().int().min(100).max(100_000),
   defaultValue: 10_000,
   isPublic: false,
@@ -21,6 +22,7 @@ export const ANNOUNCEMENT_MAX_RECIPIENTS_SETTING = defineSetting({
 export const ANNOUNCEMENT_DISPATCH_RETENTION_DAYS_SETTING = defineSetting({
   key: 'announcement.dispatchRetentionDays',
   category: SettingCategory.NOTIFICATION,
+  feature: 'announcement',
   schema: z.number().int().min(30).max(3650),
   defaultValue: 365,
   isPublic: false,

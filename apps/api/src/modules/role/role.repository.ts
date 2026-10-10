@@ -9,6 +9,7 @@ import type { PermissionRow, RoleInsert, RoleRow } from '@/db/schema';
 import {
   isActiveRole,
   isDeleted,
+  isHumanUser,
   isRoleHolderTuple,
   isRolePermissionTuple,
   notDeleted,
@@ -67,13 +68,15 @@ const permissionCountOf = (roleId: SQLWrapper | string) =>
       AND t.relation <> ${SUPER_ADMIN_RELATION} AND t.subject_id = ${roleId}::text)`;
 
 // 軟刪除使用者不會清掉持有角色的邊，計數要排除已刪除的使用者（與 listUsers 一致）。
+// 只算人：服務帳號也以同樣的邊持有角色，但「使用者數」不包含它們（docs/architecture/05-tenancy.md §15.2 D4）。
 // 以角色為起點、不看角色本身是否刪除：刪除的角色保留持有者邊（docs/architecture/backend/14-revisions.md §9.2 D2），呼叫端要先確認角色的狀態
 // （列表與 withCounts 只對未刪除的角色計算）
 const userCountOf = (roleId: SQLWrapper | string) =>
   sql<number>`(SELECT count(*)::int FROM ${relationTuples} t INNER JOIN ${users} u ON u.id::text = t.subject_id
     WHERE t.object_type = ${ROLE_OBJECT_TYPE} AND t.relation = ${ROLE_HOLDER_RELATION}
       AND t.subject_type = ${USER_SUBJECT_TYPE} AND t.subject_relation = ''
-      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL /* notDeleted */)`;
+      AND t.object_id = ${roleId}::text AND u.deleted_at IS NULL /* notDeleted */
+      AND u.kind = 'human' /* isHumanUser */)`;
 
 /**
  * 持有這個角色的邊（`role:<roleId>#holder@user:*`）。**不看角色是否刪除**：刪除的角色保留這些邊
@@ -479,13 +482,26 @@ export class RoleRepository {
     return total;
   }
 
-  /** 持有者列表。不看角色是否刪除（D2 ②）：呼叫端先以 `findById` 確認角色未刪除。 */
-  async listUsers(roleId: string, offset: number, limit: number) {
-    const holderOf = and(eq(sql`${users.id}::text`, relationTuples.subjectId), notDeleted(users));
+  /**
+   * 持有者列表。不看角色是否刪除（D2 ②）：呼叫端先以 `findById` 確認角色未刪除。
+   * `includeServiceAccounts` 為 false 時只列人（服務帳號沒有開放的租戶，docs/architecture/05-tenancy.md §15.2 D4）。
+   */
+  async listUsers(
+    roleId: string,
+    offset: number,
+    limit: number,
+    { includeServiceAccounts }: { includeServiceAccounts: boolean },
+  ) {
+    const holderOf = and(
+      eq(sql`${users.id}::text`, relationTuples.subjectId),
+      notDeleted(users),
+      includeServiceAccounts ? undefined : isHumanUser(),
+    );
     const [items, [counted]] = await Promise.all([
       this.db
         .select({
           id: users.id,
+          kind: users.kind,
           email: users.email,
           displayName: users.displayName,
           status: users.status,

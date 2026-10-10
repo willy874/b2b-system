@@ -33,11 +33,14 @@ import {
   WebhookSchema,
   WebhookSecretSchema,
   WebhookTestResultSchema,
+  GetWebhookUrlLimitSchema,
+  WebhookUrlLimitSchema,
 } from './dto/webhook.dto';
 import type {
   CreateWebhookDto,
   ListWebhookDeliveryDto,
   ListWebhookDto,
+  GetWebhookUrlLimitDto,
   UpdateWebhookDto,
 } from './dto/webhook.dto';
 import { WebhookService } from './webhook.service';
@@ -62,6 +65,14 @@ export class WebhookController {
   @ApiZodResponse(200, WebhookEventListSchema)
   listEvents() {
     return this.webhooks.listEvents();
+  }
+
+  @Get('url-limit')
+  @RequirePermissions(PERMISSION.WEBHOOK_READ)
+  @ApiOperation({ summary: '網址數的上限與這個訂閱還能有幾個網址（feature 參數 webhook.maxUrls）' })
+  @ApiZodResponse(200, WebhookUrlLimitSchema)
+  urlLimit(@Query(new ZodValidationPipe(GetWebhookUrlLimitSchema)) query: GetWebhookUrlLimitDto) {
+    return this.webhooks.urlLimit(query);
   }
 
   @Post()

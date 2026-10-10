@@ -18,6 +18,7 @@
     "delete": {
       "title": "刪除使用者",
       "confirm": "確定要刪除「{{name}}」嗎？帳號會立即登出並移到回收桶，保留期限內可以還原。",
+      "confirmNoTrash": "確定要刪除「{{name}}」嗎？帳號會立即登出。",
       "success": "使用者已刪除。",
       "selfProtected": "不能刪除自己的帳號。",
       "undo": "復原"

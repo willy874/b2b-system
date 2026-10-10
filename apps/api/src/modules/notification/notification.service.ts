@@ -164,6 +164,7 @@ export class NotificationService {
       unread: query.unread ?? false,
       limit: query.limit,
       after: parseCursor(query.cursor),
+      excludeTypes: this.policy.hiddenTypes(),
     });
     return { items: items.map(toDto), nextCursor: nextCursorOf(items, lastCreatedAt, query.limit) };
   }
@@ -182,7 +183,11 @@ export class NotificationService {
         from: query.from,
         to: query.to,
       },
-      { limit: query.limit, after: parseCursor(query.cursor) },
+      {
+        limit: query.limit,
+        after: parseCursor(query.cursor),
+        excludeTypes: this.policy.hiddenTypes(),
+      },
     );
     return {
       items: items.map((row) => ({ ...toDto(row), recipient: row.recipient })),
@@ -191,7 +196,7 @@ export class NotificationService {
   }
 
   async unreadCount(actor: AuthUser): Promise<{ count: number }> {
-    return { count: await this.repo.countUnread(actor.id) };
+    return { count: await this.repo.countUnread(actor.id, this.policy.hiddenTypes()) };
   }
 
   /**

@@ -105,6 +105,7 @@
     "delete": {
       "title": "Delete file",
       "confirm": "Delete “{{name}}”? It will be moved to the trash and can be restored within the retention period.",
+      "confirmNoTrash": "Delete “{{name}}”?",
       "success": "File deleted",
       "undo": "Undo"
     },
@@ -118,6 +119,8 @@
         "title": "Delete files",
         "confirm_one": "Delete {{count}} file? It is deleted in the background and moved to the trash, where it can be restored within the retention period.",
         "confirm_other": "Delete {{count}} files? They are deleted one by one in the background and moved to the trash, where they can be restored within the retention period.",
+        "confirmNoTrash_one": "Delete {{count}} file? It is deleted in the background.",
+        "confirmNoTrash_other": "Delete {{count}} files? They are deleted one by one in the background.",
         "success_one": "Deleted {{count}} file",
         "success_other": "Deleted {{count}} files"
       },
@@ -126,7 +129,9 @@
         "success_one": "Deleted {{count}} folder",
         "success_other": "Deleted {{count}} folders",
         "confirm_one": "Delete {{count}} item? A selected folder is moved to the trash together with its files and subfolders. Deletion runs in the background, and it can be restored within the retention period.",
-        "confirm_other": "Delete {{count}} items? Selected folders will be moved to the trash together with their files and subfolders. Deletion runs in the background, and items can be restored within the retention period."
+        "confirm_other": "Delete {{count}} items? Selected folders will be moved to the trash together with their files and subfolders. Deletion runs in the background, and items can be restored within the retention period.",
+        "confirmNoTrash_one": "Delete {{count}} item? A selected folder is deleted together with its files and subfolders. Deletion runs in the background.",
+        "confirmNoTrash_other": "Delete {{count}} items? Selected folders are deleted together with their files and subfolders. Deletion runs in the background."
       }
     },
     "preview": {
@@ -164,6 +169,7 @@
       "delete": {
         "title": "Delete folder",
         "confirm": "Delete \"{{name}}\"? Every file and subfolder inside it will be moved to the trash as well and can be restored within the retention period.",
+        "confirmNoTrash": "Delete \"{{name}}\"? Every file and subfolder inside it is deleted as well.",
         "success": "Folder deleted",
         "undo": "Undo"
       },

@@ -34,6 +34,7 @@ import {
   useWebhookTestSendMutation,
   useWebhookUpdateMutation,
 } from '../../../hooks/useWebhookMutations';
+import { useWebhookUrlCapacity } from '../../../hooks/useWebhookUrlCapacity';
 import { cleanUrls } from '../../../utils';
 
 interface WebhookSettingsSectionProps {
@@ -63,6 +64,7 @@ function draftOf(webhook: Webhook): Draft {
  * 輪替密鑰（舊的立即失效，先確認）；送測試事件（docs/architecture/backend/17-webhook.md §9.2 D13、D14、D17）。
  */
 export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSettingsSectionProps) {
+  const maxUrls = useWebhookUrlCapacity(webhook.id);
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const showError = useErrorToast();
@@ -246,6 +248,7 @@ export function WebhookSettingsSection({ webhook, canEdit, canSend }: WebhookSet
             <WebhookUrlsInput
               value={draft.urls}
               onValueChange={(urls) => setDraft({ ...draft, urls })}
+              maxUrls={maxUrls}
               data-testid="webhook-urls-edit"
             />
           </Field>

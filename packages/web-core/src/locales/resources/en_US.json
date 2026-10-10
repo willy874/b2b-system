@@ -275,7 +275,7 @@
     "JOB_NOT_RETRYABLE": "Only failed jobs can be retried. It may already have been retried by someone else.",
     "FILE_NOT_FOUND": "This file does not exist or has been deleted.",
     "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
-    "FILE_STORAGE_QUOTA_EXCEEDED": "Storage is full. Delete unused files and empty the trash, or ask the platform administrator to raise the quota.",
+    "FILE_STORAGE_QUOTA_EXCEEDED": "Storage is full. Clean up files you no longer need, or ask the platform administrator to raise the quota.",
     "STORAGE_TOTAL_LIMIT_REACHED": "The system's storage is full, so uploads are paused for now. Please contact your administrator.",
     "FILE_ALREADY_UPLOADED": "This file has already been uploaded.",
     "FILE_UPLOAD_INCOMPLETE": "The upload did not finish. Please upload again.",

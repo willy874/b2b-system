@@ -48,6 +48,8 @@ export const RoleHolderSchema = defineSchema(
   'RoleHolder',
   z.object({
     id: z.string().uuid(),
+    /** `service`：服務帳號（只在對外 API 開放時列出），前端連到服務帳號頁。 */
+    kind: z.enum(['human', 'service']),
     email: z.string(),
     displayName: z.string(),
     status: z.enum(['pending', 'active', 'inactive', 'locked']),

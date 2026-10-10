@@ -18,9 +18,11 @@
     "delete": {
       "title": "刪除角色",
       "confirm": "確定要刪除角色「{{name}}」嗎？角色會移到回收桶，保留期限內可以還原。",
+      "confirmNoTrash": "確定要刪除角色「{{name}}」嗎？",
       "success": "角色已刪除。",
       "systemProtected": "系統角色受保護，不可刪除。",
       "confirmInUse_other": "角色「{{name}}」目前有 {{count}} 位使用者持有，刪除後他們會立即失去這個角色的權限；在保留期限內還原角色，他們會一起拿回來。若要先確認是誰，請取消並到角色詳情查看持有者。",
+      "confirmInUseNoTrash_other": "角色「{{name}}」目前有 {{count}} 位使用者持有，刪除後他們會立即失去這個角色的權限。若要先確認是誰，請取消並到角色詳情查看持有者。",
       "force_other": "仍要刪除（{{count}} 人將失去此角色）",
       "undo": "復原"
     },
@@ -36,6 +38,7 @@
         "action": "刪除",
         "title": "批次刪除角色",
         "confirm_other": "確定要刪除 {{count}} 個角色嗎？角色會移到回收桶，保留期限內可以還原。仍有人持有的角色不會被刪除。",
+        "confirmNoTrash_other": "確定要刪除 {{count}} 個角色嗎？仍有人持有的角色不會被刪除。",
         "success_other": "已刪除 {{count}} 個角色。",
         "ineligible": "系統角色與仍有人持有的角色不能批次刪除。"
       }
@@ -57,6 +60,7 @@
       "revisions": "版本紀錄",
       "directHolders": "直接持有",
       "groupHolders": "經由群組",
+      "serviceAccountHolder": "服務帳號",
       "groupMemberCount_other": "{{count}} 個直接成員"
     },
     "permission": {

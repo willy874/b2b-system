@@ -100,6 +100,7 @@
     "delete": {
       "title": "刪除檔案",
       "confirm": "確定要刪除「{{name}}」嗎？檔案會移到回收桶，保留期限內可以還原。",
+      "confirmNoTrash": "確定要刪除「{{name}}」嗎？",
       "success": "已刪除檔案",
       "undo": "復原"
     },
@@ -111,12 +112,14 @@
       "delete": {
         "title": "刪除檔案",
         "confirm_other": "確定要刪除 {{count}} 個檔案嗎？刪除會在背景逐一進行，檔案會移到回收桶，保留期限內可以還原。",
+        "confirmNoTrash_other": "確定要刪除 {{count}} 個檔案嗎？刪除會在背景逐一進行。",
         "success_other": "已刪除 {{count}} 個檔案"
       },
       "deleteFolder": {
         "title": "刪除資料夾",
         "success_other": "已刪除 {{count}} 個資料夾",
-        "confirm_other": "確定要刪除 {{count}} 個項目嗎？選取的資料夾連同其中的檔案與子資料夾都會移到回收桶。刪除會在背景逐一進行，保留期限內可以還原。"
+        "confirm_other": "確定要刪除 {{count}} 個項目嗎？選取的資料夾連同其中的檔案與子資料夾都會移到回收桶。刪除會在背景逐一進行，保留期限內可以還原。",
+        "confirmNoTrash_other": "確定要刪除 {{count}} 個項目嗎？選取的資料夾連同其中的檔案與子資料夾都會一併刪除。刪除會在背景逐一進行。"
       }
     },
     "preview": {
@@ -153,6 +156,7 @@
       "delete": {
         "title": "刪除資料夾",
         "confirm": "確定要刪除「{{name}}」嗎？資料夾內的所有檔案與子資料夾會一併移到回收桶，保留期限內可以還原。",
+        "confirmNoTrash": "確定要刪除「{{name}}」嗎？資料夾內的所有檔案與子資料夾會一併刪除。",
         "success": "已刪除資料夾",
         "undo": "復原"
       },

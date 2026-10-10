@@ -925,6 +925,11 @@ export interface WebhookEventList {
   }>;
 }
 
+export interface WebhookUrlLimit {
+  max: number;
+  available: number;
+}
+
 export interface WebhookDelivery {
   id: string;
   eventId: string;
@@ -3154,6 +3159,7 @@ export interface RolePermissions {
 
 export interface RoleHolder {
   id: string;
+  kind: 'human' | 'service';
   email: string;
   displayName: string;
   status: 'pending' | 'active' | 'inactive' | 'locked';

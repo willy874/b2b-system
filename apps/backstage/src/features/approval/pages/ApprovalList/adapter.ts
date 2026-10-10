@@ -49,8 +49,9 @@ export function toApprovalRowVM(
     createdAt: new Date(dto.createdAt),
     reviewedAt: dto.reviewedAt ? new Date(dto.reviewedAt) : null,
     isPending,
-    progress: dto.currentStep,
-    stepCount: dto.stepCount,
+    // 停用期間進行中的多關請求就是一筆單關的申請，不顯示關卡的進度與短缺（§9.11）
+    progress: permission.chainEnabled ? dto.currentStep : null,
+    stepCount: permission.chainEnabled ? dto.stepCount : 0,
     canReview,
     canApprove: canReview && (dto.type !== 'user.register' || permission.canApproveRegistration),
   };

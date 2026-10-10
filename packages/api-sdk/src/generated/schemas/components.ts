@@ -352,6 +352,7 @@ import type {
   WebhookSecret,
   WebhookTarget,
   WebhookTestResult,
+  WebhookUrlLimit,
 } from '../models';
 
 export const RichTextMarkSchema = z.object({
@@ -1649,6 +1650,11 @@ export const WebhookEventListSchema = z.object({
     }),
   ),
 }) satisfies z.ZodType<WebhookEventList>;
+
+export const WebhookUrlLimitSchema = z.object({
+  max: z.int().min(-9007199254740991).max(9007199254740991),
+  available: z.int().min(-9007199254740991).max(9007199254740991),
+}) satisfies z.ZodType<WebhookUrlLimit>;
 
 export const WebhookDeliverySchema = z.object({
   id: z
@@ -4990,6 +4996,7 @@ export const RoleHolderSchema = z.object({
         '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
       ),
     ),
+  kind: z.enum(['human', 'service']),
   email: z.string(),
   displayName: z.string(),
   status: z.enum(['pending', 'active', 'inactive', 'locked']),

@@ -62,6 +62,10 @@ function deleteButtonOf(name: string): HTMLElement {
 }
 
 describe('RoleListPage', () => {
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
   it('刪除有人持有的角色：確認框寫明人數，確認即強制刪除', async () => {
     renderRoute(routes, '/role', MANAGER);
     await screen.findByText('Editor', undefined, { timeout: 5000 });
@@ -79,6 +83,7 @@ describe('RoleListPage', () => {
   });
 
   it('沒有人持有時維持一般的刪除確認', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map([['trash', 'ready']]) });
     renderRoute(routes, '/role', MANAGER);
     await screen.findByText('Viewer', undefined, { timeout: 5000 });
 
@@ -89,6 +94,24 @@ describe('RoleListPage', () => {
 
     await waitFor(() => expect(deleteRole).toHaveBeenCalledTimes(1));
     expect(deleteRole.mock.calls[0]![0]).toMatchObject({ params: { roleId: 'r2', force: false } });
+  });
+
+  it('租戶沒有啟用回收桶 → 確認框不提回收桶與還原（有人持有、沒人持有都一樣）', async () => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+    renderRoute(routes, '/role', MANAGER);
+    await screen.findByText('Viewer', undefined, { timeout: 5000 });
+
+    fireEvent.click(deleteButtonOf('Viewer'));
+    const unused = await screen.findByTestId('role-delete-confirm');
+    expect(unused).toHaveTextContent('確定要刪除角色「Viewer」嗎？');
+    expect(unused).not.toHaveTextContent(/回收桶|還原/);
+    fireEvent.click(within(unused).getByTestId('alert-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('role-delete-confirm')).toBeNull());
+
+    fireEvent.click(deleteButtonOf('Editor'));
+    const inUse = await screen.findByTestId('role-delete-confirm');
+    expect(inUse).toHaveTextContent('目前有 3 位使用者持有');
+    expect(inUse).not.toHaveTextContent(/回收桶|還原/);
   });
 
   it('列表沒算到的持有者（經由群組持有）：刪除回 ROLE_IN_USE → 確認框改成強制刪除，再確認才帶 force', async () => {

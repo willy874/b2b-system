@@ -18,6 +18,7 @@ import { WebhookEventSelect } from '../../components/WebhookEventSelect';
 import { WebhookSecretNotice } from '../../components/WebhookSecretNotice';
 import { WebhookUrlsInput } from '../../components/WebhookUrlsInput';
 import { useWebhookCreateMutation } from '../../hooks/useWebhookMutations';
+import { useWebhookUrlCapacity } from '../../hooks/useWebhookUrlCapacity';
 import { WebhookCreateRoute, WebhookDetailRoute, WebhookListRoute } from '../../routes';
 import { cleanUrls } from '../../utils';
 
@@ -32,6 +33,7 @@ export default function WebhookCreatePage() {
   const createWebhook = useWebhookCreateMutation();
   const toMessage = useErrorMessage();
   const events = useQuery(getWebhookEventsQueryOptions());
+  const maxUrls = useWebhookUrlCapacity();
   const formId = useId();
   const [name, setName] = useState('');
   const [urls, setUrls] = useState<string[]>(['']);
@@ -146,7 +148,12 @@ export default function WebhookCreatePage() {
             />
           </Field>
           <Field label={t('webhook.field.urls')} description={t('webhook.field.urlHint')} required>
-            <WebhookUrlsInput value={urls} onValueChange={setUrls} data-testid="webhook-urls" />
+            <WebhookUrlsInput
+              value={urls}
+              onValueChange={setUrls}
+              maxUrls={maxUrls}
+              data-testid="webhook-urls"
+            />
           </Field>
           <Field label={t('webhook.field.events')} required>
             <WebhookEventSelect

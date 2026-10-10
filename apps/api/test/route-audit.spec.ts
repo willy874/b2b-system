@@ -370,6 +370,7 @@ describe('路由稽核（docs/architecture/backend/05-rbac.md §7）', () => {
       'DELETE /service-accounts/:id/tokens/:tokenId': 'serviceAccount:update',
       'GET /webhooks': 'webhook:read',
       'GET /webhooks/events': 'webhook:read',
+      'GET /webhooks/url-limit': 'webhook:read',
       'POST /webhooks': 'webhook:create',
       'GET /webhooks/:id': 'webhook:read',
       'PATCH /webhooks/:id': 'webhook:update',

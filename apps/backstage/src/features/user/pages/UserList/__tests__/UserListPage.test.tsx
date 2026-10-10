@@ -256,6 +256,19 @@ describe('UserListPage 的刪除與導覽', () => {
     await waitFor(() => expect(screen.queryByTestId('user-delete-confirm')).toBeNull());
   });
 
+  it.each([
+    ['已啟用 → 說明保留期限內可以還原', 'ready', true],
+    ['未啟用 → 不提回收桶與還原', 'disabled', false],
+  ] as const)('刪除確認框跟著回收桶：%s', async (_, status, mentionsTrash) => {
+    featureStore.setState({ resolved: true, statuses: new Map([['trash', status]]) });
+    renderRoute(routes, '/user', ADMIN);
+    fireEvent.click(await screen.findByTestId('user-delete-button', undefined, { timeout: 5000 }));
+    const confirm = await screen.findByTestId('user-delete-confirm');
+    expect(confirm).toHaveTextContent('立即登出');
+    if (mentionsTrash) expect(confirm).toHaveTextContent('保留期限內可以還原');
+    else expect(confirm).not.toHaveTextContent(/回收桶|還原/);
+  });
+
   it('刪除失敗（錯誤由 mutation 顯示）也關閉確認框', async () => {
     deleteUser.mockRejectedValue(new AppError('USER_NOT_FOUND', 404));
     renderRoute(routes, '/user', ADMIN);

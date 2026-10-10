@@ -170,7 +170,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 | 不能新增群組的資料夾授權 | `FileFolderGrantService` 對 `subjectType: 'group'` 的新增與候選搜尋回 `404 FEATURE_DISABLED`；既有的群組授權照樣列出、可以移除 |
 | 公告 | 以群組指定的受眾解析成 0 人；觸發點 `group.memberAdded` 標 `feature: 'group'`，不列出也不觸發 |
 | 回收桶 | `GroupTrashHandler.feature = 'group'`：`GET /trash?type=group` 回 404；到期的群組照樣永久刪除 |
-| backstage | `features/group` 是可啟用的 feature（`FEATURE_CATALOG` 的 `group`，最上層 route `beforeLoad: requireFeature('group')`）；角色詳情的「經由群組」、使用者詳情的「所屬群組」、公告受眾的群組欄、資料夾授權的「群組」對象以 `useIsFeatureReady('group')` 隱藏 |
+| backstage | `features/group` 是可啟用的 feature（`FEATURE_CATALOG` 的 `group`，最上層 route `beforeLoad: requireFeature('group')`）；角色詳情的「經由群組」、使用者詳情的「所屬群組」、公告受眾的群組欄、資料夾授權的「群組」對象（新增時的種類與既有的群組授權都不列；API 照樣列出，前端濾掉）以 `useIsFeatureReady('group')` 隱藏 |
 
 **照舊**：群組、成員邊、持有角色的邊、資料夾授權都保留（關係圖沒有任何寫入、`authz_revision` 不變）；重新打開後立即恢復。
 

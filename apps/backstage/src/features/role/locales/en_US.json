@@ -18,10 +18,13 @@
     "delete": {
       "title": "Delete role",
       "confirm": "Delete role \"{{name}}\"? It moves to the trash and can be restored within the retention period.",
+      "confirmNoTrash": "Delete role \"{{name}}\"?",
       "success": "Role deleted.",
       "systemProtected": "System roles are protected and cannot be deleted.",
       "confirmInUse_one": "{{count}} user currently holds the role \"{{name}}\". Deleting it removes its permissions from that user immediately; if you restore the role within the retention period, they get it back. To see who it is first, cancel and open the role details.",
       "confirmInUse_other": "{{count}} users currently hold the role \"{{name}}\". Deleting it removes its permissions from them immediately; if you restore the role within the retention period, they get it back. To see who they are first, cancel and open the role details.",
+      "confirmInUseNoTrash_one": "{{count}} user currently holds the role \"{{name}}\". Deleting it removes its permissions from that user immediately. To see who it is first, cancel and open the role details.",
+      "confirmInUseNoTrash_other": "{{count}} users currently hold the role \"{{name}}\". Deleting it removes its permissions from them immediately. To see who they are first, cancel and open the role details.",
       "force_one": "Delete anyway ({{count}} will lose this role)",
       "force_other": "Delete anyway ({{count}} will lose this role)",
       "undo": "Undo"
@@ -40,6 +43,8 @@
         "title": "Delete roles",
         "confirm_one": "Delete {{count}} role? It moves to the trash and can be restored within the retention period. A role still assigned to users is not deleted.",
         "confirm_other": "Delete {{count}} roles? They move to the trash and can be restored within the retention period. Roles still assigned to users are not deleted.",
+        "confirmNoTrash_one": "Delete {{count}} role? A role still assigned to users is not deleted.",
+        "confirmNoTrash_other": "Delete {{count}} roles? Roles still assigned to users are not deleted.",
         "success_one": "Deleted {{count}} role.",
         "success_other": "Deleted {{count}} roles.",
         "ineligible": "System roles and roles still assigned to users cannot be deleted in bulk."
@@ -63,6 +68,7 @@
       "revisions": "Version history",
       "directHolders": "Directly held by",
       "groupHolders": "Through groups",
+      "serviceAccountHolder": "Service account",
       "groupMemberCount_one": "{{count}} direct member",
       "groupMemberCount_other": "{{count}} direct members"
     },

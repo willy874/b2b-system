@@ -5,6 +5,8 @@ import type { AuthzRevision, AuthzService, TenantPermissions } from '@/core/auth
 import type { PermissionCacheService } from '@/core/cache';
 import type { DbOrTx } from '@/core/database';
 import { runWithRequestContext } from '@/core/http';
+import { runInTenantContext, TENANT_FEATURES } from '@/core/tenant';
+import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { PermissionRow } from '@/db/schema';
 import { permissionClosure } from '@/db/seeds/permissions';
 import type { AuditService } from '@/modules/audit-log/audit.service';
@@ -459,6 +461,13 @@ describe('PermissionService.describeRolePermissions（技能樹用，docs/archit
     expect(effective).toHaveLength(76);
     expect(effective.every((entry) => entry.source === 'implied')).toBe(true);
   });
+
+  it('平台未開放的 feature 的鍵不列（file 關閉時，持有的 file:* 不出現）', () => {
+    const effective = inTenant(ALL_BUT('file'), () =>
+      service.describeRolePermissions(['file:delete', 'user:read'], false),
+    );
+    expect(effective).toEqual([{ key: 'user:read', source: 'explicit', impliedBy: [] }]);
+  });
 });
 
 describe('PermissionService.findActiveUserIdsWithPermission（docs/architecture/backend/15-notification.md §12.2 D5）', () => {
@@ -624,6 +633,14 @@ describe('PermissionService：API token 限縮權限（docs/architecture/06-exte
   });
 });
 
+/** 只啟用 `features` 的租戶脈絡（docs/architecture/05-tenancy.md §15.2 D1）。 */
+function inTenant<T>(features: readonly TenantFeature[], fn: () => T): T {
+  const tenant = { id: 't1', code: 'acme', features, flags: {}, featureParams: {} };
+  return runInTenantContext(tenant as unknown as TenantContext, fn);
+}
+
+const ALL_BUT = (...off: TenantFeature[]) => TENANT_FEATURES.filter((id) => !off.includes(id));
+
 describe('PermissionService.getEffectivePermissionKeys（/auth/profile）', () => {
   it('super-admin 展開成目錄全集', async () => {
     const { service } = createFullService({ cached: { root: { keys: [], isSuperAdmin: true } } });
@@ -634,6 +651,24 @@ describe('PermissionService.getEffectivePermissionKeys（/auth/profile）', () =
     const { service, repo } = createFullService({ cached: { u1: { keys: ['user:read'] } } });
     await expect(service.getEffectivePermissionKeys('u1')).resolves.toEqual(['user:read']);
     expect(repo.findAllPermissionKeys).not.toHaveBeenCalled();
+  });
+
+  it('平台未開放的 feature 的鍵不列：super-admin 的全集與一般使用者都一樣', async () => {
+    const { service } = createFullService({
+      cached: {
+        root: { keys: [], isSuperAdmin: true },
+        u1: { keys: ['webhook:read', 'user:read', 'user:export'] },
+      },
+    });
+    const keys = await inTenant(ALL_BUT('webhook', 'dataTransfer'), () =>
+      service.getEffectivePermissionKeys('root'),
+    );
+    expect(keys).not.toContain('webhook:read');
+    expect(keys).not.toContain('user:export');
+    expect(keys).toContain('user:read');
+    await expect(
+      inTenant(ALL_BUT('webhook', 'dataTransfer'), () => service.getEffectivePermissionKeys('u1')),
+    ).resolves.toEqual(['user:read']);
   });
 });
 
@@ -759,6 +794,25 @@ describe('PermissionService.getCatalog（docs/architecture/iam/02-permission-cat
       },
       { resource: 'role', nameI18nKey: 'permission.resource.role', keys: ['role:read'] },
     ]);
+  });
+
+  it('平台未開放的 feature 的鍵連同指向它們的依賴一起拿掉', async () => {
+    const { service, repo } = createFullService();
+    repo.listCatalog.mockResolvedValue([
+      row('group:read'),
+      row('announcement:read'),
+      row('announcement:update'),
+      row('user:read'),
+    ]);
+    const catalog = await inTenant(ALL_BUT('group'), () => service.getCatalog());
+    expect(catalog.items.map((item) => item.key)).toEqual([
+      'announcement:read',
+      'announcement:update',
+      'user:read',
+    ]);
+    // announcement:update 原本也 requires group:read
+    expect(catalog.items[1]?.requires).toEqual(['user:read', 'role:read']);
+    expect(catalog.groups.map((group) => group.resource)).toEqual(['announcement', 'user']);
   });
 });
 

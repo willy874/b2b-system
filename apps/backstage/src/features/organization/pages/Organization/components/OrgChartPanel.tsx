@@ -13,6 +13,8 @@ import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 import type { OrgUnit } from '@/shared/api-sdk';
 
 import { useOrgChartEditor } from '../../../hooks/useOrgChartEditor';
@@ -62,6 +64,16 @@ export function OrgChartPanel({
   const { t } = useTranslation();
   const toast = useToast();
   const confirm = useConfirm();
+  // 回收桶被平台關掉時，確認文字不提「成員資格隨部門進回收桶」
+  const deleteConfirmKeys = useIsFeatureReady(TenantFeature.trash)
+    ? ({
+        withChildren: 'organization.chart.deleteConfirmWithChildren',
+        plain: 'organization.chart.deleteConfirm',
+      } as const)
+    : ({
+        withChildren: 'organization.chart.deleteConfirmWithChildrenNoTrash',
+        plain: 'organization.chart.deleteConfirmNoTrash',
+      } as const);
   const toMessage = useErrorMessage();
   const editor = useOrgChartEditor(units);
   const [renaming, setRenaming] = useState<OrgChartRenameTarget>();
@@ -196,8 +208,8 @@ export function OrgChartPanel({
           return confirm({
             title: t('organization.chart.deleteTitle'),
             description: orphansChildren
-              ? t('organization.chart.deleteConfirmWithChildren', { count: nodeIds.length })
-              : t('organization.chart.deleteConfirm', { count: nodeIds.length }),
+              ? t(deleteConfirmKeys.withChildren, { count: nodeIds.length })
+              : t(deleteConfirmKeys.plain, { count: nodeIds.length }),
             confirmLabel: t('common.delete'),
             tone: 'danger',
             'data-testid': 'org-chart-delete-confirm',

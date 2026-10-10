@@ -9,6 +9,8 @@ import type { Database } from '@/core/database';
 import { AppException } from '@/core/errors';
 import type { DomainEventBus } from '@/core/events';
 import { defineSetting, SettingCategory, SettingService } from '@/core/settings';
+import { runInTenantContext } from '@/core/tenant';
+import type { TenantContext, TenantFeature } from '@/core/tenant';
 import type { AuditService } from '@/modules/audit-log/audit.service';
 
 import { SystemSettingService } from '../system-setting.service';
@@ -29,9 +31,25 @@ const REGISTRATION = defineSetting({
   isPublic: true,
 });
 
+const TRASH_DAYS = defineSetting({
+  key: 'trash.retentionDays',
+  category: SettingCategory.TRASH,
+  feature: 'trash',
+  schema: z.number().int().min(1).max(365),
+  defaultValue: 30,
+  isPublic: false,
+});
+
+function inTenant<T>(features: readonly TenantFeature[], fn: () => T): T {
+  return runInTenantContext({ id: 't1', features } as unknown as TenantContext, fn);
+}
+
 const ACTOR = { id: 'admin-1', email: 'admin@example.com' } as AuthUser;
 
-function setup(rows: Array<{ key: string; value: unknown }> = []) {
+function setup(
+  rows: Array<{ key: string; value: unknown }> = [],
+  extra: Array<typeof TRASH_DAYS> = [],
+) {
   const repo = {
     listAll: vi.fn(async () =>
       rows.map((row) => ({ ...row, updatedAt: new Date('2026-09-30T00:00:00Z'), updatedBy: null })),
@@ -44,7 +62,7 @@ function setup(rows: Array<{ key: string; value: unknown }> = []) {
     { get: vi.fn() } as unknown as ConfigService<Env, true>,
     new BroadcastHub().instance(),
   );
-  settings.register([MAX_ATTEMPTS, REGISTRATION]);
+  settings.register([MAX_ATTEMPTS, REGISTRATION, ...extra]);
   const audit = { record: vi.fn(async () => undefined) };
   const events = { publish: vi.fn() };
   // withTransaction(db, fn) 只呼叫 db.transaction(fn)
@@ -92,6 +110,20 @@ describe('SystemSettingService（docs/architecture/backend/12-settings.md §4）
         updatedAt: null,
       }),
     ]);
+  });
+
+  it('平台未開放的 feature 的設定不列，也不能修改（docs/architecture/05-tenancy.md §15.2 D2）', async () => {
+    const { service, repo } = setup([], [TRASH_DAYS]);
+    const keysWith = async (features: TenantFeature[]) =>
+      (await inTenant(features, () => service.list())).items.map((item) => item.key);
+    await expect(keysWith(['trash'])).resolves.toContain('trash.retentionDays');
+    await expect(keysWith([])).resolves.not.toContain('trash.retentionDays');
+
+    const error = await errorOf(
+      inTenant([], () => service.update({ values: { 'trash.retentionDays': 7 } }, ACTOR)),
+    );
+    expect(error.code).toBe('SETTING_NOT_FOUND');
+    expect(repo.upsert).not.toHaveBeenCalled();
   });
 
   it('公開設定只包含標為公開的 key', async () => {

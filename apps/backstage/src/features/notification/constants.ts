@@ -5,6 +5,7 @@ import type {
   NotificationChannel,
   NotificationPreferenceChannel,
 } from '@/shared/api-sdk';
+import { TenantFeature } from '@/shared/api-sdk';
 
 /**
  * 通知句子的 i18n key：依後端的 `type`（與參數）挑選，一律是完整字面量（docs/coding-standards/06-literal-strings.md §3.1）。
@@ -119,6 +120,11 @@ export interface NotificationEventLabel {
   nameKey: string;
   descriptionKey: string;
   recipientsKey: string;
+  /**
+   * 事件屬於哪個可啟用的 feature（`null`：常駐），與後端 `defineNotification()` 的 `feature` 相同。
+   * 平台沒有啟用那個 feature 時，篩選的事件類型不列出它（docs/architecture/frontend/02-plugin-system.md §7）。
+   */
+  feature: TenantFeature | null;
 }
 
 /**
@@ -130,61 +136,73 @@ export const NOTIFICATION_EVENT_LABEL: Readonly<Partial<Record<string, Notificat
     nameKey: 'notification.event.type.approvalPending.name',
     descriptionKey: 'notification.event.type.approvalPending.description',
     recipientsKey: 'notification.event.type.approvalPending.recipients',
+    feature: null,
   },
   'approval.result': {
     nameKey: 'notification.event.type.approvalResult.name',
     descriptionKey: 'notification.event.type.approvalResult.description',
     recipientsKey: 'notification.event.type.approvalResult.recipients',
+    feature: null,
   },
   'approval.progress': {
     nameKey: 'notification.event.type.approvalProgress.name',
     descriptionKey: 'notification.event.type.approvalProgress.description',
     recipientsKey: 'notification.event.type.approvalProgress.recipients',
+    feature: TenantFeature.approvalChain,
   },
   'approval.unassigned': {
     nameKey: 'notification.event.type.approvalUnassigned.name',
     descriptionKey: 'notification.event.type.approvalUnassigned.description',
     recipientsKey: 'notification.event.type.approvalUnassigned.recipients',
+    feature: TenantFeature.approvalChain,
   },
   'user.rolesChanged': {
     nameKey: 'notification.event.type.userRolesChanged.name',
     descriptionKey: 'notification.event.type.userRolesChanged.description',
     recipientsKey: 'notification.event.type.userRolesChanged.recipients',
+    feature: null,
   },
   'webhook.disabled': {
     nameKey: 'notification.event.type.webhookDisabled.name',
     descriptionKey: 'notification.event.type.webhookDisabled.description',
     recipientsKey: 'notification.event.type.webhookDisabled.recipients',
+    feature: TenantFeature.webhook,
   },
   'announcement.published': {
     nameKey: 'notification.event.type.announcementPublished.name',
     descriptionKey: 'notification.event.type.announcementPublished.description',
     recipientsKey: 'notification.event.type.announcementPublished.recipients',
+    feature: TenantFeature.announcement,
   },
   'comment.mentioned': {
     nameKey: 'notification.event.type.commentMentioned.name',
     descriptionKey: 'notification.event.type.commentMentioned.description',
     recipientsKey: 'notification.event.type.commentMentioned.recipients',
+    feature: null,
   },
   'comment.created': {
     nameKey: 'notification.event.type.commentCreated.name',
     descriptionKey: 'notification.event.type.commentCreated.description',
     recipientsKey: 'notification.event.type.commentCreated.recipients',
+    feature: null,
   },
   'watch.resourceUpdated': {
     nameKey: 'notification.event.type.watchResourceUpdated.name',
     descriptionKey: 'notification.event.type.watchResourceUpdated.description',
     recipientsKey: 'notification.event.type.watchResourceUpdated.recipients',
+    feature: null,
   },
   'dataTransfer.exportFinished': {
     nameKey: 'notification.event.type.dataTransferExportFinished.name',
     descriptionKey: 'notification.event.type.dataTransferExportFinished.description',
     recipientsKey: 'notification.event.type.dataTransferExportFinished.recipients',
+    feature: TenantFeature.dataTransfer,
   },
   'dataTransfer.importFinished': {
     nameKey: 'notification.event.type.dataTransferImportFinished.name',
     descriptionKey: 'notification.event.type.dataTransferImportFinished.description',
     recipientsKey: 'notification.event.type.dataTransferImportFinished.recipients',
+    feature: TenantFeature.dataTransfer,
   },
 };
 

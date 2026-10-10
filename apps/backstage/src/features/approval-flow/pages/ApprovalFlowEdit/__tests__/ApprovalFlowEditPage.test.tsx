@@ -250,14 +250,22 @@ describe('ApprovalFlowEditPage（docs/architecture/backend/20-approval.md §9.16
     ).toHaveTextContent('已刪除');
   });
 
-  it('組織管理未啟用 → 「主管」規則標示不能用', async () => {
+  it('組織管理沒有啟用 → 既有的「主管」規則標示不會指派任何人（不提功能未啟用）；新的規則選不到主管與部門', async () => {
     featureStore.setState({ resolved: true, statuses: new Map([['group', 'ready']]) });
     renderRoute(routes, '/system/approval-flows/test.purchase', EDITOR);
     await expandAll();
-    const [manager] = await steps();
+    const [manager, finance] = await steps();
     expect(
       within(manager as HTMLElement).getByTestId('approval-flow-assignee-unavailable'),
-    ).toHaveTextContent('組織管理未啟用');
+    ).toHaveTextContent('這條規則目前不會指派任何人');
+    expect(screen.queryByText(/未啟用/)).toBeNull();
+
+    fireEvent.click(within(finance as HTMLElement).getByTestId('approval-flow-assignee-kind'));
+    await screen.findByRole('listbox');
+    const kinds = screen
+      .getAllByTestId('select-item')
+      .map((item) => item.getAttribute('data-value'));
+    expect(kinds).toEqual(['user', 'group', 'role']);
   });
 
   it('匿名申請的類型（註冊）不提供「主管」規則', async () => {

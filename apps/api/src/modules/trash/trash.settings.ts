@@ -9,6 +9,7 @@ import { defineSetting, SettingCategory } from '@/core/settings';
 export const TRASH_RETENTION_DAYS_SETTING = defineSetting({
   key: 'trash.retentionDays',
   category: SettingCategory.TRASH,
+  feature: 'trash',
   schema: z.number().int().min(1).max(365),
   defaultValue: 30,
   isPublic: false,

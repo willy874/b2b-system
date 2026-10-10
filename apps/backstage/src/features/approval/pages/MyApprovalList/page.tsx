@@ -42,7 +42,10 @@ export default function MyApprovalListPage() {
   const { data, isPending, error, refetch } = useQuery(
     getApprovalListQueryOptions({ params: toMyApprovalListParams(search, tab) }),
   );
-  const rows = useMemo(() => (data?.items ?? []).map(toMyApprovalRowVM), [data]);
+  const rows = useMemo(
+    () => (data?.items ?? []).map((item) => toMyApprovalRowVM(item, chainEnabled)),
+    [data, chainEnabled],
+  );
   const assignedCount = useApprovalCounts()?.assigned ?? 0;
   // 從「待我審核」點進詳情：決定後前往下一筆（docs/architecture/backend/20-approval.md §12 D5）
   const detailSearch = useMemo(

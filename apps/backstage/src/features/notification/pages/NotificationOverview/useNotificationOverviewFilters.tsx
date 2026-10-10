@@ -3,6 +3,8 @@ import type { DateRangeFilterValue, FilterBarProps } from '@b2b-system/web-core/
 import { useTranslation } from '@b2b-system/web-core/locales';
 import dayjs from 'dayjs';
 
+import { useFeatureReadiness } from '@/core/feature';
+
 import { NOTIFICATION_EVENT_LABEL } from '../../constants';
 import { NotificationOverviewRoute } from '../../routes';
 import type { NotificationOverviewSearchQuery } from '../../routes';
@@ -25,6 +27,16 @@ const EMPTY_FILTERS: NotificationOverviewFilterValues = {
   range: undefined,
 };
 
+/**
+ * 事件類型的選項（`NOTIFICATION_EVENT_LABEL` 的 key）：平台沒有啟用的 feature 的事件不列出
+ * （例：Webhook 關閉時沒有「Webhook 被停用」，docs/architecture/frontend/02-plugin-system.md §7）。
+ */
+export function notificationTypeOptions(isReady: (feature: string | null) => boolean): string[] {
+  return Object.entries(NOTIFICATION_EVENT_LABEL).flatMap(([type, label]) =>
+    label && isReady(label.feature) ? [type] : [],
+  );
+}
+
 /** 篩選全部放在網址；送出時一次寫入（docs/architecture/frontend/09-state-and-storage.md §1）。 */
 export function useNotificationOverviewFilters(): {
   search: NotificationOverviewSearchQuery;
@@ -33,6 +45,7 @@ export function useNotificationOverviewFilters(): {
   const { t } = useTranslation();
   const search = NotificationOverviewRoute.useSearch();
   const navigate = NotificationOverviewRoute.useNavigate();
+  const isReady = useFeatureReadiness();
 
   return {
     search,
@@ -60,9 +73,10 @@ export function useNotificationOverviewFilters(): {
           key: 'type',
           label: t('notification.overview.field.type'),
           allLabel: t('notification.overview.filter.allTypes'),
-          options: Object.entries(NOTIFICATION_EVENT_LABEL).flatMap(([value, label]) =>
-            label ? [{ value, label: t(label.nameKey) }] : [],
-          ),
+          options: notificationTypeOptions(isReady).flatMap((value) => {
+            const label = NOTIFICATION_EVENT_LABEL[value];
+            return label ? [{ value, label: t(label.nameKey) }] : [];
+          }),
         },
         {
           type: 'custom',

@@ -56,8 +56,10 @@ export class ApprovalFlowService {
   async list(): Promise<ApprovalFlowListDto> {
     const flows = new Map((await this.repo.listFlows()).map((flow) => [flow.type, flow]));
     const items: ApprovalFlowDto[] = [];
+    const hidden = this.handlers.hiddenTypes();
     for (const handler of this.handlers.all()) {
-      if (!handler.flow) continue;
+      // 所屬 feature 沒有開放的類型不列（docs/architecture/05-tenancy.md §15.2 D3）
+      if (!handler.flow || hidden.includes(handler.type)) continue;
       // oxlint-disable-next-line no-await-in-loop -- 支援流程的類型只有幾種；每種的規則名稱各查一次
       items.push(await this.toDto(handler, flows.get(handler.type)));
     }
@@ -309,7 +311,9 @@ export class ApprovalFlowService {
 
   private supportedHandler(type: string): ApprovalHandler {
     const handler = this.handlers.find(type);
-    if (!handler?.flow) throw new AppException('APPROVAL_FLOW_NOT_SUPPORTED');
+    if (!handler?.flow || this.handlers.hiddenTypes().includes(handler.type)) {
+      throw new AppException('APPROVAL_FLOW_NOT_SUPPORTED');
+    }
     return handler;
   }
 

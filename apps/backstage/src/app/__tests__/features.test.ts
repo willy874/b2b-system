@@ -232,6 +232,24 @@ describe('featureActivationPlugin（docs/architecture/frontend/02-plugin-system.
     expect(featureStore.getState().statuses.get('webhook')).toBe('disabled');
   });
 
+  // 各資源的匯入頁的 beforeLoad 都檢查 dataTransfer；catalog 漏列的話，停用時會停在那一頁
+  it.each([
+    '/user/import',
+    '/role/import',
+    '/tag/import',
+    '/group/import',
+    '/group/import-members',
+    '/organization/import',
+    '/organization/import-members',
+  ])('停用 dataTransfer 時停在 %s → 導回首頁（群組、部門本身仍啟用）', async (pathname) => {
+    const { features, router } = setupActivator(pathname);
+    await features.apply(['group', 'organization', 'dataTransfer']);
+    await features.apply(['group', 'organization']);
+
+    expect(router.navigate).toHaveBeenCalledWith({ to: '/', replace: true, ignoreBlocker: true });
+    expect(featureStore.getState().statuses.get('dataTransfer')).toBe('disabled');
+  });
+
   it('停用的 feature 不是目前頁面 → 不提示也不導頁', async () => {
     const { features, router, emit } = setupActivator('/user');
     await features.apply(['webhook']);

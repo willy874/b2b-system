@@ -67,6 +67,8 @@ export function fileFolderAccessRequest(
 @Injectable()
 export class FileFolderAccessApprovalHandler implements ApprovalHandler, OnModuleInit {
   readonly type = ApprovalType.FILE_FOLDER_ACCESS;
+  /** 檔案沒有開放時不出現、也不能核准（核准會寫入資料夾授權）。 */
+  readonly feature = 'file';
 
   constructor(
     private readonly approvals: ApprovalService,

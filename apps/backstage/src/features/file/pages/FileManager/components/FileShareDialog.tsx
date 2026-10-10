@@ -8,6 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getFileFolderGrantListQueryOptions } from '@/apis/file/get-file-folder-grants/query';
 import type { FileGrantLevel } from '@/apis/file/types';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 import { FILE_GRANT_LEVEL_HINT_KEY, FILE_GRANT_LEVEL_LABEL_KEY } from '../../../constants';
 import { useFileExplainPermission } from '../../../hooks/useFileExplainPermission';
@@ -29,6 +31,7 @@ interface FileShareDialogProps {
  * - 直接授權可以變更等級或移除；繼承來的只顯示來源（要到那個資料夾改）。
  * - 「繼承上層資料夾的授權」關閉 ＝ 私人資料夾；關閉的當下後端會複製目前繼承到的授權。
  * 等級選單只列出操作者授予得起的（`assignableLevels`，反提權），超出的授權唯讀；後端仍會再檢查。
+ * - 群組沒有啟用時不列群組的授權（新增列也沒有「群組」這個種類）。
  */
 export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
   const { t } = useTranslation();
@@ -38,6 +41,12 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
     enabled: Boolean(folder),
   });
   const inheritance = useFolderInheritanceMutation();
+  // 租戶沒有啟用 `group` 時，既有的群組授權不列出：它們不生效，改等級或移除也會被後端以 FEATURE_DISABLED 擋下
+  // （docs/architecture/iam/07-groups.md §8）。資料保留，重新啟用後照舊出現
+  const hasGroups = useIsFeatureReady(TenantFeature.group);
+  const visibleGrants = (grants.data?.items ?? []).filter(
+    (grant) => hasGroups || grant.subjectType !== 'group',
+  );
   const assignable = grants.data?.assignableLevels ?? [];
   const levelOptions: Array<SelectOption<FileGrantLevel>> = assignable.map((level) => ({
     value: level,
@@ -90,9 +99,9 @@ export function FileShareDialog({ folder, onClose }: FileShareDialogProps) {
             </h3>
             {grants.isPending ? (
               <Spinner size={16} />
-            ) : grants.data?.items.length ? (
+            ) : visibleGrants.length ? (
               <ul className="flex flex-col divide-y divide-[var(--color-border)]">
-                {grants.data.items.map((grant) => (
+                {visibleGrants.map((grant) => (
                   <FileGrantRow
                     key={`${grant.source?.folderId ?? 'direct'}:${grant.subjectType}:${grant.subjectId}`}
                     folderId={folder.id}

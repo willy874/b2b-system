@@ -7,6 +7,7 @@ import { initTestI18n } from '@/test/i18n';
 
 import approvalZhTW from '../../../locales/zh_TW.json';
 import { registerApprovalPagePermissions } from '../../../permission';
+import { withoutChain } from '../adapter';
 import type { ApprovalDetailVM, ApprovalStepVM } from '../adapter';
 import { ApprovalChainActions } from '../components/ApprovalChainActions';
 import { ApprovalOverrideActions } from '../components/ApprovalOverrideActions';
@@ -64,6 +65,7 @@ function approval(viewer: Partial<ApprovalDetailVM['viewer']>): ApprovalDetailVM
     folderAccess: null,
     steps: [{ ...STEP, ordinal: 0, name: '部門主管', status: 'approved' }, STEP],
     currentStep: STEP,
+    singleReviewDecisions: [],
     viewer: { ...NO_ACTIONS, ...viewer },
     resubmittedFrom: null,
     resubmittedTo: null,
@@ -285,5 +287,51 @@ describe('狀態橫幅（docs/architecture/backend/20-approval.md §11.3）', ()
     fireEvent.click(screen.getByTestId('approval-resubmitted-to'));
     expect(open).toHaveBeenCalledWith('a2');
     expect(screen.queryByTestId('approval-resubmit-link')).not.toBeInTheDocument();
+  });
+});
+
+describe('平台沒有啟用多階段（docs/architecture/backend/20-approval.md §9.11）', () => {
+  const open = vi.fn();
+  const stuck = { ...STEP, shortage: 'noCandidate' as const };
+  const disabled = withoutChain({
+    ...approval({ canOverride: true, canReviewSingle: true }),
+    steps: [{ ...STEP, ordinal: 0, name: '部門主管', status: 'approved' }, stuck],
+    currentStep: stuck,
+  });
+
+  it('橫幅照單關顯示：沒有關卡的進度，也沒有「卡住了」', () => {
+    renderWithPermissions(
+      <ApprovalStatusBanner approval={disabled} isRequester={false} onOpenApproval={open} />,
+      [],
+    );
+    expect(screen.getByTestId('approval-status-banner')).toHaveAttribute('data-value', 'info');
+    expect(screen.getByTestId('approval-status-headline')).toHaveTextContent(
+      '等待審核者核准或駁回',
+    );
+    expect(screen.getByTestId('approval-status-banner')).not.toHaveTextContent('管理員操作');
+  });
+
+  it('時間軸：已通過的關卡與目前那一關已做的決定保留，其餘照單關的「審核」節點', () => {
+    renderWithPermissions(<ApprovalTimeline approval={disabled} />, []);
+    expect(screen.getAllByTestId('approval-step').map((element) => element.dataset.value)).toEqual([
+      '0',
+    ]);
+    expect(screen.queryByTestId('approval-step-shortage')).not.toBeInTheDocument();
+    const single = screen.getByTestId('approval-flow-single');
+    expect(single).toHaveAttribute('data-state', 'current');
+    // 目前那一關已同意的人照樣列出；還沒動作的候選人不列
+    expect(
+      within(single)
+        .getAllByTestId('approval-step-person')
+        .map((person) => [person.dataset.value, person.dataset.state]),
+    ).toEqual([['F1', 'approve']]);
+  });
+
+  it('沒有關卡的決定與強制定案', () => {
+    renderWithPermissions(
+      <ApprovalOverrideActions approval={disabled} review={reviewState('理由')} />,
+      [],
+    );
+    expect(screen.queryByTestId('approval-override-approve-button')).not.toBeInTheDocument();
   });
 });

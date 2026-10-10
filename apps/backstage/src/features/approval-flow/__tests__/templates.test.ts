@@ -4,11 +4,11 @@ import type { AssigneeKindAvailability } from '../hooks/useAssigneeKindAvailabil
 import { availableTemplates, draftFromTemplate, FLOW_TEMPLATES } from '../templates';
 
 const ALL: AssigneeKindAvailability = {
-  user: undefined,
-  group: undefined,
-  role: undefined,
-  manager: undefined,
-  orgUnit: undefined,
+  user: true,
+  group: true,
+  role: true,
+  manager: true,
+  orgUnit: true,
 };
 const ids = (templates: ReturnType<typeof availableTemplates>) => templates.map(({ id }) => id);
 
@@ -23,12 +23,7 @@ describe('流程範本（docs/architecture/backend/20-approval.md §9.16、§12 
 
   it('組織管理未啟用：主管的範本不列出', () => {
     expect(
-      ids(
-        availableTemplates(false, {
-          ...ALL,
-          manager: 'approvalFlow.assignee.unavailable.organization',
-        }),
-      ),
+      ids(availableTemplates(false, { ...ALL, manager: false, orgUnit: false })),
     ).not.toContain('manager');
   });
 

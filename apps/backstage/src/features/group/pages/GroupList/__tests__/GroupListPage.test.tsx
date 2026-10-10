@@ -44,6 +44,10 @@ beforeEach(() => {
 });
 
 describe('GroupListPage（docs/architecture/iam/01-model.md §9 G4）', () => {
+  afterEach(() => {
+    featureStore.setState({ resolved: true, statuses: new Map() });
+  });
+
   it('有 group:create／group:delete → 顯示建立與刪除', async () => {
     renderRoute(routes, '/group', MANAGER);
     await screen.findByText('美術', undefined, { timeout: 5000 });
@@ -74,6 +78,21 @@ describe('GroupListPage（docs/architecture/iam/01-model.md §9 G4）', () => {
     fireEvent.click(within(confirm).getByTestId('alert-dialog-confirm'));
     await waitFor(() => expect(deleteGroup).toHaveBeenCalledTimes(1));
     expect(deleteGroup.mock.calls[0]![0]).toMatchObject({ params: { groupId: 'g1' } });
+  });
+
+  it.each([
+    ['已啟用 → 說明可以從回收桶還原', 'ready', true],
+    ['未啟用 → 不提回收桶與還原', 'disabled', false],
+  ] as const)('刪除確認框跟著回收桶：%s', async (_, status, mentionsTrash) => {
+    featureStore.setState({ resolved: true, statuses: new Map([['trash', status]]) });
+    renderRoute(routes, '/group', MANAGER);
+    await screen.findByText('美術', undefined, { timeout: 5000 });
+    const row = screen.getByText('美術').closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByTestId('group-delete-button'));
+    const confirm = await screen.findByTestId('group-delete-confirm');
+    expect(confirm).toHaveTextContent('3 個直接成員');
+    if (mentionsTrash) expect(confirm).toHaveTextContent('回收桶');
+    else expect(confirm).not.toHaveTextContent(/回收桶|還原/);
   });
 });
 

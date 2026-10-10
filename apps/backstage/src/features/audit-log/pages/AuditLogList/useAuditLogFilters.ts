@@ -3,6 +3,9 @@ import type { DateRangeFilterValue, FilterBarProps } from '@b2b-system/web-core/
 import { useTranslation } from '@b2b-system/web-core/locales';
 import dayjs from 'dayjs';
 
+import { useFeatureReadiness } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
+
 import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
 import type { AuditLogSearchQuery } from '../../routes';
 import type { useAuditLogSearchFilter } from './useAuditLogSearchFilter';
@@ -22,12 +25,43 @@ const EMPTY_FILTERS: AuditLogFilterValues = {
   range: undefined,
 };
 
+/**
+ * 資源的選項與它屬於哪個可啟用的 feature（`null`：常駐）。平台沒有啟用的 feature 的資源不列出
+ * （docs/architecture/frontend/02-plugin-system.md §7）；新增選項時一定要決定它屬於誰。
+ */
+const RESOURCE_OPTIONS: ReadonlyArray<{
+  value: string;
+  labelKey: string;
+  feature: TenantFeature | null;
+}> = [
+  { value: 'user', labelKey: 'permission.resource.user', feature: null },
+  { value: 'role', labelKey: 'permission.resource.role', feature: null },
+  { value: 'approval', labelKey: 'permission.resource.approval', feature: null },
+  { value: 'file', labelKey: 'permission.resource.file', feature: TenantFeature.file },
+  { value: 'auth', labelKey: 'auditLog.resource.auth', feature: null },
+  { value: 'authz', labelKey: 'auditLog.resource.authz', feature: null },
+  {
+    value: 'serviceAccount',
+    labelKey: 'permission.resource.serviceAccount',
+    feature: TenantFeature.externalApi,
+  },
+  { value: 'apiToken', labelKey: 'auditLog.resource.apiToken', feature: TenantFeature.externalApi },
+  { value: 'webhook', labelKey: 'permission.resource.webhook', feature: TenantFeature.webhook },
+  { value: 'tag', labelKey: 'permission.resource.tag', feature: null },
+  {
+    value: 'dataTransfer',
+    labelKey: 'auditLog.resource.dataTransfer',
+    feature: TenantFeature.dataTransfer,
+  },
+];
+
 /** 篩選面板：動作關鍵字、資源、結果、日期區間。送出時一次寫進網址（`useAuditLogSearchFilter`）。 */
 export function useAuditLogFilters({
   search,
   setFilter,
 }: ReturnType<typeof useAuditLogSearchFilter>): FilterBarProps<AuditLogFilterValues> {
   const { t } = useTranslation();
+  const isReady = useFeatureReadiness();
   return {
     value: {
       action: search.action,
@@ -49,19 +83,10 @@ export function useAuditLogFilters({
         key: 'resourceType',
         label: t('auditLog.field.resource'),
         allLabel: t('auditLog.filter.allResources'),
-        options: [
-          { value: 'user', label: t('permission.resource.user') },
-          { value: 'role', label: t('permission.resource.role') },
-          { value: 'approval', label: t('permission.resource.approval') },
-          { value: 'file', label: t('permission.resource.file') },
-          { value: 'auth', label: t('auditLog.resource.auth') },
-          { value: 'authz', label: t('auditLog.resource.authz') },
-          { value: 'serviceAccount', label: t('permission.resource.serviceAccount') },
-          { value: 'apiToken', label: t('auditLog.resource.apiToken') },
-          { value: 'webhook', label: t('permission.resource.webhook') },
-          { value: 'tag', label: t('permission.resource.tag') },
-          { value: 'dataTransfer', label: t('auditLog.resource.dataTransfer') },
-        ],
+        options: RESOURCE_OPTIONS.filter((option) => isReady(option.feature)).map((option) => ({
+          value: option.value,
+          label: t(option.labelKey),
+        })),
       },
       {
         type: 'select',

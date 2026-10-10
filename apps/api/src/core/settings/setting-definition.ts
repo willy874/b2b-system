@@ -1,6 +1,7 @@
 import type { ZodType } from 'zod';
 
 import type { Env } from '../config/env.schema';
+import type { TenantFeature } from '../tenant/tenant-features';
 
 /** 設定值只允許純量：表單、稽核的前後差異與 OpenAPI 都不必處理巢狀結構。 */
 export type SettingValue = string | number | boolean;
@@ -39,6 +40,11 @@ export interface SettingDefinition<T extends SettingValue = SettingValue> {
   defaultValue: EnvDependent<T>;
   /** `true`：未登入也讀得到（`GET /system/settings/public`），例如登入頁要知道是否開放註冊。 */
   isPublic: boolean;
+  /**
+   * 屬於哪個可啟用的 feature：平台沒有開放時設定頁不列、也不能修改（docs/architecture/05-tenancy.md §15.2 D2）。
+   * 已覆寫的值照樣生效（§12.2 D4）。省略 = 常駐。
+   */
+  feature?: TenantFeature;
 }
 
 /** 把 env 相依的部分算出來之後的定義；`SettingService` 啟動時算一次。 */
@@ -48,6 +54,7 @@ export interface ResolvedSetting<T extends SettingValue = SettingValue> {
   schema: ZodType<T>;
   defaultValue: T;
   isPublic: boolean;
+  feature?: TenantFeature;
 }
 
 /** 讓 `settings.get(DEF)` 推導出值的型別。 */
@@ -79,5 +86,6 @@ export function resolveSetting<T extends SettingValue>(
     schema,
     defaultValue: parsed.data,
     isPublic: definition.isPublic,
+    feature: definition.feature,
   };
 }

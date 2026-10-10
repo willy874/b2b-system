@@ -9,14 +9,18 @@ import { initTestI18n } from '@/test/i18n';
 import { registerWebhookPagePermissions, Routes } from '../../..';
 import webhookZhTW from '../../../locales/zh_TW.json';
 
-const { fetchList, fetchEvents, createWebhook } = vi.hoisted(() => ({
+const { fetchList, fetchEvents, fetchUrlLimit, createWebhook } = vi.hoisted(() => ({
   fetchList: vi.fn(),
   fetchEvents: vi.fn(),
+  fetchUrlLimit: vi.fn(),
   createWebhook: vi.fn(),
 }));
 vi.mock('@/apis/webhook/get-webhook-list/fetcher', () => ({ fetchWebhookListQuery: fetchList }));
 vi.mock('@/apis/webhook/get-webhook-events/fetcher', () => ({
   fetchWebhookEventsQuery: fetchEvents,
+}));
+vi.mock('@/apis/webhook/get-webhook-url-limit/fetcher', () => ({
+  fetchWebhookUrlLimitQuery: fetchUrlLimit,
 }));
 vi.mock('@/apis/webhook/create-webhook/fetcher', () => ({
   fetchWebhookCreateMutation: createWebhook,
@@ -38,6 +42,7 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ items: [], pagination: { offset: 0, limit: 20, total: 0 } });
   fetchEvents.mockReset().mockResolvedValue({ items: [{ type: 'user.created', version: 1 }] });
+  fetchUrlLimit.mockReset().mockResolvedValue({ max: 20, available: 20 });
   createWebhook.mockReset();
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
@@ -107,7 +112,7 @@ describe('WebhookCreatePage（docs/architecture/backend/17-webhook.md §9.2 D14�
       await screen.findByTestId('webhook-name-input', undefined, { timeout: 5000 }),
       { target: { value: 'CI' } },
     );
-    fireEvent.click(screen.getByTestId('webhook-url-add'));
+    fireEvent.click(await screen.findByTestId('webhook-url-add'));
     fireEvent.click(screen.getByTestId('webhook-url-add'));
     const inputs = screen.getAllByTestId('webhook-url-input');
     expect(inputs).toHaveLength(3);
@@ -121,6 +126,15 @@ describe('WebhookCreatePage（docs/architecture/backend/17-webhook.md §9.2 D14�
     expect(createWebhook.mock.calls[0]![0]).toMatchObject({
       params: { urls: ['https://a.example.com', 'https://c.example.com'] },
     });
+  });
+
+  it('平台給的網址額度用完：沒有「新增網址」（docs/architecture/05-tenancy.md §15.2 D5）', async () => {
+    fetchUrlLimit.mockResolvedValue({ max: 1, available: 1 });
+    renderRoute(routes, '/webhook/create', CREATOR);
+    await typeName();
+    await waitFor(() => expect(fetchUrlLimit).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getAllByTestId('webhook-url-input')).toHaveLength(1));
+    expect(screen.queryByTestId('webhook-url-add')).toBeNull();
   });
 
   it('沒有 webhook:create → 看不到建立對話框', async () => {

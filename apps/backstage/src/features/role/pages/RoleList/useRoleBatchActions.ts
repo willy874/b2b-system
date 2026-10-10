@@ -2,6 +2,9 @@ import type { QueuedBatchAction } from '@b2b-system/web-core/batch';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useMemo } from 'react';
 
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
+
 import { RoleBatchOperation } from '../../batch';
 import { useRolePermission } from '../../hooks/useRolePermission';
 import type { RoleRowVM } from './adapter';
@@ -13,6 +16,8 @@ import type { RoleRowVM } from './adapter';
 export function useRoleBatchActions(): Array<QueuedBatchAction<RoleRowVM>> {
   const { t } = useTranslation();
   const permission = useRolePermission();
+  // 回收桶被平台關掉時，確認文字不提「移到回收桶、可以還原」
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
 
   return useMemo(
     () => [
@@ -26,11 +31,13 @@ export function useRoleBatchActions(): Array<QueuedBatchAction<RoleRowVM>> {
         ineligibleReason: t('role.batch.delete.ineligible'),
         confirm: ({ eligible }) => ({
           title: t('role.batch.delete.title'),
-          description: t('role.batch.delete.confirm', { count: eligible.length }),
+          description: hasTrash
+            ? t('role.batch.delete.confirm', { count: eligible.length })
+            : t('role.batch.delete.confirmNoTrash', { count: eligible.length }),
         }),
         operation: RoleBatchOperation.DELETE,
       },
     ],
-    [permission, t],
+    [permission, hasTrash, t],
   );
 }

@@ -82,19 +82,15 @@
       "rolePlaceholder": "Select a role",
       "orgUnitPlaceholder": "Select a department (its managers)",
       "noMatch": "No matches",
+      "inactive": "This rule currently assigns no one",
       "deleted": "Deleted",
-      "rejected": "This reviewer is unavailable (feature disabled or target deleted). Choose another reviewer.",
+      "rejected": "This reviewer is unavailable (it assigns no one or the target was deleted). Choose another reviewer.",
       "kind": {
         "user": "Specific user",
         "group": "Group",
         "role": "Role",
         "manager": "Requester's manager",
         "orgUnit": "Department managers"
-      },
-      "unavailable": {
-        "organization": "Organization is not enabled",
-        "group": "Groups are not enabled",
-        "feature": "Feature not enabled"
       },
       "summary": "{{kind}}: {{target}}"
     },

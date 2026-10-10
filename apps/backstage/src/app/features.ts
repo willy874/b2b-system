@@ -42,6 +42,7 @@ import {
   organizationFeaturePlugin,
   Routes as OrganizationRoutes,
 } from '@/features/organization';
+import { Routes as RoleRoutes } from '@/features/role';
 import {
   Routes as ServiceAccountRoutes,
   SERVICE_ACCOUNT_FEATURE,
@@ -52,6 +53,7 @@ import {
   SYSTEM_SETTING_FEATURE,
   systemSettingFeaturePlugin,
 } from '@/features/system';
+import { Routes as TagRoutes } from '@/features/tag';
 import { Routes as TrashRoutes, TRASH_FEATURE, trashFeaturePlugin } from '@/features/trash';
 import { Routes as UserRoutes } from '@/features/user';
 import { Routes as WebhookRoutes, WEBHOOK_FEATURE, webhookFeaturePlugin } from '@/features/webhook';
@@ -112,10 +114,22 @@ export const FEATURE_CATALOG = {
     routes: [ServiceAccountRoutes.ServiceAccountListRoute],
   },
   // 匯入／匯出（docs/architecture/backend/22-data-transfer.md）：「我的匯入匯出」與各資源的匯入頁；列表頁的匯出、匯入按鈕
-  // 以 `useIsFeatureReady` 決定是否顯示
+  // 以 `useIsFeatureReady` 決定是否顯示。
+  // 每個 `beforeLoad` 檢查 `dataTransfer` 的匯入頁都要列在這裡：停用時停在那一頁的人才會被導回首頁，
+  // Layout 的 `useFeatureGate` 也才會擋。群組、部門的匯入頁同時屬於自己的 feature（base path 是上層的 `/group`），
+  // 兩個 feature 都要啟用（`findFeaturesByPath`）
   [DATA_TRANSFER_FEATURE]: {
     plugin: dataTransferFeaturePlugin(),
-    routes: [DataTransferRoutes.DataTransferListRoute, UserRoutes.UserImportRoute],
+    routes: [
+      DataTransferRoutes.DataTransferListRoute,
+      UserRoutes.UserImportRoute,
+      RoleRoutes.RoleImportRoute,
+      TagRoutes.TagImportRoute,
+      GroupRoutes.GroupImportRoute,
+      GroupRoutes.GroupMemberImportRoute,
+      OrganizationRoutes.OrgUnitImportRoute,
+      OrganizationRoutes.OrgUnitMemberImportRoute,
+    ],
   },
   // 組織管理（docs/architecture/backend/23-organization.md）：使用者詳情的「所屬部門」、使用者列表的部門篩選、
   // 審批流程的「主管」「部門」規則以 `useIsFeatureReady` 決定是否顯示

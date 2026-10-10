@@ -6,7 +6,6 @@
       "allowAll": "Allow every method the platform offers",
       "allowAllHint": "New methods the platform enables later are allowed automatically.",
       "inboxAssurance": "Same inbox as password reset",
-      "platformDisabled": "Not offered by the platform",
       "required": "Required",
       "requireAll": "Everyone must turn it on",
       "requiredRoles": "People with these roles must turn it on",

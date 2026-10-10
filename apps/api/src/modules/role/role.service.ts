@@ -10,6 +10,7 @@ import { AppException } from '@/core/errors';
 import { DomainEvent, DomainEventBus } from '@/core/events';
 import { paginated } from '@/core/http';
 import { RESOURCE_TYPE } from '@/core/resource';
+import { requireTenant } from '@/core/tenant';
 import type { RoleRow } from '@/db/schema';
 import { isPermissionKey } from '@/db/seeds/permissions';
 import { diff } from '@/modules/audit-log/audit.diff';
@@ -163,7 +164,9 @@ export class RoleService {
 
   async listUsers(id: string, query: ListRoleUsersDto) {
     await this.getExisting(id);
-    const { items, total } = await this.repo.listUsers(id, query.offset, query.limit);
+    const { items, total } = await this.repo.listUsers(id, query.offset, query.limit, {
+      includeServiceAccounts: requireTenant().features.includes('externalApi'),
+    });
     return paginated(items, total, query);
   }
 

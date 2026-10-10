@@ -16,6 +16,8 @@ import { getGalleryAlbumUpdateMutationOptions } from '@/apis/gallery/update-gall
 import { getGalleryItemUpdateMutationOptions } from '@/apis/gallery/update-gallery-item/mutation';
 import { invalidateResources, Resource } from '@/apis/resources';
 import { getResourceTagsReplaceMutationOptions } from '@/apis/tag/replace-resource-tags/mutation';
+import { useIsFeatureReady } from '@/core/feature';
+import { TenantFeature } from '@/shared/api-sdk';
 
 /**
  * 標題、說明、顯示方向（樂觀鎖）。衝突時失效那一張讓畫面拿到最新版本，訊息交給表單顯示；
@@ -50,11 +52,13 @@ export function useGalleryItemDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
   const showError = useErrorToast();
+  // 回收桶被平台關掉時不說「已移到回收桶」（那時沒有地方可以還原）
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   return useMutation({
     ...getGalleryItemDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
       invalidateResources([{ resource: Resource.GALLERY_ITEM, kind: 'delete', id: params.itemId }]);
-      toast.success(t('gallery.delete.success'));
+      toast.success(hasTrash ? t('gallery.delete.success') : t('gallery.delete.successNoTrash'));
     },
     onError: showError,
   });
@@ -145,13 +149,16 @@ export function useGalleryAlbumDeleteMutation() {
   const toast = useToast();
   const { t } = useTranslation();
   const showError = useErrorToast();
+  const hasTrash = useIsFeatureReady(TenantFeature.trash);
   return useMutation({
     ...getGalleryAlbumDeleteMutationOptions(),
     onSuccess: (_, { params }) => {
       invalidateResources([
         { resource: Resource.GALLERY_ALBUM, kind: 'delete', id: params.albumId },
       ]);
-      toast.success(t('gallery.album.delete.success'));
+      toast.success(
+        hasTrash ? t('gallery.album.delete.success') : t('gallery.album.delete.successNoTrash'),
+      );
     },
     onError: showError,
   });

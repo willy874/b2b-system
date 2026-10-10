@@ -33,6 +33,9 @@ vi.mock('@/apis/webhook/get-webhook-list/fetcher', () => ({ fetchWebhookListQuer
 vi.mock('@/apis/webhook/get-webhook-detail/fetcher', () => ({
   fetchWebhookDetailQuery: fetchWebhook,
 }));
+vi.mock('@/apis/webhook/get-webhook-url-limit/fetcher', () => ({
+  fetchWebhookUrlLimitQuery: vi.fn(async () => ({ max: 20, available: 20 })),
+}));
 vi.mock('@/apis/webhook/get-webhook-events/fetcher', () => ({
   fetchWebhookEventsQuery: fetchEvents,
 }));

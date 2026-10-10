@@ -202,6 +202,18 @@ describe('RoleDetailPage', () => {
     expect(fetchGroups.mock.calls[0]![0].params).toMatchObject({ roleId: ROLE_ID });
   });
 
+  it('持有者裡的服務帳號標示「服務帳號」，不顯示 email（docs/architecture/05-tenancy.md §15.2 D4）', async () => {
+    fetchRoleUsers.mockResolvedValue({
+      items: [
+        { id: 'u1', kind: 'human', email: 'a@example.com', displayName: 'Alice', status: 'active' },
+        { id: 's1', kind: 'service', email: 's1@svc', displayName: 'CI bot', status: 'active' },
+      ],
+    });
+    renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
+    const rows = await screen.findAllByTestId('role-holder-user');
+    expect(rows.map((row) => row.textContent)).toEqual(['Alicea@example.com', 'CI bot服務帳號']);
+  });
+
   it('沒有 group:read → 不查也不顯示經由群組', async () => {
     renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
     await screen.findByText('Editor');

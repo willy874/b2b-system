@@ -25,6 +25,8 @@
       "title": "Delete group",
       "confirm_one": "Delete \"{{name}}\"? Its member ({{count}} direct member; a nested group counts as one) loses the roles the group gives. Deleted groups go to the trash and can be restored.",
       "confirm_other": "Delete \"{{name}}\"? Its members ({{count}} direct members; a nested group counts as one) lose the roles the group gives them. Deleted groups go to the trash and can be restored.",
+      "confirmNoTrash_one": "Delete \"{{name}}\"? Its member ({{count}} direct member; a nested group counts as one) loses the roles the group gives.",
+      "confirmNoTrash_other": "Delete \"{{name}}\"? Its members ({{count}} direct members; a nested group counts as one) lose the roles the group gives them.",
       "success": "Group deleted",
       "undo": "Undo"
     },
