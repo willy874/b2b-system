@@ -381,7 +381,8 @@ backstage 新的常駐 feature `security`（系統設定的「安全性」分頁
 - 必帶 `version`（樂觀鎖，`409 MFA_POLICY_VERSION_CONFLICT`）；沒有列時的預設政策 `version = 1`，第一次 `PUT` 建立它。稽核 `mfaPolicy.update`（`before`／`after`、`severity: high`）。
 - `allowedMethods` 不接受空陣列（要全部就是 `null`）；必須啟用時「平台開放 ∩ 允許」不能是空的（`VALIDATION_FAILED`，`fields.allowedMethods = 'MFA_POLICY_NO_METHOD'`）。
 - `POST /mfa/policy/preview`（`mfaPolicy:read`）：送出前的影響——套用之後「必須啟用卻還沒設定」與「只剩不允許的方式、沒有備用碼」的人數；頁面據此先確認。
-- **收緊立即生效、但不踢人**：已登入的人下一次登入才被要求設定；頁面上顯示「目前不符合政策的人數」（必須啟用卻沒有因子），可以點進使用者列表（`mfa=false` ＋ 角色篩選）。
+- **收緊立即生效、但不踢人**：已登入的人下一次登入才被要求設定；頁面上顯示「目前不符合政策的人數」（必須啟用卻沒有因子），可以點進使用者列表，名單與人數同一個條件：`mfa=false&status=active`，只要求特定角色時再加 `roleId=…&includeGroupRoles=true`
+  （`GET /users` 的 `includeGroupRoles`：角色篩選也算經由群組、含巢狀持有的人）。
 - 從允許清單拿掉某種方式時與 §5 一樣先顯示受影響的人數。
 - 權限 `mfaPolicy:update` 預設只給 super-admin：放寬 MFA 等於削弱所有人的保護，比一般的 `system:update` 敏感（D11）。
 - 讀政策不做快取：只有登入互動、政策頁與「不符合政策的人數」會讀，一次查詢。
@@ -554,7 +555,7 @@ registerMfaMethod({
 - 伺服器回傳註冊表裡沒有的方式 id（例：api 先部署了新方式）時，該因子顯示為「這個版本不支援」、不可選，不讓畫面壞掉。
 - apps/platform `features/login` 的互動頁：密碼步驟 → 依 `next` 切到 `MfaChallengeForm`（選因子、輸入碼、「改用備用碼」、重寄倒數沿用 `useCountdown`）或 `MfaEnrollFlow`（選方式 → 方式的 `Enroll` → `RecoveryCodesDialog`）。
 - 備用碼對話框：顯示、複製、下載 `.txt`；要勾「我已保存」才能關。
-- backstage：`/profile` 的「多重驗證」區塊、`features/user` 的 MFA 欄與篩選（`?mfa=false`，route id `user.listByMfa`）、詳情的驗證方式與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，之後的安全政策可以加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁，`features/mfa-method`）、租戶詳情的 `?tab=mfa`、平台管理者的編輯對話框（驗證方式與重設；沒有詳情頁）。
+- backstage：`/profile` 的「多重驗證」區塊、`features/user` 的 MFA 欄與篩選（`?mfa=false`，route id `user.listByMfa`、`user.listByMfaRole`）、詳情的驗證方式與重設、`features/security`（租戶的安全政策頁，分頁式容器：MFA 是第一個分頁 `/security/mfa`，之後的安全政策可以加自己的分頁）。apps/platform：`/profile`、`/mfa-method`（平台開關頁，`features/mfa-method`）、租戶詳情的 `?tab=mfa`、平台管理者的編輯對話框（驗證方式與重設；沒有詳情頁）。
 - 權限：`features/security/permission.ts` 註冊 `/system/security` 的 page key（`mfaPolicy:read`）。
 
 ## 12. 權限、錯誤碼、稽核、指標
@@ -765,10 +766,13 @@ E2E 以 seed 算 TOTP 碼（`apps/e2e/helpers/totp.ts`）；同一個時間步�
    租戶的政策頁另有 `POST /mfa/policy/preview`：套用前回傳「不符合政策」與「會被擋在門外」的人數，前端據此確認。
 6. **政策的預設**：沒有列時 `version = 1`，第一次 `PUT` 以 `version: 1` 建立（之後 `version` 從 2 開始）；`allowedMethods` 不接受空陣列（要全部就是 `null`）、
    必須啟用時「平台開放 ∩ 允許」不能是空的（`VALIDATION_FAILED`，`fields.allowedMethods = 'MFA_POLICY_NO_METHOD'`）。
-7. **「不符合政策的人數」逐人判斷**：只看還沒設定的人（`users.mfa_enabled = false`），以 `UserAccountService.listEffectiveRoles`（權限解析的主體閉包，含群組）判斷角色。
+7. **「不符合政策的人數」一次算完**：只看可登入、還沒設定的人（`users.mfa_enabled = false`），與「直接或經由群組（含巢狀）持有任一指定角色的人」取交集；
+   持有者以 `AuthzService.usersInSubjectSets` 反向展開一次查出（與公告受眾同一個查詢）。原本逐人以 `listEffectiveRoles` 判斷，沒設定的人多時開頁與預覽都以秒計。
+   登入時的單人判斷仍是 `MfaAvailability.isRequiredBy`（同一張關係圖）。
 8. **`PLATFORM_MFA_METHODS` 在啟動時檢查**（`MfaAvailability.onApplicationBootstrap`）：env schema 不知道註冊表，方式全部登記之後才檢查。
 9. **apps/platform 的方式名稱用 web-core 的註冊表**（`useMfaMethodUis` 的 `labelKey`），不另外維護 `MFA_METHOD_LABEL_KEY`；關閉前的確認框在 app 的 `core/mfa`（方式頁與租戶詳情共用，影響人數由呼叫端從 `apis/` 取得）。
-10. **backstage 的 `user.listByMfa` route link**：安全性頁連到「未啟用 MFA」的使用者列表（`?mfa=false`）。
+10. **backstage 的 `user.listByMfa`／`user.listByMfaRole` route link**：安全性頁連到「不符合政策的人」的使用者列表——全員必須時 `?mfa=false&status=active`，
+    只要求特定角色時再加 `roleId`（可多個）與 `includeGroupRoles=true`，與人數同一個判斷。
 11. **權限的數量**：租戶目錄 53 → 55（文件的「共 52 項」原本就少算一項，一併改正）；平台 12 → 14。
 12. **重設別人的 MFA 改成獨立的權限**（2026-10）：租戶 `user:resetMfa`、平台 `platformAdmin:resetMfa`，取代原本的 `user:update`／`platformAdmin:update`。
     `user:update` 不包含它（不是子能力）：重設 MFA 等於拆掉對方的第二道防線，比改名、停用的風險高，要能只給特定的人。預設的 `admin` 角色持有它，行為不變（既有租戶由租戶 migration 0043 補上，seed 不同步已存在的系統角色；0042 漏掉的 `mfaPolicy:read` 由 0044 補給 admin、auditor）；

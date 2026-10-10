@@ -68,6 +68,7 @@ function setup() {
   };
   const users = {
     orgUnitScope: vi.fn(async (): Promise<string[] | undefined> => undefined),
+    roleHolderScope: vi.fn(async (): Promise<string[] | undefined> => undefined),
     createInTx: vi.fn(async () => ({ user: { id: U1 }, after: EMPTY_AFTER })),
     updateInTx: vi.fn(async () => ({ after: EMPTY_AFTER })),
     replaceRolesInTx: vi.fn(async () => ({ after: EMPTY_AFTER })),
@@ -210,7 +211,23 @@ describe('UserTransferResource（docs/architecture/backend/22-data-transfer.md �
         includeDescendants: true,
       });
       expect(repo.exportCount).toHaveBeenCalledWith({
-        filter: { keyword: 'al', orgUnitIds: ['unit-1', 'unit-2'] },
+        filter: { keyword: 'al', orgUnitIds: ['unit-1', 'unit-2'], roleHolderIds: undefined },
+      });
+    });
+
+    it('角色篩選含經由群組持有：展開成持有者（與列表同一個判斷）', async () => {
+      const { resource, repo, users } = setup();
+      users.roleHolderScope.mockResolvedValue(['u-1']);
+      await resource.exporter!.count(
+        { kind: 'filter', filter: { roleId: ['r-1'], includeGroupRoles: true } },
+        ctx,
+      );
+      expect(users.roleHolderScope).toHaveBeenCalledWith({
+        roleId: ['r-1'],
+        includeGroupRoles: true,
+      });
+      expect(repo.exportCount).toHaveBeenCalledWith({
+        filter: { roleId: ['r-1'], orgUnitIds: undefined, roleHolderIds: ['u-1'] },
       });
     });
 
@@ -236,7 +253,7 @@ describe('UserTransferResource（docs/architecture/backend/22-data-transfer.md �
       expect(users.orgUnitScope).toHaveBeenCalledTimes(1);
       expect(repo.exportPage).toHaveBeenNthCalledWith(
         2,
-        { filter: { orgUnitIds: undefined } },
+        { filter: { orgUnitIds: undefined, roleHolderIds: undefined } },
         { createdAt: last.createdAt, id: last.id },
         DATA_TRANSFER_EXPORT_PAGE_SIZE,
       );

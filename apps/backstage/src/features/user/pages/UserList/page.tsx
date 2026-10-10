@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 
 import { getAuthProfileQueryOptions } from '@/apis/auth/get-profile/query';
 import { getOrgUnitTreeQueryOptions } from '@/apis/org-unit/get-org-unit-tree/query';
+import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
 import { fetchUserListQuery } from '@/apis/user/get-user-list/fetcher';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
@@ -50,6 +51,11 @@ export default function UserListPage() {
   // 篩選面板的部門樹；租戶沒有啟用 `organization` 時不查、不帶部門參數（後端會回 VALIDATION_FAILED）
   const canFilterOrgUnit = permission.canReadOrgUnits;
   const orgUnits = useQuery({ ...getOrgUnitTreeQueryOptions(), enabled: canFilterOrgUnit });
+  // 篩選面板的角色；沒有 role:read 時不提供角色篩選
+  const roleOptions = useQuery({
+    ...getRoleOptionsQueryOptions(),
+    enabled: permission.canReadRoles,
+  });
 
   const listParams: UserListParams = {
     offset: search.offset,
@@ -57,6 +63,8 @@ export default function UserListPage() {
     keyword: search.keyword,
     status: search.status ? [search.status] : undefined,
     mfa: search.mfa,
+    roleId: permission.canReadRoles ? search.roleId : undefined,
+    includeGroupRoles: permission.canReadRoles && search.includeGroupRoles === 'true',
     tagId: search.tagId,
     orgUnitId: canFilterOrgUnit ? search.orgUnitId : undefined,
     includeDescendants: canFilterOrgUnit && search.includeDescendants === 'true',
@@ -98,6 +106,8 @@ export default function UserListPage() {
       keyword: search.keyword,
       status: listParams.status,
       mfa: search.mfa,
+      roleId: listParams.roleId,
+      includeGroupRoles: listParams.includeGroupRoles ? ('true' as const) : undefined,
       tagId: search.tagId,
       // 部門篩選也套到匯出（docs/architecture/backend/23-organization.md §4）
       orgUnitId: listParams.orgUnitId,
@@ -105,6 +115,8 @@ export default function UserListPage() {
     }),
     [
       listParams.status,
+      listParams.roleId,
+      listParams.includeGroupRoles,
       listParams.orgUnitId,
       listParams.includeDescendants,
       search.keyword,
@@ -121,6 +133,8 @@ export default function UserListPage() {
           next.keyword !== search.keyword ||
           next.status !== search.status ||
           next.mfa !== search.mfa ||
+          next.roleId?.join(',') !== search.roleId?.join(',') ||
+          next.includeGroupRoles !== search.includeGroupRoles ||
           next.tagId?.join(',') !== search.tagId?.join(',') ||
           next.orgUnitId !== search.orgUnitId ||
           next.includeDescendants !== search.includeDescendants
@@ -132,6 +146,7 @@ export default function UserListPage() {
     },
     tags.data?.items,
     canFilterOrgUnit ? { units: orgUnits.data?.items, loading: orgUnits.isPending } : undefined,
+    permission.canReadRoles ? roleOptions.data?.items : undefined,
   );
 
   return (

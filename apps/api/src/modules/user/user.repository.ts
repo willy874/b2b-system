@@ -109,6 +109,11 @@ export interface FailedLoginResult {
 export type UserFilter = Pick<ListUserDto, 'keyword' | 'status' | 'roleId' | 'mfa' | 'tagId'> & {
   /** 只列屬於這些部門的人（由 `OrgChartService.unitScope` 展開；空陣列 = 沒有人）。 */
   orgUnitIds?: readonly string[];
+  /**
+   * `includeGroupRoles` 時由 `UserService.roleHolderScope` 展開的持有者（直接或經由群組）；有值時取代 `roleId` 的直接持有條件
+   * （空陣列 = 沒有人）。
+   */
+  roleHolderIds?: readonly string[];
 };
 
 /** 匯出的範圍：勾選的 id，或列表的篩選條件（docs/architecture/backend/22-data-transfer.md §6.1）。 */
@@ -205,7 +210,16 @@ export class UserRepository {
       const matched = or(...query.status.map((status) => statusCondition(status)));
       if (matched) conditions.push(matched);
     }
-    if (query.roleId?.length) {
+    if (query.roleHolderIds) {
+      conditions.push(
+        query.roleHolderIds.length
+          ? sql`${users.id} IN (${sql.join(
+              query.roleHolderIds.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )})`
+          : sql`false`,
+      );
+    } else if (query.roleId?.length) {
       // 已刪除的角色保留持有者邊（docs/architecture/backend/14-revisions.md §9.2 D2）：只認未刪除的角色，否則以刪除的角色篩選會列出它休眠的持有者。
       // 子查詢用別名手寫條件：計數的查詢是單表 select，Drizzle 會把 ${roles.id} 輸出成不帶表名的 "id"
       conditions.push(
@@ -236,9 +250,9 @@ export class UserRepository {
 
   async list(
     query: ListUserDto,
-    orgUnitIds?: readonly string[],
+    scope: Pick<UserFilter, 'orgUnitIds' | 'roleHolderIds'> = {},
   ): Promise<{ items: UserWithRoles[]; total: number }> {
-    const where = this.buildFilters({ ...query, orgUnitIds });
+    const where = this.buildFilters({ ...query, ...scope });
     // 依 sort 陣列的順序排；最後以 id 收尾，讓同值的列在分頁之間順序穩定
     const orderBy = query.sort.map(({ sort, order }) =>
       order === 'asc' ? asc(SORT_COLUMNS[sort]) : desc(SORT_COLUMNS[sort]),

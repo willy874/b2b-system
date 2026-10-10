@@ -332,4 +332,28 @@ describe('UserListPage 的刪除與導覽', () => {
       params: { orgUnitId: undefined, includeDescendants: false },
     });
   });
+
+  it('有 role:read → 網址上的角色與「含經由群組持有」帶進查詢（MFA 政策頁的名單，docs/architecture/backend/21-mfa.md §6）', async () => {
+    const ROLE = '22222222-2222-4222-8222-222222222222';
+    renderRoute(routes, `/user?mfa=false&status=active&roleId=${ROLE}&includeGroupRoles=true`, [
+      ...ADMIN,
+      'role:read',
+    ] as PermissionKey[]);
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(fetchUsers.mock.calls.at(-1)![0]).toMatchObject({
+      params: { mfa: 'false', status: ['active'], roleId: [ROLE], includeGroupRoles: true },
+    });
+  });
+
+  it('沒有 role:read → 不帶角色參數', async () => {
+    renderRoute(
+      routes,
+      '/user?roleId=22222222-2222-4222-8222-222222222222&includeGroupRoles=true',
+      ADMIN,
+    );
+    await screen.findByText('Locked Person', undefined, { timeout: 5000 });
+    expect(fetchUsers.mock.calls.at(-1)![0]).toMatchObject({
+      params: { roleId: undefined, includeGroupRoles: false },
+    });
+  });
 });

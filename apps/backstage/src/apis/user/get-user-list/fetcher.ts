@@ -17,6 +17,7 @@ export const fetchUserListQuery = defineAuthFetcher<
       sort: request.params.sort && toSortParams(request.params.sort),
       // 後端收字串 'true'／'false'；false 等於不帶
       includeDescendants: request.params.includeDescendants ? 'true' : undefined,
+      includeGroupRoles: request.params.includeGroupRoles ? 'true' : undefined,
     }),
     {
       method: 'GET',

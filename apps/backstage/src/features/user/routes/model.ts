@@ -31,6 +31,18 @@ export const UserSearchQuerySchema = z.object({
     ),
     undefined,
   ),
+  /** 持有其中任一個角色；重複的 `roleId` 成為陣列（與 `tagId` 相同）。 */
+  roleId: z.catch(
+    z.optional(
+      z.pipe(
+        z.union([z.uuid(), z.array(z.uuid()).check(z.minLength(1))]),
+        z.transform((value) => (Array.isArray(value) ? value : [value])),
+      ),
+    ),
+    undefined,
+  ),
+  /** 角色篩選也算經由群組（含巢狀）持有的人（MFA 政策頁「不符合政策的人」，docs/architecture/backend/21-mfa.md §6）。 */
+  includeGroupRoles: z.catch(z.optional(z.enum(['true'])), undefined),
   /** 屬於這個部門（docs/architecture/backend/23-organization.md §8）；租戶沒有啟用 `organization` 時頁面不帶給後端。 */
   orgUnitId: z.catch(z.optional(z.uuid()), undefined),
   /** 部門篩選含下層部門；只在有 `orgUnitId` 時有意義。 */

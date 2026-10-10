@@ -17,9 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 中 | 稽核日誌的「資源」篩選只寫死 11 種，後端實際寫入的類型多出十幾種 | [audit-log-resource-filter.md](./audit-log-resource-filter.md) | 2026-10-10 backstage 優化分析 |
-| 中 | 審批與圖片的留言、提及、關注通知把資源類型顯示成「項目」 | [comment-notification-resource-label.md](./comment-notification-resource-label.md) | 2026-10-10 backstage 優化分析 |
-| 中 | MFA 政策頁：「不符合政策的人數」逐人查詢，「查看使用者」的範圍與人數不一致 | [mfa-policy-count-n-plus-1.md](./mfa-policy-count-n-plus-1.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 個人資料的「儲存」沒有修改也能送出 | [account-profile-save-not-dirty.md](./account-profile-save-not-dirty.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 通知總覽：決策 D1 的 `sourceId` 篩選沒有實作，詳細規格也沒寫 | [announcement-source-filter.md](./announcement-source-filter.md) | 2026-10-10 backstage 優化分析 |
 | 低 | 審批流程的「儲存影響」確認排在前端驗證之前 | [approval-flow-validate-before-impact.md](./approval-flow-validate-before-impact.md) | 2026-10-10 backstage 優化分析 |

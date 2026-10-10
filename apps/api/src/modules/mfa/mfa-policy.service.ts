@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
+import { AuthzService } from '@/core/authz';
 import { AppException } from '@/core/errors';
 import { MfaMethodRegistry } from '@/core/mfa';
+import { ROLE_HOLDER_RELATION, ROLE_OBJECT_TYPE } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
 import { UserAccountService } from '@/modules/user/user-account.service';
 
@@ -27,6 +29,7 @@ export class MfaPolicyService {
     private readonly registry: MfaMethodRegistry,
     private readonly users: UserAccountService,
     private readonly audit: AuditService,
+    private readonly authz: AuthzService,
   ) {}
 
   async get(): Promise<MfaPolicyDto> {
@@ -129,18 +132,26 @@ export class MfaPolicyService {
       .filter((id) => values.allowedMethods === null || values.allowedMethods.includes(id));
   }
 
-  /** 必須啟用卻還沒有任何驗證方式的人數。逐人判斷角色（含群組閉包）；只看還沒設定的人。 */
+  /**
+   * 必須啟用卻還沒有任何驗證方式的人數：可登入、還沒設定的人，與「直接或經由群組（含巢狀）持有任一指定角色的人」取交集。
+   * 持有者以關係圖的反向展開一次查出（與公告受眾同一個查詢），不逐人解析權限——沒設定的人多時逐人查會以秒計。
+   * 登入時的單人判斷照舊用 `MfaAvailability.isRequiredBy`（同一張關係圖、同樣不算已刪除的角色與群組）。
+   */
   private async countNonCompliant(
     policy: Pick<MfaPolicyValues, 'requireAll' | 'requiredRoleIds'>,
   ): Promise<number> {
     if (!policy.requireAll && policy.requiredRoleIds.length === 0) return 0;
     const candidates = await this.factors.listActiveUserIdsWithoutMfa();
     if (policy.requireAll) return candidates.length;
-    let count = 0;
-    for (const userId of candidates) {
-      // oxlint-disable-next-line no-await-in-loop -- 權限解析有快取；只算還沒設定的人
-      if (await this.availability.isRequiredBy(policy, userId)) count += 1;
-    }
-    return count;
+    const holders = new Set(
+      await this.authz.usersInSubjectSets(
+        policy.requiredRoleIds.map((id) => ({
+          type: ROLE_OBJECT_TYPE,
+          id,
+          relation: ROLE_HOLDER_RELATION,
+        })),
+      ),
+    );
+    return candidates.filter((id) => holders.has(id)).length;
   }
 }

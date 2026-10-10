@@ -60,8 +60,9 @@ web-core 不呼叫 app 的 API（[`17-shared-packages.md`](./17-shared-packages.
   apps/platform 的平台管理者直接設定。
 - **backstage `/system/security`**：常駐的 feature `security`（不是可關閉的 feature），是系統設定的「安全性」分頁（[`02-plugin-system.md`](./02-plugin-system.md) §4.5）。`mfaPolicy:read` 進頁、`mfaPolicy:update` 才能改；
   只列平台開放的方式（`platformEnabled: false` 的不顯示，[`02-plugin-system.md`](./02-plugin-system.md) §9：平台沒開放的功能不出現在畫面上）。
-  儲存前 `POST /mfa/policy/preview`，會有人被要求設定或被擋在門外時先確認。「不符合政策的人數」連到使用者列表的 `?mfa=false`（route id `user.listByMfa`）。
-- **backstage 使用者**：列表的「MFA」欄與篩選、詳情的驗證方式與「重設 MFA」（`user:resetMfa`，不能重設自己）。
+  儲存前 `POST /mfa/policy/preview`，會有人被要求設定或被擋在門外時先確認。「不符合政策的人數」連到使用者列表，條件與人數相同：全員必須時 `?mfa=false&status=active`（route id `user.listByMfa`），
+  只要求特定角色時另帶 `roleId` 與 `includeGroupRoles=true`（route id `user.listByMfaRole`，經由群組持有的人也列出）。
+- **backstage 使用者**：列表的「MFA」欄與篩選、角色篩選（有 `role:read` 時；可切換「含經由群組持有」）、詳情的驗證方式與「重設 MFA」（`user:resetMfa`，不能重設自己）。
 - **apps/platform `/mfa-method`**：全平台開關（`mfaMethod:read` 進頁、`mfaMethod:update` 才能切換）；租戶詳情的 `?tab=mfa` 是租戶層開關（`tenant:update`）。
   關掉之前以 `GET /platform/mfa-methods/:id/impact` 顯示會被擋在門外的人數（`core/mfa/useConfirmMfaMethodOff`）。
   需要平台參數的方式有「參數」按鈕（`MfaMethodSettingsDialog`）：依 `settings.fields` 產生表單，有 `requiredWhen` 的欄位只在條件成立時顯示、送出時不帶隱藏的欄位；

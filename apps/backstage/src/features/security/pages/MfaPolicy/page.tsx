@@ -150,15 +150,32 @@ function MfaPolicyForm() {
           data-value={policy.nonCompliant}
         >
           {t('security.mfa.nonCompliant', { count: policy.nonCompliant })}{' '}
-          {policy.nonCompliant > 0 && (
-            <RouteLink
-              to="user.listByMfa"
-              params={{ mfa: 'false' }}
-              className="text-[var(--color-brand)]"
-            >
-              {t('security.mfa.viewUsers')}
-            </RouteLink>
-          )}
+          {/* 名單與人數同一個條件：可登入、還沒設定；只要求特定角色時再加上持有它們（含經由群組）的人（已儲存的政策） */}
+          {policy.nonCompliant > 0 &&
+            (policy.requireAll ? (
+              <RouteLink
+                to="user.listByMfa"
+                params={{ mfa: 'false', status: 'active' }}
+                className="text-[var(--color-brand)]"
+                data-testid="security-mfa-view-users"
+              >
+                {t('security.mfa.viewUsers')}
+              </RouteLink>
+            ) : (
+              <RouteLink
+                to="user.listByMfaRole"
+                params={{
+                  mfa: 'false',
+                  status: 'active',
+                  roleIds: policy.requiredRoleIds,
+                  includeGroupRoles: 'true',
+                }}
+                className="text-[var(--color-brand)]"
+                data-testid="security-mfa-view-users"
+              >
+                {t('security.mfa.viewUsers')}
+              </RouteLink>
+            ))}
         </p>
       </section>
 

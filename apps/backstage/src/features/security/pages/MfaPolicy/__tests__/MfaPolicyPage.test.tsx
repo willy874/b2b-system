@@ -4,8 +4,10 @@ import {
   emailMethod,
   mfaMethodRegistry,
 } from '@b2b-system/web-core/mfa';
+import { registerRouteLink } from '@b2b-system/web-core/route-link';
 import { usePermissionStore } from '@b2b-system/web-core/store';
 import { renderRoute } from '@b2b-system/web-core/testing';
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -156,10 +158,48 @@ describe('安全性：MFA 政策頁', () => {
     );
   });
 
-  it('不符合政策的人數 > 0 時提供連到使用者列表的連結', async () => {
-    fetchPolicy.mockResolvedValue({ ...POLICY, requireAll: true, nonCompliant: 2 });
-    renderRoute(routes, '/system/security', EDITOR);
-    const count = await screen.findByTestId('security-mfa-non-compliant');
-    expect(count).toHaveAttribute('data-value', '2');
+  describe('「查看使用者」的名單與人數同一個條件', () => {
+    // 使用者列表屬於 user feature：以假的 route 登記同樣的 route id
+    const root = createRootRoute();
+    const userList = createRoute({ getParentRoute: () => root, path: '/user' });
+    let unregister: Array<() => void> = [];
+    beforeEach(() => {
+      unregister = [
+        registerRouteLink('user.listByMfa', {
+          route: userList,
+          search: { mfa: 'mfa', status: 'status' },
+        }),
+        registerRouteLink('user.listByMfaRole', {
+          route: userList,
+          search: {
+            mfa: 'mfa',
+            status: 'status',
+            roleId: 'roleIds',
+            includeGroupRoles: 'includeGroupRoles',
+          },
+        }),
+      ];
+    });
+    afterEach(() => unregister.forEach((dispose) => dispose()));
+
+    it('全員必須：可登入、還沒設定的人', async () => {
+      fetchPolicy.mockResolvedValue({ ...POLICY, requireAll: true, nonCompliant: 2 });
+      renderRoute(routes, '/system/security', EDITOR);
+      const count = await screen.findByTestId('security-mfa-non-compliant');
+      expect(count).toHaveAttribute('data-value', '2');
+      const href = (await screen.findByTestId('security-mfa-view-users')).getAttribute('href');
+      expect(new URL(href!, 'http://x').searchParams.toString()).toBe('mfa=false&status=active');
+    });
+
+    it('只要求特定角色：再加上持有這些角色（含經由群組）的人', async () => {
+      fetchPolicy.mockResolvedValue({ ...POLICY, requiredRoleIds: ['r1', 'r2'], nonCompliant: 1 });
+      renderRoute(routes, '/system/security', EDITOR);
+      const href = (await screen.findByTestId('security-mfa-view-users')).getAttribute('href');
+      const params = new URL(href!, 'http://x').searchParams;
+      expect(params.get('mfa')).toBe('false');
+      expect(params.get('status')).toBe('active');
+      expect(params.get('includeGroupRoles')).toBe('true');
+      expect(params.getAll('roleId')).toEqual(['r1', 'r2']);
+    });
   });
 });

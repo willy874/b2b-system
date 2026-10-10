@@ -2,7 +2,7 @@ import type { FilterBarProps } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { createElement } from 'react';
 
-import type { OrgUnit, Tag } from '@/shared/api-sdk';
+import type { OrgUnit, Role, Tag } from '@/shared/api-sdk';
 
 import { USER_STATUS_LABEL_KEY } from '../../constants';
 import type { UserSearchQuery } from '../../routes';
@@ -12,7 +12,7 @@ import type { useUserSearchFilter } from './useUserSearchFilter';
 
 export type UserFilterValues = Pick<
   UserSearchQuery,
-  'keyword' | 'status' | 'mfa' | 'tagId' | 'sort'
+  'keyword' | 'status' | 'mfa' | 'roleId' | 'includeGroupRoles' | 'tagId' | 'sort'
 > & {
   /** 部門與「含下層部門」：網址上是 `orgUnitId`、`includeDescendants` 兩個參數，面板裡是一個欄位。 */
   orgUnit?: OrgUnitFilterValue;
@@ -22,6 +22,8 @@ const EMPTY_FILTERS: UserFilterValues = {
   keyword: undefined,
   status: undefined,
   mfa: undefined,
+  roleId: undefined,
+  includeGroupRoles: undefined,
   tagId: undefined,
   orgUnit: undefined,
   sort: [],
@@ -33,12 +35,14 @@ export interface UserOrgUnitFilterSource {
   loading: boolean;
 }
 
-/** 篩選面板：關鍵字、狀態、MFA、標籤、部門、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
+/** 篩選面板：關鍵字、狀態、MFA、角色、標籤、部門、多欄排序。送出時一次寫進網址（`useUserSearchFilter`）。 */
 export function useUserFilters(
   { search, setFilters }: ReturnType<typeof useUserSearchFilter>,
   /** `user` 標籤組的標籤；還沒載入或沒有任何標籤時不顯示標籤篩選。 */
   tags: readonly Tag[] = [],
   orgUnits?: UserOrgUnitFilterSource,
+  /** 角色的選項；`undefined` = 不提供角色篩選（沒有 `role:read`）。 */
+  roles?: readonly Role[],
 ): FilterBarProps<UserFilterValues> {
   const { t } = useTranslation();
   return {
@@ -46,6 +50,8 @@ export function useUserFilters(
       keyword: search.keyword,
       status: search.status,
       mfa: search.mfa,
+      roleId: search.roleId,
+      includeGroupRoles: search.includeGroupRoles,
       tagId: search.tagId,
       orgUnit:
         orgUnits && search.orgUnitId
@@ -85,6 +91,25 @@ export function useUserFilters(
           { value: 'false', label: t('user.mfa.disabled') },
         ],
       },
+      ...(roles
+        ? [
+            {
+              type: 'multiSelect' as const,
+              key: 'roleId' as const,
+              label: t('user.filter.role'),
+              options: roles.map((role) => ({ value: role.id, label: role.name })),
+            },
+            {
+              type: 'select' as const,
+              key: 'includeGroupRoles' as const,
+              label: t('user.filter.roleSource'),
+              allLabel: t('user.filter.roleSourceDirect'),
+              options: [
+                { value: 'true' as const, label: t('user.filter.roleSourceIncludeGroups') },
+              ],
+            },
+          ]
+        : []),
       ...(tags.length
         ? [
             {

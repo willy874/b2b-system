@@ -22,7 +22,15 @@ export function useUserSearchFilter() {
     setFilters: (
       filters: Pick<
         UserSearchQuery,
-        'keyword' | 'status' | 'mfa' | 'tagId' | 'orgUnitId' | 'includeDescendants' | 'sort'
+        | 'keyword'
+        | 'status'
+        | 'mfa'
+        | 'roleId'
+        | 'includeGroupRoles'
+        | 'tagId'
+        | 'orgUnitId'
+        | 'includeDescendants'
+        | 'sort'
       >,
     ) => patch({ ...filters, offset: 0 }),
     /** 表頭點擊：整組多欄排序換成點擊後的結果，回到第一頁。 */

@@ -124,6 +124,12 @@
       "confirm": "Deactivate \"{{name}}\"? They will be signed out immediately.",
       "action": "Deactivate"
     },
+    "filter": {
+      "role": "Role",
+      "roleSource": "Role holding",
+      "roleSourceDirect": "Directly held",
+      "roleSourceIncludeGroups": "Including via groups"
+    },
     "mfa": {
       "all": "All",
       "enabled": "On",

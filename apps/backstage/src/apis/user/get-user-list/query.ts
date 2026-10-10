@@ -15,6 +15,7 @@ const getUserListQueryKeys = (params: UserListParams) =>
     params.keyword,
     params.status?.join(',') ?? '',
     params.roleId?.join(',') ?? '',
+    params.includeGroupRoles ?? false,
     params.mfa ?? '',
     params.tagId?.join(',') ?? '',
     params.orgUnitId ?? '',

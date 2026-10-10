@@ -37,6 +37,19 @@ describe('route id 註冊表（docs/architecture/backend/15-notification.md §12
     ).toEqual({ to: '/file', params: {}, search: { folder: 'f1' } });
   });
 
+  it('search 參數可以是非空的字串陣列（例：多個角色）；空陣列或含空字串 → 不可點', () => {
+    registerRouteLink('file.tagged', { route: fileList, search: { tagId: 'tagIds' } });
+    expect(resolveRouteLink({ route: 'file.tagged', params: { tagIds: ['t1', 't2'] } })).toEqual({
+      to: '/file',
+      params: {},
+      search: { tagId: ['t1', 't2'] },
+    });
+    expect(resolveRouteLink({ route: 'file.tagged', params: { tagIds: [] } })).toBeUndefined();
+    expect(
+      resolveRouteLink({ route: 'file.tagged', params: { tagIds: ['t1', ''] } }),
+    ).toBeUndefined();
+  });
+
   it('沒有參數的頁面', () => {
     registerRouteLink('account.profile', { route: profile });
     expect(resolveRouteLink({ route: 'account.profile', params: {} })).toEqual({

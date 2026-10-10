@@ -19,7 +19,8 @@ function setup(
     platformEnabled?: string[];
     existingRoles?: string[];
     candidates?: string[];
-    requiredUsers?: string[];
+    /** 直接或經由群組持有指定角色的人（關係圖反向展開的結果） */
+    holders?: string[];
   } = {},
 ) {
   const totp = method('totp');
@@ -37,9 +38,6 @@ function setup(
     platformEnabled: vi.fn(() =>
       (options.platformEnabled ?? ['totp', 'email']).map((id) => byId.get(id)!),
     ),
-    isRequiredBy: vi.fn(async (_policy: unknown, userId: string) =>
-      (options.requiredUsers ?? []).includes(userId),
-    ),
   };
   const factors = {
     countStranded: vi.fn(async () => 4),
@@ -47,6 +45,7 @@ function setup(
   };
   const users = { assertRolesExist: vi.fn(async () => undefined) };
   const audit = { record: vi.fn(async () => undefined) };
+  const authz = { usersInSubjectSets: vi.fn(async () => options.holders ?? []) };
   const service = new MfaPolicyService(
     repo as never,
     availability as never,
@@ -54,8 +53,9 @@ function setup(
     registry,
     users as never,
     audit as never,
+    authz as never,
   );
-  return { service, repo, availability, factors, users, audit };
+  return { service, repo, availability, factors, users, audit, authz };
 }
 
 async function rejection(promise: Promise<unknown>): Promise<AppException> {
@@ -87,7 +87,7 @@ describe('MfaPolicyService（docs/architecture/backend/21-mfa.md §6、D7、D11�
     });
 
     it('有列時回傳它的值與 updatedAt；已刪除的角色濾掉', async () => {
-      const { service, availability } = setup({
+      const { service, availability, authz } = setup({
         row: {
           requireAll: false,
           requiredRoleIds: ['role-a', 'role-deleted'],
@@ -97,7 +97,8 @@ describe('MfaPolicyService（docs/architecture/backend/21-mfa.md §6、D7、D11�
         },
         existingRoles: ['role-a'],
         candidates: ['u1', 'u2', 'u3'],
-        requiredUsers: ['u1', 'u3'],
+        // 持有者裡的 u9 已經設定了（不在候選裡），不算
+        holders: ['u1', 'u3', 'u9'],
       });
       const result = await service.get();
       expect(result).toMatchObject({
@@ -108,19 +109,20 @@ describe('MfaPolicyService（docs/architecture/backend/21-mfa.md §6、D7、D11�
         nonCompliant: 2,
       });
       expect(availability.policy).not.toHaveBeenCalled();
-      expect(availability.isRequiredBy).toHaveBeenCalledWith(
-        expect.objectContaining({ requiredRoleIds: ['role-a'] }),
-        'u2',
-      );
+      // 一次查出持有者（只以未刪除的角色），不逐人判斷
+      expect(authz.usersInSubjectSets).toHaveBeenCalledOnce();
+      expect(authz.usersInSubjectSets).toHaveBeenCalledWith([
+        { type: 'role', id: 'role-a', relation: 'holder' },
+      ]);
     });
 
     it('全員必須時，不符合的人數就是還沒設定的人數（不逐人判斷角色）', async () => {
-      const { service, availability } = setup({
+      const { service, authz } = setup({
         current: { ...DEFAULT_MFA_POLICY, requireAll: true },
         candidates: ['u1', 'u2'],
       });
       expect((await service.get()).nonCompliant).toBe(2);
-      expect(availability.isRequiredBy).not.toHaveBeenCalled();
+      expect(authz.usersInSubjectSets).not.toHaveBeenCalled();
     });
   });
 

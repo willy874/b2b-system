@@ -116,6 +116,12 @@
       "confirm": "確定要停用「{{name}}」嗎？對方會立即被登出。",
       "action": "停用"
     },
+    "filter": {
+      "role": "角色",
+      "roleSource": "角色的持有方式",
+      "roleSourceDirect": "直接持有",
+      "roleSourceIncludeGroups": "含經由群組持有"
+    },
     "mfa": {
       "all": "全部",
       "enabled": "已啟用",

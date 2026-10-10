@@ -17,7 +17,7 @@ export type PaletteAction =
       type: 'navigate';
       to: string;
       params?: Record<string, string>;
-      search?: Record<string, string>;
+      search?: Record<string, string | string[]>;
     }
   | { type: 'run'; run: () => void };
 

@@ -290,9 +290,13 @@ export class UserTransferResource implements OnModuleInit {
   /** 匯出的範圍；列表的部門篩選展開成部門 id（docs/architecture/backend/23-organization.md §4）。 */
   private async toScope(scope: ExportScope<UserExportFilter>): Promise<UserExportScope> {
     if (scope.kind === 'ids') return { ids: scope.ids };
-    const { orgUnitId, includeDescendants, ...filter } = scope.filter;
+    const { orgUnitId, includeDescendants, includeGroupRoles, ...filter } = scope.filter;
     const orgUnitIds = await this.users.orgUnitScope({ orgUnitId, includeDescendants });
-    return { filter: { ...(filter as UserFilter), orgUnitIds } };
+    const roleHolderIds = await this.users.roleHolderScope({
+      roleId: filter.roleId,
+      includeGroupRoles,
+    });
+    return { filter: { ...(filter as UserFilter), orgUnitIds, roleHolderIds } };
   }
 
   private async *iterate(

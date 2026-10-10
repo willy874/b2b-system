@@ -16,7 +16,19 @@ import {
   platformAdminMfaFactors,
   platformAdmins,
 } from '@/db/platform/schema';
-import { auditLogs, mfaFactors, mfaPolicy, mfaRecoveryCodes, roles, users } from '@/db/schema';
+import {
+  auditLogs,
+  groupMemberTuple,
+  groupRoleTuple,
+  groups,
+  mfaFactors,
+  mfaPolicy,
+  mfaRecoveryCodes,
+  relationTuples,
+  roleHolderTuple,
+  roles,
+  users,
+} from '@/db/schema';
 import { upsertPlatformAdmin } from '@/db/seeds/platform-admin';
 import { MfaMethodOverrideService } from '@/modules/mfa/mfa-method-override.service';
 
@@ -637,6 +649,59 @@ describe('MFA（docs/architecture/backend/21-mfa.md）', () => {
       );
       expect(confirmed.recoveryCodes).toHaveLength(10);
       expect(await finish(interaction, confirmed.redirectTo)).toBeTruthy();
+    });
+
+    it('不符合政策的人數含經由巢狀群組持有角色的人，不含停用、待啟用與已設定的人；名單與人數一致', async () => {
+      const [auditor] = await db.select().from(roles).where(eq(roles.slug, 'auditor'));
+      const roleId = auditor!.id;
+      const direct = await createUser('policy-direct@example.com');
+      const nested = await createUser('policy-nested@example.com');
+      await createUser('policy-no-role@example.com');
+      const inactive = await createUser('policy-inactive@example.com');
+      const pending = await createUser('policy-pending@example.com');
+      await db.update(users).set({ status: 'inactive' }).where(eq(users.id, inactive));
+      await db.update(users).set({ status: 'pending' }).where(eq(users.id, pending));
+      const [outer] = await db.insert(groups).values({ name: 'mfa-外層' }).returning();
+      const [inner] = await db.insert(groups).values({ name: 'mfa-內層' }).returning();
+      await db
+        .insert(relationTuples)
+        .values([
+          roleHolderTuple(roleId, direct),
+          roleHolderTuple(roleId, inactive),
+          roleHolderTuple(roleId, pending),
+          groupRoleTuple(roleId, outer!.id),
+          groupMemberTuple(outer!.id, { type: 'group', id: inner!.id }),
+          groupMemberTuple(inner!.id, { type: 'user', id: nested }),
+        ]);
+
+      const root = await rootToken();
+      const preview = dataOf<{ nonCompliant: number }>(
+        await request(http)
+          .post('/mfa/policy/preview')
+          .set('authorization', `Bearer ${root}`)
+          .send({ requireAll: false, requiredRoleIds: [roleId], allowedMethods: null, version: 1 })
+          .expect(200),
+      );
+      expect(preview.nonCompliant).toBe(2);
+
+      const listed = dataOf<{ items: Array<{ id: string }> }>(
+        await request(http)
+          .get('/users')
+          .query({ mfa: 'false', status: 'active', roleId, includeGroupRoles: 'true', limit: 100 })
+          .set('authorization', `Bearer ${root}`)
+          .expect(200),
+      );
+      expect(listed.items.map((user) => user.id).toSorted()).toEqual([direct, nested].toSorted());
+
+      // 預設只看直接持有
+      const directOnly = dataOf<{ items: Array<{ id: string }> }>(
+        await request(http)
+          .get('/users')
+          .query({ mfa: 'false', status: 'active', roleId, limit: 100 })
+          .set('authorization', `Bearer ${root}`)
+          .expect(200),
+      );
+      expect(directOnly.items.map((user) => user.id)).toEqual([direct]);
     });
 
     it('政策：要求啟用卻沒有可用的方式 → VALIDATION_FAILED', async () => {

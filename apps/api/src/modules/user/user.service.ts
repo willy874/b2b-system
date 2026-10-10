@@ -3,6 +3,7 @@ import type { ResourceChangeWire } from '@b2b-system/realtime';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { AuthUser } from '@/common/types';
+import { AuthzService } from '@/core/authz';
 import { UserCacheService } from '@/core/cache';
 import type { Database, DbOrTx, MissedUpdateCodes, Transaction } from '@/core/database';
 import { missedUpdate, TENANT_DB, withTransaction } from '@/core/database';
@@ -156,10 +157,14 @@ export class UserService {
     private readonly orgChart: OrgChartService,
     private readonly watches: WatchService,
     private readonly avatars: UserAvatarService,
+    private readonly authz: AuthzService,
   ) {}
 
   async list(query: ListUserDto) {
-    const { items, total } = await this.repo.list(query, await this.orgUnitScope(query));
+    const { items, total } = await this.repo.list(query, {
+      orgUnitIds: await this.orgUnitScope(query),
+      roleHolderIds: await this.roleHolderScope(query),
+    });
     const [tags, avatars] = await Promise.all([
       this.tags.tagsOf(
         RESOURCE_TYPE.USER,
@@ -188,6 +193,19 @@ export class UserService {
       throw new AppException('VALIDATION_FAILED', { fields: { orgUnitId: 'feature disabled' } });
     }
     return this.orgChart.unitScope(query.orgUnitId, query.includeDescendants ?? false);
+  }
+
+  /**
+   * `includeGroupRoles` 的角色篩選展開成持有者：直接或經由群組（含巢狀）持有任一角色的人，以關係圖反向展開一次查出
+   * （與 MFA 政策的人數、公告受眾同一個查詢）。沒有要求時回 undefined，照舊只看直接持有。列表與匯出共用。
+   */
+  async roleHolderScope(
+    query: Pick<ListUserDto, 'roleId' | 'includeGroupRoles'>,
+  ): Promise<string[] | undefined> {
+    if (!query.includeGroupRoles || !query.roleId?.length) return undefined;
+    return this.authz.usersInSubjectSets(
+      query.roleId.map((id) => ({ type: ROLE_OBJECT_TYPE, id, relation: ROLE_HOLDER_RELATION })),
+    );
   }
 
   async findOne(id: string): Promise<UserDto> {

@@ -30,7 +30,10 @@ export interface RouteLinkDefinition {
    * 都是必要的：連結缺任何一個就解析不出來（不可點）。
    */
   params?: Readonly<Record<string, string>>;
-  /** 網址 search 參數 ← 連結參數的名稱，例：`{ folder: 'folderId' }`。同樣都是必要的。 */
+  /**
+   * 網址 search 參數 ← 連結參數的名稱，例：`{ folder: 'folderId' }`。同樣都是必要的。
+   * 值可以是字串或非空的字串陣列（例：多個角色 `roleId`，網址上是重複的參數）。
+   */
   search?: Readonly<Record<string, string>>;
 }
 
@@ -39,7 +42,7 @@ export interface ResolvedRouteLink {
   /** route 的完整 path 樣板，例：`/approval/$approvalId`。 */
   to: string;
   params: Record<string, string>;
-  search: Record<string, string>;
+  search: Record<string, string | string[]>;
 }
 
 interface RouteLinkEntry {
@@ -83,6 +86,25 @@ function pick(
   return result;
 }
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value !== '';
+
+/** search 參數：另外允許非空的字串陣列（每一個都要是非空字串）。 */
+function pickSearch(
+  mapping: Readonly<Record<string, string>>,
+  params: RouteLinkParams,
+): Record<string, string | string[]> | undefined {
+  const result: Record<string, string | string[]> = {};
+  for (const [target, source] of Object.entries(mapping)) {
+    const value = params[source];
+    if (isNonEmptyString(value)) result[target] = value;
+    else if (Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString)) {
+      result[target] = [...value];
+    } else return undefined;
+  }
+  return result;
+}
+
 /**
  * 解析一個連結；沒有連結、route id 沒有登記（所屬 feature 沒安裝或已改名）、缺少必要參數時回 undefined
  * ——呼叫端只顯示文字、不可點（docs/architecture/backend/15-notification.md §12.2 D3）。多出來的參數忽略。
@@ -95,7 +117,7 @@ export function resolveRouteLink(
   const entry = entries.get(link.route);
   if (!entry) return undefined;
   const params = pick(entry.params, link.params);
-  const search = pick(entry.search, link.params);
+  const search = pickSearch(entry.search, link.params);
   if (!params || !search) return undefined;
   return { to: entry.path, params, search };
 }
