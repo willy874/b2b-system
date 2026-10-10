@@ -2,8 +2,7 @@ import { Button } from '@b2b-system/ui/Button';
 import { Chip } from '@b2b-system/ui/Chip';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useToast } from '@b2b-system/web-core/notify';
 import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
@@ -129,15 +128,16 @@ export function ApprovalDetailView({
         )}
       </header>
 
-      {detail.isPending && <Skeleton height={240} />}
       {/* 例：從通知點進一筆已不存在（或看不到）的審批：說明原因並提供返回 */}
-      {detail.isError && (
-        <QueryError
-          error={detail.error}
-          onRetry={isNotFound(detail.error) ? undefined : () => void detail.refetch()}
-          action={<Button onClick={() => onBack()}>{backLabel}</Button>}
+      {!approval && (
+        <QueryBoundary
+          query={detail}
+          skeleton={<Skeleton height={240} />}
+          backAction={<Button onClick={() => onBack()}>{backLabel}</Button>}
           data-testid="approval-detail-error"
-        />
+        >
+          {() => null}
+        </QueryBoundary>
       )}
 
       {approval && (

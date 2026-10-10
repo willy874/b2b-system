@@ -1,8 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -44,37 +43,34 @@ export default function ServiceAccountDetailPage() {
         </Button>
       }
     >
-      {account.isPending && <Skeleton height={160} />}
       {/* 深層連結指向已刪除的帳號：說明原因並提供返回，不留一個空白對話框 */}
-      {account.isError && (
-        <QueryError
-          error={account.error}
-          onRetry={isNotFound(account.error) ? undefined : () => void account.refetch()}
-          action={
-            <Button onClick={close} data-testid="service-account-detail-back">
-              {t('serviceAccount.detail.backToList')}
-            </Button>
-          }
-          data-testid="service-account-detail-error"
-        />
-      )}
-
-      {account.data && (
-        <div className="flex flex-col gap-5">
-          <ServiceAccountBasicSection account={account.data} canEdit={permission.canUpdate} />
-          <ServiceAccountRoleSection
-            serviceAccountId={serviceAccountId}
-            roles={account.data.roles}
-            roleOptions={permission.canAssignRole ? roleOptions.data?.items : undefined}
-          />
-          <ServiceAccountTokenSection
-            serviceAccountId={serviceAccountId}
-            active={account.data.status === 'active'}
-            canManage={permission.canManageTokens}
-            scopeOptions={permission.scopeOptions}
-          />
-        </div>
-      )}
+      <QueryBoundary
+        query={account}
+        skeleton={<Skeleton height={160} />}
+        backAction={
+          <Button onClick={close} data-testid="service-account-detail-back">
+            {t('serviceAccount.detail.backToList')}
+          </Button>
+        }
+        data-testid="service-account-detail-error"
+      >
+        {(current) => (
+          <div className="flex flex-col gap-5">
+            <ServiceAccountBasicSection account={current} canEdit={permission.canUpdate} />
+            <ServiceAccountRoleSection
+              serviceAccountId={serviceAccountId}
+              roles={current.roles}
+              roleOptions={permission.canAssignRole ? roleOptions.data?.items : undefined}
+            />
+            <ServiceAccountTokenSection
+              serviceAccountId={serviceAccountId}
+              active={current.status === 'active'}
+              canManage={permission.canManageTokens}
+              scopeOptions={permission.scopeOptions}
+            />
+          </div>
+        )}
+      </QueryBoundary>
     </Dialog>
   );
 }

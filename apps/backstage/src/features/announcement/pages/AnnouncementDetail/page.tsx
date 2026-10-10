@@ -1,8 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -40,36 +39,34 @@ export default function AnnouncementDetailPage() {
         </Button>
       }
     >
-      {announcement.isPending && <Skeleton height={160} />}
-      {announcement.isError && (
-        <QueryError
-          error={announcement.error}
-          onRetry={isNotFound(announcement.error) ? undefined : () => void announcement.refetch()}
-          action={
-            <Button onClick={() => close()} data-testid="announcement-detail-back">
-              {t('announcement.detail.backToList')}
-            </Button>
-          }
-          data-testid="announcement-detail-error"
-        />
-      )}
-      {announcement.data && (
-        <div className="flex flex-col gap-5">
-          <AnnouncementSettingsSection
-            // 換了一則公告時重設編輯中的草稿
-            key={announcement.data.id}
-            announcement={announcement.data}
-            canUpdate={permission.canUpdate}
-            canDelete={permission.canDelete}
-            canPublish={permission.canPublish}
-            onDeleted={() => close({ ignoreBlocker: true })}
-          />
-          <AnnouncementDispatchSection
-            announcementId={announcementId}
-            canRevoke={permission.canPublish}
-          />
-        </div>
-      )}
+      <QueryBoundary
+        query={announcement}
+        skeleton={<Skeleton height={160} />}
+        backAction={
+          <Button onClick={() => close()} data-testid="announcement-detail-back">
+            {t('announcement.detail.backToList')}
+          </Button>
+        }
+        data-testid="announcement-detail-error"
+      >
+        {(current) => (
+          <div className="flex flex-col gap-5">
+            <AnnouncementSettingsSection
+              // 換了一則公告時重設編輯中的草稿
+              key={current.id}
+              announcement={current}
+              canUpdate={permission.canUpdate}
+              canDelete={permission.canDelete}
+              canPublish={permission.canPublish}
+              onDeleted={() => close({ ignoreBlocker: true })}
+            />
+            <AnnouncementDispatchSection
+              announcementId={announcementId}
+              canRevoke={permission.canPublish}
+            />
+          </div>
+        )}
+      </QueryBoundary>
     </Dialog>
   );
 }

@@ -1,8 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -38,34 +37,32 @@ export default function WebhookDetailPage() {
         </Button>
       }
     >
-      {webhook.isPending && <Skeleton height={160} />}
       {/* 深層連結（例：站內通知）指向已刪除的 webhook：說明原因並提供返回 */}
-      {webhook.isError && (
-        <QueryError
-          error={webhook.error}
-          onRetry={isNotFound(webhook.error) ? undefined : () => void webhook.refetch()}
-          action={
-            <Button onClick={close} data-testid="webhook-detail-back">
-              {t('webhook.detail.backToList')}
-            </Button>
-          }
-          data-testid="webhook-detail-error"
-        />
-      )}
-      {webhook.data && (
-        <div className="flex flex-col gap-5">
-          <WebhookSettingsSection
-            webhook={webhook.data}
-            canEdit={permission.canUpdate}
-            canSend={permission.canSend}
-          />
-          <WebhookDeliverySection
-            webhookId={webhookId}
-            targets={webhook.data.targets}
-            canRedeliver={permission.canSend && webhook.data.status === 'active'}
-          />
-        </div>
-      )}
+      <QueryBoundary
+        query={webhook}
+        skeleton={<Skeleton height={160} />}
+        backAction={
+          <Button onClick={close} data-testid="webhook-detail-back">
+            {t('webhook.detail.backToList')}
+          </Button>
+        }
+        data-testid="webhook-detail-error"
+      >
+        {(current) => (
+          <div className="flex flex-col gap-5">
+            <WebhookSettingsSection
+              webhook={current}
+              canEdit={permission.canUpdate}
+              canSend={permission.canSend}
+            />
+            <WebhookDeliverySection
+              webhookId={webhookId}
+              targets={current.targets}
+              canRedeliver={permission.canSend && current.status === 'active'}
+            />
+          </div>
+        )}
+      </QueryBoundary>
     </Dialog>
   );
 }

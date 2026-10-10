@@ -1,8 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -53,46 +52,43 @@ export default function UserDetailPage() {
         </Button>
       }
     >
-      {user.isPending && <Skeleton height={200} />}
       {/* 深層連結指向已刪除的使用者：說明原因並提供返回，不留一個空白對話框 */}
-      {user.isError && (
-        <QueryError
-          error={user.error}
-          onRetry={isNotFound(user.error) ? undefined : () => void user.refetch()}
-          action={
-            <Button onClick={close} data-testid="user-detail-back">
-              {t('user.detail.backToList')}
-            </Button>
-          }
-          data-testid="user-detail-error"
-        />
-      )}
-
-      {user.data && (
-        <div className="flex flex-col gap-5">
-          <UserAvatarSection user={user.data} canUpdate={permission.canUpdate} />
-          <UserBasicSection user={user.data} canUpdate={permission.canUpdate} isSelf={isSelf} />
-          <UserRoleSection
-            user={user.data}
-            roleOptions={roles.data?.items}
-            canAssignRole={permission.canAssignRole}
-            isSelf={isSelf}
-          />
-          <UserTagSection user={user.data} canEdit={permission.canUpdate} />
-          {permission.canReadGroups && <UserGroupSection userId={userId} />}
-          {permission.canReadOrgUnits && <UserOrgUnitSection userId={userId} />}
-          {(isSelf || permission.canExplain) && (
-            <UserPermissionSourceSection userId={userId} displayName={user.data.displayName} />
-          )}
-          {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}
-          {permission.canReadIdentities && (
-            <UserIdentitySection userId={userId} canUnlink={permission.canUnlinkIdentity} />
-          )}
-          <UserMfaSection userId={userId} canReset={permission.canResetMfa && !isSelf} />
-          {/* 通用面板（留言與關注，docs/architecture/frontend/22-comment.md §2）：由提供面板的 feature 登記 */}
-          <ResourcePanels resourceType="user" resourceId={userId} />
-        </div>
-      )}
+      <QueryBoundary
+        query={user}
+        skeleton={<Skeleton height={200} />}
+        backAction={
+          <Button onClick={close} data-testid="user-detail-back">
+            {t('user.detail.backToList')}
+          </Button>
+        }
+        data-testid="user-detail-error"
+      >
+        {(current) => (
+          <div className="flex flex-col gap-5">
+            <UserAvatarSection user={current} canUpdate={permission.canUpdate} />
+            <UserBasicSection user={current} canUpdate={permission.canUpdate} isSelf={isSelf} />
+            <UserRoleSection
+              user={current}
+              roleOptions={roles.data?.items}
+              canAssignRole={permission.canAssignRole}
+              isSelf={isSelf}
+            />
+            <UserTagSection user={current} canEdit={permission.canUpdate} />
+            {permission.canReadGroups && <UserGroupSection userId={userId} />}
+            {permission.canReadOrgUnits && <UserOrgUnitSection userId={userId} />}
+            {(isSelf || permission.canExplain) && (
+              <UserPermissionSourceSection userId={userId} displayName={current.displayName} />
+            )}
+            {permission.canManageApiTokens && <UserApiTokenSection userId={userId} />}
+            {permission.canReadIdentities && (
+              <UserIdentitySection userId={userId} canUnlink={permission.canUnlinkIdentity} />
+            )}
+            <UserMfaSection userId={userId} canReset={permission.canResetMfa && !isSelf} />
+            {/* 通用面板（留言與關注，docs/architecture/frontend/22-comment.md §2）：由提供面板的 feature 登記 */}
+            <ResourcePanels resourceType="user" resourceId={userId} />
+          </div>
+        )}
+      </QueryBoundary>
     </Dialog>
   );
 }

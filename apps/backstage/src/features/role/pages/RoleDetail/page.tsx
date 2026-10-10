@@ -1,8 +1,7 @@
 import { Button, ButtonLink } from '@b2b-system/ui/Button';
 import { Dialog } from '@b2b-system/ui/Dialog';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
@@ -96,38 +95,35 @@ export default function RoleDetailPage() {
           </>
         }
       >
-        {role.isPending && <Skeleton height={160} />}
         {/* 深層連結指向已刪除的角色：說明原因並提供返回，不留一個空白對話框 */}
-        {role.isError && (
-          <QueryError
-            error={role.error}
-            onRetry={isNotFound(role.error) ? undefined : () => void role.refetch()}
-            action={
-              <Button onClick={close} data-testid="role-detail-back">
-                {t('role.detail.backToList')}
-              </Button>
-            }
-            data-testid="role-detail-error"
-          />
-        )}
-
-        {role.data && (
-          <div className="flex flex-col gap-5">
-            <RoleBasicSection role={role.data} canEdit={permission.canUpdate && !isSystem} />
-            <RolePermissionSection
-              isSuperAdmin={role.data.slug === SUPER_ADMIN_SLUG}
-              canView={permission.canManagePermission}
-              query={rolePermissions}
-            />
-            {(permission.canViewUsers || permission.canViewGroups) && (
-              <RoleHolderSection
-                roleId={roleId}
-                canViewUsers={permission.canViewUsers}
-                canViewGroups={permission.canViewGroups}
+        <QueryBoundary
+          query={role}
+          skeleton={<Skeleton height={160} />}
+          backAction={
+            <Button onClick={close} data-testid="role-detail-back">
+              {t('role.detail.backToList')}
+            </Button>
+          }
+          data-testid="role-detail-error"
+        >
+          {(current) => (
+            <div className="flex flex-col gap-5">
+              <RoleBasicSection role={current} canEdit={permission.canUpdate && !isSystem} />
+              <RolePermissionSection
+                isSuperAdmin={current.slug === SUPER_ADMIN_SLUG}
+                canView={permission.canManagePermission}
+                query={rolePermissions}
               />
-            )}
-          </div>
-        )}
+              {(permission.canViewUsers || permission.canViewGroups) && (
+                <RoleHolderSection
+                  roleId={roleId}
+                  canViewUsers={permission.canViewUsers}
+                  canViewGroups={permission.canViewGroups}
+                />
+              )}
+            </div>
+          )}
+        </QueryBoundary>
       </Dialog>
       {/* 子路由的對話框與本對話框並列，不放進 Dialog 內：Base UI 的 Dialog 在 React 樹中巢狀時，
         背後列表的 Select 觸發按鈕會陷入 ref 更新迴圈（Maximum update depth exceeded）。 */}

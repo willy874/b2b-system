@@ -1,8 +1,7 @@
 import { Button } from '@b2b-system/ui/Button';
 import { Icon } from '@b2b-system/ui/Icon';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -38,19 +37,21 @@ export function OrgUnitDetailPanel({
   const { view } = OrganizationRoute.useSearch();
   const unit = useQuery(getOrgUnitDetailQueryOptions(unitId));
 
-  if (unit.isPending) return <Skeleton height={200} />;
-  if (unit.isError) {
+  if (!unit.data) {
+    // 載入中、查詢失敗、部門已被刪除（不重試，只提供返回）
     return (
-      <QueryError
-        error={unit.error}
-        onRetry={isNotFound(unit.error) ? undefined : () => void unit.refetch()}
-        action={
+      <QueryBoundary
+        query={unit}
+        skeleton={<Skeleton height={200} />}
+        backAction={
           <Button onClick={onBack} data-testid="org-unit-detail-back">
             {t('organization.detail.back')}
           </Button>
         }
         data-testid="org-unit-detail-error"
-      />
+      >
+        {() => null}
+      </QueryBoundary>
     );
   }
   const detail = unit.data;

@@ -1133,7 +1133,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 | 欄位設定 | `TableSettings` | 齒輪按鈕點開的下拉清單：拖曳（dnd-kit，含鍵盤）排序、勾選顯示；依 `tableId` 存在 `web-core/store/tableColumnSettings`，偏好頁的「表格欄位」分頁改的是同一份 |
 
 不經過 `RichTable` 的資料畫面（直接用 `Table`、卡片、設定表單、詳情對話框、頁面的一個區塊）同樣不能把查詢失敗畫成空狀態：
-沒有資料而且查詢失敗時，以 `QueryError`（`web-core/components`，本地化訊息＋重試）取代內容；詳情對話框查無資料（`isNotFound`）時不提供重試、改給「回到列表」。
+沒有資料而且查詢失敗時，以 `QueryError`（`web-core/components`，本地化訊息＋重試）取代內容；詳情對話框查無資料（`isNotFound`）時不提供重試、改給「回到列表」——以路由開啟的詳情（對話框、面板）一律用 `QueryBoundary`（`web-core/components`：`query`、`skeleton`、`backAction`），規則只寫在一處。
 **頁面裡的一個區塊** 用 `QuerySection`（`web-core/components`）：`<QuerySection query={…}>{(data) => …}</QuerySection>`，
 載入中顯示骨架、沒有資料又失敗時顯示一行錯誤與重試、有舊資料又失敗時保留內容並提示；「無」只能由 `children` 在拿到資料後判斷。
 「沒有權限看這個區塊」由呼叫端決定不渲染或說明需要的權限，不要用 `data === undefined` 表達。

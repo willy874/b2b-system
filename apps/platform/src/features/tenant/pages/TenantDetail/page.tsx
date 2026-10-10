@@ -1,7 +1,6 @@
 import { ButtonLink } from '@b2b-system/ui/Button';
 import { Tabs } from '@b2b-system/ui/Tabs';
-import { PageSkeleton, QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { PageSkeleton, QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 
@@ -33,14 +32,13 @@ export default function TenantDetailPage() {
   const query = useQuery(getTenantQueryOptions(id));
   const tenant = query.data;
 
-  if (query.isPending) return <PageSkeleton />;
   if (!tenant) {
+    // 載入中、查詢失敗、租戶已刪除（重試也不會出現，只提供返回）
     return (
-      <QueryError
-        error={query.error}
-        // 已刪除的租戶重試也不會出現
-        onRetry={isNotFound(query.error) ? undefined : () => void query.refetch()}
-        action={
+      <QueryBoundary
+        query={query}
+        skeleton={<PageSkeleton />}
+        backAction={
           <ButtonLink
             to={TenantListRoute.to}
             search={DEFAULT_TENANT_SEARCH}
@@ -50,7 +48,9 @@ export default function TenantDetailPage() {
           </ButtonLink>
         }
         data-testid="tenant-not-found"
-      />
+      >
+        {() => null}
+      </QueryBoundary>
     );
   }
 

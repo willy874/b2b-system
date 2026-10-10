@@ -1,7 +1,6 @@
 import { RichTextViewer } from '@b2b-system/ui/RichTextViewer';
 import { Skeleton } from '@b2b-system/ui/Skeleton';
-import { QueryError } from '@b2b-system/web-core/components';
-import { isNotFound } from '@b2b-system/web-core/errors';
+import { QueryBoundary } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
@@ -32,30 +31,28 @@ export default function AnnouncementMessagePage() {
       className="mx-auto flex w-full max-w-3xl flex-col gap-4"
       data-testid="announcement-message-page"
     >
-      {message.isPending && <Skeleton height={200} />}
-      {message.isError && (
-        <QueryError
-          error={message.error}
-          onRetry={isNotFound(message.error) ? undefined : () => void message.refetch()}
-          data-testid="announcement-message-error"
-        />
-      )}
-      {message.data && (
-        <>
-          <header className="flex flex-col gap-1">
-            <h1 className="m-0 text-xl font-semibold" data-testid="announcement-message-title">
-              {message.data.title}
-            </h1>
-            <p className="m-0 text-sm text-[var(--color-fg-muted)]">
-              {t('announcement.message.meta', {
-                sender: message.data.sender?.displayName ?? t('announcement.message.unknownSender'),
-                at: formatDateTime(message.data.sentAt),
-              })}
-            </p>
-          </header>
-          <RichTextViewer value={message.data.body} data-testid="announcement-message-body" />
-        </>
-      )}
+      <QueryBoundary
+        query={message}
+        skeleton={<Skeleton height={200} />}
+        data-testid="announcement-message-error"
+      >
+        {(current) => (
+          <>
+            <header className="flex flex-col gap-1">
+              <h1 className="m-0 text-xl font-semibold" data-testid="announcement-message-title">
+                {current.title}
+              </h1>
+              <p className="m-0 text-sm text-[var(--color-fg-muted)]">
+                {t('announcement.message.meta', {
+                  sender: current.sender?.displayName ?? t('announcement.message.unknownSender'),
+                  at: formatDateTime(current.sentAt),
+                })}
+              </p>
+            </header>
+            <RichTextViewer value={current.body} data-testid="announcement-message-body" />
+          </>
+        )}
+      </QueryBoundary>
     </article>
   );
 }
