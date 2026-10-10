@@ -75,3 +75,42 @@ export function findFullWidthPunctuation(sources: Record<string, string>): strin
       ),
   );
 }
+
+/** 程式碼裡的字串字面量（`'…'`、`"…"`、不含 `${` 的 `` `…` ``）；語系鍵只由字母、數字、`.`、`_`、`-` 組成。 */
+const KEY_LITERAL = /(['"`])([\w.-]+)\1/g;
+
+export interface UnusedLocaleKeyOptions {
+  /** 要檢查的語系包（同一份程式碼引用的所有包，例：app 與各 feature 的 `zh_TW.json`）。 */
+  bundles: readonly unknown[];
+  /** 「檔案 → 原始碼」：正式程式碼（不含測試與 story），註解不算引用。 */
+  sources: Record<string, string>;
+  /**
+   * 以樣板字串或後端資料動態組出來的鍵的前綴（例：`permission.`，由權限目錄的 `nameI18nKey` 組成）。
+   * 每一項都要在呼叫端註明組 key 的位置（docs/architecture/frontend/08-i18n.md §4.1）。
+   */
+  dynamicPrefixes?: readonly string[];
+}
+
+/**
+ * 定義了但程式碼裡沒有任何字面量引用的語系鍵（docs/architecture/frontend/08-i18n.md §4.1）。
+ * 複數形（`_one`／`_other`）收成同一個鍵；鍵要寫完整的字面量（docs/coding-standards/06-literal-strings.md），
+ * 所以「沒有字面量」就是沒有人用。
+ */
+export function findUnusedLocaleKeys({
+  bundles,
+  sources,
+  dynamicPrefixes = [],
+}: UnusedLocaleKeyOptions): string[] {
+  const referenced = new Set<string>();
+  for (const source of Object.values(sources)) {
+    for (const [, , literal] of stripComments(source).matchAll(KEY_LITERAL)) {
+      if (literal) referenced.add(literal);
+    }
+  }
+  const keys = new Set(bundles.flatMap((bundle) => [...localeKeySet(bundle)]));
+  return [...keys]
+    .filter(
+      (key) => !referenced.has(key) && !dynamicPrefixes.some((prefix) => key.startsWith(prefix)),
+    )
+    .toSorted();
+}

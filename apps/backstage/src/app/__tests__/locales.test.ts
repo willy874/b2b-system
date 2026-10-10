@@ -1,5 +1,13 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import coreEnUS from '@b2b-system/web-core/locales/resources/en_US.json';
-import { hasLocaleKey, localeKeySet, pluralProblems } from '@b2b-system/web-core/testing';
+import {
+  findUnusedLocaleKeys,
+  hasLocaleKey,
+  localeKeySet,
+  pluralProblems,
+} from '@b2b-system/web-core/testing';
 import { describe, expect, it } from 'vitest';
 
 import enUS from '../locales/en_US.json';
@@ -142,5 +150,43 @@ describe('路由的頁面標題', () => {
       ({ key }) => !englishBundles.some((bundle) => hasLocaleKey(bundle, key)),
     );
     expect(missing).toEqual([]);
+  });
+});
+
+/** 正式程式碼：不含測試、story 與開發用的 mock。 */
+function readSources(dir: string): Record<string, string> {
+  return Object.fromEntries(
+    readdirSync(dir).flatMap((entry) => {
+      const full = resolve(dir, entry);
+      if (statSync(full).isDirectory()) {
+        return ['__tests__', 'mocks', 'test', 'generated'].includes(entry)
+          ? []
+          : Object.entries(readSources(full));
+      }
+      return /\.tsx?$/.test(entry) && !/\.(test|stories)\.tsx?$/.test(entry)
+        ? [[full, readFileSync(full, 'utf8')]]
+        : [];
+    }),
+  );
+}
+
+describe('沒有被引用的語系鍵（docs/architecture/frontend/08-i18n.md §4.1）', () => {
+  it('app 與 feature 的每個鍵都在程式碼裡以字面量出現（動態組成的前綴除外）', () => {
+    const root = resolve(__dirname, '../../../../..');
+    const sources = {
+      ...readSources(resolve(__dirname, '../..')),
+      // web-core 與 ui 的元件也會收到 app 的鍵（例：`labelI18nKey`）
+      ...readSources(resolve(root, 'packages/web-core/src')),
+      ...readSources(resolve(root, 'packages/ui/src')),
+    };
+    const unused = findUnusedLocaleKeys({
+      bundles: [zhTW, ...featureLocales.map((locale) => locale.zh)],
+      sources,
+      dynamicPrefixes: [
+        // 權限的名稱由後端權限目錄的 `nameI18nKey` 組成（`permission.<resource>.<action>`、`permission.resource.<resource>`）
+        'permission.',
+      ],
+    });
+    expect(unused).toEqual([]);
   });
 });

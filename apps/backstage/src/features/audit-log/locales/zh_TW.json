@@ -6,8 +6,6 @@
       "actionPlaceholder": "動作（支援前綴比對，如 role.*）",
       "allResources": "全部資源",
       "allResults": "全部結果",
-      "from": "起始日期",
-      "to": "結束日期",
       "range": "時間範圍"
     },
     "resource": {

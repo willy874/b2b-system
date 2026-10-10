@@ -62,7 +62,6 @@
   "app": {
     "title": "B2B System",
     "mark": "B2B",
-    "subtitle": "RBAC console",
     "featureDisabled": "The feature of this page has been disabled",
     "featureInstallFailed": "Failed to load a feature. Please reload the page",
     "systemSettings": {
@@ -336,8 +335,7 @@
       "useLatest": "Use the latest tags",
       "success": "Tags updated"
     },
-    "filter": "Tags",
-    "filterPlaceholder": "Filter by tag"
+    "filter": "Tags"
   },
   "image": {
     "recent": {

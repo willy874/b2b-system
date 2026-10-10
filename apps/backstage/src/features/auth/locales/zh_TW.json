@@ -11,9 +11,6 @@
       "retryLogout": "重試登出",
       "endIdpSession": "前往登入服務登出"
     },
-    "logout": {
-      "success": "已登出。"
-    },
     "callback": {
       "title": "登入",
       "working": "正在完成登入…",

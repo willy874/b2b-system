@@ -6,8 +6,6 @@
       "actionPlaceholder": "Action (prefix match supported, e.g. role.*)",
       "allResources": "All resources",
       "allResults": "All results",
-      "from": "From",
-      "to": "To",
       "range": "Date range"
     },
     "resource": {

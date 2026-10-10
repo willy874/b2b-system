@@ -10,7 +10,6 @@
     },
     "field": {
       "name": "Name",
-      "url": "URL",
       "urlHint": "Events are POSTed to each URL (up to 10). URLs must be https and must not point to an internal network.",
       "events": "Events",
       "eventsPlaceholder": "Choose events",

@@ -62,7 +62,6 @@
   "app": {
     "title": "B2B System",
     "mark": "B2B",
-    "subtitle": "RBAC 管理後台",
     "featureDisabled": "目前的頁面所屬的功能已被停用",
     "featureInstallFailed": "功能載入失敗，請重新整理頁面",
     "systemSettings": {
@@ -329,8 +328,7 @@
       "useLatest": "改用最新的標籤",
       "success": "已更新標籤"
     },
-    "filter": "標籤",
-    "filterPlaceholder": "依標籤篩選"
+    "filter": "標籤"
   },
   "image": {
     "recent": {

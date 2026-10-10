@@ -10,7 +10,6 @@
     },
     "field": {
       "name": "名稱",
-      "url": "網址",
       "urlHint": "事件發生時以 POST 送到每個網址（最多 10 個）。必須是 https，不能指向內部網路。",
       "events": "訂閱的事件",
       "eventsPlaceholder": "選擇事件",

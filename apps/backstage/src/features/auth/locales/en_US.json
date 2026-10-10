@@ -11,9 +11,6 @@
       "retryLogout": "Retry sign-out",
       "endIdpSession": "Sign out at the sign-in service"
     },
-    "logout": {
-      "success": "Signed out."
-    },
     "callback": {
       "title": "Sign in",
       "working": "Finishing sign-in…",
