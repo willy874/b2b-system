@@ -58,6 +58,8 @@
     },
     "resourceType": {
       "user": "user",
+      "galleryItem": "image",
+      "approval": "approval request",
       "unknown": "item"
     },
     "dataTransferResource": {

@@ -54,6 +54,8 @@
     },
     "resourceType": {
       "user": "使用者",
+      "galleryItem": "圖片",
+      "approval": "審批",
       "unknown": "項目"
     },
     "dataTransferResource": {

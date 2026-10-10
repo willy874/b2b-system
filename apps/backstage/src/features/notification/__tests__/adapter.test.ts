@@ -82,6 +82,36 @@ describe('describeNotification（依 type 組句子，docs/architecture/backend/
       ['notification.detail.excerpt{"excerpt":"請確認權限"}'],
     ],
     [
+      'comment.mentioned：圖片與審批也有自己的名詞，不是「項目」',
+      {
+        ...base,
+        type: 'comment.mentioned',
+        params: { resourceType: 'galleryItem', resourceName: '海報', excerpt: '' },
+      },
+      'notification.message.commentMentioned{"resourceType":"notification.resourceType.galleryItem","name":"海報"}',
+      [],
+    ],
+    [
+      'watch.resourceUpdated：審批',
+      {
+        ...base,
+        type: 'watch.resourceUpdated',
+        params: { resourceType: 'approval', resourceName: '帳號註冊' },
+      },
+      'notification.message.watchResourceUpdated{"resourceType":"notification.resourceType.approval","name":"帳號註冊"}',
+      [],
+    ],
+    [
+      'comment.created：原型鏈上的名稱（toString）不當成已知的類型',
+      {
+        ...base,
+        type: 'comment.created',
+        params: { resourceType: 'toString', resourceName: 'X', excerpt: '' },
+      },
+      'notification.message.commentCreated{"resourceType":"notification.resourceType.unknown","name":"X"}',
+      [],
+    ],
+    [
       'comment.created：不認得的資源類型用通用的名詞',
       {
         ...base,

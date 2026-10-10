@@ -87,7 +87,12 @@ function subjectDetail(params: Params): TranslatableMessage[] {
 
 function resourceTypeLabel(params: Params): MessageArg {
   const type = stringParam(params, 'resourceType');
-  return { key: (type && RESOURCE_TYPE_LABEL_KEY[type]) || RESOURCE_TYPE_FALLBACK_KEY };
+  // 舊通知、後端比前端新時不認得：退回「項目」
+  const key =
+    type && Object.hasOwn(RESOURCE_TYPE_LABEL_KEY, type)
+      ? RESOURCE_TYPE_LABEL_KEY[type as keyof typeof RESOURCE_TYPE_LABEL_KEY]
+      : RESOURCE_TYPE_FALLBACK_KEY;
+  return { key };
 }
 
 /** 留言與關注：資源的名詞與名稱；留言的通知另帶摘要（使用者輸入的資料，原樣顯示）。 */

@@ -1,5 +1,6 @@
 import type { IconName } from '@b2b-system/ui/Icon';
 
+import type { CommentableResourceType } from '@/apis/comment/types';
 import type {
   ApprovalType,
   NotificationChannel,
@@ -58,10 +59,15 @@ export const APPROVAL_TYPE_LABEL_KEY = {
 /** 參數裡的審批類型不認得時（舊通知、後端比前端新）。 */
 export const APPROVAL_TYPE_FALLBACK_KEY = 'notification.approvalType.unknown';
 
-/** 留言與關注的通知裡，資源類型的名詞（`params.resourceType`，docs/architecture/backend/24-comment.md §4）。 */
-export const RESOURCE_TYPE_LABEL_KEY: Readonly<Partial<Record<string, string>>> = {
+/**
+ * 留言與關注的通知裡，資源類型的名詞（`params.resourceType`，docs/architecture/backend/24-comment.md §4）。
+ * 以可留言的類型為鍵：新增一種可留言的資源時沒補這裡就編譯失敗，不會顯示成「項目」。
+ */
+export const RESOURCE_TYPE_LABEL_KEY = {
   user: 'notification.resourceType.user',
-};
+  galleryItem: 'notification.resourceType.galleryItem',
+  approval: 'notification.resourceType.approval',
+} as const satisfies Record<CommentableResourceType, string>;
 
 /** 不認得的資源類型（後端比前端新）。 */
 export const RESOURCE_TYPE_FALLBACK_KEY = 'notification.resourceType.unknown';
