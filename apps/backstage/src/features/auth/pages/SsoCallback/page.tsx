@@ -25,6 +25,9 @@ export default function SsoCallbackPage() {
   const usable = Boolean(code && pending && !error);
   // 物件而不是字串：訊息可能是空字串（語系尚未載入），不能拿它判斷有沒有失敗
   const [exchangeFailure, setExchangeFailure] = useState<{ message: string }>();
+  // 「重新登入」要先查租戶代碼：api 不通時按了要有反應（載入中、失敗訊息），不能靜靜地沒動作
+  const [retrying, setRetrying] = useState(false);
+  const [retryFailure, setRetryFailure] = useState<{ message: string }>();
   const sent = useRef(false);
 
   useEffect(() => {
@@ -46,12 +49,23 @@ export default function SsoCallbackPage() {
       .catch((caught: unknown) => setExchangeFailure({ message: toMessage(caught) }));
   }, [code, error, exchange, pending, router, state, toMessage]);
 
-  const failure = usable
-    ? exchangeFailure
-    : {
-        message:
-          error === 'access_denied' ? t('auth.callback.cancelled') : t('auth.callback.failed'),
-      };
+  const failure =
+    retryFailure ??
+    (usable
+      ? exchangeFailure
+      : {
+          message:
+            error === 'access_denied' ? t('auth.callback.cancelled') : t('auth.callback.failed'),
+        });
+
+  const retry = () => {
+    setRetrying(true);
+    setRetryFailure(undefined);
+    // 成功時整頁跳到 IdP；失敗時說明原因，按鈕可以再按
+    startSsoLogin(pending?.returnTo)
+      .catch((caught: unknown) => setRetryFailure({ message: toMessage(caught) }))
+      .finally(() => setRetrying(false));
+  };
 
   return (
     <AuthShell
@@ -63,7 +77,8 @@ export default function SsoCallbackPage() {
           variant="primary"
           block
           // 重新登入後回到原本要去的頁面（這次 callback 的 returnTo），不是首頁
-          onClick={() => void startSsoLogin(pending?.returnTo)}
+          loading={retrying}
+          onClick={retry}
           data-testid="sso-callback-retry"
         >
           {t('auth.login.submit')}

@@ -12,6 +12,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchCurrentTenantQuery } from '@/apis/tenant/get-current-tenant/fetcher';
+import { initTestI18n } from '@/test/i18n';
 
 import { Routes } from '../../..';
 import { SSO_CLIENT } from '../../../sso';
@@ -132,5 +133,22 @@ describe('SSO callback', () => {
     expect(readPendingLogin(retried.searchParams.get('state') ?? '')?.returnTo).toBe(
       '/users?page=2',
     );
+  });
+
+  it('重新登入時查不到租戶（api 不通）→ 顯示原因，按鈕可以再按', async () => {
+    await initTestI18n();
+    renderAt('/auth/callback?code=the-code-123&state=unknown');
+    const retry = await screen.findByTestId('sso-callback-retry');
+    // 頁面載入時也會查租戶：等畫面出來之後才讓下一次查詢失敗
+    vi.mocked(fetchCurrentTenantQuery).mockRejectedValueOnce(
+      new AppError('TENANT_UNAVAILABLE', 503),
+    );
+    fireEvent.click(retry);
+    expect(await screen.findByText('這個租戶目前無法使用，請聯絡平台管理員。')).toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sso-callback-retry')).toBeEnabled();
+
+    fireEvent.click(screen.getByTestId('sso-callback-retry'));
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
   });
 });
