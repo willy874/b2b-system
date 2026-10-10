@@ -9,13 +9,13 @@
 
 1. [登入](#1-登入)：登入互動頁、多重驗證
 2. [人員與權限](#2-人員與權限)：使用者、角色、群組、組織、權限目錄、服務帳號
-3. [資料與協作](#3-資料與協作)：檔案、審批、標籤、匯入／匯出、留言與關注
+3. [資料與協作](#3-資料與協作)：檔案、審批、標籤、匯入／匯出、留言與關注、圖片庫與頭像
 4. [稽核與維運](#4-稽核與維運)：稽核日誌、回收桶、版本紀錄、背景工作、系統設定、外部 IdP
 5. [通知與對外](#5-通知與對外)：站內通知、公告、Webhook
-6. [平台後台（apps/platform）](#6-平台後台appsplatform)：租戶與用量、平台管理者、MFA 驗證方式、feature flag
+6. [平台後台（apps/platform）](#6-平台後台appsplatform)：租戶與用量、平台管理者、MFA 驗證方式、feature flag、CDN
 7. [個人帳號與介面](#7-個人帳號與介面)
 
-先看一眼全貌：租戶的後台（`apps/backstage`）分三組選單——「功能管理」放業務功能（目前是檔案），「人員管理」放身分、組織與權限，「系統管理」放維運與設定。
+先看一眼全貌：租戶的後台（`apps/backstage`）分三組選單——「功能管理」放業務功能（目前是檔案與圖片庫），「人員管理」放身分、組織與權限，「系統管理」放維運與設定。
 選單只列出目前使用者有權限、而且租戶有啟用的項目。
 
 ![首頁](../images/tour/home.jpg)
@@ -56,7 +56,10 @@
 
 *啟用後，密碼通過時停在第二步：輸入驗證碼，或改用備用碼。第二步的狀態存在登入互動裡，握著回呼網址也跳不過它。*
 
-- 每種驗證方式是一個登記進註冊表的模組；登入互動、資料表、限流與稽核只認介面，之後加 Passkey 不必改登入流程。
+- 除了驗證器 App 與 Email 驗證碼，還有安全金鑰／通行金鑰（WebAuthn）、簡訊、Telegram 與 LINE；「新增驗證方式」只列出平台與租戶都允許的方式，後三種要平台先填好外部服務的參數才能開啟。
+- 每種驗證方式是一個登記進註冊表的模組；登入互動、資料表、限流與稽核只認介面，加一種方式不必改登入流程。
+- 通行金鑰綁在登入入口（apps/platform）的網域，所以一律在那裡註冊；註冊好之後也可以直接以通行金鑰登入、不輸入密碼（只允許 SSO 的網域除外）。
+- 簡訊只送到平台允許的國碼；Telegram 與 LINE 先把綁定碼傳給 Bot，再回到設定流程輸入收到的驗證碼。
 - 租戶的政策在「系統設定 → 安全性」（[§4.4](#44-系統設定安全性與外部-idp)）：允許哪些方式、全員或指定角色必須啟用。必須啟用卻還沒設定的人，登入時先設定才能進入。
 - 平台可以全面關閉某一種方式（[§6.2](#62-平台管理者mfa-驗證方式feature-flag-與平台稽核)）。只剩被關掉的方式的人不能改綁新裝置（否則只知道密碼的人就能綁上自己的裝置），以備用碼或管理員重設作為出路。
 - 經外部 IdP 登入的人不另外要求本系統的 MFA：外部 IdP 已經驗過本人。
@@ -273,6 +276,29 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 
 規格：[`architecture/backend/24-comment.md`](../../architecture/backend/24-comment.md)、[`architecture/frontend/22-comment.md`](../../architecture/frontend/22-comment.md)。
 
+### 3.6 圖片庫與頭像
+
+![圖片庫](../images/tour/gallery.jpg)
+
+*「功能管理 → 圖片庫」：租戶共用、以看圖為主的素材庫。依日期分段的等高排列（也可以切成方格或列表），右邊的日期捲軸以月為單位跳轉；上方是相簿，一張圖可以在多個相簿。上傳可以拖曳整個資料夾或直接貼上，也可以在檔案管理器勾選圖片「加入圖片庫」——加入時複製一份，兩邊從此互不影響。*
+
+![檢視器](../images/tour/gallery-viewer.jpg)
+
+*檢視器：縮放平移、在整個結果之間切換、幻燈片；右邊是標題、說明、EXIF（相機、鏡頭、曝光）、相簿、標籤與留言。旋轉會產生新的變體，不改原檔。*
+
+- 打開相簿是同樣的排列與篩選，只是範圍縮到這個相簿；勾選後可以批次加入相簿、貼標籤、下載或刪除。
+
+- 權限：預設人人能看（`gallery:read`），少數人維護；可由平台對租戶關閉。
+- 原檔的位置資訊依系統設定移除（預設開），拍攝地點不會跟著原檔被下載出去。
+
+| ![選擇頭像](../images/tour/avatar-picker.jpg) | ![裁切](../images/tour/avatar-crop.jpg) |
+| --- | --- |
+| *個人資料的「更換」頭像：上傳（含拖曳與貼上）永遠在；圖片庫、檔案管理依 feature 與權限出現。* | *選好之後裁切成圓形；伺服器複製那張圖並依比例裁切，原檔之後被改名或刪除都不影響頭像。* |
+
+頭像出現在頂列、使用者列表與詳情、留言。圖片的網址會過期、讀圖不經過 api；部署可以開啟圖片的 CDN，在平台後台的「CDN」頁面調整（[§6.2](#62-平台管理者mfa-驗證方式feature-flag-與平台稽核)）。
+
+規格：[`architecture/backend/26-gallery.md`](../../architecture/backend/26-gallery.md)、[`architecture/frontend/24-gallery.md`](../../architecture/frontend/24-gallery.md)、[`architecture/backend/25-image.md`](../../architecture/backend/25-image.md)、[`architecture/frontend/23-image-picker.md`](../../architecture/frontend/23-image-picker.md)。
+
 ---
 
 ## 4. 稽核與維運
@@ -313,11 +339,11 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 
 ### 4.4 系統設定、安全性與外部 IdP
 
-系統設定分三個分頁：「一般」是執行期可調的設定、「安全性」是 MFA 政策、「事件通知」見 [§5.1](#51-站內通知)。
+系統設定分四個分頁：「一般」是執行期可調的設定、「安全性」是 MFA 政策、「事件通知」見 [§5.1](#51-站內通知)、「審批流程」見 [§3.2](#32-審批)。
 
 ![系統設定](../images/tour/setting.jpg)
 
-*每個租戶在執行期可調的設定：預設時區、登入鎖定、密碼長度、是否開放註冊、啟用信與重設密碼信的效期、API token 的最長效期、上傳上限、回收桶與版本的保留、通知與公告的上限……。每個值都有允許的範圍，不能設出削弱安全性的值（例如密碼最短長度不能低於 12）；修改即時生效並記入稽核。*
+*每個租戶在執行期可調的設定：預設時區、登入鎖定、密碼長度、是否開放註冊、啟用信與重設密碼信的效期、API token 的最長效期、上傳上限、回收桶與版本的保留、通知與公告的上限、圖片庫是否移除原檔的位置資訊……。每個值都有允許的範圍，不能設出削弱安全性的值（例如密碼最短長度不能低於 12）；修改即時生效並記入稽核。*
 
 ![MFA 政策](../images/tour/security-mfa.jpg)
 
@@ -326,7 +352,11 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 
 | ![外部 IdP 連線](../images/tour/identity-provider.jpg) | ![新增連線](../images/tour/identity-provider-form.jpg) |
 | --- | --- |
-| *租戶自己的外部 IdP（OIDC）連線，例如公司的 Azure AD、Google Workspace。* | *登記 issuer、client、scopes 與 email 網域；找不到對應帳號時拒絕登入，或自動建立帳號。* |
+| *租戶自己的外部 IdP 連線，例如公司的 Entra ID、Google Workspace、Okta。* | *OIDC 連線可以從範本（Google、Entra、Okta、Keycloak）開始，登記 issuer、client、scopes 與 email 網域；找不到對應帳號時拒絕登入，或自動建立帳號。* |
+
+![新增 SAML 連線](../images/tour/identity-provider-saml.jpg)
+
+*協定改成 SAML 2.0：貼上 IdP 的 metadata 就帶入 entity ID、SSO 網址與簽章憑證（IdP 輪替憑證時可以同時登記新舊兩張）；列表上方是要填到 IdP 的 ACS 網址。只支援由本系統發起的登入，IdP 主動送來的回應一律拒絕。使用者詳情可以檢視並解除他連結的外部身分。*
 
 以 email 自動連結既有帳號時，要求 `email_verified`、網域登記在這條連線上、而且帳號沒有 member 以外的系統角色——否則能改 IdP 設定的人可以自架 IdP 簽出 super-admin 的 email。
 規格：[`architecture/backend/12-settings.md`](../../architecture/backend/12-settings.md)、[`architecture/backend/21-mfa.md`](../../architecture/backend/21-mfa.md)、[`architecture/04-sso.md`](../../architecture/04-sso.md)。
@@ -423,7 +453,7 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 
 | ![平台管理者](../images/tour/platform-admin.jpg) | ![MFA 驗證方式](../images/tour/platform-mfa-method.jpg) |
 | --- | --- |
-| *平台管理者分 super-admin、operator、auditor 三種角色。平台管理者必須啟用 MFA（production 強制），可用的方式由環境變數決定，不提供執行期放寬的開關。* | *MFA 驗證方式的全平台開關，規則與試行開關相同：全平台關閉時蓋過租戶層；開啟或「依預設」時，租戶層的設定生效。* |
+| *平台管理者分 super-admin、operator、auditor 三種角色。平台管理者必須啟用 MFA（production 強制），可用的方式由環境變數決定，不提供執行期放寬的開關。* | *MFA 驗證方式的全平台開關，規則與試行開關相同：全平台關閉時蓋過租戶層；開啟或「依預設」時，租戶層的設定生效。簡訊、Telegram、LINE 另有加密保存的參數（金鑰、允許的國碼），填齊並驗證通過才能開啟。* |
 
 | ![試行開關](../images/tour/platform-feature-flag.jpg) | ![平台稽核](../images/tour/platform-audit-log.jpg) |
 | --- | --- |
@@ -433,7 +463,9 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 
 *全平台的背景工作：佇列在平台 DB，排程工作展開成每個租戶一筆，一個租戶塞車不影響其他租戶；租戶用量的彙總是平台自己的工作。*
 
-規格：[`architecture/05-tenancy.md`](../../architecture/05-tenancy.md) §10–11、[`architecture/backend/21-mfa.md`](../../architecture/backend/21-mfa.md)。
+部署開啟圖片的 CDN（`FILE_CDN_ENABLED`）時，「系統管理 → CDN」可以不重啟就開關 CDN、選擇哪些圖片走 CDN、調整網址效期，並看到每個邊緣節點的檢查結果與手動清理快取。開啟前必須通過節點檢查；定期以竄改的簽章測試邊緣，沒被拒絕就告警。導覽的環境沒有部署 CDN，所以沒有截圖。
+
+規格：[`architecture/05-tenancy.md`](../../architecture/05-tenancy.md) §10–11、[`architecture/backend/21-mfa.md`](../../architecture/backend/21-mfa.md)、[`architecture/backend/09-file.md`](../../architecture/backend/09-file.md) §16。
 
 ---
 
@@ -441,7 +473,7 @@ token 的格式是 `b2bt_<租戶>_<id>_<secret>`，固定的開頭可以登記�
 
 | ![個人資料](../images/tour/profile.jpg) | ![偏好設定](../images/tour/preference.jpg) |
 | --- | --- |
-| *個人資料：顯示名稱、變更密碼、多重驗證（[§1.1](#11-多重驗證)）、自己的有效權限與來源、個人 API token。* | *語系與時區同步到帳號；主題與頂列工具只存在這台裝置；可以關閉管理者允許關閉的通知。* |
+| *個人資料：頭像（[§3.6](#36-圖片庫與頭像)）、顯示名稱、變更密碼、多重驗證（[§1.1](#11-多重驗證)）、自己的有效權限與來源、個人 API token。* | *語系與時區同步到帳號；主題與頂列工具只存在這台裝置；可以關閉管理者允許關閉的通知。* |
 
 ### 深色主題
 

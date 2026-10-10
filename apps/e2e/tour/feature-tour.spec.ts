@@ -20,6 +20,8 @@ test.describe.configure({ mode: 'serial' });
 
 const failures: string[] = [];
 let demo: DemoData;
+/** 示範圖片：檔案管理器與圖片庫共用同一批。 */
+let demoImages: Array<{ name: string; content: Buffer }>;
 
 /** 多重驗證的場景結束後重設那個帳號，下一次導覽與 E2E 從沒有驗證方式開始。 */
 async function attemptResetMfa(): Promise<void> {
@@ -92,7 +94,8 @@ test.afterAll(() => {
 });
 
 test('準備示範資料', async ({ browser }) => {
-  demo = await createDemoData(await renderDemoImages(browser));
+  demoImages = await renderDemoImages(browser);
+  demo = await createDemoData(demoImages);
 });
 
 test('登入與首頁', async ({ page, browser }) => {
@@ -392,6 +395,34 @@ test('資料與內容', async ({ page }) => {
     await open(page, '/tag?scope=user', 'tag-list-page');
     await shoot(page, 'tag-list');
   });
+  await scene('gallery', async () => {
+    await open(page, '/gallery', 'gallery-page');
+    // 示範圖片沒有拍攝時間，以加入時間排在最前面的「今天」；其餘是 db:seed:dev 的圖片
+    await page.getByTestId('gallery-upload-input').setInputFiles(
+      demoImages.map((image) => ({
+        name: image.name,
+        mimeType: 'image/jpeg',
+        buffer: image.content,
+      })),
+    );
+    // 六張都處理完才出現在今天的區段：等「處理中」出現再消失，重新整理讓上傳的提示消失
+    const processing = page.getByText(/處理中 \d+ 張/);
+    // 處理得快時可能來不及看到「處理中」，不當作失敗
+    await processing.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => undefined);
+    await expect(processing).toHaveCount(0, { timeout: 120_000 });
+    await page.reload();
+    await expect(page.getByTestId('gallery-item').nth(demoImages.length)).toBeVisible();
+    await page.waitForTimeout(3000);
+    await shoot(page, 'gallery');
+  });
+  await scene('gallery-viewer', async () => {
+    // 打開 db:seed:dev 的照片（有 EXIF），不是剛上傳的示範圖
+    await page.getByTestId('gallery-item').nth(demoImages.length).click();
+    await expect(page.getByTestId('gallery-viewer-image')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await shoot(page, 'gallery-viewer');
+    await page.getByTestId('gallery-viewer-close').click();
+  });
 });
 
 test('稽核、回收桶、背景工作、設定', async ({ page }) => {
@@ -452,8 +483,14 @@ test('稽核、回收桶、背景工作、設定', async ({ page }) => {
     await open(page, '/identity-provider', 'identity-provider-page');
     await shoot(page, 'identity-provider');
     await page.getByTestId('identity-provider-create-button').click();
-    await expect(page.getByTestId('identity-provider-form-dialog')).toBeVisible();
+    const dialog = page.getByTestId('identity-provider-form-dialog');
+    await expect(dialog).toBeVisible();
     await shoot(page, 'identity-provider-form');
+    await dialog.getByTestId('identity-provider-protocol-select').click();
+    await page.getByRole('option', { name: 'SAML 2.0' }).click();
+    await dialog.getByTestId('identity-provider-name-input').fill('Contoso 員工登入');
+    await shoot(page, 'identity-provider-saml');
+    await dialog.getByTestId('identity-provider-form-cancel').click();
   });
 });
 
@@ -543,6 +580,18 @@ test('個人帳號與深色主題', async ({ page }) => {
   await scene('profile', async () => {
     await open(page, '/profile', 'profile-page');
     await shoot(page, 'profile');
+  });
+  await scene('avatar-picker', async () => {
+    await page.getByTestId('image-field-change').click();
+    await getByTestIdAndValue(page, 'tab', 'gallery').click();
+    await expect(page.getByTestId('gallery-image-source-item').first()).toBeVisible();
+    await page.waitForTimeout(1500);
+    await shoot(page, 'avatar-picker');
+    await page.getByTestId('gallery-image-source-item').first().click();
+    await expect(page.getByTestId('image-picker-cropper')).toBeVisible();
+    await page.waitForTimeout(1000);
+    await shoot(page, 'avatar-crop');
+    await page.keyboard.press('Escape');
   });
   await scene('preference', async () => {
     await open(page, '/preference', 'preference-page');

@@ -19,8 +19,9 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 5. [稽核、樂觀鎖、版本、回收桶](#5-稽核樂觀鎖版本回收桶)
 6. [背景工作、寄信、通知](#6-背景工作寄信通知)
 7. [檔案](#7-檔案直傳分塊同源防護)
-8. [前端架構](#8-前端架構plugin依賴圖單一連線)
-9. [工程紀律](#9-工程紀律漏掉就跑不起來)
+8. [圖片](#8-圖片存參照不存網址讀圖不打-api)
+9. [前端架構](#9-前端架構plugin依賴圖單一連線)
+10. [工程紀律](#10-工程紀律漏掉就跑不起來)
 
 ---
 
@@ -44,7 +45,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ## 2. 登入與 token：攻擊者和網路都不可靠
 
-登入不在產品本身。`apps/api` 用經過 OpenID 認證的 `oidc-provider` 當 OIDC Provider，`apps/platform` 是全平台共用的登入入口，每個後台都是它的 client（授權碼＋PKCE＋BFF）。全部是 host-only cookie，不用 iframe、不用 `postMessage` 傳 token，產品和登入入口不必同站。規格見 [`architecture/04-sso.md`](../../architecture/04-sso.md)、[`architecture/backend/04-auth.md`](../../architecture/backend/04-auth.md)。
+登入不在產品本身。`apps/api` 用經過 OpenID 認證的 `oidc-provider` 當 OIDC Provider，`apps/platform` 是全平台共用的登入入口，每個後台都是它的 client（授權碼＋PKCE＋BFF）。全部是 host-only cookie，不用 iframe、不用 `postMessage` 傳 token，產品和登入入口不必同站。租戶可以接自己的 OIDC（Google、Entra、Okta、Keycloak 有範本）或 SAML 2.0 IdP，已註冊的通行金鑰可以取代密碼。規格見 [`architecture/04-sso.md`](../../architecture/04-sso.md)、[`architecture/backend/04-auth.md`](../../architecture/backend/04-auth.md)。
 
 ![apps/platform 的登入畫面](../images/tour/login.jpg)
 
@@ -60,13 +61,20 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 猜錯 5 次踢人下線 | 鎖定只寫 `locked_until`，不改狀態也不踢掉既有 session，否則任何人都能把線上的 super-admin 踢下線 |
 | Cookie 永遠送不出去 | 文件原寫 `Path=/auth`，但瀏覽器看到的路徑帶 `/api` 前綴；實作改成 `/api/auth`，記在 `CLAUDE.md` 的「與文件不同的實作決定」 |
 | 外部 IdP 帳號接管 | 以 email 自動連結既有帳號時，要求 `email_verified`、網域登記在這條連線上、帳號沒有 member 以外的系統角色。否則有 `identityProvider:update` 的人可以自架 IdP，簽出 super-admin 的 email |
+| 一般 Gmail 帳號也帶 `email_verified` | `google` 範本另外要求 `hd` 等於 email 的網域，userinfo 不能蓋掉 ID token 的 `hd`；Entra 以 `xms_edov` 判斷網域已驗證，issuer 用 `common` 端點直接拒絕（[`04-sso.md`](../../architecture/04-sso.md) §3.3.1） |
+| SAML 的 signature wrapping、IdP 主動發起的回應 | 用 node-saml，不自己處理 XML 簽章；assertion 本身必須簽章、Issuer 自己再比對一次。IdP 發起的回應一律拒絕（沒有我們發的 state 就是登入 CSRF），`InResponseTo` 只認那一次 request（§3.3.2） |
+| 用別人的通行金鑰 id 把人鎖住 | 通行金鑰登入同時比對 user handle、要求使用者驗證；失敗不累計鎖定。只允許 SSO 的網域不接受通行金鑰登入，企業 IdP 停用離職員工才會立即生效（§3.6） |
+| 外部身分連錯人 | 管理員可以解除；目標是 super-admin 時套反提權，因為解除後他可能被只允許 SSO 的網域鎖在門外（§3.3.4） |
 | 密碼對了就算登入 | MFA 是登入互動裡的第二步：密碼通過時只記下「待驗證」，不寫登入結果，握著回呼網址也跳不過第二步（[`backend/21-mfa.md`](../../architecture/backend/21-mfa.md) D6） |
 | 平台關掉某種驗證方式 | fail-closed：只剩那種方式的人不能改綁新裝置（否則只知道密碼的人就能綁上自己的手機），出路是備用碼與管理員重設；備用碼屬於框架、不能被關掉 |
+| 在租戶網域註冊的通行金鑰，到登入頁用不了 | 憑證綁 RP ID，登入在 apps/platform，所以 WebAuthn 只在 apps/platform 註冊；租戶的使用者經登入互動進去，順便當 step-up。簽章計數倒退視為複製的金鑰而拒絕（[`backend/21-mfa.md`](../../architecture/backend/21-mfa.md) §9.3） |
+| 簡訊灌量詐騙（SMS pumping） | 只送到平台允許的國碼（預設 `886`），加上冷卻與速率限制；平台參數填齊並實際驗證過（Twilio 讀帳號、自訂閘道送 `ping`）才能開啟（§9.4） |
+| Telegram／LINE 的 Bot 不知道是哪個租戶 | 使用者先把綁定碼傳給 Bot，webhook 以綁定碼的 HMAC 在平台 DB 找到那一列；收到驗證碼的人必須回到同一個設定流程輸入，別人拿到綁定連結也完成不了設定。webhook 的簽章不符回 401（§9.5） |
 | 放寬 MFA 跟改上傳上限是同一個權限 | 政策另有 `mfaPolicy:update`，預設只有 super-admin；系統設定可以交給 admin，而不交出安全政策。平台管理者的政策在環境變數，production 強制啟用 |
 
 ![登入的第二步](../images/tour/login-mfa.jpg)
 
-*多重驗證的第二步。每種驗證方式（驗證器 App、Email 驗證碼）是登記進註冊表的模組，登入流程、資料表、限流與稽核只認介面；之後加 Passkey 不必改登入流程。*
+*多重驗證的第二步。每種驗證方式（驗證器 App、Email 驗證碼、安全金鑰／通行金鑰、簡訊、Telegram、LINE）是登記進註冊表的模組，登入流程、資料表、限流與稽核只認介面；需要外部服務的方式由平台填好參數才能開啟。*
 
 ![稽核日誌，第一列展開顯示變更前後差異](../images/tour/audit-log-expanded.jpg)
 
@@ -85,13 +93,14 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 亂造 Host 打爆記憶體 | 網域解析的三個快取都是上限 5000 筆的 LRU；不在快照裡的 Host 直接當找不到，不查平台 DB |
 | 平台管理暴露在每個網域 | 平台端點在 apps/platform 以外的網域一律回 `404 PLATFORM_ONLY`，WAF 和 IP 白名單只要套在一個網域上 |
 | 滾動部署時 migration 落後 | api 不自己跑 migration；進入租戶時比對 journal，落後的租戶回 `503 TENANT_UNAVAILABLE`，其他租戶不受影響 |
+| 關掉的功能還露出痕跡 | 權限鍵、審批類型、系統設定都屬於某個 feature：關掉之後角色編輯器、API token 範圍、審批列表與待審數都不列，對應的詳情回 404。關掉檔案管理後，待審的資料夾存取申請不能再被核准而寫入授權；角色的權限是增減語意，看不到的鍵不會因為儲存被移除（[`05-tenancy.md`](../../architecture/05-tenancy.md) §15） |
 | 佈建到一半程序重啟 | 生命週期 provisioning → active／failed → disabled → deleted，每一步冪等；每 5 分鐘把卡住的租戶收成 failed。`pnpm db:drop-tenant` 不加 `--confirm` 只列出要做的事 |
 
 > **整合測試抓到的漏洞**：實作 [`architecture/05-tenancy.md`](../../architecture/05-tenancy.md) §10 時，整合測試發現 A 租戶簽發的 token 拿到 B 租戶的網域，以 userId 為 key 的權限快取會用 A 的使用者與權限判斷 B 的請求。修正是把租戶前綴提前到解析的第 2 步，並在 access token 加上 `tid`。這段記在同一份文件 §10.6「實作時改掉的做法」表裡。
 
 ![平台後台的租戶功能頁](../images/tour/platform-tenant-features.jpg)
 
-*平台後台的租戶詳情（apps/platform）。可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶、Webhook、公告、對外 API、群組、匯入匯出、組織、多階段審批）都在這裡管；同一頁還有用量、試行開關與 MFA 驗證方式的分頁。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature；資料不刪，重新打開即恢復。功能下方另可調整配額與上限（檔案容量、稽核熱／冷資料天數、背景工作同時執行數、外部 IdP 連線數、Webhook 網址數）。*
+*平台後台的租戶詳情（apps/platform）。可啟用的功能（檔案、稽核、背景工作、回收桶、系統設定、外部 IdP、切換租戶、Webhook、公告、對外 API、群組、匯入匯出、組織、多階段審批、圖片庫）都在這裡管；同一頁還有用量、試行開關與 MFA 驗證方式的分頁。關掉某個功能，租戶的 API 對它回 `404 FEATURE_DISABLED`，前端在執行期卸載該 feature，而且畫面上一律看不到它（不灰掉、不註明「未啟用」）；資料不刪，重新打開即恢復。功能下方另可調整配額與上限（檔案容量、稽核熱／冷資料天數、背景工作同時執行數、外部 IdP 連線數、Webhook 網址數）。*
 
 ---
 
@@ -121,11 +130,13 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 | 會簽時兩個人同時按同意 | 同一筆請求的決定以 `SELECT … FOR UPDATE` 排隊，「是不是最後一關」與最後一關的權限檢查都在鎖之內：只推進一次、只執行一次 |
 | 審核者離職、部門被刪，關卡卡住 | 不自動處理（任何自動處理都等於在租戶不知情下放寬控制），通知 `approval:override` 的持有者：重新展開審核者，或逐關強制定案（意見必填、四眼） |
 | 設定流程等於決定誰能代為執行 | `approvalFlow:update` 受反提權限制：設定流程的人要持有該類型申請所需的權限 |
+| 審核者不知道有事要做、看不出卡在誰 | 側欄徽章與首頁「待辦」由 `approval` 推播失效、不輪詢；詳情是整頁，進行中的關卡逐人列出同意、駁回、尚未動作。被駁回的申請可以留言詢問，或「修改後重新送出」（後端驗證同類型、同申請人）（[`backend/20-approval.md`](../../architecture/backend/20-approval.md) §11） |
+| 改流程影響進行中的申請 | 請求在送出時快照關卡，儲存前說明「進行中的 N 筆照送出時的版本」；流程可以重設回單關，整份舊設定留在稽核（§9.16） |
 | 快取跨程序失效 | 寫 tuple 時 trigger 讓 `authz_revision` 加一，提交後透過 `NOTIFY` 廣播；收到的程序只處理更新的 revision。快取載入期間被失效，舊結果不寫回 |
 
 ![多階段審批的詳情](../images/tour/approval-detail.jpg)
 
-*多階段審批。第 1 關只在 email 網域符合時經過（條件在送出時判斷、規則在送出時快照），已同意；停在第 2 關，候選審核者在關卡啟動時展開並落地。*
+*多階段審批的整頁詳情。上方一句話說明停在哪一關、核准後會發生什麼；右邊逐人列出誰同意了、誰還沒動作。第 1 關只在 email 網域符合時經過（條件在送出時判斷、規則在送出時快照），候選審核者在關卡啟動時展開並落地。*
 
 ![權限目錄的樹狀圖](../images/tour/permission-tree.jpg)
 
@@ -206,7 +217,39 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ---
 
-## 8. 前端架構：plugin、依賴圖、單一連線
+## 8. 圖片：存參照不存網址，讀圖不打 api
+
+圖片會出現在大多數頁面上，所以先定原則再大量使用：持久化的內容只存 id，網址在輸出當下簽發；回應直接帶簽好的物件網址，讀圖不經過 api、不查 DB；物件只寫一次，尺寸是處理時就產生的具名 preset。頭像這類圖片是獨立的圖片資產，圖片庫是與檔案管理平行的素材庫，兩者都可以由部署開啟自架的 CDN 邊緣。規格見 [`architecture/backend/25-image.md`](../../architecture/backend/25-image.md)、[`26-gallery.md`](../../architecture/backend/26-gallery.md)、[`09-file.md`](../../architecture/backend/09-file.md) §16、[`frontend/23-image-picker.md`](../../architecture/frontend/23-image-picker.md)。
+
+| 情況 | 怎麼處理 |
+| --- | --- |
+| 富文本、email 存了簽章網址，一小時後破圖 | 只存 `image_asset_id`，網址在輸出當下產生；富文本的 schema 不允許圖片節點帶網址（[`25-image.md`](../../architecture/backend/25-image.md) §1、§7） |
+| 頁面開很久，50 個頭像同時過期 | 效期依用途（頭像 12 小時、圖片庫 1 小時）；`SignedImage` 只在載入失敗時重抓，同一頁的多張圖合併成一次失效（§4、§5） |
+| 開放 `?w=` 任意寬度被拿來塞爆轉檔 | 沒有任意寬度：具名尺寸附 2x，處理時就產生好（§6） |
+| 重新裁切後 CDN 與瀏覽器還顯示舊圖 | 變體的 key 帶版本 `r<rev>`，重新裁切或旋轉寫到新版本，舊版本在網址效期過後才刪（§16.2） |
+| 頭像直接引用檔案管理器的檔案 | 一律複製成新的資產，之後原檔改名、刪除或授權改變都與它無關；裁切只送 0～1 的比例，由伺服器依主檔套用（§15.2、[`frontend/23`](../../architecture/frontend/23-image-picker.md) §5） |
+| 每個租戶的容量加總大於實際空間 | 平台的止水線 `STORAGE_TOTAL_LIMIT_MB` 在上傳登記時檢查，超過回 409、只擋新的寫入；量測超過 1 小時沒更新時放行並告警，保險不能變成全平台停擺（[`25-image.md`](../../architecture/backend/25-image.md) §12） |
+| 素材庫的原檔被下載，拍攝地點外洩 | `gallery.stripOriginalLocation`（預設開）在原檔的 EXIF 把 GPS 填 0，不重新編碼像素；找不到 EXIF 位置時寧可重新輸出一份沒有中繼資料的原檔（[`26-gallery.md`](../../architecture/backend/26-gallery.md) §5.1） |
+| 從檔案管理加入圖片庫後原檔被刪 | 加入時就複製，兩邊從此無關；同一張重複加入會略過並告訴你已經在哪裡（§8） |
+| CDN 把整個 presigned 網址當 key，每個時間窗都重新回源 | 邊緣以 njs 驗自己的 HMAC 簽章，快取 key 只有物件路徑；回源拿掉查詢參數、帶 `X-Origin-Auth`，有人改寫 `response-content-type` 也污染不了共用快取（[`09-file.md`](../../architecture/backend/09-file.md) §16.3） |
+| 刪掉的圖在網址效期內仍讀得到 | 物件刪除成功之後才清每一個邊緣節點；順序相反的話，清完又會被回源存回去（§16.6） |
+| 邊緣沒準備好就開啟、或其實沒在驗簽章 | 平台的 CDN 頁面不必重啟就能開關；開啟前必須通過節點檢查，不提供強制開啟。定期以竄改的簽章測試邊緣，沒被拒絕就發 critical 告警（§16.9、§16.10） |
+
+![圖片庫](../images/tour/gallery.jpg)
+
+*圖片庫。依日期的等高排列與右側的日期捲軸，上方是相簿；從檔案管理加入的圖片是複製的，兩邊互不認識。*
+
+![圖片庫的檢視器](../images/tour/gallery-viewer.jpg)
+
+*檢視器。縮放平移、整個結果之間切換、幻燈片；右邊是 EXIF、相簿、標籤與留言。旋轉寫成新的變體版本，不改原檔。*
+
+![選擇頭像](../images/tour/avatar-picker.jpg)
+
+*選擇頭像。來源由各 feature 登記（上傳永遠在、圖片庫與檔案管理依 feature 與權限出現）；選好之後裁切，伺服器複製並依比例套用。*
+
+---
+
+## 9. 前端架構：plugin、依賴圖、單一連線
 
 規格見 [`architecture/frontend/`](../../architecture/frontend/README.md)。
 
@@ -230,7 +273,7 @@ B2B System 是通用型的多租戶 B2B 後台骨架。它不綁任何業務領�
 
 ---
 
-## 9. 工程紀律：漏掉就跑不起來
+## 10. 工程紀律：漏掉就跑不起來
 
 - **路由稽核**：程序在 `listen()` 前掃描所有 HTTP 路由與 WebSocket handler（`apps/api/src/common/route-audit.ts`）。沒宣告 `@Public`／`@Authenticated`／`@RequirePermissions`、平台端點誤標租戶功能、flag key 不在目錄裡，都讓程序啟動失敗。測試另外釘住每個路由用到的權限鍵，`role:updte` 這種錯字不會讓端點靜靜地永遠回 403。
 - **結構測試**：後端層級依賴由 `apps/api/src/__tests__/layer-dependencies.spec.ts` 掃 import；前端 `design-system.test.ts` 擋寫死的色碼、外洩的 Base UI 型別，並要求每個元件都有測試與 story；只有一個檔案能 import socket.io-client。

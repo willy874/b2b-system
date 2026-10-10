@@ -64,7 +64,7 @@
 | 群組 | 巢狀成員、群組持有角色、資料夾授權給群組 | [§2.3](./03-feature-tour.md#23-群組) | [`iam/07-groups.md`](../../architecture/iam/07-groups.md) |
 | 權限目錄與說明 | 唯讀權限清單與依賴樹；有效權限的來源路徑 | [§2.5](./03-feature-tour.md#25-權限目錄與有效權限) | [`iam/02-permission-catalog.md`](../../architecture/iam/02-permission-catalog.md)、[`iam/08-explain.md`](../../architecture/iam/08-explain.md) |
 | 服務帳號與 API token | 個人與服務帳號的 token（scopes、到期、撤銷）、對外 API | [§2.6](./03-feature-tour.md#26-服務帳號與-api-token) | [`06-external-api.md`](../../architecture/06-external-api.md) |
-| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則；多階段流程（依序多關、會簽、條件分流、申請人的主管、強制定案）、我的審批與撤回 | [§3.2](./03-feature-tour.md#32-審批) | [`backend/20-approval.md`](../../architecture/backend/20-approval.md) |
+| 審批 | 申請 → 核准 → 套用；核准等同代為執行、四眼原則；多階段流程（依序多關、會簽、條件分流、申請人的主管、強制定案）；流程設定在系統設定，有範本、自動試算與重設；整頁的詳情逐人列出誰還沒動作、可以留言；側欄徽章與首頁的待辦；我的審批、撤回與修改後重新送出 | [§3.2](./03-feature-tour.md#32-審批) | [`backend/20-approval.md`](../../architecture/backend/20-approval.md) |
 | 組織 | 部門樹與組織圖、成員與主要部門、主管；使用者依部門篩選；部門不帶權限 | [§2.4](./03-feature-tour.md#24-組織) | [`backend/23-organization.md`](../../architecture/backend/23-organization.md) |
 
 ### 3.2 資料與內容
@@ -72,8 +72,8 @@
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
 | 檔案 | S3 直傳、分塊上傳、影像變體、檔案管理器、資料夾層級的授權與繼承 | [§3.1](./03-feature-tour.md#31-檔案管理器) | [`backend/09-file.md`](../../architecture/backend/09-file.md)、[`iam/06-resource-grants.md`](../../architecture/iam/06-resource-grants.md) |
-| 圖片與頭像 | 使用者頭像：上傳（含拖曳與貼上）、從最近使用、圖片庫或檔案管理挑選、裁切；顯示在頂列、使用者列表與詳情、留言；圖片的網址會過期、讀圖不經過 api；部署可以開啟圖片的 CDN（自架的 nginx 邊緣，同一張圖只回源一次） | — | [`backend/25-image.md`](../../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../../architecture/frontend/23-image-picker.md)、[`backend/09-file.md`](../../architecture/backend/09-file.md) §16 |
-| 圖片庫 | 以看圖為主的素材庫：上傳（拖曳資料夾、貼上）或從檔案管理加入（複製，兩者互不認識）；依日期的等高排列、方格或列表，日期捲軸；縮放平移的檢視器（整個結果之間切換、幻燈片、EXIF 資訊、留言）；相簿（一張圖可在多個相簿）、標籤、篩選、批次操作；原檔的位置資訊依設定移除；可由平台關閉 | — | [`backend/26-gallery.md`](../../architecture/backend/26-gallery.md)、[`frontend/24-gallery.md`](../../architecture/frontend/24-gallery.md) |
+| 圖片與頭像 | 使用者頭像：上傳（含拖曳與貼上）、從最近使用、圖片庫或檔案管理挑選、裁切；顯示在頂列、使用者列表與詳情、留言；圖片的網址會過期、讀圖不經過 api；部署可以開啟圖片的 CDN（自架的 nginx 邊緣，同一張圖只回源一次） | [§3.6](./03-feature-tour.md#36-圖片庫與頭像) | [`backend/25-image.md`](../../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../../architecture/frontend/23-image-picker.md)、[`backend/09-file.md`](../../architecture/backend/09-file.md) §16 |
+| 圖片庫 | 以看圖為主的素材庫：上傳（拖曳資料夾、貼上）或從檔案管理加入（複製，兩者互不認識）；依日期的等高排列、方格或列表，日期捲軸；縮放平移的檢視器（整個結果之間切換、幻燈片、EXIF 資訊、留言）；相簿（一張圖可在多個相簿）、標籤、篩選、批次操作；原檔的位置資訊依設定移除；可由平台關閉 | [§3.6](./03-feature-tour.md#36-圖片庫與頭像) | [`backend/26-gallery.md`](../../architecture/backend/26-gallery.md)、[`frontend/24-gallery.md`](../../architecture/frontend/24-gallery.md) |
 | 標籤 | 依資源類型分開的標籤組、列表依標籤篩選 | [§3.3](./03-feature-tour.md#33-標籤) | [`backend/18-tag.md`](../../architecture/backend/18-tag.md) |
 | 留言與關注 | 資源上的留言與 @提及、關注（有新留言或被修改時通知）；第一批接上使用者 | [§3.5](./03-feature-tour.md#35-留言與關注) | [`backend/24-comment.md`](../../architecture/backend/24-comment.md)、[`frontend/22-comment.md`](../../architecture/frontend/22-comment.md) |
 | 稽核日誌 | 所有寫入與授權決策；前後差異；熱冷分層 | [§4.1](./03-feature-tour.md#41-稽核日誌) | [`backend/06-audit-log.md`](../../architecture/backend/06-audit-log.md) |
@@ -94,10 +94,10 @@
 
 | 能力 | 內容 | 導覽 | 規格 |
 | --- | --- | --- | --- |
-| 系統設定 | 每個租戶執行期可調的設定，分「一般」「安全性」「事件通知」三個分頁：預設時區、登入鎖定、密碼長度、開放註冊、信件連結與 API token 的效期、上傳上限、回收桶／版本／通知／匯出檔的保留；MFA 政策（允許的方式、誰必須啟用）；每個值都有允許範圍 | [§4.4](./03-feature-tour.md#44-系統設定安全性與外部-idp) | [`backend/12-settings.md`](../../architecture/backend/12-settings.md) |
+| 系統設定 | 每個租戶執行期可調的設定，分「一般」「安全性」「事件通知」「審批流程」四個分頁：預設時區、登入鎖定、密碼長度、開放註冊、信件連結與 API token 的效期、上傳上限、回收桶／版本／通知／匯出檔的保留、圖片庫是否移除原檔的位置資訊；MFA 政策（允許的方式、誰必須啟用）；每個值都有允許範圍 | [§4.4](./03-feature-tour.md#44-系統設定安全性與外部-idp) | [`backend/12-settings.md`](../../architecture/backend/12-settings.md) |
 | 租戶管理 | 建立、佈建、停用、刪除；網域；功能開關與配額；每個租戶的用量（使用者、儲存、請求、背景工作）與配額警示；所有租戶合計的儲存止水線 | [§6.1](./03-feature-tour.md#61-租戶) | [`05-tenancy.md`](../../architecture/05-tenancy.md)、[`backend/25-image.md`](../../architecture/backend/25-image.md) §12 |
-| 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag、MFA 驗證方式的全平台開關 | [§6.2](./03-feature-tour.md#62-平台管理者mfa-驗證方式feature-flag-與平台稽核) | [`05-tenancy.md`](../../architecture/05-tenancy.md) §11 |
-| 個人帳號 | 個人資料、變更密碼、多重驗證與備用碼、語系、時區、主題、通知設定 | [§7](./03-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../../architecture/frontend/09-state-and-storage.md) |
+| 平台管理 | 平台管理者、平台稽核、全平台的背景工作、feature flag、MFA 驗證方式的全平台開關與參數（簡訊、Telegram、LINE 的金鑰）、圖片的 CDN（執行期開關、節點檢查、手動清理） | [§6.2](./03-feature-tour.md#62-平台管理者mfa-驗證方式feature-flag-與平台稽核) | [`05-tenancy.md`](../../architecture/05-tenancy.md) §11 |
+| 個人帳號 | 個人資料與頭像、變更密碼、多重驗證與備用碼、語系、時區、主題、通知設定 | [§7](./03-feature-tour.md#7-個人帳號與介面) | [`frontend/09-state-and-storage.md`](../../architecture/frontend/09-state-and-storage.md) |
 | 命令面板 | ⌘K／Ctrl+K：跳到頁面、最近造訪、搜尋使用者、角色、群組、部門、檔案等資料、建立的捷徑；依權限過濾，兩個前端都有 | [開頭](./03-feature-tour.md) | [`frontend/18-command-palette.md`](../../architecture/frontend/18-command-palette.md) |
 | 監控 | api 的指標（Prometheus）與 tracing（OpenTelemetry → Tempo）、就緒檢查；Grafana 的儀表板與告警（api、容量與資料庫、背景工作、前端的錯誤與 Web Vitals） | — | [`08-monitoring.md`](../../architecture/08-monitoring.md) |
 | 前端可觀測性 | 兩個前端的錯誤回報（送到模擬 Sentry API 的 apps/apm-service，以 sourcemap 還原堆疊）、錯誤頁的「複製錯誤資訊」、Web Vitals、CI 的 bundle 預算 | — | [`frontend/19-observability.md`](../../architecture/frontend/19-observability.md)、[`07-apm-service.md`](../../architecture/07-apm-service.md) |
@@ -120,9 +120,9 @@
 | 角色 | slug | 用途 | 權限 |
 | --- | --- | --- | --- |
 | 超級管理員 | `super-admin` | 每個租戶的最高權限，由初始化或佈建建立 | 隱含全集（一條 `superAdmin` 邊，不列權限鍵）；不可調整 |
-| 系統管理員 | `admin` | 日常管理者 | 人員、角色、群組、組織、檔案、審批與審批流程、背景工作、外部 IdP、服務帳號、Webhook、標籤、公告的管理，各資源的匯出，刪除別人的留言；系統設定與 MFA 政策只能檢視 |
+| 系統管理員 | `admin` | 日常管理者 | 人員、角色、群組、組織、檔案、圖片庫、審批與審批流程、背景工作、外部 IdP、服務帳號、Webhook、標籤、公告的管理，各資源的匯出，刪除別人的留言；系統設定與 MFA 政策只能檢視 |
 | 稽核人員 | `auditor` | 稽核與客服：只能看，不能改 | 上述資源的 `read`、稽核日誌、`authz:explain` |
-| 一般成員 | `member` | 業務功能的一般使用者 | 只有 `file:access`：進得了檔案管理器，範圍由資料夾授權決定 |
+| 一般成員 | `member` | 業務功能的一般使用者 | `file:access` 與 `gallery:read`：進得了檔案管理器（範圍由資料夾授權決定），看得到圖片庫 |
 
 `admin`、`auditor`、`member` 的權限可以調整，但受反提權限制：任何人都不能授予自己沒有的權限。
 
