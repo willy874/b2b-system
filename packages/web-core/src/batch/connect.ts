@@ -1,4 +1,4 @@
-import { BatchQueueHost } from './BatchQueueHost';
+import type { BatchQueueHost } from './BatchQueueHost';
 import type { BatchPort } from './protocol';
 
 /**
@@ -55,17 +55,27 @@ function connectDedicatedWorker(): BatchQueueConnection | undefined {
   }
 }
 
+/**
+ * 佇列本體（`BatchQueueHost`）以 `import()` 載入：瀏覽器實際跑在 worker 裡，主執行緒的退路只有測試環境用得到，
+ * 不必在首頁的初始載入付這段程式。載入前送出的訊息留在 `port2`，`host.connect` 呼叫 `start()` 後才依序送達。
+ */
 function connectInline(): BatchQueueConnection {
   const { port1, port2 } = new MessageChannel();
-  const host = new BatchQueueHost();
-  host.connect(port2);
+  let host: BatchQueueHost | undefined;
+  let closed = false;
+  void import('./BatchQueueHost').then(({ BatchQueueHost: Host }) => {
+    if (closed) return;
+    host = new Host();
+    host.connect(port2);
+  });
   const port: BatchPort = {
     postMessage: (message) => port1.postMessage(message),
     addEventListener: (type, listener) => port1.addEventListener(type, listener),
     removeEventListener: (type, listener) => port1.removeEventListener(type, listener),
     start: () => port1.start(),
     close: () => {
-      host.dispose();
+      closed = true;
+      host?.dispose();
       port1.close();
     },
   };

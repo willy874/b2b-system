@@ -4,10 +4,10 @@ import { Menu } from '@b2b-system/ui/Menu';
 import type { MenuItemDescriptor } from '@b2b-system/ui/Menu';
 import { useMediaQuery } from '@b2b-system/web-shared/hooks';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { useId, useState } from 'react';
+import { lazy, Suspense, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { CommandPalette, useRecentPageTracker } from '../command-palette';
+import { useCommandPaletteStore, useRecentPageTracker } from '../command-palette';
 import { useGlobalHotkeys } from '../hotkey';
 import { SignedAvatar } from '../image';
 import type { ImageSources } from '../image';
@@ -19,6 +19,26 @@ import { useMenuItems } from './menu';
 import { SideNav } from './SideNav';
 
 import styles from './DashboardShell.module.css';
+
+/** 命令面板的本體（對話框、虛擬列表、搜尋）在第一次開啟時才下載（docs/architecture/frontend/18-command-palette.md §2）。 */
+const CommandPalette = lazy(() =>
+  import('../command-palette/CommandPalette').then((module) => ({
+    default: module.CommandPalette,
+  })),
+);
+
+/** 第一次開啟（⌘K 或頂列的搜尋按鈕）之後才渲染面板；之後一直掛著，關閉動畫與狀態照舊。 */
+function CommandPaletteHost() {
+  const open = useCommandPaletteStore((state) => state.open);
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+  if (!mounted) return null;
+  return (
+    <Suspense fallback={null}>
+      <CommandPalette />
+    </Suspense>
+  );
+}
 
 /** 與 DashboardShell.module.css 的斷點一致：以下側欄改成覆蓋式抽屜。 */
 const NARROW_QUERY = '(max-width: 767px)';
@@ -167,7 +187,7 @@ export function DashboardShell({
         <main className={styles.content}>{children}</main>
         {afterContent}
       </div>
-      <CommandPalette />
+      <CommandPaletteHost />
     </div>
   );
 }
