@@ -21,6 +21,7 @@ import {
   resolveDsn,
   addTelemetryBreadcrumb,
   setTelemetryUser,
+  telemetryReady,
   telemetryRootOptions,
 } from '../telemetry';
 
@@ -298,7 +299,7 @@ describe('beforeSendSpan（v11 的 span streaming）', () => {
 });
 
 describe('initTelemetry({ enabled: false })（APM 整套關閉，docs/architecture/frontend/19-observability.md §8）', () => {
-  it('不初始化 SDK：沒有 client，上報是空操作', () => {
+  it('不下載也不初始化 SDK：沒有 client，上報是空操作', async () => {
     initTelemetry({
       enabled: false,
       app: 'backstage',
@@ -308,8 +309,11 @@ describe('initTelemetry({ enabled: false })（APM 整套關閉，docs/architectu
       publicKey: 'b2bsystemdevbackstage0000',
     });
     expect(getClient()).toBeUndefined();
+    expect(init).not.toHaveBeenCalled();
     expect(captureError(new Error('boom'), 'manual')).toBeUndefined();
     expect(getTelemetryContext().eventId).toBeUndefined();
+    await telemetryReady();
+    expect(init).not.toHaveBeenCalled();
   });
 });
 
@@ -322,8 +326,9 @@ describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observab
     vi.clearAllMocks();
   });
 
-  it('沒有 DSN：給一個不連線的 DSN 與印到 console 的 transport，不取樣 Web Vitals', () => {
+  it('沒有 DSN：給一個不連線的 DSN 與印到 console 的 transport，不取樣 Web Vitals', async () => {
     initTelemetry(base);
+    await telemetryReady();
 
     expect(initOptions()).toMatchObject({
       dsn: 'http://dev@localhost/0',
@@ -338,8 +343,9 @@ describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observab
     expect(getTelemetryContext()).toEqual({ eventId: 'event-1', release: 'r1', route: undefined });
   });
 
-  it('有 DSN：送到同源的 apm-service，Web Vitals 預設取樣 0.1；可以覆寫', () => {
+  it('有 DSN：送到同源的 apm-service，Web Vitals 預設取樣 0.1；可以覆寫', async () => {
     initTelemetry({ ...base, projectId: '1', publicKey: 'abc' });
+    await telemetryReady();
     expect(initOptions()).toMatchObject({
       dsn: `${globalThis.location.protocol}//abc@${globalThis.location.host}/apm/1`,
       tracesSampleRate: 0.1,
@@ -348,34 +354,96 @@ describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observab
 
     resetTelemetryStateForTest();
     initTelemetry({ ...base, dsn: 'https://k@sentry.example.com/9', tracesSampleRate: 0.5 });
+    await telemetryReady();
     expect(initOptions()).toMatchObject({
       dsn: 'https://k@sentry.example.com/9',
       tracesSampleRate: 0.5,
     });
   });
 
-  it('只初始化一次', () => {
+  it('只初始化一次', async () => {
     initTelemetry(base);
+    await telemetryReady();
     initTelemetry({ ...base, release: 'r2' });
+    await telemetryReady();
 
     expect(init).toHaveBeenCalledTimes(1);
     expect(getTelemetryContext().release).toBe('r1');
   });
 
-  it('SDK 的 beforeSend 交給 beforeSendError（遮罩、只留使用者 id）', () => {
+  it('SDK 就緒前的錯誤、使用者、breadcrumb 先暫存，就緒後依序補上（§9.2 D13）', async () => {
+    const removeListener = vi.spyOn(globalThis, 'removeEventListener');
     initTelemetry(base);
+    // 還沒就緒：SDK 的函式都還沒被呼叫
+    const early = new Error('boot');
+    expect(captureError(early, 'query')).toBeUndefined();
+    setTelemetryUser('u-1');
+    addTelemetryBreadcrumb('realtime', 'connected');
+    const uncaught = new Error('uncaught');
+    globalThis.dispatchEvent(new globalThis.ErrorEvent('error', { error: uncaught, message: 'x' }));
+    // 資源載入失敗（不是 ErrorEvent）不算
+    globalThis.dispatchEvent(new Event('error'));
+    expect(init).not.toHaveBeenCalled();
+    expect(getTelemetryContext().eventId).toBeUndefined();
+
+    await telemetryReady();
+
+    expect(setUser).toHaveBeenCalledWith({ id: 'u-1' });
+    expect(addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'realtime', message: 'connected' }),
+    );
+    expect(vi.mocked(captureException).mock.calls).toEqual([
+      [
+        early,
+        {
+          captureContext: { tags: { source: 'query' } },
+          mechanism: { type: 'query', handled: true },
+        },
+      ],
+      [
+        uncaught,
+        {
+          captureContext: { tags: { source: 'window' } },
+          mechanism: { type: 'window', handled: false },
+        },
+      ],
+    ]);
+    expect(vi.mocked(init).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(captureException).mock.invocationCallOrder[0] ?? 0,
+    );
+
+    // 就緒後：早期攔截已移除（交給 SDK 的 globalHandlersIntegration），直接上報
+    expect(removeListener).toHaveBeenCalledWith('error', expect.any(Function));
+    expect(removeListener).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
+    removeListener.mockRestore();
+    expect(captureError(new Error('now'), 'manual')).toBe('event-1');
+  });
+
+  it('就緒前暫存的錯誤有上限（20 個）', async () => {
+    initTelemetry(base);
+    for (let index = 0; index < 25; index += 1) captureError(new Error(`e${index}`), 'manual');
+    await telemetryReady();
+
+    expect(captureException).toHaveBeenCalledTimes(20);
+  });
+
+  it('SDK 的 beforeSend 交給 beforeSendError（遮罩、只留使用者 id）', async () => {
+    initTelemetry(base);
+    await telemetryReady();
 
     const sent = initOptions().beforeSend?.(errorEvent(), {}) as ErrorEvent;
 
     expect(sent.user).toEqual({ id: 'u-1' });
   });
 
-  it('captureError 帶上來源與是否已處理，回傳事件 id', () => {
+  it('captureError 帶上來源與是否已處理，回傳事件 id', async () => {
     const error = new Error('boom');
     expect(captureError(error, 'manual')).toBeUndefined();
     expect(captureException).not.toHaveBeenCalled();
 
     initTelemetry(base);
+
+    await telemetryReady();
 
     expect(captureError(error, 'worker', false)).toBe('event-1');
     expect(captureException).toHaveBeenCalledWith(error, {
@@ -384,22 +452,26 @@ describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observab
     });
   });
 
-  it('setTelemetryUser 只帶 id；登出時清掉；未初始化時不做事', () => {
+  it('setTelemetryUser 只帶 id；登出時清掉；未初始化時不做事', async () => {
     setTelemetryUser('u-1');
     expect(setUser).not.toHaveBeenCalled();
 
     initTelemetry(base);
+
+    await telemetryReady();
     setTelemetryUser('u-1');
     setTelemetryUser(undefined);
 
     expect(vi.mocked(setUser).mock.calls).toEqual([[{ id: 'u-1' }], [null]]);
   });
 
-  it('addTelemetryBreadcrumb 遮罩訊息；未初始化時不做事', () => {
+  it('addTelemetryBreadcrumb 遮罩訊息；未初始化時不做事', async () => {
     addTelemetryBreadcrumb('realtime', 'x');
     expect(addBreadcrumb).not.toHaveBeenCalled();
 
     initTelemetry(base);
+
+    await telemetryReady();
     const message = '連線中斷 alice@example.com';
     addTelemetryBreadcrumb('realtime', message, { reason: 'timeout' });
     addTelemetryBreadcrumb('navigation', 'go');
@@ -410,8 +482,9 @@ describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observab
     ]);
   });
 
-  it('初始化後換頁：設定 route tag、加導覽的 breadcrumb；同一個目的地只算一次', () => {
+  it('初始化後換頁：設定 route tag、加導覽的 breadcrumb；同一個目的地只算一次', async () => {
     initTelemetry(base);
+    await telemetryReady();
     let listener: ((event: unknown) => void) | undefined;
     const router = {
       state: { location: { pathname: '/' } },
@@ -442,8 +515,9 @@ describe('initTelemetry（初始化 SDK，docs/architecture/frontend/19-observab
 });
 
 describe('telemetryRootOptions（交給 createRoot 的錯誤回呼）', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     initTelemetry({ app: 'backstage', release: 'r1', environment: 'test' });
+    await telemetryReady();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 

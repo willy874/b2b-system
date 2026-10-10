@@ -1,24 +1,5 @@
-import {
-  addBreadcrumb,
-  breadcrumbsIntegration,
-  browserApiErrorsIntegration,
-  captureException,
-  createTransport,
-  dedupeIntegration,
-  getActiveSpan,
-  getClient,
-  getRootSpan,
-  globalHandlersIntegration,
-  httpContextIntegration,
-  init,
-  lastEventId,
-  linkedErrorsIntegration,
-  setTag,
-  setUser,
-  spanToJSON,
-  updateSpanName,
-} from '@sentry/browser';
 import type {
+  BaseTransportOptions,
   Breadcrumb,
   BreadcrumbHint,
   ErrorEvent,
@@ -26,12 +7,16 @@ import type {
   Integration,
   StreamedSpanJSON,
   TransactionEvent,
+  Transport,
 } from '@sentry/core';
 import type { AnyRouter } from '@tanstack/react-router';
 
 import { isNetworkError, isRequestAborted } from '../client';
 import { AppError, isChunkLoadError } from '../errors';
 import { scrubText, toPathTemplate } from './scrub';
+import type * as SdkModule from './sdk';
+
+type Sdk = typeof SdkModule;
 
 /** 錯誤從哪裡來；上報時成為 tag `source`。 */
 export type TelemetrySource =
@@ -89,6 +74,59 @@ interface TelemetryState {
 
 /** tracing 載入之後才有（`import('./tracing')`）；取樣不到的分頁一直是 undefined。 */
 let startNavigationSpan: ((name: string) => void) | undefined;
+
+/** SDK 就緒前最多暫存幾個錯誤：啟動過程卡在迴圈時不無限累積。 */
+const MAX_PENDING_ERRORS = 20;
+/** 與 SDK 的 `maxBreadcrumbs` 相同。 */
+const MAX_BREADCRUMBS = 30;
+
+interface PendingError {
+  error: unknown;
+  source: TelemetrySource;
+  handled: boolean;
+}
+
+/**
+ * SDK 以 `import('./sdk')` 載入（docs/architecture/frontend/19-observability.md §9.2 D13）：`initTelemetry` 立刻開始下載，
+ * 就緒前的錯誤、使用者、breadcrumb 先放在這裡，就緒後依序補上。
+ */
+const pending = {
+  sdk: undefined as Sdk | undefined,
+  ready: undefined as Promise<void> | undefined,
+  errors: [] as PendingError[],
+  breadcrumbs: [] as Breadcrumb[],
+  /** `null` 是登出；`undefined` 是就緒前沒有呼叫過。 */
+  user: undefined as { id: string } | null | undefined,
+  /** 就緒前的全域攔截；SDK 的 `globalHandlersIntegration` 接手後移除。 */
+  removeEarlyHandlers: undefined as (() => void) | undefined,
+};
+
+function queueError(error: unknown, source: TelemetrySource, handled: boolean): void {
+  if (pending.errors.length < MAX_PENDING_ERRORS) pending.errors.push({ error, source, handled });
+}
+
+function queueWindowError(event: Event): void {
+  // 圖片等資源載入失敗也會發 error（不是 ErrorEvent），SDK 的全域攔截同樣不處理
+  if (!('message' in event)) return;
+  const { error, message } = event as globalThis.ErrorEvent;
+  queueError(error ?? message, 'window', false);
+}
+
+function queueRejection(event: PromiseRejectionEvent): void {
+  queueError(event.reason, 'promise', false);
+}
+
+/** 就緒前的全域攔截：只做 SDK 的 `globalHandlersIntegration` 會做的事（未處理的例外與 rejection）。 */
+function installEarlyHandlers(): () => void {
+  const target = globalThis as Partial<Pick<Window, 'addEventListener' | 'removeEventListener'>>;
+  if (!target.addEventListener || !target.removeEventListener) return () => {};
+  target.addEventListener('error', queueWindowError);
+  target.addEventListener('unhandledrejection', queueRejection);
+  return () => {
+    target.removeEventListener?.('error', queueWindowError);
+    target.removeEventListener?.('unhandledrejection', queueRejection);
+  };
+}
 
 const state: TelemetryState = {
   enabled: false,
@@ -232,34 +270,58 @@ export function beforeBreadcrumb(breadcrumb: Breadcrumb, hint?: BreadcrumbHint):
 }
 
 /** 沒有 DSN 時（開發）：要送的內容印到 console，不送出（docs/architecture/frontend/19-observability.md §9.2 D11）。 */
-function consoleTransport(options: Parameters<typeof createTransport>[0]) {
-  return createTransport(options, async (request) => {
-    // oxlint-disable-next-line no-console -- 開發時看得到會送出什麼；正式環境有 DSN，不走這裡
-    console.debug('[telemetry] 未設定 DSN，不送出', request.body);
-    return { statusCode: 200 };
-  });
+function consoleTransport(sdk: Sdk) {
+  return (options: BaseTransportOptions): Transport =>
+    sdk.createTransport(options, async (request) => {
+      // oxlint-disable-next-line no-console -- 開發時看得到會送出什麼；正式環境有 DSN，不走這裡
+      console.debug('[telemetry] 未設定 DSN，不送出', request.body);
+      return { statusCode: 200 };
+    });
 }
 
 /**
  * 初始化錯誤回報（docs/architecture/frontend/19-observability.md）。由 `telemetryPlugin` 在最早的時間點呼叫。
+ * SDK 在這裡開始下載（不等登入、不等 idle），與 router 建立、第一次 render 並行；就緒前的錯誤先暫存（§9.2 D13）。
  * 不用 SDK 的預設整合清單：DOM 點擊、console、history 的 breadcrumb 會帶出畫面文字與真實網址。
  */
 export function initTelemetry(options: TelemetryOptions): void {
   if (state.enabled || options.enabled === false) return;
+  state.enabled = true;
+  state.release = options.release;
+  pending.removeEarlyHandlers = installEarlyHandlers();
+  pending.ready = import('./sdk').then(
+    (sdk) => startSdk(sdk, options),
+    () => {
+      // chunk 載入失敗（多半是部署換版）：暫存的錯誤送不出去，與 SDK 本身載入失敗時相同
+      pending.removeEarlyHandlers?.();
+      pending.removeEarlyHandlers = undefined;
+      pending.errors = [];
+      pending.breadcrumbs = [];
+    },
+  );
+}
+
+function startSdk(sdk: Sdk, options: TelemetryOptions): void {
   const dsn = resolveDsn(options);
   const tracesSampleRate = dsn ? (options.tracesSampleRate ?? DEFAULT_TRACES_SAMPLE_RATE) : 0;
   const integrations: Integration[] = [
-    globalHandlersIntegration(),
-    browserApiErrorsIntegration(),
-    linkedErrorsIntegration(),
-    dedupeIntegration(),
-    httpContextIntegration(),
-    breadcrumbsIntegration({ dom: false, history: false, sentry: false, xhr: true, fetch: true }),
+    sdk.globalHandlersIntegration(),
+    sdk.browserApiErrorsIntegration(),
+    sdk.linkedErrorsIntegration(),
+    sdk.dedupeIntegration(),
+    sdk.httpContextIntegration(),
+    sdk.breadcrumbsIntegration({
+      dom: false,
+      history: false,
+      sentry: false,
+      xhr: true,
+      fetch: true,
+    }),
   ];
-  init({
+  sdk.init({
     // 沒有 DSN 時給一個不會被連線的 DSN，讓 SDK 照常處理事件，再由 consoleTransport 印出
     dsn: dsn ?? 'http://dev@localhost/0',
-    ...(dsn ? {} : { transport: consoleTransport }),
+    ...(dsn ? {} : { transport: consoleTransport(sdk) }),
     release: options.release,
     environment: options.environment,
     // 不自動帶使用者資訊、cookie、標頭（User-Agent 除外）、body、query string（docs/architecture/frontend/19-observability.md §9.2 D7）
@@ -275,7 +337,7 @@ export function initTelemetry(options: TelemetryOptions): void {
     tracesSampleRate,
     // 不在我們的 API 請求上加 sentry-trace／baggage 標頭
     tracePropagationTargets: [],
-    maxBreadcrumbs: 30,
+    maxBreadcrumbs: MAX_BREADCRUMBS,
     beforeSend: (event, hint) => beforeSendError(event, hint),
     // v11 預設以 span streaming 送出：Web Vitals 走 beforeSendSpan；beforeSendTransaction 只在 traceLifecycle: 'static' 時有作用
     beforeSendSpan,
@@ -284,31 +346,57 @@ export function initTelemetry(options: TelemetryOptions): void {
     // host：租戶由網域決定（docs/architecture/05-tenancy.md），查詢時以它分辨是哪個租戶遇到的
     initialScope: { tags: { app: options.app, host: globalThis.location?.host ?? '' } },
   });
-  state.enabled = true;
-  state.release = options.release;
+  pending.removeEarlyHandlers?.();
+  pending.removeEarlyHandlers = undefined;
+  pending.sdk = sdk;
+
+  // 就緒前的內容依發生順序補上：先情境（頁面、使用者、breadcrumb），再錯誤
+  if (state.route !== undefined) sdk.setTag('route', state.route);
+  if (pending.user !== undefined) sdk.setUser(pending.user);
+  for (const breadcrumb of pending.breadcrumbs) sdk.addBreadcrumb(breadcrumb);
+  for (const { error, source, handled } of pending.errors) {
+    sdk.captureException(error, {
+      captureContext: { tags: { source } },
+      mechanism: { type: source, handled },
+    });
+  }
+  pending.errors = [];
+  pending.breadcrumbs = [];
+  pending.user = undefined;
 
   if (tracesSampleRate > 0) {
     // 動態載入：tracing 的程式不進入首頁的 chunk（F2 的 bundle 預算）。pageload 的起點取自
     // performance 的 timeOrigin，晚一點加入整合不影響量測
     void import('./tracing').then((tracing) => {
-      getClient()?.addIntegration(
-        tracing.createTracingIntegration(
-          () => state.route ?? toPathTemplate(globalThis.location.href),
-        ),
-      );
+      sdk
+        .getClient()
+        ?.addIntegration(
+          tracing.createTracingIntegration(
+            () => state.route ?? toPathTemplate(globalThis.location.href),
+          ),
+        );
       startNavigationSpan = tracing.startNavigationSpan;
     });
   }
 }
 
-/** 上報一個錯誤；回傳事件 id（未初始化時 `undefined`）。 */
+/** SDK 載入並初始化完成（或載入失敗）時 resolve；沒有初始化時立即 resolve。給測試與需要等事件 id 的地方。 */
+export function telemetryReady(): Promise<void> {
+  return pending.ready ?? Promise.resolve();
+}
+
+/** 上報一個錯誤；回傳事件 id（未初始化、SDK 還沒就緒時 `undefined`，就緒後補送）。 */
 export function captureError(
   error: unknown,
   source: TelemetrySource,
   handled = true,
 ): string | undefined {
   if (!state.enabled) return undefined;
-  return captureException(error, {
+  if (!pending.sdk) {
+    queueError(error, source, handled);
+    return undefined;
+  }
+  return pending.sdk.captureException(error, {
     captureContext: { tags: { source } },
     mechanism: { type: source, handled },
   });
@@ -317,7 +405,9 @@ export function captureError(
 /** profile 載入或登出時呼叫：只帶 id（docs/architecture/frontend/19-observability.md §9.2 D7）。 */
 export function setTelemetryUser(id: string | undefined): void {
   if (!state.enabled) return;
-  setUser(id === undefined ? null : { id });
+  const user = id === undefined ? null : { id };
+  if (pending.sdk) pending.sdk.setUser(user);
+  else pending.user = user;
 }
 
 /** 加一則自訂的 breadcrumb（例：即時推播的斷線）；文字會遮罩。 */
@@ -327,7 +417,17 @@ export function addTelemetryBreadcrumb(
   data?: Record<string, string>,
 ): void {
   if (!state.enabled) return;
-  addBreadcrumb({ category, message: scrubText(message, 200), ...(data ? { data } : {}) });
+  addBreadcrumbOrQueue({ category, message: scrubText(message, 200), ...(data ? { data } : {}) });
+}
+
+function addBreadcrumbOrQueue(breadcrumb: Breadcrumb): void {
+  if (pending.sdk) {
+    pending.sdk.addBreadcrumb(breadcrumb);
+    return;
+  }
+  // SDK 就緒後才套用 beforeBreadcrumb；這裡只放我們自己加的分類（導覽、推播），不必先過濾
+  pending.breadcrumbs.push({ timestamp: Date.now() / 1000, ...breadcrumb });
+  if (pending.breadcrumbs.length > MAX_BREADCRUMBS) pending.breadcrumbs.shift();
 }
 
 function routeTemplateOf(router: AnyRouter, pathname: string): string {
@@ -342,17 +442,19 @@ export function bindTelemetryRouter(router: AnyRouter): () => void {
   const apply = (pathname: string): string => {
     const route = routeTemplateOf(router, pathname);
     state.route = route;
-    if (state.enabled) setTag('route', route);
+    // SDK 還沒就緒時，就緒後以當時的 state.route 補上
+    pending.sdk?.setTag('route', route);
     return route;
   };
 
   const initial = apply(router.state.location.pathname);
   state.pageloadRoute = initial;
-  // 載入時的 pageload span 以 pathname 命名，這裡改成樣板
-  const active = getActiveSpan();
-  const root = active ? getRootSpan(active) : undefined;
-  if (root && spanToJSON(root).attributes['sentry.op'] === 'pageload') {
-    updateSpanName(root, initial);
+  // 載入時的 pageload span 以 pathname 命名，這裡改成樣板（tracing 晚於這裡載入時，span 一開始就以 state.route 命名）
+  const sdk = pending.sdk;
+  const active = sdk?.getActiveSpan();
+  const root = active ? sdk?.getRootSpan(active) : undefined;
+  if (sdk && root && sdk.spanToJSON(root).attributes['sentry.op'] === 'pageload') {
+    sdk.updateSpanName(root, initial);
     root.setAttribute('sentry.source', 'route');
   }
 
@@ -366,7 +468,7 @@ export function bindTelemetryRouter(router: AnyRouter): () => void {
     const from = state.route;
     const to = apply(event.toLocation.pathname);
     if (!state.enabled) return;
-    addBreadcrumb({ category: 'navigation', data: { from: from ?? '', to } });
+    addBreadcrumbOrQueue({ category: 'navigation', data: { from: from ?? '', to } });
     startNavigationSpan?.(to);
   });
 }
@@ -381,7 +483,7 @@ export interface TelemetryContext {
 
 export function getTelemetryContext(): TelemetryContext {
   return {
-    eventId: state.enabled ? lastEventId() : undefined,
+    eventId: pending.sdk?.lastEventId(),
     release: state.release,
     route: state.route,
   };
@@ -422,4 +524,11 @@ export function resetTelemetryStateForTest(): void {
   state.errorsThisPage = 0;
   state.recent.clear();
   startNavigationSpan = undefined;
+  pending.removeEarlyHandlers?.();
+  pending.removeEarlyHandlers = undefined;
+  pending.sdk = undefined;
+  pending.ready = undefined;
+  pending.errors = [];
+  pending.breadcrumbs = [];
+  pending.user = undefined;
 }
