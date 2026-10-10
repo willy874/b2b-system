@@ -1,3 +1,5 @@
+import { Button } from '@b2b-system/ui/Button';
+import { QuerySection } from '@b2b-system/web-core/components';
 import { downloadFromUrl, TransferTable } from '@b2b-system/web-core/data-transfer';
 import type { TransferView } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
@@ -9,6 +11,7 @@ import { useCallback, useMemo } from 'react';
 import { fetchDeleteTransferMutation } from '@/apis/data-transfer/delete-transfer/fetcher';
 import { getTransferListQueryOptions } from '@/apis/data-transfer/get-transfer-list/query';
 import { getTransferResourcesQueryOptions } from '@/apis/data-transfer/get-transfer-resources/query';
+import { getTransferQueryOptions } from '@/apis/data-transfer/get-transfer/query';
 import { invalidateResources, Resource } from '@/apis/resources';
 
 import { dataTransferApi } from '../../hooks/dataTransferApi';
@@ -56,6 +59,18 @@ export default function DataTransferListPage() {
     getTransferListQueryOptions({ params: { offset: search.offset, limit: search.limit } }),
   );
   const resources = useQuery(getTransferResourcesQueryOptions());
+  // 從「匯出完成」等通知點進來（`?transfer=<id>`）：那一筆不一定在第一頁，單獨取出來放在列表上方
+  const highlighted = useQuery({
+    ...getTransferQueryOptions(search.transfer ?? ''),
+    enabled: Boolean(search.transfer),
+  });
+  /** 關掉上方那一筆或翻頁時拿掉 `transfer`（不留瀏覽紀錄）。 */
+  const dismissHighlight = (next: Partial<typeof search> = {}) =>
+    void navigate({
+      to: DataTransferListRoute.to,
+      search: { ...search, ...next, transfer: undefined },
+      replace: true,
+    });
   const labels = useMemo(
     () => new Map((resources.data?.items ?? []).map((item) => [item.type, item.label])),
     [resources.data],
@@ -89,6 +104,40 @@ export default function DataTransferListPage() {
           {t('dataTransfer.list.description')}
         </p>
       </header>
+      {search.transfer && (
+        <section
+          className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--color-brand)] p-3"
+          data-testid="data-transfer-highlight"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="m-0 text-sm font-semibold">{t('dataTransfer.list.highlightTitle')}</h2>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => dismissHighlight()}
+              data-testid="data-transfer-highlight-close"
+            >
+              {t('common.close')}
+            </Button>
+          </div>
+          <QuerySection query={highlighted} data-testid="data-transfer-highlight-error">
+            {(transfer) => (
+              <TransferTable
+                items={[transfer]}
+                loading={false}
+                error={undefined}
+                onRetry={() => void highlighted.refetch()}
+                resourceLabel={resourceLabel}
+                onDownload={onDownload}
+                onCancel={onCancel}
+                onDelete={onDelete}
+                renderResultLink={renderResultLink}
+                data-testid="data-transfer-highlight-table"
+              />
+            )}
+          </QuerySection>
+        </section>
+      )}
       <TransferTable
         items={data?.items ?? []}
         loading={isPending}
@@ -99,7 +148,9 @@ export default function DataTransferListPage() {
           limit: search.limit,
           total: data?.pagination.total ?? 0,
           onChange: (next) =>
-            void navigate({ to: DataTransferListRoute.to, search: { ...search, ...next } }),
+            search.transfer
+              ? dismissHighlight(next)
+              : void navigate({ to: DataTransferListRoute.to, search: { ...search, ...next } }),
         }}
         resourceLabel={resourceLabel}
         onDownload={onDownload}

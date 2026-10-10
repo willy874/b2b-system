@@ -1071,6 +1071,7 @@
       "forbidden": "你沒有權限操作這一列"
     },
     "list": {
+      "highlightTitle": "通知裡的這一筆",
       "title": "我的匯入匯出",
       "description": "匯出檔與匯入結果保留數天，過期後自動清除。",
       "empty": "還沒有匯入或匯出",

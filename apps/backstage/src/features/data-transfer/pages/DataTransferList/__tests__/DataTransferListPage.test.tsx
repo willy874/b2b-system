@@ -9,13 +9,16 @@ import { initTestI18n } from '@/test/i18n';
 
 import { DATA_TRANSFER_FEATURE, registerDataTransferPagePermissions, Routes } from '../../..';
 
-const { fetchList, fetchResources, download, deleteTransfer, cancelTransfer } = vi.hoisted(() => ({
-  cancelTransfer: vi.fn(),
-  fetchList: vi.fn(),
-  fetchResources: vi.fn(),
-  download: vi.fn(),
-  deleteTransfer: vi.fn(),
-}));
+const { fetchList, fetchResources, download, deleteTransfer, cancelTransfer, fetchOne } =
+  vi.hoisted(() => ({
+    fetchOne: vi.fn(),
+    cancelTransfer: vi.fn(),
+    fetchList: vi.fn(),
+    fetchResources: vi.fn(),
+    download: vi.fn(),
+    deleteTransfer: vi.fn(),
+  }));
+vi.mock('@/apis/data-transfer/get-transfer/fetcher', () => ({ fetchTransferQuery: fetchOne }));
 vi.mock('@/apis/data-transfer/get-transfer-list/fetcher', () => ({
   fetchTransferListQuery: fetchList,
 }));
@@ -167,6 +170,23 @@ describe('我的匯入匯出（docs/architecture/backend/22-data-transfer.md §8
         expect.objectContaining({ params: expect.objectContaining({ offset: 0 }) }),
       ),
     );
+  });
+
+  it('從通知點進來（?transfer=）：那一筆列在上方可以下載；關掉後網址拿掉 transfer', async () => {
+    const OLD = { ...EXPORTED, id: '22222222-2222-4222-8222-222222222222', outputName: 'old.csv' };
+    fetchOne.mockResolvedValue(OLD);
+    const { router } = renderRoute(routes, `/data-transfer?transfer=${OLD.id}`, []);
+    const highlight = await screen.findByTestId('data-transfer-highlight', undefined, {
+      timeout: 5000,
+    });
+    expect(await within(highlight).findByText('old.csv')).toBeInTheDocument();
+    expect(fetchOne).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { transferId: OLD.id } }),
+    );
+
+    fireEvent.click(within(highlight).getByTestId('data-transfer-highlight-close'));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('transfer'));
+    expect(screen.queryByTestId('data-transfer-highlight')).toBeNull();
   });
 
   describe('匯入完成的「查看結果」', () => {

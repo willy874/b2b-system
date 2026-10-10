@@ -191,6 +191,8 @@ interface ImportState {
   route id 依資源類型，例 `user.import`）；已結束 → 刪除（確認後立即刪除檔案與結果，不影響業務資料）。
 - 進度靠推播即時更新（`Resource.DATA_TRANSFER` 的 collection 與 entity）；稽核日誌的列表不因進度推播重抓。
 - 入口在頂列的 **帳號選單**（與個人資料、偏好設定同一處），所有登入的人都看得到，沒有額外的權限；命令面板也列出它。
+- 從通知點進來（route id `dataTransfer.detail`，`?transfer=<id>`）：以 `GET /data-transfers/:id` 單獨取那一筆，放在列表上方的「通知裡的這一筆」
+  （同樣的欄位與動作），不推算它在第幾頁；關掉它或翻頁時以 `replace` 拿掉 `transfer`。
 
 ## 6. 下載檔案
 

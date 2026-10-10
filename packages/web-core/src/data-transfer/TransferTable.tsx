@@ -27,7 +27,8 @@ export interface TransferTableProps {
   loading: boolean;
   error: unknown;
   onRetry: () => void;
-  pagination: RichTablePagination;
+  /** 沒有時不分頁、不延展填滿高度（例：列表上方「通知裡的這一筆」）。 */
+  pagination?: RichTablePagination;
   /** 資源類型 → 顯示名稱（`GET /data-transfers/resources`）；沒有時顯示類型代碼。 */
   resourceLabel: (type: string) => string;
   onDownload: (transfer: TransferView) => Promise<unknown>;
@@ -35,6 +36,7 @@ export interface TransferTableProps {
   onDelete: (transfer: TransferView) => Promise<unknown>;
   /** 匯入完成後「查看結果」的連結（到該資源的匯入頁，帶 `transfer`）；app 以 RouteLink 產生。 */
   renderResultLink: (transfer: TransferView) => ReactNode;
+  'data-testid'?: string;
 }
 
 /**
@@ -52,6 +54,7 @@ export function TransferTable({
   onCancel,
   onDelete,
   renderResultLink,
+  'data-testid': testId = 'data-transfer-table',
 }: TransferTableProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
@@ -221,8 +224,9 @@ export function TransferTable({
       enableRowSelection={false}
       enableRowPinning={false}
       pagination={pagination}
+      fillHeight={pagination !== undefined}
       emptyTitle={t('dataTransfer.list.empty')}
-      data-testid="data-transfer-table"
+      data-testid={testId}
     />
   );
 }

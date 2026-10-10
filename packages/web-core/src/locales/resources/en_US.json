@@ -1104,6 +1104,7 @@
       "forbidden": "You don't have permission for this row"
     },
     "list": {
+      "highlightTitle": "From the notification",
       "title": "My imports & exports",
       "description": "Exported files and import results are kept for a few days and then removed.",
       "empty": "No imports or exports yet",
