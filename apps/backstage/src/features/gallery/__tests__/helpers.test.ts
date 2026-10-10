@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { pairItemId, parsePairedItemId } from '@/core/upload';
 import type { GalleryItem } from '@/shared/api-sdk';
 
-import { pairedItemId, parsePairedItemId } from '../batch';
 import { decodeBlurHash } from '../blurhash';
 import { checkGalleryFile } from '../fileAction/register';
 import { checkGalleryUpload } from '../hooks/useGalleryUpload';
@@ -103,11 +103,11 @@ describe('偏好與批次項目 id', () => {
   });
 
   it('pairedItemId：第二個值編進 id，接手的分頁也知道', () => {
-    expect(parsePairedItemId(pairedItemId('src', 'album'))).toEqual({
+    expect(parsePairedItemId(pairItemId('src', 'album'))).toEqual({
       first: 'src',
       second: 'album',
     });
-    expect(parsePairedItemId(pairedItemId('src', undefined))).toEqual({ first: 'src' });
+    expect(parsePairedItemId(pairItemId('src', undefined))).toEqual({ first: 'src' });
   });
 });
 

@@ -1,6 +1,8 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 import type { BatchQueueClient } from '@b2b-system/web-core/batch';
 
+import { pairItemId } from '@/core/upload';
+
 import { UPLOAD_CONCURRENCY } from './constants';
 import { FILE_LOCALE_SCOPE } from './locale';
 import { uploadSources } from './upload/uploadSources';
@@ -15,21 +17,6 @@ export const FileBatchOperation = {
 
 /** 檔案管理器在佇列裡的識別（`BatchJob.scope`）：主區塊以它找出自己送出的工作。 */
 export const FILE_MANAGER_SCOPE = 'file-manager';
-
-/**
- * 上傳項目的 id：`<暫存檔的 key>` 或 `<暫存檔的 key>@<資料夾 id>`。
- * 佇列項目只能帶 id（要能跨 worker、跨分頁傳遞），目的地資料夾就編進 id 裡，接手的分頁也知道要傳到哪裡。
- */
-const FOLDER_SEPARATOR = '@';
-
-export function uploadItemId(sourceKey: string, folderId: string | null | undefined): string {
-  return folderId ? `${sourceKey}${FOLDER_SEPARATOR}${folderId}` : sourceKey;
-}
-
-export function parseUploadItemId(itemId: string): { sourceKey: string; folderId?: string } {
-  const [sourceKey = itemId, folderId] = itemId.split(FOLDER_SEPARATOR);
-  return folderId ? { sourceKey, folderId } : { sourceKey };
-}
 
 /** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
 const runs = () => import('./batchRuns');
@@ -85,7 +72,7 @@ export async function enqueueFileUploads(
       const sourceKey = crypto.randomUUID();
       await uploadSources.put(sourceKey, file);
       return {
-        id: uploadItemId(sourceKey, folderId),
+        id: pairItemId(sourceKey, folderId),
         label: label ?? file.name,
         weight: file.size,
       };

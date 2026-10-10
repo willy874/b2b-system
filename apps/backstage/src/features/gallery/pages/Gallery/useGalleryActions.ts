@@ -1,4 +1,5 @@
 import { useBatchQueue } from '@b2b-system/web-core/batch';
+import { downloadSequentially } from '@b2b-system/web-core/data-transfer';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useToast } from '@b2b-system/web-core/notify';
 import { useCallback } from 'react';
@@ -8,17 +9,6 @@ import type { GalleryItem } from '@/shared/api-sdk';
 
 import { GALLERY_SCOPE, GalleryBatchOperation } from '../../batch';
 import { GALLERY_DOWNLOAD_MAX } from '../../constants';
-
-/** 觸發一次下載（簽好的網址帶 `Content-Disposition: attachment`）。 */
-function triggerDownload(url: string): void {
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = '';
-  link.rel = 'noopener';
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
 
 /**
  * 選取之後的批次動作（docs/architecture/frontend/24-gallery.md §5）：刪除送進全域批次佇列；
@@ -43,15 +33,14 @@ export function useGalleryActions() {
 
   const downloadItems = useCallback(
     async (items: readonly GalleryItem[]) => {
-      const targets = items.slice(0, GALLERY_DOWNLOAD_MAX);
-      if (items.length > GALLERY_DOWNLOAD_MAX) {
-        toast.info(t('gallery.download.limited', { count: GALLERY_DOWNLOAD_MAX }));
-      }
-      for (const item of targets) {
-        // oxlint-disable-next-line no-await-in-loop -- 一張一張觸發：同時觸發幾十個下載會被瀏覽器擋下
-        const detail = await fetchGalleryItemQuery({ params: { itemId: item.id } });
-        triggerDownload(detail.download.original);
-      }
+      await downloadSequentially(items, {
+        max: GALLERY_DOWNLOAD_MAX,
+        resolve: async (item) => {
+          const detail = await fetchGalleryItemQuery({ params: { itemId: item.id } });
+          return { url: detail.download.original, fileName: '' };
+        },
+        onLimited: (max) => toast.info(t('gallery.download.limited', { count: max })),
+      });
     },
     [t, toast],
   );

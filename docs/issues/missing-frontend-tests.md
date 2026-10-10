@@ -70,7 +70,7 @@
    - `FileManager`、`Home`：至少一個渲染的冒煙測試。
 2. **圖片庫**：`gallery/__tests__/batch.test.ts`（比照 `file/__tests__/batch.test.ts` 的上傳、限流、刪除、貼標籤案例）、
    `gallery/hooks/__tests__/useGalleryMutations.test.tsx`（每個 mutation 的失效範圍）、`useGalleryUpload.test.tsx`、`useResolveAlbum.test.tsx`。
-   若先處理 `upload-and-download-duplicated.md`，上傳的共通案例改測 `core/upload` 的 runner，這裡只測圖片庫特有的部分。
+   上傳的共通案例已由 `core/upload` 的 runner 測試涵蓋（`createUploadRunner`），這裡只測圖片庫特有的部分。
 3. **其他 hook**：優先 mutation 類（失效範圍與錯誤處理），權限 hook 可以併進該 feature 的頁面測試以三案覆蓋。
 4. **E2E 的瀏覽器**：`playwright.config.ts` 加 `firefox` 與 `webkit` project，但只跑標了 `@cross-browser` 的少數流程（登入、MFA、檔案上傳、批次佇列），
    在每日排程跑、不擋 PR（`docs/architecture/frontend/10-testing.md` §1 的 E2E 本來就是「PR ＋ 每日」）；WebAuthn 以 Playwright 的虛擬驗證器測 Chromium，Safari 的點擊限制以手動檢查清單補。

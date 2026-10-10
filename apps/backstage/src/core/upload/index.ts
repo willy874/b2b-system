@@ -9,3 +9,5 @@
 export * from './collectEntries';
 export * from './imageSignature';
 export * from './uploadSources';
+export * from './pairedItemId';
+export * from './uploadRunner';

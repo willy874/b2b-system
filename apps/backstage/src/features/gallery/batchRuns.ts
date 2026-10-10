@@ -1,12 +1,12 @@
 import type { BatchRunContext } from '@b2b-system/web-core/batch';
-import { AppError, ErrorCodes, isAppError } from '@b2b-system/web-core/errors';
 
 import { getGalleryItemDeleteMutationOptions } from '@/apis/gallery/delete-gallery-item/mutation';
 import { uploadGalleryItem } from '@/apis/gallery/upload-gallery-item/fetcher';
 import { Resource } from '@/apis/resources';
 import { getResourceTagsUpdateMutationOptions } from '@/apis/tag/update-resource-tags/mutation';
+import { createUploadRunner, parsePairedItemId } from '@/core/upload';
 
-import { galleryUploadSources, parsePairedItemId } from './batch';
+import { galleryUploadSources } from './batch';
 
 /**
  * 圖片庫批次操作的實作：`batch.ts` 在第一次執行時才以 `import()` 載入，上傳與 API 的程式不進首頁的初始載入
@@ -29,31 +29,19 @@ async function measure(file: File): Promise<{ width: number; height: number } | 
   }
 }
 
-export async function uploadRun(
-  itemId: string,
-  { signal, reportProgress, invalidate }: BatchRunContext,
-): Promise<void> {
-  const { first: sourceKey, second: albumId } = parsePairedItemId(itemId);
-  const source = await galleryUploadSources.store.get(sourceKey);
-  // 發起的分頁關掉、而這台瀏覽器的 IndexedDB 不可用：接手的分頁拿不到檔案，只能請使用者重傳
-  if (!(source instanceof File)) {
-    throw new AppError('GALLERY_UPLOAD_INCOMPLETE', 0, { reason: 'source-unavailable' });
-  }
-  let willRetry = false;
-  try {
-    const size = await measure(source);
-    await uploadGalleryItem({ file: source, albumId, ...size, onProgress: reportProgress }, signal);
+/** 上傳一張排隊中的圖（`itemId` 是 `<暫存 key>@<相簿 id>`）；取檔、限流與暫存檔由 `core/upload` 的 runner 處理。 */
+export const uploadRun = createUploadRunner({
+  sources: galleryUploadSources,
+  incompleteCode: 'GALLERY_UPLOAD_INCOMPLETE',
+  upload: async (file, albumId, { signal, reportProgress, invalidate }) => {
+    const size = await measure(file);
+    await uploadGalleryItem({ file, albumId, ...size, onProgress: reportProgress }, signal);
     // 還沒處理完，不在圖片庫：只讓頁首的「處理中 N 張」更新；處理完伺服器推 create
     invalidate([{ resource: Resource.GALLERY_ITEM, kind: 'update' }]);
-  } catch (error) {
-    // 被限流的那一筆由佇列在時間到後重送：檔案要留著
-    willRetry = isAppError(error) && error.code === ErrorCodes.RATE_LIMITED;
-    throw error;
-  } finally {
-    invalidate([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]);
-    if (!willRetry) await galleryUploadSources.store.delete(sourceKey);
-  }
-}
+  },
+  onSettled: ({ invalidate }) =>
+    invalidate([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]),
+});
 
 export async function deleteRun(
   itemId: string,

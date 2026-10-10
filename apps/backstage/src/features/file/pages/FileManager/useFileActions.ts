@@ -1,4 +1,7 @@
 import { useBatchQueue } from '@b2b-system/web-core/batch';
+import { downloadSequentially } from '@b2b-system/web-core/data-transfer';
+import { useTranslation } from '@b2b-system/web-core/locales';
+import { useToast } from '@b2b-system/web-core/notify';
 import { useCallback, useState } from 'react';
 
 import { FILE_MANAGER_SCOPE, FileBatchOperation } from '../../batch';
@@ -7,9 +10,6 @@ import { useFileMoveMutation, useFolderDeleteMutation } from '../../hooks/useFol
 import { isFileItem, isFolderItem } from './adapter';
 import type { BrowserItemVM, FileItemVM } from './adapter';
 import type { DraggedItems } from './useItemDrag';
-
-/** 多個下載之間的間隔：同一瞬間觸發多個下載，瀏覽器只會處理第一個。 */
-const DOWNLOAD_INTERVAL_MS = 250;
 
 /**
  * 檔案管理器的刪除、下載與移動：
@@ -21,6 +21,8 @@ const DOWNLOAD_INTERVAL_MS = 250;
  * 只回傳操作，不訂閱佇列的進度：頁面每次呼叫它，訂閱會讓整頁跟著每個快照重繪（進度條是 `FileBatchProgress`）。
  */
 export function useFileActions() {
+  const { t } = useTranslation();
+  const toast = useToast();
   const queue = useBatchQueue();
   const deleteOne = useFileDeleteMutation();
   const deleteFolder = useFolderDeleteMutation();
@@ -77,19 +79,16 @@ export function useFileActions() {
     [moveItems],
   );
 
-  const download = useCallback((files: readonly FileItemVM[]) => {
-    files
-      .filter((file) => file.downloadUrl)
-      .forEach((file, index) => {
-        setTimeout(() => {
-          const anchor = document.createElement('a');
-          anchor.href = file.downloadUrl ?? '';
-          anchor.download = file.name;
-          anchor.rel = 'noopener';
-          anchor.click();
-        }, index * DOWNLOAD_INTERVAL_MS);
-      });
-  }, []);
+  /** 依序觸發、最多 `DOWNLOAD_MAX` 個，超過時提示（與圖片庫相同）。 */
+  const download = useCallback(
+    (files: readonly FileItemVM[]) =>
+      void downloadSequentially(files, {
+        resolve: (file) =>
+          file.downloadUrl ? { url: file.downloadUrl, fileName: file.name } : undefined,
+        onLimited: (max) => toast.info(t('file.downloadLimited', { count: max })),
+      }),
+    [t, toast],
+  );
 
   return {
     pendingDelete,

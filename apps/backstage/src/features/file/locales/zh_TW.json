@@ -5,6 +5,7 @@
     "total_other": "共 {{count}} 個檔案",
     "refresh": "重新整理",
     "download": "下載",
+    "downloadLimited_other": "一次最多下載 {{count}} 個檔案",
     "select": "選取「{{name}}」",
     "selectAll": "全選",
     "browser": {

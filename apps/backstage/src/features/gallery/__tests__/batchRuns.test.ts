@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { pairedItemId } from '../batch';
+import { pairItemId } from '@/core/upload';
+
 import { tagRun } from '../batchRuns';
 
 const { updateTags } = vi.hoisted(() => ({ updateTags: vi.fn() }));
@@ -18,7 +19,7 @@ describe('圖片庫的批次貼標籤（docs/architecture/frontend/24-gallery.md
   it('以差異語意只加上這一個標籤，不先讀目前的標籤；宣告那一張改了', async () => {
     updateTags.mockResolvedValue({ tags: [] });
     const ctx = context();
-    await tagRun(pairedItemId('item-1', 'tag-1'), ctx);
+    await tagRun(pairItemId('item-1', 'tag-1'), ctx);
     expect(updateTags).toHaveBeenCalledWith({
       params: { resourceType: 'galleryItem', resourceId: 'item-1', add: ['tag-1'] },
       signal: ctx.signal,

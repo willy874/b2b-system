@@ -5,8 +5,9 @@ import { FILE_MANAGER_SCOPE, FileBatchOperation } from '../../../batch';
 import type { BrowserItemVM, FileItemVM, FolderItemVM } from '../adapter';
 import { useFileActions } from '../useFileActions';
 
-const { queue, deleteFile, deleteFolder, move } = vi.hoisted(() => {
+const { queue, deleteFile, deleteFolder, move, toast } = vi.hoisted(() => {
   return {
+    toast: { info: vi.fn() },
     queue: { current: { enqueue: vi.fn() } as { enqueue: ReturnType<typeof vi.fn> } | undefined },
     deleteFile: { mutateAsync: vi.fn(), isPending: false },
     deleteFolder: { mutateAsync: vi.fn(), isPending: false },
@@ -14,6 +15,12 @@ const { queue, deleteFile, deleteFolder, move } = vi.hoisted(() => {
   };
 });
 vi.mock('@b2b-system/web-core/batch', () => ({ useBatchQueue: () => queue.current }));
+vi.mock('@b2b-system/web-core/notify', () => ({ useToast: () => toast }));
+vi.mock('@b2b-system/web-core/locales', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, unknown>) => `${key}:${String(options?.count)}`,
+  }),
+}));
 vi.mock('../../../hooks/useFileMutations', () => ({ useFileDeleteMutation: () => deleteFile }));
 vi.mock('../../../hooks/useFolderMutations', () => ({
   useFolderDeleteMutation: () => deleteFolder,
@@ -161,7 +168,7 @@ describe('useFileActions（檔案管理器的刪除、下載與移動）', () =>
     expect(result.current.pendingMove).toBeUndefined();
   });
 
-  it('下載多個檔案時間隔觸發，略過沒有下載網址的檔案', () => {
+  it('下載多個檔案時間隔觸發，略過沒有下載網址的檔案', async () => {
     vi.useFakeTimers();
     const clicked: Array<{ href: string; download: string }> = [];
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
@@ -172,13 +179,26 @@ describe('useFileActions（檔案管理器的刪除、下載與移動）', () =>
     const { result } = renderHook(() => useFileActions());
 
     result.current.download([file('a'), file('x', { downloadUrl: null }), file('b')]);
-    vi.advanceTimersByTime(0);
+    await vi.advanceTimersByTimeAsync(0);
     expect(clicked).toEqual([{ href: 'http://s/a?download', download: 'a.txt' }]);
 
-    vi.advanceTimersByTime(250);
+    await vi.advanceTimersByTimeAsync(250);
     expect(clicked).toEqual([
       { href: 'http://s/a?download', download: 'a.txt' },
       { href: 'http://s/b?download', download: 'b.txt' },
     ]);
+    expect(toast.info).not.toHaveBeenCalled();
+  });
+
+  it('超過上限只下載前 50 個並提示', async () => {
+    vi.useFakeTimers();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const { result } = renderHook(() => useFileActions());
+
+    result.current.download(Array.from({ length: 60 }, (_, index) => file(`f${index}`)));
+    await vi.advanceTimersByTimeAsync(60 * 250);
+
+    expect(click).toHaveBeenCalledTimes(50);
+    expect(toast.info).toHaveBeenCalledWith('file.downloadLimited:50');
   });
 });

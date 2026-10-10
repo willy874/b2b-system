@@ -1,7 +1,7 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 import type { BatchQueueClient } from '@b2b-system/web-core/batch';
 
-import { createUploadSources } from '@/core/upload';
+import { createUploadSources, pairItemId } from '@/core/upload';
 
 import { GALLERY_UPLOAD_CONCURRENCY } from './constants';
 import { GALLERY_LOCALE_SCOPE } from './locale';
@@ -22,21 +22,6 @@ export const GALLERY_SCOPE = 'gallery';
  * 與檔案管理各自一個：任一個 feature 被關掉，另一個的排隊檔案不受影響。
  */
 export const galleryUploadSources = createUploadSources('gallery-upload');
-
-/**
- * 項目 id 帶上第二個值（上傳的目的地相簿、要貼的標籤）：佇列項目只能帶 id（要能跨 worker、跨分頁傳遞），
- * 接手的分頁也知道要做什麼。uuid 裡沒有 `@`。
- */
-const SEPARATOR = '@';
-
-export function pairedItemId(first: string, second: string | undefined): string {
-  return second ? `${first}${SEPARATOR}${second}` : first;
-}
-
-export function parsePairedItemId(itemId: string): { first: string; second?: string } {
-  const [first = itemId, second] = itemId.split(SEPARATOR);
-  return second ? { first, second } : { first };
-}
 
 /** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
 const runs = () => import('./batchRuns');
@@ -84,7 +69,7 @@ export async function enqueueGalleryUploads(
     uploads.map(async ({ file, albumId }) => {
       const sourceKey = crypto.randomUUID();
       await galleryUploadSources.store.put(sourceKey, file);
-      return { id: pairedItemId(sourceKey, albumId), label: file.name, weight: file.size };
+      return { id: pairItemId(sourceKey, albumId), label: file.name, weight: file.size };
     }),
   );
   return queue.enqueue({

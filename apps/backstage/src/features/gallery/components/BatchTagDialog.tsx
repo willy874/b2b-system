@@ -8,8 +8,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { getTagListQueryOptions } from '@/apis/tag/get-tag-list/query';
+import { pairItemId } from '@/core/upload';
 
-import { GALLERY_SCOPE, GalleryBatchOperation, pairedItemId } from '../batch';
+import { GALLERY_SCOPE, GalleryBatchOperation } from '../batch';
 
 interface BatchTagDialogProps {
   items: ReadonlyArray<{ id: string; title: string }>;
@@ -45,7 +46,7 @@ export function BatchTagDialog({ items, onClose }: BatchTagDialogProps) {
                 operation: GalleryBatchOperation.TAG,
                 scope: GALLERY_SCOPE,
                 items: items.map((item) => ({
-                  id: pairedItemId(item.id, tagId),
+                  id: pairItemId(item.id, tagId),
                   label: item.title,
                 })),
               });

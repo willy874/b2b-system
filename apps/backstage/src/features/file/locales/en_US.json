@@ -6,6 +6,8 @@
     "total_other": "{{count}} files",
     "refresh": "Refresh",
     "download": "Download",
+    "downloadLimited_one": "At most {{count}} file per download",
+    "downloadLimited_other": "At most {{count}} files per download",
     "select": "Select “{{name}}”",
     "selectAll": "Select all",
     "browser": {
