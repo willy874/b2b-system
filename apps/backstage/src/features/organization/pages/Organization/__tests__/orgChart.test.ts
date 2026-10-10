@@ -4,9 +4,11 @@ import type { OrgUnit } from '@/shared/api-sdk';
 
 import {
   blankNodeIds,
+  conflictingDeletes,
   countPlanChanges,
   createOrgChartNode,
   executeOrgChartPlan,
+  hasOrgChartChanged,
   isNewNodeId,
   isWithinDepth,
   ORG_CHART_MAX_DEPTH,
@@ -160,6 +162,58 @@ describe('planOrgChartChanges', () => {
   it('新增後又刪掉的節點不出現在計畫裡', () => {
     const draft = removeNode(withNode(toOrgChartValue(UNITS), 'new:x', '暫時', 'hq'), 'new:x');
     expect(countPlanChanges(planOrgChartChanges(UNITS, draft))).toBe(0);
+  });
+});
+
+describe('編輯期間伺服器的部門樹改變', () => {
+  // 進入編輯模式時的樹是 UNITS；之後別人新增了「新專案組」、把業務部改名為「業務一部」（version 遞增）
+  const LATEST = [
+    ...UNITS.map((item) =>
+      item.id === 'sales' ? { ...item, name: '業務一部', version: 4 } : item,
+    ),
+    unit('project', '新專案組', 'hq', 2),
+  ];
+
+  it('計畫以進入編輯時的樹計算：別人的新增與改名不會變成刪除、改回舊名', () => {
+    const draft = toOrgChartValue(UNITS);
+    expect(countPlanChanges(planOrgChartChanges(UNITS, draft))).toBe(0);
+    // 對照：拿最新的樹比對會把別人的變更排進計畫（這就是要避免的情形）
+    const wrong = planOrgChartChanges(LATEST, draft);
+    expect(wrong.deletes).toEqual(['project']);
+    expect(wrong.renames).toEqual([{ id: 'sales', name: '業務部' }]);
+  });
+
+  it('hasOrgChartChanged：部門增減或 version 改變', () => {
+    expect(hasOrgChartChanged(UNITS, UNITS.toReversed())).toBe(false);
+    expect(hasOrgChartChanged(UNITS, LATEST)).toBe(true);
+    expect(hasOrgChartChanged(UNITS, UNITS.slice(1))).toBe(true);
+    expect(
+      hasOrgChartChanged(
+        UNITS,
+        UNITS.map((item) => (item.id === 'rd' ? { ...item, version: 4 } : item)),
+      ),
+    ).toBe(true);
+  });
+
+  it('conflictingDeletes：要刪的部門被改過、已刪除或多了下層', () => {
+    const draft = removeNode(removeNode(toOrgChartValue(UNITS), 'north'), 'rd');
+    const plan = planOrgChartChanges(UNITS, draft);
+    expect(plan.deletes).toEqual(['north', 'rd']);
+    expect(conflictingDeletes(plan, UNITS, UNITS)).toEqual([]);
+    // 別人的改動與要刪的部門無關 → 不擋
+    expect(conflictingDeletes(plan, UNITS, LATEST)).toEqual([]);
+
+    const renamed = UNITS.map((item) => (item.id === 'rd' ? { ...item, version: 4 } : item));
+    expect(conflictingDeletes(plan, UNITS, renamed)).toEqual(['rd']);
+    const deleted = UNITS.filter((item) => item.id !== 'north');
+    expect(conflictingDeletes(plan, UNITS, deleted)).toEqual(['north']);
+    const newChild = [...UNITS, unit('rd-ai', 'AI 組', 'rd')];
+    expect(conflictingDeletes(plan, UNITS, newChild)).toEqual(['rd']);
+    // 既有部門被別人搬到要刪的部門底下（它自己的 version 變了、要刪的部門沒變）也要擋
+    const movedIn = UNITS.map((item) =>
+      item.id === 'sales' ? { ...item, parentId: 'rd', version: 4 } : item,
+    );
+    expect(conflictingDeletes(plan, UNITS, movedIn)).toEqual(['rd']);
   });
 });
 

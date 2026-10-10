@@ -17,7 +17,6 @@
 
 | 嚴重度 | 問題 | 文件 | 發現於 |
 | --- | --- | --- | --- |
-| 高 | 組織圖的編輯模式以最新的部門樹算計畫，會刪掉別人新建的部門、改回別人改的名稱 | [org-chart-save-overwrites.md](./org-chart-save-overwrites.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 稽核日誌在總數到達上限時，「最後一頁」與跳頁會送出超過上限的 offset 而 400 | [audit-log-last-page.md](./audit-log-last-page.md) | 2026-10-10 backstage 優化分析 |
 | 中 | 稽核日誌的「資源」篩選只寫死 11 種，後端實際寫入的類型多出十幾種 | [audit-log-resource-filter.md](./audit-log-resource-filter.md) | 2026-10-10 backstage 優化分析 |
 | 中 | backstage 的首頁初始載入超過 bundle 預算 | [bundle-near-budget.md](./bundle-near-budget.md) | 2026-10-10 backstage 優化分析 |

@@ -120,7 +120,9 @@
         "rename": "rename",
         "move": "move",
         "delete": "delete"
-      }
+      },
+      "outdated": "Someone else changed the org chart while you were editing. Saving only sends your changes, but any unit you changed that was also changed by someone else will fail. You can also discard your draft and start over from the latest chart.",
+      "deleteConflict": "\"{{names}}\" was changed, deleted, or given new child units by someone else while you were editing. Nothing was saved so their changes aren't deleted. Reload the org chart and edit again."
     },
     "transfer": {
       "units": "Org units",

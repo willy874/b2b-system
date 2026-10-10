@@ -2,10 +2,13 @@ import { Button } from '@b2b-system/ui/Button';
 import { useErrorMessage } from '@b2b-system/web-core/errors';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { cn } from '@b2b-system/web-shared/utils';
+import type { ReactNode } from 'react';
 
 export interface VersionConflictAlertProps {
   /** 樂觀鎖衝突的錯誤（`isVersionConflict(error)`）；訊息取自 `error.<CODE>`。 */
-  error: unknown;
+  error?: unknown;
+  /** 取代 `error` 的訊息：不是送出時的 409，而是編輯期間就偵測到別人改過（例：組織圖的編輯模式）。 */
+  message?: ReactNode;
   /** 放棄這次的修改、改成最新的內容（通常是重抓資料並重設表單）。 */
   onReload: () => void;
   /** 重新載入進行中。 */
@@ -21,6 +24,7 @@ export interface VersionConflictAlertProps {
  */
 export function VersionConflictAlert({
   error,
+  message,
   onReload,
   reloading,
   className,
@@ -38,7 +42,7 @@ export function VersionConflictAlert({
       data-testid={testId}
     >
       <div className="flex flex-col gap-1">
-        <p className="m-0 text-[var(--color-warning-text)]">{toMessage(error)}</p>
+        <p className="m-0 text-[var(--color-warning-text)]">{message ?? toMessage(error)}</p>
         <p className="m-0 text-xs text-[var(--color-fg-muted)]">
           {t('common.versionConflict.hint')}
         </p>

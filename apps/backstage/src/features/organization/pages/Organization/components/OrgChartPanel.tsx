@@ -13,6 +13,7 @@ import { useUnsavedChangesGuard } from '@b2b-system/web-core/router';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { VersionConflictAlert } from '@/core/components';
 import { useIsFeatureReady } from '@/core/feature';
 import { TenantFeature } from '@/shared/api-sdk';
 import type { OrgUnit } from '@/shared/api-sdk';
@@ -103,6 +104,21 @@ export function OrgChartPanel({
     editor.cancel();
   };
 
+  // 編輯期間別人改了部門樹：放棄草稿、以最新的樹重新進入編輯模式
+  const restart = async () => {
+    if (editor.isDirty) {
+      const confirmed = await confirm({
+        title: t('organization.chart.cancelTitle'),
+        description: t('organization.chart.cancelConfirm', { count: editor.changeCount }),
+        confirmLabel: t('organization.chart.discard'),
+        tone: 'danger',
+        'data-testid': 'org-chart-restart-confirm',
+      });
+      if (!confirmed) return;
+    }
+    editor.start();
+  };
+
   const save = async () => {
     if (await editor.save()) toast.success(t('organization.chart.saved'));
   };
@@ -165,6 +181,20 @@ export function OrgChartPanel({
             reason: toMessage(editor.failure.error),
           })}
         </FormError>
+      )}
+      {editor.deleteConflicts.length > 0 && (
+        <FormError data-testid="org-chart-delete-conflict">
+          {t('organization.chart.deleteConflict', {
+            names: editor.deleteConflicts.join(t('organization.chart.nameSeparator')),
+          })}
+        </FormError>
+      )}
+      {editor.outdated && (
+        <VersionConflictAlert
+          message={t('organization.chart.outdated')}
+          onReload={() => void restart()}
+          data-testid="org-chart-outdated"
+        />
       )}
       {editor.editing && editor.blankIds.length > 0 && (
         <FormError data-testid="org-chart-blank-name">

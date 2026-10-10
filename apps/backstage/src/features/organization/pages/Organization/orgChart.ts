@@ -5,7 +5,7 @@ import type { OrgUnit } from '@/shared/api-sdk';
 /**
  * 組織圖的資料與編輯計畫（docs/architecture/backend/23-organization.md §8）：純函式，不碰 React 與 API，方便單元測試。
  *
- * 編輯模式在畫布上改的是一份草稿（`TreeEditorValue`）；按「儲存」時比對草稿與伺服器上的部門樹，
+ * 編輯模式在畫布上改的是一份草稿（`TreeEditorValue`）；按「儲存」時比對草稿與進入編輯模式時的部門樹，
  * 算出要依序呼叫的 API：新增 → 改名 → 搬移 → 刪除。
  */
 
@@ -115,11 +115,14 @@ function refOf(id: string | undefined): OrgChartParentRef | null {
   return isNewNodeId(id) ? { kind: 'new', tempId: id } : { kind: 'existing', id };
 }
 
-/** 比對伺服器上的部門與草稿，算出要依序呼叫的 API。 */
-export function planOrgChartChanges(units: readonly OrgUnit[], draft: OrgChartValue): OrgChartPlan {
+/**
+ * 比對 **進入編輯模式時** 的部門樹（`base`）與草稿，算出要依序呼叫的 API。
+ * 不能用伺服器上最新的樹：編輯期間別人新增的部門不在草稿裡會被排進刪除，別人改的名稱、上層會被排成改回去。
+ */
+export function planOrgChartChanges(base: readonly OrgUnit[], draft: OrgChartValue): OrgChartPlan {
   const parents = parentMap(draft.edges);
   const draftIds = new Set(draft.nodes.map((node) => node.id));
-  const byId = new Map(units.map((unit) => [unit.id, unit]));
+  const byId = new Map(base.map((unit) => [unit.id, unit]));
 
   // 新增：沿上層往下的順序（上層是新的也要先建）
   const newNodes = draft.nodes.filter((node) => node.data.isNew);
@@ -146,15 +149,40 @@ export function planOrgChartChanges(units: readonly OrgUnit[], draft: OrgChartVa
 
   // 刪除：伺服器上的深度大的先刪（同一次刪除的上下層，下層先走）
   const originalParents = new Map(
-    units.flatMap((unit) => (unit.parentId ? [[unit.id, unit.parentId] as const] : [])),
+    base.flatMap((unit) => (unit.parentId ? [[unit.id, unit.parentId] as const] : [])),
   );
-  const deletes = units
+  const deletes = base
     .filter((unit) => !draftIds.has(unit.id))
     .map((unit) => ({ id: unit.id, depth: depthOf(unit.id, originalParents) }))
     .toSorted((a, b) => b.depth - a.depth)
     .map(({ id }) => id);
 
   return { creates, renames, moves, deletes };
+}
+
+/** 進入編輯模式之後，伺服器上的部門樹是否被別人改過：部門增減，或任何一個的 `version` 改變。 */
+export function hasOrgChartChanged(base: readonly OrgUnit[], units: readonly OrgUnit[]): boolean {
+  if (base.length !== units.length) return true;
+  const versions = new Map(base.map((unit) => [unit.id, unit.version]));
+  return units.some((unit) => versions.get(unit.id) !== unit.version);
+}
+
+/**
+ * 計畫要刪除、但進入編輯模式之後被別人改過的部門：已被刪除、`version` 改變，或多了不在 `base` 裡的下層。
+ * 改名與換上層帶 `version`，由後端的樂觀鎖擋；刪除不帶，要在送出前自己擋，否則會刪掉別人剛改過的部門。
+ */
+export function conflictingDeletes(
+  plan: OrgChartPlan,
+  base: readonly OrgUnit[],
+  units: readonly OrgUnit[],
+): string[] {
+  const baseById = new Map(base.map((unit) => [unit.id, unit]));
+  const currentById = new Map(units.map((unit) => [unit.id, unit]));
+  return plan.deletes.filter((id) => {
+    const current = currentById.get(id);
+    if (!current || current.version !== baseById.get(id)?.version) return true;
+    return units.some((unit) => unit.parentId === id && baseById.get(unit.id)?.parentId !== id);
+  });
 }
 
 export function countPlanChanges(plan: OrgChartPlan): number {
@@ -197,19 +225,20 @@ export interface OrgChartSaveFailure {
 /**
  * 依序執行計畫：新增 → 改名 → 搬移 → 刪除。每一步各自是一次 API 呼叫（後端沒有批次端點），
  * 遇到錯誤就停，回報失敗的那一步；前面的步驟已經生效（呼叫端重新取得部門樹）。
+ * `version` 取自進入編輯模式時的部門樹（`base`）：別人在編輯期間改過的部門會 409。
  * 改名會遞增 `version`，同一個部門之後的搬移用改名回來的版本。
  */
 export async function executeOrgChartPlan(
   plan: OrgChartPlan,
-  units: readonly OrgUnit[],
+  base: readonly OrgUnit[],
   draft: OrgChartValue,
   api: OrgChartApi,
 ): Promise<OrgChartSaveFailure | null> {
-  const versions = new Map(units.map((unit) => [unit.id, unit.version]));
+  const versions = new Map(base.map((unit) => [unit.id, unit.version]));
   // 失敗訊息裡的名稱：既有部門用伺服器上的名稱（改名失敗時使用者認得的是舊名），新部門用草稿的名稱
   const names = new Map([
     ...draft.nodes.map((node) => [node.id, node.data.name] as const),
-    ...units.map((unit) => [unit.id, unit.name] as const),
+    ...base.map((unit) => [unit.id, unit.name] as const),
   ]);
   const created = new Map<string, string>();
   const resolve = (ref: OrgChartParentRef | null): string | null =>
