@@ -73,4 +73,5 @@ web-core 的批次佇列（`batchQueuePlugin`、頂列的佇列按鈕、`BatchQu
 - 兩個 app 的同名檔案太像（超過 30 行、行集合相似度超過 0.7）時，web-core 的 `src/__tests__/duplicated-code.test.ts` 會失敗：把差異改成參數搬進 web-core，真的要留兩份就在測試的 `KNOWN_SIMILAR` 寫明理由（[`docs/architecture/frontend/17-shared-packages.md`](../../docs/architecture/frontend/17-shared-packages.md) §5）。
 - 安全相關的 app 程式仍要兩邊一起看：`app/sessionRedirect.ts`（交給 `SessionWatcher` 的登入頁路徑與公開頁面）、`apis/auth/*`（結構相同、端點不同）。
   `SessionWatcher`（session 結束時清資料、導向登入頁且不自動跳回 IdP，[`architecture/04-sso.md`](../../docs/architecture/04-sso.md) §12.2 D5）在 `@b2b-system/web-core/shell`，兩個 app 共用。
+- `vite.config.ts` 的 vendor chunk 分組（`build.rolldownOptions.output.codeSplitting.groups`）兩個 app 各一份、內容相同，改一邊就改另一邊；規則與理由在 [`docs/architecture/frontend/19-observability.md`](../../docs/architecture/frontend/19-observability.md) §7.2。
 - 新增錯誤碼只動 `@b2b-system/error-codes` 與 web-core（[`packages/error-codes/README.md`](../../packages/error-codes/README.md)），這個 app 不必改。

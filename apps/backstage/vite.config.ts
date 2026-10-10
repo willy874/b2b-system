@@ -88,5 +88,28 @@ export default defineConfig(({ command }) => ({
     sourcemap: process.env.BUILD_SOURCEMAP === 'hidden' ? 'hidden' : false,
     // bundle 預算的檢查讀它（scripts/check-bundle-budget.mjs）；只在檢查時產生，正式產物不帶（nginx 會原樣提供 dist）
     manifest: process.env.BUILD_MANIFEST === 'true',
+    rolldownOptions: {
+      output: {
+        // 首頁一定整包用到的依賴各放一個 chunk（docs/architecture/frontend/19-observability.md §7.2）：
+        // 否則依「哪些頁面共用」被切成上百個小 chunk 各自壓縮，字典無法共用；vendor 的 hash 也不隨 app 的修改改變。
+        // 只能放首頁整包用到的套件：Base UI 這類只有部分元件在首頁的放進來，會把 lazy 頁面才用的部分拉回首頁。
+        // apps/backstage 與 apps/platform 各一份，改動時兩邊一起改（apps/platform/README.md）。
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'tanstack',
+              test: /node_modules[\\/]@tanstack[\\/](router-core|react-router|history|store|react-store|query-core|react-query)[\\/]/,
+              priority: 20,
+            },
+            { name: 'i18n', test: /node_modules[\\/](i18next|react-i18next)[\\/]/, priority: 20 },
+          ],
+        },
+      },
+    },
   },
 }));
