@@ -4,7 +4,13 @@ import type { Page } from '@playwright/test';
 import { ACCOUNTS, E2E_PASSWORD } from '../fixtures/accounts';
 import type { AccountKey } from '../fixtures/accounts';
 import { apiLogin, apiRequest } from '../helpers/api';
-import { loginAndWaitForHome, loginPlatform, logout, PLATFORM_URL } from '../helpers/auth';
+import {
+  expectSignedOut,
+  loginAndWaitForHome,
+  loginPlatform,
+  logout,
+  PLATFORM_URL,
+} from '../helpers/auth';
 import { waitForMail } from '../helpers/mailpit';
 import { getByTestIdAndValue } from '../helpers/selectors';
 import { freshTotp } from '../helpers/totp';
@@ -80,6 +86,8 @@ test.describe('多重驗證', () => {
         await loginAndWaitForHome(page, 'mfaTotp');
         const { secret, counter, recoveryCodes } = await enrollTotpOnProfile(page);
         await logout(page);
+        // 等登出的導向完成才開登入頁：否則 Firefox 以 NS_BINDING_ABORTED 中止下一個 goto
+        await expectSignedOut(page);
 
         await passwordStep(page, 'mfaTotp');
         await expect(page.getByTestId('login-mfa')).toHaveAttribute('data-value', 'mfa');
@@ -88,6 +96,7 @@ test.describe('多重驗證', () => {
         await page.getByTestId('mfa-submit').click();
         await expect(page.getByTestId('home-page')).toBeVisible();
         await logout(page);
+        await expectSignedOut(page);
 
         await passwordStep(page, 'mfaTotp');
         await page.getByTestId('mfa-use-recovery').click();
@@ -114,6 +123,7 @@ test.describe('多重驗證', () => {
       await page.getByTestId('mfa-email-confirm').click();
       await acceptRecoveryCodes(page);
       await logout(page);
+      await expectSignedOut(page);
 
       await passwordStep(page, 'mfaEmail');
       await expect(page.getByTestId('login-mfa')).toBeVisible();
@@ -189,6 +199,7 @@ test.describe('多重驗證', () => {
     await loginAndWaitForHome(page, 'mfaTotp');
     const { recoveryCodes } = await enrollTotpOnProfile(page);
     await logout(page);
+    await expectSignedOut(page);
 
     const platform = await browser.newPage({ baseURL: PLATFORM_URL, locale: 'zh-TW' });
     try {

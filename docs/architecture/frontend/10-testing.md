@@ -398,8 +398,12 @@ pnpm --filter @b2b-system/e2e tour
 
 ```bash
 pnpm --filter @b2b-system/e2e exec playwright install firefox webkit   # 第一次
-pnpm test:e2e:cross-browser                                            # 三個瀏覽器都跑標了 @cross-browser 的流程
+pnpm test:e2e:cross-browser                                            # Firefox 與 WebKit 跑標了 @cross-browser 的流程
 ```
+
+- 腳本帶 `--workers=1`：同一個流程在兩個瀏覽器用的是同一個帳號（例：MFA 的 `mfaTotp`），同時跑會互相改掉對方的設定。
+- WebKit 要較新的 macOS：Playwright 在 macOS 14 只留著凍結的舊版 WebKit，與目前的 Playwright 不相容（`Unknown setting: PushAPIEnabled`）；
+  這類機器只跑 Firefox（`--project=firefox`），WebKit 在 macOS 15 以上或 Linux 跑。
 
 | 流程（`{ tag: '@cross-browser' }`） | 瀏覽器差異的風險 |
 | --- | --- |

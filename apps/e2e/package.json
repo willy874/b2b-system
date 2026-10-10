@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test --project=chromium",
-    "test:cross-browser": "playwright test --grep @cross-browser",
+    "test:cross-browser": "playwright test --project=firefox --project=webkit --workers=1",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
     "typecheck": "tsc -b",
