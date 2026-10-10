@@ -51,6 +51,7 @@
       "path": "Parent departments",
       "topLevel": "Top-level department",
       "basic": "Details",
+      "membersHeading": "Members",
       "members_one": "Members ({{count}})",
       "members_other": "Members ({{count}})",
       "back": "Back to organization",

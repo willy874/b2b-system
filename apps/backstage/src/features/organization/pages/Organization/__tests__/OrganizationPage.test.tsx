@@ -721,6 +721,39 @@ describe('OrganizationPage 的部門成員（OrgUnitMemberSection）', () => {
       ),
     );
   });
+
+  it('成員查詢失敗 → 顯示錯誤與重試，標題不寫「成員（0）」（docs/architecture/frontend/07-ui-system.md §6.1）', async () => {
+    fetchMembers.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+    renderRoute(routes, SALES_PATH, READER);
+    const error = await screen.findByTestId('org-unit-member-error', undefined, { timeout: 5000 });
+    expect(screen.getByTestId('org-unit-member-section')).not.toHaveTextContent('成員（0）');
+    fireEvent.click(within(error).getByTestId('query-error-retry'));
+    expect(await screen.findAllByTestId('org-unit-member')).toHaveLength(2);
+  });
+
+  it('移除最後一頁唯一的成員 → 退回上一頁，不卡在空頁（docs/architecture/frontend/07-ui-system.md §6.1）', async () => {
+    fetchMembers.mockImplementation(async ({ params }) =>
+      params.offset === 0
+        ? { items: [member('u-alice', 'Alice')], pagination: { total: 50 } }
+        : { items: [], pagination: { total: 50 } },
+    );
+    fetchMembers.mockResolvedValueOnce({
+      items: [member('u-alice', 'Alice')],
+      pagination: { total: 51 },
+    });
+    renderRoute(routes, SALES_PATH, READER);
+    fireEvent.click(
+      within(
+        await screen.findByTestId('org-unit-member-pagination', undefined, { timeout: 5000 }),
+      ).getByTestId('pagination-next'),
+    );
+    await waitFor(() =>
+      expect(fetchMembers).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ offset: 0 }) }),
+      ),
+    );
+    expect(await screen.findByTestId('org-unit-member')).toHaveAttribute('data-value', 'u-alice');
+  });
 });
 
 describe('OrganizationPage 的其他操作', () => {

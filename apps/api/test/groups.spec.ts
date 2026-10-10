@@ -225,6 +225,37 @@ describe('群組（docs/architecture/iam/01-model.md §9.3 D11、D12）', () => 
     expect(holders).toContain(ids.alice);
   });
 
+  it('成員以 keyword 篩選名稱或 email，total 是過濾後的數量（docs/architecture/iam/07-groups.md §3）', async () => {
+    const admin = await as(ADMIN);
+    await admin
+      .patch(`/groups/${ids.art}/members`, { add: [{ type: 'user', id: ids.manager }] })
+      .expect(200);
+
+    const all = await admin.get(`/groups/${ids.art}/members`).expect(200);
+    expect(all.body.data.pagination.total).toBe(2);
+
+    const byEmail = await admin
+      .get(`/groups/${ids.art}/members`)
+      .query({ keyword: MANAGER.email.slice(0, 7) })
+      .expect(200);
+    expect(byEmail.body.data.items.map((member: { id: string }) => member.id)).toEqual([
+      ids.manager,
+    ]);
+    expect(byEmail.body.data.pagination.total).toBe(1);
+
+    const byGroupName = await admin
+      .get(`/groups/${ids.art}/members`)
+      .query({ keyword: 'desi' })
+      .expect(200);
+    expect(byGroupName.body.data.items.map((member: { id: string }) => member.id)).toEqual([
+      ids.design,
+    ]);
+
+    await admin
+      .patch(`/groups/${ids.art}/members`, { remove: [{ type: 'user', id: ids.manager }] })
+      .expect(200);
+  });
+
   it('形成循環 → 409 GROUP_MEMBERSHIP_CYCLE', async () => {
     const admin = await as(ADMIN);
     const response = await admin

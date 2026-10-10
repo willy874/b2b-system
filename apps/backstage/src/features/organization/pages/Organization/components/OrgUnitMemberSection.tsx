@@ -6,6 +6,7 @@ import { Icon } from '@b2b-system/ui/Icon';
 import { Pagination } from '@b2b-system/ui/Pagination';
 import { Select } from '@b2b-system/ui/Select';
 import { Switch } from '@b2b-system/ui/Switch';
+import { QuerySection, useOffsetClamp } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
 import { useQuery } from '@tanstack/react-query';
@@ -64,7 +65,9 @@ export function OrgUnitMemberSection({ unitId, canEdit }: OrgUnitMemberSectionPr
       ),
     [members.data, unitId, canEdit, currentUserId],
   );
-  const total = members.data?.pagination.total ?? 0;
+  const total = members.data?.pagination.total;
+  // 移除最後一頁唯一的成員後退回上一頁（docs/architecture/frontend/07-ui-system.md §6.1）
+  useOffsetClamp(total, offset, MEMBER_PAGE_SIZE, setOffset);
 
   const update = (change: OrgUnitMemberChange) =>
     updateMembers.mutateAsync({
@@ -88,7 +91,9 @@ export function OrgUnitMemberSection({ unitId, canEdit }: OrgUnitMemberSectionPr
     <section data-testid="org-unit-member-section">
       <div className="flex items-center justify-between gap-2">
         <h3 className="m-0 text-sm font-semibold">
-          {t('organization.detail.members', { count: total })}
+          {total === undefined
+            ? t('organization.detail.membersHeading')
+            : t('organization.detail.members', { count: total })}
         </h3>
         <Checkbox
           checked={includeDescendants}
@@ -101,108 +106,124 @@ export function OrgUnitMemberSection({ unitId, canEdit }: OrgUnitMemberSectionPr
         />
       </div>
 
-      <ul
-        className="mt-2 flex list-none flex-col divide-y divide-[var(--color-border)] p-0 text-sm"
-        data-testid="org-unit-member-list"
-      >
-        {rows.length ? (
-          rows.map((row) => (
-            <li
-              key={`${row.unitId}:${row.userId}`}
-              className="flex flex-wrap items-center gap-2 py-2"
-              data-testid="org-unit-member"
-              data-value={row.userId}
-            >
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="flex items-center gap-2">
-                  <RouteLink
-                    to="user.detail"
-                    params={{ userId: row.userId }}
-                    className="text-[var(--color-brand)]"
-                  >
-                    {row.displayName}
-                  </RouteLink>
-                  {row.isManager && <Chip tone="brand">{t('organization.member.manager')}</Chip>}
-                  {row.isPrimary && <Chip tone="neutral">{t('organization.member.primary')}</Chip>}
-                </span>
-                <span className="text-xs text-[var(--color-fg-muted)]">
-                  {[row.email, row.title, row.descendantUnitName].filter(Boolean).join(' · ')}
-                </span>
-              </div>
-              {row.canEdit && (
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1 text-xs">
-                    <Switch
-                      checked={row.isManager}
-                      disabled={updateMembers.isPending}
-                      onCheckedChange={(checked) =>
-                        void update({ userId: row.userId, isManager: checked }).catch(
-                          () => undefined, // 錯誤由 mutation 的 onError 顯示
-                        )
-                      }
-                      aria-label={t('organization.member.toggleManager', {
-                        name: row.displayName,
-                      })}
-                      data-testid="org-unit-member-manager"
+      <div className="mt-2">
+        <QuerySection query={members} data-testid="org-unit-member-error">
+          {({ pagination }) => (
+            <>
+              <ul
+                className="flex list-none flex-col divide-y divide-[var(--color-border)] p-0 text-sm"
+                data-testid="org-unit-member-list"
+              >
+                {rows.length ? (
+                  rows.map((row) => (
+                    <li
+                      key={`${row.unitId}:${row.userId}`}
+                      className="flex flex-wrap items-center gap-2 py-2"
+                      data-testid="org-unit-member"
                       data-value={row.userId}
-                    />
-                    {t('organization.member.manager')}
-                  </label>
-                  <label className="flex items-center gap-1 text-xs">
-                    <Switch
-                      checked={row.isPrimary}
-                      disabled={updateMembers.isPending}
-                      onCheckedChange={(checked) =>
-                        void update({ userId: row.userId, isPrimary: checked }).catch(
-                          () => undefined, // 錯誤由 mutation 的 onError 顯示
-                        )
-                      }
-                      aria-label={t('organization.member.togglePrimary', {
-                        name: row.displayName,
-                      })}
-                      data-testid="org-unit-member-primary"
-                      data-value={row.userId}
-                    />
-                    {t('organization.member.primary')}
-                  </label>
-                  <IconButton
-                    size="sm"
-                    aria-label={t('organization.member.editTitle', { name: row.displayName })}
-                    onClick={() => setEditingTitle(row)}
-                    data-testid="org-unit-member-title"
-                    data-value={row.userId}
-                  >
-                    <Icon name="edit" size={14} />
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    aria-label={t('organization.member.remove', { name: row.displayName })}
-                    disabled={updateMembers.isPending}
-                    onClick={() => remove(row)}
-                    data-testid="org-unit-member-remove"
-                    data-value={row.userId}
-                  >
-                    <Icon name="close" size={14} />
-                  </IconButton>
-                </div>
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex items-center gap-2">
+                          <RouteLink
+                            to="user.detail"
+                            params={{ userId: row.userId }}
+                            className="text-[var(--color-brand)]"
+                          >
+                            {row.displayName}
+                          </RouteLink>
+                          {row.isManager && (
+                            <Chip tone="brand">{t('organization.member.manager')}</Chip>
+                          )}
+                          {row.isPrimary && (
+                            <Chip tone="neutral">{t('organization.member.primary')}</Chip>
+                          )}
+                        </span>
+                        <span className="text-xs text-[var(--color-fg-muted)]">
+                          {[row.email, row.title, row.descendantUnitName]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </div>
+                      {row.canEdit && (
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-1 text-xs">
+                            <Switch
+                              checked={row.isManager}
+                              disabled={updateMembers.isPending}
+                              onCheckedChange={(checked) =>
+                                void update({ userId: row.userId, isManager: checked }).catch(
+                                  () => undefined, // 錯誤由 mutation 的 onError 顯示
+                                )
+                              }
+                              aria-label={t('organization.member.toggleManager', {
+                                name: row.displayName,
+                              })}
+                              data-testid="org-unit-member-manager"
+                              data-value={row.userId}
+                            />
+                            {t('organization.member.manager')}
+                          </label>
+                          <label className="flex items-center gap-1 text-xs">
+                            <Switch
+                              checked={row.isPrimary}
+                              disabled={updateMembers.isPending}
+                              onCheckedChange={(checked) =>
+                                void update({ userId: row.userId, isPrimary: checked }).catch(
+                                  () => undefined, // 錯誤由 mutation 的 onError 顯示
+                                )
+                              }
+                              aria-label={t('organization.member.togglePrimary', {
+                                name: row.displayName,
+                              })}
+                              data-testid="org-unit-member-primary"
+                              data-value={row.userId}
+                            />
+                            {t('organization.member.primary')}
+                          </label>
+                          <IconButton
+                            size="sm"
+                            aria-label={t('organization.member.editTitle', {
+                              name: row.displayName,
+                            })}
+                            onClick={() => setEditingTitle(row)}
+                            data-testid="org-unit-member-title"
+                            data-value={row.userId}
+                          >
+                            <Icon name="edit" size={14} />
+                          </IconButton>
+                          <IconButton
+                            size="sm"
+                            aria-label={t('organization.member.remove', { name: row.displayName })}
+                            disabled={updateMembers.isPending}
+                            onClick={() => remove(row)}
+                            data-testid="org-unit-member-remove"
+                            data-value={row.userId}
+                          >
+                            <Icon name="close" size={14} />
+                          </IconButton>
+                        </div>
+                      )}
+                    </li>
+                  ))
+                ) : (
+                  <li className="py-2 text-[var(--color-fg-muted)]">{t('common.none')}</li>
+                )}
+              </ul>
+              {pagination.total > MEMBER_PAGE_SIZE && (
+                <Pagination
+                  className="mt-2"
+                  offset={offset}
+                  limit={MEMBER_PAGE_SIZE}
+                  pageSizeOptions={[MEMBER_PAGE_SIZE]}
+                  total={pagination.total}
+                  onChange={(next) => setOffset(next.offset)}
+                  data-testid="org-unit-member-pagination"
+                />
               )}
-            </li>
-          ))
-        ) : (
-          <li className="py-2 text-[var(--color-fg-muted)]">
-            {members.isPending ? '…' : t('common.none')}
-          </li>
-        )}
-      </ul>
-      {total > MEMBER_PAGE_SIZE && (
-        <Pagination
-          className="mt-2"
-          offset={offset}
-          limit={MEMBER_PAGE_SIZE}
-          total={total}
-          onChange={(next) => setOffset(next.offset)}
-        />
-      )}
+            </>
+          )}
+        </QuerySection>
+      </div>
       {canEdit && <AddMemberRow unitId={unitId} />}
 
       <OrgUnitMemberTitleDialog

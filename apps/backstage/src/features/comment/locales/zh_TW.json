@@ -22,6 +22,7 @@
     },
     "watch": {
       "action": "關注",
+      "loadFailed": "無法取得關注狀態（{{message}}），按一下重試",
       "watching": "關注中",
       "count_other": "{{count}} 人關注；有新留言或內容被修改時通知"
     }

@@ -664,6 +664,7 @@ export class GroupRepository {
     groupId: string,
     offset: number,
     limit: number,
+    keyword?: string,
   ): Promise<{ items: GroupMemberRow[]; total: number }> {
     const rows = sql`
       SELECT 'user' AS type, u.id::text AS id, u.display_name AS name, u.email AS email, u.status::text AS status
@@ -675,12 +676,16 @@ export class GroupRepository {
       FROM ${relationTuples} t JOIN ${groups} g ON g.id::text = t.subject_id AND g.deleted_at IS NULL /* notDeleted */
       WHERE t.object_type = ${GROUP_OBJECT_TYPE} AND t.object_id = ${groupId} AND t.relation = ${GROUP_MEMBER_RELATION}
         AND t.subject_type = ${GROUP_OBJECT_TYPE} AND t.subject_relation = ${GROUP_MEMBER_RELATION}`;
+    const pattern = keyword ? containsPattern(keyword) : undefined;
+    const where = pattern ? sql`WHERE m.name ILIKE ${pattern} OR m.email ILIKE ${pattern}` : sql``;
     const [items, [counted]] = await Promise.all([
       this.db.execute<GroupMemberRow & Record<string, unknown>>(sql`
-        SELECT * FROM (${rows}) m
+        SELECT * FROM (${rows}) m ${where}
         ORDER BY CASE m.type WHEN 'user' THEN 0 ELSE 1 END, lower(m.name), m.id
         LIMIT ${limit} OFFSET ${offset}`),
-      this.db.execute<{ total: number }>(sql`SELECT count(*)::int AS total FROM (${rows}) m`),
+      this.db.execute<{ total: number }>(
+        sql`SELECT count(*)::int AS total FROM (${rows}) m ${where}`,
+      ),
     ]);
     return { items: [...items], total: counted?.total ?? 0 };
   }

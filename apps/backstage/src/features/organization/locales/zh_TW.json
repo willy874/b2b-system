@@ -51,6 +51,7 @@
       "path": "上層路徑",
       "topLevel": "最上層部門",
       "basic": "基本資料",
+      "membersHeading": "成員",
       "members_other": "成員（{{count}}）",
       "back": "回到組織",
       "emptyTitle": "選擇一個部門",

@@ -63,6 +63,7 @@
       "holders": "Users holding this role",
       "managePermission": "Manage permissions",
       "viewPermission": "View permissions",
+      "permissionsRequireCatalog": "Viewing the granted permissions requires the \"View permission catalog\" permission.",
       "allPermissions": "All permissions (implicit)",
       "backToList": "Back to roles",
       "revisions": "Version history",

@@ -1,3 +1,4 @@
+import { fetchAllPages } from '@b2b-system/web-core/client';
 import type { HttpRequestDTO } from '@b2b-system/web-core/client';
 import { toSortParams } from '@b2b-system/web-shared/constants';
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
@@ -27,14 +28,17 @@ export const getGroupListQueryOptions = (options: HttpRequestDTO<GroupListParams
     queryFn: ({ signal }) => fetchGroupListQuery({ params: options.params, signal }),
   });
 
-/** 群組選擇器：一次抓足夠多，群組數量少。 */
+/** 群組選擇器：取回所有群組（數量少，依名稱排序）。 */
 export const getGroupOptionsQueryOptions = () =>
   queryOptions({
     queryKey: [GROUP_OPTIONS_QUERY_KEY] as const,
+    // 選擇器在本地過濾：取完所有分頁，名稱排在第 200 個之後的群組也選得到
     queryFn: ({ signal }) =>
-      fetchGroupListQuery({
-        params: { offset: 0, limit: 200, sort: [{ sort: 'name', order: 'asc' }] },
-        signal,
-      }),
+      fetchAllPages((offset, limit) =>
+        fetchGroupListQuery({
+          params: { offset, limit, sort: [{ sort: 'name', order: 'asc' }] },
+          signal,
+        }),
+      ),
     staleTime: 60_000,
   });

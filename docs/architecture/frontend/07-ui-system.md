@@ -1120,7 +1120,7 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 | 功能 | 元件 | 說明 |
 | ---- | ---- | ---- |
-| 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()`；第一頁／最後一頁／可輸入頁碼，摘要用千分位；刪到最後一頁沒資料時自動退回最後一頁 |
+| 分頁 | `Pagination` | `pagination={{ offset, limit, total, onChange }}`，文案走 `t()`；第一頁／最後一頁／可輸入頁碼，摘要用千分位；刪到最後一頁沒資料時自動退回最後一頁。頁數只算到 api 接受的最大 offset（`maxOffset`，預設 `LIST_MAX_OFFSET` = 10,000，與 `apps/api/src/core/http/pagination.ts` 的 `MAX_OFFSET` 相同）；`totalCapped` 表示總數是數到上限就停的數字，摘要改寫「以上」（稽核日誌） |
 | 版面 | `fillHeight`（預設 `true`） | 表格延展填滿剩餘高度、資料多時在表格內捲動，分頁列固定在底部。外框（web-core 的 `DashboardShell`）的主內容是一個視窗高的 flex 欄（側邊選單與主內容各自捲動），列表頁的根元素給 `flex min-h-0 flex-1 flex-col` 才接得到高度 |
 | 篩選 | `FilterBar` | 篩選圖示按鈕（`IconButton`，只有圖示，名稱走 `aria-label`）點開的下拉表單；欄位型別 `text` / `select` / `multiSelect` / `dateRange` / `sort`（多欄排序，`SortEntry[]`，拖曳調整優先順序）/ `custom`。`value` ＋ `onSubmit` 以泛型型別化，一次送出整份值（只更新一次網址） |
 | 搜尋 | `search` | `search={{ value, onChange, placeholder }}`：表格上方常駐的搜尋框，停止輸入 300ms 或按 Enter 才送出 |
@@ -1130,6 +1130,11 @@ sticky 儲存格有不透明底色（hover、選取狀態會同步），固定�
 
 不經過 `RichTable` 的資料畫面（直接用 `Table`、卡片、設定表單、詳情對話框、頁面的一個區塊）同樣不能把查詢失敗畫成空狀態：
 沒有資料而且查詢失敗時，以 `QueryError`（`web-core/components`，本地化訊息＋重試）取代內容；詳情對話框查無資料（`isNotFound`）時不提供重試、改給「回到列表」。
+**頁面裡的一個區塊** 用 `QuerySection`（`web-core/components`）：`<QuerySection query={…}>{(data) => …}</QuerySection>`，
+載入中顯示骨架、沒有資料又失敗時顯示一行錯誤與重試、有舊資料又失敗時保留內容並提示；「無」只能由 `children` 在拿到資料後判斷。
+「沒有權限看這個區塊」由呼叫端決定不渲染或說明需要的權限，不要用 `data === undefined` 表達。
+區塊裡的清單自己分頁時（詳情頁的成員、持有者），以 `useOffsetClamp(total, offset, limit, setOffset)` 在刪光最後一頁時退回上一頁；
+清單不能只取第一頁而不提示——選擇器在本地過濾的選項以 `fetchAllPages`（`web-core/client`）取完所有分頁。
 權限所依據的 profile 查詢失敗時，兩個 app 的 `Layout` 都顯示錯誤頁與重試，不停在載入中。
 
 表頭可以直接設定多欄排序：`sorting` 是 `TableSorting[]`（陣列順序即優先順序），每一欄循環

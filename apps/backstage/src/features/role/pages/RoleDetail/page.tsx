@@ -7,10 +7,8 @@ import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate } from '@tanstack/react-router';
 
-import { getGroupListQueryOptions } from '@/apis/group/get-group-list/query';
 import { getRoleDetailQueryOptions } from '@/apis/role/get-role-detail/query';
 import { getRolePermissionsQueryOptions } from '@/apis/role/get-role-permissions/query';
-import { getRoleUsersQueryOptions } from '@/apis/role/get-role-users/query';
 
 import { useRoleDuplicateMutation } from '../../hooks/useRoleMutations';
 import { useRolePermission } from '../../hooks/useRolePermission';
@@ -37,17 +35,8 @@ export default function RoleDetailPage() {
   const role = useQuery(getRoleDetailQueryOptions(roleId));
   const rolePermissions = useQuery({
     ...getRolePermissionsQueryOptions(roleId),
-    enabled: permission.canManagePermission || permission.canRead,
-  });
-  const holders = useQuery({
-    ...getRoleUsersQueryOptions(roleId),
-    enabled: permission.canViewUsers,
-  });
-  const holderGroups = useQuery({
-    ...getGroupListQueryOptions({
-      params: { offset: 0, limit: 100, roleId, sort: [{ sort: 'name', order: 'asc' }] },
-    }),
-    enabled: permission.canViewGroups,
+    // GET /roles/:id/permissions 要 role:read ＋ permission:read：只有 role:read 時查了必定 403
+    enabled: permission.canManagePermission,
   });
 
   const duplicateRole = useRoleDuplicateMutation();
@@ -127,12 +116,14 @@ export default function RoleDetailPage() {
             <RoleBasicSection role={role.data} canEdit={permission.canUpdate && !isSystem} />
             <RolePermissionSection
               isSuperAdmin={role.data.slug === SUPER_ADMIN_SLUG}
-              permissions={rolePermissions.data?.permissions}
+              canView={permission.canManagePermission}
+              query={rolePermissions}
             />
             {(permission.canViewUsers || permission.canViewGroups) && (
               <RoleHolderSection
-                holders={permission.canViewUsers ? holders.data?.items : undefined}
-                groups={permission.canViewGroups ? holderGroups.data?.items : undefined}
+                roleId={roleId}
+                canViewUsers={permission.canViewUsers}
+                canViewGroups={permission.canViewGroups}
               />
             )}
           </div>

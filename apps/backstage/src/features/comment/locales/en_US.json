@@ -22,6 +22,7 @@
     },
     "watch": {
       "action": "Watch",
+      "loadFailed": "Could not load the watch status ({{message}}). Click to retry.",
       "watching": "Watching",
       "count_one": "{{count}} watching; notified of new comments and changes",
       "count_other": "{{count}} watching; notified of new comments and changes"

@@ -221,9 +221,19 @@ describe('CommentPanel（docs/architecture/frontend/22-comment.md §3）', () =>
   it('關注與取消關注', async () => {
     renderPanel();
     const button = await screen.findByTestId('comment-watch-button');
-    expect(button).toHaveAttribute('data-value', 'idle');
+    await waitFor(() => expect(button).toHaveAttribute('data-value', 'idle'));
     fireEvent.click(button);
     await waitFor(() => expect(api.watch.mock.calls[0]?.[0]).toMatchObject({ params: target }));
+  });
+
+  it('關注狀態讀取失敗 → 按鈕留著並可重試，不消失（docs/architecture/frontend/07-ui-system.md §6.1）', async () => {
+    api.watchState.mockRejectedValueOnce(new Error('boom'));
+    renderPanel();
+    const button = await screen.findByTestId('comment-watch-button');
+    await waitFor(() => expect(button).toHaveAttribute('data-value', 'error'));
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('data-value', 'idle'));
+    expect(api.watch).not.toHaveBeenCalled();
   });
 
   it('關注中時按下是取消關注', async () => {

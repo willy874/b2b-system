@@ -5,3 +5,4 @@ export * from './HttpContext';
 export * from './NetworkError';
 export * from './request';
 export * from './types';
+export * from './fetchAllPages';

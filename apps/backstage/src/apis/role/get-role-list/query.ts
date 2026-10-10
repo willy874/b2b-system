@@ -1,3 +1,4 @@
+import { fetchAllPages } from '@b2b-system/web-core/client';
 import type { HttpRequestDTO } from '@b2b-system/web-core/client';
 import { toSortParams } from '@b2b-system/web-shared/constants';
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
@@ -26,14 +27,17 @@ export const getRoleListQueryOptions = (options: HttpRequestDTO<RoleListParams>)
     queryFn: ({ signal }) => fetchRoleListQuery({ params: options.params, signal }),
   });
 
-/** 角色選擇器：一次抓足夠多，資料量小。 */
+/** 角色選擇器：取回所有角色（資料量小，依名稱排序）。 */
 export const getRoleOptionsQueryOptions = () =>
   queryOptions({
     queryKey: [ROLE_OPTIONS_QUERY_KEY] as const,
+    // 選擇器在本地過濾：取完所有分頁，名稱排在第 200 個之後的角色也選得到
     queryFn: ({ signal }) =>
-      fetchRoleListQuery({
-        params: { offset: 0, limit: 200, sort: [{ sort: 'name', order: 'asc' }] },
-        signal,
-      }),
+      fetchAllPages((offset, limit) =>
+        fetchRoleListQuery({
+          params: { offset, limit, sort: [{ sort: 'name', order: 'asc' }] },
+          signal,
+        }),
+      ),
     staleTime: 60_000,
   });

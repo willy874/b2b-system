@@ -12,5 +12,8 @@ export const ListGroupSchema = PaginationSchema.extend({
 
 export type ListGroupDto = z.infer<typeof ListGroupSchema>;
 
-export const ListGroupMembersSchema = PaginationSchema;
+export const ListGroupMembersSchema = PaginationSchema.extend({
+  /** 成員的名稱或 email（群組只比對名稱）；分頁的 `total` 是過濾後的數量。 */
+  keyword: z.string().trim().max(100).optional(),
+});
 export type ListGroupMembersDto = z.infer<typeof ListGroupMembersSchema>;

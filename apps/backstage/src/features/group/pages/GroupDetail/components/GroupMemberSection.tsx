@@ -1,7 +1,10 @@
 import { Button, IconButton } from '@b2b-system/ui/Button';
 import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import { Icon } from '@b2b-system/ui/Icon';
+import { Input } from '@b2b-system/ui/Input';
+import { Pagination } from '@b2b-system/ui/Pagination';
 import { Select } from '@b2b-system/ui/Select';
+import { QuerySection, useOffsetClamp } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { RouteLink } from '@b2b-system/web-core/route-link';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +12,7 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { getGroupOptionsQueryOptions } from '@/apis/group/get-group-list/query';
+import { getGroupMembersQueryOptions } from '@/apis/group/get-group-members/query';
 import { getUserListQueryOptions } from '@/apis/user/get-user-list/query';
 import type { GroupMember } from '@/shared/api-sdk';
 
@@ -23,11 +27,13 @@ const REMOVE_CONFIRM_KEY = {
 
 /** 使用者搜尋的輸入停頓多久才查詢（與資料夾共用對話框相同）。 */
 const USER_SEARCH_DEBOUNCE_MS = 250;
+/** 成員一頁幾位 */
+const MEMBER_PAGE_SIZE = 50;
 
 interface GroupMemberSectionProps {
   groupId: string;
-  members: GroupMember[] | undefined;
-  total: number;
+  /** 群組的直接成員數（群組詳情的 `memberCount`）：標題用它，搜尋時也不變 */
+  memberCount: number;
   /** 有 group:update：可以加入與移除 */
   canEdit: boolean;
 }
@@ -35,12 +41,32 @@ interface GroupMemberSectionProps {
 /**
  * 群組的直接成員：使用者，以及巢狀的群組（它的成員都算這個群組的成員）。
  * 加入的成員取得這個群組與上層群組的角色（反提權、循環、層數都由後端檢查，錯誤以 toast 顯示）。
+ * 分頁並可搜尋：只列前幾十位會讓後面的人看不到也移除不了。
  */
-export function GroupMemberSection({ groupId, members, total, canEdit }: GroupMemberSectionProps) {
+export function GroupMemberSection({ groupId, memberCount, canEdit }: GroupMemberSectionProps) {
   const { t } = useTranslation();
   const search = GroupListRoute.useSearch();
   const updateMembers = useGroupMembersUpdateMutation();
   const confirm = useConfirm();
+  const [offset, setOffset] = useState(0);
+  const [keyword, setKeyword] = useState('');
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebounced(keyword.trim());
+      setOffset(0);
+    }, USER_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+  const members = useQuery(
+    getGroupMembersQueryOptions({
+      groupId,
+      offset,
+      limit: MEMBER_PAGE_SIZE,
+      keyword: debounced || undefined,
+    }),
+  );
+  useOffsetClamp(members.data?.pagination.total, offset, MEMBER_PAGE_SIZE, setOffset);
 
   // 沒有復原，而且移除子群組會讓裡面所有人失去這個群組的角色：先說明影響再送出
   const remove = (member: GroupMember) =>
@@ -58,58 +84,94 @@ export function GroupMemberSection({ groupId, members, total, canEdit }: GroupMe
 
   return (
     <section>
-      <h3 className="m-0 text-sm font-semibold">{t('group.detail.members', { count: total })}</h3>
-      <ul
-        className="mt-2 flex list-none flex-col gap-1 p-0 text-sm"
-        data-testid="group-member-list"
-      >
-        {members?.length ? (
-          members.map((member) => (
-            <li
-              key={`${member.type}:${member.id}`}
-              className="flex items-center gap-2"
-              data-testid="group-member"
-              data-value={member.id}
-            >
-              <Icon name={member.type === 'group' ? 'users' : 'user'} size={14} />
-              {member.type === 'group' ? (
-                <Link
-                  to={GroupDetailRoute.to}
-                  params={{ groupId: member.id }}
-                  search={search}
-                  className="text-[var(--color-brand)]"
-                >
-                  {member.name}
-                </Link>
-              ) : (
-                <RouteLink
-                  to="user.detail"
-                  params={{ userId: member.id }}
-                  className="text-[var(--color-brand)]"
-                >
-                  {member.name}
-                </RouteLink>
+      <h3 className="m-0 text-sm font-semibold">
+        {t('group.detail.members', { count: memberCount })}
+      </h3>
+      {(memberCount > MEMBER_PAGE_SIZE || keyword) && (
+        <Input
+          className="mt-2"
+          type="search"
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder={t('group.member.searchPlaceholder')}
+          aria-label={t('group.member.searchPlaceholder')}
+          data-testid="group-member-search"
+        />
+      )}
+      <div className="mt-2">
+        <QuerySection query={members} data-testid="group-member-error">
+          {({ items, pagination }) => (
+            <>
+              <ul
+                className="flex list-none flex-col gap-1 p-0 text-sm"
+                data-testid="group-member-list"
+              >
+                {items.length ? (
+                  items.map((member) => (
+                    <li
+                      key={`${member.type}:${member.id}`}
+                      className="flex items-center gap-2"
+                      data-testid="group-member"
+                      data-value={member.id}
+                    >
+                      <Icon name={member.type === 'group' ? 'users' : 'user'} size={14} />
+                      {member.type === 'group' ? (
+                        <Link
+                          to={GroupDetailRoute.to}
+                          params={{ groupId: member.id }}
+                          search={search}
+                          className="text-[var(--color-brand)]"
+                        >
+                          {member.name}
+                        </Link>
+                      ) : (
+                        <RouteLink
+                          to="user.detail"
+                          params={{ userId: member.id }}
+                          className="text-[var(--color-brand)]"
+                        >
+                          {member.name}
+                        </RouteLink>
+                      )}
+                      {member.email && (
+                        <span className="text-[var(--color-fg-muted)]">{member.email}</span>
+                      )}
+                      {canEdit && (
+                        <IconButton
+                          size="sm"
+                          className="ml-auto"
+                          aria-label={t('group.member.remove', { name: member.name })}
+                          disabled={updateMembers.isPending}
+                          onClick={() => remove(member)}
+                          data-testid="group-member-remove"
+                          data-value={member.id}
+                        >
+                          <Icon name="close" size={14} />
+                        </IconButton>
+                      )}
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-[var(--color-fg-muted)]">
+                    {debounced ? t('group.member.noMatch') : t('common.none')}
+                  </li>
+                )}
+              </ul>
+              {pagination.total > MEMBER_PAGE_SIZE && (
+                <Pagination
+                  className="mt-2"
+                  offset={offset}
+                  limit={MEMBER_PAGE_SIZE}
+                  pageSizeOptions={[MEMBER_PAGE_SIZE]}
+                  total={pagination.total}
+                  onChange={(next) => setOffset(next.offset)}
+                  data-testid="group-member-pagination"
+                />
               )}
-              {member.email && <span className="text-[var(--color-fg-muted)]">{member.email}</span>}
-              {canEdit && (
-                <IconButton
-                  size="sm"
-                  className="ml-auto"
-                  aria-label={t('group.member.remove', { name: member.name })}
-                  disabled={updateMembers.isPending}
-                  onClick={() => remove(member)}
-                  data-testid="group-member-remove"
-                  data-value={member.id}
-                >
-                  <Icon name="close" size={14} />
-                </IconButton>
-              )}
-            </li>
-          ))
-        ) : (
-          <li className="text-[var(--color-fg-muted)]">{t('common.none')}</li>
-        )}
-      </ul>
+            </>
+          )}
+        </QuerySection>
+      </div>
       {canEdit && <AddMemberRow groupId={groupId} />}
     </section>
   );

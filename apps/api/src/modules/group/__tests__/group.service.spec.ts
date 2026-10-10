@@ -333,13 +333,15 @@ describe('GroupService 讀取（docs/architecture/iam/07-groups.md §3）', () =
     expect(ctx.repo.listRoles).not.toHaveBeenCalled();
   });
 
-  it('listMembers：依 offset／limit 查詢並帶分頁資訊', async () => {
+  it('listMembers：依 offset／limit／keyword 查詢並帶分頁資訊', async () => {
     ctx.repo.listMembers.mockResolvedValue({ items: [{ type: 'user', id: 'u1' }], total: 7 });
-    await expect(ctx.service.listMembers('g1', { offset: 5, limit: 1 })).resolves.toEqual({
+    await expect(
+      ctx.service.listMembers('g1', { offset: 5, limit: 1, keyword: 'ali' }),
+    ).resolves.toEqual({
       items: [{ type: 'user', id: 'u1' }],
       pagination: { offset: 5, limit: 1, total: 7 },
     });
-    expect(ctx.repo.listMembers).toHaveBeenCalledWith('g1', 5, 1);
+    expect(ctx.repo.listMembers).toHaveBeenCalledWith('g1', 5, 1, 'ali');
   });
 });
 

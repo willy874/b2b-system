@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
 import { getGroupDetailQueryOptions } from '@/apis/group/get-group-detail/query';
-import { getGroupMembersQueryOptions } from '@/apis/group/get-group-members/query';
 import { getGroupRolesQueryOptions } from '@/apis/group/get-group-roles/query';
 import { getRoleOptionsQueryOptions } from '@/apis/role/get-role-list/query';
 
@@ -26,10 +25,6 @@ export default function GroupDetailPage() {
   const permission = useGroupPermission();
 
   const group = useQuery(getGroupDetailQueryOptions(groupId));
-  const members = useQuery({
-    ...getGroupMembersQueryOptions(groupId),
-    enabled: permission.canViewMembers,
-  });
   const roles = useQuery({
     ...getGroupRolesQueryOptions(groupId),
     enabled: permission.canViewRoles,
@@ -74,15 +69,14 @@ export default function GroupDetailPage() {
           {permission.canViewRoles && (
             <GroupRoleSection
               groupId={groupId}
-              roles={roles.data?.roles}
+              roles={roles}
               roleOptions={canPickRoles ? roleOptions.data?.items : undefined}
             />
           )}
           {permission.canViewMembers && (
             <GroupMemberSection
               groupId={groupId}
-              members={members.data?.items}
-              total={members.data?.pagination.total ?? group.data.memberCount}
+              memberCount={group.data.memberCount}
               canEdit={permission.canUpdate}
             />
           )}

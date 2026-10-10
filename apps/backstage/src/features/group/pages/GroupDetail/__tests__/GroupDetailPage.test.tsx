@@ -132,6 +132,80 @@ describe('GroupDetailPage（docs/architecture/iam/01-model.md §9.3 D11、D12）
     expect(screen.getByTestId('group-member-add')).toBeInTheDocument();
   });
 
+  describe('成員的分頁與查詢失敗（docs/architecture/frontend/07-ui-system.md §6.1）', () => {
+    it('成員查詢失敗 → 顯示錯誤與重試，標題仍是群組的成員數，不顯示「無」', async () => {
+      fetchMembers.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+      renderRoute(routes, '/group/g1', READER);
+      expect(
+        await screen.findByTestId('group-member-error', undefined, { timeout: 5000 }),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('group-member-list')).not.toBeInTheDocument();
+
+      fireEvent.click(
+        within(screen.getByTestId('group-member-error')).getByTestId('query-error-retry'),
+      );
+      expect(await screen.findAllByTestId('group-member')).toHaveLength(2);
+    });
+
+    it('成員超過一頁 → 有分頁與搜尋，換頁帶 offset、搜尋帶 keyword 並回到第一頁', async () => {
+      fetchGroup.mockResolvedValue({ ...GROUP, memberCount: 120 });
+      fetchMembers.mockResolvedValue({
+        items: [
+          { type: 'user', id: 'u1', name: 'Alice', email: 'alice@example.com', status: 'active' },
+        ],
+        pagination: { total: 120 },
+      });
+      renderRoute(routes, '/group/g1', READER);
+      const pagination = await screen.findByTestId('group-member-pagination', undefined, {
+        timeout: 5000,
+      });
+      fireEvent.click(within(pagination).getByTestId('pagination-next'));
+      await waitFor(() =>
+        expect(fetchMembers).toHaveBeenLastCalledWith(
+          expect.objectContaining({ params: expect.objectContaining({ offset: 50, limit: 50 }) }),
+        ),
+      );
+
+      fireEvent.change(screen.getByTestId('group-member-search'), { target: { value: 'bob' } });
+      await waitFor(() =>
+        expect(fetchMembers).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            params: expect.objectContaining({ offset: 0, keyword: 'bob' }),
+          }),
+        ),
+      );
+    });
+
+    it('刪到最後一頁沒有成員 → 退回上一頁，不停在空頁', async () => {
+      fetchGroup.mockResolvedValue({ ...GROUP, memberCount: 51 });
+      fetchMembers.mockImplementation(({ params }: { params: { offset: number } }) =>
+        Promise.resolve(
+          params.offset === 0
+            ? {
+                items: [{ type: 'user', id: 'u1', name: 'Alice', email: 'a@x', status: 'active' }],
+                pagination: { total: 50 },
+              }
+            : { items: [], pagination: { total: 50 } },
+        ),
+      );
+      fetchMembers.mockResolvedValueOnce({
+        items: [{ type: 'user', id: 'u1', name: 'Alice', email: 'a@x', status: 'active' }],
+        pagination: { total: 51 },
+      });
+      renderRoute(routes, '/group/g1', READER);
+      const pagination = await screen.findByTestId('group-member-pagination', undefined, {
+        timeout: 5000,
+      });
+      fireEvent.click(within(pagination).getByTestId('pagination-next'));
+      await waitFor(() =>
+        expect(fetchMembers).toHaveBeenLastCalledWith(
+          expect.objectContaining({ params: expect.objectContaining({ offset: 0 }) }),
+        ),
+      );
+      expect(await screen.findByTestId('group-member')).toHaveAttribute('data-value', 'u1');
+    });
+  });
+
   describe('移除成員要先確認', () => {
     it('按取消：不送出', async () => {
       renderRoute(routes, '/group/g1', [...READER, 'group:update'] as PermissionKey[]);

@@ -1,6 +1,7 @@
 import { Field } from '@b2b-system/ui/Field';
 import { Select } from '@b2b-system/ui/Select';
 import { Switch } from '@b2b-system/ui/Switch';
+import { QuerySection } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -130,16 +131,31 @@ export function AudiencePicker({ value, onChange, eventTriggered, disabled }: Au
           </Field>
         </>
       )}
-      <p
-        className="m-0 text-sm text-[var(--color-fg-muted)]"
-        data-testid="announcement-audience-count"
-      >
-        {preview.data
-          ? t(eventTriggered ? 'announcement.audience.countEvent' : 'announcement.audience.count', {
-              count: preview.data.count,
-            })
-          : t('announcement.audience.counting')}
-      </p>
+      {preview.data === undefined && !preview.isError ? (
+        <p
+          className="m-0 text-sm text-[var(--color-fg-muted)]"
+          data-testid="announcement-audience-counting"
+        >
+          {t('announcement.audience.counting')}
+        </p>
+      ) : (
+        // 預覽失敗時說明並可重試，不要永遠停在「計算中」（docs/architecture/frontend/07-ui-system.md §6.1）
+        <QuerySection query={preview} data-testid="announcement-audience-count-error">
+          {(data) => (
+            <p
+              className="m-0 text-sm text-[var(--color-fg-muted)]"
+              data-testid="announcement-audience-count"
+            >
+              {t(
+                eventTriggered ? 'announcement.audience.countEvent' : 'announcement.audience.count',
+                {
+                  count: data.count,
+                },
+              )}
+            </p>
+          )}
+        </QuerySection>
+      )}
     </div>
   );
 }

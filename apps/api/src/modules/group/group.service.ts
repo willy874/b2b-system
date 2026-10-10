@@ -117,7 +117,12 @@ export class GroupService {
 
   async listMembers(id: string, query: ListGroupMembersDto) {
     await this.getExisting(id);
-    const { items, total } = await this.repo.listMembers(id, query.offset, query.limit);
+    const { items, total } = await this.repo.listMembers(
+      id,
+      query.offset,
+      query.limit,
+      query.keyword,
+    );
     return paginated(items, total, query);
   }
 

@@ -374,8 +374,25 @@ describe('UserDetailPage', () => {
     expect(within(screen.getByTestId('user-group-section')).queryByText('無')).toBeNull();
 
     fetchGroups.mockResolvedValue({ items: [], pagination: { total: 0 } });
-    fireEvent.click(within(error).getByTestId('user-group-retry'));
+    fireEvent.click(within(error).getByTestId('query-error-retry'));
     await waitFor(() => expect(screen.queryByTestId('user-group-error')).toBeNull());
+  });
+
+  it('所屬群組超過一頁 → 顯示分頁，換頁帶 offset（docs/architecture/frontend/07-ui-system.md §6.1）', async () => {
+    fetchGroups.mockResolvedValue({
+      items: [{ id: 'g1', name: '美術', membership: 'direct', memberCount: 1, roleCount: 0 }],
+      pagination: { total: 80 },
+    });
+    renderRoute(routes, PATH, ['user:read', 'group:read'] as PermissionKey[]);
+    const pagination = await screen.findByTestId('user-group-pagination', undefined, {
+      timeout: 5000,
+    });
+    fireEvent.click(within(pagination).getByTestId('pagination-next'));
+    await waitFor(() =>
+      expect(fetchGroups).toHaveBeenLastCalledWith(
+        expect.objectContaining({ params: expect.objectContaining({ offset: 50, limit: 50 }) }),
+      ),
+    );
   });
 });
 

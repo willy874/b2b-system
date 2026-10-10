@@ -1,7 +1,7 @@
 import { AppError } from '@b2b-system/web-core/errors';
 import { renderRoute } from '@b2b-system/web-core/testing';
 import { Outlet } from '@tanstack/react-router';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { featureStore, resetFeatureStore } from '@/core/feature';
@@ -75,7 +75,7 @@ beforeEach(() => {
   registerRolePagePermissions();
   fetchRole.mockReset().mockResolvedValue(ROLE);
   fetchRolePermissions.mockReset().mockResolvedValue({ permissions: [] });
-  fetchRoleUsers.mockReset().mockResolvedValue({ items: [] });
+  fetchRoleUsers.mockReset().mockResolvedValue({ items: [], pagination: { total: 0 } });
   fetchGroups.mockReset().mockResolvedValue({
     items: [
       { id: 'g1', name: '美術', description: null, memberCount: 3, roleCount: 1, version: 1 },
@@ -208,6 +208,7 @@ describe('RoleDetailPage', () => {
         { id: 'u1', kind: 'human', email: 'a@example.com', displayName: 'Alice', status: 'active' },
         { id: 's1', kind: 'service', email: 's1@svc', displayName: 'CI bot', status: 'active' },
       ],
+      pagination: { total: 2 },
     });
     renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
     const rows = await screen.findAllByTestId('role-holder-user');
@@ -231,6 +232,67 @@ describe('RoleDetailPage', () => {
     await screen.findByText('Editor');
     expect(screen.queryByTestId('role-holder-groups')).not.toBeInTheDocument();
     expect(fetchGroups).not.toHaveBeenCalled();
+  });
+
+  describe('已授予的權限（docs/architecture/frontend/07-ui-system.md §6.1）', () => {
+    const VIEWER = ['role:read', 'permission:read'] as PermissionKey[];
+
+    it('只有 role:read → 不查權限鍵，說明需要的權限，不顯示「無」', async () => {
+      renderRoute(routes, `/role/${ROLE_ID}`, ['role:read'] as PermissionKey[]);
+      expect(await screen.findByTestId('role-permission-hidden')).toBeInTheDocument();
+      expect(fetchRolePermissions).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('role-permission-chips')).not.toBeInTheDocument();
+    });
+
+    it('有 role:read ＋ permission:read → 列出權限', async () => {
+      fetchRolePermissions.mockResolvedValue({
+        permissions: [{ key: 'user:read', nameI18nKey: 'permission.user.read' }],
+      });
+      renderRoute(routes, `/role/${ROLE_ID}`, VIEWER);
+      expect(await screen.findByTestId('role-permission-chips')).not.toHaveTextContent('無');
+    });
+
+    it('查詢失敗 → 顯示錯誤與重試，不顯示「無」；重試成功後列出', async () => {
+      fetchRolePermissions.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 500));
+      renderRoute(routes, `/role/${ROLE_ID}`, VIEWER);
+      expect(await screen.findByTestId('role-permission-error')).toBeInTheDocument();
+      expect(screen.queryByTestId('role-permission-chips')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('query-error-retry'));
+      expect(await screen.findByTestId('role-permission-chips')).toBeInTheDocument();
+    });
+  });
+
+  describe('持有者（docs/architecture/frontend/07-ui-system.md §6.1）', () => {
+    it('持有者超過一頁 → 顯示分頁，換頁帶對的 offset', async () => {
+      fetchRoleUsers.mockResolvedValue({
+        items: [
+          {
+            id: 'u1',
+            kind: 'human',
+            email: 'a@example.com',
+            displayName: 'Alice',
+            status: 'active',
+          },
+        ],
+        pagination: { total: 45 },
+      });
+      renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
+      const pagination = await screen.findByTestId('role-holder-users-pagination');
+      fireEvent.click(within(pagination).getByTestId('pagination-next'));
+      await waitFor(() =>
+        expect(fetchRoleUsers).toHaveBeenLastCalledWith(
+          expect.objectContaining({ params: { roleId: ROLE_ID, offset: 20, limit: 20 } }),
+        ),
+      );
+    });
+
+    it('持有者查詢失敗 → 顯示錯誤，不顯示「無」', async () => {
+      fetchRoleUsers.mockRejectedValue(new AppError('INTERNAL_ERROR', 500));
+      renderRoute(routes, `/role/${ROLE_ID}`, ['role:read', 'user:read'] as PermissionKey[]);
+      expect(await screen.findByTestId('role-holder-users-error')).toBeInTheDocument();
+      expect(screen.queryByText('無')).not.toBeInTheDocument();
+    });
   });
 
   describe('權限子頁的入口（docs/architecture/frontend/06-permission.md §7）', () => {

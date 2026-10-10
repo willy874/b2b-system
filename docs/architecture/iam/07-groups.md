@@ -85,7 +85,7 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 | PATCH | `/groups/:id` | `group:update` | 名稱、說明；必帶 `version`（`409 GROUP_VERSION_CONFLICT`） |
 | DELETE | `/groups/:id` | `group:delete` | 軟刪除（§4） |
 | POST | `/groups/:id/restore` | `group:delete` | 還原；名稱被佔用時 `409 GROUP_NAME_DUPLICATE`（`details.conflictingGroupId`）；沒有被刪除 `409 GROUP_NOT_DELETED` |
-| GET | `/groups/:id/members` | `group:read` ＋ `user:read` | 直接成員（使用者在前） |
+| GET | `/groups/:id/members` | `group:read` ＋ `user:read` | 直接成員（使用者在前）；分頁，`keyword` 比對使用者的名稱與 email、群組的名稱（`total` 是過濾後的數量） |
 | PATCH | `/groups/:id/members` | `group:update` | 差異語意 `{ add, remove }`，成員是 `{ type: 'user' \| 'group', id }` |
 | GET | `/groups/:id/roles` | `group:read` ＋ `role:read` | 持有的角色 |
 | PATCH | `/groups/:id/roles` | `group:assignRole` | 差異語意 `{ add, remove }` |
@@ -123,9 +123,9 @@ fileFolder:<f>#<等級>@group:<g>#member     資料夾授權給群組
 | --- | --- |
 | `features/group/` | `/group` 列表、`/group/create` 建立對話框、`/group/$groupId` 詳情（基本資料、持有的角色、成員）；頁面權限 `GROUP`、`GROUP_CREATE` |
 | 詳情的角色 | 可搜尋的多選下拉（需要 `group:assignRole` ＋ `role:read`），不列 super-admin（D12）；儲存送差異（`useGroupRoleDraft`），差異對第一次修改時的角色計算；編輯途中別人改過時提示「已被他人修改」並可改用最新的角色 |
-| 詳情的成員 | 加使用者（伺服器端搜尋）或巢狀群組（排除自己；其他循環由後端擋）；每位成員可移除，移除前先確認（成員是群組時說明其中的人也一起失去角色） |
-| 使用者詳情 | 「所屬群組」（`group:read`）：直接所屬的在前，經由巢狀群組的另外標示 |
-| 角色詳情 | 持有者分「直接持有」（`user:read`）與「經由群組」（`group:read`） |
+| 詳情的成員 | 一頁 50 位；超過一頁時可依名稱或 email 搜尋（`keyword`）。加使用者（伺服器端搜尋）或巢狀群組（排除自己；其他循環由後端擋）；每位成員可移除，移除前先確認（成員是群組時說明其中的人也一起失去角色） |
+| 使用者詳情 | 「所屬群組」（`group:read`）：一頁 50 個，同一頁裡直接所屬的在前，經由巢狀群組的另外標示 |
+| 角色詳情 | 持有者分「直接持有」（`user:read`）與「經由群組」（`group:read`），各自一頁 20 筆 |
 | 資料夾共用對話框 | 對象種類多一種「群組」 |
 | 回收桶 | 「群組」分頁（`group:delete`），還原按鈕 |
 

@@ -1,5 +1,5 @@
 import { AllProviders } from '@b2b-system/web-core/testing';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { featureStore, resetFeatureStore } from '@/core/feature';
@@ -58,5 +58,16 @@ describe('AudiencePicker 的群組欄（docs/architecture/iam/07-groups.md §8�
     expect(await screen.findByTestId('announcement-audience-roles')).toBeInTheDocument();
     expect(screen.queryByTestId('announcement-audience-groups')).toBeNull();
     expect(fetchGroups).not.toHaveBeenCalled();
+  });
+});
+
+describe('AudiencePicker 的人數預覽（docs/architecture/frontend/07-ui-system.md §6.1）', () => {
+  it('預覽失敗 → 顯示錯誤與重試，不停在「計算中」；重試成功後顯示人數', async () => {
+    fetchPreview.mockRejectedValueOnce(new Error('boom')).mockResolvedValue({ count: 3 });
+    renderWithGroupFeature('ready');
+    const error = await screen.findByTestId('announcement-audience-count-error');
+    expect(screen.queryByTestId('announcement-audience-counting')).toBeNull();
+    fireEvent.click(within(error).getByTestId('query-error-retry'));
+    expect(await screen.findByTestId('announcement-audience-count')).toHaveTextContent('3');
   });
 });

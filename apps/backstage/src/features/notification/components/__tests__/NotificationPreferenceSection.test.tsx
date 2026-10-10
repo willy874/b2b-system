@@ -91,4 +91,32 @@ describe('偏好頁的通知分頁（docs/architecture/frontend/15-notification.
       within(channelOf('approval.result', 'email')).queryByTestId('notification-preference-lock'),
     ).toBeNull();
   });
+
+  it('儲存中只停用那一個開關，其他照常可切換', async () => {
+    let resolve: (value: unknown) => void = () => undefined;
+    updatePreferences.mockImplementationOnce(() => new Promise((done) => (resolve = done)));
+    render(<NotificationPreferenceSection />, { wrapper: AllProviders });
+    await screen.findAllByTestId('notification-preference-row');
+    const inApp = within(channelOf('approval.result', 'inApp')).getByTestId(
+      'notification-preference-switch',
+    );
+    const email = within(channelOf('approval.result', 'email')).getByTestId(
+      'notification-preference-switch',
+    );
+    fireEvent.click(inApp);
+    await waitFor(() => expect(inApp).toHaveAttribute('data-disabled'));
+    expect(email).not.toHaveAttribute('data-disabled');
+
+    resolve({ items: ITEMS });
+    await waitFor(() => expect(inApp).not.toHaveAttribute('data-disabled'));
+  });
+
+  it('查詢失敗 → 顯示錯誤與重試，不是空的設定（docs/architecture/frontend/07-ui-system.md §6.1）', async () => {
+    listPreferences.mockRejectedValueOnce(new Error('boom'));
+    render(<NotificationPreferenceSection />, { wrapper: AllProviders });
+    const error = await screen.findByTestId('notification-preference-error');
+    expect(screen.queryByTestId('notification-preference-row')).toBeNull();
+    fireEvent.click(within(error).getByTestId('query-error-retry'));
+    expect(await screen.findAllByTestId('notification-preference-row')).toHaveLength(3);
+  });
 });

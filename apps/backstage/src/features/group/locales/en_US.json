@@ -59,6 +59,7 @@
       },
       "target": "Member",
       "placeholder": "Search for a member to add",
+      "searchPlaceholder": "Search members by name or email",
       "noMatch": "No matches",
       "add": "Add",
       "remove": "Remove \"{{name}}\"",
