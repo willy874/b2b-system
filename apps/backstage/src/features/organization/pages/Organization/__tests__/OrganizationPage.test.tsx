@@ -356,6 +356,15 @@ describe('OrganizationPage 的組織圖（docs/architecture/backend/23-organizat
     expect(router.state.location.search).toEqual({ unitId: RD, view: 'chart' });
   });
 
+  it('組織圖裡點詳情上方的上層部門：留在組織圖', async () => {
+    const { router } = renderRoute(routes, `${CHART_PATH}&unitId=${RD}`, READER);
+    const path = await screen.findByTestId('org-unit-path', undefined, { timeout: 5000 });
+    fireEvent.click(within(path).getByText('總公司'));
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ unitId: HQ, view: 'chart' }),
+    );
+  });
+
   it('切換分頁：清單不寫進網址', async () => {
     const { router } = renderRoute(routes, CHART_PATH, READER);
     await chartNode(HQ);

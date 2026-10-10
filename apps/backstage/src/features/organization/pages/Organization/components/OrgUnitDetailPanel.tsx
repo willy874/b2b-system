@@ -35,6 +35,7 @@ export function OrgUnitDetailPanel({
   onBack,
 }: OrgUnitDetailPanelProps) {
   const { t } = useTranslation();
+  const { view } = OrganizationRoute.useSearch();
   const unit = useQuery(getOrgUnitDetailQueryOptions(unitId));
 
   if (unit.isPending) return <Skeleton height={200} />;
@@ -70,7 +71,8 @@ export function OrgUnitDetailPanel({
                 <span key={item.id} className="flex items-center gap-1">
                   <Link
                     to={OrganizationRoute.to}
-                    search={{ unitId: item.id }}
+                    // 保留目前的檢視（清單或組織圖）：在組織圖沿著路徑往上看時不被帶回清單
+                    search={{ unitId: item.id, view }}
                     className="text-[var(--color-brand)]"
                   >
                     {item.name}
