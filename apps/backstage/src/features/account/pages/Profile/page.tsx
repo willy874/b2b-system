@@ -66,8 +66,9 @@ export default function ProfilePage() {
 
   const password = useChangePasswordForm({ mutationOptions: getChangePasswordMutationOptions() });
 
+  // 以去掉頭尾空白後的值比對（後端也會 trim）：只多了空白不算修改，不送出也不提醒
   const profileDirty =
-    draftDisplayName !== undefined && draftDisplayName !== profile.data?.user.displayName;
+    draftDisplayName !== undefined && draftDisplayName.trim() !== profile.data?.user.displayName;
   // 頁面型表單：換頁與重新整理前提醒未儲存的修改
   useUnsavedChangesGuard(profileDirty || password.isDirty);
 
@@ -107,6 +108,8 @@ export default function ProfilePage() {
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
+          // 沒有修改：不送出（否則多一筆稽核與「已儲存」的提示）；在欄位按 Enter 也一樣
+          if (!profileDirty || !displayName.trim()) return;
           updateProfile.mutate({ params: { displayName } });
         }}
       >
@@ -135,7 +138,7 @@ export default function ProfilePage() {
           <Button
             variant="primary"
             type="submit"
-            disabled={!displayName.trim()}
+            disabled={!profileDirty || !displayName.trim()}
             loading={updateProfile.isPending}
             data-testid="profile-save"
           >

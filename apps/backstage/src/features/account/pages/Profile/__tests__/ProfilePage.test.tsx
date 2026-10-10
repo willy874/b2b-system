@@ -11,11 +11,17 @@ import { initTestI18n } from '@/test/i18n';
 import { registerAccountPagePermissions, Routes } from '../../..';
 import accountZhTW from '../../../locales/zh_TW.json';
 
-const { fetchProfile, changePassword, fetchSources, fetchMyTokens } = vi.hoisted(() => ({
-  fetchMyTokens: vi.fn(),
-  fetchSources: vi.fn(),
-  fetchProfile: vi.fn(),
-  changePassword: vi.fn(),
+const { fetchProfile, changePassword, fetchSources, fetchMyTokens, updateProfile } = vi.hoisted(
+  () => ({
+    updateProfile: vi.fn(),
+    fetchMyTokens: vi.fn(),
+    fetchSources: vi.fn(),
+    fetchProfile: vi.fn(),
+    changePassword: vi.fn(),
+  }),
+);
+vi.mock('@/apis/auth/update-profile/fetcher', () => ({
+  fetchUpdateProfileMutation: updateProfile,
 }));
 vi.mock('@/apis/auth/get-profile/fetcher', () => ({ fetchProfileQuery: fetchProfile }));
 vi.mock('@/apis/user/get-user-permission-sources/fetcher', () => ({
@@ -82,6 +88,25 @@ async function fillPasswords(current: string, next: string, confirm: string) {
   fireEvent.change(screen.getByTestId('profile-new-password'), { target: { value: next } });
   fireEvent.change(screen.getByTestId('profile-confirm-password'), { target: { value: confirm } });
 }
+
+describe('ProfilePage 的個人資料', () => {
+  it('沒有修改（或只多了空白）時不能儲存，按 Enter 也不送出；改了才送出', async () => {
+    updateProfile.mockReset().mockResolvedValue({ id: 'me', displayName: 'Me 2' });
+    renderRoute(routes, '/profile', []);
+    const input = await screen.findByTestId('profile-display-name');
+    await waitFor(() => expect(input).toHaveValue('Me'));
+    expect(screen.getByTestId('profile-save')).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: 'Me  ' } });
+    expect(screen.getByTestId('profile-save')).toBeDisabled();
+    fireEvent.submit(input.closest('form')!);
+    expect(updateProfile).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: 'Me 2' } });
+    fireEvent.click(screen.getByTestId('profile-save'));
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+  });
+});
 
 describe('ProfilePage 的變更密碼', () => {
   it('密碼欄位有 autocomplete，密碼管理器能產生與儲存新密碼', async () => {
