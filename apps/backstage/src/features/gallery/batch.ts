@@ -1,12 +1,6 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
-import type { BatchQueueClient, BatchRunContext } from '@b2b-system/web-core/batch';
-import { AppError, ErrorCodes, isAppError } from '@b2b-system/web-core/errors';
+import type { BatchQueueClient } from '@b2b-system/web-core/batch';
 
-import { getGalleryItemDeleteMutationOptions } from '@/apis/gallery/delete-gallery-item/mutation';
-import { fetchGalleryItemQuery } from '@/apis/gallery/get-gallery-item/fetcher';
-import { uploadGalleryItem } from '@/apis/gallery/upload-gallery-item/fetcher';
-import { Resource } from '@/apis/resources';
-import { getResourceTagsReplaceMutationOptions } from '@/apis/tag/replace-resource-tags/mutation';
 import { createUploadSources } from '@/core/upload';
 
 import { GALLERY_UPLOAD_CONCURRENCY } from './constants';
@@ -44,52 +38,12 @@ export function parsePairedItemId(itemId: string): { first: string; second?: str
   return second ? { first, second } : { first };
 }
 
-/** 瀏覽器量的尺寸（給時間軸先排版的暫定值）；量不到（格式不支援、jsdom）就不帶。 */
-async function measure(file: File): Promise<{ width: number; height: number } | undefined> {
-  if (typeof createImageBitmap !== 'function') return undefined;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const size = { width: bitmap.width, height: bitmap.height };
-    bitmap.close();
-    return size;
-  } catch {
-    // 量不到不影響上傳：處理時以伺服器解碼的尺寸為準
-    return undefined;
-  }
-}
-
-async function runUpload(
-  itemId: string,
-  { signal, reportProgress, invalidate }: BatchRunContext,
-): Promise<void> {
-  const { first: sourceKey, second: albumId } = parsePairedItemId(itemId);
-  const source = await galleryUploadSources.store.get(sourceKey);
-  // 發起的分頁關掉、而這台瀏覽器的 IndexedDB 不可用：接手的分頁拿不到檔案，只能請使用者重傳
-  if (!(source instanceof File)) {
-    throw new AppError('GALLERY_UPLOAD_INCOMPLETE', 0, { reason: 'source-unavailable' });
-  }
-  let willRetry = false;
-  try {
-    const size = await measure(source);
-    await uploadGalleryItem({ file: source, albumId, ...size, onProgress: reportProgress }, signal);
-    // 還沒處理完，不在圖片庫：只讓頁首的「處理中 N 張」更新；處理完伺服器推 create
-    invalidate([{ resource: Resource.GALLERY_ITEM, kind: 'update' }]);
-  } catch (error) {
-    // 被限流的那一筆由佇列在時間到後重送：檔案要留著
-    willRetry = isAppError(error) && error.code === ErrorCodes.RATE_LIMITED;
-    throw error;
-  } finally {
-    invalidate([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]);
-    if (!willRetry) await galleryUploadSources.store.delete(sourceKey);
-  }
-}
-
-const deleteItem = getGalleryItemDeleteMutationOptions().mutationFn;
-const replaceTags = getResourceTagsReplaceMutationOptions().mutationFn;
+/** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
+const runs = () => import('./batchRuns');
 
 /**
- * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、以 `invalidate` 宣告變更（由佇列合併套用），
- * 結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
+ * 在 plugin 的同步階段呼叫，只登記 id 與名稱；實作在 `batchRuns.ts`。每一筆呼叫一次單筆 API、以 `invalidate` 宣告變更
+ * （由佇列合併套用），結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
  * 加入與移出相簿是一個請求（最多 500 張）、下載要在目前的分頁觸發，不經過佇列（docs/architecture/frontend/24-gallery.md §6）。
  */
 export function registerGalleryBatchOperations(): void {
@@ -98,36 +52,21 @@ export function registerGalleryBatchOperations(): void {
     labelKey: 'gallery.batch.upload.title',
     localeScope: GALLERY_LOCALE_SCOPE,
     successKey: 'gallery.batch.upload.success',
-    run: runUpload,
+    run: async (itemId, context) => (await runs()).uploadRun(itemId, context),
   });
   registerBatchOperation({
     id: GalleryBatchOperation.DELETE,
     labelKey: 'gallery.batch.delete.title',
     localeScope: GALLERY_LOCALE_SCOPE,
     successKey: 'gallery.batch.delete.success',
-    run: async (itemId, { signal, invalidate }) => {
-      await deleteItem({ params: { itemId }, signal });
-      invalidate([{ resource: Resource.GALLERY_ITEM, kind: 'delete', id: itemId }]);
-    },
+    run: async (itemId, context) => (await runs()).deleteRun(itemId, context),
   });
   registerBatchOperation({
     id: GalleryBatchOperation.TAG,
     labelKey: 'gallery.batch.tag.title',
     localeScope: GALLERY_LOCALE_SCOPE,
     successKey: 'gallery.batch.tag.success',
-    run: async (pairId, { signal, invalidate }) => {
-      const { first: itemId, second: tagId } = parsePairedItemId(pairId);
-      if (!tagId) return;
-      // 讀目前的標籤再加上這一個（取代式的 API）：列表裡的可能已經過時
-      const item = await fetchGalleryItemQuery({ params: { itemId }, signal });
-      const tagIds = item.tags.map((tag) => tag.id);
-      if (tagIds.includes(tagId)) return;
-      await replaceTags({
-        params: { resourceType: 'galleryItem', resourceId: itemId, tagIds: [...tagIds, tagId] },
-        signal,
-      });
-      invalidate([{ resource: Resource.GALLERY_ITEM, kind: 'update', id: itemId }]);
-    },
+    run: async (pairId, context) => (await runs()).tagRun(pairId, context),
   });
 }
 

@@ -6,7 +6,7 @@ import { Tabs } from '@b2b-system/ui/Tabs';
 import { QueryError } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 
 import { getTrashListQueryOptions } from '@/apis/trash/get-trash-list/query';
 import type { TrashTypeRegistration } from '@/core/trash';
@@ -95,7 +95,12 @@ function TrashTypeList({ type, offset, limit, onPageChange }: TrashTypeListProps
       {
         id: 'actions',
         header: '',
-        cell: ({ row }) => <RestoreAction item={row.original.item} />,
+        // 還原按鈕以 lazy() 登記（core/trash）：第一次渲染時下載，期間留白
+        cell: ({ row }) => (
+          <Suspense fallback={null}>
+            <RestoreAction item={row.original.item} />
+          </Suspense>
+        ),
       },
     ],
     [RestoreAction, t],

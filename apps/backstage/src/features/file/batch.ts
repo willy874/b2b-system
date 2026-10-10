@@ -1,22 +1,8 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
-import type { BatchQueueClient, BatchRunContext } from '@b2b-system/web-core/batch';
-import { ANY_ID, queryClient } from '@b2b-system/web-core/cache';
-import { AppError, ErrorCodes, isAppError } from '@b2b-system/web-core/errors';
+import type { BatchQueueClient } from '@b2b-system/web-core/batch';
 
-import { getFileFolderDeleteMutationOptions } from '@/apis/file/delete-file-folder/mutation';
-import { getFileDeleteMutationOptions } from '@/apis/file/delete-file/mutation';
-import { getFileUploadPolicyQueryOptions } from '@/apis/file/get-upload-policy/query';
-import { uploadFile } from '@/apis/file/upload-file/fetcher';
-import { Resource } from '@/apis/resources';
-import { createThumbnail } from '@/core/file';
-
-import {
-  DEFAULT_THUMBNAIL_MAX_BYTES,
-  THUMBNAIL_MAX_DIMENSION,
-  UPLOAD_CONCURRENCY,
-} from './constants';
+import { UPLOAD_CONCURRENCY } from './constants';
 import { FILE_LOCALE_SCOPE } from './locale';
-import { ROOT_FOLDER } from './pages/FileManager/folderTree';
 import { uploadSources } from './upload/uploadSources';
 
 /** 檔案的批次操作 id（`BatchAction.operation`、`enqueueFileUploads`）。 */
@@ -29,9 +15,6 @@ export const FileBatchOperation = {
 
 /** 檔案管理器在佇列裡的識別（`BatchJob.scope`）：主區塊以它找出自己送出的工作。 */
 export const FILE_MANAGER_SCOPE = 'file-manager';
-
-const deleteFile = getFileDeleteMutationOptions().mutationFn;
-const deleteFolder = getFileFolderDeleteMutationOptions().mutationFn;
 
 /**
  * 上傳項目的 id：`<暫存檔的 key>` 或 `<暫存檔的 key>@<資料夾 id>`。
@@ -48,62 +31,13 @@ export function parseUploadItemId(itemId: string): { sourceKey: string; folderId
   return folderId ? { sourceKey, folderId } : { sourceKey };
 }
 
-async function thumbnailFor(file: File, signal: AbortSignal): Promise<Blob | undefined> {
-  const policy = await queryClient
-    .fetchQuery(getFileUploadPolicyQueryOptions())
-    .catch(() => undefined);
-  return createThumbnail(file, {
-    maxDimension: THUMBNAIL_MAX_DIMENSION,
-    maxBytes: policy?.thumbnailMaxSize ?? DEFAULT_THUMBNAIL_MAX_BYTES,
-    signal,
-  }).catch(() => undefined);
-}
+/** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
+const runs = () => import('./batchRuns');
 
 /**
- * 上傳一個排隊中的檔案（`itemId` 是 `uploadSources` 的 key）。
- * 在全域佇列裡與其他批次工作共用排程、進度、取消與結果彈窗（docs/architecture/frontend/12-file-manager.md §14）。
- */
-async function runUpload(
-  itemId: string,
-  { signal, reportProgress, invalidate }: BatchRunContext,
-): Promise<void> {
-  const { sourceKey, folderId } = parseUploadItemId(itemId);
-  const source = await uploadSources.get(sourceKey);
-  // 發起的分頁關掉、而這台瀏覽器的 IndexedDB 不可用：接手的分頁拿不到檔案，只能請使用者重傳
-  if (!(source instanceof File)) {
-    throw new AppError('FILE_UPLOAD_INCOMPLETE', 0, { reason: 'source-unavailable' });
-  }
-  let willRetry = false;
-  try {
-    const thumbnail = await thumbnailFor(source, signal);
-    const stored = await uploadFile(
-      { file: source, folderId, thumbnail, onProgress: reportProgress },
-      signal,
-    );
-    // 帶目的地資料夾：只重抓那個資料夾與不分資料夾的列表（同後端推播的 refs，apis/resources.ts 的 scopedCollection）
-    invalidate([
-      {
-        resource: Resource.FILE,
-        kind: 'create',
-        id: stored.id,
-        refs: { [Resource.FILE_FOLDER]: [folderId ?? ROOT_FOLDER] },
-      },
-    ]);
-  } catch (error) {
-    // 被限流的那一筆由佇列在時間到後重送（docs/architecture/frontend/07-ui-system.md §13.4）：檔案要留著
-    willRetry = isAppError(error) && error.code === ErrorCodes.RATE_LIMITED;
-    throw error;
-  } finally {
-    // 登記就佔用了容量（失敗、取消的上傳也要到永久刪除才釋出）：成功與否都重抓已用量
-    invalidate([{ resource: Resource.FILE_STORAGE_USAGE, kind: 'update' }]);
-    // 其餘情況都不會再用到（佇列只重送被限流的；其他失敗由使用者重新選檔）
-    if (!willRetry) await uploadSources.delete(sourceKey);
-  }
-}
-
-/**
- * 在 plugin 的同步階段呼叫。每一筆呼叫一次單筆 API、以 `invalidate` 宣告變更（同單筆 mutation hook，由佇列合併套用），
- * 不發 toast：結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
+ * 在 plugin 的同步階段呼叫，只登記 id 與名稱；實作在 `batchRuns.ts`。每一筆呼叫一次單筆 API、以 `invalidate` 宣告變更
+ * （同單筆 mutation hook，由佇列合併套用），不發 toast：結果由批次佇列在整批結束時彈出（docs/architecture/frontend/07-ui-system.md §13）。
+ * 上傳在全域佇列裡與其他批次工作共用排程、進度、取消與結果彈窗（docs/architecture/frontend/12-file-manager.md §14）。
  */
 export function registerFileBatchOperations(): void {
   registerBatchOperation({
@@ -111,31 +45,21 @@ export function registerFileBatchOperations(): void {
     labelKey: 'file.batch.upload.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.upload.success',
-    run: runUpload,
+    run: async (itemId, context) => (await runs()).uploadRun(itemId, context),
   });
   registerBatchOperation({
     id: FileBatchOperation.DELETE,
     labelKey: 'file.batch.delete.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.delete.success',
-    run: async (fileId, { signal, invalidate }) => {
-      await deleteFile({ params: { fileId }, signal });
-      invalidate([{ resource: Resource.FILE, kind: 'delete', id: fileId }]);
-    },
+    run: async (fileId, context) => (await runs()).deleteFileRun(fileId, context),
   });
   registerBatchOperation({
     id: FileBatchOperation.DELETE_FOLDER,
     labelKey: 'file.batch.deleteFolder.title',
     localeScope: FILE_LOCALE_SCOPE,
     successKey: 'file.batch.deleteFolder.success',
-    run: async (folderId, { signal, invalidate }) => {
-      await deleteFolder({ params: { folderId }, signal });
-      // 其中的檔案一起刪除了：檔案端無法逐筆得知
-      invalidate([
-        { resource: Resource.FILE_FOLDER, kind: 'delete', id: folderId },
-        { resource: Resource.FILE, kind: 'delete', id: ANY_ID },
-      ]);
-    },
+    run: async (folderId, context) => (await runs()).deleteFolderRun(folderId, context),
   });
 }
 

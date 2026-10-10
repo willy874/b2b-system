@@ -1,8 +1,5 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 
-import { Resource } from '@/apis/resources';
-import { getRoleDeleteMutationOptions } from '@/apis/role/delete-role/mutation';
-
 import { ROLE_LOCALE_SCOPE } from './locale';
 
 /** 角色列表的批次操作 id（`BatchAction.operation`）。 */
@@ -10,7 +7,8 @@ export const RoleBatchOperation = {
   DELETE: 'role.delete',
 } as const;
 
-const deleteRole = getRoleDeleteMutationOptions().mutationFn;
+/** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
+const runs = () => import('./batchRuns');
 
 /**
  * 在 plugin 的同步階段呼叫。批次刪除不帶 `force`：仍有人持有的角色由後端擋下（`ROLE_IN_USE`），
@@ -22,10 +20,6 @@ export function registerRoleBatchOperations(): void {
     labelKey: 'role.batch.delete.title',
     localeScope: ROLE_LOCALE_SCOPE,
     successKey: 'role.batch.delete.success',
-    run: async (roleId, { invalidate }) => {
-      await deleteRole({ params: { roleId } });
-      // 合併後失效（docs/architecture/frontend/07-ui-system.md §13.4）
-      invalidate([{ resource: Resource.ROLE, kind: 'delete', id: roleId }]);
-    },
+    run: async (roleId, context) => (await runs()).deleteRoleRun(roleId, context),
   });
 }

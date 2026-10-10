@@ -1,17 +1,13 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 
-import { getDeleteNotificationMutationOptions } from '@/apis/notification/delete-notification/mutation';
-import { getMarkNotificationReadMutationOptions } from '@/apis/notification/mark-notification-read/mutation';
-import { Resource } from '@/apis/resources';
-
 /** 通知列表的批次操作 id（`NotificationBatchBar` 的 `operations`）。 */
 export const NotificationBatchOperation = {
   MARK_READ: 'notification.markRead',
   DELETE: 'notification.delete',
 } as const;
 
-const markRead = getMarkNotificationReadMutationOptions().mutationFn;
-const remove = getDeleteNotificationMutationOptions().mutationFn;
+/** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
+const runs = () => import('./batchRuns');
 
 /**
  * 在 plugin 的同步階段呼叫。逐筆打單筆的「標為已讀」與「刪除」，與列尾的按鈕相同。
@@ -22,18 +18,12 @@ export function registerNotificationBatchOperations(): void {
     id: NotificationBatchOperation.MARK_READ,
     labelKey: 'notificationBatch.markRead.title',
     successKey: 'notificationBatch.markRead.success',
-    run: async (notificationId, { invalidate }) => {
-      await markRead({ params: { notificationId } });
-      invalidate([{ resource: Resource.NOTIFICATION, kind: 'update', id: notificationId }]);
-    },
+    run: async (notificationId, context) => (await runs()).markReadRun(notificationId, context),
   });
   registerBatchOperation({
     id: NotificationBatchOperation.DELETE,
     labelKey: 'notificationBatch.delete.title',
     successKey: 'notificationBatch.delete.success',
-    run: async (notificationId, { invalidate }) => {
-      await remove({ params: { notificationId } });
-      invalidate([{ resource: Resource.NOTIFICATION, kind: 'delete', id: notificationId }]);
-    },
+    run: async (notificationId, context) => (await runs()).deleteRun(notificationId, context),
   });
 }

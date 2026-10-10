@@ -1,9 +1,21 @@
+import { lazy } from 'react';
+
 import { PermissionKey } from '@/core/permission';
 import { registerTrashType } from '@/core/trash';
 
-import { FileRestoreAction } from './components/FileRestoreAction';
-import { FolderRestoreAction } from './components/FolderRestoreAction';
 import { FILE_LOCALE_SCOPE } from './locale';
+
+/** 還原按鈕只在回收桶頁渲染：以 `lazy()` 登記，按鈕與它用到的 mutation hook 不進首頁的初始載入（docs/architecture/frontend/13-trash.md）。 */
+const FileRestoreAction = lazy(() =>
+  import('./components/FileRestoreAction').then((module) => ({
+    default: module.FileRestoreAction,
+  })),
+);
+const FolderRestoreAction = lazy(() =>
+  import('./components/FolderRestoreAction').then((module) => ({
+    default: module.FolderRestoreAction,
+  })),
+);
 
 /**
  * 在 plugin 的同步階段呼叫：回收桶頁多「檔案」與「資料夾」兩個分頁（docs/architecture/frontend/13-trash.md）。

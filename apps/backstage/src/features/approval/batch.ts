@@ -1,10 +1,5 @@
 import { registerBatchOperation } from '@b2b-system/web-core/batch';
 
-import { getApproveApprovalMutationOptions } from '@/apis/approval/approve-approval/mutation';
-import { getRejectApprovalMutationOptions } from '@/apis/approval/reject-approval/mutation';
-import { Resource } from '@/apis/resources';
-
-import { approvalReviewedChanges } from './hooks/useApprovalMutations';
 import { APPROVAL_LOCALE_SCOPE } from './locale';
 
 /** 審批列表的批次操作 id（`BatchAction.operation`）。 */
@@ -13,8 +8,8 @@ export const ApprovalBatchOperation = {
   REJECT: 'approval.reject',
 } as const;
 
-const approve = getApproveApprovalMutationOptions().mutationFn;
-const reject = getRejectApprovalMutationOptions().mutationFn;
+/** 實作在第一次執行時才載入（docs/architecture/frontend/02-plugin-system.md §4.8）。 */
+const runs = () => import('./batchRuns');
 
 /**
  * 在 plugin 的同步階段呼叫。語意同列上的快速核准／駁回：不指派角色、不附意見；
@@ -26,19 +21,13 @@ export function registerApprovalBatchOperations(): void {
     labelKey: 'approval.batch.approve.title',
     localeScope: APPROVAL_LOCALE_SCOPE,
     successKey: 'approval.batch.approve.success',
-    run: async (approvalId, { invalidate }) => {
-      const approval = await approve({ params: { approvalId, body: { roleIds: [] } } });
-      invalidate(approvalReviewedChanges(approval, []));
-    },
+    run: async (approvalId, context) => (await runs()).approveRun(approvalId, context),
   });
   registerBatchOperation({
     id: ApprovalBatchOperation.REJECT,
     labelKey: 'approval.batch.reject.title',
     localeScope: APPROVAL_LOCALE_SCOPE,
     successKey: 'approval.batch.reject.success',
-    run: async (approvalId, { invalidate }) => {
-      const approval = await reject({ params: { approvalId, body: {} } });
-      invalidate([{ resource: Resource.APPROVAL, kind: 'update', id: approval.id }]);
-    },
+    run: async (approvalId, context) => (await runs()).rejectRun(approvalId, context),
   });
 }

@@ -25,7 +25,10 @@ export interface TrashTypeRegistration {
   permission: PermissionKey;
   /** 還原操作用到的語系 scope；回收桶頁的 route loader 一併載入。 */
   localeScope?: string;
-  /** 每一列的還原操作：還原端點由擁有者提供（`POST /<resource>/:id/restore`），錯誤的呈現也由它決定。 */
+  /**
+   * 每一列的還原操作：還原端點由擁有者提供（`POST /<resource>/:id/restore`），錯誤的呈現也由它決定。
+   * 以 `lazy()` 登記：只有回收桶頁會渲染它，登記本體會把按鈕與 mutation hook 帶進首屏。
+   */
   RestoreAction: ComponentType<TrashRestoreActionProps>;
 }
 

@@ -60,6 +60,11 @@ const PAGE_ONLY_PACKAGES = [
   /^@b2b-system\/api-sdk\/schemas$/, // 所有端點的 zod schema（docs/architecture/backend/03-api-conventions.md §12.6）
 ];
 
+/**
+ * 頂列工具本來就在首屏渲染（docs/architecture/frontend/02-plugin-system.md §4.4）：通知鈴鐺的面板要標為已讀、刪除。
+ */
+const TOP_BAR_EXCEPTIONS = new Set(['features/notification/hooks/useNotificationMutations.ts']);
+
 describe('首屏的靜態 import（docs/architecture/frontend/02-plugin-system.md §4.3）', () => {
   const graph = entryGraph(resolve(SRC, 'main.tsx'));
 
@@ -78,6 +83,17 @@ describe('首屏的靜態 import（docs/architecture/frontend/02-plugin-system.m
     expect(graph.files).not.toContain(
       'features/notification/components/NotificationPreferenceSection.tsx',
     );
+  });
+
+  it('feature 的同步登記只帶資料與 loader：mutation hook、還原按鈕、批次操作的實作不在首屏（§4.8）', () => {
+    const offenders = [...graph.files].filter(
+      (file) =>
+        (/^features\/[^/]+\/hooks\/use\w*Mutations\.ts$/.test(file) ||
+          /^features\/[^/]+\/components\/\w*RestoreActions?\.tsx$/.test(file) ||
+          /^features\/[^/]+\/batchRuns\.ts$/.test(file)) &&
+        !TOP_BAR_EXCEPTIONS.has(file),
+    );
+    expect(offenders).toEqual([]);
   });
 
   it('不 import 只有頁面才用的大型模組', () => {
