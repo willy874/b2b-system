@@ -13,6 +13,7 @@ import { SignedAvatar } from '../image';
 import type { ImageSources } from '../image';
 import { useTranslation } from '../locales';
 import { useNavigation } from '../navigation';
+import { APP_CONTENT_SCROLL_ID } from '../router/scroll';
 import { useLayoutStore } from '../store';
 import { HeaderToolbar } from './HeaderToolbar';
 import { useMenuItems } from './menu';
@@ -184,7 +185,9 @@ export function DashboardShell({
             ]}
           />
         </header>
-        <main className={styles.content}>{children}</main>
+        <main className={styles.content} data-scroll-restoration-id={APP_CONTENT_SCROLL_ID}>
+          {children}
+        </main>
         {afterContent}
       </div>
       <CommandPaletteHost />

@@ -10,7 +10,11 @@ import {
   totpMethod,
   webauthnMethod,
 } from '@b2b-system/web-core/mfa';
-import { parseSearch, stringifySearch } from '@b2b-system/web-core/router';
+import {
+  parseSearch,
+  scrollRestorationOptions,
+  stringifySearch,
+} from '@b2b-system/web-core/router';
 import { createRouter } from '@tanstack/react-router';
 
 import { registerNavGroups } from '@/core/navigation';
@@ -32,6 +36,8 @@ export function createAppRouter() {
     stringifySearch,
     // 載入中、未知網址與頁面載入失敗（含部署後舊 chunk 不見）顯示本地化的頁面，不用框架預設的英文畫面
     ...ROUTER_DEFAULT_COMPONENTS,
+    // 換頁回到頂端、返回時還原捲動位置（捲的是外框的 <main>，不是 window）
+    ...scrollRestorationOptions,
   });
 }
 

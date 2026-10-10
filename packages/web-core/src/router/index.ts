@@ -3,3 +3,4 @@ export * from './search';
 export * from './useUnsavedChangesGuard';
 export * from './useDialogUnsavedGuard';
 export * from './title';
+export * from './scroll';

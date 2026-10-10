@@ -11,7 +11,11 @@ import {
   totpMethod,
   webauthnMethod,
 } from '@b2b-system/web-core/mfa';
-import { parseSearch, stringifySearch } from '@b2b-system/web-core/router';
+import {
+  parseSearch,
+  scrollRestorationOptions,
+  stringifySearch,
+} from '@b2b-system/web-core/router';
 import { createRouter } from '@tanstack/react-router';
 
 import { registerNavGroups } from '@/core/navigation';
@@ -35,6 +39,8 @@ export function createAppRouter() {
     defaultPendingComponent: PageSkeleton,
     parseSearch,
     stringifySearch,
+    // 換頁回到頂端、返回時還原捲動位置（捲的是外框的 <main>，不是 window）
+    ...scrollRestorationOptions,
   });
 }
 
