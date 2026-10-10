@@ -1,10 +1,17 @@
 import { AppError } from '@b2b-system/web-core/errors';
+import { registerRouteLink } from '@b2b-system/web-core/route-link';
 import { renderRoute } from '@b2b-system/web-core/testing';
+import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PermissionKey } from '@/core/permission';
-import { resetPagePermissionRegistry } from '@/core/permission';
+import {
+  definePageKey,
+  PermissionMatch,
+  registerPagePermission,
+  resetPagePermissionRegistry,
+} from '@/core/permission';
 import { initTestI18n } from '@/test/i18n';
 
 import { registerAnnouncementPagePermissions, Routes } from '../../..';
@@ -222,6 +229,44 @@ describe('AnnouncementDetailPage（docs/architecture/backend/19-announcement.md 
     await waitFor(() => expect(revoke).toHaveBeenCalledTimes(1));
     expect(revoke.mock.calls[0]![0]).toMatchObject({
       params: { announcementId: 'a1', dispatchId: 'd1' },
+    });
+  });
+
+  describe('發送紀錄的「已讀 x／y」連到通知總覽（docs/architecture/frontend/16-announcement.md §2）', () => {
+    // 通知總覽屬於 notification feature：以假的 route 與頁面權限登記同樣的 route id
+    const root = createRootRoute();
+    const overview = createRoute({ getParentRoute: () => root, path: '/notification/all' });
+    let unregister: () => void = () => undefined;
+    beforeEach(() => {
+      registerPagePermission(definePageKey('NOTIFICATION_OVERVIEW_TEST'), {
+        route: '/notification/all',
+        rule: { access: ['notification:read'] as PermissionKey[], match: PermissionMatch.EVERY },
+      });
+      unregister = registerRouteLink('notification.overviewBySource', {
+        route: overview,
+        search: { sourceId: 'sourceId' },
+      });
+      fetchDispatches.mockResolvedValue({
+        items: [DISPATCH],
+        pagination: { offset: 0, limit: 20, total: 1 },
+      });
+    });
+    afterEach(() => unregister());
+
+    it('有 notification:read → 連到 ?sourceId=<發送紀錄>', async () => {
+      await openDetail([...PUBLISHER, 'notification:read'] as PermissionKey[]);
+      const link = await screen.findByTestId('announcement-dispatch-recipients');
+      expect(link).toHaveTextContent('4 / 10');
+      await waitFor(() => expect(link.tagName).toBe('A'));
+      const href = link.getAttribute('href');
+      expect(new URL(href!, 'http://x').searchParams.get('sourceId')).toBe('d1');
+    });
+
+    it('沒有 notification:read → 只顯示文字', async () => {
+      await openDetail(PUBLISHER);
+      const text = await screen.findByTestId('announcement-dispatch-recipients');
+      expect(text).toHaveTextContent('4 / 10');
+      expect(text.tagName).toBe('SPAN');
     });
   });
 

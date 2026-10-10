@@ -9,6 +9,7 @@ import { NotificationBell } from './components/NotificationBell';
 import { NOTIFICATION_LOCALE_SCOPE } from './locale';
 import { registerNotificationEventTab, registerNotificationNavigation } from './navigation';
 import { registerNotificationPagePermissions } from './permission';
+import { registerNotificationRouteLinks } from './routeLinks';
 
 // 只有偏好頁會渲染：登記 lazy 元件，本體不進首屏（docs/architecture/frontend/02-plugin-system.md §4.3）
 const NotificationPreferenceSection = lazy(() =>
@@ -21,6 +22,7 @@ export function appContextPlugin(): AppPluginFactory {
   return (context) => {
     // ── 同步階段：頁面權限與頂列工具都要在第一次 render 之前存在 ──
     registerNotificationPagePermissions();
+    registerNotificationRouteLinks(); // 公告的發送紀錄連到通知總覽
     registerNotificationNavigation(); // 側欄與命令面板的入口
     registerNotificationEventTab(); // 系統設定的分頁
     registerNotificationBatchOperations(); // 批次佇列的操作：任何分頁都可能被交派執行

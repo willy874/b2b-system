@@ -157,7 +157,8 @@ registerRouteLink('account.profile', { route: ProfileRoute });
 | 權限 | 頁面鍵 `NOTIFICATION_OVERVIEW_PAGE`：`notification:read`。與 `/notification` 是父子路徑，頁面鍵取前綴最長的；沒有權限的人仍進得了自己的 `/notification` |
 | 選單 | 側邊選單「系統管理 › 通知總覽」（`menu-notification-overview`），排在事件通知之前 |
 | 表格 | `RichTable`：時間、收件人、事件（`NOTIFICATION_EVENT_LABEL` 的名稱；不認得的顯示 `type`）、內容（收件人看到的句子與補充，§5）、觸發者、已讀（時間，未讀顯示 Chip） |
-| 篩選 | 事件、收件人（伺服器端搜尋使用者；網址帶進來的收件人另外取名稱）、未讀、日期區間（使用者當地的日曆日，換成偏好時區的日界線，同稽核日誌）；全部寫進網址 |
+| 篩選 | 事件、收件人與觸發者（伺服器端搜尋使用者；網址帶進來的使用者另外取名稱）、未讀、日期區間（使用者當地的日曆日，換成偏好時區的日界線，同稽核日誌）；全部寫進網址 |
+| 依來源 | `?sourceId=`（公告的一次發送）：不在篩選面板裡，頁首顯示「只顯示公告的一次發送送出的通知」與「顯示全部」；送出篩選時保留。公告發送紀錄的「已讀 x／y」以 route id `notification.overviewBySource` 連過來（沒有 `notification:read` 時只顯示文字） |
 | 分頁 | keyset：表格下方「載入更多」（一次 50 筆），不顯示總數 |
 
 ## 5. 句子

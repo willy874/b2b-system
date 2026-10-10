@@ -189,6 +189,9 @@
       "filter": {
         "allTypes": "全部事件",
         "anyRecipient": "所有收件人",
+        "anyActor": "所有觸發者",
+        "source": "只顯示公告的一次發送送出的通知",
+        "clearSource": "顯示全部",
         "noRecipient": "找不到符合的使用者",
         "allReadStates": "全部",
         "range": "時間"

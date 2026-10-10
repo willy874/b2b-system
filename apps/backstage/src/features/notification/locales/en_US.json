@@ -193,6 +193,9 @@
       "filter": {
         "allTypes": "All events",
         "anyRecipient": "All recipients",
+        "anyActor": "Anyone",
+        "source": "Showing notifications from one announcement dispatch",
+        "clearSource": "Show all",
         "noRecipient": "No matching users",
         "allReadStates": "All",
         "range": "Time"

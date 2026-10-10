@@ -4,6 +4,7 @@ import { useConfirm } from '@b2b-system/ui/ConfirmDialog';
 import type { TableColumnDef } from '@b2b-system/ui/Table';
 import { RichTable } from '@b2b-system/web-core/components';
 import { useTranslation } from '@b2b-system/web-core/locales';
+import { RouteLink } from '@b2b-system/web-core/route-link';
 import { formatDateTime } from '@b2b-system/web-shared/date';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -86,12 +87,22 @@ export function AnnouncementDispatchSection({
         header: t('announcement.dispatch.field.recipients'),
         enableSorting: false,
         cell: ({ row }) =>
-          row.original.recipientCount === null
-            ? '-'
-            : t('announcement.readSummary', {
+          row.original.recipientCount === null ? (
+            '-'
+          ) : (
+            // 收件人與已讀狀態在通知總覽（沒有 notification:read 時只顯示文字）
+            <RouteLink
+              to="notification.overviewBySource"
+              params={{ sourceId: row.original.id }}
+              className="text-[var(--color-brand)]"
+              data-testid="announcement-dispatch-recipients"
+            >
+              {t('announcement.readSummary', {
                 read: row.original.readCount,
                 total: row.original.recipientCount,
-              }),
+              })}
+            </RouteLink>
+          ),
       },
       {
         id: 'createdBy',

@@ -8,12 +8,13 @@ import { useFeatureReadiness } from '@/core/feature';
 import { NOTIFICATION_EVENT_LABEL } from '../../constants';
 import { NotificationOverviewRoute } from '../../routes';
 import type { NotificationOverviewSearchQuery } from '../../routes';
-import { RecipientSelect } from './components/RecipientSelect';
+import { UserFilterSelect } from './components/UserFilterSelect';
 
 /** `type` 別名：`FilterBarProps` 要求可索引的物件型別（interface 沒有隱含的索引簽章）。 */
 export type NotificationOverviewFilterValues = {
   type?: string;
   recipientId?: string;
+  actorId?: string;
   /** `select` 的值是字串：只有「未讀」一個選項，「全部」是 undefined。 */
   readState?: 'unread';
   /** 網址上是 `from` / `to` 兩個參數，面板裡合成一個日期區間欄位。 */
@@ -23,6 +24,7 @@ export type NotificationOverviewFilterValues = {
 const EMPTY_FILTERS: NotificationOverviewFilterValues = {
   type: undefined,
   recipientId: undefined,
+  actorId: undefined,
   readState: undefined,
   range: undefined,
 };
@@ -41,6 +43,8 @@ export function notificationTypeOptions(isReady: (feature: string | null) => boo
 export function useNotificationOverviewFilters(): {
   search: NotificationOverviewSearchQuery;
   filters: FilterBarProps<NotificationOverviewFilterValues>;
+  /** 拿掉發送紀錄帶來的 `sourceId`（它不在篩選面板裡）。 */
+  clearSource: () => void;
 } {
   const { t } = useTranslation();
   const search = NotificationOverviewRoute.useSearch();
@@ -53,15 +57,19 @@ export function useNotificationOverviewFilters(): {
       value: {
         type: search.type,
         recipientId: search.recipientId,
+        actorId: search.actorId,
         readState: search.unread ? 'unread' : undefined,
         range: { from: search.from, to: search.to },
       },
       defaultValue: EMPTY_FILTERS,
-      onSubmit: ({ type, recipientId, readState, range }) =>
+      onSubmit: ({ type, recipientId, actorId, readState, range }) =>
         void navigate({
           search: {
             type,
             recipientId,
+            actorId,
+            // 不在面板裡，送出篩選時保留
+            sourceId: search.sourceId,
             unread: readState === 'unread' ? true : undefined,
             from: range?.from,
             to: range?.to,
@@ -82,7 +90,29 @@ export function useNotificationOverviewFilters(): {
           type: 'custom',
           key: 'recipientId',
           label: t('notification.overview.field.recipient'),
-          render: ({ value, onChange }) => <RecipientSelect value={value} onChange={onChange} />,
+          render: ({ value, onChange }) => (
+            <UserFilterSelect
+              value={value}
+              onChange={onChange}
+              label={t('notification.overview.field.recipient')}
+              placeholder={t('notification.overview.filter.anyRecipient')}
+              data-testid="notification-overview-recipient"
+            />
+          ),
+        },
+        {
+          type: 'custom',
+          key: 'actorId',
+          label: t('notification.overview.field.actor'),
+          render: ({ value, onChange }) => (
+            <UserFilterSelect
+              value={value}
+              onChange={onChange}
+              label={t('notification.overview.field.actor')}
+              placeholder={t('notification.overview.filter.anyActor')}
+              data-testid="notification-overview-actor"
+            />
+          ),
         },
         {
           type: 'select',
@@ -99,5 +129,7 @@ export function useNotificationOverviewFilters(): {
         },
       ],
     },
+    clearSource: () =>
+      void navigate({ search: { ...search, unread: search.unread, sourceId: undefined } }),
   };
 }

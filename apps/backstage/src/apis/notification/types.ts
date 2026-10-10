@@ -13,6 +13,9 @@ export interface NotificationListParams {
 export interface NotificationOverviewFilters {
   type?: string;
   recipientId?: string;
+  actorId?: string;
+  /** 來源（例：公告的一次發送）：這次送給了誰、誰還沒讀。 */
+  sourceId?: string;
   unread?: boolean;
   /** ISO 8601；日界線由呼叫端換算（使用者偏好的時區）。 */
   from?: string;

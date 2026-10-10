@@ -5,7 +5,7 @@
 - 依賴：站內通知（[`backend/15-notification.md`](../architecture/backend/15-notification.md) §6、§13；[`frontend/15-notification.md`](../architecture/frontend/15-notification.md)）；
   事件管理的分類（[`backend/16-notification-event.md`](../architecture/backend/16-notification-event.md)）；公告（[`backend/19-announcement.md`](../architecture/backend/19-announcement.md) §2.3、§3、D4；[`frontend/16-announcement.md`](../architecture/frontend/16-announcement.md)）；
   關注（[`backend/24-comment.md`](../architecture/backend/24-comment.md) §3.2；[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) F2）
-- 相關：[`../issues/announcement-source-filter.md`](../issues/announcement-source-filter.md)（通知總覽的 `sourceId` 篩選與規格的落差，先修）；[`list-filters-completion.md`](./list-filters-completion.md)（列表篩選進網址）
+- 相關：通知總覽的 `sourceId` 篩選（[`backend/15-notification.md`](../architecture/backend/15-notification.md) §6.1，2026-10-10 已實作，發送紀錄的「已讀 x／y」連過去）；[`list-filters-completion.md`](./list-filters-completion.md)（列表篩選進網址）
 
 > 使用方式見 [`README.md`](./README.md)。功能完成後刪除本檔，內容重寫成正式文件歸檔。
 
@@ -20,7 +20,7 @@
 | `features/notification/hooks/useDeleteNotification.ts` | 「不確認、不可復原」 | 列尾的刪除鍵與「前往」相鄰，誤按就沒了。後端是直接刪除、不寫稽核，這是刻意的（§13 D2），所以復原只能在前端延遲送出 |
 | `features/notification/components/NotificationPreferenceSection.tsx` | 偏好平鋪成一長串 | `GET` 的回應已帶 `category`（`notification-preference.dto.ts:37`），事件管理頁（`pages/NotificationEventList/adapter.ts`）已依分類分組，個人偏好沒有 |
 | `features/announcement/pages/AnnouncementDetail/adapter.ts:4-25` | 受眾只顯示「3 位使用者、2 個群組」 | 看不出是哪些人、哪些群組；`AnnouncementAudience` 只有 id |
-| `pages/AnnouncementDetail/components/AnnouncementDispatchSection.tsx:88-94` | 每次發送只顯示「已讀 12／40」 | 追不到 **誰還沒讀**；通知總覽有 `sourceId` 的規格但前端沒有入口（見 issue） |
+| `pages/AnnouncementDetail/components/AnnouncementDispatchSection.tsx:88-94` | 每次發送只顯示「已讀 12／40」 | 已讀數連到通知總覽的 `?sourceId=`（可再篩「未讀」），但要有 `notification:read`，發送者通常沒有；也不能匯出 |
 | `features/comment/components/WatchButton.tsx:23` | 關注人數只在按鈕的 `title` | 觸控裝置與螢幕閱讀器看不到 |
 | `features/comment/routes/index.ts` | 空的（[`frontend/22-comment.md`](../architecture/frontend/22-comment.md) F2 預留） | 沒有「我關注的項目」，取消關注只能回到每個資源頁；[`backend/24-comment.md`](../architecture/backend/24-comment.md) §8.2「不做（這一版）」列了它 |
 

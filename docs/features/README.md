@@ -27,14 +27,14 @@
 | P2 | 平台危險操作的雙人覆核 | [`platform-dual-approval.md`](./platform-dual-approval.md) | 提案 | — |
 | P2 | 平台的背景工作管理強化 | [`platform-job-management.md`](./platform-job-management.md) | 提案 | — |
 | P2 | 平台的安全政策 | [`platform-security-policy.md`](./platform-security-policy.md) | 提案 | 租戶底線是否隨方案（[`tenant-plans.md`](./tenant-plans.md)） |
-| P1 | 列表的篩選與導覽補齊（backstage） | [`list-filters-completion.md`](./list-filters-completion.md) | 提案 | 先收斂 [`../issues/list-search-hooks-duplicated.md`](../issues/list-search-hooks-duplicated.md)；背景工作的時間篩選與 [`platform-job-management.md`](./platform-job-management.md) 共用 |
+| P1 | 列表的篩選與導覽補齊（backstage） | [`list-filters-completion.md`](./list-filters-completion.md) | 提案 | 列表的網址條件已收斂成 `web-core/router` 的 `useListSearch`；背景工作的時間篩選與 [`platform-job-management.md`](./platform-job-management.md) 共用 |
 | P1 | 上傳的重試與被擋清單（backstage） | [`upload-retry.md`](./upload-retry.md) | 提案 | 要改寫 [`frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §8 的暫存檔清理 |
 | P1 | 批次操作擴充（backstage） | [`batch-actions-expansion.md`](./batch-actions-expansion.md) | 提案 | 背景工作的取消與 [`platform-job-management.md`](./platform-job-management.md) 共用；多關審批的批次決定要先修訂 [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9.16 |
 | P1 | 首頁區塊（backstage） | [`home-sections.md`](./home-sections.md) | 提案 | — |
 | P2 | 檔案預覽與圖片檢視統一 | [`file-viewer-unification.md`](./file-viewer-unification.md) | 提案 | 要修訂 [`backend/26-gallery.md`](../architecture/backend/26-gallery.md) §14.2 D12 |
 | P2 | 使用者與角色詳情 | [`user-role-detail-pages.md`](./user-role-detail-pages.md) | 提案 | — |
 | P2 | Webhook 投遞的除錯 | [`webhook-debugging.md`](./webhook-debugging.md) | 提案 | — |
-| P2 | 通知收件匣與公告追蹤 | [`notification-inbox.md`](./notification-inbox.md) | 提案 | 先修 [`../issues/announcement-source-filter.md`](../issues/announcement-source-filter.md) |
+| P2 | 通知收件匣與公告追蹤 | [`notification-inbox.md`](./notification-inbox.md) | 提案 | — |
 | P2 | 標籤管理 | [`tag-management.md`](./tag-management.md) | 提案 | — |
 | P2 | 系統設定的導覽 | [`settings-navigation.md`](./settings-navigation.md) | 提案 | — |
 | P3 | 個人帳號的自助 | [`account-self-service.md`](./account-self-service.md) | 提案 | — |

@@ -2,7 +2,7 @@
 
 - 優先度：P1
 - 狀態：提案
-- 依賴：[`../issues/list-search-hooks-duplicated.md`](../issues/list-search-hooks-duplicated.md)（每個列表各寫一份 `use<X>SearchFilter`；先收斂成共用的寫法，再把篩選加上去，不然每加一個篩選就多抄一次）；
+- 依賴：列表的網址條件已收斂成 `@b2b-system/web-core/router` 的 `useListSearch`／`useRouteSearch`（2026-10-10），新的篩選以它的 `setFilters`、`patch` 加上去；
   網址狀態的慣例（[`frontend/04-routing.md`](../architecture/frontend/04-routing.md) §3：`validateSearch`、`.catch()`、`stripSearchParams`、`sortSearchSchema`）；
   `RichTable` 的 `FilterBar`／`ActiveFilters`（[`frontend/07-ui-system.md`](../architecture/frontend/07-ui-system.md) §6.1）；route id（`@b2b-system/web-core/route-link`，[`frontend/15-notification.md`](../architecture/frontend/15-notification.md) §3）
 - 相關：[`platform-job-management.md`](./platform-job-management.md)（`GET /platform/jobs` 也要加 `createdFrom`／`createdTo`，見 §5 的分工）；

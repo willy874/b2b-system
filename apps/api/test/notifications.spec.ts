@@ -423,6 +423,8 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
     let adminUser: string;
     let auditorUser: string;
     let seeded: NotificationRow[];
+    /** 公告的一次發送（`sourceId` 的篩選只比對值，不必真的有這筆發送紀錄）。 */
+    const DISPATCH_ID = '00000000-0000-4000-8000-0000000000d1';
 
     interface OverviewBody {
       data: {
@@ -462,6 +464,7 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
         await seedNotification(bob, {
           type: 'webhook.disabled',
           createdAt: new Date('2026-09-12T00:00:00Z'),
+          sourceId: DISPATCH_ID,
         }),
       ];
     });
@@ -494,12 +497,13 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
       expect(nextCursor).toBeNull();
     });
 
-    it('篩選：類型、收件人、觸發者、未讀、時間區間', async () => {
+    it('篩選：類型、收件人、觸發者、來源、未讀、時間區間', async () => {
       expect(await ids('?type=approval.pending')).toEqual(
         [seeded[0]!.id, seeded[1]!.id].toSorted(),
       );
       expect(await ids(`?recipientId=${alice}`)).toEqual([seeded[0]!.id, seeded[2]!.id].toSorted());
       expect(await ids(`?actorId=${rootId}`)).toEqual([seeded[2]!.id]);
+      expect(await ids(`?sourceId=${DISPATCH_ID}`)).toEqual([seeded[3]!.id]);
       expect(await ids('?unread=true')).toEqual(
         [seeded[0]!.id, seeded[1]!.id, seeded[3]!.id].toSorted(),
       );
@@ -523,12 +527,13 @@ describe('站內通知（docs/architecture/backend/15-notification.md、docs/arc
       expect(seen.toSorted()).toEqual(seeded.map((row) => row.id).toSorted());
     });
 
-    it('起日晚於迄日、游標格式不對、收件人不是 uuid → 400 VALIDATION_FAILED', async () => {
+    it('起日晚於迄日、游標格式不對、收件人或來源不是 uuid → 400 VALIDATION_FAILED', async () => {
       const headers = await auth(adminUser);
       for (const query of [
         '?from=2026-09-12T00:00:00Z&to=2026-09-10T00:00:00Z',
         '?cursor=garbage',
         '?recipientId=not-a-uuid',
+        '?sourceId=not-a-uuid',
       ]) {
         // oxlint-disable-next-line no-await-in-loop -- 逐一斷言，失敗時看得出是哪一個
         const response = await request(http).get(`/notifications/all${query}`).set(headers);

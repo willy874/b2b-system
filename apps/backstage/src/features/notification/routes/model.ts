@@ -16,6 +16,9 @@ export const DEFAULT_NOTIFICATION_SEARCH: NotificationSearchQuery = { filter: 'a
 export const NotificationOverviewSearchQuerySchema = z.object({
   type: z.catch(z.optional(z.string().check(z.trim())), undefined),
   recipientId: z.catch(z.optional(z.uuid()), undefined),
+  actorId: z.catch(z.optional(z.uuid()), undefined),
+  /** 公告的一次發送（發送紀錄的「已讀 x／y」連過來）；不在篩選面板裡，頁首另外顯示與清除。 */
+  sourceId: z.catch(z.optional(z.uuid()), undefined),
   // core/router 的 search 值一律是字串（`?unread=true`）；navigate 時傳布林
   unread: z.catch(
     z.pipe(

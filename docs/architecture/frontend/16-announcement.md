@@ -44,6 +44,8 @@ shared/date                            zonedDateTime()、toZonedParts()：偏好
 - 全文頁登記到靜態前綴 `/announcement/message`：前綴比對不認得 `$dispatchId` 這種參數段。
 - 詳情的按鈕：草稿 → 編輯（`update`）、送出（`publish`）；排程中 → 暫停（`publish`），編輯要 `update` ＋ `publish`；
   暫停中 → 恢復；已完成 → 不能編輯；刪除要 `delete`；發送紀錄的撤回要 `publish`。未水合時都不顯示。
+- 發送紀錄的「已讀 x／y」連到通知總覽的 `?sourceId=<發送紀錄>`（route id `notification.overviewBySource`，[`15-notification.md`](./15-notification.md) §4.1），
+  看這次送給了誰、誰還沒讀；沒有 `notification:read` 時只顯示文字。
 
 ## 3. 表單
 

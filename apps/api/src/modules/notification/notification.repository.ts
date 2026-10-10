@@ -47,6 +47,7 @@ export interface NotificationOverviewFilter {
   type?: string;
   recipientId?: string;
   actorId?: string;
+  sourceId?: string;
   unread: boolean;
   from?: Date;
   to?: Date;
@@ -134,6 +135,7 @@ export class NotificationRepository {
     if (filter.type) conditions.push(eq(notifications.type, filter.type));
     if (filter.recipientId) conditions.push(ownedBy(filter.recipientId));
     if (filter.actorId) conditions.push(eq(notifications.actorId, filter.actorId));
+    if (filter.sourceId) conditions.push(eq(notifications.sourceId, filter.sourceId));
     if (filter.unread) conditions.push(isNull(notifications.readAt));
     if (filter.from) conditions.push(gte(notifications.createdAt, filter.from));
     if (filter.to) conditions.push(lte(notifications.createdAt, filter.to));

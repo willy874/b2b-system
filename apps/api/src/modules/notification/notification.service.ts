@@ -179,6 +179,7 @@ export class NotificationService {
         type: query.type,
         recipientId: query.recipientId,
         actorId: query.actorId,
+        sourceId: query.sourceId,
         unread: query.unread ?? false,
         from: query.from,
         to: query.to,

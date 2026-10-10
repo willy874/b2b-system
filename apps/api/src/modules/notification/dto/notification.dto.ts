@@ -76,6 +76,8 @@ export const ListAllNotificationSchema = ListNotificationSchema.extend({
   type: z.string().trim().max(100).optional(),
   recipientId: z.string().uuid().optional(),
   actorId: z.string().uuid().optional(),
+  /** 來源（例：公告的一次發送 `announcement_dispatches.id`）：這次發送送給了誰、誰還沒讀。 */
+  sourceId: z.string().uuid().optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 }).superRefine(({ from, to }, ctx) => {

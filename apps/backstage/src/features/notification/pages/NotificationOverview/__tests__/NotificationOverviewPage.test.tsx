@@ -132,6 +132,23 @@ describe('通知總覽頁（docs/architecture/backend/19-announcement.md §9.2 D
     expect(params.to).toMatch(/^2026-(09-30|10-01)T/);
   });
 
+  it('發送紀錄連過來的 sourceId 帶進查詢；頁首提示，「顯示全部」拿掉它、其他條件照舊', async () => {
+    const sourceId = '00000000-0000-4000-8000-0000000000d1';
+    const actorId = '00000000-0000-4000-8000-000000000002';
+    const { router } = renderRoute(
+      routes,
+      `/notification/all?sourceId=${sourceId}&actorId=${actorId}`,
+      READER,
+    );
+    await waitFor(() => expect(fetchOverview).toHaveBeenCalled());
+    expect(fetchOverview.mock.calls[0]![0].params).toMatchObject({ sourceId, actorId });
+
+    const banner = await screen.findByTestId('notification-overview-source');
+    await userEvent.click(within(banner).getByRole('button', { name: '顯示全部' }));
+    await waitFor(() => expect(screen.queryByTestId('notification-overview-source')).toBeNull());
+    expect(router.state.location.search).toEqual({ actorId });
+  });
+
   it('有下一頁 → 「載入更多」以游標接續', async () => {
     fetchOverview
       .mockResolvedValueOnce({ items: [item('n1')], nextCursor: 'cursor-1' })

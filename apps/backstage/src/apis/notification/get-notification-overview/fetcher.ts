@@ -16,6 +16,8 @@ export const fetchNotificationOverviewQuery = defineAuthFetcher<
       cursor: request.params.cursor,
       type: request.params.type,
       recipientId: request.params.recipientId,
+      actorId: request.params.actorId,
+      sourceId: request.params.sourceId,
       unread: request.params.unread ? 'true' : undefined,
       from: request.params.from,
       to: request.params.to,

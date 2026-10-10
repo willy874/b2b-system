@@ -6,7 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initTestI18n } from '@/test/i18n';
 
 import notificationZhTW from '../../../locales/zh_TW.json';
-import { RecipientSelect } from '../components/RecipientSelect';
+import { UserFilterSelect } from '../components/UserFilterSelect';
 
 const { fetchUsers, fetchUser } = vi.hoisted(() => ({ fetchUsers: vi.fn(), fetchUser: vi.fn() }));
 vi.mock('@/apis/user/get-user-list/fetcher', () => ({ fetchUserListQuery: fetchUsers }));
@@ -20,7 +20,16 @@ const user = (id: string, displayName: string) => ({
 
 function renderSelect(value: string | undefined) {
   const onChange = vi.fn();
-  render(<RecipientSelect value={value} onChange={onChange} />, { wrapper: AllProviders });
+  render(
+    <UserFilterSelect
+      value={value}
+      onChange={onChange}
+      label="收件人"
+      placeholder="所有收件人"
+      data-testid="notification-overview-recipient"
+    />,
+    { wrapper: AllProviders },
+  );
   return onChange;
 }
 
@@ -38,7 +47,7 @@ beforeEach(() => {
   fetchUser.mockReset().mockResolvedValue(user('u-zed', 'Zed'));
 });
 
-describe('RecipientSelect（通知總覽的收件人篩選）', () => {
+describe('UserFilterSelect（通知總覽的收件人、觸發者篩選）', () => {
   it('沒有選人時顯示「所有收件人」；下拉還沒打開時不查使用者列表與個人資料', async () => {
     renderSelect(undefined);
     expect(trigger()).toHaveTextContent('所有收件人');

@@ -245,7 +245,7 @@ await withTransaction(this.db, async (tx) => {
 
 | 項目 | 規則 |
 | --- | --- |
-| 篩選 | `type`、`recipientId`、`actorId`、`unread=true`、`from`／`to`（ISO 8601，`from` 晚於 `to` 回 400）；可以組合 |
+| 篩選 | `type`、`recipientId`、`actorId`、`sourceId`（例：公告的一次發送，回答「這次送給了誰、誰還沒讀」；走 `(source_id, recipient_id)` 的部分唯一索引）、`unread=true`、`from`／`to`（ISO 8601，`from` 晚於 `to` 回 400）；可以組合 |
 | 分頁 | 同 `/notifications`：keyset、`limit` 1～100（預設 20）、回 `{ items, nextCursor }`、不計總數 |
 | 每一列 | `/notifications` 的欄位 ＋ `recipient: { id, name }`（`users` 的 inner join；收件人被軟刪除時照樣顯示名字，被永久刪除時通知已一起刪掉） |
 | 權限 | `notification:read` 依賴 `user:read`（每一列都帶收件人）。只預設給 admin：`params` 帶申請人名稱、角色名稱等，auditor 不預設（D2） |
