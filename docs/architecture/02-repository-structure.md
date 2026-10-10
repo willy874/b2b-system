@@ -347,7 +347,10 @@ IDP_SECRET_KEY=                               # 加密外部 IdP client secret �
 WEBHOOK_SECRET_KEY=                           # 加密 webhook 簽章密鑰的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填）
 MFA_SECRET_KEY=                               # 加密 TOTP seed、Email 驗證碼 HMAC 的金鑰（32 bytes base64）；留空 = 由 JWT_SECRET 推導（production 必填；換金鑰 = 所有人重設 MFA）
 PLATFORM_MFA_REQUIRED=                        # 平台管理者必須啟用 MFA；留空 = production true、其他 false（production 不能設 false）
-PLATFORM_MFA_METHODS=                         # 平台管理者可用的 MFA 方式（逗號分隔）；留空 = totp
+PLATFORM_MFA_METHODS=                         # 平台管理者可用的 MFA 方式（逗號分隔，例：totp,webauthn）；留空 = totp。webauthn 另要在 apps/platform 的 MFA 方式頁填參數並開啟
+MFA_TWILIO_API_URL=                           # 簡訊（Twilio）的 API 位址；留空 = https://api.twilio.com。開發可指向 pnpm dev:mock-messaging（http://localhost:4466）
+MFA_TELEGRAM_API_URL=                         # Telegram Bot API 位址；留空 = https://api.telegram.org（開發同上）
+MFA_LINE_API_URL=                             # LINE Messaging API 位址；留空 = https://api.line.me（開發同上）
 
 SUPER_ADMIN_EMAIL=admin@example.com
 SUPER_ADMIN_PASSWORD=              # 留空：開發時隨機產生並印出一次；production 建成 pending，只印一次性的啟用連結
@@ -399,6 +402,7 @@ GALLERY_MAINTENANCE_CRON=45 * * * *  # 圖片庫的清理排程 cron（UTC）；
 
 # ── 圖片的 CDN（預設關閉；backend/09-file.md §16.5）──────────
 FILE_CDN_ENABLED=false             # true 時下面的必填與格式在啟動時檢查；false 時一律忽略
+FILE_CDN_PROVIDER=nginx
 FILE_CDN_ORIGIN=http://localhost:9080
 FILE_CDN_SIGNING_KEYS=             # <kid>:<base64>[,…]，第一把簽發；與邊緣的 CDN_SIGNING_KEYS 相同
 FILE_CDN_RESOURCES=imageAsset,galleryItem,fileVariant
@@ -406,6 +410,9 @@ FILE_CDN_MAX_URL_TTL=86400
 FILE_CDN_PURGE_ON_DELETE=true
 FILE_CDN_PURGE_URL=http://127.0.0.1:8081
 FILE_CDN_PURGE_SECRET=             # 與邊緣的 CDN_PURGE_SECRET 相同
+FILE_CDN_PURGE_BATCH_SIZE=100      # 一筆 cdn.purge 最多幾個路徑（1–1000）；CDN 頁面可覆寫
+FILE_CDN_PURGE_TIMEOUT_MS=5000     # 單一節點的清理逾時（也是檢查 /_status 的逾時）
+FILE_CDN_HEALTH_CHECK_CRON=*/5 * * * *  # 邊緣的定期檢查 cdn.healthCheck（cron，UTC）；空字串不排程
 
 # ── apps/backstage（VITE_ 前綴才會進 bundle）─────────────────
 VITE_API_BASE_URL=/api

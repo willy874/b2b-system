@@ -323,7 +323,7 @@ docker compose -f docker-compose.prod.yml run --rm migrate \
 - [ ] 每筆 `permissions.key` = `resource || ':' || action`
 - [ ] `roles` 中恰有 4 筆 `is_system = true`
 - [ ] `super-admin` 只有 `tenant:self#superAdmin` 一條邊，**沒有任何權限鍵的邊**（隱含全集）
-- [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的 24 筆
+- [ ] `admin` 的權限集合 = `ROLE_SEED` 中宣告的權限（`seed.spec.ts` ⑤ 以 `ROLE_SEED` 比對，不寫死筆數）
 - [ ] 恰有一位使用者持有 `super-admin`
 - [ ] 連續執行 `db:seed` 兩次，所有表的筆數不變
 - [ ] 權限依賴樹多出鍵的角色各有一筆 `role.permissionsImplied`（預設角色只有 auditor：`file:read ⇒ file:access`），重跑不重複
