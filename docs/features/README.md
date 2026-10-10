@@ -18,6 +18,15 @@
 
 | 優先度 | 功能 | 文件 | 狀態 | 依賴 |
 | --- | --- | --- | --- | --- |
+| P1 | 跨租戶查使用者與救援 | [`tenant-user-support.md`](./tenant-user-support.md) | 提案 | — （要修訂 [`05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D11、D19） |
+| P1 | 平台總覽與系統狀態 | [`platform-dashboard.md`](./platform-dashboard.md) | 提案 | — |
+| P1 | 方案範本 | [`tenant-plans.md`](./tenant-plans.md) | 提案 | — |
+| P1 | 支援存取（代理登入） | [`support-access.md`](./support-access.md) | 提案 | 寫入限制（與 [`tenant-lifecycle.md`](./tenant-lifecycle.md) §2 共用）；要修訂 [`05-tenancy.md`](../architecture/05-tenancy.md) §10.2 D5、D19 |
+| P2 | 租戶生命週期擴充（試用、唯讀停權、排程清除、離開前的匯出） | [`tenant-lifecycle.md`](./tenant-lifecycle.md) | 提案 | 試用可接 [`tenant-plans.md`](./tenant-plans.md)（選用） |
+| P2 | 維護模式與平台廣播 | [`maintenance-broadcast.md`](./maintenance-broadcast.md) | 提案 | 寫入限制（[`tenant-lifecycle.md`](./tenant-lifecycle.md) §2） |
+| P2 | 平台危險操作的雙人覆核 | [`platform-dual-approval.md`](./platform-dual-approval.md) | 提案 | — |
+| P2 | 平台的背景工作管理強化 | [`platform-job-management.md`](./platform-job-management.md) | 提案 | — |
+| P2 | 平台的安全政策 | [`platform-security-policy.md`](./platform-security-policy.md) | 提案 | 租戶底線是否隨方案（[`tenant-plans.md`](./tenant-plans.md)） |
 | P1 | 列表的篩選與導覽補齊（backstage） | [`list-filters-completion.md`](./list-filters-completion.md) | 提案 | 先收斂 [`../issues/list-search-hooks-duplicated.md`](../issues/list-search-hooks-duplicated.md)；背景工作的時間篩選與 [`platform-job-management.md`](./platform-job-management.md) 共用 |
 | P1 | 上傳的重試與被擋清單（backstage） | [`upload-retry.md`](./upload-retry.md) | 提案 | 要改寫 [`frontend/12-file-manager.md`](../architecture/frontend/12-file-manager.md) §8 的暫存檔清理 |
 | P1 | 批次操作擴充（backstage） | [`batch-actions-expansion.md`](./batch-actions-expansion.md) | 提案 | 背景工作的取消與 [`platform-job-management.md`](./platform-job-management.md) 共用；多關審批的批次決定要先修訂 [`backend/20-approval.md`](../architecture/backend/20-approval.md) §9.16 |
@@ -81,6 +90,14 @@
   其他功能要「通知某人」時，照後端 §9 加一種通知類型
 
 接下來：圖片的五個階段都已完成。階段 1（讀取與遞送、格式政策、儲存止水線）與階段 2（圖片資產與選圖）歸檔在 [`backend/25-image.md`](../architecture/backend/25-image.md)、[`frontend/23-image-picker.md`](../architecture/frontend/23-image-picker.md)；階段 3（圖片庫）在 [`backend/26-gallery.md`](../architecture/backend/26-gallery.md)、[`frontend/24-gallery.md`](../architecture/frontend/24-gallery.md)；階段 4（CDN）與階段 5（CDN 設定管理）在 [`backend/09-file.md`](../architecture/backend/09-file.md) §16、§17。
+
+接下來：強化 apps/platform 的平台管理，九份提案（§1 表格）。建議的順序：
+
+1. `tenant-user-support`、`platform-dashboard`：範圍明確、風險低，用到既有的 `Tenancy`、用量快照與檢查結果。
+2. `tenant-plans`：會改 `tenants.features` 的語意，越早決定越便宜；`tenant-lifecycle` 的試用、`platform-security-policy` 的租戶底線都可能接在它上面。
+3. 寫入限制（`tenant-lifecycle` §2 的 `TenantWriteGuard` ＋ `@AllowWhenReadOnly`）：`tenant-lifecycle` 的唯讀停權、`maintenance-broadcast` 的唯讀維護、`support-access` 的唯讀 session 共用同一個機制，三份的開放問題要一起回答。
+4. `support-access`：風險最高，在 1、3 之後；與 `tenant-user-support` 都要先修訂 [`05-tenancy.md`](../architecture/05-tenancy.md) §10.2 的 D5（平台看不到租戶內容）、D11、D19（平台看不到租戶稽核）。
+5. `platform-dual-approval`、`platform-job-management`、`platform-security-policy`、`maintenance-broadcast` 的廣播部分：彼此獨立，可以穿插。
 
 接下來（backstage）：2026-10-10 的各功能優化分析拆成兩部分——現有程式的問題記在 [`../issues/README.md`](../issues/README.md)，新增的能力是 §1 表格中從 `list-filters-completion` 起的十二份提案。建議的順序：
 
