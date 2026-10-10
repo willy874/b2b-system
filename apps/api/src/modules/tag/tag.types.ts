@@ -1,4 +1,5 @@
 import type { AuthUser } from '@/common/types';
+import type { ResourceType } from '@/core/resource';
 import type { TenantFeature } from '@/core/tenant';
 import type { PermissionCheckContext } from '@/modules/permission/permission.service';
 
@@ -33,7 +34,7 @@ export interface EditableTagTarget {
  */
 export interface TagResourceDefinition {
   /** `core/resource` 的 `RESOURCE_TYPE`（與 `resource_tags.resource_type`、稽核的 `resource_type` 相同）。 */
-  resourceType: string;
+  resourceType: ResourceType;
   scope: string;
   /**
    * 能不能改這個資源的標籤：不存在或看不到 → 拋 `<RESOURCE>_NOT_FOUND`；看得到但不能改 → 拋 `AUTHZ_FORBIDDEN` 並寫 `authz.denied`

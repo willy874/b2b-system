@@ -81,12 +81,12 @@ export class MfaNotifier implements OnModuleInit {
     // 只記「寄了哪一種信給誰」（docs/architecture/backend/11-mail.md §9.2 D8）
     const entry = {
       action: 'mail.send',
-      resourceType: realm === 'tenant' ? 'user' : 'platformAdmin',
       resourceId: accountId,
       metadata: { template: `mfa.securityNotice.${event}`, jobId, messageId },
     };
-    if (realm === 'tenant') await this.audit.record({ ...entry, resourceName: account.email });
-    else await this.platformAudit.record(entry);
+    if (realm === 'tenant') {
+      await this.audit.record({ ...entry, resourceType: 'user', resourceName: account.email });
+    } else await this.platformAudit.record({ ...entry, resourceType: 'platformAdmin' });
     this.logger.log({ accountId, realm, event, messageId }, '已寄出 MFA 安全通知');
     return { messageId };
   }

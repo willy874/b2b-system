@@ -65,7 +65,7 @@ interface AuditRecord {
   actorEmail: string; // 快照；系統操作填 'system'
 
   action: string; // 'role.grantPermission'
-  resourceType: string; // 'role'
+  resourceType: AuditResourceType; // 'role'；新增一種時加進 AUDIT_RESOURCE_TYPES
   resourceId: string | null;
   resourceName: string | null; // 快照，例如角色名稱
 
@@ -238,7 +238,7 @@ const AUDIT_EXCLUDED_FIELDS = new Set(["passwordHash", "tokenHash", "tokenVersio
 | `offset` / `limit` | 分頁（`limit` 上限 100）                |
 | `actorId`          | 操作者                                  |
 | `action`           | 例 `role.update`，支援前綴比對 `role.*`（`%` / `_` 視為一般字元） |
-| `resourceType`     | `user` / `role` / `auth` / `permission` / `approval` / `file` / `fileFolder` |
+| `resourceType`     | `AuditResourceType`（`modules/audit-log/audit.types.ts` 的 `AUDIT_RESOURCE_TYPES`）：`core/resource` 的資源類型（`user`、`role`、`group`、`file`、`fileFolder`、`galleryItem`…），加上 `auth`、`authz`、`auditLog`、`dataTransfer`、`identityProvider`、`job`、`mfaPolicy`、`notificationPolicy`、`setting`。`AuditInput.resourceType` 以它限制型別，列表的 `resourceType` 篩選只收這些值（openapi 的 enum，前端的選項以它列舉） |
 | `resourceId`       |                                         |
 | `result`           | `success` / `failure`                   |
 | `from` / `to`      | ISO 8601 時間範圍；跨度最多 90 天（超過回 `400 VALIDATION_FAILED`）。都沒帶時為「現在往前 90 天」，只帶一端時往另一端推 90 天 |

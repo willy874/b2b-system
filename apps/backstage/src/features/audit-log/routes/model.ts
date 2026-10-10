@@ -1,5 +1,7 @@
 import { z } from 'zod/mini';
 
+import { AuditResourceType } from '@/shared/api-sdk';
+
 import { AUDIT_LOG_MAX_OFFSET } from '../constants';
 
 export const AuditLogSearchQuerySchema = z.object({
@@ -10,7 +12,13 @@ export const AuditLogSearchQuerySchema = z.object({
   ),
   limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
   action: z.catch(z.optional(z.string().check(z.trim())), undefined),
-  resourceType: z.catch(z.optional(z.string().check(z.trim())), undefined),
+  // 後端只收已知的類型（`AuditResourceType`）：網址帶了不認得的值就當沒篩選，不送出會 400 的請求
+  resourceType: z.catch(
+    z.optional(
+      z.enum(Object.values(AuditResourceType) as [AuditResourceType, ...AuditResourceType[]]),
+    ),
+    undefined,
+  ),
   result: z.catch(z.optional(z.enum(['success', 'failure'])), undefined),
   from: z.catch(z.optional(z.string()), undefined),
   to: z.catch(z.optional(z.string()), undefined),

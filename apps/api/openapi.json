@@ -13872,6 +13872,36 @@
         "required": ["items", "nextRowNo"],
         "additionalProperties": false
       },
+      "AuditResourceType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "role",
+          "group",
+          "file",
+          "fileFolder",
+          "serviceAccount",
+          "apiToken",
+          "webhook",
+          "tag",
+          "announcement",
+          "orgUnit",
+          "approval",
+          "approvalFlow",
+          "comment",
+          "galleryItem",
+          "galleryAlbum",
+          "auth",
+          "authz",
+          "auditLog",
+          "dataTransfer",
+          "identityProvider",
+          "job",
+          "mfaPolicy",
+          "notificationPolicy",
+          "setting"
+        ]
+      },
       "AuditLogSummary": {
         "type": "object",
         "properties": {

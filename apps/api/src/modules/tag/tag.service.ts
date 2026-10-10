@@ -324,7 +324,8 @@ export class TagService {
       await this.audit.record(
         {
           action: 'tag.assign',
-          resourceType,
+          // 登記時的型別（URL 的字串已經以它查到登記）
+          resourceType: definition.resourceType,
           resourceId,
           resourceName: target.name,
           changes: {

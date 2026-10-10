@@ -41,6 +41,7 @@ import type {
   AuditLog,
   AuditLogList,
   AuditLogSummary,
+  AuditResourceType,
   CancelDataTransferRequest,
   CdnCheckNode,
   CdnCheckResult,
@@ -1535,6 +1536,34 @@ export const DataTransferApplyRowListSchema = z.object({
   items: z.array(DataTransferApplyRowSchema),
   nextRowNo: z.int().min(-9007199254740991).max(9007199254740991).nullable(),
 }) satisfies z.ZodType<DataTransferApplyRowList>;
+
+export const AuditResourceTypeSchema = z.enum([
+  'user',
+  'role',
+  'group',
+  'file',
+  'fileFolder',
+  'serviceAccount',
+  'apiToken',
+  'webhook',
+  'tag',
+  'announcement',
+  'orgUnit',
+  'approval',
+  'approvalFlow',
+  'comment',
+  'galleryItem',
+  'galleryAlbum',
+  'auth',
+  'authz',
+  'auditLog',
+  'dataTransfer',
+  'identityProvider',
+  'job',
+  'mfaPolicy',
+  'notificationPolicy',
+  'setting',
+]) satisfies z.ZodType<AuditResourceType>;
 
 export const AuditLogSummarySchema = z.object({
   id: z.string(),

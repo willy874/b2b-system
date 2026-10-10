@@ -10,6 +10,7 @@ import type { JobType } from '@/core/jobs';
 import { requireTenant, TenantDirectory } from '@/core/tenant';
 import type { UserRow } from '@/db/schema';
 import { AuditService } from '@/modules/audit-log/audit.service';
+import type { AuditResourceType } from '@/modules/audit-log/audit.types';
 import { PasswordHasher } from '@/modules/credential/password-hasher';
 import { RefreshTokenService } from '@/modules/credential/refresh-token.service';
 import { tenantAccountId } from '@/modules/oidc-provider/oidc-account';
@@ -26,7 +27,7 @@ import type {
 import { TenantMfaRepository } from './tenant-mfa.repository';
 
 /** 稽核的動作與資源類型（docs/architecture/backend/21-mfa.md §12）。 */
-const TENANT_AUDIT: Record<MfaAuditKind, { action: string; resourceType: string }> = {
+const TENANT_AUDIT: Record<MfaAuditKind, { action: string; resourceType: AuditResourceType }> = {
   factorAdd: { action: 'mfa.factor.add', resourceType: 'auth' },
   factorRemove: { action: 'mfa.factor.remove', resourceType: 'auth' },
   recoveryRegenerate: { action: 'mfa.recoveryCodes.regenerate', resourceType: 'auth' },

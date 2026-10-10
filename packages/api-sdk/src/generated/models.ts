@@ -831,6 +831,35 @@ export interface DataTransferApplyRowList {
   nextRowNo: number | null;
 }
 
+export const AuditResourceType = {
+  user: 'user',
+  role: 'role',
+  group: 'group',
+  file: 'file',
+  fileFolder: 'fileFolder',
+  serviceAccount: 'serviceAccount',
+  apiToken: 'apiToken',
+  webhook: 'webhook',
+  tag: 'tag',
+  announcement: 'announcement',
+  orgUnit: 'orgUnit',
+  approval: 'approval',
+  approvalFlow: 'approvalFlow',
+  comment: 'comment',
+  galleryItem: 'galleryItem',
+  galleryAlbum: 'galleryAlbum',
+  auth: 'auth',
+  authz: 'authz',
+  auditLog: 'auditLog',
+  dataTransfer: 'dataTransfer',
+  identityProvider: 'identityProvider',
+  job: 'job',
+  mfaPolicy: 'mfaPolicy',
+  notificationPolicy: 'notificationPolicy',
+  setting: 'setting',
+} as const;
+export type AuditResourceType = (typeof AuditResourceType)[keyof typeof AuditResourceType];
+
 export interface AuditLogSummary {
   id: string;
   occurredAt: string;

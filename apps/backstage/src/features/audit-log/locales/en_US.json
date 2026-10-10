@@ -11,6 +11,11 @@
       "range": "Date range"
     },
     "resource": {
+      "fileFolder": "Folder",
+      "galleryItem": "Gallery image",
+      "galleryAlbum": "Album",
+      "notificationPolicy": "Notification policy",
+      "setting": "System settings",
       "auth": "Auth",
       "authz": "Authorization",
       "apiToken": "API tokens",

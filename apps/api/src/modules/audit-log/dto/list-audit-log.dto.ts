@@ -7,12 +7,19 @@ import {
   AUDIT_LOG_MAX_RANGE_DAYS,
   AUDIT_LOG_MAX_RANGE_MS,
 } from '../audit-log.constants';
+import { AUDIT_RESOURCE_TYPES } from '../audit.types';
+
+/** 稽核的資源類型（`AUDIT_RESOURCE_TYPES`）：前端的篩選選項以 SDK 產生的聯集列舉，後端新增一種時前端編譯失敗。 */
+export const AuditResourceTypeSchema = defineSchema(
+  'AuditResourceType',
+  z.enum(AUDIT_RESOURCE_TYPES),
+);
 
 /** 列表與匯出共用的篩選欄位（匯出的範圍上限另計，docs/architecture/backend/22-data-transfer.md §6.2）。 */
 export const AuditLogFilterSchema = z.object({
   actorId: z.string().uuid().optional(),
   action: z.string().trim().max(100).optional(), // 支援前綴比對：`role.*`
-  resourceType: z.string().trim().max(50).optional(),
+  resourceType: AuditResourceTypeSchema.optional(),
   resourceId: z.string().trim().max(100).optional(),
   result: z.enum(['success', 'failure']).optional(),
   // 沒帶時由 service 補成「現在往前 90 天」（resolveAuditLogRange）
