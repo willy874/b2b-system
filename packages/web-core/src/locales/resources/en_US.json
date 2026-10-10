@@ -117,6 +117,7 @@
     "emptyFiltered": "No results match the current filters",
     "clearFilters": "Clear filters",
     "paginationSummary": "{{from}}–{{to}} of {{total}}",
+    "paginationSummaryCapped": "{{from}}–{{to}} of {{total}}+; narrow the range or add filters to see more",
     "labelValue": "{{label}}: {{value}}",
     "labelColon": "{{label}}: ",
     "withNote": "{{name}} ({{note}})",

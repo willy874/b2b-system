@@ -300,7 +300,8 @@ const actionFilter = query.action?.endsWith("*")
 
 - `offset` 最多 `AUDIT_LOG_MAX_OFFSET`（10,000），超過回 `400 VALIDATION_FAILED`；再往後請縮小範圍或加篩選。
 - `total` 最多數到 `AUDIT_LOG_COUNT_CAP`（10,100，剛好涵蓋能翻到的最後一頁）：`count(*)` 包在 `LIMIT` 子查詢裡，
-  掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」。
+  掃到上限就停。畫面上的總數等於上限時代表「至少這麼多」：backstage 的摘要寫「共 10,100 筆以上；要看更多請縮小範圍或加篩選」，
+  分頁的頁數只算到 offset 10,000 那一頁（`RichTable` 以 `LIST_MAX_OFFSET` 夾住「最後一頁」與頁碼輸入），網址帶更大的 `offset` 時回到第一頁。
 
 **keyset 分頁**：回應除了 `pagination`，另有 `nextCursor`（上一頁最後一筆的微秒精度 `occurred_at` ＋ id，沒有下一頁是 `null`；多讀一筆判斷）。
 帶 `cursor` 時以 `(occurred_at, id) < (…)` 取下一頁，不看 `offset`（兩者同時帶回 `400`），兩張表的 `(occurred_at, id)` 索引都用得上，

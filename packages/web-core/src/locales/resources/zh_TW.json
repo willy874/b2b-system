@@ -104,6 +104,7 @@
     "emptyFiltered": "沒有符合條件的結果",
     "clearFilters": "清除篩選",
     "paginationSummary": "第 {{from}}–{{to}} 筆，共 {{total}} 筆",
+    "paginationSummaryCapped": "第 {{from}}–{{to}} 筆，共 {{total}} 筆以上；要看更多請縮小範圍或加篩選",
     "labelValue": "{{label}}：{{value}}",
     "labelColon": "{{label}}：",
     "withNote": "{{name}}（{{note}}）",

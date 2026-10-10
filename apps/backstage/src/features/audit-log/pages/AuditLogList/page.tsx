@@ -14,7 +14,7 @@ import { useIsFeatureReady } from '@/core/feature';
 import { PermissionKey, usePermission } from '@/core/permission';
 import { TenantFeature } from '@/shared/api-sdk';
 
-import { AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
+import { AUDIT_LOG_COUNT_CAP, AUDIT_LOG_MAX_RANGE_DAYS } from '../../constants';
 import { auditLogExportApi } from '../../hooks/auditLogExportApi';
 import { AUDIT_LOG_LIST_DEFAULT_HIDDEN, AUDIT_LOG_LIST_TABLE_ID } from '../../preference';
 import { toAuditLogRowVM } from './adapter';
@@ -130,6 +130,7 @@ export default function AuditLogListPage() {
           offset: search.offset,
           limit: search.limit,
           total: data?.pagination.total ?? 0,
+          totalCapped: (data?.pagination.total ?? 0) >= AUDIT_LOG_COUNT_CAP,
           pageSizeOptions: [25, 50, 100],
           onChange: ({ offset, limit }) => setPage(offset, limit),
         }}

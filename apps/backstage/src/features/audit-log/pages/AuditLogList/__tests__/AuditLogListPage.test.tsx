@@ -72,4 +72,27 @@ describe('AuditLogListPage（docs/architecture/frontend/07-ui-system.md §6.1）
     await waitFor(() => expect(fetchList).toHaveBeenCalledTimes(2));
     expect(fetchList.mock.calls[1]?.[0].params).toMatchObject({ offset: 50, cursor: 'cursor-1' });
   });
+
+  it('總數到達上限 → 摘要寫「以上」，「最後一頁」的 offset 不超過 10,000（docs/architecture/backend/06-audit-log.md §7.2）', async () => {
+    fetchList.mockImplementation(async ({ params }: { params: { offset: number } }) => ({
+      items: [],
+      pagination: { offset: params.offset, limit: 50, total: 10_100 },
+      nextCursor: null,
+    }));
+    renderRoute(routes, '/audit-log', ['auditLog:read'] as PermissionKey[]);
+    const summary = await screen.findByTestId('pagination-summary', undefined, { timeout: 5000 });
+    await waitFor(() => expect(summary).toHaveTextContent('10,100 筆以上'));
+
+    fireEvent.click(screen.getByTestId('pagination-last'));
+    await waitFor(() =>
+      expect(fetchList.mock.lastCall?.[0].params).toMatchObject({ offset: 10_000 }),
+    );
+  });
+
+  it('網址帶超過上限的 offset → 回到第一頁，不送出會 400 的請求', async () => {
+    fetchList.mockResolvedValue({ items: [], pagination: { offset: 0, limit: 50, total: 0 } });
+    renderRoute(routes, '/audit-log?offset=20000', ['auditLog:read'] as PermissionKey[]);
+    await waitFor(() => expect(fetchList).toHaveBeenCalled());
+    expect(fetchList.mock.calls[0]?.[0].params).toMatchObject({ offset: 0 });
+  });
 });

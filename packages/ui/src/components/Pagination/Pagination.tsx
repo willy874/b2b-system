@@ -43,6 +43,11 @@ export interface PaginationProps extends SlotOverrides<PaginationSlot> {
   total: number;
   onChange: (next: { offset: number; limit: number }) => void;
   pageSizeOptions?: number[];
+  /**
+   * 伺服器接受的最大 offset：超過的頁不列入頁數，「最後一頁」與頁碼輸入都夾在它之內。
+   * 深分頁有上限的列表（例：offset 最多 10,000）不傳的話，最後幾頁會送出伺服器拒絕的 offset。
+   */
+  maxOffset?: number;
   /** 沒傳的文案用 `ComponentLabelsContext`（目前語系）。 */
   labels?: PaginationLabels;
   className?: string;
@@ -69,6 +74,7 @@ export function Pagination({
   total,
   onChange,
   pageSizeOptions = DEFAULT_PAGE_SIZES,
+  maxOffset,
   labels,
   className,
   classNames,
@@ -78,7 +84,8 @@ export function Pagination({
 }: PaginationProps) {
   const slot = createSlots({ classNames, styles: styleOverrides, testIds });
   const defaults = useComponentLabels();
-  const pageCount = Math.max(1, Math.ceil(total / limit));
+  const reachablePages = maxOffset === undefined ? Infinity : Math.floor(maxOffset / limit) + 1;
+  const pageCount = Math.max(1, Math.min(Math.ceil(total / limit), reachablePages));
   const page = Math.floor(offset / limit) + 1;
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + limit, total);

@@ -25,12 +25,22 @@ import { useTableSettings } from './TableSettings/useTableSettings';
 import type { TableSettingsConfig } from './TableSettings/useTableSettings';
 
 /** 伺服器端分頁的狀態；與 `Pagination` 相同，換頁或改每頁筆數時回報新的 `offset` / `limit`。 */
+/**
+ * 列表端點接受的最大 offset（`apps/api/src/core/http/pagination.ts` 的 `MAX_OFFSET`）：
+ * 超過的頁不列入頁數，否則「最後一頁」會送出 400 的 offset（docs/architecture/backend/06-audit-log.md §7.2）。
+ */
+export const LIST_MAX_OFFSET = 10_000;
+
 export interface RichTablePagination {
   offset: number;
   limit: number;
   total: number;
   onChange: (next: { offset: number; limit: number }) => void;
   pageSizeOptions?: number[];
+  /** 預設 `LIST_MAX_OFFSET`；端點的上限不同時才傳 */
+  maxOffset?: number;
+  /** `total` 是數到上限就停的數字（稽核日誌）：摘要寫「以上」並提示縮小範圍 */
+  totalCapped?: boolean;
 }
 
 /**
@@ -292,13 +302,20 @@ export function RichTable<TData extends RowData, TFilters extends Record<string,
           total={pagination.total}
           onChange={pagination.onChange}
           pageSizeOptions={pagination.pageSizeOptions}
+          maxOffset={pagination.maxOffset ?? LIST_MAX_OFFSET}
           labels={{
             summary: ({ from, to, total }) =>
-              t('common.paginationSummary', {
-                from: numberFormat.format(from),
-                to: numberFormat.format(to),
-                total: numberFormat.format(total),
-              }),
+              pagination.totalCapped
+                ? t('common.paginationSummaryCapped', {
+                    from: numberFormat.format(from),
+                    to: numberFormat.format(to),
+                    total: numberFormat.format(total),
+                  })
+                : t('common.paginationSummary', {
+                    from: numberFormat.format(from),
+                    to: numberFormat.format(to),
+                    total: numberFormat.format(total),
+                  }),
           }}
         />
       )}

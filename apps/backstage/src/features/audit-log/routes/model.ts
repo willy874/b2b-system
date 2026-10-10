@@ -1,7 +1,13 @@
 import { z } from 'zod/mini';
 
+import { AUDIT_LOG_MAX_OFFSET } from '../constants';
+
 export const AuditLogSearchQuerySchema = z.object({
-  offset: z.catch(z.coerce.number().check(z.int(), z.minimum(0)), 0),
+  // 超過列表的 offset 上限（後端回 400）時回到第一頁，不留在錯誤畫面
+  offset: z.catch(
+    z.coerce.number().check(z.int(), z.minimum(0), z.maximum(AUDIT_LOG_MAX_OFFSET)),
+    0,
+  ),
   limit: z.catch(z.coerce.number().check(z.int(), z.minimum(1), z.maximum(100)), 50),
   action: z.catch(z.optional(z.string().check(z.trim())), undefined),
   resourceType: z.catch(z.optional(z.string().check(z.trim())), undefined),
