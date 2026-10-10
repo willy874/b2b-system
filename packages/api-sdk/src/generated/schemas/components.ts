@@ -4251,6 +4251,7 @@ export const GalleryItemSchema = z.object({
 export const GalleryItemListSchema = z.object({
   items: z.array(GalleryItemSchema),
   nextCursor: z.string().nullable(),
+  prevCursor: z.string().nullable(),
 }) satisfies z.ZodType<GalleryItemList>;
 
 export const GalleryExifSchema = z.object({

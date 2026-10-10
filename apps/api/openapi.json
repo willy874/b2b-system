@@ -20692,9 +20692,13 @@
           "nextCursor": {
             "nullable": true,
             "type": "string"
+          },
+          "prevCursor": {
+            "nullable": true,
+            "type": "string"
           }
         },
-        "required": ["items", "nextCursor"],
+        "required": ["items", "nextCursor", "prevCursor"],
         "additionalProperties": false
       },
       "GalleryExif": {

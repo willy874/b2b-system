@@ -8,6 +8,8 @@ import type { GalleryItem } from '@/shared/api-sdk';
 
 import { GalleryAlbumRoute, GalleryRoute } from '../../routes';
 import type { GallerySearch } from '../../routes';
+import { createPageSnapshots } from './pageSnapshots';
+import type { SnapshotSource } from './pageSnapshots';
 import type { GalleryGrouping } from './preference';
 import { dayRangeToIso, groupGalleryItems } from './sections';
 
@@ -50,10 +52,18 @@ export function useGalleryBrowse(grouping: GalleryGrouping) {
   const startAt = jump?.key === filterKey ? jump.startAt : undefined;
 
   const query = useInfiniteQuery(getGalleryItemsInfiniteQueryOptions(filters, { startAt }));
-  const items = useMemo<GalleryItem[]>(
-    () => query.data?.pages.flatMap((page) => page.items) ?? [],
-    [query.data],
+  // 被 maxPages 丟掉的頁以快照保留（版面、選取、檢視器照舊），捲到時再取回
+  const [snapshots] = useState(createPageSnapshots<GalleryItem>);
+  const merged = useMemo(
+    () =>
+      snapshots.merge(
+        `${filterKey}|${startAt ?? ''}`,
+        // TanStack 推不出頁參數的型別（同檔案管理的 `FileInfinitePageParam`）
+        query.data as SnapshotSource<GalleryItem> | undefined,
+      ),
+    [snapshots, filterKey, startAt, query.data],
   );
+  const { items, stale } = merged;
   const timeField = sortField === 'title' ? null : sortField;
   const sections = useMemo(
     () => groupGalleryItems(items, grouping, timeField),
@@ -76,6 +86,18 @@ export function useGalleryBrowse(grouping: GalleryGrouping) {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   }, [query]);
 
+  /** 捲到快照的項目：往它那一側取一頁（重新驗證或另一側正在取時先不動，取完之後畫面上的快照會再通知）。 */
+  const revisitStale = useCallback(
+    (id: string) => {
+      const side = stale.get(id);
+      if (!side || query.isFetching) return;
+      if (side === 'before') {
+        if (query.hasPreviousPage) void query.fetchPreviousPage();
+      } else if (query.hasNextPage) void query.fetchNextPage();
+    },
+    [query, stale],
+  );
+
   return {
     albumId,
     search,
@@ -86,6 +108,11 @@ export function useGalleryBrowse(grouping: GalleryGrouping) {
     items,
     sections,
     query,
+    /** 來自快照的項目（被 `maxPages` 丟掉的頁）。 */
+    stale,
+    /** 每次合併都是新的物件：`StaleItemTrigger` 以它在取回一頁之後再通知一次。 */
+    revision: merged,
+    revisitStale,
     startAt,
     jumpTo: (next: string | undefined) =>
       setJump(next ? { key: filterKey, startAt: next } : undefined),

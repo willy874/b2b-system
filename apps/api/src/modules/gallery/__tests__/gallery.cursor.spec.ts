@@ -13,8 +13,29 @@ describe('gallery 的 keyset 游標（docs/architecture/backend/26-gallery.md §
     { sort: 'sortAt', order: 'desc', value: '2026-03-14T02:20:30.123456Z', id: ID },
     { sort: 'createdAt', order: 'asc', value: '2026-03-14T02:20:30.123Z', id: ID },
     { sort: 'title', order: 'asc', value: '產品照 01', id: ID },
+    {
+      sort: 'sortAt',
+      order: 'desc',
+      value: '2026-03-14T02:20:30.123456Z',
+      id: ID,
+      direction: 'before',
+    },
   ] as const)('encode 之後 decode 回同一個值（$sort）', (cursor) => {
     expect(decodeGalleryCursor(encodeGalleryCursor(cursor))).toEqual(cursor);
+  });
+
+  it('after 不寫方向：與方向出現之前發出的游標相同', () => {
+    const legacy = raw(['sortAt', 'desc', '2026-03-14T02:20:30.123Z', ID]);
+    expect(
+      encodeGalleryCursor({
+        sort: 'sortAt',
+        order: 'desc',
+        value: '2026-03-14T02:20:30.123Z',
+        id: ID,
+        direction: 'after',
+      }),
+    ).toBe(legacy);
+    expect(decodeGalleryCursor(legacy)?.direction).toBeUndefined();
   });
 
   it.each([
@@ -25,6 +46,7 @@ describe('gallery 的 keyset 游標（docs/architecture/backend/26-gallery.md §
     ['id 不是 uuid', raw(['sortAt', 'desc', '2026-03-14T02:20:30.123Z', 'x'])],
     ['時間不是 encode 的格式', raw(['sortAt', 'desc', '2026-02-30', ID])],
     ['標題含 NUL', raw(['title', 'asc', 'a\u0000', ID])],
+    ['方向不認得', raw(['sortAt', 'desc', '2026-03-14T02:20:30.123Z', ID, 'sideways'])],
   ])('%s → undefined', (_name, value) => {
     expect(decodeGalleryCursor(value)).toBeUndefined();
   });

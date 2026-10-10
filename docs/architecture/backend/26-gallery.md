@@ -149,7 +149,7 @@ EXIF 方向寫錯的照片可以「向左轉／向右轉」：`PATCH /gallery/it
 
 | 端點 | 說明 |
 | --- | --- |
-| `GET /gallery/items` | keyset 分頁（一頁 100、最多 200）；回 `{ items, nextCursor }` |
+| `GET /gallery/items` | keyset 分頁（一頁 100、最多 200）；回 `{ items, nextCursor, prevCursor }` |
 | `GET /gallery/items/timeline?field=sortAt\|createdAt` | 每個月的張數（新到舊），以租戶的預設時區分月；日期捲軸用 |
 | `GET /gallery/items/:id` | 詳情：EXIF、上傳者、來源、所在的相簿、標籤、內容相同的其他圖（最多 5 張，D7）、下載網址 |
 | `GET /gallery/items/:id/neighbors` | 同一組篩選與排序下的前一張與下一張（從分享的網址直接打開檢視器時） |
@@ -159,6 +159,8 @@ EXIF 方向寫錯的照片可以「向左轉／向右轉」：`PATCH /gallery/it
   `imageUsage`（選圖用：只列能當這個用途的型別與大小，§9）。
 - **排序**：`sortAt`（預設，新到舊）、`createdAt`、`title`；游標是「排序值 ＋ id」，捲動途中有人新增或刪除也不重複、不漏。
   游標的排序與請求不一致時回 `400 VALIDATION_FAILED`。
+  游標帶方向：`nextCursor` 取之後的一頁，`prevCursor` 取之前的一頁（前端的無限捲動只保留最近幾頁，往回捲時抓回被丟掉的頁；D22）。
+  沒帶游標也沒有 `startAt` 的第一頁、或往前取已到最前面時 `prevCursor` 是 null。舊的游標（沒有方向）視為往後。
 - **`startAt`**：日期捲軸的跳轉——以「那個時間點」為起點載入（`sort_at <= startAt`，升冪時反過來），不必一路捲過去（D18）。
 - **網址**：每張圖帶 `ImageSources`（[`25-image.md`](./25-image.md) §5），版面 `grid`（`thumb 480w, medium 1280w`）、`medium`、`large`；
   未轉向的圖另帶 `original` 的 inline 網址（TIFF 除外：瀏覽器不能顯示）。效期 1 小時，由 `ImageUrlService` 直接簽，不查 DB。
@@ -335,3 +337,4 @@ POST /gallery/items/from-source { source, refIds: string[] (≤ 100), albumId? }
 | D19 | **「從其他來源加入」以 `filterOnly` 的圖片用途 `gallery.item` 過濾**，不另外設計來源的過濾參數 | 來源元件已經以用途過濾型別與大小（[`../frontend/23-image-picker.md`](../frontend/23-image-picker.md) §2）；`filterOnly` 讓這個用途不能被拿來建立圖片資產 |
 | D20 | **轉過顯示方向的圖，被選圖複製時給 `large` 的變體** | 原檔沒有轉；給原檔的話，選到的圖與圖片庫裡看到的方向不一致 |
 | D21 | **接上 CDN**（[`09-file.md`](./09-file.md) §16）：變體以 `cdn: 'galleryItem'` 簽網址；原檔的 inline 與下載照舊 presigned；刪除變體之後以 `CdnPurger.schedule(keys)` 清理邊緣快取，只列變體（`cdnKeysOf`） | 變體只寫一次（D14），可以長期快取；原檔的 inline 只在放大時用、下載帶每次不同的 `Content-Disposition`，走 CDN 沒有好處。最初的實作把 CDN 留到合併之後（CDN 在另一個 branch），合併後補上 |
+| D22 | **游標加上方向、列表回 `prevCursor`**（同檔案列表，[`09-file.md`](./09-file.md) §6.1） | 前端的無限捲動要有頁數上限（`maxPages`）：重新驗證時 TanStack 依序重抓保留的每一頁，捲了 50 頁就是 50 個請求；丟掉的頁要能以「排在這一筆之前」取回 |

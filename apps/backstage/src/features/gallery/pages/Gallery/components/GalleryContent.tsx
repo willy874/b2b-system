@@ -78,6 +78,9 @@ export function GalleryContent({
           onOpen={onOpen}
           onToggle={selection.toggle}
           onEndReached={browse.loadMore}
+          stale={browse.stale}
+          staleRevision={browse.revision}
+          onStaleVisible={browse.revisitStale}
         />
       ) : (
         <GalleryGrid
@@ -94,6 +97,9 @@ export function GalleryContent({
           onEndReached={browse.loadMore}
           onLayoutChange={grid.onLayoutChange}
           onVisibleSectionChange={grid.setActiveSection}
+          stale={browse.stale}
+          staleRevision={browse.revision}
+          onStaleVisible={browse.revisitStale}
           marquee={grid.marquee.marquee}
           onPointerDown={grid.marquee.onPointerDown}
         />

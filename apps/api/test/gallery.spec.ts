@@ -173,7 +173,7 @@ async function getItem(token: string, id: string): Promise<DetailBody> {
 async function listItems(
   token: string,
   query = '',
-): Promise<{ items: ItemBody[]; nextCursor: string | null }> {
+): Promise<{ items: ItemBody[]; nextCursor: string | null; prevCursor: string | null }> {
   return dataOf(await request(http).get(`/gallery/items${query}`).set(auth(token)).expect(200));
 }
 
@@ -554,6 +554,15 @@ describe('圖片庫（docs/architecture/backend/26-gallery.md）', () => {
     const second = await listItems(admin, `?limit=2&cursor=${first.nextCursor}`);
     const firstIds = first.items.map((item) => item.id);
     expect(second.items.every((item) => !firstIds.includes(item.id))).toBe(true);
+    // 第一頁前面沒有東西；往後取的頁有 prevCursor，以它往前取回第一頁（順序相同）
+    expect(first.prevCursor).toBeNull();
+    expect(second.prevCursor).not.toBeNull();
+    const back = await listItems(admin, `?limit=2&cursor=${second.prevCursor}`);
+    expect(back.items.map((item) => item.id)).toEqual(firstIds);
+    expect(back.prevCursor).toBeNull();
+    expect(back.nextCursor).not.toBeNull();
+    const again = await listItems(admin, `?limit=2&cursor=${back.nextCursor}`);
+    expect(again.items.map((item) => item.id)).toEqual(second.items.map((item) => item.id));
     // 換了排序還拿舊游標：400
     await request(http)
       .get(`/gallery/items?sort=title:asc&cursor=${first.nextCursor}`)

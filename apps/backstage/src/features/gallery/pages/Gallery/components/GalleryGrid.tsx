@@ -14,6 +14,7 @@ import { GalleryPlaceholder } from '../../../components/GalleryPlaceholder';
 import { onGalleryImageExpired } from '../../../imageExpiry';
 import type { GalleryLayout } from '../preference';
 import type { GallerySection } from '../sections';
+import { StaleItemTrigger } from './StaleItemTrigger';
 
 /** 格子之間的距離（px）。 */
 const GAP = 4;
@@ -35,6 +36,10 @@ interface GalleryGridProps {
   onLayoutChange: (layout: GridLayout) => void;
   onVisibleSectionChange: (key: string) => void;
   marquee: Rect | undefined;
+  /** 來自快照的項目（被 `maxPages` 丟掉的頁）：畫出來時通知 `onStaleVisible`。 */
+  stale: ReadonlyMap<string, unknown>;
+  staleRevision: unknown;
+  onStaleVisible: (id: string) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
 }
 
@@ -128,6 +133,9 @@ export function GalleryGrid({
   onEndReached,
   onLayoutChange,
   onVisibleSectionChange,
+  stale,
+  staleRevision,
+  onStaleVisible,
   marquee,
   onPointerDown,
 }: GalleryGridProps) {
@@ -206,15 +214,24 @@ export function GalleryGrid({
           const item = byKey.get(rect.key);
           if (!item) return null;
           return (
-            <GalleryTile
-              item={item}
-              rect={rect}
-              square={layout === 'square'}
-              isSelected={selected.has(item.id)}
-              selecting={selecting}
-              onOpen={onOpen}
-              onToggle={onToggle}
-            />
+            <>
+              <GalleryTile
+                item={item}
+                rect={rect}
+                square={layout === 'square'}
+                isSelected={selected.has(item.id)}
+                selecting={selecting}
+                onOpen={onOpen}
+                onToggle={onToggle}
+              />
+              {stale.has(item.id) && (
+                <StaleItemTrigger
+                  id={item.id}
+                  revision={staleRevision}
+                  onVisible={onStaleVisible}
+                />
+              )}
+            </>
           );
         }}
       />

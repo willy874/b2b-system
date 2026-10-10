@@ -125,6 +125,11 @@ export const GalleryItemListSchema = defineSchema(
     items: z.array(GallerySummarySchema),
     /** 下一頁的游標；沒有下一頁時是 null。 */
     nextCursor: z.string().nullable(),
+    /**
+     * 上一頁的游標（`cursor=` 帶回來取排在這一頁之前的一頁）：無限捲動丟掉前面的頁之後往回取。
+     * 沒帶游標也沒有 `startAt` 的第一頁、或往前已經取到最前面時是 null。
+     */
+    prevCursor: z.string().nullable(),
   }),
 );
 

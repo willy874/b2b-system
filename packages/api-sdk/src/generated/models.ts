@@ -2584,6 +2584,7 @@ export interface GalleryItem {
 export interface GalleryItemList {
   items: Array<GalleryItem>;
   nextCursor: string | null;
+  prevCursor: string | null;
 }
 
 export interface GalleryExif {

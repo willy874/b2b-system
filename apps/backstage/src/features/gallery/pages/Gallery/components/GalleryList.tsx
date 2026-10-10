@@ -12,6 +12,7 @@ import type { GalleryItem } from '@/shared/api-sdk';
 
 import { GalleryPlaceholder } from '../../../components/GalleryPlaceholder';
 import { onGalleryImageExpired } from '../../../imageExpiry';
+import { StaleItemTrigger } from './StaleItemTrigger';
 
 /** 一列的高度（px）：縮圖 48 ＋ 上下留白。列高固定，虛擬捲動最穩。 */
 const ROW_HEIGHT = 64;
@@ -38,6 +39,10 @@ interface GalleryListProps {
   onOpen: (item: GalleryItem) => void;
   onToggle: (item: GalleryItem, event: Pick<MouseEvent, 'shiftKey'>) => void;
   onEndReached: () => void;
+  /** 來自快照的項目（被 `maxPages` 丟掉的頁）：畫出來時通知 `onStaleVisible`。 */
+  stale: ReadonlyMap<string, unknown>;
+  staleRevision: unknown;
+  onStaleVisible: (id: string) => void;
 }
 
 interface RowProps {
@@ -146,6 +151,9 @@ export function GalleryList({
   onOpen,
   onToggle,
   onEndReached,
+  stale,
+  staleRevision,
+  onStaleVisible,
 }: GalleryListProps) {
   const { t } = useTranslation();
   return (
@@ -181,14 +189,19 @@ export function GalleryList({
         className="min-h-0 flex-1"
         aria-label={t('gallery.title')}
         renderItem={(item) => (
-          <GalleryListRow
-            item={item}
-            date={formatDateTime(item[timeField])}
-            isSelected={selected.has(item.id)}
-            selecting={selecting}
-            onOpen={onOpen}
-            onToggle={onToggle}
-          />
+          <>
+            <GalleryListRow
+              item={item}
+              date={formatDateTime(item[timeField])}
+              isSelected={selected.has(item.id)}
+              selecting={selecting}
+              onOpen={onOpen}
+              onToggle={onToggle}
+            />
+            {stale.has(item.id) && (
+              <StaleItemTrigger id={item.id} revision={staleRevision} onVisible={onStaleVisible} />
+            )}
+          </>
         )}
       />
     </div>

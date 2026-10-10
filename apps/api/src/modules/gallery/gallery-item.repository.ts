@@ -107,6 +107,10 @@ function beyond(
     : sql`(${column}, ${galleryItems.id}) > (${typedValue(field, value)}, ${id}::uuid)`;
 }
 
+function reverse(order: GallerySortOrder): GallerySortOrder {
+  return order === 'desc' ? 'asc' : 'desc';
+}
+
 function orderBy(field: GallerySortField, order: GallerySortOrder): SQL[] {
   const direction = order === 'desc' ? desc : asc;
   return [direction(SORT_COLUMN[field]), direction(galleryItems.id)];
@@ -271,9 +275,10 @@ export class GalleryItemRepository {
     limit: number,
   ): Promise<GalleryItemListRow[]> {
     const conditions = this.filterConditions(filter);
+    const backward = position.cursor?.direction === 'before';
     if (position.cursor) {
       const { value, id } = position.cursor;
-      conditions.push(beyond(sort.field, sort.order, value, id, true));
+      conditions.push(beyond(sort.field, sort.order, value, id, !backward));
     } else if (position.startAt && sort.field !== 'title') {
       const column = SORT_COLUMN[sort.field];
       conditions.push(
@@ -286,7 +291,8 @@ export class GalleryItemRepository {
       .select({ item: galleryItems, sortValue: exactValue(sort.field) })
       .from(galleryItems)
       .where(and(...conditions))
-      .orderBy(...orderBy(sort.field, sort.order))
+      // 往前取：反向排序取最靠近游標的幾筆（呼叫端倒回原本的順序）
+      .orderBy(...orderBy(sort.field, backward ? reverse(sort.order) : sort.order))
       .limit(limit);
     return rows.map(({ item, sortValue }) => Object.assign(item, { sortValue }));
   }
@@ -320,7 +326,7 @@ export class GalleryItemRepository {
       .from(galleryItems)
       .where(eq(galleryItems.id, item.id));
     if (!current) return { previousId: null, nextId: null };
-    const reversed: GallerySortOrder = sort.order === 'desc' ? 'asc' : 'desc';
+    const reversed = reverse(sort.order);
     const [next, previous] = await Promise.all([
       this.db
         .select({ id: galleryItems.id })

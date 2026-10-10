@@ -169,19 +169,28 @@ export class GalleryItemService {
       { cursor, startAt: query.startAt ? new Date(query.startAt) : undefined },
       query.limit + 1,
     );
-    const page = rows.slice(0, query.limit);
-    const last = page.at(-1);
+    const backward = cursor?.direction === 'before';
+    const more = rows.length > query.limit;
+    // 往前取的列是反向排序：倒回原本的順序
+    const page = backward ? rows.slice(0, query.limit).toReversed() : rows.slice(0, query.limit);
+    const cursorAt = (row: (typeof rows)[number] | undefined, direction: 'after' | 'before') =>
+      row
+        ? encodeGalleryCursor({
+            sort: sort.field,
+            order: sort.order,
+            value: row.sortValue,
+            id: row.id,
+            direction,
+          })
+        : null;
     return {
       items: await this.toSummaries(page),
-      nextCursor:
-        rows.length > query.limit && last
-          ? encodeGalleryCursor({
-              sort: sort.field,
-              order: sort.order,
-              value: last.sortValue,
-              id: last.id,
-            })
-          : null,
+      // 往前取的頁：後面一定還有（游標那一筆）
+      nextCursor: more || backward ? cursorAt(page.at(-1), 'after') : null,
+      // 往後取的頁：帶游標或從日期捲軸的起點開始時前面可能還有；往前取的頁：多取到一筆才是還有
+      prevCursor: (backward ? more : Boolean(cursor) || Boolean(query.startAt))
+        ? cursorAt(page[0], 'before')
+        : null,
     };
   }
 
